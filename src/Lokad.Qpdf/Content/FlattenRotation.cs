@@ -55,7 +55,7 @@ internal static class FlattenRotation
         foreach ((GraphCopier copier, int pageId) in occurrences)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (!copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? raw) || raw is not PdfDictionary page)
             {
                 continue;
@@ -345,7 +345,7 @@ internal static class FlattenRotation
         foreach (PdfName key in appearanceDict.Keys)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (!appearanceDict.TryGet(key, out QpdfObject? entry) || entry is null || entry is PdfNull)
             {
                 continue;
@@ -365,7 +365,7 @@ internal static class FlattenRotation
             foreach (PdfName state in states.Keys)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (!states.TryGet(state, out QpdfObject? stateRaw) || stateRaw is null || stateRaw is PdfNull)
                 {
                     continue;
@@ -392,7 +392,7 @@ internal static class FlattenRotation
             return;
         }
 
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         if (ResolveOrNull(resolver, reference) is not PdfStream stream)
         {
             return;
@@ -493,7 +493,7 @@ internal static class FlattenRotation
         foreach (QpdfObject item in array.Items)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             QpdfObject? entryTarget = item is PdfReference itemReference
                 ? ResolveOrNull(resolver, itemReference) ?? item
                 : item;

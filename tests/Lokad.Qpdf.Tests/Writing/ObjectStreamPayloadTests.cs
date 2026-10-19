@@ -141,21 +141,6 @@ public sealed class ObjectStreamPayloadTests
     }
 
     [Fact]
-    public async Task WorkFailureDuringCopyPreservesMembersAndRetiresPayloadAdmission()
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 1000000L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        using ObjectStreamCapture members = await Capture(governor, limits, new byte[65536]);
-        governor.ChargeWork(limits.MaxWork - governor.Snapshot().TotalWork - (41L + 65540L + 4L + 8192L));
-        long live = governor.Snapshot().LiveMemoryBytes;
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => ObjectStreamPayload.Create(new[] { 1 }, null,
-            members, false, null, limits, governor, CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-        Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(65536, members[0].Length);
-    }
-
-    [Fact]
     public void HeaderCountsAgainstOutputQuotaBeforeAllocatingThePayload()
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 3L };

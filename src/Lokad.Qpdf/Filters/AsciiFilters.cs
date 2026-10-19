@@ -38,7 +38,7 @@ internal static class AsciiHexFilter
         int pending = -1;
         foreach (byte b in input)
         {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (IsWhitespace(b))
             {
                 continue;
@@ -143,7 +143,7 @@ internal static class Ascii85Filter
         bool done = false;
         foreach (byte b in input)
         {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (done)
             {
                 break;

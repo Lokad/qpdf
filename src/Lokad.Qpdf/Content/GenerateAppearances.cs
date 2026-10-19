@@ -56,7 +56,7 @@ internal static class GenerateAppearances
         foreach ((GraphCopier copier, int pageId) in occurrences)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (!copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? raw) || raw is not PdfDictionary page)
             {
                 continue;
@@ -81,7 +81,7 @@ internal static class GenerateAppearances
             for (int index = 0; index < annots.Count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 QpdfObject item = annots[index];
                 QpdfObject entryTarget = item is PdfReference itemReference
                     ? ResolveOrNull(resolver, itemReference) ?? item
@@ -617,7 +617,7 @@ internal static class GenerateAppearances
         ref int allocator)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         GenAppearance foundAp = FindGenAppearance(annot, resolver);
         PdfStream? found = foundAp.Stream;
         byte[] decoded;
@@ -964,7 +964,7 @@ internal static class GenerateAppearances
             List<string> operators = new();
             while (tokenizer.TryReadToken(out ContentToken token))
             {
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 string raw = Encoding.ASCII.GetString(token.Data.ToArray());
                 raws.Add(raw);
                 bool number = token.Kind == ContentTokenKind.Integer || token.Kind == ContentTokenKind.Real;
@@ -1406,7 +1406,7 @@ internal static class GenerateAppearances
         bool replaced = false;
         while (tokenizer.TryReadToken(out ContentToken token))
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (state == 2)
             {
                 if (token.Kind == ContentTokenKind.Operator && TokenText(token) == "EMC")

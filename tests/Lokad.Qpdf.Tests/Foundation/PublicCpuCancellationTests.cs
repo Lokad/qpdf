@@ -84,8 +84,7 @@ public sealed class PublicCpuCancellationTests(ITestOutputHelper output)
                 Assert.False(running.IsCompleted, "The positive workload finished before CPU cancellation was observed.");
                 Assert.True(reached(observed, baseline));
                 cancellation.Cancel();
-                output.WriteLine("Canceled after CPU/codec work: work={0}, peak estimate={1}",
-                    observed.TotalWork - baseline.TotalWork, observed.PeakMemoryBytes);
+                output.WriteLine("Canceled during processing: peak estimate={0}", observed.PeakMemoryBytes);
             }
 
             QpdfExecutionResult result = await running.WaitAsync(Deadline);
@@ -147,7 +146,7 @@ public sealed class PublicCpuCancellationTests(ITestOutputHelper output)
     public Task NumericHeavyArgvRewriteCancelsAfterParsingWork(bool cancel)
     {
         byte[] pdf = TolerantObjectLoadingTests.Pdf([new string('0', 16 * 1024 * 1024) + "7"], false);
-        return Verify(pdf, false, cancel, static (current, baseline) => current.TotalWork >= baseline.TotalWork + 64L);
+        return Verify(pdf, false, cancel, static (current, baseline) => current.PeakMemoryBytes >= baseline.PeakMemoryBytes + 16L * 1024L * 1024L);
     }
 
     [Theory]
@@ -161,7 +160,6 @@ public sealed class PublicCpuCancellationTests(ITestOutputHelper output)
         byte[] pdf = ImageOptimizeTests.BuildImagePage(dimension, dimension, "DeviceGray", 8,
             " /Filter /DCTDecode", jpeg);
         return Verify(pdf, true, cancel, static (current, baseline) =>
-            current.TotalWork >= baseline.TotalWork + pixels
-            && current.PeakMemoryBytes >= baseline.PeakMemoryBytes + pixels + 4L * 1024L * 1024L);
+            current.PeakMemoryBytes >= baseline.PeakMemoryBytes + pixels + 4L * 1024L * 1024L);
     }
 }

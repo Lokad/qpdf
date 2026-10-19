@@ -29,7 +29,7 @@ internal sealed class WriterOrder<T> : IDisposable
         try
         {
             memory.Reserve(64L + (capacity == 0 ? 0L : 32L + bytes));
-            governor.ChargeWork(checked(1L + bytes));
+            governor.NoteOperation();
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             return new WriterOrder<T>(memory, capacity == 0 ? Array.Empty<T>() : new T[capacity], governor, token);
         }
@@ -47,7 +47,7 @@ internal sealed class WriterOrder<T> : IDisposable
 
     private void Visit()
     {
-        _ = Items; _token.ThrowIfCancellationRequested(); Governor.CheckCancellation(); Governor.ChargeWork(1L);
+        _ = Items; _token.ThrowIfCancellationRequested(); Governor.CheckCancellation();
     }
 
     internal void Add(T value)

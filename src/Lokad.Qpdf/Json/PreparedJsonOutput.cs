@@ -58,7 +58,7 @@ internal sealed class PreparedJsonOutput : IDisposable
             int length = checked((int)text.Utf8Bytes);
             long reserved = ArrayBytes(length);
             Memory.Reserve(reserved);
-            _governor.ChargeWork(length); _governor.CheckCancellation();
+            _governor.CheckCancellation();
             byte[] bytes = length == 0 ? Array.Empty<byte>() : new byte[length];
             int written = 0;
             ReadOnlySpan<char> remaining = text.Value;
@@ -66,7 +66,7 @@ internal sealed class PreparedJsonOutput : IDisposable
             {
                 int count = Math.Min(256, remaining.Length);
                 if (count < remaining.Length && char.IsHighSurrogate(remaining[count - 1]) && char.IsLowSurrogate(remaining[count])) { count--; }
-                _governor.ChargeWork(count); _governor.CheckCancellation();
+                _governor.CheckCancellation();
                 written += Encoding.UTF8.GetBytes(remaining[..count], bytes.AsSpan(written));
                 remaining = remaining[count..];
             }
@@ -90,14 +90,14 @@ internal sealed class PreparedJsonOutput : IDisposable
         using GovernedText name = nameBuffer.Finish();
         long reserved = ArrayBytes(bytes.Length);
         Memory.Reserve(reserved);
-        _governor.ChargeWork(bytes.Length); _governor.CheckCancellation();
+        _governor.CheckCancellation();
         byte[] copy = bytes.Length == 0 ? Array.Empty<byte>() : new byte[bytes.Length];
         GovernedBufferStream.CopyBytes(bytes, copy, _governor, CancellationToken.None, CancellationToken.None);
         JsonPayload payload = JsonPayload.Create(_governor, Memory, copy, reserved, name);
         try
         {
             // Capacity growth copies the old references before retiring them.
-            _governor.ChargeWork(1L + (Sidecars.Count == Sidecars.Capacity ? Sidecars.Count : 0)); _governor.CheckCancellation();
+            _governor.CheckCancellation();
             ParserContainers.AddItem(Memory, Sidecars, payload, IntPtr.Size);
             return payload;
         }
@@ -144,7 +144,7 @@ internal sealed class JsonPayload : IDisposable
     internal static JsonPayload Create(ResourceGovernor governor, ParserMemoryScope memory,
         byte[] bytes, long byteReservation, GovernedText? name)
     {
-        governor.CheckCancellation(); governor.ChargeWork(1L);
+        governor.CheckCancellation();
         memory.Reserve(64L);
         JsonPayload payload = new(governor, bytes, name?.Value ?? string.Empty);
         try

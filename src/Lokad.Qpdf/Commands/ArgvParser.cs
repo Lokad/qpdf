@@ -72,7 +72,7 @@ internal static class ArgvParser
         foreach (string token in argv)
         {
             governor?.CheckCancellation();
-            governor?.ChargeWork(1L);
+            governor?.NoteOperation();
             if (token is not null && token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2
                 && IsCryptoOption(OptionName(token)))
             {

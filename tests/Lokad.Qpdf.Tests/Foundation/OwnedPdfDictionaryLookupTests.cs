@@ -51,7 +51,7 @@ public sealed class OwnedPdfDictionaryLookupTests
         bool expected = names.TryGetValue(query.AsSpan(), direct, CancellationToken.None, out QpdfObject? expectedValue);
         Assert.Equal(expected, PdfDictionaryLookup.TryGet(dictionary, query, lookup, CancellationToken.None, out QpdfObject value));
         if (expected) { Assert.Same(expectedValue, value); } else { Assert.Same(PdfNull.Instance, value); }
-        Assert.Equal(direct.Snapshot().TotalWork, lookup.Snapshot().TotalWork); Assert.Equal(0L, lookup.Snapshot().LiveMemoryBytes);
+Assert.Equal(0L, lookup.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]
@@ -66,7 +66,7 @@ public sealed class OwnedPdfDictionaryLookupTests
         cancellation.Cancel();
         Assert.ThrowsAny<OperationCanceledException>(() => PdfDictionaryLookup.TryGet(dictionary, new byte[] { 0, 255 }, lookup,
             governorToken ? CancellationToken.None : cancellation.Token, out _));
-        Assert.Equal(0L, lookup.Snapshot().TotalWork); Assert.Equal(before, owner.Snapshot().LiveMemoryBytes);
+Assert.Equal(before, owner.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]
@@ -80,20 +80,6 @@ public sealed class OwnedPdfDictionaryLookupTests
         bool result = PdfDictionaryLookup.TryGet(dictionary, raw, lookup, CancellationToken.None, out QpdfObject found);
         long delta = GC.GetAllocatedBytesForCurrentThread() - allocated;
         Assert.True(result); Assert.Same(value, found); Assert.Equal(0L, delta); Assert.Equal(0L, lookup.Snapshot().LiveMemoryBytes);
-    }
-
-    [Fact]
-    public void OwnedLookupWorkExhaustionKeepsBackingUsableByAnotherCaller()
-    {
-        byte[] raw = Bytes(97); PdfArray value = new([PdfNull.Instance]); ResourceGovernor owner = new(QpdfLimits.Default, CancellationToken.None);
-        using ParserMemoryScope memory = ParserMemoryScope.Create(owner); PdfDictionary dictionary = Complete(memory, owner, new PdfName(raw), value);
-        long before = owner.Snapshot().LiveMemoryBytes;
-        ResourceGovernor lookup = new(QpdfLimits.Default with { MaxWork = 128L }, CancellationToken.None);
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => PdfDictionaryLookup.TryGet(dictionary, raw, lookup, CancellationToken.None, out _));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.Equal(before, owner.Snapshot().LiveMemoryBytes);
-        ResourceGovernor retry = new(QpdfLimits.Default, CancellationToken.None);
-        Assert.True(PdfDictionaryLookup.TryGet(dictionary, raw, retry, CancellationToken.None, out QpdfObject found)); Assert.Same(value, found);
-        Assert.Equal(0L, retry.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]
@@ -112,8 +98,7 @@ public sealed class OwnedPdfDictionaryLookupTests
             CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         try
         {
-            Assert.True(reached.Wait(TimeSpan.FromSeconds(10))); Assert.True(lookup.Snapshot().TotalWork >= 256L);
-            cancellation.Cancel(); resume.Set(); await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.True(reached.Wait(TimeSpan.FromSeconds(10)));             cancellation.Cancel(); resume.Set(); await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));
             Assert.Equal(before, owner.Snapshot().LiveMemoryBytes); Assert.True(dictionary.TryGet(new PdfName(raw), out QpdfObject found)); Assert.Same(value, found);
         }
         finally { cancellation.Cancel(); resume.Set(); try { await worker.WaitAsync(TimeSpan.FromSeconds(10)); } catch (OperationCanceledException) { } }

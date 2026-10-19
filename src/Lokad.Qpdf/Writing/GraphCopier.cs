@@ -179,7 +179,7 @@ internal sealed class GraphCopier
     // Otherwise a link to a later selected page is prematurely pruned to null.
     internal void RegisterPageRoot(int? sourceNumber)
     {
-        _governor.ChargeWork(1L);
+        _governor.NoteOperation();
         if (!sourceNumber.HasValue || _mapping.ContainsKey(sourceNumber.Value)) { return; }
         int id = _nextId;
         checked { _nextId += 1; }
@@ -333,7 +333,7 @@ internal sealed class GraphCopier
         foreach (KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _governor.ChargeWork(1L);
+            _governor.NoteOperation();
             if (entry.Key <= 0 || _mapping.ContainsKey(entry.Key))
             {
                 continue;
@@ -354,7 +354,7 @@ internal sealed class GraphCopier
         foreach (int number in unmapped)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _governor.ChargeWork(1L);
+            _governor.NoteOperation();
             XrefEntry entry = engine.XRefEntries[number];
             int generation = entry.Kind == XrefEntryKind.Uncompressed ? entry.Second : 0;
             PdfReference reference = new(number, generation);
@@ -504,7 +504,7 @@ internal sealed class GraphCopier
             throw new QpdfParseException($"Copy depth exceeds {_limits.MaxNestingDepth}.", null, null);
         }
 
-        _governor.ChargeWork(1L);
+        _governor.NoteOperation();
         if (value is PdfReference reference)
         {
             return CopyReference(reference, depth);
@@ -512,7 +512,6 @@ internal sealed class GraphCopier
 
         if (value is PdfArray array)
         {
-            _governor.ChargeWork(array.Count);
             _governor.CheckCancellation();
             QpdfObject[]? items = null;
             for (int i = 0; i < array.Count; i++)
@@ -523,7 +522,7 @@ internal sealed class GraphCopier
                 {
                     Reserve(checked(64L + (long)IntPtr.Size * array.Count));
                     items = new QpdfObject[array.Count];
-                    _governor.ChargeWork(i);
+                    _governor.NoteOperation();
                     for (int prefix = 0; prefix < i; prefix++)
                     {
                         _governor.CheckCancellation();

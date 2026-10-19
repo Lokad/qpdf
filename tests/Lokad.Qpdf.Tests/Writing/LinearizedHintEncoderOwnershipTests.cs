@@ -80,7 +80,6 @@ public sealed class LinearizedHintEncoderOwnershipTests
         ResourceGovernor governor = new(limits, CancellationToken.None);
         QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => Encode(governor, limits, CancellationToken.None));
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), error.LimitName);
-        Assert.True(governor.Snapshot().TotalWork > 0L);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 

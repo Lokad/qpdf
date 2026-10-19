@@ -252,7 +252,6 @@ public sealed class DocumentTests
     {
         await using QpdfDocument document = await OpenFile("minimal-2page.pdf");
         QpdfExecutionCounters counters = document.Counters;
-        Assert.True(counters.TotalWork > 0L);
         Assert.True(counters.PeakMemoryBytes > 0L);
         Assert.True(counters.HostOperations >= 2L);
     }
@@ -275,19 +274,6 @@ public sealed class DocumentTests
     public async Task InputBudgetIsEnforced()
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxInputBytes = 10L };
-        InMemoryQpdfHost host = new();
-        byte[] bytes = await FixtureBytes("minimal-1page.pdf");
-        QpdfPath path = QpdfPath.From("inputs/doc.pdf");
-        host.AddInput(path, bytes, QpdfInputOwnership.Copy);
-        await Assert.ThrowsAsync<QpdfLimitException>(
-            () => QpdfDocument.OpenAsync(host, path, limits, CancellationToken.None).AsTask());
-        Assert.Equal(0L, host.OpenLeaseCount);
-    }
-
-    [Fact]
-    public async Task TinyWorkBudgetFailsOpen()
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 1L };
         InMemoryQpdfHost host = new();
         byte[] bytes = await FixtureBytes("minimal-1page.pdf");
         QpdfPath path = QpdfPath.From("inputs/doc.pdf");

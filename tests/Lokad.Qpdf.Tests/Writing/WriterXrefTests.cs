@@ -52,26 +52,13 @@ public sealed class WriterXrefTests
     }
 
     [Fact]
-    public void ExhaustedWorkRejectsBeforeLargeBackingAllocation()
-    {
-        QpdfLimits limits=QpdfLimits.Default with {MaxWork=1L};
-        ResourceGovernor governor=new(limits,CancellationToken.None);
-        using ParserMemoryScope prior=ParserMemoryScope.Create(governor); prior.Reserve(97L); governor.ChargeWork(1L);
-        long before=GC.GetAllocatedBytesForCurrentThread();
-        QpdfLimitException failure=Assert.Throws<QpdfLimitException>(()=>WriterXref.Create(1<<20,8,8,limits,governor,CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxWork),failure.LimitName); Assert.True(GC.GetAllocatedBytesForCurrentThread()-before<32768L);
-        Assert.Equal(161L,governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L,prior.ReservedBytes);
-    }
-
-    [Fact]
     public void OutputPreflightUsesWideArithmeticWithoutAllocatingOrChargingWork()
     {
         QpdfLimits limits=QpdfLimits.Default with {MaxOutputBytes=9L};
         ResourceGovernor governor=new(limits,CancellationToken.None);
         QpdfLimitException failure=Assert.Throws<QpdfLimitException>(()=>WriterXref.Create(int.MaxValue,8,8,limits,governor,CancellationToken.None));
         Assert.Equal(nameof(QpdfLimits.MaxOutputBytes),failure.LimitName);
-        Assert.Equal(0L,governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L,governor.Snapshot().TotalWork);
-    }
+        Assert.Equal(0L,governor.Snapshot().LiveMemoryBytes);     }
 
     [Fact]
     public void IncompleteAndCompletedBodiesHaveExplicitGuards()
@@ -96,8 +83,7 @@ public sealed class WriterXrefTests
         ResourceGovernor governor=new(QpdfLimits.Default,governorToken ? cancellation.Token : CancellationToken.None);
         Assert.ThrowsAny<OperationCanceledException>(()=>WriterXref.Create(1,8,8,QpdfLimits.Default,governor,
             governorToken ? CancellationToken.None : cancellation.Token));
-        Assert.Equal(0L,governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L,governor.Snapshot().TotalWork);
-    }
+        Assert.Equal(0L,governor.Snapshot().LiveMemoryBytes);     }
 
     [Theory]
     [InlineData(false)]
@@ -109,21 +95,20 @@ public sealed class WriterXrefTests
         using ParserMemoryScope prior=ParserMemoryScope.Create(governor); prior.Reserve(97L);
         using WriterXref body=WriterXref.Create(1<<20,1,1,QpdfLimits.Default,governor,
             governorToken ? CancellationToken.None : cancellation.Token);
-        long threshold=governor.Snapshot().TotalWork+65536L;
+        const int entryCheckpoint=65536;
         using ManualResetEventSlim reached=new(),resume=new();
         Task worker=Task.Factory.StartNew(()=>
         {
             for (int entry=0;;entry++)
             {
                 body.Append(1,entry,0);
-                if (governor.Snapshot().TotalWork>=threshold)
+                if (entry>=entryCheckpoint)
                 { reached.Set(); if (!resume.Wait(TimeSpan.FromSeconds(10))) { throw new TimeoutException("Xref observation did not resume."); } }
             }
         },CancellationToken.None,TaskCreationOptions.LongRunning,TaskScheduler.Default);
         try
         {
-            Assert.True(reached.Wait(TimeSpan.FromSeconds(10))); Assert.True(governor.Snapshot().TotalWork>=threshold);
-            cancellation.Cancel(); resume.Set();
+            Assert.True(reached.Wait(TimeSpan.FromSeconds(10)));             cancellation.Cancel(); resume.Set();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>worker.WaitAsync(TimeSpan.FromSeconds(10)));
             Assert.Equal(161L+192L+3L*(1<<20),governor.Snapshot().LiveMemoryBytes);
             body.Dispose(); Assert.Equal(161L,governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L,prior.ReservedBytes);

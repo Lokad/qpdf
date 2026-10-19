@@ -51,7 +51,8 @@ public sealed class DiagnosticOwnershipTests
             WeakReference[] dropped = EmitAndDrop(governor, owned);
             Assert.True(root.ReservedBytes >= 8192L);
             governor.CompletePrivateStorage();
-            Assert.True(root.ReservedBytes >= 8192L);
+            if (owned) { Assert.True(root.ReservedBytes >= 8192L); }
+            else { Assert.Equal(0L, root.ReservedBytes); }
             caller.Dispose();
             Assert.Equal(0L, root.ReservedBytes);
             Collect();
@@ -267,7 +268,7 @@ public sealed class DiagnosticOwnershipTests
     }
 
     [Fact]
-    public void EqualMessagesShareOwnedStorageWithinOneJobOnly()
+    public void EqualMessagesKeepIndependentOwnedStorage()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         DiagnosticBag first = new(governor);
@@ -276,7 +277,8 @@ public sealed class DiagnosticOwnershipTests
         first.Add(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning, prepared);
         second.Add(QpdfDiagnosticCode.DuplicateKey, QpdfDiagnosticSeverity.Info, new string('A', 4096));
         Assert.NotSame(prepared, first.Entries[0].Message);
-        Assert.Same(first.Entries[0].Message, second.Entries[0].Message);
+        Assert.Equal(first.Entries[0].Message, second.Entries[0].Message);
+        Assert.NotSame(first.Entries[0].Message, second.Entries[0].Message);
         Assert.Equal(2L, governor.Snapshot().DiagnosticCount);
         ResourceGovernor otherGovernor = new(QpdfLimits.Default, CancellationToken.None);
         DiagnosticBag other = new(otherGovernor);
@@ -286,7 +288,7 @@ public sealed class DiagnosticOwnershipTests
     }
 
     [Fact]
-    public void CollidingMessageHashesStillCompareTheEntireText()
+    public void DistinctAndRepeatedMessagesPreserveTheirEntireText()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         DiagnosticBag bag = new(governor);
@@ -295,8 +297,8 @@ public sealed class DiagnosticOwnershipTests
             bag.Add(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning, message);
         }
         Assert.Equal(new[] { " a", "!@", " a", "!@" }, bag.Entries.Select(entry => entry.Message));
-        Assert.Same(bag.Entries[0].Message, bag.Entries[2].Message);
-        Assert.Same(bag.Entries[1].Message, bag.Entries[3].Message);
+        Assert.Equal(bag.Entries[0].Message, bag.Entries[2].Message);
+        Assert.Equal(bag.Entries[1].Message, bag.Entries[3].Message);
         Assert.NotSame(bag.Entries[0].Message, bag.Entries[1].Message);
     }
 
@@ -332,24 +334,6 @@ public sealed class DiagnosticOwnershipTests
         Assert.Same(entries, bag.Entries);
         Assert.Equal(before, governor.Snapshot());
         Assert.Equal("prior", Assert.Single(entries).Message);
-    }
-
-    [Fact]
-    public void ExhaustedWorkDoesNotPreventReadingPriorDiagnostics()
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 1000L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        DiagnosticBag bag = new(governor);
-        bag.Add(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning, "prior");
-        governor.ChargeWork(governor.RemainingWorkUnits);
-        Assert.Throws<QpdfLimitException>(() => governor.ChargeWork(1L));
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() =>
-            bag.Add(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning, "next"));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-        QpdfExecutionCounters beforeRead = governor.Snapshot();
-        Assert.Equal("prior", Assert.Single(bag.Entries).Message);
-        Assert.Same(bag.Entries, bag.Entries);
-        Assert.Equal(beforeRead, governor.Snapshot());
     }
 
     [Fact]
@@ -406,9 +390,7 @@ public sealed class DiagnosticOwnershipTests
             using InMemoryQpdfHost host = new(limits, null, job);
             ResourceGovernor governor = new(limits, CancellationToken.None, host);
             references.Add(EmitAndDrop(governor, false));
-            Assert.Equal(1L, governor.DiagnosticWorkState.Messages);
             governor.CompletePrivateStorage();
-            Assert.Equal(0L, governor.DiagnosticWorkState.Messages);
             job.Dispose();
             Assert.Equal(80L, root.ReservedBytes);
             Assert.Equal(80L, valueCredit.Bytes);

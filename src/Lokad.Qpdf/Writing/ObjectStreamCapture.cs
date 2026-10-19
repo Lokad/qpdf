@@ -32,7 +32,7 @@ internal sealed class ObjectStreamCapture : IDisposable
         try
         {
             memory.Reserve(checked(64L + 32L + count * (long)sizeof(int)));
-            governor.ChargeWork(count);
+            governor.NoteOperation();
             return new ObjectStreamCapture(limits, governor, memory, new int[count]);
         }
         catch { memory.Dispose(); throw; }
@@ -72,7 +72,7 @@ internal sealed class ObjectStreamCapture : IDisposable
         {
             // Reuse the ordinary token formatter for this bounded group. Tight
             // jobs retain direct capture without another scratch admission.
-            if (_batch is null && _governor.RemainingMemoryBytes >= 4096L && _governor.RemainingWorkUnits >= 4096L)
+            if (_batch is null && _governor.RemainingMemoryBytes >= 4096L)
             { _batch = BatchingSink.Create(capture, _limits, _governor, cancellationToken); }
             if (_batch is BatchingSink batch)
             {
@@ -110,7 +110,6 @@ internal sealed class ObjectStreamCapture : IDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         _governor.CheckCancellation();
-        _governor.ChargeWork(1L);
         (_ends ?? throw new ObjectDisposedException(nameof(ObjectStreamCapture)))[_count] = checked((int)capture.Length);
         _count++;
     }

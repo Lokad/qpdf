@@ -29,7 +29,7 @@ internal sealed class AnalysisChunks : IDisposable
     {
         ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
         ResourceGovernor governor = _governor ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
-        _token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        _token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         FilterPlan stages;
         try { stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, _token); }
         catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException)) { return false; }
@@ -71,7 +71,7 @@ internal sealed class AnalysisChunks : IDisposable
         QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token,
         bool rejectDecodeFailure, out byte[] bytes, out bool decoded)
     {
-        memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         byte[] raw = stream.ArrayData(memory, governor, token);
         bytes = raw; decoded = false;
         FilterPlan stages;
@@ -100,7 +100,7 @@ internal sealed class AnalysisChunks : IDisposable
             if (parts.Count == parts.Capacity)
             {
                 long capacity = Math.Min(Array.MaxLength, Math.Max(4L, parts.Capacity * 2L));
-                governor.ChargeWork(checked(parts.Count + capacity));
+                governor.NoteOperation();
                 _token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             }
             ParserContainers.AddItem(memory, parts, decoded, IntPtr.Size);

@@ -64,23 +64,6 @@ public sealed class StreamTransformOwnershipTests
     [InlineData(true)]
     public void OutputDoesNotAnchorCompletedExecutionState(bool compress)
     { Holder holder = Completed(compress); Collect(null); Assert.False(holder.Governor.IsAlive); GC.KeepAlive(holder.Value); }
-    [Fact]
-    public void InterruptedFilteringRetiresOnlyUnpublishedStorage()
-    {
-        int failures = 0, completions = 0;
-        for (long maximum = 1; maximum < 3000; maximum += 7)
-        {
-            QpdfLimits limits = QpdfLimits.Default with { MaxWork = maximum };
-            ResourceGovernor governor = new(limits, CancellationToken.None);
-            using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(61L);
-            long baseline = governor.Snapshot().LiveMemoryBytes;
-            try { Assert.Equal("abcd"u8.ToArray(), Run(governor, limits, false).Data); completions++; }
-            catch (QpdfLimitException error)
-            { Assert.Equal(nameof(QpdfLimits.MaxWork), error.LimitName); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes); failures++; }
-            Assert.Equal(61L, prior.ReservedBytes);
-        }
-        Assert.True(failures > 0); Assert.True(completions > 0);
-    }
     [Theory]
     [InlineData("memory")]
     [InlineData("output")]

@@ -106,7 +106,7 @@ internal sealed record PredictorParameters(int Predictor, int Columns, int Color
     }
 
     private static void Step(ResourceGovernor governor, CancellationToken token)
-    { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L); }
+    { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); }
 
     private static void Observe(ref int visited, Action? observe)
     { if (++visited % 256 == 0) { observe?.Invoke(); } }
@@ -198,7 +198,7 @@ internal static class PredictorStages
         }
 
         governor.CheckDecodedBytes(outputLength);
-        governor.ChargeWork(outputLength);
+        governor.NoteOperation();
         long reserved = outputLength + GovernedBufferStream.ArrayOverheadBytes;
         governor.ReserveMemory(reserved);
         try
@@ -257,7 +257,7 @@ internal static class PredictorStages
             int start = row * rowLength;
             if (bits == 8)
             {
-                governor.ChargeWork(rowLength);
+                governor.NoteOperation();
                 for (int i = 0; i < rowLength; i++)
                 {
                     if (i % CheckInterval == 0)
@@ -271,7 +271,7 @@ internal static class PredictorStages
             }
             else
             {
-                governor.ChargeWork(samplesPerRow * bits * 3L);
+                governor.NoteOperation();
                 for (long sample = 0; sample < samplesPerRow; sample++)
                 {
                     if (sample % CheckInterval == 0)
@@ -297,7 +297,6 @@ internal static class PredictorStages
         for (int row = 0; row < rows; row++)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            governor.ChargeWork(rowLength);
             int inputBase = row * (rowLength + 1);
             int filter = inflated[inputBase];
             if (filter > 4)

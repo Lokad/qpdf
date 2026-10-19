@@ -34,7 +34,7 @@ public sealed class PdfDictionaryLookupTests
         for (int index = 0; index < 512; index++) { entries.Add(PdfName.FromAscii(index.ToString(System.Globalization.CultureInfo.InvariantCulture)), PdfNull.Instance); }
         PdfDictionary dictionary = new(entries); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         Assert.False(PdfDictionaryLookup.TryGet(dictionary, new byte[64], governor, CancellationToken.None, out _));
-        Assert.Equal(513L, governor.Snapshot().TotalWork); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]
@@ -52,22 +52,6 @@ public sealed class PdfDictionaryLookupTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void WorkExhaustionPreservesBorrowedValuesAndPriorFunding(bool compare)
-    {
-        byte[] query = Bytes(97); PdfName name = new(query); PdfArray value = new([PdfNull.Instance]); PdfDictionary dictionary = Dictionary(query, value);
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = 128L }, CancellationToken.None);
-        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
-        long live = governor.Snapshot().LiveMemoryBytes;
-        QpdfLimitException failure = compare
-            ? Assert.Throws<QpdfLimitException>(() => PdfDictionaryLookup.NameEquals(name, query, governor, CancellationToken.None))
-            : Assert.Throws<QpdfLimitException>(() => PdfDictionaryLookup.TryGet(dictionary, query, governor, CancellationToken.None, out _));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L, prior.ReservedBytes);
-        Assert.True(dictionary.TryGet(name, out QpdfObject found)); Assert.Same(value, found);
-    }
-
-    [Theory]
     [InlineData(false, false)]
     [InlineData(false, true)]
     [InlineData(true, false)]
@@ -79,7 +63,7 @@ public sealed class PdfDictionaryLookupTests
         cancellation.Cancel(); CancellationToken token = governorToken ? CancellationToken.None : cancellation.Token;
         if (compare) { Assert.ThrowsAny<OperationCanceledException>(() => PdfDictionaryLookup.NameEquals(name, query, governor, token)); }
         else { Assert.ThrowsAny<OperationCanceledException>(() => PdfDictionaryLookup.TryGet(dictionary, query, governor, token, out _)); }
-        Assert.Equal(0L, governor.Snapshot().TotalWork); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]
@@ -96,8 +80,7 @@ public sealed class PdfDictionaryLookupTests
             CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         try
         {
-            Assert.True(reached.Wait(TimeSpan.FromSeconds(10))); Assert.True(governor.Snapshot().TotalWork >= 257L);
-            cancellation.Cancel(); resume.Set(); await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.True(reached.Wait(TimeSpan.FromSeconds(10)));             cancellation.Cancel(); resume.Set(); await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));
             Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.True(dictionary.TryGet(new PdfName(stored), out QpdfObject found)); Assert.Same(value, found); GC.KeepAlive(worker);
         }
         finally { cancellation.Cancel(); resume.Set(); try { await worker.WaitAsync(TimeSpan.FromSeconds(10)); } catch (OperationCanceledException) { } }
@@ -112,7 +95,6 @@ public sealed class PdfDictionaryLookupTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         Assert.Equal(equal, PdfDictionaryLookup.NameEquals(new PdfName(raw), expected, governor, CancellationToken.None));
-        Assert.True(governor.Snapshot().TotalWork >= 1L);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

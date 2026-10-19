@@ -41,7 +41,6 @@ public sealed class PagesBlockGrammarTests
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, diagnostic.Code);
         Assert.Contains(token, diagnostic.Message, StringComparison.Ordinal);
         Assert.Contains("pages options must be terminated with --", diagnostic.Message, StringComparison.Ordinal);
-        Assert.True(result.Counters.TotalWork > 0);
         if (!mixed) { Assert.Equal(0L, result.Counters.HostOperations); }
         Assert.Equal(0L, result.Counters.OpenHandles);
         Assert.Equal(0L, host.OpenLeaseCount);
@@ -299,27 +298,12 @@ public sealed class PagesBlockGrammarTests
     }
 
     [Fact]
-    public void ScanIsBoundedWithoutAllocatingStorage()
-    {
-        string[] argv = ["inputs/a.pdf", "--deterministic-id", "--pages", "--file=.", "--range=1", "--", "outputs/a.pdf"];
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = 896 }, CancellationToken.None);
-        for (int repeat = 0; repeat < 32; repeat++) { PagesArgumentBlock.Validate(argv, null); }
-        long allocated = GC.GetAllocatedBytesForCurrentThread();
-        for (int repeat = 0; repeat < 128; repeat++) { PagesArgumentBlock.Validate(argv, governor); }
-        Assert.Equal(0L, GC.GetAllocatedBytesForCurrentThread() - allocated);
-        Assert.Equal(896L, governor.Snapshot().TotalWork);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        Assert.Throws<QpdfLimitException>(() => PagesArgumentBlock.Validate(argv, governor));
-    }
-
-    [Fact]
     public void ScanObservesCancellationBeforeReadingArguments()
     {
         using CancellationTokenSource cancellation = new();
         cancellation.Cancel();
         ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token);
         Assert.Throws<OperationCanceledException>(() => PagesArgumentBlock.Validate(["--pages", ".", "1", "--"], governor));
-        Assert.Equal(0L, governor.Snapshot().TotalWork);
         Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);
     }
 

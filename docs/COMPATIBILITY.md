@@ -23,6 +23,34 @@ to generalized decoding and compression; typed selection preserves opaque stream
 encodings. Compression/decode setters apply in configuration order; QDF fills
 unset defaults. These distinctions are part of the supported contract.
 
+## Resource API and behavior changes
+
+The resource simplification intentionally removes `QpdfLimits.MaxWork`,
+`QpdfExecutionCounters.TotalWork` and `QpdfJpegCodecContext.ChargeWork` without
+compatibility overloads. The counter constructor now takes seven values in this
+order: live memory, peak memory, decoded bytes, output bytes, host operations,
+open handles and diagnostic count. Codec providers use `CheckCancellation` and
+`ReserveMemory`; hosts supply deadline cancellation rather than deterministic CPU
+fuel. Nesting/container/revision bounds, cycle detection, decoded-byte limits,
+memory admission and transactional output remain enforced. Expanded page and
+object selections use `MaxContainerSize` for their cardinality bound.
+
+Diagnostic quotas cover actual stored records and UTF-8 message bytes, including
+requested summaries. Overflow fails explicitly; it preserves the accepted prefix
+and adds one bounded terminal failure outside that quota. Summary records already
+accepted before a later failure remain in the cumulative diagnostic counter even
+when the returned failure omits those success summaries. `--no-warn` avoids
+storing or charging suppressed warnings, while their warning exit status remains
+unless `--warning-exit-0` applies. Equal message strings have no identity guarantee.
+
+Verbose/memory summaries capture the processing peak before presentation storage
+is allocated. The final `PeakMemoryBytes` counter also includes that storage and
+can therefore be higher. Summaries are formatted and admitted before output
+publication; completion reuses them without a new allocation or cancellation
+check that could turn a successful commit into failure. Each host transaction
+retains its existing commit/discard guarantees; multiple targets are not a group
+transaction.
+
 ## Known differences from native qpdf
 
 These are documented behavior differences, not new waivers. The two accepted
@@ -106,7 +134,7 @@ jobs and affected reference checks. Comprehensive reference, visual and fresh
 package-consumer checks belong at integration/release checkpoints; repeat for
 changed behavior, failures or a specific unresolved concern. Historical case
 identities, counts, exact CLR receipts and prescribed GC rounds add no obligations.
-Practical byte/work/decompression limits, cancellation, cleanup and actual memory
+Practical byte/structural/decompression limits, cancellation, cleanup and actual memory
 growth remain protected by the small representative workload set.
 See [contributor checks](../AGENTS.md) for verification commands and
 [benchmarks](BENCHMARKS.md) for performance measurements and artifact identities.
@@ -118,7 +146,7 @@ a caller-supplied `IQpdfJpegCodec`, exposed by the host's `IQpdfJpegCodecHost`
 capability. Without it, opaque JPEG copying works, checks report decoding skipped,
 and eligible image optimization fails before publication. Frame dimensions and
 component counts are checked before sample allocation; the codec context admits
-private memory and work and provides cancellation. Providers must observe the
+private memory and provides cancellation. Providers must observe the
 [borrowed-buffer and cleanup contract](../src/Lokad.Qpdf/Public/IQpdfJpegCodec.cs).
 
 The development-only [ImageSharp 3.1.12 adapter](../tools/Lokad.Qpdf.ImageSharp)

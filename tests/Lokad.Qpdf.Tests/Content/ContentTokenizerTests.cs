@@ -231,16 +231,6 @@ public sealed class ContentTokenizerTests
         Assert.Fail("ID token was not produced.");
     }
     [Fact]
-    public void GovernorBudgetsApply()
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 1L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        ContentTokenizer tokenizer = new(Encoding.ASCII.GetBytes("BT ET"), limits, governor);
-        Assert.True(tokenizer.TryReadToken(out ContentToken _));
-        Assert.Throws<QpdfLimitException>(() => tokenizer.TryReadToken(out ContentToken _));
-    }
-
-    [Fact]
     public void CancellationObserved()
     {
         using CancellationTokenSource source = new();

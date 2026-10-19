@@ -17,11 +17,10 @@ public sealed class TypedCounterOwnershipTests
         "typed-pages-options", "typed-check", "typed-json", "typed-import", "typed-update", "typed-extract",
         "typed-add", "typed-remove", "typed-copy"];
 
-    private readonly record struct Values(long Live, long Peak, long Work, long Decoded, long OutputBytes,
+    private readonly record struct Values(long Live, long Peak, long Decoded, long OutputBytes,
         long Calls, long Handles, long Diagnostics);
 
-    private static Values State(QpdfExecutionCounters c) => new(c.LiveMemoryBytes, c.PeakMemoryBytes, c.TotalWork,
-        c.TotalDecodedBytes, c.TotalOutputBytes, c.HostOperations, c.OpenHandles, c.DiagnosticCount);
+    private static Values State(QpdfExecutionCounters c) => new(c.LiveMemoryBytes, c.PeakMemoryBytes,         c.TotalDecodedBytes, c.TotalOutputBytes, c.HostOperations, c.OpenHandles, c.DiagnosticCount);
 
     private sealed class Alias(ResourceGovernor governor, object? value, WeakReference host, WeakReference result,
         WeakReference counters, WeakReference prepared, Values? snapshot)
@@ -55,7 +54,7 @@ public sealed class TypedCounterOwnershipTests
     {
         foreach (string route in Routes)
         foreach (bool compressed in new[] { false, true })
-        foreach (string budget in new[] { "memory", "work" }) { yield return [route, compressed, budget]; }
+        { yield return [route, compressed]; }
     }
 
     public static IEnumerable<object[]> MetadataJobs()
@@ -158,7 +157,6 @@ public sealed class TypedCounterOwnershipTests
             Assert.Equal(0L, inner.OpenLeaseCount);
             Assert.Equal(0L, governor.Snapshot().OpenHandles);
             Assert.True(governor.Snapshot().PeakMemoryBytes <= limits.MaxMemoryBytes);
-            Assert.True(governor.Snapshot().TotalWork <= limits.MaxWork);
             Assert.Equal(new byte[] { 17, 23, 41 }, prior);
             Assert.True(inner.TryGetOutput(Output, out byte[] current));
             if ((int)(host.GetType().GetField("Commits", Members)?.GetValue(host) ?? 0) == 0) { Assert.Equal(prior, current); }
@@ -214,10 +212,9 @@ public sealed class TypedCounterOwnershipTests
     [Theory]
     [MemberData(nameof(BudgetJobs))]
     [Trait("Layer", "Contract")]
-    public async Task RealPublicBudgetFailuresPreservePriorOutputs(string route, bool compressed, string budget)
+    public async Task RealPublicBudgetFailuresPreservePriorOutputs(string route, bool compressed)
     {
-        QpdfLimits limits = budget == "work" ? QpdfLimits.Default with { MaxWork = 128L }
-            : QpdfLimits.Default with { MaxMemoryBytes = 2048L };
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 2048L };
         Alias alias = await Complete(route, compressed, "read", "budget", "counters", limits);
     }
 

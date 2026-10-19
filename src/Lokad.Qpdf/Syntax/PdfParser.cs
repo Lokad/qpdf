@@ -21,7 +21,7 @@ internal interface IStreamRecoveryResolver : IIndirectResolver
 
 /// <summary>
 /// PDF object parser with explicit strict and repair policies. Containers recurse with an explicit
-/// depth budget; every value charges work and every copy reserves memory
+/// depth budget; values check cancellation and copies reserve memory
 /// before allocating. Duplicate dictionary keys resolve last-wins with a
 /// recorded warning, matching the upstream reference behavior.
 /// </summary>
@@ -158,7 +158,7 @@ internal sealed class PdfParser
 
     private bool TryReadValueToken(PdfTokenizer tokenizer, out PdfToken token)
     {
-        ChargeWork(1L);
+        _governor.NoteOperation();
         bool found = tokenizer.TryReadToken(out token, TolerateObjectErrors, _governor);
         if (found)
         {
@@ -254,9 +254,6 @@ internal sealed class PdfParser
             _dictionaryReceipts = parentReceipts;
         }
     }
-
-    private void ChargeWork(long bytes)
-    { _token.ThrowIfCancellationRequested(); _governor.ChargeWork(bytes); }
 
     private void ReserveMemory(long bytes)
     {
@@ -585,7 +582,6 @@ internal sealed class PdfParser
         {
             if ((i & 4095) == 0)
             {
-                ChargeWork(1L);
                 _governor.CheckCancellation();
             }
 
@@ -629,10 +625,7 @@ internal sealed class PdfParser
         _governor.CheckCancellation();
         if (PdfName.FindSharedAscii(token.Data.Span) is PdfName shared)
         {
-            // Keep both bounded decode-pass work checks. Constant storage has
-            // process lifetime and needs no per-attempt allocation receipt.
-            ChargeWork(1L); _governor.CheckCancellation();
-            ChargeWork(1L); _governor.CheckCancellation();
+            // Shared constants need no per-attempt storage or decoding.
             return shared;
         }
         long before = Memory.ReservedBytes;
@@ -704,7 +697,6 @@ internal sealed class PdfParser
 
             if (token.Kind == PdfTokenKind.ArrayClose)
             {
-                ChargeWork(count);
                 _governor.CheckCancellation();
                 if (items is not null) { return ParserContainers.CopyArray(Memory, items); }
                 Memory.Reserve(64L + IntPtr.Size * (long)count);
@@ -849,7 +841,7 @@ internal sealed class PdfParser
             {
                 for (int index = 0; index < prefixCount; index++)
                 {
-                    ChargeWork(1L); _governor.CheckCancellation();
+                    _governor.CheckCancellation();
                     if (ReferenceEquals(prefix[index].Key, key)
                         || PdfNameTable<ParsedValue>.NamesEqual(prefix[index].Key, key, _governor, _token))
                     { prefixIndex = index; break; }
@@ -908,7 +900,7 @@ internal sealed class PdfParser
                 WarnRepair("Ignored orphan dictionary values during xref recovery.", offset);
                 for (int i = 0; i < missingKeys.Count; i++)
                 {
-                    ChargeWork(1L);
+                    _governor.NoteOperation();
                     long reserved = missingKeys[i].ReservedBytes;
                     missingKeys[i] = default;
                     ReleaseMemory(reserved);
@@ -928,7 +920,6 @@ internal sealed class PdfParser
             ParserContainers.ReleaseOwnedList(Memory, missingKeys);
         }
 
-        ChargeWork(entries?.Count ?? prefixCount);
         _governor.CheckCancellation();
         bool preserveReceipts = depth == _dictionaryReceiptDepth;
         if (preserveReceipts && entries is null) { entries = SpillDictionaryPrefix(ref prefix, prefixCount); }
@@ -962,7 +953,7 @@ internal sealed class PdfParser
         "QPDFFake"u8.CopyTo(text);
         while (true)
         {
-            ChargeWork(1L);
+            _governor.NoteOperation();
             index = checked(index + 1L);
             if (!Utf8Formatter.TryFormat(index, text[8..], out int count))
             {
@@ -1033,13 +1024,7 @@ internal sealed class PdfParser
         if (BorrowImmutableStreamData && length != 0L)
         {
             ReserveMemory(64L);
-            // Keep the existing work ceiling and bounded cancellation even
-            // though the private job no longer needs to copy these bytes.
-            for (long visited = 0L; visited < length;)
-            {
-                int count = (int)Math.Min(32768L, length - visited);
-                ChargeWork(count); _governor.CheckCancellation(); visited += count;
-            }
+            _governor.CheckCancellation();
             PdfStream borrowed = PdfStream.FromImmutableSlice(dictionary, data.Slice((int)cursor, (int)length));
             BorrowedStreamData = true;
             tokenizer.SetPosition(afterStream);
@@ -1056,7 +1041,6 @@ internal sealed class PdfParser
         for (int start = 0; start < bytes.Length; start += Math.Min(32768, bytes.Length - start))
         {
             int count = Math.Min(32768, bytes.Length - start);
-            ChargeWork(count);
             _governor.CheckCancellation();
             data.Slice((int)cursor + start, count).CopyTo(bytes.AsMemory(start, count));
         }
@@ -1077,7 +1061,6 @@ internal sealed class PdfParser
             if (position == checkedThrough)
             {
                 int count = Math.Min(4096, limit - position);
-                ChargeWork(count);
                 _governor.CheckCancellation();
                 checkedThrough = position + count;
             }
@@ -1160,11 +1143,11 @@ internal sealed class PdfParser
     private int UnescapeNameCore(ReadOnlySpan<byte> span, Span<byte> result, long offset, bool write)
     {
         int outCount = 0;
-        long nextWork = 0L;
+        long nextCheck = 0L;
         bool warned = false;
         for (int i = 0; i < span.Length; i++)
         {
-            ChargeUnescapeWork(i, ref nextWork);
+            CheckUnescapeCancellation(i, ref nextCheck);
             if (span[i] == (byte)'#')
             {
                 int hi = span.Length - i >= 2 ? HexValue(span[i + 1]) : -1;
@@ -1216,10 +1199,10 @@ internal sealed class PdfParser
     private int UnescapeLiteralCore(ReadOnlySpan<byte> span, Span<byte> result, long offset, bool write)
     {
         int outCount = 0;
-        long nextWork = 0L;
+        long nextCheck = 0L;
         for (int i = 0; i < span.Length; i++)
         {
-            ChargeUnescapeWork(i, ref nextWork);
+            CheckUnescapeCancellation(i, ref nextCheck);
             if (span[i] != (byte)'\\')
             {
                 // Raw CR and CRLF are a single PDF end-of-line marker. An
@@ -1310,15 +1293,14 @@ internal sealed class PdfParser
         return outCount;
     }
 
-    private void ChargeUnescapeWork(int position, ref long nextWork)
+    private void CheckUnescapeCancellation(int position, ref long nextCheck)
     {
         // Escapes advance by varying numbers of bytes; equality/modulo checks
         // can miss an interval when an escape steps across its boundary.
-        if (position >= nextWork)
+        if (position >= nextCheck)
         {
-            ChargeWork(1L);
             _governor.CheckCancellation();
-            nextWork = (long)position + 4096L;
+            nextCheck = (long)position + 4096L;
         }
     }
 
@@ -1328,10 +1310,10 @@ internal sealed class PdfParser
         // Count/validate directly over the token, then fill the exact result.
         // Whitespace does not require a full token-sized intermediate buffer.
         int count = 0;
-        long nextWork = 0L;
+        long nextCheck = 0L;
         for (int i = 0; i < span.Length; i++)
         {
-            ChargeUnescapeWork(i, ref nextWork);
+            CheckUnescapeCancellation(i, ref nextCheck);
             byte b = span[i];
             if (PdfTokenizer.IsWhitespace(b))
             {
@@ -1351,11 +1333,11 @@ internal sealed class PdfParser
         _governor.CheckCancellation();
         ReserveMemory(checked(32L + outCount));
         byte[] result = GC.AllocateUninitializedArray<byte>(outCount);
-        nextWork = 0L;
+        nextCheck = 0L;
         int high = -1, position = 0;
         for (int i = 0; i < span.Length; i++)
         {
-            ChargeUnescapeWork(i, ref nextWork);
+            CheckUnescapeCancellation(i, ref nextCheck);
             byte b = span[i];
             if (PdfTokenizer.IsWhitespace(b)) { continue; }
             int value = HexValue(b);
@@ -1403,11 +1385,11 @@ internal sealed class PdfParser
     private string CopyNumericTextCore(ReadOnlyMemory<byte> data, Action? observe)
     {
         // Canonical single digits need no new immutable string. Keep the same
-        // work/cancellation observation; signs and leading zeros retain their text.
+        // cancellation observation; signs and leading zeros retain their text.
         if (data.Length == 1 && data.Span[0] is >= (byte)'0' and <= (byte)'9')
         {
             _token.ThrowIfCancellationRequested();
-            _governor.ChargeWork(1L);
+            _governor.NoteOperation();
             observe?.Invoke();
             _governor.CheckCancellation();
             return PdfInteger.GetSingleDigitText(data.Span[0] - (byte)'0');
@@ -1422,7 +1404,7 @@ internal sealed class PdfParser
                 if ((i & 4095) == 0)
                 {
                     state.Token.ThrowIfCancellationRequested();
-                    state.Governor.ChargeWork(1L);
+                    state.Governor.NoteOperation();
                     state.Observe?.Invoke();
                     state.Governor.CheckCancellation();
                 }

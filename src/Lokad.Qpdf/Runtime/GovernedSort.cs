@@ -34,13 +34,13 @@ internal static class GovernedSort
     private static int Compare<T, TComparer>(T left, T right, TComparer comparer, ResourceGovernor governor,
         CancellationToken token) where TComparer : struct, IComparer<T>
     {
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         return comparer.Compare(left, right);
     }
 
     private static void Swap<T>(Span<T> items, int left, int right, ResourceGovernor governor, CancellationToken token)
     {
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(4L);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         (items[left], items[right]) = (items[right], items[left]);
     }
 }

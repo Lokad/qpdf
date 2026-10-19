@@ -62,7 +62,7 @@ internal static class ObjectRemap
         WriterIndex<int> renumber, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken cancellationToken)
     {
         memory.CheckOwner(governor); renumber.CheckOwner(governor);
-        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         return RemapDictionary(header, new NumberMap(null, null, renumber), memory, governor, cancellationToken, 0L, lengthNumber);
     }
 
@@ -98,7 +98,7 @@ internal static class ObjectRemap
         {
             throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, governor.MaxNestingDepth);
         }
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         if (value is PdfReference reference)
         {
             if (!renumber.TryGetValue(reference.ObjectNumber, out int mapped))
@@ -114,7 +114,7 @@ internal static class ObjectRemap
 
         if (value is PdfArray array)
         {
-            if (memory is not null) { governor.ChargeWork(array.Count); }
+            if (memory is not null) { governor.NoteOperation(); }
             QpdfObject[]? items = null;
             for (int i = 0; i < array.Count; i++)
             {
@@ -123,7 +123,7 @@ internal static class ObjectRemap
                 {
                     memory?.Reserve(checked(64L + IntPtr.Size * (long)array.Count));
                     items = new QpdfObject[array.Count];
-                    governor.ChargeWork(i);
+                    governor.NoteOperation();
                     for (int prefix = 0; prefix < i; prefix++)
                     {
                         cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -165,7 +165,7 @@ internal static class ObjectRemap
         using PdfDictionary.EntryEnumerator source = dictionary.GetEntryEnumerator();
         while (source.MoveNext())
         {
-            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             KeyValuePair<PdfName, QpdfObject> entry = source.Current;
             if (lengthNumber.HasValue && entry.Key.RawSpan.SequenceEqual("Length"u8))
             { lengthKey = entry.Key; continue; }
@@ -183,7 +183,7 @@ internal static class ObjectRemap
         if (lengthNumber.HasValue)
         {
             entries ??= CreateEntries(memory, governor, cancellationToken, checked(dictionary.Count + 1));
-            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(7L);
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (lengthKey is null)
             {
                 // Admit the fixed lookup name before creating its owned bytes.
@@ -232,7 +232,7 @@ internal static class ObjectRemap
     {
         if (memory is not null && entries is PdfNameTable<QpdfObject> owned)
         { owned.TryAdd(memory, governor, key, value, token); return; }
-        governor.ChargeWork(checked(Math.Min(key.RawSpan.Length, 16) + 1L));
+        governor.NoteOperation();
         ((Dictionary<PdfName, QpdfObject>)entries).Add(key, value);
     }
 }

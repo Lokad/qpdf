@@ -18,7 +18,6 @@ public sealed partial class FormTraversalOwnershipTests
         Assert.Contains(nameof(QpdfLimits.MaxMemoryBytes), result.Detail, StringComparison.Ordinal);
         QpdfExecutionCounters after = prepared.Governor.Snapshot();
         Assert.InRange(after.LiveMemoryBytes - before.LiveMemoryBytes, 2L * result.Detail.Length, 2047L);
-        Assert.True(after.TotalWork > before.TotalWork);
         Assert.True(after.PeakMemoryBytes <= prepared.Limits.MaxMemoryBytes);
         Assert.Same(prepared.Prior, Assert.Single(prepared.Diagnostics.Entries));
         prepared.Governor.ReleaseMemory(filler);

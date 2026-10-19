@@ -178,7 +178,7 @@ internal sealed class LinearizedWriter
             for (int number = parts.LindictNumber; number < firstEnd; number++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                _governor.ChargeWork(1L);
+                _governor.NoteOperation();
                 long offset = XrefOffset(parts.HintNumber, counted, hintObject, final, number);
                 if (offset > MaxOffsetField)
                 {
@@ -232,7 +232,7 @@ internal sealed class LinearizedWriter
             for (int number = 1; number < parts.LindictNumber; number++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                _governor.ChargeWork(1L);
+                _governor.NoteOperation();
                 long position = XrefOffset(parts.HintNumber, counted, hintObject, final, number);
                 if (position > MaxOffsetField)
                 {
@@ -295,7 +295,7 @@ internal sealed class LinearizedWriter
         foreach (int old in olds)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _governor.ChargeWork(1L);
+            _governor.NoteOperation();
             if (!parts.Renumber.TryGetValue(old, out int number))
             {
                 throw new QpdfException($"Linearized publication lost object {old}.");
@@ -529,7 +529,7 @@ internal sealed class LinearizedWriter
         foreach (int old in pageUsers[page])
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _governor.ChargeWork(1L);
+            _governor.NoteOperation();
             if (groupIndex.ContainsKey(old))
             { ParserContainers.AddItem(memory, identifiers, old, sizeof(int)); }
         }
@@ -773,7 +773,7 @@ internal sealed class LinearizedWriter
             _governor.CheckCancellation();
             if (count < 0 || count > 32 || value < 0L || value >= (1L << count))
             { throw new QpdfParseException("Linearized hint value exceeds its bit width.", null, null); }
-            _governor.ChargeWork(1L);
+            _governor.NoteOperation();
             for (int i = count - 1; i >= 0; i--)
             {
                 _current = checked((_current << 1) | (int)((value >> i) & 1L));
@@ -1020,7 +1020,7 @@ internal sealed class LinearizedWriter
         foreach (int old in olds)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _governor.ChargeWork(1L);
+            _governor.NoteOperation();
             if (!parts.Renumber.TryGetValue(old, out int number))
             {
                 throw new QpdfException($"Linearized publication lost object {old}.");
@@ -1123,13 +1123,13 @@ internal sealed class LinearizedWriter
             throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), dataLength, _limits.MaxOutputBytes);
         }
         dataMemory.Reserve(checked(32L + dataLength));
-        _governor.ChargeWork(dataLength);
+        _governor.NoteOperation();
         byte[] raw = new byte[dataLength];
         long capacity = field1 >= 8 ? long.MaxValue : 1L << (8 * field1);
         for (int n = first; n < first + count; n++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _governor.ChargeWork(1L);
+            _governor.NoteOperation();
             int offsetInData = checked((n - first) * entryWidth);
             if (n == 0)
             {
@@ -1160,7 +1160,7 @@ internal sealed class LinearizedWriter
                 PdfSerializer.WriteUInt(raw.AsSpan(offsetInData + 1, field1), offset);
                 PdfSerializer.WriteUInt(raw.AsSpan(offsetInData + 1 + field1, field2), 0L);
             }
-            _governor.ChargeWork(entryWidth);
+            _governor.NoteOperation();
         }
         bool index = first != 0 || first + count != size;
         layout.RecordStart(number, sink.Length);

@@ -165,7 +165,7 @@ internal sealed partial class PdfSerializer
         for (int i = 0; i < objects.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _governor.ChargeWork(1L);
+            _governor.NoteOperation();
             if (objects[i].Number <= 0)
             {
                 throw new QpdfException($"Publication reached invalid object number {objects[i].Number}.");
@@ -199,8 +199,6 @@ internal sealed partial class PdfSerializer
                 if (number == oversizedNumber)
                 { throw new QpdfException($"Object offset {oversizedOffset} exceeds the classic xref field width."); }
                 // Fixed-width sizing needs no stored offsets or formatted digits.
-                // Retain the established conservative numeric work allowance.
-                _governor.ChargeWork(20L);
                 await AppendFormattedAsync([WriterPart.Spaces(10), WriterPart.Text(" 00000 n \n")], counter,
                     cancellationToken).ConfigureAwait(false);
                 continue;
@@ -242,7 +240,7 @@ internal sealed partial class PdfSerializer
     {
         for (int index = 0; index < objects.Count; index++)
         {
-            token.ThrowIfCancellationRequested(); _governor.ChargeWork(1L);
+            token.ThrowIfCancellationRequested(); _governor.NoteOperation();
             if (objects[index].Number != index + 1) { return false; }
         }
         return true;
@@ -256,7 +254,6 @@ internal sealed partial class PdfSerializer
         // Validate existing model numbers, not declared counts. Leave tight jobs
         // on the established dictionary/growth path without an extra scan.
         if (objects.Count > Array.MaxLength || bytes > _governor.RemainingMemoryBytes / 4L
-            || 1L + 9L * objects.Count > _governor.RemainingWorkUnits / 4L
             || !HasDenseIncreasingNumbers(objects, token)) { return null; }
         return WriterOrder<long>.Create(objects.Count, sizeof(long), _governor, token);
     }
@@ -407,7 +404,7 @@ internal sealed partial class PdfSerializer
         foreach (int number in regular)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _governor.ChargeWork(1L);
+            _governor.NoteOperation();
             offsets[number] = sink.Length;
             await AppendFormattedAsync([WriterPart.Number(number), WriterPart.Text(" 0 obj\n")], sink, cancellationToken).ConfigureAwait(false);
             await AppendValueAsync(lookup[number], sink, 0, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
@@ -428,7 +425,7 @@ internal sealed partial class PdfSerializer
             for (int index = 0; index < group.Count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                _governor.ChargeWork(1L);
+                _governor.NoteOperation();
                 compressed[group[index]] = (containerId, index);
             }
             offsets[containerId] = sink.Length;
@@ -620,7 +617,7 @@ internal sealed partial class PdfSerializer
     {
         if (depth > _limits.MaxNestingDepth)
         { throw new QpdfParseException($"Serialization depth exceeds {_limits.MaxNestingDepth}.", null, null); }
-        _governor.ChargeWork(1L);
+        _governor.NoteOperation();
     }
 
     // Length-only counting has no I/O or retained state. Reuse token sizing

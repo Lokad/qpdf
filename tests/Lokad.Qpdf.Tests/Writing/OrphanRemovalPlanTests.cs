@@ -20,7 +20,7 @@ public sealed class OrphanRemovalPlanTests
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 1L }, CancellationToken.None);
         using OrphanFixture fixture = new(governor, PdfNull.Instance);
         Assert.Throws<OperationCanceledException>(() => fixture.Copier.DropPoolObjectsIfUnreferenced(empty ? [] : [2], cancellation.Token));
-        Assert.Equal(0L, governor.Snapshot().TotalWork); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]

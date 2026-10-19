@@ -603,7 +603,7 @@ public sealed class PdfDictionary : QpdfObject, IEquatable<PdfDictionary>
         internal bool MoveNext(ResourceGovernor governor, CancellationToken token)
         {
             if (_owned) { return _names.MoveNext(governor, token); }
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             return _legacy.MoveNext();
         }
         public void Dispose() { _legacy.Dispose(); _names.Dispose(); }

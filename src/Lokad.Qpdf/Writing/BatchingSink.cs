@@ -56,7 +56,7 @@ internal sealed class BatchingSink : IByteSink, IOutputCapacityHint, IDisposable
         {
             // Leave room for growth overlap, immutable async packets and other
             // writer storage. Small outputs and tight jobs keep the old batch.
-            long headroom = Math.Min(_governor.RemainingMemoryBytes, _governor.RemainingWorkUnits) / 16L;
+            long headroom = _governor.RemainingMemoryBytes / 16L;
             int capacity = InitialCapacity;
             int preferred = length < 131072L ? PreferredCapacity / 2 : PreferredCapacity;
             while (capacity < preferred && capacity * 2L <= headroom) { capacity *= 2; }
@@ -98,9 +98,7 @@ internal sealed class BatchingSink : IByteSink, IOutputCapacityHint, IDisposable
         ArgumentNullException.ThrowIfNull(limits);
         if (parts.Length == 2 && limits.MaxOutputBytes >= WriterFormatting.ShortTokenBytes
             && _maximum - _length >= WriterFormatting.ShortTokenBytes
-            && _capacity - Scratch.Length >= WriterFormatting.ShortTokenBytes
-            // Also leave room for a possible scratch allocation and growth copy.
-            && _governor.RemainingWorkUnits >= 2L * _capacity + WriterFormatting.ShortTokenWork)
+            && _capacity - Scratch.Length >= WriterFormatting.ShortTokenBytes)
         {
             Span<byte> bytes = stackalloc byte[WriterFormatting.ShortTokenBytes];
             if (WriterFormatting.TryFillShort(parts, bytes, _governor, token, out int written))

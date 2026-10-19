@@ -239,7 +239,7 @@ internal static class DocumentJson
             throw new QpdfParseException("Page-label number tree exceeds nesting budget.", null, null);
         }
 
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         if (node.TryGet(PdfName.FromAscii("Nums"), out QpdfObject? numsRaw) && numsRaw is not null && numsRaw is not PdfNull)
         {
             if (numsRaw is not PdfArray nums || nums.Count % 2 != 0)
@@ -251,7 +251,7 @@ internal static class DocumentJson
             for (int i = 0; i < items.Length; i += 2)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (items[i] is not PdfInteger key)
                 {
                     throw new QpdfParseException("Page-label number-tree keys must be integers.", null, null);
@@ -276,7 +276,7 @@ internal static class DocumentJson
             foreach (QpdfObject item in kids.Items)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 int kidNumber = item is PdfReference kidReference ? kidReference.ObjectNumber : -1;
                 QpdfObject target = item;
                 if (item is PdfReference reference)
@@ -341,7 +341,7 @@ internal static class DocumentJson
         bool first = true;
         foreach (KeyValuePair<int, QpdfObject> entry in labels)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (!first)
             {
                 builder.Append((char)44);
@@ -399,7 +399,7 @@ internal static class DocumentJson
         while (sibling is not null && sibling is not PdfNull)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             PdfReference? siblingReference = sibling as PdfReference;
             QpdfObject node = sibling;
             if (sibling is PdfReference nodeReference)
@@ -462,7 +462,7 @@ internal static class DocumentJson
             throw new QpdfParseException("Outline tree exceeds nesting budget.", null, null);
         }
 
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         string title = string.Empty;
         if (outline.TryGet(PdfName.FromAscii("Title"), out QpdfObject? titleRaw) && titleRaw is PdfByteString titleText)
         {
@@ -508,7 +508,7 @@ internal static class DocumentJson
             while (sibling is not null && sibling is not PdfNull)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 PdfReference? siblingReference = sibling as PdfReference;
                 QpdfObject node = sibling;
                 if (sibling is PdfReference kidReference)
@@ -655,7 +655,7 @@ internal static class DocumentJson
         for (int i = 0; i < pages.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (i > 0)
             {
                 builder.Append((char)44);
@@ -715,7 +715,7 @@ internal static class DocumentJson
         foreach (PageImageDetail detail in ListImages(engine, location, limits, governor, cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (!first)
             {
                 builder.Append((char)44);
@@ -759,7 +759,7 @@ internal static class DocumentJson
         for (int i = 0; i < stages.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (i > 0)
             {
                 builder.Append((char)44);
@@ -784,7 +784,7 @@ internal static class DocumentJson
         for (int i = 0; i < stages.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (i > 0)
             {
                 builder.Append((char)44);
@@ -876,7 +876,7 @@ internal static class DocumentJson
         foreach (PdfName key in names)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (!xobjects.TryGet(key, out QpdfObject entry) || entry is not PdfReference reference)
             {
                 continue;
@@ -968,7 +968,7 @@ internal static class DocumentJson
                 throw new QpdfParseException($"Page ancestry depth exceeds {limits.MaxNestingDepth}.", null, null);
             }
 
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             current = parent;
         }
     }
@@ -1063,7 +1063,7 @@ internal static class DocumentJson
         foreach (EmbeddedAttachment attachment in found)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (!firstAttachment)
             {
                 builder.Append((char)44);
@@ -1205,7 +1205,7 @@ internal static class DocumentJson
                         continue;
                     }
 
-                    governor.ChargeWork(1L);
+                    governor.NoteOperation();
                     if (!first)
                     {
                         builder.Append((char)44);
@@ -1396,13 +1396,13 @@ internal static class DocumentJson
             int maxObjectId = 0;
             foreach (KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
             {
-                governor.ChargeWork(1L); governor.CheckCancellation(); cancellationToken.ThrowIfCancellationRequested();
+                governor.CheckCancellation(); cancellationToken.ThrowIfCancellationRequested();
                 if (entry.Value.Kind == XrefEntryKind.Free)
                 {
                     continue;
                 }
 
-                governor.ChargeWork(1L + (numbers.Count == numbers.Capacity ? numbers.Count : 0)); governor.CheckCancellation();
+                governor.CheckCancellation();
                 output.AddObjectNumber(numbers, entry.Key);
                 if (entry.Key > maxObjectId)
                 {
@@ -1418,7 +1418,7 @@ internal static class DocumentJson
                 foreach (int number in numbers)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    governor.ChargeWork(1L);
+                    governor.NoteOperation();
                     int generation = engine.XRefEntries[number].Kind == XrefEntryKind.Compressed
                         ? 0
                         : engine.XRefEntries[number].Second;
@@ -1466,7 +1466,7 @@ internal static class DocumentJson
             foreach (int number in numbers)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 int generation = engine.XRefEntries[number].Kind == XrefEntryKind.Compressed
                     ? 0
                     : engine.XRefEntries[number].Second;
@@ -1529,7 +1529,7 @@ internal static class DocumentJson
         position += generationLength; key[position++] = ' '; key[position++] = 'R';
         foreach (string candidate in request.Objects)
         {
-            builder.Governor.ChargeWork(candidate.Length + 1L); builder.Governor.CheckCancellation();
+            builder.Governor.NoteOperation(); builder.Governor.CheckCancellation();
             if (candidate.AsSpan().SequenceEqual(key[..position])) { return true; }
         }
         return false;
@@ -1596,10 +1596,10 @@ internal static class DocumentJson
         {
             foreach (KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
             {
-                governor.ChargeWork(1L); governor.CheckCancellation(); cancellationToken.ThrowIfCancellationRequested();
+                governor.CheckCancellation(); cancellationToken.ThrowIfCancellationRequested();
                 if (entry.Value.Kind != XrefEntryKind.Free)
                 {
-                    governor.ChargeWork(1L + (numbers.Count == numbers.Capacity ? numbers.Count : 0)); governor.CheckCancellation();
+                    governor.CheckCancellation();
                     output.AddObjectNumber(numbers, entry.Key);
                 }
             }
@@ -1610,7 +1610,7 @@ internal static class DocumentJson
             foreach (int number in numbers)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 int generation = engine.XRefEntries[number].Kind == XrefEntryKind.Compressed
                     ? 0
                     : engine.XRefEntries[number].Second;
@@ -1733,7 +1733,7 @@ internal static class DocumentJson
         for (int i = 0; i < pages.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (!pages[i].Page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject? annotsRaw) || annotsRaw is null || annotsRaw is PdfNull)
             {
                 continue;
@@ -1748,7 +1748,7 @@ internal static class DocumentJson
             foreach (QpdfObject item in annots.Items)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 PdfReference? annotReference = item as PdfReference;
                 QpdfObject node = TryResolve(engine, item) ?? item;
                 if (node is not PdfDictionary annot)
@@ -1817,7 +1817,7 @@ internal static class DocumentJson
                 break;
             }
 
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             chain.Add(parentDict);
             refs.Add(parentReference);
             current = parentDict;

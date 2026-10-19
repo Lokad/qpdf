@@ -26,8 +26,7 @@ internal static class GovernedCollections
     {
         memory.CheckOwner(governor);
         governor.CheckCancellation();
-        governor.ChargeWork(1L);
-        if (items.Count == items.Capacity) { governor.ChargeWork(checked(2L * items.Count)); }
+        if (items.Count == items.Capacity) { governor.NoteOperation(); }
         ParserContainers.AddItem(memory, items, value, itemBytes);
     }
 
@@ -36,10 +35,9 @@ internal static class GovernedCollections
     {
         memory.CheckOwner(governor);
         governor.CheckCancellation();
-        governor.ChargeWork(2L);
         if (!entries.ContainsKey(number))
         {
-            if (entries.Count == entries.EnsureCapacity(0)) { governor.ChargeWork(checked(4L * (entries.Count + 1L))); }
+            if (entries.Count == entries.EnsureCapacity(0)) { governor.NoteOperation(); }
             ParserContainers.EnsureEntryCapacity(memory, entries, valueBytes);
         }
         entries[number] = value;
@@ -54,9 +52,9 @@ internal static class GovernedCollections
     internal static bool AddNumber(ParserMemoryScope memory, ResourceGovernor governor, HashSet<int> items, int number)
     {
         memory.CheckOwner(governor);
-        governor.ChargeWork(2L);
+        governor.NoteOperation();
         if (items.Contains(number)) { return false; }
-        if (items.Count == items.EnsureCapacity(0)) { governor.ChargeWork(checked(4L * (items.Count + 1L))); }
+        if (items.Count == items.EnsureCapacity(0)) { governor.NoteOperation(); }
         return ParserContainers.AddSetItem(memory, items, number, sizeof(int));
     }
 
@@ -90,7 +88,6 @@ internal static class GovernedCollections
         public int Compare(int left, int right)
         {
             governor.CheckCancellation();
-            governor.ChargeWork(1L);
             return left.CompareTo(right);
         }
     }

@@ -70,7 +70,7 @@ public static partial class Qpdf
 
         internal PreparedOutputSink Main => _main ?? throw new ObjectDisposedException(nameof(PreparedSplitPublication));
         internal PreparedOutputSink? Pass1 => _pass1;
-        internal long PublicationWork => 1L + Main.SegmentCount
+        internal long PublicationOperations => 1L + Main.SegmentCount
             + (_pass1 is null ? 0L : 1L + _pass1.SegmentCount);
         internal long PublicationCapacity => Math.Max(Main.Length, _pass1?.Length ?? 0L);
 
@@ -169,13 +169,13 @@ public static partial class Qpdf
     private static async ValueTask PublishPreparedOutputAsync(IQpdfHost host, QpdfPath path, PreparedOutputSink output,
         ResourceGovernor governor, CancellationToken token)
     {
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, path, governor, token).ConfigureAwait(false);
         // The batch checked local staging policy; the host admits actual storage.
         GovernedHost.PrepareOutputCapacity(transaction, output.Length, token);
         for (PreparedOutputSink.Segment? segment = output.First; segment is not null; segment = segment.Next)
         {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             await transaction.WriteAsync(segment.Written, token).ConfigureAwait(false);
         }
         await transaction.CommitAsync(token).ConfigureAwait(false);
@@ -184,12 +184,12 @@ public static partial class Qpdf
     private static async ValueTask PublishPreparedBytesAsync(IQpdfHost host, QpdfPath path, Json.JsonPayload payload,
         ResourceGovernor governor, CancellationToken token)
     {
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, path, governor, token).ConfigureAwait(false);
         ReadOnlyMemory<byte> bytes = payload.Data;
         for (int offset = 0; offset < bytes.Length;)
         {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             int count = Math.Min(32768, bytes.Length - offset);
             await transaction.WriteAsync(bytes.Slice(offset, count), token).ConfigureAwait(false);
             offset += count;

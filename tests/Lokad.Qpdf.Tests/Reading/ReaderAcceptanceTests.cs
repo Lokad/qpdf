@@ -42,14 +42,12 @@ public sealed class ReaderAcceptanceTests
         {
             Assert.Equal(1, document.PageCount);
             long baseline = Observe(document).LiveMemoryBytes;
-            long work = Observe(document).TotalWork;
             for (int i = 0; i < 50; i++)
             {
                 Assert.Contains("header contradicts", Assert.Throws<QpdfParseException>(() => document.GetObject(5)).Message, StringComparison.Ordinal);
                 DiagnosticControl.Replay(DiagnosticControl.Read(control), DiagnosticControl.Read(document).Entries);
                 Assert.Equal(Observe(control).LiveMemoryBytes, Observe(document).LiveMemoryBytes);
             }
-            Assert.True(Observe(document).TotalWork > work);
             Assert.InRange(Observe(document).PeakMemoryBytes, baseline + 1L, limits.MaxMemoryBytes);
         }
         Assert.Equal(0L, host.OpenLeaseCount);
@@ -153,7 +151,6 @@ public sealed class ReaderAcceptanceTests
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         Assert.Equal(QpdfExitCode.Error, result.ExitCode);
         Assert.Contains("header contradicts", Assert.Single(result.Diagnostics).Message, StringComparison.Ordinal);
-        Assert.True(result.Counters.TotalWork > 0L);
         Assert.True(result.Counters.PeakMemoryBytes > input.Length + 4096L);
         Assert.Equal(0L, result.Counters.TotalOutputBytes);
         Assert.Equal(0L, result.Counters.OpenHandles);
@@ -308,7 +305,6 @@ public sealed class ReaderAcceptanceTests
             PdfByteString cached = Assert.IsType<PdfByteString>(document.GetObject(6));
             PdfStream raw = Assert.IsType<PdfStream>(document.GetObject(5));
             long baseline = Observe(document).LiveMemoryBytes;
-            long work = Observe(document).TotalWork;
             for (int i = 0; i < 50; i++)
             {
                 Assert.Contains("trailing bytes", Assert.Throws<QpdfParseException>(() => document.GetObject(7)).Message, StringComparison.Ordinal);
@@ -316,7 +312,6 @@ public sealed class ReaderAcceptanceTests
                 Assert.Same(cached, document.GetObject(6));
                 Assert.Same(raw, document.GetObject(5));
             }
-            Assert.True(Observe(document).TotalWork > work);
             Assert.Equal(Encoding.ASCII.GetBytes(new string('K', 4096)), cached.Value);
         }
         Assert.Equal(0L, host.OpenLeaseCount);

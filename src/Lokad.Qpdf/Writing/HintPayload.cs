@@ -29,7 +29,7 @@ internal sealed class HintPayload : IDisposable
         try
         {
             memory.Reserve(64L + (length == 0 ? 0L : 32L + length));
-            governor.ChargeWork(length);
+            governor.NoteOperation();
             cancellationToken.ThrowIfCancellationRequested();
             governor.CheckCancellation();
             return new HintPayload(memory, length == 0 ? Array.Empty<byte>() : new byte[length]);

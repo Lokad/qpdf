@@ -36,7 +36,6 @@ public sealed class CanonicalDisplayMemoryTests
         Assert.InRange(allocated, 0L, 256L * 1024L);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.InRange(governor.Snapshot().PeakMemoryBytes, 1L, limits.MaxMemoryBytes);
-        Assert.True(governor.Snapshot().TotalWork > 0L);
     }
 
     [Fact]
@@ -73,7 +72,6 @@ public sealed class CanonicalDisplayMemoryTests
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), error.LimitName);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.InRange(governor.Snapshot().PeakMemoryBytes, 1L, memory);
-        Assert.True(governor.Snapshot().TotalWork > 500L);
     }
 
     [Fact]
@@ -145,7 +143,6 @@ public sealed class CanonicalDisplayMemoryTests
         QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
             CanonicalDisplay.AddDiagnostic(value, limits, governor, null, bag));
         Assert.Equal(nameof(QpdfLimits.MaxDiagnostics), error.LimitName);
-        Assert.Equal(before.TotalWork, governor.Snapshot().TotalWork);
         Assert.Equal(before.PeakMemoryBytes, governor.Snapshot().PeakMemoryBytes);
         Assert.Single(bag.Entries);
     }
@@ -183,27 +180,6 @@ public sealed class CanonicalDisplayMemoryTests
     }
 
     [Fact]
-    public void LongCommonPrefixSortingHonorsWorkAndReleasesScratch()
-    {
-        byte[] a = new byte[4096];
-        byte[] b = new byte[4096];
-        Array.Fill(a, (byte)'A');
-        Array.Fill(b, (byte)'A');
-        b[^1] = (byte)'B';
-        PdfDictionary value = new(new Dictionary<PdfName, QpdfObject>
-        {
-            [new PdfName(a)] = PdfNull.Instance,
-            [new PdfName(b)] = PdfNull.Instance,
-        });
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 128L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => CanonicalDisplay.Render(value, limits, governor));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), error.LimitName);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        Assert.True(governor.Snapshot().PeakMemoryBytes > 0L);
-    }
-
-    [Fact]
     public void OwnedTextCannotMoveToAnotherJobsDiagnostics()
     {
         ResourceGovernor owner = new(QpdfLimits.Default, CancellationToken.None);
@@ -214,20 +190,6 @@ public sealed class CanonicalDisplayMemoryTests
         Assert.Equal("true", text.Value);
         Assert.Equal(0L, other.Snapshot().LiveMemoryBytes);
         Assert.Empty(otherBag.Entries);
-    }
-
-    [Theory]
-    [InlineData(4096)]
-    [InlineData(262144)]
-    public void LargeDisplaysFitLinearWorkCeilings(int bytes)
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 8L * bytes };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        using GovernedText text = CanonicalDisplay.Render(new PdfByteString(new byte[bytes], false), limits, governor);
-        Assert.Equal(2 * bytes + 2, text.Value.Length);
-        Assert.StartsWith("<0000", text.Value);
-        Assert.EndsWith("0000>", text.Value);
-        Assert.InRange(governor.Snapshot().TotalWork, 1L, limits.MaxWork);
     }
 
     [Fact]
@@ -252,7 +214,7 @@ public sealed class CanonicalDisplayMemoryTests
     }
 
     [Fact]
-    public async Task LongKeySortingCancelsAfterWorkStartsAndReleasesScratch()
+    public async Task LongKeyRenderingCancelsAfterAdmissionAndReleasesScratch()
     {
         Dictionary<PdfName, QpdfObject> entries = new();
         for (int i = 0; i < 64; i++)
@@ -267,11 +229,10 @@ public sealed class CanonicalDisplayMemoryTests
         ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token);
         Task<GovernedText> sorting = Task.Factory.StartNew(() => CanonicalDisplay.Render(value, QpdfLimits.Default, governor),
             CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-        bool observed = SpinWait.SpinUntil(() => governor.Snapshot().TotalWork >= 8192L || sorting.IsCompleted, TimeSpan.FromSeconds(10));
+        bool observed = SpinWait.SpinUntil(() => governor.Snapshot().LiveMemoryBytes > 0L || sorting.IsCompleted, TimeSpan.FromSeconds(10));
         cancellation.Cancel();
         Assert.True(observed);
         await Assert.ThrowsAsync<OperationCanceledException>(async () => await sorting.WaitAsync(TimeSpan.FromSeconds(10)));
-        Assert.True(governor.Snapshot().TotalWork >= 8192L);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.InRange(governor.Snapshot().PeakMemoryBytes, 1L, 8192L);
     }

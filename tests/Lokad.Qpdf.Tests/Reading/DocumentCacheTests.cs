@@ -141,7 +141,6 @@ public sealed class DocumentCacheTests
         Assert.True(after < before);
         QpdfExecutionCounters repeatSnapshot = document.Counters;
         Assert.Equal(after + 88L, repeatSnapshot.LiveMemoryBytes);
-        Assert.Equal(afterSnapshot.TotalWork + 1L, repeatSnapshot.TotalWork);
         GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
         Assert.All(references, reference => Assert.False(reference.IsAlive));
         Assert.Equal("kept"u8.ToArray(), kept.Value);

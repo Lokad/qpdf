@@ -39,7 +39,7 @@ internal static class RunLengthFilter
         int position = 0;
         while (position < input.Length)
         {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             byte length = input[position];
             position += 1;
             if (length < 128)

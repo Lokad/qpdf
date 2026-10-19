@@ -156,7 +156,6 @@ public sealed class JsonValueOwnershipTests
                         "--json-stream-prefix=side", "--json-object=5", "--", "outputs/a.json"]), CancellationToken.None);
             Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
             Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.HostOperationFailed);
-            Assert.True(result.Counters.TotalWork > 0L);
             Assert.True(result.Counters.PeakMemoryBytes > 0L);
             Assert.Equal(0L, result.Counters.OpenHandles);
         }
@@ -212,7 +211,6 @@ public sealed class JsonValueOwnershipTests
                     new QpdfCommandInvocation(["inputs/a.pdf", "--json=2", "--json-key=qpdf", "--", "outputs/a.json"]),
                     options, cancellation.Token);
             Assert.Equal(cancel ? QpdfExecutionStatus.Canceled : QpdfExecutionStatus.Failed, result.Status);
-            Assert.True(result.Counters.TotalWork > 0L);
             Assert.True(result.Counters.PeakMemoryBytes > 0L);
             Assert.Equal(0L, result.Counters.OpenHandles);
         }

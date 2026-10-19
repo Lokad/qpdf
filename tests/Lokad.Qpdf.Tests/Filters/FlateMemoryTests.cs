@@ -122,31 +122,6 @@ public sealed class FlateMemoryTests
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
-    [Fact]
-    public void CompressedBlocksWithoutOutputConsumeWork()
-    {
-        const int Blocks = 10000;
-        byte[] emptyBlocks = new byte[2 + 5 * Blocks + 4];
-        emptyBlocks[0] = 0x78;
-        emptyBlocks[1] = 0x01;
-        for (int block = 0; block < Blocks; block++)
-        {
-            int start = 2 + 5 * block;
-            emptyBlocks[start] = block == Blocks - 1 ? (byte)1 : (byte)0;
-            emptyBlocks[start + 3] = 0xFF;
-            emptyBlocks[start + 4] = 0xFF;
-        }
-
-        emptyBlocks[^1] = 1; // Empty Adler-32.
-        Assert.Empty(FlateFilter.Decode(emptyBlocks, null, QpdfLimits.Default,
-            new ResourceGovernor(QpdfLimits.Default, CancellationToken.None)));
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 20000L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => FlateFilter.Decode(emptyBlocks, null, limits, governor));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), error.LimitName);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-    }
-
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

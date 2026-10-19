@@ -140,7 +140,7 @@ public sealed class JobConfigurationOwnershipTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         await Assert.ThrowsAsync<QpdfParseException>(async () => await JobJsonLoader.ParseAsync(host,
             """{"jobJsonFile":"child.json"}""", QpdfLimits.Default, governor, CancellationToken.None));
-        Assert.True(governor.Snapshot().TotalWork > 0 && governor.Snapshot().PeakMemoryBytes > 0);
+        Assert.True(governor.Snapshot().PeakMemoryBytes > 0);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(0L, governor.Snapshot().OpenHandles);
         Assert.Equal(0L, host.OpenLeaseCount);

@@ -67,7 +67,6 @@ public sealed class ScopedFlateEncodeTests
         ResourceGovernor other = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(other);
         Assert.Throws<InvalidOperationException>(() => FlateFilter.Encode([1], null, QpdfLimits.Default, governor, memory, CancellationToken.None));
-        Assert.Equal(0L, governor.Snapshot().TotalWork);
         Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);
         Assert.Equal(0L, memory.ReservedBytes);
     }
@@ -83,7 +82,7 @@ public sealed class ScopedFlateEncodeTests
         memory.Reserve(97L);
         byte[] source = new byte[4 * 1024 * 1024]; new Random(109).NextBytes(source);
         // Give the codec its own test thread and keep the observer runnable so
-        // cancellation follows measured input work within the original budget.
+        // cancellation follows actual encoded-buffer growth.
         Task worker = Task.Factory.StartNew(() =>
         {
             while (true)
@@ -96,9 +95,8 @@ public sealed class ScopedFlateEncodeTests
         try
         {
             long started = Stopwatch.GetTimestamp();
-            while (governor.Snapshot().TotalWork < 32768L && !worker.IsCompleted
+            while (governor.Snapshot().PeakMemoryBytes < FlateFilter.DeflateWorkingSetBytes + 65536L && !worker.IsCompleted
                 && Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(10)) { Thread.SpinWait(16); }
-            Assert.True(governor.Snapshot().TotalWork >= 32768L);
             cancellation.Cancel();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));
             Assert.Equal(97L, memory.ReservedBytes);

@@ -37,7 +37,7 @@ internal static class CatalogCopy
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         PdfDictionary? catalog = TryGetCatalog(engine);
         if (catalog is null)
         {
@@ -55,7 +55,7 @@ internal static class CatalogCopy
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         try
         {
             PdfReference? link = copier.AddIndirectObject(raw);
@@ -96,7 +96,7 @@ internal static class CatalogCopy
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         PdfDictionary? catalog = TryGetCatalog(engine);
         if (catalog is null)
         {
@@ -110,14 +110,14 @@ internal static class CatalogCopy
             if (catalog.TryGet(PdfName.FromAscii("StructTreeRoot"), out QpdfObject? rawTree) && rawTree is not null && rawTree is not PdfNull)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 tree = copier.AddIndirectObject(rawTree);
             }
 
             if (catalog.TryGet(PdfName.FromAscii("MarkInfo"), out QpdfObject? rawMark) && rawMark is not null && rawMark is not PdfNull)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 mark = copier.CopyValue(rawMark, 0);
             }
         }
@@ -168,7 +168,7 @@ internal static class CatalogCopy
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         PdfDictionary? catalog = TryGetCatalog(engine);
         if (catalog is null)
         {
@@ -178,7 +178,7 @@ internal static class CatalogCopy
         foreach (PdfName key in catalog.Keys)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (IsHandledCatalogKey(key.DisplayText))
             {
                 continue;

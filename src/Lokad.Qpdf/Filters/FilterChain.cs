@@ -133,7 +133,7 @@ internal static class FilterChain
             governor.ReserveMemory(bytes);
             try
             {
-                governor.ChargeWork(input.Length);
+                governor.NoteOperation();
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 byte[] passthrough = new byte[input.Length];
                 GovernedBufferStream.CopyBytes(input, passthrough, governor, token, CancellationToken.None);
@@ -149,7 +149,7 @@ internal static class FilterChain
         {
             for (int i = 0; i < stages.Count; i++)
             {
-                token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 byte[] next = DecodeStage(current, stages[i], limits, governor, token);
                 current = next;
                 governor.ReleaseMemory(owned);
@@ -236,9 +236,9 @@ internal static class FilterChain
             return true;
         }
 
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         raw = Deref(raw, resolver, "/EarlyChange");
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (raw is PdfNull)
         {
             return true;

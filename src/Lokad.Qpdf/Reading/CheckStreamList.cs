@@ -33,7 +33,7 @@ internal sealed class CheckStreamList : IDisposable
     internal PdfStream Get(int index, CancellationToken token)
     {
         List<PdfStream> items = Items; ResourceGovernor governor = Governor;
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         return items[index];
     }
 
@@ -41,11 +41,11 @@ internal sealed class CheckStreamList : IDisposable
     {
         List<PdfStream> items = Items; ResourceGovernor governor = Governor;
         ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(CheckStreamList));
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (items.Count == items.Capacity)
         {
             long capacity = Math.Min(Array.MaxLength, Math.Max(4L, items.Capacity * 2L));
-            governor.ChargeWork(checked(items.Count + capacity));
+            governor.NoteOperation();
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         }
         ParserContainers.AddItem(memory, items, stream, IntPtr.Size);

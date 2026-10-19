@@ -38,7 +38,6 @@ internal sealed class GovernedText : IDisposable
     internal static string CopySubstring(ResourceGovernor governor, ParserMemoryScope memory, string source, int start, int length)
     {
         governor.CheckCancellation();
-        governor.ChargeWork(checked(length / 256L + 1L));
         if (length == 0) { return string.Empty; }
         long bytes = StringBytes(length);
         memory.Reserve(bytes);
@@ -49,8 +48,6 @@ internal sealed class GovernedText : IDisposable
     internal static GovernedText DecodeUtf8(ResourceGovernor governor, ReadOnlySpan<byte> bytes)
     {
         governor.CheckCancellation();
-        // Each bounded work unit covers at most 256 input bytes in each pass.
-        governor.ChargeWork(checked(2L * (bytes.Length / 256L + 1L)));
         int length = StrictUtf8.GetCharCount(bytes);
         governor.CheckCancellation();
         long reserved = checked(OwnerBytes + StringBytes(length));
@@ -78,7 +75,7 @@ internal sealed class GovernedText : IDisposable
                     for (int offset = 0; offset < chunk.Used; offset += Math.Min(256, chunk.Used - offset))
                     {
                         int count = Math.Min(256, chunk.Used - offset);
-                        state.governor.ChargeWork(count);
+                        state.governor.NoteOperation();
                         state.governor.CheckCancellation();
                         chunk.CopyTo(offset, target.Slice(position, count));
                         position += count;
@@ -92,19 +89,6 @@ internal sealed class GovernedText : IDisposable
             governor.ReleaseMemory(reserved);
             throw;
         }
-    }
-
-    internal static GovernedText Create(ResourceGovernor governor, DiagnosticStage stage, DiagnosticStage.Entry entry)
-    {
-        governor.CheckCancellation();
-        long reserved = checked(OwnerBytes + StringBytes(entry.Length));
-        governor.ReserveMemory(reserved);
-        try
-        {
-            string value = string.Create(entry.Length, (stage, entry), static (target, state) => state.stage.CopyTo(state.entry, target));
-            return new GovernedText(governor, value, reserved, entry.Utf8Bytes);
-        }
-        catch { governor.ReleaseMemory(reserved); throw; }
     }
 
     private readonly ref struct FormattingState(ResourceGovernor governor, ReadOnlySpan<DiagnosticPart> parts)

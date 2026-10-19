@@ -165,9 +165,7 @@ public sealed class RetainedLedgerLifetimeTests
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         memory.Reserve(32L);
         object wrapper = new();
-        long work = governor.Snapshot().TotalWork;
         memory.RetainGraph();
-        Assert.Equal(work, governor.Snapshot().TotalWork);
         Assert.Equal(0L, memory.ReservedBytes);
         Verify(first, "string");
         GC.KeepAlive(first); GC.KeepAlive(wrapper); GC.KeepAlive(borrowed);

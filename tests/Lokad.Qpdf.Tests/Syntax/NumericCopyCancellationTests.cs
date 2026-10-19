@@ -40,16 +40,12 @@ public sealed class NumericCopyCancellationTests
         PdfParser parser = new(QpdfLimits.Default, governor, new(governor), null,
             governorToken ? CancellationToken.None : canceled.Token);
         byte[] data = new byte[8 * 1024 * 1024]; Array.Fill(data, (byte)'0');
-        bool observed = false;
-        // Observe the actual copy checkpoint on its own thread. A polling
-        // controller can be descheduled until the entire copy has finished.
+        int blocks = 0;
         Assert.ThrowsAny<OperationCanceledException>(() => parser.CopyNumericTextObserved(data, () =>
         {
-            if (governor.Snapshot().TotalWork < 8L) { return; }
-            observed = true;
-            canceled.Cancel();
+            if (++blocks == 8) { canceled.Cancel(); }
         }));
-        Assert.True(observed); Assert.InRange(governor.Snapshot().TotalWork, 8L, 2048L);
+        Assert.Equal(8, blocks);
     }
 
     [Fact]

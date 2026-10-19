@@ -81,17 +81,17 @@ public sealed class QpdfDocument : IAsyncDisposable
 
     /// <summary>Gets an immutable snapshot of the job counters and memory estimates.</summary>
     /// <remarks>The current implementation charges snapshot creation to the document's
-    /// estimated storage and work budgets. Snapshots remain valid after disposal;
+    /// estimated storage budgets. Snapshots remain valid after disposal;
     /// their values do not measure the heap or require independent physical-memory billing.</remarks>
-    /// <exception cref="QpdfLimitException">Snapshot storage or work exceeds the job budget.</exception>
+    /// <exception cref="QpdfLimitException">Snapshot storage exceeds the job budget.</exception>
     /// <exception cref="OperationCanceledException">The job cancellation token is canceled.</exception>
     public QpdfExecutionCounters Counters => _governor.OwnedSnapshot();
 
     /// <summary>Gets an immutable snapshot of the recorded warnings.</summary>
-    /// <remarks>Fresh collection storage estimates and work are charged to the document budgets.
+    /// <remarks>Fresh collection storage estimates are charged to the document budgets.
     /// Snapshots preserve diagnostic identities and remain valid after disposal.
     /// Empty snapshots borrow shared storage.</remarks>
-    /// <exception cref="QpdfLimitException">Snapshot storage or work exceeds the job budget.</exception>
+    /// <exception cref="QpdfLimitException">Snapshot storage exceeds the job budget.</exception>
     /// <exception cref="OperationCanceledException">The job cancellation token is canceled.</exception>
     public IReadOnlyList<QpdfDiagnostic> Warnings
     {
@@ -125,7 +125,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         HashSet<int> repaired = ParserContainers.CreateSet<int>(memory);
         for (int index = 0; index < pages.Count; index++)
         {
-            cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation(); _governor.ChargeWork(1L);
+            cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
             PageLocation location = pages[index];
             if (PdfDictionaryLookup.TryGet(location.Page, "Resources"u8, _governor, cancellationToken, out QpdfObject raw)
                 && PageInheritance.Resolve(engine, raw, Limits, _governor) is PdfDictionary) { continue; }
@@ -651,7 +651,6 @@ public sealed class QpdfDocument : IAsyncDisposable
     internal long ReadDeclaredPageCount()
     {
         _governor.CheckCancellation();
-        _governor.ChargeWork(4L);
         PdfDictionary pages = ReadPageRoot(Engine);
         if (pages.TryGet(CountKey, out QpdfObject count) && count is PdfInteger integer)
         {
@@ -759,7 +758,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             throw new QpdfParseException($"Page tree depth exceeds {limits.MaxNestingDepth}.", null, null);
         }
 
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         PdfName? type = ReadType(node);
         if (type is not null && type.RawSpan.SequenceEqual("Page"u8))
         {

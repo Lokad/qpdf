@@ -245,25 +245,4 @@ public sealed class ZlibFlateTests
         await Assert.ThrowsAsync<ArgumentNullException>(() => Qpdf.RunZlibFlateAsync(host, QpdfPath.From("inputs/a.bin"), QpdfPath.From("outputs/b.bin"), options, null, CancellationToken.None).AsTask());
 #pragma warning restore CS8625
     }
-    [Fact]
-    public async Task TightWorkBudgetFailsWithoutPublishing()
-    {
-        byte[] raw = new byte[1024 * 1024];
-        byte[] payload;
-        using (System.IO.MemoryStream output = new())
-        {
-            using (System.IO.Compression.ZLibStream compressor = new(output, System.IO.Compression.CompressionLevel.Fastest, true))
-            {
-                compressor.Write(raw, 0, raw.Length);
-            }
-
-            payload = output.ToArray();
-        }
-
-        InMemoryQpdfHost host = HostWith("inputs/a.bin", payload);
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 1L };
-        QpdfExecutionResult result = await Qpdf.RunZlibFlateAsync(host, QpdfPath.From("inputs/a.bin"), QpdfPath.From("outputs/b.bin"), new QpdfZlibFlateOptions(QpdfZlibFlateMode.Uncompress, null), limits, CancellationToken.None);
-        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/b.bin"), out byte[] _));
-    }
 }

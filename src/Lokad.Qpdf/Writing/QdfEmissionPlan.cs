@@ -44,7 +44,7 @@ internal sealed class QdfEmissionPlan : IDisposable
                 int? original = null;
                 if (originalIds is not null)
                 {
-                    governor.ChargeWork(1L);
+                    governor.NoteOperation();
                     if (originalIds.TryGetValue(numbered.Number, out int found)) { original = found; }
                 }
                 QpdfObject value;

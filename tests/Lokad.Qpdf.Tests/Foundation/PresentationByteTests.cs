@@ -184,20 +184,20 @@ public sealed class PresentationByteTests
     [InlineData("job", false, true)]
     [InlineData("mixed", true, false)]
     [InlineData("response", true, true)]
-    public async Task SuppressedWarningsStillConsumeTheirMessageBytes(string route, bool noWarn, bool warningExitZero)
+    public async Task OnlyStoredMessagesConsumeTheirByteAllowance(string route, bool noWarn, bool warningExitZero)
     {
         const string flags = "verbose progress report-memory-usage";
         ByteHost baselineHost = await Prepare("whole", false, true);
-        QpdfExecutionResult baseline = await Run(baselineHost, route, "whole", flags, QpdfLimits.Default, CancellationToken.None);
+        QpdfExecutionResult baseline = await Run(baselineHost, route, "whole", flags + (noWarn ? " no-warn" : ""), QpdfLimits.Default, CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, baseline.Status);
-        Assert.Equal(1, baseline.Diagnostics.Count(diagnostic => diagnostic.Code == QpdfDiagnosticCode.DuplicateKey));
+        Assert.Equal(noWarn ? 0 : 1, baseline.Diagnostics.Count(diagnostic => diagnostic.Code == QpdfDiagnosticCode.DuplicateKey));
         long required = MessageBytes(baseline);
         ByteHost host = await Prepare("whole", false, true);
         QpdfExecutionResult result = await Run(host, route, "whole", flags + (noWarn ? " no-warn" : "")
             + (warningExitZero ? " warning-exit-0" : ""), QpdfLimits.Default with { MaxDiagnosticBytes = required }, CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
         Assert.Equal(warningExitZero ? QpdfExitCode.Success : QpdfExitCode.Warning, result.ExitCode);
-        Assert.Equal(7L, result.Counters.DiagnosticCount);
+        Assert.Equal(noWarn ? 6L : 7L, result.Counters.DiagnosticCount);
         Assert.Equal(noWarn ? 0 : 1, result.Diagnostics.Count(diagnostic => diagnostic.Code == QpdfDiagnosticCode.DuplicateKey));
         Assert.Equal(1, host.Commits); Assert.Equal(0L, host.Inner.OpenLeaseCount);
         ByteHost shortHost = await Prepare("whole", false, true);
@@ -283,53 +283,6 @@ public sealed class PresentationByteTests
             await ExactBytesMatchTheSelectedSummaries("argv", "whole", "verbose progress report-memory-usage");
         }
         finally { CultureInfo.CurrentCulture = prior; }
-    }
-
-    [Theory]
-    [MemberData(nameof(DecimalBoundaries))]
-    public void MessageSizingMatchesCompleteDecimalFormatting(long value)
-    {
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        using PresentationCountReservation? reservation = PresentationCountReservation.Create(governor, true, true, true, CancellationToken.None);
-        Assert.NotNull(reservation);
-        string verbose = $"Verbose summary: {value} output bytes, {value} decoded bytes, peak {value} bytes (estimated).";
-        string memory = $"Peak memory usage: {value} bytes (estimated).";
-        long expected = Encoding.UTF8.GetByteCount(verbose) + Encoding.UTF8.GetByteCount(memory);
-        if (value > 0L)
-        { for (int i = 1; i <= 4; i++) { expected += Encoding.UTF8.GetByteCount($"Write progress: {i * 25}% of {value} bytes."); } }
-        Assert.Equal(expected, reservation.MessageBytes(value, value, value));
-    }
-
-    [Fact]
-    public void AcceptedSummariesChargeTheirExactBytesOnce()
-    {
-        ResourceGovernor baseline = new(QpdfLimits.Default, CancellationToken.None);
-        using PresentationCountReservation? preview = PresentationCountReservation.Create(baseline, true, true, true, CancellationToken.None);
-        Assert.NotNull(preview);
-        baseline.ChargeOutputBytes(999L);
-        long bytes = preview.MessageBytes(999L, 0L, baseline.Snapshot().PeakMemoryBytes);
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxDiagnosticBytes = bytes }, CancellationToken.None);
-        using PresentationCountReservation? reservation = PresentationCountReservation.Create(governor, true, true, true, CancellationToken.None);
-        governor.ChargeOutputBytes(999L);
-        governor.PresentDiagnosticCount();
-        Assert.Equal(6L, governor.Snapshot().DiagnosticCount);
-        QpdfLimitException exceeded = Assert.Throws<QpdfLimitException>(() => governor.ReserveDiagnostic(1L));
-        Assert.Equal(nameof(QpdfLimits.MaxDiagnosticBytes), exceeded.LimitName);
-        Assert.Equal(bytes + 1L, exceeded.Requested);
-        governor.ReserveDiagnostic(0L);
-        Assert.Equal(7L, governor.Snapshot().DiagnosticCount);
-    }
-
-    [Fact]
-    public void AnticipatedOutputReservesSlotsBeforeLaterWarnings()
-    {
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxDiagnostics = 6L }, CancellationToken.None);
-        using PresentationCountReservation? reservation = PresentationCountReservation.Create(governor, true, true, true, CancellationToken.None);
-        governor.AnticipatePresentationOutput(1000L);
-        QpdfLimitException exceeded = Assert.Throws<QpdfLimitException>(() => governor.ReserveDiagnostic(0L));
-        Assert.Equal(nameof(QpdfLimits.MaxDiagnostics), exceeded.LimitName);
-        Assert.Equal(0L, governor.Snapshot().TotalOutputBytes);
-        Assert.Equal(0L, governor.Snapshot().DiagnosticCount);
     }
 
     private sealed class ByteHost : IQpdfHost

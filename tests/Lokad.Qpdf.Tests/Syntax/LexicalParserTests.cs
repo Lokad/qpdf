@@ -147,27 +147,6 @@ public sealed class LexicalParserTests
         using (var display = CanonicalDisplay.Render(value, QpdfLimits.Default, governor)) { Assert.Equal("[ <abcd> <ff00> ]", display.Value); }
     }
 
-    [Theory]
-    [InlineData(false, false)]
-    [InlineData(true, false)]
-    [InlineData(false, true)]
-    [InlineData(true, true)]
-    public void UnescapingChargesWorkAfterTokenScanningAndReleasesAdmission(bool name, bool escapes)
-    {
-        string text = name
-            ? escapes ? "/A" + string.Concat(Enumerable.Repeat("#41", 21846)) : "/" + new string('A', 65536)
-            : escapes ? "(a" + string.Concat(Enumerable.Repeat("\\n", 32768)) + ")" : "(" + new string('a', 65536) + ")";
-        byte[] bytes = Encoding.ASCII.GetBytes(text);
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 20L };
-        ResourceGovernor scanGovernor = new(limits, CancellationToken.None);
-        Assert.True(new PdfTokenizer(bytes).TryReadToken(out _, false, scanGovernor));
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null) { TolerateObjectErrors = true };
-        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => parser.ParseObjectValue(new PdfTokenizer(bytes), 0));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), error.LimitName);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-    }
-
     [Fact]
     public void NulNameRepairDoesNotSwallowDiagnosticBudgetFailure()
     {

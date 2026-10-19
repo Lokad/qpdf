@@ -36,7 +36,6 @@ public sealed record QpdfExecutionCounters
 {
     private long _liveMemoryBytes;
     private long _peakMemoryBytes;
-    private long _totalWork;
     private long _totalDecodedBytes;
     private long _totalOutputBytes;
     private long _hostOperations;
@@ -47,7 +46,6 @@ public sealed record QpdfExecutionCounters
     public QpdfExecutionCounters(
         long liveMemoryBytes,
         long peakMemoryBytes,
-        long totalWork,
         long totalDecodedBytes,
         long totalOutputBytes,
         long hostOperations,
@@ -56,7 +54,6 @@ public sealed record QpdfExecutionCounters
     {
         _liveMemoryBytes = liveMemoryBytes;
         _peakMemoryBytes = peakMemoryBytes;
-        _totalWork = totalWork;
         _totalDecodedBytes = totalDecodedBytes;
         _totalOutputBytes = totalOutputBytes;
         _hostOperations = hostOperations;
@@ -68,7 +65,6 @@ public sealed record QpdfExecutionCounters
     {
         _liveMemoryBytes = source._liveMemoryBytes;
         _peakMemoryBytes = source._peakMemoryBytes;
-        _totalWork = source._totalWork;
         _totalDecodedBytes = source._totalDecodedBytes;
         _totalOutputBytes = source._totalOutputBytes;
         _hostOperations = source._hostOperations;
@@ -76,16 +72,16 @@ public sealed record QpdfExecutionCounters
         _diagnosticCount = source._diagnosticCount;
     }
 
-    /// <summary>Compares the eight observed counter values.</summary>
+    /// <summary>Compares the seven observed counter values.</summary>
     public bool Equals(QpdfExecutionCounters? other) => other is not null
         && LiveMemoryBytes == other.LiveMemoryBytes && PeakMemoryBytes == other.PeakMemoryBytes
-        && TotalWork == other.TotalWork && TotalDecodedBytes == other.TotalDecodedBytes
+        && TotalDecodedBytes == other.TotalDecodedBytes
         && TotalOutputBytes == other.TotalOutputBytes && HostOperations == other.HostOperations
         && OpenHandles == other.OpenHandles && DiagnosticCount == other.DiagnosticCount;
 
-    /// <summary>Hashes the eight observed counter values.</summary>
+    /// <summary>Hashes the seven observed counter values.</summary>
     public override int GetHashCode() => HashCode.Combine(LiveMemoryBytes, PeakMemoryBytes,
-        TotalWork, TotalDecodedBytes, TotalOutputBytes, HostOperations, OpenHandles, DiagnosticCount);
+        TotalDecodedBytes, TotalOutputBytes, HostOperations, OpenHandles, DiagnosticCount);
 
     /// <summary>Gets the estimated job-memory charge at snapshot time.</summary>
     /// <remarks>This immutable accounting value is not a live heap measurement.</remarks>
@@ -94,9 +90,6 @@ public sealed record QpdfExecutionCounters
     /// <summary>Gets the high-water mark of the estimated job-memory charge.</summary>
     /// <remarks>Unreleased accounting charges do not establish retained memory.</remarks>
     public long PeakMemoryBytes => _peakMemoryBytes;
-
-    /// <summary>Gets the charged units of bounded work.</summary>
-    public long TotalWork => _totalWork;
 
     /// <summary>Gets the decoded stream payload bytes.</summary>
     public long TotalDecodedBytes => _totalDecodedBytes;
@@ -110,7 +103,9 @@ public sealed record QpdfExecutionCounters
     /// <summary>Gets the currently open host handles.</summary>
     public long OpenHandles => _openHandles;
 
-    /// <summary>Gets the recorded diagnostics.</summary>
+    /// <summary>Gets cumulative accepted diagnostic records, including prepared summaries.</summary>
+    /// <remarks>Suppressed warnings and the bounded terminal failure are excluded.
+    /// Summaries abandoned on a later failure remain counted.</remarks>
     public long DiagnosticCount => _diagnosticCount;
 
     // Only a governor's private, prepaid snapshot is refreshed. No exposed
@@ -119,7 +114,6 @@ public sealed record QpdfExecutionCounters
     {
         _liveMemoryBytes = counters.LiveMemoryBytes;
         _peakMemoryBytes = counters.PeakMemoryBytes;
-        _totalWork = counters.TotalWork;
         _totalDecodedBytes = counters.TotalDecodedBytes;
         _totalOutputBytes = counters.TotalOutputBytes;
         _hostOperations = counters.HostOperations;
@@ -142,7 +136,9 @@ public sealed record QpdfExecutionResult
     /// <summary>Gets the command-adapter exit code.</summary>
     public QpdfExitCode ExitCode => _exitCode;
 
-    /// <summary>Gets the recorded diagnostics.</summary>
+    /// <summary>Gets cumulative accepted diagnostic records, including prepared summaries.</summary>
+    /// <remarks>Suppressed warnings and the bounded terminal failure are excluded.
+    /// Summaries abandoned on a later failure remain counted.</remarks>
     public IReadOnlyList<QpdfDiagnostic> Diagnostics => _diagnostics;
 
     /// <summary>Gets the final resource counters.</summary>

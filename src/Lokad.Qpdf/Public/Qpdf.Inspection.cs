@@ -258,14 +258,13 @@ public static partial class Qpdf
         foreach (int number in document.Engine.XRefEntries.Keys)
         {
             governor.CheckCancellation();
-            governor.ChargeWork(1L);
             ParserContainers.AddItem(memory, numbers, number, sizeof(int));
         }
         GovernedCollections.SortNumbers(memory, governor, numbers);
         foreach (int number in numbers)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             Reading.XrefEntry entry = document.Engine.XRefEntries[number];
             if (entry.Kind == Reading.XrefEntryKind.Free)
             {
@@ -291,7 +290,7 @@ public static partial class Qpdf
         foreach (Reading.PageLocation location in document.PageReferences)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (location.Source is null)
             {
                 throw new QpdfException("Page dictionary is not an indirect object.");
@@ -316,7 +315,7 @@ public static partial class Qpdf
             using ParserMemoryScope contentMemory = ParserMemoryScope.Create(governor);
             foreach (PdfReference content in PageContentRefs(location.Page, governor, contentMemory))
             {
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 diagnostics.AddParts(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, ["    ", content.ObjectNumber, " ", content.Generation, " R"]);
             }
 

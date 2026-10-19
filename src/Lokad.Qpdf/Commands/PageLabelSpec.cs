@@ -68,7 +68,7 @@ internal sealed record PageLabelSpec(string FirstPage, PdfPageLabelStyle? Style,
             throw new ArgumentNullException(nameof(label));
         }
 
-        governor.CheckCancellation(); governor.ChargeWork(1L);
+        governor.CheckCancellation();
         Span<char> digits = stackalloc char[10];
         if (!label.FirstPage.TryFormat(digits, out int length, provider: System.Globalization.CultureInfo.InvariantCulture))
         { throw new InvalidOperationException("Typed label exceeds its bounded page storage."); }

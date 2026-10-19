@@ -76,7 +76,6 @@ internal static class CounterReport
             + " exit=" + ((int)result.ExitCode).ToString()
             + " in=" + inputBytes.ToString()
             + " out=" + outputBytes.ToString()
-            + " work=" + counters.TotalWork.ToString()
             + " decoded=" + counters.TotalDecodedBytes.ToString()
             + " peakmem=" + counters.PeakMemoryBytes.ToString()
             + " livemem=" + counters.LiveMemoryBytes.ToString()
@@ -201,7 +200,7 @@ internal static class CounterReport
         source.Cancel();
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1-50", "--", "outputs/a.pdf"]), source.Token).ConfigureAwait(false);
         QpdfExecutionCounters counters = result.Counters;
-        Console.WriteLine("[counter] cancel-select-50 status=" + result.Status.ToString() + " exit=" + ((int)result.ExitCode).ToString() + " in=" + input.Length.ToString() + " work=" + counters.TotalWork.ToString() + " hostops=" + counters.HostOperations.ToString());
+        Console.WriteLine("[counter] cancel-select-50 status=" + result.Status.ToString() + " exit=" + ((int)result.ExitCode).ToString() + " in=" + input.Length.ToString() + " hostops=" + counters.HostOperations.ToString());
         if (result.Status != QpdfExecutionStatus.Canceled)
         {
             throw new InvalidOperationException("cancel-select-50 was not canceled.");

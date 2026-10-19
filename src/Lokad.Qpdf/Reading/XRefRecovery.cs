@@ -8,7 +8,7 @@ namespace Lokad.Qpdf.Reading;
 /// Bounded cross-reference repair, separate from strict resolution so heuristics
 /// can never weaken the strict contract. Scans for indirect object headers,
 /// trial-parses each candidate with per-object error tolerance, keeps the last valid
-/// occurrence, bounds scan work through the host governor, and fills
+/// occurrence, checks cancellation throughout the scan, and fills
 /// unscanned gaps as free. The tail trailer wins when its root resolves;
 /// otherwise the last scanned catalog wins.
 /// </summary>
@@ -67,7 +67,7 @@ internal static class XRefRecovery
         int scannedMax = 0;
         foreach (int number in entries.Keys)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (number > scannedMax)
             {
                 scannedMax = number;
@@ -114,7 +114,7 @@ internal static class XRefRecovery
         Dictionary<int, XrefEntry> repaired = ParserContainers.CreateDictionary<int, XrefEntry>(results);
         foreach (KeyValuePair<int, XrefEntry> entry in entries)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (entry.Key >= 1 && entry.Key < size)
             {
                 ParserContainers.EnsureEntryCapacity(results, repaired, 24L);
@@ -125,7 +125,7 @@ internal static class XRefRecovery
 
         for (int number = 1; number < size; number++)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (!repaired.ContainsKey(number))
             {
                 ParserContainers.EnsureEntryCapacity(results, repaired, 24L);
@@ -137,7 +137,6 @@ internal static class XRefRecovery
         values.Reserve(84L); // At most ten decimal digits and the scalar/string overhead.
         int digits = 1;
         for (int remaining = size; remaining >= 10; remaining /= 10) { digits++; }
-        governor.ChargeWork(digits);
         governor.CheckCancellation();
         // Own the numeric backing instead of borrowing the BCL's small-number
         // string cache, whose lifetime does not follow this recovered trailer.
@@ -229,7 +228,6 @@ internal static class XRefRecovery
         {
             if (position - chargedThrough >= ScanWindowBytes)
             {
-                governor.ChargeWork(1L);
                 governor.CheckCancellation();
                 chargedThrough = position;
             }
@@ -296,7 +294,7 @@ internal static class XRefRecovery
                 continue;
             }
 
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             using ParserMemoryScope trial = ParserMemoryScope.Create(governor);
             QpdfObject? value = TryParseObject(data, parser, numberStart, (int)number, (int)generation, trial);
 
@@ -366,7 +364,6 @@ internal static class XRefRecovery
         {
             if ((i - scanStart) % ScanWindowBytes == 0)
             {
-                governor.ChargeWork(1L);
                 governor.CheckCancellation();
             }
 
@@ -429,7 +426,6 @@ internal static class XRefRecovery
         {
             if (position - checkedThrough >= ScanWindowBytes)
             {
-                governor.ChargeWork(1L);
                 governor.CheckCancellation();
                 checkedThrough = position;
             }

@@ -75,24 +75,6 @@ public sealed class ContentBufferTests
         Assert.Equal(64L, governor.Snapshot().LiveMemoryBytes); Assert.Equal("ABCG>"u8.ToArray(), stream.Data);
     }
 
-    [Fact]
-    public void EveryDecodeWorkInterruptionPreservesPriorScope()
-    {
-        PdfStream stream = Stream("ASCIIHexDecode", "q Q /F1 12 Tf"u8.ToArray()); int failures = 0, successes = 0;
-        for (int maximum = 1; maximum <= 511; maximum++)
-        {
-            ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = maximum }, CancellationToken.None);
-            using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(23L); long live = governor.Snapshot().LiveMemoryBytes;
-            using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
-            {
-                try { var decoded = Decode(stream, governor, memory); Assert.True(decoded.Decoded); decoded = default; successes++; }
-                catch (QpdfLimitException failure) { Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); failures++; }
-            }
-            Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
-        }
-        Assert.True(failures > 0); Assert.True(successes > 0);
-    }
-
     [Theory]
     [InlineData("", "")]
     [InlineData("q Q", "q Q")]
@@ -124,23 +106,5 @@ public sealed class ContentBufferTests
         using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
         { Assert.ThrowsAny<QpdfException>(() => Normalize(input, governor, memory, size ? 2L : 32768L)); Assert.Equal(0L, memory.ReservedBytes); }
         Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
-    }
-
-    [Fact]
-    public void EveryNormalizationWorkInterruptionPreservesPriorScope()
-    {
-        byte[] input = "/F#31 (x\\t) Tj\r\n"u8.ToArray(); int failures = 0, successes = 0;
-        for (int maximum = 1; maximum <= 511; maximum++)
-        {
-            ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = maximum }, CancellationToken.None);
-            using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(23L); long live = governor.Snapshot().LiveMemoryBytes;
-            using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
-            {
-                try { byte[]? result = Normalize(input, governor, memory, 32768L); Assert.Equal("/F1 (x\\t) Tj\n"u8.ToArray(), result); result = null; successes++; }
-                catch (QpdfLimitException failure) { Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); failures++; }
-            }
-            Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
-        }
-        Assert.True(failures > 0); Assert.True(successes > 0);
     }
 }

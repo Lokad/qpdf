@@ -172,7 +172,6 @@ public sealed class CheckTransformationTests
             ["--check", "--show-npages", "--pages", "b.pdf", "1", "--"], QpdfLimits.Default, cancellation.Token);
         Assert.True(host.ForeignReadCompleted);
         Assert.Equal(QpdfExecutionStatus.Canceled, result.Status);
-        Assert.True(result.Counters.TotalWork > 0L);
         Assert.True(result.Counters.PeakMemoryBytes > 0L);
         Assert.Equal(0L, result.Counters.OpenHandles);
         Assert.Equal(0L, storage.OpenLeaseCount);
@@ -417,7 +416,6 @@ public sealed class CheckTransformationTests
         Assert.DoesNotContain(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.XrefListing && d.Message.StartsWith("8/", StringComparison.Ordinal));
         Assert.Null(result.OutputBytes);
         Assert.Equal(0L, result.Counters.TotalOutputBytes);
-        Assert.True(result.Counters.TotalWork > 0L);
         Assert.Equal(0L, result.Counters.OpenHandles);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
@@ -471,13 +469,10 @@ public sealed class CheckTransformationTests
     }
 
     [Theory]
-    [InlineData("job", "memory")]
-    [InlineData("argv", "memory")]
-    [InlineData("mixed", "memory")]
-    [InlineData("job", "work")]
-    [InlineData("argv", "work")]
-    [InlineData("mixed", "work")]
-    public async Task TransformationCeilingsPreserveExistingTargets(string route, string ceiling)
+    [InlineData("job")]
+    [InlineData("argv")]
+    [InlineData("mixed")]
+    public async Task TransformationCeilingsPreserveExistingTargets(string route)
     {
         string range = string.Join(",", Enumerable.Repeat("1", 150));
         string properties = "\"check\":\"\",\"pages\":[{\"file\":\".\",\"range\":\"" + range + "\"}],\"rotate\":[\"+90\"],\"showPages\":\"\"";
@@ -492,9 +487,7 @@ public sealed class CheckTransformationTests
             await seed.WriteAsync("prior"u8.ToArray(), CancellationToken.None);
             await seed.CommitAsync(CancellationToken.None);
         }
-        QpdfLimits limits = ceiling == "memory" ? generous with { MaxMemoryBytes = control.Counters.PeakMemoryBytes / 2L }
-            // Weak identity-index collisions vary between equivalent jobs.
-            : generous with { MaxWork = control.Counters.TotalWork / 2L };
+        QpdfLimits limits = generous with { MaxMemoryBytes = control.Counters.PeakMemoryBytes / 2L };
         QpdfExecutionResult result = await Execute(host, route, properties, flags, limits);
         Assert.True(result.Status == QpdfExecutionStatus.Failed,
             $"Expected budget failure; got {result.Status}/{result.ExitCode}, control peak {control.Counters.PeakMemoryBytes}, "

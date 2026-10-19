@@ -602,9 +602,9 @@ public sealed class JsonInspectionTests
     }
 
     [Theory]
-    [InlineData("/Filter [/FlateDecode 7]", "")]
-    [InlineData("/Filter [/FlateDecode /FlateDecode] /DecodeParms [<< /Predictor 1 >>]", "")]
-    public async Task PageImagesMalformedFilterFails(string imageExtra, string _)
+    [InlineData("/Filter [/FlateDecode 7]")]
+    [InlineData("/Filter [/FlateDecode /FlateDecode] /DecodeParms [<< /Predictor 1 >>]")]
+    public async Task PageImagesMalformedFilterFails(string imageExtra)
     {
         byte[] fixture = BuildImagePdf(imageExtra);
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);

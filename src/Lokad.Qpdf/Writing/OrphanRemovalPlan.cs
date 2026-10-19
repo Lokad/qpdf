@@ -50,7 +50,7 @@ internal sealed class OrphanRemovalPlan : IDisposable
     private Dictionary<int, QpdfObject> Pool => _pool ?? throw new ObjectDisposedException(nameof(OrphanRemovalPlan));
     private Dictionary<int, int> Mapping => _mapping ?? throw new ObjectDisposedException(nameof(OrphanRemovalPlan));
     private void Check() { _token.ThrowIfCancellationRequested(); Governor.CheckCancellation(); }
-    private void Visit() { Check(); Governor.ChargeWork(1L); }
+    private void Visit() { Check(); Governor.NoteOperation(); }
 
     private void Add<T>(List<T> items, T value, long itemBytes)
     {
@@ -58,7 +58,7 @@ internal sealed class OrphanRemovalPlan : IDisposable
         if (items.Count == items.Capacity)
         {
             long capacity = Math.Min(Array.MaxLength, Math.Max(4L, items.Capacity * 2L));
-            Governor.ChargeWork(checked(items.Count + capacity)); Check();
+            Governor.NoteOperation(); Check();
         }
         ParserContainers.AddItem(Memory, items, value, itemBytes);
     }
@@ -125,7 +125,7 @@ internal sealed class OrphanRemovalPlan : IDisposable
         if (drops is null || sources is null || drops.Count == 0) { return; }
         // Admit the forward mutations and their possible rollback before either
         // dictionary changes. Remove/Add reuse the existing dictionary slots.
-        Governor.ChargeWork(checked(2L * (drops.Count + (long)sources.Count))); Check();
+        Governor.NoteOperation(); Check();
         int removedObjects = 0, removedSources = 0;
         try
         {
@@ -145,7 +145,7 @@ internal sealed class OrphanRemovalPlan : IDisposable
         }
         catch
         {
-            // Cleanup is bounded by the admitted plan and precharged work. It
+            // Cleanup is bounded by the admitted plan. It
             // must finish even when the caller or governor token is cancelled.
             while (removedSources != 0)
             { KeyValuePair<int, int> source = sources[--removedSources]; Mapping.Add(source.Key, source.Value); }

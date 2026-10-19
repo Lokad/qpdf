@@ -44,7 +44,7 @@ internal static class Program
         public void Decode(Stream encoded, QpdfJpegFrame frame, Memory<byte> samples, QpdfJpegCodecContext context)
         {
             using IDisposable working = context.ReserveMemory(4096L);
-            context.CheckCancellation(); context.ChargeWork(samples.Length);
+            context.CheckCancellation();
             Check(frame.Width == 1 && frame.Height == 1 && frame.Components == 1, "public JPEG descriptor");
             Check(encoded.ReadByte() == 255 && encoded.ReadByte() == 216, "borrowed JPEG source");
             samples.Span.Fill(123); Calls++;
@@ -145,14 +145,14 @@ internal static class Program
             CancellationToken.None);
         Check(jobCheck.Status == QpdfExecutionStatus.Completed && jobCheck.ExitCode == QpdfExitCode.Success, "job checker execution");
         Check(jobCheck.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.PageCount && d.Message.EndsWith(": 2", StringComparison.Ordinal)), "job checker page count");
-        Check(jobCheck.Counters.TotalWork > 0 && jobCheck.Counters.OpenHandles == 0 && jobCheckHost.OpenLeaseCount == 0, "job checker counters and cleanup");
+        Check(jobCheck.Counters.OpenHandles == 0 && jobCheckHost.OpenLeaseCount == 0, "job checker counters and cleanup");
         InMemoryQpdfHost strictJobHost = NewHost("inputs/in.pdf", BreakStartXref(input));
         QpdfExecutionResult strictJobCheck = await Qpdf.ExecuteJobAsync(
             strictJobHost,
             """{"inputFile":"inputs/in.pdf","check":"","suppressRecovery":""}""",
             CancellationToken.None);
         Check(strictJobCheck.Status == QpdfExecutionStatus.Failed && strictJobCheck.ExitCode == QpdfExitCode.Error, "job checker damaged xref rejection");
-        Check(strictJobCheck.Counters.TotalWork > 0 && strictJobCheck.Counters.OpenHandles == 0 && strictJobHost.OpenLeaseCount == 0, "failed job checker counters and cleanup");
+        Check(strictJobCheck.Counters.OpenHandles == 0 && strictJobHost.OpenLeaseCount == 0, "failed job checker counters and cleanup");
         Console.WriteLine("PASS job checker, combined page count, damaged xref rejection and cleanup");
 
         InMemoryQpdfHost nestedHost = NewHost("inputs/in.pdf", input);
@@ -163,7 +163,7 @@ internal static class Program
         Check(nested.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.PageCount && d.Message.EndsWith(": 2", StringComparison.Ordinal)), "nested checker page count");
         QpdfExecutionResult nestedArgv = await Qpdf.ExecuteAsync(nestedHost, new QpdfCommandInvocation(["--job-json-file=inputs/parent.json"]), CancellationToken.None);
         Check(nestedArgv.Status == QpdfExecutionStatus.Completed && nestedArgv.ExitCode == QpdfExitCode.Success, "joined job-file execution");
-        Check(nestedArgv.Counters.TotalWork > 0 && nestedArgv.Counters.OpenHandles == 0 && nestedHost.OpenLeaseCount == 0, "nested job cleanup");
+        Check(nestedArgv.Counters.OpenHandles == 0 && nestedHost.OpenLeaseCount == 0, "nested job cleanup");
         QpdfExecutionResult lastKey = await Qpdf.ExecuteJobAsync(nestedHost, """{"inputFile":"inputs/in.pdf","check":true,"check":""}""", CancellationToken.None);
         Check(lastKey.Status == QpdfExecutionStatus.Completed && lastKey.ExitCode == QpdfExitCode.Success, "duplicate job keys keep the final value");
         Console.WriteLine("PASS nested job files, joined argv, duplicate-key precedence and cleanup");
@@ -187,7 +187,7 @@ internal static class Program
                 && value.TryGetProperty("/Type", out JsonElement type) && type.GetString() == "/Page"
                 && value.TryGetProperty("/Rotate", out JsonElement rotation) && rotation.GetInt32() == 90), "mixed rotation effect");
         }
-        Check(mixed.Counters.TotalWork > 0 && mixed.Counters.OpenHandles == 0 && mixedHost.OpenLeaseCount == 0, "mixed argv cleanup");
+        Check(mixed.Counters.OpenHandles == 0 && mixedHost.OpenLeaseCount == 0, "mixed argv cleanup");
         Console.WriteLine("PASS mixed argv/files, version precedence, rotation and cleanup");
 
         QpdfExecutionResult mixedJson = await Qpdf.ExecuteAsync(mixedHost,
@@ -210,7 +210,7 @@ internal static class Program
         Check(combined.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.ObjectListing && d.Message == "<< /Pages 2 0 R /Type /Catalog >>"), "original catalog identity");
         Check(combined.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.PageListing && d.Message == "page 1: 3 0 R"), "original page identity");
         Check(combined.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.XrefListing && d.Message.StartsWith("3/0: uncompressed; offset = ", StringComparison.Ordinal)), "original xref listing");
-        Check(combined.Counters.TotalWork > 0 && combined.Counters.OpenHandles == 0 && inspectionHost.OpenLeaseCount == 0, "combined inspection cleanup");
+        Check(combined.Counters.OpenHandles == 0 && inspectionHost.OpenLeaseCount == 0, "combined inspection cleanup");
         Check(combined.OutputBytes is null, "informational inspection has no binary payload");
         Console.WriteLine("PASS checking with count, page, object, xref, attachment and linearization inspections");
 
@@ -420,8 +420,7 @@ internal static class Program
             new QpdfCommandInvocation(["inputs/display.pdf", "--show-object=8"]),
             new QpdfExecutionOptions(QpdfLimits.Default with { MaxDiagnosticBytes = 7L }), CancellationToken.None);
         Check(rejectedDisplay.Status == QpdfExecutionStatus.Failed && rejectedDisplay.Diagnostics.Count == 1
-            && rejectedDisplay.Diagnostics[0].Code == QpdfDiagnosticCode.BudgetExceeded
-            && rejectedDisplay.Counters.TotalWork > 0L && rejectedDisplay.Counters.PeakMemoryBytes > 0L
+            && rejectedDisplay.Diagnostics[0].Code == QpdfDiagnosticCode.BudgetExceeded && rejectedDisplay.Counters.PeakMemoryBytes > 0L
             && rejectedDisplay.Counters.OpenHandles == 0L, "display byte rejection preserves observed counters and releases handles");
         Check(displayHost.OpenLeaseCount == 0L, "display consumer leases closed");
         Console.WriteLine("PASS display admission, diagnostic byte limits and observed failure counters");
@@ -521,7 +520,7 @@ internal static class Program
                 "fifty successful recovery trials fit finite host memory");
             Check(recoveredResult.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.RecoveryEngaged)
                 && recoveredResult.Diagnostics.Any(d => d.Message == "inputs/recovered.pdf: 2"), "reconstruction preserves page count and warning");
-            Check(recoveredResult.Counters.TotalWork > 0L && recoveredHost.OpenLeaseCount == 0L, "recovery consumer records work and closes leases");
+            Check(recoveredHost.OpenLeaseCount == 0L, "recovery consumer closes leases");
         }
         Console.WriteLine("PASS successful recovery trial cleanup under finite host memory (argv/job)");
         byte[] largeTableInput = TwoPagePdfWithAuditObjects(Enumerable.Repeat("null", 2000).ToArray());
@@ -567,8 +566,7 @@ internal static class Program
         long cacheAfterDisposal = cacheAfterSnapshot.LiveMemoryBytes;
         await cacheDocument.DisposeAsync();
         QpdfExecutionCounters cacheRepeatSnapshot = cacheDocument.Counters;
-        Check(cacheAfterDisposal < cacheAfterSnapshot.PeakMemoryBytes && cacheRepeatSnapshot.LiveMemoryBytes == cacheAfterDisposal + 88L
-            && cacheRepeatSnapshot.TotalWork == cacheAfterSnapshot.TotalWork + 1L,
+        Check(cacheAfterDisposal < cacheAfterSnapshot.PeakMemoryBytes && cacheRepeatSnapshot.LiveMemoryBytes == cacheAfterDisposal + 88L,
             "cache metadata is released once on disposal");
         Check(cacheAlias.Value.SequenceEqual(Encoding.ASCII.GetBytes(new string('A', 32))) && cacheHost.OpenLeaseCount == 0L,
             "returned cache bytes survive disposal and leases close");
@@ -603,8 +601,7 @@ internal static class Program
         await lifetimeDocument.DisposeAsync();
         QpdfExecutionCounters lifetimeRepeatSnapshot = lifetimeDocument.Counters;
         Check(lifetimeBefore - lifetimeAfter >= lifetimeInput.Length && lifetimeAfter < lifetimeInput.Length
-            && lifetimeRepeatSnapshot.LiveMemoryBytes == lifetimeAfter + 88L
-            && lifetimeRepeatSnapshot.TotalWork == lifetimeAfterSnapshot.TotalWork + 1L, "exclusive document admission releases once");
+            && lifetimeRepeatSnapshot.LiveMemoryBytes == lifetimeAfter + 88L, "exclusive document admission releases once");
         Check(lifetimeAlias.Value.SequenceEqual("kept"u8.ToArray()) && lifetimeDocument.PageCount == 2
             && lifetimeHost.OpenLeaseCount == 0L, "returned bytes and page count survive document disposal");
         Console.WriteLine("PASS document input/table disposal with returned byte alias");
@@ -666,8 +663,7 @@ internal static class Program
                         new QpdfCommandInvocation(["inputs/close.pdf", "--json=2", "--json-key=qpdf", "--json-stream-data=file",
                             "--json-stream-prefix=side", "--json-object=5", "--", "outputs/close.json"]), CancellationToken.None);
                 Check(closeResult.Status == QpdfExecutionStatus.Failed
-                    && closeResult.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.HostOperationFailed)
-                    && closeResult.Counters.TotalWork > 0L && closeResult.Counters.OpenHandles == 0L,
+                    && closeResult.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.HostOperationFailed) && closeResult.Counters.OpenHandles == 0L,
                     "JSON close failure preserves observed counters");
             }
             Check(closeHost.InputCloses == 1 && closeHost.OutputCreates == 0 && closeSource.OpenLeaseCount == 0L,

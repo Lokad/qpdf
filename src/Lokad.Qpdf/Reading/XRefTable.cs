@@ -248,7 +248,7 @@ internal sealed class XRefTable : IDisposable
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxRevisions), sections, limits.MaxRevisions);
             }
 
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             current = ProcessSection(data, limits, governor, diagnostics, merged, trailers, ref effectiveSize, current.Value, memory, values);
         }
 
@@ -390,7 +390,7 @@ internal sealed class XRefTable : IDisposable
         int maximumCount = (int)Math.Min(Array.MaxLength, (long)merged.Count + entries.Count);
         foreach (KeyValuePair<int, XrefEntry> entry in entries)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (entry.Key < 0 || entry.Key >= effectiveSize)
             {
                 throw new QpdfParseException($"Xref entry for object {entry.Key} is outside /Size {effectiveSize}.", offset, entry.Key);
@@ -430,7 +430,7 @@ internal sealed class XRefTable : IDisposable
     {
         for (int number = 1; number < size; number++)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (!entries.ContainsKey(number))
             {
                 throw new QpdfParseException($"Object {number} has no xref entry.", null, number);
@@ -579,7 +579,7 @@ internal sealed class XRefTable : IDisposable
         List<(int First, int Count)> index = new(array.Count / 2);
         for (int i = 0; i < array.Count; i += 2)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (array[i] is not PdfInteger first || array[i + 1] is not PdfInteger count)
             {
                 throw new QpdfParseException("Cross-reference stream /Index entries must be integers.", null, null);
@@ -673,7 +673,7 @@ internal sealed class XRefTable : IDisposable
             for (int k = 0; k < count; k++)
             {
                 int number = first + k;
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 for (int field = 0; field < 3; field++)
                 {
                     long value = 0L;
@@ -856,7 +856,7 @@ internal sealed class XRefTable : IDisposable
                 throw new QpdfParseException($"Duplicate xref entry for object {number}.", firstToken.Offset, (int)number);
             }
 
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             ParserContainers.EnsureEntryCapacity(memory, entries, 24L, maximumCount);
             entries[(int)number] = entry;
         }

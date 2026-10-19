@@ -92,32 +92,6 @@ public sealed class BufferedSinkTests
     }
 
     [Fact]
-    public async Task FailedGrowthCopyRetiresOverlapAndPreservesTheOldBacking()
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 36864L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        using BufferedSink capture = BufferedSink.Create(limits, governor, CancellationToken.None);
-        byte[] source = Enumerable.Repeat((byte)73, 8192).ToArray();
-        await capture.AppendAsync(source, CancellationToken.None);
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        object stream = typeof(BufferedSink).GetField("_buffer", flags)?.GetValue(capture)
-            ?? throw new InvalidOperationException("Expected stream.");
-        byte[] backing = stream.GetType().GetField("_buffer", flags)?.GetValue(stream) as byte[]
-            ?? throw new InvalidOperationException("Expected backing.");
-        long live = governor.Snapshot().LiveMemoryBytes;
-        QpdfLimitException failure = await Assert.ThrowsAsync<QpdfLimitException>(() =>
-            capture.AppendAsync(new byte[1], CancellationToken.None).AsTask());
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-        Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
-        Assert.True(governor.Snapshot().PeakMemoryBytes >= live + 16384L + 32L);
-        Assert.Equal(8192L, capture.Length);
-        Assert.Same(backing, stream.GetType().GetField("_buffer", flags)?.GetValue(stream));
-        Assert.Equal(source, backing);
-        capture.Dispose();
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-    }
-
-    [Fact]
     public async Task ReturnedCopyAdmitsOverlapBeforeAllocationAndCanRetry()
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 200000L };
@@ -142,26 +116,6 @@ public sealed class BufferedSinkTests
         Assert.Equal(source, capture.ToArray(copies, CancellationToken.None));
         capture.Dispose();
         Assert.Equal(41L + source.Length + 32L, copies.ReservedBytes);
-    }
-
-    [Fact]
-    public async Task CopyWorkExhaustionRollsBackOnlyItsOwnReceipt()
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 204800L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        using ParserMemoryScope copies = ParserMemoryScope.Create(governor);
-        copies.Reserve(41L);
-        using BufferedSink capture = BufferedSink.Create(limits, governor, CancellationToken.None);
-        await capture.AppendAsync(new byte[65536], CancellationToken.None);
-        long live = governor.Snapshot().LiveMemoryBytes;
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => capture.ToArray(copies, CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-        Assert.Equal(limits.MaxWork, governor.Snapshot().TotalWork);
-        Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(41L, copies.ReservedBytes);
-        Assert.Equal(65536L, capture.Length);
-        capture.Dispose(); copies.Dispose();
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]
@@ -209,7 +163,6 @@ public sealed class BufferedSinkTests
             route == "factory" ? cancellation.Token : CancellationToken.None));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);
-        Assert.Equal(0L, governor.Snapshot().TotalWork);
     }
 
     [Theory]
@@ -230,7 +183,7 @@ public sealed class BufferedSinkTests
         byte[] chunk = new byte[8192];
         if (copying) { await capture.AppendAsync(chunk, CancellationToken.None); }
         CancellationToken token = route == "operation" ? cancellation.Token : CancellationToken.None;
-        long threshold = governor.Snapshot().TotalWork + 65536L;
+        int copyAttempts = 0;
         TaskCompletionSource observed = new(TaskCreationOptions.RunContinuationsAsynchronously);
         TaskCompletionSource resume = new(TaskCreationOptions.RunContinuationsAsynchronously);
         Task worker = Task.Run(async () =>
@@ -240,19 +193,19 @@ public sealed class BufferedSinkTests
                 if (copying)
                 {
                     using ParserMemoryScope owner = ParserMemoryScope.Create(governor);
-                    await PauseAfterObservedWork();
+                    await PauseAfterStorageOperations();
                     _ = capture.ToArray(owner, token);
                 }
                 else
                 {
-                    await PauseAfterObservedWork();
+                    await PauseAfterStorageOperations();
                     await capture.AppendAsync(chunk, token);
                 }
             }
         });
-        async ValueTask PauseAfterObservedWork()
+        async ValueTask PauseAfterStorageOperations()
         {
-            if (governor.Snapshot().TotalWork >= threshold)
+            if (copying ? ++copyAttempts >= 8 : capture.Length >= 65536L)
             {
                 observed.TrySetResult();
                 await resume.Task;
@@ -261,7 +214,6 @@ public sealed class BufferedSinkTests
         try
         {
             await observed.Task.WaitAsync(TimeSpan.FromSeconds(10));
-            Assert.True(governor.Snapshot().TotalWork >= threshold);
             cancellation.Cancel();
             resume.TrySetResult();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));

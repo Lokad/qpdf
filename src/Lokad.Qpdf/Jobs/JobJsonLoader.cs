@@ -119,7 +119,6 @@ internal static class JobJsonLoader
             foreach (string token in argv)
             {
                 _governor.CheckCancellation();
-                _governor.ChargeWork(token.Length + 1L);
                 bytes = checked(bytes + Encoding.UTF8.GetByteCount(token));
                 if (bytes > Math.Min(_limits.MaxInputBytes, int.MaxValue))
                 {
@@ -160,7 +159,7 @@ internal static class JobJsonLoader
             {
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), text.Length, _limits.MaxInputBytes);
             }
-            _governor.ChargeWork(text.Length + 1L);
+            _governor.NoteOperation();
             long bytes = Encoding.UTF8.GetByteCount(text);
             if (bytes < JobJsonMemory.DetailedThreshold) { AdmitDocument(bytes); }
             else
@@ -169,7 +168,7 @@ internal static class JobJsonLoader
                 var estimate = JobJsonMemory.Estimate(text.AsSpan(), bytes, _governor);
                 AdmitDetailedDocument(estimate.Document, estimate.Copies);
                 _bytes = total;
-                _governor.ChargeWork(bytes + 1L);
+                _governor.NoteOperation();
             }
             AddDocument(() => JsonDocument.Parse(text, Options()));
         }
@@ -198,7 +197,7 @@ internal static class JobJsonLoader
                 long total = CheckedDocumentTotal(input.Length);
                 ReserveDocument(checked(input.Length + GovernedBufferStream.ArrayOverheadBytes));
                 _bytes = total;
-                _governor.ChargeWork(input.Length + 1L);
+                _governor.NoteOperation();
             }
             identities.Add(input.Identity);
             byte[] bytes = new byte[(int)input.Length];
@@ -265,7 +264,7 @@ internal static class JobJsonLoader
             ReserveDocument(reservation - copies);
             TextStorage.AdmitJsonCopies(copies);
             _bytes = total;
-            _governor.ChargeWork(bytes + 1L);
+            _governor.NoteOperation();
         }
 
         private void AddDocument(Func<JsonDocument> parse)
@@ -293,12 +292,11 @@ internal static class JobJsonLoader
         private void Validate(JsonElement value, bool root)
         {
             _governor.CheckCancellation();
-            _governor.ChargeWork(1L);
             if (value.ValueKind == JsonValueKind.Object)
             {
                 foreach (JsonProperty property in value.EnumerateObject())
                 {
-                    _governor.ChargeWork(1L);
+                    _governor.NoteOperation();
                     if ((root && JobJsonParser.IsCryptoKey(property.Name)) || property.Name == "password")
                     {
                         throw new QpdfCryptoException(property.Name);
@@ -369,7 +367,6 @@ internal static class JobJsonLoader
             {
                 sorted.Sort((left, right) =>
                 {
-                    _governor.ChargeWork((long)left.Name.Length + right.Name.Length + 1L);
                     _governor.CheckCancellation();
                     return string.CompareOrdinal(left.Name, right.Name);
                 });
@@ -380,7 +377,7 @@ internal static class JobJsonLoader
             }
             foreach (JsonProperty property in sorted)
             {
-                _governor.ChargeWork(1L);
+                _governor.NoteOperation();
                 int order = string.CompareOrdinal(property.Name, FileKey);
                 if (order != 0 && (prefix ? order < 0 : order > 0)) { fields.Add(property); }
             }

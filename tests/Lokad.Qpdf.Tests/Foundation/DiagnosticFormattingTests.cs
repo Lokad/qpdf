@@ -13,10 +13,8 @@ public sealed class DiagnosticFormattingTests
 {
     private static void Collect() { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void NumbersNullFieldsAndCustomSignsKeepTheirExactText(bool staged)
+    [Fact]
+    public void NumbersNullFieldsAndCustomSignsKeepTheirExactText()
     {
         CultureInfo previous = CultureInfo.CurrentCulture;
         CultureInfo culture = (CultureInfo)CultureInfo.InvariantCulture.Clone();
@@ -28,20 +26,16 @@ public sealed class DiagnosticFormattingTests
             string expected = $"min={long.MinValue}; max={long.MaxValue}; null={empty}; invariant={long.MinValue.ToString(CultureInfo.InvariantCulture)}";
             ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
             DiagnosticBag bag = new(governor);
-            using DiagnosticStage? stage = staged ? bag.BeginStaging() : null;
             bag.AddParts(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning,
                 ["min=", long.MinValue, "; max=", long.MaxValue, "; null=", empty, "; invariant=", DiagnosticPart.Invariant(long.MinValue)]);
-            stage?.Flush();
             Assert.Equal(expected, Assert.Single(bag.Entries).Message);
             Assert.Equal(1L, governor.Snapshot().DiagnosticCount);
         }
         finally { CultureInfo.CurrentCulture = previous; }
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void SurrogatesCrossFragmentsAndStagingChunkBoundariesWithoutChangingQuotas(bool staged)
+    [Fact]
+    public void SurrogatesCrossFragmentsAndStagingChunkBoundariesWithoutChangingQuotas()
     {
         string prefix = new('A', 511);
         string high = "\ud800";
@@ -51,9 +45,7 @@ public sealed class DiagnosticFormattingTests
         QpdfLimits limits = QpdfLimits.Default with { MaxDiagnostics = 1L, MaxDiagnosticBytes = Encoding.UTF8.GetByteCount(expected) };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag bag = new(governor);
-        using DiagnosticStage? stage = staged ? bag.BeginStaging() : null;
         bag.AddParts(QpdfDiagnosticCode.DuplicateKey, QpdfDiagnosticSeverity.Warning, [prefix, high, (string?)null, low, tail]);
-        stage?.Flush();
         Assert.Equal(expected, Assert.Single(bag.Entries).Message);
         Assert.Equal(1L, governor.Snapshot().DiagnosticCount);
     }
@@ -160,36 +152,16 @@ public sealed class DiagnosticFormattingTests
         }
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void RawNamesAndDecodeLevelsMatchExistingDisplaySemantics(bool staged)
+    [Fact]
+    public void RawNamesAndDecodeLevelsMatchExistingDisplaySemantics()
     {
         PdfName name = new([0, 32, 35, 65, 126, 255]);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         DiagnosticBag bag = new(governor);
-        using DiagnosticStage? stage = staged ? bag.BeginStaging() : null;
         bag.AddParts(QpdfDiagnosticCode.DuplicateKey, QpdfDiagnosticSeverity.Warning,
             ["key=", DiagnosticPart.Name(name), "; level=", DiagnosticPart.DecodeLevel(QpdfStreamDecodeLevel.All)]);
-        stage?.Flush();
         Assert.Equal("#00#20#23A~#FF", name.DisplayText);
         Assert.Equal("key=#00#20#23A~#FF; level=All", Assert.Single(bag.Entries).Message);
-    }
-
-    [Fact]
-    public void EqualLargeFormattedMessagesShareWithoutAllocatingASecondString()
-    {
-        string prepared = new('A', 10000);
-        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 32768L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        DiagnosticBag bag = new(governor);
-        bag.AddParts(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning, ["before ", prepared, " after ", 7]);
-        string first = Assert.Single(bag.Entries).Message;
-        bag.AddParts(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning, ["before ", prepared, " after ", 7]);
-        Assert.Equal(2, bag.Entries.Count);
-        Assert.Same(first, bag.Entries[1].Message);
-        Assert.Equal(2L, governor.Snapshot().DiagnosticCount);
-        Assert.True(governor.Snapshot().PeakMemoryBytes <= limits.MaxMemoryBytes);
     }
 
     [Fact]
@@ -200,7 +172,6 @@ public sealed class DiagnosticFormattingTests
         byte[] input = new byte[84000];
         governor.ReserveMemory(84024L);
         DiagnosticBag bag = new(governor);
-        using DiagnosticStage stage = bag.BeginStaging() ?? throw new InvalidOperationException("Expected an exclusive stage.");
         string field = new('A', 16);
         for (int index = 0; index < 100; index++)
         {
@@ -208,7 +179,6 @@ public sealed class DiagnosticFormattingTests
         }
         Assert.True(governor.Snapshot().LiveMemoryBytes >= 84024L);
         governor.ReleaseMemory(84024L);
-        stage.Flush();
         Assert.Equal(100, bag.Entries.Count);
         for (int index = 0; index < 100; index++) { Assert.Equal($"warning {index}: {field}", bag.Entries[index].Message); }
         Assert.Equal(100L, governor.Snapshot().DiagnosticCount);
@@ -216,64 +186,22 @@ public sealed class DiagnosticFormattingTests
         GC.KeepAlive(input);
     }
 
-    [Fact]
-    public void AcceptedFormattedTextRemainsReadableAfterWorkIsExhausted()
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 500L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        DiagnosticBag bag = new(governor);
-        bag.AddParts(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning, ["accepted ", 7]);
-        QpdfDiagnostic prior = Assert.Single(bag.Entries);
-        governor.ChargeWork(governor.RemainingWorkUnits);
-        Assert.Throws<QpdfLimitException>(() => governor.ChargeWork(1L));
-        Assert.Same(prior, Assert.Single(bag.Entries));
-        Assert.Equal("accepted 7", prior.Message);
-        Assert.Equal(limits.MaxWork, governor.Snapshot().TotalWork);
-    }
-
     private static string ThrowingField() => throw new InvalidOperationException("A later field failed.");
 
     [Fact]
-    public void FormattingWorkFailurePreservesEarlierStagedTextAndItsPromise()
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 500L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        DiagnosticBag bag = new(governor);
-        using DiagnosticStage stage = bag.BeginStaging() ?? throw new InvalidOperationException("Expected an exclusive stage.");
-        bag.AddParts(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning, ["prior ", 7]);
-        long memory = governor.Snapshot().LiveMemoryBytes;
-        string field = new('A', 10000);
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => bag.AddParts(
-            QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning, ["later ", field, long.MaxValue]));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-        Assert.Equal(memory, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(1L, governor.Snapshot().DiagnosticCount);
-        Assert.True(governor.Snapshot().TotalWork < limits.MaxWork);
-        stage.Flush();
-        Assert.Equal("prior 7", Assert.Single(bag.Entries).Message);
-        Assert.Equal(1L, governor.Snapshot().DiagnosticCount);
-        Assert.True(governor.Snapshot().TotalWork <= limits.MaxWork);
-    }
-
-    [Fact]
-    public void CanceledFormattingReleasesPrivateStorageAndPreservesObservedCounters()
+    public void CanceledFormattingPreservesAcceptedHistoryWithoutNewAdmission()
     {
         using CancellationTokenSource cancellation = new();
         ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token);
         DiagnosticBag bag = new(governor);
-        using (DiagnosticStage stage = bag.BeginStaging() ?? throw new InvalidOperationException("Expected an exclusive stage."))
-        {
-            bag.AddParts(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning, ["prior ", 7]);
-            QpdfExecutionCounters before = governor.Snapshot();
-            cancellation.Cancel();
-            Assert.Throws<OperationCanceledException>(() => bag.AddParts(QpdfDiagnosticCode.RepairedObject,
-                QpdfDiagnosticSeverity.Warning, ["later ", long.MaxValue]));
-            Assert.Equal(before, governor.Snapshot());
-        }
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(1L, governor.Snapshot().DiagnosticCount);
-        Assert.True(governor.Snapshot().TotalWork > 0L);
-        Assert.Empty(bag.Entries);
+        bag.AddParts(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning, ["prior ", 7]);
+        IReadOnlyList<QpdfDiagnostic> accepted = bag.Entries;
+        QpdfExecutionCounters before = governor.Snapshot();
+        cancellation.Cancel();
+        Assert.Throws<OperationCanceledException>(() => bag.AddParts(QpdfDiagnosticCode.RepairedObject,
+            QpdfDiagnosticSeverity.Warning, ["later ", long.MaxValue]));
+        Assert.Equal(before, governor.Snapshot());
+        Assert.Equal("prior 7", Assert.Single(accepted).Message);
     }
 
     [Fact]
@@ -290,15 +218,12 @@ public sealed class DiagnosticFormattingTests
         Assert.Same(prior, Assert.Single(bag.Entries));
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void ExhaustedCountQuotaRejectsBeforeScanningLaterFields(bool staged)
+    [Fact]
+    public void ExhaustedCountQuotaRejectsBeforeScanningLaterFields()
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxDiagnostics = 1L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag bag = new(governor);
-        using DiagnosticStage? stage = staged ? bag.BeginStaging() : null;
         bag.AddParts(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning, ["prior ", 7]);
         QpdfExecutionCounters before = governor.Snapshot();
         string prepared = new('A', 10000);
@@ -306,7 +231,6 @@ public sealed class DiagnosticFormattingTests
             QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning, [prepared, long.MinValue]));
         Assert.Equal(nameof(QpdfLimits.MaxDiagnostics), failure.LimitName);
         Assert.Equal(before, governor.Snapshot());
-        stage?.Flush();
         Assert.Equal("prior 7", Assert.Single(bag.Entries).Message);
         Assert.Equal(1L, governor.Snapshot().DiagnosticCount);
     }
@@ -321,7 +245,7 @@ public sealed class DiagnosticFormattingTests
         bag.AddParts(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning, ["", " a"]);
         Assert.Equal(new[] { " a", "!@", " a" }, bag.Entries.Select(entry => entry.Message));
         Assert.NotSame(bag.Entries[0].Message, bag.Entries[1].Message);
-        Assert.Same(bag.Entries[0].Message, bag.Entries[2].Message);
+        Assert.Equal(bag.Entries[0].Message, bag.Entries[2].Message);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

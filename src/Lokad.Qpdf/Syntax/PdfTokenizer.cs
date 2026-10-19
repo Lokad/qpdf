@@ -57,7 +57,7 @@ internal sealed class PdfTokenizer
     private ReadOnlyMemory<byte> _data;
     private int _position;
     private ResourceGovernor? _governor;
-    private int _scanWork;
+    private int _scannedSinceCheck;
     private readonly CancellationToken _token;
 
     internal PdfTokenizer(ReadOnlyMemory<byte> data)
@@ -93,7 +93,7 @@ internal sealed class PdfTokenizer
     {
         SetPosition(position);
         _governor = null;
-        _scanWork = 0;
+        _scannedSinceCheck = 0;
     }
 
     internal void ResetForMember(ReadOnlyMemory<byte> data)
@@ -484,11 +484,11 @@ internal sealed class PdfTokenizer
     private void ScanStep()
     {
         _token.ThrowIfCancellationRequested();
-        if (++_scanWork >= 4096)
+        if (++_scannedSinceCheck >= 4096)
         {
-            _governor?.ChargeWork(1L);
+            _governor?.NoteOperation();
             _governor?.CheckCancellation();
-            _scanWork = 0;
+            _scannedSinceCheck = 0;
         }
     }
 }

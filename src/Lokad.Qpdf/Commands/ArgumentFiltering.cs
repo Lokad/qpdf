@@ -24,7 +24,7 @@ internal sealed class ArgumentFiltering : IDisposable
 
     private ResourceGovernor Governor => _governor ?? throw new ObjectDisposedException(nameof(ArgumentFiltering));
     private ParserMemoryScope Memory => _memory ?? throw new ObjectDisposedException(nameof(ArgumentFiltering));
-    internal void Visit() { Governor.CheckCancellation(); Governor.ChargeWork(1L); }
+    internal void Visit() { Governor.CheckCancellation(); }
     internal List<int> CreateMarkers() => _markers = ParserContainers.CreateList<int>(Memory);
     internal List<string> CreateStripped() => _stripped = ParserContainers.CreateList<string>(Memory);
     internal List<string> CreateKept() => _kept = ParserContainers.CreateList<string>(Memory);

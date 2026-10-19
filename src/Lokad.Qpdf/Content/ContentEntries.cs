@@ -18,7 +18,7 @@ internal sealed class ContentEntries : IDisposable
 
     internal static ContentEntries Create(ResourceGovernor governor, CancellationToken token)
     {
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         try { memory.Reserve(64L); return new(memory, governor, ParserContainers.CreateList<Entry>(memory), token); }
         catch { memory.Dispose(); throw; }
@@ -29,7 +29,7 @@ internal sealed class ContentEntries : IDisposable
     internal int Count => Items.Count;
 
     private void Visit()
-    { _token.ThrowIfCancellationRequested(); Governor.CheckCancellation(); Governor.ChargeWork(1L); }
+    { _token.ThrowIfCancellationRequested(); Governor.CheckCancellation(); }
 
     internal Entry Get(int index)
     { List<Entry> items = Items; Visit(); return items[index]; }
@@ -41,7 +41,7 @@ internal sealed class ContentEntries : IDisposable
         if (items.Count == items.Capacity)
         {
             long capacity = Math.Min(Array.MaxLength, Math.Max(4L, items.Capacity * 2L));
-            Governor.ChargeWork(checked(items.Count + capacity));
+            Governor.NoteOperation();
             _token.ThrowIfCancellationRequested(); Governor.CheckCancellation();
         }
         ParserContainers.AddItem(memory, items, entry, 24L);

@@ -36,7 +36,6 @@ internal static class JobJsonParser
         }
 
         governor.CheckCancellation();
-        governor.ChargeWork(checked(byteCount + 1L));
 
         // Admit the transient document model before constructing it: the parsed
         // document retains roughly the input size plus object overhead.
@@ -288,7 +287,6 @@ internal static class JobJsonParser
             foreach (JsonProperty property in properties)
             {
                 governor.CheckCancellation();
-                governor.ChargeWork(1L);
                 if (IsCryptoKey(property.Name)) { throw new QpdfCryptoException(property.Name); }
                 switch (property.Name)
                 {

@@ -35,7 +35,6 @@ internal readonly record struct ExecutionOutcome(
 internal readonly record struct ExecutionCounterValues(
     long LiveMemoryBytes,
     long PeakMemoryBytes,
-    long TotalWork,
     long TotalDecodedBytes,
     long TotalOutputBytes,
     long HostOperations,

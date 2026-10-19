@@ -39,7 +39,7 @@ internal sealed class GovernedReadStream : Stream
         _token.ThrowIfCancellationRequested();
         _governor.CheckCancellation();
         int count = Math.Min(Math.Min(buffer.Length, MaximumReadBytes), _input.Length - _position);
-        _governor.ChargeWork(count + 1L);
+        _governor.NoteOperation();
         _input.Span.Slice(_position, count).CopyTo(buffer);
         _position += count;
         return count;

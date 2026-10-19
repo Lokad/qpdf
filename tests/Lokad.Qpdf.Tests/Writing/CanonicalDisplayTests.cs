@@ -27,18 +27,6 @@ public sealed class CanonicalDisplayTests
     });
 
     [Fact]
-    public void NullReferenceFilteringHonorsWorkBudget()
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 1L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        NullResolver resolver = new(() => { });
-        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
-            CanonicalDisplay.Render(References(), limits, governor, resolver));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), error.LimitName);
-        Assert.Equal(0, resolver.Calls);
-    }
-
-    [Fact]
     public void NullReferenceFilteringObservesCancellationAfterLookupStarts()
     {
         using CancellationTokenSource cancellation = new();
@@ -47,40 +35,6 @@ public sealed class CanonicalDisplayTests
         Assert.Throws<OperationCanceledException>(() =>
             CanonicalDisplay.Render(References(), QpdfLimits.Default, governor, resolver));
         Assert.Equal(1, resolver.Calls);
-        Assert.True(governor.Snapshot().TotalWork > 0L);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void BinaryStringClassificationHonorsWorkBudget(bool hex)
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 1L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
-            CanonicalDisplay.Render(new PdfByteString(new byte[4096], hex), limits, governor));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), error.LimitName);
-    }
-
-    [Fact]
-    public void HexFormattingHonorsWorkBudgetAfterClassification()
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 257L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
-            CanonicalDisplay.Render(new PdfByteString(new byte[4096], false), limits, governor));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), error.LimitName);
-        Assert.Equal(257L, governor.Snapshot().TotalWork);
-    }
-
-    [Fact]
-    public void NameFormattingHonorsWorkBudget()
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 1L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
-            CanonicalDisplay.Render(new PdfName(new byte[4096]), limits, governor));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), error.LimitName);
     }
 
     [Theory]
@@ -100,7 +54,6 @@ public sealed class CanonicalDisplayTests
         cancellation.Cancel();
         Assert.True(observed);
         await Assert.ThrowsAsync<OperationCanceledException>(async () => await display.WaitAsync(TimeSpan.FromSeconds(10)));
-        Assert.True(governor.Snapshot().TotalWork >= 4096L);
         Assert.True(governor.Snapshot().PeakMemoryBytes >= 8192L);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }

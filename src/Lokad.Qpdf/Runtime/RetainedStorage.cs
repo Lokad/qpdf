@@ -2,7 +2,6 @@ using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Runtime;
 
-internal readonly record struct DiagnosticWorkState(long Messages);
 
 /// <summary>Coarse ownership of admitted graph, result and diagnostic storage.</summary>
 // Fresh construction scopes already know their estimates. Retention transfers
@@ -10,14 +9,10 @@ internal readonly record struct DiagnosticWorkState(long Messages);
 // objects. Only exclusive candidates need a small explicit rollback receipt.
 internal sealed class RetainedStorage(ResourceGovernor governor)
 {
-    private const long MessageNodeBytes = 48L;
     private readonly ResourceGovernor _governor = governor;
     private long _privateBytes;
     private long _callerBytes;
     private long _resultBytes;
-    private long _memoBytes;
-    private long _messageCount;
-    private MessageNode? _messages;
 
     internal sealed class Receipt(RetainedStorage owner, long bytes, bool callerOwned, bool provisional)
     {
@@ -28,16 +23,10 @@ internal sealed class RetainedStorage(ResourceGovernor governor)
         internal bool Active = true;
     }
 
-    private sealed class MessageNode(string message, int hash, MessageNode? next)
-    {
-        internal readonly string Message = message;
-        internal readonly int Hash = hash;
-        internal readonly MessageNode? Next = next;
-    }
+
 
     internal long CallerBytes => _callerBytes;
     internal long PrivateBytes => _privateBytes;
-    internal DiagnosticWorkState WorkState => new(_messageCount);
 
     private long Keep(long bytes, bool callerOwned)
     {
@@ -129,66 +118,14 @@ internal sealed class RetainedStorage(ResourceGovernor governor)
     }
 
     // Diagnostics/check details form one result batch; any of their immutable
-    // records can escape. Memo links are private and end with the invocation.
-    internal long RetainDiagnostic(long reservedBytes)
-        => _governor.OwnsDocumentCounters && !_governor.DocumentAccepted
-            ? RetainResult(reservedBytes) : Keep(reservedBytes, true);
+    // records can escape. Their bytes follow the caller owner.
     internal long RetainCheckOutcome(long reservedBytes)
         => Keep(reservedBytes, true);
 
-    internal string? FindDiagnosticMessage(string message, int hash)
-    {
-        for (MessageNode? node = _messages; node is not null; node = node.Next)
-        {
-            _governor.ChargeWork(1L); _governor.CheckCancellation();
-            string candidate = node.Message;
-            if (node.Hash != hash || candidate.Length != message.Length) { continue; }
-            bool equal = true;
-            for (int offset = 0; offset < message.Length; offset += Math.Min(256, message.Length - offset))
-            {
-                int count = Math.Min(256, message.Length - offset);
-                _governor.ChargeWork(count); _governor.CheckCancellation();
-                if (!candidate.AsSpan(offset, count).SequenceEqual(message.AsSpan(offset, count))) { equal = false; break; }
-            }
-            if (equal) { return candidate; }
-        }
-        return null;
-    }
-
-    internal string? FindDiagnosticMessage(ReadOnlySpan<DiagnosticPart> parts, DiagnosticTextInfo info)
-    {
-        for (MessageNode? node = _messages; node is not null; node = node.Next)
-        {
-            _governor.ChargeWork(1L); _governor.CheckCancellation();
-            string candidate = node.Message;
-            if (node.Hash != info.Hash || candidate.Length != info.Length) { continue; }
-            if (DiagnosticMessage.Matches(_governor, parts, candidate)) { return candidate; }
-        }
-        return null;
-    }
-
-    internal long RetainCachedDiagnostic(QpdfDiagnostic diagnostic, long reservedBytes, int messageHash)
-    {
-        _governor.PreflightDiagnosticWork(new(checked(_messageCount + 1L)));
-        _governor.ReserveMemory(MessageNodeBytes);
-        try
-        {
-            MessageNode node = new(diagnostic.Message, messageHash, _messages);
-            long retained = RetainDiagnostic(reservedBytes);
-            _messages = node;
-            _messageCount++;
-            _memoBytes += MessageNodeBytes;
-            return retained;
-        }
-        catch { _governor.ReleaseMemory(MessageNodeBytes); throw; }
-    }
-
     internal void Complete()
     {
-        _messages = null;
-        _messageCount = 0L;
-        long bytes = checked(_privateBytes + _memoBytes);
-        _privateBytes = 0L; _memoBytes = 0L; _resultBytes = 0L;
+        long bytes = _privateBytes;
+        _privateBytes = 0L; _resultBytes = 0L;
         _governor.ReleaseMemory(bytes);
     }
 }

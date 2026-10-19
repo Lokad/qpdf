@@ -30,7 +30,7 @@ internal static class JpegCodec
         if (quality < 0 || quality > 100) { throw new ArgumentOutOfRangeException(nameof(quality)); }
         IQpdfJpegCodec codec = governor.JpegCodec ?? throw new QpdfFilterException(QpdfFilterFailureReason.UnsupportedFilter,
             FilterName, "JPEG encoding requires a codec supplied by the host.");
-        governor.ChargeWork(pixels);
+        governor.NoteOperation();
         QpdfJpegCodecContext context = new(governor);
         try
         {

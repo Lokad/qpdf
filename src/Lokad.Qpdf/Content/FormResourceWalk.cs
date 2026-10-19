@@ -52,7 +52,7 @@ internal sealed class FormResourceWalk : IDisposable
     private ResourceGovernor Governor => _governor ?? throw new ObjectDisposedException(nameof(FormResourceWalk));
     private List<PdfDictionary> Scopes => _scopes ?? throw new ObjectDisposedException(nameof(FormResourceWalk));
     private List<Form> Forms => _forms ?? throw new ObjectDisposedException(nameof(FormResourceWalk));
-    private void Visit() { _token.ThrowIfCancellationRequested(); Governor.CheckCancellation(); Governor.ChargeWork(1L); }
+    private void Visit() { _token.ThrowIfCancellationRequested(); Governor.CheckCancellation(); }
     internal int ScopeCount => Scopes.Count;
     internal int Count => Forms.Count;
     internal PdfDictionary GetScope(int index) { Visit(); return Scopes[index]; }
@@ -64,7 +64,7 @@ internal sealed class FormResourceWalk : IDisposable
     private void Grow<T>(List<T> items)
     {
         if (items.Count != items.Capacity) { return; }
-        Governor.ChargeWork(checked(items.Count + Math.Min(Array.MaxLength, Math.Max(4L, items.Capacity * 2L))));
+        Governor.NoteOperation();
         _token.ThrowIfCancellationRequested(); Governor.CheckCancellation();
     }
     internal void Add(int? id, PdfStream stream)
@@ -76,7 +76,7 @@ internal sealed class FormResourceWalk : IDisposable
         if (seen.Contains(scope)) { return false; }
         if (seen.Count == seen.EnsureCapacity(0))
         {
-            Governor.ChargeWork(checked(seen.Count + Math.Min(Array.MaxLength, (seen.Count + 1L) * 3L)));
+            Governor.NoteOperation();
             _token.ThrowIfCancellationRequested(); Governor.CheckCancellation();
         }
         List<PdfDictionary> scopes = Scopes; Grow(scopes);

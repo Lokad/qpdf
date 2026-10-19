@@ -60,21 +60,6 @@ public sealed class PdfObjectComparisonTests
         comparison.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void FailedByteOrDeepComparisonClearsBorrowedFramesAndPreservesPriorReceipt(bool bytes)
-    {
-        QpdfObject left = bytes ? new PdfByteString(new byte[4096], false) : PdfBoolean.True;
-        QpdfObject right = bytes ? new PdfByteString(new byte[4096], false) : new PdfBoolean(true);
-        if (!bytes) { for (int depth = 0; depth < 128; depth++) { left = new PdfArray([left]); right = new PdfArray([right]); } }
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = 64L }, CancellationToken.None);
-        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
-        using PdfObjectComparison comparison = PdfObjectComparison.Create(governor, CancellationToken.None);
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => comparison.AreEqual(Dictionary(left), Dictionary(right)));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); comparison.Dispose(); Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L, prior.ReservedBytes);
-    }
-
     [Fact]
     public void WarmedBorrowedComparisonsAllocateNoKeyDisplayPayloadOrStackCopies()
     {

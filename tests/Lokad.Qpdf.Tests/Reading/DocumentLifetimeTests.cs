@@ -104,7 +104,6 @@ public sealed class DocumentLifetimeTests
         await document.DisposeAsync();
         QpdfExecutionCounters repeatSnapshot = document.Counters;
         Assert.Equal(after + 88L, repeatSnapshot.LiveMemoryBytes);
-        Assert.Equal(afterSnapshot.TotalWork + 1L, repeatSnapshot.TotalWork);
         Collect();
         Assert.All(storage, item => Assert.False(item.IsAlive));
         Assert.True(before - after >= input.Length);
@@ -130,7 +129,6 @@ public sealed class DocumentLifetimeTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         await Assert.ThrowsAnyAsync<QpdfException>(async () => await Open(host, governor, QpdfLimits.Default, false));
         Assert.InRange(governor.Snapshot().LiveMemoryBytes, 1L, input.Length - 1L);
-        Assert.True(governor.Snapshot().TotalWork > 0L);
         Assert.Equal(0L, governor.Snapshot().OpenHandles);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
@@ -423,7 +421,6 @@ public sealed class DocumentLifetimeTests
         QpdfLimitException failure = await Assert.ThrowsAsync<QpdfLimitException>(() => Open(host, governor, limits, false).AsTask());
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
         Assert.True(governor.Snapshot().LiveMemoryBytes < input.Length);
-        Assert.True(governor.Snapshot().TotalWork > 0L);
         Assert.Equal(0L, governor.Snapshot().OpenHandles);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
@@ -439,14 +436,14 @@ public sealed class DocumentLifetimeTests
             (4, "null", null)
         ], 1);
         QpdfLimits limits = QpdfLimits.Default with { CancellationCheckInterval = 1L };
-        // Independently establish all object parsing work and retained values.
-        // The later threshold requires at least 10,000 additional page visits.
+        // Establish parsing capacity independently. Observe subsequent page-list
+        // growth rather than using an execution-fuel counter.
         ResourceGovernor expected = new(limits, CancellationToken.None);
         expected.ReserveMemory(input.Length + 32L);
         XRefTable table = XRefTable.Parse(input, limits, expected, new DiagnosticBag(expected), QpdfRecoveryMode.Strict);
         DocumentEngine engine = new(input, table, limits, expected, new DiagnosticBag(expected), QpdfRecoveryMode.Strict);
         engine.Load(1); engine.Load(2); engine.Load(3);
-        long pageThreshold = expected.Snapshot().TotalWork + 10000L;
+        long pageThreshold = expected.Snapshot().PeakMemoryBytes + 32768L;
         engine.Dispose();
         if ((object)table is IDisposable owned) { owned.Dispose(); }
         expected.ReleaseMemory(input.Length + 32L);
@@ -460,19 +457,16 @@ public sealed class DocumentLifetimeTests
                 limits, governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict, cancellation.Token).AsTask(),
                 CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default).Unwrap();
             long started = System.Diagnostics.Stopwatch.GetTimestamp();
-            while (governor.Snapshot().TotalWork < pageThreshold && !opening.IsCompleted
+            while (governor.Snapshot().PeakMemoryBytes < pageThreshold && !opening.IsCompleted
                 && System.Diagnostics.Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(10))
             {
                 Thread.SpinWait(16);
             }
             if (opening.IsCompleted) { await (await opening).DisposeAsync(); continue; }
-            Assert.True(governor.Snapshot().TotalWork >= pageThreshold,
-                $"Observed {governor.Snapshot().TotalWork} work; expected at least {pageThreshold} before the original 10-second observation deadline.");
             cancellation.Cancel();
             try { await (await opening.WaitAsync(TimeSpan.FromSeconds(10))).DisposeAsync(); }
             catch (OperationCanceledException)
             {
-                Assert.True(governor.Snapshot().TotalWork >= pageThreshold);
                 // No value escapes this canceled opening. Collected carriers
                 // may retire while parsing/traversal runs, so the independently
                 // established accepted graph is an upper bound, not an exact

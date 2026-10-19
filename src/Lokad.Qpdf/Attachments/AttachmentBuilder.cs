@@ -178,7 +178,7 @@ internal static class AttachmentBuilder
         List<PdfDictionary> leaves = new();
         for (int i = 0; i < pairs.Count; i += 64)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             int take = Math.Min(64, pairs.Count - i);
             List<QpdfObject> items = new(take * 2);
             for (int j = 0; j < take; j++)

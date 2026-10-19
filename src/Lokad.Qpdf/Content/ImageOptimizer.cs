@@ -67,7 +67,7 @@ internal static class ImageOptimizer
         foreach ((GraphCopier copier, int pageId) in occurrences)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (!copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? raw) || raw is not PdfDictionary page)
             {
                 continue;
@@ -218,7 +218,7 @@ internal static class ImageOptimizer
                 continue;
             }
 
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (entryId.HasValue)
             {
                 if (copier.CopiedObjects.ContainsKey(entryId.Value))

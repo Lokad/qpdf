@@ -295,16 +295,14 @@ public sealed class TypedWarningOwnershipTests
     }
 
     public static IEnumerable<object[]> AdmissionJobs()
-    { foreach (bool compressed in new[] { false, true }) foreach (string budget in new[] { "memory", "work" }) foreach (bool shortBudget in new[] { false, true }) { yield return [compressed, budget, shortBudget]; } }
+    { foreach (bool compressed in new[] { false, true }) foreach (bool shortBudget in new[] { false, true }) { yield return [compressed, shortBudget]; } }
 
     [Theory]
     [MemberData(nameof(AdmissionJobs))]
     [Trait("Layer", "Contract")]
-    public async Task CompleteJobsHonorExistingAdmissionCeilings(bool compressed, string budget, bool shortBudget)
+    public async Task CompleteJobsHonorExistingAdmissionCeilings(bool compressed, bool shortBudget)
     {
-        QpdfLimits limits = budget == "memory"
-            ? QpdfLimits.Default with { MaxMemoryBytes = shortBudget ? 16384L : 32768L }
-            : QpdfLimits.Default with { MaxWork = shortBudget ? 8192L : 16384L };
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = shortBudget ? 16384L : 32768L };
         object host = await Prepare("typed-page", compressed, "read", "success");
         Task<object> task = Start((IQpdfHost)host, "typed-page", limits, CancellationToken.None);
         try
@@ -318,7 +316,7 @@ public sealed class TypedWarningOwnershipTests
             if (failure is not null)
             {
                 Assert.True(shortBudget);
-                Assert.Equal(budget == "memory" ? nameof(QpdfLimits.MaxMemoryBytes) : nameof(QpdfLimits.MaxWork), failure.LimitName);
+                Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
                 Assert.Equal(0, Field(host, "Commits"));
                 Assert.True(((InMemoryQpdfHost)Read(host, "Inner")).TryGetOutput(Output, out byte[] prior));
                 Assert.Equal(new byte[] { 17, 23, 41 }, prior);
@@ -333,7 +331,6 @@ public sealed class TypedWarningOwnershipTests
                 Assert.Equal(1, independent.NumberOfPages);
             }
             Assert.True(governor.Snapshot().PeakMemoryBytes <= limits.MaxMemoryBytes);
-            Assert.True(governor.Snapshot().TotalWork <= limits.MaxWork);
             Assert.Equal(0L, governor.Snapshot().OpenHandles);
             Assert.Equal(0L, ((InMemoryQpdfHost)Read(host, "Inner")).OpenLeaseCount);
         }

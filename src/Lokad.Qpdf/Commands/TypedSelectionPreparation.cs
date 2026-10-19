@@ -67,7 +67,7 @@ internal sealed class TypedSelectionPreparation : IDisposable
         }
     }
 
-    private void Step() { Governor.CheckCancellation(); Governor.ChargeWork(1L); }
+    private void Step() { Governor.CheckCancellation(); }
 
     public void Dispose()
     {

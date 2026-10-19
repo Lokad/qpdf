@@ -115,6 +115,5 @@ public sealed class LinearizationReportFormattingTests
             LinearizationReport.Write("input.pdf", Data(), Graph(), governor, diagnostics, cancellation.Token));
         Assert.Empty(diagnostics.Entries);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(0L, governor.Snapshot().TotalWork);
     }
 }

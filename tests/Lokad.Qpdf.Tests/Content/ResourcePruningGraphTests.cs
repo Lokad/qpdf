@@ -144,27 +144,6 @@ public sealed class ResourcePruningGraphTests
         Assert.Equal(61L, prior.ReservedBytes); Assert.Equal(2, source.Fonts.Count);
     }
 
-    [Fact]
-    public void EveryObservedWorkInterruptionBeforePublicationRollsBackOnlyItsOwnGraph()
-    {
-        int failures = 0, completions = 0;
-        for (long maximum = 1L; maximum < 512L; maximum++)
-        {
-            QpdfLimits limits = QpdfLimits.Default with { MaxWork = maximum };
-            ResourceGovernor governor = new(limits, CancellationToken.None);
-            using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(61L);
-            using Prepared source = new(governor, false, true); long live = governor.Snapshot().LiveMemoryBytes;
-            try { PdfDictionary replacement = Prune(source.Copier, 1, source.Page, limits, governor, new DiagnosticBag(governor), CancellationToken.None); Verify(source, replacement); completions++; }
-            catch (QpdfLimitException failure)
-            {
-                Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.Same(source.Page, source.Copier.CopiedObjects[1]);
-                Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); failures++;
-            }
-            Assert.Equal(61L, prior.ReservedBytes); Assert.Equal(2, source.Fonts.Count);
-        }
-        Assert.True(failures > 0); Assert.True(completions > 0);
-    }
-
     private sealed class Escaping(object value, WeakReference governor, WeakReference copier, WeakReference page)
     { internal object? Value = value; internal readonly WeakReference Governor = governor, Copier = copier, Page = page; }
 

@@ -6,16 +6,6 @@ namespace Lokad.Qpdf.Tests.Filters;
 
 public sealed class PredictorPipelineMetadataTests
 {
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void MetadataVisitsHonorTheCeilingBeforeCodecExecution(bool lzw)
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 64L }; ResourceGovernor governor = new(limits, CancellationToken.None);
-        FilterStage stage = new(lzw ? LzwFilter.FilterName : FlateFilter.FilterName, PredictorMetadataTests.UnknownEntries(), null);
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => FilterChain.Decode([], [stage], limits, governor));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-    }
 
     [Theory]
     [InlineData(false)]

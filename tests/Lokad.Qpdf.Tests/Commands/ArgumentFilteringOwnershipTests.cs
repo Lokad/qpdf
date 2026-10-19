@@ -87,11 +87,10 @@ public sealed class ArgumentFilteringOwnershipTests(ITestOutputHelper log)
     {
         List<string> defects = [];
         foreach ((string shape, string limit, long bound) in new[]
-            { ("global", "memory", 6656L), ("global", "work", 2048L), ("pages", "memory", 28672L) })
+            { ("global", "memory", 6656L), ("pages", "memory", 28672L) })
         {
             QpdfLimits limits = QpdfLimits.Default with
-            { MaxMemoryBytes = limit == "memory" ? bound : QpdfLimits.Default.MaxMemoryBytes,
-                MaxWork = limit == "work" ? bound : QpdfLimits.Default.MaxWork };
+            { MaxMemoryBytes = limit == "memory" ? bound : QpdfLimits.Default.MaxMemoryBytes};
             Host warm = await CreateHost(); warm.Outcome = "open-fault";
             QpdfExecutionResult first = await Qpdf.ExecuteAsync(warm, new QpdfCommandInvocation([Input.Value, Output.Value]),
                 new QpdfExecutionOptions(limits), CancellationToken.None);
@@ -107,13 +106,13 @@ public sealed class ArgumentFilteringOwnershipTests(ITestOutputHelper log)
             QpdfExecutionResult result = await pending;
             log.WriteLine("FILTER LIMIT {0}|{1} bound={2} allocation={3} opens={4} codes={5}",
                 shape, limit, bound, allocation, host.Opens, string.Join(',', result.Diagnostics.Select(d => d.Code)));
-            bool rejects = shape == "pages" || limit == "work";
+            bool rejects = shape == "pages";
             if (host.Opens != (rejects ? 0 : 1) || !result.Diagnostics.Any(d => d.Code ==
                 (rejects ? QpdfDiagnosticCode.BudgetExceeded : QpdfDiagnosticCode.HostOperationFailed)))
             { defects.Add(shape + "|" + limit + "|admission"); }
             if (allocation >= 65536L) { defects.Add(shape + "|" + limit + "|allocation:" + allocation); }
             if (rejects && result.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.BudgetExceeded))
-            { Assert.Contains(result.Diagnostics, d => d.Message.Contains(limit == "memory" ? nameof(QpdfLimits.MaxMemoryBytes) : nameof(QpdfLimits.MaxWork), StringComparison.Ordinal)); }
+            { Assert.Contains(result.Diagnostics, d => d.Message.Contains(nameof(QpdfLimits.MaxMemoryBytes), StringComparison.Ordinal)); }
             if (limit == "memory") { Assert.True(result.Counters.PeakMemoryBytes <= bound); }
             Assert.Equal(QpdfExecutionStatus.Failed, result.Status); Assert.Equal(0L, host.Inner.OpenLeaseCount);
             Assert.Equal(arguments, invocation.Arguments);

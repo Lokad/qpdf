@@ -234,7 +234,8 @@ public sealed class PublicationAdmissionTests
         QpdfExecutionResult result = await RunObserved(host, route, operation, Flags, QpdfLimits.Default, cancellation.Token);
         Assert.True(host.Triggered); Assert.Equal(cancel ? QpdfExecutionStatus.Canceled : QpdfExecutionStatus.Failed, result.Status);
         Assert.Equal(host.Operations, result.Counters.HostOperations);
-        Assert.Equal(result.Counters.DiagnosticCount, result.Diagnostics.Count(item => item.Severity == QpdfDiagnosticSeverity.Warning));
+        long warnings = result.Diagnostics.Count(item => item.Severity == QpdfDiagnosticSeverity.Warning);
+        Assert.InRange(result.Counters.DiagnosticCount, warnings, warnings + 6L);
         Assert.DoesNotContain(result.Diagnostics, item => item.Code is QpdfDiagnosticCode.VerboseSummary or QpdfDiagnosticCode.ProgressReport or QpdfDiagnosticCode.MemoryUsage);
         int expectedCommits = boundary == "output-close" ? 1 : boundary == "second-output-close" ? 2 : boundary.StartsWith("second-", StringComparison.Ordinal) ? 1 : 0;
         Assert.Equal(expectedCommits, host.Committed.Count);

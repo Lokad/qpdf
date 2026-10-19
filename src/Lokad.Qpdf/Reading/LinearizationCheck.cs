@@ -450,7 +450,7 @@ internal static class LinearizationCheck
             for (int group = 0; group < groups; group++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 groupDeltas[group] = shared.ReadBits(groupWidth);
             }
             shared.AlignToByte();
@@ -459,7 +459,7 @@ internal static class LinearizationCheck
             for (int group = 0; group < groups; group++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 signatures[group] = shared.ReadBits(1) == 1L;
             }
             shared.AlignToByte();
@@ -468,7 +468,6 @@ internal static class LinearizationCheck
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 governor.CheckCancellation();
-                governor.ChargeWork(1L);
                 if (signature)
                 {
                     for (int k = 0; k < 4; k++)
@@ -482,7 +481,7 @@ internal static class LinearizationCheck
             for (int group = 0; group < groups; group++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 memberDeltas[group] = shared.ReadBits(objectWidth);
             }
             shared.AlignToByte();
@@ -521,7 +520,7 @@ internal static class LinearizationCheck
             for (int page = 0; page < pageCount; page++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 deltaObjects[page] = pages.ReadBits(deltaObjectsBits);
             }
             pages.AlignToByte();
@@ -530,7 +529,7 @@ internal static class LinearizationCheck
             for (int page = 0; page < pageCount; page++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 deltaLengths[page] = pages.ReadBits(deltaLengthBits);
             }
             pages.AlignToByte();
@@ -539,7 +538,7 @@ internal static class LinearizationCheck
             for (int page = 0; page < pageCount; page++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 long sharedCount = pages.ReadBits(sharedCountBits);
                 if (sharedCount < 0L || sharedCount > totalShared)
                 {
@@ -559,7 +558,7 @@ internal static class LinearizationCheck
                 for (int k = 0; k < count; k++)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    governor.ChargeWork(1L);
+                    governor.NoteOperation();
                     long id = pages.ReadBits(identifierBits);
                     if (id < 0L || id >= totalShared)
                     {
@@ -580,7 +579,7 @@ internal static class LinearizationCheck
                 for (int k = 0; k < count; k++)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    governor.ChargeWork(1L);
+                    governor.NoteOperation();
                     numerators[page][k] = (int)pages.ReadBits(numeratorBits);
                 }
             }
@@ -590,7 +589,7 @@ internal static class LinearizationCheck
             for (int page = 0; page < pageCount; page++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 contentOffsets[page] = pages.ReadBits(deltaContentOffsetBits);
             }
             pages.AlignToByte();
@@ -599,7 +598,7 @@ internal static class LinearizationCheck
             for (int page = 0; page < pageCount; page++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 contentLengths[page] = pages.ReadBits(deltaContentLengthBits);
             }
             pages.AlignToByte();
@@ -650,7 +649,7 @@ internal static class LinearizationCheck
         if (count == 0) { return Array.Empty<T>(); }
         if (count < 0 || count > Array.MaxLength) { throw new QpdfParseException("Hint table exceeds the supported capacity.", null, null); }
         memory.Reserve(checked(32L + count * itemBytes));
-        governor.ChargeWork(count);
+        governor.NoteOperation();
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         return new T[count];
     }
@@ -664,7 +663,7 @@ internal static class LinearizationCheck
 
     private static PdfStream ResolveHintObject(DocumentEngine engine, long offset, ResourceGovernor governor, out int number)
     {
-        governor.ChargeWork(engine.XRefEntries.Count);
+        governor.NoteOperation();
         foreach (System.Collections.Generic.KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
         {
             if (entry.Value.Kind == XrefEntryKind.Uncompressed && entry.Value.First == offset)
@@ -731,7 +730,6 @@ internal static class LinearizationCheck
         {
             _token.ThrowIfCancellationRequested();
             _governor.CheckCancellation();
-            _governor.ChargeWork(1L);
             if (count < 0 || count > 32)
             {
                 throw new QpdfParseException("Hint table requests an invalid bit width.", _position, null);

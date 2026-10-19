@@ -91,20 +91,6 @@ public sealed class SharedResourceHeuristicTests
         filler.Dispose(); Assert.False(Decide(engine, governor, CancellationToken.None)); Assert.Equal(97L, prior.ReservedBytes);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void WideRootOrPageMetadataExhaustsWorkWithoutChangingBorrowedValues(bool pageMetadata)
-    {
-        Dictionary<PdfName, QpdfObject> entries = new();
-        for (int index = 0; index < 512; index++) { entries.Add(PdfName.FromAscii("other" + index.ToString(System.Globalization.CultureInfo.InvariantCulture)), PdfNull.Instance); }
-        PdfDictionary wide = new(entries), trailer = pageMetadata ? Dictionary(("Root", Dictionary(("Pages", wide)))) : wide;
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = 64L }, CancellationToken.None);
-        using DocumentEngine engine = Engine(trailer, governor, new Dictionary<int, QpdfObject>()); long live = governor.Snapshot().LiveMemoryBytes;
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => Decide(engine, governor, CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(512, wide.Count);
-    }
-
     [Fact]
     public void WideChildrenRequireAdmittedQueueCapacityBeforeCompletingTheWalk()
     {
@@ -125,8 +111,7 @@ public sealed class SharedResourceHeuristicTests
         using DocumentEngine engine = Engine(Dictionary(), governor, new Dictionary<int, QpdfObject>());
         long live = governor.Snapshot().LiveMemoryBytes, peak = governor.Snapshot().PeakMemoryBytes; source.Cancel();
         Assert.ThrowsAny<OperationCanceledException>(() => Decide(engine, governor, governorToken ? CancellationToken.None : source.Token));
-        Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(peak, governor.Snapshot().PeakMemoryBytes); Assert.Equal(0L, governor.Snapshot().TotalWork);
-    }
+        Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(peak, governor.Snapshot().PeakMemoryBytes);     }
 
     private sealed class ObservedObjects(IReadOnlyDictionary<int, QpdfObject> inner, Action observe) : IReadOnlyDictionary<int, QpdfObject>
     {
@@ -147,8 +132,7 @@ public sealed class SharedResourceHeuristicTests
         using DocumentEngine engine = Engine(Dictionary(("Root", Dictionary(("Pages", Dictionary(("Kids", new PdfArray([new PdfReference(30, 0)]))))))), governor, objects);
         long live = governor.Snapshot().LiveMemoryBytes;
         Assert.ThrowsAny<OperationCanceledException>(() => Decide(engine, governor, governorToken ? CancellationToken.None : source.Token));
-        Assert.Equal(1, calls); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.True(governor.Snapshot().TotalWork > 0L);
-    }
+        Assert.Equal(1, calls); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);     }
 
     [Fact]
     public void RepeatedCompletedWalksReleaseScratchUnderTheSameFiniteMemoryCeiling()

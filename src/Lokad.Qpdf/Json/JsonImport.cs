@@ -145,7 +145,7 @@ internal static class JsonImport
         foreach (JsonProperty property in qpdf[1].EnumerateObject())
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (property.Name == "trailer")
             {
                 sawTrailer = true;
@@ -245,7 +245,7 @@ internal static class JsonImport
                 continue;
             }
 
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             merged[entry.Key] = engine.Load(entry.Key);
         }
 
@@ -253,7 +253,7 @@ internal static class JsonImport
         foreach (JsonProperty property in qpdf[1].EnumerateObject())
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (property.Name == "trailer")
             {
                 trailer = ReadTrailer(property.Value, governor, cancellationToken);
@@ -280,7 +280,7 @@ internal static class JsonImport
         bool sawJsonVersion = false;
         foreach (JsonProperty property in meta.EnumerateObject())
         {
-            governor.CheckCancellation(); governor.ChargeWork(1L);
+            governor.CheckCancellation();
             if (property.Name == "jsonversion")
             {
                 sawJsonVersion = true;
@@ -349,7 +349,7 @@ internal static class JsonImport
         PdfVersion? header = null;
         foreach (JsonProperty property in meta.EnumerateObject())
         {
-            governor.CheckCancellation(); governor.ChargeWork(1L);
+            governor.CheckCancellation();
             if (property.Name == "jsonversion")
             {
                 sawJsonVersion = true;
@@ -471,7 +471,7 @@ internal static class JsonImport
         PdfDictionary trailer = new(new Dictionary<PdfName, QpdfObject>());
         foreach (JsonProperty property in value.EnumerateObject())
         {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (property.Name == "value")
             {
                 sawValue = true;
@@ -522,7 +522,7 @@ internal static class JsonImport
         foreach (JsonProperty property in value.EnumerateObject())
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (property.Name == "value")
             {
                 sawValue = true;
@@ -547,7 +547,7 @@ internal static class JsonImport
                 foreach (JsonProperty inner in property.Value.EnumerateObject())
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    governor.ChargeWork(1L);
+                    governor.NoteOperation();
                     if (inner.Name == "dict")
                     {
                         QpdfObject decoded = DecodeValue(inner.Value, 0, governor, cancellationToken);
@@ -675,7 +675,7 @@ internal static class JsonImport
     }
     private static QpdfObject DecodeValue(JsonElement value, int depth, ResourceGovernor governor, CancellationToken token)
     {
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (depth > governor.MaxNestingDepth)
         { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, governor.MaxNestingDepth); }
 
@@ -717,7 +717,7 @@ internal static class JsonImport
     private static QpdfObject DecodeNumber(JsonElement value, ResourceGovernor governor)
     {
         string raw = value.GetRawText();
-        governor.ChargeWork(raw.Length);
+        governor.NoteOperation();
         if (IsLongText(raw) && long.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out long integer))
         {
             return new PdfInteger(raw, integer);
@@ -757,7 +757,7 @@ internal static class JsonImport
 
     private static QpdfObject DecodeString(string text, ResourceGovernor governor, CancellationToken token)
     {
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(text.Length);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (IsIndirectReference(text, out int number, out int generation)) { return new PdfReference(number, generation); }
         ReadOnlySpan<char> span = text.AsSpan();
         if (span.StartsWith("u:", StringComparison.Ordinal))
@@ -770,7 +770,7 @@ internal static class JsonImport
             byte[] bytes = new byte[hex.Length / 2];
             for (int index = 0; index < bytes.Length; index++)
             {
-                CheckTextChunk(index, bytes.Length, governor, token);
+                CheckTextCancellation(index, governor, token);
                 char high = hex[index * 2], low = hex[index * 2 + 1];
                 if (!IsHexChar(high) || !IsHexChar(low))
                 { throw new QpdfParseException("qpdf JSON binary string must be hexadecimal.", 0L, null); }
@@ -833,7 +833,7 @@ internal static class JsonImport
 
     private static byte[] EncodeUtf8(ReadOnlySpan<char> text, ResourceGovernor governor, CancellationToken token)
     {
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(text.Length);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         byte[] result = new byte[Encoding.UTF8.GetByteCount(text)];
         Encoding.UTF8.GetBytes(text, result);
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -846,7 +846,7 @@ internal static class JsonImport
         int written = 0;
         for (int index = 0; index < source.Length; index++)
         {
-            CheckTextChunk(written, source.Length, governor, token);
+            CheckTextCancellation(written, governor, token);
             byte value = source[index];
             if (value == '#')
             {
@@ -860,10 +860,10 @@ internal static class JsonImport
         return written == source.Length ? source : source.AsSpan(0, written).ToArray();
     }
 
-    private static void CheckTextChunk(int index, int length, ResourceGovernor governor, CancellationToken token)
+    private static void CheckTextCancellation(int index, ResourceGovernor governor, CancellationToken token)
     {
         if ((index & 255) != 0) { return; }
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(Math.Min(256, length - index));
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
     }
 
     private static bool IsHexChar(char c)
@@ -903,7 +903,7 @@ internal static class JsonImport
         bool pdfDoc = true;
         for (int index = 0; index < text.Length; index++)
         {
-            CheckTextChunk(index, text.Length, governor, token);
+            CheckTextCancellation(index, governor, token);
             int unit = char.IsHighSurrogate(text[index]) && index + 1 < text.Length
                 ? char.ConvertToUtf32(text[index], text[index + 1]) : text[index];
             if (!TryEncodePdfDoc(unit, out _)) { pdfDoc = false; break; }
@@ -912,7 +912,7 @@ internal static class JsonImport
         if (!pdfDoc) { result[0] = 0xFE; result[1] = 0xFF; }
         for (int index = 0; index < text.Length; index++)
         {
-            CheckTextChunk(index, text.Length, governor, token);
+            CheckTextCancellation(index, governor, token);
             if (pdfDoc) { TryEncodePdfDoc(text[index], out result[index]); }
             else { result[index * 2 + 2] = (byte)(text[index] >> 8); result[index * 2 + 3] = (byte)text[index]; }
         }
@@ -976,9 +976,9 @@ internal static class JsonImport
         }
 
         limits.Validate();
-        if ((long)model.Objects.Count > limits.MaxWork)
+        if ((long)model.Objects.Count > limits.MaxContainerSize)
         {
-            throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), model.Objects.Count, limits.MaxWork);
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), model.Objects.Count, limits.MaxContainerSize);
         }
 
         if (model.Trailer.TryGet(PdfName.FromAscii("Encrypt"), out QpdfObject? encrypt) && encrypt is not null && encrypt is not PdfNull)
@@ -1030,7 +1030,7 @@ internal static class JsonImport
         GovernedCollections.SortNumbers(memory, governor, rest);
         for (int i = 0; i < rest.Count; i++)
         {
-            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             renumber[rest[i]] = i + 2;
         }
 
@@ -1063,7 +1063,7 @@ internal static class JsonImport
         foreach (KeyValuePair<int, QpdfObject> entry in model.Objects)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             mapped[renumber[entry.Key]] = Writing.ObjectRemap.RemapImported(entry.Value, renumber, memory, governor, cancellationToken);
         }
 
@@ -1087,7 +1087,7 @@ internal static class JsonImport
         GovernedCollections.SortNumbers(memory, governor, numbers);
         foreach (int number in numbers)
         {
-            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             ordered.Add(new Writing.NumberedObject(number, mapped[number]));
         }
 
@@ -1128,7 +1128,7 @@ internal static class JsonImport
         while (stack.Count > 0)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (depth > limits.MaxNestingDepth)
             {
                 return count;
@@ -1138,7 +1138,7 @@ internal static class JsonImport
             List<QpdfObject> next = Syntax.ParserContainers.CreateList<QpdfObject>(traversal);
             foreach (QpdfObject node in stack)
             {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 if (node is not PdfDictionary dictionary)
                 {
                     continue;
@@ -1157,7 +1157,7 @@ internal static class JsonImport
                     {
                         for (int index = 0; index < array.Count; index++)
                         {
-                            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+                            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                             QpdfObject target = ResolvePool(array[index], pool);
                             if (target is PdfDictionary && Syntax.ParserContainers.AddSetItem(traversal, visited, target, IntPtr.Size))
                             { Syntax.ParserContainers.AddItem(traversal, next, target); }

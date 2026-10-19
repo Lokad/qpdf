@@ -10,15 +10,14 @@ namespace Lokad.Qpdf.Tests.Writing;
 public sealed class ObjectStreamCaptureTests
 {
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(true, false)]
-    [InlineData(false, true)]
-    public async Task MixedFormattedAndCopiedMembersPreserveBytesWithinLimits(bool tightMemory, bool tightWork)
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task MixedFormattedAndCopiedMembersPreserveBytesWithinLimits(bool tightMemory)
     {
         QpdfLimits limits = QpdfLimits.Default with
         {
             MaxMemoryBytes = tightMemory ? 4096L : QpdfLimits.Default.MaxMemoryBytes,
-            MaxWork = tightWork ? 4096L : QpdfLimits.Default.MaxWork, MaxOutputBytes = 1024L,
+MaxOutputBytes = 1024L,
         };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         using (ObjectStreamCapture members = ObjectStreamCapture.Create(3, limits, governor, CancellationToken.None))
@@ -79,7 +78,6 @@ public sealed class ObjectStreamCaptureTests
         Assert.Throws<QpdfException>(() => ObjectStreamCapture.Create(count, QpdfLimits.Default, governor, CancellationToken.None));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);
-        Assert.Equal(0L, governor.Snapshot().TotalWork);
     }
 
     [Fact]

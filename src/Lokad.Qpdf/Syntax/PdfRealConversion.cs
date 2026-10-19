@@ -55,7 +55,6 @@ internal static class PdfRealConversion
         {
             if ((i & 4095) == 0)
             {
-                governor.ChargeWork(1L);
                 governor.CheckCancellation();
             }
 

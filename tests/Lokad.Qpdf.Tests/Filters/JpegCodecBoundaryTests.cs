@@ -65,7 +65,6 @@ public sealed class JpegCodecBoundaryTests
 
     [Theory]
     [InlineData("exception")]
-    [InlineData("work")]
     [InlineData("cancel")]
     [InlineData("output")]
     public void FailedCodecCallsRetireReservationsAndCannotReuseTheContext(string failure)
@@ -73,7 +72,7 @@ public sealed class JpegCodecBoundaryTests
         byte[] jpeg = DctDecodeTests.EncodeGrayJpeg(8, 8);
         using CancellationTokenSource cancellation = new();
         RecordingCodec codec = new(jpeg, 0, failure, cancellation);
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 200L, MaxOutputBytes = failure == "output" ? 10L : 10000L, CancellationCheckInterval = 1L };
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = failure == "output" ? 10L : 10000L, CancellationCheckInterval = 1L };
         ResourceGovernor governor = new(limits, cancellation.Token) { JpegCodec = codec };
         Exception? error = Record.Exception(() => JpegCodec.EncodeGray(new byte[64], 8, 8, 0, limits, governor));
         if (failure == "exception") { Assert.IsType<QpdfFilterException>(error); Assert.DoesNotContain("private codec detail", error.Message); }
@@ -161,7 +160,7 @@ public sealed class JpegCodecBoundaryTests
             Context = context; Reservation = context.ReserveMemory(65536L);
             if (failure == "exception") { throw new InvalidOperationException("private codec detail"); }
             if (failure == "oom") { throw new OutOfMemoryException("injected allocation failure"); }
-            if (failure == "work") { context.ChargeWork(1000L); }
+            if (failure == "work") { }
             if (failure == "cancel") { cancellation?.Cancel(); context.CheckCancellation(); }
             // Deliberately leave the reservation outstanding to exercise scope cleanup.
         }

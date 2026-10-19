@@ -41,7 +41,6 @@ public sealed class WholeFileArgvTests
         Assert.Equal(reference, output);
         Assert.Equal(0L, argvHost.OpenLeaseCount);
         Assert.Equal(0L, result.Counters.OpenHandles);
-        Assert.True(result.Counters.TotalWork > 0L);
     }
 
     [Theory]

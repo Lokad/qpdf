@@ -56,7 +56,7 @@ internal sealed class PreparedOutputSink : ISynchronousByteSink, IDisposable
         ReadOnlySpan<byte> remaining = chunk;
         while (!remaining.IsEmpty)
         {
-            CheckCancellation(cancellationToken); _governor.ChargeWork(1L);
+            CheckCancellation(cancellationToken); _governor.NoteOperation();
             Segment tail = EnsureTail(Math.Min(SegmentCapacity, remaining.Length), cancellationToken);
             int count = Math.Min(remaining.Length, tail.Bytes.Length - tail.Used);
             Copy(remaining[..count], tail.Bytes.AsSpan(tail.Used, count), cancellationToken);
@@ -71,7 +71,7 @@ internal sealed class PreparedOutputSink : ISynchronousByteSink, IDisposable
         {
             int capacity = CapacityFor(Math.Max(growing.Used + incoming, growing.Bytes.Length * 2));
             long bytes = ArrayBytes(capacity);
-            _governor.ChargeWork(capacity); Memory.Reserve(bytes);
+            _governor.NoteOperation(); Memory.Reserve(bytes);
             try
             {
                 CheckCancellation(token);
@@ -86,7 +86,7 @@ internal sealed class PreparedOutputSink : ISynchronousByteSink, IDisposable
         }
         int initial = CapacityFor(incoming);
         long reservation = 40L + ArrayBytes(initial);
-        _governor.ChargeWork(initial); Memory.Reserve(reservation);
+        _governor.NoteOperation(); Memory.Reserve(reservation);
         try
         {
             CheckCancellation(token);
@@ -114,7 +114,7 @@ internal sealed class PreparedOutputSink : ISynchronousByteSink, IDisposable
         for (int offset = 0; offset < source.Length;)
         {
             int count = Math.Min(256, source.Length - offset);
-            CheckCancellation(token); _governor.ChargeWork(count);
+            CheckCancellation(token); _governor.NoteOperation();
             source.Slice(offset, count).CopyTo(destination.Slice(offset, count)); offset += count;
         }
     }

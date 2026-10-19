@@ -24,7 +24,6 @@ public sealed class ObjectStreamHeaderTests
         Assert.Equal(expected, header.Data.ToArray());
         Assert.Equal(160L + expected.Length, governor.Snapshot().LiveMemoryBytes);
         long literals = expected.Length - 6L;
-        Assert.Equal(80L + literals + 2L * expected.Length, governor.Snapshot().TotalWork);
         header.Dispose(); header.Dispose();
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.Throws<ObjectDisposedException>(() => header.Data);
@@ -82,25 +81,6 @@ public sealed class ObjectStreamHeaderTests
     }
 
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(true, false)]
-    [InlineData(false, true)]
-    public void WorkFailureAfterAdmissionRetiresOnlyTheAttempt(bool compressed, bool qdf)
-    {
-        int length = Expected(compressed, qdf).Length;
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 80L + length - 6L + length - 1L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        using ParserMemoryScope prior = ParserMemoryScope.Create(governor);
-        prior.Reserve(97L);
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => ObjectStreamHeader.Create(7, 2, 123, 9,
-            compressed, qdf, limits, governor, CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-        Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes);
-        Assert.True(governor.Snapshot().PeakMemoryBytes > 161L);
-        Assert.Equal(80L + length - 6L, governor.Snapshot().TotalWork);
-    }
-
-    [Theory]
     [InlineData(0, 2, 123, 9, false, false)]
     [InlineData(7, 0, 123, 9, false, false)]
     [InlineData(7, 101, 123, 9, false, false)]
@@ -113,7 +93,6 @@ public sealed class ObjectStreamHeaderTests
         Assert.Throws<QpdfException>(() => ObjectStreamHeader.Create(number, count, length, first, compressed, qdf,
             QpdfLimits.Default, governor, CancellationToken.None));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(0L, governor.Snapshot().TotalWork);
     }
 
     [Theory]
@@ -129,7 +108,6 @@ public sealed class ObjectStreamHeaderTests
         Assert.ThrowsAny<OperationCanceledException>(() => ObjectStreamHeader.Create(7, 2, 123, 9, false, false,
             QpdfLimits.Default, governor, governorToken ? CancellationToken.None : cancellation.Token));
         Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(0L, governor.Snapshot().TotalWork);
     }
 
     [Theory]
@@ -181,7 +159,6 @@ public sealed class ObjectStreamHeaderTests
         Span<byte> target = stackalloc byte[20];
         int written = WriterNumber.Format(value, target, governor);
         Assert.Equal(expected, System.Text.Encoding.ASCII.GetString(target.Slice(0, written)));
-        Assert.Equal(20L, governor.Snapshot().TotalWork);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 }

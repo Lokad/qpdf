@@ -60,23 +60,6 @@ public sealed class ObjectStreamWriterCaptureTests
         else { Assert.Same(PdfNull.Instance, Assert.IsType<PdfArray>(value)[0]); }
     }
 
-    [Theory]
-    [InlineData("ordinary", 20000L)]
-    [InlineData("qdf", 40000L)]
-    public async Task CaptureByteWorkExhaustionRejectsBeforeContainerOutput(string route, long ceiling)
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = ceiling };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        MarkerSink sink = new();
-        QpdfLimitException failure = await Assert.ThrowsAsync<QpdfLimitException>(() =>
-            Start(route, Model(false), limits, governor, sink, CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-        Assert.True(sink.Length > 0L);
-        Assert.False(sink.ContainerStarted);
-        Assert.InRange(governor.Snapshot().TotalWork, 1L, ceiling);
-        Assert.True(governor.Snapshot().LiveMemoryBytes < 4096L);
-    }
-
     private sealed class MarkerSink : IByteSink
     {
         public long Length { get; private set; }

@@ -281,14 +281,10 @@ public sealed class BatchingSinkTests
         Assert.Empty(destination.Chunks);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task LargeOutputHintKeepsTightJobsBoundedAndRetainedBytesStable(bool tightMemory)
+    [Fact]
+    public async Task LargeOutputHintKeepsTightJobsBoundedAndRetainedBytesStable()
     {
-        QpdfLimits limits = tightMemory
-            ? QpdfLimits.Default with { MaxMemoryBytes = 1024L }
-            : QpdfLimits.Default with { MaxWork = 4096L };
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 1024L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         RetainingSink destination = new(false);
         using (BatchingSink sink = BatchingSink.Create(destination, limits, governor, CancellationToken.None))
@@ -302,7 +298,6 @@ public sealed class BatchingSinkTests
         byte[] written = destination.Chunks.SelectMany(chunk => chunk.ToArray()).ToArray();
         Assert.Equal(Enumerable.Repeat((byte)'A', 1024).ToArray(), written);
         Assert.InRange(governor.Snapshot().PeakMemoryBytes, 0L, limits.MaxMemoryBytes);
-        Assert.InRange(governor.Snapshot().TotalWork, 0L, limits.MaxWork);
     }
 
     [Theory]

@@ -77,7 +77,7 @@ after commit does not undo publication. The host defines its transaction semanti
 ## Limits and cancellation
 
 [QpdfLimits](src/Lokad.Qpdf/Public/QpdfLimits.cs) bounds input/output bytes, decoded
-data, estimated memory, work, handles, diagnostics and nesting. Invocation options
+data, estimated memory, host operations, handles, diagnostics and nesting. Invocation options
 can tighten host policy but cannot raise explicit host ceilings. Significant
 storage, growth overlap and decompression receive admission before allocation.
 
@@ -97,16 +97,20 @@ Graph retention transfers construction estimates to coarse execution or caller
 owners without walking object identities. Private cleanup refunds execution
 storage; public document aliases remain charged to the caller's scope.
 
-Cancellation is cooperative across bounded CPU loops, host calls and codec APIs.
-Cleanup can finish bounded retirement after cancellation. Diagnostics remain
-structured, sanitized and independently limited.
+Cancellation is cooperative across bounded CPU loops, host calls and codec APIs;
+there is no cumulative CPU fuel budget. Hosts use cancellation tokens for deadlines.
+Structural bounds, cycle detection and decompression ceilings remain independent.
+Cleanup can finish bounded retirement after cancellation. Diagnostics use bounded
+stored records and actual UTF-8 message lengths. Overflow fails the job before
+publication; accepted messages and a bounded terminal failure remain available.
+Requested summaries are built once before publication and reused after commit.
 
 ## Dependencies and development tools
 
 The core has no runtime NuGet dependencies. Hosts optionally implement
 `IQpdfJpegCodecHost` to supply an `IQpdfJpegCodec` for grayscale/RGB processing.
 The core validates frame sizes and owns sample/output buffers; codecs borrow them
-for one synchronous call. `QpdfJpegCodecContext` provides cancellation, work charges
+for one synchronous call. `QpdfJpegCodecContext` provides cancellation
 and memory reservations for private codec storage. Codecs must release their actual
 storage before returning; outstanding accounting charges retire with the call.
 Without a codec, JPEG pass-through works, decoding checks report skipped, and

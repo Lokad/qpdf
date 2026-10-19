@@ -35,12 +35,11 @@ public sealed class ContentEntriesTests
         ResourceGovernor governor = new(QpdfLimits.Default, caller ? CancellationToken.None : cancellation.Token);
         using ContentEntries entries = ContentEntries.Create(governor, caller ? cancellation.Token : CancellationToken.None);
         PdfStream stream = Stream(); for (int index = 0; index < 4; index++) { entries.Add(new(null, index, stream)); }
-        long live = governor.Snapshot().LiveMemoryBytes, work = governor.Snapshot().TotalWork;
+        long live = governor.Snapshot().LiveMemoryBytes;
         cancellation.Cancel();
         Assert.Throws<OperationCanceledException>(() => entries.Get(0));
         Assert.Throws<OperationCanceledException>(() => entries.Add(new(null, 4, stream)));
-        Assert.Equal(4, entries.Count); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(work, governor.Snapshot().TotalWork);
-    }
+        Assert.Equal(4, entries.Count); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);     }
 
     [Theory]
     [InlineData(false)]
@@ -52,21 +51,8 @@ public sealed class ContentEntriesTests
         ResourceGovernor governor = new(QpdfLimits.Default, caller ? CancellationToken.None : cancellation.Token);
         Assert.Throws<OperationCanceledException>(() => PdfObjectLookup.TryResolve(new PdfReference(7, 99), pool, governor,
             caller ? cancellation.Token : CancellationToken.None, out _));
-        Assert.Equal(1, pool.Calls); Assert.Equal(1L, governor.Snapshot().TotalWork); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(1, pool.Calls); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.Same(stream, pool[7]);
-    }
-
-    [Fact]
-    public void PoolLookupFundsBothSidesWithoutCopyingValues()
-    {
-        PdfStream stream = Stream(); IReadOnlyDictionary<int, QpdfObject> pool = new Dictionary<int, QpdfObject> { [7] = stream };
-        ResourceGovernor bounded = new(QpdfLimits.Default with { MaxWork = 1L }, CancellationToken.None);
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => PdfObjectLookup.TryResolve(new PdfReference(7, 99), pool, bounded, CancellationToken.None, out _));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        Assert.True(PdfObjectLookup.TryResolve(new PdfReference(7, 99), pool, governor, CancellationToken.None, out QpdfObject? value));
-        Assert.Same(stream, value); Assert.False(PdfObjectLookup.TryResolve(new PdfReference(8, 0), pool, governor, CancellationToken.None, out value));
-        Assert.Null(value); Assert.Equal(4L, governor.Snapshot().TotalWork); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]
@@ -78,8 +64,7 @@ public sealed class ContentEntriesTests
         PdfDictionary page = new(new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("Contents")] = Stream() });
         TargetInvocationException wrapper = Assert.Throws<TargetInvocationException>(() => method.Invoke(null, [null, page, governor, new DiagnosticBag(governor), cancellation.Token]));
         Assert.IsType<OperationCanceledException>(wrapper.InnerException);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, governor.Snapshot().TotalWork);
-    }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);     }
 
     [Fact]
     public void RootedDisposedOwnerDoesNotKeepItsGovernorOrTokenSource()

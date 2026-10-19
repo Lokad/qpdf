@@ -39,7 +39,6 @@ public sealed class WriterFormattingTests
             if (style == "right") { expected = expected.PadRight(21); }
             Assert.Equal(expected, Encoding.ASCII.GetString(output.Data.Span));
             Assert.Equal(160L + output.Data.Length, governor.Snapshot().LiveMemoryBytes);
-            Assert.True(governor.Snapshot().TotalWork >= 2L * output.Data.Length);
         }
         finally { CultureInfo.CurrentCulture = prior; }
     }
@@ -140,34 +139,6 @@ public sealed class WriterFormattingTests
         Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);
     }
 
-    [Theory]
-    [MemberData(nameof(Kinds))]
-    public void ZeroingWorkExhaustionAllocatesNoResult(string kind)
-    {
-        WriterPart[] parts = Parts(kind, 65536);
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = Length(kind, 65536) - 1L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => WriterFormatting.Create(parts, limits, governor, CancellationToken.None));
-        Assert.True(GC.GetAllocatedBytesForCurrentThread() - before < 32768L);
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-    }
-
-    [Theory]
-    [MemberData(nameof(Kinds))]
-    public void PartialFillWorkFailureRetiresOnlyAttempt(string kind)
-    {
-        WriterPart[] parts = Parts(kind, 65536);
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = Length(kind, 65536) + 30000L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => WriterFormatting.Create(parts, limits, governor, CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-        Assert.True(governor.Snapshot().TotalWork > Length(kind, 65536) + 8192L);
-        Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes);
-    }
-
     public static IEnumerable<object[]> Tokens()
     {
         foreach (object[] kind in Kinds()) { yield return [kind[0], false]; yield return [kind[0], true]; }
@@ -183,7 +154,7 @@ public sealed class WriterFormattingTests
         cancellation.Cancel();
         Assert.ThrowsAny<OperationCanceledException>(() => WriterFormatting.Create(parts, QpdfLimits.Default, governor,
             governorToken ? CancellationToken.None : cancellation.Token));
-        Assert.Equal(0L, governor.Snapshot().TotalWork); Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);
+Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);
     }
 
     [Theory]
@@ -198,10 +169,10 @@ public sealed class WriterFormattingTests
         using ManualResetEventSlim resume = new();
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
-        long threshold = Length(kind, count) + 65536L;
+        long preparedBytes = 161L + Length(kind, count);
         void ObserveFill()
         {
-            if (governor.Snapshot().TotalWork < threshold) { return; }
+            if (governor.Snapshot().LiveMemoryBytes < preparedBytes) { return; }
             reached.Set();
             if (!resume.Wait(TimeSpan.FromSeconds(10))) { throw new TimeoutException("Formatter observation did not resume."); }
         }
@@ -217,8 +188,7 @@ public sealed class WriterFormattingTests
             bool observed = reached.Wait(TimeSpan.FromSeconds(10));
             cancellation.Cancel();
             resume.Set();
-            Assert.True(observed); Assert.True(governor.Snapshot().TotalWork >= threshold);
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.True(observed);             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));
             Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(parts);
         }
         finally

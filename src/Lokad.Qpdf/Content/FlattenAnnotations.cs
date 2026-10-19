@@ -101,7 +101,7 @@ internal static class FlattenAnnotations
         foreach ((GraphCopier copier, int pageId) in occurrences)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (!copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? raw) || raw is not PdfDictionary page)
             {
                 continue;
@@ -154,7 +154,7 @@ internal static class FlattenAnnotations
             foreach (QpdfObject item in annots.Items)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 QpdfObject entryTarget = item is PdfReference itemReference
                     ? ResolveOrNull(resolver, itemReference) ?? item
                     : item;

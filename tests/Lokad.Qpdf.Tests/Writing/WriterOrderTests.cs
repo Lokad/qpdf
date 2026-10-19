@@ -73,18 +73,6 @@ public sealed class WriterOrderTests
     }
 
     [Fact]
-    public void ZeroingWorkRejectsBeforeAllocation()
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 65536L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => WriterOrder<int>.Create(65536, sizeof(int), governor, CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-        Assert.True(GC.GetAllocatedBytesForCurrentThread() - before < 32768L);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-    }
-
-    [Fact]
     public void EscapedComparisonAndSortingAllocateNoDisplayOrComparerObjects()
     {
         byte[] common = Enumerable.Repeat((byte)35, 4096).ToArray();
@@ -96,35 +84,6 @@ public sealed class WriterOrderTests
         for (int iteration = 0; iteration < 16; iteration++) { order.Sort(new WriterNameOrder(governor, CancellationToken.None)); }
         Assert.Equal(0L, GC.GetAllocatedBytesForCurrentThread() - before);
         Assert.Same(first, order[0]); Assert.Same(second, order[1]);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void FailedSortPreservesBorrowedInputAndPriorStorage(bool names)
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 10000L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
-        if (names)
-        {
-            PdfName left = new(new byte[8192]), right = new(new byte[8192]);
-            using (WriterOrder<PdfName> order = WriterOrder<PdfName>.Create(2, IntPtr.Size, governor, CancellationToken.None))
-            {
-                order.Add(left); order.Add(right);
-                QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => order.Sort(new WriterNameOrder(governor, CancellationToken.None)));
-                Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-                Assert.Equal(new byte[8192], left.RawBytes); Assert.Equal(new byte[8192], right.RawBytes);
-            }
-        }
-        else
-        {
-            using WriterOrder<int> order = WriterOrder<int>.Create(1024, sizeof(int), governor, CancellationToken.None);
-            for (int value = 1024; value > 0; value--) { order.Add(value); }
-            Assert.Throws<QpdfLimitException>(() => order.Sort(new WriterNumberOrder()));
-            order.Dispose();
-        }
-        Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes); Assert.True(governor.Snapshot().TotalWork > 8192L);
     }
 
     [Theory]
@@ -168,10 +127,9 @@ public sealed class WriterOrderTests
             numbers = WriterOrder<int>.Create(65536, sizeof(int), governor, token);
             for (int value = 65536; value > 0; value--) { numbers.Add(value); }
         }
-        long threshold = governor.Snapshot().TotalWork + 65536L;
         using ManualResetEventSlim reached = new();
         using ManualResetEventSlim resume = new();
-        ComparisonGate gate = new(governor, threshold, reached, resume);
+        ComparisonGate gate = new(reached, resume);
         Task worker = Task.Factory.StartNew(() =>
         {
             start.Wait();
@@ -187,8 +145,7 @@ public sealed class WriterOrderTests
             start.Set();
             bool observed = reached.Wait(TimeSpan.FromSeconds(10));
             cancellation.Cancel();
-            Assert.True(observed); Assert.True(governor.Snapshot().TotalWork >= threshold);
-            resume.Set();
+            Assert.True(observed);             resume.Set();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));
             Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(keys); GC.KeepAlive(numbers);
         }
@@ -200,12 +157,13 @@ public sealed class WriterOrderTests
         }
     }
 
-    private sealed class ComparisonGate(ResourceGovernor governor, long threshold, ManualResetEventSlim reached, ManualResetEventSlim resume)
+    private sealed class ComparisonGate(ManualResetEventSlim reached, ManualResetEventSlim resume)
     {
         private bool _paused;
+        private int _comparisons;
         internal void BeforeComparison()
         {
-            if (_paused || governor.Snapshot().TotalWork < threshold) { return; }
+            if (_paused || ++_comparisons < 32) { return; }
             _paused = true; reached.Set(); resume.Wait();
         }
     }

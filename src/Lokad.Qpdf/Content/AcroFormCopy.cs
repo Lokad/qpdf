@@ -99,7 +99,7 @@ internal static class AcroFormCopy
         foreach (QpdfObject entry in keptEntries)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (entry is PdfReference)
             {
                 if ((retainSourceObjects ? copier.RetainSourceValue(entry) : copier.CopyValue(entry, 0)) is PdfReference copiedReference)
@@ -124,7 +124,7 @@ internal static class AcroFormCopy
         foreach (PdfName key in source.Keys)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             string text = key.DisplayText;
             if (text == "Fields")
             {
@@ -232,7 +232,7 @@ internal static class AcroFormCopy
         foreach (KeyValuePair<int, QpdfObject> entry in copier.CopiedObjects)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             pool.TryAdd(entry.Key, entry.Value);
         }
         if (part is null && overlayImports.Count == 0)
@@ -282,7 +282,7 @@ internal static class AcroFormCopy
             foreach (int id in pool.Keys)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (id >= allocator)
                 {
                     checked
@@ -431,7 +431,7 @@ internal static class AcroFormCopy
             foreach (PdfReference fieldRef in form.Fields)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (!copier.CopiedObjects.TryGetValue(fieldRef.ObjectNumber, out QpdfObject? nodeRaw) || nodeRaw is not PdfDictionary node)
                 {
                     continue;
@@ -495,7 +495,7 @@ internal static class AcroFormCopy
             throw new ArgumentNullException(nameof(governor));
         }
         cancellationToken.ThrowIfCancellationRequested();
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         if (depth > limits.MaxNestingDepth)
         {
             return node;
@@ -530,7 +530,7 @@ internal static class AcroFormCopy
                 while (snapshot.Contains(renamed))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    governor.ChargeWork(1L);
+                    governor.NoteOperation();
                     suffix++;
                     renamed = qualified.Substring(0, qualified.Length - own.Length) + own + "+" + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 }
@@ -547,7 +547,7 @@ internal static class AcroFormCopy
                     {
                         continue;
                     }
-                    governor.ChargeWork(1L);
+                    governor.NoteOperation();
                     entries[key] = key.DisplayText == "T" ? new PdfByteString(renamedBytes, false) : entry;
                 }
                 PdfDictionary rebuiltSelf = new(entries);
@@ -579,7 +579,7 @@ internal static class AcroFormCopy
                     for (int i = 0; i < kids.Count; i++)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
-                        governor.ChargeWork(1L);
+                        governor.NoteOperation();
                         if (kids[i] is PdfReference kidRef && copier.CopiedObjects.TryGetValue(kidRef.ObjectNumber, out QpdfObject? kidRaw) && kidRaw is PdfDictionary kid)
                         {
                             RenameTree(copier, kidRef.ObjectNumber, kid, childAncestors, snapshot, finals, visited, limits, governor, cancellationToken, depth + 1);
@@ -915,7 +915,7 @@ internal static class AcroFormCopy
         while (stack.TryPop(out (QpdfObject Node, int Depth) current))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (current.Depth > limits.MaxNestingDepth)
             {
                 continue;
@@ -1068,7 +1068,7 @@ internal static class AcroFormCopy
             foreach (PdfName key in baseDict.Keys)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (baseDict.TryGet(key, out QpdfObject? kept) && kept is not null)
                 {
                     union[key] = kept;
@@ -1080,7 +1080,7 @@ internal static class AcroFormCopy
             foreach (PdfName key in baseDirect.Keys)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (baseDirect.TryGet(key, out QpdfObject? kept) && kept is not null)
                 {
                     union[key] = kept;
@@ -1093,7 +1093,7 @@ internal static class AcroFormCopy
         foreach (OverlayFieldImport import in imports)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (import.Part.DefaultResources is null)
             {
                 maps.Add(emptyMap);
@@ -1140,7 +1140,7 @@ internal static class AcroFormCopy
         foreach (GraphCopier owner in owners)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             foreach (KeyValuePair<int, QpdfObject> entry in owner.CopiedObjects)
             {
                 pool[entry.Key] = entry.Value;
@@ -1180,7 +1180,7 @@ internal static class AcroFormCopy
         foreach (PdfName rtype in source.Keys)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (!source.TryGet(rtype, out QpdfObject? otherRaw) || otherRaw is null || otherRaw is PdfNull)
             {
                 continue;
@@ -1229,7 +1229,7 @@ internal static class AcroFormCopy
         foreach (PdfName key in having.Keys)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             taken.Add(key.DisplayText);
             if (having.TryGet(key, out QpdfObject? entry) && entry is PdfReference entryReference)
             {
@@ -1250,7 +1250,7 @@ internal static class AcroFormCopy
         foreach (PdfName key in other.Keys)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (!other.TryGet(key, out QpdfObject? incoming) || incoming is null || incoming is PdfNull)
             {
                 continue;
@@ -1283,7 +1283,7 @@ internal static class AcroFormCopy
             while (taken.Contains(fresh))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 suffix += 1;
                 fresh = key.DisplayText + "_" + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture);
             }
@@ -1315,14 +1315,14 @@ internal static class AcroFormCopy
         for (int i = 0; i < having.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             items.Add(having[i]);
         }
 
         for (int i = 0; i < other.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (other[i] is PdfName || other[i] is PdfByteString || other[i] is PdfInteger || other[i] is PdfReal || other[i] is PdfBoolean)
             {
                 bool seen = false;
@@ -1372,7 +1372,7 @@ internal static class AcroFormCopy
             List<string> operators = new();
             while (tokenizer.TryReadToken(out ContentToken token))
             {
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 byte[] raw = token.Data.ToArray();
                 raws.Add(raw);
                 bool name = token.Kind == ContentTokenKind.Name;
@@ -1396,7 +1396,7 @@ internal static class AcroFormCopy
                 else if (isOperator[i] && operators[i] == "Tf" && lastNameIndex >= 0
                     && fontMap.TryGetValue(lastName, out string? mapped))
                 {
-                    governor.ChargeWork(1L);
+                    governor.NoteOperation();
                     raws[lastNameIndex] = System.Text.Encoding.ASCII.GetBytes("/" + mapped);
                     changed = true;
                 }
@@ -1445,7 +1445,7 @@ internal static class AcroFormCopy
         foreach (PdfReference field in import.Part.Fields)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (!import.Copier.CopiedObjects.TryGetValue(field.ObjectNumber, out QpdfObject? raw) || raw is not PdfDictionary node)
             {
                 continue;
@@ -1477,7 +1477,7 @@ internal static class AcroFormCopy
         int depth)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         if (depth > limits.MaxNestingDepth)
         {
             return node;
@@ -1497,7 +1497,7 @@ internal static class AcroFormCopy
                 continue;
             }
 
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             string text = key.DisplayText;
             if (text == "Parent")
             {
@@ -1576,7 +1576,7 @@ internal static class AcroFormCopy
         for (int i = 0; i < kids.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (kids[i] is PdfReference kidReference
                 && copier.CopiedObjects.TryGetValue(kidReference.ObjectNumber, out QpdfObject? kidRaw)
                 && kidRaw is PdfDictionary kid)
@@ -1750,7 +1750,7 @@ internal static class AcroFormCopy
         while (depth < 32)
         {
             depth += 1;
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (!cursor.TryGet(PdfName.FromAscii("Parent"), out QpdfObject? parentRaw) || parentRaw is null || parentRaw is PdfNull)
             {
                 return false;
@@ -1827,7 +1827,7 @@ internal static class AcroFormCopy
         foreach ((GraphCopier copier, int pageId) in occurrences)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (copier is null)
             {
                 throw new ArgumentException("Occurrences must not contain null copiers.", nameof(occurrences));
@@ -1851,7 +1851,7 @@ internal static class AcroFormCopy
 
             for (int i = 0; i < annots.Count; i++)
             {
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (annots[i] is PdfReference reference)
                 {
                     found.Add(reference.ObjectNumber);
@@ -1919,7 +1919,7 @@ internal static class AcroFormCopy
             foreach (QpdfObject item in combined.CalculationOrder)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (item is PdfReference reference && !closure.Contains(reference.ObjectNumber))
                 {
                     continue;
@@ -1950,7 +1950,7 @@ internal static class AcroFormCopy
         while (stack.TryPop(out QpdfObject? current))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (current is PdfReference reference)
             {
                 found.Add(reference.ObjectNumber);
@@ -2035,7 +2035,7 @@ internal static class AcroFormCopy
         foreach (PdfReference field in fields)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (field is null)
             {
                 continue;
@@ -2106,7 +2106,7 @@ internal static class AcroFormCopy
             throw new ArgumentNullException(nameof(governor));
         }
         cancellationToken.ThrowIfCancellationRequested();
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         PdfDictionary? source = TryGetSourceForm(engine);
         if (source is null)
         {
@@ -2196,7 +2196,7 @@ internal static class AcroFormCopy
         foreach (PageLocation location in keptPages)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (location.Page is null)
             {
                 continue;
@@ -2219,7 +2219,7 @@ internal static class AcroFormCopy
             for (int i = 0; i < annots.Count; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (annots[i] is not PdfReference itemReference)
                 {
                     continue;
@@ -2300,7 +2300,7 @@ internal static class AcroFormCopy
         for (int i = 0; i < fields.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             QpdfObject entry = fields[i];
             if (entry is null || entry is PdfNull)
             {
@@ -2374,7 +2374,7 @@ internal static class AcroFormCopy
         while (stack.TryPop(out (PdfDictionary Node, int Depth) current))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (current.Depth > limits.MaxNestingDepth)
             {
                 continue;
@@ -2397,7 +2397,7 @@ internal static class AcroFormCopy
             for (int i = 0; i < kids.Count; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (kids[i] is not PdfReference kidReference)
                 {
                     continue;
@@ -2449,7 +2449,7 @@ internal static class AcroFormCopy
         while (stack.TryPop(out (PdfDictionary Node, int Depth) current))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (current.Depth > limits.MaxNestingDepth)
             {
                 continue;
@@ -2469,7 +2469,7 @@ internal static class AcroFormCopy
             for (int i = 0; i < kids.Count; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (kids[i] is not PdfReference kidReference)
                 {
                     continue;
@@ -2510,15 +2510,15 @@ internal static class AcroFormCopy
         while (stack.TryPop(out int number))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (!found.Add(number))
             {
                 continue;
             }
 
-            if (found.Count > limits.MaxWork)
+            if (found.Count > limits.MaxContainerSize)
             {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), found.Count, limits.MaxWork);
+                throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), found.Count, limits.MaxContainerSize);
             }
 
             if (!pool.TryGetValue(number, out QpdfObject? value) || value is null)

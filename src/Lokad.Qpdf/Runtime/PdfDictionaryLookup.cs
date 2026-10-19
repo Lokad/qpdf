@@ -2,7 +2,7 @@ using Lokad.Qpdf.Objects;
 
 namespace Lokad.Qpdf.Runtime;
 
-/// <summary>Borrowed name lookup with explicit work/cancellation and no execution state in PDF values.</summary>
+/// <summary>Borrowed name lookup with explicit cancellation and no execution state in PDF values.</summary>
 internal static class PdfDictionaryLookup
 {
     internal static bool TryGet(PdfDictionary dictionary, ReadOnlySpan<byte> key,
@@ -74,5 +74,5 @@ internal static class PdfDictionaryLookup
     }
 
     private static void Step(ResourceGovernor governor, CancellationToken token)
-    { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L); }
+    { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); }
 }

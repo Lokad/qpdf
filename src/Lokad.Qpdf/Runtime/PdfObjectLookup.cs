@@ -9,18 +9,18 @@ internal static class PdfObjectLookup
     internal static bool TryResolve(PdfReference reference, IReadOnlyDictionary<int, QpdfObject> pool,
         ResourceGovernor governor, CancellationToken token, out QpdfObject? value)
     {
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         bool found = pool.TryGetValue(reference.ObjectNumber, out QpdfObject? resolved);
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         value = resolved; return found;
     }
 
     internal static bool TryResolve(PdfReference reference, IIndirectResolver resolver,
         ResourceGovernor governor, CancellationToken token, out QpdfObject? value)
     {
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         bool found = resolver.TryResolve(reference, out QpdfObject? resolved);
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         value = resolved; return found;
     }
 }

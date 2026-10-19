@@ -63,7 +63,6 @@ internal sealed class GovernedIntDictionary<T> : IReadOnlyCollection<KeyValuePai
     {
         _cancellationToken.ThrowIfCancellationRequested();
         _governor.CheckCancellation();
-        _governor.ChargeWork(1L);
     }
 
     private int Find(int key)
@@ -160,8 +159,7 @@ internal sealed class GovernedIntDictionary<T> : IReadOnlyCollection<KeyValuePai
         if (capacity <= 4 || capacity > Array.MaxLength || _entries.Length != 0) { return; }
         // This is an optional hint. Leave room for the other writer indexes and
         // publication storage; tight jobs retain their established growth path.
-        if (ArrayBytes(capacity) > _governor.RemainingMemoryBytes / 4L
-            || 2L * capacity > _governor.RemainingWorkUnits / 4L) { return; }
+        if (ArrayBytes(capacity) > _governor.RemainingMemoryBytes / 4L) { return; }
         Grow(_memory, capacity);
     }
 
@@ -181,7 +179,7 @@ internal sealed class GovernedIntDictionary<T> : IReadOnlyCollection<KeyValuePai
             _cancellationToken.ThrowIfCancellationRequested();
             _governor.CheckCancellation();
             // Admission bounds the two zero-initialized arrays before allocation.
-            _governor.ChargeWork(checked(2L * capacity));
+            _governor.NoteOperation();
             int[] buckets = new int[capacity];
             Entry[] entries = new Entry[capacity];
             for (int index = 0; index < _used; index++)

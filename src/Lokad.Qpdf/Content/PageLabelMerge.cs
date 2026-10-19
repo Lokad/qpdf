@@ -111,7 +111,7 @@ internal static class PageLabelMerge
         foreach (KeyValuePair<int, QpdfObject> pair in raw)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             entries[pair.Key] = ResolveEntry(resolver, copier, pair.Value, governor, cancellationToken);
         }
 
@@ -146,7 +146,7 @@ internal static class PageLabelMerge
         for (int k = 0; k < occurrences.Count; k++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             (SourceLabels source, int page) = occurrences[k];
             int index = page - 1;
             (long start, string styleToken, string prefixToken, QpdfObject? style, QpdfObject? prefix) = Peek(source.Entries, index, k);
@@ -302,7 +302,7 @@ internal static class PageLabelMerge
             return (token, null);
         }
 
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         return (token, copier.CopyValue(raw, 0));
     }
 

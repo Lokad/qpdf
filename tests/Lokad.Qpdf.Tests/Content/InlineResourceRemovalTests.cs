@@ -20,15 +20,12 @@ public sealed class InlineResourceRemovalTests
         return new(entries);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void FailureDuringRemovalPreservesBorrowedStorageAndPriorAdmission(bool work)
+    [Fact]
+    public void FailureDuringRemovalPreservesBorrowedStorageAndPriorAdmission()
     {
         PdfByteString borrowed = new(new byte[2 * 1024 * 1024], false);
         PdfDictionary source = Source(borrowed);
-        QpdfLimits limits = work ? QpdfLimits.Default with { MaxWork = 200L }
-            : QpdfLimits.Default with { MaxMemoryBytes = 2048L };
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 2048L };
         for (int attempt = 0; attempt < 8; attempt++)
         {
             ResourceGovernor governor = new(limits, CancellationToken.None);
@@ -38,7 +35,7 @@ public sealed class InlineResourceRemovalTests
             {
                 QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
                     PdfDictionaryRebuild.RemoveEntry(graph, source, "Resources"u8));
-                Assert.Equal(work ? nameof(QpdfLimits.MaxWork) : nameof(QpdfLimits.MaxMemoryBytes), error.LimitName);
+                Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), error.LimitName);
             }
             Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
             Assert.Equal(61L, prior.ReservedBytes); Assert.Equal(514, source.Count);

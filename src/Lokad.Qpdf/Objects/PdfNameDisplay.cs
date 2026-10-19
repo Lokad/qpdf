@@ -23,7 +23,7 @@ internal static class PdfNameDisplay
         int leftByte = 0, rightByte = 0, leftChar = 0, rightChar = 0, leftLength = 0, rightLength = 0;
         while (true)
         {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (leftChar == leftLength)
             {
                 if (leftByte == leftRaw.Length) { return rightChar < rightLength || rightByte < rightRaw.Length ? -1 : 0; }

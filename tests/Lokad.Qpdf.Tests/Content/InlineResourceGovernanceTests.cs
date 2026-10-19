@@ -12,30 +12,6 @@ public sealed class InlineResourceGovernanceTests
     private static PdfDictionary Dictionary(params (string Key, QpdfObject Value)[] values)
         => new(values.ToDictionary(item => PdfName.FromAscii(item.Key), item => item.Value));
 
-    [Theory]
-    [InlineData(512L)]
-    [InlineData(2048L)]
-    public void NameCollisionWorkFailurePreservesPriorReceipt(long maximum)
-    {
-        PdfDictionary fonts = new(Enumerable.Range(1, 128).ToDictionary(index => PdfName.FromAscii("IIm" + index), _ => (QpdfObject)PdfName.FromAscii("Font")));
-        PdfDictionary resources = Dictionary(("Font", fonts));
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = maximum };
-        for (int attempt = 0; attempt < 8; attempt++)
-        {
-            ResourceGovernor governor = new(limits, CancellationToken.None);
-            using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(61L);
-            long baseline = governor.Snapshot().LiveMemoryBytes;
-            int suffix = 1; PoolResolver resolver = new(new Dictionary<int, QpdfObject>());
-            QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => InlineImageStorage.Create(
-                "/W 1 /H 1"u8.ToArray(), "a"u8.ToArray(), 0L, 0L, resources, ref suffix,
-                limits, governor, new(governor), resolver, CancellationToken.None));
-            Assert.Equal(nameof(QpdfLimits.MaxWork), error.LimitName);
-            Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes); Assert.Equal(61L, prior.ReservedBytes);
-            Assert.True(governor.Snapshot().TotalWork >= maximum);
-        }
-        GC.KeepAlive(resources);
-    }
-
     [Fact]
     public void ResolvedColorspaceIsBorrowedAndDoesNotFundOrRemapItsBacking()
     {

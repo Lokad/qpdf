@@ -21,7 +21,7 @@ internal static class PdfJsonWriter
     {
         for (int index = 0; index < text.Length; index++)
         {
-            ChargeBytes(builder.Governor, index, text.Length);
+            CheckChunkCancellation(builder.Governor, index);
             AppendEscapedChar(builder, text[index]);
         }
     }
@@ -45,10 +45,10 @@ internal static class PdfJsonWriter
         }
     }
 
-    private static void ChargeBytes(ResourceGovernor governor, int position, int length)
+    private static void CheckChunkCancellation(ResourceGovernor governor, int position)
     {
         if ((position & 255) == 0)
-        { governor.ChargeWork(Math.Min(256, length - position)); governor.CheckCancellation(); }
+        { governor.CheckCancellation(); }
     }
 
     // Keep the existing syntax fixture's internal entry point. Runtime JSON
@@ -74,7 +74,7 @@ internal static class PdfJsonWriter
         {
             for (int index = 0; index < raw.Length; index++)
             {
-                ChargeBytes(builder.Governor, index, raw.Length);
+                CheckChunkCancellation(builder.Governor, index);
                 byte value = raw[index];
                 if (value == 0) { builder.Append('#'); }
                 else if (value < 33 || value > 126 || value is 35 or 47 or 40 or 41 or 60 or 62 or 91 or 93 or 123 or 125 or 37)
@@ -95,7 +95,7 @@ internal static class PdfJsonWriter
         ReadOnlySpan<byte> raw = name.RawSpan;
         for (int index = 0; index < raw.Length; index++)
         {
-            ChargeBytes(builder.Governor, index, raw.Length);
+            CheckChunkCancellation(builder.Governor, index);
             AppendEscapedChar(builder, raw[index] < 128 ? (char)raw[index] : '?');
         }
         builder.Append('"');
@@ -108,7 +108,7 @@ internal static class PdfJsonWriter
         Span<char> chars = stackalloc char[2];
         while (!value.IsEmpty)
         {
-            builder.Governor.ChargeWork(Math.Min(4, value.Length));
+            builder.Governor.NoteOperation();
             builder.Governor.CheckCancellation();
             OperationStatus status = Rune.DecodeFromUtf8(value, out Rune rune, out int consumed);
             if (status == OperationStatus.NeedMoreData) { consumed = value.Length; }
@@ -131,7 +131,7 @@ internal static class PdfJsonWriter
         {
             for (int index = 2; index + 1 < value.Length; index += 2)
             {
-                ChargeBytes(builder.Governor, index - 2, value.Length - 2);
+                CheckChunkCancellation(builder.Governor, index - 2);
                 char unit = (char)(value[0] == 0xFF ? value[index] | value[index + 1] << 8 : value[index] << 8 | value[index + 1]);
                 AppendEscapedChar(builder, unit);
             }
@@ -141,7 +141,7 @@ internal static class PdfJsonWriter
         {
             for (int index = 0; index < value.Length; index++)
             {
-                ChargeBytes(builder.Governor, index, value.Length);
+                CheckChunkCancellation(builder.Governor, index);
                 byte unit = value[index];
                 if (binary)
                 {
@@ -158,7 +158,7 @@ internal static class PdfJsonWriter
     {
         for (int index = 0; index < value.Length; index++)
         {
-            ChargeBytes(governor, index, value.Length);
+            CheckChunkCancellation(governor, index);
             if (EncodePdfDocChar(PdfText.DecodePdfDocByte(value[index])) != value[index]) { return false; }
         }
         return true;
@@ -170,7 +170,7 @@ internal static class PdfJsonWriter
         builder.Append('"');
         for (int index = 0; index < value.Length; index += 3)
         {
-            builder.Governor.ChargeWork(Math.Min(3, value.Length - index)); builder.Governor.CheckCancellation();
+            builder.Governor.NoteOperation(); builder.Governor.CheckCancellation();
             int second = index + 1 < value.Length ? value[index + 1] : 0;
             int third = index + 2 < value.Length ? value[index + 2] : 0;
             builder.Append(alphabet[value[index] >> 2]);
@@ -192,7 +192,7 @@ internal static class PdfJsonWriter
         {
             int index = 0;
             while (index < value.Length && value[index] == '0')
-            { ChargeBytes(builder.Governor, index, value.Length); index++; }
+            { CheckChunkCancellation(builder.Governor, index); index++; }
             if (index == value.Length) { builder.Append('0'); return; }
             value = value[index..];
             if (value[0] == '.') { builder.Append('0'); }
@@ -203,7 +203,7 @@ internal static class PdfJsonWriter
 
     internal static void AppendReference(DisplayBuffer builder, int number, int generation)
     {
-        builder.Governor.ChargeWork(1L); builder.Governor.CheckCancellation();
+        builder.Governor.NoteOperation(); builder.Governor.CheckCancellation();
         builder.AppendInteger(number); builder.Append(' '); builder.AppendInteger(generation); builder.Append(" R");
     }
 
@@ -219,7 +219,7 @@ internal static class PdfJsonWriter
     internal static void AppendValue(DisplayBuffer builder, QpdfObject value, int version,
         ResourceGovernor governor, int depth, QpdfLimits limits)
     {
-        governor.ChargeWork(1L); governor.CheckCancellation();
+        governor.CheckCancellation();
         if (depth > limits.MaxNestingDepth) { throw new QpdfParseException("JSON inspection exceeds nesting budget.", null, null); }
         switch (value)
         {
@@ -270,7 +270,7 @@ internal static class PdfJsonWriter
             using PdfDictionary.EntryEnumerator source = dictionary.GetEntryEnumerator();
             while (source.MoveNext())
             {
-                governor.ChargeWork(1L); governor.CheckCancellation();
+                governor.CheckCancellation();
                 KeyValuePair<PdfName, QpdfObject> entry = source.Current;
                 if (entry.Value is PdfNull) { continue; }
                 if (omitLength && entry.Key.RawSpan.SequenceEqual("Length"u8)) { continue; }
@@ -281,7 +281,7 @@ internal static class PdfJsonWriter
             builder.Append('{');
             for (int index = 0; index < count; index++)
             {
-                governor.ChargeWork(1L); governor.CheckCancellation();
+                governor.CheckCancellation();
                 if (index > 0) { builder.Append(','); }
                 AppendName(builder, entries[index].Key, version); builder.Append(": ");
                 AppendValue(builder, entries[index].Value, version, governor, depth, limits);
@@ -299,7 +299,7 @@ internal static class PdfJsonWriter
             int width = Math.Min(a.Length, b.Length);
             for (int index = 0; index < width; index++)
             {
-                ChargeBytes(governor, index, width);
+                CheckChunkCancellation(governor, index);
                 if (a[index] != b[index]) { return a[index] - b[index]; }
             }
             return a.Length - b.Length;
@@ -313,7 +313,7 @@ internal static class PdfJsonWriter
         bool needsEscaping = false;
         for (int index = 0; index < slashForm.Length; index++)
         {
-            ChargeBytes(governor, index, slashForm.Length);
+            CheckChunkCancellation(governor, index);
             byte raw = slashForm[index];
             int c = raw;
             if (tail > 0)
@@ -380,7 +380,7 @@ internal static class PdfJsonWriter
         {
             if ((i & 255) == 0)
             {
-                governor?.ChargeWork(Math.Min(256, value.Length - i));
+                governor?.NoteOperation();
                 governor?.CheckCancellation();
             }
             byte raw = value[i];

@@ -78,15 +78,12 @@ public sealed class WriterIndexOwnershipTests
     }
 
     [Theory]
-    [InlineData("ordinary-streamed","memory")]
-    [InlineData("ordinary-streamed","work")]
-    [InlineData("qdf-streamed","memory")]
-    [InlineData("qdf-streamed","work")]
-    public void LargeLookupRejectsBeforeUnownedBackingAllocation(string route, string ceiling)
+    [InlineData("ordinary-streamed")]
+    [InlineData("qdf-streamed")]
+    public void LargeLookupRejectsBeforeUnownedBackingAllocation(string route)
     {
         List<NumberedObject> model = Model(4096);
-        QpdfLimits limits = ceiling == "memory" ? QpdfLimits.Default with {MaxMemoryBytes=4096L}
-            : QpdfLimits.Default with {MaxWork=5000L};
+        QpdfLimits limits = QpdfLimits.Default with {MaxMemoryBytes=4096L};
         ResourceGovernor governor = new(limits,CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
         PausedSink sink = new("none",false);
@@ -94,7 +91,7 @@ public sealed class WriterIndexOwnershipTests
         QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => Start(route,model,limits,governor,sink,CancellationToken.None).GetAwaiter().GetResult());
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         Assert.True(allocated < 32768L,$"Rejected writer lookup allocated {allocated} bytes.");
-        Assert.Equal(ceiling == "memory" ? nameof(QpdfLimits.MaxMemoryBytes) : nameof(QpdfLimits.MaxWork),failure.LimitName);
+        Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes),failure.LimitName);
         Assert.Equal(161L,governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L,prior.ReservedBytes);
         Assert.Equal(0L,sink.Length); Assert.Equal(4096,model.Count);
     }

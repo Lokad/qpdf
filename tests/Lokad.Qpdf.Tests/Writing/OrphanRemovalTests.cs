@@ -71,20 +71,6 @@ public sealed class OrphanRemovalTests
         OrphanFixture.AssertUnchanged(fixture.Pool, fixture.Mapping, before, mapping); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void MappingScanHasFiniteWorkBeforeEitherDictionaryChanges(bool matching)
-    {
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = 128L }, CancellationToken.None);
-        using OrphanFixture fixture = new(governor, PdfNull.Instance);
-        for (int index = 0; index < 1024; index++) { fixture.Mapping.Add(10000 + index, matching ? 2 : 90); }
-        var before = fixture.Pool.ToArray(); var mapping = fixture.Mapping.ToArray();
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => Invoke(fixture.Copier, [2]));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-        OrphanFixture.AssertUnchanged(fixture.Pool, fixture.Mapping, before, mapping); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-    }
-
     [Fact]
     public void WideTraversalRejectsCapacityBeforeChangingBorrowedGraphs()
     {
@@ -97,30 +83,6 @@ public sealed class OrphanRemovalTests
         OrphanFixture.AssertUnchanged(fixture.Pool, fixture.Mapping, before, mapping); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
-    [Fact]
-    public void EverySmallWorkBudgetPreservesBothDictionariesOnFailure()
-    {
-        int failures = 0, successes = 0;
-        for (int budget = 1; budget < 512; budget++)
-        {
-            ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = budget }, CancellationToken.None);
-            using OrphanFixture fixture = new(governor, PdfNull.Instance);
-            var before = fixture.Pool.ToArray(); var mapping = fixture.Mapping.ToArray();
-            try
-            {
-                Invoke(fixture.Copier, [1, 2, 1]); Assert.Equal(new[] { 3, 90 }, fixture.Pool.Keys);
-                Assert.Equal(new[] { 31, 91 }, fixture.Mapping.Keys); successes++;
-            }
-            catch (QpdfLimitException failure)
-            {
-                Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-                OrphanFixture.AssertUnchanged(fixture.Pool, fixture.Mapping, before, mapping); failures++;
-            }
-            Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        }
-        Assert.True(failures > 0); Assert.True(successes > 0);
-    }
-
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -130,7 +92,7 @@ public sealed class OrphanRemovalTests
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 1L }, cancellation.Token);
         using OrphanFixture fixture = new(governor, PdfNull.Instance);
         Assert.Throws<OperationCanceledException>(() => Invoke(fixture.Copier, empty ? [] : [2]));
-        Assert.Equal(0L, governor.Snapshot().TotalWork); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]

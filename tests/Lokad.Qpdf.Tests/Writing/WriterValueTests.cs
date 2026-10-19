@@ -197,20 +197,6 @@ public sealed class WriterValueTests
         Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(source);
     }
 
-    [Fact]
-    public void ExhaustedWorkRejectsBeforeLargeArrayAllocation()
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 100000L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        using WriterIndex<int> map = Map(governor);
-        PdfArray source = new(Enumerable.Repeat<QpdfObject>(new PdfReference(1, 0), 8192).ToArray());
-        governor.ChargeWork(limits.MaxWork - governor.Snapshot().TotalWork);
-        long before = governor.Snapshot().LiveMemoryBytes, allocated = GC.GetAllocatedBytesForCurrentThread();
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => WriterValue.Remap(source, map, governor, CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 32768L);
-        Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); Assert.Equal(8192, source.Count);
-    }
-
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -220,8 +206,7 @@ public sealed class WriterValueTests
         using WriterIndex<int> map = Map(governor); long before = governor.Snapshot().LiveMemoryBytes;
         PdfDictionary source = new(new Dictionary<PdfName, QpdfObject>());
         Assert.Throws<InvalidOperationException>(() => Create(header, source, map, other, CancellationToken.None));
-        Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, other.Snapshot().LiveMemoryBytes); Assert.Equal(0L, other.Snapshot().TotalWork);
-    }
+        Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, other.Snapshot().LiveMemoryBytes);     }
 
     private static WriterValue Create(bool header, PdfDictionary source, WriterIndex<int> map, ResourceGovernor governor, CancellationToken token)
         => header ? WriterValue.StreamHeader(source, 42, map, governor, token) : WriterValue.Remap(source, map, governor, token);
@@ -236,10 +221,9 @@ public sealed class WriterValueTests
         using CancellationTokenSource cancellation = new();
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
         using WriterIndex<int> map = Map(governor); PdfDictionary source = new(new Dictionary<PdfName, QpdfObject>());
-        long before = governor.Snapshot().LiveMemoryBytes, work = governor.Snapshot().TotalWork; cancellation.Cancel();
+        long before = governor.Snapshot().LiveMemoryBytes; cancellation.Cancel();
         Assert.ThrowsAny<OperationCanceledException>(() => Create(header, source, map, governor, governorToken ? CancellationToken.None : cancellation.Token));
-        Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); Assert.Equal(work, governor.Snapshot().TotalWork);
-    }
+        Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);     }
 
     [Theory]
     [InlineData(false)]

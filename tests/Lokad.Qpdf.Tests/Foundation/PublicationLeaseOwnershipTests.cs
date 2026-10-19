@@ -21,23 +21,6 @@ public sealed class PublicationLeaseOwnershipTests
         GC.KeepAlive(canceled);
     }
 
-    [Fact]
-    public void PlainCommitPreparationDoesNotSpendUnrequestedFormattingWork()
-    {
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = 32768L }, CancellationToken.None);
-        DiagnosticBag bag = new(governor);
-        using ExecutionPresentation? presentation = ExecutionPresentation.Create(governor, bag, false, false, false, false, false, CancellationToken.None);
-        Assert.NotNull(presentation);
-        governor.ChargeWork(32768L - governor.Snapshot().TotalWork);
-        Assert.Throws<QpdfLimitException>(() => governor.ChargeWork(1L));
-        long work = governor.Snapshot().TotalWork;
-        Assert.Equal(32768L, work);
-        long peak = governor.Snapshot().PeakMemoryBytes;
-        governor.PrepareExecutionPresentation();
-        Assert.Null(governor.CompleteExecutionPresentation());
-        Assert.Equal(work, governor.Snapshot().TotalWork); Assert.Equal(peak, governor.Snapshot().PeakMemoryBytes);
-    }
-
     [Theory]
     [InlineData(false, 31L)]
     [InlineData(true, 39L)]
@@ -100,10 +83,9 @@ public sealed class PublicationLeaseOwnershipTests
         };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         if (exhausted == "handles") { governor.AcquireHandle(); }
-        QpdfLimitException exception = Assert.Throws<QpdfLimitException>(() => PublicationWorkReservation.Create(governor, 4L));
+        QpdfLimitException exception = Assert.Throws<QpdfLimitException>(() => PublicationReservation.Create(governor, 4L));
         Assert.Equal(exhausted == "memory" ? nameof(QpdfLimits.MaxMemoryBytes) : exhausted == "host" ? nameof(QpdfLimits.MaxHostOperations) : nameof(QpdfLimits.MaxOpenHandles), exception.LimitName);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, governor.Snapshot().HostOperations);
-        Assert.Equal(0L, governor.Snapshot().TotalWork);
         if (exhausted == "handles") { governor.ReleaseHandle(); }
     }
 
@@ -114,27 +96,24 @@ public sealed class PublicationLeaseOwnershipTests
     {
         LeaseHost host = new(closeFault);
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 152L, MaxHostOperations = 6L, MaxOpenHandles = 1L }, CancellationToken.None);
-        using (PublicationWorkReservation publication = PublicationWorkReservation.Create(governor, 6L))
+        using (PublicationReservation publication = PublicationReservation.Create(governor, 6L))
         {
             Assert.Equal(152L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, governor.Snapshot().HostOperations);
             Assert.Throws<QpdfLimitException>(() => governor.NoteHostOperation());
             publication.Begin();
             for (int index = 0; index < 3; index++)
             {
-                governor.ChargeWork(1L);
                 IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, QpdfPath.From("out" + index), governor, CancellationToken.None);
                 Assert.Throws<InvalidOperationException>(() => publication.Dispose());
-                governor.ChargeWork(1L); await transaction.WriteAsync(new byte[] { 1, 2, 3 }, CancellationToken.None);
+await transaction.WriteAsync(new byte[] { 1, 2, 3 }, CancellationToken.None);
                 await transaction.CommitAsync(CancellationToken.None);
                 if (closeFault) { await Assert.ThrowsAsync<QpdfHostException>(() => transaction.DisposeAsync().AsTask()); }
                 else { await transaction.DisposeAsync(); }
                 Assert.Equal(152L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, governor.Snapshot().OpenHandles);
             }
-            Assert.Equal(0L, publication.Remaining);
         }
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(152L, governor.Snapshot().PeakMemoryBytes);
-        Assert.Equal(6L, governor.Snapshot().HostOperations); Assert.Equal(6L, governor.Snapshot().TotalWork);
-        Assert.Equal(0L, host.Inner.OpenLeaseCount);
+        Assert.Equal(6L, governor.Snapshot().HostOperations);         Assert.Equal(0L, host.Inner.OpenLeaseCount);
     }
 
     [Theory]

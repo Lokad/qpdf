@@ -19,7 +19,6 @@ public static partial class Qpdf
         foreach (EmbeddedAttachment attachment in found)
         {
             governor.CheckCancellation();
-            governor.ChargeWork(1L);
             if (string.Equals(attachment.Key, key, StringComparison.Ordinal))
             {
                 return EmbeddedFiles.ExtractData(attachment.Stream, attachment.StreamObjectNumber, document.Engine, limits, governor, diagnostics);

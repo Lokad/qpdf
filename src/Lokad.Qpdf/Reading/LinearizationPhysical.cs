@@ -39,7 +39,6 @@ internal sealed class LinearizationPhysical : IDisposable
     {
         _token.ThrowIfCancellationRequested();
         _governor.CheckCancellation();
-        _governor.ChargeWork(1L);
     }
 
     private PdfObjectExtent Extent(int number)

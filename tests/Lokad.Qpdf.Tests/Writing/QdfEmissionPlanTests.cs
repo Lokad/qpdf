@@ -98,19 +98,6 @@ public sealed class QdfEmissionPlanTests
     }
 
     [Fact]
-    public void ExhaustedWorkRejectsBeforeLargeRowsAndPreservesBorrowedSource()
-    {
-        QpdfLimits limits=QpdfLimits.Default with {MaxWork=1000000L}; ResourceGovernor governor=new(limits,CancellationToken.None);
-        NumberedObject[] values=Enumerable.Range(1,8192).Select(number=>new NumberedObject(number,PdfNull.Instance)).ToArray();
-        using WriterOrder<NumberedObject> source=Source(governor,values);
-        governor.ChargeWork(limits.MaxWork-governor.Snapshot().TotalWork);
-        long before=governor.Snapshot().LiveMemoryBytes,allocated=GC.GetAllocatedBytesForCurrentThread();
-        QpdfLimitException failure=Assert.Throws<QpdfLimitException>(()=>QdfEmissionPlan.Create(source,null,governor,CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxWork),failure.LimitName); Assert.True(GC.GetAllocatedBytesForCurrentThread()-allocated<32768L);
-        Assert.Equal(before,governor.Snapshot().LiveMemoryBytes); Assert.Equal(8192,source.Count);
-    }
-
-    [Fact]
     public void FailedNestedRemappingReleasesOnlyNewRowsAndMetadata()
     {
         ResourceGovernor governor=new(QpdfLimits.Default,CancellationToken.None);
@@ -130,8 +117,7 @@ public sealed class QdfEmissionPlanTests
         using WriterOrder<NumberedObject> source=Source(owner,new NumberedObject(1,PdfNull.Instance));
         long live=owner.Snapshot().LiveMemoryBytes;
         Assert.Throws<InvalidOperationException>(()=>QdfEmissionPlan.Create(source,null,other,CancellationToken.None));
-        Assert.Equal(live,owner.Snapshot().LiveMemoryBytes);Assert.Equal(0L,other.Snapshot().LiveMemoryBytes);Assert.Equal(0L,other.Snapshot().TotalWork);
-    }
+        Assert.Equal(live,owner.Snapshot().LiveMemoryBytes);Assert.Equal(0L,other.Snapshot().LiveMemoryBytes);    }
 
     [Theory]
     [InlineData(false)]
@@ -141,10 +127,9 @@ public sealed class QdfEmissionPlanTests
         using CancellationTokenSource cancellation=new();
         ResourceGovernor governor=new(QpdfLimits.Default,governorToken ? cancellation.Token : CancellationToken.None);
         using WriterOrder<NumberedObject> source=Source(governor,new NumberedObject(1,PdfNull.Instance));
-        long live=governor.Snapshot().LiveMemoryBytes,work=governor.Snapshot().TotalWork;cancellation.Cancel();
+        long live=governor.Snapshot().LiveMemoryBytes;cancellation.Cancel();
         Assert.ThrowsAny<OperationCanceledException>(()=>QdfEmissionPlan.Create(source,null,governor,governorToken ? CancellationToken.None : cancellation.Token));
-        Assert.Equal(live,governor.Snapshot().LiveMemoryBytes);Assert.Equal(work,governor.Snapshot().TotalWork);
-    }
+        Assert.Equal(live,governor.Snapshot().LiveMemoryBytes);    }
 
     [Theory]
     [InlineData(false)]
@@ -155,15 +140,14 @@ public sealed class QdfEmissionPlanTests
         ResourceGovernor governor=new(QpdfLimits.Default,governorToken ? cancellation.Token : CancellationToken.None);
         NumberedObject[] values=Enumerable.Range(1,8192).Select(number=>new NumberedObject(number,PdfNull.Instance)).ToArray();
         using WriterOrder<NumberedObject> source=Source(governor,values);
-        long before=governor.Snapshot().LiveMemoryBytes,threshold=governor.Snapshot().TotalWork+65536L;
+        long before=governor.Snapshot().LiveMemoryBytes;
         using ManualResetEventSlim reached=new(),resume=new(); GateIds ids=new(reached,resume);
         Task worker=Task.Factory.StartNew(()=>
         {using QdfEmissionPlan plan=QdfEmissionPlan.Create(source,ids,governor,governorToken ? CancellationToken.None : cancellation.Token);},
             CancellationToken.None,TaskCreationOptions.LongRunning,TaskScheduler.Default);
         try
         {
-            Assert.True(reached.Wait(TimeSpan.FromSeconds(10)));Assert.True(governor.Snapshot().TotalWork>=threshold);
-            cancellation.Cancel();resume.Set();
+            Assert.True(reached.Wait(TimeSpan.FromSeconds(10)));            cancellation.Cancel();resume.Set();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>worker.WaitAsync(TimeSpan.FromSeconds(10)));
             Assert.Equal(before,governor.Snapshot().LiveMemoryBytes);Assert.Equal(8192,source.Count);GC.KeepAlive(worker);
         }

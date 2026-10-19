@@ -18,9 +18,6 @@ public sealed class QpdfJpegCodecContext
     /// <summary>Observes cancellation before continuing codec work.</summary>
     public void CheckCancellation() => Governor.CheckCancellation();
 
-    /// <summary>Charges nonnegative cumulative work and observes periodic cancellation.</summary>
-    public void ChargeWork(long units) => Governor.ChargeWork(units);
-
     /// <summary>Admits private storage before allocation; dispose the returned lease when the storage is released.</summary>
     /// <remarks>Outstanding charges retire when the codec call ends, including failure. The codec still owns actual storage cleanup.</remarks>
     public IDisposable ReserveMemory(long bytes)

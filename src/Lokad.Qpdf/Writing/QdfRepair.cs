@@ -110,7 +110,6 @@ internal sealed class QdfRepair
         }
 
         _governor.CheckCancellation();
-        _governor.ChargeWork(input.Length);
         for (int i = 0; i < input.Length; i++)
         {
             if (input[i] == CarriageReturn)
@@ -134,7 +133,7 @@ internal sealed class QdfRepair
         while (_cursor < _input.Length && _state != RepairState.Done)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _governor.ChargeWork(1L);
+            _governor.NoteOperation();
             _lineNumber = checked(_lineNumber + 1);
             int start = _cursor;
             int end = start;

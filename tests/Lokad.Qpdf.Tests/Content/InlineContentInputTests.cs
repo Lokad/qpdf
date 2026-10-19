@@ -153,24 +153,6 @@ public sealed class InlineContentInputTests
         Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(512, array.Count); Assert.Same(stream, prepared.Copier.CopiedObjects[7]);
     }
 
-    [Fact]
-    public void EveryValidWorkInterruptionRetiresOnlyItsInputScratch()
-    {
-        PdfStream stream = Stream("ASCIIHexDecode", "q Q"u8.ToArray()); using Prepared prepared = new(stream);
-        PdfDictionary page = Dictionary(("Contents", new PdfReference(7, 11))); int failures = 0, successes = 0;
-        for (int maximum = 1; maximum <= 511; maximum++)
-        {
-            QpdfLimits limits = QpdfLimits.Default with { MaxWork = maximum }; ResourceGovernor governor = new(limits, CancellationToken.None);
-            using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(23L); long live = governor.Snapshot().LiveMemoryBytes;
-            object? owner = null;
-            try { owner = Collect(prepared.Copier, page, limits, governor, CancellationToken.None); Assert.NotNull(owner); Assert.Single(Parts(owner)); successes++; }
-            catch (QpdfLimitException failure) { Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); failures++; }
-            finally { Close(owner); }
-            Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(23L, prior.ReservedBytes);
-        }
-        Assert.True(failures > 0); Assert.True(successes > 0);
-    }
-
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -180,8 +162,7 @@ public sealed class InlineContentInputTests
         using CancellationTokenSource cancellation = new(); cancellation.Cancel();
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
         Assert.Throws<OperationCanceledException>(() => Collect(prepared.Copier, page, QpdfLimits.Default, governor, governorToken ? CancellationToken.None : cancellation.Token));
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, governor.Snapshot().TotalWork);
-    }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);     }
 
     [Theory]
     [InlineData(false)]

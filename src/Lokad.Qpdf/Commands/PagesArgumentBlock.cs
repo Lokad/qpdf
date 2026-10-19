@@ -61,6 +61,6 @@ internal static class PagesArgumentBlock
     private static void Visit(ResourceGovernor? governor)
     {
         governor?.CheckCancellation();
-        governor?.ChargeWork(1L);
+        governor?.NoteOperation();
     }
 }

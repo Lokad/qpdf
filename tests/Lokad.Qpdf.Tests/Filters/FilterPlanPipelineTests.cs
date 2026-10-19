@@ -23,24 +23,6 @@ public sealed class FilterPlanPipelineTests
     }
 
     [Theory]
-    [InlineData("lookup")]
-    [InlineData("name")]
-    [InlineData("capacity")]
-    public void CheckerResolutionHonorsFiniteWorkAndStorageBeforeDecode(string kind)
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = kind == "capacity" ? 100000L : 64L, MaxMemoryBytes = kind == "capacity" ? 512L : 100000L };
-        Dictionary<PdfName, QpdfObject> entries = new();
-        if (kind == "lookup")
-        { for (int index = 0; index < 512; index++) { entries.Add(PdfName.FromAscii("other" + index.ToString(System.Globalization.CultureInfo.InvariantCulture)), PdfNull.Instance); } }
-        else
-        { entries.Add(PdfName.FromAscii("Filter"), kind == "name" ? new PdfName(new byte[8192]) : new PdfArray(Enumerable.Repeat<QpdfObject>(PdfName.FromAscii("DCT"), 128).ToArray())); }
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        TargetInvocationException failure = Assert.Throws<TargetInvocationException>(() => Decode(new PdfDictionary(entries), limits, governor));
-        Assert.Equal(kind == "capacity" ? nameof(QpdfLimits.MaxMemoryBytes) : nameof(QpdfLimits.MaxWork), Assert.IsType<QpdfLimitException>(failure.InnerException).LimitName);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.True(governor.Snapshot().TotalWork > 0L);
-    }
-
-    [Theory]
     [InlineData("empty")]
     [InlineData("malformed")]
     [InlineData("above-count")]

@@ -39,21 +39,6 @@ public sealed class PredictorMemoryTests
     [Theory]
     [InlineData(2)]
     [InlineData(12)]
-    public void WorkAdmissionPrecedesOutputAllocation(int predictor)
-    {
-        byte[] input = new byte[100000 + (predictor == 2 ? 0 : 1)];
-        PredictorParameters parameters = new(predictor, 100000, 1, 8);
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 1L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        QpdfLimitException error = Assert.Throws<QpdfLimitException>(
-            () => PredictorStages.Apply(input, parameters, FlateFilter.FilterName, governor));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), error.LimitName);
-        Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);
-    }
-
-    [Theory]
-    [InlineData(2)]
-    [InlineData(12)]
     public void CanceledPredictorDoesNotAllocate(int predictor)
     {
         byte[] input = new byte[100000 + (predictor == 2 ? 0 : 1)];

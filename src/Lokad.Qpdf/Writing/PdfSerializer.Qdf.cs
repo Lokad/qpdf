@@ -132,7 +132,7 @@ internal sealed partial class PdfSerializer
         foreach (QdfEmission emission in emissions)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _governor.ChargeWork(1L);
+            _governor.NoteOperation();
             if (emission.LengthFor is not null)
             {
                 offsets.Add(sink.Length);
@@ -322,7 +322,7 @@ internal sealed partial class PdfSerializer
         foreach ((int old, int number, QpdfObject value, int? source) in regulars)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _governor.ChargeWork(1L);
+            _governor.NoteOperation();
             using WriterValue remapped = value is PdfStream originalStream
                 ? WriterValue.StreamHeader(originalStream.Dictionary, number + 1, combined, _governor, cancellationToken)
                 : WriterValue.Remap(value, combined, _governor, cancellationToken);
@@ -378,7 +378,7 @@ internal sealed partial class PdfSerializer
         foreach ((int container, IReadOnlyList<int> group) in containers)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _governor.ChargeWork(1L);
+            _governor.NoteOperation();
             using ObjectStreamCapture headers = ObjectStreamCapture.Create(group.Count, _limits, _governor, cancellationToken);
             using ObjectStreamCapture bodies = ObjectStreamCapture.Create(group.Count, _limits, _governor, cancellationToken);
             foreach (int member in group)
@@ -550,7 +550,7 @@ internal sealed partial class PdfSerializer
             int seq = 0;
             foreach (QpdfObject kid in kids.Items)
             {
-                cancellationToken.ThrowIfCancellationRequested(); _governor.ChargeWork(1L);
+                cancellationToken.ThrowIfCancellationRequested(); _governor.NoteOperation();
                 if (kid is not PdfReference kidReference)
                 {
                     continue;
@@ -587,7 +587,7 @@ internal sealed partial class PdfSerializer
                 {
                     foreach (QpdfObject item in contentArray.Items)
                     {
-                        cancellationToken.ThrowIfCancellationRequested(); _governor.ChargeWork(1L);
+                        cancellationToken.ThrowIfCancellationRequested(); _governor.NoteOperation();
                         if (item is PdfReference itemReference
                             && combined.TryGetValue(itemReference.ObjectNumber, out int itemNumber)
                             && !marks.ContainsKey(itemNumber))
@@ -642,7 +642,7 @@ internal sealed partial class PdfSerializer
             throw new QpdfParseException($"Serialization depth exceeds {_limits.MaxNestingDepth}.", null, null);
         }
 
-        _governor.ChargeWork(1L);
+        _governor.NoteOperation();
         if (value is PdfNull)
         {
             await AppendAsciiAsync("null", sink, cancellationToken).ConfigureAwait(false);

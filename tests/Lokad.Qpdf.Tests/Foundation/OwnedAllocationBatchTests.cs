@@ -109,10 +109,9 @@ public sealed class OwnedAllocationBatchTests
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
         using OwnedAllocationBatch batch = OwnedAllocationBatch.Create(governor, 4, governorToken ? CancellationToken.None : cancellation.Token);
         byte[][] values = Populate(batch, 4);
-        long live = governor.Snapshot().LiveMemoryBytes, work = governor.Snapshot().TotalWork;
+        long live = governor.Snapshot().LiveMemoryBytes;
         cancellation.Cancel(); Assert.ThrowsAny<OperationCanceledException>(() => batch.Retain());
-        Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(work, governor.Snapshot().TotalWork);
-        Assert.Equal(3, values[3][0]); GC.KeepAlive(values);
+        Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);         Assert.Equal(3, values[3][0]); GC.KeepAlive(values);
     }
 
     private sealed class Completed(OwnedAllocationBatch batch, byte[][] values, WeakReference[] metadata)

@@ -56,7 +56,6 @@ internal sealed class ConfigurationText : IDisposable
     internal string? ReadJsonString(JsonElement element)
     {
         _governor.CheckCancellation();
-        _governor.ChargeWork(1L);
         if (element.ValueKind == JsonValueKind.Null) { return null; }
         if (element.ValueKind == JsonValueKind.String && element.ValueEquals(string.Empty)) { return string.Empty; }
         string? value = element.GetString();
@@ -75,7 +74,7 @@ internal sealed class ConfigurationText : IDisposable
         // allocate a substring/receipt when the parser can borrow that storage.
         if (length <= 11)
         {
-            _governor.CheckCancellation(); _governor.ChargeWork(1L);
+            _governor.CheckCancellation();
             string? shared = source.AsSpan(start, length) switch
             {
                 "1" => "1", "2" => "2", "inline" => "inline", "file" => "file",
@@ -112,7 +111,7 @@ internal sealed class ConfigurationText : IDisposable
     internal static string ObjectSelector(ConfigurationText? owner, int number, int generation)
     {
         owner?._governor.CheckCancellation();
-        owner?._governor.ChargeWork(2L);
+        owner?._governor.NoteOperation();
         int length = 7 + Digits(number) + Digits(generation);
         long bytes = GovernedText.StringBytes(length);
         owner?.Memory.Reserve(bytes);

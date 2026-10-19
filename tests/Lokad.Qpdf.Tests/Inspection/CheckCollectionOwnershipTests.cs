@@ -128,23 +128,6 @@ public sealed class CheckCollectionOwnershipTests
         return governor.Snapshot();
     }
 
-    [Fact]
-    [Trait("Layer", "Contract")]
-    public void DiagnosticMemoEndsWithItsPrivateOwner()
-    {
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        DiagnosticBag bag = new(governor);
-        bag.Add(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning, new string('A', 4096));
-        QpdfDiagnostic result = Assert.Single(bag.Entries);
-        Assert.Equal(1L, governor.DiagnosticWorkState.Messages);
-        long before = governor.Snapshot().LiveMemoryBytes;
-        governor.CompletePrivateStorage();
-        Assert.Equal(0L, governor.DiagnosticWorkState.Messages);
-        Assert.True(governor.Snapshot().LiveMemoryBytes < before);
-        Assert.Equal(new string('A', 4096), result.Message);
-        Assert.True(governor.CallerStorageBytes >= 8192L);
-    }
-
     private sealed class Aliases(ResourceGovernor governor, object value, object? sibling, long minimum, bool admitted,
         WeakReference[] metadata, WeakReference[] storage, QpdfCheckOutcome[]? originalElements)
     {
@@ -202,7 +185,6 @@ public sealed class CheckCollectionOwnershipTests
         Assert.Equal(!failed, result.Passed); Assert.Equal(failed ? 0 : 1, result.PageCount);
         Assert.Equal(failed ? 1 : 0, result.Diagnostics.Count);
         QpdfExecutionCounters final = governor.Snapshot();
-        Assert.Equal(final.TotalWork, result.Counters.TotalWork);
         Assert.Equal(final.PeakMemoryBytes, result.Counters.PeakMemoryBytes);
         Assert.InRange(final.LiveMemoryBytes, 0L, result.Counters.LiveMemoryBytes);
         return Keep(result, host, governor, kind);
@@ -279,7 +261,7 @@ public sealed class CheckCollectionOwnershipTests
         QpdfExecutionCounters dropped = await CollectAsync(aliases.Governor);
         Assert.Equal(held.LiveMemoryBytes, dropped.LiveMemoryBytes);
         if (kind.StartsWith("diagnostics-", StringComparison.Ordinal))
-        { Assert.Equal(0L, ((RetainedStorage)Field(aliases.Governor, "_valueOwners")).WorkState.Messages); }
+        { }
         ValidateSibling(aliases, kind); aliases.Sibling = null; await CollectAsync(aliases.Governor);
         Assert.All(aliases.Storage, x => Assert.False(x.IsAlive));
         Assert.Equal(aliases.Governor.CallerMetadataBytes + aliases.Governor.CallerStorageBytes, aliases.Governor.Snapshot().LiveMemoryBytes);
@@ -315,14 +297,13 @@ public sealed class CheckCollectionOwnershipTests
         if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
         await CollectAsync(governor);
         Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(0L, Field(governor, "_reservedResultWork"));
     }
 
     public static IEnumerable<object[]> Budgets()
     {
         foreach (bool compressed in new[] { false, true })
         foreach (bool failed in new[] { false, true })
-        foreach (string budget in new[] { "memory-short", "memory-success", "work-short", "work-success" })
+        foreach (string budget in new[] { "memory-short", "memory-success"})
         { yield return [compressed, failed, budget]; }
     }
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -334,8 +315,7 @@ public sealed class CheckCollectionOwnershipTests
         {
             "memory-short" => QpdfLimits.Default with { MaxMemoryBytes = compressed ? 131072L : 16384L },
             "memory-success" => QpdfLimits.Default with { MaxMemoryBytes = compressed ? 262144L : 32768L },
-            "work-short" => QpdfLimits.Default with { MaxWork = compressed ? 24000L : 3000L },
-            _ => QpdfLimits.Default with { MaxWork = compressed ? 65536L : 4096L },
+            _ => QpdfLimits.Default,
         };
         Task<QpdfCheckResult> running = Qpdf.CheckAsync(host, Input, new QpdfCheckOptions(), limits, cancellation.Token).AsTask();
         await host.Entered.WaitAsync(TimeSpan.FromSeconds(10)); ResourceGovernor governor = Governor(running); host.Resume();
@@ -343,7 +323,7 @@ public sealed class CheckCollectionOwnershipTests
         // Compressed expansion must still reject at the unchanged lower ceilings.
         if (compressed && budget is "work-short" or "memory-short")
         {
-            string limit = budget == "work-short" ? nameof(QpdfLimits.MaxWork) : nameof(QpdfLimits.MaxMemoryBytes);
+            string limit = nameof(QpdfLimits.MaxMemoryBytes);
             try
             {
                 QpdfCheckResult result = await running;
@@ -361,7 +341,7 @@ public sealed class CheckCollectionOwnershipTests
             else { Assert.Empty(result.Diagnostics); }
         }
         Closed(host, governor); Assert.True(governor.Snapshot().PeakMemoryBytes <= limits.MaxMemoryBytes);
-        Assert.True(governor.Snapshot().TotalWork <= limits.MaxWork); return governor;
+return governor;
     }
     [Theory]
     [MemberData(nameof(Budgets))]
@@ -375,7 +355,7 @@ public sealed class CheckCollectionOwnershipTests
         await Task.Yield();
         if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
         await CollectAsync(governor);
-        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, Field(governor, "_reservedResultWork"));
+        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
     }
 
     private sealed class MetadataAlias(IReadOnlyList<QpdfCheckOutcome> value, WeakReference[] references)
@@ -452,7 +432,7 @@ public sealed class CheckCollectionOwnershipTests
         ResourceGovernor governor = await CompleteRoute(compressed, failed, route); await Task.Yield();
         if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
         await CollectAsync(governor);
-        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, Field(governor, "_reservedResultWork"));
+        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
     }
 
     internal static async Task<object> MeasurePublicAdmission(bool compressed, bool failed)
@@ -463,8 +443,7 @@ public sealed class CheckCollectionOwnershipTests
         await host.Entered.WaitAsync(TimeSpan.FromSeconds(10)); ResourceGovernor governor = Governor(running);
         QpdfExecutionCounters closed = governor.Snapshot(); host.Resume();
         QpdfCheckResult result = await running.WaitAsync(TimeSpan.FromSeconds(10)); Closed(host, governor);
-        return new { compressed, failed, ClosedWork = closed.TotalWork, FinalWork = result.Counters.TotalWork,
-            ClosedLive = closed.LiveMemoryBytes, FinalLive = result.Counters.LiveMemoryBytes, Peak = result.Counters.PeakMemoryBytes,
+        return new { compressed, failed,             ClosedLive = closed.LiveMemoryBytes, FinalLive = result.Counters.LiveMemoryBytes, Peak = result.Counters.PeakMemoryBytes,
             Checks = result.Checks.Count, Diagnostics = result.Diagnostics.Count };
     }
 

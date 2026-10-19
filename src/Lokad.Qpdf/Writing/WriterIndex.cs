@@ -22,7 +22,6 @@ internal sealed class WriterIndex<T> : IDisposable
         ArgumentNullException.ThrowIfNull(governor);
         token.ThrowIfCancellationRequested();
         governor.CheckCancellation();
-        governor.ChargeWork(1L);
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         try
         {

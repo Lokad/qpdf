@@ -69,7 +69,7 @@ public static partial class Qpdf
             int greatest = 0;
             foreach (int number in document.Engine.XRefEntries.Keys)
             {
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 greatest = Math.Max(greatest, number);
             }
             if (greatest == int.MaxValue) { throw new QpdfParseException("No object identity is available for page transformations.", null, null); }
@@ -79,7 +79,7 @@ public static partial class Qpdf
             Dictionary<QpdfObject, PdfReference> promoted = new(ReferenceEqualityComparer.Instance);
             foreach (PageLocation location in document.PageReferences)
             {
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 Dictionary<PdfName, QpdfObject> extra = ParserContainers.CreateDictionary<PdfName, QpdfObject>(memory);
                 if (plan.Sources.Count > 0 || overlay)
                 {
@@ -122,7 +122,7 @@ public static partial class Qpdf
             if (plan.Sources.Count == 0) { ParserContainers.AddItem(memory, groups, original, IntPtr.Size); }
             foreach (PdfPageSource source in plan.Sources)
             {
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 bool primary = source.Input.Value == "." || string.Equals(source.Input.Value, plan.Input.Value, StringComparison.Ordinal);
                 QpdfDocument sourceDocument = document;
                 GraphCopier sourceCopier = pool;
@@ -146,11 +146,11 @@ public static partial class Qpdf
                     sourceCopier = loaded.Copier;
                 }
                 IReadOnlyList<int> requested = Pages.PageRanges.Expand(source.Selection.Range, sourceDocument.PageCount,
-                    limits.MaxWork, governor, memory);
+                    limits.MaxContainerSize, governor, memory);
                 List<InspectionPage> group = ParserContainers.CreateList<InspectionPage>(memory);
                 foreach (int pageNumber in requested)
                 {
-                    governor.ChargeWork(1L);
+                    governor.NoteOperation();
                     InspectionPage selected;
                     if (primary) { selected = original[pageNumber - 1]; }
                     else
@@ -163,7 +163,7 @@ public static partial class Qpdf
                         selected = new InspectionPage(id, 0, page);
                         foreach (KeyValuePair<int, QpdfObject> entry in sourceCopier.CopiedObjects)
                         {
-                            governor.ChargeWork(1L);
+                            governor.NoteOperation();
                             StoreInspectionObject(pool, entry.Key, entry.Value);
                         }
                     }
@@ -179,7 +179,7 @@ public static partial class Qpdf
             HashSet<int> used = ParserContainers.CreateSet<int>(memory);
             foreach ((int source, int slot) in order)
             {
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 InspectionPage page = groups[source][slot];
                 if (!ParserContainers.AddSetItem(memory, used, page.Number, sizeof(int)))
                 {
@@ -223,7 +223,7 @@ public static partial class Qpdf
                 StoreInspectionObject(pool, pagesReference.ObjectNumber, PdfDictionary.FromOwnedEntries(rootEntries));
                 foreach (InspectionPage originalPage in original)
                 {
-                    governor.ChargeWork(1L);
+                    governor.NoteOperation();
                     if (!used.Contains(originalPage.Number)) { StoreInspectionObject(pool, originalPage.Number, PdfNull.Instance); }
                 }
             }
@@ -259,7 +259,7 @@ public static partial class Qpdf
                 {
                     foreach (KeyValuePair<int, QpdfObject> entry in source.CopiedObjects)
                     {
-                        governor.ChargeWork(1L);
+                        governor.NoteOperation();
                         StoreInspectionObject(pool, entry.Key, entry.Value);
                     }
                 }
@@ -272,7 +272,7 @@ public static partial class Qpdf
             List<PageLocation> transformed = ParserContainers.CreateList<PageLocation>(memory);
             foreach (InspectionPage selected in selectedPages)
             {
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 memory.Reserve(24L);
                 PdfDictionary page = pool.CopiedObjects[selected.Number] as PdfDictionary
                     ?? throw new QpdfParseException("Selected page was removed from the graph.", null, selected.Number);
@@ -316,7 +316,7 @@ public static partial class Qpdf
         using var enumerator = dictionary.GetEntryEnumerator();
         while (enumerator.MoveNext())
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             SetInspectionEntry(entries, enumerator.Current.Key, enumerator.Current.Value, memory);
         }
         return entries;
@@ -343,7 +343,7 @@ public static partial class Qpdf
         List<PageLocation> kept = ParserContainers.CreateList<PageLocation>(memory);
         foreach ((GraphCopier copier, int id) in occurrences)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             PdfDictionary page = copier.CopiedObjects[id] as PdfDictionary
                 ?? throw new QpdfParseException("Selected page is not a dictionary.", null, id);
             int generation = document.Engine.XRefEntries.TryGetValue(id, out XrefEntry entry)
@@ -353,7 +353,7 @@ public static partial class Qpdf
         Dictionary<int, QpdfObject> assembled = ParserContainers.CreateDictionary<int, QpdfObject>(memory);
         foreach (KeyValuePair<int, QpdfObject> entry in pool.CopiedObjects)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             ParserContainers.EnsureEntryCapacity(memory, assembled, IntPtr.Size);
             assembled.Add(entry.Key, entry.Value);
         }
@@ -362,7 +362,7 @@ public static partial class Qpdf
             cancellationToken, true);
         foreach (KeyValuePair<int, QpdfObject> entry in assembled)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             StoreInspectionObject(pool, entry.Key, entry.Value);
         }
         if (form is null) { return; }
@@ -410,12 +410,12 @@ public static partial class Qpdf
             more = false;
             for (int source = 0; source < counts.Count; source++)
             {
-                governor?.ChargeWork(1L);
+                governor?.NoteOperation();
                 int size = collation is null ? counts[source]
                     : collation.GroupSizes.Count == 1 ? collation.GroupSizes[0] : collation.GroupSizes[source];
                 for (int i = 0; i < size && cursors[source] < counts[source]; i++)
                 {
-                    governor?.ChargeWork(1L);
+                    governor?.NoteOperation();
                     if (memory is null) { order.Add((source, cursors[source]++)); }
                     else { ParserContainers.AddItem(memory, order, (source, cursors[source]++), 8L); }
                     more = true;

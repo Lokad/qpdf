@@ -35,12 +35,12 @@ internal sealed class CollationPreparation : IDisposable
         => GovernedCollections.AddItem(Memory, Governor, target, value, sizeof(int));
     internal void Append(List<int> target, IReadOnlyList<int> source)
     { foreach (int value in source) { Add(target, value); } }
-    internal void Visit() { Governor.CheckCancellation(); Governor.ChargeWork(1L); }
+    internal void Visit() { Governor.CheckCancellation(); }
 
     internal PdfPageCollation CreatePolicy(List<int> sizes)
     {
         // The public constructor creates its own wrapper and exact integer snapshot.
-        Governor.CheckCancellation(); Governor.ChargeWork(checked(2L * sizes.Count + 1L));
+        Governor.CheckCancellation();
         Memory.Reserve(checked(24L + ((24L + sizeof(int) * (long)sizes.Count + 7L) & ~7L)));
         return new PdfPageCollation(sizes);
     }

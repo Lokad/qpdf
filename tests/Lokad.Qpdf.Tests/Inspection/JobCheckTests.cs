@@ -67,7 +67,7 @@ public sealed class JobCheckTests
         Assert.DoesNotContain(job.Diagnostics, diagnostic => diagnostic.Message.Contains("Unsupported job key", StringComparison.Ordinal));
         Assert.True(observed.OpenCalls > 0);
         Assert.Equal(0, observed.OutputCalls);
-        Assert.True(job.Counters.TotalWork > 0 && job.Counters.PeakMemoryBytes > 0);
+        Assert.True(job.Counters.PeakMemoryBytes > 0);
         Assert.Equal(0L, job.Counters.OpenHandles);
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out _));
         Assert.Equal(0L, host.OpenLeaseCount);
@@ -208,7 +208,7 @@ public sealed class JobCheckTests
         cancellation.Cancel();
         QpdfExecutionResult result = await checking.WaitAsync(TimeSpan.FromSeconds(10));
         Assert.Equal(QpdfExecutionStatus.Canceled, result.Status);
-        Assert.True(result.Counters.TotalWork > 0 && result.Counters.HostOperations > 0);
+        Assert.True(result.Counters.HostOperations > 0);
         Assert.Equal(0L, result.Counters.OpenHandles);
         Assert.Equal(0L, source.OpenLeaseCount);
         Assert.Equal(0, host.OutputCalls);
@@ -360,7 +360,7 @@ public sealed class JobCheckTests
         QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/a.pdf"), CancellationToken.None);
         Assert.Equal(1, result.PageCount);
         Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.PageCountMismatch);
-        Assert.True(result.Counters.TotalWork > 0 && result.Counters.PeakMemoryBytes > 0);
+        Assert.True(result.Counters.PeakMemoryBytes > 0);
         Assert.Equal(0L, result.Counters.OpenHandles);
         Assert.Equal(0L, host.OpenLeaseCount);
         await using QpdfDocument control = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), CancellationToken.None);

@@ -46,20 +46,6 @@ public sealed class InlineImageStorageTests
     [InlineData("stream")]
     public void EscapingImageAliasesDoNotAnchorCompletedExecutionState(string alias)
     {Holder holder=Completed(alias);Collect(null);Assert.False(holder.Governor.IsAlive);GC.KeepAlive(holder.Value);}
-    [Fact]
-    public void EveryInterruptedConstructionRetiresOnlyItsUnpublishedAdmission()
-    {
-        int failures=0,completions=0;
-        for(long maximum=1;maximum<3000;maximum+=7)
-        {
-            ResourceGovernor governor=new(QpdfLimits.Default with{MaxWork=maximum},CancellationToken.None);
-            using ParserMemoryScope prior=ParserMemoryScope.Create(governor);prior.Reserve(61L);long baseline=governor.Snapshot().LiveMemoryBytes;
-            try{InlineImageEntry image=Create(governor,CancellationToken.None);Assert.Equal(3,image.Stream.RawMemory.Length);completions++;}
-            catch(QpdfLimitException error){Assert.Equal(nameof(QpdfLimits.MaxWork),error.LimitName);Assert.Equal(baseline,governor.Snapshot().LiveMemoryBytes);failures++;}
-            Assert.Equal(61L,prior.ReservedBytes);
-        }
-        Assert.True(failures>0);Assert.True(completions>0);
-    }
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

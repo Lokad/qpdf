@@ -13,7 +13,7 @@ public sealed class ExecutionResultOwnershipTests
 {
     private const BindingFlags Members = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
 
-    private readonly record struct CounterState(long Live, long Peak, long Work, long Decoded,
+    private readonly record struct CounterState(long Live, long Peak, long Decoded,
         long Output, long HostCalls, long Handles, long Diagnostics);
 
     public static IEnumerable<object[]> FileJsonAliases()
@@ -37,8 +37,7 @@ public sealed class ExecutionResultOwnershipTests
     {
         foreach (string kind in new[] { "result", "counters" })
         {
-            foreach (long memory in new[] { 2048L, 4096L, 8192L }) { yield return [kind, "memory", memory]; }
-            yield return [kind, "work", 1024L];
+            foreach (long memory in new[] { 2048L, 4096L, 8192L }) { yield return [kind, memory]; }
         }
     }
 
@@ -74,7 +73,7 @@ public sealed class ExecutionResultOwnershipTests
             ?? throw new InvalidOperationException("Missing actual public governor."));
 
     private static CounterState Values(QpdfExecutionCounters counters)
-        => new(counters.LiveMemoryBytes, counters.PeakMemoryBytes, counters.TotalWork, counters.TotalDecodedBytes,
+        => new(counters.LiveMemoryBytes, counters.PeakMemoryBytes, counters.TotalDecodedBytes,
             counters.TotalOutputBytes, counters.HostOperations, counters.OpenHandles, counters.DiagnosticCount);
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -125,7 +124,6 @@ public sealed class ExecutionResultOwnershipTests
             Assert.Null(result.OutputText);
             Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, inner.OpenLeaseCount);
             Assert.True(result.Counters.PeakMemoryBytes <= limits.MaxMemoryBytes);
-            Assert.True(result.Counters.TotalWork <= limits.MaxWork);
             Assert.True((long)(host.GetType().GetField("ReadBytes", Members)?.GetValue(host) ?? 0L) > 0L);
             Assert.True(inner.TryGetOutput(QpdfPath.From("output.json"), out byte[] bytes));
             Assert.Equal(new byte[] { 17, 23, 41 }, prior);
@@ -200,10 +198,9 @@ public sealed class ExecutionResultOwnershipTests
     [Theory]
     [MemberData(nameof(BudgetAliases))]
     [Trait("Layer", "Contract")]
-    public async Task AfterReadBudgetFailuresPreserveTargetsAndCounters(string kind, string budget, long ceiling)
+    public async Task AfterReadBudgetFailuresPreserveTargetsAndCounters(string kind, long ceiling)
     {
-        QpdfLimits limits = budget == "memory" ? QpdfLimits.Default with { MaxMemoryBytes = ceiling }
-            : QpdfLimits.Default with { MaxWork = ceiling };
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = ceiling };
         Alias alias = await CompleteFileJson(kind, "argv", false, limits, true);
         VerifyAlias(alias, kind);
     }

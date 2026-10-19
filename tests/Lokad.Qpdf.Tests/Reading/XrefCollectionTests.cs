@@ -280,7 +280,6 @@ public sealed class XrefCollectionTests
         ResourceGovernor governor = new(limits, CancellationToken.None);
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), Assert.Throws<QpdfLimitException>(() => Parse(input, governor, limits)).LimitName);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        Assert.True(governor.Snapshot().TotalWork > 0L);
         Assert.NotNull(Parse(Classic(0, false), governor, limits));
     }
 
@@ -479,18 +478,6 @@ public sealed class XrefCollectionTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void WorkFailureReleasesCollectionStorage(bool recovery)
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 1000L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        Assert.Equal(nameof(QpdfLimits.MaxWork), Assert.Throws<QpdfLimitException>(() => Parse(Classic(2000, recovery), governor, limits)).LimitName);
-        Assert.True(governor.Snapshot().TotalWork > 0L);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
     public async Task CancellationAfterCollectionWorkReleasesAllTemporaryOwners(bool recovery)
     {
         // Keep enough work after collection growth for a scheduled observer;
@@ -518,7 +505,6 @@ public sealed class XrefCollectionTests
             {
                 Assert.True(observed);
                 Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-                Assert.True(governor.Snapshot().TotalWork > 0L);
                 interrupted = true;
             }
         }

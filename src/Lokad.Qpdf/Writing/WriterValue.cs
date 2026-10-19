@@ -29,7 +29,7 @@ internal sealed class WriterValue : IDisposable
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         try
         {
-            memory.Reserve(64L); governor.ChargeWork(1L);
+            memory.Reserve(64L); governor.NoteOperation();
             QpdfObject mapped = lengthNumber.HasValue
                 ? ObjectRemap.RemapStreamHeader(value as PdfDictionary ?? throw new ArgumentException("Stream header must be a dictionary.", nameof(value)),
                     lengthNumber.Value, renumber, memory, governor, token)

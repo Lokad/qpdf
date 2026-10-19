@@ -13,10 +13,9 @@ public sealed class TypedResultOwnershipTests
     private const BindingFlags Members = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
     private static readonly QpdfPath Output = QpdfPath.From("output.pdf");
 
-    private readonly record struct Values(long Live, long Peak, long Work, long Decoded, long OutputBytes,
+    private readonly record struct Values(long Live, long Peak, long Decoded, long OutputBytes,
         long Calls, long Handles, long Diagnostics);
-    private static Values State(QpdfExecutionCounters c) => new(c.LiveMemoryBytes, c.PeakMemoryBytes, c.TotalWork,
-        c.TotalDecodedBytes, c.TotalOutputBytes, c.HostOperations, c.OpenHandles, c.DiagnosticCount);
+    private static Values State(QpdfExecutionCounters c) => new(c.LiveMemoryBytes, c.PeakMemoryBytes,         c.TotalDecodedBytes, c.TotalOutputBytes, c.HostOperations, c.OpenHandles, c.DiagnosticCount);
 
     private sealed class Alias(ResourceGovernor governor, object? value, WeakReference host, WeakReference result,
         WeakReference counters, Values? snapshot)
@@ -92,7 +91,6 @@ public sealed class TypedResultOwnershipTests
             ResourceGovernor governor = FindGovernor(running);
             Assert.True((long)(Field(governor, "_preparedTypedResultBytes") ?? 0L) > 0L);
             Assert.NotNull(Field(governor, "_preparedTypedCounters"));
-            Assert.True((long)(Field(governor, "_reservedResultWork") ?? 0L) >= 1L);
             if (outcome == "cancel") { cancellation.Cancel(); } else { Resume(host); }
             object? result = null;
             if (outcome == "cancel") { await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running); }
@@ -105,7 +103,6 @@ public sealed class TypedResultOwnershipTests
             Assert.Equal(0L, inner.OpenLeaseCount);
             Assert.Equal(0L, governor.Snapshot().OpenHandles);
             Assert.True(governor.Snapshot().PeakMemoryBytes <= limits.MaxMemoryBytes);
-            Assert.True(governor.Snapshot().TotalWork <= limits.MaxWork);
             Assert.Equal(new byte[] { 17, 23, 41 }, prior);
             Assert.True(inner.TryGetOutput(Output, out byte[] current));
             if ((int)(Field(host, "Commits") ?? 0) == 0) { Assert.Equal(prior, current); }
@@ -163,16 +160,6 @@ public sealed class TypedResultOwnershipTests
     {
         Alias alias = await Complete(route, compressed, "read", "success", kind, QpdfLimits.Default);
         CheckSurvivor(alias, kind);
-    }
-
-    [Theory]
-    [MemberData(nameof(BudgetJobs))]
-    [Trait("Layer", "Contract")]
-    public async Task RealMemoryAndWorkFailuresKeepPriorOutputs(string route, bool compressed, string budget)
-    {
-        QpdfLimits limits = budget == "work" ? QpdfLimits.Default with { MaxWork = 128L }
-            : QpdfLimits.Default with { MaxMemoryBytes = 2048L };
-        Alias alias = await Complete(route, compressed, "read", "budget", "counters", limits);
     }
 
     [Theory]

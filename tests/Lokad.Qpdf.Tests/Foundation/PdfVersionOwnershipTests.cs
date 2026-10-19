@@ -186,8 +186,7 @@ public sealed class PdfVersionOwnershipTests
             : await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), options, token);
     }
 
-    private sealed record WriterObservation(ResourceGovernor Governor, WeakReference Host, WeakReference Result,
-        long WorkBeforePublication);
+    private sealed record WriterObservation(ResourceGovernor Governor, WeakReference Host, WeakReference Result);
 
     private static async Task<WriterObservation> CompleteWriter(string route, bool compressed, string profile, string boundary, string outcome)
     {
@@ -208,17 +207,14 @@ public sealed class PdfVersionOwnershipTests
             }
             ResourceGovernor governor = (ResourceGovernor)(typeof(ExecutionCounterTests).GetMethod("FindGovernor", Members)?.Invoke(null,
                 [running, 0, new HashSet<object>(ReferenceEqualityComparer.Instance)]) ?? throw new InvalidOperationException());
-            long work = governor.Snapshot().TotalWork;
             if (outcome == "cancel") { cancellation.Cancel(); } else { Resume(host); }
             QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
             Assert.Equal(outcome == "success" ? QpdfExecutionStatus.Completed : outcome == "cancel" ? QpdfExecutionStatus.Canceled
                 : QpdfExecutionStatus.Failed, result.Status);
             QpdfExecutionCounters final = governor.Snapshot();
-            Assert.Equal(final.TotalWork, result.Counters.TotalWork);
             Assert.Equal(final.PeakMemoryBytes, result.Counters.PeakMemoryBytes);
             Assert.Equal(0L, inner.OpenLeaseCount); Assert.Equal(0L, result.Counters.OpenHandles);
             Assert.True(result.Counters.PeakMemoryBytes <= QpdfLimits.Default.MaxMemoryBytes);
-            Assert.True(result.Counters.TotalWork <= QpdfLimits.Default.MaxWork);
             Assert.Equal(new byte[] { 17, 23, 41 }, prior);
             Assert.True(inner.TryGetOutput(Output, out byte[] output));
             if ((int)Field(host, "Commits") == 0) { Assert.Equal(prior, output); }
@@ -229,7 +225,7 @@ public sealed class PdfVersionOwnershipTests
                 Assert.StartsWith("%PDF-" + expected, Encoding.ASCII.GetString(output.AsSpan(0, 8)));
             }
             if (profile != "empty") { Assert.True((long)Field(host, "ReadBytes") > 0L); }
-            return new(governor, new(host), new(result), work);
+            return new(governor, new(host), new(result));
         }
         finally
         {

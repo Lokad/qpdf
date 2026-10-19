@@ -28,7 +28,6 @@ internal sealed class SelectiveInputData : IDisposable
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
         if (input.Length < 8L * 1048576L || governor.RemainingMemoryBytes < MaximumMetadata * 4L
-            || governor.RemainingWorkUnits < 65536L
             || limits.MaxHostOperations - governor.Snapshot().HostOperations < 32L)
         { return null; }
         if (diagnostics.ReadingPartialInput) { throw new InvalidOperationException("Input prefetch cannot be nested."); }
@@ -52,14 +51,14 @@ internal sealed class SelectiveInputData : IDisposable
             ParserContainers.AddItem(scratch, offsets, 0, sizeof(int));
             foreach (XrefEntry entry in table.Entries.Values)
             {
-                governor.ChargeWork(1L); governor.CheckCancellation();
+                governor.CheckCancellation();
                 if (entry.Kind == XrefEntryKind.Compressed) { return null; }
                 if (entry.Kind != XrefEntryKind.Uncompressed) { continue; }
                 if (entry.First >= xref) { return null; }
                 ParserContainers.AddItem(scratch, offsets, checked((int)entry.First), sizeof(int));
             }
             ParserContainers.AddItem(scratch, offsets, (int)xref, sizeof(int));
-            governor.ChargeWork(checked((long)offsets.Count * (BitOperations.Log2((uint)offsets.Count) + 1L)));
+            governor.NoteOperation();
             offsets.Sort(); governor.CheckCancellation();
             List<Plan> plans = ParserContainers.CreateList<Plan>(scratch);
             long total = 0L;
@@ -67,7 +66,7 @@ internal sealed class SelectiveInputData : IDisposable
             int allowance = (int)Math.Min(MaximumPrefetch, governor.RemainingMemoryBytes / 4L);
             for (int index = 0; index + 1 < offsets.Count; index++)
             {
-                governor.ChargeWork(1L); governor.CheckCancellation();
+                governor.CheckCancellation();
                 int start = offsets[index], length = offsets[index + 1] - start;
                 if (length == 0) { continue; }
                 if (length > LargeExtent)
@@ -118,7 +117,7 @@ internal sealed class SelectiveInputData : IDisposable
         int first = 0, last = _ranges.Length - 1;
         while (first <= last)
         {
-            _governor.ChargeWork(1L); _governor.CheckCancellation();
+            _governor.CheckCancellation();
             int middle = first + (last - first) / 2;
             Range range = _ranges[middle];
             if (offset < range.Start) { last = middle - 1; }

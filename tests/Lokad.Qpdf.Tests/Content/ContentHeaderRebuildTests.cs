@@ -99,30 +99,6 @@ public sealed class ContentHeaderRebuildTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void EveryValidWorkInterruptionRetiresItsFreshStorage(bool strip)
-    {
-        PdfDictionary source = Dictionary(("First", PdfNull.Instance), ("Filter", PdfNull.Instance), ("Length", PdfNull.Instance));
-        PdfName key = PdfName.FromAscii("Contents"); int failures = 0, successes = 0;
-        for (int maximum = 1; maximum <= 511; maximum++)
-        {
-            ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = maximum }, CancellationToken.None);
-            using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(61L);
-            long live = governor.Snapshot().LiveMemoryBytes;
-            try
-            {
-                PdfDictionary result = Invoke(source, key, PdfNull.Instance, governor, strip);
-                Assert.IsType<PdfNameTable<QpdfObject>>(result.AllocationCarrier); successes++; GC.KeepAlive(result);
-            }
-            catch (QpdfLimitException failure)
-            { Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); failures++; }
-            Assert.Equal(61L, prior.ReservedBytes); Assert.Equal(3, source.Count);
-        }
-        Assert.True(failures > 0); Assert.True(successes > 0);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
     public void GovernorCancellationPreventsConstruction(bool strip)
     {
         PdfDictionary source = Dictionary(("Keep", PdfNull.Instance)); PdfName key = PdfName.FromAscii("Contents");
@@ -130,8 +106,7 @@ public sealed class ContentHeaderRebuildTests
         ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token);
         Assert.Throws<OperationCanceledException>(() => Invoke(source, key, PdfNull.Instance, governor, strip));
         governor.CompletePrivateStorage();
-        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, governor.Snapshot().TotalWork);
-    }
+        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);     }
 
     private sealed class Alias(object value, WeakReference[] metadata)
     { internal object? Value = value; internal readonly WeakReference[] Metadata = metadata; }

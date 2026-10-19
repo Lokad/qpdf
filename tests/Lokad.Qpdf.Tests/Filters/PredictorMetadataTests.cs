@@ -41,11 +41,11 @@ public sealed class PredictorMetadataTests
         PdfDictionary dictionary = UnknownEntries(); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         for (int index = 0; index < 32; index++) { Warm(dictionary, memory, governor); memory.Release(32L); }
-        long work = governor.Snapshot().TotalWork; long allocated = GC.GetAllocatedBytesForCurrentThread();
+long allocated = GC.GetAllocatedBytesForCurrentThread();
         PredictorParameters? result = PredictorParameters.FromDictionary(dictionary, FlateFilter.FilterName, null, memory, governor, CancellationToken.None);
         long delta = GC.GetAllocatedBytesForCurrentThread() - allocated;
         Assert.Equal(new PredictorParameters(1, 1, 1, 8), result); Assert.Equal(32L, delta); Assert.Equal(32L, memory.ReservedBytes);
-        Assert.Equal(2562L, governor.Snapshot().TotalWork - work); Assert.Equal(512, dictionary.Count);
+Assert.Equal(512, dictionary.Count);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -80,16 +80,6 @@ public sealed class PredictorMetadataTests
         Assert.Equal(96L, governor.Snapshot().LiveMemoryBytes);
     }
 
-    [Fact]
-    public void VisitedUnknownEntriesHonorWorkCeilingAndPreservePriorFunding()
-    {
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = 64L }, CancellationToken.None);
-        using ParserMemoryScope memory = ParserMemoryScope.Create(governor); memory.Reserve(97L); PdfDictionary dictionary = UnknownEntries();
-        long live = governor.Snapshot().LiveMemoryBytes;
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => PredictorParameters.FromDictionary(dictionary, FlateFilter.FilterName, null, memory, governor, CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L, memory.ReservedBytes); Assert.Equal(512, dictionary.Count);
-    }
-
     [Theory]
     [InlineData(false, false)]
     [InlineData(false, true)]
@@ -101,7 +91,7 @@ public sealed class PredictorMetadataTests
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor); PdfDictionary dictionary = UnknownEntries(); cancellation.Cancel();
         Assert.ThrowsAny<OperationCanceledException>(() => PredictorParameters.FromDictionary(absent ? null : dictionary, FlateFilter.FilterName, null, memory,
             governor, governorToken ? CancellationToken.None : cancellation.Token));
-        Assert.Equal(0L, governor.Snapshot().TotalWork); Assert.Equal(0L, memory.ReservedBytes);
+Assert.Equal(0L, memory.ReservedBytes);
     }
 
     [Theory]
@@ -118,8 +108,7 @@ public sealed class PredictorMetadataTests
             CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         try
         {
-            Assert.True(reached.Wait(TimeSpan.FromSeconds(10))); Assert.True(governor.Snapshot().TotalWork >= 1280L);
-            cancellation.Cancel(); resume.Set(); await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.True(reached.Wait(TimeSpan.FromSeconds(10)));             cancellation.Cancel(); resume.Set(); await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));
             Assert.Equal(97L, memory.ReservedBytes); Assert.Equal(512, dictionary.Count);
         }
         finally { cancellation.Cancel(); resume.Set(); try { await worker.WaitAsync(TimeSpan.FromSeconds(10)); } catch (OperationCanceledException) { } }
@@ -141,7 +130,7 @@ public sealed class PredictorMetadataTests
         PdfDictionary dictionary = new(new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("Columns")] = new PdfReference(1, 0) });
         Assert.ThrowsAny<OperationCanceledException>(() => PredictorParameters.FromDictionary(dictionary, FlateFilter.FilterName, new CancelingResolver(cancellation.Cancel),
             memory, governor, governorToken ? CancellationToken.None : cancellation.Token));
-        Assert.True(governor.Snapshot().TotalWork > 0L); Assert.Equal(0L, memory.ReservedBytes);
+Assert.Equal(0L, memory.ReservedBytes);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -180,6 +169,6 @@ public sealed class PredictorMetadataTests
         ResourceGovernor owner = new(QpdfLimits.Default, CancellationToken.None), reader = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(owner);
         Assert.Throws<InvalidOperationException>(() => PredictorParameters.FromDictionary(UnknownEntries(), FlateFilter.FilterName, null, memory, reader, CancellationToken.None));
-        Assert.Equal(0L, reader.Snapshot().TotalWork); Assert.Equal(0L, memory.ReservedBytes);
+Assert.Equal(0L, memory.ReservedBytes);
     }
 }

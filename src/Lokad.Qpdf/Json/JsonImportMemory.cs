@@ -19,12 +19,11 @@ internal static class JsonImportMemory
         ResourceGovernor governor, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        governor.ChargeWork(json.Length);
         Utf8JsonReader reader = new(json, new JsonReaderOptions { MaxDepth = 128 });
         long document = 1024L, model = 512L;
         while (reader.Read())
         {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             document = checked(document + 32L);
             // Capacity estimates cover wrappers and backing arrays together.
             // A large scalar pays for its text/encoding overlap, while many

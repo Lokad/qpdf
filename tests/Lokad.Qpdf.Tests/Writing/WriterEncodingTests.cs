@@ -194,7 +194,6 @@ public sealed class WriterEncodingTests
             ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
             using WriterEncoding encoded = WriterEncoding.Ascii(source, QpdfLimits.Default, governor, CancellationToken.None);
             Assert.Equal(Encoding.ASCII.GetBytes(source), encoded.Data.ToArray());
-            Assert.Equal(3L * source.Length, governor.Snapshot().TotalWork);
         }
     }
 
@@ -245,42 +244,6 @@ public sealed class WriterEncodingTests
     }
 
     [Theory]
-    [InlineData("name")]
-    [InlineData("literal")]
-    public void WidthScanWorkExhaustionAllocatesNoOwnerOrResult(string kind)
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 9000L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        object source = Source(kind, 65536);
-        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
-        Assert.Throws<QpdfLimitException>(() => Encode(kind, source, limits, governor, CancellationToken.None));
-        Assert.Equal(8192L, governor.Snapshot().TotalWork);
-        Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(161L, governor.Snapshot().PeakMemoryBytes);
-    }
-
-    [Theory]
-    [InlineData("ascii", 1, 0)]
-    [InlineData("name", 3, 1)]
-    [InlineData("literal", 4, 2)]
-    [InlineData("hex", 2, 2)]
-    public void FillWorkExhaustionRetiresThePartialCopy(string kind, int width, int punctuation)
-    {
-        const int count = 65536;
-        bool scan = kind is "name" or "literal";
-        long budget = (scan ? count : 0L) + Size(kind, count) + punctuation + (scan ? 2L : 1L) * 8192L + width * 8192L;
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = budget };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        object source = Source(kind, count);
-        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => Encode(kind, source, limits, governor, CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-        Assert.Equal(budget, governor.Snapshot().TotalWork);
-        Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes);
-        Assert.True(governor.Snapshot().PeakMemoryBytes >= 161L + 160L + Size(kind, count));
-    }
-
-    [Theory]
     [InlineData("ascii")]
     [InlineData("name")]
     [InlineData("literal")]
@@ -314,7 +277,6 @@ public sealed class WriterEncodingTests
         Assert.ThrowsAny<OperationCanceledException>(() => Encode(kind, source, QpdfLimits.Default, governor,
             governorToken ? CancellationToken.None : cancellation.Token));
         Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(0L, governor.Snapshot().TotalWork);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -339,14 +301,14 @@ public sealed class WriterEncodingTests
         using ManualResetEventSlim start = new(), reached = new(), resume = new();
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
-        long threshold = kind is "name" or "literal" ? 8192L : Size(kind, count) + (kind == "hex" ? 2L : 0L) + 8192L;
+        long preparedBytes = 161L + Size(kind, count);
         Task worker = Task.Factory.StartNew(() =>
         {
             start.Wait();
             using WriterEncoding encoded = EncodeObserved(kind, source, QpdfLimits.Default, governor,
                 governorToken ? CancellationToken.None : cancellation.Token, () =>
                 {
-                    if (governor.Snapshot().TotalWork >= threshold)
+                    if (governor.Snapshot().LiveMemoryBytes >= preparedBytes)
                     {
                         reached.Set();
                         if (!resume.Wait(TimeSpan.FromSeconds(10))) { throw new TimeoutException("Encoding observation did not resume."); }
@@ -359,7 +321,6 @@ public sealed class WriterEncodingTests
             bool observed = reached.Wait(TimeSpan.FromSeconds(10));
             cancellation.Cancel(); resume.Set();
             Assert.True(observed);
-            Assert.True(governor.Snapshot().TotalWork >= threshold);
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));
             Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes);
             GC.KeepAlive(source);

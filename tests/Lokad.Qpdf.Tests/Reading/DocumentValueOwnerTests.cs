@@ -144,34 +144,6 @@ public sealed class DocumentValueOwnerTests
     }
 
     [Theory]
-    [InlineData(64L)]
-    [InlineData(160L)]
-    [InlineData(184L)]
-    public void ExhaustedWorkPreventsNewParsingWithoutTouchingAcceptedValues(long length)
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 1000000L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null);
-        byte[] input = Encoding.ASCII.GetBytes("[ " + string.Concat(Enumerable.Repeat("(kept)", 31)) + " ]");
-        PdfArray accepted = Assert.IsType<PdfArray>(parser.ParseValue(new PdfTokenizer(input), 0));
-        long admitted = governor.Snapshot().LiveMemoryBytes;
-        governor.ChargeWork(governor.RemainingWorkUnits);
-        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
-            parser.ParseValue(new PdfTokenizer(Encoding.ASCII.GetBytes("(" + new string('N', checked((int)length * 1024)) + ")")), 0));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), error.LimitName);
-        Assert.True(governor.Snapshot().TotalWork <= limits.MaxWork);
-        Collect();
-        Assert.Equal(admitted, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(31, accepted.Count);
-        for (int index = 0; index < accepted.Count; index++)
-        {
-            Assert.Equal("kept"u8.ToArray(), Assert.IsType<PdfByteString>(accepted[index]).Value);
-        }
-        GC.KeepAlive(accepted);
-        GC.KeepAlive(governor);
-    }
-
-    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task ClosedPrivateDocumentPhasesReuseAFiniteGovernor(bool broken)

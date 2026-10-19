@@ -97,31 +97,15 @@ public sealed class CheckOutcomeFormattingTests
     }
 
     [Fact]
-    public void WorkFailureDuringFinalCopyReleasesTemporaryStringAdmission()
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 1024L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        string prepared = new('A', 1000);
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() =>
-            CheckOutcome.Create(governor, "test", QpdfCheckStatus.Passed, [prepared]));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        Assert.InRange(governor.Snapshot().TotalWork, 1000L, limits.MaxWork);
-        Assert.True(governor.Snapshot().PeakMemoryBytes >= 2L * prepared.Length);
-    }
-
-    [Fact]
     public void CancellationAfterBuildingDetailReleasesPrivateChunksAndKeepsPriorOutcome()
     {
         using CancellationTokenSource cancellation = new();
         ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token);
         QpdfCheckOutcome prior = CheckOutcome.Create(governor, "prior", QpdfCheckStatus.Passed, ["prior ", 7]);
         long before = governor.Snapshot().LiveMemoryBytes;
-        long workBefore = governor.Snapshot().TotalWork;
         using (DisplayBuffer buffer = DisplayBuffer.Create(governor, false))
         {
             buffer.AppendParts([new string('A', 4000)]);
-            Assert.True(governor.Snapshot().TotalWork > workBefore);
             cancellation.Cancel();
             Assert.Throws<OperationCanceledException>(() => buffer.Finish());
         }

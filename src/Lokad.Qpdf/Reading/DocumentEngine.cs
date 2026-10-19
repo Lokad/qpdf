@@ -259,7 +259,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
         long end = _data.Length;
         foreach (XrefEntry entry in Table.Entries.Values)
         {
-            _governor.ChargeWork(1L);
+            _governor.NoteOperation();
             if (entry.Kind == XrefEntryKind.Uncompressed && entry.First > streamOffset && entry.First < end)
             {
                 end = entry.First;
@@ -299,7 +299,6 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
         while (whitespaceEnd < bytes.Length && bytes[(int)whitespaceEnd] is 9 or 10 or 11 or 12 or 13 or 32)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
             governor.CheckCancellation();
             whitespaceEnd++;
         }
@@ -423,7 +422,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
                 return LoadCompressed(number, (int)entry.First, entry.Second);
             }
 
-            _governor.ChargeWork(1L);
+            _governor.NoteOperation();
             ParserMemoryScope memory = _idleMemory ?? ParserMemoryScope.Create(_governor);
             _idleMemory = null;
             try
@@ -563,7 +562,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
             int eligible = 0;
             for (int i = 0; i < pairs.Count; i++)
             {
-                _governor.ChargeWork(1L);
+                _governor.NoteOperation();
                 bool previouslyCached = Cache.ContainsKey(pairs[i].Number)
                     || (_cachedNulls is not null && _cachedNulls.Contains(pairs[i].Number));
                 if (!previouslyCached && Table.Entries.TryGetValue(pairs[i].Number, out XrefEntry candidate)
@@ -707,7 +706,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
         List<(int Number, int Offset)> pairs = new(count);
         for (int i = 0; i < count; i++)
         {
-            _governor.ChargeWork(1L);
+            _governor.NoteOperation();
             if (!tokenizer.TryReadToken(out PdfToken numberToken, false, _governor) || numberToken.Kind != PdfTokenKind.Integer
                 || !tokenizer.TryReadToken(out PdfToken offsetToken, false, _governor) || offsetToken.Kind != PdfTokenKind.Integer)
             {
@@ -737,7 +736,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
                 ReadOnlySpan<byte> bytes = token.Data.Span;
                 for (int i = 0; i < bytes.Length; i++)
                 {
-                    if ((i & 255) == 0) { _governor.ChargeWork(1L); }
+                    if ((i & 255) == 0) { _governor.NoteOperation(); }
                     byte b = bytes[i];
                     if (b < (byte)'0' || b > (byte)'9')
                     {

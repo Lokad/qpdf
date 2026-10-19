@@ -53,7 +53,7 @@ internal static class PageLabelStorage
         graph.Memory.Reserve(bytes); QpdfObject[] numbers = new QpdfObject[count]; graph.Add(bytes);
         for (int i = 0; i < items.Count; i++)
         {
-            Step(graph, 1L); numbers[i * 2] = Integer(graph, items[i].Index); numbers[i * 2 + 1] = items[i].Label;
+            Step(graph); numbers[i * 2] = Integer(graph, items[i].Index); numbers[i * 2 + 1] = items[i].Label;
         }
         graph.Memory.Reserve(24L); PdfArray array = PdfArray.FromOwnedItems(numbers); graph.Add(24L);
         PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
@@ -67,7 +67,7 @@ internal static class PageLabelStorage
 
     private static PdfInteger Integer(OwnedAllocationBatch graph, long value)
     {
-        Step(graph, 20L); Span<char> text = stackalloc char[20];
+        Step(graph); Span<char> text = stackalloc char[20];
         if (!value.TryFormat(text, out int length, provider: CultureInfo.InvariantCulture))
         { throw new InvalidOperationException("Label number exceeds its bounded token storage."); }
         long bytes = GovernedText.StringBytes(length);
@@ -80,7 +80,7 @@ internal static class PageLabelStorage
         bool ascii = true, pdfDoc = true;
         for (int offset = 0; offset < prefix.Length;)
         {
-            int count = Math.Min(256, prefix.Length - offset); Step(graph, count);
+            int count = Math.Min(256, prefix.Length - offset); Step(graph);
             for (int i = offset; i < offset + count; i++)
             {
                 ascii &= prefix[i] < 128;
@@ -91,7 +91,7 @@ internal static class PageLabelStorage
         {
             for (int offset = 0; offset < prefix.Length && pdfDoc;)
             {
-                int count = Math.Min(256, prefix.Length - offset); Step(graph, count);
+                int count = Math.Min(256, prefix.Length - offset); Step(graph);
                 for (int i = offset; i < offset + count; i++)
                 { if (!Attachments.PdfText.TryEncodePdfDocByte(prefix[i], out _)) { pdfDoc = false; break; } }
                 offset += count;
@@ -107,7 +107,7 @@ internal static class PageLabelStorage
             // Keep a surrogate pair in the same bounded BCL encoding call.
             if (offset + count < prefix.Length && char.IsHighSurrogate(prefix[offset + count - 1])
                 && char.IsLowSurrogate(prefix[offset + count])) { count++; }
-            Step(graph, count);
+            Step(graph);
             if (ascii)
             { for (int i = offset; i < offset + count; i++) { encoded[i] = (byte)prefix[i]; } }
             else if (pdfDoc)
@@ -125,6 +125,6 @@ internal static class PageLabelStorage
         graph.Add(32L); return result;
     }
 
-    private static void Step(OwnedAllocationBatch graph, long work)
-    { graph.Token.ThrowIfCancellationRequested(); graph.Governor.CheckCancellation(); graph.Governor.ChargeWork(work); }
+    private static void Step(OwnedAllocationBatch graph)
+    { graph.Token.ThrowIfCancellationRequested(); graph.Governor.CheckCancellation(); }
 }

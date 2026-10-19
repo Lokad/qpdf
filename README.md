@@ -48,7 +48,7 @@ Console.WriteLine($"Wrote {result.PageCount} pages.");
 The included host keeps PDFs in memory; your application handles file or cloud
 storage. Implement `IQpdfHost` to connect other storage directly. Operations accept
 cancellation tokens and configurable limits for input/output size, estimated memory
-and work. Results include warnings and resource counters.
+and decoded bytes. Results include warnings and resource counters.
 
 Hosts can expose a shared memory budget through `IQpdfMemoryHost`; the standalone
 owned-read helper also accepts that budget directly. See

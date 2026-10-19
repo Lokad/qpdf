@@ -296,7 +296,7 @@ internal sealed class LinearizedParts : IDisposable
         for (int index = 0; index < graph.Outlines.Count; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (containerSet.Contains(graph.Outlines[index])) { outlinesDirect = false; break; }
         }
         GovernedIntDictionary<IReadOnlyList<int>> readonlyMembers = GovernedIntDictionary<IReadOnlyList<int>>.Create(retained, governor, IntPtr.Size, cancellationToken);
@@ -321,7 +321,7 @@ internal sealed class LinearizedParts : IDisposable
         foreach (NumberedObject numbered in model)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             lookup.TryAdd(memory, numbered.Number, numbered.Value);
         }
         return lookup;
@@ -337,7 +337,7 @@ internal sealed class LinearizedParts : IDisposable
         foreach (KeyValuePair<int, QpdfObject> entry in lookup)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (entry.Key > max) { max = entry.Key; }
         }
         containers = ParserContainers.CreateList<int>(temporary);
@@ -347,7 +347,7 @@ internal sealed class LinearizedParts : IDisposable
         for (int index = 0; index < groups.Count; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             IReadOnlyList<int> group = groups[index];
             if (group is null) { continue; }
             using ParserMemoryScope groupMemory = ParserMemoryScope.Create(governor);
@@ -355,7 +355,7 @@ internal sealed class LinearizedParts : IDisposable
             for (int memberIndex = 0; memberIndex < group.Count; memberIndex++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 int member = group[memberIndex];
                 if (!lookup.TryGetValue(member, out QpdfObject? value) || value is null
                     || member == 1 || member == 2 || pageSet.Contains(member) || value is PdfStream || owners.ContainsKey(member)) { continue; }
@@ -412,7 +412,7 @@ internal sealed class LinearizedParts : IDisposable
         foreach (KeyValuePair<int, T> entry in source)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             result.TryAdd(memory, entry.Key, entry.Value);
         }
         return result;
@@ -494,7 +494,7 @@ internal sealed class LinearizedParts : IDisposable
             foreach (int number in closures[i])
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (!users.TryGetValue(number, out GovernedIntSet? set))
                 {
                     set = GovernedIntSet.Create(temporary, governor, cancellationToken);
@@ -513,7 +513,7 @@ internal sealed class LinearizedParts : IDisposable
         for (int index = 0; index < tree.Count; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (!users.ContainsKey(tree[index])) { tree[treeCount++] = tree[index]; }
         }
         tree.RemoveRange(treeCount, tree.Count - treeCount);
@@ -540,7 +540,7 @@ internal sealed class LinearizedParts : IDisposable
         foreach (int number in ordered)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (number != catalogNumber && !owners.ContainsKey(number) && openDocuments.Contains(number))
             {
                 Add(retained, governor, part4, number);
@@ -564,7 +564,7 @@ internal sealed class LinearizedParts : IDisposable
         foreach (int number in ordered)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (owners.ContainsKey(number))
             {
                 continue;
@@ -626,7 +626,7 @@ internal sealed class LinearizedParts : IDisposable
         foreach (IReadOnlyList<int> run in part7)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             placed = checked(placed + run.Count);
         }
 
@@ -680,7 +680,7 @@ internal sealed class LinearizedParts : IDisposable
                 foreach (int number in candidates)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    governor.ChargeWork(1L);
+                    governor.NoteOperation();
                     if (users.ContainsKey(number)) { thumbClosure.Remove(number); }
                 }
             }
@@ -692,7 +692,7 @@ internal sealed class LinearizedParts : IDisposable
             foreach (int number in thumbClosure)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (!thumbUsers.TryGetValue(number, out GovernedIntSet? set))
                 {
                     set = GovernedIntSet.Create(temporary, governor, cancellationToken);
@@ -707,7 +707,7 @@ internal sealed class LinearizedParts : IDisposable
         foreach (int number in SortedKeys(lookup, temporary, governor, cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (thumbUsers.TryGetValue(number, out GovernedIntSet? use) && use.Count >= 2)
             {
                 GovernedCollections.AddNumber(temporary, governor, thumbShared, number);
@@ -724,7 +724,7 @@ internal sealed class LinearizedParts : IDisposable
             foreach (int number in ordered)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (thumbShared.Contains(number) || users.ContainsKey(number))
                 {
                     continue;
@@ -736,7 +736,7 @@ internal sealed class LinearizedParts : IDisposable
                     for (int position = run.Count - 1; position > 0; position--)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
-                        governor.ChargeWork(1L);
+                        governor.NoteOperation();
                         run[position] = run[position - 1];
                     }
                     run[0] = number;
@@ -756,7 +756,7 @@ internal sealed class LinearizedParts : IDisposable
         foreach (int number in shared)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (!users.ContainsKey(number))
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -833,7 +833,7 @@ internal sealed class LinearizedParts : IDisposable
         foreach (int number in SortedKeys(lookup, temporary, governor, cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             int resolved = OwnerOf(owners, number);
             if (!outlineSet.Contains(resolved) || placedElsewhere.Contains(resolved) || !GovernedCollections.AddNumber(temporary, governor, orderedAdded, resolved))
             {
@@ -903,7 +903,7 @@ internal sealed class LinearizedParts : IDisposable
         while (stack.Count > 0)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             (QpdfObject current, bool currentTop) = stack[stack.Count - 1];
             stack.RemoveAt(stack.Count - 1);
             if (current is PdfReference reference)
@@ -955,7 +955,7 @@ internal sealed class LinearizedParts : IDisposable
                 while (dictionaryEntries.MoveNext())
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    governor.ChargeWork(1L);
+                    governor.NoteOperation();
                     PdfName key = dictionaryEntries.Current.Key;
                     if (current is PdfStream
                         && (key.RawSpan.SequenceEqual("Length"u8) || key.RawSpan.SequenceEqual("Filter"u8) || key.RawSpan.SequenceEqual("DecodeParms"u8)))
@@ -994,7 +994,7 @@ internal sealed class LinearizedParts : IDisposable
         while (stack.Count > 0)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             int number = stack[stack.Count - 1];
             stack.RemoveAt(stack.Count - 1);
             if (!GovernedCollections.AddNumber(temporary, governor, seen, number))
@@ -1020,7 +1020,7 @@ internal sealed class LinearizedParts : IDisposable
                 for (int i = array.Count - 1; i >= 0; i--)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    governor.ChargeWork(1L);
+                    governor.NoteOperation();
                     if (array[i] is PdfReference kid)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
@@ -1062,7 +1062,7 @@ internal sealed class LinearizedParts : IDisposable
         while (stack.Count > 0)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             (QpdfObject current, bool top) = stack[stack.Count - 1];
             stack.RemoveAt(stack.Count - 1);
             if (current is PdfReference reference)
@@ -1117,7 +1117,7 @@ internal sealed class LinearizedParts : IDisposable
                 while (streamEntries.MoveNext())
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    governor.ChargeWork(1L);
+                    governor.NoteOperation();
                     PdfName key = streamEntries.Current.Key;
                     if (key.RawSpan.SequenceEqual("Length"u8) || key.RawSpan.SequenceEqual("Filter"u8) || key.RawSpan.SequenceEqual("DecodeParms"u8))
                     {
@@ -1145,7 +1145,7 @@ internal sealed class LinearizedParts : IDisposable
                 while (dictionaryEntries.MoveNext())
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    governor.ChargeWork(1L);
+                    governor.NoteOperation();
                     PdfName key = dictionaryEntries.Current.Key;
                     if (topPage && key.RawSpan.SequenceEqual("Parent"u8))
                     {
@@ -1203,7 +1203,7 @@ internal sealed class LinearizedParts : IDisposable
         while (stack.Count > 0)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             int number = stack[stack.Count - 1];
             stack.RemoveAt(stack.Count - 1);
             if (!GovernedCollections.AddNumber(temporary, governor, visited, number))
@@ -1230,7 +1230,7 @@ internal sealed class LinearizedParts : IDisposable
                 for (int i = array.Count - 1; i >= 0; i--)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    governor.ChargeWork(1L);
+                    governor.NoteOperation();
                     if (array[i] is PdfReference kid)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
@@ -1326,7 +1326,7 @@ internal sealed class LinearizedParts : IDisposable
         foreach (int number in source)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             target.Remove(number);
         }
     }
@@ -1507,7 +1507,7 @@ internal sealed class LinearizedParts : IDisposable
         for (int unitIndex = 0; unitIndex < units.Count; unitIndex++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             int unit = units[unitIndex];
             if (!containerMembers.TryGetValue(unit, out List<int>? owned) || owned is null)
             {

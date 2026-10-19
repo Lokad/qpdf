@@ -200,14 +200,14 @@ public sealed class LabelOutputOwnershipTests(ITestOutputHelper log)
             InMemoryQpdfHost host = new(); host.AddInput(Input, Fixture(), QpdfInputOwnership.Copy);
             await using (IQpdfOutputTransaction seed = await host.CreateOutputAsync(Output, CancellationToken.None))
             { await seed.WriteAsync(Prior, CancellationToken.None); await seed.CommitAsync(CancellationToken.None); }
-            QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 2L * 1024 * 1024, MaxWork = work ? 25000L : QpdfLimits.Default.MaxWork };
+            QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 2L * 1024 * 1024};
             PdfPageMergeOptions options = new() { Labels = [new(1, PdfPageLabelStyle.Decimal, 1, prefix)] };
             PdfPageSource[] sources = [new(Input, PdfPageSelectionOptions.FromPages([1]))];
             long allocated = GC.GetTotalAllocatedBytes(true);
             QpdfLimitException failure = await Assert.ThrowsAsync<QpdfLimitException>(() => Qpdf.SelectPagesAsync(host, sources, Output, options, limits, CancellationToken.None).AsTask());
             long delta = GC.GetTotalAllocatedBytes(true) - allocated;
             log.WriteLine("LABEL BUDGET {0} allocation={1}", work ? "work" : "memory", delta);
-            Assert.Equal(work ? nameof(QpdfLimits.MaxWork) : nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
+            Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
             if (delta >= prefix.Length) { defects.Add((work ? "work" : "memory") + ":" + delta); }
             Assert.Equal(0L, host.OpenLeaseCount); Assert.True(host.TryGetOutput(Output, out byte[] prior)); Assert.Equal(Prior, prior);
         }

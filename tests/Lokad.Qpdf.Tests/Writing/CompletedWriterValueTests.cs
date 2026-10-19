@@ -99,7 +99,6 @@ public sealed class CompletedWriterValueTests
         ObservedIds ids = new(() =>
         {
             witness = Capture(writing ?? throw new InvalidOperationException("Writer has not reached its first await."));
-            Assert.True(governor.Snapshot().TotalWork > 1024L);
             if (outcome.EndsWith("cancellation", StringComparison.Ordinal)) { cancellation.Cancel(); }
             if (outcome == "failure") { throw new QpdfException("Authored member metadata failure."); }
         });

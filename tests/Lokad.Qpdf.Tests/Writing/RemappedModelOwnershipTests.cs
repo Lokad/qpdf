@@ -69,7 +69,6 @@ public sealed class RemappedModelOwnershipTests
 
     [Theory]
     [InlineData("memory")]
-    [InlineData("work")]
     [InlineData("depth")]
     public void FailedConstructionPreservesPriorOwnerAndBorrowedGraph(string failure)
     {
@@ -82,7 +81,6 @@ public sealed class RemappedModelOwnershipTests
         QpdfLimits limits = QpdfLimits.Default with
         {
             MaxMemoryBytes = 32L * 1024L,
-            MaxWork = failure == "work" ? 128L : QpdfLimits.Default.MaxWork,
             MaxNestingDepth = failure == "depth" ? 16L : QpdfLimits.Default.MaxNestingDepth
         };
         ResourceGovernor governor = new(limits, CancellationToken.None);
@@ -93,7 +91,7 @@ public sealed class RemappedModelOwnershipTests
         QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
             RemappedModel.Create(source, numbers, governor, CancellationToken.None));
         Assert.Equal(failure == "memory" ? nameof(QpdfLimits.MaxMemoryBytes)
-            : failure == "work" ? nameof(QpdfLimits.MaxWork) : nameof(QpdfLimits.MaxNestingDepth), error.LimitName);
+            : nameof(QpdfLimits.MaxNestingDepth), error.LimitName);
         Assert.Equal(prior, governor.Snapshot().LiveMemoryBytes);
         Assert.InRange(governor.Snapshot().PeakMemoryBytes, prior + 1L, limits.MaxMemoryBytes);
         Assert.True(source.Count == 1 && numbers.Count == 1);
@@ -165,21 +163,19 @@ public sealed class RemappedModelOwnershipTests
         PdfArray root = new(Enumerable.Repeat<QpdfObject>(new PdfReference(1, 0), 512).ToArray());
         (GovernedIntDictionary<QpdfObject> source, GovernedIntDictionary<int> numbers) = Index(memory, governor, root);
         long prior = governor.Snapshot().LiveMemoryBytes;
-        long threshold = governor.Snapshot().TotalWork + 1024L;
+        TaskCompletionSource observed = new(TaskCreationOptions.RunContinuationsAsynchronously);
         Task worker = Task.Run(() =>
         {
             while (true)
             {
                 using RemappedModel mapped = RemappedModel.Create(source, numbers, governor,
                     governorToken ? CancellationToken.None : cancellation.Token);
+                observed.TrySetResult();
             }
         });
         try
         {
-            long started = Stopwatch.GetTimestamp();
-            while (governor.Snapshot().TotalWork < threshold && !worker.IsCompleted
-                && Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(10)) { await Task.Yield(); }
-            Assert.True(governor.Snapshot().TotalWork >= threshold);
+            await observed.Task.WaitAsync(TimeSpan.FromSeconds(10));
             cancellation.Cancel();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));
             Assert.Equal(prior, governor.Snapshot().LiveMemoryBytes);

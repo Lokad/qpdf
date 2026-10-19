@@ -32,19 +32,15 @@ public sealed class WriterIndexTests
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void UnaffordableHintKeepsSmallJobsUsable(bool memory)
+    [Fact]
+    public void UnaffordableHintKeepsSmallJobsUsable()
     {
-        QpdfLimits limits = memory ? QpdfLimits.Default with { MaxMemoryBytes = 4096L }
-            : QpdfLimits.Default with { MaxWork = 1000L };
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 4096L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         using WriterIndex<long> owner = WriterIndex<long>.Create(100000, sizeof(long), governor, CancellationToken.None);
         owner.Add(int.MinValue, 17L); owner.Add(int.MaxValue, 19L);
         Assert.Equal(17L, owner[int.MinValue]); Assert.Equal(19L, owner[int.MaxValue]);
         Assert.InRange(governor.Snapshot().PeakMemoryBytes, 0L, limits.MaxMemoryBytes);
-        Assert.InRange(governor.Snapshot().TotalWork, 0L, limits.MaxWork);
         owner.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
@@ -76,7 +72,6 @@ public sealed class WriterIndexTests
         List<KeyValuePair<int, long>> actual = new();
         foreach (KeyValuePair<int, long> entry in owner) { actual.Add(entry); }
         Assert.Equal(expected.ToArray(), actual); Assert.Equal(count, owner.Count);
-        Assert.True(governor.Snapshot().TotalWork >= 1L + count);
         owner.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
@@ -111,18 +106,6 @@ public sealed class WriterIndexTests
         Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes);
     }
 
-    [Fact]
-    public void CreationWorkRejectsBeforeAnyOwnerAdmission()
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 1L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
-        governor.ChargeWork(limits.MaxWork);
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => WriterIndex<int>.Create(sizeof(int), governor, CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-        Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(161L, governor.Snapshot().PeakMemoryBytes);
-    }
-
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -154,38 +137,6 @@ public sealed class WriterIndexTests
         GC.KeepAlive(value); GC.KeepAlive(entries); GC.KeepAlive(buckets);
     }
 
-    [Fact]
-    public void WorkFailureDuringRehashDropsOnlyNewArrays()
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 10000L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
-        using WriterIndex<long> owner = WriterIndex<long>.Create(sizeof(long), governor, CancellationToken.None);
-        for (int index = 0; index < 4; index++) { owner.Add(index, long.MaxValue - index); }
-        object indexOwner = Index(owner), entries = Field(indexOwner,"_entries"), buckets = Field(indexOwner,"_buckets");
-        long live = governor.Snapshot().LiveMemoryBytes;
-        governor.ChargeWork(limits.MaxWork - governor.Snapshot().TotalWork - 21L);
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => owner.Add(4, 0L));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.Equal(limits.MaxWork, governor.Snapshot().TotalWork);
-        Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(live + 224L, governor.Snapshot().PeakMemoryBytes);
-        Assert.Equal(4, owner.Count); Assert.Same(entries, Field(indexOwner,"_entries")); Assert.Same(buckets, Field(indexOwner,"_buckets"));
-        owner.Dispose(); Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes);
-    }
-
-    [Fact]
-    public void LongCollisionChainExhaustsChargedLookupWorkWithoutStorageChanges()
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 1000000L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        using WriterIndex<int> owner = WriterIndex<int>.Create(sizeof(int), governor, CancellationToken.None);
-        for (int index = 0; index < 512; index++) { owner.Add(index * 1024, index); }
-        object backing = Field(Index(owner),"_entries"); long live = governor.Snapshot().LiveMemoryBytes;
-        governor.ChargeWork(limits.MaxWork - governor.Snapshot().TotalWork - 10L);
-        Assert.Throws<QpdfLimitException>(() => owner.ContainsKey(-1024));
-        Assert.Equal(limits.MaxWork, governor.Snapshot().TotalWork); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(512, owner.Count); Assert.Same(backing, Field(Index(owner),"_entries"));
-    }
-
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -195,8 +146,7 @@ public sealed class WriterIndexTests
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
         Assert.ThrowsAny<OperationCanceledException>(() => WriterIndex<int>.Create(sizeof(int), governor,
             governorToken ? CancellationToken.None : cancellation.Token));
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, governor.Snapshot().TotalWork);
-    }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);     }
 
     [Theory]
     [InlineData(false)]
@@ -209,21 +159,20 @@ public sealed class WriterIndexTests
         using WriterIndex<PdfName> owner = WriterIndex<PdfName>.Create(IntPtr.Size, governor,
             governorToken ? CancellationToken.None : cancellation.Token);
         PdfName value = new([65,255]); for (int key = 0; key < 512; key++) { owner.Add(key, value); }
-        long threshold = governor.Snapshot().TotalWork + 65536L;
+        int lookups = 0;
         using ManualResetEventSlim reached = new(), resume = new();
         Task worker = Task.Factory.StartNew(() =>
         {
             for (int key = 0; ; key = (key + 1) % 512)
             {
                 _ = owner[key];
-                if (governor.Snapshot().TotalWork >= threshold)
+                if (++lookups >= 1024)
                 { reached.Set(); if (!resume.Wait(TimeSpan.FromSeconds(10))) { throw new TimeoutException("Index observation did not resume."); } }
             }
         }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         try
         {
-            Assert.True(reached.Wait(TimeSpan.FromSeconds(10))); Assert.True(governor.Snapshot().TotalWork >= threshold);
-            cancellation.Cancel(); resume.Set();
+            Assert.True(reached.Wait(TimeSpan.FromSeconds(10)));             cancellation.Cancel(); resume.Set();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));
             Assert.Equal(512, owner.Count); owner.Dispose(); Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes);
             Assert.Equal(new byte[] {65,255}, value.RawBytes); GC.KeepAlive(worker); GC.KeepAlive(value);

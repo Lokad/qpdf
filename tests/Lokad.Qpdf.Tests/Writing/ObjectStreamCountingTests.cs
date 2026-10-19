@@ -69,21 +69,4 @@ public sealed class ObjectStreamCountingTests
         Assert.True(governor.Snapshot().PeakMemoryBytes < limits.MaxMemoryBytes);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task CountingStillEnforcesOutputAndWorkCeilings(bool work)
-    {
-        // Hex length is constant-time; the second member is a literal whose
-        // escaped length requires actual bounded byte scanning.
-        NumberedObject[] objects = Model(work ? 2 : 1, 80 * 1024);
-        QpdfLimits limits = work ? QpdfLimits.Default with { MaxWork = 4096 }
-            : QpdfLimits.Default with { MaxOutputBytes = 4096 };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        QpdfLimitException failure = await Assert.ThrowsAsync<QpdfLimitException>(async () =>
-            await Write(objects, limits, governor, new CountingSink(), false, CancellationToken.None));
-        Assert.Equal(work ? nameof(QpdfLimits.MaxWork) : nameof(QpdfLimits.MaxOutputBytes), failure.LimitName);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-    }
 }

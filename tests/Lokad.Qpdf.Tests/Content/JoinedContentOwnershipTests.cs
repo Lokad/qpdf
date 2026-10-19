@@ -66,7 +66,6 @@ public sealed class JoinedContentOwnershipTests
         Assert.ThrowsAny<OperationCanceledException>(() => JoinedContent.Create(parts, governor, governorToken ? CancellationToken.None : source.Token));
         Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
         Assert.True(governor.Snapshot().PeakMemoryBytes >= live + 32768L);
-        Assert.True(governor.Snapshot().TotalWork >= 32768L);
     }
 
     private static object Field(object owner, string name)

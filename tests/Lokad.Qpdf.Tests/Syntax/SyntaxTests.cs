@@ -317,16 +317,6 @@ public sealed class ParserTests
         Assert.Throws<QpdfParseException>(() => parser.ParseIndirectObject(new PdfTokenizer(Encoding.ASCII.GetBytes("5 x obj 1 endobj")), 0));
         Assert.Throws<QpdfParseException>(() => parser.ParseIndirectObject(new PdfTokenizer(Encoding.ASCII.GetBytes("5 0 foo 1 endobj")), 0));
     }
-
-    [Fact]
-    public void GovernorChargesParsingWork()
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 2L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        DiagnosticBag bag = new(governor);
-        PdfParser parser = new(limits, governor, bag, null);
-        Assert.Throws<QpdfLimitException>(() => parser.ParseValue(new PdfTokenizer(Encoding.ASCII.GetBytes("[1 2 3]")), 0));
-    }
 }
 
 public sealed class ObjectModelTests

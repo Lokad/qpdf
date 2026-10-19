@@ -416,7 +416,7 @@ public sealed class JsonOutputOwnershipTests
         foreach (string route in new[] { "typed", "argv", "job", "mixed", "response" })
         foreach (bool compressed in new[] { false, true })
         foreach (string mode in new[] { "inline", "file" })
-        foreach (string outcome in new[] { "input-close", "create", "write", "commit", "output-close", "cancel-input", "cancel-write", "memory", "work", "output-bytes" })
+        foreach (string outcome in new[] { "input-close", "create", "write", "commit", "output-close", "cancel-input", "cancel-write", "memory", "output-bytes" })
         { yield return [route, compressed, mode, outcome]; }
     }
 
@@ -461,7 +461,6 @@ public sealed class JsonOutputOwnershipTests
         limits = outcome switch
         {
             "memory" => limits with { MaxMemoryBytes = compressed ? 140000L : route == "mixed" ? 60000L : 16384L },
-            "work" => limits with { MaxWork = 5000L },
             "output-bytes" => limits with { MaxOutputBytes = 128L },
             _ => limits,
         };
@@ -487,7 +486,7 @@ public sealed class JsonOutputOwnershipTests
             {
                 QpdfLimitException limit = Assert.IsType<QpdfLimitException>(error);
                 Assert.Equal(outcome == "memory" ? nameof(QpdfLimits.MaxMemoryBytes)
-                    : outcome == "work" ? nameof(QpdfLimits.MaxWork) : nameof(QpdfLimits.MaxOutputBytes), limit.LimitName);
+                    : nameof(QpdfLimits.MaxOutputBytes), limit.LimitName);
             }
             else { Assert.IsType<QpdfHostException>(error); }
             result = error;

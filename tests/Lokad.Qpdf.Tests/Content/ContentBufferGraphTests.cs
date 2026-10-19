@@ -95,30 +95,6 @@ public sealed class ContentBufferGraphTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void EveryBuilderWorkInterruptionKeepsPriorAdmission(bool normalize)
-    {
-        ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None); PdfStream original = Stream("ASCIIHexDecode", "q\rQ"u8.ToArray());
-        using ContentEntries entries = Entries(construction, original, Stream("", "q"u8.ToArray())); PoolResolver resolver = Resolver();
-        int failures = 0, successes = 0;
-        for (int maximum = 1; maximum <= 511; maximum++)
-        {
-            ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = maximum }, CancellationToken.None);
-            using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(23L); long live = governor.Snapshot().LiveMemoryBytes;
-            try
-            {
-                PdfStream output = normalize ? Normalize(original, resolver, QpdfLimits.Default, governor, new(construction), CancellationToken.None) ?? throw new InvalidOperationException()
-                    : Join(entries, resolver, new(true, false, false, null, false, 0L), QpdfLimits.Default, governor, CancellationToken.None);
-                Assert.Equal(normalize ? "q\nQ"u8.ToArray() : "q\rQ\nq"u8.ToArray(), output.Data); successes++; GC.KeepAlive(output);
-            }
-            catch (QpdfLimitException failure) { Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); failures++; }
-            Assert.Equal(23L, prior.ReservedBytes);
-        }
-        Assert.True(failures > 0); Assert.True(successes > 0);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
     public void CallerCancellationWinsBeforeBuilderAdmission(bool normalize)
     {
         ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None); PdfStream original = Stream("", "q"u8.ToArray());
@@ -126,8 +102,7 @@ public sealed class ContentBufferGraphTests
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 1L }, CancellationToken.None);
         Assert.Throws<OperationCanceledException>(() => normalize ? Normalize(original, Resolver(), QpdfLimits.Default, governor, new(construction), cancellation.Token)
             : Join(entries, Resolver(), new(true, false, false, null, false, 0L), QpdfLimits.Default, governor, cancellation.Token));
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, governor.Snapshot().TotalWork);
-    }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);     }
 
     [Fact]
     public void JoinedBytesTransferWithoutCopyAndRejectAnotherGovernor()

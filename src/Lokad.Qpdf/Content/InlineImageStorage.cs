@@ -51,7 +51,7 @@ internal static class InlineImageStorage
     {
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
         int length = checked(bytes.Length + 6); scratch.Reserve(checked(32L + length + 224L));
-        governor.ChargeWork(length); Step(governor, token);
+        governor.NoteOperation(); Step(governor, token);
         byte[] synthetic = new byte[length];
         "<< "u8.CopyTo(synthetic); " >>"u8.CopyTo(synthetic.AsSpan(length - 3));
         GovernedBufferStream.CopyBytes(bytes.Span, synthetic.AsSpan(3, bytes.Length), governor, token, CancellationToken.None);
@@ -105,12 +105,12 @@ internal static class InlineImageStorage
     private static byte[] Copy(ReadOnlySpan<byte> value, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
         if (value.IsEmpty) { return Array.Empty<byte>(); }
-        memory.Reserve(checked(32L + value.Length)); governor.ChargeWork(value.Length); Step(governor, token);
+        memory.Reserve(checked(32L + value.Length)); governor.NoteOperation(); Step(governor, token);
         byte[] result = new byte[value.Length];
         GovernedBufferStream.CopyBytes(value, result, governor, token, CancellationToken.None); return result;
     }
     private static void Step(ResourceGovernor governor, CancellationToken token)
-    { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L); }
+    { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); }
 }
 
 /// <summary>Owns rewrite bytes and candidate collection metadata until graph publication.</summary>
@@ -145,7 +145,7 @@ internal sealed class InlineImageBuffer : IDisposable
     internal void Add(InlineImageEntry image)
     {
         Step();
-        if (Images.Count == Images.Capacity) { Governor.ChargeWork(checked(Images.Count + Math.Max(4L, Images.Capacity * 2L))); Step(); }
+        if (Images.Count == Images.Capacity) { Governor.NoteOperation(); Step(); }
         ParserContainers.AddItem(Memory, Images, image, 16L);
     }
     internal void Write(ReadOnlySpan<byte> bytes) => Output.Write(bytes, _token);
@@ -174,7 +174,7 @@ internal sealed class InlineImageBuffer : IDisposable
         byte[] raw = Output.ToArray(rawMemory, _token);
         return FlateFilter.Encode(raw, level, limits, Governor, graph.Memory, _token);
     }
-    private void Step() { _token.ThrowIfCancellationRequested(); Governor.CheckCancellation(); Governor.ChargeWork(1L); }
+    private void Step() { _token.ThrowIfCancellationRequested(); Governor.CheckCancellation(); }
     public void Dispose()
     {
         ParserMemoryScope? memory = _memory; GovernedBufferStream? output = _output; List<InlineImageEntry>? images = _images;

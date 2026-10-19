@@ -19,7 +19,7 @@ internal static class LinearizationGraph
         foreach (KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (entry.Key <= 0 || entry.Value.Kind == XrefEntryKind.Free
                 || entry.Key == lindictObject || entry.Key == hintObject
                 || entry.Value.Kind == XrefEntryKind.Uncompressed && entry.Value.First == overflowOffset) { continue; }

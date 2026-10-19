@@ -90,7 +90,6 @@ public sealed class SelectionBackingOwnershipTests
         Assert.False(alias.Value.IsAlive);
         Assert.False(alias.Backing.IsAlive);
         Assert.Equal(0L, dropped.OpenHandles);
-        Assert.True(dropped.TotalWork <= QpdfLimits.Default.MaxWork);
         GC.KeepAlive(alias);
     }
 
@@ -178,7 +177,6 @@ public sealed class SelectionBackingOwnershipTests
         Assert.False(((WeakReference)Field(captured, "Result")).IsAlive);
         Assert.False(((WeakReference)Field(captured, "Counters")).IsAlive);
         Assert.InRange(counters.PeakMemoryBytes, 1L, QpdfLimits.Default.MaxMemoryBytes);
-        Assert.InRange(counters.TotalWork, 1L, QpdfLimits.Default.MaxWork);
         Assert.Equal(0L, counters.OpenHandles);
         GC.KeepAlive(captured);
     }
@@ -370,10 +368,9 @@ public sealed class SelectionBackingOwnershipTests
     [Theory]
     [MemberData(nameof(FixedBudgetJobs))]
     [Trait("Layer", "Contract")]
-    public async Task OriginalShortBudgetsFailAfterReadingAndKeepPriorTargets(string route, bool compressed, string budget)
+    public async Task OriginalShortBudgetsFailAfterReadingAndKeepPriorTargets(string route, bool compressed)
     {
-        QpdfLimits limits = budget == "memory" ? QpdfLimits.Default with { MaxMemoryBytes = 2048L }
-            : QpdfLimits.Default with { MaxWork = 128L };
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 2048L };
         object captured = await Complete(route, compressed, "read", "budget", limits);
         await Task.Yield();
         if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
@@ -382,7 +379,6 @@ public sealed class SelectionBackingOwnershipTests
         Assert.False(((WeakReference)Field(captured, "Result")).IsAlive);
         Assert.False(((WeakReference)Field(captured, "Counters")).IsAlive);
         Assert.True(counters.PeakMemoryBytes <= limits.MaxMemoryBytes);
-        Assert.True(counters.TotalWork <= limits.MaxWork);
         Assert.Equal(0L, counters.OpenHandles);
         GC.KeepAlive(captured);
     }

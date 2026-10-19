@@ -68,17 +68,15 @@ public sealed class ContentArrayRebuildTests
         Assert.Equal(2 * 1024 * 1024, prepared.Replacement.RawMemory.Length); GC.KeepAlive(result);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void LargeArrayRejectsMemoryOrWorkBeforePublication(bool work)
+    [Fact]
+    public void LargeArrayRejectsMemoryOrWorkBeforePublication()
     {
         using Prepared prepared = new(false); PdfArray array = new(Enumerable.Repeat<QpdfObject>(prepared.Original, 1024).ToArray());
         PdfDictionary page = DecoderOwnershipFixtures.Dictionary(("Contents", array));
-        ResourceGovernor governor = new(work ? QpdfLimits.Default with { MaxWork = 200L } : QpdfLimits.Default with { MaxMemoryBytes = 4096L }, CancellationToken.None);
+        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096L }, CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(23L); long live = governor.Snapshot().LiveMemoryBytes;
         QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => Replace(page, prepared, governor));
-        Assert.Equal(work ? nameof(QpdfLimits.MaxWork) : nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
+        Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
         Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Same(array, Contents(page)); Assert.Equal(1024, array.Count);
     }
 

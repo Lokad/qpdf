@@ -27,7 +27,6 @@ public sealed class LinearizedLayoutTests
         }
         long live = governor.Snapshot().LiveMemoryBytes;
         Assert.True(live >= prior + 512L * 16L * (streamed ? 3 : 2));
-        Assert.True(governor.Snapshot().TotalWork > 512L * 512L / 2L);
         for (int index = 0; index < 512; index++)
         {
             int number = index * 1024 + 1;
@@ -107,27 +106,6 @@ public sealed class LinearizedLayoutTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void CollisionLookupFailsAtFiniteWorkAndCleanupPreservesPriorOwner(bool streamed)
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 65536L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        using ParserMemoryScope priorOwner = ParserMemoryScope.Create(governor);
-        priorOwner.Reserve(97L);
-        using LinearizedLayout layout = LinearizedLayout.Create(governor, streamed, CancellationToken.None);
-        for (int index = 0; index < 128; index++) { layout.RecordStart(index * 1024 + 1, index); }
-        long live = governor.Snapshot().LiveMemoryBytes;
-        governor.ChargeWork(limits.MaxWork - governor.Snapshot().TotalWork - 2L);
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => layout.Starts.TryGetValue(128 * 1024 + 1, out _));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-        Assert.Equal(limits.MaxWork, governor.Snapshot().TotalWork);
-        Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
-        layout.Dispose();
-        Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
     public async Task CancellationAfterObservedIndexWorkStopsEitherTokenRoute(bool governorToken)
     {
         using CancellationTokenSource cancellation = new();
@@ -138,14 +116,12 @@ public sealed class LinearizedLayoutTests
         using LinearizedLayout layout = LinearizedLayout.Create(governor, true,
             governorToken ? CancellationToken.None : cancellation.Token);
         for (int index = 0; index < 512; index++) { layout.RecordMember(index * 1024 + 1, (7, index)); }
-        long threshold = governor.Snapshot().TotalWork + 1024L;
-        Task worker = Task.Run(() => { while (true) { layout.TryGetMember(512 * 1024 + 1, out _); } });
+        TaskCompletionSource observed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        int lookups = 0;
+        Task worker = Task.Run(() => { while (true) { layout.TryGetMember(512 * 1024 + 1, out _); if (++lookups == 128) { observed.TrySetResult(); } } });
         try
         {
-            long started = Stopwatch.GetTimestamp();
-            while (governor.Snapshot().TotalWork < threshold && !worker.IsCompleted
-                && Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(10)) { await Task.Yield(); }
-            Assert.True(governor.Snapshot().TotalWork >= threshold);
+            await observed.Task.WaitAsync(TimeSpan.FromSeconds(10));
             cancellation.Cancel();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));
             layout.Dispose();
@@ -172,7 +148,6 @@ public sealed class LinearizedLayoutTests
             governorToken ? CancellationToken.None : cancellation.Token));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);
-        Assert.Equal(0L, governor.Snapshot().TotalWork);
     }
 
     [Fact]

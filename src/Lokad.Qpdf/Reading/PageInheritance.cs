@@ -140,7 +140,7 @@ internal static class PageInheritance
                 else { throw new QpdfParseException("Page parent must be a dictionary or a reference.", null, null); }
                 _depth++;
             }
-            _started = true; _governor.ChargeWork(1L); current = _current; return true;
+            _started = true; _governor.NoteOperation(); current = _current; return true;
         }
 
         internal void Dispose() => _memory?.Dispose();
@@ -150,7 +150,7 @@ internal static class PageInheritance
     {
         for (int depth = 0; value is PdfReference reference; depth++)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (depth >= limits.MaxNestingDepth) { throw new QpdfParseException("Attribute reference chain exceeds the nesting limit.", null, null); }
             if (!((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? resolved) || resolved is null) { return PdfNull.Instance; }
             value = resolved;

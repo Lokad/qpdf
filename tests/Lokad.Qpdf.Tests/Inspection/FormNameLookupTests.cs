@@ -83,7 +83,7 @@ public sealed class FormNameLookupTests
         PdfDictionary dictionary = new(entries); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         Assert.Equal(expected, Field(dictionary, governor, CancellationToken.None)); Assert.Equal(entries.Count, dictionary.Count);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        if (shape is "title" or "wrong-title-type") { Assert.InRange(governor.Snapshot().TotalWork, 0L, 2L); }
+        if (shape is "title" or "wrong-title-type") { }
     }
 
     private static PdfDictionary Wide(bool found, bool widget)
@@ -92,19 +92,6 @@ public sealed class FormNameLookupTests
         for (int index = 0; index < 512; index++) { entries.Add(PdfName.FromAscii("other" + index.ToString(System.Globalization.CultureInfo.InvariantCulture)), PdfNull.Instance); }
         if (found) { entries.Add(PdfName.FromAscii(widget ? "Subtype" : "T"), widget ? PdfName.FromAscii("Widget") : new PdfByteString(new byte[2 * 1024 * 1024], false)); }
         return new(entries);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void LegacyEntryVisitsExhaustFiniteWorkWithoutTouchingBorrowedValuesOrPriorAdmission(bool widget)
-    {
-        PdfDictionary dictionary = Wide(true, widget);
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = 64L }, CancellationToken.None);
-        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L); long before = governor.Snapshot().LiveMemoryBytes;
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => (widget ? Widget : Field)(dictionary, governor, CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(97L, prior.ReservedBytes); Assert.Equal(513, dictionary.Count); Assert.True(governor.Snapshot().TotalWork > 0L);
     }
 
     [Theory]
@@ -118,7 +105,7 @@ public sealed class FormNameLookupTests
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
         Assert.ThrowsAny<OperationCanceledException>(() => (widget ? Widget : Field)(Wide(false, widget), governor,
             governorToken ? CancellationToken.None : cancellation.Token));
-        Assert.Equal(0L, governor.Snapshot().TotalWork); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]
@@ -142,8 +129,7 @@ public sealed class FormNameLookupTests
         }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         try
         {
-            Assert.True(reached.Wait(TimeSpan.FromSeconds(10))); Assert.True(governor.Snapshot().TotalWork >= 513L);
-            cancellation.Cancel(); resume.Set(); await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.True(reached.Wait(TimeSpan.FromSeconds(10)));             cancellation.Cancel(); resume.Set(); await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));
             Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L, prior.ReservedBytes); Assert.Equal(512, dictionary.Count);
         }
         finally { cancellation.Cancel(); resume.Set(); try { await worker.WaitAsync(TimeSpan.FromSeconds(10)); } catch (OperationCanceledException) { } }

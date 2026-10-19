@@ -161,30 +161,6 @@ public sealed class JsonImportMemoryTests
         Assert.Equal(0L, storage.OpenLeaseCount);
     }
 
-    [Fact]
-    public async Task NestedScalarConversionObservesTheRemainingWorkBudget()
-    {
-        byte[] source = Fixture("{\"value\":[" + string.Join(',', Enumerable.Repeat("0", 20000)) + "]}");
-        using JsonDocument json = JsonDocument.Parse(source);
-        using InMemoryQpdfHost storage = new();
-        RecordingMemoryBudget root = new(4194304L);
-        using IMemoryScope owner = root.CreateScope();
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 80000L, CancellationCheckInterval = 1L };
-        ResourceGovernor governor = new(limits, CancellationToken.None, new MemoryHost(storage, owner));
-        using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
-        {
-            QpdfLimitException failure = await Assert.ThrowsAsync<QpdfLimitException>(() =>
-                JsonImport.BuildCreateModelAsync(storage, json, limits, governor, memory, CancellationToken.None).AsTask());
-            Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-            Assert.True(memory.ReservedBytes > 1000000L);
-            Assert.True(governor.Snapshot().TotalWork > 70000L);
-        }
-        Assert.InRange(governor.Snapshot().LiveMemoryBytes, 0L, 128L);
-        Assert.InRange(root.ReservedBytes, 0L, 1024L);
-        owner.Dispose();
-        Assert.Equal(0L, root.ReservedBytes);
-    }
-
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

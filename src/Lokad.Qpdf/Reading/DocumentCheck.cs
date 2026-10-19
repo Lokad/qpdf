@@ -98,11 +98,10 @@ internal static class DocumentCheck
 
     private static void AddItem<T>(ParserMemoryScope memory, ResourceGovernor governor, List<T> items, T value, long itemBytes)
     {
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         if (items.Count == items.Capacity)
         {
             long capacity = Math.Min(Array.MaxLength, Math.Max(4L, items.Capacity * 2L));
-            governor.ChargeWork(checked(items.Count + capacity));
             governor.CheckCancellation();
         }
         ParserContainers.AddItem(memory, items, value, itemBytes);
@@ -132,12 +131,12 @@ internal static class DocumentCheck
         List<int> numbers = ParserContainers.CreateList<int>(memory);
         foreach (int number in engine.XRefEntries.Keys)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             ParserContainers.AddItem(memory, numbers, number, sizeof(int));
         }
         foreach (int number in engine.InspectionObjectNumbers)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (!engine.XRefEntries.ContainsKey(number)) { ParserContainers.AddItem(memory, numbers, number, sizeof(int)); }
         }
         numbers.Sort();
@@ -147,7 +146,7 @@ internal static class DocumentCheck
         foreach (int number in numbers)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             try
             {
                 QpdfObject value = engine.Load(number);
@@ -311,7 +310,7 @@ internal static class DocumentCheck
             detail.AppendParts([" ", skippedUnavailable, " skipped ("]);
             for (int index = 0; index < unavailable.Count; index++)
             {
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (index != 0) { detail.AppendText(", "); }
                 detail.AppendText(unavailable[index]);
             }
@@ -339,14 +338,12 @@ internal static class DocumentCheck
     {
         foreach (string candidate in names)
         {
-            governor.ChargeWork(1L);
             governor.CheckCancellation();
             if (candidate.Length != name.Length) { continue; }
             bool equal = true;
             for (int offset = 0; offset < name.Length; offset += Math.Min(256, name.Length - offset))
             {
                 int count = Math.Min(256, name.Length - offset);
-                governor.ChargeWork(count);
                 governor.CheckCancellation();
                 if (!candidate.AsSpan(offset, count).SequenceEqual(name.AsSpan(offset, count))) { equal = false; break; }
             }
@@ -393,7 +390,7 @@ internal static class DocumentCheck
             {
                 for (int itemIndex = 0; itemIndex < array.Count; itemIndex++)
                 {
-                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                     QpdfObject item = array[itemIndex];
                     QpdfObject target = item;
                     if (item is PdfReference reference)
@@ -570,7 +567,6 @@ internal static class DocumentCheck
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 governor.CheckCancellation();
-                governor.ChargeWork(1L);
                 if (fields[i] is PdfReference topReference)
                 {
                     if (PdfObjectLookup.TryResolve(topReference, resolver, governor, cancellationToken, out QpdfObject? top) && top is PdfDictionary topDictionary)
@@ -631,7 +627,6 @@ internal static class DocumentCheck
 
         cancellationToken.ThrowIfCancellationRequested();
         governor.CheckCancellation();
-        governor.ChargeWork(1L);
         state.Nodes += 1;
         if (nodeId.HasValue && IsCheckWidget(node, governor, cancellationToken))
         {
@@ -647,7 +642,6 @@ internal static class DocumentCheck
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.CheckCancellation();
-            governor.ChargeWork(1L);
             if (kids[i] is PdfReference kidReference)
             {
                 if (PdfObjectLookup.TryResolve(kidReference, resolver, governor, cancellationToken, out QpdfObject? kid) && kid is PdfDictionary kidDictionary)
@@ -726,7 +720,6 @@ internal static class DocumentCheck
             PageLocation location = pages[pageIndex];
             cancellationToken.ThrowIfCancellationRequested();
             governor.CheckCancellation();
-            governor.ChargeWork(1L);
             if (!PdfDictionaryLookup.TryGet(location.Page, "Annots"u8, governor, cancellationToken, out QpdfObject annotsRaw) || annotsRaw is null || annotsRaw is PdfNull)
             {
                 continue;
@@ -745,7 +738,6 @@ internal static class DocumentCheck
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 governor.CheckCancellation();
-                governor.ChargeWork(1L);
                 if (annots[i] is not PdfReference itemReference)
                 {
                     continue;
@@ -900,7 +892,7 @@ internal static class DocumentCheck
         while (tokenizer.TryReadToken(out ContentToken token))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (token.Kind == ContentTokenKind.Operator && token.Data.Span.SequenceEqual(idMarker))
             {
                 tokenizer.TryReadInlineImageData(out ContentToken _);

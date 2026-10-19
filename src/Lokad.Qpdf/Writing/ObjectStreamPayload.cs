@@ -94,7 +94,7 @@ internal sealed class ObjectStreamPayload : IDisposable
             for (int index = 0; index < count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 int number = numbers[index];
                 if (renumber is not null && !renumber.TryGetValue(number, out number))
                 {
@@ -122,7 +122,7 @@ internal sealed class ObjectStreamPayload : IDisposable
             long maximum = Math.Min(limits.MaxOutputBytes, Array.MaxLength);
             if (length > maximum) { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), length, maximum); }
             memory.Reserve(checked(32L + length));
-            governor.ChargeWork(length);
+            governor.NoteOperation();
             cancellationToken.ThrowIfCancellationRequested();
             governor.CheckCancellation();
             // The table and member copies cover the entire admitted payload.

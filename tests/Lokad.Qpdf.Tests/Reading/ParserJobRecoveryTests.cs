@@ -214,30 +214,6 @@ public sealed class ParserJobRecoveryTests
     }
 
     [Fact]
-    public async Task RecoveryScanWorkLimitPreservesThePriorTarget()
-    {
-        byte[] input = TolerantObjectLoadingTests.Pdf(
-            ["<< /Length -1 >>\nstream\n" + new string('A', 128 * 1024) + "\nendstream"], false);
-        InMemoryQpdfHost host = Host(input);
-        QpdfPath output = QpdfPath.From("out.pdf");
-        await using (IQpdfOutputTransaction prior = await host.CreateOutputAsync(output, CancellationToken.None))
-        {
-            await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None);
-            await prior.CommitAsync(CancellationToken.None);
-        }
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["a.pdf", "out.pdf"]),
-            new QpdfExecutionOptions(QpdfLimits.Default with { MaxWork = 10000L }), CancellationToken.None);
-        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.RepairedObject
-            && d.Message.Contains("Attempting to recover stream length", StringComparison.Ordinal));
-        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded);
-        Assert.True(host.TryGetOutput(output, out byte[] bytes));
-        Assert.Equal("prior"u8.ToArray(), bytes);
-        Assert.Equal(0L, result.Counters.OpenHandles);
-        Assert.Equal(0L, host.OpenLeaseCount);
-    }
-
-    [Fact]
     public async Task StrictReadingRejectsNestedAndCompressedDamage()
     {
         byte[][] inputs =

@@ -24,7 +24,7 @@ internal static class DctFilter
         governor.CheckDecodedBytes(expected);
         IQpdfJpegCodec codec = governor.JpegCodec ?? throw new QpdfFilterException(QpdfFilterFailureReason.UnsupportedFilter,
             FilterName, "JPEG decoding requires a codec supplied by the host.");
-        governor.ChargeWork(pixels);
+        governor.NoteOperation();
         long reserved = checked(expected + JpegCodec.SampleArrayOverheadBytes);
         QpdfJpegCodecContext context = new(governor);
         governor.ReserveMemory(reserved);
@@ -64,7 +64,7 @@ internal static class DctFilter
         while (pos + 1 < input.Length)
         {
             governor?.CheckCancellation();
-            governor?.ChargeWork(1L);
+            governor?.NoteOperation();
             if (input[pos] != 0xFF)
             {
                 return false;
@@ -74,7 +74,7 @@ internal static class DctFilter
             while (m < input.Length && input[m] == 0xFF)
             {
                 m += 1;
-                if ((m & 1023) == 0) { governor?.CheckCancellation(); governor?.ChargeWork(1024L); }
+                if ((m & 1023) == 0) { governor?.CheckCancellation(); governor?.NoteOperation(); }
             }
 
             if (m >= input.Length)

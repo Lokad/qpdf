@@ -20,19 +20,17 @@ public sealed class ExecutionResultFailureOwnershipTests
     private static readonly QpdfPath Input = QpdfPath.From("input.bin");
     private static readonly QpdfPath Output = QpdfPath.From("output.bin");
 
-    private readonly record struct Values(long Live, long Peak, long Work, long Decoded, long OutputBytes,
+    private readonly record struct Values(long Live, long Peak, long Decoded, long OutputBytes,
         long HostCalls, long Handles, long Diagnostics);
 
-    private static Values Snapshot(QpdfExecutionCounters c) => new(c.LiveMemoryBytes, c.PeakMemoryBytes, c.TotalWork,
-        c.TotalDecodedBytes, c.TotalOutputBytes, c.HostOperations, c.OpenHandles, c.DiagnosticCount);
+    private static Values Snapshot(QpdfExecutionCounters c) => new(c.LiveMemoryBytes, c.PeakMemoryBytes,         c.TotalDecodedBytes, c.TotalOutputBytes, c.HostOperations, c.OpenHandles, c.DiagnosticCount);
 
     public static IEnumerable<object[]> BudgetAliases()
     {
         foreach (string kind in new[] { "result", "counters" })
         foreach (bool compressed in new[] { false, true })
         {
-            foreach (long work in new[] { 64L, 128L, 256L, 512L, 1024L, 2048L }) { yield return [kind, compressed, "work", work]; }
-            foreach (long memory in new[] { 2048L, 4096L, 8192L }) { yield return [kind, compressed, "memory", memory]; }
+            foreach (long memory in new[] { 2048L, 4096L, 8192L }) { yield return [kind, compressed, memory]; }
         }
     }
 
@@ -40,7 +38,7 @@ public sealed class ExecutionResultFailureOwnershipTests
     {
         foreach (string copy in new[] { "result", "counter-clone", "counter-constructor" })
         foreach (bool compressed in new[] { false, true })
-        foreach (long work in new[] { 64L, 128L, 256L, 512L }) { yield return [copy, compressed, work]; }
+        { yield return [copy, compressed]; }
     }
 
     public static IEnumerable<object[]> TinyJobs()
@@ -48,15 +46,14 @@ public sealed class ExecutionResultFailureOwnershipTests
         foreach (string route in Routes)
         foreach (bool canceled in new[] { false, true })
         {
-            foreach (long memory in new[] { 1L, 80L, 152L, ExecutionResultAdmission.MemoryBytes - 1L }) { yield return [route, "memory", memory, canceled]; }
-            foreach (long work in Enumerable.Range(1, (int)ExecutionResultAdmission.WorkUnits - 1).Select(value => (long)value)) { yield return [route, "work", work, canceled]; }
+            foreach (long memory in new[] { 1L, 80L, 152L, ExecutionResultAdmission.MemoryBytes - 1L }) { yield return [route, memory, canceled]; }
         }
     }
 
     public static IEnumerable<object[]> AdmissionEdges()
     {
         foreach (string route in Routes)
-        foreach (string bound in new[] { "memory", "work", "both" }) { yield return [route, bound]; }
+        { yield return [route]; }
     }
 
     public static IEnumerable<object[]> HealthyJobs()
@@ -67,7 +64,7 @@ public sealed class ExecutionResultFailureOwnershipTests
     public static IEnumerable<object[]> CompanionValidation()
     {
         foreach (string invalid in new[] { "mode", "level-low", "level-high", "uncompress-level" })
-        foreach (string budget in new[] { "memory", "work", "default", "edge-memory", "edge-work" })
+        foreach (string budget in new[] { "memory", "default", "edge-memory" })
         foreach (bool canceled in new[] { false, true }) { yield return [invalid, budget, canceled]; }
     }
 
@@ -88,10 +85,9 @@ public sealed class ExecutionResultFailureOwnershipTests
         }
     }
 
-    private static async Task<object> Complete(string kind, bool compressed, string budget, long ceiling)
+    private static async Task<object> Complete(string kind, bool compressed, long ceiling)
     {
-        QpdfLimits limits = budget == "work" ? QpdfLimits.Default with { MaxWork = ceiling }
-            : QpdfLimits.Default with { MaxMemoryBytes = ceiling };
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = ceiling };
         MethodInfo method = typeof(ExecutionResultOwnershipTests).GetMethod("CompleteFileJson", Members)
             ?? throw new InvalidOperationException("Missing unchanged complete file-JSON fixture.");
         Task running = (Task)(method.Invoke(null, [kind, "argv", compressed, limits, true])
@@ -104,9 +100,9 @@ public sealed class ExecutionResultFailureOwnershipTests
     [Theory]
     [MemberData(nameof(BudgetAliases))]
     [Trait("Layer", "Contract")]
-    public async Task OriginalBudgetFailuresFundIndependentResultAndCounterAliases(string kind, bool compressed, string budget, long ceiling)
+    public async Task OriginalBudgetFailuresFundIndependentResultAndCounterAliases(string kind, bool compressed, long ceiling)
     {
-        object alias = await Complete(kind, compressed, budget, ceiling);
+        object alias = await Complete(kind, compressed, ceiling);
         await Task.Yield();
         ResourceGovernor governor = Assert.IsType<ResourceGovernor>(Field(alias, "Governor"));
         if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
@@ -114,7 +110,7 @@ public sealed class ExecutionResultFailureOwnershipTests
         Assert.False(Assert.IsType<WeakReference>(Field(alias, "Host")).IsAlive);
         Assert.Equal(kind == "result", Assert.IsType<WeakReference>(Field(alias, "Result")).IsAlive);
         Assert.True(governor.Snapshot().LiveMemoryBytes >= (kind == "result" ? 168L : 88L));
-        await VerifyCounterValuesAsync(alias, budget, ceiling);
+        await VerifyCounterValuesAsync(alias, ceiling);
         SetValue(alias, null);
         await CollectAsync(governor);
         Assert.False(Assert.IsType<WeakReference>(Field(alias, "Result")).IsAlive);
@@ -124,23 +120,22 @@ public sealed class ExecutionResultFailureOwnershipTests
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private async Task VerifyCounterValuesAsync(object alias, string budget, long ceiling)
+    private async Task VerifyCounterValuesAsync(object alias, long ceiling)
     {
         object value = Field(alias, "Value");
         QpdfExecutionCounters counters = value is QpdfExecutionResult result ? result.Counters : Assert.IsType<QpdfExecutionCounters>(value);
         Values before = Snapshot(counters);
         await CollectAsync(Assert.IsType<ResourceGovernor>(Field(alias, "Governor")));
         Assert.Equal(before, Snapshot(counters));
-        Assert.True(before.Work <= (budget == "work" ? ceiling : QpdfLimits.Default.MaxWork));
-        Assert.True(before.Peak <= (budget == "memory" ? ceiling : QpdfLimits.Default.MaxMemoryBytes));
+        Assert.True(before.Peak <= ceiling);
     }
 
     private sealed record Detached(object Value, WeakReference[] Metadata, WeakReference Host);
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static async Task<Detached> Detach(string kind, bool compressed, string budget, long ceiling)
+    private static async Task<Detached> Detach(string kind, bool compressed, long ceiling)
     {
-        object alias = await Complete(kind, compressed, budget, ceiling);
+        object alias = await Complete(kind, compressed, ceiling);
         ResourceGovernor governor = Assert.IsType<ResourceGovernor>(Field(alias, "Governor"));
         List<WeakReference> metadata = [new(governor)];
         object? owners = typeof(ResourceGovernor).GetField("_valueOwners", Members)?.GetValue(governor);
@@ -159,9 +154,9 @@ public sealed class ExecutionResultFailureOwnershipTests
     [Theory]
     [MemberData(nameof(BudgetAliases))]
     [Trait("Layer", "Contract")]
-    public async Task FailureAliasesDoNotRootCompletedJobMetadata(string kind, bool compressed, string budget, long ceiling)
+    public async Task FailureAliasesDoNotRootCompletedJobMetadata(string kind, bool compressed, long ceiling)
     {
-        Detached alias = await Detach(kind, compressed, budget, ceiling);
+        Detached alias = await Detach(kind, compressed, ceiling);
         await Task.Yield();
         if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
         await (_collection ?? throw new InvalidOperationException()).CollectAsync(null, 0);
@@ -173,9 +168,9 @@ public sealed class ExecutionResultFailureOwnershipTests
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static async Task<object> Copy(string kind, bool compressed, long work)
+    private static async Task<object> Copy(string kind, bool compressed)
     {
-        object alias = await Complete("result", compressed, "work", work);
+        object alias = await Complete("result", compressed, 4096L);
         QpdfExecutionResult original = Assert.IsType<QpdfExecutionResult>(Field(alias, "Value"));
         object copy;
         if (kind == "result")
@@ -189,7 +184,7 @@ public sealed class ExecutionResultFailureOwnershipTests
         {
             QpdfExecutionCounters c = original.Counters;
             QpdfExecutionCounters clone = kind == "counter-clone" ? c with { }
-                : new(c.LiveMemoryBytes, c.PeakMemoryBytes, c.TotalWork, c.TotalDecodedBytes, c.TotalOutputBytes,
+                : new(c.LiveMemoryBytes, c.PeakMemoryBytes, c.TotalDecodedBytes, c.TotalOutputBytes,
                     c.HostOperations, c.OpenHandles, c.DiagnosticCount);
             Assert.Equal(c, clone); Assert.Equal(c.GetHashCode(), clone.GetHashCode());
             Assert.True(c == clone); Assert.False(c.Equals(null));
@@ -202,9 +197,9 @@ public sealed class ExecutionResultFailureOwnershipTests
     [Theory]
     [MemberData(nameof(CopyCases))]
     [Trait("Layer", "Contract")]
-    public async Task CallerRecordCopiesPreserveValuesUnderTheCallerOwner(string kind, bool compressed, long work)
+    public async Task CallerRecordCopiesPreserveValuesUnderTheCallerOwner(string kind, bool compressed)
     {
-        object alias = await Copy(kind, compressed, work);
+        object alias = await Copy(kind, compressed);
         await Task.Yield();
         ResourceGovernor governor = Assert.IsType<ResourceGovernor>(Field(alias, "Governor"));
         if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
@@ -220,7 +215,7 @@ public sealed class ExecutionResultFailureOwnershipTests
         GC.KeepAlive(alias);
     }
 
-    public static IEnumerable<object[]> WarningFailures()
+    public static IEnumerable<object[]> PreparedWarningJobs()
     {
         foreach (string route in new[] { "argv", "job", "mixed", "response" })
         foreach (string kind in new[] { "result", "counters" })
@@ -275,36 +270,43 @@ public sealed class ExecutionResultFailureOwnershipTests
         inner.AddInput(QpdfPath.From("input.pdf"), input, QpdfInputOwnership.Copy);
         Assert.True(inner.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] prior));
         using IDisposable capture = OwnershipBatch.CaptureWithoutCollection();
-        Task<QpdfExecutionResult> running = RunWarnings(host, route, noWarn, QpdfLimits.Default with { MaxWork = 5000L });
+        Task<QpdfExecutionResult> running = RunWarnings(host, route, noWarn, QpdfLimits.Default);
+        ResourceGovernor? pressuredGovernor = null;
+        long pressure = 0L;
         try
         {
             await Assert.IsAssignableFrom<Task>(Property(host, "Entered")).WaitAsync(TimeSpan.FromSeconds(10));
             ResourceGovernor governor = Assert.IsType<ResourceGovernor>(typeof(ExecutionCounterTests).GetMethod("FindGovernor", Members)?.Invoke(null,
                 [running, 0, new HashSet<object>(ReferenceEqualityComparer.Instance)]));
             Assert.True(Assert.IsType<long>(Field(host, "ReadBytes")) > 0L);
-            long warnings = governor.Snapshot().DiagnosticCount;
-            Assert.InRange(warnings, 1L, 50L);
+            long acceptedCount = governor.Snapshot().DiagnosticCount;
+            Assert.Equal(noWarn ? 1L : 51L, acceptedCount);
+            long warnings = noWarn ? 0L : 50L;
+            pressure = QpdfLimits.Default.MaxMemoryBytes - governor.Snapshot().LiveMemoryBytes;
+            governor.ReserveMemory(pressure); pressuredGovernor = governor;
             host.GetType().GetMethod("Resume", Members)?.Invoke(host, []);
             QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
-            Assert.Equal(QpdfExecutionStatus.Failed, result.Status); Assert.Equal(QpdfExitCode.Error, result.ExitCode);
-            Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded
-                && d.Message.Contains(nameof(QpdfLimits.MaxWork), StringComparison.Ordinal));
+            Assert.Equal(QpdfExecutionStatus.Completed, result.Status); Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+            Assert.DoesNotContain(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded);
             Assert.Equal(accepted.Take(noWarn ? 0 : (int)warnings), result.Diagnostics
                 .Where(d => d.Code == QpdfDiagnosticCode.DuplicateKey).Select(d => d.Message));
-            Assert.Equal(warnings, result.Counters.DiagnosticCount); Assert.True(result.Counters.TotalWork <= 5000L);
-            Assert.Null(result.OutputText); Assert.Null(result.OutputBytes);
+            Assert.Equal(acceptedCount, result.Counters.DiagnosticCount);             Assert.Null(result.OutputText); Assert.Null(result.OutputBytes);
             Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, inner.OpenLeaseCount);
             Assert.Equal(new byte[] { 17, 23, 41 }, prior);
-            Assert.True(inner.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] kept)); Assert.Equal(prior, kept);
+            Assert.True(inner.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] kept)); Assert.NotEqual(prior, kept);
             return CaptureWarning(governor, host, result, kind);
         }
-        finally { host.GetType().GetMethod("Resume", Members)?.Invoke(host, []); await running; }
+        finally
+        {
+            host.GetType().GetMethod("Resume", Members)?.Invoke(host, []); await running;
+            pressuredGovernor?.ReleaseMemory(pressure);
+        }
     }
 
     [Theory]
-    [MemberData(nameof(WarningFailures))]
+    [MemberData(nameof(PreparedWarningJobs))]
     [Trait("Layer", "Contract")]
-    public async Task WorkFailuresKeepAcceptedWarningsAndIndependentOutcomeAliases(string route, string kind, bool compressed, bool noWarn)
+    public async Task PreparedResultsKeepWarningsAndPublishUnderLaterMemoryPressure(string route, string kind, bool compressed, bool noWarn)
     {
         WarningAlias alias = await CompleteWarnings(route, kind, compressed, noWarn);
         await Task.Yield();
@@ -313,7 +315,7 @@ public sealed class ExecutionResultFailureOwnershipTests
         Assert.False(alias.Host.IsAlive); Assert.Equal(kind == "result", alias.Result.IsAlive);
         Assert.True(alias.Counters.IsAlive);
         Assert.True(alias.Governor.Snapshot().LiveMemoryBytes >= (kind == "result" ? 168L : 88L));
-        await VerifyCounterValuesAsync(alias, "work", 5000L);
+        await VerifyCounterValuesAsync(alias, QpdfLimits.Default.MaxMemoryBytes);
         alias.Value = null;
         await CollectAsync(alias.Governor);
         Assert.False(alias.Result.IsAlive); Assert.False(alias.Counters.IsAlive);
@@ -419,11 +421,10 @@ public sealed class ExecutionResultFailureOwnershipTests
     [Theory]
     [MemberData(nameof(TinyJobs))]
     [Trait("Layer", "Contract")]
-    public async Task UnadmittedJobsBorrowImmutableOutcomesWithoutHostCallsOrWarmAllocation(string route, string budget, long ceiling, bool canceled)
+    public async Task UnadmittedJobsBorrowImmutableOutcomesWithoutHostCallsOrWarmAllocation(string route, long ceiling, bool canceled)
     {
         CountingHost host = await Host(route);
-        QpdfLimits limits = budget == "memory" ? QpdfLimits.Default with { MaxMemoryBytes = ceiling }
-            : QpdfLimits.Default with { MaxWork = ceiling };
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = ceiling };
         using CancellationTokenSource cancellation = new();
         if (canceled) { cancellation.Cancel(); }
         Func<ValueTask<QpdfExecutionResult>> invoke = Request(host, route, limits, cancellation.Token);
@@ -438,7 +439,7 @@ public sealed class ExecutionResultFailureOwnershipTests
         {
             QpdfDiagnostic error = Assert.Single(first.Diagnostics);
             Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, error.Code);
-            Assert.Contains(budget == "memory" ? "MaxMemoryBytes" : "MaxWork", error.Message, StringComparison.Ordinal);
+            Assert.Contains("MaxMemoryBytes", error.Message, StringComparison.Ordinal);
             IList<QpdfDiagnostic> diagnostics = Assert.IsAssignableFrom<IList<QpdfDiagnostic>>(first.Diagnostics);
             Assert.Throws<NotSupportedException>(() => diagnostics[0] = error);
         }
@@ -448,18 +449,17 @@ public sealed class ExecutionResultFailureOwnershipTests
     [Theory]
     [MemberData(nameof(AdmissionEdges))]
     [Trait("Layer", "Contract")]
-    public async Task ExactlyAdmittedFailuresKeepTheFixedCarrierReserve(string route, string bound)
+    public async Task ExactlyAdmittedFailuresKeepTheFixedCarrierReserve(string route)
     {
         CountingHost host = await Host(route);
         QpdfLimits limits = QpdfLimits.Default with
-        { MaxMemoryBytes = bound is "memory" or "both" ? ExecutionResultAdmission.MemoryBytes : QpdfLimits.Default.MaxMemoryBytes,
-            MaxWork = bound is "work" or "both" ? ExecutionResultAdmission.WorkUnits : QpdfLimits.Default.MaxWork };
+        { MaxMemoryBytes = ExecutionResultAdmission.MemoryBytes};
         QpdfExecutionResult result = await Request(host, route, limits, CancellationToken.None)();
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded);
         Assert.True(result.Counters.LiveMemoryBytes >= 168L);
         Assert.True(result.Counters.PeakMemoryBytes <= limits.MaxMemoryBytes);
-        Assert.True(result.Counters.TotalWork <= limits.MaxWork); Assert.Equal(0L, result.Counters.OpenHandles);
+Assert.Equal(0L, result.Counters.OpenHandles);
         Prior(host);
     }
 
@@ -472,9 +472,7 @@ public sealed class ExecutionResultFailureOwnershipTests
         QpdfLimits limits = budget switch
         {
             "memory" => QpdfLimits.Default with { MaxMemoryBytes = 1L },
-            "work" => QpdfLimits.Default with { MaxWork = 1L },
             "edge-memory" => QpdfLimits.Default with { MaxMemoryBytes = ExecutionResultAdmission.MemoryBytes },
-            "edge-work" => QpdfLimits.Default with { MaxWork = ExecutionResultAdmission.WorkUnits },
             _ => QpdfLimits.Default,
         };
         QpdfZlibFlateOptions options = invalid switch
@@ -500,7 +498,7 @@ public sealed class ExecutionResultFailureOwnershipTests
             (nameof(OriginalBudgetFailuresFundIndependentResultAndCounterAliases), BudgetAliases()),
             (nameof(FailureAliasesDoNotRootCompletedJobMetadata), BudgetAliases()),
             (nameof(CallerRecordCopiesPreserveValuesUnderTheCallerOwner), CopyCases()),
-            (nameof(WorkFailuresKeepAcceptedWarningsAndIndependentOutcomeAliases), WarningFailures()),
+            (nameof(PreparedResultsKeepWarningsAndPublishUnderLaterMemoryPressure), PreparedWarningJobs()),
         };
 
     public static IEnumerable<object[]> OwnershipBatches() => OwnershipMatrix.Batches(OwnershipCases());

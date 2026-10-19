@@ -107,13 +107,11 @@ public sealed class WriterFormattingOwnershipTests
     }
 
     [Theory]
-    [InlineData("qdf-array", "memory")]
-    [InlineData("qdf-dictionary", "memory")]
-    [InlineData("qdf-array", "work")]
-    [InlineData("qdf-dictionary", "work")]
-    public void HugeIndentRejectsBeforeConstructingStrings(string route, string ceiling)
+    [InlineData("qdf-array")]
+    [InlineData("qdf-dictionary")]
+    public void HugeIndentRejectsBeforeConstructingStrings(string route)
     {
-        QpdfLimits limits = ceiling == "memory" ? Limits with { MaxMemoryBytes = 32770L } : Limits with { MaxWork = 500L };
+        QpdfLimits limits = Limits with { MaxMemoryBytes = 32770L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         QpdfObject source = Source(route);
         CollectingSink sink = new();
@@ -121,7 +119,7 @@ public sealed class WriterFormattingOwnershipTests
         QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => { Start(route, source, limits, governor, sink, CancellationToken.None).GetAwaiter().GetResult(); });
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         Assert.True(allocated < 32768L, $"Rejected indentation allocated {allocated} bytes.");
-        Assert.Equal(ceiling == "memory" ? nameof(QpdfLimits.MaxMemoryBytes) : nameof(QpdfLimits.MaxWork), failure.LimitName);
+        Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
         Assert.Equal(route == "qdf-array" ? "[" : "<<", Encoding.ASCII.GetString(sink.ToArray()));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }

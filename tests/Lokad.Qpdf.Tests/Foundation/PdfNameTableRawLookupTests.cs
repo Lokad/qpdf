@@ -30,29 +30,11 @@ public sealed class PdfNameTableRawLookupTests
             CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         try
         {
-            Assert.True(reached.Wait(TimeSpan.FromSeconds(10))); Assert.True(lookup.Snapshot().TotalWork >= 256L);
-            cancellation.Cancel(); resume.Set(); await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.True(reached.Wait(TimeSpan.FromSeconds(10)));             cancellation.Cancel(); resume.Set(); await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));
             Assert.Equal(funded, owner.Snapshot().LiveMemoryBytes); Assert.Equal(0L, lookup.Snapshot().LiveMemoryBytes);
             Assert.True(names.TryGetValue(key, out QpdfObject? found)); Assert.Same(value, found);
         }
         finally { cancellation.Cancel(); resume.Set(); try { await worker.WaitAsync(TimeSpan.FromSeconds(10)); } catch (OperationCanceledException) { } }
-    }
-
-    [Fact]
-    public void RawLookupWorkExhaustionPreservesFrozenBackingAndAllowsAnotherCaller()
-    {
-        byte[] raw = Bytes(97); PdfName key = new(raw); PdfArray value = new([PdfNull.Instance]);
-        ResourceGovernor owner = new(QpdfLimits.Default, CancellationToken.None);
-        using ParserMemoryScope memory = ParserMemoryScope.Create(owner);
-        PdfNameTable<QpdfObject> names = PdfNameTable<QpdfObject>.Create(memory, owner, 8L, CancellationToken.None);
-        Assert.True(names.TryAdd(memory, owner, key, value, CancellationToken.None)); names.Freeze(memory, owner, CancellationToken.None);
-        long before = owner.Snapshot().LiveMemoryBytes;
-        ResourceGovernor limited = new(QpdfLimits.Default with { MaxWork = 128L }, CancellationToken.None);
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => names.TryGetObserved(raw.AsSpan(), limited, CancellationToken.None, () => { }, out _));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.Equal(before, owner.Snapshot().LiveMemoryBytes);
-        ResourceGovernor retry = new(QpdfLimits.Default, CancellationToken.None);
-        Assert.True(names.TryGetValue(raw.AsSpan(), retry, CancellationToken.None, out QpdfObject? found)); Assert.Same(value, found);
-        Assert.Equal(0L, retry.Snapshot().LiveMemoryBytes); Assert.Equal(before, owner.Snapshot().LiveMemoryBytes);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

@@ -82,7 +82,7 @@ internal sealed class ExecutionPresentation : ExecutionPreparation, IDisposable
     internal static ExecutionPresentation? Create(ResourceGovernor governor, DiagnosticBag bag,
         bool verbose, bool memoryUsage, bool progress, bool noWarn, bool warningExitZero, CancellationToken token)
     {
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         try
         {
@@ -107,41 +107,16 @@ internal sealed class ExecutionPresentation : ExecutionPreparation, IDisposable
     private ResourceGovernor Governor => _governor ?? throw new ObjectDisposedException(nameof(ExecutionPresentation));
     private DiagnosticBag Bag => _bag ?? throw new ObjectDisposedException(nameof(ExecutionPresentation));
 
-    internal void PreparePlainFailureHistory()
-    {
-        if ((_flags & 15) != 0 || !Bag.HasNonWarningEntries || !Bag.HasAcceptedWarnings) { return; }
-        IReadOnlyList<QpdfDiagnostic> source = Bag.PromotedEntries;
-        DiagnosticProjection history = DiagnosticProjection.CreateWarningHistory(Governor, source);
-        _prepared?.Dispose(); _prepared = history;
-    }
-
     internal override void Prepare()
     {
-        // Plain jobs keep their existing success projection. Only the prepaid
-        // warning-history view is needed if their execution later fails.
-        if ((_flags & 15) == 0) { return; }
+        // Freeze actual stored messages and summaries before publication. Completion
+        // reuses this preparation and cannot allocate or reject it after commit.
+        if ((_flags & 15) == 0 || _prepared is not null) { return; }
         ResourceGovernor governor = Governor;
         governor.CheckCancellation();
-        IReadOnlyList<QpdfDiagnostic> source = Bag.Entries;
-        long output = (_flags & 5) != 0 ? governor.PresentationOutputBytes : 0L;
-        long decoded = (_flags & 1) != 0 ? governor.PresentationDecodedBytes : 0L;
-        bool usesPeak = (_flags & 3) != 0;
-        long peak = usesPeak ? governor.PresentationPeakBytes : 0L;
-        if (_prepared is DiagnosticProjection previous && previous.SourceCount == source.Count
-            && previous.OutputBytes == output && previous.DecodedBytes == decoded && previous.PeakBytes == peak) { return; }
-        while (true)
-        {
-            governor.CheckCancellation(); governor.ChargeWork(1L);
-            peak = usesPeak ? governor.PresentationPeakBytes : 0L;
-            DiagnosticProjection candidate = DiagnosticProjection.Create(governor, source, (_flags & 8) != 0,
-                (_flags & 1) != 0, (_flags & 2) != 0, (_flags & 4) != 0, output, decoded, peak);
-            if (!usesPeak || candidate.PeakBytes == governor.PresentationPeakBytes)
-            {
-                _prepared?.Dispose(); _prepared = candidate;
-                return;
-            }
-            candidate.Dispose();
-        }
+        _prepared = DiagnosticProjection.Create(governor, Bag.Entries, (_flags & 8) != 0,
+            (_flags & 1) != 0, (_flags & 2) != 0, (_flags & 4) != 0,
+            governor.PresentationOutputBytes, governor.PresentationDecodedBytes, governor.PresentationPeakBytes);
     }
 
     internal PresentedDiagnostics? Complete()
@@ -151,7 +126,6 @@ internal sealed class ExecutionPresentation : ExecutionPreparation, IDisposable
         DiagnosticProjection prepared = _prepared ?? throw new InvalidOperationException("Missing prepared diagnostics.");
         QpdfExitCode exit = prepared.HasError ? QpdfExitCode.Error
             : (prepared.HasWarning || Bag.HasAcceptedWarnings) && (_flags & 16) == 0 ? QpdfExitCode.Warning : QpdfExitCode.Success;
-        Governor.PresentDiagnosticCount();
         IReadOnlyList<QpdfDiagnostic> diagnostics = prepared.Transfer(); _prepared = null;
         return new(diagnostics, exit);
     }
@@ -172,8 +146,6 @@ internal sealed class ExecutionPresentation : ExecutionPreparation, IDisposable
     {
         FailureProjection failure = _failure ?? throw new InvalidOperationException("Missing failure diagnostics.");
         IReadOnlyList<QpdfDiagnostic> accepted = Bag.Entries;
-        if ((_flags & 15) == 0 && _prepared is DiagnosticProjection history)
-        { accepted = history.Transfer(); _prepared = null; }
         bool hasAccepted = failure.Freeze(accepted, diagnostics, (_flags & 8) != 0, Bag.HasNonWarningEntries, (_flags & 15) == 0);
         if ((_flags & 15) == 0 && !hasAccepted) { return null; }
         _failure = null;

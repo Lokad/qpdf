@@ -4,7 +4,7 @@ using Lokad.Qpdf.Objects;
 
 namespace Lokad.Qpdf.Runtime;
 
-/// <summary>Name storage with explicit construction/lookup work and no retained execution state.</summary>
+/// <summary>Name storage with cancellable construction/lookup and no retained execution state.</summary>
 internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumerable<PdfName>
 {
     internal const long WrapperBytes = 96L;
@@ -44,7 +44,7 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
         ArgumentNullException.ThrowIfNull(memory); ArgumentNullException.ThrowIfNull(governor);
         memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         long entryBytes = checked((16L + valueBytes + 7L) / 8L * 8L);
-        governor.ChargeWork(1L); memory.Reserve(WrapperBytes);
+        governor.NoteOperation(); memory.Reserve(WrapperBytes);
         try { return new PdfNameTable<T>(memory, entryBytes, frozen); }
         catch { memory.Release(WrapperBytes); throw; }
     }
@@ -246,7 +246,7 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
         long bytes = ArrayBytes(capacity); memory.Reserve(bytes);
         try
         {
-            visits.Units(checked(2L * capacity));
+            visits.Step();
             int[] buckets = new int[capacity]; Entry[] entries = new Entry[capacity];
             for (int index = 0; index < _count; index++)
             {
@@ -284,7 +284,7 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
         try
         {
             memory.Reserve(entryBytes); admitted = true;
-            Visits visits = new(governor, token, null); visits.Units(Capacity);
+            Visits visits = new(governor, token, null); visits.Step();
             entries = Capacity == 0
                 ? Array.Empty<PdfNameTable<TResult>.Entry>() : new PdfNameTable<TResult>.Entry[Capacity];
             for (int index = 0; index < _count; index++)
@@ -357,20 +357,17 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
 
     private readonly struct Visits(ResourceGovernor? governor, CancellationToken token, Action? observe)
     {
-        internal void Step() => Units(1L);
-        internal void Units(long count) { token.ThrowIfCancellationRequested(); governor?.CheckCancellation(); governor?.ChargeWork(count); }
+        internal void Step() { token.ThrowIfCancellationRequested(); governor?.CheckCancellation(); governor?.NoteOperation(); }
         internal int Hash(PdfName name)
         {
-            Units(Math.Min(name.RawSpan.Length, 16) + 2L);
+            Step();
             return name.GetHashCode();
         }
         internal int Hash(PdfNameBytes bytes)
         {
             int count = Math.Min(bytes.Length, 16);
-            // Hashing visits at most sixteen bytes. Admit the same byte and
-            // finalization work once, keeping cancellation bounded without a
-            // governor call for each byte of every dictionary lookup.
-            Units(count + 2L);
+            // Hashing visits at most sixteen bytes between cancellation checks.
+            Step();
             HashCode hash = new();
             PdfNameBytes.Cursor cursor = bytes.GetCursor();
             for (int index = 0; index < count; index++)
@@ -401,18 +398,8 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
             if (a.Length != b.Length) { return false; }
             if (a.Length <= 16)
             {
-                // Equal checked cancellation immediately before this bounded,
-                // allocation-free read. Charge the exact compared byte count
-                // once before returning, including the first differing byte.
-                int compared = 0;
-                bool equal = true;
-                for (int index = 0; index < a.Length; index++)
-                {
-                    compared++;
-                    if (a[index] != b[index]) { equal = false; break; }
-                }
-                if (compared != 0) { Units(compared); }
-                return equal;
+                // Equal checked cancellation immediately before this bounded read.
+                return a.SequenceEqual(b);
             }
             for (int index = 0; index < a.Length; index++)
             {

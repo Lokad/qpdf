@@ -70,38 +70,6 @@ public sealed class CollationOwnershipTests(ITestOutputHelper log)
         return host;
     }
 
-    [Fact]
-    public async Task CollationScanHonorsOriginalWorkBeforeAllocatingItsVector()
-    {
-        List<string> defects = [];
-        foreach ((int count, long work) in new[] { (4096, 128L), (100000, 1024L) })
-        {
-            Host warm = await CreateHost();
-            await Qpdf.ExecuteAsync(warm, new QpdfCommandInvocation(
-                [Input.Value, "--collate=1", "--pages", ".", "1", "--", Output.Value]),
-                new QpdfExecutionOptions(QpdfLimits.Default with { MaxWork = work }), CancellationToken.None);
-            Host host = await CreateHost();
-            string value = "--collate=" + string.Join(',', Enumerable.Repeat("1", count));
-            string[] arguments = [Input.Value, value, "--pages", ".", "1", "--", Output.Value];
-            QpdfCommandInvocation invocation = new(arguments);
-            QpdfExecutionOptions options = new(QpdfLimits.Default with { MaxWork = work });
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            ValueTask<QpdfExecutionResult> pending = Qpdf.ExecuteAsync(host, invocation, options, CancellationToken.None);
-            long allocation = GC.GetAllocatedBytesForCurrentThread() - before;
-            Assert.True(pending.IsCompleted);
-            QpdfExecutionResult result = await pending;
-            log.WriteLine("COLLATION WORK count={0} work={1} allocation={2} status={3} codes={4}",
-                count, work, allocation, result.Status, string.Join(',', result.Diagnostics.Select(d => d.Code)));
-            if (!result.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.BudgetExceeded)) { defects.Add("work:" + count); }
-            if (allocation >= 32768L) { defects.Add("allocation:" + count + ":" + allocation); }
-            Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-            Assert.Equal(0, host.Opens); Assert.Equal(0L, host.Inner.OpenLeaseCount);
-            Assert.Equal(arguments, invocation.Arguments);
-            Assert.True(host.Inner.TryGetOutput(Output, out byte[] prior)); Assert.Equal(Prior, prior);
-        }
-        Assert.Empty(defects);
-    }
-
     private const BindingFlags Fields = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
     private static List<object> Walk(object root)

@@ -101,7 +101,7 @@ internal sealed record OutputRotation(PdfRotationMode Mode, int Angle, string? R
             Span<char> digits = stackalloc char[11];
             foreach (int page in pages)
             {
-                governor.CheckCancellation(); governor.ChargeWork(1L);
+                governor.CheckCancellation();
                 if (!page.TryFormat(digits, out int written, provider: CultureInfo.InvariantCulture))
                 { throw new InvalidOperationException("Typed page exceeds its bounded number storage."); }
                 length = checked(length + written);
@@ -114,7 +114,7 @@ internal sealed record OutputRotation(PdfRotationMode Mode, int Angle, string? R
                 int offset = 0;
                 for (int i = 0; i < state.pages.Count; i++)
                 {
-                    state.governor.CheckCancellation(); state.governor.ChargeWork(1L);
+                    state.governor.CheckCancellation(); state.governor.NoteOperation();
                     if (i > 0) { target[offset++] = ','; }
                     if (!state.pages[i].TryFormat(target[offset..], out int written, provider: CultureInfo.InvariantCulture))
                     { throw new InvalidOperationException("Typed page changed its admitted number storage."); }
@@ -126,7 +126,7 @@ internal sealed record OutputRotation(PdfRotationMode Mode, int Angle, string? R
                 // Reuse the existing bounded grammar and its established lexical envelope.
                 using ParserMemoryScope syntax = ParserMemoryScope.Create(governor);
                 syntax.Reserve(checked(256L + 128L * range.Length));
-                governor.ChargeWork(range.Length); governor.CheckCancellation();
+                governor.CheckCancellation();
                 Pages.PageRanges.CheckSyntax(range);
             }
         }

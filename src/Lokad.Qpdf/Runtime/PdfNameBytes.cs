@@ -16,7 +16,7 @@ internal readonly ref struct PdfNameBytes
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         Cursor cursor = new(raw, true); int length = 0;
         while (cursor.TryRead(out _))
-        { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L); length++; }
+        { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); length++; }
         return new(raw, length);
     }
     internal Cursor GetCursor() => new(_raw, _decode);
@@ -26,7 +26,7 @@ internal readonly ref struct PdfNameBytes
         if (target.Length != Length) { throw new ArgumentException("Name destination length differs.", nameof(target)); }
         Cursor cursor = GetCursor(); int index = 0;
         while (cursor.TryRead(out byte value))
-        { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L); target[index++] = value; }
+        { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); target[index++] = value; }
     }
 
     internal ref struct Cursor(ReadOnlySpan<byte> raw, bool decode)

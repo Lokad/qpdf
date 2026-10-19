@@ -61,7 +61,6 @@ public sealed class LinearizationPhysicalTests
                 Assert.Contains(reason.GetValue<string>(), check.Detail, StringComparison.Ordinal);
             }
             Assert.Equal(valid, result.Passed);
-            Assert.True(result.Counters.TotalWork > 0L);
             Assert.Equal(0L, result.Counters.OpenHandles);
         }
         else
@@ -89,7 +88,6 @@ public sealed class LinearizationPhysicalTests
                 Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.LinearizationReport
                     && d.Message == "Page Offsets Hint Table");
             }
-            Assert.True(result.Counters.TotalWork > 0L);
             Assert.Equal(0L, result.Counters.OpenHandles);
         }
         Assert.Equal(0L, host.OpenLeaseCount);

@@ -7,7 +7,6 @@ internal sealed class WriterFormatting : IDisposable
 {
     private const int VisitBytes = 8192;
     internal const int ShortTokenBytes = 20;
-    internal const long ShortTokenWork = 80L;
     private ParserMemoryScope? _memory;
     private byte[]? _bytes;
 
@@ -51,7 +50,7 @@ internal sealed class WriterFormatting : IDisposable
         foreach (ref readonly WriterPart part in parts)
         {
             CheckCancellation(governor, cancellationToken);
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             length = checked(length + Measure(in part, governor));
             if (width.HasValue && length > width.Value)
             {
@@ -71,7 +70,7 @@ internal sealed class WriterFormatting : IDisposable
         try
         {
             memory.Reserve(64L + (length == 0L ? 0L : 32L + length));
-            governor.ChargeWork(length); // Conservative allocation work allowance.
+            governor.NoteOperation();
             CheckCancellation(governor, cancellationToken);
             // Fields and final padding fill the entire result before publication.
             byte[] bytes = length == 0L ? Array.Empty<byte>() : GC.AllocateUninitializedArray<byte>((int)length);
@@ -108,7 +107,7 @@ internal sealed class WriterFormatting : IDisposable
         int used = 0;
         foreach (ref readonly WriterPart part in parts)
         {
-            CheckCancellation(governor, token); governor.ChargeWork(1L);
+            CheckCancellation(governor, token); governor.NoteOperation();
             Fill(in part, target, ref used, governor, token, observeFill);
         }
         FillRepeated(target.Slice(used), (byte)' ', governor, token, observeFill);
@@ -133,7 +132,7 @@ internal sealed class WriterFormatting : IDisposable
             || number.Integer > 9_999_999_999L) { return false; }
 
         CheckCancellation(governor, token);
-        governor.ChargeWork(4L); // Both field visits and the bounded shape checks.
+        governor.NoteOperation(); // Both field visits and the bounded shape checks.
         Fill(in number, target, ref written, governor, token, null);
         CheckCancellation(governor, token);
         Fill(in suffix, target, ref written, governor, token, null);
@@ -157,7 +156,7 @@ internal sealed class WriterFormatting : IDisposable
             if (!literal.IsEmpty)
             {
                 CheckCancellation(governor, token);
-                governor.ChargeWork(2L * literal.Length);
+                governor.NoteOperation();
                 literal.CopyTo(target.Slice(used));
                 used += literal.Length;
                 observeFill?.Invoke();
@@ -167,7 +166,7 @@ internal sealed class WriterFormatting : IDisposable
             {
                 CheckCancellation(governor, token);
                 int count = Math.Min(VisitBytes, text.Length - offset);
-                governor.ChargeWork(2L * count); // One source visit and one output byte.
+                governor.NoteOperation(); // One source visit and one output byte.
                 for (int index = 0; index < count; index++)
                 {
                     char value = text[offset + index];
@@ -186,7 +185,7 @@ internal sealed class WriterFormatting : IDisposable
             {
                 CheckCancellation(governor, token);
                 int count = Math.Min(VisitBytes, bytes.Length - offset);
-                governor.ChargeWork(3L * count);
+                governor.NoteOperation();
                 for (int index = 0; index < count; index++)
                 {
                     byte value = bytes[offset + index];
@@ -211,7 +210,7 @@ internal sealed class WriterFormatting : IDisposable
         int start = 0;
         if (padding != 0 && part.Integer < 0L)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             target[used++] = (byte)'-'; start = 1;
         }
         FillRepeated(target.Slice(used, padding), (byte)'0', governor, token, observeFill);
@@ -232,7 +231,7 @@ internal sealed class WriterFormatting : IDisposable
         {
             CheckCancellation(governor, token);
             int count = Math.Min(VisitBytes, target.Length - offset);
-            governor.ChargeWork(count);
+            governor.NoteOperation();
             target.Slice(offset, count).Fill(value);
             offset += count;
             observeFill?.Invoke();

@@ -52,7 +52,6 @@ internal sealed class ContentTokenizer
     private readonly ResourceGovernor _governor;
     private readonly CancellationToken _token;
     private int _position;
-    private int _tokenByteCredit;
 
     internal ContentTokenizer(ReadOnlyMemory<byte> data, QpdfLimits limits, ResourceGovernor governor)
         : this(data, limits, governor, governor?.CancellationToken ?? CancellationToken.None)
@@ -70,16 +69,7 @@ internal sealed class ContentTokenizer
     }
 
     private void Check() { _token.ThrowIfCancellationRequested(); _governor.CheckCancellation(); }
-    private void Visit() { Check(); _governor.ChargeWork(1L); }
-    // Dispatch funds a bounded prefix, preserving the one-unit short-token
-    // contract. Every later scan step pays work; every step checks cancellation.
-    private void VisitTokenByte()
-    {
-        Check();
-        if (_tokenByteCredit > 0) { _tokenByteCredit--; }
-        else { _governor.ChargeWork(1L); }
-    }
-
+    private void Visit() => Check();
     internal bool IncludeComments { get; set; }
 
     internal bool IncludeWhitespace { get; set; }
@@ -109,7 +99,6 @@ internal sealed class ContentTokenizer
         }
 
         Visit();
-        _tokenByteCredit = 16;
         long offset = _position;
         byte b = _data.Span[_position];
         if (b == (byte)'[')
@@ -460,7 +449,7 @@ internal sealed class ContentTokenizer
         int i = _position;
         while (i < span.Length)
         {
-            VisitTokenByte();
+            Visit();
             if (span[i] == (byte)'\\')
             {
                 i += 2;
@@ -496,7 +485,7 @@ internal sealed class ContentTokenizer
         int i = _position + 1;
         while (i < span.Length)
         {
-            VisitTokenByte();
+            Visit();
             byte b = span[i];
             if (b == (byte)'>')
             {
@@ -525,7 +514,7 @@ internal sealed class ContentTokenizer
         int i = start;
         while (i < span.Length && !IsDelimiter(span[i]))
         {
-            VisitTokenByte();
+            Visit();
             i += 1;
         }
 
@@ -540,14 +529,14 @@ internal sealed class ContentTokenizer
         int i = _position;
         if (i < span.Length && (span[i] == (byte)'+' || span[i] == (byte)'-'))
         {
-            VisitTokenByte();
+            Visit();
             i += 1;
         }
 
         int integerDigits = 0;
         while (i < span.Length && span[i] >= (byte)'0' && span[i] <= (byte)'9')
         {
-            VisitTokenByte();
+            Visit();
             integerDigits += 1;
             i += 1;
         }
@@ -555,13 +544,13 @@ internal sealed class ContentTokenizer
         bool real = false;
         if (i < span.Length && span[i] == (byte)'.')
         {
-            VisitTokenByte();
+            Visit();
             real = true;
             i += 1;
             int fractionDigits = 0;
             while (i < span.Length && span[i] >= (byte)'0' && span[i] <= (byte)'9')
             {
-                VisitTokenByte();
+                Visit();
                 fractionDigits += 1;
                 i += 1;
             }
@@ -589,7 +578,7 @@ internal sealed class ContentTokenizer
         int i = _position;
         while (i < span.Length && !IsDelimiter(span[i]))
         {
-            VisitTokenByte();
+            Visit();
             i += 1;
         }
 

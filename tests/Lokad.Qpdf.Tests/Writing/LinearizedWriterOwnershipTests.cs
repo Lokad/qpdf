@@ -50,7 +50,6 @@ public sealed class LinearizedWriterOwnershipTests
             Assert.False(writing.IsCompleted);
             long live = governor.Snapshot().LiveMemoryBytes;
             Assert.True(live >= 512L * 16L, $"Only {live} bytes admitted while the writer holds its classified graph.");
-            Assert.True(governor.Snapshot().TotalWork > 512L);
             if (outcome == "cancellation") { cancellation.Cancel(); }
             else { sink.Resume(); }
             if (outcome == "success")
@@ -90,7 +89,6 @@ public sealed class LinearizedWriterOwnershipTests
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
         Assert.Equal(0L, sink.Length);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        Assert.True(governor.Snapshot().TotalWork > 0L);
         Assert.InRange(governor.Snapshot().PeakMemoryBytes, 1L, limits.MaxMemoryBytes);
     }
 

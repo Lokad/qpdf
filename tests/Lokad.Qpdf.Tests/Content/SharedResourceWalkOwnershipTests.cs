@@ -69,16 +69,6 @@ public sealed class SharedResourceWalkOwnershipTests
         walk.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
-    [Fact]
-    public void QueueGrowthRequiresWorkBeforeAllocatingItsFirstArray()
-    {
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = 4L }, CancellationToken.None);
-        using SharedResourceWalk walk = SharedResourceWalk.Create(governor, CancellationToken.None);
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => walk.Push(PdfNull.Instance, CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.Equal(0, walk.Count); Assert.Equal(512L, governor.Snapshot().LiveMemoryBytes);
-        walk.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-    }
-
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -86,10 +76,10 @@ public sealed class SharedResourceWalkOwnershipTests
     {
         using CancellationTokenSource source = new(); ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? source.Token : CancellationToken.None);
         using SharedResourceWalk walk = SharedResourceWalk.Create(governor, governorToken ? CancellationToken.None : source.Token);
-        walk.Push(PdfNull.Instance, CancellationToken.None); long live = governor.Snapshot().LiveMemoryBytes, work = governor.Snapshot().TotalWork; source.Cancel();
+        walk.Push(PdfNull.Instance, CancellationToken.None); long live = governor.Snapshot().LiveMemoryBytes; source.Cancel();
         CancellationToken token = governorToken ? CancellationToken.None : source.Token;
         Assert.ThrowsAny<OperationCanceledException>(() => walk.TryPop(token, out _)); Assert.ThrowsAny<OperationCanceledException>(() => walk.VisitNode(3, token));
-        Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(work, governor.Snapshot().TotalWork); Assert.Equal(1, walk.Count);
+        Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(1, walk.Count);
         walk.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 

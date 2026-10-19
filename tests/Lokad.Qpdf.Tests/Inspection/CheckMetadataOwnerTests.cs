@@ -56,16 +56,6 @@ public sealed class CheckMetadataOwnerTests
         Assert.Same(borrowed, owner.Get(16, CancellationToken.None)); owner.Dispose(); Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes);
     }
 
-    [Fact]
-    public void StreamGrowthRequiresWorkBeforeArrayAllocation()
-    {
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = 4L }, CancellationToken.None);
-        using CheckStreamList owner = CheckStreamList.Create(governor);
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => owner.Add(Stream(), CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.Equal(0, owner.Count); Assert.Equal(160L, governor.Snapshot().LiveMemoryBytes);
-        owner.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-    }
-
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -154,15 +144,6 @@ public sealed class CheckMetadataOwnerTests
         QpdfObject? borrowed = hasValue ? new PdfArray([]) : null; Resolver resolver = new(borrowed, found, null);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         Assert.Equal(found, PdfObjectLookup.TryResolve(new PdfReference(42, 7), resolver, governor, CancellationToken.None, out QpdfObject? result));
-        Assert.Same(borrowed, result); Assert.Equal(1, resolver.Calls); Assert.Equal(2L, governor.Snapshot().TotalWork); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-    }
-
-    [Fact]
-    public void ExhaustedResolverReturnDoesNotPublishIntoTheCallersOutputSlot()
-    {
-        Resolver resolver = new(new PdfArray([]), true, null); ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = 1L }, CancellationToken.None);
-        QpdfObject? prior = PdfBoolean.True; QpdfObject? result = prior;
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => PdfObjectLookup.TryResolve(new PdfReference(42, 7), resolver, governor, CancellationToken.None, out result));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.Same(prior, result); Assert.Equal(1, resolver.Calls);
+        Assert.Same(borrowed, result); Assert.Equal(1, resolver.Calls); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 }

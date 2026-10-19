@@ -266,7 +266,6 @@ public sealed class ParserDiscardTests
         else { Assert.Throws<QpdfParseException>(() => Parse(parser, body, true)); }
         Assert.Equal(ControlAdmission("(kept)", true, abort, diagnostics.Entries), governor.Snapshot().LiveMemoryBytes);
         Assert.Equal("kept"u8.ToArray(), kept.Value);
-        Assert.True(governor.Snapshot().TotalWork > 0L);
     }
 
     [Fact]
@@ -315,7 +314,6 @@ public sealed class ParserDiscardTests
         Assert.True(observed);
         await Assert.ThrowsAsync<OperationCanceledException>(async () => await parsing.WaitAsync(TimeSpan.FromSeconds(10)));
         Assert.True(governor.Snapshot().PeakMemoryBytes >= 16L * 1024L * 1024L);
-        Assert.True(governor.Snapshot().TotalWork > 0L);
         Assert.Equal(ControlAdmission("null", true, false, diagnostics.Entries), governor.Snapshot().LiveMemoryBytes);
     }
 }

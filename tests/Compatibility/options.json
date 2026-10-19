@@ -1750,23 +1750,14 @@
         "resource": [
           "GlobalLimitsTests.ParserMaxErrorsRespectsTightHost",
           "GlobalLimitsTests.FlagCannotRaiseExplicitDefaultHostBudget",
-          "TolerantParserTests.LongDamagedWordsRemainSubjectToWorkBudget",
           "TolerantParserTests.DiagnosticBudgetFailuresPropagateDuringRepair",
           "NumericParserTests.LongIntegerTextIsAdmittedBeforeAllocation",
-          "NumericParserTests.IntegerConversionChargesWorkAfterTokenScanning",
           "NumericParserTests.NumericRepairDoesNotSwallowDiagnosticBudgetFailure",
           "RealParserTests.RealTextAdmissionPrecedesMaterialization",
           "RealParserTests.RetainedTextDoesNotNeedAnotherFullSizeCharacterArray",
-          "RealParserTests.ExhaustedConversionWorkReleasesWorkingAndTextAdmissions",
-          "RealParserTests.CopyingNumericTextIsGovernedAfterConversion",
-          "LexicalParserTests.UnescapingChargesWorkAfterTokenScanningAndReleasesAdmission",
           "LexicalParserTests.NulNameRepairDoesNotSwallowDiagnosticBudgetFailure",
           "DictionaryRepairTests.DictionaryRepairDoesNotSwallowHostLimits",
-          "CanonicalDisplayTests.NullReferenceFilteringHonorsWorkBudget",
           "CanonicalDisplayTests.NullReferenceFilteringObservesCancellationAfterLookupStarts",
-          "CanonicalDisplayTests.BinaryStringClassificationHonorsWorkBudget",
-          "CanonicalDisplayTests.HexFormattingHonorsWorkBudgetAfterClassification",
-          "CanonicalDisplayTests.NameFormattingHonorsWorkBudget",
           "CanonicalDisplayTests.LongStringDisplayObservesCancellationAfterBufferWorkStarts",
           "CanonicalDisplayMemoryTests.LargeValuesFailBeforeUnboundedDisplayAllocation",
           "CanonicalDisplayMemoryTests.OmittedDictionaryValuesDoNotCloneLongKeyBytes",
@@ -1777,11 +1768,9 @@
           "CanonicalDisplayMemoryTests.ExhaustedDiagnosticCountRejectsBeforeDisplayWork",
           "CanonicalDisplayMemoryTests.TextPreflightHandlesUtf16WithoutAllocatingEncodedCopies",
           "CanonicalDisplayMemoryTests.DiagnosticBytePreflightBoundsActualAllocation",
-          "CanonicalDisplayMemoryTests.LongCommonPrefixSortingHonorsWorkAndReleasesScratch",
           "CanonicalDisplayMemoryTests.OwnedTextCannotMoveToAnotherJobsDiagnostics",
-          "CanonicalDisplayMemoryTests.LargeDisplaysFitLinearWorkCeilings",
           "CanonicalDisplayMemoryTests.DiagnosticRejectionLeavesTextWithItsOriginalOwner",
-          "CanonicalDisplayMemoryTests.LongKeySortingCancelsAfterWorkStartsAndReleasesScratch",
+          "CanonicalDisplayMemoryTests.LongKeyRenderingCancelsAfterAdmissionAndReleasesScratch",
           "DisplayLimitsTests.PublicInspectionHonorsHostLimitsAndPreservesCounters",
           "DisplayLimitsTests.SuccessfulInspectionCountsRetainedTextAfterInputDisposal",
           "ParserOwnershipTests.RepeatedNullRepairsReleaseAbandonedValues",
@@ -1842,7 +1831,6 @@
           "XrefCollectionTests.TypedStrictOpeningEnforcesCollectionAdmission",
           "XrefCollectionTests.RevisionLimitFailureReleasesMapsAndVisitedSet",
           "XrefCollectionTests.CycleAndDuplicateFailuresReleaseAcceptedSectionStorage",
-          "XrefCollectionTests.WorkFailureReleasesCollectionStorage",
           "XrefCollectionTests.CancellationAfterCollectionWorkReleasesAllTemporaryOwners",
           "DocumentCacheTests.CacheAdmissionCoversIndependentBackingAllocation",
           "DocumentCacheTests.ConstructorAdmissionFailsBeforeCollectionAllocation",
@@ -1875,7 +1863,6 @@
           "DocumentValueOwnerTests.StandalonePayloadsDoNotRemainAnchoredToTheParser",
           "DocumentValueOwnerTests.FailedParsingPreservesIndependentAcceptedNumericText",
           "DocumentValueOwnerTests.FailedLargeParsingReleasesItsAttemptAndCanRepeat",
-          "DocumentValueOwnerTests.ExhaustedWorkPreventsNewParsingWithoutTouchingAcceptedValues",
           "DocumentValueOwnerTests.ClosedPrivateDocumentPhasesReuseAFiniteGovernor",
           "DocumentValueOwnerTests.AChildAliasDoesNotRootItsContainersWhileItsGraphOwnerRemainsCharged",
           "DocumentValueOwnerTests.NumericTextRemainsUsableUntilTheGraphOwnerEnds",
@@ -1885,8 +1872,7 @@
           "JsonValueOwnershipTests.BulkJsonDiscardsFitConsumerMemoryAllowance",
           "JsonValueOwnershipTests.SidecarsPreserveRawAndDecodedBytesAfterReaderCloses",
           "JsonValueOwnershipTests.InputCloseFaultPreservesMainAndSidecarTargets",
-          "JsonValueOwnershipTests.FailedOrCanceledJsonClosesReaderAndPreservesPriorOutput",
-          "ParserJobRecoveryTests.RecoveryScanWorkLimitPreservesThePriorTarget"
+          "JsonValueOwnershipTests.FailedOrCanceledJsonClosesReaderAndPreservesPriorOutput"
         ],
         "oracle": [
           "diff:recovery",
@@ -2467,7 +2453,7 @@
           "MergeCommandTests.JobCollateRangesMatchArgv"
         ],
         "resource": [
-          "MergeCommandTests.CollateYieldsToExhaustedBudget"
+          "MergeCommandTests.CollateYieldsToStructuralCardinalityBound"
         ],
         "oracle": [
           "diff:collate"
@@ -2704,10 +2690,8 @@
           "ResourceEnforcementTests.CompressYieldsToExhaustedBudget",
           "FlateMemoryTests.TightBudgetRejectsBeforeCodecAndOutputAllocation",
           "FlateMemoryTests.BadChecksumReleasesAllWorkingMemory",
-          "FlateMemoryTests.CompressedBlocksWithoutOutputConsumeWork",
           "PredictorMemoryTests.TightMemoryRejectsBeforeAllocatingPredictorOutput",
           "PredictorMemoryTests.EmptyPngWithHugeRowsNeedsNoRowBuffer",
-          "PredictorMemoryTests.WorkAdmissionPrecedesOutputAllocation",
           "PredictorMemoryTests.FlatePredictorReleasesItsInflatedIntermediate",
           "FlateDecodedBudgetTests.DirectAndChainChargeTheResultOnce",
           "FlateDecodedBudgetTests.AggregateFailurePrecedesAnotherLargeOutputAllocation",
@@ -4669,7 +4653,8 @@
           "MergeCommandTests.JobMultiEntryMergesInOrder"
         ],
         "resource": [
-          "MergeCommandTests.MergeFailsOnExhaustedWorkBudget"
+          "MergeCommandTests.CollateYieldsToStructuralCardinalityBound",
+          "SimplifiedExecutionTests.ExpandedSelectionsKeepTheirStructuralCardinalityBound"
         ],
         "oracle": [
           "diff:select",
@@ -6518,7 +6503,8 @@
           "MergeCommandTests.ArgvMultiFileMergesInOrder"
         ],
         "resource": [
-          "MergeCommandTests.MergeFailsOnExhaustedWorkBudget"
+          "MergeCommandTests.CollateYieldsToStructuralCardinalityBound",
+          "SimplifiedExecutionTests.ExpandedSelectionsKeepTheirStructuralCardinalityBound"
         ],
         "oracle": [
           "diff:merge"
@@ -6587,7 +6573,8 @@
           "AdapterTests.ArgvNamedFormsSucceed"
         ],
         "resource": [
-          "MergeCommandTests.MergeFailsOnExhaustedWorkBudget"
+          "MergeCommandTests.CollateYieldsToStructuralCardinalityBound",
+          "SimplifiedExecutionTests.ExpandedSelectionsKeepTheirStructuralCardinalityBound"
         ],
         "oracle": [
           "diff:merge"

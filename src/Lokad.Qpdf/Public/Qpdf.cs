@@ -337,10 +337,10 @@ public static partial class Qpdf
                     retryParse = document.Engine.HasSelectiveInput;
                     if (externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline)) { document.PrepareInlinePageResources(cancellationToken); }
                     int total = document.PageReferences.Count;
-                    IReadOnlyList<int> requested = options.Resolve(total, limits.MaxWork);
-                    if ((long)requested.Count > limits.MaxWork)
+                    IReadOnlyList<int> requested = options.Resolve(total, limits.MaxContainerSize);
+                    if ((long)requested.Count > limits.MaxContainerSize)
                     {
-                        throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), requested.Count, limits.MaxWork);
+                        throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), requested.Count, limits.MaxContainerSize);
                     }
 
                     foreach (int pageNumber in requested)
@@ -363,7 +363,7 @@ public static partial class Qpdf
                     foreach (int pageNumber in requested)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
-                        governor.ChargeWork(1L);
+                        governor.NoteOperation();
                         PageLocation location = document.PageReferences[pageNumber - 1];
                         IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location, copier, governor, limits, cancellationToken, copyMemory);
                         (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
@@ -944,7 +944,7 @@ public static partial class Qpdf
 
                 sourceCompressed.Add(CollectCompressedOriginals(document.Engine, objectStreams is not ("disable" or "generate")));
 
-                IReadOnlyList<int> requested = sources[s].Selection.Resolve(document.PageReferences.Count, limits.MaxWork);
+                IReadOnlyList<int> requested = sources[s].Selection.Resolve(document.PageReferences.Count, limits.MaxContainerSize);
                 foreach (int pageNumber in requested)
                 {
                     if (pageNumber > document.PageReferences.Count)
@@ -954,9 +954,9 @@ public static partial class Qpdf
                 }
 
                 selected += requested.Count;
-                if (selected > limits.MaxWork)
+                if (selected > limits.MaxContainerSize)
                 {
-                    throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), selected, limits.MaxWork);
+                    throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), selected, limits.MaxContainerSize);
                 }
 
                 GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, limits, nextId, selectionMemory);
@@ -969,7 +969,7 @@ public static partial class Qpdf
                 foreach (int pageNumber in requested)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    governor.ChargeWork(1L);
+                    governor.NoteOperation();
                     PageLocation location = document.PageReferences[pageNumber - 1];
                     IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location, copier, governor, limits, cancellationToken, selectionMemory);
                     (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
@@ -1322,7 +1322,7 @@ public static partial class Qpdf
             foreach (int id in pool.Keys)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (id >= importAllocator)
                 {
                     checked
@@ -1462,14 +1462,14 @@ public static partial class Qpdf
             {
                 foreach (int id in pool.Keys)
                 {
-                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                     ParserContainers.AddSetItem(reachabilityMemory, reachable, id, sizeof(int));
                 }
             }
             List<int> kept = new(reachable.Count);
             foreach (int id in reachable)
             {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 if (pool.ContainsKey(id))
                 {
                     kept.Add(id);
@@ -1583,14 +1583,14 @@ public static partial class Qpdf
             catch { publication.Dispose(); throw; }
         }
 
-        long publicationUnits = 0L, publicationCapacity = 0L;
+        long publicationOperations = 0L, publicationCapacity = 0L;
         foreach (PreparedSplitPublication publication in prepared)
         {
-            governor.CheckCancellation(); governor.ChargeWork(1L);
-            publicationUnits = checked(publicationUnits + publication.PublicationWork);
+            governor.CheckCancellation();
+            publicationOperations = checked(publicationOperations + publication.PublicationOperations);
             publicationCapacity = Math.Max(publicationCapacity, publication.PublicationCapacity);
         }
-        using PublicationWorkReservation publicationWork = PublicationWorkReservation.Create(governor, publicationUnits, publicationCapacity);
+        using PublicationReservation publicationAdmission = PublicationReservation.Create(governor, publicationOperations, publicationCapacity);
         IReadOnlyList<PdfPageSelectionMapping> splitMapping = ResultCollectionStorage.Copy(selectionMemory, mapping, IntPtr.Size, governor, cancellationToken);
         IReadOnlyList<int> splitCounts = ResultCollectionStorage.Copy(selectionMemory, sourceCounts, sizeof(int), governor, cancellationToken);
         List<QpdfPath> outputPaths = ParserContainers.CreateList<QpdfPath>(selectionMemory);
@@ -1601,7 +1601,7 @@ public static partial class Qpdf
         }
         IReadOnlyList<QpdfPath> splitPaths = ResultCollectionStorage.Copy(selectionMemory, outputPaths, IntPtr.Size, governor, cancellationToken);
         governor.PrepareExecutionPresentation();
-        publicationWork.Begin();
+        publicationAdmission.Begin();
         foreach (PreparedSplitPublication publication in prepared)
         {
             await publication.PublishAsync(host, governor, cancellationToken).ConfigureAwait(false);
@@ -1634,18 +1634,18 @@ public static partial class Qpdf
             if (ownership is null) { folds.Add(new()); }
             else
             {
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 ParserContainers.AddItem(ownership, folds, ParserContainers.CreateList<(PdfRotationMode, int)>(ownership), IntPtr.Size);
             }
         }
 
         foreach (OutputRotation specification in rotations)
         {
-            IReadOnlyList<int> positions = ownership is null ? specification.Expand(total, limits.MaxWork)
-                : Pages.PageRanges.Expand(specification.Range, total, limits.MaxWork, governor, ownership);
+            IReadOnlyList<int> positions = ownership is null ? specification.Expand(total, limits.MaxContainerSize)
+                : Pages.PageRanges.Expand(specification.Range, total, limits.MaxContainerSize, governor, ownership);
             foreach (int position in positions)
             {
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (ownership is null) { folds[position - 1].Add((specification.Mode, specification.Angle)); }
                 else { ParserContainers.AddItem(ownership, folds[position - 1], (specification.Mode, specification.Angle), 8L); }
             }
@@ -1670,7 +1670,7 @@ public static partial class Qpdf
         List<(GraphCopier Copier, int Id, PdfDictionary Page)> pages = new(occurrences.Count);
         foreach ((GraphCopier copier, int id) in occurrences)
         {
-            governor.CheckCancellation(); governor.ChargeWork(1L);
+            governor.CheckCancellation();
             if (!copier.CopiedObjects.TryGetValue(id, out QpdfObject? value) || value is not PdfDictionary page)
             {
                 throw new QpdfException("Rotation reached a missing copied page dictionary.");
@@ -1715,7 +1715,7 @@ public static partial class Qpdf
 
             foreach ((PdfRotationMode mode, int angle) in specifications)
             {
-                if (ownership is not null) { governor.ChargeWork(1L); }
+                if (ownership is not null) { governor.NoteOperation(); }
                 current = mode switch
                 {
                     PdfRotationMode.Set => angle,
@@ -1734,7 +1734,7 @@ public static partial class Qpdf
                 {
                     if (ownership is not null)
                     {
-                        governor.ChargeWork(1L);
+                        governor.NoteOperation();
                         ParserContainers.EnsureEntryCapacity(ownership, entries, IntPtr.Size);
                     }
                     entries[key] = entryValue;
@@ -1899,7 +1899,7 @@ public static partial class Qpdf
 
         foreach (PageLabelSpec specification in labels)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             int index = specification.ResolveFirstPage(total) - 1;
             PdfDictionary label = specification.ToDictionary(governor, governor.CancellationToken);
             GovernedCollections.AddItem(memory, governor, items, (index, label), 16L);
@@ -1935,7 +1935,7 @@ public static partial class Qpdf
         GovernedCollections.AddItem(memory, governor, sliced, (0, carry.Label), 16L);
         foreach ((int index, PdfDictionary label) in items)
         {
-            governor.CheckCancellation(); governor.ChargeWork(1L);
+            governor.CheckCancellation();
             if (index + 1 <= first) { carry = (index, label); }
             else if (index + 1 <= last)
             { GovernedCollections.AddItem(memory, governor, sliced, (index - (first - 1), label), 16L); }
@@ -1962,7 +1962,6 @@ public static partial class Qpdf
         int width = 1;
         for (int remaining = total; remaining >= 10; remaining /= 10) { width++; }
         governor.CheckCancellation();
-        governor.ChargeWork(pattern.Length);
         int marker = pattern.IndexOf("%d", StringComparison.Ordinal);
         bool extension = marker < 0 && pattern.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
         int prefix = marker >= 0 ? marker : extension ? pattern.Length - 4 : pattern.Length;
@@ -2004,14 +2003,14 @@ public static partial class Qpdf
         for (int offset = 0; offset < source.Length; offset += Math.Min(256, source.Length - offset))
         {
             int count = Math.Min(256, source.Length - offset);
-            governor.CheckCancellation(); governor.ChargeWork(count);
+            governor.CheckCancellation();
             source.Slice(offset, count).CopyTo(target.Slice(offset, count));
         }
     }
 
     private static void WriteSplitNumber(Span<char> target, int value, ResourceGovernor governor)
     {
-        governor.CheckCancellation(); governor.ChargeWork(target.Length);
+        governor.CheckCancellation();
         target.Fill('0');
         int digits = 1;
         for (int remaining = value; remaining >= 10; remaining /= 10) { digits++; }
@@ -2025,7 +2024,7 @@ public static partial class Qpdf
         List<QpdfObject> references = ParserContainers.CreateList(memory);
         foreach (int root in roots)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             memory.Reserve(24L);
             ParserContainers.AddItem(memory, references, new PdfReference(root, 0));
         }
@@ -2094,7 +2093,7 @@ public static partial class Qpdf
             {
                 cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
                 int count = Math.Min(32768, chunk.Length - offset);
-                _governor.ChargeWork(count);
+                _governor.NoteOperation();
                 hash.AppendData(chunk.Slice(offset, count));
                 offset += count;
             }
@@ -2187,15 +2186,14 @@ public static partial class Qpdf
         foreach (PdfName name in xobjects.Keys)
         {
             governor.CheckCancellation();
-            governor.ChargeWork(1L);
-            if (names.Count == names.Capacity) { governor.ChargeWork(checked(3L * (names.Count + 4L))); }
+            if (names.Count == names.Capacity) { governor.NoteOperation(); }
             ParserContainers.AddItem(memory, names, name, IntPtr.Size);
         }
         GovernedCollections.SortNames(memory, governor, names);
         foreach (PdfName key in names)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (!xobjects.TryGet(key, out QpdfObject entry) || entry is not PdfReference reference)
             {
                 continue;
@@ -2213,7 +2211,7 @@ public static partial class Qpdf
 
             long width = ImageDimension(stream.Dictionary, "Width", reference, engine, diagnostics, governor, cancellationToken);
             long height = ImageDimension(stream.Dictionary, "Height", reference, engine, diagnostics, governor, cancellationToken);
-            if (images.Count == images.Capacity) { governor.ChargeWork(checked(3L * (images.Count + 4L))); }
+            if (images.Count == images.Capacity) { governor.NoteOperation(); }
             ParserContainers.AddItem(memory, images, new PageImage(key, reference.ObjectNumber, reference.Generation, width, height), 32L);
         }
 
@@ -2291,7 +2289,7 @@ public static partial class Qpdf
                 throw new QpdfParseException($"Page ancestry depth exceeds {limits.MaxNestingDepth}.", null, null);
             }
 
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             current = parent;
         }
     }
@@ -2306,7 +2304,7 @@ public static partial class Qpdf
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         if (image.TryGet(PdfName.FromAscii(key), out QpdfObject raw) && raw is not PdfNull)
         {
             if (raw is PdfInteger direct)
@@ -2340,7 +2338,7 @@ public static partial class Qpdf
             foreach (System.Text.Json.JsonProperty property in helpDocument.RootElement.EnumerateObject())
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 described.Add(property.Name);
             }
         }
@@ -2351,7 +2349,7 @@ public static partial class Qpdf
             foreach (System.Text.Json.JsonProperty property in generated.RootElement.EnumerateObject())
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (!described.Contains(property.Name))
                 {
                     missing.Add(property.Name);
@@ -2386,7 +2384,7 @@ public static partial class Qpdf
             {
                 for (int i = 0; i < array.Count; i++)
                 {
-                    governor.ChargeWork(1L);
+                    governor.NoteOperation();
                     if (array[i] is PdfReference reference)
                     {
                         ParserContainers.AddItem(memory, refs, reference, IntPtr.Size);
@@ -2895,7 +2893,7 @@ public static partial class Qpdf
         {
             foreach (KeyValuePair<int, QpdfObject> entry in pool)
             {
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (IsCompressibleValue(entry.Key, entry.Value, governor))
                 {
                     compressed.Add(entry.Key);
@@ -2914,7 +2912,7 @@ public static partial class Qpdf
         {
             foreach (int orig in origs)
             {
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (map.TryGetValue(orig, out int dest)
                     && pool.TryGetValue(dest, out QpdfObject? value)
                     && value is not null
@@ -2952,7 +2950,7 @@ public static partial class Qpdf
         int perStream = (ordered.Count + streamCount - 1) / streamCount;
         for (int i = 0; i < ordered.Count; i += perStream)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             int take = Math.Min(perStream, ordered.Count - i);
             groups.Add(ordered.GetRange(i, take));
         }
@@ -3063,7 +3061,6 @@ public static partial class Qpdf
         foreach (int id in copier.CopiedObjects.Keys)
         {
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            governor.ChargeWork(checked(1L + (ids.Count == ids.Capacity ? ids.Count : 0)));
             ParserContainers.AddItem(scratch, ids, id, sizeof(int));
         }
         foreach (int id in ids)
@@ -3171,7 +3168,7 @@ public static partial class Qpdf
         foreach (PageLocation location in kept)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             PdfReference? source = location.Source;
             if (source is null)
             {
@@ -3185,7 +3182,7 @@ public static partial class Qpdf
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (!resolver.TryResolve(current, out QpdfObject? node) || node is not PdfDictionary parent)
                 {
                     break;
@@ -3470,7 +3467,7 @@ public static partial class Qpdf
         foreach (AttachmentAdd add in edits.Adds)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             string key = add.Key ?? AttachmentBuilder.Basename(add.File);
             string fileName = add.FileName ?? AttachmentBuilder.Basename(add.File);
             if (key.Length == 0)
@@ -3536,14 +3533,14 @@ public static partial class Qpdf
         foreach (AttachmentCopy copy in edits.Copies)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             await using QpdfDocument source = await QpdfDocument.OpenCore(host, SelectionPlan.CheckedPath(copy.File), limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
             List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(source.Engine, limits, governor, diagnostics, cancellationToken, ownership);
             GraphCopier copyCopier = GraphCopier.CreateOwned(source.Engine, governor, limits, nextId, ownership);
             foreach (EmbeddedAttachment attachment in found)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 string newKey = (copy.Prefix ?? string.Empty) + attachment.Key;
                 if (existing.ContainsKey(newKey))
                 {
@@ -3746,9 +3743,9 @@ public static partial class Qpdf
             return await PublishEmptyModelAsync(host, document, plan, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
         }
 
-        if ((long)total > limits.MaxWork)
+        if ((long)total > limits.MaxContainerSize)
         {
-            throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), total, limits.MaxWork);
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), total, limits.MaxContainerSize);
         }
 
         List<int> pages = new(total);
@@ -4595,65 +4592,51 @@ public static partial class Qpdf
 
         // JSON emits text and copied sidecar bytes. Its reader values remain
         // exclusive to this document until serialization completes.
-        using DiagnosticStage? diagnosticStage = diagnostics.BeginStaging();
-        try
+        await using QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
+        Json.JsonRequest request = new(inspection.Version, inspection.Keys, decodeLevel, inspection.StreamData, prefix, wanted, inspection.MinimalOutput);
+        using Json.PreparedJsonOutput output = Json.PreparedJsonOutput.Create(governor);
+        using (DisplayBuffer builder = Json.DocumentJson.WriteDocument(document, request, output, limits, governor, diagnostics, cancellationToken))
         {
-            await using QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
-            Json.JsonRequest request = new(inspection.Version, inspection.Keys, decodeLevel, inspection.StreamData, prefix, wanted, inspection.MinimalOutput);
-            using Json.PreparedJsonOutput output = Json.PreparedJsonOutput.Create(governor);
-            using (DisplayBuffer builder = Json.DocumentJson.WriteDocument(document, request, output, limits, governor, diagnostics, cancellationToken))
+            if (builder.Utf8Bytes > limits.MaxOutputBytes)
+            { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), builder.Utf8Bytes, limits.MaxOutputBytes); }
+            // The chunks no longer refer to PDF values. Close the reader
+            // before allocating immutable text and publication copies.
+            if (!testJsonSchema) { await document.DisposeAsync().ConfigureAwait(false); }
+            using GovernedText text = builder.Finish();
+            if (testJsonSchema)
             {
-                if (builder.Utf8Bytes > limits.MaxOutputBytes)
-                { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), builder.Utf8Bytes, limits.MaxOutputBytes); }
-                // The chunks no longer refer to PDF values. Close the reader
-                // before allocating immutable text and publication copies.
-                if (!testJsonSchema) { await document.DisposeAsync().ConfigureAwait(false); }
-                using GovernedText text = builder.Finish();
-                if (testJsonSchema)
-                {
-                    // Preserve the schema note's acceptance before input close.
-                    CheckJsonSchema(text.Value, inspection.Version, governor, diagnostics, cancellationToken);
-                    await document.DisposeAsync().ConfigureAwait(false);
-                }
-                output.Prepare(text, outputPath.HasValue, escapeText, limits);
+                // Preserve the schema note's acceptance before input close.
+                CheckJsonSchema(text.Value, inspection.Version, governor, diagnostics, cancellationToken);
+                await document.DisposeAsync().ConfigureAwait(false);
             }
-            List<Json.JsonPayload> sidecars = output.Sidecars;
-            long mainBytes = output.Main?.Data.Length ?? 0L;
+            output.Prepare(text, outputPath.HasValue, escapeText, limits);
+        }
+        List<Json.JsonPayload> sidecars = output.Sidecars;
+        long mainBytes = output.Main?.Data.Length ?? 0L;
 
-            diagnosticStage?.Flush();
-            if (governor.DeferredPlainHistory)
-            {
-                _ = ExecutionPresentation.Create(governor, diagnostics, false, false, false, false, false, cancellationToken);
-            }
-            long anticipatedBytes = mainBytes;
-            long publicationUnits = outputPath.HasValue ? 1L + (mainBytes + 32767L) / 32768L : 0L;
-            foreach (Json.JsonPayload sidecar in sidecars)
-            {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
-                if (string.Equals(sidecar.Name, inputPath.Value, StringComparison.Ordinal))
-                { throw new QpdfParseException("A JSON stream file must differ from the input file.", 0L, null); }
-                _ = QpdfPath.From(sidecar.Name);
-                anticipatedBytes = checked(anticipatedBytes + sidecar.Data.Length);
-                publicationUnits = checked(publicationUnits + 1L + (sidecar.Data.Length + 32767L) / 32768L);
-            }
-            governor.ChargeOutputBytes(anticipatedBytes);
-            using PublicationWorkReservation publicationWork = PublicationWorkReservation.Create(governor, publicationUnits);
-            governor.PrepareExecutionPresentation();
-            publicationWork.Begin();
-            if (outputPath.HasValue)
-            { await PublishPreparedBytesAsync(host, outputPath.Value, output.Main ?? throw new InvalidOperationException("Missing JSON publication."), governor, cancellationToken).ConfigureAwait(false); }
-            foreach (Json.JsonPayload sidecar in sidecars)
-            { await PublishPreparedBytesAsync(host, QpdfPath.From(sidecar.Name), sidecar, governor, cancellationToken).ConfigureAwait(false); }
-            return new JsonInspectionOutcome(output.TransferText(), ResultWarningSnapshot.Read(resultWarnings, diagnostics));
-        }
-        catch (Exception ex) when (ex is QpdfException or OperationCanceledException)
+        long anticipatedBytes = mainBytes;
+        long publicationOperations = outputPath.HasValue ? 1L + (mainBytes + 32767L) / 32768L : 0L;
+        foreach (Json.JsonPayload sidecar in sidecars)
         {
-            // The document's await-using closes first. Export only previously
-            // accepted warnings with their held work; summaries are abandoned.
-            governor.AbandonPresentationCount();
-            diagnosticStage?.FlushAcceptedAfterFailure();
-            throw;
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (string.Equals(sidecar.Name, inputPath.Value, StringComparison.Ordinal))
+            { throw new QpdfParseException("A JSON stream file must differ from the input file.", 0L, null); }
+            _ = QpdfPath.From(sidecar.Name);
+            anticipatedBytes = checked(anticipatedBytes + sidecar.Data.Length);
+            publicationOperations = checked(publicationOperations + 1L + (sidecar.Data.Length + 32767L) / 32768L);
         }
+        governor.ChargeOutputBytes(anticipatedBytes);
+        using PublicationReservation publicationAdmission = PublicationReservation.Create(governor, publicationOperations);
+        governor.PrepareExecutionPresentation();
+        publicationAdmission.Begin();
+        if (outputPath.HasValue)
+        { await PublishPreparedBytesAsync(host, outputPath.Value, output.Main ?? throw new InvalidOperationException("Missing JSON publication."), governor, cancellationToken).ConfigureAwait(false); }
+        foreach (Json.JsonPayload sidecar in sidecars)
+        { await PublishPreparedBytesAsync(host, QpdfPath.From(sidecar.Name), sidecar, governor, cancellationToken).ConfigureAwait(false); }
+        return new JsonInspectionOutcome(output.TransferText(), ResultWarningSnapshot.Read(resultWarnings, diagnostics));
+
+
+
     }
 
     private static async ValueTask<JsonImportOutcome> ImportCreateCoreAsync(
@@ -5246,20 +5229,12 @@ public static partial class Qpdf
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        PresentationCountReservation? reservation = null;
         ExecutionPresentation? presentation = null;
         try
         {
             limits = ResolveParserLimits(plan, limits, hostExplicit);
-            reservation = PresentationCountReservation.Create(governor, plan.Verbose,
-                plan.ReportMemoryUsage, plan.Progress, cancellationToken);
-            if (plan is JsonPlan && !plan.Verbose && !plan.ReportMemoryUsage && !plan.Progress && !plan.NoWarn)
-            { governor.DeferredPlainHistory = true; }
-            else
-            {
-                presentation = ExecutionPresentation.Create(governor, diagnostics, plan.Verbose,
-                    plan.ReportMemoryUsage, plan.Progress, plan.NoWarn, plan.WarningExitZero, cancellationToken);
-            }
+            presentation = ExecutionPresentation.Create(governor, diagnostics, plan.Verbose,
+                plan.ReportMemoryUsage, plan.Progress, plan.NoWarn, plan.WarningExitZero, cancellationToken);
             ExecutionOutcome result = await RunPlanCoreAsync(host, plan, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
             ExecutionPresentation? active = presentation ?? governor.ExecutionPresentation;
             return result.Status == QpdfExecutionStatus.Completed || active is null ? result : active.Failure(result);
@@ -5274,7 +5249,7 @@ public static partial class Qpdf
             ExecutionOutcome result = ExecutionOutcome.Canceled([]);
             return (presentation ?? governor.ExecutionPresentation)?.Failure(result) ?? result;
         }
-        finally { (presentation ?? governor.ExecutionPresentation)?.Dispose(); reservation?.Dispose(); }
+        finally { (presentation ?? governor.ExecutionPresentation)?.Dispose(); }
     }
 
     private static async ValueTask<ExecutionOutcome> RunPlanCoreAsync(IQpdfHost host, JobPlan plan,
@@ -5753,7 +5728,6 @@ public static partial class Qpdf
                 owned.ExitCode, owned.Diagnostics);
         }
         ExecutionCounterValues counters = governor.CounterValues;
-        governor.PresentDiagnosticCount();
         List<QpdfDiagnostic> effective = new();
         foreach (QpdfDiagnostic diagnostic in diagnostics)
         {

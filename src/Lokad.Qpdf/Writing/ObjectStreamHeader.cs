@@ -25,7 +25,7 @@ internal sealed class ObjectStreamHeader : IDisposable
         try
         {
             memory.Reserve(64L + 32L + used);
-            governor.ChargeWork(used);
+            governor.NoteOperation();
             cancellationToken.ThrowIfCancellationRequested();
             governor.CheckCancellation();
             byte[] bytes = GC.AllocateUninitializedArray<byte>(used);
@@ -78,7 +78,7 @@ internal sealed class ObjectStreamHeader : IDisposable
         ResourceGovernor governor, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        governor.ChargeWork(value.Length);
+        governor.NoteOperation();
         value.CopyTo(target.Slice(used));
         used += value.Length;
     }

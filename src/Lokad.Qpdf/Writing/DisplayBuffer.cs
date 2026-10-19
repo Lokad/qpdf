@@ -79,7 +79,6 @@ internal sealed class DisplayBuffer : IDisposable
         for (int offset = 0; offset < text.Length; offset += Math.Min(256, text.Length - offset))
         {
             int count = Math.Min(256, text.Length - offset);
-            _governor.ChargeWork(count);
             _governor.CheckCancellation();
             for (int i = offset; i < offset + count; i++) { Append(text[i]); }
         }
@@ -92,14 +91,13 @@ internal sealed class DisplayBuffer : IDisposable
         Span<char> escaped = stackalloc char[3];
         foreach (DiagnosticPart part in parts)
         {
-            _governor.ChargeWork(1L);
             _governor.CheckCancellation();
-            int written = part.WriteNumber(_governor, digits);
+            int written = part.WriteNumber(digits);
             AppendSpan(part.Prefix);
             AppendSpan(digits.Slice(digits.Length - written, written));
             foreach (byte value in part.RawName)
             {
-                _governor.ChargeWork(1L);
+                _governor.NoteOperation();
                 int count = PdfName.WriteDisplayByte(value, escaped);
                 AppendSpan(escaped.Slice(0, count));
             }
@@ -137,7 +135,6 @@ internal sealed class DisplayBuffer : IDisposable
         _governor.ReserveMemory(reserved);
         try
         {
-            _governor.ChargeWork(capacity);
             _governor.CheckCancellation();
             TextChunk next = compact ? new CompactChunk(capacity) : new TextChunk(capacity);
             if (_current is null) { _head = next; }

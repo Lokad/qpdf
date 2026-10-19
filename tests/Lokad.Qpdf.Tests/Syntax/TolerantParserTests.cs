@@ -127,15 +127,6 @@ public sealed class TolerantParserTests
     }
 
     [Fact]
-    public void LongDamagedWordsRemainSubjectToWorkBudget()
-    {
-        (PdfParser parser, _, _) = Create(QpdfLimits.Default with { MaxParserErrors = 0L, MaxWork = 1L });
-        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => parser.ParseObjectValue(
-            new PdfTokenizer(Encoding.ASCII.GetBytes(new string('@', 65536))), 0));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), error.LimitName);
-    }
-
-    [Fact]
     public void DiagnosticBudgetFailuresPropagateDuringRepair()
     {
         (PdfParser parser, _, _) = Create(QpdfLimits.Default with { MaxParserErrors = 1L, MaxDiagnostics = 1L });

@@ -31,21 +31,18 @@ public sealed class WriterOrderOwnershipTests
         return result is ValueTask pending ? pending.AsTask() : throw new InvalidOperationException("Expected QDF task.");
     }
 
-    [Theory]
-    [InlineData("memory")]
-    [InlineData("work")]
-    public void LongNameSortingRejectsBeforeUnownedDisplayAllocation(string ceiling)
+    [Fact]
+    public void LongNameSortingRejectsBeforeUnownedDisplayAllocation()
     {
         PdfDictionary source = Names(512, 512);
-        QpdfLimits limits = ceiling == "memory" ? QpdfLimits.Default with { MaxMemoryBytes = 1024L }
-            : QpdfLimits.Default with { MaxWork = 5000L };
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 1024L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         CollectingSink sink = new();
         long before = GC.GetAllocatedBytesForCurrentThread();
         QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => Start(source, limits, governor, sink, CancellationToken.None).GetAwaiter().GetResult());
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         Assert.True(allocated < 32768L, $"Rejected name ordering allocated {allocated} bytes.");
-        Assert.Equal(ceiling == "memory" ? nameof(QpdfLimits.MaxMemoryBytes) : nameof(QpdfLimits.MaxWork), failure.LimitName);
+        Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
         Assert.Equal("<<", Encoding.ASCII.GetString(sink.ToArray()));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(512, source.Count);
     }
@@ -100,14 +97,11 @@ public sealed class WriterOrderOwnershipTests
         finally { sink.Resume(); try { await writing; } catch (QpdfException) { } catch (OperationCanceledException) { } }
     }
 
-    [Theory]
-    [InlineData("memory")]
-    [InlineData("work")]
-    public void ClassicQdfModelOrderingRejectsBeforeLargeBacking(string ceiling)
+    [Fact]
+    public void ClassicQdfModelOrderingRejectsBeforeLargeBacking()
     {
         List<NumberedObject> source = Enumerable.Range(1, 8192).Reverse().Select(number => new NumberedObject(number, PdfNull.Instance)).ToList();
-        QpdfLimits limits = ceiling == "memory" ? QpdfLimits.Default with { MaxMemoryBytes = 1024L }
-            : QpdfLimits.Default with { MaxWork = 1000L };
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 1024L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         PdfSerializer writer = new(limits, governor); CountingSink sink = new(); byte[] id = [1];
         long before = GC.GetAllocatedBytesForCurrentThread();
@@ -115,7 +109,7 @@ public sealed class WriterOrderOwnershipTests
             null, null, id, id, new QdfOptions(true, false), false, sink, CancellationToken.None).AsTask().GetAwaiter().GetResult());
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         Assert.True(allocated < 32768L, $"Rejected model ordering allocated {allocated} bytes.");
-        Assert.Equal(ceiling == "memory" ? nameof(QpdfLimits.MaxMemoryBytes) : nameof(QpdfLimits.MaxWork), failure.LimitName);
+        Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
         Assert.Equal(0L, sink.Length); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(8192, source.Count); Assert.Equal(8192, source[0].Number);
     }

@@ -47,7 +47,7 @@ internal static class PdfDictionaryRebuild
     {
         graph.Token.ThrowIfCancellationRequested(); graph.Governor.CheckCancellation();
         long bytes = checked(32L + value.Length);
-        graph.Memory.Reserve(bytes); graph.Governor.ChargeWork(value.Length);
+        graph.Memory.Reserve(bytes); graph.Governor.NoteOperation();
         graph.Token.ThrowIfCancellationRequested(); graph.Governor.CheckCancellation();
         byte[] raw = new byte[value.Length];
         GovernedBufferStream.CopyBytes(value, raw, graph.Governor, graph.Token, CancellationToken.None);

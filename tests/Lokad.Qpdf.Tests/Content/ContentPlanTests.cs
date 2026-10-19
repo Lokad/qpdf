@@ -153,32 +153,13 @@ public sealed class ContentPlanTests
     }
 
     [Fact]
-    public void EveryValidPlanWorkInterruptionRetiresOnlyItsScratch()
-    {
-        using Prepared prepared = new(); PdfDictionary page = Dictionary(("Contents", new PdfArray(Enumerable.Repeat<QpdfObject>(prepared.Stream, 17).ToArray())));
-        int failures = 0, successes = 0;
-        for (int maximum = 1; maximum <= 511; maximum++)
-        {
-            ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = maximum }, CancellationToken.None);
-            using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(61L); long live = governor.Snapshot().LiveMemoryBytes;
-            object? entries = null;
-            try { entries = InvokeRead(prepared.Copier, page, governor, new(prepared.Construction)); Assert.NotNull(entries); Assert.Equal(17, Count(entries)); successes++; }
-            catch (QpdfLimitException failure) { Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); failures++; }
-            finally { Close(entries); }
-            Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(61L, prior.ReservedBytes);
-        }
-        Assert.True(failures > 0); Assert.True(successes > 0);
-    }
-
-    [Fact]
     public void GovernorCancellationPreventsPlanLookupAndConstruction()
     {
         using Prepared prepared = new(); PdfDictionary page = Dictionary(("Contents", prepared.Stream));
         using CancellationTokenSource cancellation = new(); cancellation.Cancel();
         ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token);
         Assert.Throws<OperationCanceledException>(() => InvokeRead(prepared.Copier, page, governor, new(prepared.Construction)));
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, governor.Snapshot().TotalWork);
-    }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);     }
 
     [Theory]
     [InlineData("none")]

@@ -55,26 +55,7 @@ public sealed class GovernedCollectionTests
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         Assert.Equal(0, result);
         Assert.Equal(0L, allocated);
-        Assert.True(governor.Snapshot().TotalWork >= 64L * 4096L);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void SortFailuresReturnComparerAdmissionAndExposeTheOriginalLimit(bool names)
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 4L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        QpdfLimitException failure = names
-            ? Assert.Throws<QpdfLimitException>(() => GovernedCollections.SortNames(memory, governor,
-                Enumerable.Range(0, 32).Reverse().Select(value => new PdfName([(byte)(value + 33)])).ToList()))
-            : Assert.Throws<QpdfLimitException>(() => GovernedCollections.SortNumbers(memory, governor,
-                Enumerable.Range(0, 32).Reverse().ToList()));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-        Assert.Equal(64L, governor.Snapshot().LiveMemoryBytes);
-        Assert.InRange(governor.Snapshot().TotalWork, 1L, limits.MaxWork);
     }
 
     [Fact]

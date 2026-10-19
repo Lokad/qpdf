@@ -61,7 +61,7 @@ internal static class FixQdfCommand
 
         File.WriteAllBytes(physical, content);
         Console.WriteLine("fixqdf: output " + logicalOut + " " + content.Length + " bytes -> " + physical);
-        Console.WriteLine("fixqdf: counters work=" + result.Counters.TotalWork + " decoded=" + result.Counters.TotalDecodedBytes + " peakmem=" + result.Counters.PeakMemoryBytes);
+        Console.WriteLine("fixqdf: counters decoded=" + result.Counters.TotalDecodedBytes + " peakmem=" + result.Counters.PeakMemoryBytes);
         if (result.Status == QpdfExecutionStatus.Canceled)
         {
             return 4;

@@ -140,7 +140,7 @@ internal static class EmitCommand
             Console.WriteLine($"emit: output {logical} {content.Length} bytes -> {physical}");
         }
 
-        Console.WriteLine($"emit: counters work={result.Counters.TotalWork} decoded={result.Counters.TotalDecodedBytes} peakmem={result.Counters.PeakMemoryBytes}");
+        Console.WriteLine($"emit: counters decoded={result.Counters.TotalDecodedBytes} peakmem={result.Counters.PeakMemoryBytes}");
         if (result.Status == QpdfExecutionStatus.Canceled)
         {
             return 4;

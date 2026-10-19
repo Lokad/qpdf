@@ -131,7 +131,7 @@ internal static class FlateFilter
                     governor.CheckCancellation();
                     // Admit each bounded codec output unit before CPU work;
                     // input refills also charge when no output is produced.
-                    governor.ChargeWork(ChunkBytes);
+                    governor.NoteOperation();
                     int read = decompressor.Read(buffer, 0, buffer.Length);
                     if (read == 0)
                     {
@@ -172,7 +172,7 @@ internal static class FlateFilter
         // frame first so a checksum ending in whitespace is never stripped.
         for (int end = input.Length; end >= 7; end--)
         {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(4L);
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             uint expected = ((uint)input[end - 4] << 24) | ((uint)input[end - 3] << 16)
                 | ((uint)input[end - 2] << 8) | input[end - 1];
             if (actual == expected) { return true; }
@@ -236,7 +236,7 @@ internal static class FlateFilter
 
             // BCL emits no framing for empty input; return the valid empty zlib stream
             // (header 78 9C, empty fixed block 03 00, Adler-32 of empty 00 00 00 01).
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             long reserved = 8L + GovernedBufferStream.ArrayOverheadBytes;
             if (memory is null) { governor.ReserveMemory(reserved); }
             else { memory.Reserve(reserved); }
@@ -252,7 +252,7 @@ internal static class FlateFilter
             }
         }
 
-        governor.ChargeWork(memory is null ? input.Length + 1L : 1L);
+        governor.NoteOperation();
         long workingSet = DeflateWorkingSetBytes + (memory is null ? 0L : 256L);
         governor.ReserveMemory(workingSet);
         try
@@ -265,7 +265,7 @@ internal static class FlateFilter
                     cancellationToken.ThrowIfCancellationRequested();
                     governor.CheckCancellation();
                     int count = Math.Min(ChunkBytes, input.Length - position);
-                    if (memory is not null) { governor.ChargeWork(count); }
+                    if (memory is not null) { governor.NoteOperation(); }
                     compressor.Write(input, position, count);
                     position += count;
                 }
@@ -298,7 +298,7 @@ internal static class FlateFilter
             token.ThrowIfCancellationRequested();
             governor.CheckCancellation();
             int chunk = Math.Min(5552, data.Length - i);
-            governor.ChargeWork(chunk);
+            governor.NoteOperation();
             for (int j = 0; j < chunk; j++)
             {
                 a += data[i + j];

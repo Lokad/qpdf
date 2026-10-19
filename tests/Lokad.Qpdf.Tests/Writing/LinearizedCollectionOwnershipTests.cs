@@ -68,7 +68,7 @@ public sealed class LinearizedCollectionOwnershipTests
         Assert.Equal(priorBytes, memory.ReservedBytes);
         Assert.Equal(new[] { 17, 23 }, prior);
         Assert.InRange(governor.Snapshot().PeakMemoryBytes, baseline, limits.MaxMemoryBytes);
-        if (available == 63L) { Assert.Equal(before.TotalWork, governor.Snapshot().TotalWork); }
+        if (available == 63L) { }
         governor.ReleaseMemory(filler);
         using (ParserMemoryScope retryMemory = ParserMemoryScope.Create(governor))
         {
@@ -79,31 +79,6 @@ public sealed class LinearizedCollectionOwnershipTests
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
         Assert.Same(model[3].Value, lookup[4]);
         Assert.Equal("BT (Hi) Tj ET"u8.ToArray(), ((PdfStream)lookup[4]).Data);
-    }
-
-    [Theory]
-    [InlineData("graph", 1L)]
-    [InlineData("graph", 512L)]
-    [InlineData("classic", 1L)]
-    [InlineData("classic", 512L)]
-    [InlineData("streamed", 1L)]
-    [InlineData("streamed", 512L)]
-    public void WorkFailureReturnsOnlyTheFailedAttemptStorage(string route, long work)
-    {
-        List<NumberedObject> model = Model(512);
-        Dictionary<int, QpdfObject> lookup = model.ToDictionary(item => item.Number, item => item.Value);
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = work }, CancellationToken.None);
-        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        memory.Reserve(97L);
-        long baseline = governor.Snapshot().LiveMemoryBytes;
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() =>
-            Classify(route, model, lookup, memory, governor, CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-        Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(97L, memory.ReservedBytes);
-        Assert.InRange(governor.Snapshot().TotalWork, 0L, work);
-        if (work > 1L) { Assert.True(governor.Snapshot().TotalWork > 0L); }
-        Assert.True(governor.Snapshot().PeakMemoryBytes > baseline);
     }
 
     [Fact]
@@ -119,7 +94,6 @@ public sealed class LinearizedCollectionOwnershipTests
         Assert.ThrowsAny<OperationCanceledException>(() => LinearizedParts.ClassifyStreamed(model, groups,
             memory, governor, cancellation.Token));
         Assert.Equal(32, groups.Reads);
-        Assert.True(governor.Snapshot().TotalWork > 512L);
         Assert.True(governor.Snapshot().PeakMemoryBytes > baseline + 8192L);
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(97L, memory.ReservedBytes);
@@ -217,7 +191,6 @@ public sealed class LinearizedCollectionOwnershipTests
             Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         }
         Assert.InRange(governor.Snapshot().PeakMemoryBytes, 1L, limits.MaxMemoryBytes);
-        Assert.True(governor.Snapshot().TotalWork > 32L * 64L);
         Assert.Equal("BT (Hi) Tj ET"u8.ToArray(), ((PdfStream)lookup[4]).Data);
     }
 
@@ -236,9 +209,7 @@ public sealed class LinearizedCollectionOwnershipTests
         Assert.Throws<InvalidOperationException>(() => Classify(route, model, lookup, memory, foreign, CancellationToken.None));
         Assert.Equal(97L, memory.ReservedBytes);
         Assert.Equal(161L, owner.Snapshot().LiveMemoryBytes);
-        Assert.Equal(0L, owner.Snapshot().TotalWork);
         Assert.Equal(0L, foreign.Snapshot().LiveMemoryBytes);
-        Assert.Equal(0L, foreign.Snapshot().TotalWork);
     }
 
     [Fact]

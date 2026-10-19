@@ -59,7 +59,7 @@ public sealed class CheckInspectionTests
         Assert.EndsWith("has no embedded files", Assert.Single(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.AttachmentListing).Message, StringComparison.Ordinal);
         int[] order = result.Diagnostics.Where(d => Listings.Contains(d.Code)).Select(d => Array.IndexOf(Listings, d.Code)).ToArray();
         Assert.Equal(order.Order().ToArray(), order);
-        Assert.True(result.Counters.TotalWork > 0 && result.Counters.PeakMemoryBytes > 0);
+        Assert.True(result.Counters.PeakMemoryBytes > 0);
         Assert.Equal(0L, result.Counters.OpenHandles);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
@@ -120,7 +120,6 @@ public sealed class CheckInspectionTests
         Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.CheckFailed);
         Assert.DoesNotContain(result.Diagnostics, d => Listings.Contains(d.Code));
         Assert.DoesNotContain(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.RecoveryEngaged);
-        Assert.True(result.Counters.TotalWork > 0);
         Assert.Equal(0L, result.Counters.OpenHandles);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
@@ -196,9 +195,6 @@ public sealed class CheckInspectionTests
     }
 
     [Theory]
-    [InlineData("job", "work")]
-    [InlineData("argv", "work")]
-    [InlineData("file", "work")]
     [InlineData("job", "diagnostics")]
     [InlineData("argv", "diagnostics")]
     [InlineData("file", "diagnostics")]
@@ -219,15 +215,13 @@ public sealed class CheckInspectionTests
         }
         QpdfLimits limits = budget switch
         {
-            // Weak identity-index collisions vary between equivalent jobs.
-            "work" => QpdfLimits.Default with { MaxWork = control.Counters.TotalWork / 2L },
             "diagnostics" => QpdfLimits.Default with { MaxDiagnostics = 3L },
             _ => QpdfLimits.Default with { MaxDiagnosticBytes = 100L },
         };
         QpdfExecutionResult result = await Execute(host, route, extra, flags, new QpdfExecutionOptions(limits));
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded);
-        Assert.True(result.Counters.TotalWork > 0 && result.Counters.PeakMemoryBytes > 0);
+        Assert.True(result.Counters.PeakMemoryBytes > 0);
         Assert.Equal(0L, result.Counters.OpenHandles);
         Assert.Equal(0L, host.OpenLeaseCount);
         Assert.True(host.TryGetOutput(QpdfPath.From("prior.pdf"), out byte[] bytes));
@@ -298,7 +292,7 @@ public sealed class CheckInspectionTests
             cancellation.Cancel();
             QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
             Assert.Equal(QpdfExecutionStatus.Canceled, result.Status);
-            Assert.True(result.Counters.TotalWork > 0 && result.Counters.HostOperations > 0);
+            Assert.True(result.Counters.HostOperations > 0);
             // The immutable snapshot can include independently owned names
             // awaiting natural collection; exact retirement is observed later.
             Assert.InRange(result.Counters.LiveMemoryBytes, ExecutionResultAdmission.MemoryBytes, result.Counters.PeakMemoryBytes);
@@ -371,7 +365,6 @@ public sealed class CheckInspectionTests
             new QpdfCommandInvocation(["a.pdf", "--global", flag, flag, "--", "--check", "--show-pages"]), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.Equal(2, result.Diagnostics.Count(d => d.Code == QpdfDiagnosticCode.PageListing && d.Message.StartsWith("page ", StringComparison.Ordinal)));
-        Assert.True(result.Counters.TotalWork > 0);
         Assert.Equal(0L, result.Counters.OpenHandles);
         Assert.Equal(0L, host.OpenLeaseCount);
     }

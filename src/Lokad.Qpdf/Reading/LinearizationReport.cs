@@ -120,12 +120,12 @@ internal static class LinearizationReport
             {
                 if (_runs is null || _run == _runs.Count) { value = 0; return false; }
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 _current = _runs[_run++];
                 _position = 0;
             }
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             value = _current[_position++];
             return true;
         }

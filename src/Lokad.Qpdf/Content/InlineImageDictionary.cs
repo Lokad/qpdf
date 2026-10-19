@@ -121,7 +121,7 @@ internal static class InlineImageDictionary
         }
         if (value is not PdfArray array || FilterAllocations(value, graph.Governor, graph.Token) == 0) { return value; }
         long bytes = checked(32L + (long)IntPtr.Size * array.Count);
-        graph.Memory.Reserve(bytes); graph.Governor.ChargeWork(array.Count); Step(graph.Governor, graph.Token);
+        graph.Memory.Reserve(bytes); graph.Governor.NoteOperation(); Step(graph.Governor, graph.Token);
         QpdfObject[] items = new QpdfObject[array.Count]; graph.Add(bytes);
         for (int index = 0; index < items.Length; index++)
         {
@@ -179,5 +179,5 @@ internal static class InlineImageDictionary
     }
 
     private static void Step(ResourceGovernor governor, CancellationToken token)
-    { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L); }
+    { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); }
 }

@@ -134,24 +134,4 @@ public sealed class RealParserTests
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), error.LimitName);
         Assert.True(allocated < bytes.Length, $"Rejected real allocated {allocated} bytes before returning.");
     }
-
-    [Fact]
-    public void ExhaustedConversionWorkReleasesWorkingAndTextAdmissions()
-    {
-        byte[] bytes = Encoding.ASCII.GetBytes("0." + new string('0', 65536) + "1");
-        (PdfParser parser, ResourceGovernor governor) = Create(QpdfLimits.Default with { MaxWork = 20L }, true);
-        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => parser.ParseObjectValue(new PdfTokenizer(bytes), 0));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), error.LimitName);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-    }
-
-    [Fact]
-    public void CopyingNumericTextIsGovernedAfterConversion()
-    {
-        byte[] bytes = Encoding.ASCII.GetBytes("0." + new string('0', 65536) + "1");
-        (PdfParser parser, ResourceGovernor governor) = Create(QpdfLimits.Default with { MaxWork = 40L }, true);
-        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => parser.ParseObjectValue(new PdfTokenizer(bytes), 0));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), error.LimitName);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-    }
 }

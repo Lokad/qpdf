@@ -16,7 +16,7 @@ internal static class JobJsonMemory
         long escaped = 0L, characters = 0L;
         foreach (string argument in arguments)
         {
-            governor.CheckCancellation(); governor.ChargeWork(argument.Length);
+            governor.CheckCancellation();
             characters = checked(characters + argument.Length);
             for (int offset = 0; offset < argument.Length; offset++)
             {
@@ -34,12 +34,12 @@ internal static class JobJsonMemory
 
     internal static (long Document, long Copies) Estimate(ReadOnlySpan<byte> json, ResourceGovernor governor)
     {
-        governor.CheckCancellation(); governor.ChargeWork(json.Length);
+        governor.CheckCancellation();
         Utf8JsonReader reader = new(json, new JsonReaderOptions { MaxDepth = MaxDepth });
         long document = checked(4096L + 2L * json.Length), copies = 0L;
         while (reader.Read())
         {
-            governor.CheckCancellation(); governor.ChargeWork(1L);
+            governor.CheckCancellation();
             if (reader.TokenType is JsonTokenType.PropertyName or JsonTokenType.String)
             { AddString(ref document, ref copies, reader.TokenType == JsonTokenType.PropertyName, reader.ValueSpan.Length); }
             else { document = checked(document + (reader.TokenType is JsonTokenType.StartObject or JsonTokenType.StartArray ? 128L : 32L)); }
@@ -52,7 +52,7 @@ internal static class JobJsonMemory
     // Syntax/encoding validation remains with the shared JSON parser.
     internal static (long Document, long Copies) Estimate(ReadOnlySpan<char> json, long utf8Bytes, ResourceGovernor governor)
     {
-        governor.CheckCancellation(); governor.ChargeWork(checked(2L * json.Length));
+        governor.CheckCancellation();
         long document = checked(4096L + 2L * utf8Bytes), copies = 0L;
         int position = 0, nextCheck = 0;
         while (position < json.Length)

@@ -16,7 +16,6 @@ internal static class GraphReachability
         while (pending.Count > 0)
         {
             governor.CheckCancellation();
-            governor.ChargeWork(1L);
             QpdfObject current = pending[^1];
             pending.RemoveAt(pending.Count - 1);
             if (current is PdfReference reference)
@@ -32,7 +31,7 @@ internal static class GraphReachability
             {
                 for (int i = 0; i < array.Count; i++)
                 {
-                    governor.ChargeWork(1L);
+                    governor.NoteOperation();
                     ParserContainers.AddItem(memory, pending, array[i]);
                 }
             }
@@ -41,7 +40,7 @@ internal static class GraphReachability
                 using var entries = dictionary.GetEntryEnumerator();
                 while (entries.MoveNext())
                 {
-                    governor.ChargeWork(1L);
+                    governor.NoteOperation();
                     ParserContainers.AddItem(memory, pending, entries.Current.Value);
                 }
             }

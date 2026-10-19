@@ -3,7 +3,7 @@ namespace Lokad.Qpdf.Runtime;
 
 /// <summary>
 /// Single per-job resource governor. Every subsystem reserves budget before
-/// allocating and charges cumulative work; breaches fail explicitly without
+/// allocating and checks cooperative cancellation; breaches fail explicitly without
 /// allocating. Not safe for concurrent use by design: one governor per job.
 /// </summary>
 internal sealed class ResourceGovernor
@@ -15,32 +15,24 @@ internal sealed class ResourceGovernor
     private long _hostMemoryBytes;
     private long _callerMetadataBytes;
     private long _peakMemoryBytes;
-    private long _totalWork;
     private long _totalDecodedBytes;
     private long _totalOutputBytes;
+    private long _anticipatedOutputBytes;
     private long _hostOperations;
     private long _openHandles;
     private long _diagnosticCount;
     private long _diagnosticBytes;
     private long _operationsSinceCheck;
     private RetainedStorage? _valueOwners;
-    private DiagnosticStage? _diagnosticStage;
-    private PresentationCountReservation? _presentationCount;
     private ExecutionPreparation? _executionPresentation;
-    private PublicationWorkReservation? _publicationWork;
-    private long _reservedWork;
-    private long _reservedResultWork;
-    private bool _presentingDiagnostics;
-    private bool _finishingDiagnosticFailure;
+    private PublicationReservation? _publication;
     private bool _returnsExecutionResult;
     private bool _finishingExecution;
     private QpdfExecutionResult? _preparedExecutionResult;
-    private bool _buildingExecutionResult;
     private QpdfExecutionCounters? _preparedTypedCounters;
     private long _preparedTypedResultBytes;
     internal bool OwnsDocumentCounters { get; set; }
     internal bool DocumentAccepted { get; private set; }
-    internal bool DeferredPlainHistory { get; set; }
     internal ExecutionPresentation? ExecutionPresentation => _executionPresentation as ExecutionPresentation;
 
     internal ResourceGovernor(QpdfLimits limits, CancellationToken cancellationToken)
@@ -91,8 +83,6 @@ internal sealed class ResourceGovernor
     }
 
     internal long RemainingMemoryBytes => Math.Max(0L, _limits.MaxMemoryBytes - LiveMemoryBytes);
-    internal long RemainingWorkUnits => Math.Max(0L, _limits.MaxWork - _totalWork - _reservedWork
-        - (_publicationWork?.Remaining ?? 0L) - _reservedResultWork);
 
     internal void ReserveMemory(long bytes)
     {
@@ -123,7 +113,6 @@ internal sealed class ResourceGovernor
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxMemoryBytes), next, _limits.MaxMemoryBytes);
             }
 
-            CheckPresentationBytes(_totalOutputBytes, _totalDecodedBytes, Math.Max(next, _peakMemoryBytes));
             long rawNext = _liveMemoryBytes + bytes;
             long hostNext = hostStorage ? _hostMemoryBytes + bytes : _hostMemoryBytes;
             _sharedMemory?.Ensure(Math.Max(0L, next - hostNext));
@@ -175,8 +164,7 @@ internal sealed class ResourceGovernor
     internal long RetainGraph(long reservedBytes)
     {
         if (reservedBytes == 0L) { return 0L; }
-        try { return ValueOwners.RetainGraph(reservedBytes); }
-        finally { ShrinkDiagnosticWork(); }
+        return ValueOwners.RetainGraph(reservedBytes);
     }
 
     internal long RetainAllocations(OwnedAllocationBatch allocations, long reservedBytes)
@@ -188,8 +176,7 @@ internal sealed class ResourceGovernor
     internal RetainedStorage.Receipt RetainAllocation(long reservedBytes)
     {
         RetainedStorage owners = ValueOwners;
-        try { return owners.RetainAllocation(reservedBytes); }
-        finally { ShrinkDiagnosticWork(); }
+        return owners.RetainAllocation(reservedBytes);
     }
 
     internal void DropAllocation(RetainedStorage.Receipt receipt)
@@ -198,144 +185,17 @@ internal sealed class ResourceGovernor
         ReleaseMemory(owners.DropAllocation(receipt));
     }
 
-    internal long RetainDiagnostic(long reservedBytes)
-    {
-        RetainedStorage owners = ValueOwners;
-        try { return owners.RetainDiagnostic(reservedBytes); }
-        finally { ShrinkDiagnosticWork(); }
-    }
-
     internal long RetainCheckOutcome(long reservedBytes)
     {
         RetainedStorage owners = ValueOwners;
-        try { return owners.RetainCheckOutcome(reservedBytes); }
-        finally { ShrinkDiagnosticWork(); }
+        return owners.RetainCheckOutcome(reservedBytes);
     }
 
-    internal string? FindDiagnosticMessage(string message, int hash)
-        => _valueOwners?.FindDiagnosticMessage(message, hash);
-
-    internal string? FindDiagnosticMessage(ReadOnlySpan<DiagnosticPart> parts, DiagnosticTextInfo info)
-        => _valueOwners?.FindDiagnosticMessage(parts, info);
-
-    internal long RetainCachedDiagnostic(QpdfDiagnostic diagnostic, long reservedBytes, int messageHash)
-    {
-        RetainedStorage owners = ValueOwners;
-        try { return owners.RetainCachedDiagnostic(diagnostic, reservedBytes, messageHash); }
-        finally { ShrinkDiagnosticWork(); }
-    }
-
-    internal DiagnosticWorkState DiagnosticWorkState => _valueOwners?.WorkState ?? default;
-
-    internal void AttachDiagnosticStage(DiagnosticStage stage)
-    {
-        if (_diagnosticStage is not null) { throw new InvalidOperationException("A job already has a diagnostic stage."); }
-        _diagnosticStage = stage;
-    }
-
-    internal void SetDiagnosticWork(DiagnosticStage stage, long capacity)
-    {
-        if (!ReferenceEquals(_diagnosticStage, stage) || _presentingDiagnostics) { throw new InvalidOperationException("Diagnostic work cannot be changed in this phase."); }
-        ArgumentOutOfRangeException.ThrowIfNegative(capacity);
-        long publication = _publicationWork?.Remaining ?? 0L;
-        if (capacity > long.MaxValue - publication || capacity + publication > long.MaxValue - _reservedResultWork)
-        { throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), long.MaxValue, _limits.MaxWork); }
-        CheckWorkCapacity(capacity + publication + _reservedResultWork);
-        _reservedWork = capacity;
-    }
-
-    internal void PreflightDiagnosticWork(DiagnosticWorkState state)
-    {
-        if (_diagnosticStage is null || _presentingDiagnostics) { return; }
-        long needed = _diagnosticStage.PresentationWork(state);
-        if (needed > _reservedWork) { SetDiagnosticWork(_diagnosticStage, needed); }
-    }
-
-    private void ShrinkDiagnosticWork()
-    {
-        if (_diagnosticStage is null || _presentingDiagnostics || _diagnosticStage.Admitting) { return; }
-        long needed = _diagnosticStage.PresentationWork(DiagnosticWorkState);
-        // Memo growth preflights the future presentation bound. Shrinking this
-        // credit cannot fail after a successful ownership transfer.
-        if (needed < _reservedWork) { _reservedWork = needed; }
-    }
-
-    internal void BeginDiagnosticPresentation(DiagnosticStage stage)
-    {
-        SetDiagnosticWork(stage, stage.PresentationWork(DiagnosticWorkState));
-        _presentingDiagnostics = true;
-    }
-
-    internal void BeginDiagnosticFailurePresentation(DiagnosticStage stage)
-    {
-        BeginDiagnosticPresentation(stage);
-        _finishingDiagnosticFailure = true;
-    }
-
-    internal void EndDiagnosticPresentation(DiagnosticStage stage)
-    {
-        if (ReferenceEquals(_diagnosticStage, stage)) { _presentingDiagnostics = false; _finishingDiagnosticFailure = false; }
-    }
-
-    internal void DetachDiagnosticStage(DiagnosticStage stage)
-    {
-        if (!ReferenceEquals(_diagnosticStage, stage)) { return; }
-        _diagnosticStage = null;
-        _presentingDiagnostics = false;
-        _finishingDiagnosticFailure = false;
-        _reservedWork = 0L;
-    }
-
-    private void CheckWorkCapacity(long units)
-    {
-        if (units <= _limits.MaxWork - _totalWork) { return; }
-        long requested = units > long.MaxValue - _totalWork ? long.MaxValue : _totalWork + units;
-        throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), requested, _limits.MaxWork);
-    }
-
-    internal void ChargeWork(long units)
-    {
-        if (units < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(units), "Charge must not be negative.");
-        }
-
-        if (_presentingDiagnostics)
-        {
-            if (units > _reservedWork) { throw new InvalidOperationException("Diagnostic work exceeds its pre-admitted bound."); }
-            _reservedWork -= units;
-        }
-        else if (_publicationWork is PublicationWorkReservation publication && publication.Publishing)
-        {
-            publication.Consume(units);
-        }
-        else
-        {
-            long heldPublicationUnits = _publicationWork?.Remaining ?? 0L;
-            // Each reservation is admitted against the same remaining budget.
-            // Subtracting those nonnegative bounds cannot overflow; construct
-            // the potentially overflowing requested total only on failure.
-            long available = _limits.MaxWork - _totalWork - _reservedWork - heldPublicationUnits - _reservedResultWork;
-            if (units > available) { CheckReservedWorkCapacity(units, heldPublicationUnits); }
-        }
-        _totalWork = checked(_totalWork + units);
-
-        NoteOperation();
-    }
-
-    private void CheckReservedWorkCapacity(long units, long heldPublicationUnits)
-    {
-        if (units > long.MaxValue - _reservedWork || units + _reservedWork > long.MaxValue - heldPublicationUnits
-            || units + _reservedWork + heldPublicationUnits > long.MaxValue - _reservedResultWork)
-        { throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), long.MaxValue, _limits.MaxWork); }
-        CheckWorkCapacity(units + _reservedWork + heldPublicationUnits + _reservedResultWork);
-    }
 
     internal void ChargeDecodedBytes(long bytes)
     {
         CheckDecodedBytes(bytes);
         long next = checked(_totalDecodedBytes + bytes);
-        CheckPresentationBytes(_totalOutputBytes, next, _peakMemoryBytes);
         _totalDecodedBytes = next;
     }
 
@@ -372,19 +232,17 @@ internal sealed class ResourceGovernor
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), next, _limits.MaxOutputBytes);
             }
 
-            if (bytes > 0L) { _presentationCount?.BeginOutput(next, _totalDecodedBytes, _peakMemoryBytes); }
-            CheckPresentationBytes(next, _totalDecodedBytes, _peakMemoryBytes);
             _totalOutputBytes = next;
         }
     }
 
     internal void NoteHostOperation()
     {
-        if (_publicationWork is PublicationWorkReservation held && !held.Publishing)
+        if (_publication is PublicationReservation held && !held.Publishing)
         {
-            if (held.Remaining == long.MaxValue)
+            if (held.HostOperations == long.MaxValue)
             { throw new QpdfLimitException(nameof(QpdfLimits.MaxHostOperations), long.MaxValue, _limits.MaxHostOperations); }
-            CheckHostOperationCapacity(held.Remaining + 1L);
+            CheckHostOperationCapacity(held.HostOperations + 1L);
         }
         checked
         {
@@ -416,9 +274,9 @@ internal sealed class ResourceGovernor
         throw new QpdfLimitException(nameof(QpdfLimits.MaxOpenHandles), requested, _limits.MaxOpenHandles);
     }
 
-    internal PublicationWorkReservation? ReserveOutputWrapper()
+    internal PublicationReservation? ReserveOutputWrapper()
     {
-        if (_publicationWork is PublicationWorkReservation publication && publication.Publishing)
+        if (_publication is PublicationReservation publication && publication.Publishing)
         {
             publication.AcquireTransaction();
             return publication;
@@ -461,35 +319,7 @@ internal sealed class ResourceGovernor
         { throw new QpdfLimitException(nameof(QpdfLimits.MaxDiagnostics), next, _limits.MaxDiagnostics); }
     }
 
-    internal void AttachPresentationCount(PresentationCountReservation reservation)
-    {
-        if (_presentationCount is not null) { throw new InvalidOperationException("A job already has presentation slots."); }
-        CheckDiagnosticBytes(reservation.MessageBytes(_totalOutputBytes, _totalDecodedBytes, _peakMemoryBytes));
-        _presentationCount = reservation;
-    }
-
-    internal void DetachPresentationCount(PresentationCountReservation reservation)
-    {
-        if (!ReferenceEquals(_presentationCount, reservation)) { throw new InvalidOperationException("Presentation slots are unavailable."); }
-        _presentationCount = null;
-    }
-
-    internal void AcceptPresentationCount(PresentationCountReservation reservation, long pending)
-    {
-        if (!ReferenceEquals(_presentationCount, reservation)) { throw new InvalidOperationException("Presentation slots are unavailable."); }
-        CheckDiagnosticCount(pending);
-        long messageBytes = reservation.MessageBytes(_totalOutputBytes, _totalDecodedBytes, _peakMemoryBytes);
-        CheckDiagnosticBytes(messageBytes);
-        _diagnosticCount = checked(_diagnosticCount + pending);
-        _diagnosticBytes = checked(_diagnosticBytes + messageBytes);
-    }
-
-    internal void PresentDiagnosticCount() => _presentationCount?.Present();
-
-    internal bool HasPresentation => _presentationCount is not null;
-    internal void AbandonPresentationCount() => _presentationCount?.Dispose();
-
-    internal long PresentationOutputBytes => Math.Max(_totalOutputBytes, _presentationCount?.AnticipatedOutput ?? 0L);
+    internal long PresentationOutputBytes => Math.Max(_totalOutputBytes, _anticipatedOutputBytes);
     internal long PresentationDecodedBytes => _totalDecodedBytes;
     internal long PresentationPeakBytes => _peakMemoryBytes;
 
@@ -497,7 +327,6 @@ internal sealed class ResourceGovernor
     {
         if (_executionPresentation is not null) { throw new InvalidOperationException("A job already has an execution presentation."); }
         _executionPresentation = presentation;
-        DeferredPlainHistory = false;
     }
 
     internal void DetachExecutionPresentation(ExecutionPresentation presentation)
@@ -526,9 +355,7 @@ internal sealed class ResourceGovernor
 
     internal void ExpectExecutionResult()
     {
-        CheckWorkCapacity(ExecutionResultAdmission.WorkUnits);
         ReserveCallerMetadata(ExecutionResultAdmission.MemoryBytes);
-        _reservedResultWork = ExecutionResultAdmission.WorkUnits;
         _returnsExecutionResult = true;
     }
 
@@ -549,24 +376,16 @@ internal sealed class ResourceGovernor
         if (_preparedTypedCounters is not null || _preparedTypedResultBytes != 0L || _returnsExecutionResult)
         { throw new InvalidOperationException("Typed result storage is already prepared."); }
         CheckCancellation();
-        long held = checked(_reservedWork + (_publicationWork?.Remaining ?? 0L) + _reservedResultWork);
-        if (held > long.MaxValue - 2L)
-        { throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), long.MaxValue, _limits.MaxWork); }
-        CheckWorkCapacity(held + 2L);
         long bytes = checked(resultBytes + 88L);
         ReserveCallerMetadata(bytes);
-        _buildingExecutionResult = true;
         try
         {
-            QpdfExecutionCounters counters = new(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L);
-            _reservedResultWork += 2L;
-            ChargeExecutionResultWork(1L);
+            QpdfExecutionCounters counters = new(0L, 0L, 0L, 0L, 0L, 0L, 0L);
             _preparedTypedCounters = counters;
             _preparedTypedResultBytes = resultBytes;
             counters.CaptureBeforeReturn(CounterValues);
         }
         catch { ReleaseCallerMetadata(bytes); throw; }
-        finally { _buildingExecutionResult = false; }
     }
 
     internal void AcceptTypedResult()
@@ -575,9 +394,6 @@ internal sealed class ResourceGovernor
         { throw new InvalidOperationException("Missing admitted typed result storage."); }
         // The bounded wrapper constructor has executed. No ordinary work or
         // cancellation poll can follow completed publication at this boundary.
-        _buildingExecutionResult = true;
-        try { ChargeExecutionResultWork(1L); }
-        finally { _buildingExecutionResult = false; }
         _valueOwners?.AcceptResults();
         _preparedTypedResultBytes = 0L;
     }
@@ -601,7 +417,6 @@ internal sealed class ResourceGovernor
             // The prepared counters and unused wrapper never escaped.
             ReleaseCallerMetadata(checked(_preparedTypedResultBytes + 88L));
             _preparedTypedResultBytes = 0L;
-            _reservedResultWork -= 1L;
         }
         _preparedTypedCounters = null;
         CompletePrivateStorage();
@@ -638,7 +453,6 @@ internal sealed class ResourceGovernor
         ArgumentOutOfRangeException.ThrowIfNegative(major);
         ArgumentOutOfRangeException.ThrowIfNegative(minor);
         CheckCancellation();
-        ChargeWork(1L);
         ReserveCallerMetadata(PdfVersion.StorageBytes);
         try { return new(major, minor); }
         catch { ReleaseCallerMetadata(PdfVersion.StorageBytes); throw; }
@@ -647,11 +461,10 @@ internal sealed class ResourceGovernor
     internal QpdfExecutionCounters OwnedSnapshot()
     {
         CheckCancellation();
-        ChargeWork(1L);
         ReserveCallerMetadata(88L);
         try
         {
-            QpdfExecutionCounters counters = new(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L);
+            QpdfExecutionCounters counters = new(0L, 0L, 0L, 0L, 0L, 0L, 0L);
             counters.CaptureBeforeReturn(CounterValues);
             return counters;
         }
@@ -659,18 +472,16 @@ internal sealed class ResourceGovernor
     }
 
     // The fixed reserve was admitted before any processing. Construction has
-    // no graph/index work and cannot consume publication or diagnostic credit.
+    // no graph/index traversal or further publication/presentation admission.
     internal void PrepareExecutionResult()
     {
         if (!_returnsExecutionResult || _preparedExecutionResult is not null) { return; }
         CheckCancellation();
-        _buildingExecutionResult = true;
         try
         {
-            QpdfExecutionCounters counters = new(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L);
+            QpdfExecutionCounters counters = new(0L, 0L, 0L, 0L, 0L, 0L, 0L);
             QpdfExecutionResult result = new(QpdfExecutionStatus.Completed, QpdfExitCode.Success,
                 Array.Empty<QpdfDiagnostic>(), counters, true);
-            ChargeExecutionResultWork(2L);
             _preparedExecutionResult = result;
         }
         catch
@@ -679,16 +490,7 @@ internal sealed class ResourceGovernor
             ReleaseCallerMetadata(ExecutionResultAdmission.MemoryBytes);
             throw;
         }
-        finally { _buildingExecutionResult = false; }
         CheckCancellation();
-    }
-
-    private void ChargeExecutionResultWork(long units)
-    {
-        if (units > _reservedResultWork) { throw new InvalidOperationException("Execution result work is unavailable."); }
-        _reservedResultWork -= units;
-        _totalWork = checked(_totalWork + units);
-        NoteOperation();
     }
 
     internal QpdfExecutionResult FinishExecutionResult(ExecutionOutcome outcome)
@@ -720,7 +522,6 @@ internal sealed class ResourceGovernor
             _returnsExecutionResult = false;
             ReleaseCallerMetadata(ExecutionResultAdmission.MemoryBytes);
         }
-        _reservedResultWork = 0L;
         CompletePrivateStorage();
         _sharedMemory?.Complete(Math.Max(0L, LiveMemoryBytes - _hostMemoryBytes));
     }
@@ -731,20 +532,16 @@ internal sealed class ResourceGovernor
         return ExecutionPresentation?.Complete();
     }
 
-    internal void AttachPublicationWork(PublicationWorkReservation reservation)
+    internal void AttachPublication(PublicationReservation reservation)
     {
-        if (_publicationWork is not null) { throw new InvalidOperationException("Publication work is already held."); }
-        if (_reservedWork > long.MaxValue - reservation.Remaining
-            || _reservedWork + reservation.Remaining > long.MaxValue - _reservedResultWork)
-        { throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), long.MaxValue, _limits.MaxWork); }
-        CheckWorkCapacity(_reservedWork + reservation.Remaining + _reservedResultWork);
-        _publicationWork = reservation;
+        if (_publication is not null) { throw new InvalidOperationException("Publication storage is already held."); }
+        _publication = reservation;
     }
 
-    internal void DetachPublicationWork(PublicationWorkReservation reservation)
+    internal void DetachPublication(PublicationReservation reservation)
     {
-        if (!ReferenceEquals(_publicationWork, reservation)) { throw new InvalidOperationException("Publication work is unavailable."); }
-        _publicationWork = null;
+        if (!ReferenceEquals(_publication, reservation)) { throw new InvalidOperationException("Publication storage is unavailable."); }
+        _publication = null;
     }
 
     internal void AnticipatePresentationOutput(long bytes)
@@ -754,24 +551,14 @@ internal sealed class ResourceGovernor
         long output = checked(_totalOutputBytes + bytes);
         if (output > _limits.MaxOutputBytes)
         { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), output, _limits.MaxOutputBytes); }
-        _presentationCount?.AnticipateOutput(output, _totalDecodedBytes, _peakMemoryBytes);
+        _anticipatedOutputBytes = Math.Max(_anticipatedOutputBytes, output);
     }
-
-    internal void CheckPendingDiagnosticBytes(long bytes) => CheckDiagnosticBytes(bytes);
 
     private void CheckDiagnosticBytes(long bytes)
     {
         long next = checked(_diagnosticBytes + bytes);
         if (next > _limits.MaxDiagnosticBytes)
         { throw new QpdfLimitException(nameof(QpdfLimits.MaxDiagnosticBytes), next, _limits.MaxDiagnosticBytes); }
-    }
-
-    private void CheckPresentationBytes(long output, long decoded, long peak)
-    {
-        PresentationCountReservation? presentation = _presentationCount;
-        if (presentation is null) { return; }
-        CheckCancellation();
-        CheckDiagnosticBytes(presentation.MessageBytes(output, decoded, peak));
     }
 
     /// <summary>Checks a prospective message without charging it a second time.</summary>
@@ -784,18 +571,15 @@ internal sealed class ResourceGovernor
 
         checked
         {
-            CheckDiagnosticCount(1L + (_presentationCount?.Pending ?? 0L));
+            CheckDiagnosticCount(1L);
 
-            long pendingBytes = _presentationCount?.MessageBytes(_totalOutputBytes, _totalDecodedBytes, _peakMemoryBytes) ?? 0L;
-            CheckDiagnosticBytes(checked(messageBytes + pendingBytes));
+            CheckDiagnosticBytes(messageBytes);
         }
     }
 
     internal void CheckCancellation()
     {
-        if (_cancellationToken.IsCancellationRequested
-            && !_finishingDiagnosticFailure && !_finishingExecution && !_buildingExecutionResult)
-        { _cancellationToken.ThrowIfCancellationRequested(); }
+        if (!_finishingExecution) { _cancellationToken.ThrowIfCancellationRequested(); }
     }
 
     internal void NoteOperation()
@@ -817,7 +601,6 @@ internal sealed class ResourceGovernor
         return new QpdfExecutionCounters(
             LiveMemoryBytes,
             _peakMemoryBytes,
-            _totalWork,
             _totalDecodedBytes,
             _totalOutputBytes,
             _hostOperations,
@@ -826,6 +609,6 @@ internal sealed class ResourceGovernor
     }
 
     internal ExecutionCounterValues CounterValues => new(
-        LiveMemoryBytes, _peakMemoryBytes, _totalWork, _totalDecodedBytes,
+        LiveMemoryBytes, _peakMemoryBytes, _totalDecodedBytes,
         _totalOutputBytes, _hostOperations, _openHandles, _diagnosticCount);
 }

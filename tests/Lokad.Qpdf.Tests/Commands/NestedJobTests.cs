@@ -43,7 +43,7 @@ public sealed class NestedJobTests
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.EndsWith(": 1", Assert.Single(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageCount).Message, StringComparison.Ordinal);
-        Assert.True(result.Counters.HostOperations > levels && result.Counters.TotalWork > 0);
+        Assert.True(result.Counters.HostOperations > levels );
         Assert.Equal(0L, result.Counters.OpenHandles);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
@@ -214,7 +214,6 @@ public sealed class NestedJobTests
 
     [Theory]
     [InlineData("memory")]
-    [InlineData("work")]
     [InlineData("host")]
     public async Task LoadingBudgetsStopBeforePdfAccess(string budget)
     {
@@ -224,7 +223,6 @@ public sealed class NestedJobTests
         QpdfLimits limits = budget switch
         {
             "memory" => QpdfLimits.Default with { MaxMemoryBytes = 7000L },
-            "work" => QpdfLimits.Default with { MaxWork = 75L },
             _ => QpdfLimits.Default with { MaxHostOperations = 1L },
         };
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, """{"jobJsonFile":"child.json"}""", new QpdfExecutionOptions(limits), CancellationToken.None);
@@ -292,7 +290,7 @@ public sealed class NestedJobTests
         cancellation.Cancel();
         QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
         Assert.Equal(QpdfExecutionStatus.Canceled, result.Status);
-        Assert.True(result.Counters.TotalWork > 0 && result.Counters.PeakMemoryBytes > 0);
+        Assert.True(result.Counters.PeakMemoryBytes > 0);
         Assert.Equal(0L, result.Counters.OpenHandles);
         Assert.Equal(0L, source.OpenLeaseCount);
         Assert.True(source.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] prior));

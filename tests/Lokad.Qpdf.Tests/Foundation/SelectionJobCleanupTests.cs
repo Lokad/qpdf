@@ -422,7 +422,7 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
     public static IEnumerable<object[]> AdmissionJobs()
     {
         foreach (string route in Routes) foreach (bool compressed in new[] { false, true })
-        foreach (string budget in new[] { "memory", "work" }) { yield return [route, compressed, budget]; }
+        foreach (string budget in new[] { "memory"}) { yield return [route, compressed, budget]; }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -430,8 +430,7 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
     {
         BoundaryHost host = new("read", Input, "success");
         AddInputs(host.Inner, route, compressed); await Seed(host.Inner, route);
-        QpdfLimits limits = budget == "memory" ? QpdfLimits.Default with { MaxMemoryBytes = 16384L }
-            : QpdfLimits.Default with { MaxWork = 8192L };
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 16384L };
         Task<object> task = Start(host, route, limits, CancellationToken.None);
         object? result = null;
         Exception? failure = null;
@@ -443,7 +442,6 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
             governor = RunningGovernor(task); host.Resume();
             try { result = await task; } catch (Exception exception) { failure = exception; }
             Assert.True(governor.Snapshot().PeakMemoryBytes <= limits.MaxMemoryBytes);
-            Assert.True(governor.Snapshot().TotalWork <= limits.MaxWork);
             // Removing bookkeeping and discarded token copies may let these
             // jobs fit the original ceilings. Keep the ceilings and validate
             // successful publication rather than requiring obsolete costs.
@@ -459,7 +457,7 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
             if (route.StartsWith("typed-", StringComparison.Ordinal))
             {
                 QpdfLimitException limit = Assert.IsType<QpdfLimitException>(failure);
-                Assert.Equal(budget == "memory" ? nameof(QpdfLimits.MaxMemoryBytes) : nameof(QpdfLimits.MaxWork), limit.LimitName);
+                Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), limit.LimitName);
             }
             else
             {
@@ -480,7 +478,7 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
     [Theory]
     [Trait("Layer", "Contract")]
     [MemberData(nameof(AdmissionJobs))]
-    public async Task MemoryAndWorkCeilingsPreservePublicationAndCleanup(string route, bool compressed, string budget)
+    public async Task MemoryCeilingsPreservePublicationAndCleanup(string route, bool compressed, string budget)
     {
         CompletedAliases aliases = await CompleteAdmission(route, compressed, budget);
         await ValidateOutputs(aliases, route);
@@ -553,7 +551,6 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
         QpdfExecutionCounters completed = Collect(aliases.Governor);
         Assert.Equal(aliases.Governor.CallerMetadataBytes + aliases.Governor.CallerStorageBytes, completed.LiveMemoryBytes);
         Assert.Equal(0L, completed.OpenHandles);
-        Assert.Equal(0L, (long)Field(aliases.Governor, "_reservedWork"));
         InMemoryQpdfHost validation = new();
         validation.AddInput(Input, aliases.Output, QpdfInputOwnership.Copy);
         QpdfCheckResult check = await Qpdf.CheckAsync(validation, Input, CancellationToken.None);

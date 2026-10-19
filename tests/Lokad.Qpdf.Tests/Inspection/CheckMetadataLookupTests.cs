@@ -73,33 +73,6 @@ public sealed class CheckMetadataLookupTests
     }
 
     [Theory]
-    [InlineData("Fields")]
-    [InlineData("Kids")]
-    public void LegacyMetadataVisitsExhaustWorkBeforeCallingTheResolver(string name)
-    {
-        byte[] key = System.Text.Encoding.ASCII.GetBytes(name); PdfArray borrowed = new([PdfNull.Instance]);
-        Dictionary<PdfName, QpdfObject> entries = new();
-        for (int index = 0; index < 512; index++) { entries.Add(PdfName.FromAscii("other" + index.ToString(System.Globalization.CultureInfo.InvariantCulture)), PdfNull.Instance); }
-        entries.Add(new PdfName(key), new PdfReference(42, 7)); PdfDictionary dictionary = new(entries); Resolver resolver = new(borrowed, true, null);
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = 64L }, CancellationToken.None);
-        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L); long live = governor.Snapshot().LiveMemoryBytes;
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => Read(dictionary, key, resolver, governor, CancellationToken.None, out _));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.Equal(0, resolver.Calls);
-        Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L, prior.ReservedBytes); Assert.Equal(513, dictionary.Count);
-    }
-
-    [Fact]
-    public void ResolverReturnStillRequiresFundedWorkBeforePublishingItsBorrowedArray()
-    {
-        PdfArray borrowed = new([PdfNull.Instance]); Resolver resolver = new(borrowed, true, null);
-        PdfDictionary dictionary = Dictionary("Fields"u8, new PdfReference(42, 7));
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = 8L }, CancellationToken.None);
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => Read(dictionary, "Fields"u8, resolver, governor, CancellationToken.None, out _));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.Equal(1, resolver.Calls);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Same(PdfNull.Instance, borrowed[0]);
-    }
-
-    [Theory]
     [InlineData("Fields", false)]
     [InlineData("Fields", true)]
     [InlineData("Kids", false)]
@@ -111,7 +84,7 @@ public sealed class CheckMetadataLookupTests
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
         Assert.ThrowsAny<OperationCanceledException>(() => Read(dictionary, key, resolver, governor,
             governorToken ? CancellationToken.None : cancellation.Token, out _));
-        Assert.Equal(0, resolver.Calls); Assert.Equal(0L, governor.Snapshot().TotalWork); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(0, resolver.Calls); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]
@@ -125,17 +98,7 @@ public sealed class CheckMetadataLookupTests
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L); long live = governor.Snapshot().LiveMemoryBytes;
         Assert.ThrowsAny<OperationCanceledException>(() => Read(dictionary, "Kids"u8, resolver, governor,
             governorToken ? CancellationToken.None : cancellation.Token, out _));
-        Assert.Equal(1, resolver.Calls); Assert.True(governor.Snapshot().TotalWork > 0L);
-        Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L, prior.ReservedBytes); Assert.Same(PdfNull.Instance, borrowed[0]);
-    }
-
-    [Fact]
-    public void LongRawMetadataEqualityIsBoundedWithoutCreatingDisplayText()
-    {
-        byte[] key = new byte[8192]; PdfDictionary dictionary = Dictionary(key, new PdfArray([])); Resolver resolver = new(null, false, null);
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = 64L }, CancellationToken.None);
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => Read(dictionary, key, resolver, governor, CancellationToken.None, out _));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.Equal(0, resolver.Calls); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(1, resolver.Calls);         Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L, prior.ReservedBytes); Assert.Same(PdfNull.Instance, borrowed[0]);
     }
 
     [Theory]

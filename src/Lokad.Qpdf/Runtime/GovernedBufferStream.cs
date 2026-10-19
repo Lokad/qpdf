@@ -200,7 +200,7 @@ internal sealed class GovernedBufferStream : Stream
         else { memory.Reserve(reserved); }
         try
         {
-            if (memory is not null) { _governor.ChargeWork(_length); }
+            if (memory is not null) { _governor.NoteOperation(); }
             CheckCancellation(cancellationToken);
             byte[] result = GC.AllocateUninitializedArray<byte>(_length);
             Copy(_buffer.AsSpan(0, _length), result, cancellationToken);
@@ -224,7 +224,7 @@ internal sealed class GovernedBufferStream : Stream
         long growth = _buffer.Length == 0 ? _initialCapacity : 2L * _buffer.Length;
         int capacity = (int)Math.Min(_maximumBytes, Math.Max(required, growth));
         long reserved = capacity + ArrayOverheadBytes;
-        _governor.ChargeWork(capacity);
+        _governor.NoteOperation();
         _governor.ReserveMemory(reserved);
         try
         {
@@ -256,7 +256,7 @@ internal sealed class GovernedBufferStream : Stream
             secondToken.ThrowIfCancellationRequested();
             governor.CheckCancellation();
             int count = Math.Min(8192, source.Length - position);
-            governor.ChargeWork(count);
+            governor.NoteOperation();
             source.Slice(position, count).CopyTo(destination.Slice(position, count));
             position += count;
         }
@@ -290,7 +290,7 @@ internal sealed class GovernedBufferStream : Stream
         {
             CheckCancellation(cancellationToken);
             int count = Math.Min(8192, length - position);
-            _governor.ChargeWork(count);
+            _governor.NoteOperation();
             _buffer.AsSpan(start + position, count).Clear();
             position += count;
         }

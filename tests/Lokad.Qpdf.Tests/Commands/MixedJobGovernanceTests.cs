@@ -8,7 +8,6 @@ public sealed class MixedJobGovernanceTests
     [Theory]
     [InlineData("bytes")]
     [InlineData("memory")]
-    [InlineData("work")]
     [InlineData("host")]
     public async Task CumulativeLoadingLimitsPreserveTargetsAndCloseLeases(string budget)
     {
@@ -21,14 +20,13 @@ public sealed class MixedJobGovernanceTests
         {
             "bytes" => QpdfLimits.Default with { MaxInputBytes = 1500L },
             "memory" => QpdfLimits.Default with { MaxMemoryBytes = 60000L },
-            "work" => QpdfLimits.Default with { MaxWork = 2000L },
             _ => QpdfLimits.Default with { MaxHostOperations = 2L },
         };
         QpdfExecutionResult failed = await Qpdf.ExecuteAsync(host,
             new QpdfCommandInvocation(["--job-json-file=first.json", "--job-json-file=second.json"]), new QpdfExecutionOptions(limits), CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Failed, failed.Status);
         Assert.Contains(failed.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded);
-        Assert.True(failed.Counters.TotalWork > 0 && failed.Counters.PeakMemoryBytes > 0);
+        Assert.True(failed.Counters.PeakMemoryBytes > 0);
         Assert.NotEmpty(host.Opens);
         Assert.DoesNotContain(QpdfPath.From("inputs/a.pdf"), host.Opens);
         Assert.Equal(0L, failed.Counters.OpenHandles);
@@ -117,7 +115,7 @@ public sealed class MixedJobGovernanceTests
         cancellation.Cancel();
         QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
         Assert.Equal(QpdfExecutionStatus.Canceled, result.Status);
-        Assert.True(result.Counters.TotalWork > 0 && result.Counters.PeakMemoryBytes > 0);
+        Assert.True(result.Counters.PeakMemoryBytes > 0);
         Assert.Equal(0L, result.Counters.OpenHandles);
         AssertRetainedNames(result, host);
         Assert.Equal(0L, source.OpenLeaseCount);

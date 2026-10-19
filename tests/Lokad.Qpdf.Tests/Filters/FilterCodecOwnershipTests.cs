@@ -50,27 +50,6 @@ public sealed class FilterCodecOwnershipTests
     [InlineData("ASCIIHexDecode")]
     [InlineData("ASCII85Decode")]
     [InlineData("LZWDecode")]
-    [InlineData("RunLengthDecode")]
-    public void EncodedWhitespaceAndIgnoredCodesObserveFiniteWork(string filter)
-    {
-        byte[] input = filter switch
-        {
-            "ASCIIHexDecode" => Encoding.ASCII.GetBytes(new string(' ', 20000) + ">"),
-            "ASCII85Decode" => Encoding.ASCII.GetBytes(new string(' ', 20000) + "~>"),
-            "LZWDecode" => [.. DecoderOwnershipFixtures.Pack([256, 257]), .. new byte[20000]],
-            _ => Enumerable.Repeat((byte)128, 20000).ToArray(),
-        };
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 64L }; ResourceGovernor governor = new(limits, CancellationToken.None);
-        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L); long live = governor.Snapshot().LiveMemoryBytes;
-        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => FilterChain.Decode(input, [new(filter, null, null)], limits, governor));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), error.LimitName); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
-        Assert.True(governor.Snapshot().TotalWork > 0L);
-    }
-
-    [Theory]
-    [InlineData("ASCIIHexDecode")]
-    [InlineData("ASCII85Decode")]
-    [InlineData("LZWDecode")]
     [InlineData("FlateDecode")]
     public void PartialCodecFailureRetiresScratchAndPreservesPriorFunding(string filter)
     {

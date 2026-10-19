@@ -65,7 +65,6 @@ public sealed class ObjectStreamPayloadOwnershipTests
             }
             else { await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await writing); }
             Assert.True(governor.Snapshot().LiveMemoryBytes < 4096L);
-            Assert.True(governor.Snapshot().TotalWork > 4096L);
             GC.KeepAlive(writing); GC.KeepAlive(sink);
         }
         finally

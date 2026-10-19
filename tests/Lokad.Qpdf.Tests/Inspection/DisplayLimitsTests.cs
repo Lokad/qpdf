@@ -55,7 +55,6 @@ public sealed class DisplayLimitsTests
             _ => nameof(QpdfLimits.MaxDiagnostics),
         };
         Assert.Contains(expectedLimit, error.Message, StringComparison.Ordinal);
-        Assert.True(result.Counters.TotalWork > 0L);
         Assert.True(result.Counters.PeakMemoryBytes > 0L);
         Assert.InRange(result.Counters.PeakMemoryBytes, 1L, limits.MaxMemoryBytes);
         Assert.True(result.Counters.HostOperations > 0L);

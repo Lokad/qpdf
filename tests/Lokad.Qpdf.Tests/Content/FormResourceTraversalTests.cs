@@ -96,16 +96,6 @@ public sealed class FormResourceTraversalTests
     }
 
     [Fact]
-    public void WideResourceMetadataNeedsWorkBeforeAnEmptyResultCanEscape()
-    {
-        Dictionary<PdfName, QpdfObject> entries = new(); for (int index = 0; index < 1024; index++) { entries.Add(PdfName.FromAscii("Unused" + index), PdfNull.Instance); }
-        PdfDictionary resources = new(entries); ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = 64L }, CancellationToken.None);
-        using Prepared prepared = new(governor, new Dictionary<int, QpdfObject>());
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => Collect(prepared.Copier, resources, governor, CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(1024, resources.Count);
-    }
-
-    [Fact]
     public void FailedWalkAdmissionPreservesAnEarlierReceiptAndBorrowedResources()
     {
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 8192L }, CancellationToken.None);
@@ -125,8 +115,7 @@ public sealed class FormResourceTraversalTests
         using CancellationTokenSource source = new(); ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? source.Token : CancellationToken.None);
         using Prepared prepared = new(governor, new Dictionary<int, QpdfObject>()); source.Cancel();
         Assert.ThrowsAny<OperationCanceledException>(() => Collect(prepared.Copier, Dictionary(), governor, governorToken ? CancellationToken.None : source.Token));
-        Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes); Assert.Equal(0L, governor.Snapshot().TotalWork);
-    }
+        Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);     }
 
     private delegate QpdfObject? Resolve(PoolResolver resolver, PdfReference reference, ResourceGovernor governor, CancellationToken token);
     private static Resolve BindResolve()
@@ -154,13 +143,5 @@ public sealed class FormResourceTraversalTests
         PoolResolver resolver = new(new Observed(new Dictionary<int, QpdfObject> { [20] = value }, () => { calls++; source.Cancel(); }));
         Assert.ThrowsAny<OperationCanceledException>(() => ResolveBorrowed(resolver, new PdfReference(20, 7), governor, governorToken ? CancellationToken.None : source.Token));
         Assert.Equal(1, calls); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-    }
-    [Fact]
-    public void ResolverReturnRequiresWorkBeforePublishingAndLeavesBorrowedStorageUnchanged()
-    {
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = 1L }, CancellationToken.None); QpdfObject value = Dictionary(); int calls = 0;
-        PoolResolver resolver = new(new Observed(new Dictionary<int, QpdfObject> { [20] = value }, () => calls++));
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => ResolveBorrowed(resolver, new PdfReference(20, 7), governor, CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.Equal(1, calls); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 }

@@ -81,7 +81,7 @@ internal static class LzwFilter
                         ReadOnlySpan<byte> previous = Suffix(lastCode, table, literal);
                         long bytes = checked(previous.Length + 1L + GovernedBufferStream.ArrayOverheadBytes);
                         memory.Reserve(bytes);
-                        governor.ChargeWork(previous.Length + 1L);
+                        governor.NoteOperation();
                         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                         byte[] entry = new byte[previous.Length + 1];
                         GovernedBufferStream.CopyBytes(previous, entry, governor, token, CancellationToken.None);
@@ -170,7 +170,7 @@ internal static class LzwFilter
     {
         for (int index = 0; index < table.Count; index++)
         {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             long bytes = table[index].Length + GovernedBufferStream.ArrayOverheadBytes;
             table[index] = Array.Empty<byte>();
             memory.Release(bytes);
@@ -198,7 +198,7 @@ internal static class LzwFilter
 
         internal bool TryReadCode(int codeSize, out int code)
         {
-            _token.ThrowIfCancellationRequested(); _governor.CheckCancellation(); _governor.ChargeWork(1L);
+            _token.ThrowIfCancellationRequested(); _governor.CheckCancellation();
             while (_available < codeSize)
             {
                 if (_position >= _data.Length)

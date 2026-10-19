@@ -152,7 +152,7 @@ internal static class InlineImages
         // Validate every entry before decoding any stream, preserving failure order.
         for (int index = 0; index < count; index++)
         {
-            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             QpdfObject? item = array is null ? contents : array[index];
             int? objectId = null;
             if (item is PdfReference reference)
@@ -216,7 +216,7 @@ internal static class InlineImages
         {
             while (tokenizer.TryReadToken(out ContentToken token))
             {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 if (!inImage)
                 {
                     if (token.Kind == ContentTokenKind.Operator && token.Data.Span.SequenceEqual("BI"u8))

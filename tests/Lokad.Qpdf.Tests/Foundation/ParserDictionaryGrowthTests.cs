@@ -46,16 +46,13 @@ public sealed class ParserDictionaryGrowthTests
     [Theory]
     [InlineData("normal", false)]
     [InlineData("memory", false)]
-    [InlineData("work", false)]
     [InlineData("normal", true)]
     [InlineData("memory", true)]
-    [InlineData("work", true)]
     public void KnownFirstSectionAndLaterGrowthPreserveSignedKeysUnderExistingCeilings(string budget, bool bounded)
     {
         QpdfLimits limits = budget switch
         {
             "memory" => QpdfLimits.Default with { MaxMemoryBytes = 4000L },
-            "work" => QpdfLimits.Default with { MaxWork = 128L },
             _ => QpdfLimits.Default,
         };
         ResourceGovernor governor = new(limits, CancellationToken.None);
@@ -66,7 +63,6 @@ public sealed class ParserDictionaryGrowthTests
             int[] keys = [int.MinValue, int.MaxValue, .. Enumerable.Range(-11, 22)];
             for (int index = 0; index < keys.Length; index++)
             {
-                governor.ChargeWork(1L);
                 // A cardinality estimate remains a hint if later input adds
                 // more identities. Both paths preserve accepted entries.
                 if (bounded) { ParserContainers.EnsureEntryCapacity(memory, entries, sizeof(int), 16); }

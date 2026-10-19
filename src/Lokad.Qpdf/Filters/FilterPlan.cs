@@ -22,7 +22,7 @@ internal sealed class FilterPlan : IReadOnlyList<FilterStage>, IDisposable
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         try
         {
-            memory.Reserve(64L); governor.ChargeWork(1L);
+            memory.Reserve(64L); governor.NoteOperation();
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             return new FilterPlan(memory, governor, token);
         }
@@ -35,7 +35,7 @@ internal sealed class FilterPlan : IReadOnlyList<FilterStage>, IDisposable
     public int Count => Stages.Length;
 
     internal void Visit()
-    { _ = Stages; _token.ThrowIfCancellationRequested(); Governor.CheckCancellation(); Governor.ChargeWork(1L); }
+    { _ = Stages; _token.ThrowIfCancellationRequested(); Governor.CheckCancellation(); }
 
     internal void Allocate(int count)
     {
@@ -48,7 +48,7 @@ internal sealed class FilterPlan : IReadOnlyList<FilterStage>, IDisposable
         Memory.Reserve(bytes);
         try
         {
-            Governor.ChargeWork(checked(1L + count * (3L * IntPtr.Size)));
+            Governor.NoteOperation();
             _token.ThrowIfCancellationRequested(); Governor.CheckCancellation();
             _stages = new FilterStage[count];
         }

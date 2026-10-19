@@ -178,21 +178,6 @@ public sealed class InlineImageDictionaryTests
         Assert.Equal(61L, prior.ReservedBytes); Assert.Same(borrowed, Get(raw, PdfName.FromAscii("W")));
     }
 
-    [Fact]
-    public void EveryFiniteWorkInterruptionRetiresOnlyItsOwnUnpublishedStorage()
-    {
-        int failed = 0, complete = 0; PdfByteString borrowed = new(new byte[8192], false); PdfDictionary raw = Dictionary(("W", borrowed));
-        for (long maximum = 1L; maximum < 512L; maximum++)
-        {
-            ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = maximum }, CancellationToken.None);
-            using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(61L); long live = governor.Snapshot().LiveMemoryBytes;
-            try { PdfDictionary result = ConvertWith(governor, raw, Dictionary(), CancellationToken.None); Assert.Same(borrowed, Get(result, PdfName.FromAscii("Width"))); complete++; }
-            catch (QpdfLimitException failure) { Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); failed++; }
-            Assert.Equal(61L, prior.ReservedBytes); Assert.Equal(1, raw.Count);
-        }
-        Assert.True(failed > 0); Assert.True(complete > 0);
-    }
-
     private sealed class Escaping(object value, WeakReference governor, WeakReference source)
     { internal object? Value = value; internal readonly WeakReference Governor = governor, Source = source; }
 

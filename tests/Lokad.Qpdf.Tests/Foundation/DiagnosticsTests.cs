@@ -6,7 +6,7 @@ public sealed class DiagnosticsTests
 {
     private static QpdfExecutionCounters EmptyCounters()
     {
-        return new QpdfExecutionCounters(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L);
+        return new QpdfExecutionCounters(0L, 0L, 0L, 0L, 0L, 0L, 0L);
     }
 
     [Fact]

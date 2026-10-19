@@ -260,37 +260,6 @@ public sealed class RecoveryTests
     }
 
     [Fact]
-    public async Task TinyBudgetFailsPredictably()
-    {
-        byte[] intact = await FixtureBytes("minimal-1page.pdf");
-        StringBuilder storm = new();
-        for (int i = 0; i < 500; i++)
-        {
-            storm.Append("9 0 obj\n<< /Dup ");
-            storm.Append(i.ToString());
-            storm.Append(" >>\nendobj\n");
-        }
-
-        byte[] noise = Encoding.ASCII.GetBytes(storm.ToString());
-        byte[] broken = WithBrokenStartXref(intact);
-        byte[] combined = new byte[broken.Length + noise.Length];
-        Buffer.BlockCopy(broken, 0, combined, 0, broken.Length);
-        Buffer.BlockCopy(noise, 0, combined, broken.Length, noise.Length);
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 50L };
-        InMemoryQpdfHost host = HostWith("inputs/storm.pdf", combined);
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
-            host,
-            new QpdfCommandInvocation(["inputs/storm.pdf", "--pages", ".", "1", "--", "outputs/x.pdf"]),
-            new QpdfExecutionOptions(limits),
-            CancellationToken.None);
-        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-        Assert.Equal(QpdfExitCode.Error, result.ExitCode);
-        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, Assert.Single(result.Diagnostics).Code);
-        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/x.pdf"), out byte[] _));
-        Assert.Equal(0L, host.OpenLeaseCount);
-    }
-
-    [Fact]
     public async Task SuppressRecoveryFailsWithoutOutputUnderBudget()
     {
         byte[] broken = WithBrokenStartXref(await FixtureBytes("minimal-1page.pdf"));

@@ -64,7 +64,6 @@ public sealed class DocumentOpenHintTests
         Assert.Equal((QpdfExitCode)(row["NativeExit"]?.GetValue<int>() ?? throw new InvalidOperationException()), result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
         Assert.Equal(0L, host.OpenLeaseCount);
-        Assert.InRange(result.Counters.TotalWork, 1L, limits.MaxWork);
 
         InMemoryQpdfHost readerHost = new();
         readerHost.AddInput(QpdfPath.From("read.pdf"), pdf, QpdfInputOwnership.Copy);
@@ -188,32 +187,6 @@ public sealed class DocumentOpenHintTests
             && diagnostic.Message.Contains(nameof(QpdfLimits.MaxOutputBytes), StringComparison.Ordinal));
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] actual));
         Assert.Equal(new byte[] { 17, 23, 41 }, actual);
-        Assert.Equal(0L, host.OpenLeaseCount);
-    }
-
-    [Theory]
-    [InlineData("AcroForm-dictionary-generate-False-job")]
-    [InlineData("PageMode-reference-generate-True-job")]
-    public async Task WorkCeilingBoundsTraversalAndPreservesAtomicPublication(string id)
-    {
-        JsonObject row = Row(id);
-        InMemoryQpdfHost host = await HostAsync(row);
-        const long work = 100000L;
-        QpdfExecutionResult result = await ExecuteAsync(host, row, QpdfLimits.Default with { MaxWork = work });
-        Assert.InRange(result.Counters.TotalWork, 1L, work);
-        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] actual));
-        if (result.ExitCode == QpdfExitCode.Success)
-        {
-            using PdfDocument independent = PdfDocument.Open(new MemoryStream(actual));
-            Assert.Equal(2, independent.NumberOfPages);
-        }
-        else
-        {
-            Assert.Equal(QpdfExitCode.Error, result.ExitCode);
-            Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded
-                && diagnostic.Message.Contains(nameof(QpdfLimits.MaxWork), StringComparison.Ordinal));
-            Assert.Equal(new byte[] { 17, 23, 41 }, actual);
-        }
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 }

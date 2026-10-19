@@ -131,12 +131,9 @@ public sealed class JobJsonMemoryTests
     }
 
     [Fact]
-    public void PreflightHonorsWorkAndCancellationBeforeBuildingStorage()
+    public void PreflightHonorsCancellationBeforeBuildingStorage()
     {
         string json = "[\"" + new string('A', 32768) + "\"]";
-        ResourceGovernor work = new(QpdfLimits.Default with { MaxWork = 8L }, CancellationToken.None);
-        Assert.Throws<QpdfLimitException>(() => JobJsonMemory.Estimate(json.AsSpan(), json.Length, work));
-        Assert.Equal(0L, work.Snapshot().LiveMemoryBytes);
         using CancellationTokenSource cancellation = new(); cancellation.Cancel();
         ResourceGovernor canceled = new(QpdfLimits.Default with { CancellationCheckInterval = 1L }, cancellation.Token);
         Assert.Throws<OperationCanceledException>(() => JobJsonMemory.Estimate(json.AsSpan(), json.Length, canceled));

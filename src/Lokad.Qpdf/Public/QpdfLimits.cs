@@ -1,7 +1,7 @@
 namespace Lokad.Qpdf;
 
 /// <summary>
-/// Per-job resource budgets enforced by every execution path. Obtain
+/// Per-job storage, I/O and structural budgets with cooperative cancellation. Obtain
 /// <see cref="Default" /> and adjust individual properties with object
 /// initializers; call <see cref="Validate" /> before use.
 /// </summary>
@@ -21,9 +21,6 @@ public sealed record QpdfLimits
     /// </remarks>
     public long MaxMemoryBytes { get; init; } = 128L * 1024L * 1024L;
 
-    /// <summary>Maximum cumulative abstract work units charged to the job.</summary>
-    public long MaxWork { get; init; } = 1_000_000_000L;
-
     /// <summary>Maximum cumulative decoded stream bytes charged to the job.</summary>
     public long MaxDecodedBytes { get; init; } = 512L * 1024L * 1024L;
 
@@ -33,13 +30,17 @@ public sealed record QpdfLimits
     /// <summary>Maximum concurrently open inputs and staged outputs.</summary>
     public long MaxOpenHandles { get; init; } = 64L;
 
-    /// <summary>Maximum diagnostics recorded per job.</summary>
+    /// <summary>Maximum stored diagnostics per job, including prepared summaries.</summary>
+    /// <remarks>Suppressed warnings are excluded. Overflow fails explicitly; a bounded
+    /// terminal error can be returned in addition to the accepted prefix.</remarks>
     public long MaxDiagnostics { get; init; } = 256L;
 
     /// <summary>Maximum cumulative diagnostic message bytes per job.</summary>
     public long MaxDiagnosticBytes { get; init; } = 64L * 1024L;
 
-    /// <summary>Operations between cancellation checks. Must be at least 1.</summary>
+    /// <summary>Operations between periodic cancellation checks. Must be at least 1.</summary>
+    /// <remarks>Additional checks occur at host/codec boundaries and in bounded CPU loops.
+    /// This interval is not a cumulative CPU budget.</remarks>
     public long CancellationCheckInterval { get; init; } = 1024L;
 
     /// <summary>Upstream default parser nesting cap, the largest invocation-level override accepted.</summary>
@@ -54,7 +55,7 @@ public sealed record QpdfLimits
     /// <summary>Ignores cross-reference streams when set; only classic tables are used.</summary>
     public bool IgnoreXrefStreams { get; init; }
 
-    /// <summary>Maximum top-level elements per parsed array or dictionary.</summary>
+    /// <summary>Maximum entries in parsed arrays/dictionaries and expanded selections.</summary>
     public long MaxContainerSize { get; init; } = 4294967295L;
 
     /// <summary>Maximum top-level elements per container parsed during repair.</summary>
@@ -86,11 +87,6 @@ public sealed record QpdfLimits
         if (MaxMemoryBytes <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(MaxMemoryBytes), "Budget must be positive.");
-        }
-
-        if (MaxWork <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(MaxWork), "Budget must be positive.");
         }
 
         if (MaxDecodedBytes <= 0)

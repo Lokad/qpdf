@@ -164,7 +164,6 @@ public sealed class BinaryInspectionTests
         Assert.Equal(QpdfExitCode.Error, result.ExitCode);
         Assert.True(result.Counters.TotalDecodedBytes >= StreamBytes.Length + AttachmentBytes.Length);
         Assert.Contains(result.Diagnostics, d => d.Severity == QpdfDiagnosticSeverity.Error);
-        Assert.True(result.Counters.TotalWork > 0);
         Assert.Equal(0L, result.Counters.TotalOutputBytes);
         Assert.Equal(0L, result.Counters.OpenHandles);
         Assert.Equal(0L, host.OpenLeaseCount);
@@ -204,7 +203,6 @@ public sealed class BinaryInspectionTests
         QpdfExecutionResult result = await Execute(host, route, properties, flags, QpdfLimits.Default with { MaxOutputBytes = ceiling });
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded);
-        Assert.True(result.Counters.TotalWork > 0);
         Assert.Equal(0L, result.Counters.OpenHandles);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
@@ -372,7 +370,7 @@ public sealed class BinaryInspectionTests
             cancellation.Cancel();
             QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
             Assert.Equal(QpdfExecutionStatus.Canceled, result.Status);
-            Assert.True(result.Counters.TotalWork > 0 && result.Counters.HostOperations > 0);
+            Assert.True(result.Counters.HostOperations > 0);
             // The immutable snapshot can include independently owned names
             // awaiting natural collection; exact retirement is observed later.
             Assert.InRange(result.Counters.LiveMemoryBytes, ExecutionResultAdmission.MemoryBytes, result.Counters.PeakMemoryBytes);

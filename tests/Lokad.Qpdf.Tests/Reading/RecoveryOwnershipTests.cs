@@ -56,7 +56,6 @@ public sealed class RecoveryOwnershipTests
         Assert.Equal(expected.Entries.Count, table.Entries.Count);
         Assert.Equal(1, Assert.IsType<PdfReference>(Member(table.Trailer, "Root")).ObjectNumber);
         Assert.Equal(controlGovernor.Snapshot().LiveMemoryBytes, governor.Snapshot().LiveMemoryBytes);
-        Assert.True(governor.Snapshot().TotalWork > 0L);
     }
 
     [Theory]
@@ -152,7 +151,6 @@ public sealed class RecoveryOwnershipTests
         long baseline = governor.Snapshot().LiveMemoryBytes;
         Assert.Throws<QpdfLimitException>(() => XRefRecovery.Recover(input, limits, governor, diagnostics, "authored damage"));
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
-        Assert.True(governor.Snapshot().TotalWork > 0L);
     }
 
     [Theory]
@@ -182,7 +180,6 @@ public sealed class RecoveryOwnershipTests
             storage.Memory, limits, governor, new DiagnosticBag(governor), "authored damage"));
         Assert.True(observed);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        Assert.True(governor.Snapshot().TotalWork > 0L);
     }
 
     [Theory]

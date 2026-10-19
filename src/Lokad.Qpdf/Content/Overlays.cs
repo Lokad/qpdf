@@ -75,9 +75,9 @@ internal static class Overlays
             return new OverlayApplication(new List<GraphCopier>(sources.Values.Select(static source => source.Copier)), nextId, []);
         }
 
-        if ((long)occurrences.Count > limits.MaxWork)
+        if ((long)occurrences.Count > limits.MaxContainerSize)
         {
-            throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), occurrences.Count, limits.MaxWork);
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), occurrences.Count, limits.MaxContainerSize);
         }
 
         try
@@ -108,7 +108,7 @@ internal static class Overlays
             for (int dest = 0; dest < occurrences.Count; dest++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (underlayPages[dest].Count == 0 && overlayPages[dest].Count == 0)
                 {
                     continue;
@@ -255,11 +255,11 @@ internal static class Overlays
 
         IReadOnlyList<int> fromPages = spec.From is not null && spec.From.Length == 0
             ? []
-            : OverlayRanges.Resolve(spec.From, source.PageCount, limits.MaxWork);
-        IReadOnlyList<int> toPages = OverlayRanges.Resolve(spec.To, destCount, limits.MaxWork);
+            : OverlayRanges.Resolve(spec.From, source.PageCount, limits.MaxContainerSize);
+        IReadOnlyList<int> toPages = OverlayRanges.Resolve(spec.To, destCount, limits.MaxContainerSize);
         IReadOnlyList<int> repeatPages = spec.Repeat is null || spec.Repeat.Length == 0
             ? []
-            : OverlayRanges.Resolve(spec.Repeat, source.PageCount, limits.MaxWork);
+            : OverlayRanges.Resolve(spec.Repeat, source.PageCount, limits.MaxContainerSize);
         Dictionary<int, PageBundle> bundles = new();
         HashSet<int> needed = new();
         foreach (int page in fromPages)
@@ -340,7 +340,7 @@ internal static class Overlays
         bool deferCopy)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         PageLocation location = source.Document.PageReferences[pageNumber - 1];
         DocumentEngine engine = source.Document.Engine;
         QpdfObject? resources = FindInherited(engine, location, "Resources", limits, governor, ownership, cancellationToken);
@@ -404,21 +404,21 @@ internal static class Overlays
         QpdfObject? copiedResources = null;
         if (resources is not null)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             copiedResources = source.Copier.CopyValue(resources, 0);
         }
 
         QpdfObject? copiedGroup = null;
         if (group is not null)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             copiedGroup = source.Copier.CopyValue(group, 0);
         }
 
         QpdfObject? copiedBox = null;
         if (box is not null && boxObject is not null)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             copiedBox = source.Copier.CopyValue(boxObject, 0);
         }
 
@@ -497,7 +497,7 @@ internal static class Overlays
         foreach (PdfStream stream in streams)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             byte[]? decoded = DecodeStreamData(stream, resolver, limits, governor, ownership);
             if (decoded is null)
             {
@@ -549,7 +549,7 @@ internal static class Overlays
         bool needNewline = false;
         foreach (byte[] part in parts)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (needNewline)
             {
                 joined.Add([(byte)10]);
@@ -852,7 +852,7 @@ internal static class Overlays
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         int formId = allocator;
         if (bundle.DeferredCopy)
         {
@@ -1340,7 +1340,7 @@ internal static class Overlays
         foreach (PdfStream stream in streams)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             byte[]? decoded = DecodeStreamData(stream, resolver, limits, governor, ownership);
             if (decoded is null)
             {
@@ -1429,7 +1429,7 @@ internal static class Overlays
             foreach (OverlayPlacement placement in group.Value)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 OverlayForm? form = GetOrBuildOverlayForm(spec, placement, formCache, compress, level, limits, governor, ownership, diagnostics, cancellationToken, ref allocator);
                 if (form is null)
                 {
@@ -1495,7 +1495,7 @@ internal static class Overlays
         foreach (QpdfObject item in annots.Items)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             QpdfObject target = item;
             if (item is PdfReference itemReference)
             {
@@ -1623,7 +1623,7 @@ internal static class Overlays
         List<PdfReference> fresh)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         if (sourceForm is null || !sourceForm.HasFields)
         {
             return false;
@@ -1786,7 +1786,7 @@ internal static class Overlays
         int depth)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         if (depth > limits.MaxNestingDepth)
         {
             throw new QpdfParseException("Overlay annotation depth exceeds the limit.", null, null);
@@ -2081,7 +2081,7 @@ internal static class Overlays
             return;
         }
 
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         if (!destCopier.CopiedObjects.TryGetValue(streamId, out QpdfObject? raw) || raw is not PdfStream stream)
         {
             return;

@@ -37,7 +37,7 @@ internal sealed class PdfObjectComparison : IDisposable
 
     private ResourceGovernor Governor => _governor ?? throw new ObjectDisposedException(nameof(PdfObjectComparison));
     private List<Frame> Frames => _frames ?? throw new ObjectDisposedException(nameof(PdfObjectComparison));
-    private void Visit() { _token.ThrowIfCancellationRequested(); Governor.CheckCancellation(); Governor.ChargeWork(1L); }
+    private void Visit() { _token.ThrowIfCancellationRequested(); Governor.CheckCancellation(); }
 
     internal int Hash(PdfDictionary dictionary) { Visit(); return dictionary.Count; }
 
@@ -46,7 +46,7 @@ internal sealed class PdfObjectComparison : IDisposable
         Visit(); List<Frame> frames = Frames;
         if (frames.Count == frames.Capacity)
         {
-            Governor.ChargeWork(checked(frames.Count + Math.Min(Array.MaxLength, Math.Max(4L, frames.Capacity * 2L))));
+            Governor.NoteOperation();
             _token.ThrowIfCancellationRequested(); Governor.CheckCancellation();
         }
         ParserContainers.AddItem(_memory ?? throw new ObjectDisposedException(nameof(PdfObjectComparison)),
@@ -129,7 +129,7 @@ internal sealed class PdfObjectComparison : IDisposable
         }
         finally
         {
-            try { Governor.ChargeWork(frames.Count); }
+            try { Governor.NoteOperation(); }
             finally
             {
                 foreach (Frame frame in frames) { if (frame.Kind == Kind.Dictionary) { frame.Entries.Dispose(); } }

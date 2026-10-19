@@ -110,8 +110,7 @@ public sealed class OwnedPdfDictionaryStorageTests
         Assert.Equal(Key(0), entries.Current.Key);
         ResourceGovernor retry = new(QpdfLimits.Default, CancellationToken.None);
         Assert.True(entries.MoveNext(retry, CancellationToken.None)); Assert.Equal(Key(1), entries.Current.Key);
-        Assert.False(entries.MoveNext(retry, CancellationToken.None)); Assert.Equal(2L, retry.Snapshot().TotalWork);
-        Assert.Equal(0L, retry.Snapshot().LiveMemoryBytes);
+        Assert.False(entries.MoveNext(retry, CancellationToken.None));         Assert.Equal(0L, retry.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]
@@ -123,12 +122,11 @@ public sealed class OwnedPdfDictionaryStorageTests
         PdfDictionary dictionary = PdfDictionary.FromOwnedEntries(table);
         ResourceGovernor caller = new(QpdfLimits.Default, CancellationToken.None);
         for (int round = 0; round < 32; round++) { Visit(dictionary, caller); }
-        long live = owner.Snapshot().LiveMemoryBytes, work = caller.Snapshot().TotalWork;
+        long live = owner.Snapshot().LiveMemoryBytes;
         long allocated = GC.GetAllocatedBytesForCurrentThread();
         int count = Visit(dictionary, caller);
         long delta = GC.GetAllocatedBytesForCurrentThread() - allocated;
         Assert.Equal(32, count); Assert.Equal(0L, delta);
-        Assert.Equal(33L, caller.Snapshot().TotalWork - work);
         Assert.Equal(live, owner.Snapshot().LiveMemoryBytes);
     }
 

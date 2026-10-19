@@ -93,7 +93,6 @@ public sealed class DocumentWarningSnapshotTests
         Assert.InRange(completed, 1, roots.Length - 1);
         QpdfExecutionCounters after = governor.Snapshot();
         Assert.True(after.LiveMemoryBytes > before.LiveMemoryBytes);
-        Assert.True(after.TotalWork > before.TotalWork);
         Assert.True(after.PeakMemoryBytes <= limits.MaxMemoryBytes);
         for (int i = 0; i < completed; i++)
         {
@@ -103,36 +102,6 @@ public sealed class DocumentWarningSnapshotTests
         await document.DisposeAsync();
         Assert.Equal(0L, host.OpenLeaseCount); Assert.Equal(0L, governor.Snapshot().OpenHandles);
         Validate(first); GC.KeepAlive(roots);
-    }
-
-    [Theory]
-    [MemberData(nameof(Originals))]
-    [Trait("Layer", "Contract")]
-    public async Task HeldSnapshotsRejectFiniteWorkAfterPublicOpening(bool compressed, bool disposed)
-    {
-        InMemoryQpdfHost host = Host(compressed);
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 4096L };
-        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, Input, limits, CancellationToken.None);
-        if (disposed) { await document.DisposeAsync(); }
-        ResourceGovernor governor = Governor(document);
-        List<IReadOnlyList<QpdfDiagnostic>> roots = [];
-        QpdfLimitException? rejection = null;
-        Assert.True(GC.TryStartNoGCRegion(16L * 1024L * 1024L));
-        try
-        {
-            for (int i = 0; i < 4096; i++)
-            {
-                try { roots.Add(document.Warnings); }
-                catch (QpdfLimitException error) { rejection = error; break; }
-            }
-        }
-        finally { GC.EndNoGCRegion(); }
-        Assert.NotNull(rejection); Assert.Equal(nameof(QpdfLimits.MaxWork), rejection.LimitName);
-        Assert.NotEmpty(roots); Assert.All(roots, Validate);
-        Assert.True(governor.Snapshot().TotalWork <= limits.MaxWork);
-        await document.DisposeAsync();
-        Assert.Equal(0L, host.OpenLeaseCount); Assert.Equal(0L, governor.Snapshot().OpenHandles);
-        GC.KeepAlive(roots);
     }
 
     public static IEnumerable<object[]> Cancellations()

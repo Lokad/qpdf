@@ -86,7 +86,7 @@ internal static class CanonicalDisplay
             throw new QpdfParseException("Display depth exceeds the nesting budget.", null, null);
         }
 
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         if (value is PdfNull)
         {
             builder.Append("null");
@@ -154,7 +154,6 @@ internal static class CanonicalDisplay
                 int index = 0;
                 while (entries.MoveNext())
                 {
-                    governor.ChargeWork(1L);
                     governor.CheckCancellation();
                     keys[index++] = entries.Current;
                 }
@@ -170,7 +169,6 @@ internal static class CanonicalDisplay
                     // Test reference nullness without expanding live graphs.
                     if (member is PdfReference indirect && resolver is not null)
                     {
-                        governor.ChargeWork(1L);
                         governor.CheckCancellation();
                         if (!resolver.TryResolve(indirect, out QpdfObject? resolved) || resolved is null or PdfNull)
                         {
@@ -208,7 +206,7 @@ internal static class CanonicalDisplay
         builder.Append('/');
         for (int i = 0; i < raw.Length; i++)
         {
-            ChargeBytes(i, raw.Length, governor);
+            CheckChunkCancellation(i, governor);
             byte b = raw[i];
             if (b == 0)
             {
@@ -247,7 +245,7 @@ internal static class CanonicalDisplay
             builder.Append('<');
             for (int i = 0; i < raw.Length; i++)
             {
-                ChargeBytes(i, raw.Length, governor);
+                CheckChunkCancellation(i, governor);
                 byte b = raw[i];
                 builder.Append(HexDigit(b >> 4));
                 builder.Append(HexDigit(b & 0x0F));
@@ -260,7 +258,7 @@ internal static class CanonicalDisplay
         builder.Append('(');
         for (int i = 0; i < raw.Length; i++)
         {
-            ChargeBytes(i, raw.Length, governor);
+            CheckChunkCancellation(i, governor);
             byte b = raw[i];
             switch (b)
             {
@@ -304,11 +302,10 @@ internal static class CanonicalDisplay
         builder.Append(')');
     }
 
-    private static void ChargeBytes(int position, int length, ResourceGovernor governor)
+    private static void CheckChunkCancellation(int position, ResourceGovernor governor)
     {
         if ((position & 255) == 0)
         {
-            governor.ChargeWork(Math.Min(256, length - position));
             governor.CheckCancellation();
         }
     }
@@ -337,7 +334,7 @@ internal static class CanonicalDisplay
         int shared = Math.Min(a.Length, b.Length);
         for (int i = 0; i < shared; i++)
         {
-            ChargeBytes(i, shared, governor);
+            CheckChunkCancellation(i, governor);
             if (a[i] != b[i]) { return a[i].CompareTo(b[i]); }
         }
         return a.Length.CompareTo(b.Length);

@@ -830,15 +830,6 @@ public sealed class GlobalLimitsTests
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, "{\"empty\": true, \"showNpages\": true}", new QpdfExecutionOptions(limits), CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
     }
-
-    [Fact]
-    public async Task JobJsonWorkChargedToGovernor()
-    {
-        InMemoryQpdfHost host = new();
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 1L };
-        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, "{\"empty\": true, \"showNpages\": true}", new QpdfExecutionOptions(limits), CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
-    }
     [Fact]
     public async Task FlagCannotRaiseExplicitDefaultHostBudget()
     {

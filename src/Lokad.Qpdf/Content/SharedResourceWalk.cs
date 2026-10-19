@@ -42,11 +42,11 @@ internal sealed class SharedResourceWalk : IDisposable
     internal void Push(QpdfObject node, CancellationToken token)
     {
         List<QpdfObject> pending = Pending; ResourceGovernor governor = Governor;
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (pending.Count == pending.Capacity)
         {
             long capacity = Math.Min(Array.MaxLength, Math.Max(4L, pending.Capacity * 2L));
-            governor.ChargeWork(checked(pending.Count + capacity));
+            governor.NoteOperation();
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         }
         ParserContainers.AddItem(Memory, pending, node);
@@ -55,7 +55,7 @@ internal sealed class SharedResourceWalk : IDisposable
     internal bool TryPop(CancellationToken token, out QpdfObject node)
     {
         List<QpdfObject> pending = Pending; ResourceGovernor governor = Governor;
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (pending.Count == 0) { node = PdfNull.Instance; return false; }
         int index = pending.Count - 1; node = pending[index]; pending.RemoveAt(index); return true;
     }

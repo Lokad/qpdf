@@ -132,7 +132,6 @@ public sealed class LinearizedRemapOwnershipTests
         Assert.Equal(0L, first.Length);
         Assert.Equal(0L, final.Length);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        Assert.True(governor.Snapshot().TotalWork > 2048L);
         Assert.Same(borrowed, model[^1].Value);
     }
 

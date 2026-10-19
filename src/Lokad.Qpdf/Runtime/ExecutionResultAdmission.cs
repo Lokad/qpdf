@@ -4,18 +4,14 @@ namespace Lokad.Qpdf.Runtime;
 internal static class ExecutionResultAdmission
 {
     // Coarse capacity for the result and counters, admitted before processing.
-    // Both construction units remain available through failure presentation.
     internal const long MemoryBytes = 168L;
-    internal const long WorkUnits = 2L;
     internal const string InvalidZlibModeMessage = "The zlib-flate mode is not supported.";
     internal const string InvalidZlibLevelMessage = "The zlib-flate compression level must be 1..9 while compressing.";
 
-    private static readonly QpdfExecutionCounters Zero = new(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L);
+    private static readonly QpdfExecutionCounters Zero = new(0L, 0L, 0L, 0L, 0L, 0L, 0L);
     internal static QpdfExecutionCounters EmptyCounters => Zero;
     private static readonly QpdfExecutionResult MemoryFailure = Failure(QpdfDiagnosticCode.BudgetExceeded,
         "MaxMemoryBytes cannot admit the execution outcome.");
-    private static readonly QpdfExecutionResult WorkFailure = Failure(QpdfDiagnosticCode.BudgetExceeded,
-        "MaxWork cannot admit the execution outcome.");
     internal static readonly QpdfExecutionResult SharedMemoryFailure = Failure(QpdfDiagnosticCode.BudgetExceeded,
         "The host's shared memory allowance refused admission.");
     private static readonly QpdfExecutionResult Cancellation = new(QpdfExecutionStatus.Canceled,
@@ -32,7 +28,6 @@ internal static class ExecutionResultAdmission
     {
         if (token.IsCancellationRequested) { return Cancellation; }
         if (limits.MaxMemoryBytes < MemoryBytes) { return MemoryFailure; }
-        if (limits.MaxWork < WorkUnits) { return WorkFailure; }
         return null;
     }
 }

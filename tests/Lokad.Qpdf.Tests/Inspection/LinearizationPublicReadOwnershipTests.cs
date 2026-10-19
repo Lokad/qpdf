@@ -68,7 +68,6 @@ public sealed class LinearizationPublicReadOwnershipTests
         {
             ResourceGovernor governor = FindGovernor(executing, 0, new HashSet<object>(ReferenceEqualityComparer.Instance))
                 ?? throw new InvalidOperationException("Expected the complete public read-job governor.");
-            Assert.True(governor.Snapshot().TotalWork > 0L);
             if (input == "compressed") { Assert.True(governor.Snapshot().TotalDecodedBytes > 0L); }
             Assert.False(executing.IsCompleted);
             if (outcome == "cancellation") { cancellation.Cancel(); }

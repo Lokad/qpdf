@@ -157,9 +157,9 @@ public sealed class DiagnosticFailureExportTests
         object host = await Prepare();
         Assert.True(Inner(host).TryGetOutput(QpdfPath.From("output.pdf"), out byte[] alias));
         QpdfExecutionResult result = await Run((IQpdfHost)host, route, true, true,
-            QpdfLimits.Default with { MaxDiagnostics = 53L }, CancellationToken.None);
+            QpdfLimits.Default with { MaxDiagnostics = 3L }, CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status); Assert.Equal(QpdfExitCode.Error, result.ExitCode);
-        Assert.Equal(51L, result.Counters.DiagnosticCount); Assert.Equal(2, result.Diagnostics.Count);
+        Assert.Equal(3L, result.Counters.DiagnosticCount); Assert.Equal(2, result.Diagnostics.Count);
         Assert.Equal(QpdfDiagnosticCode.JsonSchemaCheck, result.Diagnostics[0].Code);
         Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, result.Diagnostics[1].Code);
         Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, Inner(host).OpenLeaseCount);
@@ -231,7 +231,7 @@ public sealed class DiagnosticFailureExportTests
             ?? throw new InvalidOperationException("Missing governor observation driver.");
         ResourceGovernor governor = (ResourceGovernor)(find.Invoke(null, [running, 0, new HashSet<object>(ReferenceEqualityComparer.Instance)])
             ?? throw new InvalidOperationException("Expected the actual public governor."));
-        Assert.Equal(51L, governor.Snapshot().DiagnosticCount); Assert.False(running.IsCompleted);
+        Assert.Equal(noWarn ? 1L : 51L, governor.Snapshot().DiagnosticCount); Assert.False(running.IsCompleted);
         if (outcome == "cancel") { cancellation.Cancel(); }
         else { host.GetType().GetMethod("Resume", Fields)?.Invoke(host, null); }
         QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
@@ -241,7 +241,7 @@ public sealed class DiagnosticFailureExportTests
         Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, Inner(host).OpenLeaseCount);
         if (outcome != "success")
         {
-            Assert.Equal(51L, result.Counters.DiagnosticCount); Assert.Null(result.OutputText); Assert.Null(result.OutputBytes);
+            Assert.InRange(result.Counters.DiagnosticCount, noWarn ? 1L : 51L, (noWarn ? 1L : 51L) + (summaries ? 6L : 0L)); Assert.Null(result.OutputText); Assert.Null(result.OutputBytes);
             Assert.Equal(new byte[] { 17, 23, 41 }, alias);
             Assert.True(Inner(host).TryGetOutput(QpdfPath.From("output.pdf"), out byte[] target)); Assert.Equal(alias, target);
             Assert.True(Inner(host).TryGetOutput(QpdfPath.From("side-53"), out byte[] sideTarget)); Assert.Equal(sideAlias, sideTarget);
@@ -320,7 +320,7 @@ public sealed class DiagnosticFailureExportTests
             Assert.Equal(noWarn ? 0L : warnings, result.Diagnostics.LongCount(item => item.Code == QpdfDiagnosticCode.DuplicateKey));
             Assert.Equal(accepted.Take(noWarn ? 0 : (int)warnings), result.Diagnostics
                 .Where(item => item.Code == QpdfDiagnosticCode.DuplicateKey).Select(item => item.Message));
-            if (warnings != 0L) { witnessed++; }
+            if (noWarn || warnings != 0L) { witnessed++; }
             Assert.Null(result.OutputText); Assert.Null(result.OutputBytes);
             Assert.DoesNotContain(result.Diagnostics, item => item.Code is QpdfDiagnosticCode.VerboseSummary or QpdfDiagnosticCode.ProgressReport or QpdfDiagnosticCode.MemoryUsage);
             Assert.Equal(new byte[] { 17, 23, 41 }, alias);
@@ -423,36 +423,6 @@ public sealed class DiagnosticFailureExportTests
             Assert.All(aliases.Visible, item => Assert.False(item.IsAlive)); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         }
         Assert.InRange(governor.Snapshot().PeakMemoryBytes, GovernedText.StringBytes(4096), 32768L);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    [Trait("Layer", "Contract")]
-    public void DeferredPlainFailureHistoryFinishesWithinHeldWork(bool cancel)
-    {
-        using CancellationTokenSource cancellation = new();
-        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 32768L, MaxWork = 100000L, CancellationCheckInterval = 1L };
-        ResourceGovernor governor = new(limits, cancellation.Token) { DeferredPlainHistory = true };
-        DiagnosticBag bag = new(governor);
-        using DiagnosticStage stage = bag.BeginStaging() ?? throw new InvalidOperationException("Missing exclusive stage.");
-        for (int index = 0; index < 50; index++)
-        { bag.Add(QpdfDiagnosticCode.DuplicateKey, QpdfDiagnosticSeverity.Warning, "accepted warning " + index); }
-        bag.Add(QpdfDiagnosticCode.JsonSchemaCheck, QpdfDiagnosticSeverity.Info, "visible note");
-        MethodInfo spend = typeof(DiagnosticWorkTests).GetMethod("SpendUntilRejected", Methods)
-            ?? throw new InvalidOperationException("Missing original work-boundary driver.");
-        spend.Invoke(null, [governor, limits.MaxWork]);
-        long before = governor.Snapshot().TotalWork;
-        if (cancel) { cancellation.Cancel(); stage.FlushAcceptedAfterFailure(); }
-        else { stage.Flush(); }
-        using ExecutionPresentation presentation = governor.ExecutionPresentation
-            ?? throw new InvalidOperationException("The stage must attach its admitted history owner.");
-        QpdfExecutionResult result = presentation.Failure(QpdfExecutionResult.Canceled([], governor.Snapshot()));
-        Assert.Equal(51L, result.Counters.DiagnosticCount); Assert.Equal(50, result.Diagnostics.Count);
-        Assert.All(result.Diagnostics, item => Assert.Equal(QpdfDiagnosticCode.DuplicateKey, item.Code));
-        Assert.InRange(result.Counters.TotalWork, before + 1L, limits.MaxWork);
-        Assert.InRange(result.Counters.PeakMemoryBytes, 1L, limits.MaxMemoryBytes);
-        if (cancel) { Assert.Throws<OperationCanceledException>(() => governor.CheckCancellation()); }
     }
 
     internal static IEnumerable<(string Id, Func<OwnershipBatch.Observation, Task> Run)> StressCases(ITestOutputHelper output)

@@ -38,43 +38,17 @@ public sealed class GovernorTests
     public void CumulativeChargesEnforceEachBudget()
     {
         ResourceGovernor governor = CreateGovernor();
-        governor.ChargeWork(10L);
         governor.ChargeDecodedBytes(20L);
         governor.ChargeOutputBytes(30L);
         governor.NoteHostOperation();
         governor.AcquireHandle();
         QpdfExecutionCounters counters = governor.Snapshot();
-        Assert.Equal(10L, counters.TotalWork);
         Assert.Equal(20L, counters.TotalDecodedBytes);
         Assert.Equal(30L, counters.TotalOutputBytes);
         Assert.Equal(1L, counters.HostOperations);
         Assert.Equal(1L, counters.OpenHandles);
         governor.ReleaseHandle();
         Assert.Equal(0L, governor.Snapshot().OpenHandles);
-    }
-
-    [Theory]
-    [InlineData(100000L, false)]
-    [InlineData(100000L, true)]
-    [InlineData(long.MaxValue, false)]
-    [InlineData(long.MaxValue, true)]
-    public void WorkCapacityPreservesReservationsAndSaturatesOverflowDiagnostics(long maximum, bool reservePublication)
-    {
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = maximum, MaxHostOperations = long.MaxValue }, CancellationToken.None);
-        using PublicationWorkReservation? publication = reservePublication
-            ? PublicationWorkReservation.Create(governor, maximum / 2L) : null;
-        long available = governor.RemainingWorkUnits;
-        governor.ChargeWork(available);
-        governor.ChargeWork(0L);
-        Assert.Equal(0L, governor.RemainingWorkUnits);
-        Assert.Equal(available, governor.Snapshot().TotalWork);
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => governor.ChargeWork(1L));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-        Assert.Equal(maximum == long.MaxValue ? long.MaxValue : maximum + 1L, failure.Requested);
-        failure = Assert.Throws<QpdfLimitException>(() => governor.ChargeWork(long.MaxValue));
-        Assert.Equal(long.MaxValue, failure.Requested);
-        Assert.Equal(available, governor.Snapshot().TotalWork);
-        Assert.Equal(reservePublication ? maximum / 2L : 0L, publication?.Remaining ?? 0L);
     }
 
     [Fact]
@@ -102,7 +76,6 @@ public sealed class GovernorTests
     {
         ResourceGovernor governor = CreateGovernor();
         Assert.Throws<ArgumentOutOfRangeException>(() => governor.ReserveMemory(-1L));
-        Assert.Throws<ArgumentOutOfRangeException>(() => governor.ChargeWork(-1L));
         Assert.Throws<ArgumentOutOfRangeException>(() => governor.ChargeDecodedBytes(-1L));
         Assert.Throws<ArgumentOutOfRangeException>(() => governor.ChargeOutputBytes(-1L));
     }
@@ -132,7 +105,7 @@ public sealed class GovernorTests
     [Fact]
     public void InvalidLimitsAreRejected()
     {
-        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 0L };
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 0L };
         Assert.Throws<ArgumentOutOfRangeException>(() => limits.Validate());
         Assert.Throws<ArgumentOutOfRangeException>(() => new ResourceGovernor(limits, CancellationToken.None));
     }

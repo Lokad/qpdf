@@ -18,7 +18,7 @@ internal sealed class JoinedContent : IDisposable
     {
         ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(JoinedContent));
         byte[] bytes = RawBytes; memory.CheckOwner(graph.Governor);
-        graph.Token.ThrowIfCancellationRequested(); graph.Governor.CheckCancellation(); graph.Governor.ChargeWork(1L);
+        graph.Token.ThrowIfCancellationRequested(); graph.Governor.CheckCancellation();
         memory.TransferTo(graph.Memory);
         _bytes = null; _memory = null; memory.Dispose(); return bytes;
     }
@@ -47,7 +47,7 @@ internal sealed class JoinedContent : IDisposable
             if (length != 0L)
             {
                 memory.Reserve(checked(length + GovernedBufferStream.ArrayOverheadBytes));
-                governor.ChargeWork(length);
+                governor.NoteOperation();
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 bytes = new byte[(int)length];
             }
@@ -59,7 +59,7 @@ internal sealed class JoinedContent : IDisposable
                 byte[] part = parts[index];
                 if (newline)
                 {
-                    governor.ChargeWork(1L);
+                    governor.NoteOperation();
                     bytes[position++] = (byte)'\n';
                 }
                 GovernedBufferStream.CopyBytes(part, bytes.AsSpan(position, part.Length), governor, token, CancellationToken.None);
@@ -72,7 +72,7 @@ internal sealed class JoinedContent : IDisposable
     }
 
     private static void Visit(ResourceGovernor governor, CancellationToken token)
-    { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L); }
+    { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); }
 
     public void Dispose()
     {

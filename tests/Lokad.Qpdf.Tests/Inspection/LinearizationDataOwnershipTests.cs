@@ -114,7 +114,6 @@ public sealed class LinearizationDataOwnershipTests
             governorToken ? CancellationToken.None : cancellation.Token, memory =>
             {
                 Assert.True(memory.Length > 0);
-                Assert.True(governor.Snapshot().TotalWork > 0L);
                 observed = true;
                 cancellation.Cancel();
             }));
@@ -267,29 +266,6 @@ public sealed class LinearizationDataOwnershipTests
         Assert.False(child.IsAlive);
         governor.CompletePrivateStorage();
         Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
-    }
-
-    [Theory]
-    [InlineData("overflow-61-valid")]
-    [InlineData("compressed")]
-    public async Task LateAdmissionAndWorkFailuresRetireOnlyTheirAttempt(string id)
-    {
-        InMemoryQpdfHost host = Host(id);
-        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input.pdf"), CancellationToken.None);
-        QpdfLimits limits = QpdfLimits.Default;
-        ResourceGovernor warm = new(limits, CancellationToken.None);
-        using (IDisposable owner = (IDisposable)ReadOwned(document, limits, warm, CancellationToken.None)) { }
-        Assert.Equal(0L, warm.Snapshot().LiveMemoryBytes);
-        foreach (QpdfLimits tight in new[] { limits with { MaxMemoryBytes = warm.Snapshot().PeakMemoryBytes - 1L },
-            limits with { MaxWork = warm.Snapshot().TotalWork - 1L } })
-        {
-            ResourceGovernor failed = new(tight, CancellationToken.None);
-            Assert.Throws<QpdfLimitException>(() => ReadOwned(document, tight, failed, CancellationToken.None));
-            Assert.True(failed.Snapshot().TotalWork > 0L);
-            Assert.Equal(0L, failed.Snapshot().LiveMemoryBytes);
-        }
-        using (IDisposable retry = (IDisposable)ReadOwned(document, limits, warm, CancellationToken.None)) { }
-        Assert.Equal(0L, warm.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]

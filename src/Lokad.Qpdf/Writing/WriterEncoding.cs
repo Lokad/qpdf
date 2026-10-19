@@ -73,7 +73,7 @@ internal sealed class WriterEncoding : IDisposable
         if (!AsciiLiterals.TryGetValue(text, out bytes)) { return false; }
         CheckCancellation(governor, cancellationToken);
         CheckLength(bytes.Length, limits.MaxOutputBytes);
-        governor.ChargeWork(bytes.Length);
+        governor.NoteOperation();
         return true;
     }
 
@@ -84,7 +84,7 @@ internal sealed class WriterEncoding : IDisposable
         if (!NameLiterals.TryGetValue(name, out bytes)) { return false; }
         CheckCancellation(governor, cancellationToken);
         CheckLength(bytes.Length, limits.MaxOutputBytes);
-        governor.ChargeWork(bytes.Length);
+        governor.NoteOperation();
         return true;
     }
 
@@ -101,7 +101,7 @@ internal sealed class WriterEncoding : IDisposable
         ReadOnlySpan<byte> raw = name.RawSpan;
         if (!raw.IsEmpty && !IsRegular(raw[0]))
         {
-            governor.ChargeWork(1L); bytes = default; return false;
+            governor.NoteOperation(); bytes = default; return false;
         }
         // These bytes have immutable value lifetime and may survive a host's
         // retained chunk. Escaped names keep the independently encoded path.
@@ -109,7 +109,7 @@ internal sealed class WriterEncoding : IDisposable
         {
             CheckCancellation(governor, cancellationToken);
             int count = Math.Min(VisitBytes, raw.Length - offset);
-            governor.ChargeWork(count);
+            governor.NoteOperation();
             foreach (byte value in raw.Slice(offset, count))
             {
                 if (!IsRegular(value)) { bytes = default; return false; }
@@ -117,7 +117,7 @@ internal sealed class WriterEncoding : IDisposable
             offset += count;
         }
         CheckLength(1L + raw.Length, Math.Min(limits.MaxOutputBytes, Array.MaxLength));
-        governor.ChargeWork(raw.Length);
+        governor.NoteOperation();
         bytes = name.RawMemory;
         return true;
     }
@@ -205,7 +205,7 @@ internal sealed class WriterEncoding : IDisposable
             {
                 CheckCancellation(governor, cancellationToken);
                 int count = Math.Min(VisitBytes, input.Length - offset);
-                governor.ChargeWork(count);
+                governor.NoteOperation();
                 for (int index = offset; index < offset + count; index++)
                 {
                     length += kind == Kind.Name ? NameWidth(input[index]) : LiteralWidth(input[index]);
@@ -226,7 +226,7 @@ internal sealed class WriterEncoding : IDisposable
         try
         {
             memory.Reserve(64L + (length == 0L ? 0L : 32L + length));
-            governor.ChargeWork(length);
+            governor.NoteOperation();
             CheckCancellation(governor, cancellationToken);
             // Fill writes every byte before the token can reach a sink.
             byte[] bytes = length == 0L ? Array.Empty<byte>() : GC.AllocateUninitializedArray<byte>((int)length);
@@ -242,7 +242,7 @@ internal sealed class WriterEncoding : IDisposable
         int used = 0;
         if (kind != Kind.Ascii)
         {
-            governor.ChargeWork(kind == Kind.Name ? 1L : 2L);
+            governor.NoteOperation();
             target[used++] = kind == Kind.Name ? (byte)'/' : kind == Kind.Hex ? (byte)'<' : (byte)'(';
             if (kind != Kind.Name) { target[target.Length - 1] = kind == Kind.Hex ? (byte)'>' : (byte)')'; }
         }
@@ -251,7 +251,7 @@ internal sealed class WriterEncoding : IDisposable
         {
             CheckCancellation(governor, cancellationToken);
             int count = Math.Min(VisitBytes, size - offset);
-            governor.ChargeWork(count);
+            governor.NoteOperation();
             int outputBytes = kind switch
             {
                 Kind.Ascii => count,
@@ -265,9 +265,9 @@ internal sealed class WriterEncoding : IDisposable
                     outputBytes += kind == Kind.Name ? NameWidth(input[index]) : LiteralWidth(input[index]);
                 }
                 // Admit encoding visits separately from the preceding width visits.
-                governor.ChargeWork(count);
+                governor.NoteOperation();
             }
-            governor.ChargeWork(outputBytes);
+            governor.NoteOperation();
             for (int index = offset; index < offset + count; index++)
             {
                 if (kind == Kind.Ascii)

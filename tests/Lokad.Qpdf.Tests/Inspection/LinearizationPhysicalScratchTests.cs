@@ -74,32 +74,4 @@ public sealed class LinearizationPhysicalScratchTests
             limits, warm, CancellationToken.None).Status);
         Assert.Equal(0L, warm.Snapshot().LiveMemoryBytes);
     }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task LateWorkFailureAndEitherCancellationTokenRetireScratch(bool governorCancellation)
-    {
-        InMemoryQpdfHost host = new();
-        QpdfPath path = QpdfPath.From("inputs/a.pdf");
-        host.AddInput(path, Input("part8-streamed-control"), QpdfInputOwnership.Copy);
-        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, path, CancellationToken.None);
-        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 32L * 1024L };
-        ResourceGovernor warm = new(limits, CancellationToken.None);
-        Assert.Equal(LinearizationStatus.Valid, LinearizationCheck.Inspect(document.Engine, document.PageCount,
-            limits, warm, CancellationToken.None).Status);
-        QpdfLimits tight = limits with { MaxWork = warm.Snapshot().TotalWork - 1L };
-        ResourceGovernor failed = new(tight, CancellationToken.None);
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => LinearizationCheck.Inspect(
-            document.Engine, document.PageCount, tight, failed, CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-        Assert.Equal(0L, failed.Snapshot().LiveMemoryBytes);
-        using CancellationTokenSource cancellation = new();
-        ResourceGovernor canceled = new(limits, governorCancellation ? cancellation.Token : CancellationToken.None);
-        cancellation.Cancel();
-        Assert.ThrowsAny<OperationCanceledException>(() => LinearizationCheck.Inspect(document.Engine,
-            document.PageCount, limits, canceled, governorCancellation ? CancellationToken.None : cancellation.Token));
-        Assert.Equal(0L, canceled.Snapshot().LiveMemoryBytes);
-        Assert.True(document.PageCount > 0);
-    }
 }

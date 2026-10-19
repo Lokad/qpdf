@@ -88,7 +88,7 @@ internal static class GovernedHost
         ArgumentNullException.ThrowIfNull(governor);
         cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         governor.PrepareExecutionResult();
-        PublicationWorkReservation? publication = governor.ReserveOutputWrapper();
+        PublicationReservation? publication = governor.ReserveOutputWrapper();
         bool acquired = false;
         try
         {
@@ -159,9 +159,9 @@ internal static class GovernedHost
     {
         private IQpdfOutputTransaction? _inner;
         private ResourceGovernor? _governor;
-        private PublicationWorkReservation? _publication;
+        private PublicationReservation? _publication;
 
-        internal GovernedTransaction(IQpdfOutputTransaction inner, ResourceGovernor governor, PublicationWorkReservation? publication)
+        internal GovernedTransaction(IQpdfOutputTransaction inner, ResourceGovernor governor, PublicationReservation? publication)
         { _inner = inner; _governor = governor; _publication = publication; }
 
         private IQpdfOutputTransaction Inner => _inner ?? throw new ObjectDisposedException(nameof(GovernedTransaction));
@@ -211,7 +211,7 @@ internal static class GovernedHost
         {
             IQpdfOutputTransaction? inner = _inner;
             ResourceGovernor? governor = _governor;
-            PublicationWorkReservation? publication = _publication;
+            PublicationReservation? publication = _publication;
             if (inner is null || governor is null) { return; }
             _inner = null; _governor = null; _publication = null;
             try { await inner.DisposeAsync().ConfigureAwait(false); }

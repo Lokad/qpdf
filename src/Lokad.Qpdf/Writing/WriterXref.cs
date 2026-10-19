@@ -35,7 +35,7 @@ internal sealed class WriterXref : IDisposable
         try
         {
             memory.Reserve(96L + (length == 0 ? 0L : 32L + length));
-            governor.ChargeWork(1L + length);
+            governor.NoteOperation();
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             return new WriterXref(memory, governor, token, length == 0 ? Array.Empty<byte>() : new byte[(int)length], field1, field2);
         }
@@ -55,7 +55,7 @@ internal sealed class WriterXref : IDisposable
         byte[] raw = Raw;
         int width = 1 + _field1 + _field2;
         if (_position == raw.Length) { throw new QpdfException("Cross-reference body exceeded its admitted capacity."); }
-        Governor.ChargeWork(1L + width);
+        Governor.NoteOperation();
         raw[_position] = type;
         WriterNumber.WriteUInt(raw.AsSpan(_position + 1, _field1), field1);
         WriterNumber.WriteUInt(raw.AsSpan(_position + 1 + _field1, _field2), field2);
@@ -69,7 +69,7 @@ internal sealed class WriterXref : IDisposable
         if (_stored is not null) { throw new InvalidOperationException("Cross-reference body has been completed."); }
         if (_position != Raw.Length) { throw new QpdfException("Cross-reference body is incomplete."); }
         long rawReservation = Raw.Length == 0 ? 0L : 32L + Raw.Length;
-        Governor.ChargeWork(1L);
+        Governor.NoteOperation();
         byte[] stored = compress ? FlateFilter.Encode(Raw, level, limits, Governor, Memory, _token) : Raw;
         _stored = stored;
         if (compress) { _raw = null; Memory.Release(rawReservation); }

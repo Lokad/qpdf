@@ -21,7 +21,6 @@ internal static class ArgvConfigurationReader
         while (cursor < argv.Count)
         {
             governor.CheckCancellation();
-            governor.ChargeWork(1L);
             string token = argv[cursor];
             if (token == "--") { global = false; cursor++; continue; }
             if (!token.StartsWith("--", StringComparison.Ordinal) || token.Length == 2)
@@ -105,7 +104,6 @@ internal static class ArgvConfigurationReader
                     for (int index = cursor + 1; index < labelsEnd; index++)
                     {
                         governor.CheckCancellation();
-                        governor.ChargeWork(1L);
                         labels.Add(argv[index]);
                     }
                     setting("setPageLabels", labels);
@@ -240,7 +238,6 @@ internal static class ArgvConfigurationReader
             get
             {
                 governor.CheckCancellation();
-                governor.ChargeWork(1L);
                 return inner[index];
             }
         }

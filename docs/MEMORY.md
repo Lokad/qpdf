@@ -153,10 +153,15 @@ need admission beneath that same live caller owner.
 Opening keeps its graph provisional until a document returns; failure refunds
 that unreturned graph after cleanup.
 
-Diagnostic messages share an invocation-local memo that is cleared during
-cleanup. Returned diagnostic records and text belong to a coarse result batch.
-An exclusive prepared buffer uses a small rollback receipt until it is exposed
-or abandoned; the receipt is never attached to a returned PDF object.
+Diagnostics store actual messages under count and UTF-8 byte ceilings, without
+message interning or predictions of future formatting. Suppressed warnings keep
+only their exit-status flag. Overflow fails explicitly and preserves the accepted
+prefix with a bounded terminal error. Actual summaries are admitted before
+publication and reused after commit. Their peak estimate precedes presentation
+storage; the final counter can include a higher peak. Returned diagnostic records
+and text belong to a coarse result batch. An exclusive prepared buffer uses a
+small rollback receipt until exposed or abandoned; that receipt is never attached
+to a returned PDF object. See [resource API changes](COMPATIBILITY.md#resource-api-and-behavior-changes).
 
 Custom hosts own identifiers they retain after their callbacks complete. Copy or
 admit that private storage under the host's durable owner. The built-in memory

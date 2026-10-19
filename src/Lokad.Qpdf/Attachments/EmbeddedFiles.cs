@@ -87,7 +87,7 @@ internal static class EmbeddedFiles
         foreach ((string key, QpdfObject value) in pairs)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             try
             {
                 EmbeddedAttachment? attachment = ParseAttachment(engine, key, value, limits, governor, cancellationToken);
@@ -203,7 +203,7 @@ internal static class EmbeddedFiles
             throw new QpdfParseException("Embedded-files name tree exceeds nesting budget.", null, null);
         }
 
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         if (node.TryGet(PdfName.FromAscii("Names"), out QpdfObject? namesRaw) && namesRaw is not null && namesRaw is not PdfNull)
         {
             if (namesRaw is not PdfArray names || names.Count % 2 != 0)
@@ -214,7 +214,7 @@ internal static class EmbeddedFiles
             for (int i = 0; i < names.Count; i += 2)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 if (names[i] is not PdfByteString keyBytes)
                 {
                     throw new QpdfParseException("Embedded-files name-tree keys must be strings.", null, null);
@@ -236,7 +236,7 @@ internal static class EmbeddedFiles
             foreach (QpdfObject item in kids.Items)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 int kidNumber = item is PdfReference kidReference ? kidReference.ObjectNumber : -1;
                 QpdfObject target = item is PdfReference reference ? ResolveRequired(engine, reference, "name-tree kid") : item;
                 if (target is not PdfDictionary kid)
@@ -377,7 +377,7 @@ internal static class EmbeddedFiles
             }
         }
 
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         string? specReference = value is PdfReference specLink
             ? specLink.ObjectNumber.ToString(System.Globalization.CultureInfo.InvariantCulture) + " " + specLink.Generation.ToString(System.Globalization.CultureInfo.InvariantCulture) + " R"
             : null;

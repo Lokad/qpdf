@@ -72,7 +72,7 @@ serialization controls and leave fileless inspection resources intact.
 `jobJsonFile` names a partial configuration in the invoking host's path context,
 and nested files share native sorted-key setter order. JSON objects retain the
 last value per key; repeated input/output/page declarations across files reject.
-Configuration files together fit `MaxInputBytes`; host memory/work/nesting and
+Configuration files together fit `MaxInputBytes`; host memory/nesting and
 operation/handle ceilings apply during loading. File identity cycles reject,
 crypto declarations reject before PDF/password access, and cancellation closes
 job input leases. Models remain admitted through execution and are disposed
@@ -109,7 +109,7 @@ echoing values.
   Malformed, mistyped, unresolvable, or unsupported catalog `/Version` fails;
   null or absent `/Version` keeps the header.
 - Integer scalars support the full signed 64-bit range and long leading-zero
-  tokens within host work/memory limits; writing preserves their source spelling
+  tokens within host memory limits; writing preserves their source spelling
   and inspection normalizes it. Repair replaces an object with null on integer
   conversion overflow; invalid in-range references instead consume one parser
   error and become null values. Real scalars retain their exact text, with bounded
@@ -125,14 +125,14 @@ echoing values.
   `\r` remains CR. Octal escapes preserve their decoded bytes. Inspection chooses
   literal or lowercase hex strings from decoded contents, independently of
   source spelling, and uses octal escapes for nonprintable literal bytes.
-  Name/literal unescaping and display scans check work/cancellation. Authored
+  Name/literal unescaping and display scans check cancellation. Authored
   invalid-hex, EOF, mismatched-terminator and root-word cases agree through
   valid/rebuilt xrefs. Reconstructed xrefs ignore orphan dictionary values;
   valid xrefs insert fake keys. Display buffers and parser attempts admit their
   storage. Nested indirect loads and compressed members have independent error
   thresholds through public inspection/rewrite and strict-rejection controls.
 - CLI stream-length repair scans for endstream/endobj within the current physical
-  object, obeying work/memory limits and cancellation. Missing, incorrect,
+  object, obeying memory limits and cancellation. Missing, incorrect,
   negative or unresolvable lengths recover with warnings; strict readers reject
   them. Copied repaired streams use the accepted payload length. Valid declared
   lengths preserve binary data without marker searching.
@@ -329,7 +329,7 @@ echoing values.
 ## Attachments profile
 
 - Embedded files live in the catalog `/Names` `/EmbeddedFiles` name tree
-  (`/Names` pairs plus `/Kids` branches, within nesting and work budgets).
+  (`/Names` pairs plus `/Kids` branches, within nesting/container bounds and cancellation).
   Keys decode as PDF text (UTF-16 with a byte-order mark, otherwise
   PDFDocEncoding) and match request keys by exact ordinal text.
 - `Qpdf.ListAttachmentsAsync` reports key, preferred file name, description,
@@ -374,10 +374,10 @@ echoing values.
 ## Governance
 
 Every path runs under one per-job governor: validated `QpdfLimits` budgets
-for inputs, outputs, memory, work, decoded bytes, stream-filter counts, host operations, handles,
+for inputs, outputs, memory, decoded bytes, stream-filter counts, host operations, handles,
 diagnostics, nesting depth, and repair error tolerance, plus cooperative cancellation. Diagnostics
 carry stable codes and never embed input content, paths beyond logical
-names, host exception text, or stack traces. `--parser-max-nesting=n` (within 499, the upstream default), `--max-stream-filters=n` (default 25), `--parser-max-container-size=n` (default 4294967295), and `--parser-max-container-size-damaged=n` (default 5000, governing repair trial-parses) tighten parser budgets per invocation through the nested job `global` object as well, within host ceilings an invocation value can never raise (exceeding one fails with BudgetExceeded); `--no-default-limits` lifts unspecified parser-error, damaged-container and filter defaults under default-constructed options; explicit invocation values and host ceilings remain binding. `--parser-max-errors=n` (default 15; zero removes the numeric threshold within host ceilings) governs errors per indirect object/member in repair mode: reaching the finite threshold replaces the object with null and warns; the proximity guard and the additional nearby orphan-value guard remain at zero; a sufficient good-token gap bypasses the orphan guard. Duplicate integer values account for disambiguating lookahead once, and nested containers restore their own orphan context. Valid-xref unknown words repair to strings; reconstructed-xref unknown words repair to null elements. Strict typed parsing and `--suppress-recovery` still fail on malformed syntax. Bounded nested/object-stream, stream-length and dictionary recovery jobs have public/native inspection and rewrite evidence; strict rejection and independent parser/work ceilings remain protected. `--report-memory-usage` appends the governor's peak memory estimate to successful results without affecting the exit code; `--test-json-schema` (with `--json`) validates generated top-level keys against the matching `--json-help` description and fails explicitly on drift. `--verbose` appends an operation summary; `--keep-files-open=y|n` and `--keep-files-open-threshold=n` are validated performance hints with no observable behavior (host lease policy stays authoritative).
+names, host exception text, or stack traces. `--parser-max-nesting=n` (within 499, the upstream default), `--max-stream-filters=n` (default 25), `--parser-max-container-size=n` (default 4294967295), and `--parser-max-container-size-damaged=n` (default 5000, governing repair trial-parses) tighten parser budgets per invocation through the nested job `global` object as well, within host ceilings an invocation value can never raise (exceeding one fails with BudgetExceeded); `--no-default-limits` lifts unspecified parser-error, damaged-container and filter defaults under default-constructed options; explicit invocation values and host ceilings remain binding. `--parser-max-errors=n` (default 15; zero removes the numeric threshold within host ceilings) governs errors per indirect object/member in repair mode: reaching the finite threshold replaces the object with null and warns; the proximity guard and the additional nearby orphan-value guard remain at zero; a sufficient good-token gap bypasses the orphan guard. Duplicate integer values account for disambiguating lookahead once, and nested containers restore their own orphan context. Valid-xref unknown words repair to strings; reconstructed-xref unknown words repair to null elements. Strict typed parsing and `--suppress-recovery` still fail on malformed syntax. Bounded nested/object-stream, stream-length and dictionary recovery jobs have public/native inspection and rewrite evidence; strict rejection and independent parser/memory ceilings remain protected. `--report-memory-usage` appends the processing peak memory estimate before presentation storage to successful results without affecting the exit code; `--test-json-schema` (with `--json`) validates generated top-level keys against the matching `--json-help` description and fails explicitly on drift. `--verbose` appends an operation summary; `--keep-files-open=y|n` and `--keep-files-open-threshold=n` are validated performance hints with no observable behavior (host lease policy stays authoritative).
 
 The memory limit bounds an estimated per-job working set, not exact CLR object
 sizes or process RSS. Significant buffers, decoded payloads, pixel planes and
@@ -388,7 +388,7 @@ refund storage at explicit lifetime boundaries without waiting for GC; callers
 keep their supplied scopes alive through returned storage and async cleanup.
 Exact small-object sizes and independent metadata-alias billing are not public
 obligations. Validate the approximate target with the
-small representative normal/adversarial workloads. Preserve meaningful size/work
+small representative normal/adversarial workloads. Preserve meaningful size/structural
 limits, cancellation, cleanup, immutable usable outputs and actual leak/growth
 regressions. Concurrent jobs, host buffers and caller outputs need host policy.
 Page/source result metadata keeps its material storage admission through the
@@ -419,11 +419,14 @@ creation. Input-close faults preserve prior main/sidecar targets on all three
 routes; raw/decoded sidecar copies survive cleanup and fit one open handle.
 These cases do not establish every collision or group-publication contract.
 Diagnostic records/text/list growth and failure-history export use the shared
-governed machinery. Returned diagnostics form a coarse caller-owned batch;
-the private message memo clears with execution cleanup. Practical whole-job
+governed machinery. Returned diagnostics form a coarse caller-owned batch, with no message memo.
+Count/UTF-8 overflow fails explicitly while retaining the accepted prefix and a
+bounded terminal error; suppressed warnings consume no diagnostic storage quota.
+Summaries are admitted before publication and reused after commit. See
+[resource API changes](COMPATIBILITY.md#resource-api-and-behavior-changes). Practical whole-job
 estimates, meaningful limits and cleanup use representative workloads.
 
-Object-plan execution snapshots observed work/peaks after input cleanup, including failure
+Object-plan execution snapshots counters/peaks after input cleanup, including failure
 and cancellation. Whole-job memory validation uses the representative workloads; the bounded
 public CPU/codec controls do not establish universal cancellation latency.
 
@@ -434,7 +437,7 @@ lifetime. Lists/dictionaries,
 immutable container copies, references and overlapping stream copies are
 admitted before allocation. Working containers release after materialization.
 Recovery uses complete numeric headers rather than digit suffixes. Finite-memory argv/job JSON inspections with valid/rebuilt xrefs can load repeated repaired nulls
-without accumulating abandoned reservations; strict failure and observed-work
+without accumulating abandoned reservations; strict failure and cooperative
 cancellation retain nested cached values and clean up attempt storage.
 Successful parses release overwritten values and incoming equal keys; recovery
 sanity checks release dropped orphans, while ordinary repair retains them under

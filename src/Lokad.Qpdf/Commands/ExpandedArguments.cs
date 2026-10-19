@@ -44,7 +44,7 @@ internal sealed class ExpandedArguments : IDisposable
         int start = 0;
         for (int i = 0; i < text.Length; i++)
         {
-            if ((i & 255) == 0) { _governor.CheckCancellation(); _governor.ChargeWork(1L); }
+            if ((i & 255) == 0) { _governor.CheckCancellation(); }
             if (text[i] != '\n') { continue; }
             int end = i > start && text[i - 1] == '\r' ? i - 1 : i;
             AddBorrowed(CopySubstring(text, start, end - start));

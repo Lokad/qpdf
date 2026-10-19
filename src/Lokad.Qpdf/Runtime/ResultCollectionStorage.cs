@@ -36,7 +36,6 @@ internal static class ResultCollectionStorage
         {
             token.ThrowIfCancellationRequested();
             governor.CheckCancellation();
-            governor.ChargeWork(1L);
             entries[index] = source[index];
         }
         return entries;
@@ -46,7 +45,7 @@ internal static class ResultCollectionStorage
         ResourceGovernor governor, CancellationToken token)
     {
         memory.CheckOwner(governor);
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         memory.Reserve(ArrayBytes(1, itemBytes));
         T[] entries = [value];
         ReadOnlyCollection<T> result = View(memory, entries);

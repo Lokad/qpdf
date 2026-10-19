@@ -93,7 +93,6 @@ public sealed partial class FormTraversalOwnershipTests
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
         QpdfExecutionCounters after = prepared.Governor.Snapshot();
         Assert.Equal(before.LiveMemoryBytes, after.LiveMemoryBytes);
-        Assert.InRange(after.TotalWork - before.TotalWork, 0L, 32L);
         Assert.Same(prepared.Prior, Assert.Single(prepared.Diagnostics.Entries));
         prepared.Governor.ReleaseMemory(filler);
         Assert.Equal(baseline, prepared.Governor.Snapshot().LiveMemoryBytes);
@@ -115,7 +114,6 @@ public sealed partial class FormTraversalOwnershipTests
         QpdfExecutionCounters after = prepared.Governor.Snapshot();
         Assert.Equal(before.LiveMemoryBytes, after.LiveMemoryBytes);
         Assert.True(after.PeakMemoryBytes > before.LiveMemoryBytes);
-        Assert.Equal(before.TotalWork, after.TotalWork);
         Assert.Same(prepared.Prior, Assert.Single(prepared.Diagnostics.Entries));
         prepared.Governor.ReleaseMemory(filler);
     }

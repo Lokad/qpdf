@@ -51,18 +51,6 @@ public sealed class ContentJoinTests
     }
 
     [Fact]
-    public void LongCopiesCannotBypassFiniteWorkAndFailedJoinPreservesPriorFunding()
-    {
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = 131073L }, CancellationToken.None);
-        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
-        long live = governor.Snapshot().LiveMemoryBytes;
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => Join([new byte[131072]], governor, CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
-        Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
-        Assert.True(governor.Snapshot().TotalWork > 0L);
-    }
-
-    [Fact]
     public void CompletedAnalysisReleasesJoinedStorageWithoutTouchingBorrowedInputs()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
@@ -97,6 +85,5 @@ public sealed class ContentJoinTests
         using CancellationTokenSource source = new(); source.Cancel();
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? source.Token : CancellationToken.None);
         Assert.ThrowsAny<OperationCanceledException>(() => Join(Parts("a", "b"), governor, governorToken ? CancellationToken.None : source.Token));
-        Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes); Assert.Equal(0L, governor.Snapshot().TotalWork);
-    }
+        Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);     }
 }

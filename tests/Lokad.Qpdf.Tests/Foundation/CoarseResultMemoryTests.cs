@@ -29,7 +29,6 @@ public sealed class CoarseResultMemoryTests
             values.Add(governor.OwnedSnapshot());
         }
         Assert.Equal(120000L, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(2000L, governor.Snapshot().TotalWork);
         Assert.InRange(root.ReservedBytes, 120000L, 120000L + SharedMemoryOwner.BlockBytes);
         Assert.Equal(1, root.ReserveCalls);
         Assert.InRange(root.ResizeCalls, 1, 9);
@@ -69,7 +68,6 @@ public sealed class CoarseResultMemoryTests
         Assert.Equal("{}", result.Json);
         Assert.Equal(result, copy);
         Assert.Same(result.Counters, copy.Counters);
-        Assert.Equal(2L, result.Counters.TotalWork);
         GC.KeepAlive(result); GC.KeepAlive(copy);
         scope.Dispose();
         Assert.Equal(0L, root.ReservedBytes);
@@ -86,19 +84,18 @@ public sealed class CoarseResultMemoryTests
         governor.AbandonTypedCounters();
         Assert.Equal(0L, root.ReservedBytes);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(1L, governor.Snapshot().TotalWork);
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void ResultConstructionUsesPrepaidCapacityAndWorkAfterPublication(bool typed)
+    public void ResultConstructionUsesAdmittedCapacityAfterPublication(bool typed)
     {
         using CancellationTokenSource cancellation = new();
         RecordingMemoryBudget root = new(168L) { RefuseOnGrowth = 2 };
         using IMemoryScope scope = root.CreateScope();
         ResourceGovernor governor = new(QpdfLimits.Default with
-        { MaxMemoryBytes = 168L, MaxWork = 2L, CancellationCheckInterval = 1L },
+        { MaxMemoryBytes = 168L, CancellationCheckInterval = 1L },
             cancellation.Token, new MemoryHost(scope));
         if (typed) { governor.PrepareTypedResult(80L); }
         else { governor.ExpectExecutionResult(); }
@@ -116,7 +113,6 @@ public sealed class CoarseResultMemoryTests
             Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
             counters = result.Counters;
         }
-        Assert.Equal(2L, counters.TotalWork);
         Assert.Equal(168L, counters.LiveMemoryBytes);
         Assert.Equal(1, root.GrowthCalls);
         Assert.Equal(168L, root.ReservedBytes);

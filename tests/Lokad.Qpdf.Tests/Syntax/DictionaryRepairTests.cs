@@ -369,7 +369,6 @@ public sealed class DictionaryRepairTests
 
     [Theory]
     [InlineData(nameof(QpdfLimits.MaxMemoryBytes))]
-    [InlineData(nameof(QpdfLimits.MaxWork))]
     [InlineData(nameof(QpdfLimits.MaxDiagnostics))]
     public void DictionaryRepairDoesNotSwallowHostLimits(string limit)
     {
@@ -377,7 +376,6 @@ public sealed class DictionaryRepairTests
         limits = limit switch
         {
             nameof(QpdfLimits.MaxMemoryBytes) => limits with { MaxMemoryBytes = 64L },
-            nameof(QpdfLimits.MaxWork) => limits with { MaxWork = 1L },
             _ => limits with { MaxDiagnostics = 1L },
         };
         ResourceGovernor governor = new(limits, CancellationToken.None);

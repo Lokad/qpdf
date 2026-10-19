@@ -99,8 +99,7 @@ internal static class ParserContainers
         if ((!allowPopulated && entries.Count != 0) || count <= previous) { return; }
         int allowance = PrimeCapacityAllowance(count);
         long upper = DictionaryArrays(allowance, valueBytes);
-        if (upper > governor.RemainingMemoryBytes / 4L
-            || allowance > governor.RemainingWorkUnits / 4L) { return; }
+        if (upper > governor.RemainingMemoryBytes / 4L) { return; }
         memory.Reserve(upper);
         ResizeEntryCapacity(memory, entries, valueBytes, previous, count, upper);
     }

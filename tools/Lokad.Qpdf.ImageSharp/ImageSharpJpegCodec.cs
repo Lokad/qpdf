@@ -77,7 +77,7 @@ public sealed class ImageSharpJpegCodec : IQpdfJpegCodec
             {
                 context.CheckCancellation();
                 Span<byte> bytes = MemoryMarshal.AsBytes(accessor.GetRowSpan(row));
-                context.ChargeWork(bytes.Length);
+                context.CheckCancellation();
                 samples.Span.Slice(position, bytes.Length).CopyTo(bytes); position += bytes.Length;
             }
         });

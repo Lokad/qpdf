@@ -35,7 +35,7 @@ public sealed class BorrowedResourceEntryTests
         ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None), governor = new(QpdfLimits.Default, CancellationToken.None);
         using Prepared prepared = new(owned, construction); using PdfDictionary.EntryEnumerator entries = prepared.Entries();
         Assert.True(entries.MoveNext(governor, CancellationToken.None)); Assert.Same(prepared.Key, entries.Current.Key); Assert.Same(prepared.Value, entries.Current.Value);
-        Assert.False(entries.MoveNext(governor, CancellationToken.None)); Assert.Equal(2L, governor.Snapshot().TotalWork); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.False(entries.MoveNext(governor, CancellationToken.None)); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]
@@ -49,19 +49,7 @@ public sealed class BorrowedResourceEntryTests
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? source.Token : CancellationToken.None);
         using Prepared prepared = new(owned, construction); using PdfDictionary.EntryEnumerator entries = prepared.Entries(); source.Cancel();
         Assert.ThrowsAny<OperationCanceledException>(() => entries.MoveNext(governor, governorToken ? CancellationToken.None : source.Token));
-        Assert.Equal(0L, governor.Snapshot().TotalWork); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.True(entries.MoveNext()); Assert.Same(prepared.Value, entries.Current.Value);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void EntryWorkFailurePreservesTheCurrentBorrowedPair(bool owned)
-    {
-        ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None), governor = new(QpdfLimits.Default with { MaxWork = 1L }, CancellationToken.None);
-        using Prepared prepared = new(owned, construction); using PdfDictionary.EntryEnumerator entries = prepared.Entries();
-        Assert.True(entries.MoveNext(governor, CancellationToken.None));
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => entries.MoveNext(governor, CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.Same(prepared.Key, entries.Current.Key); Assert.Same(prepared.Value, entries.Current.Value); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.True(entries.MoveNext()); Assert.Same(prepared.Value, entries.Current.Value);
     }
 
     [Theory]

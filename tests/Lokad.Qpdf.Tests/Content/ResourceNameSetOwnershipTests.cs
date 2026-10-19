@@ -47,8 +47,7 @@ public sealed class ResourceNameSetOwnershipTests
         using CancellationTokenSource source = new(); source.Cancel();
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? source.Token : CancellationToken.None);
         Assert.ThrowsAny<OperationCanceledException>(() => ResourceNameSet.Create(governor, governorToken ? CancellationToken.None : source.Token));
-        Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes); Assert.Equal(0L, governor.Snapshot().TotalWork);
-    }
+        Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);     }
 
     [Fact]
     public void FailedGrowthPreservesPriorNamesAndRetriesWithTheSameOwner()
@@ -70,7 +69,7 @@ public sealed class ResourceNameSetOwnershipTests
     [Fact]
     public void FailedByteCopyDoesNotPublishOrRetainItsFreshKey()
     {
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = 128L }, CancellationToken.None);
+        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096L }, CancellationToken.None);
         using ResourceNameSet names = ResourceNameSet.Create(governor, CancellationToken.None);
         Assert.True(names.AddDecoded("A"u8)); long live = governor.Snapshot().LiveMemoryBytes;
         byte[] longName = new byte[8192]; Array.Fill(longName, (byte)'x');

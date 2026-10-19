@@ -110,7 +110,7 @@ internal static class ContentTransforms
         foreach (int pageId in pageIds)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (!copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? raw) || raw is not PdfDictionary)
             {
                 continue;
@@ -204,7 +204,7 @@ internal static class ContentTransforms
             int count = array?.Count ?? 1;
             for (int index = 0; index < count; index++)
             {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 QpdfObject item = array is null ? contents : array[index];
                 if (item is PdfReference reference)
                 {
@@ -259,7 +259,7 @@ internal static class ContentTransforms
 
     internal static List<int> ReplacedContentIds(QpdfObject? value, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
-        memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         List<int> ids = ParserContainers.CreateList<int>(memory);
         if (value is PdfReference reference)
         {
@@ -269,7 +269,7 @@ internal static class ContentTransforms
         {
             for (int i = 0; i < array.Count; i++)
             {
-                token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 if (array[i] is PdfReference item)
                 {
                     AddContentId(ids, item.ObjectNumber, memory, governor, token);
@@ -282,11 +282,11 @@ internal static class ContentTransforms
 
     private static void AddContentId(List<int> ids, int id, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (ids.Count == ids.Capacity)
         {
             long capacity = Math.Min(Array.MaxLength, Math.Max(4L, ids.Capacity * 2L));
-            governor.ChargeWork(checked(ids.Count + capacity));
+            governor.NoteOperation();
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         }
         ParserContainers.AddItem(memory, ids, id, sizeof(int));
@@ -395,7 +395,7 @@ internal static class ContentTransforms
             {
                 ContentEntries.Entry entry = entries.Get(entryIndex);
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 PdfStream? replacement = BuildNormalizedContent(entry.Stream, resolver, limits, governor, diagnostics, cancellationToken);
                 if (replacement is null) { continue; }
                 if (entry.ObjectId.HasValue)
@@ -493,13 +493,13 @@ internal static class ContentTransforms
             if (array.Count != 0)
             {
                 long bytes = checked(32L + array.Count * (long)IntPtr.Size);
-                graph.Memory.Reserve(bytes); governor.ChargeWork(array.Count);
+                graph.Memory.Reserve(bytes); governor.NoteOperation();
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 items = new QpdfObject[array.Count]; graph.Add(bytes);
             }
             for (int i = 0; i < array.Count; i++)
             {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 if (rewritten.TryGetValue(i, out PdfStream? replacement))
                 {
                     items[i] = replacement;
@@ -543,7 +543,7 @@ internal static class ContentTransforms
         while (tokenizer.TryReadToken(out ContentToken token))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             switch (token.Kind)
             {
                 case ContentTokenKind.Operator:
@@ -652,7 +652,7 @@ internal static class ContentTransforms
         {
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             int count = Math.Min(8192, span.Length - i);
-            governor.ChargeWork(count);
+            governor.NoteOperation();
             if (span.Slice(i, count).IndexOfAny((byte)'\n', (byte)'\r') >= 0)
             {
                 return true;
@@ -682,7 +682,7 @@ internal static class ContentTransforms
 
         while (i < end)
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             if (span[i] == (byte)'\\' && i + 1 < end)
             {
                 byte next = span[i + 1];
@@ -819,7 +819,7 @@ internal static class ContentTransforms
         PdfNameBytes.Cursor cursor = new(span, true);
         while (cursor.TryRead(out byte value))
         {
-            governor.ChargeWork(1L);
+            governor.NoteOperation();
             resolved.WriteByte(value);
         }
 
@@ -1204,7 +1204,7 @@ internal static class ContentTransforms
             }
 
             PdfDictionary replacement = ResourceRebuild.ReplaceResources(graph, page, rebuilt);
-            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(3L);
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             copier.ValidateReplacement(nodeId.Value);
             graph.Retain();
             copier.ReplaceCopiedObject(nodeId.Value, replacement);
@@ -1212,7 +1212,7 @@ internal static class ContentTransforms
         }
 
         QpdfObject? current = null;
-        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (copier.CopiedObjects.TryGetValue(nodeId.Value, out QpdfObject? stored))
         {
             current = stored;
@@ -1221,7 +1221,7 @@ internal static class ContentTransforms
         if (current is PdfStream stream)
         {
             PdfStream replacement = ResourceRebuild.ReplaceResources(graph, stream, rebuilt);
-            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(3L);
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             copier.ValidateReplacement(nodeId.Value);
             graph.Retain();
             copier.ReplaceCopiedObject(nodeId.Value, replacement);
@@ -1249,7 +1249,7 @@ internal static class ContentTransforms
             for (int index = 0; index < array.Count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.CheckCancellation(); governor.ChargeWork(1L);
+                governor.CheckCancellation();
                 QpdfObject item = array[index];
                 QpdfObject target = item is PdfReference reference ? ResolvePool(resolver, reference, governor, cancellationToken) ?? item : item;
                 if (target is not PdfStream stream)
@@ -1285,7 +1285,7 @@ internal static class ContentTransforms
             for (int index = 0; index < streams.Count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
+                governor.NoteOperation();
                 PdfStream stream = streams.Get(index, cancellationToken);
                 if (!chunks.TryAdd(stream, resolver, limits))
                 {
@@ -1307,7 +1307,7 @@ internal static class ContentTransforms
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        governor.ChargeWork(1L);
+        governor.NoteOperation();
         AnalysisChunks chunks = AnalysisChunks.Create(governor, cancellationToken);
         try
         {
@@ -1346,7 +1346,7 @@ internal static class ContentTransforms
                 if (token.Kind == ContentTokenKind.Operator)
                 {
                     ReadOnlySpan<byte> word = token.Data.Span;
-                    governor.CheckCancellation(); governor.ChargeWork(1L);
+                    governor.CheckCancellation();
                     if (word.SequenceEqual("ID"u8))
                     {
                         tokenizer.TryReadInlineImageData(out ContentToken _);

@@ -267,7 +267,7 @@ public sealed class InvocationTests
         if (flag == "--no-warn") { Assert.Empty(warnings); }
         else { Assert.Equal(QpdfDiagnosticCode.PageCountMismatch, Assert.Single(warnings).Code); }
         Assert.Equal(flag == "--no-warn" ? 1 : 2, result.Diagnostics.Count);
-        Assert.Equal(1L, result.Counters.DiagnosticCount);
+        Assert.Equal(flag == "--no-warn" ? 0L : 1L, result.Counters.DiagnosticCount);
         Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, host.OpenLeaseCount);
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
     }
