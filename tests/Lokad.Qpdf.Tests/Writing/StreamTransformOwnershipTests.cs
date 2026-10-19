@@ -1,6 +1,4 @@
-using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Runtime.ExceptionServices;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
@@ -12,7 +10,6 @@ namespace Lokad.Qpdf.Tests.Writing;
 [Collection(nameof(NameTableCollection))]
 public sealed class StreamTransformOwnershipTests
 {
-    private static readonly MethodInfo Transform = typeof(Qpdf).GetMethod("TransformStream", BindingFlags.NonPublic | BindingFlags.Static) ?? throw new InvalidOperationException();
     private static DocumentEngine Engine()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
@@ -25,9 +22,8 @@ public sealed class StreamTransformOwnershipTests
     private static PdfStream Run(ResourceGovernor governor, QpdfLimits limits, bool compress)
     {
         using DocumentEngine engine = Engine();
-        try { return Assert.IsType<PdfStream>(Transform.Invoke(null, [Source(), 4, engine, compress, "generalized", false, null, limits, governor, new DiagnosticBag(governor)])); }
-        catch (TargetInvocationException exception) when (exception.InnerException is not null)
-        { ExceptionDispatchInfo.Capture(exception.InnerException).Throw(); throw; }
+        return Assert.IsType<PdfStream>(StreamTransformer.Transform(Source(), 4, engine, compress,
+            "generalized", false, null, limits, governor, new DiagnosticBag(governor), governor.CancellationToken));
     }
     private sealed class Holder(object value, WeakReference governor)
     { internal object? Value = value; internal readonly WeakReference Governor = governor; }

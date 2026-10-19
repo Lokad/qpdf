@@ -3020,11 +3020,6 @@ public static partial class Qpdf
     private static int ParseCompressionLevel(string text, string option)
         => CompressionRequest.ParseLevel(text, option);
 
-    private static bool StreamFilterInLevel(string name, string decode)
-    {
-        return Filters.FilterChain.NameInLevel(name, decode);
-    }
-
     private static void TransformCopierStreams(
         GraphCopier copier,
         DocumentEngine engine,
@@ -3092,20 +3087,6 @@ public static partial class Qpdf
             }
         }
     }
-
-    private static QpdfObject? TransformStream(
-        PdfStream stream,
-        int number,
-        DocumentEngine engine,
-        bool compress,
-        string decode,
-        bool recompressFlate,
-        int? level,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics)
-        => StreamTransformer.Transform(stream, number, engine, compress, decode, recompressFlate, level,
-            limits, governor, diagnostics, governor.CancellationToken);
 
     private static PdfDictionary? TryGetInputCatalog(DocumentEngine engine)
     {

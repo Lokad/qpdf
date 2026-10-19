@@ -3975,33 +3975,6 @@ internal static class ArgvParser
         };
     }
 
-    private static string? TakeOptionalParameter(IReadOnlyList<string> argv, int terminatorAt, ref int i, string option)
-    {
-        string token = argv[i];
-        int equals = token.IndexOf('=');
-        if (equals >= 0)
-        {
-            i += 1;
-            return ConfigurationText.Slice(argv, token, equals + 1);
-        }
-
-        if (i + 1 >= terminatorAt)
-        {
-            i += 1;
-            return null;
-        }
-
-        string next = argv[i + 1];
-        if (next is null || next == "--" || (next.StartsWith("--", StringComparison.Ordinal) && next.Length > 2))
-        {
-            i += 1;
-            return null;
-        }
-
-        i += 2;
-        return next;
-    }
-
     internal static List<int> ParseCollateValue(string? value, long offset)
         => ParseCollateValue(value, offset, null);
 

@@ -388,12 +388,6 @@ internal static class FilterChain
         return null;
     }
 
-    private static bool IsBorrowedName(string name) => name.Length == 0
-        || ReferenceEquals(name, FlateFilter.FilterName) || ReferenceEquals(name, LzwFilter.FilterName)
-        || ReferenceEquals(name, AsciiHexFilter.FilterName) || ReferenceEquals(name, Ascii85Filter.FilterName)
-        || ReferenceEquals(name, RunLengthFilter.FilterName) || ReferenceEquals(name, DctFilter.FilterName)
-        || ReferenceEquals(name, "CCITTFaxDecode") || ReferenceEquals(name, "JPXDecode") || ReferenceEquals(name, "JBIG2Decode");
-
     private static string Expand(PdfName name, FilterPlan plan, CancellationToken token, Action? observe)
     {
         string? canonical = CanonicalName(name, plan.Governor, token);
