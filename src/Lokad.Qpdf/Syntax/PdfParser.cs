@@ -192,7 +192,7 @@ internal sealed class PdfParser
     {
         using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
         QpdfObject value = ParseObjectValue(tokenizer, depth, memory);
-        memory.Retain(value);
+        memory.RetainGraph();
         return value;
     }
 
@@ -221,7 +221,7 @@ internal sealed class PdfParser
     {
         using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
         QpdfObject value = ParseValue(tokenizer, depth, memory);
-        memory.Retain(value);
+        memory.RetainGraph();
         return value;
     }
 
@@ -387,7 +387,7 @@ internal sealed class PdfParser
     {
         using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
         (int number, int generation, QpdfObject value) = ParseIndirectObject(tokenizer, depth, memory);
-        memory.Retain(value);
+        memory.RetainGraph();
         return (number, generation, value);
     }
 

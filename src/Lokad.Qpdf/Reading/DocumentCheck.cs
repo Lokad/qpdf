@@ -92,7 +92,7 @@ internal static class DocumentCheck
             }
         }
 
-        outcomeMemory.Retain(outcomes, outcomeMemory.ReservedBytes, Array.Empty<QpdfObject>());
+        outcomeMemory.RetainGraph();
         return outcomes;
     }
 

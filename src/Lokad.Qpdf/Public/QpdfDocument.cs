@@ -131,7 +131,7 @@ public sealed class QpdfDocument : IAsyncDisposable
                 && PageInheritance.Resolve(engine, raw, Limits, _governor) is PdfDictionary) { continue; }
             if (PageInheritance.HasDictionaryAncestor(engine, location, "Resources"u8, Limits, _governor, cancellationToken)) { continue; }
             using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(_governor, 6, cancellationToken);
-            PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out int allocation);
+            PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
             PdfDictionary resources = PdfDictionaryRebuild.Complete(graph, entries, allocation);
             PdfDictionary page = PdfDictionaryRebuild.ReplaceEntry(graph, location.Page, "Resources"u8, resources);
             graph.Retain();

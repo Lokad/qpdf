@@ -42,7 +42,7 @@ internal sealed class HintPayload : IDisposable
     {
         byte[] bytes = Bytes;
         ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(HintPayload));
-        if (bytes.Length > 0) { memory.RetainAllocation(bytes, 32L + bytes.Length); }
+        if (bytes.Length > 0) { memory.RetainAllocation(32L + bytes.Length); }
         _bytes = null;
         return bytes;
     }

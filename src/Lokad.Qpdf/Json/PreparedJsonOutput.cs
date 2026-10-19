@@ -75,7 +75,7 @@ internal sealed class PreparedJsonOutput : IDisposable
         }
         if (escapeText)
         {
-            _textReceipt = _governor.RetainAllocation(text.Value, text.StringReservation);
+            _textReceipt = _governor.RetainAllocation(text.StringReservation);
             _text = text.Value;
             text.TransferToRetainedStorage(_governor);
         }
@@ -124,7 +124,7 @@ internal sealed class PreparedJsonOutput : IDisposable
         Sidecars.Clear();
         Sidecars.Capacity = 0;
         if (!_textEscaped && _text is not null && _textReceipt is not null)
-        { _governor.DropAllocation(_text, _textReceipt); }
+        { _governor.DropAllocation(_textReceipt); }
         _text = null; _textReceipt = null;
         memory.Dispose();
     }
@@ -149,10 +149,10 @@ internal sealed class JsonPayload : IDisposable
         JsonPayload payload = new(governor, bytes, name?.Value ?? string.Empty);
         try
         {
-            if (byteReservation != 0L) { payload._dataReceipt = memory.RetainAllocationReceipt(bytes, byteReservation); }
+            if (byteReservation != 0L) { payload._dataReceipt = memory.RetainAllocationReceipt(byteReservation); }
             if (name is not null)
             {
-                payload._nameReceipt = governor.RetainAllocation(name.Value, name.StringReservation);
+                payload._nameReceipt = governor.RetainAllocation(name.StringReservation);
                 name.TransferToRetainedStorage(governor);
             }
             return payload;
@@ -162,8 +162,8 @@ internal sealed class JsonPayload : IDisposable
 
     public void Dispose()
     {
-        if (_dataReceipt is not null) { _governor.DropAllocation(Data, _dataReceipt); }
-        if (_nameReceipt is not null) { _governor.DropAllocation(Name, _nameReceipt); }
+        if (_dataReceipt is not null) { _governor.DropAllocation(_dataReceipt); }
+        if (_nameReceipt is not null) { _governor.DropAllocation(_nameReceipt); }
         _dataReceipt = null; _nameReceipt = null; Data = Array.Empty<byte>(); Name = string.Empty;
     }
 }

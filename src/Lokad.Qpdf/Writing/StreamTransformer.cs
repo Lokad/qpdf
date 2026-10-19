@@ -56,8 +56,8 @@ internal static class StreamTransformer
         if (encoded) { data = FlateFilter.Encode(decoded, level, limits, governor, graph.Memory, token); }
         else { data = decoded; decodedMemory.TransferTo(graph.Memory); }
         decodedMemory.Dispose();
-        if (data.Length != 0) { graph.Add(data, checked(32L + data.Length)); }
-        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out int allocation);
+        if (data.Length != 0) { graph.Add(checked(32L + data.Length)); }
+        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         using PdfDictionary.EntryEnumerator source = stream.Dictionary.GetEntryEnumerator();
         while (source.MoveNext(governor, token))
         {
@@ -75,7 +75,7 @@ internal static class StreamTransformer
         }
         PdfDictionary header = PdfDictionaryRebuild.Complete(graph, entries, allocation);
         graph.Memory.Reserve(32L);
-        PdfStream result = PdfStream.FromOwnedData(header, data); graph.Add(result, 32L);
+        PdfStream result = PdfStream.FromOwnedData(header, data); graph.Add(32L);
         graph.Retain(); return result;
     }
 

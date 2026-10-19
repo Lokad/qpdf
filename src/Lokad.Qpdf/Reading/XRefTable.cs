@@ -103,7 +103,7 @@ internal sealed class XRefTable : IDisposable
         // aliases. Only the exclusive map/list receipt releases on disposal.
         values.Reserve(96L);
         XRefTable table = new(xrefOffset, entries, trailer, trailers, governor, containers.ReservedBytes);
-        if (valuesEscape) { values.Retain(table, 96L, trailers); }
+        if (valuesEscape) { values.RetainGraph(); }
         else
         {
             table._ownedValuesBytes = values.ReservedBytes;

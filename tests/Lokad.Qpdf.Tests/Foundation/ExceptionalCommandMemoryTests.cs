@@ -70,7 +70,7 @@ public sealed class ExceptionalCommandMemoryTests
             using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
             {
                 memory.Reserve(1048640L);
-                memory.Retain(PdfByteString.FromOwnedBytes(new byte[1048576], false));
+                memory.RetainGraph();
             }
             Assert.True(root.ReservedBytes > 1048576L);
             governor.AbandonExecutionResult();

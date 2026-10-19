@@ -54,7 +54,7 @@ public sealed class CoarseGraphMemoryTests
         using (ParserMemoryScope construction = ParserMemoryScope.Create(governor))
         {
             construction.Reserve(length + 64L);
-            construction.Retain(PdfByteString.FromOwnedBytes(new byte[length], false));
+            construction.RetainGraph();
         }
         QpdfJsonResult result = new JsonInspectionOutcome("{}", Array.Empty<QpdfDiagnostic>()).Present(governor);
         governor.FinishTypedCounters();
@@ -79,7 +79,7 @@ public sealed class CoarseGraphMemoryTests
         {
             construction.Reserve(length + 64L);
             PdfByteString value = PdfByteString.FromOwnedBytes(new byte[length], false);
-            construction.Retain(value);
+            construction.RetainGraph();
         }
         Assert.Equal(length + 64L, governor.PrivateRetainedBytes);
         Assert.True(root.ReservedBytes >= length + 64L);

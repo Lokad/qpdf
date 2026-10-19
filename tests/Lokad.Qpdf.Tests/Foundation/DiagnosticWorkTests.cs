@@ -164,7 +164,7 @@ public sealed class DiagnosticWorkTests
         PdfByteString value = new(new byte[1], false);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         memory.Reserve(80L);
-        memory.Retain(value);
+        memory.RetainGraph();
         return value;
     }
 

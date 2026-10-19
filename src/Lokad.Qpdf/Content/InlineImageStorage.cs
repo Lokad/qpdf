@@ -31,17 +31,17 @@ internal static class InlineImageStorage
         int capacity = checked(InlineImageDictionary.AllocationCount(raw, governor, token) + defaults + 5 + (data.Length == 0 ? 0 : 1));
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, capacity, token);
         dataMemory.TransferTo(graph.Memory);
-        if (data.Length != 0) { graph.Add(data, checked(32L + data.Length)); }
+        if (data.Length != 0) { graph.Add(checked(32L + data.Length)); }
         PdfDictionary converted = InlineImageDictionary.BuildWithResources(graph, raw, resources, diagnostics, resolver);
-        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out int allocation);
+        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         AddDefault(graph, entries, converted, "Type"u8, "XObject"u8);
         AddDefault(graph, entries, converted, "Subtype"u8, "Image"u8);
         using PdfDictionary.EntryEnumerator source = converted.GetEntryEnumerator();
         while (source.MoveNext(governor, token)) { entries.Assign(graph.Memory, governor, source.Current.Key, source.Current.Value, token); }
         PdfDictionary header = PdfDictionaryRebuild.Complete(graph, entries, allocation);
-        graph.Memory.Reserve(32L); PdfStream stream = PdfStream.FromOwnedData(header, data); graph.Add(stream, 32L);
+        graph.Memory.Reserve(32L); PdfStream stream = PdfStream.FromOwnedData(header, data); graph.Add(32L);
         PdfName name = Name(graph, resources as PdfDictionary, resolver, ref suffix);
-        graph.RetainParsed(raw, parsedMemory);
+        graph.RetainParsed(parsedMemory);
         return new(name, stream);
     }
 
@@ -156,15 +156,15 @@ internal sealed class InlineImageBuffer : IDisposable
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 8, token);
         bool encoded = compress && Output.Length > 0;
         byte[] data = encoded ? Encode(graph, level, limits) : Output.ToArray(graph.Memory, token);
-        if (data.Length != 0) { graph.Add(data, checked(32L + data.Length)); }
-        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out int allocation);
+        if (data.Length != 0) { graph.Add(checked(32L + data.Length)); }
+        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         if (encoded)
         {
             PdfName key = PdfDictionaryRebuild.CreateName(graph, "Filter"u8), value = PdfDictionaryRebuild.CreateName(graph, "FlateDecode"u8);
             entries.Assign(graph.Memory, governor, key, value, token);
         }
         PdfDictionary dictionary = PdfDictionaryRebuild.Complete(graph, entries, allocation);
-        graph.Memory.Reserve(32L); PdfStream stream = PdfStream.FromOwnedData(dictionary, data); graph.Add(stream, 32L);
+        graph.Memory.Reserve(32L); PdfStream stream = PdfStream.FromOwnedData(dictionary, data); graph.Add(32L);
         graph.Retain(); return stream;
     }
     [MethodImpl(MethodImplOptions.NoInlining)]

@@ -492,7 +492,7 @@ internal static class LinearizationCheck
             {
                 allocations.Memory.Reserve(48L);
                 SharedObjectEntry entry = new(minGroupLength + groupDeltas[group], signatures[group], memberDeltas[group] + 1L);
-                allocations.Add(entry, 48L);
+                allocations.Add(48L);
                 sharedEntries[group] = entry;
             }
 
@@ -500,7 +500,7 @@ internal static class LinearizationCheck
             SharedObjectTable sharedTable = new(
                 firstSharedObject, firstSharedOffset, (int)firstPageShared, groups,
                 objectWidth, minGroupLength, groupWidth, sharedEntries);
-            allocations.Add(sharedTable, 80L);
+            allocations.Add(80L);
 
             HintBitReader pages = new(combined, governor, cancellationToken);
             long minObjects = pages.ReadBits(32);
@@ -610,7 +610,7 @@ internal static class LinearizationCheck
                 allocations.Memory.Reserve(64L);
                 PageOffsetEntry entry = new(minObjects + deltaObjects[page], minPageLength + deltaLengths[page],
                     minContentOffset + contentOffsets[page], minContentLength + contentLengths[page], identifiers[page], numerators[page]);
-                allocations.Add(entry, 64L);
+                allocations.Add(64L);
                 pageEntries[page] = entry;
             }
 
@@ -619,7 +619,7 @@ internal static class LinearizationCheck
                 minObjects, firstPageOffset, deltaObjectsBits, minPageLength, deltaLengthBits,
                 minContentOffset, deltaContentOffsetBits, minContentLength, deltaContentLengthBits,
                 sharedCountBits, identifierBits, numeratorBits, sharedDenominator, pageEntries);
-            allocations.Add(pageTable, 144L);
+            allocations.Add(144L);
 
             OutlineTable? outlines = null;
             if (outlineAt >= 0L)
@@ -631,13 +631,13 @@ internal static class LinearizationCheck
                 long outlineLength = outlineReader.ReadBits(32);
                 allocations.Memory.Reserve(48L);
                 outlines = new OutlineTable(outlineFirst, outlineOffset, outlineCount, outlineLength);
-                allocations.Add(outlines, 48L);
+                allocations.Add(48L);
             }
 
             allocations.Memory.Reserve(128L + 64L);
             LinearizationData data = new(engine.Data.Length, fields.FirstPageObject, fields.FirstPageEnd, pageCount,
                 fields.XrefZero, lindictNumber, hintNumber, fields.FirstPage, spans[0], spans[1], pageTable, sharedTable, outlines);
-            allocations.Add(data, 128L);
+            allocations.Add(128L);
             return new LinearizationDataOwner(allocations, data);
         }
         catch { allocations.Dispose(); throw; }
@@ -658,7 +658,7 @@ internal static class LinearizationCheck
     private static T[] AllocateModelArray<T>(OwnedAllocationBatch allocations, int count, long itemBytes)
     {
         T[] array = AllocateHintArray<T>(allocations.Memory, count, itemBytes, allocations.Governor, allocations.Token);
-        if (count > 0) { allocations.Add(array, checked(32L + count * itemBytes)); }
+        if (count > 0) { allocations.Add(checked(32L + count * itemBytes)); }
         return array;
     }
 

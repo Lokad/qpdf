@@ -24,7 +24,7 @@ internal static class PageLabelStorage
         bool hasStart = specification.Start.HasValue && specification.Start.Value != 1;
         int capacity = 2 + (style.IsEmpty ? 0 : 4) + (hasStart ? 4 : 0) + (specification.Prefix is null ? 0 : 4);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, capacity, token);
-        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out int allocation);
+        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         if (!style.IsEmpty) { Assign(graph, entries, "S"u8, PdfDictionaryRebuild.CreateName(graph, style)); }
         if (hasStart) { Assign(graph, entries, "St"u8, Integer(graph, specification.Start.GetValueOrDefault())); }
         if (specification.Prefix is string prefix) { Assign(graph, entries, "P"u8, Prefix(graph, prefix)); }
@@ -36,7 +36,7 @@ internal static class PageLabelStorage
         ResourceGovernor governor, CancellationToken token)
     {
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 6 + (style is null ? 0 : 2) + (prefix is null ? 0 : 2), token);
-        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out int allocation);
+        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         if (style is not null) { Assign(graph, entries, "S"u8, style); }
         if (prefix is not null) { Assign(graph, entries, "P"u8, prefix); }
         Assign(graph, entries, "St"u8, Integer(graph, start));
@@ -50,13 +50,13 @@ internal static class PageLabelStorage
         int count = checked(items.Count * 2);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, checked(count + 6), token);
         long bytes = checked(32L + IntPtr.Size * (long)count);
-        graph.Memory.Reserve(bytes); QpdfObject[] numbers = new QpdfObject[count]; graph.Add(numbers, bytes);
+        graph.Memory.Reserve(bytes); QpdfObject[] numbers = new QpdfObject[count]; graph.Add(bytes);
         for (int i = 0; i < items.Count; i++)
         {
             Step(graph, 1L); numbers[i * 2] = Integer(graph, items[i].Index); numbers[i * 2 + 1] = items[i].Label;
         }
-        graph.Memory.Reserve(24L); PdfArray array = PdfArray.FromOwnedItems(numbers); graph.Add(array, 24L);
-        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out int allocation);
+        graph.Memory.Reserve(24L); PdfArray array = PdfArray.FromOwnedItems(numbers); graph.Add(24L);
+        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         Assign(graph, entries, "Nums"u8, array);
         PdfDictionary result = PdfDictionaryRebuild.Complete(graph, entries, allocation);
         graph.Retain(); return result;
@@ -71,8 +71,8 @@ internal static class PageLabelStorage
         if (!value.TryFormat(text, out int length, provider: CultureInfo.InvariantCulture))
         { throw new InvalidOperationException("Label number exceeds its bounded token storage."); }
         long bytes = GovernedText.StringBytes(length);
-        graph.Memory.Reserve(bytes); string token = text[..length].ToString(); graph.Add(token, bytes);
-        graph.Memory.Reserve(32L); PdfInteger result = new(token, value); graph.Add(result, 32L); return result;
+        graph.Memory.Reserve(bytes); string token = text[..length].ToString(); graph.Add(bytes);
+        graph.Memory.Reserve(32L); PdfInteger result = new(token, value); graph.Add(32L); return result;
     }
 
     private static PdfByteString Prefix(OwnedAllocationBatch graph, string prefix)
@@ -99,7 +99,7 @@ internal static class PageLabelStorage
         }
         int length = ascii || pdfDoc ? prefix.Length : checked(2 + prefix.Length * 2);
         long bytes = checked(32L + length); graph.Memory.Reserve(bytes);
-        byte[] encoded = new byte[length]; graph.Add(encoded, bytes);
+        byte[] encoded = new byte[length]; graph.Add(bytes);
         if (!ascii && !pdfDoc) { encoded[0] = 0xfe; encoded[1] = 0xff; }
         for (int offset = 0; offset < prefix.Length;)
         {
@@ -122,7 +122,7 @@ internal static class PageLabelStorage
             offset += count;
         }
         graph.Memory.Reserve(32L); PdfByteString result = PdfByteString.FromOwnedBytes(encoded, !ascii);
-        graph.Add(result, 32L); return result;
+        graph.Add(32L); return result;
     }
 
     private static void Step(OwnedAllocationBatch graph, long work)

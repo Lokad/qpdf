@@ -14,19 +14,20 @@ public sealed class ParsedAllocationBatchTests
         return Assert.IsType<PdfDictionary>(parser.ParseValue(new(Encoding.ASCII.GetBytes("<< /Width 123 /Text (abc) /Array [/A /B] >>")),0,memory));
     }
     [Fact]
-    public void FailedMixedHandoffRestoresSourceReceiptAndFreshGraphScope()
+    public void CanceledMixedHandoffPreservesSourceReceiptAndFreshGraphScope()
     {
-        ResourceGovernor governor=new(QpdfLimits.Default with{MaxWork=1200L},CancellationToken.None);
+        using CancellationTokenSource cancellation=new();
+        ResourceGovernor governor=new(QpdfLimits.Default,cancellation.Token);
         using ParserMemoryScope source=ParserMemoryScope.Create(governor);
         PdfDictionary parsed=Parse(governor,source);long sourceBytes=source.ReservedBytes;
         using OwnedAllocationBatch graph=OwnedAllocationBatch.Create(governor,2,CancellationToken.None);
-        PdfNameTable<QpdfObject> entries=PdfDictionaryRebuild.CreateEntries(graph,out int allocation);
+        PdfNameTable<QpdfObject> entries=PdfDictionaryRebuild.CreateEntries(graph,out long allocation);
         using PdfDictionary.EntryEnumerator iterator=parsed.GetEntryEnumerator();
         while(iterator.MoveNext(governor,CancellationToken.None)){entries.Assign(graph.Memory,governor,iterator.Current.Key,iterator.Current.Value,CancellationToken.None);}
         PdfDictionary result=PdfDictionaryRebuild.Complete(graph,entries,allocation);
         long before=governor.Snapshot().LiveMemoryBytes;
-        governor.ChargeWork(governor.RemainingWorkUnits);
-        Assert.Throws<QpdfLimitException>(()=>graph.RetainParsed(parsed,source));
+        cancellation.Cancel();
+        Assert.ThrowsAny<OperationCanceledException>(()=>graph.RetainParsed(source));
         Assert.Equal(sourceBytes,source.ReservedBytes);Assert.Equal(before,governor.Snapshot().LiveMemoryBytes);Assert.Equal(3,result.Count);Assert.Equal(3,parsed.Count);
     }
     [Fact]
@@ -44,10 +45,10 @@ public sealed class ParsedAllocationBatchTests
     {
         using ParserMemoryScope source=ParserMemoryScope.Create(governor);PdfDictionary parsed=Parse(governor,source);
         using OwnedAllocationBatch graph=OwnedAllocationBatch.Create(governor,2,CancellationToken.None);
-        PdfNameTable<QpdfObject> entries=PdfDictionaryRebuild.CreateEntries(graph,out int allocation);
+        PdfNameTable<QpdfObject> entries=PdfDictionaryRebuild.CreateEntries(graph,out long allocation);
         using PdfDictionary.EntryEnumerator iterator=parsed.GetEntryEnumerator();
         while(iterator.MoveNext(governor,CancellationToken.None)){entries.Assign(graph.Memory,governor,iterator.Current.Key,iterator.Current.Value,CancellationToken.None);}
-        PdfDictionary result=PdfDictionaryRebuild.Complete(graph,entries,allocation);graph.RetainParsed(parsed,source);
+        PdfDictionary result=PdfDictionaryRebuild.Complete(graph,entries,allocation);graph.RetainParsed(source);
         if(!text){return result.Keys;}
         Assert.True(result.TryGet(PdfName.FromAscii("Width"),out QpdfObject? value));return Assert.IsType<PdfInteger>(value).Text;
     }

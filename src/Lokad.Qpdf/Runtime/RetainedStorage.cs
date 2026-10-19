@@ -1,4 +1,3 @@
-using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Runtime;
@@ -48,34 +47,14 @@ internal sealed class RetainedStorage(ResourceGovernor governor)
         return bytes;
     }
 
-    internal long Retain(QpdfObject value, long reservedBytes)
-    {
-        ArgumentNullException.ThrowIfNull(value);
-        return KeepGraph(reservedBytes);
-    }
-
-    internal long Retain(object wrapper, long wrapperBytes, IReadOnlyList<QpdfObject> roots, long reservedBytes)
-    {
-        ArgumentNullException.ThrowIfNull(wrapper); ArgumentNullException.ThrowIfNull(roots);
-        if (wrapperBytes < 0L || wrapperBytes > reservedBytes)
-        { throw new InvalidOperationException("Wrapper estimate exceeds its construction owner."); }
-        return KeepGraph(reservedBytes);
-    }
-
     internal long Retain(OwnedAllocationBatch allocations, long reservedBytes)
     {
-        allocations.ValidateRetention();
+        allocations.Token.ThrowIfCancellationRequested(); _governor.CheckCancellation();
         if (allocations.ResultLifetime && !_governor.OwnsDocumentCounters) { return RetainResult(reservedBytes); }
-        return KeepGraph(reservedBytes);
+        return RetainGraph(reservedBytes);
     }
 
-    internal long Retain(OwnedAllocationBatch allocations, QpdfObject parsed, long reservedBytes)
-    {
-        ArgumentNullException.ThrowIfNull(parsed);
-        return Retain(allocations, reservedBytes);
-    }
-
-    private long KeepGraph(long bytes)
+    internal long RetainGraph(long bytes)
     {
         if (!_governor.OwnsDocumentCounters) { return Keep(bytes, false); }
         return _governor.DocumentAccepted ? Keep(bytes, true) : RetainResult(bytes);
@@ -102,9 +81,8 @@ internal sealed class RetainedStorage(ResourceGovernor governor)
         _resultBytes = 0L;
     }
 
-    internal Receipt RetainAllocation(object carrier, long reservedBytes)
+    internal Receipt RetainAllocation(long reservedBytes)
     {
-        ArgumentNullException.ThrowIfNull(carrier);
         bool callerOwned = _governor.OwnsDocumentCounters && _governor.DocumentAccepted;
         bool provisional = _governor.OwnsDocumentCounters && !_governor.DocumentAccepted;
         Receipt receipt = new(this, reservedBytes, callerOwned, provisional);
@@ -131,9 +109,9 @@ internal sealed class RetainedStorage(ResourceGovernor governor)
         receipt.CallerOwned = true;
     }
 
-    internal long DropAllocation(object carrier, Receipt receipt)
+    internal long DropAllocation(Receipt receipt)
     {
-        ArgumentNullException.ThrowIfNull(carrier); CheckReceipt(receipt);
+        CheckReceipt(receipt);
         receipt.Active = false;
         if (IsCallerOwned(receipt)) { _callerBytes -= receipt.Bytes; }
         else
@@ -152,10 +130,10 @@ internal sealed class RetainedStorage(ResourceGovernor governor)
 
     // Diagnostics/check details form one result batch; any of their immutable
     // records can escape. Memo links are private and end with the invocation.
-    internal long RetainDiagnostic(QpdfDiagnostic diagnostic, long reservedBytes)
+    internal long RetainDiagnostic(long reservedBytes)
         => _governor.OwnsDocumentCounters && !_governor.DocumentAccepted
             ? RetainResult(reservedBytes) : Keep(reservedBytes, true);
-    internal long RetainCheckOutcome(QpdfCheckOutcome outcome, long detailBytes, long reservedBytes)
+    internal long RetainCheckOutcome(long reservedBytes)
         => Keep(reservedBytes, true);
 
     internal string? FindDiagnosticMessage(string message, int hash)
@@ -196,7 +174,7 @@ internal sealed class RetainedStorage(ResourceGovernor governor)
         try
         {
             MessageNode node = new(diagnostic.Message, messageHash, _messages);
-            long retained = RetainDiagnostic(diagnostic, reservedBytes);
+            long retained = RetainDiagnostic(reservedBytes);
             _messages = node;
             _messageCount++;
             _memoBytes += MessageNodeBytes;

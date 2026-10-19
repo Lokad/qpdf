@@ -140,8 +140,8 @@ public sealed class ContentBufferGraphTests
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 2, CancellationToken.None);
         byte[] actual = joined.TakeBytes(graph); Assert.Same(expected, actual); Assert.Equal("q\nQ"u8.ToArray(), actual);
         Assert.Throws<ObjectDisposedException>(() => joined.RawBytes); Assert.Throws<ObjectDisposedException>(() => joined.TakeBytes(graph));
-        graph.Add(actual, actual.Length + 32L); graph.Memory.Reserve(32L);
-        PdfStream stream = PdfStream.FromOwnedData(DecoderOwnershipFixtures.Dictionary(), actual); graph.Add(stream, 32L); graph.Retain();
+        graph.Add(actual.Length + 32L); graph.Memory.Reserve(32L);
+        PdfStream stream = PdfStream.FromOwnedData(DecoderOwnershipFixtures.Dictionary(), actual); graph.Add(32L); graph.Retain();
         Assert.Same(actual, stream.AllocationCarrier); joined.Dispose(); graph.Dispose(); Assert.Equal("q\nQ"u8.ToArray(), stream.Data); GC.KeepAlive(stream);
     }
 

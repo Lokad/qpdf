@@ -21,7 +21,7 @@ public sealed class CompletedPdfNameTableTests
             table = Assert.IsType<PdfNameTable<object>>(result);
         }
         else { table.Freeze(memory, governor, CancellationToken.None); }
-        memory.Retain(table, table.StorageBytes, Array.Empty<QpdfObject>()); memory.Dispose();
+        memory.RetainGraph(); memory.Dispose();
         Assert.True(governor.Snapshot().LiveMemoryBytes >= table.StorageBytes);
         return (table, new WeakReference(memory), new WeakReference(governor), borrowed);
     }

@@ -26,7 +26,7 @@ internal static class InlineImageDictionary
         DiagnosticBag diagnostics, IIndirectResolver? resolver)
     {
         ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
-        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out int allocation);
+        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         using PdfDictionary.EntryEnumerator source = raw.GetEntryEnumerator();
         while (source.MoveNext(governor, token))
         {
@@ -122,7 +122,7 @@ internal static class InlineImageDictionary
         if (value is not PdfArray array || FilterAllocations(value, graph.Governor, graph.Token) == 0) { return value; }
         long bytes = checked(32L + (long)IntPtr.Size * array.Count);
         graph.Memory.Reserve(bytes); graph.Governor.ChargeWork(array.Count); Step(graph.Governor, graph.Token);
-        QpdfObject[] items = new QpdfObject[array.Count]; graph.Add(items, bytes);
+        QpdfObject[] items = new QpdfObject[array.Count]; graph.Add(bytes);
         for (int index = 0; index < items.Length; index++)
         {
             Step(graph.Governor, graph.Token); QpdfObject item = array[index];
@@ -133,7 +133,7 @@ internal static class InlineImageDictionary
             }
             items[index] = item;
         }
-        graph.Memory.Reserve(24L); PdfArray result = PdfArray.FromOwnedItems(items); graph.Add(result, 24L); return result;
+        graph.Memory.Reserve(24L); PdfArray result = PdfArray.FromOwnedItems(items); graph.Add(24L); return result;
     }
 
     private static ReadOnlySpan<byte> KeyName(PdfName key, ResourceGovernor governor, CancellationToken token)

@@ -5,17 +5,16 @@ namespace Lokad.Qpdf.Runtime;
 /// <summary>Owns a prepared projection and every fresh record/text allocation.</summary>
 internal sealed class DiagnosticProjection : IDisposable
 {
-    private readonly record struct Owned(object Carrier, RetainedStorage.Receipt Receipt);
     private ResourceGovernor? _governor;
     private ParserMemoryScope? _memory;
-    private Owned[]? _owned;
+    private RetainedStorage.Receipt[]? _owned;
     private ReadOnlyCollection<QpdfDiagnostic>? _diagnostics;
     private int _ownedCount;
     internal readonly int SourceCount;
     internal readonly long OutputBytes, DecodedBytes, PeakBytes;
     internal readonly bool HasWarning, HasError;
 
-    private DiagnosticProjection(ResourceGovernor governor, ParserMemoryScope memory, Owned[] owned,
+    private DiagnosticProjection(ResourceGovernor governor, ParserMemoryScope memory, RetainedStorage.Receipt[] owned,
         int sourceCount, long output, long decoded, long peak, bool warning, bool error)
     { _governor = governor; _memory = memory; _owned = owned; SourceCount = sourceCount; OutputBytes = output; DecodedBytes = decoded; PeakBytes = peak; HasWarning = warning; HasError = error; }
 
@@ -48,11 +47,11 @@ internal sealed class DiagnosticProjection : IDisposable
         DiagnosticProjection? projection = null;
         try
         {
-            memory.Reserve(88L + 24L + 16L * capacity);
-            projection = new(governor, memory, new Owned[capacity], source.Count, output, decoded, peak, warning, error);
+            memory.Reserve(88L + 24L + IntPtr.Size * (long)capacity);
+            projection = new(governor, memory, new RetainedStorage.Receipt[capacity], source.Count, output, decoded, peak, warning, error);
             memory.Reserve(count == 0 ? 0L : checked(24L + IntPtr.Size * (long)count));
             QpdfDiagnostic[] entries = count == 0 ? Array.Empty<QpdfDiagnostic>() : new QpdfDiagnostic[count];
-            if (count != 0) { projection.OwnScoped(entries, checked(24L + IntPtr.Size * (long)count)); }
+            if (count != 0) { projection.OwnScoped(checked(24L + IntPtr.Size * (long)count)); }
             int index = 0;
             foreach (QpdfDiagnostic diagnostic in source)
             {
@@ -77,7 +76,7 @@ internal sealed class DiagnosticProjection : IDisposable
             }
             memory.Reserve(24L);
             ReadOnlyCollection<QpdfDiagnostic> view = Array.AsReadOnly(entries);
-            projection.OwnScoped(view, 24L);
+            projection.OwnScoped(24L);
             projection._diagnostics = view;
             return projection;
         }
@@ -87,11 +86,11 @@ internal sealed class DiagnosticProjection : IDisposable
     private ResourceGovernor Governor => _governor ?? throw new ObjectDisposedException(nameof(DiagnosticProjection));
     private ParserMemoryScope Memory => _memory ?? throw new ObjectDisposedException(nameof(DiagnosticProjection));
 
-    private void OwnScoped(object carrier, long bytes)
+    private void OwnScoped(long bytes)
     {
         Governor.ChargeWork(1L);
-        RetainedStorage.Receipt receipt = Memory.RetainAllocationReceipt(carrier, bytes);
-        (_owned ?? throw new ObjectDisposedException(nameof(DiagnosticProjection)))[_ownedCount++] = new(carrier, receipt);
+        RetainedStorage.Receipt receipt = Memory.RetainAllocationReceipt(bytes);
+        (_owned ?? throw new ObjectDisposedException(nameof(DiagnosticProjection)))[_ownedCount++] = receipt;
     }
 
     private QpdfDiagnostic Format(QpdfDiagnosticCode code, ReadOnlySpan<DiagnosticPart> parts)
@@ -101,21 +100,21 @@ internal sealed class DiagnosticProjection : IDisposable
         Memory.Reserve(32L);
         QpdfDiagnostic diagnostic = new(code, QpdfDiagnosticSeverity.Info, text.Value);
         Governor.ChargeWork(1L);
-        RetainedStorage.Receipt receipt = Governor.RetainAllocation(text.Value, text.StringReservation);
-        (_owned ?? throw new ObjectDisposedException(nameof(DiagnosticProjection)))[_ownedCount++] = new(text.Value, receipt);
+        RetainedStorage.Receipt receipt = Governor.RetainAllocation(text.StringReservation);
+        (_owned ?? throw new ObjectDisposedException(nameof(DiagnosticProjection)))[_ownedCount++] = receipt;
         text.TransferToRetainedStorage(Governor);
-        OwnScoped(diagnostic, 32L);
+        OwnScoped(32L);
         return diagnostic;
     }
 
     internal IReadOnlyList<QpdfDiagnostic> Transfer()
     {
         ReadOnlyCollection<QpdfDiagnostic> result = _diagnostics ?? throw new ObjectDisposedException(nameof(DiagnosticProjection));
-        Owned[] ownedStorage = _owned ?? throw new ObjectDisposedException(nameof(DiagnosticProjection));
-        for (int index = 0; index < _ownedCount; index++) { Governor.PromoteAllocation(ownedStorage[index].Receipt); }
+        RetainedStorage.Receipt[] ownedStorage = _owned ?? throw new ObjectDisposedException(nameof(DiagnosticProjection));
+        for (int index = 0; index < _ownedCount; index++) { Governor.PromoteAllocation(ownedStorage[index]); }
         _diagnostics = null;
         _governor = null;
-        Owned[]? owned = _owned; _owned = null; _ownedCount = 0;
+        RetainedStorage.Receipt[]? owned = _owned; _owned = null; _ownedCount = 0;
         if (owned is not null) { Array.Clear(owned); }
         ParserMemoryScope? memory = _memory; _memory = null; memory?.Dispose();
         return result;
@@ -124,10 +123,10 @@ internal sealed class DiagnosticProjection : IDisposable
     public void Dispose()
     {
         ResourceGovernor? governor = _governor;
-        Owned[]? owned = _owned;
+        RetainedStorage.Receipt[]? owned = _owned;
         _diagnostics = null; _owned = null; _governor = null;
         if (governor is not null && owned is not null)
-        { for (int i = _ownedCount - 1; i >= 0; i--) { governor.DropAllocation(owned[i].Carrier, owned[i].Receipt); } }
+        { for (int i = _ownedCount - 1; i >= 0; i--) { governor.DropAllocation(owned[i]); } }
         if (owned is not null) { Array.Clear(owned); }
         _ownedCount = 0;
         ParserMemoryScope? memory = _memory; _memory = null; memory?.Dispose();

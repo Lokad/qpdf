@@ -88,7 +88,7 @@ public sealed class ContentHeaderRebuildTests
         PdfDictionary source = new(Enumerable.Range(0, 512).ToDictionary(index => PdfName.FromAscii("N" + index.ToString(System.Globalization.CultureInfo.InvariantCulture)), _ => (QpdfObject)PdfNull.Instance));
         PdfName key = PdfName.FromAscii("Contents"); byte[] accepted = new byte[61];
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = maximum }, CancellationToken.None);
-        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(93L); prior.RetainAllocation(accepted, 93L);
+        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(93L); prior.RetainAllocation(93L);
         long live = governor.Snapshot().LiveMemoryBytes;
         QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => Invoke(source, key, PdfNull.Instance, governor, strip));
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);

@@ -1,4 +1,3 @@
-using Lokad.Qpdf.Objects;
 
 namespace Lokad.Qpdf.Runtime;
 
@@ -59,46 +58,35 @@ internal sealed class ParserMemoryScope : IDisposable
         _reservedBytes = 0L;
     }
 
-    internal void Retain(QpdfObject value)
+    internal void RetainGraph()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         RequireOwnedStorage();
-        long retained = _governor.RetainValue(value, _reservedBytes);
-        _governor.ReleaseMemory(_reservedBytes - retained);
-        _reservedBytes = 0L;
-    }
-
-    internal void Retain(object wrapper, long wrapperBytes, IReadOnlyList<QpdfObject> roots)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        RequireOwnedStorage();
-        long retained = _governor.RetainValues(wrapper, wrapperBytes, roots, _reservedBytes);
+        long retained = _governor.RetainGraph(_reservedBytes);
         _governor.ReleaseMemory(_reservedBytes - retained);
         _reservedBytes = 0L;
     }
 
     // Transfer an allocation that outlives this construction scope into the
     // enclosing graph owner, preserving the scope's remaining storage.
-    internal void RetainAllocation(object carrier, long bytes)
+    internal void RetainAllocation(long bytes)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        ArgumentNullException.ThrowIfNull(carrier);
         if (bytes < 0L || bytes > _reservedBytes - _hostBytes)
         { throw new InvalidOperationException("Retained allocation exceeds its scope's ownership."); }
-        long retained = _governor.RetainValues(carrier, bytes, Array.Empty<QpdfObject>(), bytes);
+        long retained = _governor.RetainGraph(bytes);
         _reservedBytes -= bytes;
         _governor.ReleaseMemory(bytes - retained);
     }
 
     // An exclusive prepared owner can abandon its candidate without releasing
     // any other storage accepted by the same execution.
-    internal RetainedStorage.Receipt RetainAllocationReceipt(object carrier, long bytes)
+    internal RetainedStorage.Receipt RetainAllocationReceipt(long bytes)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        ArgumentNullException.ThrowIfNull(carrier);
         if (bytes < 0L || bytes > _reservedBytes - _hostBytes)
         { throw new InvalidOperationException("Retained allocation exceeds its scope's ownership."); }
-        RetainedStorage.Receipt receipt = _governor.RetainAllocation(carrier, bytes);
+        RetainedStorage.Receipt receipt = _governor.RetainAllocation(bytes);
         _reservedBytes -= bytes;
         return receipt;
     }
@@ -152,13 +140,13 @@ internal sealed class ParserMemoryScope : IDisposable
         _reservedBytes -= retained;
     }
 
-    internal void RetainAllocations(OwnedAllocationBatch allocations, QpdfObject parsed, long parsedBytes)
+    internal void RetainAllocations(OwnedAllocationBatch allocations, long parsedBytes)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         allocations.CheckOwner(this, _governor);
         long bytes = checked(allocations.Bytes + parsedBytes);
         if (bytes > _reservedBytes - _hostBytes) { throw new InvalidOperationException("Parsed allocation batch exceeds its scope's ownership."); }
-        long retained = _governor.RetainAllocations(allocations, parsed, bytes);
+        long retained = _governor.RetainAllocations(allocations, bytes);
         _reservedBytes -= retained;
     }
 

@@ -128,7 +128,7 @@ internal static class InlineImages
         using OwnedAllocationBatch final = OwnedAllocationBatch.Create(governor, 1, cancellationToken);
         final.Memory.Reserve(32L);
         PdfStream replaced = (rewritten.Stream ?? form).WithDictionary(formDict);
-        final.Add(replaced, 32L); final.Retain(); copier.ReplaceCopiedObject(formId, replaced);
+        final.Add(32L); final.Retain(); copier.ReplaceCopiedObject(formId, replaced);
     }
 
     private readonly record struct RewriteResult(bool Changed, PdfStream? Stream, QpdfObject? Resources);
@@ -295,10 +295,10 @@ internal static class InlineImages
         if (existingXObjects is not null and not (PdfDictionary or PdfNull)) { return existing; }
         if (resolvedXObjects is null)
         {
-            PdfNameTable<QpdfObject> blank = PdfDictionaryRebuild.CreateEntries(graph, out int blankAllocation);
+            PdfNameTable<QpdfObject> blank = PdfDictionaryRebuild.CreateEntries(graph, out long blankAllocation);
             resolvedXObjects = PdfDictionaryRebuild.Complete(graph, blank, blankAllocation);
         }
-        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out int allocation);
+        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         bool hasKey = false;
         if (existing is not null)
         {
@@ -327,7 +327,7 @@ internal static class InlineImages
             return resources;
         }
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 4, token);
-        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out int allocation);
+        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         using PdfDictionary.EntryEnumerator source = xobjects.GetEntryEnumerator();
         while (source.MoveNext(governor, token))
         { if (source.Current.Value is QpdfObject value) { entries.Assign(graph.Memory, governor, source.Current.Key, value, token); } }

@@ -147,7 +147,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
         {
             if (!cached.Borrowed && _valuesEscape)
             {
-                long retained = _governor.RetainValue(cached.Value, cached.ReservedBytes);
+                long retained = _governor.RetainGraph(cached.ReservedBytes);
                 _governor.ReleaseMemory(cached.ReservedBytes - retained);
                 Cache[number] = cached with { Borrowed = true };
                 _unborrowedBytes = checked(_unborrowedBytes - cached.ReservedBytes);
@@ -187,7 +187,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
         long discarded = replacing && !previous.Borrowed ? previous.ReservedBytes : 0L;
         long nextUnborrowed = checked(_unborrowedBytes - discarded + (borrowed ? 0L : parsed.ReservedBytes));
         long reservedBytes = parsed.ReservedBytes;
-        if (borrowed) { parsed.Retain(value); }
+        if (borrowed) { parsed.RetainGraph(); }
         Cache[number] = new CachedObject(value, reservedBytes, borrowed);
         _cachedNulls?.Remove(number);
         if (!borrowed) { parsed.Retain(); }

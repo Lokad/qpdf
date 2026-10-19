@@ -1,4 +1,3 @@
-using Lokad.Qpdf.Objects;
 
 namespace Lokad.Qpdf.Runtime;
 
@@ -173,18 +172,10 @@ internal sealed class ResourceGovernor
     internal void PromoteAllocation(RetainedStorage.Receipt receipt) => ValueOwners.PromoteAllocation(receipt);
     internal void GrowAllocation(RetainedStorage.Receipt receipt, long bytes) => ValueOwners.GrowAllocation(receipt, bytes);
 
-    internal long RetainValue(QpdfObject value, long reservedBytes)
+    internal long RetainGraph(long reservedBytes)
     {
         if (reservedBytes == 0L) { return 0L; }
-        RetainedStorage owners = ValueOwners;
-        try { return owners.Retain(value, reservedBytes); }
-        finally { ShrinkDiagnosticWork(); }
-    }
-
-    internal long RetainValues(object wrapper, long wrapperBytes, IReadOnlyList<QpdfObject> roots, long reservedBytes)
-    {
-        RetainedStorage owners = ValueOwners;
-        try { return owners.Retain(wrapper, wrapperBytes, roots, reservedBytes); }
+        try { return ValueOwners.RetainGraph(reservedBytes); }
         finally { ShrinkDiagnosticWork(); }
     }
 
@@ -194,36 +185,30 @@ internal sealed class ResourceGovernor
         return owners.Retain(allocations, reservedBytes);
     }
 
-    internal long RetainAllocations(OwnedAllocationBatch allocations, QpdfObject parsed, long reservedBytes)
+    internal RetainedStorage.Receipt RetainAllocation(long reservedBytes)
     {
         RetainedStorage owners = ValueOwners;
-        return owners.Retain(allocations, parsed, reservedBytes);
-    }
-
-    internal RetainedStorage.Receipt RetainAllocation(object carrier, long reservedBytes)
-    {
-        RetainedStorage owners = ValueOwners;
-        try { return owners.RetainAllocation(carrier, reservedBytes); }
+        try { return owners.RetainAllocation(reservedBytes); }
         finally { ShrinkDiagnosticWork(); }
     }
 
-    internal void DropAllocation(object carrier, RetainedStorage.Receipt receipt)
+    internal void DropAllocation(RetainedStorage.Receipt receipt)
     {
         RetainedStorage owners = _valueOwners ?? throw new InvalidOperationException("Allocation owner is unavailable.");
-        ReleaseMemory(owners.DropAllocation(carrier, receipt));
+        ReleaseMemory(owners.DropAllocation(receipt));
     }
 
-    internal long RetainDiagnostic(QpdfDiagnostic diagnostic, long reservedBytes)
+    internal long RetainDiagnostic(long reservedBytes)
     {
         RetainedStorage owners = ValueOwners;
-        try { return owners.RetainDiagnostic(diagnostic, reservedBytes); }
+        try { return owners.RetainDiagnostic(reservedBytes); }
         finally { ShrinkDiagnosticWork(); }
     }
 
-    internal long RetainCheckOutcome(QpdfCheckOutcome outcome, long detailBytes, long reservedBytes)
+    internal long RetainCheckOutcome(long reservedBytes)
     {
         RetainedStorage owners = ValueOwners;
-        try { return owners.RetainCheckOutcome(outcome, detailBytes, reservedBytes); }
+        try { return owners.RetainCheckOutcome(reservedBytes); }
         finally { ShrinkDiagnosticWork(); }
     }
 

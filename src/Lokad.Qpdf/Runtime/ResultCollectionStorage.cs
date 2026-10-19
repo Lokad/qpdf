@@ -9,9 +9,9 @@ internal static class ResultCollectionStorage
     {
         if (source.Count == 0) { return Array.Empty<T>(); }
         T[] entries = CopyItems(storage.Memory, source, itemBytes, storage.Governor, storage.Token);
-        storage.Add(entries, ArrayBytes(source.Count, itemBytes));
+        storage.Add(ArrayBytes(source.Count, itemBytes));
         ReadOnlyCollection<T> view = View(storage.Memory, entries);
-        storage.Add(view, 24L);
+        storage.Add(24L);
         return view;
     }
 

@@ -16,7 +16,7 @@ internal static class CheckOutcome
         try
         {
             QpdfCheckOutcome outcome = new(name, status, detail);
-            long retained = governor.RetainCheckOutcome(outcome, 0L, RecordBytes);
+            long retained = governor.RetainCheckOutcome(RecordBytes);
             governor.ReleaseMemory(RecordBytes - retained);
             return outcome;
         }
@@ -39,7 +39,7 @@ internal static class CheckOutcome
         {
             QpdfCheckOutcome outcome = new(name, status, detail.Value);
             long reserved = checked(RecordBytes + detail.StringReservation);
-            long retained = governor.RetainCheckOutcome(outcome, detail.StringReservation, reserved);
+            long retained = governor.RetainCheckOutcome(reserved);
             detail.TransferToRetainedStorage(governor);
             governor.ReleaseMemory(reserved - retained);
             return outcome;

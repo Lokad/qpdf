@@ -158,8 +158,8 @@ public sealed class OwnedPdfDictionaryStorageTests
         memory.Reserve(24L); PdfDictionary dictionary = PdfDictionary.FromOwnedEntries(table);
         // Borrowed key/value graphs stay caller-funded; these exclusive receipts
         // belong only to the wrapper and table, including its cached key view.
-        memory.RetainAllocation(table, table.StorageBytes);
-        memory.RetainAllocation(dictionary, 24L);
+        memory.RetainAllocation(table.StorageBytes);
+        memory.RetainAllocation(24L);
         return new(dictionary.Keys, new(dictionary), new(table), new(memory), new(governor), table.StorageBytes);
     }
 

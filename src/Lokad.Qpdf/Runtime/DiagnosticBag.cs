@@ -63,7 +63,7 @@ internal sealed class DiagnosticBag
         try
         {
             List<QpdfDiagnostic> entries = new();
-            RetainedStorage.Receipt storage = _governor.RetainAllocation(entries, 32L);
+            RetainedStorage.Receipt storage = _governor.RetainAllocation(32L);
             _entries = entries;
             _storage = storage;
         }
@@ -96,7 +96,7 @@ internal sealed class DiagnosticBag
         RetainedStorage.Receipt storage = Storage;
         _entries = null;
         _storage = null;
-        _governor.DropAllocation(entries, storage);
+        _governor.DropAllocation(storage);
     }
 
     internal void Add(QpdfDiagnosticCode code, QpdfDiagnosticSeverity severity, string message)
@@ -255,7 +255,7 @@ internal sealed class DiagnosticBag
         { _governor.ChargeWork(discardedWarnings.Count); _governor.CheckCancellation(); }
         long retained = cacheMessage
             ? _governor.RetainCachedDiagnostic(diagnostic, payloadBytes, messageHash)
-            : _governor.RetainDiagnostic(diagnostic, payloadBytes);
+            : _governor.RetainDiagnostic(payloadBytes);
         // Before the first visible record, suppression can borrow the empty
         // failure history. Once a visible record arrives, sever the private
         // warning references while keeping the caller's coarse batch charged.

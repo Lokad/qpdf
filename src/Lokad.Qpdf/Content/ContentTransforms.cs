@@ -352,7 +352,7 @@ internal static class ContentTransforms
         bool compress = request.Compress && joined.RawBytes.Length > 0;
         byte[] data = compress ? FlateFilter.Encode(joined.RawBytes, request.Level, limits, governor, graph.Memory, token) : joined.TakeBytes(graph);
         joined.Dispose(); AddContentBuffer(graph, data);
-        PdfNameTable<QpdfObject> header = PdfDictionaryRebuild.CreateEntries(graph, out int allocation);
+        PdfNameTable<QpdfObject> header = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         if (compress)
         {
             PdfName key = PdfDictionaryRebuild.CreateName(graph, "Filter"u8), filter = PdfDictionaryRebuild.CreateName(graph, "FlateDecode"u8);
@@ -363,12 +363,12 @@ internal static class ContentTransforms
     }
 
     private static void AddContentBuffer(OwnedAllocationBatch graph, byte[] data)
-    { if (data.Length != 0) { graph.Add(data, checked(data.Length + GovernedBufferStream.ArrayOverheadBytes)); } }
+    { if (data.Length != 0) { graph.Add(checked(data.Length + GovernedBufferStream.ArrayOverheadBytes)); } }
 
     private static PdfStream CreateContentStream(OwnedAllocationBatch graph, PdfDictionary dictionary, byte[] data)
     {
         graph.Token.ThrowIfCancellationRequested(); graph.Governor.CheckCancellation(); graph.Memory.Reserve(32L);
-        PdfStream stream = PdfStream.FromOwnedData(dictionary, data); graph.Add(stream, 32L); return stream;
+        PdfStream stream = PdfStream.FromOwnedData(dictionary, data); graph.Add(32L); return stream;
     }
     private static PdfDictionary NormalizePage(
         GraphCopier copier,
@@ -495,7 +495,7 @@ internal static class ContentTransforms
                 long bytes = checked(32L + array.Count * (long)IntPtr.Size);
                 graph.Memory.Reserve(bytes); governor.ChargeWork(array.Count);
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                items = new QpdfObject[array.Count]; graph.Add(items, bytes);
+                items = new QpdfObject[array.Count]; graph.Add(bytes);
             }
             for (int i = 0; i < array.Count; i++)
             {
@@ -508,7 +508,7 @@ internal static class ContentTransforms
 
                 items[i] = array[i];
             }
-            graph.Memory.Reserve(24L); PdfArray rebuilt = PdfArray.FromOwnedItems(items); graph.Add(rebuilt, 24L);
+            graph.Memory.Reserve(24L); PdfArray rebuilt = PdfArray.FromOwnedItems(items); graph.Add(24L);
             PdfDictionary result = PdfDictionaryRebuild.ReplaceEntry(graph, page, "Contents"u8, rebuilt); graph.Retain(); return result;
         }
 
@@ -1116,7 +1116,7 @@ internal static class ContentTransforms
         // A form adds one stream wrapper; a synthetic header can add a name/buffer.
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 11, cancellationToken);
         PdfNameTable<QpdfObject>? fonts = null, xobjects = null;
-        int fontAllocation = -1, xobjectAllocation = -1;
+        long fontAllocation = -1L, xobjectAllocation = -1L;
         bool changed = false;
         for (int sectionIndex = 0; sectionIndex < 2; sectionIndex++)
         {
@@ -1134,7 +1134,7 @@ internal static class ContentTransforms
                 continue;
             }
 
-            PdfNameTable<QpdfObject> kept = ResourceRebuild.CreateEntries(graph, out int allocation);
+            PdfNameTable<QpdfObject> kept = ResourceRebuild.CreateEntries(graph, out long allocation);
             if (sectionIndex == 0) { fonts = kept; fontAllocation = allocation; }
             else { xobjects = kept; xobjectAllocation = allocation; }
             using var sectionEntries = sectionDict.GetEntryEnumerator();
@@ -1170,7 +1170,7 @@ internal static class ContentTransforms
             return;
         }
 
-        PdfNameTable<QpdfObject> resourcesEntries = ResourceRebuild.CreateEntries(graph, out int resourceAllocation);
+        PdfNameTable<QpdfObject> resourcesEntries = ResourceRebuild.CreateEntries(graph, out long resourceAllocation);
         PdfName? fontKey = null, xobjectKey = null;
         using var resourceEntries = resources.GetEntryEnumerator();
         while (resourceEntries.MoveNext(governor, cancellationToken))
