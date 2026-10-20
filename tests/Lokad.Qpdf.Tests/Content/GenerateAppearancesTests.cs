@@ -392,6 +392,15 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >
 byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appearances", "--pages", ".", "1")).Pdf;
 byte[] bytes = await AppearanceBytesAsync(pdf, 0);
 Assert.Contains("(Hello) Tj", Encoding.ASCII.GetString(bytes));
+using JsonDocument full = await InspectAsync(pdf, "--json", "--json-key=qpdf");
+int forms = 0;
+foreach (JsonProperty entry in full.RootElement.GetProperty("qpdf")[1].EnumerateObject())
+{
+    if (entry.Value.TryGetProperty("stream", out JsonElement stream)
+        && stream.GetProperty("dict").TryGetProperty("/Subtype", out JsonElement subtype)
+        && subtype.GetString() == "/Form") { forms++; }
+}
+Assert.Equal(1, forms);
 }
 [Theory]
 [InlineData(false, "/Off", "/Off")]

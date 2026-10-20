@@ -17,8 +17,6 @@ internal static class GenerateAppearances
     internal static int Apply(
         IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
         IReadOnlyDictionary<GraphCopier, PdfDictionary?> formResources,
-        bool compress,
-        int? level,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
@@ -614,6 +612,7 @@ internal static class GenerateAppearances
         governor.NoteOperation();
         GenAppearance foundAp = FindGenAppearance(annot, resolver);
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
         PdfStream? found = foundAp.Stream;
         ReadOnlyMemory<byte> decoded;
         PdfDictionary appearanceDict;
@@ -622,19 +621,20 @@ internal static class GenerateAppearances
             double[] box = ReadBox(annot, "Rect", resolver) ?? [0.0, 0.0, 0.0, 0.0];
             double width = box[2] - box[0];
             double height = box[3] - box[1];
+            // Fixed header/resource containers; numeric text is admitted separately.
+            graph.Memory.Reserve(1024L); graph.Add(1024L);
             Dictionary<PdfName, QpdfObject> fresh = new()
             {
                 [PdfName.FromAscii("Type")] = PdfName.FromAscii("XObject"),
                 [PdfName.FromAscii("Subtype")] = PdfName.FromAscii("Form"),
-                [PdfName.FromAscii("BBox")] = BoxArray([0.0, 0.0, width, height], governor),
+                [PdfName.FromAscii("BBox")] = BoxArray([0.0, 0.0, width, height], graph),
                 [PdfName.FromAscii("Resources")] = new PdfDictionary(new Dictionary<PdfName, QpdfObject>
                 {
                     [PdfName.FromAscii("ProcSet")] = new PdfArray([PdfName.FromAscii("PDF"), PdfName.FromAscii("Text")]),
                 }),
             };
+            scratch.Reserve(44L);
             byte[] initial = Encoding.ASCII.GetBytes("/Tx BMC\nEMC\n");
-            PdfReference freshLink = copier.AddIndirectObjectWithId(new PdfStream(new PdfDictionary(fresh), initial), allocator);
-            allocator = checked(allocator + 1);
             appearanceDict = new PdfDictionary(fresh);
             decoded = initial;
         }
@@ -680,7 +680,6 @@ internal static class GenerateAppearances
 
         byte[] built = FilterAppearance(decoded, font.Appearance, encodedValue, encodedOpt, font.Size, bbox, limits, governor, scratch, cancellationToken);
         PdfDictionary? mergedResources = TryMergeDrFont(appearanceDict, font.FontName, formResources, resolver, governor, cancellationToken);
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
         PdfNameTable<QpdfObject> streamEntries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         using (PdfDictionary.EntryEnumerator source = appearanceDict.GetEntryEnumerator())
         {
@@ -719,13 +718,13 @@ internal static class GenerateAppearances
         return true;
     }
 
-    private sealed record GenAppearance(PdfStream? Stream, PdfReference? Link, PdfDictionary? Ap, string? State);
+    private readonly record struct GenAppearance(PdfStream? Stream, PdfDictionary? Ap);
 
     private static GenAppearance FindGenAppearance(PdfDictionary annot, PoolResolver resolver)
     {
         if (!annot.TryGet(PdfName.FromAscii("AP"), out QpdfObject? ap) || ap is null || ap is PdfNull)
         {
-            return new GenAppearance(null, null, null, null);
+            return new GenAppearance(null, null);
         }
 
         QpdfObject apTarget = ap is PdfReference apReference
@@ -733,12 +732,12 @@ internal static class GenerateAppearances
             : ap;
         if (apTarget is not PdfDictionary apDict)
         {
-            return new GenAppearance(null, null, null, null);
+            return new GenAppearance(null, null);
         }
 
         if (!apDict.TryGet(PdfName.FromAscii("N"), out QpdfObject? normal) || normal is null || normal is PdfNull)
         {
-            return new GenAppearance(null, null, apDict, null);
+            return new GenAppearance(null, apDict);
         }
 
         QpdfObject normalTarget = normal is PdfReference normalReference
@@ -746,12 +745,12 @@ internal static class GenerateAppearances
             : normal;
         if (normalTarget is PdfStream direct)
         {
-            return new GenAppearance(direct, normal as PdfReference, apDict, null);
+            return new GenAppearance(direct, apDict);
         }
 
         if (normalTarget is not PdfDictionary states)
         {
-            return new GenAppearance(null, null, apDict, null);
+            return new GenAppearance(null, apDict);
         }
 
         string state = string.Empty;
@@ -762,7 +761,7 @@ internal static class GenerateAppearances
 
         if (state.Length == 0)
         {
-            return new GenAppearance(null, null, apDict, null);
+            return new GenAppearance(null, apDict);
         }
 
         foreach (PdfName key in states.Keys)
@@ -774,7 +773,7 @@ internal static class GenerateAppearances
 
             if (!states.TryGet(key, out QpdfObject? found) || found is null)
             {
-                return new GenAppearance(null, null, apDict, state);
+                return new GenAppearance(null, apDict);
             }
 
             QpdfObject stateTarget = found is PdfReference foundReference
@@ -782,13 +781,13 @@ internal static class GenerateAppearances
                 : found;
             if (stateTarget is PdfStream stateStream)
             {
-                return new GenAppearance(stateStream, found as PdfReference, apDict, state);
+                return new GenAppearance(stateStream, apDict);
             }
 
-            return new GenAppearance(null, null, apDict, state);
+            return new GenAppearance(null, apDict);
         }
 
-        return new GenAppearance(null, null, apDict, state);
+        return new GenAppearance(null, apDict);
     }
 
     private static PdfDictionary BuildAp(PdfDictionary? ap, PdfReference link, OwnedAllocationBatch graph)
@@ -850,16 +849,20 @@ internal static class GenerateAppearances
         return numbers;
     }
 
-    private static PdfArray BoxArray(double[] values, ResourceGovernor governor)
+    private static PdfArray BoxArray(double[] values, OwnedAllocationBatch graph)
     {
-        List<QpdfObject> items = new(values.Length);
-        foreach (double value in values)
+        long bytes = checked(56L + IntPtr.Size * (long)values.Length);
+        graph.Memory.Reserve(bytes); graph.Add(bytes);
+        QpdfObject[] items = new QpdfObject[values.Length];
+        for (int i = 0; i < values.Length; i++)
         {
-            governor.ReserveMemory(32L);
-            items.Add(new PdfReal(FormatDouble(value), value));
+            graph.Token.ThrowIfCancellationRequested(); graph.Governor.CheckCancellation();
+            string text = FormatDouble(values[i]);
+            long itemBytes = checked(32L + GovernedText.StringBytes(text.Length));
+            graph.Memory.Reserve(itemBytes); graph.Add(itemBytes);
+            items[i] = new PdfReal(text, values[i]);
         }
-
-        return new PdfArray(items);
+        return PdfArray.FromOwnedItems(items);
     }
 
     private static ReadOnlyMemory<byte>? DecodeAppearance(

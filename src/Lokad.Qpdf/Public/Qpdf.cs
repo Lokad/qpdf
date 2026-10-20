@@ -425,7 +425,7 @@ public static partial class Qpdf
                         }
 
                         HashSet<int>? gateReached = CollectGenerateReached(gateParts, gateSurvivors, true, limits, governor, cancellationToken);
-                        flattenAllocator = Content.GenerateAppearances.Apply(occurrences, singleFormResources, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, gateReached, false, flattenAllocator);
+                        flattenAllocator = Content.GenerateAppearances.Apply(occurrences, singleFormResources, limits, governor, diagnostics, cancellationToken, gateReached, false, flattenAllocator);
                         needAppearances = false;
                     }
                     if (settings.FlattenAnnotations is not null)
@@ -1149,7 +1149,7 @@ public static partial class Qpdf
             }
 
             HashSet<int>? multiReached = CollectGenerateReached(multiGateParts, multiSurvivors, pruneUnreachableFields, limits, governor, cancellationToken);
-            multiFlattenAllocator = Content.GenerateAppearances.Apply(occurrences, multiFormResources, multiCompress, multiLevel, limits, governor, diagnostics, cancellationToken, multiReached, !pruneUnreachableFields, multiFlattenAllocator);
+            multiFlattenAllocator = Content.GenerateAppearances.Apply(occurrences, multiFormResources, limits, governor, diagnostics, cancellationToken, multiReached, !pruneUnreachableFields, multiFlattenAllocator);
             needAppearances = false;
         }
         if (settings.FlattenAnnotations is not null)

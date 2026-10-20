@@ -31,6 +31,11 @@ bytes; an escaped font spelling therefore follows the imported font after a
 collision. Rewriting admits bounded storage before allocation and preserves a
 malformed appearance unchanged when tokenization fails.
 
+Missing appearances emit only the generated Form stream, without an unreachable
+initial placeholder. Field values and choices now receive memory admission before
+text/byte materialization; large jobs can refuse earlier while preserving the
+same PDFDoc/UTF-16 and ASCII/WinAnsi/MacRoman conversion behavior.
+
 Appearance generation resolves escaped font names by decoded bytes: `/F1` and
 `/F#31` select and merge the same resource, including its WinAnsi/MacRoman
 encoding. Original appearance spelling, comments and whitespace are preserved
