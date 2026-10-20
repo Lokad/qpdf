@@ -6,6 +6,65 @@ using Lokad.Qpdf.Reading;
 namespace Lokad.Qpdf.Tests.Content;
 public sealed class OverlayTests
 {
+[Fact]
+public async Task DuplicateDestinationsKeepRangeAndSpecOrder()
+{
+using InMemoryQpdfHost host = HostWithTwo(BuildPdf(["q (Base) Q"]), BuildPdf(["BT (A) Tj ET", "BT (B) Tj ET"]));
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(host,
+    "--overlay", "inputs/o.pdf", "--from=2,1,2", "--to=1,1,1", "--",
+    "--overlay", "inputs/o.pdf", "--from=1", "--to=1", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+for (int i = 0; i < 4; i++)
+{ Assert.Contains(i % 2 == 0 ? "(B)" : "(A)", Encoding.ASCII.GetString(await FormContentAsync(pdf, "/Fx" + (i + 1)))); }
+}
+
+[Theory]
+[InlineData(false, "", false)]
+[InlineData(true, "", false)]
+[InlineData(false, "1", false)]
+[InlineData(true, "1", false)]
+[InlineData(false, "", true)]
+[InlineData(true, "1", true)]
+public async Task UnplacedPagesAreNotDecodedOrInspected(bool job, string to, bool malformed)
+{
+byte[] encoded;
+using (MemoryStream bytes = new())
+{
+using (System.IO.Compression.ZLibStream zip = new(bytes, System.IO.Compression.CompressionLevel.Optimal, true))
+{ zip.Write(Encoding.ASCII.GetBytes(new string(' ', 32768) + "q (Unused) Q")); }
+encoded = bytes.ToArray();
+}
+byte[] overlay = Inspection.CheckTests.Assemble([
+(1, "<< /Type /Catalog /Pages 2 0 R >>", null),
+(2, "<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 >>", null),
+(3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R >>", null),
+(4, "<< /Length 15 >>", "BT (Used) Tj ET\n"u8.ToArray()),
+(5, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents " + (malformed ? "42" : "6 0 R") + " >>", null),
+(6, "<< /Length " + encoded.Length + " /Filter /FlateDecode >>", encoded)], 1);
+using InMemoryQpdfHost host = HostWithTwo(BuildPdf(["q (Base) Q"]), overlay);
+QpdfExecutionOptions options = new(QpdfLimits.Default with { MaxDecodedBytes = 1024 });
+QpdfExecutionResult result = job
+    ? await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new { inputFile = "inputs/a.pdf", outputFile = "outputs/a.pdf", overlay = new[] { new { file = "inputs/o.pdf", to } } }), options, CancellationToken.None)
+    : await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--overlay", "inputs/o.pdf", "--to=" + to, "--", "outputs/a.pdf"]), options, CancellationToken.None);
+Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Empty(result.Diagnostics);
+Assert.Equal(0L, host.OpenLeaseCount);
+Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+if (to.Length != 0) { Assert.Equal(new HashSet<string>(["Used"]), await OverlayMarkersOnPageAsync(pdf, 0)); }
+}
+
+[Theory]
+[InlineData("inputs/o.pdf", "from", "9")]
+[InlineData("inputs/o.pdf", "repeat", "9")]
+[InlineData("missing", "from", "1")]
+public async Task EmptyPlacementsStillValidateRangesAndSource(string file, string key, string range)
+{
+using InMemoryQpdfHost host = HostWithTwo(BuildPdf(["q Q"]), BuildPdf(["q Q"]));
+QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation([
+    "inputs/a.pdf", "--overlay", file, "--to=", "--" + key + "=" + range, "--", "outputs/a.pdf"]), CancellationToken.None);
+Assert.Equal(QpdfExecutionStatus.Failed, result.Status); Assert.NotEmpty(result.Diagnostics);
+Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out _)); Assert.Equal(0L, host.OpenLeaseCount);
+}
+
 [Theory]
 [InlineData(false, false, false)]
 [InlineData(true, false, false)]

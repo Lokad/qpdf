@@ -1,3 +1,5 @@
+using Lokad.Qpdf.Runtime;
+
 namespace Lokad.Qpdf.Commands;
 
 internal sealed record OverlaySpec(string File, string? To, string? From, string? Repeat);
@@ -26,29 +28,20 @@ internal static class OverlayRanges
         }
     }
 
-    internal static IReadOnlyList<int> Resolve(string? range, int count, long maxEntries)
+    internal static IReadOnlyList<int> Resolve(string range, int count, long maxEntries,
+        ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
     {
         if (count < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(count));
         }
 
-        if (range is null)
-        {
-            List<int> all = new(count);
-            for (int page = 1; page <= count; page++)
-            {
-                all.Add(page);
-            }
-
-            return all;
-        }
-
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (range.Length == 0)
         {
             return [];
         }
 
-        return Pages.PageRanges.Expand(range, count, maxEntries);
+        return Pages.PageRanges.Expand(range, count, maxEntries, governor, memory);
     }
 }

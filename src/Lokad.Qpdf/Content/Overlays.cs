@@ -69,10 +69,9 @@ internal static class Overlays
 
         limits.Validate();
         ownership.CheckOwner(governor);
-        Dictionary<string, OverlaySource> sources = new(StringComparer.Ordinal);
         if ((underlays.Count == 0 && overlays.Count == 0) || occurrences.Count == 0)
         {
-            return new OverlayApplication(new List<GraphCopier>(sources.Values.Select(static source => source.Copier)), nextId, []);
+            return new OverlayApplication([], nextId, []);
         }
 
         if ((long)occurrences.Count > limits.MaxContainerSize)
@@ -80,36 +79,36 @@ internal static class Overlays
             throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), occurrences.Count, limits.MaxContainerSize);
         }
 
+        using ParserMemoryScope planning = ParserMemoryScope.Create(governor);
+        Dictionary<string, OverlaySource> sources = ParserContainers.CreateDictionary<string, OverlaySource>(planning);
         try
         {
             int allocator = nextId;
-            List<ResolvedSpec> resolvedUnderlays = new(underlays.Count);
+            GovernedIntDictionary<List<OverlayPlacement>> underlayPages = GovernedIntDictionary<List<OverlayPlacement>>.Create(planning, governor, IntPtr.Size, cancellationToken);
+            GovernedIntDictionary<List<OverlayPlacement>> overlayPages = GovernedIntDictionary<List<OverlayPlacement>>.Create(planning, governor, IntPtr.Size, cancellationToken);
             for (int index = 0; index < underlays.Count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ResolvedSpec resolved = await ResolveSpecAsync(host, primaryInput, underlays[index], index, allocator, occurrences.Count, recovery, limits, governor, diagnostics, sources, ownership, cancellationToken, retainedResolver is not null).ConfigureAwait(false);
-                resolvedUnderlays.Add(resolved);
+                await ResolveSpecAsync(host, primaryInput, underlays[index], index, allocator, occurrences.Count, recovery, limits, governor, diagnostics, sources, underlayPages, planning, ownership, cancellationToken, retainedResolver is not null).ConfigureAwait(false);
                 allocator = MaxAllocator(allocator, sources);
             }
 
-            List<ResolvedSpec> resolvedOverlays = new(overlays.Count);
             for (int index = 0; index < overlays.Count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ResolvedSpec resolved = await ResolveSpecAsync(host, primaryInput, overlays[index], index, allocator, occurrences.Count, recovery, limits, governor, diagnostics, sources, ownership, cancellationToken, retainedResolver is not null).ConfigureAwait(false);
-                resolvedOverlays.Add(resolved);
+                await ResolveSpecAsync(host, primaryInput, overlays[index], index, allocator, occurrences.Count, recovery, limits, governor, diagnostics, sources, overlayPages, planning, ownership, cancellationToken, retainedResolver is not null).ConfigureAwait(false);
                 allocator = MaxAllocator(allocator, sources);
             }
 
-            List<Dictionary<int, List<OverlayPlacement>>> underlayPages = BuildMapping(resolvedUnderlays, occurrences.Count);
-            List<Dictionary<int, List<OverlayPlacement>>> overlayPages = BuildMapping(resolvedOverlays, occurrences.Count);
-            Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache = new();
-            List<AcroFormCopy.OverlayFieldImport> imports = new();
+            Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache = ParserContainers.CreateDictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm>(planning);
+            List<AcroFormCopy.OverlayFieldImport> imports = ParserContainers.CreateList<AcroFormCopy.OverlayFieldImport>(ownership);
             for (int dest = 0; dest < occurrences.Count; dest++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 governor.NoteOperation();
-                if (underlayPages[dest].Count == 0 && overlayPages[dest].Count == 0)
+                IReadOnlyList<OverlayPlacement> below = underlayPages.TryGetValue(dest, out List<OverlayPlacement>? under) ? under : Array.Empty<OverlayPlacement>();
+                IReadOnlyList<OverlayPlacement> above = overlayPages.TryGetValue(dest, out List<OverlayPlacement>? over) ? over : Array.Empty<OverlayPlacement>();
+                if (below.Count == 0 && above.Count == 0)
                 {
                     continue;
                 }
@@ -124,26 +123,24 @@ internal static class Overlays
                     copier,
                     pageId,
                     (PdfDictionary)raw,
-                    underlayPages[dest],
-                    overlayPages[dest],
-                    resolvedUnderlays,
-                    resolvedOverlays,
+                    below,
+                    above,
                     formCache,
                     imports,
                     retainedResolver,
                     compress,
                     level,
                     limits,
-                    governor, ownership,
+                    governor, planning, ownership,
                     diagnostics,
                     cancellationToken,
                     ref allocator);
             }
 
-            List<GraphCopier> copiers = new(sources.Count);
+            List<GraphCopier> copiers = ParserContainers.CreateList<GraphCopier>(ownership);
             foreach (OverlaySource source in sources.Values)
             {
-                copiers.Add(source.Copier);
+                ParserContainers.AddItem(ownership, copiers, source.Copier, IntPtr.Size);
             }
 
             return new OverlayApplication(copiers, allocator, imports);
@@ -182,11 +179,11 @@ internal static class Overlays
 
     private sealed record PageBundle(QpdfObject? Resources, QpdfObject? Group, QpdfObject? BoxObject, double[]? Box, byte[]? Content, long Rotate, double UserUnit, bool HasTransform, bool DeferredCopy);
 
-    private sealed record ResolvedSpec(OverlaySource Source, int SpecIndex, IReadOnlyList<int> FromPages, IReadOnlyList<int> ToPages, IReadOnlyList<int> RepeatPages, Dictionary<int, PageBundle> Bundles);
+    private sealed record ResolvedSpec(OverlaySource Source, int SpecIndex, GovernedIntDictionary<PageBundle> Bundles);
 
-    private sealed record OverlayPlacement(int SpecIndex, int FromPage);
+    private readonly record struct OverlayPlacement(ResolvedSpec Spec, int FromPage);
 
-    private static async ValueTask<ResolvedSpec> ResolveSpecAsync(
+    private static async ValueTask ResolveSpecAsync(
         IQpdfHost host,
         QpdfPath primaryInput,
         OverlaySpec spec,
@@ -198,6 +195,8 @@ internal static class Overlays
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         Dictionary<string, OverlaySource> sources,
+        GovernedIntDictionary<List<OverlayPlacement>> pages,
+        ParserMemoryScope planning,
         ParserMemoryScope ownership,
         CancellationToken cancellationToken,
         bool deferCopy)
@@ -229,21 +228,9 @@ internal static class Overlays
                 }
 
                 GraphCopier copier = GraphCopier.CreateOwned(opened.Engine, governor, limits, firstId, ownership);
-                AcroFormCopy.OverlaySourceForm? formInfo = AcroFormCopy.TryReadOverlaySourceForm(opened.Engine, limits, governor, cancellationToken);
-                if (formInfo is not null)
-                {
-                    if (formInfo.FieldsNotArray)
-                    {
-                        diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Info, "Ignoring a source /Fields entry that is not an array while importing overlay form fields.");
-                    }
-
-                    if (formInfo.HasDirectNodes)
-                    {
-                        diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Info, "Ignoring a direct object as a field or annotation while importing overlay form fields.");
-                    }
-                }
-
-                source = new OverlaySource(opened, copier, count, formInfo, new HashSet<string>(StringComparer.Ordinal));
+                planning.Reserve(160L);
+                ParserContainers.EnsureEntryCapacity(planning, sources, IntPtr.Size);
+                source = new OverlaySource(opened, copier, count, null, new HashSet<string>(StringComparer.Ordinal));
                 sources[path.Value] = source;
             }
             catch
@@ -253,80 +240,60 @@ internal static class Overlays
             }
         }
 
-        IReadOnlyList<int> fromPages = spec.From is not null && spec.From.Length == 0
-            ? []
-            : OverlayRanges.Resolve(spec.From, source.PageCount, limits.MaxContainerSize);
-        IReadOnlyList<int> toPages = OverlayRanges.Resolve(spec.To, destCount, limits.MaxContainerSize);
-        IReadOnlyList<int> repeatPages = spec.Repeat is null || spec.Repeat.Length == 0
-            ? []
-            : OverlayRanges.Resolve(spec.Repeat, source.PageCount, limits.MaxContainerSize);
-        Dictionary<int, PageBundle> bundles = new();
-        HashSet<int> needed = new();
-        foreach (int page in fromPages)
-        {
-            needed.Add(page);
-        }
+        // Default ranges are implicit. Explicit ranges are fully validated even
+        // when their intersection yields no placements.
+        IReadOnlyList<int>? fromPages = spec.From is null ? null
+            : OverlayRanges.Resolve(spec.From, source.PageCount, limits.MaxContainerSize, governor, planning, cancellationToken);
+        IReadOnlyList<int>? toPages = spec.To is null ? null
+            : OverlayRanges.Resolve(spec.To, destCount, limits.MaxContainerSize, governor, planning, cancellationToken);
+        IReadOnlyList<int> repeatPages = spec.Repeat is null ? []
+            : OverlayRanges.Resolve(spec.Repeat, source.PageCount, limits.MaxContainerSize, governor, planning, cancellationToken);
+        int fromCount = fromPages?.Count ?? source.PageCount;
+        int toCount = toPages?.Count ?? destCount;
+        int placementCount = repeatPages.Count == 0 ? Math.Min(fromCount, toCount) : toCount;
+        if (placementCount == 0) { return; }
 
-        foreach (int page in repeatPages)
+        if (source.FormInfo is null)
         {
-            needed.Add(page);
-        }
-
-        foreach (int page in needed)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            bundles[page] = BuildBundle(source, page, limits, governor, ownership, diagnostics, cancellationToken, deferCopy);
-        }
-
-        return new ResolvedSpec(source, specIndex, fromPages, toPages, repeatPages, bundles);
-    }
-
-    private static List<Dictionary<int, List<OverlayPlacement>>> BuildMapping(
-        List<ResolvedSpec> specs,
-        int destCount)
-    {
-        List<Dictionary<int, List<OverlayPlacement>>> pages = new(destCount);
-        for (int dest = 0; dest < destCount; dest++)
-        {
-            pages.Add(new Dictionary<int, List<OverlayPlacement>>());
-        }
-
-        for (int specIndex = 0; specIndex < specs.Count; specIndex++)
-        {
-            ResolvedSpec spec = specs[specIndex];
-            for (int position = 0; position < spec.ToPages.Count; position++)
+            AcroFormCopy.OverlaySourceForm? formInfo = AcroFormCopy.TryReadOverlaySourceForm(source.Document.Engine, limits, governor, cancellationToken);
+            if (formInfo is not null)
             {
-                int dest = spec.ToPages[position] - 1;
-                if (dest < 0 || dest >= destCount)
-                {
-                    continue;
-                }
-
-                int from;
-                if (position < spec.FromPages.Count)
-                {
-                    from = spec.FromPages[position];
-                }
-                else if (spec.RepeatPages.Count > 0)
-                {
-                    from = spec.RepeatPages[(position - spec.FromPages.Count) % spec.RepeatPages.Count];
-                }
-                else
-                {
-                    continue;
-                }
-
-                if (!pages[dest].TryGetValue(specIndex, out List<OverlayPlacement>? list))
-                {
-                    list = new List<OverlayPlacement>();
-                    pages[dest][specIndex] = list;
-                }
-
-                list.Add(new OverlayPlacement(specIndex, from));
+                if (formInfo.FieldsNotArray)
+                { diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Info, "Ignoring a source /Fields entry that is not an array while importing overlay form fields."); }
+                if (formInfo.HasDirectNodes)
+                { diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Info, "Ignoring a direct object as a field or annotation while importing overlay form fields."); }
+                planning.Reserve(64L);
+                source = source with { FormInfo = formInfo };
+                sources[path.Value] = source;
             }
         }
 
-        return pages;
+        GovernedIntDictionary<PageBundle> bundles = GovernedIntDictionary<PageBundle>.Create(planning, governor, IntPtr.Size, cancellationToken);
+        GovernedIntSet needed = GovernedIntSet.Create(planning, governor, cancellationToken);
+        planning.Reserve(40L);
+        ResolvedSpec resolved = new(source, specIndex, bundles);
+        for (int position = 0; position < placementCount; position++)
+        {
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            int dest = toPages is null ? position : toPages[position] - 1;
+            int from = position < fromCount ? (fromPages is null ? position + 1 : fromPages[position])
+                : repeatPages[(position - fromCount) % repeatPages.Count];
+            if (!pages.TryGetValue(dest, out List<OverlayPlacement>? placements))
+            {
+                placements = ParserContainers.CreateList<OverlayPlacement>(planning);
+                pages.TryAdd(planning, dest, placements);
+            }
+            // Specs append in declaration order; each spec preserves range order
+            // and duplicates, so neither grouping nor sorting is needed later.
+            ParserContainers.AddItem(planning, placements, new OverlayPlacement(resolved, from), 16L);
+            needed.Add(planning, from);
+        }
+        foreach (int page in needed)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            planning.Reserve(224L); // Bundle, optional rectangle and deferred-copy record.
+            bundles.TryAdd(planning, page, BuildBundle(source, page, limits, governor, ownership, diagnostics, cancellationToken, deferCopy));
+        }
     }
 
     private static PageBundle BuildBundle(
@@ -512,10 +479,8 @@ internal static class Overlays
         GraphCopier copier,
         int pageId,
         PdfDictionary page,
-        Dictionary<int, List<OverlayPlacement>> underlays,
-        Dictionary<int, List<OverlayPlacement>> overlays,
-        List<ResolvedSpec> resolvedUnderlays,
-        List<ResolvedSpec> resolvedOverlays,
+        IReadOnlyList<OverlayPlacement> underlays,
+        IReadOnlyList<OverlayPlacement> overlays,
         Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache,
         List<AcroFormCopy.OverlayFieldImport> imports,
         IIndirectResolver? retainedResolver,
@@ -523,6 +488,7 @@ internal static class Overlays
         int? level,
         QpdfLimits limits,
         ResourceGovernor governor,
+        ParserMemoryScope planning,
         ParserMemoryScope ownership,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken,
@@ -614,39 +580,25 @@ internal static class Overlays
         Dictionary<string, PdfReference> added = new(StringComparer.Ordinal);
         using GovernedBufferStream stacked = new(governor, limits.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes), cancellationToken, 256);
         double[] destTransform = TransformMatrix(placeBox, rotate, userUnit, true);
-        foreach (KeyValuePair<int, List<OverlayPlacement>> group in SortedGroups(underlays))
+        foreach (OverlayPlacement placement in underlays)
         {
-            foreach (OverlayPlacement placement in group.Value)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                OverlayForm? form = GetOrBuildOverlayForm(resolvedUnderlays[group.Key], placement, formCache, compress, level, limits, governor, ownership, diagnostics, cancellationToken, ref allocator);
-                if (form is null)
-                {
-                    continue;
-                }
-
-                string name = UniqueFxName(taken, ref suffix);
-                added[name] = form.Link;
-                AppendPlacement(stacked, name, PlacementMatrix(form.Box, form.FormMatrix, placeBox, destTransform, true, false));
-            }
+            cancellationToken.ThrowIfCancellationRequested();
+            OverlayForm? form = GetOrBuildOverlayForm(placement, formCache, compress, level, limits, governor, planning, ownership, diagnostics, cancellationToken, ref allocator);
+            if (form is null) { continue; }
+            string name = UniqueFxName(taken, ref suffix);
+            added[name] = form.Link;
+            AppendPlacement(stacked, name, PlacementMatrix(form.Box, form.FormMatrix, placeBox, destTransform, true, false));
         }
 
         AppendPlacement(stacked, "Fx0", PlacementMatrix(placeBox, destMatrix, media, destTransform, false, false));
-        foreach (KeyValuePair<int, List<OverlayPlacement>> group in SortedGroups(overlays))
+        foreach (OverlayPlacement placement in overlays)
         {
-            foreach (OverlayPlacement placement in group.Value)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                OverlayForm? form = GetOrBuildOverlayForm(resolvedOverlays[group.Key], placement, formCache, compress, level, limits, governor, ownership, diagnostics, cancellationToken, ref allocator);
-                if (form is null)
-                {
-                    continue;
-                }
-
-                string name = UniqueFxName(taken, ref suffix);
-                added[name] = form.Link;
-                AppendPlacement(stacked, name, PlacementMatrix(form.Box, form.FormMatrix, placeBox, destTransform, true, false));
-            }
+            cancellationToken.ThrowIfCancellationRequested();
+            OverlayForm? form = GetOrBuildOverlayForm(placement, formCache, compress, level, limits, governor, planning, ownership, diagnostics, cancellationToken, ref allocator);
+            if (form is null) { continue; }
+            string name = UniqueFxName(taken, ref suffix);
+            added[name] = form.Link;
+            AppendPlacement(stacked, name, PlacementMatrix(form.Box, form.FormMatrix, placeBox, destTransform, true, false));
         }
 
         Dictionary<PdfName, QpdfObject> xobjects = new();
@@ -670,24 +622,25 @@ internal static class Overlays
         allocator = checked(allocator + 1);
         replaced = ReplaceEntry(replaced, PdfName.FromAscii("Contents"), stackedLink, governor, ownership);
         copier.ReplaceCopiedObject(pageId, replaced);
-        CopyPlacementAnnotations(copier, pageId, placeBox, destTransform, underlays, overlays, resolvedUnderlays, resolvedOverlays, formCache, imports, compress, level, limits, governor, ownership, diagnostics, cancellationToken, ref allocator);
+        CopyPlacementAnnotations(copier, pageId, placeBox, destTransform, underlays, overlays, formCache, imports, compress, level, limits, governor, planning, ownership, diagnostics, cancellationToken, ref allocator);
     }
 
     private sealed record OverlayForm(PdfReference Link, double[] Box, double[]? FormMatrix);
 
     private static OverlayForm? GetOrBuildOverlayForm(
-        ResolvedSpec spec,
         OverlayPlacement placement,
         Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache,
         bool compress,
         int? level,
         QpdfLimits limits,
         ResourceGovernor governor,
+        ParserMemoryScope planning,
         ParserMemoryScope ownership,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken,
         ref int allocator)
     {
+        ResolvedSpec spec = placement.Spec;
         (GraphCopier Copier, int Spec, int Page) key = (spec.Source.Copier, spec.SpecIndex, placement.FromPage);
         if (formCache.TryGetValue(key, out OverlayForm? cached))
         {
@@ -745,6 +698,8 @@ internal static class Overlays
         PdfStream form = EncodeForm(new PdfDictionary(entries), bundle.Content, compress, level, limits, governor, ownership);
         PdfReference link = spec.Source.Copier.AddIndirectObjectWithId(form, formId);
         if (!bundle.DeferredCopy) { allocator = checked(allocator + 1); }
+        planning.Reserve(40L);
+        ParserContainers.EnsureEntryCapacity(planning, formCache, 32L);
         OverlayForm built = new(link, bundle.Box, formMatrix);
         formCache[key] = built;
         return built;
@@ -1168,24 +1123,23 @@ internal static class Overlays
         int pageId,
         double[] placeBox,
         double[] destTransform,
-        Dictionary<int, List<OverlayPlacement>> underlays,
-        Dictionary<int, List<OverlayPlacement>> overlays,
-        List<ResolvedSpec> resolvedUnderlays,
-        List<ResolvedSpec> resolvedOverlays,
+        IReadOnlyList<OverlayPlacement> underlays,
+        IReadOnlyList<OverlayPlacement> overlays,
         Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache,
         List<AcroFormCopy.OverlayFieldImport> imports,
         bool compress,
         int? level,
         QpdfLimits limits,
         ResourceGovernor governor,
+        ParserMemoryScope planning,
         ParserMemoryScope ownership,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken,
         ref int allocator)
     {
         limits.Validate();
-        CopyGroupAnnotations(copier, pageId, placeBox, destTransform, underlays, resolvedUnderlays, formCache, imports, compress, level, limits, governor, ownership, diagnostics, cancellationToken, ref allocator);
-        CopyGroupAnnotations(copier, pageId, placeBox, destTransform, overlays, resolvedOverlays, formCache, imports, compress, level, limits, governor, ownership, diagnostics, cancellationToken, ref allocator);
+        CopyGroupAnnotations(copier, pageId, placeBox, destTransform, underlays, formCache, imports, compress, level, limits, governor, planning, ownership, diagnostics, cancellationToken, ref allocator);
+        CopyGroupAnnotations(copier, pageId, placeBox, destTransform, overlays, formCache, imports, compress, level, limits, governor, planning, ownership, diagnostics, cancellationToken, ref allocator);
     }
 
     private static void CopyGroupAnnotations(
@@ -1193,35 +1147,27 @@ internal static class Overlays
         int pageId,
         double[] placeBox,
         double[] destTransform,
-        Dictionary<int, List<OverlayPlacement>> groups,
-        List<ResolvedSpec> resolved,
+        IReadOnlyList<OverlayPlacement> placements,
         Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache,
         List<AcroFormCopy.OverlayFieldImport> imports,
         bool compress,
         int? level,
         QpdfLimits limits,
         ResourceGovernor governor,
+        ParserMemoryScope planning,
         ParserMemoryScope ownership,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken,
         ref int allocator)
     {
-        foreach (KeyValuePair<int, List<OverlayPlacement>> group in SortedGroups(groups))
+        foreach (OverlayPlacement placement in placements)
         {
-            ResolvedSpec spec = resolved[group.Key];
-            foreach (OverlayPlacement placement in group.Value)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                governor.NoteOperation();
-                OverlayForm? form = GetOrBuildOverlayForm(spec, placement, formCache, compress, level, limits, governor, ownership, diagnostics, cancellationToken, ref allocator);
-                if (form is null)
-                {
-                    continue;
-                }
-
-                double[] cm = PlacementMatrix(form.Box, form.FormMatrix, placeBox, destTransform, true, false);
-                CopyOverlayPageAnnots(copier, pageId, spec.Source, placement.FromPage, cm, imports, limits, governor, ownership, diagnostics, cancellationToken, ref allocator);
-            }
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.NoteOperation();
+            OverlayForm? form = GetOrBuildOverlayForm(placement, formCache, compress, level, limits, governor, planning, ownership, diagnostics, cancellationToken, ref allocator);
+            if (form is null) { continue; }
+            double[] cm = PlacementMatrix(form.Box, form.FormMatrix, placeBox, destTransform, true, false);
+            CopyOverlayPageAnnots(copier, pageId, placement.Spec.Source, placement.FromPage, cm, imports, limits, governor, ownership, diagnostics, cancellationToken, ref allocator);
         }
     }
 
@@ -1469,7 +1415,9 @@ internal static class Overlays
             placementDr ??= CopyOverlayImportDR(sourceForm, sourceEngine, destCopier, memo, limits, governor, ownership, cancellationToken, ref allocator, ref nullId);
             Dictionary<PdfName, QpdfObject> extras = new();
             CopiedForm part = new([fieldRef], true, sourceForm.NeedAppearances, sourceForm.NeedAppearances, placementDr, false, [], extras);
-            imports.Add(new AcroFormCopy.OverlayFieldImport(destCopier, part, sourceForm.DefaultAppearance, sourceForm.Quadding));
+            ownership.Reserve(48L);
+            ParserContainers.AddItem(ownership, imports,
+                new AcroFormCopy.OverlayFieldImport(destCopier, part, sourceForm.DefaultAppearance, sourceForm.Quadding), IntPtr.Size);
         }
 
         QpdfObject cloned = CopyOverlayNode(item, sourceEngine, destCopier, memo, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, 0);
@@ -2006,14 +1954,5 @@ internal static class Overlays
         return double.IsFinite(rect[0]) && double.IsFinite(rect[1]) && double.IsFinite(rect[2]) && double.IsFinite(rect[3]);
     }
 
-    private static IEnumerable<KeyValuePair<int, List<OverlayPlacement>>> SortedGroups(Dictionary<int, List<OverlayPlacement>> groups)
-    {
-        List<int> keys = new(groups.Keys);
-        keys.Sort();
-        foreach (int key in keys)
-        {
-            yield return new KeyValuePair<int, List<OverlayPlacement>>(key, groups[key]);
-        }
-    }
 }
 

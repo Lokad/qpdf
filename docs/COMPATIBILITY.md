@@ -34,6 +34,10 @@ their existing comparison rules; byte-string syntax does not affect equality.
 Overlay sources and destinations share content-entry collection and accept
 references to content arrays. Damaged entries still warn and skip stamping;
 filter/decompression policy and transactional output are unchanged.
+Overlay planning admits sparse destination placements and prepares only the source
+pages they use. Unplaced content is neither decoded nor warned about, including
+no-op ranges. Source opens and explicit range validation still run; range order,
+repeats and duplicate placements are preserved. Public signatures are unchanged.
 
 Overlay annotation rectangles normalize reversed endpoints without losing their
 extent. Shared appearance streams receive the placement matrix once per copied
