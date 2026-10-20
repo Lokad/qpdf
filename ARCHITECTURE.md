@@ -24,6 +24,10 @@ separate reader or writer. Typed operations call the same cores directly. Defaul
 can differ by entry point, including recovery and stream decoding; those differences
 are part of the compatibility contract.
 
+Selection cores borrow one immutable settings value containing the existing
+feature requests. Typed defaults and command-plan projection are defined once;
+source documents, selective-read retries and publication owners stay explicit.
+
 One resource governor spans configuration loading, reading, transformation,
 serialization and publication. Results capture diagnostics and counters after
 cleanup. Inspection can return text or bytes without creating a PDF output.

@@ -74,7 +74,17 @@ public static partial class Qpdf
         try
         {
             DiagnosticBag diagnostics = new(governor);
-            PageSelectionOutcome result = await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, [], [], false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, cancellationToken).ConfigureAwait(false);
+            PageSelectionOutcome result = await SelectPageCoreAsync(
+                host: host,
+                inputPath: inputPath,
+                outputPath: outputPath,
+                options: options,
+                limits: limits,
+                recovery: QpdfRecoveryMode.Strict,
+                settings: SelectionSettings.Typed,
+                governor: governor,
+                diagnostics: diagnostics,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
             PdfPageSelectionResult presented = result.Present(governor);
             governor.FinishTypedCounters();
             return presented;
@@ -136,7 +146,17 @@ public static partial class Qpdf
             using TypedSelectionPreparation preparation = TypedSelectionPreparation.Create(governor);
             preparation.ConvertRotations(rotations);
             DiagnosticBag diagnostics = new(governor);
-            PageSelectionOutcome result = await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, preparation.Rotations, [], false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, cancellationToken).ConfigureAwait(false);
+            PageSelectionOutcome result = await SelectPageCoreAsync(
+                host: host,
+                inputPath: inputPath,
+                outputPath: outputPath,
+                options: options,
+                limits: limits,
+                recovery: QpdfRecoveryMode.Strict,
+                settings: SelectionSettings.Typed with { Rotations = preparation.Rotations },
+                governor: governor,
+                diagnostics: diagnostics,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
             preparation.Dispose();
             PdfPageSelectionResult presented = result.Present(governor);
             governor.FinishTypedCounters();
@@ -276,46 +296,16 @@ public static partial class Qpdf
         PdfPageSelectionOptions options,
         QpdfLimits limits,
         QpdfRecoveryMode recovery,
-        IReadOnlyList<OutputRotation> rotations,
-        IReadOnlyList<PageLabelSpec> labels,
-        bool removeLabels,
-        string? minVersion,
-        string? forceVersion,
-        bool deterministicId,
-        bool staticId,
-        bool newlineBeforeEndstream,
-        string? objectStreams,
-        bool preserveUnreferenced,
-        CompressionRequest compression,
-        bool removeInfo,
-        bool removeAcroform,
-        bool removeStructure,
-        bool removeMetadata,
-        AttachmentEdits edits,
-        bool coalesceContents,
-        bool normalizeContent,
-        bool externalizeInlineImages,
-        long iiMinBytes,
-        IReadOnlyList<OverlaySpec> underlays,
-        IReadOnlyList<OverlaySpec> overlays,
-        bool flattenRotation,
-        string? flattenAnnotations,
-        bool generateAppearances,
-        Content.ImageOptimizeRequest optimize,
-        Writing.QdfOptions qdf,
-        Content.ContentPrunePolicy prune,
-        bool preserveCatalog,
+        SelectionSettings settings,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
-        bool linearize,
-        QpdfPath? linearizePass1,
         CancellationToken cancellationToken)
     {
         bool selectiveCandidate = host is not Hosting.InMemoryQpdfHost
-            && !preserveUnreferenced && !linearize && linearizePass1 is null && !qdf.Enabled
-            && !coalesceContents && !normalizeContent && !externalizeInlineImages && !optimize.Optimize
-            && underlays.Count == 0 && overlays.Count == 0 && !flattenRotation
-            && flattenAnnotations is null && !generateAppearances;
+            && !settings.PreserveUnreferenced && !settings.Linearize && settings.LinearizePass1 is null && !settings.Qdf.Enabled
+            && !settings.CoalesceContents && !settings.NormalizeContent && !settings.ExternalizeInlineImages && !settings.Optimize.Optimize
+            && settings.Underlays.Count == 0 && settings.Overlays.Count == 0 && !settings.FlattenRotation
+            && settings.FlattenAnnotations is null && !settings.GenerateAppearances;
         IQpdfInput? stableInput = null;
         try
         {
@@ -335,7 +325,7 @@ public static partial class Qpdf
                     // This private reader remains alive through publication.
                     document.Engine.BorrowImmutableStreamData = !document.Engine.HasSelectiveInput;
                     retryParse = document.Engine.HasSelectiveInput;
-                    if (externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline)) { document.PrepareInlinePageResources(cancellationToken); }
+                    if (settings.ExternalizeInlineImages || (settings.Optimize.Optimize && !settings.Optimize.KeepInline)) { document.PrepareInlinePageResources(cancellationToken); }
                     int total = document.PageReferences.Count;
                     IReadOnlyList<int> requested = options.Resolve(total, limits.MaxContainerSize);
                     if ((long)requested.Count > limits.MaxContainerSize)
@@ -372,21 +362,21 @@ public static partial class Qpdf
                         occurrences.Add((copier, pageId));
                     }
 
-                    if (rotations.Count != 0)
+                    if (settings.Rotations.Count != 0)
                     {
-                        ApplyRotations(occurrences, ResolveRotationFolds(rotations, kids.Count, governor, limits, copyMemory), governor, copyMemory);
+                        ApplyRotations(occurrences, ResolveRotationFolds(settings.Rotations, kids.Count, governor, limits, copyMemory), governor, copyMemory);
                     }
-                    if (preserveUnreferenced)
+                    if (settings.PreserveUnreferenced)
                     {
                         HashSet<int> excluded = PreservationExclusions(document.Engine, KeptLocations(document, requested), limits, governor, cancellationToken);
                         copier.PreserveUnreferencedObjects(document.Engine, excluded, diagnostics, cancellationToken);
                     }
 
-                    (PdfReference? singleInfo, PdfReference? singleMetadata) = CopyCatalogExtras(copier, document.Engine, removeInfo, removeMetadata, diagnostics);
-                    PdfReference? singleOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, preserveCatalog, linearize, governor, cancellationToken);
-                    (PdfReference? singleStructTree, QpdfObject? singleMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, preserveCatalog, removeStructure, governor, cancellationToken);
+                    (PdfReference? singleInfo, PdfReference? singleMetadata) = CopyCatalogExtras(copier, document.Engine, settings.RemoveInfo, settings.RemoveMetadata, diagnostics);
+                    PdfReference? singleOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, settings.PreserveCatalog, settings.Linearize, governor, cancellationToken);
+                    (PdfReference? singleStructTree, QpdfObject? singleMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, settings.PreserveCatalog, settings.RemoveStructure, governor, cancellationToken);
                     Dictionary<GraphCopier, PdfDictionary?> singleFormResources = new();
-                    if (!removeAcroform)
+                    if (!settings.RemoveAcroform)
                     {
                         PdfDictionary? singleDefaultResources = Content.AcroFormCopy.TryCopyFormDR(document.Engine, copier, governor, cancellationToken);
                         if (singleDefaultResources is not null)
@@ -395,17 +385,17 @@ public static partial class Qpdf
                         }
                     }
 
-                    Dictionary<PdfName, QpdfObject> singleExtras = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, preserveCatalog, removeAcroform, governor, cancellationToken);
-                    SortedDictionary<string, PdfReference> singleExisting = PreserveExistingAttachments(copier, document.Engine, edits, limits, governor, diagnostics, copyMemory, cancellationToken);
+                    Dictionary<PdfName, QpdfObject> singleExtras = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, settings.PreserveCatalog, settings.RemoveAcroform, governor, cancellationToken);
+                    SortedDictionary<string, PdfReference> singleExisting = PreserveExistingAttachments(copier, document.Engine, settings.Edits, limits, governor, diagnostics, copyMemory, cancellationToken);
                     string? singlePageMode = ReadInputPageMode(document.Engine);
 
-                    (bool singleCompress, string singleDecode, int? singleLevel) = ResolveCompression(compression, qdf.Enabled);
-                    if (singleCompress || singleDecode != "none" || (singleMetadata is not null && compression.CompressStreams is not null))
+                    (bool singleCompress, string singleDecode, int? singleLevel) = ResolveCompression(settings.Compression, settings.Qdf.Enabled);
+                    if (singleCompress || singleDecode != "none" || (singleMetadata is not null && settings.Compression.CompressStreams is not null))
                     {
-                        TransformCopierStreams(copier, document.Engine, singleCompress, singleDecode, compression.RecompressFlate, singleLevel, limits, governor, diagnostics, cancellationToken, singleMetadata);
+                        TransformCopierStreams(copier, document.Engine, singleCompress, singleDecode, settings.Compression.RecompressFlate, singleLevel, limits, governor, diagnostics, cancellationToken, singleMetadata);
                     }
 
-                    Content.ContentTransformRequest? singleTransforms = PrepareSourceContentTransforms(coalesceContents, normalizeContent, externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline), iiMinBytes, singleCompress, singleLevel, StreamTransformer.Options(singleDecode, compression.RecompressFlate), prune, document.Engine, limits, governor, cancellationToken, preserveUnreferenced, out bool singlePrune);
+                    Content.ContentTransformRequest? singleTransforms = PrepareSourceContentTransforms(settings.CoalesceContents, settings.NormalizeContent, settings.ExternalizeInlineImages || (settings.Optimize.Optimize && !settings.Optimize.KeepInline), settings.IiMinBytes, singleCompress, singleLevel, StreamTransformer.Options(singleDecode, settings.Compression.RecompressFlate), settings.Prune, document.Engine, limits, governor, cancellationToken, settings.PreserveUnreferenced, out bool singlePrune);
                     if (singleTransforms is not null)
                     {
                         List<int> occurrenceIds = new(occurrences.Count);
@@ -416,11 +406,11 @@ public static partial class Qpdf
                         Content.ContentTransforms.ApplyPageTransforms(copier, occurrenceIds, singleTransforms, singlePrune, limits, governor, diagnostics, cancellationToken);
                     }
 
-                    Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, inputPath, occurrences, underlays, overlays, singleCompress, singleLevel, recovery, limits, governor, diagnostics, copyMemory, cancellationToken, copier.NextId, null).ConfigureAwait(false);
+                    Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, inputPath, occurrences, settings.Underlays, settings.Overlays, singleCompress, singleLevel, recovery, limits, governor, diagnostics, copyMemory, cancellationToken, copier.NextId, null).ConfigureAwait(false);
 
                     int flattenAllocator = overlayApplied.NextId;
-                    bool needAppearances = (flattenAnnotations is not null || generateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine);
-                    bool singleGenerated = generateAppearances && needAppearances;
+                    bool needAppearances = (settings.FlattenAnnotations is not null || settings.GenerateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine);
+                    bool singleGenerated = settings.GenerateAppearances && needAppearances;
                     if (singleGenerated)
                     {
                         Content.CopiedForm? gateForm = Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, KeptLocations(document, requested), true, limits, governor, diagnostics, cancellationToken);
@@ -438,23 +428,23 @@ public static partial class Qpdf
                         flattenAllocator = Content.GenerateAppearances.Apply(occurrences, singleFormResources, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, gateReached, false, flattenAllocator);
                         needAppearances = false;
                     }
-                    if (flattenAnnotations is not null)
+                    if (settings.FlattenAnnotations is not null)
                     {
-                        flattenAllocator = Content.FlattenAnnotations.Apply(occurrences, flattenAnnotations, needAppearances, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, flattenAllocator);
+                        flattenAllocator = Content.FlattenAnnotations.Apply(occurrences, settings.FlattenAnnotations, needAppearances, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, flattenAllocator);
                     }
-                    if (flattenRotation)
+                    if (settings.FlattenRotation)
                     {
                         flattenAllocator = Content.FlattenRotation.Apply(occurrences, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, flattenAllocator);
                     }
-                    if (optimize.Optimize)
+                    if (settings.Optimize.Optimize)
                     {
-                        Content.ImageOptimizer.Apply(occurrences, optimize, limits, governor, cancellationToken);
+                        Content.ImageOptimizer.Apply(occurrences, settings.Optimize, limits, governor, cancellationToken);
                     }
 
 
-                    (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(document.OwnVersion(), minVersion, forceVersion, governor);
-                    string streamMode = ResolveObjectStreamMode(objectStreams);
-                    if (forceVersion is not null && CompareVersions(negotiated.Major, negotiated.Minor, 1, 5) < 0)
+                    (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(document.OwnVersion(), settings.MinVersion, settings.ForceVersion, governor);
+                    string streamMode = ResolveObjectStreamMode(settings.ObjectStreams);
+                    if (settings.ForceVersion is not null && CompareVersions(negotiated.Major, negotiated.Minor, 1, 5) < 0)
                     {
                         streamMode = "disable";
                     }
@@ -472,7 +462,7 @@ public static partial class Qpdf
                     {
                         (copier.SourceToDestination, compressedOrig),
                     };
-                    AttachmentAssembly singleAttached = await AssembleAttachmentsAsync(host, singleExisting, singlePool, edits, singlePageMode, singleCompress, singleLevel, streamMode == "preserve", singleSources, recovery, limits, governor, diagnostics, copyMemory, cancellationToken).ConfigureAwait(false);
+                    AttachmentAssembly singleAttached = await AssembleAttachmentsAsync(host, singleExisting, singlePool, settings.Edits, singlePageMode, singleCompress, singleLevel, streamMode == "preserve", singleSources, recovery, limits, governor, diagnostics, copyMemory, cancellationToken).ConfigureAwait(false);
                     HashSet<int> singleCompressed = ResolveCompressedSet(streamMode, singlePool, singleSources, governor);
                     PdfVersion effective = negotiated;
                     int extensionLevel = negotiatedExtension;
@@ -483,11 +473,11 @@ public static partial class Qpdf
                     }
 
                     PdfDictionary? singleLabels = null;
-                    if (labels.Count > 0)
+                    if (settings.Labels.Count > 0)
                     {
-                        singleLabels = BuildPageLabels(labels, kids.Count, governor);
+                        singleLabels = BuildPageLabels(settings.Labels, kids.Count, governor);
                     }
-                    else if (!removeLabels && Content.PageLabelMerge.HasLabels(document.Engine))
+                    else if (!settings.RemoveLabels && Content.PageLabelMerge.HasLabels(document.Engine))
                     {
                         Content.SourceLabels singleSource = Content.PageLabelMerge.ReadSource(document.Engine, copier, limits, governor, diagnostics, cancellationToken);
                         List<(Content.SourceLabels Source, int Page)> singleOccurrences = new(requested.Count);
@@ -502,7 +492,7 @@ public static partial class Qpdf
 
                     byte[]? originalId = TryGetOriginalId(document.Engine);
                     string countText = kids.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                    PdfDictionary? singleAcroForm = removeAcroform
+                    PdfDictionary? singleAcroForm = settings.RemoveAcroform
                         ? null
                         : Content.AcroFormCopy.BuildSingle(
                             document.Engine,
@@ -545,7 +535,7 @@ public static partial class Qpdf
                     List<List<int>> singleGroups = PlanObjectStreamGroups(singleCompressed, governor);
                     IReadOnlyList<IReadOnlyList<int>>? singleStreams = singleGroups.Count == 0 ? null : singleGroups;
                     IReadOnlyDictionary<int, int>? singleOriginalIds = null;
-                    if (qdf.Enabled)
+                    if (settings.Qdf.Enabled)
                     {
                         List<IReadOnlyDictionary<int, int>> singleOriginalMaps = new() { copier.SourceToDestination };
                         foreach (GraphCopier overlayCopier in overlayApplied.Copiers)
@@ -561,7 +551,7 @@ public static partial class Qpdf
                     // immutable prepared graph, so fallback cannot follow publication.
                     document.Engine.AcceptSelectiveInput();
                     retryParse = false;
-                    await PublishModelAsync(host, effective, extensionLevel, model, singleStreams, singleCompress, singleLevel, singleInfo?.ObjectNumber, originalId, staticId, newlineBeforeEndstream, qdf, singleOriginalIds, linearize, linearizePass1, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
+                    await PublishModelAsync(host, effective, extensionLevel, model, singleStreams, singleCompress, singleLevel, singleInfo?.ObjectNumber, originalId, settings.StaticId, settings.NewlineBeforeEndstream, settings.Qdf, singleOriginalIds, settings.Linearize, settings.LinearizePass1, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
                     return new PageSelectionOutcome(total, sourcePages, kids.Count, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
                 }
                 catch (CompleteInputRequiredException) when (attempt == 0 && stableInput is not null) { }
@@ -630,7 +620,24 @@ public static partial class Qpdf
             using TypedSelectionPreparation preparation = TypedSelectionPreparation.Create(governor);
             preparation.FreezeSources(sources);
             DiagnosticBag diagnostics = new(governor);
-            MultiPageSelectionOutcome result = (await SelectPagesCoreAsync(host, preparation.Sources, outputPath, preparation.Sources[0].Input, true, limits, QpdfRecoveryMode.Strict, null, [], [], false, null, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, null, cancellationToken).ConfigureAwait(false)).Result;
+            MultiPageSelectionOutcome result = (await SelectPagesCoreAsync(
+                host: host,
+                sources: preparation.Sources,
+                outputPath: outputPath,
+                primaryInput: preparation.Sources[0].Input,
+                pruneUnreachableFields: true,
+                limits: limits,
+                recovery: QpdfRecoveryMode.Strict,
+                settings: SelectionSettings.Typed,
+                collation: null,
+                verbatimLabels: null,
+                splitPages: null,
+                replaceInput: false,
+                governor: governor,
+                diagnostics: diagnostics,
+                emptyPrimary: false,
+                preparedSource: null,
+                cancellationToken: cancellationToken).ConfigureAwait(false)).Result;
             preparation.Dispose();
             PdfMultiPageSelectionResult presented = result.Present(governor);
             governor.FinishTypedCounters();
@@ -694,7 +701,24 @@ public static partial class Qpdf
             preparation.FreezeSources(sources);
             preparation.ConvertRotations(rotations);
             DiagnosticBag diagnostics = new(governor);
-            MultiPageSelectionOutcome result = (await SelectPagesCoreAsync(host, preparation.Sources, outputPath, preparation.Sources[0].Input, true, limits, QpdfRecoveryMode.Strict, null, preparation.Rotations, [], false, null, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, null, cancellationToken).ConfigureAwait(false)).Result;
+            MultiPageSelectionOutcome result = (await SelectPagesCoreAsync(
+                host: host,
+                sources: preparation.Sources,
+                outputPath: outputPath,
+                primaryInput: preparation.Sources[0].Input,
+                pruneUnreachableFields: true,
+                limits: limits,
+                recovery: QpdfRecoveryMode.Strict,
+                settings: SelectionSettings.Typed with { Rotations = preparation.Rotations },
+                collation: null,
+                verbatimLabels: null,
+                splitPages: null,
+                replaceInput: false,
+                governor: governor,
+                diagnostics: diagnostics,
+                emptyPrimary: false,
+                preparedSource: null,
+                cancellationToken: cancellationToken).ConfigureAwait(false)).Result;
             preparation.Dispose();
             PdfMultiPageSelectionResult presented = result.Present(governor);
             governor.FinishTypedCounters();
@@ -777,7 +801,24 @@ public static partial class Qpdf
             preparation.ConvertRotations(mergeOptions.Rotations);
             preparation.ConvertLabels(mergeOptions.Labels);
             DiagnosticBag diagnostics = new(governor);
-            MultiPageSelectionOutcome result = (await SelectPagesCoreAsync(host, preparation.Sources, outputPath, preparation.Sources[0].Input, true, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, preparation.Rotations, preparation.Labels, false, null, mergeOptions.SplitPages, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, null, cancellationToken).ConfigureAwait(false)).Result;
+            MultiPageSelectionOutcome result = (await SelectPagesCoreAsync(
+                host: host,
+                sources: preparation.Sources,
+                outputPath: outputPath,
+                primaryInput: preparation.Sources[0].Input,
+                pruneUnreachableFields: true,
+                limits: limits,
+                recovery: QpdfRecoveryMode.Strict,
+                settings: SelectionSettings.Typed with { Rotations = preparation.Rotations, Labels = preparation.Labels },
+                collation: mergeOptions.Collation,
+                verbatimLabels: null,
+                splitPages: mergeOptions.SplitPages,
+                replaceInput: false,
+                governor: governor,
+                diagnostics: diagnostics,
+                emptyPrimary: false,
+                preparedSource: null,
+                cancellationToken: cancellationToken).ConfigureAwait(false)).Result;
             preparation.Dispose();
             PdfMultiPageSelectionResult presented = result.Present(governor);
             governor.FinishTypedCounters();
@@ -794,43 +835,13 @@ public static partial class Qpdf
         bool pruneUnreachableFields,
         QpdfLimits limits,
         QpdfRecoveryMode recovery,
+        SelectionSettings settings,
         PdfPageCollation? collation,
-        IReadOnlyList<OutputRotation> rotations,
-        IReadOnlyList<PageLabelSpec> labels,
-        bool removeLabels,
         QpdfObject? verbatimLabels,
         int? splitPages,
         bool replaceInput,
-        string? minVersion,
-        string? forceVersion,
-        bool deterministicId,
-        bool staticId,
-        bool newlineBeforeEndstream,
-        string? objectStreams,
-        bool preserveUnreferenced,
-        CompressionRequest compression,
-        bool removeInfo,
-        bool removeAcroform,
-        bool removeStructure,
-        bool removeMetadata,
-        AttachmentEdits edits,
-        bool coalesceContents,
-        bool normalizeContent,
-        bool externalizeInlineImages,
-        long iiMinBytes,
-        IReadOnlyList<OverlaySpec> underlays,
-        IReadOnlyList<OverlaySpec> overlays,
-        bool flattenRotation,
-        string? flattenAnnotations,
-        bool generateAppearances,
-        Content.ImageOptimizeRequest optimize,
-        Writing.QdfOptions qdf,
-        Content.ContentPrunePolicy prune,
-        bool preserveCatalog,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
-        bool linearize,
-        QpdfPath? linearizePass1,
         bool emptyPrimary,
         QpdfDocument? preparedSource,
         CancellationToken cancellationToken)
@@ -843,10 +854,10 @@ public static partial class Qpdf
         // the same lease if a bounded read cannot establish the original result.
         if (preparedSource is null && sources.Count == 1 && host is not Hosting.InMemoryQpdfHost
             && !emptyPrimary && !replaceInput && !splitPages.HasValue
-            && !preserveUnreferenced && !linearize && linearizePass1 is null && !qdf.Enabled
-            && !coalesceContents && !normalizeContent && !externalizeInlineImages && !optimize.Optimize
-            && underlays.Count == 0 && overlays.Count == 0 && !flattenRotation
-            && flattenAnnotations is null && !generateAppearances)
+            && !settings.PreserveUnreferenced && !settings.Linearize && settings.LinearizePass1 is null && !settings.Qdf.Enabled
+            && !settings.CoalesceContents && !settings.NormalizeContent && !settings.ExternalizeInlineImages && !settings.Optimize.Optimize
+            && settings.Underlays.Count == 0 && settings.Overlays.Count == 0 && !settings.FlattenRotation
+            && settings.FlattenAnnotations is null && !settings.GenerateAppearances)
         {
             IQpdfInput input = await GovernedHost.OpenInputAsync(host, sources[0].Input,
                 governor, cancellationToken).ConfigureAwait(false);
@@ -859,15 +870,24 @@ public static partial class Qpdf
                         await using QpdfDocument document = await QpdfDocument.OpenSelectionInputAsync(input,
                             sources[0].Input, limits, governor, diagnostics, recovery, attempt == 0,
                             cancellationToken).ConfigureAwait(false);
-                        return await SelectPagesCoreAsync(host, sources, outputPath, primaryInput,
-                            pruneUnreachableFields, limits, recovery, collation, rotations, labels, removeLabels,
-                            verbatimLabels, splitPages, replaceInput, minVersion, forceVersion, deterministicId,
-                            staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, compression,
-                            removeInfo, removeAcroform, removeStructure, removeMetadata, edits, coalesceContents,
-                            normalizeContent, externalizeInlineImages, iiMinBytes, underlays, overlays,
-                            flattenRotation, flattenAnnotations, generateAppearances, optimize, qdf, prune,
-                            preserveCatalog, governor, diagnostics, linearize, linearizePass1, emptyPrimary,
-                            document, cancellationToken).ConfigureAwait(false);
+                        return await SelectPagesCoreAsync(
+                            host: host,
+                            sources: sources,
+                            outputPath: outputPath,
+                            primaryInput: primaryInput,
+                            pruneUnreachableFields: pruneUnreachableFields,
+                            limits: limits,
+                            recovery: recovery,
+                            settings: settings,
+                            collation: collation,
+                            verbatimLabels: verbatimLabels,
+                            splitPages: splitPages,
+                            replaceInput: replaceInput,
+                            governor: governor,
+                            diagnostics: diagnostics,
+                            emptyPrimary: emptyPrimary,
+                            preparedSource: document,
+                            cancellationToken: cancellationToken).ConfigureAwait(false);
                     }
                     catch (CompleteInputRequiredException) when (attempt == 0) { }
                 }
@@ -893,7 +913,7 @@ public static partial class Qpdf
         List<Content.CopiedForm?> gateForms = new(sources.Count);
         List<Content.SourceLabels?> multiLabels = new(sources.Count);
         QpdfObject? verbatimCopied = null;
-        bool needSourceLabels = !removeLabels && (labels.Count == 0 || splitPages.HasValue);
+        bool needSourceLabels = !settings.RemoveLabels && (settings.Labels.Count == 0 || splitPages.HasValue);
         SortedDictionary<string, PdfReference> primaryExisting = new(StringComparer.Ordinal);
         string? primaryPageMode = null;
         int primaryIdx = 0;
@@ -914,7 +934,7 @@ public static partial class Qpdf
         Dictionary<PdfName, QpdfObject> primaryExtras = new();
         HashSet<int> catalogExtraIds = new();
         long selected = 0L;
-        (bool multiCompress, string multiDecode, int? multiLevel) = ResolveCompression(compression, qdf.Enabled);
+        (bool multiCompress, string multiDecode, int? multiLevel) = ResolveCompression(settings.Compression, settings.Qdf.Enabled);
         for (int s = 0; s < sources.Count; s++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -929,7 +949,7 @@ public static partial class Qpdf
                 // until publication. Multiple inputs and ranged buffers remain
                 // independent; retaining output sinks receive isolated payloads.
                 document.Engine.BorrowImmutableStreamData = sources.Count == 1 && !document.Engine.HasSelectiveInput;
-                if (externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline)) { document.PrepareInlinePageResources(cancellationToken); }
+                if (settings.ExternalizeInlineImages || (settings.Optimize.Optimize && !settings.Optimize.KeepInline)) { document.PrepareInlinePageResources(cancellationToken); }
                 ParserContainers.AddItem(selectionMemory, sourceCounts, document.PageReferences.Count, sizeof(int));
                 PdfVersion sourceVersion = document.OwnVersion();
                 if (version is null || IsNewerVersion(sourceVersion, version))
@@ -942,7 +962,7 @@ public static partial class Qpdf
                     originalId1 = TryGetOriginalId(document.Engine);
                 }
 
-                sourceCompressed.Add(CollectCompressedOriginals(document.Engine, objectStreams is not ("disable" or "generate")));
+                sourceCompressed.Add(CollectCompressedOriginals(document.Engine, settings.ObjectStreams is not ("disable" or "generate")));
 
                 IReadOnlyList<int> requested = sources[s].Selection.Resolve(document.PageReferences.Count, limits.MaxContainerSize);
                 foreach (int pageNumber in requested)
@@ -977,7 +997,7 @@ public static partial class Qpdf
                     taken.Add((copier, pageId, pageNumber));
                 }
 
-                if (preserveUnreferenced && s == primaryIdx && !emptyPrimary)
+                if (settings.PreserveUnreferenced && s == primaryIdx && !emptyPrimary)
                 {
                     HashSet<int> excluded = PreservationExclusions(document.Engine, KeptLocations(document, requested), limits, governor, cancellationToken);
                     foreach (int preserved in copier.PreserveUnreferencedObjects(document.Engine, excluded, diagnostics, cancellationToken))
@@ -986,7 +1006,7 @@ public static partial class Qpdf
                     }
                 }
 
-                Content.CopiedForm? sourceForm = removeAcroform
+                Content.CopiedForm? sourceForm = settings.RemoveAcroform
                     ? null
                     : Content.AcroFormCopy.TryCopySourceForm(
                         document.Engine,
@@ -998,7 +1018,7 @@ public static partial class Qpdf
                         diagnostics,
                         cancellationToken);
                 multiForms.Add(sourceForm);
-                gateForms.Add(removeAcroform
+                gateForms.Add(settings.RemoveAcroform
                     ? Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, KeptLocations(document, requested), pruneUnreachableFields, limits, governor, diagnostics, cancellationToken)
                     : sourceForm);
                 if (needSourceLabels)
@@ -1017,10 +1037,10 @@ public static partial class Qpdf
 
                 if (s == primaryIdx && !emptyPrimary)
                 {
-                    (primaryInfo, primaryMetadata) = CopyCatalogExtras(copier, document.Engine, removeInfo, removeMetadata, diagnostics);
-                    primaryOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, preserveCatalog, linearize, governor, cancellationToken);
-                    (primaryStructTree, primaryMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, preserveCatalog, removeStructure, governor, cancellationToken);
-                    primaryExtras = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, preserveCatalog, removeAcroform, governor, cancellationToken);
+                    (primaryInfo, primaryMetadata) = CopyCatalogExtras(copier, document.Engine, settings.RemoveInfo, settings.RemoveMetadata, diagnostics);
+                    primaryOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, settings.PreserveCatalog, settings.Linearize, governor, cancellationToken);
+                    (primaryStructTree, primaryMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, settings.PreserveCatalog, settings.RemoveStructure, governor, cancellationToken);
+                    primaryExtras = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, settings.PreserveCatalog, settings.RemoveAcroform, governor, cancellationToken);
                     if (primaryInfo is not null)
                     {
                         catalogExtraIds.Add(primaryInfo.ObjectNumber);
@@ -1045,16 +1065,16 @@ public static partial class Qpdf
                         catalogExtraIds.Add(primaryMarkRef.ObjectNumber);
                     }
 
-                    primaryExisting = PreserveExistingAttachments(copier, document.Engine, edits, limits, governor, diagnostics, selectionMemory, cancellationToken);
+                    primaryExisting = PreserveExistingAttachments(copier, document.Engine, settings.Edits, limits, governor, diagnostics, selectionMemory, cancellationToken);
                     primaryPageMode = ReadInputPageMode(document.Engine);
                 }
 
-                if (multiCompress || multiDecode != "none" || (s == primaryIdx && primaryMetadata is not null && compression.CompressStreams is not null))
+                if (multiCompress || multiDecode != "none" || (s == primaryIdx && primaryMetadata is not null && settings.Compression.CompressStreams is not null))
                 {
-                    TransformCopierStreams(copier, document.Engine, multiCompress, multiDecode, compression.RecompressFlate, multiLevel, limits, governor, diagnostics, cancellationToken, s == primaryIdx ? primaryMetadata : null);
+                    TransformCopierStreams(copier, document.Engine, multiCompress, multiDecode, settings.Compression.RecompressFlate, multiLevel, limits, governor, diagnostics, cancellationToken, s == primaryIdx ? primaryMetadata : null);
                 }
 
-                Content.ContentTransformRequest? sourceTransforms = PrepareSourceContentTransforms(coalesceContents, normalizeContent, externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline), iiMinBytes, multiCompress, multiLevel, StreamTransformer.Options(multiDecode, compression.RecompressFlate), prune, document.Engine, limits, governor, cancellationToken, preserveUnreferenced, out bool sourcePrune);
+                Content.ContentTransformRequest? sourceTransforms = PrepareSourceContentTransforms(settings.CoalesceContents, settings.NormalizeContent, settings.ExternalizeInlineImages || (settings.Optimize.Optimize && !settings.Optimize.KeepInline), settings.IiMinBytes, multiCompress, multiLevel, StreamTransformer.Options(multiDecode, settings.Compression.RecompressFlate), settings.Prune, document.Engine, limits, governor, cancellationToken, settings.PreserveUnreferenced, out bool sourcePrune);
                 if (sourceTransforms is not null)
                 {
                     List<int> takenIds = new(taken.Count);
@@ -1065,7 +1085,7 @@ public static partial class Qpdf
                     Content.ContentTransforms.ApplyPageTransforms(copier, takenIds, sourceTransforms, sourcePrune, limits, governor, diagnostics, cancellationToken);
                 }
 
-                if ((flattenAnnotations is not null || generateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine))
+                if ((settings.FlattenAnnotations is not null || settings.GenerateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine))
                 {
                     needAppearances = true;
                 }
@@ -1097,15 +1117,15 @@ public static partial class Qpdf
             occurrences.Add((copier, pageId));
         }
 
-        if (rotations.Count != 0)
+        if (settings.Rotations.Count != 0)
         {
-            ApplyRotations(occurrences, ResolveRotationFolds(rotations, kids.Count, governor, limits, selectionMemory), governor, selectionMemory);
+            ApplyRotations(occurrences, ResolveRotationFolds(settings.Rotations, kids.Count, governor, limits, selectionMemory), governor, selectionMemory);
         }
 
-        Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, primaryInput, occurrences, underlays, overlays, multiCompress, multiLevel, recovery, limits, governor, diagnostics, selectionMemory, cancellationToken, nextId, null).ConfigureAwait(false);
+        Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, primaryInput, occurrences, settings.Underlays, settings.Overlays, multiCompress, multiLevel, recovery, limits, governor, diagnostics, selectionMemory, cancellationToken, nextId, null).ConfigureAwait(false);
 
         int multiFlattenAllocator = overlayApplied.NextId;
-        bool multiGenerated = generateAppearances && needAppearances;
+        bool multiGenerated = settings.GenerateAppearances && needAppearances;
         if (multiGenerated)
         {
             Dictionary<GraphCopier, PdfDictionary?> multiFormResources = new();
@@ -1132,18 +1152,18 @@ public static partial class Qpdf
             multiFlattenAllocator = Content.GenerateAppearances.Apply(occurrences, multiFormResources, multiCompress, multiLevel, limits, governor, diagnostics, cancellationToken, multiReached, !pruneUnreachableFields, multiFlattenAllocator);
             needAppearances = false;
         }
-        if (flattenAnnotations is not null)
+        if (settings.FlattenAnnotations is not null)
         {
-            multiFlattenAllocator = Content.FlattenAnnotations.Apply(occurrences, flattenAnnotations, needAppearances, multiCompress, multiLevel, limits, governor, diagnostics, cancellationToken, multiFlattenAllocator);
+            multiFlattenAllocator = Content.FlattenAnnotations.Apply(occurrences, settings.FlattenAnnotations, needAppearances, multiCompress, multiLevel, limits, governor, diagnostics, cancellationToken, multiFlattenAllocator);
         }
 
-        if (flattenRotation)
+        if (settings.FlattenRotation)
         {
             nextId = Content.FlattenRotation.Apply(occurrences, multiCompress, multiLevel, limits, governor, diagnostics, cancellationToken, multiFlattenAllocator);
         }
-        if (optimize.Optimize)
+        if (settings.Optimize.Optimize)
         {
-            Content.ImageOptimizer.Apply(occurrences, optimize, limits, governor, cancellationToken);
+            Content.ImageOptimizer.Apply(occurrences, settings.Optimize, limits, governor, cancellationToken);
         }
 
         if (replaceInput && splitPages.HasValue)
@@ -1185,7 +1205,7 @@ public static partial class Qpdf
 
         List<Content.CopiedForm?> renameForms = multiForms;
         List<GraphCopier> renameCopiers = copiers;
-        if (!removeAcroform && overlayApplied.FieldImports.Count > 0)
+        if (!settings.RemoveAcroform && overlayApplied.FieldImports.Count > 0)
         {
             renameForms = new List<Content.CopiedForm?>(multiForms);
             renameCopiers = new List<GraphCopier>(copiers);
@@ -1196,7 +1216,7 @@ public static partial class Qpdf
             }
         }
 
-        if (!removeAcroform)
+        if (!settings.RemoveAcroform)
         {
             Content.AcroFormCopy.RenameCollidingFields(renameForms, renameCopiers, limits, governor, cancellationToken);
         }
@@ -1226,19 +1246,19 @@ public static partial class Qpdf
             multiSources.Add((copiers[s].SourceToDestination, sourceCompressed[s]));
         }
 
-        AttachmentAssembly multiAttached = await AssembleAttachmentsAsync(host, primaryExisting, pool, edits, primaryPageMode, multiCompress, multiLevel, objectStreams is not ("disable" or "generate"), multiSources, recovery, limits, governor, diagnostics, selectionMemory, cancellationToken).ConfigureAwait(false);
+        AttachmentAssembly multiAttached = await AssembleAttachmentsAsync(host, primaryExisting, pool, settings.Edits, primaryPageMode, multiCompress, multiLevel, settings.ObjectStreams is not ("disable" or "generate"), multiSources, recovery, limits, governor, diagnostics, selectionMemory, cancellationToken).ConfigureAwait(false);
 
-        List<(int Index, PdfDictionary Label)> explicitItems = labels.Count > 0
-            ? ResolveLabelItems(labels, kids.Count, governor, selectionMemory)
+        List<(int Index, PdfDictionary Label)> explicitItems = settings.Labels.Count > 0
+            ? ResolveLabelItems(settings.Labels, kids.Count, governor, selectionMemory)
             : new List<(int Index, PdfDictionary Label)>();
         List<(int Index, PdfDictionary Label)> labelItems = explicitItems;
         QpdfObject? catalogLabels = labelItems.Count == 0 ? null : NumbersDictionary(labelItems, governor);
-        if (removeLabels)
+        if (settings.RemoveLabels)
         {
             labelItems = new List<(int Index, PdfDictionary Label)>();
             catalogLabels = null;
         }
-        else if (labels.Count == 0 || splitPages.HasValue)
+        else if (settings.Labels.Count == 0 || splitPages.HasValue)
         {
             bool anyLabels = false;
             foreach (Content.SourceLabels? part in multiLabels)
@@ -1280,9 +1300,9 @@ public static partial class Qpdf
             }
         }
         PdfVersion inputMax = version ?? governor.OwnVersion(1, 4);
-        (PdfVersion negotiatedMulti, int negotiatedMultiExtension) = NegotiateVersion(inputMax, minVersion, forceVersion, governor);
-        string multiStreamMode = ResolveObjectStreamMode(objectStreams);
-        if (forceVersion is not null && CompareVersions(negotiatedMulti.Major, negotiatedMulti.Minor, 1, 5) < 0)
+        (PdfVersion negotiatedMulti, int negotiatedMultiExtension) = NegotiateVersion(inputMax, settings.MinVersion, settings.ForceVersion, governor);
+        string multiStreamMode = ResolveObjectStreamMode(settings.ObjectStreams);
+        if (settings.ForceVersion is not null && CompareVersions(negotiatedMulti.Major, negotiatedMulti.Minor, 1, 5) < 0)
         {
             multiStreamMode = "disable";
         }
@@ -1299,7 +1319,7 @@ public static partial class Qpdf
         List<List<int>> multiGroups = PlanObjectStreamGroups(multiCompressed, governor);
         IReadOnlyList<IReadOnlyList<int>>? multiStreams = multiGroups.Count == 0 ? null : multiGroups;
         IReadOnlyDictionary<int, int>? multiOriginalIds = null;
-        if (qdf.Enabled)
+        if (settings.Qdf.Enabled)
         {
             List<IReadOnlyDictionary<int, int>> multiOriginalMaps = new();
             foreach (GraphCopier sourceCopier in copiers)
@@ -1312,7 +1332,7 @@ public static partial class Qpdf
             }
             multiOriginalIds = InvertOriginals(multiOriginalMaps);
         }
-        Content.CopiedForm? multiCombined = removeAcroform
+        Content.CopiedForm? multiCombined = settings.RemoveAcroform
             ? null
             : Content.AcroFormCopy.Combine(NonNullForms(renameForms));
         if (multiCombined is not null && overlayApplied.FieldImports.Count > 0)
@@ -1379,7 +1399,7 @@ public static partial class Qpdf
             IReadOnlyList<PdfPageSelectionMapping> resultMapping = ResultCollectionStorage.Copy(selectionMemory, mapping, IntPtr.Size, governor, cancellationToken);
             IReadOnlyList<int> resultCounts = ResultCollectionStorage.Copy(selectionMemory, sourceCounts, sizeof(int), governor, cancellationToken);
             IReadOnlyList<QpdfPath> resultPaths = ResultCollectionStorage.Single(selectionMemory, target, IntPtr.Size, governor, cancellationToken);
-            await PublishModelAsync(host, effective, extensionLevel, model, multiStreams, multiCompress, multiLevel, primaryInfo?.ObjectNumber, originalId1, staticId, newlineBeforeEndstream, qdf, multiOriginalIds, linearize, linearizePass1, target, limits, governor, cancellationToken).ConfigureAwait(false);
+            await PublishModelAsync(host, effective, extensionLevel, model, multiStreams, multiCompress, multiLevel, primaryInfo?.ObjectNumber, originalId1, settings.StaticId, settings.NewlineBeforeEndstream, settings.Qdf, multiOriginalIds, settings.Linearize, settings.LinearizePass1, target, limits, governor, cancellationToken).ConfigureAwait(false);
             return (new MultiPageSelectionOutcome(kids.Count, resultMapping, resultCounts, resultPaths, ResultWarningSnapshot.Read(resultWarnings, diagnostics)), multiAttached.FinalCount);
         }
 
@@ -1458,7 +1478,7 @@ public static partial class Qpdf
             roots.AddRange(multiAttached.ObjectIds);
             using ParserMemoryScope reachabilityMemory = ParserMemoryScope.Create(governor);
             HashSet<int> reachable = ReachableIds(pool, roots, reachabilityMemory, governor);
-            if (preserveUnreferenced)
+            if (settings.PreserveUnreferenced)
             {
                 foreach (int id in pool.Keys)
                 {
@@ -1577,8 +1597,8 @@ public static partial class Qpdf
             }
 
             PreparedSplitPublication publication = await PreparePresentationOutputAsync(effective, sub, groupStreams, multiCompress,
-                multiLevel, groupInfo, originalId1, staticId, newlineBeforeEndstream, qdf, groupOriginalIds,
-                linearize, linearizePass1, path, limits, governor, cancellationToken).ConfigureAwait(false);
+                multiLevel, groupInfo, originalId1, settings.StaticId, settings.NewlineBeforeEndstream, settings.Qdf, groupOriginalIds,
+                settings.Linearize, settings.LinearizePass1, path, limits, governor, cancellationToken).ConfigureAwait(false);
             try { ParserContainers.AddItem(presentationMemory, prepared, publication, IntPtr.Size); }
             catch { publication.Dispose(); throw; }
         }
@@ -3764,53 +3784,23 @@ public static partial class Qpdf
         // The shared selection core consumes this same stable source snapshot,
         // transfers required values and closes its lease before publication.
         return await SelectPagesCoreAsync(
-            host,
-            solo,
-            plan.Output,
-            plan.Input,
-            false,
-            limits,
-            plan.Recovery,
-            null,
-            plan.Rotations,
-            plan.Labels,
-            plan.RemoveLabels,
-            verbatimTree,
-            plan.SplitPages,
-            plan.ReplaceInput,
-            plan.MinVersion,
-            plan.ForceVersion,
-            plan.DeterministicId,
-            plan.StaticId,
-            plan.NewlineBeforeEndstream,
-            plan.ObjectStreams,
-            plan.PreserveUnreferenced,
-            plan.Compression(),
-            plan.RemoveInfo,
-            plan.RemoveAcroform,
-            plan.RemoveStructure,
-            plan.RemoveMetadata,
-            plan.Edits(),
-            plan.CoalesceContents,
-            plan.NormalizeContent,
-            plan.ExternalizeInlineImages,
-            plan.IiMinBytes,
-            plan.Underlays,
-            plan.Overlays,
-            plan.FlattenRotation,
-            plan.FlattenAnnotations,
-            plan.GenerateAppearances,
-            new Content.ImageOptimizeRequest(plan.OptimizeImages, plan.OiMinWidth, plan.OiMinHeight, plan.OiMinArea, plan.KeepInlineImages, plan.JpegQuality),
-            new Writing.QdfOptions(plan.Qdf, plan.NoOriginalObjectIds),
-            new Content.ContentPrunePolicy(plan.SplitPages.HasValue, plan.RemoveUnreferencedResources),
-            true,
-            governor,
-            diagnostics,
-            plan.Linearize,
-            plan.LinearizePass1,
-            false,
-            document,
-            cancellationToken).ConfigureAwait(false);
+            host: host,
+            sources: solo,
+            outputPath: plan.Output,
+            primaryInput: plan.Input,
+            pruneUnreachableFields: false,
+            limits: limits,
+            recovery: plan.Recovery,
+            settings: SelectionSettings.FromPlan(plan, pruneEnabled: plan.SplitPages.HasValue),
+            collation: null,
+            verbatimLabels: verbatimTree,
+            splitPages: plan.SplitPages,
+            replaceInput: plan.ReplaceInput,
+            governor: governor,
+            diagnostics: diagnostics,
+            emptyPrimary: false,
+            preparedSource: document,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     private static async ValueTask<(MultiPageSelectionOutcome Result, int AttachmentCount)> PublishEmptyModelAsync(
@@ -5520,53 +5510,23 @@ public static partial class Qpdf
                     }
 
                     MultiPageSelectionOutcome merged = (await SelectPagesCoreAsync(
-                        host,
-                        resolved,
-                        merge.Output,
-                        merge.Input,
-                        true,
-                        limits,
-                        merge.Recovery,
-                        merge.Collation,
-                        merge.Rotations,
-                        merge.Labels,
-                        merge.RemoveLabels,
-                        null,
-                        merge.SplitPages,
-                        merge.ReplaceInput,
-                        merge.MinVersion,
-                        merge.ForceVersion,
-                        merge.DeterministicId,
-                        merge.StaticId,
-                        merge.NewlineBeforeEndstream,
-                        merge.ObjectStreams,
-                        merge.PreserveUnreferenced,
-                        merge.Compression(),
-                        merge.RemoveInfo,
-                        merge.RemoveAcroform,
-                        merge.RemoveStructure,
-                        merge.RemoveMetadata,
-                        merge.Edits(),
-                        merge.CoalesceContents,
-                        merge.NormalizeContent,
-                        merge.ExternalizeInlineImages,
-                        merge.IiMinBytes,
-                        merge.Underlays,
-                        merge.Overlays,
-                        merge.FlattenRotation,
-                        merge.FlattenAnnotations,
-                        merge.GenerateAppearances,
-                        new Content.ImageOptimizeRequest(merge.OptimizeImages, merge.OiMinWidth, merge.OiMinHeight, merge.OiMinArea, merge.KeepInlineImages, merge.JpegQuality),
-                        new Writing.QdfOptions(merge.Qdf, merge.NoOriginalObjectIds),
-                        new Content.ContentPrunePolicy(true, merge.RemoveUnreferencedResources),
-                        true,
-                        governor,
-                        diagnostics,
-                        merge.Linearize,
-                        merge.LinearizePass1,
-                        merge.EmptyInput,
-                        null,
-                        cancellationToken).ConfigureAwait(false)).Result;
+                        host: host,
+                        sources: resolved,
+                        outputPath: merge.Output,
+                        primaryInput: merge.Input,
+                        pruneUnreachableFields: true,
+                        limits: limits,
+                        recovery: merge.Recovery,
+                        settings: SelectionSettings.FromPlan(merge, pruneEnabled: true),
+                        collation: merge.Collation,
+                        verbatimLabels: null,
+                        splitPages: merge.SplitPages,
+                        replaceInput: merge.ReplaceInput,
+                        governor: governor,
+                        diagnostics: diagnostics,
+                        emptyPrimary: merge.EmptyInput,
+                        preparedSource: null,
+                        cancellationToken: cancellationToken).ConfigureAwait(false)).Result;
                     return CompleteWithPresentation(merged.Warnings, plan, governor);
                 }
                 catch (QpdfException ex)
@@ -5595,53 +5555,23 @@ public static partial class Qpdf
                     };
                     QpdfPath target = selection.ReplaceInput ? selection.Input : selection.Output;
                     MultiPageSelectionOutcome merged = (await SelectPagesCoreAsync(
-                        host,
-                        solo,
-                        target,
-                        selection.Input,
-                        true,
-                        limits,
-                        selection.Recovery,
-                        null,
-                        selection.Rotations,
-                        selection.Labels,
-                        selection.RemoveLabels,
-                        null,
-                        selection.SplitPages,
-                        selection.ReplaceInput,
-                        selection.MinVersion,
-                        selection.ForceVersion,
-                        selection.DeterministicId,
-                        selection.StaticId,
-                        selection.NewlineBeforeEndstream,
-                        selection.ObjectStreams,
-                        selection.PreserveUnreferenced,
-                        selection.Compression(),
-                        selection.RemoveInfo,
-                        selection.RemoveAcroform,
-                        selection.RemoveStructure,
-                        selection.RemoveMetadata,
-                        selection.Edits(),
-                        selection.CoalesceContents,
-                        selection.NormalizeContent,
-                        selection.ExternalizeInlineImages,
-                        selection.IiMinBytes,
-                        selection.Underlays,
-                        selection.Overlays,
-                        selection.FlattenRotation,
-                        selection.FlattenAnnotations,
-                        selection.GenerateAppearances,
-                        new Content.ImageOptimizeRequest(selection.OptimizeImages, selection.OiMinWidth, selection.OiMinHeight, selection.OiMinArea, selection.KeepInlineImages, selection.JpegQuality),
-                        new Writing.QdfOptions(selection.Qdf, selection.NoOriginalObjectIds),
-                        new Content.ContentPrunePolicy(true, selection.RemoveUnreferencedResources),
-                        true,
-                        governor,
-                        diagnostics,
-                        selection.Linearize,
-                        selection.LinearizePass1,
-                        false,
-                        null,
-                        cancellationToken).ConfigureAwait(false)).Result;
+                        host: host,
+                        sources: solo,
+                        outputPath: target,
+                        primaryInput: selection.Input,
+                        pruneUnreachableFields: true,
+                        limits: limits,
+                        recovery: selection.Recovery,
+                        settings: SelectionSettings.FromPlan(selection, pruneEnabled: true),
+                        collation: null,
+                        verbatimLabels: null,
+                        splitPages: selection.SplitPages,
+                        replaceInput: selection.ReplaceInput,
+                        governor: governor,
+                        diagnostics: diagnostics,
+                        emptyPrimary: false,
+                        preparedSource: null,
+                        cancellationToken: cancellationToken).ConfigureAwait(false)).Result;
                     return CompleteWithPresentation(merged.Warnings, plan, governor);
                 }
                 catch (QpdfException ex)
@@ -5660,46 +5590,16 @@ public static partial class Qpdf
             }
 
             PageSelectionOutcome selected = await SelectPageCoreAsync(
-                host,
-                selection.Input,
-                selection.Output,
-                new PdfPageSelectionOptions(selection.Page),
-                limits,
-                selection.Recovery,
-                selection.Rotations,
-                selection.Labels,
-                selection.RemoveLabels,
-                selection.MinVersion,
-                selection.ForceVersion,
-                selection.DeterministicId,
-                selection.StaticId,
-                selection.NewlineBeforeEndstream,
-                selection.ObjectStreams,
-                selection.PreserveUnreferenced,
-                selection.Compression(),
-                selection.RemoveInfo,
-                selection.RemoveAcroform,
-                selection.RemoveStructure,
-                selection.RemoveMetadata,
-                selection.Edits(),
-                selection.CoalesceContents,
-                selection.NormalizeContent,
-                selection.ExternalizeInlineImages,
-                selection.IiMinBytes,
-                selection.Underlays,
-                selection.Overlays,
-                selection.FlattenRotation,
-                selection.FlattenAnnotations,
-                selection.GenerateAppearances,
-                new Content.ImageOptimizeRequest(selection.OptimizeImages, selection.OiMinWidth, selection.OiMinHeight, selection.OiMinArea, selection.KeepInlineImages, selection.JpegQuality),
-                new Writing.QdfOptions(selection.Qdf, selection.NoOriginalObjectIds),
-                new Content.ContentPrunePolicy(true, selection.RemoveUnreferencedResources),
-                true,
-                governor,
-                diagnostics,
-                selection.Linearize,
-                selection.LinearizePass1,
-                cancellationToken).ConfigureAwait(false);
+                host: host,
+                inputPath: selection.Input,
+                outputPath: selection.Output,
+                options: new PdfPageSelectionOptions(selection.Page),
+                limits: limits,
+                recovery: selection.Recovery,
+                settings: SelectionSettings.FromPlan(selection, pruneEnabled: true),
+                governor: governor,
+                diagnostics: diagnostics,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
             return CompleteWithPresentation(selected.Warnings, plan, governor);
         }
         catch (QpdfException ex)
