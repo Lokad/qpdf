@@ -23,6 +23,11 @@ admit the additional assembly capacity before copying. Failed or canceled reads
 refund their admission after outstanding input work finishes. The input lease
 remains caller-owned.
 
+Attachment extraction borrows unfiltered or fallback bytes from the open document
+through output consumption. Filtered input slices are admitted before copying;
+decoded arrays stay in a temporary scope through inspection or transactional
+publication and are refunded on success, cancellation or output failure.
+
 Engine reads use the same reader with their destination already admitted. They
 reserve additional assembly overlap only when a short or non-array read actually
 needs a copy, and refund that temporary charge before returning. Selective input

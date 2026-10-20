@@ -106,13 +106,15 @@ internal static class EmbeddedFiles
         return result;
     }
 
-    internal static byte[] ExtractData(
+    internal static ReadOnlyMemory<byte> ExtractData(
         PdfStream stream,
         int number,
         DocumentEngine engine,
         QpdfLimits limits,
         ResourceGovernor governor,
-        DiagnosticBag diagnostics)
+        DiagnosticBag diagnostics,
+        ParserMemoryScope memory,
+        CancellationToken cancellationToken)
     {
         if (stream is null)
         {
@@ -140,17 +142,21 @@ internal static class EmbeddedFiles
         }
 
         limits.Validate();
-        byte[] raw = (byte[])stream.Data.Clone();
-        governor.ReserveMemory(raw.Length);
+        memory.CheckOwner(governor);
+        cancellationToken.ThrowIfCancellationRequested();
+        governor.CheckCancellation();
         try
         {
-            using FilterPlan stages = FilterChain.Resolve(stream.Dictionary, (IIndirectResolver)engine, governor, governor.CancellationToken);
-            return FilterChain.Decode(raw, stages, limits, governor);
+            using FilterPlan stages = FilterChain.Resolve(stream.Dictionary, (IIndirectResolver)engine, governor, cancellationToken);
+            // The open document funds raw storage until the caller consumes it.
+            if (stages.Count == 0) { return stream.RawMemory; }
+            byte[] raw = stream.ArrayData(memory, governor, cancellationToken);
+            return FilterChain.Decode(raw, stages, limits, governor, memory, cancellationToken);
         }
         catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
             diagnostics.AddParts(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, ["Stream ", number, " extracted raw: decode unavailable."]);
-            return raw;
+            return stream.RawMemory;
         }
     }
 

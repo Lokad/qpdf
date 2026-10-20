@@ -53,7 +53,8 @@ public static partial class Qpdf
                     if (plan.ListAttachments) { _ = ListAttachments(document, plan.Input, limits, governor, diagnostics, cancellationToken); }
                     if (plan.AttachmentKey is not null)
                     {
-                        byte[] payload = ReadAttachmentData(document, plan.AttachmentKey, limits, governor, diagnostics, cancellationToken);
+                        using ParserMemoryScope attachmentMemory = ParserMemoryScope.Create(governor);
+                        ReadOnlyMemory<byte> payload = ReadAttachmentData(document, plan.AttachmentKey, limits, governor, diagnostics, attachmentMemory, cancellationToken);
                         AppendInspectionBytes(output, payload, governor);
                         hasPayload = true;
                     }
