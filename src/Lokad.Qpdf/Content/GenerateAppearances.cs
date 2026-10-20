@@ -197,7 +197,6 @@ internal static class GenerateAppearances
         long Flags,
         QpdfObject? Value,
         ReadOnlyMemory<byte>? DefaultAppearance,
-        List<string> Choices,
         PdfDictionary? Node,
         int? NodeId);
 
@@ -254,13 +253,7 @@ internal static class GenerateAppearances
             }
         }
 
-        List<string> choices = new();
-        if (type == "Ch" && node is not null)
-        {
-            choices = ReadChoices(node, resolver);
-        }
-
-        return new FieldContext(type, flags, value, appearance, choices, node, nodeId);
+        return new FieldContext(type, flags, value, appearance, node, nodeId);
     }
 
     private static List<(PdfDictionary Node, int? Id)> FindFieldChain(
@@ -396,9 +389,9 @@ internal static class GenerateAppearances
 
         return chain;
     }
-    private static List<string> ReadChoices(PdfDictionary field, PoolResolver resolver)
+    private static List<string> ReadChoices(PdfDictionary field, PoolResolver resolver, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
-        List<string> choices = new();
+        List<string> choices = ParserContainers.CreateList<string>(memory);
         if (!field.TryGet(PdfName.FromAscii("Opt"), out QpdfObject? opt) || opt is null || opt is PdfNull)
         {
             return choices;
@@ -414,12 +407,13 @@ internal static class GenerateAppearances
 
         foreach (QpdfObject item in array.Items)
         {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             QpdfObject entry = item is PdfReference entryReference
                 ? ResolveOrNull(resolver, entryReference) ?? item
                 : item;
             if (entry is PdfByteString text)
             {
-                choices.Add(PdfText.Decode(text.Value));
+                ParserContainers.AddItem(memory, choices, PdfText.Decode(text.ValueMemory, memory, governor, token), IntPtr.Size);
                 continue;
             }
 
@@ -430,7 +424,7 @@ internal static class GenerateAppearances
                     : pair[1];
                 if (display is PdfByteString displayText)
                 {
-                    choices.Add(PdfText.Decode(displayText.Value));
+                    ParserContainers.AddItem(memory, choices, PdfText.Decode(displayText.ValueMemory, memory, governor, token), IntPtr.Size);
                 }
             }
         }
@@ -669,18 +663,18 @@ internal static class GenerateAppearances
         string valueText = string.Empty;
         if (field.Value is PdfByteString valueString)
         {
-            valueText = PdfText.Decode(valueString.Value);
+            valueText = PdfText.Decode(valueString.ValueMemory, scratch, governor, cancellationToken);
         }
 
         TfResult font = AnalyzeDa(field.DefaultAppearance ?? ReadOnlyMemory<byte>.Empty, limits, governor, scratch, cancellationToken);
-        Func<string, byte[]> encoder = SelectEncoder(appearanceDict, font.FontName, formResources, resolver, governor, cancellationToken);
-        byte[] encodedValue = encoder(valueText);
-        List<byte[]> encodedOpt = new();
-        if (field.Type == "Ch" && (field.Flags & FlagCombo) == 0L)
+        AppearanceEncoding encoding = SelectEncoding(appearanceDict, font.FontName, formResources, resolver, governor, cancellationToken);
+        byte[] encodedValue = EncodeValue(valueText, encoding, scratch, governor, cancellationToken);
+        List<byte[]> encodedOpt = ParserContainers.CreateList<byte[]>(scratch);
+        if (field.Type == "Ch" && (field.Flags & FlagCombo) == 0L && field.Node is not null)
         {
-            foreach (string choice in field.Choices)
+            foreach (string choice in ReadChoices(field.Node, resolver, scratch, governor, cancellationToken))
             {
-                encodedOpt.Add(encoder(choice));
+                ParserContainers.AddItem(scratch, encodedOpt, EncodeValue(choice, encoding, scratch, governor, cancellationToken), IntPtr.Size);
             }
         }
 
@@ -985,7 +979,7 @@ internal static class GenerateAppearances
         return new(11.0, Array.Empty<byte>(), appearance);
     }
 
-    private static string FindFontEncoding(QpdfObject? resourcesRaw, ReadOnlySpan<byte> fontName,
+    private static PdfName? FindFontEncoding(QpdfObject? resourcesRaw, ReadOnlySpan<byte> fontName,
         PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
     {
         QpdfObject? resources = resourcesRaw is PdfReference link ? ResolveOrNull(resolver, link) : resourcesRaw;
@@ -995,9 +989,9 @@ internal static class GenerateAppearances
             QpdfObject? font = fontRaw is PdfReference fontLink ? ResolveOrNull(resolver, fontLink) : fontRaw;
             if (font is PdfDictionary fontDictionary
                 && PdfDictionaryLookup.TryGet(fontDictionary, "Encoding"u8, governor, token, out QpdfObject encoding)
-                && encoding is PdfName name) { return name.DisplayText; }
+                && encoding is PdfName name) { return name; }
         }
-        return string.Empty;
+        return null;
     }
 
     private static PdfDictionary? TryMergeDrFont(PdfDictionary appearance, ReadOnlySpan<byte> fontName,
@@ -1037,49 +1031,70 @@ internal static class GenerateAppearances
             && PdfDictionaryLookup.TryGet(fonts, fontName, governor, token, out QpdfObject font)
             && font is not PdfNull ? font : null;
     }
-    private static Func<string, byte[]> SelectEncoder(PdfDictionary appearance, ReadOnlySpan<byte> fontName, PdfDictionary? formResources, PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
+    internal enum AppearanceEncoding { Ascii, WinAnsi, MacRoman }
+
+    private static AppearanceEncoding SelectEncoding(PdfDictionary appearance, ReadOnlySpan<byte> fontName,
+        PdfDictionary? formResources, PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
     {
-        if (fontName.Length == 0)
+        if (fontName.IsEmpty) { return AppearanceEncoding.Ascii; }
+        PdfName? encoding = null;
+        if (appearance.TryGet(PdfName.FromAscii("Resources"), out QpdfObject? resourcesRaw))
+        { encoding = FindFontEncoding(resourcesRaw, fontName, resolver, governor, token); }
+        // Encoding inheritance consults document-level AcroForm DR, not field DR or page resources.
+        if ((encoding is null || encoding.RawSpan.IsEmpty) && formResources is not null)
+        { encoding = FindFontEncoding(formResources, fontName, resolver, governor, token); }
+        if (encoding is not null)
         {
-            return EncodeAscii;
+            if (PdfDictionaryLookup.NameEquals(encoding, "WinAnsiEncoding"u8, governor, token)) { return AppearanceEncoding.WinAnsi; }
+            if (PdfDictionaryLookup.NameEquals(encoding, "MacRomanEncoding"u8, governor, token)) { return AppearanceEncoding.MacRoman; }
         }
-
-        string encoding = string.Empty;
-        if (appearance.TryGet(PdfName.FromAscii("Resources"), out QpdfObject? resourcesRaw) && resourcesRaw is not null && resourcesRaw is not PdfNull)
-        {
-            encoding = FindFontEncoding(resourcesRaw, fontName, resolver, governor, token);
-        }
-
-        // Field-level /DR is ignored like the reference: upstream getDefaultResources()
-        // reads only the document-level /AcroForm /DR (field /DR is ignored by
-        // popular readers), and page /Resources is never consulted for encoding.
-        if (encoding.Length == 0 && formResources is not null)
-        {
-            encoding = FindFontEncoding(formResources, fontName, resolver, governor, token);
-        }
-
-        if (encoding == "WinAnsiEncoding")
-        {
-            return EncodeWinAnsi;
-        }
-
-        if (encoding == "MacRomanEncoding")
-        {
-            return EncodeMacRoman;
-        }
-
-        return EncodeAscii;
+        return AppearanceEncoding.Ascii;
     }
 
-    private static byte[] EncodeAscii(string text)
+    internal static byte[] EncodeValue(string text, AppearanceEncoding encoding, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken token)
     {
-        List<byte> output = new(text.Length);
-        foreach (char code in text)
+        memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        int length = text.Length;
+        if (encoding != AppearanceEncoding.Ascii)
         {
-            output.Add(code <= 127 ? (byte)code : (byte)63);
+            for (int i = 0; i < text.Length; i++)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                if (char.IsHighSurrogate(text[i]) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
+                { length--; i++; }
+            }
         }
-
-        return [.. output];
+        if (length == 0) { return Array.Empty<byte>(); }
+        long reserved = checked(32L + length); memory.Reserve(reserved);
+        try
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            byte[] bytes = new byte[length]; int at = 0;
+            for (int i = 0; i < text.Length; i++)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                int code = text[i];
+                if (encoding != AppearanceEncoding.Ascii && char.IsHighSurrogate(text[i])
+                    && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
+                { code = char.ConvertToUtf32(text[i], text[++i]); }
+                byte mapped = (byte)'?';
+                if (code <= 127) { mapped = (byte)code; }
+                else if (encoding == AppearanceEncoding.WinAnsi)
+                {
+                    if (code is >= 0xA0 and <= 0xFF) { mapped = (byte)code; }
+                    else if (WinAnsiSpecial.TryGetValue(code, out byte special)) { mapped = special; }
+                }
+                else if (encoding == AppearanceEncoding.MacRoman)
+                {
+                    foreach ((int entry, byte value) in MacRomanTable)
+                    { if (entry == code) { mapped = value; break; } }
+                }
+                bytes[at++] = mapped;
+            }
+            return bytes;
+        }
+        catch { memory.Release(reserved); throw; }
     }
 
     private static readonly Dictionary<int, byte> WinAnsiSpecial = new()
@@ -1112,44 +1127,6 @@ internal static class GenerateAppearances
         [0x017E] = 0x9E,
         [0x0178] = 0x9F,
     };
-
-    private static byte[] EncodeWinAnsi(string text)
-    {
-        List<byte> output = new(text.Length);
-        int i = 0;
-        while (i < text.Length)
-        {
-            int code = text[i];
-            if (char.IsHighSurrogate(text[i]) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
-            {
-                code = char.ConvertToUtf32(text[i], text[i + 1]);
-                i += 2;
-            }
-            else
-            {
-                i += 1;
-            }
-
-            if (code <= 0x7F)
-            {
-                output.Add((byte)code);
-            }
-            else if (code >= 0xA0 && code <= 0xFF)
-            {
-                output.Add((byte)code);
-            }
-            else if (WinAnsiSpecial.TryGetValue(code, out byte mapped))
-            {
-                output.Add(mapped);
-            }
-            else
-            {
-                output.Add((byte)63);
-            }
-        }
-
-        return [.. output];
-    }
 
     private static readonly (int Code, byte Value)[] MacRomanTable =
     [
@@ -1186,45 +1163,6 @@ internal static class GenerateAppearances
         (0x02D8, 0xF9), (0x02D9, 0xFA), (0x02DA, 0xFB), (0x00B8, 0xFC),
         (0x02DD, 0xFD), (0x02DB, 0xFE), (0x02C7, 0xFF),
     ];
-
-    private static byte[] EncodeMacRoman(string text)
-    {
-        List<byte> output = new(text.Length);
-        int i = 0;
-        while (i < text.Length)
-        {
-            int code = text[i];
-            if (char.IsHighSurrogate(text[i]) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
-            {
-                code = char.ConvertToUtf32(text[i], text[i + 1]);
-                i += 2;
-            }
-            else
-            {
-                i += 1;
-            }
-
-            if (code <= 0x7F)
-            {
-                output.Add((byte)code);
-                continue;
-            }
-
-            byte mapped = 63;
-            foreach ((int entry, byte value) in MacRomanTable)
-            {
-                if (entry == code)
-                {
-                    mapped = value;
-                    break;
-                }
-            }
-
-            output.Add(mapped);
-        }
-
-        return [.. output];
-    }
 
     private static byte[] FilterAppearance(
         ReadOnlyMemory<byte> data,

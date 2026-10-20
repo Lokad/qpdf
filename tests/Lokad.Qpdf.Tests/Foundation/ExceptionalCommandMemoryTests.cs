@@ -133,7 +133,7 @@ public sealed class ExceptionalCommandMemoryTests
                 (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] /NeedAppearances true >> >>", null),
                 (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
                 (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Annots [4 0 R] >>", null),
-                (4, "<< /Type /Annot /Subtype /Widget /Rect [0 0 100 20] /FT /Tx /V (value) /DA (/F#31 12 Tf) /AP << /N 5 0 R >> >>", null),
+                (4, "<< /Type /Annot /Subtype /Widget /Rect [0 0 100 20] /FT /Tx /V (" + new string('A', 131072) + ") /DA (/F#31 12 Tf) /AP << /N 5 0 R >> >>", null),
                 (5, "<< /Type /XObject /Subtype /Form /BBox [0 0 100 20] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Length " + appearance.Length + " >>", appearance),
             ], 1);
         }

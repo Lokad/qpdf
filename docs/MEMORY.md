@@ -48,6 +48,10 @@ Default-appearance analysis scans borrowed bytes once, retaining only the last
 font and size. It admits decoded font-name bytes and any corrected appearance
 before materializing them. Appearance decoding and construction use a temporary
 scope and bounded buffers; only the final stream transfers into the graph.
+Field values and choice strings borrow their encoded source and admit final
+decoded text and encoded arrays before allocation. Their scratch scope stays
+open through appearance construction; failed or canceled conversion refunds its
+new reservation. ASCII, WinAnsi and MacRoman use one final array per value.
 
 Engine reads use the same reader with their destination already admitted. They
 reserve additional assembly overlap only when a short or non-array read actually

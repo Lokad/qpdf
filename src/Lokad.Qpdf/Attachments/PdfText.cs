@@ -1,4 +1,4 @@
-using System.Text;
+using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Attachments;
 
@@ -71,23 +71,30 @@ internal static class PdfText
 
     internal static string Decode(byte[] value)
     {
-        if (value is null)
-        {
-            throw new ArgumentNullException(nameof(value));
-        }
+        ArgumentNullException.ThrowIfNull(value);
+        return DecodeCore(value, null, null, CancellationToken.None);
+    }
 
-        if (value.Length >= 2 && ((value[0] == 0xFE && value[1] == 0xFF) || (value[0] == 0xFF && value[1] == 0xFE)))
-        {
-            return DecodeUtf16(value);
-        }
+    internal static string Decode(ReadOnlyMemory<byte> value, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        memory.CheckOwner(governor);
+        return DecodeCore(value, memory, governor, token);
+    }
 
-        StringBuilder output = new(value.Length);
-        foreach (byte b in value)
+    private static string DecodeCore(ReadOnlyMemory<byte> value, ParserMemoryScope? memory,
+        ResourceGovernor? governor, CancellationToken token)
+    {
+        int length = CopyDecoded(value.Span, Span<char>.Empty, governor, token);
+        if (length == 0) { return string.Empty; }
+        long bytes = GovernedText.StringBytes(length); memory?.Reserve(bytes);
+        try
         {
-            output.Append(DecodePdfDocByte(b));
+            token.ThrowIfCancellationRequested(); governor?.CheckCancellation();
+            return string.Create(length, (value, governor, token), static (target, state) =>
+                CopyDecoded(state.value.Span, target, state.governor, state.token));
         }
-
-        return output.ToString();
+        catch { memory?.Release(bytes); throw; }
     }
 
     internal static char DecodePdfDocByte(byte value)
@@ -95,13 +102,27 @@ internal static class PdfText
             : value is >= 127 and <= 160 ? HighTable[value - 127]
             : value == 173 ? 0xFFFD : value);
 
-    private static string DecodeUtf16(byte[] value)
+    private static int CopyDecoded(ReadOnlySpan<byte> value, Span<char> target,
+        ResourceGovernor? governor, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested(); governor?.CheckCancellation();
+        bool utf16 = value.Length >= 2 && ((value[0] == 0xFE && value[1] == 0xFF) || (value[0] == 0xFF && value[1] == 0xFE));
+        int length = 0;
+        if (!utf16)
+        {
+            for (int at = 0; at < value.Length; at++)
+            {
+                token.ThrowIfCancellationRequested(); governor?.CheckCancellation();
+                if (!target.IsEmpty) { target[length] = DecodePdfDocByte(value[at]); }
+                length++;
+            }
+            return length;
+        }
         bool little = value[0] == 0xFF;
-        StringBuilder output = new(value.Length / 2);
         int i = 2;
         while (i + 1 < value.Length)
         {
+            token.ThrowIfCancellationRequested(); governor?.CheckCancellation();
             int unit = little ? (value[i] | (value[i + 1] << 8)) : ((value[i] << 8) | value[i + 1]);
             i += 2;
             if ((unit & 0xFC00) == 0xD800)
@@ -112,7 +133,8 @@ internal static class PdfText
                     if ((next & 0xFC00) == 0xDC00)
                     {
                         i += 2;
-                        output.Append(char.ConvertFromUtf32(0x10000 + ((unit & 0x3FF) << 10) + (next & 0x3FF)));
+                        if (!target.IsEmpty) { target[length] = (char)unit; target[length + 1] = (char)next; }
+                        length += 2;
                         continue;
                     }
                 }
@@ -122,13 +144,15 @@ internal static class PdfText
 
             if ((unit & 0xFC00) == 0xDC00)
             {
-                output.Append((char)(unit & 0x3FF));
+                if (!target.IsEmpty) { target[length] = (char)(unit & 0x3FF); }
+                length++;
                 continue;
             }
 
-            output.Append((char)unit);
+            if (!target.IsEmpty) { target[length] = (char)unit; }
+            length++;
         }
 
-        return output.ToString();
+        return length;
     }
 }
