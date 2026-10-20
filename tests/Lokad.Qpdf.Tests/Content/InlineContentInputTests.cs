@@ -40,9 +40,6 @@ public sealed class InlineContentInputTests
 
     [Theory]
     [InlineData("")]
-    [InlineData("DCTDecode")]
-    [InlineData("UnknownFilter")]
-    [InlineData("bad-plan")]
     [InlineData("FlateDecode")]
     [InlineData("ASCIIHexDecode")]
     [InlineData("ASCII85Decode")]
@@ -72,6 +69,18 @@ public sealed class InlineContentInputTests
         finally { Close(owner); }
         Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(original, stream.Data);
         Assert.Same(stream, prepared.Copier.CopiedObjects[7]);
+    }
+
+    [Theory]
+    [InlineData("DCTDecode")]
+    [InlineData("UnknownFilter")]
+    [InlineData("bad-plan")]
+    public void OpaqueAndMalformedEncodingsCannotBecomeContent(string filter)
+    {
+        PdfStream stream = Stream(filter, "q Q"u8.ToArray()); using Prepared prepared = new(stream);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        Assert.Null(Collect(prepared.Copier, Dictionary(("Contents", stream)), QpdfLimits.Default, governor, CancellationToken.None));
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal("q Q"u8.ToArray(), stream.Data);
     }
 
     [Theory]

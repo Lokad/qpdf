@@ -30,34 +30,40 @@ public sealed class AnnotationPublicationTests
         }
     }
 
-    private static async Task<InMemoryQpdfHost> Storage()
+    private static async Task<InMemoryQpdfHost> Storage(string mode)
     {
         InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("input"), FlattenResourceStorageTests.Fixture(64, false), QpdfInputOwnership.Transfer);
+        byte[] input = mode is "overlay" or "flatten" ? FlattenResourceStorageTests.Fixture(64, false)
+            : ContentSafetyTests.Fixture(System.Text.Encoding.ASCII.GetBytes(new string(' ', 524288) + "BI /W 1 /H 1 /BPC 8 /CS /G ID X EI"), "", false, 1);
+        host.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Transfer);
         host.AddInput(QpdfPath.From("overlay"), FlattenResourceStorageTests.Fixture(4, false), QpdfInputOwnership.Transfer);
         await using IQpdfOutputTransaction initial = await host.CreateOutputAsync(Output, CancellationToken.None);
         await initial.WriteAsync(new byte[] { 17, 23, 41 }, CancellationToken.None); await initial.CommitAsync(CancellationToken.None);
         return host;
     }
 
-    private static ValueTask<QpdfExecutionResult> Run(Host host, bool overlay, CancellationToken token)
-        => Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(overlay
+    private static ValueTask<QpdfExecutionResult> Run(Host host, string mode, CancellationToken token)
+        => Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(mode == "overlay"
             ? ["input", "--overlay", "overlay", "--", "output"]
-            : ["input", "--flatten-annotations=all", "--", "output"]), token);
+            : ["input", mode switch { "flatten" => "--flatten-annotations=all", "coalesce" => "--coalesce-contents",
+                "normalize" => "--normalize-content=y", _ => "--externalize-inline-images" }, "--ii-min-bytes=0", "--", "output"]), token);
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task EverySharedGrowthCanRefuseWithoutPublishing(bool overlay)
+    [InlineData("flatten")]
+    [InlineData("overlay")]
+    [InlineData("coalesce")]
+    [InlineData("normalize")]
+    [InlineData("externalize")]
+    public async Task EverySharedGrowthCanRefuseWithoutPublishing(string mode)
     {
         int growths;
-        using (InMemoryQpdfHost storage = await Storage())
+        using (InMemoryQpdfHost storage = await Storage(mode))
         {
             RecordingMemoryBudget root = new(64L * 1024 * 1024);
             using (IMemoryScope owner = root.CreateScope())
             using (CancellationTokenSource cancellation = new())
             {
-                QpdfExecutionResult result = await Run(new(storage, owner, "none", cancellation), overlay, cancellation.Token);
+                QpdfExecutionResult result = await Run(new(storage, owner, "none", cancellation), mode, cancellation.Token);
                 Assert.Equal(QpdfExecutionStatus.Completed, result.Status); growths = root.GrowthCalls;
                 Assert.Equal(0L, storage.OpenLeaseCount);
             }
@@ -66,13 +72,13 @@ public sealed class AnnotationPublicationTests
         Assert.InRange(growths, 1, 64);
         for (int growth = 1; growth <= growths; growth++)
         {
-            using InMemoryQpdfHost storage = await Storage();
+            using InMemoryQpdfHost storage = await Storage(mode);
             RecordingMemoryBudget root = new(64L * 1024 * 1024) { RefuseOnGrowth = growth };
             QpdfExecutionResult result;
             using (IMemoryScope owner = root.CreateScope())
             using (CancellationTokenSource cancellation = new())
             {
-                result = await Run(new(storage, owner, "none", cancellation), overlay, cancellation.Token);
+                result = await Run(new(storage, owner, "none", cancellation), mode, cancellation.Token);
                 Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
                 Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded);
                 Assert.True(storage.TryGetOutput(Output, out byte[] bytes)); Assert.Equal(new byte[] { 17, 23, 41 }, bytes);
@@ -83,23 +89,38 @@ public sealed class AnnotationPublicationTests
     }
 
     [Theory]
-    [InlineData("create", false)]
-    [InlineData("write", false)]
-    [InlineData("commit", false)]
-    [InlineData("cancel", false)]
-    [InlineData("close", false)]
-    [InlineData("write", true)]
-    [InlineData("commit", true)]
-    [InlineData("cancel", true)]
-    [InlineData("close", true)]
-    public async Task OutputFaultsRefundOwnersAndRespectCommit(string phase, bool overlay)
+    [InlineData("create", "flatten")]
+    [InlineData("write", "flatten")]
+    [InlineData("commit", "flatten")]
+    [InlineData("cancel", "flatten")]
+    [InlineData("close", "flatten")]
+    [InlineData("write", "overlay")]
+    [InlineData("commit", "overlay")]
+    [InlineData("cancel", "overlay")]
+    [InlineData("close", "overlay")]
+    [InlineData("create", "coalesce")]
+    [InlineData("write", "coalesce")]
+    [InlineData("commit", "coalesce")]
+    [InlineData("cancel", "coalesce")]
+    [InlineData("close", "coalesce")]
+    [InlineData("create", "normalize")]
+    [InlineData("write", "normalize")]
+    [InlineData("commit", "normalize")]
+    [InlineData("cancel", "normalize")]
+    [InlineData("close", "normalize")]
+    [InlineData("create", "externalize")]
+    [InlineData("write", "externalize")]
+    [InlineData("commit", "externalize")]
+    [InlineData("cancel", "externalize")]
+    [InlineData("close", "externalize")]
+    public async Task OutputFaultsRefundOwnersAndRespectCommit(string phase, string mode)
     {
-        using InMemoryQpdfHost storage = await Storage();
+        using InMemoryQpdfHost storage = await Storage(mode);
         RecordingMemoryBudget root = new(64L * 1024 * 1024);
         using (IMemoryScope owner = root.CreateScope())
         using (CancellationTokenSource cancellation = new())
         {
-            QpdfExecutionResult result = await Run(new(storage, owner, phase, cancellation), overlay, cancellation.Token);
+            QpdfExecutionResult result = await Run(new(storage, owner, phase, cancellation), mode, cancellation.Token);
             Assert.Equal(phase == "cancel" ? QpdfExecutionStatus.Canceled : QpdfExecutionStatus.Failed, result.Status);
             Assert.Equal(0L, storage.OpenLeaseCount); Assert.True(storage.TryGetOutput(Output, out byte[] bytes));
             if (phase == "close") { Assert.True(bytes.AsSpan().StartsWith("%PDF-"u8)); }

@@ -234,15 +234,6 @@ internal static class ContentTransforms
         return null;
     }
 
-    private static (byte[] Data, bool Decoded) DecodeForContent(
-        PdfStream stream,
-        IIndirectResolver resolver,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        ParserMemoryScope memory,
-        CancellationToken cancellationToken)
-        => AnalysisChunks.DecodeForContent(stream, resolver, limits, governor, memory, cancellationToken);
-
     private static PdfDictionary ReplaceEntry(PdfDictionary dictionary, ReadOnlySpan<byte> key, QpdfObject value, ResourceGovernor governor, CancellationToken cancellationToken)
     {
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
@@ -303,7 +294,13 @@ internal static class ContentTransforms
 
         using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
         PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
-        PdfStream coalesced = BuildCoalescedContent(entries, resolver, request, limits, governor, cancellationToken);
+        PdfStream? coalesced = BuildCoalescedContent(entries, resolver, request, limits, governor, cancellationToken);
+        if (coalesced is null)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning,
+                "Left page contents uncoalesced because a stream could not be decoded.");
+            return page;
+        }
 
         PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, cancellationToken, out QpdfObject contentsRaw);
         PdfDictionary replaced;
@@ -334,11 +331,12 @@ internal static class ContentTransforms
         return replaced;
     }
 
-    private static PdfStream BuildCoalescedContent(ContentEntries entries, PoolResolver resolver, ContentTransformRequest request,
+    private static PdfStream? BuildCoalescedContent(ContentEntries entries, PoolResolver resolver, ContentTransformRequest request,
         QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
         using AnalysisChunks chunks = AnalysisChunks.Create(governor, token);
-        for (int index = 0; index < entries.Count; index++) { chunks.AddForContent(entries.Get(index).Stream, resolver, limits); }
+        for (int index = 0; index < entries.Count; index++)
+        { if (!chunks.TryAdd(entries.Get(index).Stream, resolver, limits)) { return null; } }
         using JoinedContent joined = JoinedContent.Create(chunks.Parts, governor, token);
         chunks.Dispose();
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
@@ -435,9 +433,13 @@ internal static class ContentTransforms
             byte[] data = Array.Empty<byte>(); bool decoded;
             try
             {
-                try { (data, decoded) = DecodeForContent(original, resolver, limits, governor, decodedMemory, token); }
-                catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException))
-                { data = original.ArrayData(decodedMemory, governor, token); decoded = false; }
+                if (!AnalysisChunks.TryDecode(original, resolver, limits, governor, decodedMemory, token, out data, out decoded))
+                {
+                    decodedMemory.Dispose();
+                    diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning,
+                        "Left a content stream unnormalized because it could not be decoded.");
+                    return null;
+                }
                 using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
                 byte[]? normalized = null;
                 try

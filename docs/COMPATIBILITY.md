@@ -25,6 +25,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Coalescing, normalization and inline-image interpretation now require unfiltered
+or successfully decoded content. Unsupported/damaged encodings and filter-count
+ceilings preserve the affected content and headers; page operations warn rather
+than interpreting opaque bytes as instructions. Memory/decompression limits and
+cancellation remain fatal. No public signatures change.
+
 Overlay catalog default appearances remain borrowed byte programs through import,
 without eager PDF-text decoding or re-encoding. Imported defaults preserve their
 original bytes, including non-ASCII names; source ownership transfers before close.

@@ -29,64 +29,27 @@ internal sealed class AnalysisChunks : IDisposable
     {
         ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
         ResourceGovernor governor = _governor ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
-        _token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        FilterPlan stages;
-        try { stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, _token); }
-        catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException)) { return false; }
-        using FilterPlan stageOwner = stages;
-        if (!FilterChain.AllStagesInLevel(stages, "specialized")) { return false; }
-        // PdfStream's immutable storage is already funded by its graph owner.
-        byte[] raw = stream.ArrayData(memory, governor, _token);
-        byte[] decoded;
-        try { decoded = stages.Count == 0 ? raw : FilterChain.Decode(raw, stages, limits, governor, memory, _token); }
-        catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException)) { return false; }
-        Append(decoded, stages.Count != 0); return true;
-    }
-
-    internal void AddForContent(PdfStream stream, PoolResolver resolver, QpdfLimits limits)
-    {
-        ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
-        ResourceGovernor governor = _governor ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
-        (byte[] bytes, bool decoded) = DecodeForContent(stream, resolver, limits, governor, memory, _token);
-        Append(bytes, decoded);
-    }
-
-    internal bool TryAddForInlineImages(PdfStream stream, PoolResolver resolver, QpdfLimits limits)
-    {
-        ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
-        ResourceGovernor governor = _governor ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
-        if (!TryDecodeForContent(stream, resolver, limits, governor, memory, _token, true, out byte[] bytes, out bool decoded))
+        if (!TryDecode(stream, resolver, limits, governor, memory, _token, out byte[] bytes, out bool decoded))
         { return false; }
         Append(bytes, decoded); return true;
     }
 
-    internal static (byte[] Data, bool Decoded) DecodeForContent(PdfStream stream, IIndirectResolver resolver,
-        QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
-    {
-        TryDecodeForContent(stream, resolver, limits, governor, memory, token, false, out byte[] bytes, out bool decoded);
-        return (bytes, decoded);
-    }
-
-    private static bool TryDecodeForContent(PdfStream stream, IIndirectResolver resolver,
-        QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token,
-        bool rejectDecodeFailure, out byte[] bytes, out bool decoded)
+    internal static bool TryDecode(PdfStream stream, IIndirectResolver resolver, QpdfLimits limits,
+        ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token,
+        out byte[] bytes, out bool decoded)
     {
         memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        byte[] raw = stream.ArrayData(memory, governor, token);
-        bytes = raw; decoded = false;
+        bytes = Array.Empty<byte>(); decoded = false;
         FilterPlan stages;
-        try
-        {
-            stages = rejectDecodeFailure
-                ? FilterChain.ResolveScoped(stream.Dictionary, resolver, governor, token)
-                : FilterChain.Resolve(stream.Dictionary, resolver, governor, token);
-        }
-        catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException)) { return true; }
+        try { stages = FilterChain.ResolveScoped(stream.Dictionary, resolver, governor, token); }
+        catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException)) { return false; }
         using FilterPlan stageOwner = stages;
-        if (stages.Count == 0 || !FilterChain.AllStagesInLevel(stages, "specialized")) { return true; }
-        try { bytes = FilterChain.Decode(raw, stages, limits, governor, memory, token); decoded = true; return true; }
-        catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException) && rejectDecodeFailure) { return false; }
-        catch (QpdfFilterException exception) when (exception.Reason == QpdfFilterFailureReason.UnsupportedFilter) { return true; }
+        if (!FilterChain.AllStagesInLevel(stages, "specialized")) { return false; }
+        // Only unfiltered or successfully decoded bytes may be interpreted as content.
+        byte[] raw = stream.ArrayData(memory, governor, token);
+        try { bytes = stages.Count == 0 ? raw : FilterChain.Decode(raw, stages, limits, governor, memory, token); }
+        catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException)) { return false; }
+        decoded = stages.Count != 0; return true;
     }
 
     private void Append(byte[] decoded, bool owned)

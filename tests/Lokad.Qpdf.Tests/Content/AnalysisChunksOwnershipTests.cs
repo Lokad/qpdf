@@ -61,15 +61,15 @@ public sealed class AnalysisChunksOwnershipTests
     [Fact]
     public void FailedListGrowthPreservesPriorChunksAndCanRetry()
     {
-        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 500L }; ResourceGovernor governor = new(limits, CancellationToken.None);
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 469L }; ResourceGovernor governor = new(limits, CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(17L);
         using AnalysisChunks chunks = AnalysisChunks.Create(governor, CancellationToken.None); PoolResolver resolver = Resolver();
         PdfStream stream = Stream("", "borrowed"u8.ToArray());
-        for (int index = 0; index < 4; index++) { Assert.True(chunks.TryAdd(stream, resolver, limits)); }
+        for (int index = 0; index < 8; index++) { Assert.True(chunks.TryAdd(stream, resolver, limits)); }
         long live = governor.Snapshot().LiveMemoryBytes;
         Assert.Throws<QpdfLimitException>(() => chunks.TryAdd(stream, resolver, limits));
-        Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(4, chunks.Parts.Count);
-        prior.Release(17L); Assert.True(chunks.TryAdd(stream, resolver, limits)); Assert.Equal(5, chunks.Parts.Count);
+        Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(8, chunks.Parts.Count);
+        prior.Release(17L); Assert.True(chunks.TryAdd(stream, resolver, limits)); Assert.Equal(9, chunks.Parts.Count);
         Assert.All(chunks.Parts, part => Assert.Same(stream.AllocationCarrier, part));
         chunks.Dispose(); Assert.Equal(64L, governor.Snapshot().LiveMemoryBytes);
     }

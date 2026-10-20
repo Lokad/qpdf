@@ -557,12 +557,13 @@ public sealed class ContentTransformsTests
                 ("<< /Length 4 /Filter /DCTDecode >>", [(byte)0xFF, (byte)0xD8, (byte)0x00, (byte)0x01]),
                 ("<< /Length 2 >>", Encoding.ASCII.GetBytes("ET")),
             });
-        InMemoryQpdfHost host0 = HostWith("inputs/a.pdf", fixture);
-        InMemoryQpdfHost host = host0;
-        byte[] pdf = await TransformAsync(host, "--coalesce-contents", "--pages", ".", "1");
-        byte[] content = await PageContentAsync(pdf);
-        byte[] expected = [(byte)0xFF, (byte)0xD8, (byte)0x00, (byte)0x01, (byte)'\n', (byte)'E', (byte)'T'];
-        Assert.Equal(expected, content);
+        using InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation([
+            "inputs/a.pdf", "--coalesce-contents", "--decode-level=none", "--compress-streams=n", "outputs/a.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        Assert.Contains("/DCTDecode", Encoding.ASCII.GetString(pdf));
+        Assert.Contains("uncoalesced", Assert.Single(result.Diagnostics).Message);
     }
 
     [Fact]

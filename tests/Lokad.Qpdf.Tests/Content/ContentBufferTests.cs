@@ -12,8 +12,11 @@ namespace Lokad.Qpdf.Tests.Content;
 public sealed class ContentBufferTests
 {
     private static (byte[] Data, bool Decoded) Decode(PdfStream stream, ResourceGovernor governor, ParserMemoryScope memory)
-        => AnalysisChunks.DecodeForContent(stream, new PoolResolver(new Dictionary<int, QpdfObject>()),
-            QpdfLimits.Default, governor, memory, CancellationToken.None);
+    {
+        Assert.True(AnalysisChunks.TryDecode(stream, new PoolResolver(new Dictionary<int, QpdfObject>()),
+            QpdfLimits.Default, governor, memory, CancellationToken.None, out byte[] bytes, out bool decoded));
+        return (bytes, decoded);
+    }
     private static byte[] Normalize(byte[] data, ResourceGovernor governor, ParserMemoryScope memory, long maximum)
         => ContentTransforms.NormalizeContentBytesOwned(data, QpdfLimits.Default, governor,
             CancellationToken.None, maximum, nameof(QpdfLimits.MaxDecodedBytes), memory);
@@ -28,8 +31,6 @@ public sealed class ContentBufferTests
     [InlineData("ASCII85Decode")]
     [InlineData("LZWDecode")]
     [InlineData("RunLengthDecode")]
-    [InlineData("DCTDecode")]
-    [InlineData("bad-plan")]
     public void DecodingBorrowsFallbacksAndScopesOnlyFreshOutput(string filter)
     {
         byte[] raw = "/F1 12 Tf"u8.ToArray(); PdfStream stream = Stream(filter, raw); byte[] original = stream.Data;
@@ -47,13 +48,14 @@ public sealed class ContentBufferTests
     }
 
     [Fact]
-    public void InvalidSupportedDataStaysFatalAndRetiresDecoderScratch()
+    public void InvalidSupportedDataIsRejectedAndRetiresDecoderScratch()
     {
         PdfStream stream = new(DecoderOwnershipFixtures.Dictionary(("Filter", PdfName.FromAscii("ASCIIHexDecode"))), "ABCG>"u8.ToArray());
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        QpdfFilterException failure = Assert.Throws<QpdfFilterException>(() => Decode(stream, governor, memory));
-        Assert.Equal(QpdfFilterFailureReason.InvalidData, failure.Reason); Assert.Equal(0L, memory.ReservedBytes);
+        Assert.False(AnalysisChunks.TryDecode(stream, new PoolResolver(new Dictionary<int, QpdfObject>()),
+            QpdfLimits.Default, governor, memory, CancellationToken.None, out byte[] bytes, out bool decoded));
+        Assert.Empty(bytes); Assert.False(decoded); Assert.Equal(0L, memory.ReservedBytes);
         Assert.Equal(64L, governor.Snapshot().LiveMemoryBytes); Assert.Equal("ABCG>"u8.ToArray(), stream.Data);
     }
 

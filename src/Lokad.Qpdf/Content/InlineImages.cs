@@ -103,7 +103,7 @@ internal static class InlineImages
         using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
         PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
         using AnalysisChunks chunks = AnalysisChunks.Create(governor, cancellationToken);
-        if (!chunks.TryAddForInlineImages(form, resolver, limits))
+        if (!chunks.TryAdd(form, resolver, limits))
         {
             return;
         }
@@ -170,7 +170,7 @@ internal static class InlineImages
         {
             for (int index = 0; index < streams.Count; index++)
             {
-                if (!chunks.TryAddForInlineImages(streams.Get(index).Stream, resolver, limits))
+                if (!chunks.TryAdd(streams.Get(index).Stream, resolver, limits))
                 { chunks.Dispose(); return null; }
             }
             return chunks;

@@ -18,7 +18,7 @@ public sealed class InlineChunkOwnershipTests
     [InlineData("mixed-chain")]
     [InlineData("bad-params")]
     [InlineData("unknown-binary-name")]
-    public void MalformedAndUnsupportedPlansKeepBorrowingTheExactRawPayload(string shape)
+    public void MalformedAndUnsupportedPlansCannotSupplyContentBytes(string shape)
     {
         QpdfObject filter = shape switch
         {
@@ -31,8 +31,8 @@ public sealed class InlineChunkOwnershipTests
         PdfDictionary header = shape == "bad-params" ? Dictionary(("Filter", filter), ("DecodeParms", new PdfInteger("1", 1L))) : Dictionary(("Filter", filter));
         PdfStream stream = new(header, "ABCG>"u8.ToArray()); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using AnalysisChunks chunks = AnalysisChunks.Create(governor, CancellationToken.None);
-        Assert.True(chunks.TryAddForInlineImages(stream, new(new Dictionary<int, QpdfObject>()), QpdfLimits.Default));
-        Assert.Same(stream.AllocationCarrier, Assert.Single(chunks.Parts)); Assert.Equal(208L, governor.Snapshot().LiveMemoryBytes);
+        Assert.False(chunks.TryAdd(stream, new PoolResolver(new Dictionary<int, QpdfObject>()), QpdfLimits.Default));
+        Assert.Empty(chunks.Parts); Assert.Equal(144L, governor.Snapshot().LiveMemoryBytes);
         chunks.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal("ABCG>"u8.ToArray(), stream.Data);
     }
 
@@ -40,11 +40,11 @@ public sealed class InlineChunkOwnershipTests
     public void SupportedDecodeFailureKeepsEarlierChunksFundedUntilOwnerDisposal()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); using AnalysisChunks chunks = AnalysisChunks.Create(governor, CancellationToken.None);
-        PoolResolver resolver = new(new Dictionary<int, QpdfObject>());
+        PoolResolver resolver = new PoolResolver(new Dictionary<int, QpdfObject>());
         PdfStream first = new(Dictionary(("Filter", PdfName.FromAscii("ASCIIHexDecode"))), "6669727374>"u8.ToArray());
-        Assert.True(chunks.TryAddForInlineImages(first, resolver, QpdfLimits.Default)); long live = governor.Snapshot().LiveMemoryBytes;
+        Assert.True(chunks.TryAdd(first, resolver, QpdfLimits.Default)); long live = governor.Snapshot().LiveMemoryBytes;
         PdfStream bad = new(Dictionary(("Filter", PdfName.FromAscii("ASCIIHexDecode"))), "ABCG>"u8.ToArray());
-        Assert.False(chunks.TryAddForInlineImages(bad, resolver, QpdfLimits.Default));
+        Assert.False(chunks.TryAdd(bad, resolver, QpdfLimits.Default));
         Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal("first"u8.ToArray(), Assert.Single(chunks.Parts));
         chunks.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
@@ -73,9 +73,9 @@ public sealed class InlineChunkOwnershipTests
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? source.Token : CancellationToken.None);
         using AnalysisChunks chunks = AnalysisChunks.Create(governor, governorToken ? CancellationToken.None : source.Token);
         PoolResolver resolver = new(pool); PdfStream first = new(Dictionary(), "first"u8.ToArray());
-        Assert.True(chunks.TryAddForInlineImages(first, resolver, QpdfLimits.Default)); long live = governor.Snapshot().LiveMemoryBytes;
+        Assert.True(chunks.TryAdd(first, resolver, QpdfLimits.Default)); long live = governor.Snapshot().LiveMemoryBytes;
         PdfStream indirect = new(Dictionary(("Filter", new PdfReference(7, 0))), "AB>"u8.ToArray());
-        Assert.Throws<OperationCanceledException>(() => chunks.TryAddForInlineImages(indirect, resolver, QpdfLimits.Default));
+        Assert.Throws<OperationCanceledException>(() => chunks.TryAdd(indirect, resolver, QpdfLimits.Default));
         Assert.Equal(1, pool.Visits); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
         Assert.Same(first.AllocationCarrier, Assert.Single(chunks.Parts)); chunks.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
@@ -86,10 +86,10 @@ public sealed class InlineChunkOwnershipTests
     private static (AnalysisChunks Owner, PdfStream Borrowed, WeakReference[] Witnesses) Complete()
     {
         using CancellationTokenSource source = new(); ResourceGovernor governor = new(QpdfLimits.Default, source.Token);
-        AnalysisChunks owner = AnalysisChunks.Create(governor, source.Token); PoolResolver resolver = new(new Dictionary<int, QpdfObject>());
-        PdfStream borrowed = new(Dictionary(), new byte[32768]); Assert.True(owner.TryAddForInlineImages(borrowed, resolver, QpdfLimits.Default));
+        AnalysisChunks owner = AnalysisChunks.Create(governor, source.Token); PoolResolver resolver = new PoolResolver(new Dictionary<int, QpdfObject>());
+        PdfStream borrowed = new(Dictionary(), new byte[32768]); Assert.True(owner.TryAdd(borrowed, resolver, QpdfLimits.Default));
         PdfStream encoded = new(Dictionary(("Filter", PdfName.FromAscii("ASCIIHexDecode"))), "6669727374>"u8.ToArray());
-        Assert.True(owner.TryAddForInlineImages(encoded, resolver, QpdfLimits.Default));
+        Assert.True(owner.TryAdd(encoded, resolver, QpdfLimits.Default));
         WeakReference[] witnesses = [new(governor), new(source), new(Field(owner, "_memory")), new(Field(owner, "_parts")), new(owner.Parts[1])];
         owner.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); return (owner, borrowed, witnesses);
     }
