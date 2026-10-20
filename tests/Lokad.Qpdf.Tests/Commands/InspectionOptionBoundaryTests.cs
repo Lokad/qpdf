@@ -5,6 +5,23 @@ namespace Lokad.Qpdf.Tests.Commands;
 public sealed class InspectionOptionBoundaryTests
 {
     [Theory]
+    [InlineData(false, "Job \"outputFile\" must not be given without \"showAttachment\".")]
+    [InlineData(true, "Job attachment keys cannot be combined with \"pages\".")]
+    public async Task AttachmentListKeepsOutputRejectionPrecedence(bool pages, string message)
+    {
+        using InMemoryQpdfHost host = new();
+        string selection = pages ? ",\"pages\":[{\"file\":\".\",\"range\":\"1\"}]" : string.Empty;
+        string job = "{\"inputFile\":\"missing.pdf\",\"outputFile\":\"out.pdf\",\"listAttachments\":true" + selection + "}";
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, job, CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        QpdfDiagnostic error = Assert.Single(result.Diagnostics);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, error.Code);
+        Assert.Equal(message + " (offset 0).", error.Message);
+        Assert.Equal(0L, result.Counters.HostOperations);
+        Assert.False(host.TryGetOutput(QpdfPath.From("out.pdf"), out byte[] _));
+    }
+
+    [Theory]
     [InlineData("\"removeInfo\":false")]
     [InlineData("\"showXref\":false")]
     public async Task BinaryExtractionRejectsConflictingSettersEvenWhenFalse(string setter)

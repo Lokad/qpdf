@@ -1304,26 +1304,15 @@ internal static class JobJsonParser
                 throw new QpdfParseException("Job attachment keys cannot be combined with \"pages\".", 0L, null);
             }
 
-            if (wantAttachments)
+            if (wantAttachments && output is string attachmentOutput)
             {
-                if (showAttachment is not null)
-                {
-                    if (output is null)
-                    {
-                        throw new QpdfParseException("Job JSON requires \"outputFile\" with \"showAttachment\".", 0L, null);
-                    }
-
-                    (QpdfPath attachmentInput, bool attachmentEmpty) = ResolveInspectionInput(input, empty, "attachment inspection");
-                    return new AttachmentPlan(attachmentInput, SelectionPlan.CheckedPath(output), showAttachment, listAttachments, recovery) with { EmptyDocument = attachmentEmpty, IgnoreXrefStreams = ignoreXrefStreams, ReportMemoryUsage = reportMemoryUsage, Verbose = verbose, Progress = progress };
-                }
-
-                if (output is not null)
+                if (showAttachment is null)
                 {
                     throw new QpdfParseException("Job \"outputFile\" must not be given without \"showAttachment\".", 0L, null);
                 }
 
-                (QpdfPath attachmentListInput, bool attachmentListEmpty) = ResolveInspectionInput(input, empty, "attachment inspection");
-                return new AttachmentPlan(attachmentListInput, null, null, true, recovery) with { EmptyDocument = attachmentListEmpty, IgnoreXrefStreams = ignoreXrefStreams, ReportMemoryUsage = reportMemoryUsage, Verbose = verbose, Progress = progress };
+                (QpdfPath attachmentInput, bool attachmentEmpty) = ResolveInspectionInput(input, empty, "attachment inspection");
+                return new AttachmentPlan(attachmentInput, SelectionPlan.CheckedPath(attachmentOutput), showAttachment, listAttachments, recovery) with { EmptyDocument = attachmentEmpty, IgnoreXrefStreams = ignoreXrefStreams, ReportMemoryUsage = reportMemoryUsage, Verbose = verbose, Progress = progress };
             }
 
             // Output-free inspections returned through CheckPlan above. Here an
