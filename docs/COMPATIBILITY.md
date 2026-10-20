@@ -25,6 +25,10 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Overlay annotation rectangles normalize reversed endpoints without losing their
+extent. Shared appearance streams receive the placement matrix once per copied
+stream; separate placements retain independent copies, including widget forms.
+
 Overlay font-conflict rewriting compares decoded name bytes and emits escaped
 replacement names. Unchanged names, comments and whitespace retain their original
 bytes; an escaped font spelling therefore follows the imported font after a

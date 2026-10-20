@@ -6,6 +6,60 @@ using Lokad.Qpdf.Reading;
 namespace Lokad.Qpdf.Tests.Content;
 public sealed class OverlayTests
 {
+[Theory]
+[InlineData("80 10 20 50")]
+[InlineData("20 50 80 10")]
+[InlineData("80 50 20 10")]
+public async Task ReversedRectanglePreservesItsExtent(string rectangle)
+{
+byte[] primary = BuildAnnotPdf("[0 0 100 100]", string.Empty, [], "q Q");
+byte[] overlay = BuildAnnotPdf("[0 0 100 100]", "[<< /Type /Annot /Subtype /Text /Rect [" + rectangle + "] >>]", [], "q Q");
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+Assert.Equal(new double[] { 20, 10, 80, 50 }, AnnotRect(Assert.Single(OutputAnnots(output, 0))));
+}
+
+[Theory]
+[InlineData(false)]
+[InlineData(true)]
+public async Task SharedAppearancesTransformOncePerPlacement(bool widgets)
+{
+byte[] appearance = "0 0 m 20 20 l S"u8.ToArray();
+string subtype = widgets ? "Widget /FT /Btn" : "Stamp";
+string annots = "[6 0 R 7 0 R 6 0 R]";
+string catalog = widgets ? " /AcroForm << /Fields [6 0 R 7 0 R] >>" : string.Empty;
+List<(string Dict, byte[]? StreamData)> extras = new()
+{
+("<< /Type /XObject /Subtype /Form /BBox [0 0 20 20] /Matrix [1 0 0 1 0 0] /Length " + appearance.Length + " >>", appearance),
+("<< /Type /Annot /Subtype /" + subtype + " /Rect [10 10 30 30] /AP << /N 5 0 R /R << /On 5 0 R >> >> >>", null),
+("<< /Type /Annot /Subtype /" + subtype + " /Rect [40 40 60 60] /AP << /N 5 0 R >> >>", null),
+};
+byte[] overlay = BuildFormPdf(catalog, annots, extras, "q Q");
+// Source page is 612x792, destination is half as large. Repeating the same
+// overlay gives independent appearances, shared only within each placement.
+byte[] primary = BuildAnnotPdf("[0 0 306 396]", string.Empty, [], "q Q");
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--", "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+List<PdfDictionary> copied = OutputAnnots(output, 0);
+Assert.Equal(6, copied.Count);
+List<int> ids = new();
+foreach (PdfDictionary annot in copied)
+{
+Assert.True(annot.TryGet(PdfName.FromAscii("AP"), out QpdfObject raw));
+PdfDictionary ap = Assert.IsType<PdfDictionary>(raw);
+Assert.True(ap.TryGet(PdfName.FromAscii("N"), out QpdfObject normal));
+PdfReference link = Assert.IsType<PdfReference>(normal); ids.Add(link.ObjectNumber);
+PdfStream stream = Assert.IsType<PdfStream>(output.GetObject(link.ObjectNumber));
+Assert.Equal(new double[] { 0.5, 0, 0, 0.5, 0, 0 }, AnnotMatrix(stream.Dictionary));
+Assert.Equal(appearance, stream.Data);
+}
+Assert.Equal(ids[0], ids[1]); Assert.Equal(ids[0], ids[2]);
+Assert.Equal(ids[3], ids[4]); Assert.Equal(ids[3], ids[5]); Assert.NotEqual(ids[0], ids[3]);
+Assert.Equal(new double[] { 5, 5, 15, 15 }, AnnotRect(copied[0]));
+}
+
 private static string NL()
 {
 return new string((char)10, 1);

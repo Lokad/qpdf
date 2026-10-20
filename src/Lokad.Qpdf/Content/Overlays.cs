@@ -1523,7 +1523,7 @@ internal static class Overlays
             if (IsWidgetAnnotation(annot, resolver))
             {
                 int? widgetId = item is PdfReference widgetReference ? widgetReference.ObjectNumber : (int?)null;
-                if (TryImportOverlayWidget(destCopier, engine, annot, widgetId, item, fromPage, annotIndex, source, sourceForm, memo, cm, imports, ref placementDr, limits, governor, ownership, diagnostics, cancellationToken, ref allocator, ref nullId, fresh))
+                if (TryImportOverlayWidget(destCopier, engine, annot, widgetId, item, fromPage, annotIndex, source, sourceForm, memo, imports, ref placementDr, limits, governor, ownership, diagnostics, cancellationToken, ref allocator, ref nullId, fresh))
                 {
                     annotIndex += 1;
                     continue;
@@ -1536,9 +1536,20 @@ internal static class Overlays
             checked { allocator += 1; }
             ownership.Reserve(64L);
             destCopier.AddIndirectObjectWithId(built, id);
-            TransformOverlayRect(destCopier, id, cm, governor, ownership);
-            TransformOverlayAppearances(destCopier, id, cm, governor, ownership, cancellationToken);
             fresh.Add(new PdfReference(id, 0));
+        }
+
+        // Cloning preserves sharing within this placement. Transform each copied
+        // annotation/appearance once, after all fields and annotations are copied.
+        using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
+        GovernedIntSet transformed = GovernedIntSet.Create(traversal, governor, cancellationToken);
+        GovernedIntSet appearances = GovernedIntSet.Create(traversal, governor, cancellationToken);
+        foreach (PdfReference annotation in fresh)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!transformed.Add(traversal, annotation.ObjectNumber)) { continue; }
+            TransformOverlayRect(destCopier, annotation.ObjectNumber, cm, governor, ownership);
+            TransformOverlayAppearances(destCopier, annotation.ObjectNumber, cm, appearances, traversal, governor, ownership, cancellationToken);
         }
 
         if (!destCopier.CopiedObjects.TryGetValue(destPageId, out QpdfObject? pageRaw) || pageRaw is not PdfDictionary page)
@@ -1610,7 +1621,6 @@ internal static class Overlays
         OverlaySource source,
         AcroFormCopy.OverlaySourceForm? sourceForm,
         Dictionary<int, int> memo,
-        double[] cm,
         List<AcroFormCopy.OverlayFieldImport> imports,
         ref PdfReference? placementDr,
         QpdfLimits limits,
@@ -1685,8 +1695,6 @@ internal static class Overlays
             return false;
         }
 
-        TransformOverlayRect(destCopier, cloneRef.ObjectNumber, cm, governor, ownership);
-        TransformOverlayAppearances(destCopier, cloneRef.ObjectNumber, cm, governor, ownership, cancellationToken);
         fresh.Add(cloneRef);
         return true;
     }
@@ -1960,10 +1968,8 @@ internal static class Overlays
 
         PoolResolver pool = new(destCopier.CopiedObjects);
         double[] rect = ReadOverlayNumbers(annot, "Rect", 4, pool) ?? new double[4];
-        rect[0] = Math.Min(rect[0], rect[2]);
-        rect[1] = Math.Min(rect[1], rect[3]);
-        rect[2] = Math.Max(rect[0], rect[2]);
-        rect[3] = Math.Max(rect[1], rect[3]);
+        (rect[0], rect[2]) = (Math.Min(rect[0], rect[2]), Math.Max(rect[0], rect[2]));
+        (rect[1], rect[3]) = (Math.Min(rect[1], rect[3]), Math.Max(rect[1], rect[3]));
         double[] moved = FromArray(cm).TransformRect(rect);
         if (!IsFiniteRect(moved))
         {
@@ -2001,6 +2007,8 @@ internal static class Overlays
         GraphCopier destCopier,
         int annotId,
         double[] cm,
+        GovernedIntSet done,
+        ParserMemoryScope traversal,
         ResourceGovernor governor,
         ParserMemoryScope ownership,
         CancellationToken cancellationToken)
@@ -2024,7 +2032,6 @@ internal static class Overlays
             return;
         }
 
-        HashSet<int> done = new();
         foreach (PdfName key1 in ap.Keys)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -2038,9 +2045,9 @@ internal static class Overlays
                 : value1;
             if (target1 is PdfStream)
             {
-                if (value1 is PdfReference streamReference)
+                if (value1 is PdfReference streamReference && done.Add(traversal, streamReference.ObjectNumber))
                 {
-                    TransformOverlayStreamMatrix(destCopier, streamReference.ObjectNumber, cm, done, governor, ownership);
+                    TransformOverlayStreamMatrix(destCopier, streamReference.ObjectNumber, cm, governor, ownership);
                 }
 
                 continue;
@@ -2059,9 +2066,9 @@ internal static class Overlays
                     if (value2 is PdfReference streamReference2)
                     {
                         QpdfObject? resolved2 = ResolveOrNull(pool, streamReference2);
-                        if (resolved2 is PdfStream)
+                        if (resolved2 is PdfStream && done.Add(traversal, streamReference2.ObjectNumber))
                         {
-                            TransformOverlayStreamMatrix(destCopier, streamReference2.ObjectNumber, cm, done, governor, ownership);
+                            TransformOverlayStreamMatrix(destCopier, streamReference2.ObjectNumber, cm, governor, ownership);
                         }
                     }
                 }
@@ -2073,14 +2080,8 @@ internal static class Overlays
         GraphCopier destCopier,
         int streamId,
         double[] cm,
-        HashSet<int> done,
         ResourceGovernor governor, ParserMemoryScope ownership)
     {
-        if (!done.Add(streamId))
-        {
-            return;
-        }
-
         governor.NoteOperation();
         if (!destCopier.CopiedObjects.TryGetValue(streamId, out QpdfObject? raw) || raw is not PdfStream stream)
         {
