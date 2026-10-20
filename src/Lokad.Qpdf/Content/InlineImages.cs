@@ -16,26 +16,6 @@ namespace Lokad.Qpdf.Content;
 internal static class InlineImages
 {
     internal static PdfDictionary ExternalizePage(
-        GraphCopier copier,
-        int pageId,
-        PdfDictionary page,
-        long minBytes,
-        bool compress,
-        int? level,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
-        CancellationToken cancellationToken)
-        => ExternalizePage(copier, pageId, page, minBytes, compress, level, limits, governor, diagnostics, cancellationToken, false);
-
-    internal static PdfDictionary ExternalizePage(
-        GraphCopier copier, int pageId, PdfDictionary page, long minBytes, bool compress, int? level,
-        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
-        CancellationToken cancellationToken, bool preserveUnreferenced)
-        => ExternalizePage(copier, pageId, page, minBytes, compress, level, limits,
-            governor, diagnostics, cancellationToken, preserveUnreferenced, 0);
-
-    internal static PdfDictionary ExternalizePage(
         GraphCopier copier, int pageId, PdfDictionary page, long minBytes, bool compress, int? level,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
         CancellationToken cancellationToken, bool preserveUnreferenced, byte filterOptions)
@@ -62,38 +42,24 @@ internal static class InlineImages
 
         PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, cancellationToken, out QpdfObject contentsRaw);
         using ParserMemoryScope orphanMemory = ParserMemoryScope.Create(governor);
-        List<int> orphaned = ContentTransforms.ReplacedContentIds(contentsRaw, orphanMemory, governor, cancellationToken);
+        List<int> orphaned = ContentTransforms.ReplacedContentIds(contentsRaw, new PoolResolver(copier.CopiedObjects), orphanMemory, governor, cancellationToken);
         PdfReference link = copier.AddIndirectObjectWithId(rewritten.Stream, copier.NextId);
         replaced = ReplaceEntry(replaced, "Contents"u8, link, governor, cancellationToken);
 
         copier.ReplaceCopiedObject(pageId, replaced);
         if (!preserveUnreferenced && orphaned is { Count: > 0 })
         {
+            // Retire an unused outer array before testing the streams it held.
+            if (contentsRaw is PdfReference outer && copier.CopiedObjects.TryGetValue(outer.ObjectNumber, out QpdfObject? old) && old is PdfArray)
+            {
+                orphanMemory.Reserve(40L);
+                copier.DropPoolObjectsIfUnreferenced(new[] { outer.ObjectNumber }, cancellationToken);
+            }
             copier.DropPoolObjectsIfUnreferenced(orphaned, cancellationToken);
         }
 
         return replaced;
     }
-
-    internal static void ExternalizeForm(
-        GraphCopier copier,
-        int formId,
-        PdfStream form,
-        long minBytes,
-        bool compress,
-        int? level,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
-        CancellationToken cancellationToken)
-        => ExternalizeForm(copier, formId, form, minBytes, compress, level, limits, governor, diagnostics, cancellationToken, false);
-
-    internal static void ExternalizeForm(
-        GraphCopier copier, int formId, PdfStream form, long minBytes, bool compress, int? level,
-        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
-        CancellationToken cancellationToken, bool preserveUnreferenced)
-        => ExternalizeForm(copier, formId, form, minBytes, compress, level, limits,
-            governor, diagnostics, cancellationToken, preserveUnreferenced, 0);
 
     internal static void ExternalizeForm(
         GraphCopier copier, int formId, PdfStream form, long minBytes, bool compress, int? level,
@@ -146,25 +112,10 @@ internal static class InlineImages
             return AnalysisChunks.Create(governor, cancellationToken);
         }
 
-        using ContentEntries streams = ContentEntries.Create(governor, cancellationToken);
-        PdfArray? array = contents as PdfArray;
-        int count = array?.Count ?? 1;
-        // Validate every entry before decoding any stream, preserving failure order.
-        for (int index = 0; index < count; index++)
-        {
-            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            QpdfObject? item = array is null ? contents : array[index];
-            int? objectId = null;
-            if (item is PdfReference reference)
-            {
-                objectId = reference.ObjectNumber;
-                PdfObjectLookup.TryResolve(reference, copier.CopiedObjects, governor, cancellationToken, out item);
-            }
-            if (item is not PdfStream stream) { return null; }
-            streams.Add(new(objectId, index, stream));
-        }
         using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
         PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
+        using ContentEntries? streams = ContentEntries.TryRead(contents, resolver, governor, cancellationToken);
+        if (streams is null) { return null; }
         AnalysisChunks chunks = AnalysisChunks.Create(governor, cancellationToken);
         try
         {

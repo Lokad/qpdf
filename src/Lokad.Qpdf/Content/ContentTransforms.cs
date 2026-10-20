@@ -197,41 +197,12 @@ internal static class ContentTransforms
             return null;
         }
         if (contents is not (PdfArray or PdfReference or PdfStream)) { return null; }
-        ContentEntries entries = ContentEntries.Create(governor, cancellationToken);
-        try
-        {
-            PdfArray? array = contents as PdfArray;
-            int count = array?.Count ?? 1;
-            for (int index = 0; index < count; index++)
-            {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                QpdfObject item = array is null ? contents : array[index];
-                if (item is PdfReference reference)
-                {
-                    if (!PdfObjectLookup.TryResolve(reference, copier.CopiedObjects, governor, cancellationToken, out QpdfObject? resolved) || resolved is not PdfStream resolvedStream)
-                    {
-                        return SkipContentEntries(entries, diagnostics, "Skipped content operation on an unresolvable content stream.");
-                    }
-                    entries.Add(new(reference.ObjectNumber, index, resolvedStream));
-                    continue;
-                }
-                if (item is PdfStream direct)
-                {
-                    entries.Add(new(null, index, direct));
-                    continue;
-                }
-                return SkipContentEntries(entries, diagnostics, "Skipped content operation on a non-stream content entry.");
-            }
-            return entries;
-        }
-        catch { entries.Dispose(); throw; }
-    }
-
-    private static ContentEntries? SkipContentEntries(ContentEntries entries, DiagnosticBag diagnostics, string message)
-    {
-        entries.Dispose();
-        diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, message);
-        return null;
+        using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
+        PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
+        ContentEntries? entries = ContentEntries.TryRead(contents, resolver, governor, cancellationToken);
+        if (entries is null)
+        { diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped content operation on unreadable page contents."); }
+        return entries;
     }
 
     private static PdfDictionary ReplaceEntry(PdfDictionary dictionary, ReadOnlySpan<byte> key, QpdfObject value, ResourceGovernor governor, CancellationToken cancellationToken)
@@ -241,15 +212,16 @@ internal static class ContentTransforms
         graph.Retain(); return result;
     }
 
-    internal static List<int> ReplacedContentIds(QpdfObject? value, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    internal static List<int> ReplacedContentIds(QpdfObject? value, IIndirectResolver resolver, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
         memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         List<int> ids = ParserContainers.CreateList<int>(memory);
         if (value is PdfReference reference)
         {
             AddContentId(ids, reference.ObjectNumber, memory, governor, token);
+            value = resolver.TryResolve(reference, out QpdfObject? resolved) ? resolved : null;
         }
-        else if (value is PdfArray array)
+        if (value is PdfArray array)
         {
             for (int i = 0; i < array.Count; i++)
             {
@@ -303,6 +275,8 @@ internal static class ContentTransforms
         }
 
         PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, cancellationToken, out QpdfObject contentsRaw);
+        using ParserMemoryScope orphanMemory = ParserMemoryScope.Create(governor);
+        List<int> orphaned = ReplacedContentIds(contentsRaw, resolver, orphanMemory, governor, cancellationToken);
         PdfDictionary replaced;
         if (contentsRaw is PdfReference contentsRef)
         {
@@ -318,16 +292,10 @@ internal static class ContentTransforms
             }
 
             replaced = ReplaceEntry(page, "Contents"u8, link, governor, cancellationToken);
-            using ParserMemoryScope orphanMemory = ParserMemoryScope.Create(governor);
-            List<int>? orphaned = ReplacedContentIds(contentsRaw, orphanMemory, governor, cancellationToken);
-            try
-            {
-                if (!request.PreserveUnreferenced && orphaned.Count > 0) { copier.DropPoolObjectsIfUnreferenced(orphaned, cancellationToken); }
-            }
-            finally { orphaned = null; }
         }
 
         copier.ReplaceCopiedObject(pageId, replaced);
+        if (!request.PreserveUnreferenced && orphaned.Count > 0) { copier.DropPoolObjectsIfUnreferenced(orphaned, cancellationToken); }
         return replaced;
     }
 
@@ -416,7 +384,7 @@ internal static class ContentTransforms
                 current = latestPage;
             }
 
-            current = ReplaceContentEntries(current, rewritten, governor, cancellationToken);
+            current = ReplaceContentEntries(copier, current, rewritten, governor, cancellationToken);
             copier.ReplaceCopiedObject(pageId, current);
             return current;
         }
@@ -462,6 +430,7 @@ internal static class ContentTransforms
     }
 
     private static PdfDictionary ReplaceContentEntries(
+        GraphCopier copier,
         PdfDictionary page,
         GovernedIntDictionary<PdfStream> rewritten,
         ResourceGovernor governor,
@@ -482,7 +451,11 @@ internal static class ContentTransforms
             return page;
         }
 
-        if (contents is PdfArray array)
+        PdfReference? arrayLink = contents as PdfReference;
+        QpdfObject? target = contents;
+        if (arrayLink is not null)
+        { PdfObjectLookup.TryResolve(arrayLink, copier.CopiedObjects, governor, cancellationToken, out target); }
+        if (target is PdfArray array)
         {
             using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
             QpdfObject[] items = Array.Empty<QpdfObject>();
@@ -505,29 +478,17 @@ internal static class ContentTransforms
                 items[i] = array[i];
             }
             graph.Memory.Reserve(24L); PdfArray rebuilt = PdfArray.FromOwnedItems(items); graph.Add(24L);
+            if (arrayLink is not null)
+            { graph.Retain(); copier.ReplaceCopiedObject(arrayLink.ObjectNumber, rebuilt); return page; }
             PdfDictionary result = PdfDictionaryRebuild.ReplaceEntry(graph, page, "Contents"u8, rebuilt); graph.Retain(); return result;
         }
 
         return page;
     }
-    internal static byte[] NormalizeContentBytes(
-        byte[] data,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        CancellationToken cancellationToken,
-        long maximumBytes, string limitName)
-        => NormalizeContentBytesCore(data, limits, governor, cancellationToken, maximumBytes, limitName, null);
-
     internal static byte[] NormalizeContentBytesOwned(byte[] data, QpdfLimits limits, ResourceGovernor governor,
         CancellationToken cancellationToken, long maximumBytes, string limitName, ParserMemoryScope memory)
     {
         memory.CheckOwner(governor);
-        return NormalizeContentBytesCore(data, limits, governor, cancellationToken, maximumBytes, limitName, memory);
-    }
-
-    private static byte[] NormalizeContentBytesCore(byte[] data, QpdfLimits limits, ResourceGovernor governor,
-        CancellationToken cancellationToken, long maximumBytes, string limitName, ParserMemoryScope? memory)
-    {
         cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor); scratch.Reserve(192L);
         ContentTokenizer tokenizer = new(data, limits, governor, cancellationToken)
@@ -596,7 +557,7 @@ internal static class ContentTransforms
             }
         }
 
-        return memory is null ? output.ToArray() : output.ToArray(memory, cancellationToken);
+        return output.ToArray(memory, cancellationToken);
     }
 
     private static void AppendRaw(GovernedBufferStream output, ContentToken token)

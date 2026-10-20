@@ -3,9 +3,11 @@ using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Tests.Filters;
 using Lokad.Qpdf.Tests.Foundation;
+using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -15,26 +17,47 @@ public sealed class ContentArrayRebuildTests
     private static readonly MethodInfo Method = typeof(ContentTransforms).GetMethod("ReplaceContentEntries", BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException();
     private static PdfDictionary Replace(PdfDictionary page, Prepared prepared, ResourceGovernor governor)
     {
-        try { return Method.Invoke(null, [page, prepared.Mapping, governor, CancellationToken.None]) as PdfDictionary ?? throw new InvalidOperationException(); }
+        try { return Method.Invoke(null, [prepared.Copier, page, prepared.Mapping, governor, CancellationToken.None]) as PdfDictionary ?? throw new InvalidOperationException(); }
         catch (TargetInvocationException error) when (error.InnerException is not null)
         { ExceptionDispatchInfo.Capture(error.InnerException).Throw(); throw; }
     }
     private sealed class Prepared : IDisposable
     {
         private readonly ParserMemoryScope _memory;
+        private readonly DocumentEngine _engine;
+        internal readonly GraphCopier Copier;
         internal readonly PdfStream Original = new(DecoderOwnershipFixtures.Dictionary(), new byte[2 * 1024 * 1024]);
         internal readonly PdfStream Replacement = new(DecoderOwnershipFixtures.Dictionary(), new byte[2 * 1024 * 1024]);
         internal readonly GovernedIntDictionary<PdfStream> Mapping;
         internal Prepared(bool fill)
         {
             ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
+            PdfDictionary trailer = DecoderOwnershipFixtures.Dictionary();
+            _engine = new(ReadOnlyMemory<byte>.Empty, new XRefTable(0L, new Dictionary<int, XrefEntry>(), trailer, [trailer]),
+                QpdfLimits.Default, construction, new DiagnosticBag(construction), QpdfRecoveryMode.Strict);
+            Copier = new(_engine, construction, QpdfLimits.Default, 1);
             _memory = ParserMemoryScope.Create(construction); Mapping = GovernedIntDictionary<PdfStream>.Create(_memory, construction, IntPtr.Size, CancellationToken.None);
             if (fill) { Mapping.Assign(_memory, 3, Replacement); }
         }
-        public void Dispose() { _memory.Dispose(); }
+        public void Dispose() { _memory.Dispose(); _engine.Dispose(); }
     }
     private static QpdfObject Contents(PdfDictionary page)
         => page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject value) ? value : throw new InvalidOperationException();
+
+    [Fact]
+    public void RebuildingAnIndirectArrayKeepsItsReferenceAndBorrowedOriginal()
+    {
+        using Prepared prepared = new(true);
+        PdfArray original = new([prepared.Original, prepared.Original, prepared.Original, prepared.Original]);
+        ((IDictionary<int, QpdfObject>)prepared.Copier.CopiedObjects)[9] = original;
+        PdfDictionary page = DecoderOwnershipFixtures.Dictionary(("Contents", new PdfReference(9, 0)));
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        Assert.Same(page, Replace(page, prepared, governor));
+        Assert.Equal(9, Assert.IsType<PdfReference>(Contents(page)).ObjectNumber);
+        PdfArray rebuilt = Assert.IsType<PdfArray>(prepared.Copier.CopiedObjects[9]);
+        Assert.Same(prepared.Replacement, rebuilt[3]); Assert.Same(prepared.Original, original[3]);
+        governor.CompletePrivateStorage(); GC.KeepAlive(rebuilt);
+    }
 
     [Theory]
     [InlineData("array")]
@@ -66,7 +89,7 @@ public sealed class ContentArrayRebuildTests
     }
 
     [Fact]
-    public void LargeArrayRejectsMemoryOrWorkBeforePublication()
+    public void LargeArrayRejectsMemoryBeforePublication()
     {
         using Prepared prepared = new(false); PdfArray array = new(Enumerable.Repeat<QpdfObject>(prepared.Original, 1024).ToArray());
         PdfDictionary page = DecoderOwnershipFixtures.Dictionary(("Contents", array));

@@ -30,6 +30,10 @@ or successfully decoded content. Unsupported/damaged encodings and filter-count
 ceilings preserve the affected content and headers; page operations warn rather
 than interpreting opaque bytes as instructions. Memory/decompression limits and
 cancellation remain fatal. No public signatures change.
+These operations share content-entry collection and accept indirect content
+arrays. Stream identities and shared array references survive normalization;
+coalescing/externalization remove replaced streams only when no remaining copied
+object refers to them. Unreferenced-object preservation remains explicit.
 
 Overlay catalog default appearances remain borrowed byte programs through import,
 without eager PDF-text decoding or re-encoding. Imported defaults preserve their

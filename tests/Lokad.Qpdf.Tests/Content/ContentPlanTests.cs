@@ -13,7 +13,7 @@ public sealed class ContentPlanTests
     private static ContentEntries? InvokeRead(GraphCopier copier, PdfDictionary page, ResourceGovernor governor, DiagnosticBag diagnostics)
         => ContentTransforms.ReadPageContents(copier, page, governor, diagnostics, CancellationToken.None);
     private static List<int> InvokeIds(QpdfObject? value, ParserMemoryScope memory, ResourceGovernor governor)
-        => ContentTransforms.ReplacedContentIds(value, memory, governor, CancellationToken.None);
+        => ContentTransforms.ReplacedContentIds(value, new PoolResolver(new Dictionary<int, QpdfObject>()), memory, governor, CancellationToken.None);
     private static int Count(object entries) => ((ContentEntries)entries).Count;
     private static (int? Id, int Index, PdfStream Stream) Get(object entries, int index)
     {
@@ -41,6 +41,22 @@ public sealed class ContentPlanTests
             ((IDictionary<int, QpdfObject>)Copier.CopiedObjects)[8] = PdfNull.Instance;
         }
         public void Dispose() { _engine.Dispose(); }
+    }
+
+    [Fact]
+    public void IndirectArrayEntriesAndOrphansKeepStreamIdentities()
+    {
+        using Prepared prepared = new();
+        var pool = (IDictionary<int, QpdfObject>)prepared.Copier.CopiedObjects;
+        pool[9] = new PdfArray([new PdfReference(7, 0), prepared.Stream, new PdfReference(7, 0)]);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ContentEntries? entries = ContentTransforms.ReadPageContents(prepared.Copier,
+            Dictionary(("Contents", new PdfReference(9, 0))), governor, new(governor), CancellationToken.None);
+        Assert.NotNull(entries); Assert.Equal(3, entries.Count);
+        Assert.Equal(7, entries.Get(0).ObjectId); Assert.Null(entries.Get(1).ObjectId); Assert.Equal(7, entries.Get(2).ObjectId);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        Assert.Equal(new[] { 9, 7, 7 }, ContentTransforms.ReplacedContentIds(new PdfReference(9, 0),
+            new PoolResolver(prepared.Copier.CopiedObjects), memory, governor, CancellationToken.None));
     }
 
     [Theory]
@@ -101,7 +117,7 @@ public sealed class ContentPlanTests
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         QpdfDiagnostic warning = Assert.Single(diagnostics.Entries);
         Assert.Equal(QpdfDiagnosticCode.UnsupportedFeature, warning.Code); Assert.Equal(QpdfDiagnosticSeverity.Warning, warning.Severity);
-        Assert.Equal(shape == "array-nonstream" ? "Skipped content operation on a non-stream content entry." : "Skipped content operation on an unresolvable content stream.", warning.Message);
+        Assert.Equal("Skipped content operation on unreadable page contents.", warning.Message);
         Assert.True(page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject unchanged));
         Assert.Same(contents, unchanged);
     }

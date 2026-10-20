@@ -165,10 +165,10 @@ public sealed class InlineContentInputTests
         PdfStream bad = new(Dictionary(("Filter", PdfName.FromAscii("ASCIIHexDecode"))), "ABCG>"u8.ToArray()); using Prepared prepared = new(bad);
         PdfDictionary page = Dictionary(("Contents", new PdfReference(7, 11)));
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); DiagnosticBag diagnostics = new(prepared.Construction);
-        if (form) { InlineImages.ExternalizeForm(prepared.Copier, 7, bad, 0L, false, null, QpdfLimits.Default, governor, diagnostics, CancellationToken.None); Assert.Empty(diagnostics.Entries); }
+        if (form) { InlineImages.ExternalizeForm(prepared.Copier, 7, bad, 0L, false, null, QpdfLimits.Default, governor, diagnostics, CancellationToken.None, false, 0); Assert.Empty(diagnostics.Entries); }
         else
         {
-            Assert.Same(page, InlineImages.ExternalizePage(prepared.Copier, 3, page, 0L, false, null, QpdfLimits.Default, governor, diagnostics, CancellationToken.None));
+            Assert.Same(page, InlineImages.ExternalizePage(prepared.Copier, 3, page, 0L, false, null, QpdfLimits.Default, governor, diagnostics, CancellationToken.None, false, 0));
             QpdfDiagnostic warning = Assert.Single(diagnostics.Entries); Assert.Equal(QpdfDiagnosticSeverity.Warning, warning.Severity);
             Assert.Equal(QpdfDiagnosticCode.UnsupportedFeature, warning.Code);
             Assert.Equal("Unable to filter content stream; not attempting to externalize inline images.", warning.Message);

@@ -59,6 +59,37 @@ public sealed class ContentSafetyTests
     [InlineData("normalize", true)]
     [InlineData("externalize", false)]
     [InlineData("externalize", true)]
+    public async Task SharedIndirectArraysTransformAndRetireOnlyUnusedStreams(string mode, bool job)
+    {
+        byte[] payload = "q\rQ BI /W 1 /H 1 /BPC 8 /CS /G ID X EI"u8.ToArray();
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), Fixture(payload, "", true, 2), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = await Run(host, mode, job, QpdfLimits.Default);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Empty(result.Diagnostics); Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output));
+        host.AddInput(QpdfPath.From("result"), output, QpdfInputOwnership.Transfer);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("result"), CancellationToken.None);
+        for (int page = 0; page < 2; page++)
+        {
+            List<PdfStream> streams = Streams(document, page);
+            string text = string.Join("\n", streams.Select(stream => Encoding.ASCII.GetString(stream.Data)));
+            Assert.Contains("q Q", text);
+            if (mode == "normalize") { Assert.Contains("q\nQ BI", text); }
+            else if (mode == "coalesce") { Assert.Single(streams); Assert.Contains("q\rQ BI", text); }
+            else { Assert.Single(streams); Assert.Contains("/IIm1 Do", text); Assert.DoesNotContain(" ID X EI", text); }
+        }
+        string serialized = Encoding.ASCII.GetString(output);
+        if (mode == "externalize") { Assert.DoesNotContain(" ID X EI", serialized); }
+        if (mode == "coalesce") { Assert.Equal(1, serialized.Split("\nstream\n", StringSplitOptions.None).Length - 1); }
+    }
+
+    [Theory]
+    [InlineData("coalesce", false)]
+    [InlineData("coalesce", true)]
+    [InlineData("normalize", false)]
+    [InlineData("normalize", true)]
+    [InlineData("externalize", false)]
+    [InlineData("externalize", true)]
     public async Task OpaqueAndDamagedEncodingsKeepTheirBytesAndHeaders(string mode, bool job)
     {
         byte[] payload = "q\rQ BI /W 1 /H 1 /BPC 8 /CS /G ID X EI"u8.ToArray();
