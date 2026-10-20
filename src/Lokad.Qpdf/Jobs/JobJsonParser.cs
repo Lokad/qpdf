@@ -1326,117 +1326,21 @@ internal static class JobJsonParser
                 return new AttachmentPlan(attachmentListInput, null, null, true, recovery) with { EmptyDocument = attachmentListEmpty, IgnoreXrefStreams = ignoreXrefStreams, ReportMemoryUsage = reportMemoryUsage, Verbose = verbose, Progress = progress };
             }
 
+            // Output-free inspections returned through CheckPlan above. Here an
+            // output target remains; only binary object/attachment extraction accepts it.
             if (checkLinearization || showLinearization)
             {
-                if (hasPages || output is not null
-                    || wantAttachments || attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0
-                    || seenRotate || seenLabels || seenRemoveLabels
-                    || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
-                    || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenNoDefaultLimits || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenParserMaxErrors || seenRecompressFlate || seenCompressionLevel
-                    || seenRemoveInfo || seenRemoveMetadata
-                    || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
-                    || seenOverlay || seenUnderlay
-                    || seenFlattenRotation || seenFlattenAnnotations || seenGenerateAppearances
-                    || seenQdf || seenLinearize || seenNoOriginalObjectIds
-                    || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality
-                    || seenJson || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix || seenJsonOutput || seenJsonInput || seenUpdateFromJson)
-                {
-                    throw new QpdfParseException("Job linearization inspection cannot be combined with transformation or other inspection keys.", 0L, null);
-                }
-
-                (QpdfPath inspectionInput, bool emptyDocument) = ResolveInspectionInput(input, empty, "linearization inspection");
-                return new LinearizationPlan(inspectionInput, recovery)
-                {
-                    Check = checkLinearization,
-                    Show = showLinearization,
-                    EmptyDocument = emptyDocument,
-                    ReportMemoryUsage = reportMemoryUsage,
-                    Verbose = verbose,
-                    Progress = progress,
-                    IgnoreXrefStreams = ignoreXrefStreams,
-                };
+                throw new QpdfParseException("Job linearization inspection cannot be combined with transformation or other inspection keys.", 0L, null);
             }
 
             if (showNpages)
             {
-                if (hasPages || output is not null
-                    || wantAttachments || attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0
-                    || seenRotate || seenLabels || seenRemoveLabels
-                    || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
-                    || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenTestJsonSchema || seenRecompressFlate || seenCompressionLevel
-                    || seenRemoveInfo || seenRemoveMetadata
-                    || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
-                    || seenOverlay || seenUnderlay
-                    || seenFlattenRotation || seenFlattenAnnotations || seenGenerateAppearances
-                    || seenQdf || seenLinearize || seenNoOriginalObjectIds
-                    || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality
-                    || seenJson || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix || seenJsonOutput || seenJsonInput || seenUpdateFromJson
-                    || seenCheckLinearization || seenShowLinearization || seenShowPages || seenShowObject || seenShowXref
-                    || seenListAttachments || showAttachment is not null)
-                {
-                    throw new QpdfParseException("Job showNpages cannot be combined with page, output, transformation or other inspection keys.", 0L, null);
-                }
-
-                (QpdfPath inspectionInput, bool emptyDocument) = ResolveInspectionInput(input, empty, "showNpages");
-                return new ShowNpagesPlan(inspectionInput, recovery)
-                {
-                    EmptyDocument = emptyDocument,
-                    WarningExitZero = warningExit0,
-                    ReportMemoryUsage = reportMemoryUsage,
-                    Verbose = verbose,
-                    Progress = progress,
-                    IgnoreXrefStreams = ignoreXrefStreams,
-                    NoWarn = noWarn,
-                    MaxStreamFilters = maxStreamFilters,
-                    ParserMaxNesting = parserMaxNesting,
-                    MaxContainerSize = maxContainerSize,
-                    MaxContainerSizeDamaged = maxContainerSizeDamaged,
-                    ParserMaxErrors = parserMaxErrors,
-                    NoDefaultLimits = noDefaultLimits,
-                };
+                throw new QpdfParseException("Job showNpages cannot be combined with page, output, transformation or other inspection keys.", 0L, null);
             }
 
             if (showPages)
             {
-                if (hasPages || output is not null
-                    || wantAttachments || attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0
-                    || seenRotate || seenLabels || seenRemoveLabels
-                    || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
-                    || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenTestJsonSchema || seenRecompressFlate || seenCompressionLevel
-                    || seenRemoveInfo || seenRemoveMetadata
-                    || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
-                    || seenOverlay || seenUnderlay
-                    || seenFlattenRotation || seenFlattenAnnotations || seenGenerateAppearances
-                    || seenQdf || seenLinearize || seenNoOriginalObjectIds
-                    || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality
-                    || seenJson || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix || seenJsonOutput || seenJsonInput || seenUpdateFromJson
-                    || seenCheckLinearization || seenShowLinearization || seenShowNpages || seenShowObject || seenShowXref
-                    || seenListAttachments || showAttachment is not null)
-                {
-                    throw new QpdfParseException("Job showPages cannot be combined with page, output, transformation or other inspection keys.", 0L, null);
-                }
-
-                (QpdfPath inspectionInput, bool emptyDocument) = ResolveInspectionInput(input, empty, "showPages");
-                return new ShowPagesPlan(inspectionInput, recovery)
-                {
-                    EmptyDocument = emptyDocument,
-                    WarningExitZero = warningExit0,
-                    ReportMemoryUsage = reportMemoryUsage,
-                    Verbose = verbose,
-                    Progress = progress,
-                    IgnoreXrefStreams = ignoreXrefStreams,
-                    WithImages = withImages,
-                    NoWarn = noWarn,
-                    MaxStreamFilters = maxStreamFilters,
-                    ParserMaxNesting = parserMaxNesting,
-                    MaxContainerSize = maxContainerSize,
-                    MaxContainerSizeDamaged = maxContainerSizeDamaged,
-                    ParserMaxErrors = parserMaxErrors,
-                    NoDefaultLimits = noDefaultLimits,
-                };
+                throw new QpdfParseException("Job showPages cannot be combined with page, output, transformation or other inspection keys.", 0L, null);
             }
 
             if (showObject is not null)
@@ -1484,42 +1388,7 @@ internal static class JobJsonParser
 
             if (showXref)
             {
-                if (hasPages || output is not null
-                    || wantAttachments || attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0
-                    || seenRotate || seenLabels || seenRemoveLabels
-                    || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
-                    || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenTestJsonSchema || seenRecompressFlate || seenCompressionLevel
-                    || seenRemoveInfo || seenRemoveMetadata
-                    || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
-                    || seenOverlay || seenUnderlay
-                    || seenFlattenRotation || seenFlattenAnnotations || seenGenerateAppearances
-                    || seenQdf || seenLinearize || seenNoOriginalObjectIds
-                    || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality
-                    || seenJson || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix || seenJsonOutput || seenJsonInput || seenUpdateFromJson
-                    || seenCheckLinearization || seenShowLinearization || seenShowNpages || seenShowPages || seenShowObject
-                    || seenListAttachments || showAttachment is not null)
-                {
-                    throw new QpdfParseException("Job showXref cannot be combined with page, output, transformation or other inspection keys.", 0L, null);
-                }
-
-                (QpdfPath inspectionInput, bool emptyDocument) = ResolveInspectionInput(input, empty, "showXref");
-                return new ShowXrefPlan(inspectionInput, recovery)
-                {
-                    EmptyDocument = emptyDocument,
-                    WarningExitZero = warningExit0,
-                    ReportMemoryUsage = reportMemoryUsage,
-                    Verbose = verbose,
-                    Progress = progress,
-                    IgnoreXrefStreams = ignoreXrefStreams,
-                    NoWarn = noWarn,
-                    MaxStreamFilters = maxStreamFilters,
-                    ParserMaxNesting = parserMaxNesting,
-                    MaxContainerSize = maxContainerSize,
-                    MaxContainerSizeDamaged = maxContainerSizeDamaged,
-                    ParserMaxErrors = parserMaxErrors,
-                    NoDefaultLimits = noDefaultLimits,
-                };
+                throw new QpdfParseException("Job showXref cannot be combined with page, output, transformation or other inspection keys.", 0L, null);
             }
 
             if (replaceInput)

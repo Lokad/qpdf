@@ -27,6 +27,8 @@ are part of the compatibility contract.
 One resource governor spans configuration loading, reading, transformation,
 serialization and publication. Results capture diagnostics and counters after
 cleanup. Inspection can return text or bytes without creating a PDF output.
+Output-free job inspections share the check plan and its configuration controls;
+binary extraction plans handle explicit host output targets.
 
 ## Component map
 

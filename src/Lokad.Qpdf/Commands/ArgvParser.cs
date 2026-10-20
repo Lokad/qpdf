@@ -1197,8 +1197,66 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting, bool WithImages, bool IgnoreXrefStreams, long? MaxContainerSize, long? MaxContainerSizeDamaged, bool ReportMemoryUsage, bool TestJsonSchema, bool Verbose, string? KeepFilesOpen, long KeepFilesOpenThreshold, bool RawStreamData, bool FilteredStreamData, bool Progress, bool RemoveAcroform, bool RemoveStructure, List<int> Collate, List<OutputRotation> Rotations, bool NoDefaultLimits, long? ParserMaxErrors)
+    private sealed class GlobalOptions
     {
+        internal required QpdfRecoveryMode Recovery { get; init; }
+        internal required bool WarningExitZero { get; init; }
+        internal required bool NoWarn { get; init; }
+        internal required int? SplitPages { get; init; }
+        internal required bool ReplaceInput { get; init; }
+        internal required string? MinVersion { get; init; }
+        internal required string? ForceVersion { get; init; }
+        internal required bool DeterministicId { get; init; }
+        internal required bool StaticId { get; init; }
+        internal required bool NewlineBeforeEndstream { get; init; }
+        internal required string? ObjectStreams { get; init; }
+        internal required bool PreserveUnreferenced { get; init; }
+        internal required string? StreamData { get; init; }
+        internal required string? CompressStreams { get; init; }
+        internal required string? DecodeLevel { get; init; }
+        internal required bool RecompressFlate { get; init; }
+        internal required string? CompressionLevel { get; init; }
+        internal required bool RemoveInfo { get; init; }
+        internal required bool RemoveMetadata { get; init; }
+        internal required bool CoalesceContents { get; init; }
+        internal required bool NormalizeContent { get; init; }
+        internal required string? RemoveUnreferencedResources { get; init; }
+        internal required bool ExternalizeInlineImages { get; init; }
+        internal required long IiMinBytes { get; init; }
+        internal required bool FlattenRotation { get; init; }
+        internal required string? FlattenAnnotations { get; init; }
+        internal required bool GenerateAppearances { get; init; }
+        internal required bool OptimizeImages { get; init; }
+        internal required long OiMinWidth { get; init; }
+        internal required long OiMinHeight { get; init; }
+        internal required long OiMinArea { get; init; }
+        internal required bool KeepInlineImages { get; init; }
+        internal required int? JpegQuality { get; init; }
+        internal required bool Qdf { get; init; }
+        internal required bool NoOriginalObjectIds { get; init; }
+        internal required bool Linearize { get; init; }
+        internal required string? LinearizePass1 { get; init; }
+        internal required long? MaxStreamFilters { get; init; }
+        internal required long? ParserMaxNesting { get; init; }
+        internal required bool WithImages { get; init; }
+        internal required bool IgnoreXrefStreams { get; init; }
+        internal required long? MaxContainerSize { get; init; }
+        internal required long? MaxContainerSizeDamaged { get; init; }
+        internal required bool ReportMemoryUsage { get; init; }
+        internal required bool TestJsonSchema { get; init; }
+        internal required bool Verbose { get; init; }
+        internal required string? KeepFilesOpen { get; init; }
+        internal required long KeepFilesOpenThreshold { get; init; }
+        internal required bool RawStreamData { get; init; }
+        internal required bool FilteredStreamData { get; init; }
+        internal required bool Progress { get; init; }
+        internal required bool RemoveAcroform { get; init; }
+        internal required bool RemoveStructure { get; init; }
+        internal required List<int> Collate { get; init; }
+        internal required List<OutputRotation> Rotations { get; init; }
+        internal required bool NoDefaultLimits { get; init; }
+        internal required long? ParserMaxErrors { get; init; }
+
         internal byte CompressionState { get; init; }
         internal CollationPreparation? CollationStorage { get; init; }
     }
@@ -2227,8 +2285,66 @@ internal static class ArgvParser
 
         argv = ConfigurationText.Preserve(argv, kept);
         bool resolvedNormalize = normalizeContent || (qdf && !seenNormalizeContent);
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting, withImages, ignoreXrefStreams, maxContainerSize, maxContainerSizeDamaged, reportMemoryUsage, testJsonSchema, verbose, keepFilesOpen, keepFilesOpenThreshold, rawStreamData, filteredStreamData, progress, removeAcroform, removeStructure, collate, mainRotations, noDefaultLimits, parserMaxErrors)
+        return new GlobalOptions
         {
+            Recovery = recovery,
+            WarningExitZero = warningExitZero,
+            NoWarn = noWarn,
+            SplitPages = splitPages,
+            ReplaceInput = replaceInput,
+            MinVersion = minVersion,
+            ForceVersion = forceVersion,
+            DeterministicId = deterministicId,
+            StaticId = staticId,
+            NewlineBeforeEndstream = newlineBeforeEndstream,
+            ObjectStreams = objectStreams,
+            PreserveUnreferenced = preserveUnreferenced,
+            StreamData = streamData,
+            CompressStreams = compressStreams,
+            DecodeLevel = decodeLevel,
+            RecompressFlate = recompressFlate,
+            CompressionLevel = compressionLevel,
+            RemoveInfo = removeInfo,
+            RemoveMetadata = removeMetadata,
+            CoalesceContents = coalesceContents,
+            NormalizeContent = resolvedNormalize,
+            RemoveUnreferencedResources = removeUnreferencedResources,
+            ExternalizeInlineImages = externalizeInlineImages,
+            IiMinBytes = iiMinBytes,
+            FlattenRotation = flattenRotation,
+            FlattenAnnotations = flattenAnnotations,
+            GenerateAppearances = generateAppearances,
+            OptimizeImages = optimizeImages,
+            OiMinWidth = oiMinWidth,
+            OiMinHeight = oiMinHeight,
+            OiMinArea = oiMinArea,
+            KeepInlineImages = keepInlineImages,
+            JpegQuality = jpegQuality,
+            Qdf = qdf,
+            NoOriginalObjectIds = noOriginalObjectIds,
+            Linearize = linearize,
+            LinearizePass1 = linearizePass1,
+            MaxStreamFilters = maxStreamFilters,
+            ParserMaxNesting = parserMaxNesting,
+            WithImages = withImages,
+            IgnoreXrefStreams = ignoreXrefStreams,
+            MaxContainerSize = maxContainerSize,
+            MaxContainerSizeDamaged = maxContainerSizeDamaged,
+            ReportMemoryUsage = reportMemoryUsage,
+            TestJsonSchema = testJsonSchema,
+            Verbose = verbose,
+            KeepFilesOpen = keepFilesOpen,
+            KeepFilesOpenThreshold = keepFilesOpenThreshold,
+            RawStreamData = rawStreamData,
+            FilteredStreamData = filteredStreamData,
+            Progress = progress,
+            RemoveAcroform = removeAcroform,
+            RemoveStructure = removeStructure,
+            Collate = collate,
+            Rotations = mainRotations,
+            NoDefaultLimits = noDefaultLimits,
+            ParserMaxErrors = parserMaxErrors,
+
             CompressionState = compressionSettings.State,
             CollationStorage = ConfigurationText.OwnerOf(argv)?.Collation,
         };
