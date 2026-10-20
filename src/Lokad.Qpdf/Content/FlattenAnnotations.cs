@@ -190,7 +190,7 @@ internal static class FlattenAnnotations
                     continue;
                 }
 
-                (PdfReference appearanceLink, PdfDictionary appearanceDict) = EnsureAppearanceObject(copier, appearance, appearanceRaw, governor, ref allocator);
+                (PdfReference appearanceLink, PdfDictionary appearanceDict) = EnsureAppearanceObject(copier, appearance, appearanceRaw, governor, cancellationToken, ref allocator);
                 string name = UniqueFxoName(taken, ref suffix);
                 string content = AppearanceContent(name, annot, appearanceDict, (int)rotate, required, forbidden, resolver);
                 if (content.Length == 0)
@@ -443,62 +443,29 @@ internal static class FlattenAnnotations
         return null;
     }
 
-    private static (PdfReference Link, PdfDictionary Dictionary) EnsureAppearanceObject(
+    internal static (PdfReference Link, PdfDictionary Dictionary) EnsureAppearanceObject(
         GraphCopier copier,
         PdfStream stream,
         PdfReference? link,
         ResourceGovernor governor,
+        CancellationToken cancellationToken,
         ref int allocator)
     {
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         bool isForm = stream.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject? subtype)
             && subtype is PdfName subtypeName
             && subtypeName.DisplayText == "Form";
-        if (link is not null)
-        {
-            if (!isForm)
-            {
-                Dictionary<PdfName, QpdfObject> entries = new();
-                foreach (PdfName key in stream.Dictionary.Keys)
-                {
-                    if (stream.Dictionary.TryGet(key, out QpdfObject? found) && found is not null)
-                    {
-                        entries[key] = found;
-                    }
-                }
-
-                governor.ReserveMemory(64L);
-                entries[PdfName.FromAscii("Subtype")] = PdfName.FromAscii("Form");
-                copier.ReplaceCopiedObject(link.ObjectNumber, new PdfStream(new PdfDictionary(entries), stream.Data));
-            }
-
-            Dictionary<PdfName, QpdfObject> current = new();
-            foreach (PdfName key in stream.Dictionary.Keys)
-            {
-                if (stream.Dictionary.TryGet(key, out QpdfObject? found) && found is not null)
-                {
-                    current[key] = found;
-                }
-            }
-
-            current[PdfName.FromAscii("Subtype")] = PdfName.FromAscii("Form");
-            return (link, new PdfDictionary(current));
-        }
-
-        Dictionary<PdfName, QpdfObject> fresh = new();
-        foreach (PdfName key in stream.Dictionary.Keys)
-        {
-            if (stream.Dictionary.TryGet(key, out QpdfObject? found) && found is not null)
-            {
-                fresh[key] = found;
-            }
-        }
-
-        governor.ReserveMemory(64L);
-        fresh[PdfName.FromAscii("Subtype")] = PdfName.FromAscii("Form");
-        PdfDictionary dictionary = new(fresh);
-        PdfReference freshLink = copier.AddIndirectObjectWithId(new PdfStream(dictionary, stream.Data), allocator);
-        allocator = checked(allocator + 1);
-        return (freshLink, dictionary);
+        if (isForm && link is not null) { return (link, stream.Dictionary); }
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
+        PdfDictionary header = isForm ? stream.Dictionary
+            : PdfDictionaryRebuild.ReplaceEntry(graph, stream.Dictionary, "Subtype"u8, PdfName.FromAscii("Form"));
+        PdfStream result = stream;
+        if (!isForm)
+        { graph.Memory.Reserve(32L); result = stream.WithDictionary(header); graph.Add(32L); }
+        if (link is null)
+        { link = copier.AddIndirectObjectWithId(result, allocator); allocator = checked(allocator + 1); }
+        else { copier.ReplaceCopiedObject(link.ObjectNumber, result); }
+        graph.Retain(); return (link, header);
     }
 
     private static string AppearanceContent(

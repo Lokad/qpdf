@@ -353,7 +353,7 @@ internal static class FlattenRotation
 
             if (entry is PdfReference entryReference)
             {
-                RotateAppearanceTarget(copier, entryReference, resolver, matrix, matricized, governor);
+                RotateAppearanceTarget(copier, entryReference, resolver, matrix, matricized, governor, cancellationToken);
                 continue;
             }
 
@@ -373,20 +373,22 @@ internal static class FlattenRotation
 
                 if (stateRaw is PdfReference stateReference)
                 {
-                    RotateAppearanceTarget(copier, stateReference, resolver, matrix, matricized, governor);
+                    RotateAppearanceTarget(copier, stateReference, resolver, matrix, matricized, governor, cancellationToken);
                 }
             }
         }
     }
 
-    private static void RotateAppearanceTarget(
+    internal static void RotateAppearanceTarget(
         GraphCopier copier,
         PdfReference reference,
         PoolResolver resolver,
         double[] matrix,
         HashSet<int> matricized,
-        ResourceGovernor governor)
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (!matricized.Add(reference.ObjectNumber))
         {
             return;
@@ -408,18 +410,20 @@ internal static class FlattenRotation
             }
         }
 
-        governor.ReserveMemory(64L);
-        Dictionary<PdfName, QpdfObject> entries = new();
-        foreach (PdfName key in stream.Dictionary.Keys)
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
+        long arrayBytes = checked(32L + IntPtr.Size * (long)composed.Length);
+        graph.Memory.Reserve(arrayBytes);
+        QpdfObject[] items = new QpdfObject[composed.Length]; graph.Add(arrayBytes);
+        for (int i = 0; i < composed.Length; i++)
         {
-            if (stream.Dictionary.TryGet(key, out QpdfObject? found) && found is not null)
-            {
-                entries[key] = found;
-            }
+            string text = FormatDouble(composed[i]);
+            long bytes = checked(32L + GovernedText.StringBytes(text.Length));
+            graph.Memory.Reserve(bytes); items[i] = new PdfReal(text, composed[i]); graph.Add(bytes);
         }
-
-        entries[PdfName.FromAscii("Matrix")] = BoxArray(composed, governor);
-        copier.ReplaceCopiedObject(reference.ObjectNumber, new PdfStream(new PdfDictionary(entries), stream.Data));
+        graph.Memory.Reserve(24L); PdfArray values = PdfArray.FromOwnedItems(items); graph.Add(24L);
+        PdfDictionary header = PdfDictionaryRebuild.ReplaceEntry(graph, stream.Dictionary, "Matrix"u8, values);
+        graph.Memory.Reserve(32L); PdfStream result = stream.WithDictionary(header); graph.Add(32L);
+        copier.ReplaceCopiedObject(reference.ObjectNumber, result); graph.Retain();
     }
 
     private static double[]? ReadMatrix(PdfArray array)

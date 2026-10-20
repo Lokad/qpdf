@@ -34,6 +34,10 @@ rejected candidates refund their storage, and accepted buffers and headers
 transfer into the graph without cloning the payload. Header-only form rewrites
 borrow the original immutable payload.
 
+Rotation matrices and annotation Form promotion also rebuild only admitted
+headers. Direct and shared appearance streams keep their immutable payload
+storage; failed header construction refunds its fresh allocations.
+
 Default-appearance analysis scans borrowed bytes once, retaining only the last
 font and size. It admits decoded font-name bytes and any corrected appearance
 before materializing them. Appearance decoding and construction use a temporary
