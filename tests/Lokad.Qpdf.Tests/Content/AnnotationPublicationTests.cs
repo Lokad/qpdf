@@ -33,17 +33,17 @@ public sealed class AnnotationPublicationTests
     private static async Task<InMemoryQpdfHost> Storage(string mode)
     {
         InMemoryQpdfHost host = new();
-        byte[] input = mode is "overlay" or "flatten" ? FlattenResourceStorageTests.Fixture(64, false)
+        byte[] input = mode == "merge" ? FormMergeStorageTests.Fixture(new string('F', 32768)) : mode is "overlay" or "flatten" ? FlattenResourceStorageTests.Fixture(64, false)
             : ContentSafetyTests.Fixture(System.Text.Encoding.ASCII.GetBytes(new string(' ', 524288) + "BI /W 1 /H 1 /BPC 8 /CS /G ID X EI"), "", false, 1);
         host.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Transfer);
-        host.AddInput(QpdfPath.From("overlay"), FlattenResourceStorageTests.Fixture(4, false), QpdfInputOwnership.Transfer);
+        host.AddInput(QpdfPath.From("overlay"), mode == "merge" ? FormMergeStorageTests.Fixture(new string('F', 32768)) : FlattenResourceStorageTests.Fixture(4, false), QpdfInputOwnership.Transfer);
         await using IQpdfOutputTransaction initial = await host.CreateOutputAsync(Output, CancellationToken.None);
         await initial.WriteAsync(new byte[] { 17, 23, 41 }, CancellationToken.None); await initial.CommitAsync(CancellationToken.None);
         return host;
     }
 
     private static ValueTask<QpdfExecutionResult> Run(Host host, string mode, CancellationToken token)
-        => Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(mode == "overlay"
+        => Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(mode == "merge" ? ["input", "--pages", ".", "1", "overlay", "1", "--", "output"] : mode == "overlay"
             ? ["input", "--overlay", "overlay", "--", "output"]
             : ["input", mode switch { "flatten" => "--flatten-annotations=all", "coalesce" => "--coalesce-contents",
                 "normalize" => "--normalize-content=y", _ => "--externalize-inline-images" }, "--ii-min-bytes=0", "--", "output"]), token);
@@ -54,6 +54,7 @@ public sealed class AnnotationPublicationTests
     [InlineData("coalesce")]
     [InlineData("normalize")]
     [InlineData("externalize")]
+    [InlineData("merge")]
     public async Task EverySharedGrowthCanRefuseWithoutPublishing(string mode)
     {
         int growths;
@@ -113,6 +114,11 @@ public sealed class AnnotationPublicationTests
     [InlineData("commit", "externalize")]
     [InlineData("cancel", "externalize")]
     [InlineData("close", "externalize")]
+    [InlineData("create", "merge")]
+    [InlineData("write", "merge")]
+    [InlineData("commit", "merge")]
+    [InlineData("cancel", "merge")]
+    [InlineData("close", "merge")]
     public async Task OutputFaultsRefundOwnersAndRespectCommit(string phase, string mode)
     {
         using InMemoryQpdfHost storage = await Storage(mode);

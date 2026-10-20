@@ -25,32 +25,27 @@ internal static class PdfText
     internal static bool TryEncodePdfDocByte(char value, out byte encoded)
         => EncodeMap.TryGetValue(value, out encoded);
 
-    /// <summary>
-    /// Encodes text into PDFDocEncoding bytes when every character round-trips.
-    /// Returns false for characters outside PDFDocEncoding (including surrogates
-    /// and the replacement character); callers fall back to UTF-16.
-    /// </summary>
-    internal static bool TryEncodePdfDoc(string value, out byte[] bytes)
+    // One admitted final array; field names fall back to the same UTF-16BE
+    // code units as before when PDFDocEncoding cannot represent the text.
+    internal static byte[] Encode(string value, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
-        if (value is null)
-        {
-            throw new ArgumentNullException(nameof(value));
-        }
-
-        byte[] encoded = new byte[value.Length];
+        memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        bool pdfDoc = true;
         for (int i = 0; i < value.Length; i++)
         {
-            if (!TryEncodePdfDocByte(value[i], out byte unit))
-            {
-                bytes = [];
-                return false;
-            }
-
-            encoded[i] = unit;
+            if ((i & 255) == 0) { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); }
+            if (!TryEncodePdfDocByte(value[i], out _)) { pdfDoc = false; break; }
         }
-
-        bytes = encoded;
-        return true;
+        int length = pdfDoc ? value.Length : checked(2 + value.Length * 2);
+        memory.Reserve(checked(32L + length)); byte[] bytes = new byte[length];
+        if (!pdfDoc) { bytes[0] = 0xfe; bytes[1] = 0xff; }
+        for (int i = 0; i < value.Length; i++)
+        {
+            if ((i & 255) == 0) { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); }
+            if (pdfDoc) { TryEncodePdfDocByte(value[i], out bytes[i]); }
+            else { bytes[2 + 2 * i] = (byte)(value[i] >> 8); bytes[3 + 2 * i] = (byte)value[i]; }
+        }
+        return bytes;
     }
 
     private static Dictionary<char, byte> BuildEncodeMap()
