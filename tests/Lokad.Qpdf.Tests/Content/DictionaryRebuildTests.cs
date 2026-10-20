@@ -19,7 +19,7 @@ public sealed class DictionaryRebuildTests
         PdfDictionary source = new(new Dictionary<PdfName, QpdfObject>());
         PdfByteString borrowed = new(new byte[2 * 1024 * 1024], false);
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 65536L }, CancellationToken.None);
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 4, CancellationToken.None);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
         PdfDictionary result = PdfDictionaryRebuild.ReplaceEntry(graph, source, raw, borrowed);
         PdfName key = Assert.Single(result.Keys);
         Assert.Equal(raw, key.RawSpan.ToArray()); Assert.NotSame(raw, key.AllocationCarrier);
@@ -44,7 +44,7 @@ public sealed class DictionaryRebuildTests
 
     private static void BuildCanceled(ResourceGovernor governor, CancellationToken token, bool strip)
     {
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 4, token);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         PdfDictionary source = new(new Dictionary<PdfName, QpdfObject>());
         _ = strip ? PdfDictionaryRebuild.StripStreamEncoding(graph, source) : PdfDictionaryRebuild.ReplaceEntry(graph, source, "Contents"u8, PdfNull.Instance);
     }
@@ -56,7 +56,7 @@ public sealed class DictionaryRebuildTests
     {
         using CancellationTokenSource cancellation = new();
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 4, governorToken ? CancellationToken.None : cancellation.Token);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, governorToken ? CancellationToken.None : cancellation.Token);
         PdfDictionary source = new(new Dictionary<PdfName, QpdfObject>());
         PdfDictionary result = PdfDictionaryRebuild.ReplaceEntry(graph, source, "Contents"u8, PdfNull.Instance);
         long live = governor.Snapshot().LiveMemoryBytes, reserved = graph.Memory.ReservedBytes;
@@ -73,7 +73,7 @@ public sealed class DictionaryRebuildTests
         ResourceGovernor governor = new(limits, CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(61L);
         long live = governor.Snapshot().LiveMemoryBytes;
-        using (OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 4, CancellationToken.None))
+        using (OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None))
         {
             QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => PdfDictionaryRebuild.ReplaceEntry(graph, source, raw, PdfNull.Instance));
             Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
@@ -87,7 +87,7 @@ public sealed class DictionaryRebuildTests
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static Escaped Capture(ResourceGovernor governor, bool bytesOnly)
     {
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 4, CancellationToken.None);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
         PdfDictionary source = new(new Dictionary<PdfName, QpdfObject>());
         PdfDictionary result = PdfDictionaryRebuild.ReplaceEntry(graph, source, ReadOnlySpan<byte>.Empty, PdfNull.Instance);
         graph.Retain(); PdfName key = Assert.Single(result.Keys);

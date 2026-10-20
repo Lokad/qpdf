@@ -126,7 +126,7 @@ text retains its caller charge independently from published UTF-8 bytes.
 Parser and transform construction scopes transfer their existing estimates to
 coarse graph owners. Retention does not walk object references or create weak
 tables and finalizer receipts. Private graph charges end with execution cleanup.
-Construction batches keep counts and byte estimates rather than object/root
+Construction batches keep byte estimates rather than allocation counts or object/root
 references. Dictionary growth updates its original byte estimate, while failed
 handoffs preserve source ownership through cleanup. Private configuration and
 filter text end with their disposable component owners.

@@ -18,14 +18,11 @@ public sealed class OwnedAllocationBatchTests
         return values;
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    [InlineData(11)]
-    public void EmptyBatchAdmitsItsStorageAndClosesWithoutOpeningALedger(int capacity)
+    [Fact]
+    public void EmptyBatchAdmitsItsStorageAndClosesWithoutOpeningALedger()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        OwnedAllocationBatch batch = OwnedAllocationBatch.Create(governor, capacity, CancellationToken.None);
+        OwnedAllocationBatch batch = OwnedAllocationBatch.Create(governor, CancellationToken.None);
         Assert.Equal(128L, governor.Snapshot().LiveMemoryBytes);
         batch.Retain(); batch.Dispose(); batch.Dispose();
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
@@ -33,16 +30,15 @@ public sealed class OwnedAllocationBatchTests
     }
 
     [Fact]
-    public void CapacityAndExtentFailuresKeepAllEarlierCarriersAndFunding()
+    public void ExtentFailuresPreserveEarlierByteAccounting()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        using OwnedAllocationBatch batch = OwnedAllocationBatch.Create(governor, 1, CancellationToken.None);
+        using OwnedAllocationBatch batch = OwnedAllocationBatch.Create(governor, CancellationToken.None);
         batch.Memory.Reserve(48L); batch.Add(24L);
         long live = governor.Snapshot().LiveMemoryBytes, bytes = batch.Bytes;
-        Assert.Throws<InvalidOperationException>(() => batch.Add(24L));
+        Assert.Throws<InvalidOperationException>(() => batch.Add(batch.Memory.ReservedBytes));
         Assert.Throws<InvalidOperationException>(() => batch.UpdateBytes(24L, long.MaxValue));
         Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(bytes, batch.Bytes);
-        Assert.Equal(1, batch.Count);
     }
 
     [Fact]
@@ -51,7 +47,7 @@ public sealed class OwnedAllocationBatchTests
         PdfByteString borrowed = new(new byte[2 * 1024 * 1024], false);
         QpdfObject[] items = [borrowed];
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 8192L }, CancellationToken.None);
-        using OwnedAllocationBatch batch = OwnedAllocationBatch.Create(governor, 1, CancellationToken.None);
+        using OwnedAllocationBatch batch = OwnedAllocationBatch.Create(governor, CancellationToken.None);
         batch.Memory.Reserve(24L); PdfArray wrapper = PdfArray.FromOwnedItems(items); batch.Add(24L);
         batch.Retain(); Assert.Equal(24L, batch.Bytes);
         Assert.Same(borrowed, wrapper[0]); Assert.Same(items, wrapper.AllocationCarrier);
@@ -64,12 +60,12 @@ public sealed class OwnedAllocationBatchTests
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 8192L }, CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor);
         prior.Reserve(24L); object borrowed = new(); prior.RetainAllocation(24L);
-        using OwnedAllocationBatch batch = OwnedAllocationBatch.Create(governor, 2, CancellationToken.None);
+        using OwnedAllocationBatch batch = OwnedAllocationBatch.Create(governor, CancellationToken.None);
         batch.Memory.Reserve(48L); object fresh = new(); batch.Add(24L); batch.Add(24L);
         long live = governor.Snapshot().LiveMemoryBytes, reserved = batch.Memory.ReservedBytes;
         batch.Retain();
         Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(reserved - batch.Bytes, batch.Memory.ReservedBytes);
-        Assert.Equal(2, batch.Count); GC.KeepAlive(fresh);
+        GC.KeepAlive(fresh);
         Assert.Equal(0L, prior.ReservedBytes); GC.KeepAlive(borrowed);
     }
 
@@ -85,7 +81,7 @@ public sealed class OwnedAllocationBatchTests
         ResourceGovernor governor = new(limits, CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor);
         prior.Reserve(96L); byte[] borrowed = new byte[64]; borrowed[17] = 91; prior.RetainAllocation(96L);
-        using OwnedAllocationBatch batch = OwnedAllocationBatch.Create(governor, 4, CancellationToken.None);
+        using OwnedAllocationBatch batch = OwnedAllocationBatch.Create(governor, CancellationToken.None);
         byte[][] values = Populate(batch, 4);
         using ParserMemoryScope pressure = ParserMemoryScope.Create(governor);
         pressure.Reserve(limits.MaxMemoryBytes - governor.Snapshot().LiveMemoryBytes - headroom);
@@ -107,7 +103,7 @@ public sealed class OwnedAllocationBatchTests
     {
         using CancellationTokenSource cancellation = new();
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
-        using OwnedAllocationBatch batch = OwnedAllocationBatch.Create(governor, 4, governorToken ? CancellationToken.None : cancellation.Token);
+        using OwnedAllocationBatch batch = OwnedAllocationBatch.Create(governor, governorToken ? CancellationToken.None : cancellation.Token);
         byte[][] values = Populate(batch, 4);
         long live = governor.Snapshot().LiveMemoryBytes;
         cancellation.Cancel(); Assert.ThrowsAny<OperationCanceledException>(() => batch.Retain());
@@ -121,7 +117,7 @@ public sealed class OwnedAllocationBatchTests
     private static Completed Complete()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        OwnedAllocationBatch batch = OwnedAllocationBatch.Create(governor, 4, CancellationToken.None);
+        OwnedAllocationBatch batch = OwnedAllocationBatch.Create(governor, CancellationToken.None);
         byte[][] values = Populate(batch, 4);
         WeakReference[] metadata = [new(governor), new(batch.Memory)];
         batch.Retain(); batch.Dispose(); return new(batch, values, metadata);

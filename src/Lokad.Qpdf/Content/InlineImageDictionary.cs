@@ -10,7 +10,7 @@ internal static class InlineImageDictionary
     internal static PdfDictionary Convert(PdfDictionary raw, PdfDictionary resources,
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, AllocationCount(raw, governor, token), token);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         PdfDictionary result = Build(graph, raw, resources, diagnostics);
         graph.Retain(); return result;
     }
@@ -71,46 +71,8 @@ internal static class InlineImageDictionary
             PdfDictionaryLookup.TryGet(spaces, name.RawSpan, governor, token, out value) && value is not PdfNull;
     }
 
-    internal static int AllocationCount(PdfDictionary raw, ResourceGovernor governor, CancellationToken token)
-    {
-        int count = 2; // Fresh table and dictionary; the batch itself stays scoped.
-        using PdfDictionary.EntryEnumerator source = raw.GetEntryEnumerator();
-        while (source.MoveNext(governor, token))
-        {
-            PdfName key = source.Current.Key; QpdfObject value = source.Current.Value;
-            if (value is null or PdfNull) { continue; }
-            ReadOnlySpan<byte> expanded = KeyName(key, governor, token);
-            if (IsShadowed(raw, expanded, governor, token)) { continue; }
-            if (!expanded.IsEmpty) { count = checked(count + 2); }
-            ReadOnlySpan<byte> name = expanded.IsEmpty ? key.RawSpan : expanded;
-            if (Equal(name, "ColorSpace"u8, governor, token) && value is PdfName color && !ColorName(color, governor, token).IsEmpty)
-            { count = checked(count + 2); }
-            else if (Equal(name, "Filter"u8, governor, token))
-            {
-                int names = FilterAllocations(value, governor, token);
-                count = checked(count + names + (names != 0 && value is PdfArray ? 2 : 0));
-            }
-        }
-        return count;
-    }
-
     private static bool IsShadowed(PdfDictionary raw, ReadOnlySpan<byte> expanded, ResourceGovernor governor, CancellationToken token)
         => !expanded.IsEmpty && PdfDictionaryLookup.TryGet(raw, expanded, governor, token, out QpdfObject canonical) && canonical is not PdfNull;
-
-    private static int FilterAllocations(QpdfObject value, ResourceGovernor governor, CancellationToken token)
-    {
-        if (value is PdfName name) { return FilterName(name, governor, token).IsEmpty ? 0 : 2; }
-        int count = 0;
-        if (value is PdfArray array)
-        {
-            for (int index = 0; index < array.Count; index++)
-            {
-                Step(governor, token);
-                if (array[index] is PdfName item && !FilterName(item, governor, token).IsEmpty) { count = checked(count + 2); }
-            }
-        }
-        return count;
-    }
 
     private static QpdfObject ExpandFilters(OwnedAllocationBatch graph, QpdfObject value)
     {
@@ -119,14 +81,22 @@ internal static class InlineImageDictionary
             ReadOnlySpan<byte> full = FilterName(name, graph.Governor, graph.Token);
             return full.IsEmpty ? value : PdfDictionaryRebuild.CreateName(graph, full);
         }
-        if (value is not PdfArray array || FilterAllocations(value, graph.Governor, graph.Token) == 0) { return value; }
+        if (value is not PdfArray array) { return value; }
+        // Unchanged arrays stay borrowed; stop as soon as a real expansion is needed.
+        int first = 0;
+        for (; first < array.Count; first++)
+        {
+            Step(graph.Governor, graph.Token);
+            if (array[first] is PdfName filter && !FilterName(filter, graph.Governor, graph.Token).IsEmpty) { break; }
+        }
+        if (first == array.Count) { return value; }
         long bytes = checked(32L + (long)IntPtr.Size * array.Count);
         graph.Memory.Reserve(bytes); graph.Governor.NoteOperation(); Step(graph.Governor, graph.Token);
         QpdfObject[] items = new QpdfObject[array.Count]; graph.Add(bytes);
         for (int index = 0; index < items.Length; index++)
         {
             Step(graph.Governor, graph.Token); QpdfObject item = array[index];
-            if (item is PdfName filter)
+            if (index >= first && item is PdfName filter)
             {
                 ReadOnlySpan<byte> full = FilterName(filter, graph.Governor, graph.Token);
                 if (!full.IsEmpty) { item = PdfDictionaryRebuild.CreateName(graph, full); }

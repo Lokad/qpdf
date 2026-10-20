@@ -27,9 +27,7 @@ internal static class InlineImageStorage
         if (data.Length < minimum) { return null; }
         using ParserMemoryScope parsedMemory = ParserMemoryScope.Create(governor);
         PdfDictionary raw = Parse(dictionaryBytes, offset, limits, governor, diagnostics, resolver, parsedMemory, token);
-        int defaults = (HasValue(raw, "Type"u8, governor, token) ? 0 : 4) + (HasValue(raw, "Subtype"u8, governor, token) ? 0 : 4);
-        int capacity = checked(InlineImageDictionary.AllocationCount(raw, governor, token) + defaults + 5 + (data.Length == 0 ? 0 : 1));
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, capacity, token);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         dataMemory.TransferTo(graph.Memory);
         if (data.Length != 0) { graph.Add(checked(32L + data.Length)); }
         PdfDictionary converted = InlineImageDictionary.BuildWithResources(graph, raw, resources, diagnostics, resolver);
@@ -153,7 +151,7 @@ internal sealed class InlineImageBuffer : IDisposable
     internal PdfStream Complete(bool compress, int? level, QpdfLimits limits)
     {
         ResourceGovernor governor = Governor; CancellationToken token = _token;
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 8, token);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         bool encoded = compress && Output.Length > 0;
         byte[] data = encoded ? Encode(graph, level, limits) : Output.ToArray(graph.Memory, token);
         if (data.Length != 0) { graph.Add(checked(32L + data.Length)); }

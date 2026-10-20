@@ -245,14 +245,14 @@ internal static class ContentTransforms
 
     private static PdfDictionary StrippedContentDictionary(PdfDictionary dictionary, ResourceGovernor governor, CancellationToken cancellationToken)
     {
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 2, cancellationToken);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
         PdfDictionary result = PdfDictionaryRebuild.StripStreamEncoding(graph, dictionary);
         graph.Retain(); return result;
     }
 
     private static PdfDictionary ReplaceEntry(PdfDictionary dictionary, ReadOnlySpan<byte> key, QpdfObject value, ResourceGovernor governor, CancellationToken cancellationToken)
     {
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 4, cancellationToken);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
         PdfDictionary result = PdfDictionaryRebuild.ReplaceEntry(graph, dictionary, key, value);
         graph.Retain(); return result;
     }
@@ -348,7 +348,7 @@ internal static class ContentTransforms
         for (int index = 0; index < entries.Count; index++) { chunks.AddForContent(entries.Get(index).Stream, resolver, limits); }
         using JoinedContent joined = JoinedContent.Create(chunks.Parts, governor, token);
         chunks.Dispose();
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 8, token);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         bool compress = request.Compress && joined.RawBytes.Length > 0;
         byte[] data = compress ? FlateFilter.Encode(joined.RawBytes, request.Level, limits, governor, graph.Memory, token) : joined.TakeBytes(graph);
         joined.Dispose(); AddContentBuffer(graph, data);
@@ -444,7 +444,7 @@ internal static class ContentTransforms
                 try { (data, decoded) = DecodeForContent(original, resolver, limits, governor, decodedMemory, token); }
                 catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException))
                 { data = original.ArrayData(decodedMemory, governor, token); decoded = false; }
-                using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 4, token);
+                using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
                 byte[]? normalized = null;
                 try
                 {
@@ -488,7 +488,7 @@ internal static class ContentTransforms
 
         if (contents is PdfArray array)
         {
-            using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 6, cancellationToken);
+            using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
             QpdfObject[] items = Array.Empty<QpdfObject>();
             if (array.Count != 0)
             {
@@ -1114,7 +1114,7 @@ internal static class ContentTransforms
 
         // Two sections, resources and the node header each own a table/wrapper.
         // A form adds one stream wrapper; a synthetic header can add a name/buffer.
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 11, cancellationToken);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
         PdfNameTable<QpdfObject>? fonts = null, xobjects = null;
         long fontAllocation = -1L, xobjectAllocation = -1L;
         bool changed = false;

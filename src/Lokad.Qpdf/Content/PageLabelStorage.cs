@@ -22,8 +22,7 @@ internal static class PageLabelStorage
             _ => throw new QpdfException($"Unknown page label style {(int)specification.Style.Value}."),
         };
         bool hasStart = specification.Start.HasValue && specification.Start.Value != 1;
-        int capacity = 2 + (style.IsEmpty ? 0 : 4) + (hasStart ? 4 : 0) + (specification.Prefix is null ? 0 : 4);
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, capacity, token);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         if (!style.IsEmpty) { Assign(graph, entries, "S"u8, PdfDictionaryRebuild.CreateName(graph, style)); }
         if (hasStart) { Assign(graph, entries, "St"u8, Integer(graph, specification.Start.GetValueOrDefault())); }
@@ -35,7 +34,7 @@ internal static class PageLabelStorage
     internal static PdfDictionary Merged(QpdfObject? style, QpdfObject? prefix, long start,
         ResourceGovernor governor, CancellationToken token)
     {
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 6 + (style is null ? 0 : 2) + (prefix is null ? 0 : 2), token);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         if (style is not null) { Assign(graph, entries, "S"u8, style); }
         if (prefix is not null) { Assign(graph, entries, "P"u8, prefix); }
@@ -48,7 +47,7 @@ internal static class PageLabelStorage
         ResourceGovernor governor, CancellationToken token)
     {
         int count = checked(items.Count * 2);
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, checked(count + 6), token);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         long bytes = checked(32L + IntPtr.Size * (long)count);
         graph.Memory.Reserve(bytes); QpdfObject[] numbers = new QpdfObject[count]; graph.Add(bytes);
         for (int i = 0; i < items.Count; i++)

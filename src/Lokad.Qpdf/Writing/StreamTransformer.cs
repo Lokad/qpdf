@@ -50,7 +50,7 @@ internal static class StreamTransformer
             }
         }
         stages.Dispose();
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 8, token);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         bool encoded = compress && decoded.Length != 0;
         byte[] data;
         if (encoded) { data = FlateFilter.Encode(decoded, level, limits, governor, graph.Memory, token); }

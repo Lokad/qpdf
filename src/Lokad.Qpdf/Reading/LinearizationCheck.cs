@@ -441,9 +441,7 @@ internal static class LinearizationCheck
         }
 
         int groups = (int)totalShared;
-        long capacity = checked(groups + 3L * pageCount + 8L);
-        if (capacity > Array.MaxLength) { throw new QpdfParseException("Hint table exceeds the supported capacity.", null, null); }
-        OwnedAllocationBatch allocations = OwnedAllocationBatch.Create(governor, (int)capacity, cancellationToken);
+        OwnedAllocationBatch allocations = OwnedAllocationBatch.Create(governor, cancellationToken);
         try
         {
             long[] groupDeltas = AllocateHintArray<long>(scratch, groups, sizeof(long), governor, cancellationToken);

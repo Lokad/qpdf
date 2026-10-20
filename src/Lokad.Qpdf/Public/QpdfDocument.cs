@@ -100,7 +100,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             _governor.CheckCancellation();
             IReadOnlyList<QpdfDiagnostic> warnings = _diagnostics.Entries;
             if (warnings.Count == 0) { return Array.Empty<QpdfDiagnostic>(); }
-            using OwnedAllocationBatch storage = OwnedAllocationBatch.Create(_governor, 2, _governor.CancellationToken);
+            using OwnedAllocationBatch storage = OwnedAllocationBatch.Create(_governor, _governor.CancellationToken);
             IReadOnlyList<QpdfDiagnostic> snapshot = ResultCollectionStorage.Copy(storage, warnings, IntPtr.Size);
             storage.RetainResult();
             return snapshot;
@@ -130,7 +130,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             if (PdfDictionaryLookup.TryGet(location.Page, "Resources"u8, _governor, cancellationToken, out QpdfObject raw)
                 && PageInheritance.Resolve(engine, raw, Limits, _governor) is PdfDictionary) { continue; }
             if (PageInheritance.HasDictionaryAncestor(engine, location, "Resources"u8, Limits, _governor, cancellationToken)) { continue; }
-            using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(_governor, 6, cancellationToken);
+            using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(_governor, cancellationToken);
             PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
             PdfDictionary resources = PdfDictionaryRebuild.Complete(graph, entries, allocation);
             PdfDictionary page = PdfDictionaryRebuild.ReplaceEntry(graph, location.Page, "Resources"u8, resources);

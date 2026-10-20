@@ -4738,7 +4738,7 @@ public static partial class Qpdf
                 AddPageCountDiagnostic(document, inputPath, diagnostics);
             }
         }
-        using OwnedAllocationBatch resultStorage = OwnedAllocationBatch.Create(governor, 4, cancellationToken);
+        using OwnedAllocationBatch resultStorage = OwnedAllocationBatch.Create(governor, cancellationToken);
         IReadOnlyList<QpdfCheckOutcome> resultChecks = ResultCollectionStorage.Copy(resultStorage, checks, IntPtr.Size);
         IReadOnlyList<QpdfDiagnostic> resultDiagnostics = ResultCollectionStorage.Copy(resultStorage, diagnostics.Entries, IntPtr.Size);
         resultStorage.RetainResult();

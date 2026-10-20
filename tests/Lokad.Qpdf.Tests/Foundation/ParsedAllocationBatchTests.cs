@@ -20,7 +20,7 @@ public sealed class ParsedAllocationBatchTests
         ResourceGovernor governor=new(QpdfLimits.Default,cancellation.Token);
         using ParserMemoryScope source=ParserMemoryScope.Create(governor);
         PdfDictionary parsed=Parse(governor,source);long sourceBytes=source.ReservedBytes;
-        using OwnedAllocationBatch graph=OwnedAllocationBatch.Create(governor,2,CancellationToken.None);
+        using OwnedAllocationBatch graph=OwnedAllocationBatch.Create(governor, CancellationToken.None);
         PdfNameTable<QpdfObject> entries=PdfDictionaryRebuild.CreateEntries(graph,out long allocation);
         using PdfDictionary.EntryEnumerator iterator=parsed.GetEntryEnumerator();
         while(iterator.MoveNext(governor,CancellationToken.None)){entries.Assign(graph.Memory,governor,iterator.Current.Key,iterator.Current.Value,CancellationToken.None);}
@@ -44,7 +44,7 @@ public sealed class ParsedAllocationBatchTests
     private static object Capture(ResourceGovernor governor,bool text)
     {
         using ParserMemoryScope source=ParserMemoryScope.Create(governor);PdfDictionary parsed=Parse(governor,source);
-        using OwnedAllocationBatch graph=OwnedAllocationBatch.Create(governor,2,CancellationToken.None);
+        using OwnedAllocationBatch graph=OwnedAllocationBatch.Create(governor, CancellationToken.None);
         PdfNameTable<QpdfObject> entries=PdfDictionaryRebuild.CreateEntries(graph,out long allocation);
         using PdfDictionary.EntryEnumerator iterator=parsed.GetEntryEnumerator();
         while(iterator.MoveNext(governor,CancellationToken.None)){entries.Assign(graph.Memory,governor,iterator.Current.Key,iterator.Current.Value,CancellationToken.None);}

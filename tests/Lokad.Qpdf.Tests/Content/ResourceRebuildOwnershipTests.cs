@@ -25,7 +25,7 @@ public sealed class ResourceRebuildOwnershipTests
             : Dictionary(("Subtype", PdfName.FromAscii("Form")), ("Meta", borrowed));
         PdfStream source = new(sourceHeader, raw);
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 8192L }, CancellationToken.None);
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 11, CancellationToken.None);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
         PdfStream replacement = ResourceRebuild.ReplaceResources(graph, source, resources); graph.Retain();
         Assert.Same(source.AllocationCarrier, replacement.AllocationCarrier);
         Assert.Equal(91, replacement.RawMemory.Span[17]);
@@ -53,7 +53,7 @@ public sealed class ResourceRebuildOwnershipTests
         byte[] raw = new byte[64]; raw[17] = 91;
         PdfDictionary sourceHeader = Dictionary(("Length", new PdfInteger("64", 64L)));
         PdfStream source = new(sourceHeader, raw); PdfDictionary resources = Dictionary();
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 11, CancellationToken.None);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
         PdfStream replacement = ResourceRebuild.ReplaceResources(graph, source, resources);
         graph.Retain();
         PdfName name = replacement.Dictionary.Keys.Single(key => key.DisplayText == "Resources");
@@ -136,7 +136,7 @@ public sealed class ResourceRebuildOwnershipTests
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096L }, CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(61L);
         long live = governor.Snapshot().LiveMemoryBytes;
-        using (OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 11, CancellationToken.None))
+        using (OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None))
         {
             QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => ResourceRebuild.ReplaceResources(graph, source, resources));
             Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);

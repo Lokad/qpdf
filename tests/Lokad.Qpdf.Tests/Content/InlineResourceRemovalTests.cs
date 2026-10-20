@@ -31,7 +31,7 @@ public sealed class InlineResourceRemovalTests
             ResourceGovernor governor = new(limits, CancellationToken.None);
             using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(61L);
             long baseline = governor.Snapshot().LiveMemoryBytes;
-            using (OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 4, CancellationToken.None))
+            using (OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None))
             {
                 QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
                     PdfDictionaryRebuild.RemoveEntry(graph, source, "Resources"u8));
@@ -59,7 +59,7 @@ public sealed class InlineResourceRemovalTests
 
     private static void Remove(ResourceGovernor governor, PdfDictionary source, CancellationToken token)
     {
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 4, token);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         _ = PdfDictionaryRebuild.RemoveEntry(graph, source, "Resources"u8);
     }
 
@@ -72,7 +72,7 @@ public sealed class InlineResourceRemovalTests
         ResourceGovernor governor = new(QpdfLimits.Default, caller ? CancellationToken.None : cancellation.Token);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(61L);
         long baseline = governor.Snapshot().LiveMemoryBytes;
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 4, caller ? cancellation.Token : CancellationToken.None);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, caller ? cancellation.Token : CancellationToken.None);
         PdfDictionary source = Source(new(new byte[1], false));
         PdfDictionary output = PdfDictionaryRebuild.RemoveEntry(graph, source, "Resources"u8);
         long live = governor.Snapshot().LiveMemoryBytes;
@@ -85,7 +85,7 @@ public sealed class InlineResourceRemovalTests
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static WeakReference Capture(ResourceGovernor governor, PdfDictionary source, PdfByteString borrowed)
     {
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 4, CancellationToken.None);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
         PdfDictionary output = PdfDictionaryRebuild.RemoveEntry(graph, source, "Resources"u8);
         Assert.False(output.TryGet(PdfName.FromAscii("Resources"), out _));
         using PdfDictionary.EntryEnumerator entries = source.GetEntryEnumerator();

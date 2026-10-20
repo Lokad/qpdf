@@ -112,7 +112,7 @@ internal static class InlineImages
         chunks.Dispose();
         resolverMemory.Dispose();
         CompleteResourceWalk(form.Dictionary, rewritten.Resources, formId, governor, diagnostics, cancellationToken);
-        using OwnedAllocationBatch headers = OwnedAllocationBatch.Create(governor, 10, cancellationToken);
+        using OwnedAllocationBatch headers = OwnedAllocationBatch.Create(governor, cancellationToken);
         PdfDictionary formDict = rewritten.Changed && rewritten.Stream is not null
             ? PdfDictionaryRebuild.StripStreamEncoding(headers, form.Dictionary) : form.Dictionary;
         if (rewritten.Resources is PdfNull)
@@ -125,7 +125,7 @@ internal static class InlineImages
         }
         if (ReferenceEquals(formDict, form.Dictionary)) { return; }
         headers.Retain();
-        using OwnedAllocationBatch final = OwnedAllocationBatch.Create(governor, 1, cancellationToken);
+        using OwnedAllocationBatch final = OwnedAllocationBatch.Create(governor, cancellationToken);
         final.Memory.Reserve(32L);
         PdfStream replaced = (rewritten.Stream ?? form).WithDictionary(formDict);
         final.Add(32L); final.Retain(); copier.ReplaceCopiedObject(formId, replaced);
@@ -181,7 +181,7 @@ internal static class InlineImages
     private static PdfDictionary ReplaceEntry(PdfDictionary dictionary, ReadOnlySpan<byte> key, QpdfObject value,
         ResourceGovernor governor, CancellationToken token)
     {
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 4, token);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         PdfDictionary result = PdfDictionaryRebuild.ReplaceEntry(graph, dictionary, key, value); graph.Retain(); return result;
     }
 
@@ -281,7 +281,7 @@ internal static class InlineImages
             existing = target as PdfDictionary;
             if (existing is null) { return target; }
         }
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 6, token);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         PdfDictionary? resolvedXObjects = null;
         QpdfObject? existingXObjects = null;
         if (existing is not null && PdfDictionaryLookup.TryGet(existing, "XObject"u8, governor, token, out QpdfObject rawXObjects))
@@ -326,7 +326,7 @@ internal static class InlineImages
             { for (int index = 0; index < output.Count; index++) { copier.AddIndirectObjectWithId(output.Get(index).Stream, copier.NextId); } }
             return resources;
         }
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 4, token);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         using PdfDictionary.EntryEnumerator source = xobjects.GetEntryEnumerator();
         while (source.MoveNext(governor, token))
