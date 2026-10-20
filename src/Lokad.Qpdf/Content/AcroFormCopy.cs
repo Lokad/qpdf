@@ -277,7 +277,7 @@ internal static class AcroFormCopy
 
         if (overlayImports.Count > 0)
         {
-            (string? destAppearance, int? destQuadding) = ReadMergedDefaults(combined);
+            (PdfByteString? destAppearance, int? destQuadding) = ReadMergedDefaults(combined);
             int allocator = 1;
             foreach (int id in pool.Keys)
             {
@@ -659,7 +659,7 @@ internal static class AcroFormCopy
     internal sealed record OverlayFieldImport(
         GraphCopier Copier,
         CopiedForm Part,
-        string? SourceDefaultAppearance,
+        PdfByteString? SourceDefaultAppearance,
         int? SourceQuadding);
 
     /// <summary>
@@ -680,7 +680,7 @@ internal static class AcroFormCopy
     /// </summary>
     internal sealed record OverlaySourceForm(
         bool HasFields,
-        string? DefaultAppearance,
+        PdfByteString? DefaultAppearance,
         int? Quadding,
         bool NeedAppearances,
         QpdfObject? DefaultResources,
@@ -830,6 +830,7 @@ internal static class AcroFormCopy
             throw new ArgumentNullException(nameof(governor));
         }
 
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         limits.Validate();
         PdfDictionary? source;
         try
@@ -847,10 +848,10 @@ internal static class AcroFormCopy
         }
 
         bool hasFields = source.TryGet(PdfName.FromAscii("Fields"), out QpdfObject? fieldsRaw) && fieldsRaw is not null && fieldsRaw is not PdfNull;
-        string appearance = string.Empty;
+        PdfByteString appearance = EmptyAppearance;
         if (source.TryGet(PdfName.FromAscii("DA"), out QpdfObject? appearanceRaw) && appearanceRaw is PdfByteString appearanceBytes)
         {
-            appearance = Attachments.PdfText.Decode(appearanceBytes.Value);
+            appearance = appearanceBytes;
         }
 
         int quadding = 0;
@@ -974,18 +975,18 @@ internal static class AcroFormCopy
     /// form extras, so overlay imports compare against the destination values
     /// the reference would inherit. Absent or mistyped entries yield null.
     /// </summary>
-    internal static (string? Appearance, int? Quadding) ReadMergedDefaults(CopiedForm combined)
+    internal static (PdfByteString? Appearance, int? Quadding) ReadMergedDefaults(CopiedForm combined)
     {
         if (combined is null)
         {
             throw new ArgumentNullException(nameof(combined));
         }
 
-        string? appearance = null;
+        PdfByteString? appearance = null;
         int? quadding = null;
         if (combined.Extras.TryGetValue(PdfName.FromAscii("DA"), out QpdfObject? appearanceRaw) && appearanceRaw is PdfByteString appearanceBytes)
         {
-            appearance = Attachments.PdfText.Decode(appearanceBytes.Value);
+            appearance = appearanceBytes;
         }
 
         if (combined.Extras.TryGetValue(PdfName.FromAscii("Q"), out QpdfObject? quaddingRaw) && quaddingRaw is PdfInteger quaddingInteger
@@ -1009,7 +1010,7 @@ internal static class AcroFormCopy
     internal static CopiedForm ApplyOverlayImports(
         CopiedForm combined,
         IReadOnlyList<OverlayFieldImport> imports,
-        string? destDefaultAppearance,
+        PdfByteString? destDefaultAppearance,
         int? destQuadding,
         GraphCopier unionOwner,
         Dictionary<int, QpdfObject> pool,
@@ -1357,7 +1358,7 @@ internal static class AcroFormCopy
         OverlayFieldImport import,
         PdfNameTable<PdfName>? fontMap,
         PdfReference unionResources,
-        string? destDefaultAppearance,
+        PdfByteString? destDefaultAppearance,
         int? destQuadding,
         QpdfLimits limits,
         ResourceGovernor governor,
@@ -1390,7 +1391,7 @@ internal static class AcroFormCopy
         OverlayFieldImport import,
         PdfNameTable<PdfName>? fontMap,
         PdfReference unionResources,
-        string? destDefaultAppearance,
+        PdfByteString? destDefaultAppearance,
         int? destQuadding,
         HashSet<int> visited,
         QpdfLimits limits,
@@ -1472,7 +1473,7 @@ internal static class AcroFormCopy
             entries[key] = entry;
         }
 
-        ApplyImportDefaults(entries, node, copier, import, destDefaultAppearance, destQuadding, limits, governor, ref changed);
+        ApplyImportDefaults(entries, node, copier, import, destDefaultAppearance, destQuadding, limits, governor, cancellationToken, ref changed);
         if (changed)
         {
             governor.ReserveMemory(64L);
@@ -1605,35 +1606,42 @@ internal static class AcroFormCopy
         return new PdfDictionary(kidEntries);
     }
 
+    private static readonly PdfByteString EmptyAppearance = PdfByteString.FromOwnedBytes(Array.Empty<byte>(), false);
+
+    private static bool SameAppearance(PdfByteString source, PdfByteString? target, ResourceGovernor governor, CancellationToken token)
+    {
+        if (ReferenceEquals(source, target)) { return true; }
+        ReadOnlySpan<byte> left = source.ValueSpan, right = target is null ? ReadOnlySpan<byte>.Empty : target.ValueSpan;
+        if (left.Length != right.Length) { return false; }
+        for (int at = 0; at < left.Length; at += Math.Min(8192, left.Length - at))
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); int count = Math.Min(8192, left.Length - at);
+            if (!left.Slice(at, count).SequenceEqual(right.Slice(at, count))) { return false; }
+        }
+        return true;
+    }
+
     private static void ApplyImportDefaults(
         Dictionary<PdfName, QpdfObject> entries,
         PdfDictionary node,
         GraphCopier copier,
         OverlayFieldImport import,
-        string? destDefaultAppearance,
+        PdfByteString? destDefaultAppearance,
         int? destQuadding,
         QpdfLimits limits,
         ResourceGovernor governor,
+        CancellationToken cancellationToken,
         ref bool changed)
     {
         PdfName appearanceKey = PdfName.FromAscii("DA");
-        if (import.SourceDefaultAppearance is not null
-            && !string.Equals(import.SourceDefaultAppearance, destDefaultAppearance ?? string.Empty, StringComparison.Ordinal)
+        if (import.SourceDefaultAppearance is PdfByteString appearance
             && !HasFieldValue(node, copier, "DA")
-            && !HasInheritedFieldValue(node, copier, "DA", limits, governor))
+            && !HasInheritedFieldValue(node, copier, "DA", limits, governor)
+            && !SameAppearance(appearance, destDefaultAppearance, governor, cancellationToken))
         {
-            byte[] appearanceBytes = System.Text.Encoding.UTF8.GetBytes(import.SourceDefaultAppearance);
-            if (Attachments.PdfText.TryEncodePdfDoc(import.SourceDefaultAppearance, out byte[] encoded))
-            {
-                appearanceBytes = encoded;
-            }
-            else
-            {
-                appearanceBytes = Utf16Be(import.SourceDefaultAppearance);
-            }
-
-            governor.ReserveMemory(appearanceBytes.Length);
-            entries[appearanceKey] = new PdfByteString(appearanceBytes, false);
+            // /DA is a byte program, not a PDF text string. Exclusive source
+            // values transfer to the job before their document closes.
+            entries[appearanceKey] = appearance;
             changed = true;
         }
 

@@ -25,6 +25,10 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Overlay catalog default appearances remain borrowed byte programs through import,
+without eager PDF-text decoding or re-encoding. Imported defaults preserve their
+original bytes, including non-ASCII names; source ownership transfers before close.
+
 Overlay annotation rectangles normalize reversed endpoints without losing their
 extent. Shared appearance streams receive the placement matrix once per copied
 stream; separate placements retain independent copies, including widget forms.

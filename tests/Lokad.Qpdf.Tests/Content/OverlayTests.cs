@@ -6,6 +6,24 @@ using Lokad.Qpdf.Reading;
 namespace Lokad.Qpdf.Tests.Content;
 public sealed class OverlayTests
 {
+[Theory]
+[InlineData("2FAD203132205466")]
+[InlineData("2F462333312031322054662025206B656570")]
+public async Task ImportedCatalogDefaultAppearancePreservesProgramBytes(string hex)
+{
+byte[] overlay = BuildFormPdf(" /AcroForm << /Fields [5 0 R] /DA <" + hex + "> >>", "[5 0 R]",
+    [("<< /Type /Annot /Subtype /Widget /Rect [0 0 100 20] /FT /Tx /T (Imported) /V (value) >>", null)], "q Q");
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(BuildPdf(["q Q"]), overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+PdfByteString appearance;
+await using (QpdfDocument document = await OpenOutputAsync(pdf))
+{
+PdfDictionary field = Assert.Single(OutputFields(document));
+Assert.True(field.TryGet(PdfName.FromAscii("DA"), out QpdfObject value)); appearance = Assert.IsType<PdfByteString>(value);
+}
+Assert.Equal(Convert.FromHexString(hex), appearance.ValueSpan.ToArray());
+}
+
 [Fact]
 public async Task FilterCountCeilingSkipsOverlayWithoutDroppingItsEncoding()
 {

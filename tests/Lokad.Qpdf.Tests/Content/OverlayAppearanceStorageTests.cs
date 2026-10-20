@@ -2,11 +2,38 @@ using System.Text;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Hosting;
 
 namespace Lokad.Qpdf.Tests.Content;
 
 public sealed class OverlayAppearanceStorageTests
 {
+    [Fact]
+    public async Task CatalogDefaultsBorrowFundedBytesAndHonorCancellation()
+    {
+        byte[] raw = new byte[2 * 1024 * 1024]; Array.Fill(raw, (byte)' ');
+        var objects = Inspection.CheckTests.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray());
+        objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [] /DA <" + Convert.ToHexString(raw) + "> >> >>", null);
+        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), Inspection.CheckTests.Assemble(objects, 1), QpdfInputOwnership.Transfer);
+        PdfByteString borrowed;
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input"), CancellationToken.None))
+        {
+            _ = document.GetObject(1);
+            QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 1024L };
+            ResourceGovernor governor = new(limits, CancellationToken.None);
+            long allocated = GC.GetAllocatedBytesForCurrentThread();
+            AcroFormCopy.OverlaySourceForm? source = AcroFormCopy.TryReadOverlaySourceForm(document.Engine, limits, governor, CancellationToken.None);
+            Assert.NotNull(source); borrowed = Assert.IsType<PdfByteString>(source.DefaultAppearance);
+            Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 65536L);
+            Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+            CopiedForm combined = new([], false, false, false, null, false, [], new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("DA")] = borrowed });
+            Assert.Same(borrowed, AcroFormCopy.ReadMergedDefaults(combined).Appearance);
+            using CancellationTokenSource cancellation = new(); cancellation.Cancel();
+            Assert.ThrowsAny<OperationCanceledException>(() => AcroFormCopy.TryReadOverlaySourceForm(document.Engine, limits, governor, cancellation.Token));
+        }
+        Assert.Equal(raw, borrowed.ValueSpan.ToArray());
+    }
+
     private static PdfNameTable<PdfName> Map(ParserMemoryScope memory, ResourceGovernor governor)
     {
         PdfNameTable<PdfName> map = PdfNameTable<PdfName>.Create(memory, governor, IntPtr.Size, CancellationToken.None);
