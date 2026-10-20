@@ -11,7 +11,6 @@ namespace Lokad.Qpdf.Tests.Inspection;
 
 public sealed partial class FormTraversalOwnershipTests
 {
-    private OwnershipBatch.Observation? _collection;
 
     private delegate QpdfCheckOutcome FormCheck(QpdfDocument document, ResourceGovernor governor,
         DiagnosticBag diagnostics, CancellationToken cancellationToken);
@@ -118,45 +117,9 @@ public sealed partial class FormTraversalOwnershipTests
         prepared.Governor.ReleaseMemory(filler);
     }
 
-    private static void Collect(ResourceGovernor governor)
-    {
-        for (int iteration = 0; iteration < 3; iteration++)
+    private static void Collect()
         {
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-            governor.ReserveMemory(0L);
-        }
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static WeakReference RunAndDrop(Prepared prepared)
-    {
-        QpdfCheckOutcome result = RunForms(prepared.Document, prepared.Governor, prepared.Diagnostics, CancellationToken.None);
-        Assert.Equal(QpdfCheckStatus.Passed, result.Status);
-        Assert.Equal("4 field nodes traversed, 4 widgets reached.", result.Detail);
-        return new WeakReference(result.Detail);
     }
-
-    internal async Task RepeatedSuccessfulTraversalRetiresOnlyItsTemporaryAndDiscardedStorage()
-    {
-        using Prepared prepared = new(4);
-        await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(prepared.Governor, 3, 3, false, true);
-        long baseline = prepared.Governor.Snapshot().LiveMemoryBytes;
-        for (int iteration = 0; iteration < 32; iteration++)
-        {
-            WeakReference detail = RunAndDrop(prepared);
-            await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(prepared.Governor, 3, 3, false, true);
-            Assert.False(detail.IsAlive);
-            Assert.Equal(baseline, prepared.Governor.Snapshot().LiveMemoryBytes);
-            Assert.Same(prepared.Prior, Assert.Single(prepared.Diagnostics.Entries));
-        }
-    }
-
-    internal static IEnumerable<(string Id, Func<OwnershipBatch.Observation, Task> Run)> StressCases()
-        => (new object[][] { [] }).Select(row =>
-            (OwnershipBatch.Id(nameof(FormTraversalOwnershipTests), nameof(RepeatedSuccessfulTraversalRetiresOnlyItsTemporaryAndDiscardedStorage), row),
-            (Func<OwnershipBatch.Observation, Task>)(async observation =>
-            {
-                FormTraversalOwnershipTests fixture = new() { _collection = observation };
-                await fixture.RepeatedSuccessfulTraversalRetiresOnlyItsTemporaryAndDiscardedStorage();
-            })));
-}

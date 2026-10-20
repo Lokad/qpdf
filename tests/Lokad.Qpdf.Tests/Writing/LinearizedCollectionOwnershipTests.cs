@@ -163,7 +163,6 @@ public sealed class LinearizedCollectionOwnershipTests
 
     private static void CollectFully()
     {
-        for (int round = 0; round < 3; round++)
         {
             GC.Collect();
             GC.WaitForPendingFinalizers();
@@ -219,7 +218,8 @@ public sealed class LinearizedCollectionOwnershipTests
         PdfReference root = new(1, 0);
         PdfDictionary dictionary = new(new Dictionary<PdfName, QpdfObject>
         {
-            [unknown] = PdfNull.Instance, [PdfName.FromAscii("Root")] = root,
+            [unknown] = PdfNull.Instance,
+            [PdfName.FromAscii("Root")] = root,
         });
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         Assert.True(GovernedCollections.TryGet(dictionary, "Root"u8, governor, CancellationToken.None, out QpdfObject warm));

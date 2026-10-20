@@ -132,7 +132,6 @@ public sealed class ArgumentFilteringOwnershipTests(ITestOutputHelper log)
         if (value is not Array array) { size = PdfVersionOwnershipTests.MeasurePhysicalSize(value.GetType()); }
         else
         {
-            using IDisposable capture = OwnershipBatch.CaptureWithoutCollection();
             object[] roots = new object[32];
             for (int i = 0; i < roots.Length; i++) { roots[i] = array.Clone(); }
             Array.Clear(roots); long before = GC.GetAllocatedBytesForCurrentThread();
@@ -274,10 +273,9 @@ public sealed class ArgumentFilteringOwnershipTests(ITestOutputHelper log)
         return new(id, governor, result, bytes);
     }
 
-    private static void Collect(List<Completed> jobs)
+    private static void Collect()
     {
-        for (int i = 0; i < 4; i++)
-        { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); foreach (Completed job in jobs) { job.Governor.ReserveMemory(0L); } }
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -298,13 +296,11 @@ public sealed class ArgumentFilteringOwnershipTests(ITestOutputHelper log)
         foreach (string route in new[] { "argv", "response" })
         foreach (string outcome in new[] { "success", "open-fault", "create-fault", "write-fault", "commit-fault", "close-fault", "cancel", "host-cancel" })
         { jobs.Add(await Complete(shape, route, outcome, log)); }
-        await Task.Yield(); Collect(jobs); DropResults(jobs); Collect(jobs);
+        await Task.Yield(); Collect(); DropResults(jobs); Collect();
         foreach (Completed job in jobs)
         {
-            int calls = 0;
-            while (job.Governor.Snapshot().LiveMemoryBytes > job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes && calls < 4096) { job.Governor.ReserveMemory(0L); calls++; }
             long live = job.Governor.Snapshot().LiveMemoryBytes;
-            log.WriteLine("FILTER FINAL {0} live={1} maintenance={2}", job.Id, live, calls);
+            log.WriteLine("FILTER FINAL {0} live={1}", job.Id, live);
             Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, live);
             if (job.Output is byte[] bytes) { Assert.True(bytes.AsSpan().StartsWith("%PDF-"u8)); }
         }

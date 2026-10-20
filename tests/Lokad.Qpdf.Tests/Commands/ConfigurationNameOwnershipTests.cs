@@ -198,13 +198,9 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
         return jobs;
     }
 
-    private static void Collect(List<Completed> jobs)
-    {
-        for (int round = 0; round < 4; round++)
+    private static void Collect()
         {
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-            foreach (Completed job in jobs) { job.Governor.ReserveMemory(0L); }
-        }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -232,22 +228,22 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void Observe(List<Completed> jobs)
     {
-        Collect(jobs);
+        Collect();
         List<string> defects = CheckAliases(jobs);
         foreach (string defect in defects) { log.WriteLine("SETTING OWNERSHIP FAIL {0}", defect); }
         Assert.True(defects.Count == 0, string.Join(Environment.NewLine, defects));
         foreach (Completed job in jobs)
         { job.Host.InputName = null; job.Host.OutputName = null; job.Host.PassName = null; job.Host.ConfigurationNames.Clear(); }
-        Collect(jobs);
+        Collect();
         foreach (Completed job in jobs) { job.Result = null; }
-        Collect(jobs);
+        Collect();
         foreach (Completed job in jobs)
         {
             Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes);
             Assert.Equal(0L, job.Host.Inner.OpenLeaseCount);
             job.Counters = null;
         }
-        Collect(jobs);
+        Collect();
         foreach (Completed job in jobs) { Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes); }
         GC.KeepAlive(jobs);
     }

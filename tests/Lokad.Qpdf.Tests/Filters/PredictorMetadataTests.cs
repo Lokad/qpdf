@@ -57,8 +57,12 @@ Assert.Equal(512, dictionary.Count);
     {
         PdfInteger columns = new("17", 17L); StubResolver resolver = new(); resolver.Add(2, columns);
         PdfDictionary dictionary = new(new Dictionary<PdfName, QpdfObject>
-        { [PdfName.FromAscii("Predictor")] = new PdfInteger("12", 12L), [PdfName.FromAscii("Columns")] = new PdfReference(2, 0),
-            [PdfName.FromAscii("Colors")] = new PdfInteger("3", 3L), [PdfName.FromAscii("BitsPerComponent")] = new PdfInteger("16", 16L) });
+        {
+            [PdfName.FromAscii("Predictor")] = new PdfInteger("12", 12L),
+            [PdfName.FromAscii("Columns")] = new PdfReference(2, 0),
+            [PdfName.FromAscii("Colors")] = new PdfInteger("3", 3L),
+            [PdfName.FromAscii("BitsPerComponent")] = new PdfInteger("16", 16L)
+        });
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         Assert.Equal(new PredictorParameters(12, 17, 3, 16), PredictorParameters.FromDictionary(dictionary, FlateFilter.FilterName, resolver, memory, governor, CancellationToken.None));
         Assert.True(resolver.TryResolve(new PdfReference(2, 0), out QpdfObject? value)); Assert.Same(columns, value); Assert.Equal(4, dictionary.Count);
@@ -146,7 +150,8 @@ Assert.Equal(0L, memory.ReservedBytes);
     [Fact]
     public void ImmutableResultRetainsNoControllerOrObservationState()
     {
-        var state = Complete(); for (int round = 0; round < 3; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        var state = Complete();
+        { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
         Assert.False(state.Governor.IsAlive); Assert.False(state.Observer.IsAlive); Assert.Equal(new PredictorParameters(1, 1, 1, 8), state.Result); GC.KeepAlive(state);
     }
 

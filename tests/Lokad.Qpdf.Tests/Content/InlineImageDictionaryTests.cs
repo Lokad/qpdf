@@ -183,9 +183,9 @@ public sealed class InlineImageDictionaryTests
     [InlineData(true)]
     public void SurvivingDictionaryOrKeyViewKeepsFundingUntilItDies(bool keys)
     {
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); Escaping value = Capture(governor, keys); Collect(governor);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); Escaping value = Capture(governor, keys); Collect();
         Assert.False(value.Source.IsAlive); Assert.True(governor.Snapshot().LiveMemoryBytes >= 96L); Verify(value, keys);
-        value.Value = null; Collect(governor); governor.CompletePrivateStorage(); Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(value); GC.KeepAlive(governor);
+        value.Value = null; Collect(); governor.CompletePrivateStorage(); Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(value); GC.KeepAlive(governor);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -196,7 +196,7 @@ public sealed class InlineImageDictionaryTests
     [InlineData(true)]
     public void EscapingDictionaryOrKeyViewDoesNotKeepCompletedExecutionState(bool keys)
     {
-        Escaping value = Completed(keys); Collect(null); Assert.False(value.Governor.IsAlive); Assert.False(value.Source.IsAlive); Verify(value, keys); GC.KeepAlive(value);
+        Escaping value = Completed(keys); Collect(); Assert.False(value.Governor.IsAlive); Assert.False(value.Source.IsAlive); Verify(value, keys); GC.KeepAlive(value);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -213,8 +213,8 @@ public sealed class InlineImageDictionaryTests
     public void ExpandedArrayAndNameAliasesStayFundedAfterDictionaryCollection(bool nameOnly)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); Escaping alias = CaptureFilterAlias(governor, nameOnly);
-        Collect(governor); Assert.False(alias.Source.IsAlive); Assert.True(governor.Snapshot().LiveMemoryBytes >= 24L); VerifyFilterAlias(alias, nameOnly);
-        alias.Value = null; Collect(governor); governor.CompletePrivateStorage(); Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(alias); GC.KeepAlive(governor);
+        Collect(); Assert.False(alias.Source.IsAlive); Assert.True(governor.Snapshot().LiveMemoryBytes >= 24L); VerifyFilterAlias(alias, nameOnly);
+        alias.Value = null; Collect(); governor.CompletePrivateStorage(); Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(alias); GC.KeepAlive(governor);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -230,6 +230,6 @@ public sealed class InlineImageDictionaryTests
         if (keys) { Assert.Equal(2, Assert.IsAssignableFrom<IEnumerable<PdfName>>(value.Value).Count()); }
         else { Assert.Equal(2, Assert.IsType<PdfDictionary>(value.Value).Count); }
     }
-    private static void Collect(ResourceGovernor? governor)
-    { for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); governor?.ReserveMemory(0L); } }
+    private static void Collect()
+    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 }

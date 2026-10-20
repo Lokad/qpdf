@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Diagnostics.CodeAnalysis;
 using Lokad.Qpdf.Hosting;
@@ -188,5 +189,41 @@ public sealed class CoarseGraphMemoryTests
         Assert.Equal(0L, storage.OpenLeaseCount);
         owner.Dispose();
         Assert.Equal(0L, root.ReservedBytes);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static async Task<(PdfDictionary Value, WeakReference[] Metadata)> OpenAndCloseDocument(IMemoryBudget budget)
+    {
+        using InMemoryQpdfHost storage = new();
+        QpdfPath input = QpdfPath.From("input");
+        storage.AddInput(input, CheckTests.Assemble(CheckTests.SinglePage("<< /Length 0 >>", []), 1), QpdfInputOwnership.Transfer);
+        MemoryHost host = new(storage, budget);
+        QpdfDocument document = await QpdfDocument.OpenAsync(host, input, CancellationToken.None);
+        PdfDictionary page = Assert.IsType<PdfDictionary>(document.GetObject(3));
+        object governor = typeof(QpdfDocument).GetField("_governor",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)?.GetValue(document)
+            ?? throw new InvalidOperationException("Missing document governor.");
+        WeakReference[] metadata = [new(document), new(document.Engine), new(host), new(governor)];
+        await document.DisposeAsync(); Assert.Equal(0L, storage.OpenLeaseCount);
+        return (page, metadata);
+    }
+
+    [Fact]
+    public async Task CallerScopesFundSurvivingValuesWithoutRootingCompletedDocuments()
+    {
+        RecordingMemoryBudget root = new(4194304L);
+        for (int cycle = 0; cycle < 8; cycle++)
+        {
+            using IMemoryScope caller = root.CreateScope();
+            var held = await OpenAndCloseDocument(caller);
+            await Task.Yield();
+            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+            Assert.All(held.Metadata, reference => Assert.False(reference.IsAlive));
+            Assert.True(held.Value.TryGet(PdfName.FromAscii("Type"), out QpdfObject value));
+            Assert.Equal(PdfName.FromAscii("Page"), value);
+            Assert.True(root.ReservedBytes > 0L);
+            caller.Dispose(); Assert.Equal(0L, root.ReservedBytes);
+            GC.KeepAlive(held.Value);
+        }
     }
 }

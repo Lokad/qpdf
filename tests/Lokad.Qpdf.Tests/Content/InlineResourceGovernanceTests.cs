@@ -22,7 +22,7 @@ public sealed class InlineResourceGovernanceTests
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(61L);
         long baseline = governor.Snapshot().LiveMemoryBytes;
         WeakReference output = Capture(governor, resources, colors, borrowed);
-        for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); governor.ReserveMemory(0L); }
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
         Assert.False(output.IsAlive); governor.CompletePrivateStorage();
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(61L, prior.ReservedBytes);

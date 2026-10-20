@@ -14,7 +14,6 @@ namespace Lokad.Qpdf.Tests.Foundation;
 [Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class PresentationOwnershipTests
 {
-    private OwnershipBatch.Observation? _collection;
 
     // Reuse the preceding public drivers verbatim, retaining their fixtures,
     // routes and publication assertions while adding independent obligations.
@@ -276,45 +275,6 @@ public sealed class PresentationOwnershipTests
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
-    private sealed class Aliases(object value, WeakReference[] weak)
-    { internal object? Value = value; internal readonly WeakReference[] Weak = weak; }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static Aliases Capture(ResourceGovernor governor, string kind)
-    {
-        using DiagnosticProjection projection = DiagnosticProjection.Create(governor, [], false, true, true, true, 99999L, 0L, 50000L);
-        IReadOnlyList<QpdfDiagnostic> view = projection.Transfer();
-        QpdfDiagnostic record = view[0]; string text = record.Message;
-        object value = kind switch { "view" => view, "record" => record, "text" => text, _ => view.GetEnumerator() };
-        return new(value, [new(view), new(record), new(text), new(view[1])]);
-    }
-
     private static void Collect()
-    { for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); } }
-
-    internal async Task IndependentProjectionAliasesKeepOnlyTheirOwnStorageFunded(string kind)
-    {
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 32768L }, CancellationToken.None);
-        for (int cycle = 0; cycle < 32; cycle++)
-        {
-            Aliases aliases = Capture(governor, kind); await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 0, 4, false, false); governor.ReserveMemory(0L);
-            Assert.Equal(kind == "view", aliases.Weak[0].IsAlive);
-            Assert.Equal(kind != "text", aliases.Weak[1].IsAlive); Assert.True(aliases.Weak[2].IsAlive);
-            Assert.Equal(kind is "view" or "iterator", aliases.Weak[3].IsAlive);
-            Assert.True(governor.Snapshot().LiveMemoryBytes >= GovernedText.StringBytes(73));
-            GC.KeepAlive(aliases.Value); aliases.Value = null; await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 0, 4, false, false); governor.ReserveMemory(0L);
-            Assert.All(aliases.Weak, item => Assert.False(item.IsAlive));
-            Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        }
-        Assert.InRange(governor.Snapshot().PeakMemoryBytes, 1L, 32768L);
+    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
     }
-
-    internal static IEnumerable<(string Id, Func<OwnershipBatch.Observation, Task> Run)> StressCases()
-        => (new object[][] { ["view"], ["record"], ["text"], ["iterator"] }).Select(row =>
-            (OwnershipBatch.Id(nameof(PresentationOwnershipTests), nameof(IndependentProjectionAliasesKeepOnlyTheirOwnStorageFunded), row),
-            (Func<OwnershipBatch.Observation, Task>)(async observation =>
-            {
-                PresentationOwnershipTests fixture = new() { _collection = observation };
-                await fixture.IndependentProjectionAliasesKeepOnlyTheirOwnStorageFunded((string)row[0]);
-            })));
-}

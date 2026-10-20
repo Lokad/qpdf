@@ -45,9 +45,13 @@ public sealed class FormNameLookupTests
     {
         QpdfObject subtype = shape switch
         {
-            "exact" => PdfName.FromAscii("Widget"), "case" => PdfName.FromAscii("widget"),
-            "last-byte" => PdfName.FromAscii("WidgeU"), "zero-suffix" => new PdfName([87, 105, 100, 103, 101, 116, 0]),
-            "binary" => new PdfName(new byte[8192]), "non-name" => new PdfInteger("0", 0L), _ => PdfNull.Instance,
+            "exact" => PdfName.FromAscii("Widget"),
+            "case" => PdfName.FromAscii("widget"),
+            "last-byte" => PdfName.FromAscii("WidgeU"),
+            "zero-suffix" => new PdfName([87, 105, 100, 103, 101, 116, 0]),
+            "binary" => new PdfName(new byte[8192]),
+            "non-name" => new PdfInteger("0", 0L),
+            _ => PdfNull.Instance,
         };
         PdfDictionary dictionary = shape == "missing" ? new(new Dictionary<PdfName, QpdfObject>()) : Dictionary("Subtype", subtype);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
@@ -158,7 +162,7 @@ Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     public void ClassifiedBorrowedValuesRetainNoCompletedGovernorOrTokenSource(bool widget)
     {
         var state = Completed(widget);
-        for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
         Assert.False(state.Governor.IsAlive); Assert.False(state.Source.IsAlive); Assert.Single(state.Dictionary.Keys); GC.KeepAlive(state);
     }
 

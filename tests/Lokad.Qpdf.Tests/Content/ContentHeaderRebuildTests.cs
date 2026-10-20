@@ -48,8 +48,14 @@ public sealed class ContentHeaderRebuildTests
     {
         PdfName key = PdfName.FromAscii("Contents"), binary = new([255, 0, 70]);
         Dictionary<PdfName, QpdfObject?> entries = new()
-        { [key] = null, [PdfName.FromAscii("Filter")] = PdfNull.Instance, [binary] = PdfNull.Instance,
-          [PdfName.FromAscii("DecodeParms")] = PdfNull.Instance, [PdfName.FromAscii("FilterSuffix")] = PdfNull.Instance, [PdfName.FromAscii("Length")] = PdfNull.Instance };
+        {
+            [key] = null,
+            [PdfName.FromAscii("Filter")] = PdfNull.Instance,
+            [binary] = PdfNull.Instance,
+            [PdfName.FromAscii("DecodeParms")] = PdfNull.Instance,
+            [PdfName.FromAscii("FilterSuffix")] = PdfNull.Instance,
+            [PdfName.FromAscii("Length")] = PdfNull.Instance
+        };
         PdfDictionary source = Activator.CreateInstance(typeof(PdfDictionary), [entries]) as PdfDictionary ?? throw new InvalidOperationException();
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         PdfDictionary result = Build(source, key, PdfNull.Instance, governor, strip);
@@ -89,7 +95,8 @@ public sealed class ContentHeaderRebuildTests
         ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token);
         Assert.Throws<OperationCanceledException>(() => Build(source, key, PdfNull.Instance, governor, strip));
         governor.CompletePrivateStorage();
-        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);     }
+        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
+    }
 
     private sealed class Alias(object value, WeakReference[] metadata)
     { internal object? Value = value; internal readonly WeakReference[] Metadata = metadata; }
@@ -114,8 +121,8 @@ public sealed class ContentHeaderRebuildTests
         else { Assert.Equal("Contents"u8.ToArray(), Assert.IsType<byte[]>(value)); }
     }
 
-    private static void Collect(ResourceGovernor? governor)
-    { for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); governor?.ReserveMemory(0L); } }
+    private static void Collect()
+    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 
     [Theory]
     [InlineData(false, "dictionary")]
@@ -127,10 +134,10 @@ public sealed class ContentHeaderRebuildTests
     public void ActiveAliasesKeepFundingUntilTheirLastReferenceDies(bool strip, string kind)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        Alias alias = Capture(governor, strip, kind); Collect(governor);
+        Alias alias = Capture(governor, strip, kind); Collect();
         Assert.False(alias.Metadata[1].IsAlive); Assert.True(governor.Snapshot().LiveMemoryBytes > 0L);
         if (kind is "name" or "name-bytes") { Assert.False(alias.Metadata[2].IsAlive); Assert.False(alias.Metadata[3].IsAlive); }
-        VerifyAlias(alias, kind); alias.Value = null; Collect(governor);
+        VerifyAlias(alias, kind); alias.Value = null; Collect();
         governor.CompletePrivateStorage();
         Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(alias); GC.KeepAlive(governor);
     }
@@ -147,7 +154,7 @@ public sealed class ContentHeaderRebuildTests
     [InlineData(true, "keys")]
     public void EscapingAliasesDoNotAnchorCompletedGovernors(bool strip, string kind)
     {
-        Alias alias = Complete(strip, kind); Collect(null);
+        Alias alias = Complete(strip, kind); Collect();
         Assert.False(alias.Metadata[0].IsAlive); Assert.False(alias.Metadata[1].IsAlive);
         VerifyAlias(alias, kind); GC.KeepAlive(alias);
     }

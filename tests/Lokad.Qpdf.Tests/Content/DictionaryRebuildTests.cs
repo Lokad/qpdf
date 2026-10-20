@@ -40,7 +40,8 @@ public sealed class DictionaryRebuildTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         Assert.Throws<OperationCanceledException>(() => BuildCanceled(governor, cancellation.Token, strip));
         governor.CompletePrivateStorage();
-        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);     }
+        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
+    }
 
     private static void BuildCanceled(ResourceGovernor governor, CancellationToken token, bool strip)
     {
@@ -102,8 +103,8 @@ public sealed class DictionaryRebuildTests
         else { Assert.Empty(Assert.IsType<PdfName>(value).RawSpan.ToArray()); }
     }
 
-    private static void Collect(ResourceGovernor? governor)
-    { for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); governor?.ReserveMemory(0L); } }
+    private static void Collect()
+    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 
     [Theory]
     [InlineData(false)]
@@ -111,8 +112,8 @@ public sealed class DictionaryRebuildTests
     public void EmptyNameAndItsBytesRetireIndependentlyFromStaticEmptyArrays(bool bytesOnly)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); Escaped escaped = Capture(governor, bytesOnly);
-        Collect(governor); Assert.True(governor.Snapshot().LiveMemoryBytes >= (bytesOnly ? 32L : 56L)); Verify(escaped, bytesOnly);
-        escaped.Value = null; Collect(governor); governor.CompletePrivateStorage(); Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(governor); GC.KeepAlive(escaped);
+        Collect(); Assert.True(governor.Snapshot().LiveMemoryBytes >= (bytesOnly ? 32L : 56L)); Verify(escaped, bytesOnly);
+        escaped.Value = null; Collect(); governor.CompletePrivateStorage(); Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(governor); GC.KeepAlive(escaped);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -123,6 +124,6 @@ public sealed class DictionaryRebuildTests
     [InlineData(true)]
     public void EmptyNameAliasesDoNotAnchorCompletedGovernors(bool bytesOnly)
     {
-        Escaped escaped = Complete(bytesOnly); Collect(null); Assert.False(escaped.Governor.IsAlive); Verify(escaped, bytesOnly); GC.KeepAlive(escaped);
+        Escaped escaped = Complete(bytesOnly); Collect(); Assert.False(escaped.Governor.IsAlive); Verify(escaped, bytesOnly); GC.KeepAlive(escaped);
     }
 }

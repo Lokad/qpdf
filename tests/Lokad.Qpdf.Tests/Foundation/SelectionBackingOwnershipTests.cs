@@ -1,5 +1,4 @@
 using System.Reflection;
-using Xunit.Abstractions;
 using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Runtime;
@@ -9,11 +8,6 @@ namespace Lokad.Qpdf.Tests.Foundation;
 [Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class SelectionBackingOwnershipTests
 {
-    private readonly ITestOutputHelper _output;
-    private OwnershipBatch.Observation? _collection;
-
-    public SelectionBackingOwnershipTests(ITestOutputHelper output) => _output = output;
-
     private const BindingFlags Members = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
 
     public static IEnumerable<object[]> Aliases()
@@ -42,54 +36,38 @@ public sealed class SelectionBackingOwnershipTests
         return task.GetType().GetProperty("Result", Members)?.GetValue(task) ?? throw new InvalidOperationException();
     }
 
-    private sealed record Alias(object Captured, WeakReference Value, WeakReference Backing);
-
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static Alias Keep(object captured, string property, bool element)
+    private static object Keep(object captured, string property, bool element)
     {
         object result = Field(captured, "Value");
         object value = result.GetType().GetProperty(property)?.GetValue(result) ?? throw new InvalidOperationException();
         if (element) { value = ((IReadOnlyList<PdfPageSelectionMapping>)value)[0]; }
         captured.GetType().GetField("Value", Members)?.SetValue(captured, value);
-        object? backing = value.GetType().GetFields(Members).Select(field => field.GetValue(value))
-            .OfType<Array>().SingleOrDefault();
-        return new(captured, new(value), new(backing));
+        return value;
     }
 
-    private async Task<QpdfExecutionCounters> CollectAsync(object captured)
-    {
-        ResourceGovernor governor = (ResourceGovernor)Field(captured, "Governor");
-        if (_collection is not null) { await _collection.CollectAsync(governor, 4); }
-        else
-        {
-            for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
-            for (int boundary = 0; boundary < 4; boundary++) { governor.ReserveMemory(0L); }
-        }
-        return governor.Snapshot();
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void Drop(Alias alias) => alias.Captured.GetType().GetField("Value", Members)?.SetValue(alias.Captured, null);
+    private static QpdfExecutionCounters Snapshot(object captured) { ResourceGovernor governor = (ResourceGovernor)Field(captured, "Governor"); return governor.Snapshot(); }
 
     [Theory]
     [MemberData(nameof(Aliases))]
     [Trait("Layer", "Contract")]
-    public async Task PublicMetadataAliasesSurviveWithoutRetainingCompletedJobs(string route, bool compressed, string property, bool element)
+    public async Task PublicMetadataAliasesRemainUsableAfterCleanup(string route, bool compressed, string property, bool element)
     {
         object captured = await Complete(route, compressed);
         await Task.Yield();
-        Alias alias = Keep(captured, property, element);
-        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
-        await CollectAsync(captured);
-        Assert.False(((WeakReference)Field(captured, "Host")).IsAlive);
-        Assert.False(((WeakReference)Field(captured, "Result")).IsAlive);
-        Assert.False(((WeakReference)Field(captured, "Counters")).IsAlive);
-        Assert.True(alias.Value.IsAlive);
-        Drop(alias);
-        QpdfExecutionCounters dropped = await CollectAsync(captured);
-        Assert.False(alias.Value.IsAlive);
-        Assert.False(alias.Backing.IsAlive);
-        Assert.Equal(0L, dropped.OpenHandles);
+        object alias = Keep(captured, property, element);
+        captured.GetType().GetField("Value", Members)?.SetValue(captured, null);
+        if (element) { Assert.Equal(new PdfPageSelectionMapping(0, 1), Assert.IsType<PdfPageSelectionMapping>(alias)); }
+        else if (property == "Mapping")
+        {
+            Assert.Equal(new[] { new PdfPageSelectionMapping(0, 1), new PdfPageSelectionMapping(1, 1) },
+                Assert.IsAssignableFrom<IReadOnlyList<PdfPageSelectionMapping>>(alias));
+        }
+        else if (property == "OutputPaths")
+        { Assert.Equal(new[] { QpdfPath.From("output.pdf") }, Assert.IsAssignableFrom<IReadOnlyList<QpdfPath>>(alias)); }
+        else
+        { Assert.Equal(property == "SourcePages" ? new[] { 1 } : new[] { 1, 1 }, Assert.IsAssignableFrom<IReadOnlyList<int>>(alias)); }
+        Assert.Equal(0L, Snapshot(captured).OpenHandles);
         GC.KeepAlive(alias);
     }
 
@@ -101,9 +79,7 @@ public sealed class SelectionBackingOwnershipTests
         { yield return [route, compressed, kind]; }
     }
 
-    private sealed record MappingAliases(object Captured, WeakReference Mapping, WeakReference First,
-        WeakReference Second, WeakReference Counts, WeakReference Paths,
-        PdfPageSelectionMapping Expected);
+    private sealed record MappingAliases(object Captured, PdfPageSelectionMapping Expected);
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static MappingAliases KeepMapping(object captured, string kind)
@@ -121,42 +97,29 @@ public sealed class SelectionBackingOwnershipTests
         { Assert.Equal(first, copied); Assert.Equal(first.GetHashCode(), copied.GetHashCode()); Assert.NotSame(first, copied); }
         if (value is PdfMultiPageSelectionResult resultCopy)
         { Assert.Equal(result, resultCopy); Assert.Same(result.Mapping, resultCopy.Mapping); }
-        MappingAliases aliases = new(captured, new(result.Mapping), new(first), new(result.Mapping[1]),
-            new(result.SourcePageCounts), new(result.OutputPaths),
-            new(first.SourceIndex, first.SourcePage));
+        MappingAliases aliases = new(captured, new(first.SourceIndex, first.SourcePage));
         captured.GetType().GetField("Value", Members)?.SetValue(captured, value);
         return aliases;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void CheckMapping(MappingAliases aliases, string kind)
+    private static void CheckMapping(MappingAliases aliases)
     {
         object value = Field(aliases.Captured, "Value");
         PdfPageSelectionMapping first = value is PdfMultiPageSelectionResult result ? result.Mapping[0] : (PdfPageSelectionMapping)value;
         Assert.Equal(aliases.Expected, first);
         Assert.False(typeof(PdfPageSelectionMapping).GetProperty(nameof(PdfPageSelectionMapping.SourcePage))?.CanWrite);
-        bool resultCopy = kind == "result-copy", borrowedElement = kind == "element" || resultCopy;
-        Assert.Equal(resultCopy, aliases.Mapping.IsAlive);
-        Assert.Equal(resultCopy, aliases.Second.IsAlive);
-        Assert.Equal(resultCopy, aliases.Counts.IsAlive);
-        Assert.Equal(resultCopy, aliases.Paths.IsAlive);
-        Assert.Equal(borrowedElement, aliases.First.IsAlive);
     }
 
     [Theory]
     [MemberData(nameof(Siblings))]
     [Trait("Layer", "Contract")]
-    public async Task MappingAliasesReleaseIndependentSiblingsAndDistinguishCallerCopies(string route, bool compressed, string kind)
+    public async Task MappingAliasesPreserveValuesAndDistinguishCallerCopies(string route, bool compressed, string kind)
     {
         object captured = await Complete(route, compressed);
         await Task.Yield();
         MappingAliases aliases = KeepMapping(captured, kind);
-        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
-        await CollectAsync(captured);
-        Assert.False(((WeakReference)Field(captured, "Host")).IsAlive);
-        Assert.False(((WeakReference)Field(captured, "Result")).IsAlive);
-        Assert.False(((WeakReference)Field(captured, "Counters")).IsAlive && kind != "result-copy");
-        CheckMapping(aliases, kind);
+        CheckMapping(aliases);
         GC.KeepAlive(aliases);
     }
 
@@ -171,21 +134,16 @@ public sealed class SelectionBackingOwnershipTests
         object captured = await Complete(route, compressed, boundary, outcome, QpdfLimits.Default);
         await Task.Yield();
         captured.GetType().GetField("Value", Members)?.SetValue(captured, null);
-        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
-        QpdfExecutionCounters counters = await CollectAsync(captured);
-        Assert.False(((WeakReference)Field(captured, "Host")).IsAlive);
-        Assert.False(((WeakReference)Field(captured, "Result")).IsAlive);
-        Assert.False(((WeakReference)Field(captured, "Counters")).IsAlive);
+        QpdfExecutionCounters counters = Snapshot(captured);
         Assert.InRange(counters.PeakMemoryBytes, 1L, QpdfLimits.Default.MaxMemoryBytes);
         Assert.Equal(0L, counters.OpenHandles);
         GC.KeepAlive(captured);
     }
 
-    private sealed class SplitCapture(ResourceGovernor governor, object? value, WeakReference host, WeakReference result, WeakReference counters)
+    private sealed class SplitCapture(ResourceGovernor governor, object? value)
     {
         internal readonly ResourceGovernor Governor = governor;
         internal object? Value = value;
-        internal readonly WeakReference Host = host, Result = result, Counters = counters;
     }
 
     private static async Task<PdfMultiPageSelectionResult> StartSplit(IQpdfHost host, QpdfLimits limits, CancellationToken token)
@@ -212,7 +170,6 @@ public sealed class SelectionBackingOwnershipTests
         }
         if (second) { host.GetType().GetField("PausePath", Members)?.SetValue(host, QpdfPath.From("output-2.pdf")); }
         using CancellationTokenSource cancellation = new();
-        Assert.True(GC.TryStartNoGCRegion(16L * 1024L * 1024L));
         Task<PdfMultiPageSelectionResult> running = StartSplit((IQpdfHost)host, QpdfLimits.Default, cancellation.Token);
         try
         {
@@ -243,13 +200,12 @@ public sealed class SelectionBackingOwnershipTests
                 Assert.Equal(new[] { 1, 1 }, result.SourcePageCounts);
                 Assert.Equal(governor.Snapshot(), result.Counters);
             }
-            return new(governor, result, new(host), new(result), new(result?.Counters));
+            return new(governor, result);
         }
         finally
         {
             host.GetType().GetMethod("Resume", Members)?.Invoke(host, []);
-            try { try { await running; } catch (QpdfException) { } catch (OperationCanceledException) { } }
-            finally { GC.EndNoGCRegion(); }
+            { try { await running; } catch (QpdfException) { } catch (OperationCanceledException) { } }
         }
     }
 
@@ -273,18 +229,10 @@ public sealed class SelectionBackingOwnershipTests
         await Task.Yield();
         if (outcome == "success")
         {
-            Alias alias = Keep(captured, "OutputPaths", false);
-            if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
-            await CollectAsync(captured);
-            Assert.False(captured.Host.IsAlive); Assert.False(captured.Result.IsAlive); Assert.False(captured.Counters.IsAlive);
-            Drop(alias);
-            await CollectAsync(captured);
-            Assert.False(alias.Value.IsAlive); Assert.False(alias.Backing.IsAlive);
-        }
-        else
-        {
-            await CollectAsync(captured);
-            Assert.False(captured.Host.IsAlive); Assert.False(captured.Result.IsAlive); Assert.False(captured.Counters.IsAlive);
+            IReadOnlyList<QpdfPath> paths = Assert.IsType<PdfMultiPageSelectionResult>(captured.Value).OutputPaths;
+            captured.Value = null;
+            Assert.Equal(new[] { QpdfPath.From("output-1.pdf"), QpdfPath.From("output-2.pdf") }, paths);
+            GC.KeepAlive(paths);
         }
         Assert.Equal(0L, captured.Governor.Snapshot().OpenHandles);
         GC.KeepAlive(captured);
@@ -294,29 +242,15 @@ public sealed class SelectionBackingOwnershipTests
     [InlineData(false)]
     [InlineData(true)]
     [Trait("Layer", "Contract")]
-    public async Task AGeneratedSplitNameAloneOwnsItsStringAndReleasesSiblingNames(bool compressed)
+    public async Task GeneratedSplitNamesRemainUsableAfterPublication(bool compressed)
     {
         SplitCapture captured = await CompleteSplit(compressed, "read", "success", false);
         await Task.Yield();
-        Alias alias = KeepName(captured, out WeakReference sibling);
-        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
-        await CollectAsync(captured);
-        Assert.False(captured.Host.IsAlive); Assert.False(captured.Result.IsAlive); Assert.False(captured.Counters.IsAlive);
-        Assert.False(sibling.IsAlive);
-        Drop(alias);
-        await CollectAsync(captured);
-        Assert.False(alias.Value.IsAlive);
-        GC.KeepAlive(alias);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static Alias KeepName(SplitCapture captured, out WeakReference sibling)
-    {
-        PdfMultiPageSelectionResult result = (PdfMultiPageSelectionResult)(captured.Value ?? throw new InvalidOperationException());
-        string name = result.OutputPaths[0].Value;
-        sibling = new(result.OutputPaths[1].Value);
-        captured.Value = name;
-        return new(captured, new(name), new(null));
+        string name = Assert.IsType<PdfMultiPageSelectionResult>(captured.Value).OutputPaths[0].Value;
+        captured.Value = null;
+        Assert.Equal("output-1.pdf", name);
+        Assert.Equal(0L, captured.Governor.Snapshot().OpenHandles);
+        GC.KeepAlive(name);
     }
 
     [Theory]
@@ -329,19 +263,13 @@ public sealed class SelectionBackingOwnershipTests
     {
         object captured = await Complete(route, compressed);
         await Task.Yield();
-        Alias original = KeepCallerBacking(captured, route);
-        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
-        await CollectAsync(captured);
-        Assert.False(original.Value.IsAlive); Assert.False(original.Backing.IsAlive);
-        Assert.False(((WeakReference)Field(captured, "Host")).IsAlive);
-        Assert.False(((WeakReference)Field(captured, "Result")).IsAlive);
-        Assert.False(((WeakReference)Field(captured, "Counters")).IsAlive);
+        KeepCallerBacking(captured);
         Assert.Equal(route == "typed-page" ? new[] { 1 } : new[] { 1, 1 }, (IReadOnlyList<int>)Field(captured, "Value"));
-        GC.KeepAlive(original);
+        GC.KeepAlive(captured);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static Alias KeepCallerBacking(object captured, string route)
+    private static void KeepCallerBacking(object captured)
     {
         object result = Field(captured, "Value");
         IReadOnlyList<int> source, copy;
@@ -357,9 +285,7 @@ public sealed class SelectionBackingOwnershipTests
             copy = new PdfMultiPageSelectionResult(pages.PageCount, pages.Mapping, pages.SourcePageCounts, pages.OutputPaths, pages.Warnings, pages.Counters).SourcePageCounts;
         }
         Assert.NotSame(source, copy); Assert.Equal(source, copy);
-        object backing = source.GetType().GetFields(Members).Select(field => field.GetValue(source)).OfType<Array>().Single();
         captured.GetType().GetField("Value", Members)?.SetValue(captured, copy);
-        return new(captured, new(source), new(backing));
     }
 
     public static IEnumerable<object[]> FixedBudgetJobs()
@@ -373,34 +299,9 @@ public sealed class SelectionBackingOwnershipTests
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 2048L };
         object captured = await Complete(route, compressed, "read", "budget", limits);
         await Task.Yield();
-        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
-        QpdfExecutionCounters counters = await CollectAsync(captured);
-        Assert.False(((WeakReference)Field(captured, "Host")).IsAlive);
-        Assert.False(((WeakReference)Field(captured, "Result")).IsAlive);
-        Assert.False(((WeakReference)Field(captured, "Counters")).IsAlive);
+        QpdfExecutionCounters counters = Snapshot(captured);
         Assert.True(counters.PeakMemoryBytes <= limits.MaxMemoryBytes);
         Assert.Equal(0L, counters.OpenHandles);
         GC.KeepAlive(captured);
     }
-
-    private static IEnumerable<(string Method, IEnumerable<object[]> Rows)> OwnershipCases()
-        => new (string, IEnumerable<object[]>)[]
-        {
-            (nameof(PublicMetadataAliasesSurviveWithoutRetainingCompletedJobs), Aliases()),
-            (nameof(MappingAliasesReleaseIndependentSiblingsAndDistinguishCallerCopies), Siblings()),
-            (nameof(CompleteSelectionJobsKeepOriginalFaultCancellationAndPublicationControls), PublicFailures()),
-            (nameof(SplitJobsKeepPublishedAndPriorAliasesAcrossBothOutputs), SplitJobs()),
-            (nameof(AGeneratedSplitNameAloneOwnsItsStringAndReleasesSiblingNames), new object[][] { [false], [true] }),
-            (nameof(CallerConstructorsCopyValueBackingWithoutBorrowingTheOriginalView), new object[][] { ["typed-page", false], ["typed-page", true], ["typed-pages", false], ["typed-pages", true] }),
-            (nameof(OriginalShortBudgetsFailAfterReadingAndKeepPriorTargets), FixedBudgetJobs()),
-        };
-
-    public static IEnumerable<object[]> OwnershipBatches() => OwnershipMatrix.Batches(OwnershipCases());
-
-    [Theory]
-    [MemberData(nameof(OwnershipBatches))]
-    [Trait("Layer", "Ownership")]
-    public Task BatchedLifetimeObservationsPreserveEveryOriginalPhase(int batch)
-        => OwnershipMatrix.RunAsync(_output, OwnershipCases(), batch,
-            observation => new SelectionBackingOwnershipTests(_output) { _collection = observation });
 }

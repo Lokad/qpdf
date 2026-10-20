@@ -133,8 +133,11 @@ public sealed class TypedConfigurationOwnershipTests(ITestOutputHelper log)
             PdfPageSource[] sources = [new(Input, PdfPageSelectionOptions.FromPages(Enumerable.Repeat(1, 11).ToArray()))];
             int[]? pages = boundary switch
             {
-                "null" => null, "empty" => [], "4095" => Enumerable.Repeat(1, 2048).ToArray(),
-                "4096" => [.. Enumerable.Repeat(1, 2047), 11], "4097" => Enumerable.Repeat(1, 2049).ToArray(),
+                    "null" => null,
+                    "empty" => [],
+                    "4095" => Enumerable.Repeat(1, 2048).ToArray(),
+                    "4096" => [.. Enumerable.Repeat(1, 2047), 11],
+                    "4097" => Enumerable.Repeat(1, 2049).ToArray(),
                 _ => throw new InvalidOperationException(boundary),
             };
             PdfPageRotation[] rotations = [new(PdfRotationMode.Add, 90, pages)];
@@ -174,7 +177,6 @@ public sealed class TypedConfigurationOwnershipTests(ITestOutputHelper log)
         if (value is not Array and not string) { size = PdfVersionOwnershipTests.MeasurePhysicalSize(value.GetType()); }
         else
         {
-            using IDisposable capture = OwnershipBatch.CaptureWithoutCollection();
             object[] roots = new object[32];
             object Allocate() => value is Array array ? array.Clone() : new string('x', ((string)value).Length);
             for (int i = 0; i < roots.Length; i++) { roots[i] = Allocate(); }
@@ -273,7 +275,8 @@ public sealed class TypedConfigurationOwnershipTests(ITestOutputHelper log)
             Assert.Same(input.Governor, output.Governor);
             log.WriteLine("TYPED CONFIG MIN {0}|output minimum={1} admission={2}", id, output.Minimum, output.Admission);
             if (output.Admission < output.Minimum) { defects.Add(id + "|output:" + output.Minimum + ":" + output.Admission); }
-            if (outcome == "cancel") { cancel.Cancel(); } host.OutputResume.SetResult();
+            if (outcome == "cancel") { cancel.Cancel(); }
+            host.OutputResume.SetResult();
         }
         object? result = null;
         try { result = await running; Assert.Equal("success", outcome); }
@@ -298,13 +301,9 @@ public sealed class TypedConfigurationOwnershipTests(ITestOutputHelper log)
         return new(id, input.Governor, new WeakReference(running), result, published);
     }
 
-    private static void Collect(List<Completed> jobs)
-    {
-        for (int round = 0; round < 4; round++)
+    private static void Collect()
         {
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-            foreach (Completed job in jobs) { job.Governor.ReserveMemory(0L); }
-        }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -318,23 +317,6 @@ public sealed class TypedConfigurationOwnershipTests(ITestOutputHelper log)
         }
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static string Remaining(ResourceGovernor governor)
-    {
-        Dictionary<string, int> types = [];
-        object? owner = typeof(ResourceGovernor).GetField("_valueOwners", Fields)?.GetValue(governor);
-        object? segment = owner?.GetType().GetField("_segments", Fields)?.GetValue(owner);
-        while (segment is not null)
-        {
-            if (segment.GetType().GetField("Values", Fields)?.GetValue(segment) is ConditionalWeakTable<object, RetainedStorage.Receipt> values)
-            { foreach (var pair in values) { string name = pair.Key.GetType().Name; types[name] = types.GetValueOrDefault(name) + 1; } }
-            segment = segment.GetType().GetField("Next", Fields)?.GetValue(segment);
-        }
-        long raw = (long)(typeof(ResourceGovernor).GetField("_liveMemoryBytes", Fields)?.GetValue(governor) ?? -1L);
-        long retired = owner is RetainedStorage ledger ? ledger.PrivateBytes : -1L;
-        return "raw=" + raw + ";retired=" + retired + ";alive=" + System.Text.Json.JsonSerializer.Serialize(types);
-    }
-
     [Fact]
     public async Task CompleteTypedJobsAdmitConfigurationOverlapAndRetireBeforeCounters()
     {
@@ -344,21 +326,12 @@ public sealed class TypedConfigurationOwnershipTests(ITestOutputHelper log)
         { jobs.Add(await Complete(route, outcome, defects, log)); }
         // Leave the final await's MoveNext frame before observing collection.
         await Task.Yield();
-        Collect(jobs); DropResults(jobs); Collect(jobs);
+        Collect(); DropResults(jobs); Collect();
         foreach (Completed job in jobs)
         {
-            long afterRounds = job.Governor.Snapshot().LiveMemoryBytes;
-            if (afterRounds > job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes) { log.WriteLine("TYPED CONFIG BACKLOG {0} {1} {2}", job.Id, afterRounds, Remaining(job.Governor)); }
-            int maintenance = 0;
-            // Keep the four original collection/maintenance rounds. Larger
-            // graphs can leave funded ledger metadata after its bounded calls;
-            // drain that queue under the same governor, without another GC.
-            while (job.Governor.Snapshot().LiveMemoryBytes > job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes && maintenance < 4096)
-            { job.Governor.ReserveMemory(0L); maintenance++; }
-            log.WriteLine("TYPED CONFIG RETIRE {0} maintenance={1}", job.Id, maintenance);
             long remaining = job.Governor.Snapshot().LiveMemoryBytes;
             log.WriteLine("TYPED CONFIG FINAL {0} {1}", job.Id, remaining);
-            if (remaining != job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes) { defects.Add(job.Id + "|final:" + remaining + ":" + Remaining(job.Governor)); }
+            if (remaining != job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes) { defects.Add(job.Id + "|final:" + remaining); }
             foreach (byte[] bytes in job.Output) { Assert.True(bytes.AsSpan().StartsWith("%PDF-"u8)); }
         }
         Assert.Equal(40, jobs.Count);

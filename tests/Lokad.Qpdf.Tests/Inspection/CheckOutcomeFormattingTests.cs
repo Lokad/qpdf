@@ -9,7 +9,8 @@ namespace Lokad.Qpdf.Tests.Inspection;
 
 public sealed class CheckOutcomeFormattingTests
 {
-    private static void Collect() { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+    private static void Collect()
+    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static long RejectLargeDetail(ResourceGovernor governor, string prepared)
@@ -128,7 +129,6 @@ public sealed class CheckOutcomeFormattingTests
         WeakReference record = LiteralRecord(governor);
         Collect();
         Assert.False(record.IsAlive);
-        governor.ReserveMemory(0L);
         Assert.Equal(governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(governor);
     }

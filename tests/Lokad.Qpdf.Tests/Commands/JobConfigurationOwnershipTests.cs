@@ -87,7 +87,6 @@ public sealed class JobConfigurationOwnershipTests
         GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true, true);
         GC.WaitForPendingFinalizers();
         GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true, true);
-        governor.ReserveMemory(0L);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.All(documents, document => Assert.False(document.IsAlive));
         GC.KeepAlive(loaded);
@@ -110,7 +109,6 @@ public sealed class JobConfigurationOwnershipTests
         GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true, true);
         GC.WaitForPendingFinalizers();
         GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true, true);
-        governor.ReserveMemory(0L);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.All(documents, document => Assert.False(document.IsAlive));
         GC.KeepAlive(loaded);

@@ -126,7 +126,7 @@ public sealed class CheckMetadataOwnerTests
     { Alias alias = CompletedForm(); Collect(); Assert.All(alias.Metadata, reference => Assert.False(reference.IsAlive)); GC.KeepAlive(alias); }
 
     private static void Collect()
-    { for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); } }
+    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 
     private sealed class Resolver(QpdfObject? value, bool found, Action? callback) : IIndirectResolver
     {

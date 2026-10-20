@@ -87,8 +87,8 @@ public sealed class ResourceRebuildOwnershipTests
         }
     }
 
-    private static void Collect(ResourceGovernor? governor)
-    { for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); governor?.ReserveMemory(0L); } }
+    private static void Collect()
+    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 
     [Theory]
     [InlineData("stream")]
@@ -100,13 +100,13 @@ public sealed class ResourceRebuildOwnershipTests
     public void ActiveAliasesKeepOnlyTheirFreshStorageFundedUntilCollection(string kind)
     {
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 8192L }, CancellationToken.None);
-        Alias alias = Capture(governor, kind); Collect(governor);
+        Alias alias = Capture(governor, kind); Collect();
         Assert.False(alias.Wrappers[0].IsAlive); Assert.False(alias.Wrappers[1].IsAlive);
         Assert.False(alias.Metadata[1].IsAlive); Assert.False(alias.Metadata[2].IsAlive);
         Assert.True(governor.Snapshot().LiveMemoryBytes >= alias.Minimum);
         if (kind == "payload") { governor.CompletePrivateStorage(); Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); }
         if (kind is "name" or "name-bytes" or "payload") { Assert.False(alias.Wrappers[4].IsAlive); }
-        Verify(alias, kind); alias.Value = null; Collect(governor);
+        Verify(alias, kind); alias.Value = null; Collect();
         governor.CompletePrivateStorage();
         Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(governor); GC.KeepAlive(alias);
     }
@@ -123,7 +123,7 @@ public sealed class ResourceRebuildOwnershipTests
     [InlineData("payload")]
     public void EscapingAliasesDoNotRetainCompletedExecutionMetadata(string kind)
     {
-        Alias alias = Complete(kind); Collect(null);
+        Alias alias = Complete(kind); Collect();
         Assert.All(alias.Metadata, witness => Assert.False(witness.IsAlive));
         Verify(alias, kind); GC.KeepAlive(alias);
     }

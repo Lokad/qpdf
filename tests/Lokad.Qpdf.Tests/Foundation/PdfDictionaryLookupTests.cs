@@ -109,7 +109,8 @@ Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     [Fact]
     public void CompletedLookupDoesNotAttachControllerOrCallbackToBorrowedDictionary()
     {
-        var state = Completed(); for (int round = 0; round < 3; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        var state = Completed();
+        { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
         Assert.False(state.Governor.IsAlive); Assert.False(state.Observer.IsAlive); Assert.Same(state.Value, Assert.Single(state.Dictionary.Keys.Select(key => { Assert.True(state.Dictionary.TryGet(key, out QpdfObject value)); return value; })));
         GC.KeepAlive(state);
     }

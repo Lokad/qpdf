@@ -1,4 +1,3 @@
-using Xunit.Abstractions;
 using Lokad.Qpdf.Tests.Foundation;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -10,11 +9,6 @@ namespace Lokad.Qpdf.Tests.Writing;
 [Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class CompletedWriterFormattingTests
 {
-    private readonly ITestOutputHelper _output;
-    private OwnershipBatch.Observation? _collection;
-
-    public CompletedWriterFormattingTests(ITestOutputHelper output) => _output = output;
-
     private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
     private static WriterFormatting? FindOwner(Task writing, int depth)
@@ -65,7 +59,9 @@ public sealed class CompletedWriterFormattingTests
         return (owner, scope, new[] { new WeakReference(bytes) });
     }
 
-    internal async Task EncodedBackingDiesWithRetainedOwnersAndTasks(string route, string outcome)
+    [Theory]
+    [MemberData(nameof(WriterFormattingOwnershipTests.Routes), MemberType = typeof(WriterFormattingOwnershipTests))]
+    public async Task EncodedBackingDiesWithRetainedOwnersAndTasks(string route, string outcome)
     {
         ResourceGovernor governor = new(WriterFormattingOwnershipTests.Limits, CancellationToken.None);
         using CancellationTokenSource cancellation = new();
@@ -76,7 +72,7 @@ public sealed class CompletedWriterFormattingTests
         try
         {
             (WriterFormatting owner, ParserMemoryScope scope, WeakReference[] arrays) = Funded(writing, route);
-            await ObserveAsync(governor, 1);
+            Collect();
             Assert.All(arrays, value => Assert.True(value.IsAlive));
             if (outcome == "cancellation") { cancellation.Cancel(); }
             else { sink.Resume(); }
@@ -85,7 +81,7 @@ public sealed class CompletedWriterFormattingTests
             else { await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await writing); }
             Assert.Equal(0L, scope.ReservedBytes);
             Assert.Throws<ObjectDisposedException>(() => owner.Data);
-            await ObserveAsync(governor, 3);
+            Collect();
             Assert.All(arrays, value => Assert.False(value.IsAlive));
             Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
             GC.KeepAlive(writing); GC.KeepAlive(sink); GC.KeepAlive(owner); GC.KeepAlive(scope); GC.KeepAlive(source);
@@ -99,22 +95,6 @@ public sealed class CompletedWriterFormattingTests
         }
     }
 
-    private Task ObserveAsync(ResourceGovernor governor, int rounds)
-        => (_collection ?? throw new InvalidOperationException("Missing ownership batch."))
-            .CollectAsync(governor, 0, rounds, false, false);
-
-    private static IEnumerable<(string Method, IEnumerable<object[]> Rows)> OwnershipCases()
-        => new (string, IEnumerable<object[]>)[]
-        {
-            (nameof(EncodedBackingDiesWithRetainedOwnersAndTasks), WriterFormattingOwnershipTests.Routes()),
-        };
-
-    public static IEnumerable<object[]> OwnershipBatches() => OwnershipMatrix.Batches(OwnershipCases());
-
-    [Theory]
-    [MemberData(nameof(OwnershipBatches))]
-    [Trait("Layer", "Ownership")]
-    public Task BatchedLifetimeObservationsPreserveEveryOriginalPhase(int batch)
-        => OwnershipMatrix.RunAsync(_output, OwnershipCases(), batch,
-            observation => new CompletedWriterFormattingTests(_output) { _collection = observation });
+    private static void Collect()
+    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 }

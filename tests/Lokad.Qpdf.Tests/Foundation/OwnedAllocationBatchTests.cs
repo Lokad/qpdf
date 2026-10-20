@@ -127,7 +127,7 @@ public sealed class OwnedAllocationBatchTests
     public void RootedDisposedBatchAndEscapingCarriersDoNotKeepCompletedExecutionState()
     {
         Completed state = Complete();
-        for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
         Assert.All(state.Metadata, witness => Assert.False(witness.IsAlive)); Assert.Equal(3, state.Values[3][0]);
         Assert.Throws<ObjectDisposedException>(() => state.Batch.Memory); GC.KeepAlive(state);
     }

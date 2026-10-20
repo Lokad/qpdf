@@ -77,7 +77,7 @@ Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     public void RootedDisposedPlanDoesNotKeepContextScratchOrBorrowedContainers()
     {
         var prepared = PrepareDisposed();
-        for (int index = 0; index < 3; index++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
         foreach (WeakReference witness in prepared.Witnesses) { Assert.False(witness.IsAlive); }
         Assert.Throws<ObjectDisposedException>(prepared.Plan.Apply); prepared.Plan.Dispose();
         Assert.Equal(2 * 1024 * 1024, prepared.Borrowed.RawMemory.Length); GC.KeepAlive(prepared.Plan);

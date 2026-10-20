@@ -32,8 +32,8 @@ public sealed class InlineImageStorageTests
     [InlineData("stream")]
     public void ImageAliasesRemainFundedUntilThePrivatePhaseEnds(string alias)
     {
-        ResourceGovernor governor=new(QpdfLimits.Default,CancellationToken.None); Holder holder=Capture(governor,alias); Collect(governor);
-        Assert.True(governor.Snapshot().LiveMemoryBytes>=24L); holder.Value=null; Collect(governor);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); Holder holder = Capture(governor, alias); Collect();
+        Assert.True(governor.Snapshot().LiveMemoryBytes >= 24L); holder.Value = null; Collect();
         governor.CompletePrivateStorage();
         Assert.Equal(0L,governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(holder);
     }
@@ -45,14 +45,14 @@ public sealed class InlineImageStorageTests
     [InlineData("keys")]
     [InlineData("stream")]
     public void EscapingImageAliasesDoNotAnchorCompletedExecutionState(string alias)
-    {Holder holder=Completed(alias);Collect(null);Assert.False(holder.Governor.IsAlive);GC.KeepAlive(holder.Value);}
+    { Holder holder = Completed(alias); Collect(); Assert.False(holder.Governor.IsAlive); GC.KeepAlive(holder.Value); }
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void RawAndCompressedOutputRetainsOnlyEscapingStorage(bool compress)
     {
         ResourceGovernor governor=new(QpdfLimits.Default,CancellationToken.None); Holder holder=Output(governor,compress);
-        Collect(governor);Assert.True(governor.Snapshot().LiveMemoryBytes>0); holder.Value=null;
+        Collect(); Assert.True(governor.Snapshot().LiveMemoryBytes > 0); holder.Value = null;
         governor.CompletePrivateStorage();
         Assert.Equal(0L,governor.Snapshot().LiveMemoryBytes);GC.KeepAlive(holder);
     }
@@ -63,7 +63,7 @@ public sealed class InlineImageStorageTests
     public void RootedDisposedBufferDropsControllerCollectionAndBacking()
     {
         (InlineImageBuffer owner,WeakReference governor,WeakReference buffer,WeakReference images)=Disposed();
-        Collect(null);Assert.False(governor.IsAlive);Assert.False(buffer.IsAlive);Assert.False(images.IsAlive);GC.KeepAlive(owner);
+        Collect(); Assert.False(governor.IsAlive); Assert.False(buffer.IsAlive); Assert.False(images.IsAlive); GC.KeepAlive(owner);
     }
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static (InlineImageBuffer,WeakReference,WeakReference,WeakReference) Disposed()
@@ -74,6 +74,6 @@ public sealed class InlineImageStorageTests
         object images=typeof(InlineImageBuffer).GetField("_images",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance)?.GetValue(output)??throw new InvalidOperationException();
         output.Dispose();Assert.Equal(0L,governor.Snapshot().LiveMemoryBytes);return(output,new(governor),new(buffer),new(images));
     }
-    private static void Collect(ResourceGovernor? governor)
-    {for(int round=0;round<4;round++){GC.Collect();GC.WaitForPendingFinalizers();GC.Collect();governor?.ReserveMemory(0L);}}
+    private static void Collect()
+    { { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); } }
 }

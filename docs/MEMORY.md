@@ -180,3 +180,9 @@ Private hint tables and encoded hint payloads remain under their disposable
 reader/writer owners through consumption. Tests call these same scoped kernels;
 there is no separate escaping helper path or private-signature compatibility
 adapter to preserve older test bindings.
+
+Ownership tests use ordinary cases for byte admission, rejected transfers, cleanup
+and output faults. Representative collection checks keep public aliases or completed
+tasks rooted while checking that private storage is released. They do not depend
+on collection round counts, no-GC regions or zero-byte maintenance calls. Coarse
+caller storage refunds when its scope ends, independently of individual aliases.

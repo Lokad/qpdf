@@ -33,8 +33,11 @@ public sealed class StreamTransformOwnershipTests
         PdfStream stream = Run(governor, QpdfLimits.Default, compress);
         object value = alias switch
         {
-            "bytes" => stream.AllocationCarrier, "keys" => stream.Dictionary.Keys,
-            "header" => stream.Dictionary, "filter" => Get(stream.Dictionary, "Filter"), _ => stream
+            "bytes" => stream.AllocationCarrier,
+            "keys" => stream.Dictionary.Keys,
+            "header" => stream.Dictionary,
+            "filter" => Get(stream.Dictionary, "Filter"),
+            _ => stream
         };
         return new(value, new(governor));
     }
@@ -53,9 +56,9 @@ public sealed class StreamTransformOwnershipTests
     public void EscapingStorageRemainsFundedUntilItsLastAliasDies(bool compress, string alias)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        Holder holder = Capture(governor, compress, alias); Collect(governor);
+        Holder holder = Capture(governor, compress, alias); Collect();
         Assert.True(governor.Snapshot().LiveMemoryBytes > 0);
-        holder.Value = null; Collect(governor); governor.CompletePrivateStorage(); Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(holder);
+        holder.Value = null; Collect(); governor.CompletePrivateStorage(); Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(holder);
     }
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static Holder Completed(bool compress) => Capture(new(QpdfLimits.Default, CancellationToken.None), compress, "stream");
@@ -63,7 +66,7 @@ public sealed class StreamTransformOwnershipTests
     [InlineData(false)]
     [InlineData(true)]
     public void OutputDoesNotAnchorCompletedExecutionState(bool compress)
-    { Holder holder = Completed(compress); Collect(null); Assert.False(holder.Governor.IsAlive); GC.KeepAlive(holder.Value); }
+    { Holder holder = Completed(compress); Collect(); Assert.False(holder.Governor.IsAlive); GC.KeepAlive(holder.Value); }
     [Theory]
     [InlineData("memory")]
     [InlineData("output")]
@@ -80,6 +83,6 @@ public sealed class StreamTransformOwnershipTests
         else { Assert.Throws<QpdfLimitException>(() => Run(governor, limits, true)); }
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes); Assert.Equal(61L, prior.ReservedBytes);
     }
-    private static void Collect(ResourceGovernor? governor)
-    { for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); governor?.ReserveMemory(0L); } }
+    private static void Collect()
+    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 }

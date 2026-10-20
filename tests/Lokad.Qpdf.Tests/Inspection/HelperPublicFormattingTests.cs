@@ -33,12 +33,9 @@ public sealed class HelperPublicFormattingTests
         string longName = new('P', QpdfPath.MaxLength);
         string[] flags = ["--show-linearization"];
         string[] control = ["--show-xref"];
-        Assert.True(GC.TryStartNoGCRegion(16L * 1024L * 1024L));
-        try
         {
             // Public invocation serialization can miss an 8 KiB BCL pool
-            // buffer. Warm two slots while collection is disabled so this
-            // paired measurement isolates report text at its original ceiling.
+            // buffer. Warm two slots so the paired measurement isolates report text.
             byte[] first = ArrayPool<byte>.Shared.Rent(8192);
             byte[] second = ArrayPool<byte>.Shared.Rent(8192);
             ArrayPool<byte>.Shared.Return(first);
@@ -58,7 +55,6 @@ public sealed class HelperPublicFormattingTests
             Assert.True(reportGrowth - controlGrowth <= 4096L,
                 $"Report grew by {reportGrowth} bytes; the shared invocation control grew by {controlGrowth}.");
         }
-        finally { GC.EndNoGCRegion(); }
     }
 
     private static byte[] Images(int nameBytes)

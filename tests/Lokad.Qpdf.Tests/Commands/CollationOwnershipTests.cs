@@ -90,7 +90,6 @@ public sealed class CollationOwnershipTests(ITestOutputHelper log)
 
     private static long ArraySize(Array value)
     {
-        using IDisposable capture = OwnershipBatch.CaptureWithoutCollection();
         object[] roots = new object[32];
         for (int i = 0; i < roots.Length; i++) { roots[i] = value.Clone(); }
         Array.Clear(roots); long before = GC.GetAllocatedBytesForCurrentThread();
@@ -138,8 +137,13 @@ public sealed class CollationOwnershipTests(ITestOutputHelper log)
 
     private static Task<QpdfExecutionResult> Start(Host host, string route, CancellationToken token)
     {
-        string json = JsonSerializer.Serialize(new { inputFile = Input.Value, outputFile = Output.Value,
-            pages = new[] { new { file = ".", range = "1" }, new { file = ".", range = "1" } }, collate = "1,1" });
+        string json = JsonSerializer.Serialize(new
+        {
+            inputFile = Input.Value,
+            outputFile = Output.Value,
+            pages = new[] { new { file = ".", range = "1" }, new { file = ".", range = "1" } },
+            collate = "1,1"
+        });
         string[] arguments = [Input.Value, "--collate=1,1", "--pages", ".", "1", ".", "1", "--", Output.Value];
         if (route == "json") { return Qpdf.ExecuteJobAsync(host, json, token).AsTask(); }
         if (route == "nested")
@@ -203,10 +207,9 @@ public sealed class CollationOwnershipTests(ITestOutputHelper log)
         return new(id, input.Governor, result, bytes);
     }
 
-    private static void Collect(List<Completed> jobs)
+    private static void Collect()
     {
-        for (int i = 0; i < 4; i++)
-        { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); foreach (Completed job in jobs) { job.Governor.ReserveMemory(0L); } }
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -227,13 +230,11 @@ public sealed class CollationOwnershipTests(ITestOutputHelper log)
         foreach (string route in new[] { "argv", "response", "mixed", "json", "file", "nested" })
         foreach (string outcome in new[] { "success", "open-fault", "create-fault", "write-fault", "commit-fault", "close-fault", "cancel", "host-cancel" })
         { jobs.Add(await Complete(route, outcome, defects, log)); }
-        await Task.Yield(); Collect(jobs); DropResults(jobs); Collect(jobs);
+        await Task.Yield(); Collect(); DropResults(jobs); Collect();
         foreach (Completed job in jobs)
         {
-            int calls = 0;
-            while (job.Governor.Snapshot().LiveMemoryBytes > job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes && calls < 4096) { job.Governor.ReserveMemory(0L); calls++; }
             long live = job.Governor.Snapshot().LiveMemoryBytes;
-            log.WriteLine("COLLATION FINAL {0} live={1} maintenance={2}", job.Id, live, calls);
+            log.WriteLine("COLLATION FINAL {0} live={1}", job.Id, live);
             if (live != job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes) { defects.Add(job.Id + "|final:" + live); }
             if (job.Output is byte[] bytes) { Assert.True(bytes.AsSpan().StartsWith("%PDF-"u8)); }
         }
@@ -248,8 +249,13 @@ public sealed class CollationOwnershipTests(ITestOutputHelper log)
         {
             Host host = await CreateHost();
             bool valid = value is "" or "0" or "1" or "1,1" or "2147483647";
-            string json = JsonSerializer.Serialize(new { inputFile = Input.Value, outputFile = Output.Value,
-                pages = new[] { new { file = ".", range = "1" }, new { file = ".", range = "1" } }, collate = value });
+                string json = JsonSerializer.Serialize(new
+                {
+                    inputFile = Input.Value,
+                    outputFile = Output.Value,
+                    pages = new[] { new { file = ".", range = "1" }, new { file = ".", range = "1" } },
+                    collate = value
+                });
             QpdfExecutionResult result = route == "json" ? await Qpdf.ExecuteJobAsync(host, json, CancellationToken.None)
                 : await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(
                     [Input.Value, "--collate=" + value, "--pages", ".", "1", ".", "1", "--", Output.Value]), CancellationToken.None);
@@ -273,8 +279,14 @@ public sealed class CollationOwnershipTests(ITestOutputHelper log)
         foreach (string route in new[] { "argv", "json" })
         {
             Host host = await CreateHost();
-            string json = JsonSerializer.Serialize(new { inputFile = Input.Value, check = "", showNpages = "",
-                pages = new[] { new { file = ".", range = "1" }, new { file = ".", range = "1" } }, collate = "1,1" });
+            string json = JsonSerializer.Serialize(new
+            {
+                inputFile = Input.Value,
+                check = "",
+                showNpages = "",
+                pages = new[] { new { file = ".", range = "1" }, new { file = ".", range = "1" } },
+                collate = "1,1"
+            });
             QpdfExecutionResult result = route == "json" ? await Qpdf.ExecuteJobAsync(host, json, CancellationToken.None)
                 : await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(
                     [Input.Value, "--collate=1,1", "--pages", ".", "1", ".", "1", "--", "--check", "--show-npages"]), CancellationToken.None);

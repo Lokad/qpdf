@@ -52,7 +52,8 @@ public sealed class PdfNameTableRawLookupTests
     [Fact]
     public void FrozenRawLookupRetainsNeitherCallerNorObserver()
     {
-        var state = Complete(); for (int round = 0; round < 3; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        var state = Complete();
+        { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
         Assert.False(state.Governor.IsAlive); Assert.False(state.Observer.IsAlive);
         Assert.Single((IEnumerable<KeyValuePair<PdfName, QpdfObject>>)state.Names); GC.KeepAlive(state);
     }

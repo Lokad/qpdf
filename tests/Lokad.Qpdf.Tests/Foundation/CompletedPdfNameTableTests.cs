@@ -32,7 +32,7 @@ public sealed class CompletedPdfNameTableTests
     public void AcceptedFrozenStorageAndKeyAliasesDoNotRetainCompletedExecutionState(bool convert)
     {
         var state = Published(convert); IEnumerable<PdfName> keys = state.Table.Keys;
-        for (int round = 0; round < 3; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
         Assert.False(state.Scope.IsAlive); Assert.False(state.Governor.IsAlive);
         Assert.Same(state.Table, keys); Assert.Same(state.Borrowed, state.Table[PdfNameTableTests.Key(1, 32)]); Assert.Single(keys); Assert.Single(state.Table.Values);
         GC.KeepAlive(state); GC.KeepAlive(keys);

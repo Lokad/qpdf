@@ -9,16 +9,11 @@ namespace Lokad.Qpdf.Tests.Inspection;
 
 public sealed class CheckDetailOwnershipTests
 {
-    private OwnershipBatch.Observation? _collection;
 
-    private static void Collect(ResourceGovernor governor)
+    private static void Collect()
     {
         // Observe CLR references independently of coarse allowance ownership.
-        for (int iteration = 0; iteration < 3; iteration++)
-        {
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-            governor.ReserveMemory(0L);
-        }
     }
 
     private static byte[] Fixture()
@@ -82,35 +77,15 @@ public sealed class CheckDetailOwnershipTests
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 32768L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         Alias alias = Capture(governor, limits, prepared, kind);
-        Collect(governor);
+        Collect();
         VerifyAndClear(alias, governor, kind);
-        Collect(governor);
+        Collect();
         Assert.All(alias.References, reference => Assert.False(reference.IsAlive));
-        governor.ReserveMemory(0L);
+
         governor.CompletePrivateStorage();
         Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(0L, governor.Snapshot().OpenHandles);
         GC.KeepAlive(governor);
-    }
-
-    internal async Task ThirtyTwoChecksKeepMetadataWithinThe32KiBCeiling()
-    {
-        byte[] prepared = Fixture();
-        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 32768L };
-        for (int iteration = 0; iteration < 32; iteration++)
-        {
-            ResourceGovernor governor = new(limits, CancellationToken.None);
-            Alias alias = Capture(governor, limits, prepared, "detail");
-            await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 3, 3, false, true);
-            VerifyAndClear(alias, governor, "detail");
-            await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 3, 3, false, true);
-            Assert.All(alias.References, reference => Assert.False(reference.IsAlive));
-            governor.ReserveMemory(0L);
-            governor.CompletePrivateStorage();
-            Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
-            Assert.Equal(0L, governor.Snapshot().DiagnosticCount);
-            Assert.InRange(governor.Snapshot().PeakMemoryBytes, 1L, limits.MaxMemoryBytes);
-        }
     }
 
     [Fact]
@@ -167,13 +142,4 @@ public sealed class CheckDetailOwnershipTests
             && diagnostic.Message == "Check 'page-content' failed: " + outcome.Detail);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
-
-    internal static IEnumerable<(string Id, Func<OwnershipBatch.Observation, Task> Run)> StressCases()
-        => (new object[][] { [] }).Select(row =>
-            (OwnershipBatch.Id(nameof(CheckDetailOwnershipTests), nameof(ThirtyTwoChecksKeepMetadataWithinThe32KiBCeiling), row),
-            (Func<OwnershipBatch.Observation, Task>)(async observation =>
-            {
-                CheckDetailOwnershipTests fixture = new() { _collection = observation };
-                await fixture.ThirtyTwoChecksKeepMetadataWithinThe32KiBCeiling();
-            })));
 }

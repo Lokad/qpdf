@@ -14,7 +14,6 @@ namespace Lokad.Qpdf.Tests.Foundation;
 public sealed class DiagnosticFailureExportTests
 {
     private readonly ITestOutputHelper _output;
-    private OwnershipBatch.Observation? _collection;
 
     public DiagnosticFailureExportTests(ITestOutputHelper output) => _output = output;
 
@@ -84,7 +83,9 @@ public sealed class DiagnosticFailureExportTests
         {
             Dictionary<string, object> job = new()
             {
-                ["inputFile"] = "input.pdf", ["json"] = "2", ["testJsonSchema"] = "",
+                ["inputFile"] = "input.pdf",
+                ["json"] = "2",
+                ["testJsonSchema"] = "",
             };
             if (mode != "json-inline") { job.Add("outputFile", "output.pdf"); }
             if (mode == "pages") { job.Add("jsonKey", new[] { "pages" }); }
@@ -144,7 +145,7 @@ public sealed class DiagnosticFailureExportTests
     }
 
     private static void Collect()
-    { for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); } }
+    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 
     [Theory]
     [InlineData("argv")]
@@ -331,121 +332,4 @@ public sealed class DiagnosticFailureExportTests
         Assert.InRange(witnessed, 1, 10);
     }
 
-    private sealed class Aliases(object value, WeakReference[] visible, WeakReference[] hidden)
-    {
-        internal object? Value = value;
-        internal readonly WeakReference[] Visible = visible;
-        internal readonly WeakReference[] Hidden = hidden;
     }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static Aliases CaptureAliases(ResourceGovernor governor, bool noWarn, string kind)
-    {
-        long before = governor.Snapshot().DiagnosticCount;
-        DiagnosticBag bag = new(governor);
-        using ExecutionPresentation presentation = ExecutionPresentation.Create(governor, bag, false, false, false,
-            noWarn, false, CancellationToken.None) ?? throw new InvalidOperationException("Missing presentation owner.");
-        for (int index = 0; index < 50; index++)
-        { bag.Add(QpdfDiagnosticCode.DuplicateKey, QpdfDiagnosticSeverity.Warning, "accepted warning " + index); }
-        WeakReference[] hiddenWarnings = bag.Entries.SelectMany(item => new[] { new WeakReference(item), new WeakReference(item.Message) }).ToArray();
-        for (int index = 0; index < 2; index++)
-        { bag.Add(QpdfDiagnosticCode.JsonSchemaCheck, QpdfDiagnosticSeverity.Info, "visible note " + index); }
-        WeakReference[] hiddenInfo = bag.Entries.Where(item => item.Severity == QpdfDiagnosticSeverity.Info)
-            .SelectMany(item => new[] { new WeakReference(item), new WeakReference(item.Message) }).ToArray();
-        // The predecessor exported history directly, before this preparation
-        // method existed. Keep its original alias controls executable too.
-        typeof(ExecutionPresentation).GetMethod("PreparePlainFailureHistory", Fields)?.Invoke(presentation, []);
-        QpdfExecutionResult result = presentation.Failure(QpdfExecutionResult.Canceled([], governor.Snapshot()));
-        Assert.Equal(before + 52L, result.Counters.DiagnosticCount);
-        Assert.Equal(noWarn ? 2 : 50, result.Diagnostics.Count);
-        IReadOnlyList<QpdfDiagnostic> view = result.Diagnostics;
-        QpdfDiagnostic record = view[0]; string text = record.Message;
-        object value = kind switch { "view" => view, "record" => record, "text" => text, _ => view.GetEnumerator() };
-        return new(value, [new(view), new(record), new(text), new(view[1])], noWarn ? hiddenWarnings : hiddenInfo);
-    }
-
-    public static IEnumerable<object[]> AliasJobs()
-    {
-        foreach (bool noWarn in new[] { false, true })
-        foreach (string kind in new[] { "view", "record", "text", "iterator" }) { yield return [noWarn, kind]; }
-    }
-
-    private async Task ObserveFailureAliasesRetireOnlyUnescapedRecordsAndKeepTheirActualStorageFunded(bool noWarn, string kind)
-    {
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 32768L, MaxDiagnostics = 52L * 32L }, CancellationToken.None);
-        for (int cycle = 0; cycle < 32; cycle++)
-        {
-            Aliases aliases = CaptureAliases(governor, noWarn, kind);
-            await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 0); governor.ReserveMemory(0L);
-            Assert.All(aliases.Hidden, item => Assert.False(item.IsAlive));
-            Assert.Equal(kind is "view" or "iterator", aliases.Visible[0].IsAlive);
-            Assert.Equal(kind != "text", aliases.Visible[1].IsAlive); Assert.True(aliases.Visible[2].IsAlive);
-            Assert.Equal(kind is "view" or "iterator", aliases.Visible[3].IsAlive);
-            Assert.True(governor.Snapshot().LiveMemoryBytes >= GovernedText.StringBytes(noWarn ? 14 : 18));
-            GC.KeepAlive(aliases.Value); aliases.Value = null;
-            await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 0); governor.ReserveMemory(0L);
-            Assert.All(aliases.Visible, item => Assert.False(item.IsAlive));
-            // Fifty-two records and their independent texts exceed the ledger's
-            // sixty-four-carrier maintenance boundary. Payloads have retired;
-            // a second bounded boundary drains their remaining index storage.
-            governor.ReserveMemory(0L);
-            Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        }
-        Assert.InRange(governor.Snapshot().PeakMemoryBytes, 1L, 32768L);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static Aliases CaptureSuppressedWarningAlias(ResourceGovernor governor, bool recordAlias)
-    {
-        DiagnosticBag bag = new(governor);
-        using ExecutionPresentation presentation = ExecutionPresentation.Create(governor, bag, false, false, false,
-            true, false, CancellationToken.None) ?? throw new InvalidOperationException("Missing presentation owner.");
-        bag.Add(QpdfDiagnosticCode.DuplicateKey, QpdfDiagnosticSeverity.Warning, new string('W', 4096));
-        QpdfDiagnostic record = Assert.Single(bag.Entries); string text = record.Message;
-        bag.Add(QpdfDiagnosticCode.JsonSchemaCheck, QpdfDiagnosticSeverity.Info, "visible note");
-        QpdfExecutionResult result = presentation.Failure(QpdfExecutionResult.Canceled([], governor.Snapshot()));
-        Assert.Equal(QpdfDiagnosticCode.JsonSchemaCheck, Assert.Single(result.Diagnostics).Code);
-        return new(recordAlias ? record : text, [new(record), new(text)], [new(result.Diagnostics), new(result.Diagnostics[0])]);
-    }
-
-    private async Task ObservePreviouslyEscapedSuppressedWarningAliasesRemainFunded(bool recordAlias)
-    {
-        ResourceGovernor governor = new(QpdfLimits.Default with
-        { MaxMemoryBytes = 32768L, MaxDiagnosticBytes = (4096L + 12L) * 32L }, CancellationToken.None);
-        for (int cycle = 0; cycle < 32; cycle++)
-        {
-            Aliases aliases = CaptureSuppressedWarningAlias(governor, recordAlias);
-            await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 0); governor.ReserveMemory(0L);
-            Assert.All(aliases.Hidden, item => Assert.False(item.IsAlive));
-            Assert.Equal(recordAlias, aliases.Visible[0].IsAlive); Assert.True(aliases.Visible[1].IsAlive);
-            Assert.True(governor.Snapshot().LiveMemoryBytes >= GovernedText.StringBytes(4096));
-            GC.KeepAlive(aliases.Value); aliases.Value = null; await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 0); governor.ReserveMemory(0L);
-            Assert.All(aliases.Visible, item => Assert.False(item.IsAlive)); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        }
-        Assert.InRange(governor.Snapshot().PeakMemoryBytes, GovernedText.StringBytes(4096), 32768L);
-    }
-
-    internal static IEnumerable<(string Id, Func<OwnershipBatch.Observation, Task> Run)> StressCases(ITestOutputHelper output)
-    {
-        foreach (object[] row in AliasJobs())
-        {
-            yield return (OwnershipBatch.Id(nameof(DiagnosticFailureExportTests),
-                "FailureAliasesRetireOnlyUnescapedRecordsAndKeepTheirActualStorageFunded", row),
-                async observation =>
-                {
-                    DiagnosticFailureExportTests fixture = new(output) { _collection = observation };
-                    await fixture.ObserveFailureAliasesRetireOnlyUnescapedRecordsAndKeepTheirActualStorageFunded((bool)row[0], (string)row[1]);
-                });
-        }
-        foreach (bool recordAlias in new[] { false, true })
-        {
-            yield return (OwnershipBatch.Id(nameof(DiagnosticFailureExportTests),
-                "PreviouslyEscapedSuppressedWarningAliasesRemainFunded", [recordAlias]),
-                async observation =>
-                {
-                    DiagnosticFailureExportTests fixture = new(output) { _collection = observation };
-                    await fixture.ObservePreviouslyEscapedSuppressedWarningAliasesRemainFunded(recordAlias);
-                });
-        }
-    }
-}

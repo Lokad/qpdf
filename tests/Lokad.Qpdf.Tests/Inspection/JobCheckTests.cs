@@ -123,11 +123,7 @@ public sealed class JobCheckTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         WeakReference plan = VerifyReaderAndPresentationOptions(governor);
-        for (int round = 0; round < 4; round++)
-        {
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-            governor.ReserveMemory(0L);
-        }
         Assert.False(plan.IsAlive);
         governor.CompletePrivateStorage();
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);

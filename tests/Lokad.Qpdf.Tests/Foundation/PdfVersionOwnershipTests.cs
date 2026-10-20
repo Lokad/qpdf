@@ -48,10 +48,6 @@ public sealed class PdfVersionOwnershipTests
 
     private static long MeasureUncachedPhysicalSize(Type type)
     {
-        // Collection can invalidate reflection caches between warmup and the
-        // sample. Preserve an existing no-GC phase when this helper is nested.
-        using IDisposable? capture = System.Runtime.GCSettings.LatencyMode == System.Runtime.GCLatencyMode.NoGCRegion
-            ? null : OwnershipBatch.CaptureWithoutCollection();
         ResourceGovernor observer = new(QpdfLimits.Default, CancellationToken.None);
         Func<object> create = type == typeof(WeakReference<ResourceGovernor>)
             ? () => new WeakReference<ResourceGovernor>(observer) : () => RuntimeHelpers.GetUninitializedObject(type);
@@ -134,7 +130,6 @@ public sealed class PdfVersionOwnershipTests
         await Task.Yield();
         ResourceGovernor governor = aliases.Governor ?? throw new InvalidOperationException();
     }
-
 
     public static IEnumerable<object[]> WriterCases()
     {

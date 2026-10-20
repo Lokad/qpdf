@@ -210,7 +210,7 @@ public sealed class WriterOrderTests
     public void RootedDisposedOwnerAndEnumeratorReleaseCompletedGovernor()
     {
         (WriterOrder<int> owner, WriterOrder<int>.Enumerator enumerator, WeakReference governor) = DetachedOwner();
-        for (int round = 0; round < 3; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
         Assert.False(governor.IsAlive); Assert.Throws<ObjectDisposedException>(() => owner.Count);
         GC.KeepAlive(owner); GC.KeepAlive(enumerator);
     }

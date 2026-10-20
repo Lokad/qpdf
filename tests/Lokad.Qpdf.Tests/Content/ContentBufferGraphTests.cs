@@ -102,7 +102,8 @@ public sealed class ContentBufferGraphTests
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 1L }, CancellationToken.None);
         Assert.Throws<OperationCanceledException>(() => normalize ? Normalize(original, Resolver(), QpdfLimits.Default, governor, new(construction), cancellation.Token)
             : Join(entries, Resolver(), new(true, false, false, null, false, 0L), QpdfLimits.Default, governor, cancellation.Token));
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);     }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
 
     [Fact]
     public void JoinedBytesTransferWithoutCopyAndRejectAnotherGovernor()
@@ -125,7 +126,7 @@ public sealed class ContentBufferGraphTests
     {
         byte[] raw = "q Q"u8.ToArray(); PdfStream publicStream = new(DecoderOwnershipFixtures.Dictionary(), raw); raw[0] = (byte)'X'; Assert.Equal((byte)'q', publicStream.RawMemory.Span[0]);
         var captured = Completed();
-        for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
         Assert.False(captured.Governor.IsAlive); Assert.Equal("q\nQ"u8.ToArray(), captured.Stream.Data); GC.KeepAlive(captured.Stream);
     }
     [MethodImpl(MethodImplOptions.NoInlining)]

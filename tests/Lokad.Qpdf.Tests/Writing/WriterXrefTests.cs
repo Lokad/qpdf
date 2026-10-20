@@ -58,7 +58,8 @@ public sealed class WriterXrefTests
         ResourceGovernor governor=new(limits,CancellationToken.None);
         QpdfLimitException failure=Assert.Throws<QpdfLimitException>(()=>WriterXref.Create(int.MaxValue,8,8,limits,governor,CancellationToken.None));
         Assert.Equal(nameof(QpdfLimits.MaxOutputBytes),failure.LimitName);
-        Assert.Equal(0L,governor.Snapshot().LiveMemoryBytes);     }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
 
     [Fact]
     public void IncompleteAndCompletedBodiesHaveExplicitGuards()
@@ -83,7 +84,8 @@ public sealed class WriterXrefTests
         ResourceGovernor governor=new(QpdfLimits.Default,governorToken ? cancellation.Token : CancellationToken.None);
         Assert.ThrowsAny<OperationCanceledException>(()=>WriterXref.Create(1,8,8,QpdfLimits.Default,governor,
             governorToken ? CancellationToken.None : cancellation.Token));
-        Assert.Equal(0L,governor.Snapshot().LiveMemoryBytes);     }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
 
     [Theory]
     [InlineData(false)]
@@ -173,7 +175,7 @@ public sealed class WriterXrefTests
         Assert.False(state.Bytes.IsAlive); Assert.False(state.Governor.IsAlive); GC.KeepAlive(state);
     }
 
-    private static void Collected() { for (int round=0;round<3;round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); } }
+    private static void Collected() { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
     private static object Field(object value,string field)=>value.GetType().GetField(field,BindingFlags.Instance|BindingFlags.NonPublic)?.GetValue(value)
         ?? throw new InvalidOperationException("Expected live xref field.");
     [MethodImpl(MethodImplOptions.NoInlining)]

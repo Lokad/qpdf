@@ -1,4 +1,3 @@
-using Xunit.Abstractions;
 using Lokad.Qpdf.Tests.Foundation;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -10,11 +9,6 @@ namespace Lokad.Qpdf.Tests.Writing;
 [Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class CompletedObjectStreamPayloadTests
 {
-    private readonly ITestOutputHelper _output;
-    private OwnershipBatch.Observation? _collection;
-
-    public CompletedObjectStreamPayloadTests(ITestOutputHelper output) => _output = output;
-
     private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
     private static ObjectStreamPayload? FindOwner(Task writing, int depth)
@@ -70,7 +64,29 @@ public sealed class CompletedObjectStreamPayloadTests
         return (owner, scope, new[] { new WeakReference(raw), new WeakReference(stored) });
     }
 
-    internal async Task RawAndCompressedBuffersDieWithRetainedOwnersAndTasks(string route, bool compress, string outcome)
+    [Theory]
+    [InlineData("ordinary", false, "success")]
+    [InlineData("ordinary", false, "failure")]
+    [InlineData("ordinary", false, "cancellation")]
+    [InlineData("ordinary", true, "success")]
+    [InlineData("ordinary", true, "failure")]
+    [InlineData("ordinary", true, "cancellation")]
+    [InlineData("qdf", false, "success")]
+    [InlineData("qdf", false, "failure")]
+    [InlineData("qdf", false, "cancellation")]
+    [InlineData("linearized", false, "success")]
+    [InlineData("linearized", false, "failure")]
+    [InlineData("linearized", false, "cancellation")]
+    [InlineData("linearized", true, "success")]
+    [InlineData("linearized", true, "failure")]
+    [InlineData("linearized", true, "cancellation")]
+    [InlineData("counting", false, "success")]
+    [InlineData("counting", false, "failure")]
+    [InlineData("counting", false, "cancellation")]
+    [InlineData("counting", true, "success")]
+    [InlineData("counting", true, "failure")]
+    [InlineData("counting", true, "cancellation")]
+    public async Task RawAndCompressedBuffersDieWithRetainedOwnersAndTasks(string route, bool compress, string outcome)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using CancellationTokenSource cancellation = new();
@@ -80,7 +96,7 @@ public sealed class CompletedObjectStreamPayloadTests
         try
         {
             (ObjectStreamPayload owner, ParserMemoryScope scope, WeakReference[] arrays) = Funded(writing, compress);
-            await ObserveAsync(governor, 1);
+            Collect();
             Assert.All(arrays, value => Assert.True(value.IsAlive));
             if (outcome == "cancellation") { cancellation.Cancel(); }
             else { sink.Resume(); }
@@ -89,7 +105,7 @@ public sealed class CompletedObjectStreamPayloadTests
             else { await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await writing); }
             Assert.Equal(0L, scope.ReservedBytes);
             Assert.Throws<ObjectDisposedException>(() => owner.Data);
-            await ObserveAsync(governor, 3);
+            Collect();
             Assert.All(arrays, value => Assert.False(value.IsAlive));
             Assert.True(governor.Snapshot().LiveMemoryBytes < 4096L);
             GC.KeepAlive(writing); GC.KeepAlive(sink); GC.KeepAlive(owner); GC.KeepAlive(scope);
@@ -103,22 +119,6 @@ public sealed class CompletedObjectStreamPayloadTests
         }
     }
 
-    private Task ObserveAsync(ResourceGovernor governor, int rounds)
-        => (_collection ?? throw new InvalidOperationException("Missing ownership batch."))
-            .CollectAsync(governor, 0, rounds, false, false);
-
-    private static IEnumerable<(string Method, IEnumerable<object[]> Rows)> OwnershipCases()
-        => new (string, IEnumerable<object[]>)[]
-        {
-            (nameof(RawAndCompressedBuffersDieWithRetainedOwnersAndTasks), new object[][] { ["ordinary", false, "success"], ["ordinary", false, "failure"], ["ordinary", false, "cancellation"], ["ordinary", true, "success"], ["ordinary", true, "failure"], ["ordinary", true, "cancellation"], ["qdf", false, "success"], ["qdf", false, "failure"], ["qdf", false, "cancellation"], ["linearized", false, "success"], ["linearized", false, "failure"], ["linearized", false, "cancellation"], ["linearized", true, "success"], ["linearized", true, "failure"], ["linearized", true, "cancellation"], ["counting", false, "success"], ["counting", false, "failure"], ["counting", false, "cancellation"], ["counting", true, "success"], ["counting", true, "failure"], ["counting", true, "cancellation"] }),
-        };
-
-    public static IEnumerable<object[]> OwnershipBatches() => OwnershipMatrix.Batches(OwnershipCases());
-
-    [Theory]
-    [MemberData(nameof(OwnershipBatches))]
-    [Trait("Layer", "Ownership")]
-    public Task BatchedLifetimeObservationsPreserveEveryOriginalPhase(int batch)
-        => OwnershipMatrix.RunAsync(_output, OwnershipCases(), batch,
-            observation => new CompletedObjectStreamPayloadTests(_output) { _collection = observation });
+    private static void Collect()
+    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 }

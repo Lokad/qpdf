@@ -146,7 +146,8 @@ public sealed class WriterIndexTests
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
         Assert.ThrowsAny<OperationCanceledException>(() => WriterIndex<int>.Create(sizeof(int), governor,
             governorToken ? CancellationToken.None : cancellation.Token));
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);     }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
 
     [Theory]
     [InlineData(false)]
@@ -231,7 +232,7 @@ public sealed class WriterIndexTests
     public void RootedDisposedOwnerAndEnumeratorReleaseBackingAndCompletedGovernor()
     {
         PdfName value = new([65,255]); var state = Disposed(value);
-        for (int round = 0; round < 3; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
         Assert.False(state.Buckets.IsAlive); Assert.False(state.Entries.IsAlive); Assert.False(state.Governor.IsAlive);
         Assert.Equal(new byte[] {65,255}, value.RawBytes); GC.KeepAlive(state); GC.KeepAlive(value);
     }

@@ -38,12 +38,17 @@ public sealed class ResourcePruningGraphTests
                 QpdfLimits.Default, construction, new DiagnosticBag(construction), QpdfRecoveryMode.Strict);
             Copier = new(_engine, governor, QpdfLimits.Default, 1);
             Fonts = new(new Dictionary<PdfName, QpdfObject> { [FontKey] = PdfNull.Instance, [PdfName.FromAscii("Unused")] = PdfNull.Instance });
-            Resources = new(new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("ProcSet")] = new PdfArray([PdfName.FromAscii("PDF")]),
-                [PdfName.FromAscii("Font")] = Fonts, [BinaryKey] = Borrowed });
+            Resources = new(new Dictionary<PdfName, QpdfObject>
+            {
+                [PdfName.FromAscii("ProcSet")] = new PdfArray([PdfName.FromAscii("PDF")]),
+                [PdfName.FromAscii("Font")] = Fonts,
+                [BinaryKey] = Borrowed
+            });
             Content = new(Dictionary(), "/F 12 Tf"u8.ToArray());
             Page = Dictionary(("Type", PdfName.FromAscii("Page")), ("Resources", indirect ? new PdfReference(7, 3) : Resources), ("Contents", Content));
             IDictionary<int, QpdfObject> pool = (IDictionary<int, QpdfObject>)Copier.CopiedObjects;
-            if (stored) { pool.Add(1, Page); } if (indirect) { pool.Add(7, Resources); }
+            if (stored) { pool.Add(1, Page); }
+            if (indirect) { pool.Add(7, Resources); }
         }
 
         public void Dispose() { ((IDictionary<int, QpdfObject>)Copier.CopiedObjects).Clear(); _engine.Dispose(); }
@@ -162,10 +167,10 @@ public sealed class ResourcePruningGraphTests
     public void PublishedResourceAliasesKeepFundingAfterThePoolAndOldPageDie(bool keys)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); Escaping alias = Capture(governor, keys);
-        Collect(governor); Assert.False(alias.Copier.IsAlive); Assert.False(alias.Page.IsAlive);
+        Collect(); Assert.False(alias.Copier.IsAlive); Assert.False(alias.Page.IsAlive);
         Assert.True(governor.Snapshot().LiveMemoryBytes >= 96L);
         VerifyPublishedAlias(alias, keys);
-        alias.Value = null; Collect(governor); governor.CompletePrivateStorage(); Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(alias); GC.KeepAlive(governor);
+        alias.Value = null; Collect(); governor.CompletePrivateStorage(); Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(alias); GC.KeepAlive(governor);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -183,12 +188,12 @@ public sealed class ResourcePruningGraphTests
     [InlineData(true)]
     public void PublishedResourceAliasesDoNotKeepCompletedExecutionState(bool keys)
     {
-        Escaping alias = Complete(keys); Collect(null);
+        Escaping alias = Complete(keys); Collect();
         Assert.False(alias.Governor.IsAlive); Assert.False(alias.Copier.IsAlive); Assert.False(alias.Page.IsAlive);
         VerifyPublishedAlias(alias, keys);
         GC.KeepAlive(alias);
     }
 
-    private static void Collect(ResourceGovernor? governor)
-    { for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); governor?.ReserveMemory(0L); } }
+    private static void Collect()
+    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 }

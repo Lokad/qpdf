@@ -59,10 +59,7 @@ public sealed class CoarseResultMemoryTests
         QpdfJsonResult copy = result with { };
         long retained = root.ReservedBytes;
         Assert.True(retained > 0L);
-        for (int attempt = 0; attempt < 3 && governor.IsAlive; attempt++)
-        {
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-        }
         Assert.False(governor.IsAlive);
         Assert.Equal(retained, root.ReservedBytes);
         Assert.Equal("{}", result.Json);

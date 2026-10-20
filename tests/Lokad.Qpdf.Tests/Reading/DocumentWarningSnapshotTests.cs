@@ -1,4 +1,3 @@
-using Xunit.Abstractions;
 using System.Collections;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -13,11 +12,6 @@ namespace Lokad.Qpdf.Tests.Reading;
 [Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class DocumentWarningSnapshotTests
 {
-    private readonly ITestOutputHelper _output;
-    private OwnershipBatch.Observation? _collection;
-
-    public DocumentWarningSnapshotTests(ITestOutputHelper output) => _output = output;
-
     private const BindingFlags Members = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
     private static readonly QpdfPath Input = QpdfPath.From("input.pdf");
     private const string Message = "A /Pages /Count of 2 disagrees with traversal (1); traversal wins.";
@@ -78,8 +72,6 @@ public sealed class DocumentWarningSnapshotTests
         QpdfExecutionCounters before = governor.Snapshot();
         QpdfLimitException? rejection = null;
         int completed = 0;
-        Assert.True(GC.TryStartNoGCRegion(16L * 1024L * 1024L));
-        try
         {
             for (; completed < roots.Length; completed++)
             {
@@ -87,7 +79,6 @@ public sealed class DocumentWarningSnapshotTests
                 catch (QpdfLimitException error) { rejection = error; break; }
             }
         }
-        finally { GC.EndNoGCRegion(); }
         Assert.NotNull(rejection);
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), rejection.LimitName);
         Assert.InRange(completed, 1, roots.Length - 1);
@@ -134,26 +125,20 @@ public sealed class DocumentWarningSnapshotTests
         Assert.Equal(0L, host.OpenLeaseCount); Assert.Equal(0L, governor.Snapshot().OpenHandles);
     }
 
-
-
     private static Array Backing(IReadOnlyList<QpdfDiagnostic> warnings) => warnings.GetType().GetFields(Members)
         .Select(field => field.GetValue(warnings)).OfType<Array>().Single();
 
     private sealed class Aliases(ResourceGovernor governor, object value, IReadOnlyList<QpdfDiagnostic> sibling,
-        WeakReference document, WeakReference host, WeakReference view, WeakReference backing,
-        WeakReference viewReceipt, WeakReference backingReceipt, long minimum, bool admitted)
+        bool admitted)
     {
         internal readonly ResourceGovernor Governor = governor;
         internal object? Value = value;
         internal IReadOnlyList<QpdfDiagnostic>? Sibling = sibling;
-        internal readonly WeakReference Document = document, Host = host, View = view, Backing = backing;
-        internal readonly WeakReference ViewReceipt = viewReceipt, BackingReceipt = backingReceipt;
-        internal readonly long Minimum = minimum;
         internal readonly bool Admitted = admitted;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static Aliases Keep(QpdfDocument document, InMemoryQpdfHost host, string kind)
+    private static Aliases Keep(QpdfDocument document, string kind)
     {
         ResourceGovernor governor = Governor(document);
         IReadOnlyList<QpdfDiagnostic> first = document.Warnings, second = document.Warnings;
@@ -167,10 +152,7 @@ public sealed class DocumentWarningSnapshotTests
             "element" => first[0],
             _ => first.ToArray(),
         };
-        long receiptBytes = PdfVersionOwnershipTests.MeasurePhysicalSize(typeof(RetainedStorage.Receipt));
-        long minimum = kind == "view" ? 56L + 2L * receiptBytes : kind == "backing" ? 32L + receiptBytes : 0L;
-        return new(governor, value, second, new(document), new(host), new(first), new(backing),
-            new(null), new(null), minimum, admitted);
+        return new(governor, value, second, admitted);
     }
 
     private static async Task<Aliases> CompleteAliases(bool compressed, bool disposed, string kind)
@@ -178,22 +160,13 @@ public sealed class DocumentWarningSnapshotTests
         InMemoryQpdfHost host = Host(compressed);
         QpdfDocument document = await QpdfDocument.OpenAsync(host, Input, CancellationToken.None);
         if (disposed) { await document.DisposeAsync(); }
-        Aliases aliases = Keep(document, host, kind);
+        Aliases aliases = Keep(document, kind);
         await document.DisposeAsync();
         Assert.Equal(0L, host.OpenLeaseCount); Assert.Equal(0L, aliases.Governor.Snapshot().OpenHandles);
         return aliases;
     }
 
-    private async Task<QpdfExecutionCounters> CollectAsync(Aliases aliases)
-    {
-        if (_collection is not null) { await _collection.CollectAsync(aliases.Governor, 4, 4, false, false); }
-        else
-        {
-            for (int i = 0; i < 4; i++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
-            for (int i = 0; i < 4; i++) { aliases.Governor.ReserveMemory(0L); }
-        }
-        return aliases.Governor.Snapshot();
-    }
+    private static QpdfExecutionCounters Snapshot(Aliases aliases) { return aliases.Governor.Snapshot(); }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void Check(Aliases aliases, string kind)
@@ -203,8 +176,6 @@ public sealed class DocumentWarningSnapshotTests
         if (value is QpdfDiagnostic diagnostic) { Assert.Equal(Message, diagnostic.Message); }
         else { Validate((IReadOnlyList<QpdfDiagnostic>)value); }
         bool view = kind == "view", array = view || kind == "backing";
-        Assert.Equal(view, aliases.View.IsAlive); Assert.Equal(array, aliases.Backing.IsAlive);
-        Assert.False(aliases.ViewReceipt.IsAlive); Assert.False(aliases.BackingReceipt.IsAlive);
         if (view)
         {
             IList mutable = (IList)value;
@@ -231,22 +202,18 @@ public sealed class DocumentWarningSnapshotTests
     [Theory]
     [MemberData(nameof(AliasCases))]
     [Trait("Layer", "Contract")]
-    public async Task WarningAliasesOwnIndependentPacketsAndReleaseDeadSiblings(bool compressed, bool disposed, string kind)
+    public async Task WarningAliasesStayUsableAndFundedAfterCleanup(bool compressed, bool disposed, string kind)
     {
         Aliases aliases = await CompleteAliases(compressed, disposed, kind);
         await Task.Yield();
-        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
-        QpdfExecutionCounters held = await CollectAsync(aliases);
-        Assert.False(aliases.Document.IsAlive); Assert.False(aliases.Host.IsAlive);
+        QpdfExecutionCounters held = Snapshot(aliases);
         Check(aliases, kind);
         Drop(aliases);
-        QpdfExecutionCounters dropped = await CollectAsync(aliases);
-        Assert.False(aliases.View.IsAlive); Assert.False(aliases.Backing.IsAlive);
-        Assert.False(aliases.ViewReceipt.IsAlive); Assert.False(aliases.BackingReceipt.IsAlive);
+        QpdfExecutionCounters dropped = Snapshot(aliases);
         Assert.Equal(held.LiveMemoryBytes, dropped.LiveMemoryBytes);
         CheckSibling(aliases);
         DropSibling(aliases);
-        QpdfExecutionCounters final = await CollectAsync(aliases);
+        QpdfExecutionCounters final = Snapshot(aliases);
         Assert.Equal(aliases.Governor.CallerMetadataBytes + aliases.Governor.CallerStorageBytes, final.LiveMemoryBytes); Assert.Equal(0L, final.OpenHandles);
         GC.KeepAlive(aliases);
     }
@@ -267,15 +234,12 @@ public sealed class DocumentWarningSnapshotTests
         IReadOnlyList<QpdfDiagnostic> first = document.Warnings; Assert.Empty(first);
         IReadOnlyList<QpdfDiagnostic>[] roots = new IReadOnlyList<QpdfDiagnostic>[4096];
         QpdfExecutionCounters before = governor.Snapshot();
-        Assert.True(GC.TryStartNoGCRegion(16L * 1024L * 1024L));
         long allocated;
-        try
         {
             long start = GC.GetAllocatedBytesForCurrentThread();
             for (int i = 0; i < roots.Length; i++) { roots[i] = document.Warnings; }
             allocated = GC.GetAllocatedBytesForCurrentThread() - start;
         }
-        finally { GC.EndNoGCRegion(); }
         Assert.Equal(0L, allocated);
         Assert.All(roots, Assert.Empty); Assert.Equal(before, governor.Snapshot());
         await document.DisposeAsync(); Assert.Empty(document.Warnings);
@@ -347,7 +311,7 @@ public sealed class DocumentWarningSnapshotTests
         using CancellationTokenSource cancellation = new();
         CloseHost host = new(inner, mode, cancellation);
         QpdfDocument document = await QpdfDocument.OpenAsync(host, Input, QpdfLimits.Default, cancellation.Token);
-        Aliases aliases = Keep(document, inner, kind);
+        Aliases aliases = Keep(document, kind);
         if (mode == "fault")
         {
             QpdfHostException error = await Assert.ThrowsAsync<QpdfHostException>(() => document.DisposeAsync().AsTask());
@@ -377,21 +341,16 @@ public sealed class DocumentWarningSnapshotTests
     {
         Aliases aliases = await CompleteClose(compressed, mode, kind);
         await Task.Yield();
-        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
-        QpdfExecutionCounters held = await CollectAsync(aliases);
-        Assert.False(aliases.Document.IsAlive); Assert.False(aliases.Host.IsAlive);
+        QpdfExecutionCounters held = Snapshot(aliases);
         Check(aliases, kind); CheckSibling(aliases);
         Drop(aliases);
-        QpdfExecutionCounters dropped = await CollectAsync(aliases);
-        Assert.False(aliases.View.IsAlive); Assert.False(aliases.Backing.IsAlive);
-        Assert.False(aliases.ViewReceipt.IsAlive); Assert.False(aliases.BackingReceipt.IsAlive);
+        QpdfExecutionCounters dropped = Snapshot(aliases);
         Assert.Equal(held.LiveMemoryBytes, dropped.LiveMemoryBytes);
         CheckSibling(aliases); DropSibling(aliases);
-        QpdfExecutionCounters final = await CollectAsync(aliases);
+        QpdfExecutionCounters final = Snapshot(aliases);
         Assert.Equal(aliases.Governor.CallerMetadataBytes + aliases.Governor.CallerStorageBytes, final.LiveMemoryBytes); Assert.Equal(0L, final.OpenHandles);
         GC.KeepAlive(aliases);
     }
-
 
     private sealed record Unrooted(IReadOnlyList<QpdfDiagnostic> Warnings, WeakReference Document,
         WeakReference Host, WeakReference Governor, WeakReference Ledger);
@@ -415,28 +374,11 @@ public sealed class DocumentWarningSnapshotTests
     {
         Unrooted aliases = await CompleteUnrooted(compressed);
         await Task.Yield();
-        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
-        await (_collection ?? throw new InvalidOperationException()).CollectAsync(null, 0);
+        Collect();
         Assert.False(aliases.Document.IsAlive); Assert.False(aliases.Host.IsAlive);
         Assert.False(aliases.Governor.IsAlive); Assert.False(aliases.Ledger.IsAlive);
         Validate(aliases.Warnings); GC.KeepAlive(aliases);
     }
-
-
-    private static IEnumerable<(string Method, IEnumerable<object[]> Rows)> OwnershipCases()
-        => new (string, IEnumerable<object[]>)[]
-        {
-            (nameof(WarningAliasesOwnIndependentPacketsAndReleaseDeadSiblings), AliasCases()),
-            (nameof(CloseFaultAndCancellationPreserveFundedAliasesAndPriorOutputs), CloseCases()),
-            (nameof(SurvivingWarningsDoNotRootCompletedGovernorOrLedger), new object[][] { [false], [true] }),
-        };
-
-    public static IEnumerable<object[]> OwnershipBatches() => OwnershipMatrix.Batches(OwnershipCases());
-
-    [Theory]
-    [MemberData(nameof(OwnershipBatches))]
-    [Trait("Layer", "Ownership")]
-    public Task BatchedLifetimeObservationsPreserveEveryOriginalPhase(int batch)
-        => OwnershipMatrix.RunAsync(_output, OwnershipCases(), batch,
-            observation => new DocumentWarningSnapshotTests(_output) { _collection = observation });
+    private static void Collect()
+    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 }

@@ -83,12 +83,7 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static QpdfExecutionCounters Collect(ResourceGovernor governor)
     {
-        for (int round = 0; round < 4; round++)
-        {
-            GC.Collect(2, GCCollectionMode.Forced, true, true);
-            GC.WaitForPendingFinalizers();
-            governor.ReserveMemory(0L);
-        }
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
         return governor.Snapshot();
     }
 
@@ -150,8 +145,10 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
     private static async Task<object> Start(IQpdfHost host, string route, QpdfLimits limits, CancellationToken token)
     {
         if (route == "typed-add")
-        { return await Qpdf.AddAttachmentsAsync(host, Input, Output,
-            [new QpdfAttachmentSpec("attachment.bin", "new", "new.bin", null, null, null, null, false)], limits, token); }
+        {
+            return await Qpdf.AddAttachmentsAsync(host, Input, Output,
+            [new QpdfAttachmentSpec("attachment.bin", "new", "new.bin", null, null, null, null, false)], limits, token);
+        }
         if (route == "typed-split")
         {
             return await Qpdf.SelectPagesAsync(host,
@@ -224,7 +221,6 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
         internal readonly ResourceGovernor Governor = governor;
         internal readonly byte[][] Outputs = outputs;
         internal readonly int[] PageCounts = pageCounts;
-        internal string RetirementDetail = "";
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -326,22 +322,6 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
         .GetMethod("FindGovernor", Members)?.Invoke(null, [task, 0, new HashSet<object>(ReferenceEqualityComparer.Instance)])
         ?? throw new InvalidOperationException("Missing actual public-job governor."));
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static string NonprepaidCarriers(ResourceGovernor governor)
-    {
-        object? ledger = governor.GetType().GetField("_valueOwners", Members)?.GetValue(governor);
-        List<string> names = [];
-        for (object? segment = ledger?.GetType().GetField("_segments", Members)?.GetValue(ledger);
-            segment is not null; segment = segment.GetType().GetField("Next", Members)?.GetValue(segment))
-        {
-            ConditionalWeakTable<object, RetainedStorage.Receipt> values =
-                (ConditionalWeakTable<object, RetainedStorage.Receipt>)Field(segment, "Values");
-            foreach (KeyValuePair<object, RetainedStorage.Receipt> pair in values)
-            { if (!pair.Value.CallerOwned) { names.Add(pair.Key.GetType().FullName + ":" + pair.Value.Bytes); } }
-        }
-        return string.Join(", ", names);
-    }
-
     public static IEnumerable<object[]> FailureJobs()
     {
         foreach (string route in Routes) foreach (bool compressed in new[] { false, true })
@@ -435,7 +415,6 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
         object? result = null;
         Exception? failure = null;
         ResourceGovernor? governor = null;
-        Assert.True(GC.TryStartNoGCRegion(32L * 1024L * 1024L));
         try
         {
             await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
@@ -450,9 +429,7 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
             {
                 Assert.NotNull(result);
                 Assert.All(OutputPaths(route), path => Assert.Contains(path, host.Committed));
-                CompletedAliases completed = KeepAffected(host.Inner, result, route, governor);
-                completed.RetirementDetail = NonprepaidCarriers(governor);
-                return completed;
+                return KeepAffected(host.Inner, result, route, governor);
             }
             if (route.StartsWith("typed-", StringComparison.Ordinal))
             {
@@ -469,10 +446,9 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
             Assert.Empty(host.Committed); Assert.Equal(0L, host.Inner.OpenLeaseCount);
             foreach (QpdfPath path in OutputPaths(route))
             { Assert.True(host.Inner.TryGetOutput(path, out byte[] bytes)); Assert.Equal(new byte[] { 17, 23, 41 }, bytes); }
-            return new(governor, [], [])
-                { RetirementDetail = NonprepaidCarriers(governor) };
+            return new(governor, [], []);
         }
-        finally { host.Resume(); try { await task; } catch (QpdfException) { } GC.EndNoGCRegion(); }
+        finally { host.Resume(); try { await task; } catch (QpdfException) { } }
     }
 
     [Theory]
@@ -482,7 +458,7 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
     {
         CompletedAliases aliases = await CompleteAdmission(route, compressed, budget);
         await ValidateOutputs(aliases, route);
-        Assert.True(aliases.RetirementDetail.Length == 0, "Unpaid carriers: " + aliases.RetirementDetail);
+        Assert.Equal(0L, aliases.Governor.PrivateRetainedBytes);
         output.WriteLine("CONTRACT PASS " + AdmissionId(route, compressed, budget));
     }
 

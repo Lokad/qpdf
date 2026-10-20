@@ -335,33 +335,21 @@ public sealed class ResponseArgumentOwnershipTests(ITestOutputHelper log)
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void ObserveCompletedJobs(List<Completed> jobs)
     {
-        for (int round = 0; round < 4; round++)
-        {
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-            foreach (var job in jobs) { job.Governor.ReserveMemory(0L); }
-        }
         for (int i = 0; i < jobs.Count; i++)
         {
             var job = jobs[i];
             Assert.True(!job.Expansion.IsAlive, "Job " + i + " keeps its expansion owner alive.");
             CheckAliases(job.Host, job.Governor); DropAliases(job.Host);
         }
-        for (int round = 0; round < 4; round++)
-        {
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-            foreach (var job in jobs) { job.Governor.ReserveMemory(0L); }
-        }
         foreach (var job in jobs)
         {
             Assert.False(job.Expansion.IsAlive);
             Assert.Equal(0L, job.Governor.Snapshot().OpenHandles);
             job.Result = null;
         }
-        for (int round = 0; round < 4; round++)
-        {
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-            foreach (var job in jobs) { job.Governor.ReserveMemory(0L); }
-        }
         for (int i = 0; i < jobs.Count; i++)
         {
             var job = jobs[i];
@@ -372,11 +360,7 @@ public sealed class ResponseArgumentOwnershipTests(ITestOutputHelper log)
             Assert.Equal(0L, job.Host.Inner.OpenLeaseCount);
             job.Counters = null;
         }
-        for (int round = 0; round < 4; round++)
-        {
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-            foreach (var job in jobs) { job.Governor.ReserveMemory(0L); }
-        }
         foreach (var job in jobs) { Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes); }
         GC.KeepAlive(jobs);
     }

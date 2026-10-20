@@ -193,11 +193,7 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void ObserveReadAttempts(List<(BoundaryHost Host, QpdfExecutionResult Result, ResourceGovernor Governor, int Length)> jobs)
     {
-        for (int round = 0; round < 4; round++)
-        {
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-            foreach (var job in jobs) { job.Governor.ReserveMemory(0L); }
-        }
         foreach (var job in jobs)
         {
             Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes);

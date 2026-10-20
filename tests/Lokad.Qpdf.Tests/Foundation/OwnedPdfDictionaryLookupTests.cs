@@ -117,7 +117,8 @@ Assert.Equal(before, owner.Snapshot().LiveMemoryBytes);
     [Fact]
     public void OwnedLookupDoesNotAttachCallerOrCallbackToPublishedBacking()
     {
-        var state = CompleteLookup(); for (int round = 0; round < 3; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        var state = CompleteLookup();
+        { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
         Assert.False(state.Governor.IsAlive); Assert.False(state.Observer.IsAlive); Assert.Equal(1, state.Dictionary.Count); GC.KeepAlive(state);
     }
 }

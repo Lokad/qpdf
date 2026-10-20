@@ -102,7 +102,8 @@ public sealed class AnalysisChunksOwnershipTests
     [Fact]
     public void RootedDisposedChunksDropExclusiveStorageAndExecutionState()
     {
-        var completed = Complete(); for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        var completed = Complete();
+        { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
         Assert.All(completed.Witnesses, witness => Assert.False(witness.IsAlive)); Assert.Equal(32768, completed.Borrowed.Data.Length);
         Assert.Throws<ObjectDisposedException>(() => completed.Owner.Parts); GC.KeepAlive(completed);
     }

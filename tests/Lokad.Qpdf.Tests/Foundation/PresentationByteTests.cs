@@ -70,8 +70,13 @@ public sealed class PresentationByteTests
         foreach (string flag in flags.Split(' ', StringSplitOptions.RemoveEmptyEntries))
         {
             argv.Add("--" + flag);
-            job.Add(flag switch { "report-memory-usage" => "reportMemoryUsage", "no-warn" => "noWarn",
-                "warning-exit-0" => "warningExit0", _ => flag }, "");
+            job.Add(flag switch
+            {
+                "report-memory-usage" => "reportMemoryUsage",
+                "no-warn" => "noWarn",
+                "warning-exit-0" => "warningExit0",
+                _ => flag
+            }, "");
         }
         switch (operation)
         {
@@ -104,7 +109,8 @@ public sealed class PresentationByteTests
                 argv.AddRange(["--json=2", "--json-stream-data=" + (operation == "json-sidecar" ? "file" : "inline")]);
                 job.Add("json", "2"); job.Add("jsonStreamData", operation == "json-sidecar" ? "file" : "inline");
                 if (operation == "json-sidecar") { argv.Add("--json-stream-prefix=side"); job.Add("jsonStreamPrefix", "side"); }
-                if (operation != "json-inline") { argv.Add("--"); } break;
+                if (operation != "json-inline") { argv.Add("--"); }
+                break;
             case "json-import": argv.AddRange(["--json-input", "--"]); job.Add("jsonInput", ""); break;
             case "json-update": argv.AddRange(["--update-from-json=input.json", "--"]); job.Add("updateFromJson", "input.json"); break;
             case "check": argv.Add("--check"); job.Add("check", ""); break;
@@ -132,10 +138,6 @@ public sealed class PresentationByteTests
     [MemberData(nameof(Jobs))]
     public async Task PublicJobsHoldExactSummaryByteQuotas(string route, string operation, bool compressed, string ceiling)
     {
-        // Both jobs must format the same peak: collection can retire owners
-        // between them and change the number of summary digits.
-        Assert.True(GC.TryStartNoGCRegion(16 * 1024 * 1024));
-        try
         {
             const string flags = "verbose progress report-memory-usage";
             ByteHost baselineHost = await Prepare(operation, compressed, false);
@@ -176,7 +178,6 @@ public sealed class PresentationByteTests
             Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, host.Inner.OpenLeaseCount);
             Assert.All(aliases, alias => Assert.Equal(Prior, alias)); GC.KeepAlive(result); GC.KeepAlive(aliases);
         }
-        finally { GC.EndNoGCRegion(); }
     }
 
     [Theory]

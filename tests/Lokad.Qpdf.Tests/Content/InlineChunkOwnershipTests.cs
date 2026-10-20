@@ -21,9 +21,13 @@ public sealed class InlineChunkOwnershipTests
     public void MalformedAndUnsupportedPlansKeepBorrowingTheExactRawPayload(string shape)
     {
         QpdfObject filter = shape switch
-        { "missing-reference" => new PdfReference(7, 0), "bad-array" => new PdfArray([new PdfInteger("1", 1L)]),
+        {
+            "missing-reference" => new PdfReference(7, 0),
+            "bad-array" => new PdfArray([new PdfInteger("1", 1L)]),
             "mixed-chain" => new PdfArray([PdfName.FromAscii("ASCIIHexDecode"), PdfName.FromAscii("DCTDecode")]),
-            "unknown-binary-name" => new PdfName([0, 255, (byte)'x']), _ => PdfName.FromAscii("ASCIIHexDecode") };
+            "unknown-binary-name" => new PdfName([0, 255, (byte)'x']),
+            _ => PdfName.FromAscii("ASCIIHexDecode")
+        };
         PdfDictionary header = shape == "bad-params" ? Dictionary(("Filter", filter), ("DecodeParms", new PdfInteger("1", 1L))) : Dictionary(("Filter", filter));
         PdfStream stream = new(header, "ABCG>"u8.ToArray()); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using AnalysisChunks chunks = AnalysisChunks.Create(governor, CancellationToken.None);
@@ -92,7 +96,8 @@ public sealed class InlineChunkOwnershipTests
     [Fact]
     public void RootedDisposedInlineChunksDropTheirExclusiveStorageAndContext()
     {
-        var completed = Complete(); for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        var completed = Complete();
+        { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
         Assert.All(completed.Witnesses, witness => Assert.False(witness.IsAlive)); Assert.Equal(32768, completed.Borrowed.Data.Length);
         Assert.Throws<ObjectDisposedException>(() => completed.Owner.Parts); GC.KeepAlive(completed);
     }

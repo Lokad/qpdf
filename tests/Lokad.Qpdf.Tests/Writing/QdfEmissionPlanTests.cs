@@ -117,7 +117,8 @@ public sealed class QdfEmissionPlanTests
         using WriterOrder<NumberedObject> source=Source(owner,new NumberedObject(1,PdfNull.Instance));
         long live=owner.Snapshot().LiveMemoryBytes;
         Assert.Throws<InvalidOperationException>(()=>QdfEmissionPlan.Create(source,null,other,CancellationToken.None));
-        Assert.Equal(live,owner.Snapshot().LiveMemoryBytes);Assert.Equal(0L,other.Snapshot().LiveMemoryBytes);    }
+        Assert.Equal(live, owner.Snapshot().LiveMemoryBytes); Assert.Equal(0L, other.Snapshot().LiveMemoryBytes);
+    }
 
     [Theory]
     [InlineData(false)]
@@ -129,7 +130,8 @@ public sealed class QdfEmissionPlanTests
         using WriterOrder<NumberedObject> source=Source(governor,new NumberedObject(1,PdfNull.Instance));
         long live=governor.Snapshot().LiveMemoryBytes;cancellation.Cancel();
         Assert.ThrowsAny<OperationCanceledException>(()=>QdfEmissionPlan.Create(source,null,governor,governorToken ? CancellationToken.None : cancellation.Token));
-        Assert.Equal(live,governor.Snapshot().LiveMemoryBytes);    }
+        Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
+    }
 
     [Theory]
     [InlineData(false)]
@@ -199,5 +201,5 @@ public sealed class QdfEmissionPlanTests
 
     internal static object Field(object owner,string name)=>owner.GetType().GetField(name,BindingFlags.Instance|BindingFlags.NonPublic)?.GetValue(owner)
         ?? throw new InvalidOperationException("Expected QDF plan field.");
-    internal static void Collected(){for(int round=0;round<3;round++){GC.Collect();GC.WaitForPendingFinalizers();GC.Collect();}}
+    internal static void Collected() { { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); } }
 }

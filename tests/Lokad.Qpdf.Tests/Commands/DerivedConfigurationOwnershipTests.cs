@@ -24,7 +24,6 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
     private static long PhysicalStringBytes(int length)
     {
         if (PhysicalStrings.TryGetValue(length, out long known)) { return known; }
-        using IDisposable capture = OwnershipBatch.CaptureWithoutCollection();
         string[] roots = new string[32];
         for (int index = 0; index < roots.Length; index++) { roots[index] = new string('p', length); }
         Array.Clear(roots);
@@ -222,13 +221,9 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
         return new Completed(route, profile, outcome, governor, result, planReference, aliases, missing);
     }
 
-    private static void Collect(List<Completed> jobs)
-    {
-        for (int round = 0; round < 4; round++)
+    private static void Collect()
         {
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-            foreach (Completed job in jobs) { job.Governor.ReserveMemory(0L); }
-        }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -259,16 +254,16 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
     [Fact]
     public async Task CompleteJobsFundDerivedValuesAndRetirePlansIndependently()
     {
-        List<Completed> jobs = await CompleteJobs(); Collect(jobs);
+        List<Completed> jobs = await CompleteJobs(); Collect();
         List<string> defects = ObserveAliases(jobs);
         foreach (Completed job in jobs) { job.Aliases.Clear(); job.Result = null; }
-        Collect(jobs);
+        Collect();
         foreach (Completed job in jobs)
         {
             log.WriteLine("DERIVED COUNTER {0} {1}", job.Id, job.Governor.Snapshot().LiveMemoryBytes);
             Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes); job.Counters = null;
         }
-        Collect(jobs);
+        Collect();
         foreach (Completed job in jobs)
         {
             log.WriteLine("DERIVED FINAL {0} {1}", job.Id, job.Governor.Snapshot().LiveMemoryBytes);
@@ -349,13 +344,9 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
         return jobs;
     }
 
-    private static void CollectTyped(List<TypedCompleted> jobs)
-    {
-        for (int round = 0; round < 4; round++)
+    private static void CollectTyped()
         {
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-            foreach (TypedCompleted job in jobs) { job.Governor.ReserveMemory(0L); }
-        }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -375,10 +366,10 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
     [Fact]
     public async Task TypedJsonJobsFundCanonicalSelectorsAndRetirePrivateInspection()
     {
-        List<TypedCompleted> jobs = await CompleteTypedJobs(); CollectTyped(jobs);
+        List<TypedCompleted> jobs = await CompleteTypedJobs(); CollectTyped();
         bool missing = ObserveTyped(jobs);
         foreach (TypedCompleted job in jobs) { job.Aliases.Clear(); job.Result = null; job.Counters = null; }
-        CollectTyped(jobs);
+        CollectTyped();
         foreach (TypedCompleted job in jobs) { Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes); }
         Assert.False(missing, "Typed JSON canonical selectors exceed their active storage allowance.");
     }

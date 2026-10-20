@@ -22,7 +22,8 @@ public sealed class DocumentValueOwnerTests
         => QpdfDocument.OpenCore(host, QpdfPath.From("a.pdf"), limits, governor, new DiagnosticBag(governor),
             broken ? QpdfRecoveryMode.BoundedRepair : QpdfRecoveryMode.Strict, CancellationToken.None);
 
-    private static void Collect() { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+    private static void Collect()
+    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 
     private static object Field(object value, string name)
         => value.GetType().GetField(name, BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(value)
@@ -232,7 +233,6 @@ public sealed class DocumentValueOwnerTests
         CheckAndClearNumber(alias, document, token);
         Collect();
         Assert.False(alias.Backing.IsAlive);
-        governor.ReserveMemory(0L);
         Assert.True(governor.Snapshot().LiveMemoryBytes >= token.Length * 2L);
         governor.CompletePrivateStorage();
         Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
@@ -283,7 +283,6 @@ public sealed class DocumentValueOwnerTests
         long before = CheckAndClearKeys(alias, document, populated);
         Collect();
         Assert.False(alias.Backing.IsAlive);
-        governor.ReserveMemory(0L);
         Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
         governor.CompletePrivateStorage();
         Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);

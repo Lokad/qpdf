@@ -10,7 +10,8 @@ namespace Lokad.Qpdf.Tests.Foundation;
 
 public sealed class DiagnosticOwnershipTests
 {
-    private static void Collect() { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+    private static void Collect()
+    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 
     private static List<QpdfDiagnostic>? Stored(DiagnosticBag bag)
         => (List<QpdfDiagnostic>?)typeof(DiagnosticBag).GetField("_entries", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(bag);
@@ -107,11 +108,9 @@ public sealed class DiagnosticOwnershipTests
         TextAlias alias = CaptureBeforeTransfer(governor);
         governor.CompletePrivateStorage();
         Collect();
-        governor.ReserveMemory(0L);
         ClearTextAlias(alias, governor);
         Collect();
         Assert.All(alias.References, reference => Assert.False(reference.IsAlive));
-        governor.ReserveMemory(0L);
         Assert.Equal(governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(governor);
     }
@@ -165,11 +164,9 @@ public sealed class DiagnosticOwnershipTests
         Alias alias = Capture(governor, owned, kind);
         governor.CompletePrivateStorage();
         Collect();
-        governor.ReserveMemory(0L);
         VerifyAndClearAlias(alias, governor, kind);
         Collect();
         Assert.All(alias.References, reference => Assert.False(reference.IsAlive));
-        governor.ReserveMemory(0L);
         Assert.Equal(governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(governor);
     }
@@ -221,7 +218,6 @@ public sealed class DiagnosticOwnershipTests
         governor.CompletePrivateStorage();
         Collect();
         Assert.All(dropped, reference => Assert.False(reference.IsAlive));
-        governor.ReserveMemory(0L);
         Assert.Equal(governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(2L, governor.Snapshot().DiagnosticCount);
     }
@@ -259,11 +255,9 @@ public sealed class DiagnosticOwnershipTests
         Alias alias = Capture(governor, owned, "list");
         governor.CompletePrivateStorage();
         Collect();
-        governor.ReserveMemory(0L);
         VerifyAndClearList(alias, governor);
         Collect();
         Assert.All(alias.References, reference => Assert.False(reference.IsAlive));
-        governor.ReserveMemory(0L);
         Assert.Equal(governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
     }
 

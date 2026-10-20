@@ -101,7 +101,7 @@ public sealed class SharedResourceWalkOwnershipTests
     public void RootedDisposedWalkAndBorrowedPayloadRetainNoExecutionIndexesOrQueue()
     {
         Completed completed = Complete();
-        for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
         Assert.All(completed.Witnesses, witness => Assert.False(witness.IsAlive));
         Assert.Equal(2 * 1024 * 1024, ((PdfByteString)completed.Borrowed).ValueSpan.Length); GC.KeepAlive(completed);
     }

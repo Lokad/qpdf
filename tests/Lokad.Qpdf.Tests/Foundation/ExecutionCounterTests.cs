@@ -166,9 +166,6 @@ public sealed class ExecutionCounterTests
         using CancellationTokenSource cancellation = new();
         CounterHost host = await Prepare(route, compressed, boundary, outcome);
         Assert.True(host.Inner.TryGetOutput(OutputPath, out byte[] priorAlias));
-        // A final snapshot is immutable; weak receipts may retire after return.
-        // This exclusive collection stabilizes only the exact observation window.
-        Assert.True(GC.TryStartNoGCRegion(16L * 1024L * 1024L));
         Task<object> executing = Start(host, route, QpdfLimits.Default, cancellation.Token);
         try
         {
@@ -214,11 +211,9 @@ public sealed class ExecutionCounterTests
         finally
         {
             host.Resume();
-            try
             {
                 try { await executing; } catch (QpdfException) { } catch (OperationCanceledException) { }
             }
-            finally { GC.EndNoGCRegion(); }
         }
     }
 

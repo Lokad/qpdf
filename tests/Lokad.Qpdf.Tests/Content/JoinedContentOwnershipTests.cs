@@ -84,7 +84,7 @@ public sealed class JoinedContentOwnershipTests
     public void RootedDisposedOwnerDropsBufferAndExecutionStateWhileInputSurvives()
     {
         var completed = Complete();
-        for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
         Assert.All(completed.Witnesses, witness => Assert.False(witness.IsAlive)); Assert.Equal(91, completed.Input[17]);
         Assert.Throws<ObjectDisposedException>(() => completed.Owner.Bytes); GC.KeepAlive(completed);
     }

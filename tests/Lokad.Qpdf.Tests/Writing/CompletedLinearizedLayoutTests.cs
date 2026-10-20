@@ -1,4 +1,3 @@
-using Xunit.Abstractions;
 using Lokad.Qpdf.Tests.Foundation;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -11,11 +10,6 @@ namespace Lokad.Qpdf.Tests.Writing;
 [Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class CompletedLinearizedLayoutTests
 {
-    private readonly ITestOutputHelper _output;
-    private OwnershipBatch.Observation? _collection;
-
-    public CompletedLinearizedLayoutTests(ITestOutputHelper output) => _output = output;
-
     private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
     private static void FindLayouts(Task writing, List<object> layouts, int depth)
@@ -72,7 +66,17 @@ public sealed class CompletedLinearizedLayoutTests
         return arrays.ToArray();
     }
 
-    internal async Task CountingAndReplayIndexesDieWhileCompletedTasksStayRooted(string route, string outcome)
+    [Theory]
+    [InlineData("classic", "success")]
+    [InlineData("classic", "failure")]
+    [InlineData("classic", "cancellation")]
+    [InlineData("streamed", "success")]
+    [InlineData("streamed", "failure")]
+    [InlineData("streamed", "cancellation")]
+    [InlineData("fallback", "success")]
+    [InlineData("fallback", "failure")]
+    [InlineData("fallback", "cancellation")]
+    public async Task CountingAndReplayIndexesDieWhileCompletedTasksStayRooted(string route, string outcome)
     {
         List<NumberedObject> model = LinearizedStreamedPartsTests.OnePageModel();
         for (int index = 0; index < 512; index++) { model.Add(new NumberedObject(index + 6, PdfNull.Instance)); }
@@ -92,7 +96,7 @@ public sealed class CompletedLinearizedLayoutTests
         try
         {
             WeakReference[] arrays = BackingArrays(writing);
-            await ObserveAsync(governor, 1);
+            Collect();
             Assert.All(arrays, value => Assert.True(value.IsAlive));
             if (outcome == "cancellation") { cancellation.Cancel(); }
             else { sink.Resume(); }
@@ -103,7 +107,7 @@ public sealed class CompletedLinearizedLayoutTests
             }
             else if (outcome == "failure") { await Assert.ThrowsAsync<QpdfException>(async () => await writing); }
             else { await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await writing); }
-            await ObserveAsync(governor, 3);
+            Collect();
             Assert.All(arrays, value => Assert.False(value.IsAlive));
             Assert.True(governor.Snapshot().LiveMemoryBytes < 4096L);
             Assert.Same(PdfNull.Instance, model[^1].Value);
@@ -141,22 +145,6 @@ public sealed class CompletedLinearizedLayoutTests
         }
     }
 
-    private Task ObserveAsync(ResourceGovernor governor, int rounds)
-        => (_collection ?? throw new InvalidOperationException("Missing ownership batch."))
-            .CollectAsync(governor, 0, rounds, false, false);
-
-    private static IEnumerable<(string Method, IEnumerable<object[]> Rows)> OwnershipCases()
-        => new (string, IEnumerable<object[]>)[]
-        {
-            (nameof(CountingAndReplayIndexesDieWhileCompletedTasksStayRooted), new object[][] { ["classic", "success"], ["classic", "failure"], ["classic", "cancellation"], ["streamed", "success"], ["streamed", "failure"], ["streamed", "cancellation"], ["fallback", "success"], ["fallback", "failure"], ["fallback", "cancellation"] }),
-        };
-
-    public static IEnumerable<object[]> OwnershipBatches() => OwnershipMatrix.Batches(OwnershipCases());
-
-    [Theory]
-    [MemberData(nameof(OwnershipBatches))]
-    [Trait("Layer", "Ownership")]
-    public Task BatchedLifetimeObservationsPreserveEveryOriginalPhase(int batch)
-        => OwnershipMatrix.RunAsync(_output, OwnershipCases(), batch,
-            observation => new CompletedLinearizedLayoutTests(_output) { _collection = observation });
+    private static void Collect()
+    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 }

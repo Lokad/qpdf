@@ -43,7 +43,6 @@ public sealed class GovernedCollectionTests
         PdfName left = new(Enumerable.Repeat((byte)35, 4096).ToArray());
         PdfName right = new(Enumerable.Repeat((byte)35, 4096).ToArray());
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        using IDisposable capture = OwnershipBatch.CaptureWithoutCollection();
         // Warm the same comparison path before observing exact thread-local
         // allocation, inside the isolated sampling phase.
         for (int warmup = 0; warmup < 64; warmup++)

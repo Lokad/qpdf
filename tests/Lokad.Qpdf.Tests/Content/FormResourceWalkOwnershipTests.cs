@@ -48,7 +48,8 @@ public sealed class FormResourceWalkOwnershipTests
         using CancellationTokenSource source = new(); source.Cancel();
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? source.Token : CancellationToken.None);
         Assert.ThrowsAny<OperationCanceledException>(() => FormResourceWalk.Create(governor, governorToken ? CancellationToken.None : source.Token));
-        Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);     }
+        Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);
+    }
 
     [Fact]
     public void FormListGrowthFailureKeepsPriorOrderAndCanRetryAfterReleasingTheFiller()
@@ -123,7 +124,7 @@ public sealed class FormResourceWalkOwnershipTests
     public void RootedDisposedWalkKeepsNoExecutionOrBackingMetadata()
     {
         Completed completed = Complete();
-        for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
         Assert.All(completed.Witnesses, witness => Assert.False(witness.IsAlive)); Assert.Equal(2 * 1024 * 1024, completed.Borrowed.RawMemory.Length); GC.KeepAlive(completed);
     }
 }

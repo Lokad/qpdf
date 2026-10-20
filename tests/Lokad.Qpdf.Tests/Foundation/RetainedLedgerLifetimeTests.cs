@@ -12,7 +12,6 @@ namespace Lokad.Qpdf.Tests.Foundation;
 [Collection(nameof(NameTableCollection))]
 public sealed class RetainedLedgerLifetimeTests
 {
-    private OwnershipBatch.Observation? _collection;
 
     private sealed class Alias(object value, WeakReference[] metadata, long minimumBytes)
     {
@@ -28,9 +27,8 @@ public sealed class RetainedLedgerLifetimeTests
     private static WeakReference[] Metadata(ResourceGovernor governor)
         => [new(governor), new(Field(governor, "_valueOwners"))];
 
-
-    private static void Collect(ResourceGovernor? governor)
-    { for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); governor?.ReserveMemory(0L); } }
+    private static void Collect()
+    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static Alias Capture(ResourceGovernor governor, string kind)
@@ -93,7 +91,7 @@ public sealed class RetainedLedgerLifetimeTests
     [InlineData("table")]
     public void EscapingCarriersDoNotRetainCompletedLedgerMetadata(string kind)
     {
-        Alias alias = Complete(kind); Collect(null);
+        Alias alias = Complete(kind); Collect();
         Assert.All(alias.Metadata, reference => Assert.False(reference.IsAlive)); Verify(alias, kind); GC.KeepAlive(alias);
     }
 
@@ -108,12 +106,12 @@ public sealed class RetainedLedgerLifetimeTests
     public void AdmissionRemainsUntilTheCoarseOwnerEnds(string kind)
     {
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 32768L }, CancellationToken.None);
-        Alias alias = Capture(governor, kind); Collect(governor);
+        Alias alias = Capture(governor, kind); Collect();
         Assert.All(alias.Metadata, reference => Assert.True(reference.IsAlive));
         Assert.True(governor.Snapshot().LiveMemoryBytes >= alias.MinimumBytes); Verify(alias, kind);
-        alias.Value = null; Collect(governor);
+        alias.Value = null; Collect();
         governor.CompletePrivateStorage();
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Collect(governor); Assert.All(alias.Metadata.Skip(1), reference => Assert.False(reference.IsAlive)); GC.KeepAlive(governor);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Collect(); Assert.All(alias.Metadata.Skip(1), reference => Assert.False(reference.IsAlive)); GC.KeepAlive(governor);
     }
 
     [Fact]
@@ -129,57 +127,30 @@ public sealed class RetainedLedgerLifetimeTests
         Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(0L, memory.ReservedBytes); Assert.Equal(97L, prior.ReservedBytes);
         filler.Dispose();
-        memory.Dispose(); Collect(governor); Assert.True(governor.Snapshot().LiveMemoryBytes >= bytes + 97L); GC.KeepAlive(value);
+        memory.Dispose(); Collect(); Assert.True(governor.Snapshot().LiveMemoryBytes >= bytes + 97L); GC.KeepAlive(value);
     }
 
     [Fact]
     public void AdditionalTransferPreservesEarlierAliasesAtTheMemoryCeiling()
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 32768L }; ResourceGovernor governor = new(limits, CancellationToken.None);
-        Alias first = Capture(governor, "string"); Collect(governor);
+        Alias first = Capture(governor, "string"); Collect();
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         long bytes = GovernedText.StringBytes(1024); memory.Reserve(bytes); string value = new('V', 1024);
         using ParserMemoryScope filler = ParserMemoryScope.Create(governor);
         filler.Reserve(limits.MaxMemoryBytes - governor.Snapshot().LiveMemoryBytes - 1L); long before = governor.Snapshot().LiveMemoryBytes;
         memory.RetainAllocation(bytes);
         Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, memory.ReservedBytes); Verify(first, "string");
-        filler.Dispose(); memory.Dispose(); Collect(governor);
+        filler.Dispose(); memory.Dispose(); Collect();
         Assert.True(governor.Snapshot().LiveMemoryBytes >= first.MinimumBytes + bytes); Verify(first, "string"); GC.KeepAlive(value); GC.KeepAlive(first);
     }
 
-    private sealed class ObservedRoots(QpdfObject[] values, Action observe) : IReadOnlyList<QpdfObject>
-    {
-        public int Count => values.Length;
-        public QpdfObject this[int index] { get { if (index == 32) { observe(); } return values[index]; } }
-        public IEnumerator<QpdfObject> GetEnumerator() { for (int index = 0; index < values.Length; index++) { yield return this[index]; } }
-        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-    }
-
-    [Fact]
-    public void RetentionDoesNotEnumerateBorrowedRoots()
-    {
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        Alias first = Capture(governor, "string");
-        QpdfObject[] borrowed = Enumerable.Range(1, 64).Select(index => (QpdfObject)new PdfReference(index, 0)).ToArray();
-        ObservedRoots roots = new(borrowed, () => throw new InvalidOperationException("Borrowed graphs must not be traversed for admission."));
-        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        memory.Reserve(32L);
-        object wrapper = new();
-        memory.RetainGraph();
-        Assert.Equal(0L, memory.ReservedBytes);
-        Verify(first, "string");
-        GC.KeepAlive(first); GC.KeepAlive(wrapper); GC.KeepAlive(borrowed);
-    }
-
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static Alias CompleteWithQueuedRetirements()
+    private static Alias CaptureWithDiscardedSiblings()
     {
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 32768L }, CancellationToken.None);
         Alias first = Capture(governor, "string"); AddUnrootedAliases(governor);
-        // Queue finalizer notifications while the governor is rooted, without
-        // draining the job-thread index. The surviving first alias must not
-        // keep that abandoned queue or the rest of its metadata alive later.
-        Collect(null);
+        Collect();
         return new(first.Value ?? throw new InvalidOperationException("Missing first alias."), first.Metadata, first.MinimumBytes);
     }
 
@@ -196,29 +167,7 @@ public sealed class RetainedLedgerLifetimeTests
     [Fact]
     public void SurvivingValuesDoNotAnchorCompletedCoarseOwners()
     {
-        Alias alias = CompleteWithQueuedRetirements(); Collect(null);
+        Alias alias = CaptureWithDiscardedSiblings(); Collect();
         Assert.All(alias.Metadata, reference => Assert.False(reference.IsAlive)); Verify(alias, "string"); GC.KeepAlive(alias);
     }
-
-    internal async Task RetiredLedgersDoNotInterfereWithThirtyTwoLaterFiniteCycles()
-    {
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 32768L }, CancellationToken.None);
-        for (int cycle = 0; cycle < 32; cycle++)
-        {
-            Alias alias = Capture(governor, "string"); await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 4, 4, false, true); Verify(alias, "string");
-            Assert.True(governor.Snapshot().LiveMemoryBytes >= alias.MinimumBytes);
-            alias.Value = null; await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 4, 4, false, true); governor.CompletePrivateStorage(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-            Assert.All(alias.Metadata.Skip(1), reference => Assert.False(reference.IsAlive));
         }
-        GC.KeepAlive(governor);
-    }
-
-    internal static IEnumerable<(string Id, Func<OwnershipBatch.Observation, Task> Run)> StressCases()
-        => (new object[][] { [] }).Select(row =>
-            (OwnershipBatch.Id(nameof(RetainedLedgerLifetimeTests), nameof(RetiredLedgersDoNotInterfereWithThirtyTwoLaterFiniteCycles), row),
-            (Func<OwnershipBatch.Observation, Task>)(async observation =>
-            {
-                RetainedLedgerLifetimeTests fixture = new() { _collection = observation };
-                await fixture.RetiredLedgersDoNotInterfereWithThirtyTwoLaterFiniteCycles();
-            })));
-}

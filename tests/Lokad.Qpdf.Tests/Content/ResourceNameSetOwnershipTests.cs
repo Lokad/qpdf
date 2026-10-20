@@ -47,7 +47,8 @@ public sealed class ResourceNameSetOwnershipTests
         using CancellationTokenSource source = new(); source.Cancel();
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? source.Token : CancellationToken.None);
         Assert.ThrowsAny<OperationCanceledException>(() => ResourceNameSet.Create(governor, governorToken ? CancellationToken.None : source.Token));
-        Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);     }
+        Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);
+    }
 
     [Fact]
     public void FailedGrowthPreservesPriorNamesAndRetriesWithTheSameOwner()
@@ -134,7 +135,8 @@ public sealed class ResourceNameSetOwnershipTests
     [Fact]
     public void RootedDisposedOwnerKeepsNoExecutionOrBackingState()
     {
-        var completed = Complete(); for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        var completed = Complete();
+        { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
         Assert.All(completed.Witnesses, witness => Assert.False(witness.IsAlive));
         Assert.Throws<ObjectDisposedException>(() => completed.Owner.Count); GC.KeepAlive(completed);
     }

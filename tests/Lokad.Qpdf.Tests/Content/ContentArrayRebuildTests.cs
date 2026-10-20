@@ -81,11 +81,11 @@ public sealed class ContentArrayRebuildTests
     public void EscapedArrayAndBackingStayFundedAfterThePageDies()
     {
         using Prepared prepared = new(true); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        PdfArray? array = EscapeArray(prepared, governor); Collect(governor);
+        PdfArray? array = EscapeArray(prepared, governor); Collect();
         Assert.True(governor.Snapshot().LiveMemoryBytes >= 88L); Assert.Same(prepared.Replacement, array[3]);
-        object? backing = array.AllocationCarrier; array = null; Collect(governor);
+        object? backing = array.AllocationCarrier; array = null; Collect();
         Assert.True(governor.Snapshot().LiveMemoryBytes >= 64L); GC.KeepAlive(backing);
-        backing = null; Collect(governor); governor.CompletePrivateStorage(); Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
+        backing = null; Collect(); governor.CompletePrivateStorage(); Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
     }
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static PdfArray EscapeArray(Prepared prepared, ResourceGovernor governor)
@@ -93,6 +93,6 @@ public sealed class ContentArrayRebuildTests
         PdfDictionary page = DecoderOwnershipFixtures.Dictionary(("Contents", new PdfArray([prepared.Original, PdfNull.Instance, prepared.Original, prepared.Original])));
         return Assert.IsType<PdfArray>(Contents(Replace(page, prepared, governor)));
     }
-    private static void Collect(ResourceGovernor governor)
-    { for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); governor.ReserveMemory(0L); } }
+    private static void Collect()
+    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 }

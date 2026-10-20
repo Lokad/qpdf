@@ -143,8 +143,7 @@ public sealed class LinearizationDataOwnershipTests
 
     private static void Collect()
     {
-        for (int round = 0; round < 4; round++)
-        { GC.Collect(2, GCCollectionMode.Forced, true, true); GC.WaitForPendingFinalizers(); }
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
     }
 
     [Theory]

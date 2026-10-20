@@ -161,9 +161,9 @@ public sealed class OwnedPdfDictionaryStorageTests
         return new(dictionary.Keys, new(dictionary), new(table), new(memory), new(governor), table.StorageBytes);
     }
 
-    private static void Collect(ResourceGovernor? governor)
+    private static void Collect()
     {
-        for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); governor?.ReserveMemory(0L); }
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
     }
 
     [Theory]
@@ -173,11 +173,11 @@ public sealed class OwnedPdfDictionaryStorageTests
     public void EscapingKeysKeepTheirBackingFundedUntilTheLastAliasDies(int count)
     {
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 32768L }, CancellationToken.None);
-        Alias alias = Publish(governor, count); Collect(governor);
+        Alias alias = Publish(governor, count); Collect();
         Assert.False(alias.Wrapper.IsAlive); Assert.False(alias.Scope.IsAlive); Assert.True(alias.Table.IsAlive);
         Assert.True(governor.Snapshot().LiveMemoryBytes >= alias.Bytes);
         Assert.Equal(Enumerable.Range(0, count).Select(Key), alias.Keys);
-        alias.Keys = null; Collect(governor);
+        alias.Keys = null; Collect();
         Assert.False(alias.Table.IsAlive); governor.CompletePrivateStorage(); Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(governor); GC.KeepAlive(alias);
     }
@@ -191,7 +191,7 @@ public sealed class OwnedPdfDictionaryStorageTests
     [InlineData(32)]
     public void EscapingKeysDoNotRetainCompletedExecutionState(int count)
     {
-        Alias alias = Complete(count); Collect(null);
+        Alias alias = Complete(count); Collect();
         Assert.False(alias.Wrapper.IsAlive); Assert.False(alias.Scope.IsAlive); Assert.False(alias.Governor.IsAlive);
         Assert.True(alias.Table.IsAlive); Assert.Equal(Enumerable.Range(0, count).Select(Key), alias.Keys);
         GC.KeepAlive(alias);

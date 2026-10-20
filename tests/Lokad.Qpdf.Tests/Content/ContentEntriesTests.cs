@@ -39,7 +39,8 @@ public sealed class ContentEntriesTests
         cancellation.Cancel();
         Assert.Throws<OperationCanceledException>(() => entries.Get(0));
         Assert.Throws<OperationCanceledException>(() => entries.Add(new(null, 4, stream)));
-        Assert.Equal(4, entries.Count); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);     }
+        Assert.Equal(4, entries.Count); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
+    }
 
     [Theory]
     [InlineData(false)]
@@ -64,13 +65,14 @@ public sealed class ContentEntriesTests
         PdfDictionary page = new(new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("Contents")] = Stream() });
         TargetInvocationException wrapper = Assert.Throws<TargetInvocationException>(() => method.Invoke(null, [null, page, governor, new DiagnosticBag(governor), cancellation.Token]));
         Assert.IsType<OperationCanceledException>(wrapper.InnerException);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);     }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
 
     [Fact]
     public void RootedDisposedOwnerDoesNotKeepItsGovernorOrTokenSource()
     {
         var prepared = PrepareDisposed();
-        for (int index = 0; index < 3; index++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
         Assert.False(prepared.Governor.IsAlive); Assert.False(prepared.Cancellation.IsAlive);
         Assert.Equal(4096, prepared.Stream.RawMemory.Length);
         GC.KeepAlive(prepared.Owner);

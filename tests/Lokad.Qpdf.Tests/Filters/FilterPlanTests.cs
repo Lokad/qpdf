@@ -122,8 +122,11 @@ public sealed class FilterPlanTests
         Resolver resolver = new(new()
         {
             [1] = new PdfArray([new PdfReference(2, 0), new PdfReference(3, 0)]),
-            [2] = PdfName.FromAscii("Fl"), [3] = PdfName.FromAscii("RL"),
-            [4] = new PdfArray([new PdfReference(5, 0), new PdfReference(6, 0)]), [5] = parms, [6] = PdfNull.Instance,
+            [2] = PdfName.FromAscii("Fl"),
+            [3] = PdfName.FromAscii("RL"),
+            [4] = new PdfArray([new PdfReference(5, 0), new PdfReference(6, 0)]),
+            [5] = parms,
+            [6] = PdfNull.Instance,
         }, null);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using FilterPlan plan = FilterChain.Resolve(Dictionary(new PdfReference(1, 0), new PdfReference(4, 0)), resolver, governor, CancellationToken.None);
@@ -141,7 +144,8 @@ public sealed class FilterPlanTests
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
         Assert.ThrowsAny<OperationCanceledException>(() => FilterChain.Resolve(Dictionary(PdfName.FromAscii("Fl"), PdfNull.Instance), null,
             governor, governorToken ? CancellationToken.None : cancellation.Token));
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);     }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
 
     [Theory]
     [InlineData(false, 1)]
@@ -212,7 +216,7 @@ public sealed class FilterPlanTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         object stage = Box(governor);
-        for (int round = 0; round < 3; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); governor.ReserveMemory(0L); }
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal("FlateDecode", Assert.IsType<FilterStage>(stage).Name); GC.KeepAlive(stage);
     }
 
@@ -247,7 +251,8 @@ public sealed class FilterPlanTests
     [Fact]
     public void RootedDisposedPlanRetainsNoControllerOrObserver()
     {
-        var state = Complete(); for (int round = 0; round < 3; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        var state = Complete();
+        { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
         Assert.False(state.Governor.IsAlive); Assert.False(state.Observer.IsAlive); GC.KeepAlive(state);
     }
 }

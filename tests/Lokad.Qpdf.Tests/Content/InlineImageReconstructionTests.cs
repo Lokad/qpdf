@@ -97,11 +97,11 @@ public sealed class InlineImageReconstructionTests
         using ParserMemoryScope prior=ParserMemoryScope.Create(governor); prior.Reserve(61L);
         byte[] source=Content("BI /W 1 ID "+new string('a',32768)+" EI\n");
         QpdfLimitException error=Assert.Throws<QpdfLimitException>(()=>Run(governor,source,null,0L,false,diagnostics,CancellationToken.None));
-        Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes),error.LimitName); Collect(governor); Assert.Equal(61L,prior.ReservedBytes);
+        Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), error.LimitName); Collect(); Assert.Equal(61L, prior.ReservedBytes);
         Assert.True(governor.Snapshot().PeakMemoryBytes<=maximum); GC.KeepAlive(source);
     }
     private static QpdfObject Get(PdfDictionary dictionary,string name)
         =>dictionary.TryGet(PdfName.FromAscii(name),out QpdfObject? value)&&value is not null?value:throw new InvalidOperationException();
-    private static void Collect(ResourceGovernor governor)
-    {for(int round=0;round<4;round++){GC.Collect();GC.WaitForPendingFinalizers();GC.Collect();governor.ReserveMemory(0L);}}
+    private static void Collect()
+    { { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); } }
 }

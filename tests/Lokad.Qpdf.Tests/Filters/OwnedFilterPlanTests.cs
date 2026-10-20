@@ -32,15 +32,15 @@ public sealed class OwnedFilterPlanTests
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static Alias Complete() => Capture(new(QpdfLimits.Default, CancellationToken.None));
 
-    private static void Collect(ResourceGovernor? governor)
-    { for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); governor?.ReserveMemory(0L); } }
+    private static void Collect()
+    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 
     [Fact]
     public void EscapingBinaryNameStaysFundedUntilItsLastAliasDrops()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); Alias alias = Capture(governor);
-        Collect(governor); VerifyAndClear(alias, governor);
-        Collect(governor); Assert.False(alias.Name.IsAlive); Assert.Equal(governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(alias);
+        Collect(); VerifyAndClear(alias, governor);
+        Collect(); Assert.False(alias.Name.IsAlive); Assert.Equal(governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(alias);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -53,7 +53,7 @@ public sealed class OwnedFilterPlanTests
     [Fact]
     public void EscapingNameAndRootedDisposedPlanRetainNoCompletedJobOrObserver()
     {
-        Alias alias = Complete(); Collect(null);
+        Alias alias = Complete(); Collect();
         Assert.False(alias.Governor.IsAlive); Assert.False(alias.Observer.IsAlive); Assert.Equal(768, alias.Value?.Length); GC.KeepAlive(alias);
     }
 }
