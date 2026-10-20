@@ -7,6 +7,21 @@ namespace Lokad.Qpdf.Tests.Content;
 public sealed class OverlayContentStorageTests
 {
     [Fact]
+    public void EntryCollectionRejectsCyclesAndRefundsRefusedMetadata()
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096L }, CancellationToken.None);
+        PdfStream stream = PdfStream.FromOwnedData(new(new Dictionary<PdfName, QpdfObject>()), "q Q"u8.ToArray());
+        PdfArray contents = new(Enumerable.Repeat<QpdfObject>(new PdfReference(2, 0), 4096).ToArray());
+        PoolResolver resolver = new(new Dictionary<int, QpdfObject> { [1] = contents, [2] = stream, [3] = new PdfReference(3, 0) });
+        Assert.Throws<QpdfLimitException>(() => ContentEntries.TryRead(new PdfReference(1, 0), resolver, governor, CancellationToken.None));
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Null(ContentEntries.TryRead(new PdfReference(3, 0), resolver, governor, CancellationToken.None));
+        using CancellationTokenSource cancel = new(); cancel.Cancel();
+        Assert.ThrowsAny<OperationCanceledException>(() => ContentEntries.TryRead(contents, resolver, governor, cancel.Token));
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Fact]
     public void RawChunksBorrowFullArraysAndAdmitSliceAdaptersBeforeCopying()
     {
         byte[] payload = new byte[8 * 1024 * 1024];

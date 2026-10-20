@@ -28,6 +28,39 @@ internal sealed class ContentEntries : IDisposable
     private ResourceGovernor Governor => _governor ?? throw new ObjectDisposedException(nameof(ContentEntries));
     internal int Count => Items.Count;
 
+    // The outer reference may name an array; stream references inside it keep
+    // their own identities. Nested arrays and reference cycles are damaged input.
+    internal static ContentEntries? TryRead(QpdfObject contents, IIndirectResolver resolver,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        QpdfObject target = contents;
+        if (contents is PdfReference root)
+        {
+            if (!resolver.TryResolve(root, out QpdfObject? resolved) || resolved is null) { return null; }
+            target = resolved;
+        }
+        if (target is not (PdfArray or PdfStream)) { return null; }
+        ContentEntries entries = Create(governor, token);
+        try
+        {
+            PdfArray? array = target as PdfArray;
+            int count = array?.Count ?? 1;
+            for (int index = 0; index < count; index++)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                QpdfObject item = array is null ? contents : array[index];
+                QpdfObject? stream = array is null ? target : item;
+                if (array is not null && item is PdfReference link)
+                { resolver.TryResolve(link, out stream); }
+                if (stream is not PdfStream value) { entries.Dispose(); return null; }
+                entries.Add(new((item as PdfReference)?.ObjectNumber, index, value));
+            }
+            return entries;
+        }
+        catch { entries.Dispose(); throw; }
+    }
+
     private void Visit()
     { _token.ThrowIfCancellationRequested(); Governor.CheckCancellation(); }
 

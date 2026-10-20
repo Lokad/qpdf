@@ -432,82 +432,25 @@ internal static class Overlays
         => PageInheritance.Find(engine, location, PdfName.FromAscii(key), limits, governor, cancellationToken);
 
     private static byte[]? CollectSourceContents(
-        PageLocation location,
-        DocumentEngine engine,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        ParserMemoryScope ownership,
-        DiagnosticBag diagnostics,
-        CancellationToken cancellationToken)
+        PageLocation location, DocumentEngine engine, QpdfLimits limits, ResourceGovernor governor,
+        ParserMemoryScope ownership, DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {
-        if (!location.Page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject? contents) || contents is null || contents is PdfNull)
-        {
-            return [];
-        }
+        byte[]? content = CollectContents(location.Page, (IIndirectResolver)engine, limits, governor, ownership, cancellationToken);
+        if (content is null)
+        { diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Overlay page content could not be decoded or read; skipping it."); }
+        return content;
+    }
 
-        IIndirectResolver resolver = (IIndirectResolver)engine;
-        using ParserMemoryScope metadata = ParserMemoryScope.Create(governor);
-        List<PdfStream> streams = ParserContainers.CreateList<PdfStream>(metadata);
-        if (contents is PdfArray array)
-        {
-            foreach (QpdfObject item in array.Items)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                QpdfObject target = item;
-                if (item is PdfReference reference)
-                {
-                    if (!resolver.TryResolve(reference, out QpdfObject? resolved) || resolved is not PdfStream resolvedStream)
-                    {
-                        diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Overlay page content could not be read; skipping it.");
-                        return null;
-                    }
-
-                    target = resolvedStream;
-                }
-
-                if (target is not PdfStream stream)
-                {
-                    diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Overlay page content could not be read; skipping it.");
-                    return null;
-                }
-
-                ParserContainers.AddItem(metadata, streams, stream, IntPtr.Size);
-            }
-        }
-        else if (contents is PdfReference singleReference)
-        {
-            if (!resolver.TryResolve(singleReference, out QpdfObject? resolved) || resolved is not PdfStream resolvedStream)
-            {
-                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Overlay page content could not be read; skipping it.");
-                return null;
-            }
-
-            ParserContainers.AddItem(metadata, streams, resolvedStream, IntPtr.Size);
-        }
-        else if (contents is PdfStream single)
-        {
-            ParserContainers.AddItem(metadata, streams, single, IntPtr.Size);
-        }
-        else
-        {
-            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Overlay page content could not be read; skipping it.");
-            return null;
-        }
-
-        using AnalysisChunks chunks = AnalysisChunks.Create(governor, cancellationToken);
-        foreach (PdfStream stream in streams)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            if (!chunks.TryAdd(stream, resolver, limits))
-            {
-                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Overlay page content could not be decoded; skipping it.");
-                return null;
-            }
-
-        }
-
-        using JoinedContent joined = JoinedContent.Create(chunks.Parts, governor, cancellationToken);
+    private static byte[]? CollectContents(PdfDictionary page, IIndirectResolver resolver, QpdfLimits limits,
+        ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token)
+    {
+        if (!PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, token, out QpdfObject contents) || contents is PdfNull) { return []; }
+        using ContentEntries? entries = ContentEntries.TryRead(contents, resolver, governor, token);
+        if (entries is null) { return null; }
+        using AnalysisChunks chunks = AnalysisChunks.Create(governor, token);
+        for (int i = 0; i < entries.Count; i++)
+        { if (!chunks.TryAdd(entries.Get(i).Stream, resolver, limits)) { return null; } }
+        using JoinedContent joined = JoinedContent.Create(chunks.Parts, governor, token);
         return joined.TakeBytes(ownership);
     }
 
@@ -615,7 +558,7 @@ internal static class Overlays
             }
         }
 
-        byte[]? pageContent = CollectPooledContents(copier, page, resolver, limits, governor, ownership, cancellationToken);
+        byte[]? pageContent = CollectContents(page, resolver, limits, governor, ownership, cancellationToken);
         if (pageContent is null)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Output page content could not be read; skipping overlay for it.");
@@ -1191,73 +1134,6 @@ internal static class Overlays
         }
 
         return false;
-    }
-
-    private static byte[]? CollectPooledContents(
-        GraphCopier copier,
-        PdfDictionary page,
-        IIndirectResolver resolver,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        ParserMemoryScope ownership,
-        CancellationToken cancellationToken)
-    {
-        if (!page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject? contents) || contents is null || contents is PdfNull)
-        {
-            return [];
-        }
-
-        using ParserMemoryScope metadata = ParserMemoryScope.Create(governor);
-        List<PdfStream> streams = ParserContainers.CreateList<PdfStream>(metadata);
-        if (contents is PdfArray array)
-        {
-            foreach (QpdfObject item in array.Items)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                QpdfObject target = item is PdfReference reference
-                    ? ResolveOrNull(resolver, reference) ?? item
-                    : item;
-                if (target is not PdfStream stream)
-                {
-                    return null;
-                }
-
-                ParserContainers.AddItem(metadata, streams, stream, IntPtr.Size);
-            }
-        }
-        else if (contents is PdfReference singleReference)
-        {
-            QpdfObject? target = ResolveOrNull(resolver, singleReference);
-            if (target is not PdfStream stream)
-            {
-                return null;
-            }
-
-            ParserContainers.AddItem(metadata, streams, stream, IntPtr.Size);
-        }
-        else if (contents is PdfStream single)
-        {
-            ParserContainers.AddItem(metadata, streams, single, IntPtr.Size);
-        }
-        else
-        {
-            return null;
-        }
-
-        using AnalysisChunks chunks = AnalysisChunks.Create(governor, cancellationToken);
-        foreach (PdfStream stream in streams)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            if (!chunks.TryAdd(stream, resolver, limits))
-            {
-                return null;
-            }
-
-        }
-
-        using JoinedContent joined = JoinedContent.Create(chunks.Parts, governor, cancellationToken);
-        return joined.TakeBytes(ownership);
     }
 
     /// <summary>

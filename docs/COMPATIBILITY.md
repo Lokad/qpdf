@@ -31,6 +31,9 @@ original bytes, including non-ASCII names; source ownership transfers before clo
 Page-label run comparisons borrow immutable values instead of cloning and
 hex-encoding prefixes. Reference number/generation and real-number spelling keep
 their existing comparison rules; byte-string syntax does not affect equality.
+Overlay sources and destinations share content-entry collection and accept
+references to content arrays. Damaged entries still warn and skip stamping;
+filter/decompression policy and transactional output are unchanged.
 
 Overlay annotation rectangles normalize reversed endpoints without losing their
 extent. Shared appearance streams receive the placement matrix once per copied

@@ -7,6 +7,33 @@ namespace Lokad.Qpdf.Tests.Content;
 public sealed class OverlayTests
 {
 [Theory]
+[InlineData(false, false, false)]
+[InlineData(true, false, false)]
+[InlineData(false, true, false)]
+[InlineData(true, true, false)]
+[InlineData(false, false, true)]
+[InlineData(true, false, true)]
+[InlineData(false, true, true)]
+[InlineData(true, true, true)]
+public async Task IndirectContentArraysStampAcrossBothEntryPoints(bool destination, bool source, bool job)
+{
+static byte[] Fixture(string marker, bool indirect)
+{
+byte[] content = Encoding.ASCII.GetBytes("BT (" + marker + ") Tj ET");
+var objects = Inspection.CheckTests.SinglePage("<< /Length " + content.Length + " >>", content);
+objects[2] = (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents " + (indirect ? "5 0 R" : "[4 0 R]") + " >>", null);
+objects.Add((5, "[4 0 R]", null)); return Inspection.CheckTests.Assemble(objects, 1);
+}
+using InMemoryQpdfHost host = HostWithTwo(Fixture("Base", destination), Fixture("Stamp", source));
+QpdfExecutionResult result = job
+    ? await Qpdf.ExecuteJobAsync(host, """{"inputFile":"inputs/a.pdf","outputFile":"outputs/a.pdf","overlay":[{"file":"inputs/o.pdf"}]}""", CancellationToken.None)
+    : await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--overlay", "inputs/o.pdf", "--", "outputs/a.pdf"]), CancellationToken.None);
+Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Empty(result.Diagnostics);
+Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+Assert.Equal(new HashSet<string>(["Stamp"]), await OverlayMarkersOnPageAsync(pdf, 0));
+}
+
+[Theory]
 [InlineData("2FAD203132205466")]
 [InlineData("2F462333312031322054662025206B656570")]
 public async Task ImportedCatalogDefaultAppearancePreservesProgramBytes(string hex)
