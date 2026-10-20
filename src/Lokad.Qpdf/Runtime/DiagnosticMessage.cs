@@ -149,16 +149,4 @@ internal static class DiagnosticMessage
         }
     }
 
-    private static bool MatchPart(ResourceGovernor governor, ReadOnlySpan<char> text, string candidate, ref int position)
-    {
-        if (text.Length > candidate.Length - position) { return false; }
-        for (int offset = 0; offset < text.Length; offset += Math.Min(256, text.Length - offset))
-        {
-            int count = Math.Min(256, text.Length - offset);
-            governor.CheckCancellation();
-            if (!text.Slice(offset, count).SequenceEqual(candidate.AsSpan(position, count))) { return false; }
-            position += count;
-        }
-        return true;
-    }
 }

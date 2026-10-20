@@ -17,7 +17,6 @@ internal sealed class ResourceGovernor
     private long _peakMemoryBytes;
     private long _totalDecodedBytes;
     private long _totalOutputBytes;
-    private long _anticipatedOutputBytes;
     private long _hostOperations;
     private long _openHandles;
     private long _diagnosticCount;
@@ -319,7 +318,7 @@ internal sealed class ResourceGovernor
         { throw new QpdfLimitException(nameof(QpdfLimits.MaxDiagnostics), next, _limits.MaxDiagnostics); }
     }
 
-    internal long PresentationOutputBytes => Math.Max(_totalOutputBytes, _anticipatedOutputBytes);
+    internal long PresentationOutputBytes => _totalOutputBytes;
     internal long PresentationDecodedBytes => _totalDecodedBytes;
     internal long PresentationPeakBytes => _peakMemoryBytes;
 
@@ -542,16 +541,6 @@ internal sealed class ResourceGovernor
     {
         if (!ReferenceEquals(_publication, reservation)) { throw new InvalidOperationException("Publication storage is unavailable."); }
         _publication = null;
-    }
-
-    internal void AnticipatePresentationOutput(long bytes)
-    {
-        if (bytes < 0L) { throw new ArgumentOutOfRangeException(nameof(bytes)); }
-        CheckCancellation();
-        long output = checked(_totalOutputBytes + bytes);
-        if (output > _limits.MaxOutputBytes)
-        { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), output, _limits.MaxOutputBytes); }
-        _anticipatedOutputBytes = Math.Max(_anticipatedOutputBytes, output);
     }
 
     private void CheckDiagnosticBytes(long bytes)
