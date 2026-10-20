@@ -131,9 +131,9 @@ internal static class InlineImages
         final.Add(32L); final.Retain(); copier.ReplaceCopiedObject(formId, replaced);
     }
 
-    private readonly record struct RewriteResult(bool Changed, PdfStream? Stream, QpdfObject? Resources);
+    internal readonly record struct RewriteResult(bool Changed, PdfStream? Stream, QpdfObject? Resources);
 
-    private static AnalysisChunks? CollectDecodedContents(
+    internal static AnalysisChunks? CollectDecodedContents(
         GraphCopier copier,
         PdfDictionary page,
         QpdfLimits limits,
@@ -185,20 +185,7 @@ internal static class InlineImages
         PdfDictionary result = PdfDictionaryRebuild.ReplaceEntry(graph, dictionary, key, value); graph.Retain(); return result;
     }
 
-    private static RewriteResult RewriteContent(
-        GraphCopier copier,
-        PdfDictionary? page,
-        byte[] joined,
-        long minBytes,
-        bool compress,
-        int? level,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
-        CancellationToken cancellationToken)
-        => RewriteContentCore(copier, page, joined, minBytes, compress, level, limits, governor, diagnostics, cancellationToken, false, false, 0);
-
-    private static RewriteResult RewriteContentCore(
+    internal static RewriteResult RewriteContentCore(
         GraphCopier copier, PdfDictionary? page, byte[] joined, long minBytes, bool compress, int? level,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken,
         bool form, bool preserveUnreferenced, byte filterOptions)
@@ -387,11 +374,4 @@ internal static class InlineImages
         diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, message);
     }
 
-    private static PdfDictionary ConvertImageDict(
-        PdfDictionary raw,
-        PdfDictionary resources,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
-        CancellationToken cancellationToken)
-        => InlineImageDictionary.Convert(raw, resources, governor, diagnostics, cancellationToken);
 }

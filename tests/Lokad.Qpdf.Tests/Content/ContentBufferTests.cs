@@ -1,5 +1,3 @@
-using System.Reflection;
-using System.Runtime.ExceptionServices;
 using System.Text;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Filters;
@@ -13,28 +11,12 @@ namespace Lokad.Qpdf.Tests.Content;
 [Collection(nameof(NameTableCollection))]
 public sealed class ContentBufferTests
 {
-    private static readonly MethodInfo DecodeMethod = typeof(ContentTransforms).GetMethod("DecodeForContent", BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException();
-    private static readonly MethodInfo? OwnedMethod = typeof(ContentTransforms).GetMethod("NormalizeContentBytesOwned", BindingFlags.Static | BindingFlags.NonPublic);
-    private static readonly MethodInfo LegacyMethod = typeof(ContentTransforms).GetMethod("NormalizeContentBytes", BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException();
-    // Only private/scoped signature binding differs on the preceding runtime.
-    // Prepared inputs, governors, scopes, limits and assertions stay identical.
-    private static object? Invoke(MethodInfo method, object?[] arguments)
-    {
-        try { return method.Invoke(null, arguments); }
-        catch (TargetInvocationException error) when (error.InnerException is not null)
-        { ExceptionDispatchInfo.Capture(error.InnerException).Throw(); throw; }
-    }
     private static (byte[] Data, bool Decoded) Decode(PdfStream stream, ResourceGovernor governor, ParserMemoryScope memory)
-    {
-        PoolResolver resolver = new(new Dictionary<int, QpdfObject>());
-        object? result = DecodeMethod.GetParameters().Length == 6
-            ? Invoke(DecodeMethod, [stream, resolver, QpdfLimits.Default, governor, memory, CancellationToken.None])
-            : Invoke(DecodeMethod, [stream, resolver, QpdfLimits.Default, governor]);
-        return result is ValueTuple<byte[], bool> value ? value : throw new InvalidOperationException();
-    }
+        => AnalysisChunks.DecodeForContent(stream, new PoolResolver(new Dictionary<int, QpdfObject>()),
+            QpdfLimits.Default, governor, memory, CancellationToken.None);
     private static byte[] Normalize(byte[] data, ResourceGovernor governor, ParserMemoryScope memory, long maximum)
-        => (OwnedMethod is null ? Invoke(LegacyMethod, [data, QpdfLimits.Default, governor, CancellationToken.None, maximum, nameof(QpdfLimits.MaxDecodedBytes)])
-            : Invoke(OwnedMethod, [data, QpdfLimits.Default, governor, CancellationToken.None, maximum, nameof(QpdfLimits.MaxDecodedBytes), memory])) as byte[] ?? throw new InvalidOperationException();
+        => ContentTransforms.NormalizeContentBytesOwned(data, QpdfLimits.Default, governor,
+            CancellationToken.None, maximum, nameof(QpdfLimits.MaxDecodedBytes), memory);
     private static PdfStream Stream(string filter, byte[] data)
         => new(filter == "" ? DecoderOwnershipFixtures.Dictionary() : DecoderOwnershipFixtures.Dictionary(("Filter", filter == "bad-plan" ? new PdfInteger("1", 1L) : PdfName.FromAscii(filter))),
             filter is "" or "DCTDecode" or "bad-plan" ? data : DecoderOwnershipFixtures.Encode(filter, data));

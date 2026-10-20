@@ -70,8 +70,9 @@ public sealed class DocumentOpenHintTests
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(readerHost, QpdfPath.From("read.pdf"), CancellationToken.None))
         {
             ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-            LinearizationData data = Assert.IsType<LinearizationData>(LinearizationCheck.TryReadData(
+            using LinearizationDataOwner owner = Assert.IsType<LinearizationDataOwner>(LinearizationCheck.TryReadOwnedData(
                 document.Engine, 2, QpdfLimits.Default, governor, CancellationToken.None));
+            LinearizationData data = owner.Data;
             JsonObject fields = Assert.IsType<JsonObject>(row["NativeFields"]);
             Assert.Equal(Assert.IsType<JsonArray>(fields["ObjectCounts"]).Select(node => node?.GetValue<long>() ?? throw new InvalidOperationException()),
                 data.PageTable.Entries.Select(entry => entry.ObjectCount));

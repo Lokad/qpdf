@@ -175,3 +175,8 @@ Converted arrays, dictionaries and byte strings adopt their fresh storage withou
 extra defensive copies. Updates and reference remapping borrow immutable stream
 payloads while their source owner remains live. Remapping, sorting and page walks
 use the shared governed helpers; private import storage refunds on every outcome.
+
+Private hint tables and encoded hint payloads remain under their disposable
+reader/writer owners through consumption. Tests call these same scoped kernels;
+there is no separate escaping helper path or private-signature compatibility
+adapter to preserve older test bindings.

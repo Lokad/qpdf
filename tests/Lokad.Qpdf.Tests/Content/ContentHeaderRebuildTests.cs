@@ -1,6 +1,4 @@
-using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Runtime.ExceptionServices;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
@@ -11,27 +9,12 @@ namespace Lokad.Qpdf.Tests.Content;
 [Collection(nameof(NameTableCollection))]
 public sealed class ContentHeaderRebuildTests
 {
-    private delegate PdfDictionary ReplaceCall(PdfDictionary source, ReadOnlySpan<byte> key, QpdfObject value, ResourceGovernor governor, CancellationToken token);
-    private delegate PdfDictionary StripCall(PdfDictionary source, ResourceGovernor governor, CancellationToken token);
-    private static readonly MethodInfo ReplaceMethod = typeof(ContentTransforms).GetMethod("ReplaceEntry", BindingFlags.NonPublic | BindingFlags.Static) ?? throw new InvalidOperationException();
-    private static readonly MethodInfo StripMethod = typeof(ContentTransforms).GetMethod("StrippedContentDictionary", BindingFlags.NonPublic | BindingFlags.Static) ?? throw new InvalidOperationException();
-    private static readonly ReplaceCall? Replace = ReplaceMethod.GetParameters().Length == 5 ? ReplaceMethod.CreateDelegate<ReplaceCall>() : null;
-    private static readonly StripCall? Strip = StripMethod.GetParameters().Length == 3 ? StripMethod.CreateDelegate<StripCall>() : null;
-
-    // The preceding private helpers use a PdfName and governor-only signature.
-    // Their adapter changes only binding: fixtures, values, budgets and assertions
-    // stay identical. Caller-token-only cases belong to the new-kernel suite.
-    private static PdfDictionary Invoke(PdfDictionary source, PdfName key, QpdfObject value, ResourceGovernor governor, bool strip)
+    private static PdfDictionary Build(PdfDictionary source, PdfName key, QpdfObject value, ResourceGovernor governor, bool strip)
     {
-        if (strip && Strip is not null) { return Strip(source, governor, CancellationToken.None); }
-        if (!strip && Replace is not null) { return Replace(source, key.RawSpan, value, governor, CancellationToken.None); }
-        try
-        {
-            object? result = strip ? StripMethod.Invoke(null, [source, governor]) : ReplaceMethod.Invoke(null, [source, key, value, governor]);
-            return result as PdfDictionary ?? throw new InvalidOperationException("Header helper returned no dictionary.");
-        }
-        catch (TargetInvocationException error) when (error.InnerException is not null)
-        { ExceptionDispatchInfo.Capture(error.InnerException).Throw(); throw; }
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
+        PdfDictionary result = strip ? PdfDictionaryRebuild.StripStreamEncoding(graph, source)
+            : PdfDictionaryRebuild.ReplaceEntry(graph, source, key.RawSpan, value);
+        graph.Retain(); return result;
     }
 
     private static PdfDictionary Dictionary(params (string Key, QpdfObject Value)[] entries)
@@ -47,7 +30,7 @@ public sealed class ContentHeaderRebuildTests
         PdfDictionary source = new(new Dictionary<PdfName, QpdfObject>
         { [PdfName.FromAscii("Filter")] = PdfName.FromAscii("FlateDecode"), [key] = borrowed, [binary] = borrowed, [PdfName.FromAscii("Length")] = PdfNull.Instance });
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 8192L }, CancellationToken.None);
-        PdfDictionary result = Invoke(source, key, PdfNull.Instance, governor, strip);
+        PdfDictionary result = Build(source, key, PdfNull.Instance, governor, strip);
         Assert.IsType<PdfNameTable<QpdfObject>>(result.AllocationCarrier);
         Assert.Same(binary, result.Keys.Single(name => name.RawSpan.SequenceEqual(binary.RawSpan)));
         Assert.Same(key, result.Keys.Single(name => name.RawSpan.SequenceEqual(key.RawSpan)));
@@ -69,7 +52,7 @@ public sealed class ContentHeaderRebuildTests
           [PdfName.FromAscii("DecodeParms")] = PdfNull.Instance, [PdfName.FromAscii("FilterSuffix")] = PdfNull.Instance, [PdfName.FromAscii("Length")] = PdfNull.Instance };
         PdfDictionary source = Activator.CreateInstance(typeof(PdfDictionary), [entries]) as PdfDictionary ?? throw new InvalidOperationException();
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        PdfDictionary result = Invoke(source, key, PdfNull.Instance, governor, strip);
+        PdfDictionary result = Build(source, key, PdfNull.Instance, governor, strip);
         Assert.Equal(strip ? 2 : 6, result.Count);
         Assert.Same(binary, result.Keys.First(name => name.RawSpan.SequenceEqual(binary.RawSpan)));
         Assert.Equal(strip ? new[] { binary, PdfName.FromAscii("FilterSuffix") } : new[] { PdfName.FromAscii("Filter"), binary, PdfName.FromAscii("DecodeParms"), PdfName.FromAscii("FilterSuffix"), PdfName.FromAscii("Length"), key }, result.Keys);
@@ -90,7 +73,7 @@ public sealed class ContentHeaderRebuildTests
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = maximum }, CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(93L); prior.RetainAllocation(93L);
         long live = governor.Snapshot().LiveMemoryBytes;
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => Invoke(source, key, PdfNull.Instance, governor, strip));
+        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => Build(source, key, PdfNull.Instance, governor, strip));
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
         Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(512, source.Count);
         Assert.Equal(61, accepted.Length); GC.KeepAlive(accepted);
@@ -104,7 +87,7 @@ public sealed class ContentHeaderRebuildTests
         PdfDictionary source = Dictionary(("Keep", PdfNull.Instance)); PdfName key = PdfName.FromAscii("Contents");
         using CancellationTokenSource cancellation = new(); cancellation.Cancel();
         ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token);
-        Assert.Throws<OperationCanceledException>(() => Invoke(source, key, PdfNull.Instance, governor, strip));
+        Assert.Throws<OperationCanceledException>(() => Build(source, key, PdfNull.Instance, governor, strip));
         governor.CompletePrivateStorage();
         Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);     }
 
@@ -115,7 +98,7 @@ public sealed class ContentHeaderRebuildTests
     private static Alias Capture(ResourceGovernor governor, bool strip, string kind)
     {
         PdfDictionary source = Dictionary(("Keep", PdfNull.Instance), ("Filter", PdfNull.Instance));
-        PdfName key = PdfName.FromAscii("Contents"); PdfDictionary result = Invoke(source, key, PdfNull.Instance, governor, strip);
+        PdfName key = PdfName.FromAscii("Contents"); PdfDictionary result = Build(source, key, PdfNull.Instance, governor, strip);
         object value = kind switch
         { "dictionary" => result, "keys" => result.Keys, "name" => result.Keys.Single(name => name.Equals(key)), "name-bytes" => result.Keys.Single(name => name.Equals(key)).AllocationCarrier, _ => throw new InvalidOperationException() };
         return new(value, [new(governor), new(source), new(result), new(result.AllocationCarrier)]);

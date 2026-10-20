@@ -313,17 +313,6 @@ internal static class LinearizationCheck
         return new LindictData(spans, firstPageObject, firstPageEnd, declaredPages, xrefZero, firstPage);
     }
 
-    internal static LinearizationData? TryReadData(
-        DocumentEngine engine,
-        int pageCount,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        CancellationToken cancellationToken)
-    {
-        using LinearizationDataOwner? owner = TryReadOwnedData(engine, pageCount, limits, governor, cancellationToken);
-        return owner?.Escape();
-    }
-
     internal static LinearizationDataOwner? TryReadOwnedData(
         DocumentEngine engine,
         int pageCount,

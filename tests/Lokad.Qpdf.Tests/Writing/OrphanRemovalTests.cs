@@ -1,4 +1,3 @@
-using System.Reflection;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
@@ -10,20 +9,8 @@ namespace Lokad.Qpdf.Tests.Writing;
 [Collection(nameof(NameTableCollection))]
 public sealed class OrphanRemovalTests
 {
-    private delegate void RemoveCall(GraphCopier copier, IReadOnlyList<int>? candidates, CancellationToken token);
-    private delegate void PrecedingCall(GraphCopier copier, IReadOnlyList<int>? candidates);
-    private static readonly MethodInfo Method = typeof(GraphCopier).GetMethods(BindingFlags.Instance | BindingFlags.NonPublic)
-        .Where(method => method.Name == "DropPoolObjectsIfUnreferenced").OrderByDescending(method => method.GetParameters().Length).First();
-    private static readonly RemoveCall? Remove = Method.GetParameters().Length == 2 ? Method.CreateDelegate<RemoveCall>() : null;
-    private static readonly PrecedingCall? Preceding = Method.GetParameters().Length == 1 ? Method.CreateDelegate<PrecedingCall>() : null;
-
-    // Only the new private overload's caller-token binding differs. Prepared
-    // inputs, scopes, limits and assertions also run on the preceding runtime.
-    private static void Invoke(GraphCopier copier, IReadOnlyList<int>? candidates)
-    {
-        if (Remove is not null) { Remove(copier, candidates, CancellationToken.None); return; }
-        (Preceding ?? throw new InvalidOperationException())(copier, candidates);
-    }
+    private static void Invoke(GraphCopier copier, IReadOnlyList<int> candidates)
+        => copier.DropPoolObjectsIfUnreferenced(candidates, CancellationToken.None);
 
     [Theory]
     [InlineData("empty")]
@@ -101,7 +88,13 @@ Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         using CancellationTokenSource cancellation = new(); cancellation.Cancel();
         ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token);
         using OrphanFixture fixture = new(governor, PdfNull.Instance);
-        ArgumentNullException failure = Assert.Throws<ArgumentNullException>(() => Invoke(fixture.Copier, null));
+        // Reflection deliberately supplies null to this non-nullable parameter.
+        System.Reflection.MethodInfo method = typeof(GraphCopier).GetMethod("DropPoolObjectsIfUnreferenced",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+            [typeof(IReadOnlyList<int>), typeof(CancellationToken)]) ?? throw new InvalidOperationException();
+        System.Reflection.TargetInvocationException invocation = Assert.Throws<System.Reflection.TargetInvocationException>(
+            () => method.Invoke(fixture.Copier, [null, CancellationToken.None]));
+        ArgumentNullException failure = Assert.IsType<ArgumentNullException>(invocation.InnerException);
         Assert.Equal("candidates", failure.ParamName); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 }

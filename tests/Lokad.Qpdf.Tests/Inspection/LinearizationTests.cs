@@ -116,9 +116,9 @@ public sealed class LinearizationTests
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", await FixtureBytes("linearized-2page.pdf"));
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), CancellationToken.None);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        LinearizationData? data = LinearizationCheck.TryReadData(document.Engine, document.PageCount,
-            QpdfLimits.Default, governor, CancellationToken.None);
-        Assert.NotNull(data);
+        using LinearizationDataOwner owner = Assert.IsType<LinearizationDataOwner>(LinearizationCheck.TryReadOwnedData(
+            document.Engine, document.PageCount, QpdfLimits.Default, governor, CancellationToken.None));
+        LinearizationData data = owner.Data;
         PdfStream hint = Assert.IsType<PdfStream>(document.Engine.Load(data.HintObject));
         byte[] expected = FlateFilter.Decode(hint.Data, null, QpdfLimits.Default,
             new ResourceGovernor(QpdfLimits.Default, CancellationToken.None));
@@ -127,7 +127,7 @@ public sealed class LinearizationTests
         QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = expected.Length };
         ResourceGovernor exhausted = new(limits, CancellationToken.None);
         exhausted.ChargeDecodedBytes(1L);
-        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => LinearizationCheck.TryReadData(
+        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => LinearizationCheck.TryReadOwnedData(
             document.Engine, document.PageCount, limits, exhausted, CancellationToken.None));
         Assert.Equal(nameof(QpdfLimits.MaxDecodedBytes), error.LimitName);
         Assert.Equal(1L, exhausted.Snapshot().TotalDecodedBytes);

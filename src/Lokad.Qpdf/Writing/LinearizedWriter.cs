@@ -542,31 +542,7 @@ internal sealed class LinearizedWriter
         return identifiers;
     }
 
-    private byte[] EncodeHintTables(
-        int part6Count,
-        List<int> pageCounts,
-        List<long> pageLengths,
-        List<List<int>> pageShared,
-        List<long> groupLengths,
-        long firstPageOffset,
-        int firstSharedObj,
-        long firstSharedOffset,
-        int totalShared,
-        int outlineFirst,
-        long outlineOffset,
-        int outlineCount,
-        long outlineLength,
-        out long sharedAt,
-        out long outlineAt,
-        CancellationToken cancellationToken)
-    {
-        using HintPayload tables = EncodeHintTablesOwned(part6Count, pageCounts, pageLengths, pageShared, groupLengths,
-            firstPageOffset, firstSharedObj, firstSharedOffset, totalShared, outlineFirst, outlineOffset, outlineCount,
-            outlineLength, out sharedAt, out outlineAt, cancellationToken);
-        return tables.Escape();
-    }
-
-    private HintPayload EncodeHintTablesOwned(
+    internal HintPayload EncodeHintTablesOwned(
         int part6Count,
         List<int> pageCounts,
         List<long> pageLengths,

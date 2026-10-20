@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Lokad.Qpdf.Objects;
@@ -13,22 +12,19 @@ namespace Lokad.Qpdf.Tests.Content;
 [Collection(nameof(NameTableCollection))]
 public sealed class InlineImageReconstructionTests
 {
-    private static readonly MethodInfo Rewrite = typeof(Lokad.Qpdf.Content.InlineImages).GetMethod("RewriteContent", BindingFlags.NonPublic | BindingFlags.Static) ?? throw new InvalidOperationException();
     private static PdfDictionary Dictionary(params (string Key, QpdfObject Value)[] entries)
         => new(entries.ToDictionary(e => PdfName.FromAscii(e.Key), e => e.Value));
-    private static object Property(object value, string property) => value.GetType().GetProperty(property)?.GetValue(value) ?? throw new InvalidOperationException(property);
     private static DocumentEngine Engine()
     {
         ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None); PdfDictionary trailer = Dictionary();
         return new(ReadOnlyMemory<byte>.Empty, new XRefTable(0L, new Dictionary<int,XrefEntry>(), trailer, [trailer]), QpdfLimits.Default, construction, new(construction), QpdfRecoveryMode.Strict);
     }
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static object Run(ResourceGovernor governor, byte[] bytes, PdfDictionary? page, long minimum, bool compress, DiagnosticBag diagnostics, CancellationToken token)
+    private static Lokad.Qpdf.Content.InlineImages.RewriteResult Run(ResourceGovernor governor, byte[] bytes, PdfDictionary? page, long minimum, bool compress, DiagnosticBag diagnostics, CancellationToken token)
     {
         using DocumentEngine engine = Engine(); GraphCopier copier = new(engine, governor, QpdfLimits.Default, 1);
-        try { return Rewrite.Invoke(null, [copier, page, bytes, minimum, compress, null, QpdfLimits.Default, governor, diagnostics, token]) ?? throw new InvalidOperationException(); }
-        catch (TargetInvocationException exception) when (exception.InnerException is not null)
-        { System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(exception.InnerException).Throw(); throw; }
+        return Lokad.Qpdf.Content.InlineImages.RewriteContentCore(copier, page, bytes, minimum, compress, null,
+            QpdfLimits.Default, governor, diagnostics, token, false, false, 0);
     }
     private static byte[] Content(string body) => Encoding.ASCII.GetBytes(body);
 
@@ -41,8 +37,8 @@ public sealed class InlineImageReconstructionTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); DiagnosticBag diagnostics = new(governor);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(61L); long baseline = governor.Snapshot().LiveMemoryBytes;
-        object result = Run(governor, Content(source), null, 1024L, false, diagnostics, CancellationToken.None);
-        Assert.False(Assert.IsType<bool>(Property(result,"Changed")));
+        Lokad.Qpdf.Content.InlineImages.RewriteResult result = Run(governor, Content(source), null, 1024L, false, diagnostics, CancellationToken.None);
+        Assert.False(result.Changed);
         governor.CompletePrivateStorage();
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes); Assert.Equal(61L, prior.ReservedBytes); GC.KeepAlive(result);
     }
@@ -52,9 +48,9 @@ public sealed class InlineImageReconstructionTests
     public void RewriteKeepsCommentsAndRawOperatorsAroundImages(bool compress)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); DiagnosticBag diagnostics = new(governor);
-        object result = Run(governor, Content("% comment\nq\tBI /W 1 /H 1 /CS /G /BPC 8 ID abc EI Q\n"), null, 0L, compress, diagnostics, CancellationToken.None);
-        Assert.True(Assert.IsType<bool>(Property(result,"Changed")));
-        PdfStream stream = Assert.IsType<PdfStream>(Property(result,"Stream"));
+        Lokad.Qpdf.Content.InlineImages.RewriteResult result = Run(governor, Content("% comment\nq\tBI /W 1 /H 1 /CS /G /BPC 8 ID abc EI Q\n"), null, 0L, compress, diagnostics, CancellationToken.None);
+        Assert.True(result.Changed);
+        PdfStream stream = Assert.IsType<PdfStream>(result.Stream);
         byte[] data = compress ? Lokad.Qpdf.Filters.FlateFilter.Decode(stream.Data, null, QpdfLimits.Default, new(QpdfLimits.Default,CancellationToken.None)) : stream.Data;
         Assert.Equal("% comment\nq\t/IIm1 Do\n Q\n", Encoding.ASCII.GetString(data));
     }
@@ -63,10 +59,10 @@ public sealed class InlineImageReconstructionTests
     {
         PdfDictionary resources = Dictionary(("XObject",Dictionary(("IIm1",PdfNull.Instance),("IIm3",PdfNull.Instance))));
         ResourceGovernor governor = new(QpdfLimits.Default,CancellationToken.None); DiagnosticBag diagnostics = new(governor);
-        object result = Run(governor,Content("BI /W 1 /H 1 ID a EI BI /W 1 /H 1 ID b EI BI /W 1 /H 1 ID c EI\n"),Dictionary(("Resources",resources)),0L,false,diagnostics,CancellationToken.None);
-        PdfStream stream=Assert.IsType<PdfStream>(Property(result,"Stream"));
+        Lokad.Qpdf.Content.InlineImages.RewriteResult result = Run(governor,Content("BI /W 1 /H 1 ID a EI BI /W 1 /H 1 ID b EI BI /W 1 /H 1 ID c EI\n"),Dictionary(("Resources",resources)),0L,false,diagnostics,CancellationToken.None);
+        PdfStream stream=Assert.IsType<PdfStream>(result.Stream);
         Assert.Equal("/IIm1 Do\n /IIm2 Do\n /IIm3 Do\n\n",Encoding.ASCII.GetString(stream.Data));
-        PdfDictionary rewritten=Assert.IsType<PdfDictionary>(Property(result,"Resources"));
+        PdfDictionary rewritten=Assert.IsType<PdfDictionary>(result.Resources);
         Assert.True(rewritten.TryGet(PdfName.FromAscii("XObject"),out QpdfObject? value)); PdfDictionary images=Assert.IsType<PdfDictionary>(value);
         Assert.Equal(3,images.Count); Assert.Equal(2,Assert.IsType<PdfDictionary>(Get(resources,"XObject")).Count);
     }
@@ -76,8 +72,8 @@ public sealed class InlineImageReconstructionTests
     public void MalformedImageDictionaryKeepsOriginalWarningAndRetiresUnpublishedStorage(string source)
     {
         ResourceGovernor governor=new(QpdfLimits.Default,CancellationToken.None); DiagnosticBag diagnostics=new(governor);
-        object result=Run(governor,Content(source),null,0L,false,diagnostics,CancellationToken.None);
-        Assert.False(Assert.IsType<bool>(Property(result,"Changed")));
+        Lokad.Qpdf.Content.InlineImages.RewriteResult result=Run(governor,Content(source),null,0L,false,diagnostics,CancellationToken.None);
+        Assert.False(result.Changed);
         Assert.Contains(diagnostics.Entries,d=>d.Message=="Unable to filter content stream; not attempting to externalize inline images.");
         GC.KeepAlive(result);
     }

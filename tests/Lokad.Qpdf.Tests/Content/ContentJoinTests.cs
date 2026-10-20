@@ -1,5 +1,3 @@
-using System.Reflection;
-using System.Runtime.ExceptionServices;
 using System.Text;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Runtime;
@@ -8,25 +6,12 @@ namespace Lokad.Qpdf.Tests.Content;
 
 public sealed class ContentJoinTests
 {
-    // Bind the private joining path on both runtimes; inputs, ceilings and
-    // assertions stay identical. The older returned array has no owner to close.
-    private static readonly MethodInfo JoinMethod = typeof(ContentTransforms).GetMethod("JoinContentBytes", BindingFlags.Static | BindingFlags.NonPublic)
-        ?? throw new InvalidOperationException("Missing content join.");
-    private static (ReadOnlyMemory<byte> Bytes, IDisposable? Owner) Join(List<byte[]> parts, ResourceGovernor governor, CancellationToken token)
+    private static (ReadOnlyMemory<byte> Bytes, IDisposable Owner) Join(List<byte[]> parts, ResourceGovernor governor, CancellationToken token)
     {
-        object value;
-        try
-        {
-            value = JoinMethod.Invoke(null, JoinMethod.GetParameters().Length == 2 ? [parts, governor] : [parts, governor, token])
-                ?? throw new InvalidOperationException("Missing joined content.");
-        }
-        catch (TargetInvocationException exception) when (exception.InnerException is Exception inner)
-        { ExceptionDispatchInfo.Capture(inner).Throw(); throw; }
-        if (value is byte[] legacy) { return (legacy, null); }
-        PropertyInfo bytes = value.GetType().GetProperty("Bytes", BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("Missing content bytes.");
-        return ((ReadOnlyMemory<byte>)(bytes.GetValue(value) ?? throw new InvalidOperationException("Missing bytes.")), (IDisposable)value);
+        JoinedContent owner = JoinedContent.Create(parts, governor, token);
+        return (owner.Bytes, owner);
     }
+
     private static List<byte[]> Parts(params string[] parts) => parts.Select(Encoding.Latin1.GetBytes).ToList();
 
     [Theory]

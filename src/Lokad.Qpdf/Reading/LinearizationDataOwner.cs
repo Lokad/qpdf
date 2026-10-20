@@ -16,17 +16,6 @@ internal sealed class LinearizationDataOwner : IDisposable
 
     internal LinearizationData Data => _data ?? throw new ObjectDisposedException(nameof(LinearizationDataOwner));
 
-    // Each table, entry and array is a separate carrier, so a surviving child
-    // keeps its receipt without retaining discarded siblings or decoded scratch.
-    internal LinearizationData Escape()
-    {
-        LinearizationData data = Data;
-        OwnedAllocationBatch allocations = _allocations ?? throw new ObjectDisposedException(nameof(LinearizationDataOwner));
-        allocations.Retain();
-        _data = null;
-        return data;
-    }
-
     public void Dispose()
     {
         OwnedAllocationBatch? allocations = _allocations;

@@ -1,5 +1,3 @@
-using System.Reflection;
-using System.Runtime.ExceptionServices;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
@@ -11,25 +9,11 @@ namespace Lokad.Qpdf.Tests.Content;
 
 public sealed class InlineContentInputTests
 {
-    private static readonly MethodInfo CollectMethod = typeof(InlineImages).GetMethod("CollectDecodedContents", BindingFlags.Static | BindingFlags.NonPublic)
-        ?? throw new InvalidOperationException();
-
-    // The preceding private signature includes a resolver and returns a list.
-    // Only binding and the borrowed view differ; inputs, limits and assertions do not.
-    private static object? Collect(GraphCopier copier, PdfDictionary page, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
-    {
-        object?[] arguments = CollectMethod.GetParameters().Length == 5
-            ? [copier, page, limits, governor, token]
-            : [copier, page, new PoolResolver(copier.CopiedObjects), limits, governor, token];
-        try { return CollectMethod.Invoke(null, arguments); }
-        catch (TargetInvocationException error) when (error.InnerException is not null)
-        { ExceptionDispatchInfo.Capture(error.InnerException).Throw(); throw; }
-    }
-    private static IReadOnlyList<byte[]> Parts(object owner)
-        => owner as IReadOnlyList<byte[]> ?? owner.GetType().GetProperty("Parts", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(owner) as IReadOnlyList<byte[]>
-            ?? throw new InvalidOperationException();
-    private static void Close(object? owner)
-    { if (owner is IDisposable disposable) { disposable.Dispose(); } else if (owner is List<byte[]> list) { list.Clear(); } }
+    private static AnalysisChunks? Collect(GraphCopier copier, PdfDictionary page, QpdfLimits limits,
+        ResourceGovernor governor, CancellationToken token)
+        => InlineImages.CollectDecodedContents(copier, page, limits, governor, token);
+    private static IReadOnlyList<byte[]> Parts(object owner) => ((AnalysisChunks)owner).Parts;
+    private static void Close(object? owner) => (owner as AnalysisChunks)?.Dispose();
     private static PdfDictionary Dictionary(params (string Key, QpdfObject Value)[] entries) => DecoderOwnershipFixtures.Dictionary(entries);
     private static PdfStream Stream(string filter, byte[] raw)
     {

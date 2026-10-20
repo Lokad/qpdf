@@ -37,16 +37,6 @@ internal sealed class HintPayload : IDisposable
         catch { memory.Dispose(); throw; }
     }
 
-    // Independently escaping helper results keep only their own allocation receipt.
-    internal byte[] Escape()
-    {
-        byte[] bytes = Bytes;
-        ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(HintPayload));
-        if (bytes.Length > 0) { memory.RetainAllocation(32L + bytes.Length); }
-        _bytes = null;
-        return bytes;
-    }
-
     public void Dispose()
     {
         ParserMemoryScope? memory = _memory;

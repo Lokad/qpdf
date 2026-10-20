@@ -10,22 +10,11 @@ public sealed class CheckMetadataLookupTests
 {
     private delegate bool Lookup(PdfDictionary dictionary, ReadOnlySpan<byte> key, IIndirectResolver resolver,
         ResourceGovernor governor, CancellationToken token, out PdfArray? array);
-    private delegate bool LegacyLookup(PdfDictionary dictionary, PdfName key, IIndirectResolver resolver, out PdfArray? array);
 
     private static Lookup Bind()
     {
         MethodInfo method = typeof(DocumentCheck).GetMethod("TryResolveCheckArray", BindingFlags.Static | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("Missing checker array lookup.");
-        if (method.GetParameters().Length == 4)
-        {
-            LegacyLookup legacy = method.CreateDelegate<LegacyLookup>();
-            // Existing callers created their PdfName query on each invocation.
-            // This declared context adapter preserves the preceding signature,
-            // prepared values, budgets and tokens without relying on a loader.
-            return (PdfDictionary dictionary, ReadOnlySpan<byte> key, IIndirectResolver resolver,
-                ResourceGovernor governor, CancellationToken token, out PdfArray? array)
-                => legacy(dictionary, new PdfName(key.ToArray()), resolver, out array);
-        }
         return method.CreateDelegate<Lookup>();
     }
     private static readonly Lookup Read = Bind();

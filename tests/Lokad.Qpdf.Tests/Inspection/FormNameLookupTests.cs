@@ -16,18 +16,10 @@ public sealed class FormNameLookupTests
     private delegate QpdfCheckOutcome FormCheck(QpdfDocument document, ResourceGovernor governor,
         DiagnosticBag diagnostics, CancellationToken token);
 
-    // The preceding helper takes only the dictionary. This explicit private
-    // context adapter lets the same assembly exercise its behavior with the
-    // same prepared values, budgets and tokens; no case relies on a loader.
     private static Predicate Bind(string name)
     {
         MethodInfo method = typeof(DocumentCheck).GetMethod(name, BindingFlags.Static | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("Missing form metadata helper.");
-        if (method.GetParameters().Length == 1)
-        {
-            Func<PdfDictionary, bool> legacy = method.CreateDelegate<Func<PdfDictionary, bool>>();
-            return (dictionary, governor, token) => legacy(dictionary);
-        }
         return method.CreateDelegate<Predicate>();
     }
 

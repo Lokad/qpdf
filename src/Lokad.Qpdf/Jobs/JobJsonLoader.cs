@@ -24,18 +24,6 @@ internal static class JobJsonLoader
         catch { session.Dispose(); throw; }
     }
 
-    internal static async ValueTask<LoadedJob> ParseFileAsync(
-        IQpdfHost host, QpdfPath path, QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
-    {
-        Session session = Session.Create(host, limits, governor);
-        try
-        {
-            await session.LoadFileChainAsync(path.Value, cancellationToken).ConfigureAwait(false);
-            return new LoadedJob(session.ParsePlan(false), session);
-        }
-        catch { session.Dispose(); throw; }
-    }
-
     internal static bool HasJobFile(IReadOnlyList<string> argv)
         => argv.Any(token => token == "--job-json-file" || token.StartsWith("--job-json-file=", StringComparison.Ordinal));
 

@@ -185,7 +185,7 @@ internal static class ContentTransforms
         return current;
     }
 
-    private static ContentEntries? ReadPageContents(
+    internal static ContentEntries? ReadPageContents(
         GraphCopier copier,
         PdfDictionary page,
         ResourceGovernor governor,
@@ -242,13 +242,6 @@ internal static class ContentTransforms
         ParserMemoryScope memory,
         CancellationToken cancellationToken)
         => AnalysisChunks.DecodeForContent(stream, resolver, limits, governor, memory, cancellationToken);
-
-    private static PdfDictionary StrippedContentDictionary(PdfDictionary dictionary, ResourceGovernor governor, CancellationToken cancellationToken)
-    {
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
-        PdfDictionary result = PdfDictionaryRebuild.StripStreamEncoding(graph, dictionary);
-        graph.Retain(); return result;
-    }
 
     private static PdfDictionary ReplaceEntry(PdfDictionary dictionary, ReadOnlySpan<byte> key, QpdfObject value, ResourceGovernor governor, CancellationToken cancellationToken)
     {

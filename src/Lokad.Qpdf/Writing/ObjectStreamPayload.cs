@@ -46,14 +46,6 @@ internal sealed class ObjectStreamPayload : IDisposable
         return CreateCore(numbers, null, renumber, null, null, members, compress, compressionLevel, limits, governor, cancellationToken);
     }
 
-    internal static ObjectStreamPayload CreateQdf(IReadOnlyList<int> numbers, IReadOnlyDictionary<int, int>? renumber,
-        ObjectStreamCapture headers, ObjectStreamCapture bodies, QpdfLimits limits,
-        ResourceGovernor governor, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(headers);
-        return CreateCore(numbers, renumber, null, null, headers, bodies, false, null, limits, governor, cancellationToken);
-    }
-
     internal static ObjectStreamPayload CreateQdfIndexed(IReadOnlyList<int> numbers, WriterIndex<int> renumber,
         ObjectStreamCapture headers, ObjectStreamCapture bodies, QpdfLimits limits,
         ResourceGovernor governor, CancellationToken cancellationToken)

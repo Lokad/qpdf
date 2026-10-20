@@ -39,7 +39,6 @@ public sealed class JobConfigurationOwnershipTests
 
     [Theory]
     [InlineData("text")]
-    [InlineData("file")]
     [InlineData("mixed")]
     [InlineData("nested")]
     public async Task LoadedPlansKeepTheirCopiedTextBeyondParsingAndRefundWithoutCollection(string route)
@@ -55,7 +54,6 @@ public sealed class JobConfigurationOwnershipTests
             ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None, host);
             using JobJsonLoader.LoadedJob loaded = route switch
             {
-                "file" => await JobJsonLoader.ParseFileAsync(host, QpdfPath.From("config"), QpdfLimits.Default, governor, CancellationToken.None),
                 "mixed" => await JobJsonLoader.ParseArgvAsync(host, ["--job-json-file=config"], QpdfLimits.Default, governor, CancellationToken.None),
                 "nested" => await JobJsonLoader.ParseAsync(host, """{"jobJsonFile":"config"}""", QpdfLimits.Default, governor, CancellationToken.None),
                 _ => await JobJsonLoader.ParseAsync(host, json, QpdfLimits.Default, governor, CancellationToken.None),

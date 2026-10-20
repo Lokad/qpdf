@@ -15,9 +15,7 @@ public sealed class ContentArrayRebuildTests
     private static readonly MethodInfo Method = typeof(ContentTransforms).GetMethod("ReplaceContentEntries", BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException();
     private static PdfDictionary Replace(PdfDictionary page, Prepared prepared, ResourceGovernor governor)
     {
-        // Only the borrowed mapping's private dictionary binding differs.
-        object mapping = Method.GetParameters()[1].ParameterType == typeof(Dictionary<int, PdfStream>) ? prepared.Legacy : prepared.Mapping;
-        try { return Method.Invoke(null, [page, mapping, governor, CancellationToken.None]) as PdfDictionary ?? throw new InvalidOperationException(); }
+        try { return Method.Invoke(null, [page, prepared.Mapping, governor, CancellationToken.None]) as PdfDictionary ?? throw new InvalidOperationException(); }
         catch (TargetInvocationException error) when (error.InnerException is not null)
         { ExceptionDispatchInfo.Capture(error.InnerException).Throw(); throw; }
     }
@@ -26,13 +24,12 @@ public sealed class ContentArrayRebuildTests
         private readonly ParserMemoryScope _memory;
         internal readonly PdfStream Original = new(DecoderOwnershipFixtures.Dictionary(), new byte[2 * 1024 * 1024]);
         internal readonly PdfStream Replacement = new(DecoderOwnershipFixtures.Dictionary(), new byte[2 * 1024 * 1024]);
-        internal readonly Dictionary<int, PdfStream> Legacy = new();
         internal readonly GovernedIntDictionary<PdfStream> Mapping;
         internal Prepared(bool fill)
         {
             ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
             _memory = ParserMemoryScope.Create(construction); Mapping = GovernedIntDictionary<PdfStream>.Create(_memory, construction, IntPtr.Size, CancellationToken.None);
-            if (fill) { Legacy.Add(3, Replacement); Mapping.Assign(_memory, 3, Replacement); }
+            if (fill) { Mapping.Assign(_memory, 3, Replacement); }
         }
         public void Dispose() { _memory.Dispose(); }
     }

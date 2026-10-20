@@ -148,8 +148,6 @@ public sealed class SharedResourceHeuristicTests
     private static FormPredicate BindForm()
     {
         MethodInfo method = typeof(ContentTransforms).GetMethod("IsFormXObject", BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException("Missing form classifier.");
-        if (method.GetParameters().Length == 1)
-        { Func<PdfStream, bool> legacy = method.CreateDelegate<Func<PdfStream, bool>>(); return (stream, governor, token) => legacy(stream); }
         return method.CreateDelegate<FormPredicate>();
     }
     private static readonly FormPredicate IsForm = BindForm();

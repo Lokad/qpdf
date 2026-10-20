@@ -121,8 +121,6 @@ public sealed class FormResourceTraversalTests
     private static Resolve BindResolve()
     {
         MethodInfo method = typeof(ContentTransforms).GetMethod("ResolvePool", BindingFlags.NonPublic | BindingFlags.Static) ?? throw new InvalidOperationException();
-        if (method.GetParameters().Length == 2)
-        { Func<PoolResolver, PdfReference, QpdfObject?> legacy = method.CreateDelegate<Func<PoolResolver, PdfReference, QpdfObject?>>(); return (resolver, reference, governor, token) => legacy(resolver, reference); }
         return method.CreateDelegate<Resolve>();
     }
     private static readonly Resolve ResolveBorrowed = BindResolve();

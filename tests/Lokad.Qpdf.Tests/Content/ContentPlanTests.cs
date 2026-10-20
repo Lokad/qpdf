@@ -1,6 +1,3 @@
-using System.Collections;
-using System.Reflection;
-using System.Runtime.ExceptionServices;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
@@ -13,45 +10,17 @@ namespace Lokad.Qpdf.Tests.Content;
 [Collection(nameof(NameTableCollection))]
 public sealed class ContentPlanTests
 {
-    private delegate object? ReadCall(GraphCopier copier, PdfDictionary page, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token);
-    private static readonly MethodInfo ReadMethod = typeof(ContentTransforms).GetMethod("ReadPageContents", BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException();
-    private static readonly ReadCall? Read = ReadMethod.GetParameters().Length == 5 ? ReadMethod.CreateDelegate<ReadCall>() : null;
-    private static readonly MethodInfo IdMethod = typeof(ContentTransforms).GetMethod("ReplacedContentIds", BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException();
-
-    // The preceding private reader takes copier/page/diagnostics only; its
-    // records are read through the same property names. The ID helper takes
-    // only the prepared value. Inputs, budgets and assertions stay identical.
-    private static object? InvokeRead(GraphCopier copier, PdfDictionary page, ResourceGovernor governor, DiagnosticBag diagnostics)
-    {
-        if (Read is not null) { return Read(copier, page, governor, diagnostics, CancellationToken.None); }
-        return Invoke(ReadMethod, [copier, page, diagnostics]);
-    }
-    private static object? Invoke(MethodInfo method, object?[] arguments)
-    {
-        try { return method.Invoke(null, arguments); }
-        catch (TargetInvocationException error) when (error.InnerException is not null)
-        { ExceptionDispatchInfo.Capture(error.InnerException).Throw(); throw; }
-    }
+    private static ContentEntries? InvokeRead(GraphCopier copier, PdfDictionary page, ResourceGovernor governor, DiagnosticBag diagnostics)
+        => ContentTransforms.ReadPageContents(copier, page, governor, diagnostics, CancellationToken.None);
     private static List<int> InvokeIds(QpdfObject? value, ParserMemoryScope memory, ResourceGovernor governor)
-        => (IdMethod.GetParameters().Length == 4 ? Invoke(IdMethod, [value, memory, governor, CancellationToken.None]) : Invoke(IdMethod, [value])) as List<int> ?? throw new InvalidOperationException();
-    private static int Count(object entries)
-        => (int)(entries.GetType().GetProperty("Count", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(entries) ?? throw new InvalidOperationException());
+        => ContentTransforms.ReplacedContentIds(value, memory, governor, CancellationToken.None);
+    private static int Count(object entries) => ((ContentEntries)entries).Count;
     private static (int? Id, int Index, PdfStream Stream) Get(object entries, int index)
     {
-        object entry = entries is IList list ? list[index] ?? throw new InvalidOperationException()
-            : Invoke(entries.GetType().GetMethod("Get", BindingFlags.Instance | BindingFlags.NonPublic) ?? throw new InvalidOperationException(), [index], entries) ?? throw new InvalidOperationException();
-        Type type = entry.GetType();
-        return ((int?)type.GetProperty("ObjectId")?.GetValue(entry), (int)(type.GetProperty("ArrayIndex")?.GetValue(entry) ?? throw new InvalidOperationException()),
-            type.GetProperty("Stream")?.GetValue(entry) as PdfStream ?? throw new InvalidOperationException());
+        ContentEntries.Entry item = ((ContentEntries)entries).Get(index);
+        return (item.ObjectId, item.ArrayIndex, item.Stream);
     }
-    private static object? Invoke(MethodInfo method, object?[] arguments, object receiver)
-    {
-        try { return method.Invoke(receiver, arguments); }
-        catch (TargetInvocationException error) when (error.InnerException is not null)
-        { ExceptionDispatchInfo.Capture(error.InnerException).Throw(); throw; }
-    }
-    private static void Close(object? entries)
-    { if (entries is IDisposable owner) { owner.Dispose(); } else if (entries is IList list) { list.Clear(); } }
+    private static void Close(object? entries) => (entries as ContentEntries)?.Dispose();
     private static PdfDictionary Dictionary(params (string Key, QpdfObject Value)[] entries)
         => new(entries.ToDictionary(entry => PdfName.FromAscii(entry.Key), entry => entry.Value));
 

@@ -58,7 +58,9 @@ public sealed class ObjectStreamPayloadTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ObjectStreamCapture headers = await Capture(governor, QpdfLimits.Default, "%% A\n"u8.ToArray(), "%% BBB\n"u8.ToArray());
         using ObjectStreamCapture bodies = await Capture(governor, QpdfLimits.Default, "null\n"u8.ToArray(), "false\n"u8.ToArray());
-        using ObjectStreamPayload payload = ObjectStreamPayload.CreateQdf(new[] { 7, 42 }, null, headers, bodies,
+        using WriterIndex<int> mapping = WriterIndex<int>.Create(sizeof(int), governor, CancellationToken.None);
+        mapping.Add(7, 7); mapping.Add(42, 42);
+        using ObjectStreamPayload payload = ObjectStreamPayload.CreateQdfIndexed(new[] { 7, 42 }, mapping, headers, bodies,
             QpdfLimits.Default, governor, CancellationToken.None);
         Assert.False(payload.Compressed);
         Assert.Equal(15L, payload.First);

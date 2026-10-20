@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Objects;
@@ -10,22 +9,12 @@ namespace Lokad.Qpdf.Tests.Content;
 [Collection(nameof(NameTableCollection))]
 public sealed class InlineImageDictionaryTests
 {
-    private delegate PdfDictionary ConvertCall(PdfDictionary raw, PdfDictionary resources, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token);
-    private static readonly ConvertCall Convert = Bind();
-    private static ConvertCall Bind()
-    {
-        MethodInfo method = typeof(InlineImages).GetMethod("ConvertImageDict", BindingFlags.NonPublic | BindingFlags.Static) ?? throw new InvalidOperationException();
-        if (method.GetParameters().Length == 5) { return method.CreateDelegate<ConvertCall>(); }
-        var old = method.CreateDelegate<Func<PdfDictionary, PdfDictionary, ResourceGovernor, DiagnosticBag, PdfDictionary>>();
-        return (raw, resources, governor, diagnostics, _) => old(raw, resources, governor, diagnostics);
-    }
-
     private static PdfDictionary Dictionary(params (string Key, QpdfObject Value)[] entries)
         => new(entries.ToDictionary(entry => PdfName.FromAscii(entry.Key), entry => entry.Value));
     private static QpdfObject Get(PdfDictionary dictionary, PdfName key)
         => dictionary.TryGet(key, out QpdfObject? value) && value is not null ? value : throw new InvalidOperationException("Missing fixture key.");
     private static PdfDictionary ConvertWith(ResourceGovernor governor, PdfDictionary raw, PdfDictionary resources, CancellationToken token)
-        => Convert(raw, resources, governor, new(governor), token);
+        => InlineImageDictionary.Convert(raw, resources, governor, new(governor), token);
 
     [Theory]
     [InlineData("BPC", "BitsPerComponent")]
@@ -119,7 +108,7 @@ public sealed class InlineImageDictionaryTests
     public void MissingColorspacePreservesNameAndOriginalWarning()
     {
         PdfName name = new([67, 255, 35]); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); DiagnosticBag diagnostics = new(governor);
-        PdfDictionary result = Convert(Dictionary(("CS", name)), Dictionary(), governor, diagnostics, CancellationToken.None);
+        PdfDictionary result = InlineImageDictionary.Convert(Dictionary(("CS", name)), Dictionary(), governor, diagnostics, CancellationToken.None);
         Assert.Same(name, Get(result, PdfName.FromAscii("ColorSpace")));
         QpdfDiagnostic warning = Assert.Single(diagnostics.Entries);
         Assert.Equal("Unable to resolve image colorspace; keeping the original name.", warning.Message);
