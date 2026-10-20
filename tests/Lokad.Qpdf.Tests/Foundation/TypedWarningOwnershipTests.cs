@@ -180,6 +180,7 @@ public sealed class TypedWarningOwnershipTests
     public async Task AWarningViewDoesNotRootTheCompletedJob(string route, bool compressed)
     {
         var aliases = await Metadata(route, compressed);
+        await Task.Yield();
         Collect();
         Assert.False(aliases.Governor.IsAlive); Assert.All(aliases.Metadata, weak => Assert.False(weak.IsAlive));
         Assert.NotEmpty(Assert.IsAssignableFrom<IReadOnlyList<QpdfDiagnostic>>(aliases.View)); GC.KeepAlive(aliases.View);

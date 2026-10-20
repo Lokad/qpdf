@@ -47,7 +47,7 @@ public sealed class CompletedObjectStreamPayloadTests
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static (ObjectStreamPayload Owner, ParserMemoryScope Scope, WeakReference[] Arrays) Funded(Task writing, bool compress)
+    private static (ObjectStreamPayload Owner, ParserMemoryScope Scope) Funded(Task writing, bool compress)
     {
         ObjectStreamPayload owner = FindOwner(writing, 0) ?? throw new InvalidOperationException("Expected awaited payload owner.");
         ParserMemoryScope scope = typeof(ObjectStreamPayload).GetField("_memory", Instance)?.GetValue(owner) as ParserMemoryScope
@@ -61,7 +61,7 @@ public sealed class CompletedObjectStreamPayloadTests
         Assert.Equal(64L + 32L + raw.Length + (compress ? 32L + stored.Length : 0L), scope.ReservedBytes);
         if (compress) { Assert.NotSame(raw, stored); }
         else { Assert.Same(raw, stored); }
-        return (owner, scope, new[] { new WeakReference(raw), new WeakReference(stored) });
+        return (owner, scope);
     }
 
     [Theory]
@@ -86,7 +86,7 @@ public sealed class CompletedObjectStreamPayloadTests
     [InlineData("counting", true, "success")]
     [InlineData("counting", true, "failure")]
     [InlineData("counting", true, "cancellation")]
-    public async Task RawAndCompressedBuffersDieWithRetainedOwnersAndTasks(string route, bool compress, string outcome)
+    public async Task CompletedPayloadDisposesRawAndCompressedStorage(string route, bool compress, string outcome)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using CancellationTokenSource cancellation = new();
@@ -95,9 +95,7 @@ public sealed class CompletedObjectStreamPayloadTests
         await sink.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         try
         {
-            (ObjectStreamPayload owner, ParserMemoryScope scope, WeakReference[] arrays) = Funded(writing, compress);
-            Collect();
-            Assert.All(arrays, value => Assert.True(value.IsAlive));
+            (ObjectStreamPayload owner, ParserMemoryScope scope) = Funded(writing, compress);
             if (outcome == "cancellation") { cancellation.Cancel(); }
             else { sink.Resume(); }
             if (outcome == "success") { Assert.True(await writing > 0L); }
@@ -105,8 +103,8 @@ public sealed class CompletedObjectStreamPayloadTests
             else { await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await writing); }
             Assert.Equal(0L, scope.ReservedBytes);
             Assert.Throws<ObjectDisposedException>(() => owner.Data);
-            Collect();
-            Assert.All(arrays, value => Assert.False(value.IsAlive));
+            Assert.Null(typeof(ObjectStreamPayload).GetField("_raw", Instance)?.GetValue(owner));
+            Assert.Null(typeof(ObjectStreamPayload).GetField("_stored", Instance)?.GetValue(owner));
             Assert.True(governor.Snapshot().LiveMemoryBytes < 4096L);
             GC.KeepAlive(writing); GC.KeepAlive(sink); GC.KeepAlive(owner); GC.KeepAlive(scope);
         }
@@ -118,7 +116,4 @@ public sealed class CompletedObjectStreamPayloadTests
             catch (OperationCanceledException) { }
         }
     }
-
-    private static void Collect()
-    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 }

@@ -186,3 +186,9 @@ and output faults. Representative collection checks keep public aliases or compl
 tasks rooted while checking that private storage is released. They do not depend
 on collection round counts, no-GC regions or zero-byte maintenance calls. Coarse
 caller storage refunds when its scope ends, independently of individual aliases.
+
+Async writer outcome matrices check owner detachment, disposal and refunds with
+completed tasks kept alive. Direct owner tests verify collection of released
+backing. They avoid asserting collection during an async producer's return, when
+runtime stack roots can still exist. Public alias tests leave the producer
+continuation before checking collection of completed metadata.

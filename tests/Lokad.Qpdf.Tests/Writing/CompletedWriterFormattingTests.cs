@@ -47,7 +47,7 @@ public sealed class CompletedWriterFormattingTests
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static (WriterFormatting Owner, ParserMemoryScope Scope, WeakReference[] Arrays) Funded(Task writing, string route)
+    private static (WriterFormatting Owner, ParserMemoryScope Scope) Funded(Task writing, string route)
     {
         WriterFormatting owner = FindOwner(writing, 0) ?? throw new InvalidOperationException("Expected awaited encoding owner.");
         ParserMemoryScope scope = typeof(WriterFormatting).GetField("_memory", Instance)?.GetValue(owner) as ParserMemoryScope
@@ -56,12 +56,12 @@ public sealed class CompletedWriterFormattingTests
             ?? throw new InvalidOperationException("Expected encoding backing.");
         Assert.Equal(WriterFormattingOwnershipTests.Spelling(route).Length, bytes.Length);
         Assert.Equal(64L + 32L + bytes.Length, scope.ReservedBytes);
-        return (owner, scope, new[] { new WeakReference(bytes) });
+        return (owner, scope);
     }
 
     [Theory]
     [MemberData(nameof(WriterFormattingOwnershipTests.Routes), MemberType = typeof(WriterFormattingOwnershipTests))]
-    public async Task EncodedBackingDiesWithRetainedOwnersAndTasks(string route, string outcome)
+    public async Task CompletedFormattingDisposesStorageOnEveryOutcome(string route, string outcome)
     {
         ResourceGovernor governor = new(WriterFormattingOwnershipTests.Limits, CancellationToken.None);
         using CancellationTokenSource cancellation = new();
@@ -71,9 +71,7 @@ public sealed class CompletedWriterFormattingTests
         await sink.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         try
         {
-            (WriterFormatting owner, ParserMemoryScope scope, WeakReference[] arrays) = Funded(writing, route);
-            Collect();
-            Assert.All(arrays, value => Assert.True(value.IsAlive));
+            (WriterFormatting owner, ParserMemoryScope scope) = Funded(writing, route);
             if (outcome == "cancellation") { cancellation.Cancel(); }
             else { sink.Resume(); }
             if (outcome == "success") { await writing; }
@@ -81,8 +79,6 @@ public sealed class CompletedWriterFormattingTests
             else { await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await writing); }
             Assert.Equal(0L, scope.ReservedBytes);
             Assert.Throws<ObjectDisposedException>(() => owner.Data);
-            Collect();
-            Assert.All(arrays, value => Assert.False(value.IsAlive));
             Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
             GC.KeepAlive(writing); GC.KeepAlive(sink); GC.KeepAlive(owner); GC.KeepAlive(scope); GC.KeepAlive(source);
         }
@@ -94,7 +90,4 @@ public sealed class CompletedWriterFormattingTests
             catch (OperationCanceledException) { }
         }
     }
-
-    private static void Collect()
-    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 }
