@@ -524,14 +524,17 @@ internal static class Overlays
         }
         catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
-            return stream.Data;
+            return null;
         }
         using FilterPlan stageOwner = stages;
 
-        if (stages.Count == 0 || !FilterChain.AllStagesInLevel(stages, "specialized"))
+        if (stages.Count == 0)
         {
             return stream.Data;
         }
+        // A Form contains PDF instructions. Opaque bytes cannot be promoted to
+        // instructions by dropping their source encoding dictionary.
+        if (!FilterChain.AllStagesInLevel(stages, "specialized")) { return null; }
 
         try
         {

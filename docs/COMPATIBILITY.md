@@ -28,6 +28,9 @@ unset defaults. These distinctions are part of the supported contract.
 Overlay annotation rectangles normalize reversed endpoints without losing their
 extent. Shared appearance streams receive the placement matrix once per copied
 stream; separate placements retain independent copies, including widget forms.
+Unsupported or damaged content encodings now warn and skip the affected overlay;
+an unreadable destination remains unchanged. Encoded bytes are never relabeled as
+unfiltered Form instructions. Opaque stream copying and raw inspection remain available.
 
 Overlay font-conflict rewriting compares decoded name bytes and emits escaped
 replacement names. Unchanged names, comments and whitespace retain their original

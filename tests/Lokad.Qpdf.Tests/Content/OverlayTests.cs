@@ -7,6 +7,36 @@ namespace Lokad.Qpdf.Tests.Content;
 public sealed class OverlayTests
 {
 [Theory]
+[InlineData("/Filter /UnknownFilter")]
+[InlineData("/Filter /CCITTFaxDecode")]
+[InlineData("/Filter 42")]
+[InlineData("/Filter /FlateDecode")]
+public async Task UndecodableOverlayWarnsAndKeepsDestinationContent(string encoding)
+{
+byte[] encoded = "ENCODED_CONTENT_BYTES"u8.ToArray();
+byte[] overlay = Inspection.CheckTests.Assemble(Inspection.CheckTests.SinglePage("<< /Length " + encoded.Length + " " + encoding + " >>", encoded), 1);
+byte[] primary = BuildPdf(["q (Base) Q"]);
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--", "--compress-streams=n", "--decode-level=none");
+Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+Assert.Contains(result.Diagnostics, d => d.Severity == QpdfDiagnosticSeverity.Warning && d.Message.Contains("could not be decoded", StringComparison.Ordinal));
+Assert.Contains("q (Base) Q", Encoding.ASCII.GetString(pdf));
+Assert.DoesNotContain("ENCODED_CONTENT_BYTES", Encoding.ASCII.GetString(pdf));
+}
+
+[Fact]
+public async Task UndecodableDestinationKeepsItsFilterAndSkipsOverlay()
+{
+byte[] encoded = "ENCODED_CONTENT_BYTES"u8.ToArray();
+byte[] primary = Inspection.CheckTests.Assemble(Inspection.CheckTests.SinglePage("<< /Length " + encoded.Length + " /Filter /UnknownFilter >>", encoded), 1);
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, BuildPdf(["q (Overlay) Q"])), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+Assert.Contains(result.Diagnostics, d => d.Severity == QpdfDiagnosticSeverity.Warning && d.Message.Contains("skipping overlay", StringComparison.Ordinal));
+Assert.Contains("/UnknownFilter", Encoding.ASCII.GetString(pdf));
+Assert.Contains("ENCODED_CONTENT_BYTES", Encoding.ASCII.GetString(pdf));
+Assert.DoesNotContain("(Overlay)", Encoding.ASCII.GetString(pdf));
+}
+
+[Theory]
 [InlineData("80 10 20 50")]
 [InlineData("20 50 80 10")]
 [InlineData("80 50 20 10")]
