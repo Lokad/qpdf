@@ -92,13 +92,23 @@ public sealed class ExceptionalCommandMemoryTests
         foreach (string route in new[] { "argv", "job", "mixed", "response", "qdf", "compress", "uncompress" })
         foreach (string phase in new[] { "read", "output", "close" })
         foreach (bool oom in new[] { false, true }) { yield return [route, phase, oom]; }
-        foreach (string route in new[] { "attachment", "appearances", "image" })
+        foreach (string route in new[] { "attachment", "appearances", "image", "inspection" })
         foreach (string phase in new[] { "output", "write", "commit", "close" })
         foreach (bool oom in new[] { false, true }) { yield return [route, phase, oom]; }
     }
 
     private static async Task<byte[]> PrepareInput(string route)
     {
+        if (route == "inspection")
+        {
+            byte[] encoded = Encoding.ASCII.GetBytes(Convert.ToHexString(new byte[65536]) + ">");
+            return CheckTests.Assemble([
+                (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
+                (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+                (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 1 1] /Contents 4 0 R >>", null),
+                (4, "<< /Filter /ASCIIHexDecode /Length " + encoded.Length + " >>", encoded),
+            ], 1);
+        }
         if (route == "image")
         {
             byte[] samples = new byte[256 * 256 * 3]; new Random(42).NextBytes(samples);
@@ -150,6 +160,7 @@ public sealed class ExceptionalCommandMemoryTests
 
     private static ValueTask<QpdfExecutionResult> Run(IQpdfHost host, string route) => route switch
     {
+        "inspection" => Qpdf.ExecuteAsync(host, new QpdfCommandInvocation([Input.Value, "--show-object=4", "--filtered-stream-data", "--", Output.Value]), CancellationToken.None),
         "attachment" => Qpdf.ExecuteAsync(host, new QpdfCommandInvocation([Input.Value, "--show-attachment=data", "--", Output.Value]), CancellationToken.None),
         "appearances" => Qpdf.ExecuteAsync(host, new QpdfCommandInvocation([Input.Value, "--generate-appearances", "--pages", ".", "1", "--", Output.Value]), CancellationToken.None),
         "image" => Qpdf.ExecuteAsync(host, new QpdfCommandInvocation([Input.Value, "--optimize-images", Output.Value]), CancellationToken.None),
@@ -200,6 +211,7 @@ public sealed class ExceptionalCommandMemoryTests
     [InlineData("attachment")]
     [InlineData("appearances")]
     [InlineData("image")]
+    [InlineData("inspection")]
     public async Task RefusalAtEachGrowthRetiresNewBuffersAndLeavesPriorOutput(string route)
     {
         byte[] source = await PrepareInput(route);

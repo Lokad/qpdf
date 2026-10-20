@@ -28,6 +28,12 @@ through output consumption. Filtered input slices are admitted before copying;
 decoded arrays stay in a temporary scope through inspection or transactional
 publication and are refunded on success, cancellation or output failure.
 
+Object stream inspection borrows raw bytes through consumption and checks their
+output size before copying. Filtered and normalized buffers stay admitted through
+fileless result assembly or transactional publication. Filter chains retain their
+independent intermediate decompression limits; normalized output can be smaller
+than its source, so its output ceiling is applied during construction.
+
 Image optimization borrows raw samples from the copied graph where possible.
 Decoded samples, separator trimming and JPEG candidates have temporary owners;
 rejected candidates refund their storage, and accepted buffers and headers

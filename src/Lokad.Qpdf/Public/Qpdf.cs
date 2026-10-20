@@ -5208,7 +5208,8 @@ public static partial class Qpdf
         CancellationToken cancellationToken)
     {
         await using QpdfDocument document = await OpenPlanInputAsync(host, showObject.Input, showObject.EmptyDocument, limits, governor, diagnostics, showObject.Recovery, cancellationToken).ConfigureAwait(false);
-        await ShowObjectAsync(host, document, showObject, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        await ShowObjectAsync(host, document, showObject, limits, governor, diagnostics, memory, cancellationToken).ConfigureAwait(false);
     }
 
     private static async ValueTask<ExecutionOutcome> RunPlanAsync(

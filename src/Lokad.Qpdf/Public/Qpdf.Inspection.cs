@@ -165,15 +165,18 @@ public static partial class Qpdf
         }
     }
 
-    private static async ValueTask<byte[]?> ShowObjectAsync(
+    internal static async ValueTask<ReadOnlyMemory<byte>?> ShowObjectAsync(
         IQpdfHost host,
         QpdfDocument document,
         ShowObjectPlan showObject,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
+        ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
+        memory.CheckOwner(governor);
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         (bool trailer, int number, int generation) = SelectionPlan.ParseInspectionSelector(showObject.Selector, 0);
         if (!trailer && number <= 0)
         {
@@ -203,16 +206,20 @@ public static partial class Qpdf
                 throw new QpdfParseException("The output file must differ from the input file.", 0L, null);
             }
 
-            byte[] payload = dataStream.Data;
+            ReadOnlyMemory<byte> payload = dataStream.RawMemory;
             if (showObject.FilteredStreamData)
             {
                 using FilterPlan stages = FilterChain.Resolve(dataStream.Dictionary, (IIndirectResolver)document.Engine, governor, cancellationToken);
-                payload = FilterChain.Decode(dataStream.Data, stages, limits, governor);
-                stages.Dispose();
+                byte[]? decoded = null;
+                if (stages.Count > 0)
+                {
+                    decoded = FilterChain.Decode(dataStream.ArrayData(memory, governor, cancellationToken), stages, limits, governor, memory, cancellationToken);
+                    payload = decoded;
+                }
                 if (showObject.NormalizeContent)
                 {
-                    payload = Content.ContentTransforms.NormalizeContentBytes(payload, limits, governor,
-                        cancellationToken, limits.MaxOutputBytes, nameof(QpdfLimits.MaxOutputBytes));
+                    payload = Content.ContentTransforms.NormalizeContentBytesOwned(decoded ?? dataStream.ArrayData(memory, governor, cancellationToken), limits, governor,
+                        cancellationToken, limits.MaxOutputBytes, nameof(QpdfLimits.MaxOutputBytes), memory);
                 }
             }
 

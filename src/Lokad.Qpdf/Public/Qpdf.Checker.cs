@@ -35,17 +35,18 @@ public static partial class Qpdf
                     if (plan.ObjectSelector is not null)
                     {
                         bool priorInfo = plan.RunCheck || plan.ShowNpages || plan.CheckLinearization || plan.ShowLinearization || plan.ShowXref;
-                        byte[]? payload = await ShowObjectAsync(host, document, new ShowObjectPlan(plan.Input, plan.Recovery, plan.ObjectSelector)
+                        using ParserMemoryScope objectMemory = ParserMemoryScope.Create(governor);
+                        ReadOnlyMemory<byte>? payload = await ShowObjectAsync(host, document, new ShowObjectPlan(plan.Input, plan.Recovery, plan.ObjectSelector)
                         {
                             RawStreamData = plan.RawStreamData,
                             FilteredStreamData = plan.FilteredStreamData,
                             NormalizeContent = plan.NormalizeContent,
                             RejectStreamAfterInfo = priorInfo && plan.AttachmentKey is null,
                         },
-                            limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                            limits, governor, diagnostics, objectMemory, cancellationToken).ConfigureAwait(false);
                         if (payload is not null)
                         {
-                            AppendInspectionBytes(output, payload, governor);
+                            AppendInspectionBytes(output, payload.Value, governor);
                             hasPayload = true;
                         }
                     }
