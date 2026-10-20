@@ -72,8 +72,9 @@ Other layouts and operations retain complete reads.
 Documents own their input, resolution tables and object caches. Disposal drops
 private references while public immutable values remain usable. Private copies can borrow immutable
 stream payloads while their operation owns the backing input through publication.
-Retaining/async sinks receive independent immutable packets; multisource copies
-keep independent payloads so earlier input documents can close promptly.
+Retaining/async sinks receive independent immutable packets. Exclusive multisource
+inputs transfer payload/backing admission to the job before earlier documents
+close; rewritten headers borrow those immutable bytes through publication.
 
 Failed or canceled operations discard uncommitted staging and close their leases.
 A single-target failed commit preserves the prior output. Multiple outputs commit

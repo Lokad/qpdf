@@ -87,22 +87,25 @@ public sealed class FlattenResourceStorageTests
         Assert.True(governor.CallerStorageBytes > 0L); GC.KeepAlive(result); return allocated;
     }
 
-    internal static byte[] Fixture(int count)
+    internal static byte[] Fixture(int count, bool indirectContents)
     {
         byte[] appearance = Encoding.ASCII.GetBytes(new string(' ', 65536) + "q Q");
         List<(int, string, byte[]?)> objects = Inspection.CheckTests.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray());
-        objects[2] = (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R /Resources << /XObject << /Fxo1 5 0 R >> >> /Annots 6 0 R >>", null);
+        objects[2] = (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents " + (indirectContents ? "9" : "4") + " 0 R /Resources << /XObject << /Fxo1 5 0 R >> >> /Annots 6 0 R >>", null);
         objects.Add((5, "<< /BBox [0 0 20 20] /Length " + appearance.Length + " >>", appearance));
         objects.Add((6, "[" + string.Concat(Enumerable.Repeat("7 0 R ", count)) + "8 0 R]", null));
         objects.Add((7, "<< /Subtype /Text /Rect [10 10 30 30] /AP << /N 5 0 R >> >>", null));
         objects.Add((8, "<< /Subtype /Text /Rect [0 0 10 10] /Contents (kept) >>", null));
+        if (indirectContents) { objects.Add((9, "[4 0 R]", null)); }
         return Inspection.CheckTests.Assemble(objects, 1);
     }
 
-    [Fact]
-    public async Task PublicFlatteningKeepsAnnotationsAndExistingNamesAfterSourceClosure()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PublicFlatteningKeepsAnnotationsAndExistingNamesAfterSourceClosure(bool indirectContents)
     {
-        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), Fixture(128), QpdfInputOwnership.Transfer);
+        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), Fixture(128, indirectContents), QpdfInputOwnership.Transfer);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["input", "--flatten-annotations=all", "--", "output"]), CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status); Assert.Equal(0L, host.OpenLeaseCount);
         Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] bytes));

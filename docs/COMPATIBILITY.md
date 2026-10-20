@@ -39,6 +39,9 @@ Annotation flattening now builds each page's XObject resources once, with admitt
 capacity growth and content buffers. Invalid page content is checked before
 appearance promotion, so a skipped page keeps its appearances and emits no unused
 wrapper streams. Indirect content arrays are accepted. Public signatures are unchanged.
+Overlay ranges use the shared grammar, including relative indexes, odd/even
+selection and exclusions. Duplicate job JSON keys retain their last value,
+including nested overlay keys; invalid effective values reject before output.
 
 Overlay font-conflict rewriting compares decoded name bytes and emits escaped
 replacement names. Unchanged names, comments and whitespace retain their original

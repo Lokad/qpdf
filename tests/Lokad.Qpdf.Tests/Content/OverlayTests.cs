@@ -6,6 +6,21 @@ using Lokad.Qpdf.Reading;
 namespace Lokad.Qpdf.Tests.Content;
 public sealed class OverlayTests
 {
+[Fact]
+public async Task FilterCountCeilingSkipsOverlayWithoutDroppingItsEncoding()
+{
+byte[] encoded = "712051>"u8.ToArray();
+byte[] overlay = Inspection.CheckTests.Assemble(Inspection.CheckTests.SinglePage("<< /Length " + encoded.Length + " /Filter /ASCIIHexDecode >>", encoded), 1);
+using InMemoryQpdfHost host = HostWithTwo(BuildPdf(["q (Base) Q"]), overlay);
+QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation([
+    "inputs/a.pdf", "--max-stream-filters=0", "--overlay", "inputs/o.pdf", "--", "--compress-streams=n", "--decode-level=none", "outputs/a.pdf"]), CancellationToken.None);
+Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+Assert.Contains(result.Diagnostics, d => d.Severity == QpdfDiagnosticSeverity.Warning);
+Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+Assert.DoesNotContain("712051>", Encoding.ASCII.GetString(pdf));
+Assert.Contains("q (Base) Q", Encoding.ASCII.GetString(pdf));
+}
+
 [Theory]
 [InlineData("/Filter /UnknownFilter")]
 [InlineData("/Filter /CCITTFaxDecode")]
@@ -472,10 +487,7 @@ Assert.Contains("1 0 0 1 0 0 cm", Encoding.ASCII.GetString(content));
 [InlineData("--overlay")]
 [InlineData("--overlay", "inputs/o.pdf", "--to=1", "--to=2")]
 [InlineData("--overlay=o.pdf")]
-[InlineData("--overlay", "inputs/o.pdf", "--to=r1")]
-[InlineData("--overlay", "inputs/o.pdf", "--to=1:odd")]
 [InlineData("--overlay", "inputs/o.pdf", "--to=x1")]
-[InlineData("--overlay", "inputs/o.pdf", "--from=z")]
 [InlineData("--overlay", "inputs/o.pdf", "--repeat=0")]
 [InlineData("--overlay", "inputs/o.pdf", "--bogus=1")]
 public async Task MalformedOverlayFlagsFail(params string[] flags)
@@ -487,12 +499,8 @@ List<string> argv = new() { "inputs/a.pdf" };
 argv.AddRange(flags);
 argv.AddRange(["--", "outputs/a.pdf"]);
 QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
-if (result.Status == QpdfExecutionStatus.Completed)
-{
-return;
-}
-
 Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out _));
 }
 [Fact]
 public async Task CheckWithOverlayRejectsOutput()
@@ -524,21 +532,41 @@ Assert.Equal(a, b);
 }
 [Theory]
 [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "overlay": [{"to": "1"}]}""")]
-[InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "overlay": [{"file": "inputs/o.pdf", "to": "r1"}]}""")]
-[InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "overlay": [{"file": "inputs/o.pdf", "from": "1", "from": "1"}]}""")]
+[InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "overlay": [{"file": 42}]}""")]
+[InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "overlay": [{"file": "inputs/o.pdf", "to": "z1"}]}""")]
 [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "underlay": "yes"}""")]
 public async Task JobMalformedFails(string jobJson)
 {
 byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
 byte[] overlay = BuildPdf(new List<string> { "BT (Stamp) Tj ET" });
-QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(HostWithTwo(primary, overlay), jobJson, CancellationToken.None);
-if (result.Status == QpdfExecutionStatus.Completed)
+using InMemoryQpdfHost host = HostWithTwo(primary, overlay);
+QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, jobJson, CancellationToken.None);
+Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out _));
+}
+[Theory]
+[InlineData("r1", true)]
+[InlineData("1:odd", true)]
+[InlineData("1,x1", false)]
+public async Task SharedRangeGrammarIsSupportedInOverlayDestinations(string range, bool applied)
 {
-return;
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(BuildPdf(["BT (Base) Tj ET"]), BuildPdf(["BT (Stamp) Tj ET"])),
+    "--overlay", "inputs/o.pdf", "--to=" + range, "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Equal(applied ? new HashSet<string>(["Stamp"]) : [], await OverlayMarkersOnPageAsync(pdf, 0));
 }
 
-Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+[Fact]
+public async Task DuplicateJobOverlayKeysUseTheirLastValue()
+{
+using InMemoryQpdfHost host = HostWithTwo(BuildPdf(["BT (Base) Tj ET"]), BuildPdf(["BT (A) Tj ET", "BT (B) Tj ET"]));
+string json = """{"inputFile":"inputs/a.pdf","outputFile":"outputs/a.pdf","overlay":[{"file":"missing","file":"inputs/o.pdf","from":"1","from":"2","to":"invalid","to":"r1"}]}""";
+QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, json, CancellationToken.None);
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+Assert.Equal(new HashSet<string>(["B"]), await OverlayMarkersOnPageAsync(pdf, 0));
 }
+
 [Fact]
 public async Task WholeFileJobOverlay()
 {
@@ -594,12 +622,14 @@ Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 Assert.Equal(new HashSet<string>(["B"]), await OverlayMarkersOnPageAsync(pdf, 0));
 Assert.Equal(new HashSet<string>(["A"]), await OverlayMarkersOnPageAsync(pdf, 1));
 }
-[Fact]
-public async Task FromRelativeSelectsLastOverlayPage()
+[Theory]
+[InlineData("r1")]
+[InlineData("z")]
+public async Task FromRelativeSelectsLastOverlayPage(string range)
 {
 byte[] primary = BuildPdf(new List<string> { "BT (One) Tj ET", "BT (Two) Tj ET" });
 byte[] overlay = BuildPdf(new List<string> { "BT (A) Tj ET", "BT (B) Tj ET" });
-(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--from=r1", "--to=1", "--");
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--from=" + range, "--to=1", "--");
 Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 Assert.Equal(new HashSet<string>(["B"]), await OverlayMarkersOnPageAsync(pdf, 0));
 Assert.Equal(new HashSet<string>(), await OverlayMarkersOnPageAsync(pdf, 1));

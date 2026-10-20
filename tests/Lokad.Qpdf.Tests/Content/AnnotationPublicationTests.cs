@@ -33,8 +33,8 @@ public sealed class AnnotationPublicationTests
     private static async Task<InMemoryQpdfHost> Storage()
     {
         InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("input"), FlattenResourceStorageTests.Fixture(64), QpdfInputOwnership.Transfer);
-        host.AddInput(QpdfPath.From("overlay"), FlattenResourceStorageTests.Fixture(4), QpdfInputOwnership.Transfer);
+        host.AddInput(QpdfPath.From("input"), FlattenResourceStorageTests.Fixture(64, false), QpdfInputOwnership.Transfer);
+        host.AddInput(QpdfPath.From("overlay"), FlattenResourceStorageTests.Fixture(4, false), QpdfInputOwnership.Transfer);
         await using IQpdfOutputTransaction initial = await host.CreateOutputAsync(Output, CancellationToken.None);
         await initial.WriteAsync(new byte[] { 17, 23, 41 }, CancellationToken.None); await initial.CommitAsync(CancellationToken.None);
         return host;
