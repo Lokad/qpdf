@@ -44,6 +44,10 @@ before allocating text; PDFDocEncoding/UTF-16 and suffix rules are unchanged.
 Resource-array merges borrow unchanged storage. Changed arrays admit their final
 capacity before copying, retain existing order/duplicates and append only unseen
 supported scalar values; cancellation also interrupts the inner equality search.
+Merged page labels use admitted sorted lookup rows and predecessor search;
+lookup no longer scans the whole prefix of the tree for each selected page.
+Number-tree scratch is admitted and borrows parsed arrays. Selection order,
+duplicate breakpoints, reference identity and run compression are unchanged.
 
 Overlay catalog default appearances remain borrowed byte programs through import,
 without eager PDF-text decoding or re-encoding. Imported defaults preserve their

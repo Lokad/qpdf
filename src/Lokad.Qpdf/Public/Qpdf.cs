@@ -479,7 +479,7 @@ public static partial class Qpdf
                     }
                     else if (!settings.RemoveLabels && Content.PageLabelMerge.HasLabels(document.Engine))
                     {
-                        Content.SourceLabels singleSource = Content.PageLabelMerge.ReadSource(document.Engine, copier, limits, governor, diagnostics, cancellationToken);
+                        Content.SourceLabels singleSource = Content.PageLabelMerge.ReadSource(document.Engine, copier, limits, governor, cancellationToken);
                         List<(Content.SourceLabels Source, int Page)> singleOccurrences = new(requested.Count);
                         foreach (int pageNumber in requested)
                         {
@@ -1023,7 +1023,7 @@ public static partial class Qpdf
                     : sourceForm);
                 if (needSourceLabels)
                 {
-                    multiLabels.Add(Content.PageLabelMerge.ReadSource(document.Engine, copier, limits, governor, diagnostics, cancellationToken));
+                    multiLabels.Add(Content.PageLabelMerge.ReadSource(document.Engine, copier, limits, governor, cancellationToken));
                 }
                 else
                 {

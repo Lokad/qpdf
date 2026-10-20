@@ -22,7 +22,7 @@ internal sealed record SourceLabelEntry(
 /// <summary>
 /// One source document's resolved page-label tree.
 /// </summary>
-internal sealed record SourceLabels(bool HasTree, SortedDictionary<int, SourceLabelEntry> Entries);
+internal sealed record SourceLabels(bool HasTree, (int Index, SourceLabelEntry Entry)[] Entries);
 
 /// <summary>
 /// Source page-label preservation through the shared copy engine, mirroring
@@ -73,7 +73,6 @@ internal static class PageLabelMerge
         GraphCopier copier,
         QpdfLimits limits,
         ResourceGovernor governor,
-        DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
         if (engine is null)
@@ -96,26 +95,27 @@ internal static class PageLabelMerge
             throw new ArgumentNullException(nameof(governor));
         }
 
-        if (diagnostics is null)
-        {
-            throw new ArgumentNullException(nameof(diagnostics));
-        }
-
         limits.Validate();
         bool hasTree = HasLabels(engine);
+        using ParserMemoryScope rawMemory = ParserMemoryScope.Create(governor);
         SortedDictionary<int, QpdfObject> raw = hasTree
-            ? DocumentJson.ReadLabelTree(engine, limits, governor, diagnostics, cancellationToken)
+            ? DocumentJson.ReadLabelTree(engine, limits, governor, rawMemory, cancellationToken)
             : new SortedDictionary<int, QpdfObject>();
         IIndirectResolver resolver = (IIndirectResolver)engine;
         using ParserMemoryScope metadata = ParserMemoryScope.Create(governor);
-        metadata.Reserve(96L);
-        SortedDictionary<int, SourceLabelEntry> entries = new();
+        metadata.Reserve(32L); // Source-label wrapper.
+        (int Index, SourceLabelEntry Entry)[] entries = Array.Empty<(int, SourceLabelEntry)>();
+        if (raw.Count != 0)
+        {
+            metadata.Reserve(checked(32L + raw.Count * 16L));
+            entries = new (int, SourceLabelEntry)[raw.Count];
+        }
+        int position = 0;
         foreach (KeyValuePair<int, QpdfObject> pair in raw)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            metadata.Reserve(128L); // Number-tree node and source-label metadata.
-            entries[pair.Key] = ResolveEntry(resolver, copier, pair.Value, governor, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            metadata.Reserve(64L);
+            entries[position++] = (pair.Key, ResolveEntry(resolver, copier, pair.Value, governor, cancellationToken));
         }
 
         SourceLabels result = new(hasTree, entries); metadata.RetainGraph(); return result;
@@ -156,8 +156,9 @@ internal static class PageLabelMerge
             if (merged.Count > 0)
             {
                 (int lastIndex, PdfDictionary lastLabel) = merged[merged.Count - 1];
-                if (SameValue(LabelValue(lastLabel, "S"), styleIdentity, governor, cancellationToken) && SameValue(LabelValue(lastLabel, "P"), prefixIdentity, governor, cancellationToken)
-                    && lastLabel.TryGet(PdfName.FromAscii("St"), out QpdfObject? lastRaw) && lastRaw is PdfInteger lastStart)
+                if (SameValue(LabelValue(lastLabel, "S"u8, governor, cancellationToken), styleIdentity, governor, cancellationToken)
+                    && SameValue(LabelValue(lastLabel, "P"u8, governor, cancellationToken), prefixIdentity, governor, cancellationToken)
+                    && PdfDictionaryLookup.TryGet(lastLabel, "St"u8, governor, cancellationToken, out QpdfObject lastRaw) && lastRaw is PdfInteger lastStart)
                 {
                     bool redundant;
                     try
@@ -187,25 +188,22 @@ internal static class PageLabelMerge
     }
 
     private static (long Start, QpdfObject? StyleIdentity, QpdfObject? PrefixIdentity, QpdfObject? Style, QpdfObject? Prefix) Peek(
-        SortedDictionary<int, SourceLabelEntry> entries,
+        (int Index, SourceLabelEntry Entry)[] entries,
         int pageIndex,
         int outputIndex,
         ResourceGovernor governor,
         CancellationToken token)
     {
-        int key = -1;
-        SourceLabelEntry? covering = null;
-        foreach (KeyValuePair<int, SourceLabelEntry> pair in entries)
+        int low = 0, high = entries.Length;
+        while (low < high)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            if (pair.Key > pageIndex)
-            {
-                break;
-            }
-
-            key = pair.Key;
-            covering = pair.Value;
+            int middle = low + (high - low) / 2;
+            if (entries[middle].Index <= pageIndex) { low = middle + 1; }
+            else { high = middle; }
         }
+        int key = low == 0 ? -1 : entries[low - 1].Index;
+        SourceLabelEntry? covering = low == 0 ? null : entries[low - 1].Entry;
 
         if (covering is null)
         {
@@ -353,8 +351,8 @@ internal static class PageLabelMerge
         return true;
     }
 
-    private static QpdfObject? LabelValue(PdfDictionary label, string key)
-        => label.TryGet(PdfName.FromAscii(key), out QpdfObject? value) ? value : null;
+    private static QpdfObject? LabelValue(PdfDictionary label, ReadOnlySpan<byte> key, ResourceGovernor governor, CancellationToken token)
+        => PdfDictionaryLookup.TryGet(label, key, governor, token, out QpdfObject value) ? value : null;
 
     private static PdfDictionary? TryGetCatalog(DocumentEngine engine)
     {

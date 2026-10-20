@@ -59,12 +59,13 @@ internal static class DocumentJson
                 AppendVersionAndParameters(builder, request);
             }
 
+            using ParserMemoryScope labelMemory = ParserMemoryScope.Create(governor);
             bool touchesPages = request.Wants("pages") || request.Wants("pagelabels") || request.Wants("outlines") || request.Wants("acroform");
             Dictionary<int, int> pageIndex = BuildPageIndex(document);
             SortedDictionary<int, QpdfObject> labels = new();
             if (request.Wants("pages") || request.Wants("pagelabels"))
             {
-                labels = ReadLabelTree(engine, limits, governor, diagnostics, cancellationToken);
+                labels = ReadLabelTree(engine, limits, governor, labelMemory, cancellationToken);
             }
 
             List<OutlineEntry> outlines = new();
@@ -203,10 +204,11 @@ internal static class DocumentJson
         DocumentEngine engine,
         QpdfLimits limits,
         ResourceGovernor governor,
-        DiagnosticBag diagnostics,
+        ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
-        SortedDictionary<int, QpdfObject> labels = new();
+        memory.CheckOwner(governor); cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        memory.Reserve(96L); SortedDictionary<int, QpdfObject> labels = new();
         PdfDictionary? catalog = ResolveChild(engine, engine.Trailer, "Root", "catalog");
         if (catalog is null)
         {
@@ -219,7 +221,7 @@ internal static class DocumentJson
             return labels;
         }
 
-        WalkLabelNode(engine, tree, 0, new HashSet<int>(), labels, limits, governor, cancellationToken);
+        WalkLabelNode(engine, tree, 0, GovernedIntSet.Create(memory, governor, cancellationToken), labels, limits, governor, memory, cancellationToken);
         return labels;
     }
 
@@ -227,10 +229,11 @@ internal static class DocumentJson
         DocumentEngine engine,
         PdfDictionary node,
         int depth,
-        HashSet<int> visited,
+        GovernedIntSet visited,
         SortedDictionary<int, QpdfObject> labels,
         QpdfLimits limits,
         ResourceGovernor governor,
+        ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -247,12 +250,11 @@ internal static class DocumentJson
                 throw new QpdfParseException("Page-label number array must hold index/value pairs.", null, null);
             }
 
-            QpdfObject[] items = nums.Items;
-            for (int i = 0; i < items.Length; i += 2)
+            for (int i = 0; i < nums.Count; i += 2)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 governor.NoteOperation();
-                if (items[i] is not PdfInteger key)
+                if (nums[i] is not PdfInteger key)
                 {
                     throw new QpdfParseException("Page-label number-tree keys must be integers.", null, null);
                 }
@@ -262,7 +264,9 @@ internal static class DocumentJson
                     throw new QpdfParseException("Page-label index is out of range.", null, null);
                 }
 
-                labels[(int)key.Value] = items[i + 1];
+                int index = (int)key.Value;
+                if (!labels.ContainsKey(index)) { memory.Reserve(64L); }
+                labels[index] = nums[i + 1];
             }
         }
 
@@ -273,8 +277,9 @@ internal static class DocumentJson
                 throw new QpdfParseException("Page-label kids must be an array.", null, null);
             }
 
-            foreach (QpdfObject item in kids.Items)
+            for (int i = 0; i < kids.Count; i++)
             {
+                QpdfObject item = kids[i];
                 cancellationToken.ThrowIfCancellationRequested();
                 governor.NoteOperation();
                 int kidNumber = item is PdfReference kidReference ? kidReference.ObjectNumber : -1;
@@ -295,14 +300,14 @@ internal static class DocumentJson
                 }
 
                 bool track = kidNumber >= 0;
-                if (track && !visited.Add(kidNumber))
+                if (track && !visited.Add(memory, kidNumber))
                 {
                     throw new QpdfParseException("Page-label number tree contains a cycle.", null, null);
                 }
 
                 try
                 {
-                    WalkLabelNode(engine, kid, depth + 1, visited, labels, limits, governor, cancellationToken);
+                    WalkLabelNode(engine, kid, depth + 1, visited, labels, limits, governor, memory, cancellationToken);
                 }
                 finally
                 {
