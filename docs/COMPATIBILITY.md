@@ -28,6 +28,9 @@ unset defaults. These distinctions are part of the supported contract.
 Overlay catalog default appearances remain borrowed byte programs through import,
 without eager PDF-text decoding or re-encoding. Imported defaults preserve their
 original bytes, including non-ASCII names; source ownership transfers before close.
+Page-label run comparisons borrow immutable values instead of cloning and
+hex-encoding prefixes. Reference number/generation and real-number spelling keep
+their existing comparison rules; byte-string syntax does not affect equality.
 
 Overlay annotation rectangles normalize reversed endpoints without losing their
 extent. Shared appearance streams receive the placement matrix once per copied

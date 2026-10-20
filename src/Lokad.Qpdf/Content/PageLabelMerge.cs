@@ -13,8 +13,8 @@ namespace Lokad.Qpdf.Content;
 /// but embed pool copies, so merged trees never dangle into source numbering.
 /// </summary>
 internal sealed record SourceLabelEntry(
-    string StyleToken,
-    string PrefixToken,
+    PdfReference? StyleReference,
+    PdfReference? PrefixReference,
     QpdfObject? Style,
     QpdfObject? Prefix,
     long Start);
@@ -107,15 +107,18 @@ internal static class PageLabelMerge
             ? DocumentJson.ReadLabelTree(engine, limits, governor, diagnostics, cancellationToken)
             : new SortedDictionary<int, QpdfObject>();
         IIndirectResolver resolver = (IIndirectResolver)engine;
+        using ParserMemoryScope metadata = ParserMemoryScope.Create(governor);
+        metadata.Reserve(96L);
         SortedDictionary<int, SourceLabelEntry> entries = new();
         foreach (KeyValuePair<int, QpdfObject> pair in raw)
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
+            metadata.Reserve(128L); // Number-tree node and source-label metadata.
             entries[pair.Key] = ResolveEntry(resolver, copier, pair.Value, governor, cancellationToken);
         }
 
-        return new SourceLabels(hasTree, entries);
+        SourceLabels result = new(hasTree, entries); metadata.RetainGraph(); return result;
     }
 
     internal static List<(int Index, PdfDictionary Label)> Merge(
@@ -149,11 +152,11 @@ internal static class PageLabelMerge
             governor.NoteOperation();
             (SourceLabels source, int page) = occurrences[k];
             int index = page - 1;
-            (long start, string styleToken, string prefixToken, QpdfObject? style, QpdfObject? prefix) = Peek(source.Entries, index, k);
+            (long start, QpdfObject? styleIdentity, QpdfObject? prefixIdentity, QpdfObject? style, QpdfObject? prefix) = Peek(source.Entries, index, k, governor, cancellationToken);
             if (merged.Count > 0)
             {
                 (int lastIndex, PdfDictionary lastLabel) = merged[merged.Count - 1];
-                if (TailToken(lastLabel, "S") == styleToken && TailToken(lastLabel, "P") == prefixToken
+                if (SameValue(LabelValue(lastLabel, "S"), styleIdentity, governor, cancellationToken) && SameValue(LabelValue(lastLabel, "P"), prefixIdentity, governor, cancellationToken)
                     && lastLabel.TryGet(PdfName.FromAscii("St"), out QpdfObject? lastRaw) && lastRaw is PdfInteger lastStart)
                 {
                     bool redundant;
@@ -183,15 +186,18 @@ internal static class PageLabelMerge
         return merged;
     }
 
-    private static (long Start, string StyleToken, string PrefixToken, QpdfObject? Style, QpdfObject? Prefix) Peek(
+    private static (long Start, QpdfObject? StyleIdentity, QpdfObject? PrefixIdentity, QpdfObject? Style, QpdfObject? Prefix) Peek(
         SortedDictionary<int, SourceLabelEntry> entries,
         int pageIndex,
-        int outputIndex)
+        int outputIndex,
+        ResourceGovernor governor,
+        CancellationToken token)
     {
         int key = -1;
         SourceLabelEntry? covering = null;
         foreach (KeyValuePair<int, SourceLabelEntry> pair in entries)
         {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (pair.Key > pageIndex)
             {
                 break;
@@ -216,7 +222,7 @@ internal static class PageLabelMerge
                 throw new QpdfParseException("Page-label start overflows its output position.", null, null, ex);
             }
 
-            return (fabricated, "null", "null", null, null);
+            return (fabricated, null, null, null, null);
         }
 
         long start;
@@ -232,7 +238,7 @@ internal static class PageLabelMerge
             throw new QpdfParseException("Page-label start overflows its output position.", null, null, ex);
         }
 
-        return (start, covering.StyleToken, covering.PrefixToken, covering.Style, covering.Prefix);
+        return (start, (QpdfObject?)covering.StyleReference ?? covering.Style, (QpdfObject?)covering.PrefixReference ?? covering.Prefix, covering.Style, covering.Prefix);
     }
 
     private static SourceLabelEntry ResolveEntry(
@@ -253,21 +259,21 @@ internal static class PageLabelMerge
 
         if (dictionary is null)
         {
-            return new SourceLabelEntry("null", "null", null, null, 1L);
+            return new SourceLabelEntry(null, null, null, null, 1L);
         }
 
-        (string styleToken, QpdfObject? style) = SplitLink(resolver, copier, dictionary, "S", governor, cancellationToken);
-        (string prefixToken, QpdfObject? prefix) = SplitLink(resolver, copier, dictionary, "P", governor, cancellationToken);
+        (PdfReference? styleReference, QpdfObject? style) = SplitLink(resolver, copier, dictionary, "S", governor, cancellationToken);
+        (PdfReference? prefixReference, QpdfObject? prefix) = SplitLink(resolver, copier, dictionary, "P", governor, cancellationToken);
         long start = 1L;
         if (dictionary.TryGet(PdfName.FromAscii("St"), out QpdfObject? rawStart) && rawStart is PdfInteger startInteger)
         {
             start = startInteger.Value;
         }
 
-        return new SourceLabelEntry(styleToken, prefixToken, style, prefix, start);
+        return new SourceLabelEntry(styleReference, prefixReference, style, prefix, start);
     }
 
-    private static (string Token, QpdfObject? Value) SplitLink(
+    private static (PdfReference? Reference, QpdfObject? Value) SplitLink(
         IIndirectResolver resolver,
         GraphCopier copier,
         PdfDictionary dictionary,
@@ -278,32 +284,31 @@ internal static class PageLabelMerge
         cancellationToken.ThrowIfCancellationRequested();
         if (!dictionary.TryGet(PdfName.FromAscii(key), out QpdfObject? raw) || raw is null || raw is PdfNull)
         {
-            return ("null", null);
+            return (null, null);
         }
 
         if (raw is not PdfReference reference)
         {
             if (raw is PdfDictionary direct && IsPageTreeNode(direct))
             {
-                return ("null", null);
+                return (null, null);
             }
 
-            return (ValueToken(raw), raw);
+            return (null, raw);
         }
 
-        string token = ValueToken(raw);
         if (!resolver.TryResolve(reference, out QpdfObject? resolved) || resolved is null || resolved is PdfNull)
         {
-            return (token, null);
+            return (reference, null);
         }
 
         if (resolved is PdfDictionary target && IsPageTreeNode(target))
         {
-            return (token, null);
+            return (reference, null);
         }
 
         governor.NoteOperation();
-        return (token, copier.CopyValue(raw, 0));
+        return (reference, copier.CopyValue(raw, 0));
     }
 
     private static bool IsPageTreeNode(PdfDictionary dictionary)
@@ -316,56 +321,40 @@ internal static class PageLabelMerge
         return raw is PdfName name && (name.DisplayText == "Page" || name.DisplayText == "Pages" || name.DisplayText == "Catalog");
     }
 
-    private static string ValueToken(QpdfObject? value)
+    internal static bool SameValue(QpdfObject? left, QpdfObject? right, ResourceGovernor governor, CancellationToken token)
     {
-        if (value is null || value is PdfNull)
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        if (left is PdfNull) { left = null; }
+        if (right is PdfNull) { right = null; }
+        if (ReferenceEquals(left, right)) { return true; }
+        if (left is null || right is null || left.GetType() != right.GetType()) { return false; }
+        return (left, right) switch
         {
-            return "null";
-        }
-
-        if (value is PdfReference reference)
-        {
-            return "r:" + reference.ObjectNumber.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                + ":" + reference.Generation.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        }
-
-        if (value is PdfName name)
-        {
-            return "n:" + name.DisplayText;
-        }
-
-        if (value is PdfByteString text)
-        {
-            return "b:" + System.Convert.ToHexString(text.Value);
-        }
-
-        if (value is PdfInteger number)
-        {
-            return "i:" + number.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        }
-
-        if (value is PdfBoolean flag)
-        {
-            return "f:" + (flag.Value ? "true" : "false");
-        }
-
-        if (value is PdfReal real)
-        {
-            return "real:" + real.Text;
-        }
-
-        return "u:" + value.GetType().Name;
+            (PdfReference a, PdfReference b) => a.ObjectNumber == b.ObjectNumber && a.Generation == b.Generation,
+            (PdfName a, PdfName b) => SameBytes(a.RawSpan, b.RawSpan, governor, token),
+            (PdfByteString a, PdfByteString b) => SameBytes(a.ValueSpan, b.ValueSpan, governor, token),
+            (PdfInteger a, PdfInteger b) => a.Value == b.Value,
+            (PdfBoolean a, PdfBoolean b) => a.Value == b.Value,
+            (PdfReal a, PdfReal b) => string.Equals(a.Text, b.Text, StringComparison.Ordinal),
+            // Preserve the prior conservative grouping of malformed container values.
+            _ => true,
+        };
     }
 
-    private static string TailToken(PdfDictionary label, string key)
+    private static bool SameBytes(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right, ResourceGovernor governor, CancellationToken token)
     {
-        if (!label.TryGet(PdfName.FromAscii(key), out QpdfObject? value) || value is null)
+        if (left.Length != right.Length) { return false; }
+        for (int at = 0; at < left.Length; at += Math.Min(8192, left.Length - at))
         {
-            return "null";
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            int count = Math.Min(8192, left.Length - at);
+            if (!left.Slice(at, count).SequenceEqual(right.Slice(at, count))) { return false; }
         }
-
-        return ValueToken(value);
+        return true;
     }
+
+    private static QpdfObject? LabelValue(PdfDictionary label, string key)
+        => label.TryGet(PdfName.FromAscii(key), out QpdfObject? value) ? value : null;
 
     private static PdfDictionary? TryGetCatalog(DocumentEngine engine)
     {
