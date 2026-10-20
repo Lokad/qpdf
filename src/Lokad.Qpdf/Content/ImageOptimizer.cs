@@ -212,7 +212,7 @@ internal static class ImageOptimizer
                 continue;
             }
 
-            PdfStream? optimized = TryOptimize(stream, request, resolver, limits, governor);
+            PdfStream? optimized = TryOptimize(stream, request, resolver, limits, governor, cancellationToken);
             if (optimized is null)
             {
                 continue;
@@ -283,16 +283,20 @@ internal static class ImageOptimizer
             return null;
         }
 
-        return new PdfStream(WithEntry(form.Dictionary, PdfName.FromAscii("Resources"), rebuilt, governor), form.Data);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
+        PdfStream result = ResourceRebuild.ReplaceResources(graph, form, rebuilt);
+        graph.Retain(); return result;
     }
 
-    private static PdfStream? TryOptimize(
+    internal static PdfStream? TryOptimize(
         PdfStream image,
         ImageOptimizeRequest request,
         PoolResolver resolver,
         QpdfLimits limits,
-        ResourceGovernor governor)
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (!ReadDimensions(image.Dictionary, resolver, out long width, out long height) || width <= 0L || height <= 0L)
         {
             return null;
@@ -319,7 +323,7 @@ internal static class ImageOptimizer
         FilterPlan stages;
         try
         {
-            stages = FilterChain.Resolve(image.Dictionary, resolver, governor, governor.CancellationToken);
+            stages = FilterChain.Resolve(image.Dictionary, resolver, governor, cancellationToken);
         }
         catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
@@ -354,12 +358,18 @@ internal static class ImageOptimizer
                 "JPEG image optimization requires a codec supplied by the host.");
         }
 
+        using ParserMemoryScope samples = ParserMemoryScope.Create(governor);
         byte[] raw;
         try
         {
-            raw = stages.Count == 0
-                ? CopyBytes(image.Data, limits, governor)
-                : FilterChain.Decode(image.Data, stages, limits, governor);
+            raw = image.ArrayData(samples, governor, cancellationToken);
+            if (stages.Count == 0)
+            {
+                if (raw.LongLength > limits.MaxDecodedBytes)
+                { throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), raw.LongLength, limits.MaxDecodedBytes); }
+                governor.ChargeDecodedBytes(raw.Length);
+            }
+            else { raw = FilterChain.Decode(raw, stages, limits, governor, samples, cancellationToken); }
         }
         catch (QpdfFilterException)
         {
@@ -372,7 +382,7 @@ internal static class ImageOptimizer
         {
             // Inline-image extraction conventionally retains the separator whitespace before EI;
             // trim trailing PDF whitespace so such samples still validate, and skip anything else.
-            byte[]? trimmed = TrimSeparators(raw, expected);
+            byte[]? trimmed = TrimSeparators(raw, expected, samples, governor, cancellationToken);
             if (trimmed is null)
             {
                 return null;
@@ -386,6 +396,8 @@ internal static class ImageOptimizer
             return null;
         }
 
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        using OwnedAllocationBatch candidate = OwnedAllocationBatch.Create(governor, cancellationToken);
         int quality = request.Quality ?? JpegCodec.DefaultQuality;
         byte[] encoded;
         try
@@ -399,35 +411,42 @@ internal static class ImageOptimizer
             return null;
         }
 
-        if ((long)encoded.Length >= (long)image.Data.Length)
+        long encodedBytes = encoded.Length == 0 ? 0L : encoded.LongLength + GovernedBufferStream.ArrayOverheadBytes;
+        candidate.Memory.AdoptReserved(encodedBytes); candidate.Add(encodedBytes);
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        if (encoded.Length >= image.RawMemory.Length)
         {
             return null;
         }
 
-        Dictionary<PdfName, QpdfObject> entries = new();
-        foreach (PdfName key in image.Dictionary.Keys)
+        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(candidate, out long allocation);
+        using (PdfDictionary.EntryEnumerator source = image.Dictionary.GetEntryEnumerator())
         {
-            if (key.DisplayText == "Filter" || key.DisplayText == "DecodeParms")
+            while (source.MoveNext(governor, cancellationToken))
             {
-                continue;
-            }
-
-            if (image.Dictionary.TryGet(key, out QpdfObject? kept) && kept is not null)
-            {
-                entries[key] = kept;
+                PdfName key = source.Current.Key;
+                if (PdfDictionaryLookup.NameEquals(key, "Filter"u8, governor, cancellationToken)
+                    || PdfDictionaryLookup.NameEquals(key, "DecodeParms"u8, governor, cancellationToken)
+                    || PdfDictionaryLookup.NameEquals(key, "Length"u8, governor, cancellationToken)) { continue; }
+                entries.Assign(candidate.Memory, governor, key, source.Current.Value, cancellationToken);
             }
         }
-
-        governor.ReserveMemory(64L);
-        entries[PdfName.FromAscii("Filter")] = PdfName.FromAscii("DCTDecode");
-        return new PdfStream(new PdfDictionary(entries), encoded);
+        PdfName dct = PdfDictionaryRebuild.CreateName(candidate, "DCTDecode"u8);
+        PdfName filter = PdfDictionaryRebuild.CreateName(candidate, "Filter"u8);
+        entries.Assign(candidate.Memory, governor, filter, dct, cancellationToken);
+        PdfDictionary header = PdfDictionaryRebuild.Complete(candidate, entries, allocation);
+        candidate.Memory.Reserve(32L);
+        PdfStream optimized = PdfStream.FromOwnedData(header, encoded);
+        candidate.Add(32L); candidate.Retain(); return optimized;
     }
 
-    private static byte[]? TrimSeparators(byte[] raw, long expected)
+    private static byte[]? TrimSeparators(byte[] raw, long expected, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken cancellationToken)
     {
         int length = raw.Length;
         while ((long)length > expected && length > 0 && IsPdfWhitespace(raw[length - 1]))
         {
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             length -= 1;
         }
 
@@ -441,35 +460,15 @@ internal static class ImageOptimizer
             return raw;
         }
 
+        memory.Reserve(checked(32L + length));
         byte[] trimmed = new byte[length];
-        Buffer.BlockCopy(raw, 0, trimmed, 0, length);
+        GovernedBufferStream.CopyBytes(raw.AsSpan(0, length), trimmed, governor, cancellationToken, CancellationToken.None);
         return trimmed;
     }
 
     private static bool IsPdfWhitespace(byte value)
     {
         return value == 0 || value == 9 || value == 10 || value == 12 || value == 13 || value == 32;
-    }
-
-    private static byte[] CopyBytes(byte[] data, QpdfLimits limits, ResourceGovernor governor)
-    {
-        if ((long)data.Length > limits.MaxDecodedBytes)
-        {
-            throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), data.Length, limits.MaxDecodedBytes);
-        }
-
-        governor.ReserveMemory(data.Length);
-        try
-        {
-            byte[] copy = new byte[data.Length];
-            Buffer.BlockCopy(data, 0, copy, 0, data.Length);
-            governor.ChargeDecodedBytes(copy.Length);
-            return copy;
-        }
-        finally
-        {
-            governor.ReleaseMemory(data.Length);
-        }
     }
 
     private static bool IsSubtype(PdfDictionary dictionary, string subtype)

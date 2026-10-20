@@ -28,6 +28,12 @@ through output consumption. Filtered input slices are admitted before copying;
 decoded arrays stay in a temporary scope through inspection or transactional
 publication and are refunded on success, cancellation or output failure.
 
+Image optimization borrows raw samples from the copied graph where possible.
+Decoded samples, separator trimming and JPEG candidates have temporary owners;
+rejected candidates refund their storage, and accepted buffers and headers
+transfer into the graph without cloning the payload. Header-only form rewrites
+borrow the original immutable payload.
+
 Engine reads use the same reader with their destination already admitted. They
 reserve additional assembly overlap only when a short or non-array read actually
 needs a copy, and refund that temporary charge before returning. Selective input
