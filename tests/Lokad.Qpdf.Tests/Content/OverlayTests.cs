@@ -949,8 +949,14 @@ Assert.Equal("dest", AnnotString(fields[0], "V"));
 Assert.Equal("O+1", AnnotString(fields[1], "T"));
 Assert.Equal("ov", AnnotString(fields[1], "V"));
 }
-[Fact]
-public async Task OverlayWidgetDrConflictRenamesFontAndRewritesDa()
+[Theory]
+[InlineData("F1", "F1", "/F1 12 Tf 0 g", "/F1_1 12 Tf 0 g")]
+[InlineData("F1", "F1", "/F#31 12 Tf /Keep 9 Tf", "/F1_1 12 Tf /Keep 9 Tf")]
+[InlineData("F1", "F1", "/F1 12 Tf % keep\n/F1 14 Tf", "/F1_1 12 Tf % keep\n/F1_1 14 Tf")]
+[InlineData("F/1", "F#2F1", "/F#2f1 12 Tf", "/F#2F1_1 12 Tf")]
+[InlineData("F#1", "F#231", "/F#231 12 Tf", "/F#231_1 12 Tf")]
+[InlineData("Fé", "F#E9", "/F#e9 12 Tf", "/F#E9_1 12 Tf")]
+public async Task OverlayWidgetDrConflictRenamesFontAndRewritesDa(string rawName, string spelling, string appearance, string expected)
 {
 List<(string Dict, byte[]? StreamData)> destExtras = new()
 {
@@ -959,11 +965,12 @@ List<(string Dict, byte[]? StreamData)> destExtras = new()
 };
 List<(string Dict, byte[]? StreamData)> srcExtras = new()
 {
-("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /T (S) /V (sv) /DA (/F1 12 Tf 0 g) >>", null),
+("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /T (S) /V (sv) /DA (" + appearance + ") >>", null),
 ("<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>", null),
+("<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman >>", null),
 };
-byte[] primary = BuildFormPdf(" /AcroForm << /Fields [5 0 R] /DR << /Font << /F1 6 0 R >> >> >>", "[5 0 R]", destExtras, "BT (Primary) Tj ET");
-byte[] overlay = BuildFormPdf(" /AcroForm << /Fields [5 0 R] /DR << /Font << /F1 6 0 R >> >> >>", "[5 0 R]", srcExtras, "BT (Stamp) Tj ET");
+byte[] primary = BuildFormPdf(" /AcroForm << /Fields [5 0 R] /DR << /Font << /" + spelling + " 6 0 R >> >> >>", "[5 0 R]", destExtras, "BT (Primary) Tj ET");
+byte[] overlay = BuildFormPdf(" /AcroForm << /Fields [5 0 R] /DR << /Font << /" + spelling + " 6 0 R /Keep 7 0 R >> >> >>", "[5 0 R]", srcExtras, "BT (Stamp) Tj ET");
 (QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
 Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 Assert.Empty(result.Diagnostics);
@@ -973,12 +980,12 @@ Assert.Equal(2, fields.Count);
 Assert.Equal("D", AnnotString(fields[0], "T"));
 Assert.Equal("S", AnnotString(fields[1], "T"));
 Assert.Equal("/F1 10 Tf 0 g", AnnotString(fields[0], "DA"));
-Assert.Equal("/F1_1 12 Tf 0 g", AnnotString(fields[1], "DA"));
+Assert.Equal(expected, AnnotString(fields[1], "DA"));
 PdfDictionary resources = OutputFormDR(output, OutputForm(output));
 Assert.True(resources.TryGet(PdfName.FromAscii("Font"), out QpdfObject? fontsRaw));
 PdfDictionary fonts = fontsRaw is PdfReference fontsRef ? Assert.IsType<PdfDictionary>(output.GetObject(fontsRef.ObjectNumber)) : Assert.IsType<PdfDictionary>(fontsRaw);
-Assert.True(fonts.TryGet(PdfName.FromAscii("F1"), out QpdfObject? f1Raw));
-Assert.True(fonts.TryGet(PdfName.FromAscii("F1_1"), out QpdfObject? f1aRaw));
+Assert.True(fonts.TryGet(new PdfName(Encoding.Latin1.GetBytes(rawName)), out QpdfObject? f1Raw));
+Assert.True(fonts.TryGet(new PdfName(Encoding.Latin1.GetBytes(rawName + "_1")), out QpdfObject? f1aRaw));
 PdfDictionary f1 = Assert.IsType<PdfDictionary>(output.GetObject(Assert.IsType<PdfReference>(f1Raw).ObjectNumber));
 PdfDictionary f1a = Assert.IsType<PdfDictionary>(output.GetObject(Assert.IsType<PdfReference>(f1aRaw).ObjectNumber));
 Assert.Equal("Helvetica", AnnotName(f1, "BaseFont"));

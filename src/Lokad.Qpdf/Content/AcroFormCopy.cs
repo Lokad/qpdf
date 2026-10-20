@@ -1088,26 +1088,26 @@ internal static class AcroFormCopy
             }
         }
 
-        Dictionary<string, Dictionary<string, string>> emptyMap = new(StringComparer.Ordinal);
-        List<Dictionary<string, Dictionary<string, string>>> maps = new(imports.Count);
+        using ParserMemoryScope mapMemory = ParserMemoryScope.Create(governor);
+        List<PdfNameTable<PdfName>?> maps = ParserContainers.CreateList<PdfNameTable<PdfName>?>(mapMemory);
         foreach (OverlayFieldImport import in imports)
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
             if (import.Part.DefaultResources is null)
             {
-                maps.Add(emptyMap);
+                ParserContainers.AddItem(mapMemory, maps, null, IntPtr.Size);
                 continue;
             }
 
             QpdfObject? resolved = ResolveImportValue(import.Copier, import.Part.DefaultResources);
             if (resolved is not PdfDictionary sourceDict)
             {
-                maps.Add(emptyMap);
+                ParserContainers.AddItem(mapMemory, maps, null, IntPtr.Size);
                 continue;
             }
 
-            maps.Add(MergeResourceDictionaries(union, sourceDict, import.Copier, limits, governor, cancellationToken));
+            ParserContainers.AddItem(mapMemory, maps, MergeResourceDictionaries(union, sourceDict, import.Copier, mapMemory, governor, cancellationToken), IntPtr.Size);
         }
 
         governor.ReserveMemory(64L);
@@ -1124,10 +1124,10 @@ internal static class AcroFormCopy
             combined.HasCalculationOrder,
             combined.CalculationOrder,
             combined.Extras);
-        Dictionary<string, string> emptyFont = new(StringComparer.Ordinal);
+
         for (int i = 0; i < imports.Count; i++)
         {
-            IReadOnlyDictionary<string, string> fontMap = maps[i].TryGetValue("Font", out Dictionary<string, string>? byFont) && byFont is not null ? byFont : emptyFont;
+            PdfNameTable<PdfName>? fontMap = maps[i];
             FixImportedSubtrees(imports[i], fontMap, unionRef, destDefaultAppearance, destQuadding, limits, governor, diagnostics, cancellationToken);
         }
 
@@ -1168,15 +1168,15 @@ internal static class AcroFormCopy
         return value;
     }
 
-    private static Dictionary<string, Dictionary<string, string>> MergeResourceDictionaries(
+    private static PdfNameTable<PdfName> MergeResourceDictionaries(
         Dictionary<PdfName, QpdfObject> union,
         PdfDictionary source,
         GraphCopier owner,
-        QpdfLimits limits,
+        ParserMemoryScope mapMemory,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
-        Dictionary<string, Dictionary<string, string>> map = new(StringComparer.Ordinal);
+        PdfNameTable<PdfName> map = PdfNameTable<PdfName>.Create(mapMemory, governor, IntPtr.Size, cancellationToken);
         foreach (PdfName rtype in source.Keys)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1202,7 +1202,7 @@ internal static class AcroFormCopy
             QpdfObject? havingResolved = ResolveImportValue(owner, having);
             if (havingResolved is PdfDictionary havingDict && otherResolved is PdfDictionary otherDict)
             {
-                MergeResourceSubdictionary(union, rtype, havingDict, otherDict, owner, map, limits, governor, cancellationToken);
+                MergeResourceSubdictionary(union, rtype, havingDict, otherDict, map, mapMemory, governor, cancellationToken);
             }
             else if (havingResolved is PdfArray havingArray && otherResolved is PdfArray otherArray)
             {
@@ -1214,95 +1214,64 @@ internal static class AcroFormCopy
     }
 
     private static void MergeResourceSubdictionary(
-        Dictionary<PdfName, QpdfObject> union,
-        PdfName rtype,
-        PdfDictionary having,
-        PdfDictionary other,
-        GraphCopier owner,
-        Dictionary<string, Dictionary<string, string>> map,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        CancellationToken cancellationToken)
+        Dictionary<PdfName, QpdfObject> union, PdfName rtype, PdfDictionary having, PdfDictionary other,
+        PdfNameTable<PdfName> fontMap, ParserMemoryScope mapMemory,
+        ResourceGovernor governor, CancellationToken token)
     {
-        Dictionary<int, string> knownIds = new();
-        HashSet<string> taken = new(StringComparer.Ordinal);
-        foreach (PdfName key in having.Keys)
+        using ParserMemoryScope temporary = ParserMemoryScope.Create(governor);
+        Dictionary<int, PdfName> knownIds = ParserContainers.CreateDictionary<int, PdfName>(temporary);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
+        PdfNameTable<QpdfObject> merged = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
+        using (PdfDictionary.EntryEnumerator entries = having.GetEntryEnumerator())
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            taken.Add(key.DisplayText);
-            if (having.TryGet(key, out QpdfObject? entry) && entry is PdfReference entryReference)
+            while (entries.MoveNext(governor, token))
             {
-                knownIds[entryReference.ObjectNumber] = key.DisplayText;
-            }
-        }
-
-        Dictionary<PdfName, QpdfObject> merged = new();
-        foreach (PdfName key in having.Keys)
-        {
-            if (having.TryGet(key, out QpdfObject? kept) && kept is not null)
-            {
-                merged[key] = kept;
-            }
-        }
-
-        int suffix = 1;
-        foreach (PdfName key in other.Keys)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            if (!other.TryGet(key, out QpdfObject? incoming) || incoming is null || incoming is PdfNull)
-            {
-                continue;
-            }
-
-            if (!merged.ContainsKey(key))
-            {
-                governor.ReserveMemory(32L);
-                merged[key] = incoming;
-                continue;
-            }
-
-            if (incoming is PdfReference incomingReference && knownIds.TryGetValue(incomingReference.ObjectNumber, out string? reuse))
-            {
-                if (!string.Equals(reuse, key.DisplayText, StringComparison.Ordinal))
+                merged.Assign(graph.Memory, governor, entries.Current.Key, entries.Current.Value, token);
+                if (entries.Current.Value is PdfReference link)
                 {
-                    if (!map.TryGetValue(rtype.DisplayText, out Dictionary<string, string>? byType))
-                    {
-                        byType = new Dictionary<string, string>(StringComparer.Ordinal);
-                        map[rtype.DisplayText] = byType;
-                    }
-
-                    byType[key.DisplayText] = reuse;
+                    ParserContainers.EnsureEntryCapacity(temporary, knownIds, IntPtr.Size);
+                    knownIds[link.ObjectNumber] = entries.Current.Key;
                 }
-
-                continue;
             }
-
-            string fresh = key.DisplayText + "_" + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            while (taken.Contains(fresh))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                governor.NoteOperation();
-                suffix += 1;
-                fresh = key.DisplayText + "_" + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            }
-
-            governor.ReserveMemory(32L);
-            merged[PdfName.FromAscii(fresh)] = incoming;
-            if (!map.TryGetValue(rtype.DisplayText, out Dictionary<string, string>? renamed))
-            {
-                renamed = new Dictionary<string, string>(StringComparer.Ordinal);
-                map[rtype.DisplayText] = renamed;
-            }
-
-            renamed[key.DisplayText] = fresh;
         }
-
-        governor.ReserveMemory(64L);
-        union[rtype] = new PdfDictionary(merged);
+        bool fonts = PdfDictionaryLookup.NameEquals(rtype, "Font"u8, governor, token);
+        int suffix = 1;
+        Span<byte> suffixBytes = stackalloc byte[11];
+        using (PdfDictionary.EntryEnumerator entries = other.GetEntryEnumerator())
+        {
+            while (entries.MoveNext(governor, token))
+            {
+                PdfName key = entries.Current.Key; QpdfObject incoming = entries.Current.Value;
+                if (incoming is PdfNull) { continue; }
+                if (!merged.TryGetValue(key, governor, token, out _))
+                { merged.Assign(graph.Memory, governor, key, incoming, token); continue; }
+                if (incoming is PdfReference link && knownIds.TryGetValue(link.ObjectNumber, out PdfName? reuse))
+                {
+                    if (fonts && !key.Equals(reuse)) { fontMap.Assign(mapMemory, governor, key, reuse, token); }
+                    continue;
+                }
+                while (true)
+                {
+                    token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    System.Buffers.Text.Utf8Formatter.TryFormat(suffix, suffixBytes, out int digits);
+                    int length = checked(key.RawSpan.Length + 1 + digits);
+                    using ParserMemoryScope candidate = ParserMemoryScope.Create(governor);
+                    long bytes = checked(56L + length); candidate.Reserve(bytes);
+                    byte[] raw = new byte[length];
+                    GovernedBufferStream.CopyBytes(key.RawSpan, raw.AsSpan(0, key.RawSpan.Length), governor, token, CancellationToken.None);
+                    raw[key.RawSpan.Length] = (byte)'_'; suffixBytes[..digits].CopyTo(raw.AsSpan(key.RawSpan.Length + 1));
+                    PdfName fresh = PdfName.FromOwnedBytes(raw);
+                    if (merged.TryGetValue(fresh, governor, token, out _)) { suffix = checked(suffix + 1); continue; }
+                    candidate.TransferTo(graph.Memory); graph.Add(bytes);
+                    merged.Assign(graph.Memory, governor, fresh, incoming, token);
+                    if (fonts) { fontMap.Assign(mapMemory, governor, key, fresh, token); }
+                    break;
+                }
+            }
+        }
+        union[rtype] = PdfDictionaryRebuild.Complete(graph, merged, allocation);
+        graph.Retain();
     }
-
     private static void MergeResourceArray(
         Dictionary<PdfName, QpdfObject> union,
         PdfName rtype,
@@ -1347,92 +1316,46 @@ internal static class AcroFormCopy
         union[rtype] = new PdfArray(items);
     }
 
-    private static PdfByteString? RewriteOverlayDa(
-        PdfByteString appearance,
-        IReadOnlyDictionary<string, string> fontMap,
-        QpdfLimits limits,
-        ResourceGovernor governor)
+    internal static PdfByteString? RewriteOverlayDa(PdfByteString appearance, PdfNameTable<PdfName>? fontMap,
+        QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
-        if (fontMap.Count == 0)
-        {
-            return null;
-        }
-
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        if (fontMap is null || fontMap.Count == 0) { return null; }
+        GovernedBufferStream? output = null;
         try
         {
-            ContentTokenizer tokenizer = new(appearance.Value, limits, governor)
+            ContentTokenizer tokenizer = new(appearance.ValueMemory, limits, governor, token);
+            ReadOnlyMemory<byte> lastName = ReadOnlyMemory<byte>.Empty;
+            int nameOffset = -1, written = 0;
+            while (tokenizer.TryReadToken(out ContentToken current))
             {
-                IncludeComments = true,
-                IncludeWhitespace = true,
-            };
-            List<byte[]> raws = new();
-            List<bool> isName = new();
-            List<string> names = new();
-            List<bool> isOperator = new();
-            List<string> operators = new();
-            while (tokenizer.TryReadToken(out ContentToken token))
-            {
-                governor.NoteOperation();
-                byte[] raw = token.Data.ToArray();
-                raws.Add(raw);
-                bool name = token.Kind == ContentTokenKind.Name;
-                isName.Add(name);
-                names.Add(name ? System.Text.Encoding.ASCII.GetString(raw) : string.Empty);
-                bool word = token.Kind == ContentTokenKind.Operator;
-                isOperator.Add(word);
-                operators.Add(word ? System.Text.Encoding.ASCII.GetString(raw) : string.Empty);
-            }
-
-            bool changed = false;
-            string lastName = string.Empty;
-            int lastNameIndex = -1;
-            for (int i = 0; i < raws.Count; i++)
-            {
-                if (isName[i])
+                if (current.Kind == ContentTokenKind.Name)
+                { lastName = current.Data; nameOffset = checked((int)current.Offset); }
+                else if (current.Kind == ContentTokenKind.Operator && current.Data.Span.SequenceEqual("Tf"u8)
+                    && nameOffset >= written && fontMap.TryGetValue(PdfNameBytes.Decode(lastName.Span, governor, token), governor, token, out PdfName? mapped))
                 {
-                    lastName = names[i];
-                    lastNameIndex = i;
-                }
-                else if (isOperator[i] && operators[i] == "Tf" && lastNameIndex >= 0
-                    && fontMap.TryGetValue(lastName, out string? mapped))
-                {
-                    governor.NoteOperation();
-                    raws[lastNameIndex] = System.Text.Encoding.ASCII.GetBytes("/" + mapped);
-                    changed = true;
+                    output ??= new(governor, limits.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes));
+                    output.Write(appearance.ValueSpan.Slice(written, nameOffset - written), token);
+                    using WriterEncoding name = WriterEncoding.Name(mapped, limits, governor, token);
+                    output.Write(name.Data.Span, token);
+                    written = checked(nameOffset + 1 + lastName.Length);
                 }
             }
-
-            if (!changed)
-            {
-                return null;
-            }
-
-            int total = 0;
-            foreach (byte[] part in raws)
-            {
-                total = checked(total + part.Length);
-            }
-
-            governor.ReserveMemory(total);
-            byte[] rebuilt = new byte[total];
-            int at = 0;
-            foreach (byte[] part in raws)
-            {
-                Buffer.BlockCopy(part, 0, rebuilt, at, part.Length);
-                at += part.Length;
-            }
-
-            return new PdfByteString(rebuilt, appearance.Hex);
+            if (output is null) { return null; }
+            output.Write(appearance.ValueSpan[written..], token);
+            using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
+            byte[] bytes = output.ToArray(graph.Memory, token);
+            graph.Add(bytes.Length == 0 ? 0L : bytes.LongLength + GovernedBufferStream.ArrayOverheadBytes);
+            graph.Memory.Reserve(24L);
+            PdfByteString result = PdfByteString.FromOwnedBytes(bytes, appearance.Hex);
+            graph.Add(24L); graph.Retain(); return result;
         }
-        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
-        {
-            return null;
-        }
+        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException)) { return null; }
+        finally { output?.Dispose(); }
     }
-
     private static void FixImportedSubtrees(
         OverlayFieldImport import,
-        IReadOnlyDictionary<string, string> fontMap,
+        PdfNameTable<PdfName>? fontMap,
         PdfReference unionResources,
         string? destDefaultAppearance,
         int? destQuadding,
@@ -1465,7 +1388,7 @@ internal static class AcroFormCopy
         PdfDictionary node,
         bool isTop,
         OverlayFieldImport import,
-        IReadOnlyDictionary<string, string> fontMap,
+        PdfNameTable<PdfName>? fontMap,
         PdfReference unionResources,
         string? destDefaultAppearance,
         int? destQuadding,
@@ -1535,9 +1458,9 @@ internal static class AcroFormCopy
                 continue;
             }
 
-            if (text == "DA" && entry is PdfByteString appearance && fontMap.Count > 0)
+            if (text == "DA" && entry is PdfByteString appearance && fontMap is { Count: > 0 })
             {
-                PdfByteString? rewritten = RewriteOverlayDa(appearance, fontMap, limits, governor);
+                PdfByteString? rewritten = RewriteOverlayDa(appearance, fontMap, limits, governor, cancellationToken);
                 if (rewritten is not null)
                 {
                     entries[key] = rewritten;

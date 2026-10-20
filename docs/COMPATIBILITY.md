@@ -25,6 +25,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Overlay font-conflict rewriting compares decoded name bytes and emits escaped
+replacement names. Unchanged names, comments and whitespace retain their original
+bytes; an escaped font spelling therefore follows the imported font after a
+collision. Rewriting admits bounded storage before allocation and preserves a
+malformed appearance unchanged when tokenization fails.
+
 Appearance generation resolves escaped font names by decoded bytes: `/F1` and
 `/F#31` select and merge the same resource, including its WinAnsi/MacRoman
 encoding. Original appearance spelling, comments and whitespace are preserved
