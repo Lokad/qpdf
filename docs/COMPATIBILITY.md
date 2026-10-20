@@ -25,6 +25,13 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Appearance generation resolves escaped font names by decoded bytes: `/F1` and
+`/F#31` select and merge the same resource, including its WinAnsi/MacRoman
+encoding. Original appearance spelling, comments and whitespace are preserved
+apart from the existing font-size correction. Generated appearance stream bytes
+are bounded by `MaxDecodedBytes`; large copies and JPEG candidates can now fail
+memory admission before allocation. These corrections add no public signatures.
+
 The resource simplification intentionally removes `QpdfLimits.MaxWork`,
 `QpdfExecutionCounters.TotalWork` and `QpdfJpegCodecContext.ChargeWork` without
 compatibility overloads. The counter constructor now takes seven values in this

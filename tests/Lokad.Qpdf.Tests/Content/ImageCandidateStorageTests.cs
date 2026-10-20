@@ -1,4 +1,5 @@
 using System.Text;
+using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.ImageSharp;
 using Lokad.Qpdf.Objects;
@@ -101,5 +102,30 @@ public sealed class ImageCandidateStorageTests
             { JpegCodec = new ObservedCodec(_ => source.Cancel()) };
         Assert.ThrowsAny<OperationCanceledException>(() => Optimize(image, governor, QpdfLimits.Default));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static (byte[] Payload, WeakReference Execution) EscapedPayload()
+    {
+        byte[] samples = new byte[128 * 128]; new Random(42).NextBytes(samples);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None)
+            { JpegCodec = ImageSharpJpegCodec.Instance, OwnsDocumentCounters = true };
+        PdfStream image = Image(128, Encoding.ASCII.GetBytes(Convert.ToHexString(samples) + ">"), true);
+        PdfStream result = Assert.IsType<PdfStream>(Optimize(image, governor, QpdfLimits.Default));
+        byte[] payload = Assert.IsType<byte[]>(result.AllocationCarrier);
+        governor.AcceptDocument(); governor.CompletePrivateStorage();
+        Assert.True(governor.CallerStorageBytes >= payload.Length + 32L);
+        Assert.True(governor.Snapshot().LiveMemoryBytes >= payload.Length + 32L);
+        return (payload, new(governor));
+    }
+
+    [Fact]
+    public void EscapedJpegStorageSurvivesGraphCleanupWithoutRetainingExecution()
+    {
+        var escaped = EscapedPayload();
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+        Assert.False(escaped.Execution.IsAlive);
+        Assert.Equal(0xFF, escaped.Payload[0]); Assert.Equal(0xD8, escaped.Payload[1]);
+        GC.KeepAlive(escaped.Payload);
     }
 }

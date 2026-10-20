@@ -3147,7 +3147,7 @@
           "GenerateAppearancesTests.TextFieldAppearanceRegeneratesValue",
           "GenerateAppearancesTests.MissingAppearanceIsCreated",
           "GenerateAppearancesTests.CheckboxSynchronizesState",
-          "GenerateAppearancesTests.WinAnsiEncodingKeepsAccents",
+          "GenerateAppearancesTests.FontEncodingKeepsAccentsWithEquivalentNameSpellings",
           "GenerateAppearancesTests.ListBoxHighlightsSelectedRow",
           "GenerateAppearancesTests.GenerateThenFlattenStampsFreshAppearance",
           "GenerateAppearancesTests.ParentHeldFieldIsSkipped",

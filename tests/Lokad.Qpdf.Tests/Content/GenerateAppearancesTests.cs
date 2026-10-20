@@ -526,23 +526,73 @@ byte[] bytes = await AppearanceBytesAsync(pdf, 0);
 Assert.Contains("(caf?) Tj", Encoding.ASCII.GetString(bytes));
 }
 
-[Fact]
-public async Task WinAnsiEncodingKeepsAccents()
+[Theory]
+[InlineData("Helv", "Helv", "WinAnsiEncoding", 233)]
+[InlineData("He#6cv", "Helv", "WinAnsiEncoding", 233)]
+[InlineData("He#6Cv", "Helv", "WinAnsiEncoding", 233)]
+[InlineData("Helv", "Helv", "MacRomanEncoding", 142)]
+[InlineData("H#65lv", "Helv", "MacRomanEncoding", 142)]
+[InlineData("F#2f1", "F#2F1", "WinAnsiEncoding", 233)]
+[InlineData("F#231", "F#231", "WinAnsiEncoding", 233)]
+[InlineData("F#e9", "F#E9", "MacRomanEncoding", 142)]
+public async Task FontEncodingKeepsAccentsWithEquivalentNameSpellings(string spelling, string resource, string encoding, int expected)
 {
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
 string hex = "FEFF00630061006600E9";
-string annotDict = string.Concat("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V <", hex, "> /DA (/Helv 12 Tf) /AP << /N 6 0 R >> >>");
+string annotDict = string.Concat("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V <", hex, "> /DA (/", spelling, " 12 Tf) /AP << /N 6 0 R >> >>");
 byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 (annotDict, null),
-(string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /Helv << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> >> >> /Length ", stale.Length.ToString(), " >>"), stale),
+(string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /", resource, " << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /", encoding, " >> >> >> /Length ", stale.Length.ToString(), " >>"), stale),
 });
 byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appearances", "--pages", ".", "1")).Pdf;
 byte[] bytes = await AppearanceBytesAsync(pdf, 0);
-Assert.Contains(((char)233).ToString(), System.Text.Encoding.GetEncoding(28591).GetString(bytes));
+Assert.True(bytes.AsSpan().IndexOf(new byte[] { 40, 99, 97, 102, (byte)expected, 41, 32, 84, 106 }) >= 0);
+Assert.Contains("/" + spelling + " 12 Tf", Encoding.ASCII.GetString(bytes));
 }
+
+[Fact]
+public async Task GeneratedLiteralPreservesPdfEscaping()
+{
+    byte[] stale = "q BT ET Q"u8.ToArray();
+    byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Annots [5 0 R]", new()
+    {
+        ("<< /Length 0 >>", Array.Empty<byte>()),
+        ("<< /Type /Annot /Subtype /Widget /Rect [0 0 200 20] /FT /Tx /V <FEFF00280029005C000A000D> /DA (/F1 12 Tf) /AP << /N 6 0 R >> >>", null),
+        ("<< /Subtype /Form /BBox [0 0 200 20] /Length " + stale.Length + " >>", stale),
+    });
+    byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appearances", "--pages", ".", "1")).Pdf;
+    string appearance = Encoding.ASCII.GetString(await AppearanceBytesAsync(pdf, 0));
+    Assert.Contains(@"(\(\)\\\n\r) Tj", appearance);
+}
+
+[Theory]
+[InlineData(false)]
+[InlineData(true)]
+public async Task AppearanceByteLimitRejectsBeforePublishing(bool oversizedSource)
+{
+    byte[] stale = oversizedSource ? new byte[64] : "q BT ET Q"u8.ToArray();
+    byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Annots [5 0 R]", new()
+    {
+        ("<< /Length 0 >>", Array.Empty<byte>()),
+        ("<< /Type /Annot /Subtype /Widget /Rect [0 0 200 20] /FT /Tx /V (value) /DA (/F1 12 Tf) /AP << /N 6 0 R >> >>", null),
+        ("<< /Subtype /Form /BBox [0 0 200 20] /Length " + stale.Length + " >>", stale),
+    });
+    QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = 32L };
+    using InMemoryQpdfHost host = new(limits);
+    host.AddInput(QpdfPath.From("inputs/a.pdf"), fixture, QpdfInputOwnership.Copy);
+    QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+        new QpdfCommandInvocation(["inputs/a.pdf", "--generate-appearances", "--pages", ".", "1", "--", "outputs/a.pdf"]),
+        new QpdfExecutionOptions(limits), CancellationToken.None);
+    Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+    Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded
+        && diagnostic.Message.Contains(nameof(QpdfLimits.MaxDecodedBytes), StringComparison.Ordinal));
+    Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out _));
+    Assert.Equal(0L, host.OpenLeaseCount);
+}
+
 [Fact]
 public async Task AcroFormDefaultResourcesEncodingKeepsAccents()
 {
@@ -581,12 +631,15 @@ byte[] bytes = await AppearanceBytesAsync(pdf, 0);
 // so a WinAnsi font reachable only through the field falls back to ASCII.
 Assert.Contains("(?) Tj", Encoding.ASCII.GetString(bytes));
 }
-[Fact]
-public async Task MergesAcroFormFontIntoAppearanceResources()
+[Theory]
+[InlineData("F1")]
+[InlineData("F#31")]
+[InlineData("#46#31")]
+public async Task MergesAcroFormFontIntoAppearanceResources(string spelling)
 {
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
-string annotDict = string.Concat("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V <96> /DA (/F1 12 Tf) /AP << /N 6 0 R >> >>");
+string annotDict = string.Concat("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V <96> /DA (/", spelling, " 12 Tf) /AP << /N 6 0 R >> >>");
 byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true /DR << /Font << /F1 7 0 R >> >> >>", " /Contents 4 0 R /Annots [5 0 R] /Resources << /Font << /Helv 8 0 R >> >>", new List<(string Dict, byte[]? StreamData)>()
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),

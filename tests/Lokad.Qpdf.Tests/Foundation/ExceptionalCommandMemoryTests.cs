@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Text;
+using Lokad.Qpdf.ImageSharp;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
@@ -12,9 +13,10 @@ public sealed class ExceptionalCommandMemoryTests
 {
     private static readonly QpdfPath Input = QpdfPath.From("input"), Output = QpdfPath.From("output");
 
-    private sealed class Host(InMemoryQpdfHost storage, IMemoryBudget budget, string phase, Exception failure) : IQpdfHost, IQpdfMemoryHost
+    private sealed class Host(InMemoryQpdfHost storage, IMemoryBudget budget, string phase, Exception failure) : IQpdfHost, IQpdfMemoryHost, IQpdfJpegCodecHost
     {
         public IMemoryBudget MemoryBudget => budget;
+        public IQpdfJpegCodec JpegCodec => ImageSharpJpegCodec.Instance;
         public async ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token)
         {
             IQpdfInput input = await storage.OpenInputAsync(path, token);
@@ -41,8 +43,10 @@ public sealed class ExceptionalCommandMemoryTests
         private sealed class Transaction(IQpdfOutputTransaction inner, string phase, Exception failure) : IQpdfOutputTransaction
         {
             public QpdfPath Path => inner.Path;
-            public ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken token) => inner.WriteAsync(bytes, token);
-            public ValueTask CommitAsync(CancellationToken token) => inner.CommitAsync(token);
+            public ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken token)
+            { if (phase == "write") { throw failure; } return inner.WriteAsync(bytes, token); }
+            public ValueTask CommitAsync(CancellationToken token)
+            { if (phase == "commit") { throw failure; } return inner.CommitAsync(token); }
             public ValueTask DiscardAsync(CancellationToken token) => inner.DiscardAsync(token);
             public async ValueTask DisposeAsync()
             {
@@ -88,10 +92,41 @@ public sealed class ExceptionalCommandMemoryTests
         foreach (string route in new[] { "argv", "job", "mixed", "response", "qdf", "compress", "uncompress" })
         foreach (string phase in new[] { "read", "output", "close" })
         foreach (bool oom in new[] { false, true }) { yield return [route, phase, oom]; }
+        foreach (string route in new[] { "attachment", "appearances", "image" })
+        foreach (string phase in new[] { "output", "write", "commit", "close" })
+        foreach (bool oom in new[] { false, true }) { yield return [route, phase, oom]; }
     }
 
     private static async Task<byte[]> PrepareInput(string route)
     {
+        if (route == "image")
+        {
+            byte[] samples = new byte[256 * 256 * 3]; new Random(42).NextBytes(samples);
+            return Content.ImageOptimizeTests.BuildImagePage(256, 256, "DeviceRGB", 8, string.Empty, samples);
+        }
+        if (route == "attachment")
+        {
+            using MemoryStream packed = new();
+            using (ZLibStream compressor = new(packed, CompressionLevel.Fastest, true)) { compressor.Write(new byte[131072]); }
+            return CheckTests.Assemble([
+                (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(data) 4 0 R] >> >> >>", null),
+                (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+                (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 1 1] >>", null),
+                (4, "<< /Type /Filespec /F (data) /EF << /F 5 0 R >> >>", null),
+                (5, "<< /Type /EmbeddedFile /Filter /FlateDecode /Length " + packed.Length + " >>", packed.ToArray()),
+            ], 1);
+        }
+        if (route == "appearances")
+        {
+            byte[] appearance = Encoding.ASCII.GetBytes("q BT ET Q");
+            return CheckTests.Assemble([
+                (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] /NeedAppearances true >> >>", null),
+                (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+                (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Annots [4 0 R] >>", null),
+                (4, "<< /Type /Annot /Subtype /Widget /Rect [0 0 100 20] /FT /Tx /V (value) /DA (/F#31 12 Tf) /AP << /N 5 0 R >> >>", null),
+                (5, "<< /Type /XObject /Subtype /Form /BBox [0 0 100 20] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Length " + appearance.Length + " >>", appearance),
+            ], 1);
+        }
         if (route is "compress" or "uncompress")
         {
             byte[] raw = Enumerable.Repeat((byte)'A', 131072).ToArray();
@@ -115,6 +150,9 @@ public sealed class ExceptionalCommandMemoryTests
 
     private static ValueTask<QpdfExecutionResult> Run(IQpdfHost host, string route) => route switch
     {
+        "attachment" => Qpdf.ExecuteAsync(host, new QpdfCommandInvocation([Input.Value, "--show-attachment=data", "--", Output.Value]), CancellationToken.None),
+        "appearances" => Qpdf.ExecuteAsync(host, new QpdfCommandInvocation([Input.Value, "--generate-appearances", "--pages", ".", "1", "--", Output.Value]), CancellationToken.None),
+        "image" => Qpdf.ExecuteAsync(host, new QpdfCommandInvocation([Input.Value, "--optimize-images", Output.Value]), CancellationToken.None),
         "job" => Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","streamData":"preserve"}""", CancellationToken.None),
         "mixed" => Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["--job-json-file=settings", Input.Value, Output.Value]), CancellationToken.None),
         "response" => Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["@arguments"]), CancellationToken.None),
@@ -155,6 +193,45 @@ public sealed class ExceptionalCommandMemoryTests
             Assert.Equal(QpdfExecutionStatus.Completed, next.Status);
             Assert.Equal(0L, storage.OpenLeaseCount);
             Assert.InRange(root.ReservedBytes, 4096L, 16384L);
+        }
+    }
+
+    [Theory]
+    [InlineData("attachment")]
+    [InlineData("appearances")]
+    [InlineData("image")]
+    public async Task RefusalAtEachGrowthRetiresNewBuffersAndLeavesPriorOutput(string route)
+    {
+        byte[] source = await PrepareInput(route);
+        RecordingMemoryBudget baseline = new(16777216L);
+        int growths;
+        using (IMemoryScope owner = baseline.CreateScope())
+        using (InMemoryQpdfHost storage = new())
+        {
+            storage.AddInput(Input, source, QpdfInputOwnership.Copy);
+            QpdfExecutionResult successful = await Run(new Host(storage, owner, "none", new InvalidOperationException()), route);
+            Assert.Equal(QpdfExecutionStatus.Completed, successful.Status);
+            growths = baseline.GrowthCalls;
+        }
+        Assert.Equal(0L, baseline.ReservedBytes);
+        for (int failureIndex = 1; failureIndex <= growths; failureIndex++)
+        {
+            RecordingMemoryBudget root = new(16777216L) { RefuseOnGrowth = failureIndex };
+            using (IMemoryScope owner = root.CreateScope())
+            using (InMemoryQpdfHost storage = new())
+            {
+                storage.AddInput(Input, source, QpdfInputOwnership.Copy);
+                await using (IQpdfOutputTransaction prior = await storage.CreateOutputAsync(Output, CancellationToken.None))
+                { await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None); await prior.CommitAsync(CancellationToken.None); }
+                QpdfExecutionResult result = await Run(new Host(storage, owner, "none", new InvalidOperationException()), route);
+                Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+                Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded);
+                Assert.Equal(failureIndex, root.GrowthCalls);
+                Assert.Equal(0L, storage.OpenLeaseCount);
+                Assert.True(storage.TryGetOutput(Output, out byte[] published));
+                Assert.Equal("prior"u8.ToArray(), published);
+            }
+            Assert.Equal(0L, root.ReservedBytes);
         }
     }
 

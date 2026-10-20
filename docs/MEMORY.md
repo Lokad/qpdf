@@ -34,6 +34,11 @@ rejected candidates refund their storage, and accepted buffers and headers
 transfer into the graph without cloning the payload. Header-only form rewrites
 borrow the original immutable payload.
 
+Default-appearance analysis scans borrowed bytes once, retaining only the last
+font and size. It admits decoded font-name bytes and any corrected appearance
+before materializing them. Appearance decoding and construction use a temporary
+scope and bounded buffers; only the final stream transfers into the graph.
+
 Engine reads use the same reader with their destination already admitted. They
 reserve additional assembly overlap only when a short or non-array read actually
 needs a copy, and refund that temporary charge before returning. Selective input

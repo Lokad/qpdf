@@ -196,7 +196,7 @@ internal static class GenerateAppearances
         string Type,
         long Flags,
         QpdfObject? Value,
-        byte[]? DefaultAppearance,
+        ReadOnlyMemory<byte>? DefaultAppearance,
         List<string> Choices,
         PdfDictionary? Node,
         int? NodeId);
@@ -218,7 +218,7 @@ internal static class GenerateAppearances
         string type = string.Empty;
         long flags = 0L;
         QpdfObject? value = null;
-        byte[]? appearance = null;
+        ReadOnlyMemory<byte>? appearance = null;
         PdfDictionary? node = null;
         int? nodeId = null;
         bool flagsFound = false;
@@ -238,7 +238,7 @@ internal static class GenerateAppearances
 
             if (appearance is null && current.TryGet(PdfName.FromAscii("DA"), out QpdfObject? appearanceRaw) && appearanceRaw is PdfByteString appearanceString)
             {
-                appearance = appearanceString.Value;
+                appearance = appearanceString.ValueMemory;
             }
 
             if (!flagsFound && current.TryGet(PdfName.FromAscii("Ff"), out QpdfObject? flagsRaw) && flagsRaw is not null && flagsRaw is not PdfNull)
@@ -619,8 +619,9 @@ internal static class GenerateAppearances
         cancellationToken.ThrowIfCancellationRequested();
         governor.NoteOperation();
         GenAppearance foundAp = FindGenAppearance(annot, resolver);
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
         PdfStream? found = foundAp.Stream;
-        byte[] decoded;
+        ReadOnlyMemory<byte> decoded;
         PdfDictionary appearanceDict;
         if (found is null)
         {
@@ -645,7 +646,7 @@ internal static class GenerateAppearances
         }
         else
         {
-            byte[]? raw = DecodeAppearance(found, resolver, limits, governor);
+            ReadOnlyMemory<byte>? raw = DecodeAppearance(found, resolver, limits, governor, scratch, cancellationToken);
             if (raw is null)
             {
                 diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot decode an appearance stream; keeping the field as is.");
@@ -653,7 +654,7 @@ internal static class GenerateAppearances
                 return false;
             }
 
-            decoded = raw;
+            decoded = raw.Value;
             appearanceDict = found.Dictionary;
         }
 
@@ -665,15 +666,14 @@ internal static class GenerateAppearances
             return false;
         }
 
-        string daText = field.DefaultAppearance is null ? string.Empty : Encoding.ASCII.GetString(field.DefaultAppearance);
         string valueText = string.Empty;
         if (field.Value is PdfByteString valueString)
         {
             valueText = PdfText.Decode(valueString.Value);
         }
 
-        TfResult font = AnalyzeDa(daText, limits, governor);
-        Func<string, byte[]> encoder = SelectEncoder(appearanceDict, font.FontName, formResources, resolver);
+        TfResult font = AnalyzeDa(field.DefaultAppearance ?? ReadOnlyMemory<byte>.Empty, limits, governor, scratch, cancellationToken);
+        Func<string, byte[]> encoder = SelectEncoder(appearanceDict, font.FontName, formResources, resolver, governor, cancellationToken);
         byte[] encodedValue = encoder(valueText);
         List<byte[]> encodedOpt = new();
         if (field.Type == "Ch" && (field.Flags & FlagCombo) == 0L)
@@ -684,46 +684,34 @@ internal static class GenerateAppearances
             }
         }
 
-        byte[] built = FilterAppearance(decoded, font.Appearance, encodedValue, encodedOpt, font.Size, bbox, limits, governor);
-        PdfDictionary? mergedResources = TryMergeDrFont(appearanceDict, font.FontName, formResources, resolver, governor);
-        Dictionary<PdfName, QpdfObject> streamEntries = new();
-        foreach (PdfName key in appearanceDict.Keys)
+        byte[] built = FilterAppearance(decoded, font.Appearance, encodedValue, encodedOpt, font.Size, bbox, limits, governor, scratch, cancellationToken);
+        PdfDictionary? mergedResources = TryMergeDrFont(appearanceDict, font.FontName, formResources, resolver, governor, cancellationToken);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
+        PdfNameTable<QpdfObject> streamEntries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
+        using (PdfDictionary.EntryEnumerator source = appearanceDict.GetEntryEnumerator())
         {
-            if (key.DisplayText == "Filter" || key.DisplayText == "DecodeParms")
+            while (source.MoveNext(governor, cancellationToken))
             {
-                continue;
-            }
-
-            if (key.DisplayText == "Resources" && mergedResources is not null)
-            {
-                streamEntries[key] = mergedResources;
-                continue;
-            }
-
-            if (appearanceDict.TryGet(key, out QpdfObject? kept) && kept is not null)
-            {
-                streamEntries[key] = kept;
+                PdfName key = source.Current.Key;
+                if (PdfDictionaryLookup.NameEquals(key, "Filter"u8, governor, cancellationToken)
+                    || PdfDictionaryLookup.NameEquals(key, "DecodeParms"u8, governor, cancellationToken)) { continue; }
+                QpdfObject kept = mergedResources is not null && PdfDictionaryLookup.NameEquals(key, "Resources"u8, governor, cancellationToken)
+                    ? mergedResources : source.Current.Value;
+                streamEntries.Assign(graph.Memory, governor, key, kept, cancellationToken);
             }
         }
-
-        governor.ReserveMemory(64L);
-        streamEntries[PdfName.FromAscii("Type")] = PdfName.FromAscii("XObject");
-        streamEntries[PdfName.FromAscii("Subtype")] = PdfName.FromAscii("Form");
-        PdfReference builtLink = copier.AddIndirectObjectWithId(new PdfStream(new PdfDictionary(streamEntries), built), allocator);
+        streamEntries.Assign(graph.Memory, governor, PdfName.FromAscii("Type"), PdfName.FromAscii("XObject"), cancellationToken);
+        streamEntries.Assign(graph.Memory, governor, PdfName.FromAscii("Subtype"), PdfName.FromAscii("Form"), cancellationToken);
+        PdfDictionary header = PdfDictionaryRebuild.Complete(graph, streamEntries, allocation);
+        long builtBytes = built.Length == 0 ? 0L : built.LongLength + GovernedBufferStream.ArrayOverheadBytes;
+        scratch.TransferTo(graph.Memory, builtBytes); graph.Add(builtBytes);
+        graph.Memory.Reserve(32L);
+        PdfStream replacement = PdfStream.FromOwnedData(header, built); graph.Add(32L);
+        PdfReference builtLink = copier.AddIndirectObjectWithId(replacement, allocator);
         allocator = checked(allocator + 1);
-        PdfDictionary newAp = BuildAp(foundAp.Ap, builtLink, governor);
-        Dictionary<PdfName, QpdfObject> annotEntries = new();
-        foreach (PdfName key in annot.Keys)
-        {
-            if (annot.TryGet(key, out QpdfObject? annotKept) && annotKept is not null)
-            {
-                annotEntries[key] = annotKept;
-            }
-        }
-
-        governor.ReserveMemory(64L);
-        annotEntries[PdfName.FromAscii("AP")] = newAp;
-        PdfDictionary updatedAnnot = new(annotEntries);
+        PdfDictionary newAp = BuildAp(foundAp.Ap, builtLink, graph);
+        PdfDictionary updatedAnnot = PdfDictionaryRebuild.ReplaceEntry(graph, annot, "AP"u8, newAp);
+        graph.Retain();
         if (annotId.HasValue)
         {
             copier.ReplaceCopiedObject(annotId.Value, updatedAnnot);
@@ -809,23 +797,12 @@ internal static class GenerateAppearances
         return new GenAppearance(null, null, apDict, state);
     }
 
-    private static PdfDictionary BuildAp(PdfDictionary? ap, PdfReference link, ResourceGovernor governor)
+    private static PdfDictionary BuildAp(PdfDictionary? ap, PdfReference link, OwnedAllocationBatch graph)
     {
-        Dictionary<PdfName, QpdfObject> entries = new();
-        if (ap is not null)
-        {
-            foreach (PdfName key in ap.Keys)
-            {
-                if (ap.TryGet(key, out QpdfObject? found) && found is not null)
-                {
-                    entries[key] = found;
-                }
-            }
-        }
-
-        governor.ReserveMemory(64L);
-        entries[PdfName.FromAscii("N")] = link;
-        return new PdfDictionary(entries);
+        if (ap is not null) { return PdfDictionaryRebuild.ReplaceEntry(graph, ap, "N"u8, link); }
+        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
+        entries.Assign(graph.Memory, graph.Governor, PdfName.FromAscii("N"), link, graph.Token);
+        return PdfDictionaryRebuild.Complete(graph, entries, allocation);
     }
     private static double[]? ReadBox(PdfDictionary dictionary, string key, PoolResolver resolver)
     {
@@ -891,16 +868,18 @@ internal static class GenerateAppearances
         return new PdfArray(items);
     }
 
-    private static byte[]? DecodeAppearance(
+    private static ReadOnlyMemory<byte>? DecodeAppearance(
         PdfStream stream,
         PoolResolver resolver,
         QpdfLimits limits,
-        ResourceGovernor governor)
+        ResourceGovernor governor,
+        ParserMemoryScope memory,
+        CancellationToken cancellationToken)
     {
         FilterPlan stages;
         try
         {
-            stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, governor.CancellationToken);
+            stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, cancellationToken);
         }
         catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
@@ -910,7 +889,9 @@ internal static class GenerateAppearances
 
         if (stages.Count == 0)
         {
-            return stream.Data;
+            if (stream.RawMemory.Length > limits.MaxDecodedBytes)
+            { throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), stream.RawMemory.Length, limits.MaxDecodedBytes); }
+            return stream.RawMemory;
         }
 
         foreach (FilterStage stage in stages)
@@ -923,7 +904,7 @@ internal static class GenerateAppearances
 
         try
         {
-            return FilterChain.Decode(stream.Data, stages, limits, governor);
+            return FilterChain.Decode(stream.ArrayData(memory, governor, cancellationToken), stages, limits, governor, memory, cancellationToken);
         }
         catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
@@ -940,264 +921,123 @@ internal static class GenerateAppearances
             || filter == RunLengthFilter.FilterName;
     }
 
-    private sealed record TfResult(double Size, string FontName, string Appearance);
+    internal readonly record struct TfResult(double Size, byte[] FontName, ReadOnlyMemory<byte> Appearance);
 
-    private static TfResult AnalyzeDa(string appearance, QpdfLimits limits, ResourceGovernor governor)
+    internal static TfResult AnalyzeDa(ReadOnlyMemory<byte> appearance, QpdfLimits limits, ResourceGovernor governor,
+        ParserMemoryScope memory, CancellationToken cancellationToken)
     {
-        double size = 11.0;
-        string font = string.Empty;
-        string rebuilt = appearance;
+        memory.CheckOwner(governor);
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         try
         {
-            byte[] bytes = Encoding.ASCII.GetBytes(appearance);
-            ContentTokenizer tokenizer = new(bytes, limits, governor)
-            {
-                IncludeComments = true,
-                IncludeWhitespace = true,
-            };
-            List<string> raws = new();
-            List<bool> isNumber = new();
-            List<double> numbers = new();
-            List<bool> isName = new();
-            List<string> names = new();
-            List<bool> isOperator = new();
-            List<string> operators = new();
+            ContentTokenizer tokenizer = new(appearance, limits, governor, cancellationToken);
+            double size = 11.0, lastNumber = 0.0, stored = 0.0;
+            int numberOffset = -1, numberLength = 0, sizeOffset = -1, sizeLength = 0;
+            ReadOnlyMemory<byte> lastName = ReadOnlyMemory<byte>.Empty, font = ReadOnlyMemory<byte>.Empty;
             while (tokenizer.TryReadToken(out ContentToken token))
             {
                 governor.NoteOperation();
-                string raw = Encoding.ASCII.GetString(token.Data.ToArray());
-                raws.Add(raw);
-                bool number = token.Kind == ContentTokenKind.Integer || token.Kind == ContentTokenKind.Real;
-                isNumber.Add(number);
-                numbers.Add(number && double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed) ? parsed : 0.0);
-                bool name = token.Kind == ContentTokenKind.Name;
-                isName.Add(name);
-                names.Add(raw);
-                bool word = token.Kind == ContentTokenKind.Operator;
-                isOperator.Add(word);
-                operators.Add(word ? raw : string.Empty);
-            }
-
-            double lastNumber = 0.0;
-            int lastNumberIndex = -1;
-            string lastName = string.Empty;
-            int sizeIndex = -1;
-            for (int i = 0; i < raws.Count; i++)
-            {
-                if (isNumber[i])
+                if (token.Kind is ContentTokenKind.Integer or ContentTokenKind.Real)
                 {
-                    lastNumber = numbers[i];
-                    lastNumberIndex = i;
+                    lastNumber = double.TryParse(token.Data.Span, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed) ? parsed : 0.0;
+                    numberOffset = checked((int)token.Offset); numberLength = token.Data.Length;
                 }
-                else if (isName[i])
+                else if (token.Kind == ContentTokenKind.Name)
                 {
-                    lastName = names[i];
+                    lastName = token.Data;
                 }
-                else if (isOperator[i] && operators[i] == "Tf")
+                else if (token.Kind == ContentTokenKind.Operator && token.Data.Span.SequenceEqual("Tf"u8))
                 {
                     if (lastNumber > 1.0 && lastNumber < 1000.0)
                     {
                         size = lastNumber;
                     }
 
-                    sizeIndex = lastNumberIndex;
-                    font = lastName;
+                    sizeOffset = numberOffset; sizeLength = numberLength;
+                    stored = lastNumber; font = lastName;
                 }
             }
-
-            if (sizeIndex >= 0 && sizeIndex < raws.Count)
+            ReadOnlyMemory<byte> rebuilt = appearance;
+            if (sizeOffset >= 0 && Math.Abs(stored - size) > 0.001)
             {
-                double stored = 0.0;
-                bool parsed = double.TryParse(raws[sizeIndex], NumberStyles.Float, CultureInfo.InvariantCulture, out stored);
-                if (parsed && (stored - size > 0.001 || stored - size < -0.001))
-                {
-                    raws[sizeIndex] = FormatDouble(size);
-                }
+                string replacement = FormatDouble(size); // A bounded font-size scalar.
+                int length = checked(appearance.Length - sizeLength + replacement.Length);
+                memory.Reserve(32L + length);
+                byte[] bytes = new byte[length];
+                GovernedBufferStream.CopyBytes(appearance.Span[..sizeOffset], bytes.AsSpan(0, sizeOffset), governor, cancellationToken, CancellationToken.None);
+                Encoding.ASCII.GetBytes(replacement, bytes.AsSpan(sizeOffset, replacement.Length));
+                GovernedBufferStream.CopyBytes(appearance.Span[(sizeOffset + sizeLength)..], bytes.AsSpan(sizeOffset + replacement.Length), governor, cancellationToken, CancellationToken.None);
+                rebuilt = bytes;
             }
-
-            StringBuilder builder = new();
-            for (int r = 0; r < raws.Count; r++)
+            PdfNameBytes decoded = PdfNameBytes.Decode(font.Span, governor, cancellationToken);
+            byte[] name = Array.Empty<byte>();
+            if (decoded.Length > 0)
             {
-                if (isName[r])
-                {
-                    builder.Append((char)47);
-                }
-
-                builder.Append(raws[r]);
+                memory.Reserve(32L + decoded.Length);
+                name = new byte[decoded.Length]; decoded.CopyTo(name, governor, cancellationToken);
             }
-
-            rebuilt = builder.ToString();
+            return new(size, name, rebuilt);
         }
         catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
         }
 
-        return new TfResult(size, font, rebuilt);
+        return new(11.0, Array.Empty<byte>(), appearance);
     }
 
-    private static string FindFontEncoding(QpdfObject? resourcesRaw, string fontName, PoolResolver resolver)
+    private static string FindFontEncoding(QpdfObject? resourcesRaw, ReadOnlySpan<byte> fontName,
+        PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
     {
-        string encoding = string.Empty;
-        if (resourcesRaw is null || resourcesRaw is PdfNull)
+        QpdfObject? resources = resourcesRaw is PdfReference link ? ResolveOrNull(resolver, link) : resourcesRaw;
+        if (resources is PdfDictionary dictionary
+            && TryGetFontRaw(dictionary, fontName, resolver, governor, token) is QpdfObject fontRaw)
         {
-            return encoding;
+            QpdfObject? font = fontRaw is PdfReference fontLink ? ResolveOrNull(resolver, fontLink) : fontRaw;
+            if (font is PdfDictionary fontDictionary
+                && PdfDictionaryLookup.TryGet(fontDictionary, "Encoding"u8, governor, token, out QpdfObject encoding)
+                && encoding is PdfName name) { return name.DisplayText; }
         }
-
-            QpdfObject resourcesTarget = resourcesRaw is PdfReference resourcesReference
-                ? ResolveOrNull(resolver, resourcesReference) ?? resourcesRaw
-                : resourcesRaw;
-            if (resourcesTarget is PdfDictionary resources
-                && resources.TryGet(PdfName.FromAscii("Font"), out QpdfObject? fontsRaw)
-                && fontsRaw is not null
-                && fontsRaw is not PdfNull)
-            {
-                QpdfObject fontsTarget = fontsRaw is PdfReference fontsReference
-                    ? ResolveOrNull(resolver, fontsReference) ?? fontsRaw
-                    : fontsRaw;
-                if (fontsTarget is PdfDictionary fonts)
-                {
-                    foreach (PdfName key in fonts.Keys)
-                    {
-                        if (key.DisplayText != fontName)
-                        {
-                            continue;
-                        }
-
-                        if (!fonts.TryGet(key, out QpdfObject? fontRaw) || fontRaw is null)
-                        {
-                            break;
-                        }
-
-                        QpdfObject fontTarget = fontRaw is PdfReference fontReference
-                            ? ResolveOrNull(resolver, fontReference) ?? fontRaw
-                            : fontRaw;
-                        if (fontTarget is PdfDictionary fontDict
-                            && fontDict.TryGet(PdfName.FromAscii("Encoding"), out QpdfObject? encodingRaw)
-                            && encodingRaw is PdfName encodingName)
-                        {
-                            encoding = encodingName.DisplayText;
-                        }
-
-                        break;
-                    }
-                }
-            }
-
-        return encoding;
+        return string.Empty;
     }
 
-    private static PdfDictionary? TryMergeDrFont(
-        PdfDictionary appearance,
-        string fontName,
-        PdfDictionary? formResources,
-        PoolResolver resolver,
-        ResourceGovernor governor)
+    private static PdfDictionary? TryMergeDrFont(PdfDictionary appearance, ReadOnlySpan<byte> fontName,
+        PdfDictionary? formResources, PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
     {
-        if (fontName.Length == 0 || formResources is null)
-        {
-            return null;
-        }
+        if (fontName.IsEmpty || formResources is null
+            || !PdfDictionaryLookup.TryGet(appearance, "Resources"u8, governor, token, out QpdfObject resourcesRaw)) { return null; }
+        QpdfObject? resources = resourcesRaw is PdfReference link ? ResolveOrNull(resolver, link) : resourcesRaw;
+        if (resources is not PdfDictionary appearanceResources
+            || TryGetFontRaw(appearanceResources, fontName, resolver, governor, token) is not null
+            || TryGetFontRaw(formResources, fontName, resolver, governor, token) is not QpdfObject drFont) { return null; }
 
-        if (!appearance.TryGet(PdfName.FromAscii("Resources"), out QpdfObject? appearanceResourcesRaw) || appearanceResourcesRaw is null || appearanceResourcesRaw is PdfNull)
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
+        PdfNameTable<QpdfObject> fonts = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
+        if (PdfDictionaryLookup.TryGet(appearanceResources, "Font"u8, governor, token, out QpdfObject fontsRaw))
         {
-            return null;
-        }
-
-        QpdfObject appearanceResourcesTarget = appearanceResourcesRaw is PdfReference appearanceResourcesReference
-            ? ResolveOrNull(resolver, appearanceResourcesReference) ?? appearanceResourcesRaw
-            : appearanceResourcesRaw;
-        if (appearanceResourcesTarget is not PdfDictionary appearanceResources)
-        {
-            return null;
-        }
-
-        if (TryGetFontRaw(appearanceResources, fontName, resolver) is not null)
-        {
-            return null;
-        }
-
-        QpdfObject? drFont = TryGetFontRaw(formResources, fontName, resolver);
-        if (drFont is null)
-        {
-            return null;
-        }
-
-        Dictionary<PdfName, QpdfObject> fonts = new();
-        if (appearanceResources.TryGet(PdfName.FromAscii("Font"), out QpdfObject? fontsRaw) && fontsRaw is not null && fontsRaw is not PdfNull)
-        {
-            QpdfObject fontsTarget = fontsRaw is PdfReference fontsReference
-                ? ResolveOrNull(resolver, fontsReference) ?? fontsRaw
-                : fontsRaw;
-            if (fontsTarget is PdfDictionary fontsDict)
+            QpdfObject? target = fontsRaw is PdfReference fontLink ? ResolveOrNull(resolver, fontLink) : fontsRaw;
+            if (target is PdfDictionary fontDictionary)
             {
-                foreach (PdfName key in fontsDict.Keys)
-                {
-                    if (fontsDict.TryGet(key, out QpdfObject? kept) && kept is not null)
-                    {
-                        fonts[key] = kept;
-                    }
-                }
+                using PdfDictionary.EntryEnumerator entries = fontDictionary.GetEntryEnumerator();
+                while (entries.MoveNext(governor, token))
+                { fonts.Assign(graph.Memory, governor, entries.Current.Key, entries.Current.Value, token); }
             }
         }
-
-        governor.ReserveMemory(64L);
-        fonts[PdfName.FromAscii(fontName)] = drFont;
-        Dictionary<PdfName, QpdfObject> merged = new();
-        foreach (PdfName key in appearanceResources.Keys)
-        {
-            if (key.DisplayText == "Font")
-            {
-                continue;
-            }
-
-            if (appearanceResources.TryGet(key, out QpdfObject? kept) && kept is not null)
-            {
-                merged[key] = kept;
-            }
-        }
-
-        governor.ReserveMemory(64L);
-        merged[PdfName.FromAscii("Font")] = new PdfDictionary(fonts);
-        return new PdfDictionary(merged);
+        fonts.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, fontName), drFont, token);
+        PdfDictionary mergedFonts = PdfDictionaryRebuild.Complete(graph, fonts, allocation);
+        PdfDictionary merged = PdfDictionaryRebuild.ReplaceEntry(graph, appearanceResources, "Font"u8, mergedFonts);
+        graph.Retain(); return merged;
     }
 
-    private static QpdfObject? TryGetFontRaw(
-        PdfDictionary resources,
-        string fontName,
-        PoolResolver resolver)
+    private static QpdfObject? TryGetFontRaw(PdfDictionary resources, ReadOnlySpan<byte> fontName,
+        PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
     {
-        if (!resources.TryGet(PdfName.FromAscii("Font"), out QpdfObject? fontsRaw) || fontsRaw is null || fontsRaw is PdfNull)
-        {
-            return null;
-        }
-
-        QpdfObject fontsTarget = fontsRaw is PdfReference fontsReference
-            ? ResolveOrNull(resolver, fontsReference) ?? fontsRaw
-            : fontsRaw;
-        if (fontsTarget is not PdfDictionary fonts)
-        {
-            return null;
-        }
-
-        foreach (PdfName key in fonts.Keys)
-        {
-            if (key.DisplayText != fontName)
-            {
-                continue;
-            }
-
-            if (fonts.TryGet(key, out QpdfObject? fontRaw) && fontRaw is not null && fontRaw is not PdfNull)
-            {
-                return fontRaw;
-            }
-
-            return null;
-        }
-
-        return null;
+        if (!PdfDictionaryLookup.TryGet(resources, "Font"u8, governor, token, out QpdfObject fontsRaw)) { return null; }
+        QpdfObject? target = fontsRaw is PdfReference link ? ResolveOrNull(resolver, link) : fontsRaw;
+        return target is PdfDictionary fonts
+            && PdfDictionaryLookup.TryGet(fonts, fontName, governor, token, out QpdfObject font)
+            && font is not PdfNull ? font : null;
     }
-
-    private static Func<string, byte[]> SelectEncoder(PdfDictionary appearance, string fontName, PdfDictionary? formResources, PoolResolver resolver)
+    private static Func<string, byte[]> SelectEncoder(PdfDictionary appearance, ReadOnlySpan<byte> fontName, PdfDictionary? formResources, PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
     {
         if (fontName.Length == 0)
         {
@@ -1207,7 +1047,7 @@ internal static class GenerateAppearances
         string encoding = string.Empty;
         if (appearance.TryGet(PdfName.FromAscii("Resources"), out QpdfObject? resourcesRaw) && resourcesRaw is not null && resourcesRaw is not PdfNull)
         {
-            encoding = FindFontEncoding(resourcesRaw, fontName, resolver);
+            encoding = FindFontEncoding(resourcesRaw, fontName, resolver, governor, token);
         }
 
         // Field-level /DR is ignored like the reference: upstream getDefaultResources()
@@ -1215,7 +1055,7 @@ internal static class GenerateAppearances
         // popular readers), and page /Resources is never consulted for encoding.
         if (encoding.Length == 0 && formResources is not null)
         {
-            encoding = FindFontEncoding(formResources, fontName, resolver);
+            encoding = FindFontEncoding(formResources, fontName, resolver, governor, token);
         }
 
         if (encoding == "WinAnsiEncoding")
@@ -1387,21 +1227,23 @@ internal static class GenerateAppearances
     }
 
     private static byte[] FilterAppearance(
-        byte[] data,
-        string appearance,
+        ReadOnlyMemory<byte> data,
+        ReadOnlyMemory<byte> appearance,
         byte[] value,
         List<byte[]> options,
         double size,
         double[] box,
         QpdfLimits limits,
-        ResourceGovernor governor)
+        ResourceGovernor governor,
+        ParserMemoryScope memory,
+        CancellationToken cancellationToken)
     {
-        ContentTokenizer tokenizer = new(data, limits, governor)
+        ContentTokenizer tokenizer = new(data, limits, governor, cancellationToken)
         {
             IncludeComments = true,
             IncludeWhitespace = true,
         };
-        List<byte> output = new(data.Length + 256);
+        using GovernedBufferStream output = new(governor, limits.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes));
         int state = 0;
         bool replaced = false;
         while (tokenizer.TryReadToken(out ContentToken token))
@@ -1409,9 +1251,9 @@ internal static class GenerateAppearances
             governor.NoteOperation();
             if (state == 2)
             {
-                if (token.Kind == ContentTokenKind.Operator && TokenText(token) == "EMC")
+                if (token.Kind == ContentTokenKind.Operator && token.Data.Span.SequenceEqual("EMC"u8))
                 {
-                    output.AddRange(WriteTextAppearance(appearance, value, options, size, box));
+                    WriteTextAppearance(output, appearance, value, options, size, box, governor, memory, cancellationToken);
                     replaced = true;
                     state = 3;
                 }
@@ -1421,14 +1263,14 @@ internal static class GenerateAppearances
 
             if (state == 3)
             {
-                AppendRaw(output, token);
+                AppendRaw(output, token, cancellationToken);
                 continue;
             }
 
             if (state == 0)
             {
-                AppendRaw(output, token);
-                if (token.Kind == ContentTokenKind.Operator && TokenText(token) == "BMC")
+                AppendRaw(output, token, cancellationToken);
+                if (token.Kind == ContentTokenKind.Operator && token.Data.Span.SequenceEqual("BMC"u8))
                 {
                     state = 1;
                 }
@@ -1438,14 +1280,14 @@ internal static class GenerateAppearances
 
             if (token.Kind == ContentTokenKind.Comment || token.Kind == ContentTokenKind.Whitespace)
             {
-                AppendRaw(output, token);
+                AppendRaw(output, token, cancellationToken);
                 continue;
             }
 
             state = 2;
-            if (token.Kind == ContentTokenKind.Operator && TokenText(token) == "EMC")
+            if (token.Kind == ContentTokenKind.Operator && token.Data.Span.SequenceEqual("EMC"u8))
             {
-                output.AddRange(WriteTextAppearance(appearance, value, options, size, box));
+                WriteTextAppearance(output, appearance, value, options, size, box, governor, memory, cancellationToken);
                 replaced = true;
                 state = 3;
             }
@@ -1454,17 +1296,19 @@ internal static class GenerateAppearances
         if (!replaced)
         {
             AppendAscii(output, "/Tx BMC\n");
-            output.AddRange(WriteTextAppearance(appearance, value, options, size, box));
+            WriteTextAppearance(output, appearance, value, options, size, box, governor, memory, cancellationToken);
         }
 
-        return [.. output];
+        return output.ToArray(memory, cancellationToken);
     }
-    private static byte[] WriteTextAppearance(
-        string appearance,
+    private static void WriteTextAppearance(
+        GovernedBufferStream built,
+        ReadOnlyMemory<byte> appearance,
         byte[] value,
         List<byte[]> options,
         double size,
-        double[] box)
+        double[] box,
+        ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
     {
         double lineHeight = 1.2 * size;
         int step = 1;
@@ -1472,17 +1316,17 @@ internal static class GenerateAppearances
         long maxRows = rows < 0.0 ? 0L : (long)rows;
         bool highlight = false;
         long highlightIndex = 0L;
-        List<byte[]> lines = new();
+        List<byte[]> lines = ParserContainers.CreateList<byte[]>(memory);
         if (options.Count == 0 || maxRows < 2L)
         {
-            lines.Add(value);
+            ParserContainers.AddItem(memory, lines, value, IntPtr.Size);
         }
         else
         {
             long found = -1L;
             for (long i = 0L; i < options.Count; i++)
             {
-                if (BytesEqual(options[(int)i], value))
+                if (BytesEqual(options[(int)i], value, governor, token))
                 {
                     found = i;
                     break;
@@ -1510,22 +1354,21 @@ internal static class GenerateAppearances
                 highlightIndex = found - wantedFirst;
                 for (long i = wantedFirst; i <= wantedLast; i++)
                 {
-                    lines.Add(options[(int)i]);
+                    ParserContainers.AddItem(memory, lines, options[(int)i], IntPtr.Size);
                 }
             }
             else
             {
                 highlightIndex = 0L;
                 highlight = true;
-                lines.Add(value);
+                ParserContainers.AddItem(memory, lines, value, IntPtr.Size);
                 for (int i = 0; i < options.Count && i < maxRows - 1L; i++)
                 {
-                    lines.Add(options[i]);
+                    ParserContainers.AddItem(memory, lines, options[i], IntPtr.Size);
                 }
             }
         }
 
-        List<byte> built = new();
         long count = lines.Count;
         double top = box[3] - ((box[3] - box[1] - count * lineHeight) / 2.0);
         if (highlight)
@@ -1543,7 +1386,7 @@ internal static class GenerateAppearances
 
         top -= size;
         AppendAscii(built, "q\nBT\n");
-        AppendAscii(built, appearance);
+        built.Write(appearance.Span, token);
         AppendAscii(built, "\n");
         for (int i = 0; i < lines.Count; i++)
         {
@@ -1561,14 +1404,13 @@ internal static class GenerateAppearances
                 AppendAscii(built, " Td\n");
             }
 
-            built.AddRange(EscapeLiteral(lines[i]));
+            WriteLiteral(built, lines[i], governor, token);
             AppendAscii(built, " Tj\n");
         }
 
         AppendAscii(built, "ET\nQ\nEMC");
-        return [.. built];
     }
-    private static bool BytesEqual(byte[] left, byte[] right)
+    private static bool BytesEqual(byte[] left, byte[] right, ResourceGovernor governor, CancellationToken token)
     {
         if (left.Length != right.Length)
         {
@@ -1577,6 +1419,7 @@ internal static class GenerateAppearances
 
         for (int i = 0; i < left.Length; i++)
         {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (left[i] != right[i])
             {
                 return false;
@@ -1586,64 +1429,37 @@ internal static class GenerateAppearances
         return true;
     }
 
-    private static string TokenText(ContentToken token)
+    private static void AppendRaw(GovernedBufferStream output, ContentToken token, CancellationToken cancellationToken)
     {
-        return Encoding.ASCII.GetString(token.Data.ToArray());
+        if (token.Kind == ContentTokenKind.Name) { output.WriteByte((byte)'/'); }
+        output.Write(token.Data.Span, cancellationToken);
     }
 
-    private static void AppendRaw(List<byte> output, ContentToken token)
+    private static void AppendAscii(GovernedBufferStream output, string text)
     {
-        if (token.Kind == ContentTokenKind.Name)
+        Span<byte> buffer = stackalloc byte[256];
+        for (int offset = 0; offset < text.Length;)
         {
-            output.Add((byte)47);
-        }
-
-        foreach (byte b in token.Data.Span)
-        {
-            output.Add(b);
-        }
-    }
-
-    private static void AppendAscii(List<byte> output, string text)
-    {
-        byte[] bytes = Encoding.ASCII.GetBytes(text);
-        foreach (byte b in bytes)
-        {
-            output.Add(b);
+            int count = Math.Min(buffer.Length, text.Length - offset);
+            Encoding.ASCII.GetBytes(text.AsSpan(offset, count), buffer);
+            output.Write(buffer[..count]); offset += count;
         }
     }
 
-    private static byte[] EscapeLiteral(byte[] value)
+    private static void WriteLiteral(GovernedBufferStream output, byte[] value, ResourceGovernor governor, CancellationToken token)
     {
-        List<byte> output = new(value.Length + 2);
-        output.Add((byte)40);
+        output.WriteByte((byte)'(');
         foreach (byte b in value)
         {
-            if (b == 92 || b == 40 || b == 41)
-            {
-                output.Add((byte)92);
-                output.Add(b);
-            }
-            else if (b == 10)
-            {
-                output.Add((byte)92);
-                output.Add((byte)110);
-            }
-            else if (b == 13)
-            {
-                output.Add((byte)92);
-                output.Add((byte)114);
-            }
-            else
-            {
-                output.Add(b);
-            }
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (b is (byte)'\\' or (byte)'(' or (byte)')')
+            { output.WriteByte((byte)'\\'); output.WriteByte(b); }
+            else if (b == 10) { output.Write("\\n"u8); }
+            else if (b == 13) { output.Write("\\r"u8); }
+            else { output.WriteByte(b); }
         }
-
-        output.Add((byte)41);
-        return [.. output];
+        output.WriteByte((byte)')');
     }
-
     private static string FormatDouble(double value)
     {
         if (value > -0.00001 && value < 0.00001)

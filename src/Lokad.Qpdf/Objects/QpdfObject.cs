@@ -433,6 +433,8 @@ public sealed class PdfByteString : QpdfObject, IEquatable<PdfByteString>
 
     internal ReadOnlySpan<byte> ValueSpan => _value;
 
+    internal ReadOnlyMemory<byte> ValueMemory => _value;
+
     internal object AllocationCarrier => _value;
 
     /// <summary>Indicates whether this instance equals another PdfByteString.</summary>
