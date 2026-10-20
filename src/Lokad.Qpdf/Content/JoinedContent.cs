@@ -14,12 +14,11 @@ internal sealed class JoinedContent : IDisposable
     internal ReadOnlyMemory<byte> Bytes => _bytes ?? throw new ObjectDisposedException(nameof(JoinedContent));
     internal byte[] RawBytes => _bytes ?? throw new ObjectDisposedException(nameof(JoinedContent));
 
-    internal byte[] TakeBytes(OwnedAllocationBatch graph)
+    internal byte[] TakeBytes(ParserMemoryScope target)
     {
         ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(JoinedContent));
-        byte[] bytes = RawBytes; memory.CheckOwner(graph.Governor);
-        graph.Token.ThrowIfCancellationRequested(); graph.Governor.CheckCancellation();
-        memory.TransferTo(graph.Memory);
+        byte[] bytes = RawBytes;
+        memory.TransferTo(target);
         _bytes = null; _memory = null; memory.Dispose(); return bytes;
     }
 

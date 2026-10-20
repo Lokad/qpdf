@@ -446,7 +446,8 @@ internal static class Overlays
         }
 
         IIndirectResolver resolver = (IIndirectResolver)engine;
-        List<PdfStream> streams = new();
+        using ParserMemoryScope metadata = ParserMemoryScope.Create(governor);
+        List<PdfStream> streams = ParserContainers.CreateList<PdfStream>(metadata);
         if (contents is PdfArray array)
         {
             foreach (QpdfObject item in array.Items)
@@ -470,7 +471,7 @@ internal static class Overlays
                     return null;
                 }
 
-                streams.Add(stream);
+                ParserContainers.AddItem(metadata, streams, stream, IntPtr.Size);
             }
         }
         else if (contents is PdfReference singleReference)
@@ -481,11 +482,11 @@ internal static class Overlays
                 return null;
             }
 
-            streams.Add(resolvedStream);
+            ParserContainers.AddItem(metadata, streams, resolvedStream, IntPtr.Size);
         }
         else if (contents is PdfStream single)
         {
-            streams.Add(single);
+            ParserContainers.AddItem(metadata, streams, single, IntPtr.Size);
         }
         else
         {
@@ -493,94 +494,21 @@ internal static class Overlays
             return null;
         }
 
-        List<byte[]> chunks = new(streams.Count);
+        using AnalysisChunks chunks = AnalysisChunks.Create(governor, cancellationToken);
         foreach (PdfStream stream in streams)
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
-            byte[]? decoded = DecodeStreamData(stream, resolver, limits, governor, ownership);
-            if (decoded is null)
+            if (!chunks.TryAdd(stream, resolver, limits))
             {
                 diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Overlay page content could not be decoded; skipping it.");
                 return null;
             }
 
-            chunks.Add(decoded);
         }
 
-        return JoinContentBytes(chunks, governor, ownership);
-    }
-
-    private static byte[]? DecodeStreamData(
-        PdfStream stream,
-        IIndirectResolver resolver,
-        QpdfLimits limits,
-        ResourceGovernor governor, ParserMemoryScope ownership)
-    {
-        FilterPlan stages;
-        try
-        {
-            stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, governor.CancellationToken);
-        }
-        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
-        {
-            return null;
-        }
-        using FilterPlan stageOwner = stages;
-
-        if (stages.Count == 0)
-        {
-            return stream.Data;
-        }
-        // A Form contains PDF instructions. Opaque bytes cannot be promoted to
-        // instructions by dropping their source encoding dictionary.
-        if (!FilterChain.AllStagesInLevel(stages, "specialized")) { return null; }
-
-        try
-        {
-            return FilterChain.Decode(stream.Data, stages, limits, governor, ownership, governor.CancellationToken);
-        }
-        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
-        {
-            return null;
-        }
-    }
-
-    private static byte[] JoinContentBytes(List<byte[]> parts, ResourceGovernor governor, ParserMemoryScope ownership)
-    {
-        List<byte[]> joined = new(parts.Count * 2);
-        bool needNewline = false;
-        foreach (byte[] part in parts)
-        {
-            governor.NoteOperation();
-            if (needNewline)
-            {
-                joined.Add([(byte)10]);
-            }
-
-            joined.Add(part);
-            needNewline = part.Length == 0 || part[part.Length - 1] != (byte)10;
-        }
-
-        int total = 0;
-        foreach (byte[] part in joined)
-        {
-            checked
-            {
-                total += part.Length;
-            }
-        }
-
-        ownership.Reserve(total);
-        byte[] output = new byte[total];
-        int at = 0;
-        foreach (byte[] part in joined)
-        {
-            Buffer.BlockCopy(part, 0, output, at, part.Length);
-            at += part.Length;
-        }
-
-        return output;
+        using JoinedContent joined = JoinedContent.Create(chunks.Parts, governor, cancellationToken);
+        return joined.TakeBytes(ownership);
     }
 
     private static double[]? ReadRectangle(QpdfObject? value, IIndirectResolver resolver)
@@ -711,6 +639,7 @@ internal static class Overlays
         }
 
         double[]? destMatrix = HasTransform(page, resolver) ? TransformMatrix(placeBox, rotate, userUnit, false) : null;
+        ownership.Reserve(512L); // Bounded Form header; resources and payloads are borrowed.
         Dictionary<PdfName, QpdfObject> formEntries = new();
         formEntries[PdfName.FromAscii("Type")] = PdfName.FromAscii("XObject");
         formEntries[PdfName.FromAscii("Subtype")] = PdfName.FromAscii("Form");
@@ -722,17 +651,7 @@ internal static class Overlays
 
         if (pageResources is not null)
         {
-            Dictionary<PdfName, QpdfObject> shared = new();
-            foreach (PdfName key in pageResources.Keys)
-            {
-                if (pageResources.TryGet(key, out QpdfObject? found) && found is not null)
-                {
-                    shared[key] = found;
-                }
-            }
-
-            ownership.Reserve(128L);
-            formEntries[PdfName.FromAscii("Resources")] = new PdfDictionary(shared);
+            formEntries[PdfName.FromAscii("Resources")] = pageResources;
         }
 
         if (page.TryGet(PdfName.FromAscii("Group"), out QpdfObject? groupRaw) && groupRaw is not null && groupRaw is not PdfNull)
@@ -750,7 +669,7 @@ internal static class Overlays
         CollectTakenNames(pageResources, taken);
         int suffix = 1;
         Dictionary<string, PdfReference> added = new(StringComparer.Ordinal);
-        List<byte> stacked = new(pageContent.Length + 256);
+        using GovernedBufferStream stacked = new(governor, limits.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes), cancellationToken, 256);
         double[] destTransform = TransformMatrix(placeBox, rotate, userUnit, true);
         foreach (KeyValuePair<int, List<OverlayPlacement>> group in SortedGroups(underlays))
         {
@@ -800,21 +719,9 @@ internal static class Overlays
             [PdfName.FromAscii("XObject")] = new PdfDictionary(xobjects),
         };
         PdfDictionary replaced = ReplaceEntry(page, PdfName.FromAscii("Resources"), new PdfDictionary(resources), governor, ownership);
-        byte[] stackedBytes = [.. stacked];
-        PdfStream stackedStream;
-        if (compress && stackedBytes.Length > 0)
-        {
-            byte[] encoded = FlateFilter.Encode(stackedBytes, level, limits, governor, ownership, governor.CancellationToken);
-            ownership.Reserve(64L);
-            stackedStream = new PdfStream(new PdfDictionary(new Dictionary<PdfName, QpdfObject>
-            {
-                [PdfName.FromAscii("Filter")] = PdfName.FromAscii("FlateDecode"),
-            }), encoded);
-        }
-        else
-        {
-            stackedStream = new PdfStream(new PdfDictionary(new Dictionary<PdfName, QpdfObject>()), stackedBytes);
-        }
+        byte[] stackedBytes = stacked.ToArray(ownership, cancellationToken);
+        PdfStream stackedStream = EncodeForm(new PdfDictionary(new Dictionary<PdfName, QpdfObject>()),
+            stackedBytes, compress, level, limits, governor, ownership);
 
         PdfReference stackedLink = copier.AddIndirectObjectWithId(stackedStream, allocator);
         allocator = checked(allocator + 1);
@@ -872,6 +779,7 @@ internal static class Overlays
             allocator = Math.Max(allocator, spec.Source.Copier.NextId);
         }
         double[]? formMatrix = bundle.HasTransform ? TransformMatrix(bundle.Box, bundle.Rotate, bundle.UserUnit, false) : null;
+        ownership.Reserve(512L); // Bounded Form header, independent of borrowed resource size.
         Dictionary<PdfName, QpdfObject> entries = new();
         entries[PdfName.FromAscii("Type")] = PdfName.FromAscii("XObject");
         entries[PdfName.FromAscii("Subtype")] = PdfName.FromAscii("Form");
@@ -910,21 +818,14 @@ internal static class Overlays
         if (compress && content.Length > 0)
         {
             byte[] encoded = FlateFilter.Encode(content, level, limits, governor, ownership, governor.CancellationToken);
-            ownership.Reserve(64L);
-            Dictionary<PdfName, QpdfObject> entries = new();
-            foreach (PdfName key in dictionary.Keys)
-            {
-                if (dictionary.TryGet(key, out QpdfObject? found) && found is not null)
-                {
-                    entries[key] = found;
-                }
-            }
-
-            entries[PdfName.FromAscii("Filter")] = PdfName.FromAscii("FlateDecode");
-            return new PdfStream(new PdfDictionary(entries), encoded);
+            using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, governor.CancellationToken);
+            PdfDictionary header = PdfDictionaryRebuild.ReplaceEntry(graph, dictionary, "Filter"u8, PdfName.FromAscii("FlateDecode"));
+            graph.Memory.Reserve(32L); PdfStream result = PdfStream.FromOwnedData(header, encoded);
+            graph.Add(32L); graph.Retain(); return result;
         }
 
-        return new PdfStream(dictionary, content);
+        ownership.Reserve(32L);
+        return PdfStream.FromOwnedData(dictionary, content);
     }
 
     private static string UniqueFxName(HashSet<string> taken, ref int suffix)
@@ -959,27 +860,29 @@ internal static class Overlays
         }
     }
 
-    private static void AppendPlacement(List<byte> output, string name, double[] cm)
+    private static void AppendPlacement(GovernedBufferStream output, string name, double[] cm)
     {
         AppendAscii(output, "q");
-        output.Add((byte)10);
+        output.WriteByte((byte)10);
         AppendAscii(output, FormatMatrix(cm));
         AppendAscii(output, " cm");
-        output.Add((byte)10);
-        output.Add((byte)47);
+        output.WriteByte((byte)10);
+        output.WriteByte((byte)47);
         AppendAscii(output, name);
         AppendAscii(output, " Do");
-        output.Add((byte)10);
+        output.WriteByte((byte)10);
         AppendAscii(output, "Q");
-        output.Add((byte)10);
+        output.WriteByte((byte)10);
     }
 
-    private static void AppendAscii(List<byte> output, string text)
+    private static void AppendAscii(GovernedBufferStream output, string text)
     {
-        byte[] bytes = Encoding.ASCII.GetBytes(text);
-        foreach (byte b in bytes)
+        Span<byte> buffer = stackalloc byte[256];
+        for (int at = 0; at < text.Length; at += Math.Min(buffer.Length, text.Length - at))
         {
-            output.Add(b);
+            int count = Math.Min(buffer.Length, text.Length - at);
+            int bytes = Encoding.ASCII.GetBytes(text.AsSpan(at, count), buffer);
+            output.Write(buffer[..bytes]);
         }
     }
 
@@ -1211,14 +1114,15 @@ internal static class Overlays
 
     private static PdfArray MatrixArray(double[] values, ResourceGovernor governor, ParserMemoryScope ownership)
     {
-        List<QpdfObject> items = new(values.Length);
-        foreach (double value in values)
+        ownership.Reserve(checked(56L + IntPtr.Size * (long)values.Length));
+        QpdfObject[] items = new QpdfObject[values.Length];
+        for (int i = 0; i < values.Length; i++)
         {
-            ownership.Reserve(32L);
-            items.Add(new PdfReal(FormatDouble(value), value));
+            governor.CheckCancellation(); string text = FormatDouble(values[i]);
+            ownership.Reserve(32L + GovernedText.StringBytes(text.Length));
+            items[i] = new PdfReal(text, values[i]);
         }
-
-        return new PdfArray(items);
+        return PdfArray.FromOwnedItems(items);
     }
 
     private static string FormatMatrix(double[] values)
@@ -1303,7 +1207,8 @@ internal static class Overlays
             return [];
         }
 
-        List<PdfStream> streams = new();
+        using ParserMemoryScope metadata = ParserMemoryScope.Create(governor);
+        List<PdfStream> streams = ParserContainers.CreateList<PdfStream>(metadata);
         if (contents is PdfArray array)
         {
             foreach (QpdfObject item in array.Items)
@@ -1317,7 +1222,7 @@ internal static class Overlays
                     return null;
                 }
 
-                streams.Add(stream);
+                ParserContainers.AddItem(metadata, streams, stream, IntPtr.Size);
             }
         }
         else if (contents is PdfReference singleReference)
@@ -1328,32 +1233,31 @@ internal static class Overlays
                 return null;
             }
 
-            streams.Add(stream);
+            ParserContainers.AddItem(metadata, streams, stream, IntPtr.Size);
         }
         else if (contents is PdfStream single)
         {
-            streams.Add(single);
+            ParserContainers.AddItem(metadata, streams, single, IntPtr.Size);
         }
         else
         {
             return null;
         }
 
-        List<byte[]> chunks = new(streams.Count);
+        using AnalysisChunks chunks = AnalysisChunks.Create(governor, cancellationToken);
         foreach (PdfStream stream in streams)
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
-            byte[]? decoded = DecodeStreamData(stream, resolver, limits, governor, ownership);
-            if (decoded is null)
+            if (!chunks.TryAdd(stream, resolver, limits))
             {
                 return null;
             }
 
-            chunks.Add(decoded);
         }
 
-        return JoinContentBytes(chunks, governor, ownership);
+        using JoinedContent joined = JoinedContent.Create(chunks.Parts, governor, cancellationToken);
+        return joined.TakeBytes(ownership);
     }
 
     /// <summary>
@@ -1552,7 +1456,7 @@ internal static class Overlays
             cancellationToken.ThrowIfCancellationRequested();
             if (!transformed.Add(traversal, annotation.ObjectNumber)) { continue; }
             TransformOverlayRect(destCopier, annotation.ObjectNumber, cm, governor, ownership);
-            TransformOverlayAppearances(destCopier, annotation.ObjectNumber, cm, appearances, traversal, governor, ownership, cancellationToken);
+            TransformOverlayAppearances(destCopier, annotation.ObjectNumber, cm, appearances, traversal, governor, cancellationToken);
         }
 
         if (!destCopier.CopiedObjects.TryGetValue(destPageId, out QpdfObject? pageRaw) || pageRaw is not PdfDictionary page)
@@ -1847,7 +1751,7 @@ internal static class Overlays
         return node;
     }
 
-    private static QpdfObject BuildOverlayContainer(
+    internal static QpdfObject BuildOverlayContainer(
         QpdfObject node,
         DocumentEngine sourceEngine,
         GraphCopier destCopier,
@@ -1860,9 +1764,10 @@ internal static class Overlays
         CancellationToken cancellationToken,
         int depth)
     {
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (node is PdfDictionary dictionary)
         {
-            Dictionary<PdfName, QpdfObject> entries = new();
+            PdfNameTable<QpdfObject> entries = PdfNameTable<QpdfObject>.Create(ownership, governor, IntPtr.Size, cancellationToken);
             foreach (PdfName key in dictionary.Keys)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -1871,7 +1776,6 @@ internal static class Overlays
                     continue;
                 }
 
-                ownership.Reserve(32L);
                 QpdfObject child = CopyOverlayNode(found, sourceEngine, destCopier, memo, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, depth);
                 if (child is PdfNull)
                 {
@@ -1883,34 +1787,35 @@ internal static class Overlays
                     continue;
                 }
 
-                entries[key] = child;
+                entries.Assign(ownership, governor, key, child, cancellationToken);
             }
 
-            ownership.Reserve(64L);
-            return new PdfDictionary(entries);
+            entries.Freeze(ownership, governor, cancellationToken);
+            ownership.Reserve(24L);
+            return PdfDictionary.FromOwnedEntries(entries);
         }
 
         if (node is PdfArray array)
         {
-            List<QpdfObject> items = new(array.Count);
+            List<QpdfObject> items = ParserContainers.CreateList<QpdfObject>(ownership);
             for (int i = 0; i < array.Count; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ownership.Reserve(16L);
-                items.Add(CopyOverlayNode(array[i], sourceEngine, destCopier, memo, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, depth));
+                QpdfObject copied = CopyOverlayNode(array[i], sourceEngine, destCopier, memo, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, depth);
+                ParserContainers.AddItem(ownership, items, copied, IntPtr.Size);
             }
 
-            ownership.Reserve(32L);
-            return new PdfArray(items);
+            return ParserContainers.CopyArray(ownership, items);
         }
 
         if (node is PdfStream stream)
         {
             QpdfObject rebuiltDictionary = BuildOverlayContainer(stream.Dictionary, sourceEngine, destCopier, memo, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, depth);
             PdfDictionary dictionaryValue = rebuiltDictionary as PdfDictionary ?? stream.Dictionary;
-            byte[] data = stream.Data;
-            ownership.Reserve(data.Length);
-            return new PdfStream(dictionaryValue, data);
+            // Exclusive values and backing input transfer before the overlay
+            // document closes (ApplyAsync's finally).
+            ownership.Reserve(32L);
+            return stream.WithDictionary(dictionaryValue);
         }
 
         return node;
@@ -2013,7 +1918,6 @@ internal static class Overlays
         GovernedIntSet done,
         ParserMemoryScope traversal,
         ResourceGovernor governor,
-        ParserMemoryScope ownership,
         CancellationToken cancellationToken)
     {
         PoolResolver pool = new(destCopier.CopiedObjects);
@@ -2050,7 +1954,7 @@ internal static class Overlays
             {
                 if (value1 is PdfReference streamReference && done.Add(traversal, streamReference.ObjectNumber))
                 {
-                    TransformOverlayStreamMatrix(destCopier, streamReference.ObjectNumber, cm, governor, ownership);
+                    TransformOverlayStreamMatrix(destCopier, streamReference.ObjectNumber, cm, governor, cancellationToken);
                 }
 
                 continue;
@@ -2071,7 +1975,7 @@ internal static class Overlays
                         QpdfObject? resolved2 = ResolveOrNull(pool, streamReference2);
                         if (resolved2 is PdfStream && done.Add(traversal, streamReference2.ObjectNumber))
                         {
-                            TransformOverlayStreamMatrix(destCopier, streamReference2.ObjectNumber, cm, governor, ownership);
+                            TransformOverlayStreamMatrix(destCopier, streamReference2.ObjectNumber, cm, governor, cancellationToken);
                         }
                     }
                 }
@@ -2079,12 +1983,13 @@ internal static class Overlays
         }
     }
 
-    private static void TransformOverlayStreamMatrix(
+    internal static void TransformOverlayStreamMatrix(
         GraphCopier destCopier,
         int streamId,
         double[] cm,
-        ResourceGovernor governor, ParserMemoryScope ownership)
+        ResourceGovernor governor, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         governor.NoteOperation();
         if (!destCopier.CopiedObjects.TryGetValue(streamId, out QpdfObject? raw) || raw is not PdfStream stream)
         {
@@ -2107,31 +2012,13 @@ internal static class Overlays
             return;
         }
 
-        Dictionary<PdfName, QpdfObject> entries = new();
-        PdfName matrixKey = PdfName.FromAscii("Matrix");
-        foreach (PdfName key in stream.Dictionary.Keys)
-        {
-            if (key.DisplayText == "Matrix")
-            {
-                continue;
-            }
-
-            if (stream.Dictionary.TryGet(key, out QpdfObject? found) && found is not null)
-            {
-                entries[key] = found;
-            }
-        }
-
-        List<QpdfObject> values = new(6);
-        foreach (double value in next)
-        {
-            ownership.Reserve(32L);
-            values.Add(new PdfReal(FormatDouble(value), value));
-        }
-
-        entries[matrixKey] = new PdfArray(values);
-        ownership.Reserve(64L);
-        destCopier.ReplaceCopiedObject(streamId, new PdfStream(new PdfDictionary(entries), stream.Data));
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
+        long before = graph.Memory.ReservedBytes;
+        PdfArray values = MatrixArray(next, governor, graph.Memory);
+        graph.Add(graph.Memory.ReservedBytes - before);
+        PdfDictionary header = PdfDictionaryRebuild.ReplaceEntry(graph, stream.Dictionary, "Matrix"u8, values);
+        graph.Memory.Reserve(32L); PdfStream result = stream.WithDictionary(header); graph.Add(32L);
+        destCopier.ReplaceCopiedObject(streamId, result); graph.Retain();
     }
 
     private static double[]? ReadOverlayNumbers(PdfDictionary dictionary, string key, int count, PoolResolver pool)

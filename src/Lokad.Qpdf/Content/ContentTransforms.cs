@@ -343,7 +343,8 @@ internal static class ContentTransforms
         chunks.Dispose();
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         bool compress = request.Compress && joined.RawBytes.Length > 0;
-        byte[] data = compress ? FlateFilter.Encode(joined.RawBytes, request.Level, limits, governor, graph.Memory, token) : joined.TakeBytes(graph);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        byte[] data = compress ? FlateFilter.Encode(joined.RawBytes, request.Level, limits, governor, graph.Memory, token) : joined.TakeBytes(graph.Memory);
         joined.Dispose(); AddContentBuffer(graph, data);
         PdfNameTable<QpdfObject> header = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         if (compress)

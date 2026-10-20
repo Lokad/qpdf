@@ -8,6 +8,59 @@ namespace Lokad.Qpdf.Tests.Content;
 
 public sealed class AppearanceHeaderStorageTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void OverlayHeadersAndClonesBorrowFundedPayloads(bool clone)
+    {
+        PdfStream source = PdfStream.FromOwnedData(new(new Dictionary<PdfName, QpdfObject>()), new byte[8 * 1024 * 1024]);
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 8192L };
+        ResourceGovernor governor = new(limits, CancellationToken.None) { OwnsDocumentCounters = true };
+        using DocumentEngine engine = Engine(); GraphCopier copier = new(engine, governor, limits, 1);
+        PdfReference link = copier.AddIndirectObjectWithId(source, 1);
+        PdfStream result;
+        using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
+        {
+            long allocated = GC.GetAllocatedBytesForCurrentThread();
+            if (clone)
+            {
+                int allocator = 2, nullId = -1;
+                result = Assert.IsType<PdfStream>(Overlays.BuildOverlayContainer(source, engine, copier, new(),
+                    ref allocator, ref nullId, limits, governor, memory, CancellationToken.None, 0));
+                memory.RetainGraph();
+            }
+            else
+            {
+                Overlays.TransformOverlayStreamMatrix(copier, link.ObjectNumber, [0.5, 0, 0, 0.5, 2, 3], governor, CancellationToken.None);
+                result = Assert.IsType<PdfStream>(copier.CopiedObjects[link.ObjectNumber]);
+            }
+            Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < source.RawMemory.Length);
+            Assert.Same(source.AllocationCarrier, result.AllocationCarrier);
+        }
+        governor.AcceptDocument(); governor.CompletePrivateStorage();
+        Assert.True(governor.CallerStorageBytes > 0L);
+        Assert.Equal(source.RawMemory.Length, result.RawMemory.Length); GC.KeepAlive(result);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void OverlayHeaderRefusalOrCancellationPreservesSource(bool cancel)
+    {
+        PdfStream source = PdfStream.FromOwnedData(new(Enumerable.Range(0, 512).ToDictionary(
+            i => PdfName.FromAscii(i.ToString(System.Globalization.CultureInfo.InvariantCulture)), _ => (QpdfObject)PdfNull.Instance)), new byte[1048576]);
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 4096L };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        using DocumentEngine engine = Engine(); GraphCopier copier = new(engine, governor, limits, 1);
+        copier.AddIndirectObjectWithId(source, 1); long baseline = governor.Snapshot().LiveMemoryBytes;
+        using CancellationTokenSource cancellation = new();
+        if (cancel) { cancellation.Cancel(); }
+        Action rewrite = () => Overlays.TransformOverlayStreamMatrix(copier, 1, [0.5, 0, 0, 0.5, 0, 0], governor, cancellation.Token);
+        if (cancel) { Assert.ThrowsAny<OperationCanceledException>(rewrite); }
+        else { Assert.Throws<QpdfLimitException>(rewrite); }
+        Assert.Same(source, copier.CopiedObjects[1]); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
+    }
+
     private static DocumentEngine Engine()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);

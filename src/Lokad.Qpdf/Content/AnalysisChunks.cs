@@ -25,7 +25,7 @@ internal sealed class AnalysisChunks : IDisposable
     }
     // Borrowed only while this owner is alive; joining uses indexed reads.
     internal IReadOnlyList<byte[]> Parts => _parts ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
-    internal bool TryAdd(PdfStream stream, PoolResolver resolver, QpdfLimits limits)
+    internal bool TryAdd(PdfStream stream, IIndirectResolver resolver, QpdfLimits limits)
     {
         ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
         ResourceGovernor governor = _governor ?? throw new ObjectDisposedException(nameof(AnalysisChunks));

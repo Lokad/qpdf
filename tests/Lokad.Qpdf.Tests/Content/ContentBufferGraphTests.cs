@@ -111,11 +111,11 @@ public sealed class ContentBufferGraphTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None), other = new(QpdfLimits.Default, CancellationToken.None);
         using JoinedContent joined = JoinedContent.Create(["q"u8.ToArray(), "Q"u8.ToArray()], governor, CancellationToken.None);
         using OwnedAllocationBatch wrong = OwnedAllocationBatch.Create(other, CancellationToken.None);
-        long live = governor.Snapshot().LiveMemoryBytes; Assert.Throws<InvalidOperationException>(() => joined.TakeBytes(wrong)); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
+        long live = governor.Snapshot().LiveMemoryBytes; Assert.Throws<InvalidOperationException>(() => joined.TakeBytes(wrong.Memory)); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
         byte[] expected = joined.RawBytes;
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
-        byte[] actual = joined.TakeBytes(graph); Assert.Same(expected, actual); Assert.Equal("q\nQ"u8.ToArray(), actual);
-        Assert.Throws<ObjectDisposedException>(() => joined.RawBytes); Assert.Throws<ObjectDisposedException>(() => joined.TakeBytes(graph));
+        byte[] actual = joined.TakeBytes(graph.Memory); Assert.Same(expected, actual); Assert.Equal("q\nQ"u8.ToArray(), actual);
+        Assert.Throws<ObjectDisposedException>(() => joined.RawBytes); Assert.Throws<ObjectDisposedException>(() => joined.TakeBytes(graph.Memory));
         graph.Add(actual.Length + 32L); graph.Memory.Reserve(32L);
         PdfStream stream = PdfStream.FromOwnedData(DecoderOwnershipFixtures.Dictionary(), actual); graph.Add(32L); graph.Retain();
         Assert.Same(actual, stream.AllocationCarrier); joined.Dispose(); graph.Dispose(); Assert.Equal("q\nQ"u8.ToArray(), stream.Data); GC.KeepAlive(stream);

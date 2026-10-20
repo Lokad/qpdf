@@ -31,6 +31,10 @@ stream; separate placements retain independent copies, including widget forms.
 Unsupported or damaged content encodings now warn and skip the affected overlay;
 an unreadable destination remains unchanged. Encoded bytes are never relabeled as
 unfiltered Form instructions. Opaque stream copying and raw inspection remain available.
+Overlay header changes and annotation clones borrow immutable payloads through
+the existing source-to-job ownership transfer. Joining, slice adapters and decoded
+scratch receive admission before allocation; temporary decode storage retires
+after joining. Large jobs may therefore refuse earlier without publishing output.
 
 Overlay font-conflict rewriting compares decoded name bytes and emits escaped
 replacement names. Unchanged names, comments and whitespace retain their original
