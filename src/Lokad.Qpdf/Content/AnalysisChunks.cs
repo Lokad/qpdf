@@ -99,7 +99,6 @@ internal sealed class AnalysisChunks : IDisposable
             _token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (parts.Count == parts.Capacity)
             {
-                long capacity = Math.Min(Array.MaxLength, Math.Max(4L, parts.Capacity * 2L));
                 governor.NoteOperation();
                 _token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             }

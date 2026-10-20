@@ -73,7 +73,6 @@ internal sealed class ContentEntries : IDisposable
         ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(ContentEntries));
         if (items.Count == items.Capacity)
         {
-            long capacity = Math.Min(Array.MaxLength, Math.Max(4L, items.Capacity * 2L));
             Governor.NoteOperation();
             _token.ThrowIfCancellationRequested(); Governor.CheckCancellation();
         }

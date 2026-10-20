@@ -45,7 +45,6 @@ internal sealed class SharedResourceWalk : IDisposable
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (pending.Count == pending.Capacity)
         {
-            long capacity = Math.Min(Array.MaxLength, Math.Max(4L, pending.Capacity * 2L));
             governor.NoteOperation();
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         }

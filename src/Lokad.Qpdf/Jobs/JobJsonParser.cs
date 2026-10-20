@@ -2532,37 +2532,17 @@ internal static class JobJsonParser
             switch (property.Name)
             {
                 case "file":
-                    if (file is not null)
-                    {
-                        throw new QpdfParseException("Duplicate overlay key file.", 0L, null);
-                    }
-
                     file = RequireString(property.Value, role + ".file", textStorage);
                     break;
                 case "to":
-                    if (to is not null)
-                    {
-                        throw new QpdfParseException("Duplicate overlay key to.", 0L, null);
-                    }
-
                     to = RequireString(property.Value, role + ".to", textStorage);
                     OverlayRanges.ValidateSyntax(to, "--to", 0L);
                     break;
                 case "from":
-                    if (from is not null)
-                    {
-                        throw new QpdfParseException("Duplicate overlay key from.", 0L, null);
-                    }
-
                     from = RequireString(property.Value, role + ".from", textStorage);
                     OverlayRanges.ValidateSyntax(from, "--from", 0L);
                     break;
                 case "repeat":
-                    if (repeat is not null)
-                    {
-                        throw new QpdfParseException("Duplicate overlay key repeat.", 0L, null);
-                    }
-
                     repeat = RequireString(property.Value, role + ".repeat", textStorage);
                     OverlayRanges.ValidateSyntax(repeat, "--repeat", 0L);
                     break;

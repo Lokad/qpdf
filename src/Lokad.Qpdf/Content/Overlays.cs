@@ -310,7 +310,7 @@ internal static class Overlays
         governor.NoteOperation();
         PageLocation location = source.Document.PageReferences[pageNumber - 1];
         DocumentEngine engine = source.Document.Engine;
-        QpdfObject? resources = FindInherited(engine, location, "Resources", limits, governor, ownership, cancellationToken);
+        QpdfObject? resources = FindInherited(engine, location, "Resources", limits, governor, cancellationToken);
         QpdfObject? group = null;
         if (location.Page.TryGet(PdfName.FromAscii("Group"), out QpdfObject? groupRaw) && groupRaw is not null && groupRaw is not PdfNull)
         {
@@ -323,8 +323,8 @@ internal static class Overlays
             trim = trimRaw;
         }
 
-        QpdfObject? crop = FindInherited(engine, location, "CropBox", limits, governor, ownership, cancellationToken);
-        QpdfObject? media = FindInherited(engine, location, "MediaBox", limits, governor, ownership, cancellationToken);
+        QpdfObject? crop = FindInherited(engine, location, "CropBox", limits, governor, cancellationToken);
+        QpdfObject? media = FindInherited(engine, location, "MediaBox", limits, governor, cancellationToken);
         QpdfObject? boxObject = trim ?? crop ?? media;
         double[]? box = null;
         if (boxObject is not null)
@@ -342,7 +342,7 @@ internal static class Overlays
 
         long rotate = 0L;
         bool hasRotate = false;
-        QpdfObject? rotateRaw = FindInherited(engine, location, "Rotate", limits, governor, ownership, cancellationToken);
+        QpdfObject? rotateRaw = FindInherited(engine, location, "Rotate", limits, governor, cancellationToken);
         if (rotateRaw is PdfInteger rotateInteger)
         {
             rotate = rotateInteger.Value;
@@ -351,7 +351,7 @@ internal static class Overlays
 
         double userUnit = 1.0;
         bool hasUnit = false;
-        QpdfObject? unitRaw = FindInherited(engine, location, "UserUnit", limits, governor, ownership, cancellationToken);
+        QpdfObject? unitRaw = FindInherited(engine, location, "UserUnit", limits, governor, cancellationToken);
         if (unitRaw is PdfInteger unitInteger)
         {
             userUnit = (double)unitInteger.Value;
@@ -395,7 +395,7 @@ internal static class Overlays
     private static QpdfObject? FindInherited(
         DocumentEngine engine, PageLocation location, string key, QpdfLimits limits,
         ResourceGovernor governor,
-        ParserMemoryScope ownership, CancellationToken cancellationToken)
+        CancellationToken cancellationToken)
         => PageInheritance.Find(engine, location, PdfName.FromAscii(key), limits, governor, cancellationToken);
 
     private static byte[]? CollectSourceContents(
@@ -547,7 +547,7 @@ internal static class Overlays
             return;
         }
 
-        double[]? destMatrix = HasTransform(page, resolver) ? TransformMatrix(placeBox, rotate, userUnit, false) : null;
+        double[]? destMatrix = HasTransform(page) ? TransformMatrix(placeBox, rotate, userUnit, false) : null;
         ownership.Reserve(512L); // Bounded Form header; resources and payloads are borrowed.
         Dictionary<PdfName, QpdfObject> formEntries = new();
         formEntries[PdfName.FromAscii("Type")] = PdfName.FromAscii("XObject");
@@ -583,7 +583,7 @@ internal static class Overlays
         foreach (OverlayPlacement placement in underlays)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            OverlayForm? form = GetOrBuildOverlayForm(placement, formCache, compress, level, limits, governor, planning, ownership, diagnostics, cancellationToken, ref allocator);
+            OverlayForm? form = GetOrBuildOverlayForm(placement, formCache, compress, level, limits, governor, planning, ownership, cancellationToken, ref allocator);
             if (form is null) { continue; }
             string name = UniqueFxName(taken, ref suffix);
             added[name] = form.Link;
@@ -594,7 +594,7 @@ internal static class Overlays
         foreach (OverlayPlacement placement in overlays)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            OverlayForm? form = GetOrBuildOverlayForm(placement, formCache, compress, level, limits, governor, planning, ownership, diagnostics, cancellationToken, ref allocator);
+            OverlayForm? form = GetOrBuildOverlayForm(placement, formCache, compress, level, limits, governor, planning, ownership, cancellationToken, ref allocator);
             if (form is null) { continue; }
             string name = UniqueFxName(taken, ref suffix);
             added[name] = form.Link;
@@ -636,7 +636,6 @@ internal static class Overlays
         ResourceGovernor governor,
         ParserMemoryScope planning,
         ParserMemoryScope ownership,
-        DiagnosticBag diagnostics,
         CancellationToken cancellationToken,
         ref int allocator)
     {
@@ -1076,7 +1075,7 @@ internal static class Overlays
         return null;
     }
 
-    private static bool HasTransform(PdfDictionary page, IIndirectResolver resolver)
+    private static bool HasTransform(PdfDictionary page)
     {
         if (page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject? rotate) && rotate is not null && rotate is not PdfNull)
         {
@@ -1164,7 +1163,7 @@ internal static class Overlays
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
-            OverlayForm? form = GetOrBuildOverlayForm(placement, formCache, compress, level, limits, governor, planning, ownership, diagnostics, cancellationToken, ref allocator);
+            OverlayForm? form = GetOrBuildOverlayForm(placement, formCache, compress, level, limits, governor, planning, ownership, cancellationToken, ref allocator);
             if (form is null) { continue; }
             double[] cm = PlacementMatrix(form.Box, form.FormMatrix, placeBox, destTransform, true, false);
             CopyOverlayPageAnnots(copier, pageId, placement.Spec.Source, placement.FromPage, cm, imports, limits, governor, ownership, diagnostics, cancellationToken, ref allocator);
