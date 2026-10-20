@@ -33,9 +33,7 @@ internal sealed class ResourceNameSet : IDisposable
     internal PdfNameTable<byte>.Enumerator GetEnumerator() => Names.GetEnumerator();
     internal bool AddRaw(ReadOnlySpan<byte> raw) => Add(PdfNameBytes.Decode(raw, Governor, _token));
     internal bool AddDecoded(ReadOnlySpan<byte> decoded) => Add(new PdfNameBytes(decoded));
-    internal bool ContainsRaw(ReadOnlySpan<byte> raw) => Contains(PdfNameBytes.Decode(raw, Governor, _token));
-    internal bool ContainsDecoded(ReadOnlySpan<byte> decoded) => Contains(new PdfNameBytes(decoded));
-    private bool Contains(PdfNameBytes name) => Names.TryGetValue(name, Governor, _token, out _);
+    internal bool ContainsDecoded(ReadOnlySpan<byte> decoded) => Names.TryGetValue(new PdfNameBytes(decoded), Governor, _token, out _);
     private bool Add(PdfNameBytes name)
     {
         ResourceGovernor governor = Governor; ParserMemoryScope memory = Memory;

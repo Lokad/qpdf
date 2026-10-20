@@ -32,7 +32,6 @@ public sealed class OwnedPdfDictionaryStorageTests
         PdfDictionary dictionary = PdfDictionary.FromOwnedEntries(table);
         Assert.Same(table, dictionary.AllocationCarrier);
         Assert.Equal(2, dictionary.Count);
-        Assert.Equal(table.Capacity, dictionary.StorageCapacity);
         Assert.Throws<InvalidOperationException>(() => table.Assign(memory, governor, Key(2), PdfNull.Instance, CancellationToken.None));
     }
 

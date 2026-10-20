@@ -100,10 +100,6 @@ public sealed class PdfInteger : QpdfObject, IEquatable<PdfInteger>
         return values;
     }
 
-    // Process-lifetime literals contribute no job-owned text allocation.
-    internal bool HasSharedText => Text.Length == 1 && Text[0] is >= '0' and <= '9'
-        && ReferenceEquals(Text, SingleDigitText[Text[0] - '0']);
-
     /// <summary>Creates an integer.</summary>
     /// <exception cref="ArgumentNullException">The text is null.</exception>
     public PdfInteger(string text, long value)
@@ -511,8 +507,6 @@ public sealed class PdfArray : QpdfObject, IEquatable<PdfArray>
 
     internal object AllocationCarrier => _items;
 
-    internal bool HasSharedEmptyStorage => ReferenceEquals(_items, Array.Empty<QpdfObject>());
-
     /// <summary>Indicates whether this instance equals another PdfArray.</summary>
     public bool Equals(PdfArray? other)
     {
@@ -582,9 +576,6 @@ public sealed class PdfDictionary : QpdfObject, IEquatable<PdfDictionary>
 
     internal EntryEnumerator GetEntryEnumerator() => AllocationCarrier is PdfNameTable<QpdfObject> names
         ? new(names) : new((Dictionary<PdfName, QpdfObject>)AllocationCarrier);
-
-    internal int StorageCapacity => _entries is PdfNameTable<QpdfObject> names
-        ? names.Capacity : ((Dictionary<PdfName, QpdfObject>)_entries).EnsureCapacity(0);
 
     internal object AllocationCarrier => _entries;
 

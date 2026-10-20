@@ -17,7 +17,7 @@ public sealed class ResourceNameSetOwnershipTests
         Assert.Equal(224L, governor.Snapshot().LiveMemoryBytes);
         byte[] input = "A#23#34#31"u8.ToArray();
         Assert.True(names.AddRaw(input)); input[0] = (byte)'Z';
-        Assert.True(names.ContainsDecoded("A#41"u8)); Assert.False(names.ContainsRaw("A#41"u8));
+        Assert.True(names.ContainsDecoded("A#41"u8)); Assert.False(names.ContainsDecoded("AA"u8));
         Assert.False(names.AddDecoded("A#41"u8)); Assert.True(names.AddRaw("A#41"u8));
         using var cursor = names.GetEnumerator();
         Assert.True(cursor.MoveNext(governor, CancellationToken.None));
@@ -62,7 +62,7 @@ public sealed class ResourceNameSetOwnershipTests
         long live = governor.Snapshot().LiveMemoryBytes;
         QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => names.AddRaw("D"u8));
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(3, names.Count); Assert.True(names.ContainsRaw("A"u8)); Assert.False(names.ContainsRaw("D"u8));
+        Assert.Equal(3, names.Count); Assert.True(names.ContainsDecoded("A"u8)); Assert.False(names.ContainsDecoded("D"u8));
         filler.Dispose(); Assert.True(names.AddRaw("D"u8)); Assert.Equal(4, names.Count);
         names.Dispose(); Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L, prior.ReservedBytes);
     }
@@ -87,7 +87,7 @@ public sealed class ResourceNameSetOwnershipTests
         using CancellationTokenSource source = new(); ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? source.Token : CancellationToken.None);
         using ResourceNameSet names = ResourceNameSet.Create(governor, governorToken ? CancellationToken.None : source.Token);
         Assert.True(names.AddRaw("A#41"u8)); long live = governor.Snapshot().LiveMemoryBytes; source.Cancel();
-        Assert.ThrowsAny<OperationCanceledException>(() => names.ContainsRaw("AA"u8));
+        Assert.ThrowsAny<OperationCanceledException>(() => names.ContainsDecoded("AA"u8));
         Assert.ThrowsAny<OperationCanceledException>(() => names.AddDecoded("B"u8));
         Assert.Equal(1, names.Count); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
         names.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
@@ -99,10 +99,11 @@ public sealed class ResourceNameSetOwnershipTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ResourceNameSet names = ResourceNameSet.Create(governor, CancellationToken.None);
         byte[] raw = "A#23#34#31#00#FF"u8.ToArray(); Assert.True(names.AddRaw(raw));
-        for (int index = 0; index < 128; index++) { Assert.True(names.ContainsRaw(raw)); Assert.False(names.AddRaw(raw)); }
+        byte[] decoded = [(byte)'A', (byte)'#', (byte)'4', (byte)'1', 0, 255];
+        for (int index = 0; index < 128; index++) { Assert.True(names.ContainsDecoded(decoded)); Assert.False(names.AddRaw(raw)); }
         long live = governor.Snapshot().LiveMemoryBytes, before = GC.GetAllocatedBytesForCurrentThread();
         bool result = true;
-        for (int index = 0; index < 128; index++) { result &= names.ContainsRaw(raw) && !names.AddRaw(raw); }
+        for (int index = 0; index < 128; index++) { result &= names.ContainsDecoded(decoded) && !names.AddRaw(raw); }
         long allocation = GC.GetAllocatedBytesForCurrentThread() - before;
         Assert.True(result); Assert.Equal(0L, allocation); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
     }
@@ -117,7 +118,7 @@ public sealed class ResourceNameSetOwnershipTests
             Assert.True(form.AddRaw("A#23#34#31"u8)); using var cursor = form.GetEnumerator(); Assert.True(cursor.MoveNext(governor, CancellationToken.None));
             Assert.True(page.AddDecoded(cursor.Current.Key.RawSpan));
         }
-        Assert.True(page.ContainsRaw("A#23#34#31"u8)); Assert.False(page.ContainsRaw("A#41"u8));
+        Assert.True(page.ContainsDecoded("A#41"u8)); Assert.False(page.ContainsDecoded("AA"u8));
         page.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
