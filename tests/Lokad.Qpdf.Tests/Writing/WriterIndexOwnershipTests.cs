@@ -151,6 +151,51 @@ public sealed class WriterIndexOwnershipTests
         catch (QpdfException) { } catch (OperationCanceledException) { }
     }
 
+    public static IEnumerable<object[]> StreamAndInfoOutcomes()
+    {
+        foreach ((string route, string point) in new[]
+        {
+            ("qdf", "last-length-header"), ("qdf", "last-length-value"), ("qdf", "info-value"),
+            ("qdf-streamed", "xref-info-header"), ("qdf-streamed", "info-value"),
+        })
+        {
+            foreach (string outcome in new[] { "success", "failure", "cancellation" }) { yield return [route, point, outcome]; }
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(StreamAndInfoOutcomes))]
+    public async Task StreamLengthAndInfoKeepMetadataOnlyThroughItsLastConsumer(string route, string point, string outcome)
+    {
+        List<NumberedObject> model = StreamModel();
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
+        long baseline = governor.Snapshot().LiveMemoryBytes;
+        using CancellationTokenSource cancellation = new();
+        long lastLengthHeaderBytes = 0L;
+        PausedSink sink = new(point, outcome == "failure")
+        { ObserveLastLengthHeader = () => lastLengthHeaderBytes = governor.Snapshot().LiveMemoryBytes };
+        Task<long> writing = StartQdf(route, model, governor, 6, sink, cancellation.Token);
+        await sink.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+        try
+        {
+            // Observe the renumber map's retirement independently of other rows
+            // still needed by the writer. The info value ends those rows too.
+            long live = governor.Snapshot().LiveMemoryBytes;
+            if (point is "last-length-header" or "xref-info-header") { Assert.True(live >= baseline + 513L * 20L); }
+            else if (point == "last-length-value") { Assert.True(lastLengthHeaderBytes - live >= 513L * 20L); }
+            else { Assert.InRange(live, baseline, baseline + sink.XrefBytes + 4096L); }
+            if (outcome == "cancellation") { cancellation.Cancel(); } else { sink.Resume(); }
+            await Finish(writing, outcome);
+            Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
+            Assert.Equal(97L, prior.ReservedBytes);
+            Assert.Equal("q\nQ\n"u8.ToArray(), ((PdfStream)model[3].Value).Data);
+            Assert.Equal("q\nQ\n"u8.ToArray(), ((PdfStream)model[4].Value).Data);
+            GC.KeepAlive(writing); GC.KeepAlive(model); GC.KeepAlive(sink);
+        }
+        finally { await Drain(writing, sink); }
+    }
+
     internal sealed class PausedSink(string point, bool fail) : IByteSink
     {
         private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -158,13 +203,18 @@ public sealed class WriterIndexOwnershipTests
         private bool _paused;
         private bool _lastLengthHeader;
         internal Task Entered => _entered.Task;
+        internal Action? ObserveLastLengthHeader { get; init; }
         internal long XrefBytes { get; private set; }
         public long Length { get; private set; }
         internal void Resume() => _resume.TrySetResult();
         public async ValueTask AppendAsync(ReadOnlyMemory<byte> chunk, CancellationToken token)
         {
             bool xref = chunk.Span.IndexOf("/Type /XRef"u8) >= 0;
-            if (chunk.Span.SequenceEqual("7 0 obj\n"u8)) { _lastLengthHeader = true; }
+            if (chunk.Span.SequenceEqual("7 0 obj\n"u8))
+            {
+                _lastLengthHeader = true;
+                ObserveLastLengthHeader?.Invoke();
+            }
             if (xref)
             {
                 int offset = chunk.Span.IndexOf("/Length "u8) + 8;

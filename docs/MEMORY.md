@@ -187,9 +187,12 @@ tasks rooted while checking that private storage is released. They do not depend
 on collection round counts, no-GC regions or zero-byte maintenance calls. Coarse
 caller storage refunds when its scope ends, independently of individual aliases.
 
-Async writer outcome matrices check owner detachment, disposal and refunds with
-completed tasks kept alive. Direct owner tests verify collection of released
-backing. They avoid asserting collection during an async producer's return, when
-runtime stack roots can still exist. Whole-job matrices validate persisted values
-and private refunds without requiring collection. Focused component and document
+Async writer outcome matrices check admission at real output phases and refunds
+with completed tasks kept alive. Direct owner tests verify detachment, disposed
+access and collection of released backing. One focused linearized-xref fixture
+also observes its construction scope to prove per-buffer funding through either
+pass; coarse job refunds alone do not establish that allocation's admission.
+Tests avoid asserting collection during an async producer's return, when runtime
+stack roots can still exist. Whole-job matrices validate persisted values and
+private refunds without requiring collection. Focused component and document
 cases retain collection proofs for disposed buffers and escaped public values.

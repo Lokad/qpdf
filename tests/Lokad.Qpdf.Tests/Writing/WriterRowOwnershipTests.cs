@@ -10,7 +10,7 @@ public sealed class WriterRowOwnershipTests
 {
     public static IEnumerable<object[]> Outcomes()
     {
-        foreach (string route in new[] {"ordinary-streamed","qdf","qdf-streamed"})
+        foreach (string route in new[] {"ordinary","ordinary-streamed","qdf","qdf-streamed"})
         {foreach (string outcome in new[] {"success","failure","cancellation"}) {yield return [route,outcome];}}
     }
 
@@ -19,6 +19,8 @@ public sealed class WriterRowOwnershipTests
     public async Task RetiredRowsReleaseStorageAcrossPublicationOutcomes(string route,string outcome)
     {
         List<NumberedObject> model=WriterIndexOwnershipTests.Model(513);QpdfObject borrowed=model[2].Value;
+        PdfArray original = new(Enumerable.Repeat<QpdfObject>(new PdfReference(3, 1), 1024).ToArray());
+        if (route == "qdf") { model[3] = new NumberedObject(4, original); }
         ResourceGovernor governor=new(QpdfLimits.Default,CancellationToken.None);
         using ParserMemoryScope prior=ParserMemoryScope.Create(governor);prior.Reserve(97L);
         long baseline=governor.Snapshot().LiveMemoryBytes;
@@ -30,11 +32,17 @@ public sealed class WriterRowOwnershipTests
         try
         {
             Assert.False(writing.IsCompleted);
-            Assert.InRange(governor.Snapshot().LiveMemoryBytes,baseline,QpdfLimits.Default.MaxMemoryBytes);
+            Assert.InRange(governor.Snapshot().LiveMemoryBytes,baseline,baseline+sink.XrefBytes+4096L);
             if (outcome=="cancellation") {cancellation.Cancel();}else {sink.Resume();}
             await WriterIndexOwnershipTests.Finish(writing,outcome);
             Assert.Equal(baseline,governor.Snapshot().LiveMemoryBytes);Assert.Equal(97L,prior.ReservedBytes);
             Assert.Equal(513,model.Count);Assert.Same(borrowed,model[2].Value);
+            if (route == "qdf")
+            {
+                Assert.Same(original, model[3].Value);
+                PdfReference reference = Assert.IsType<PdfReference>(original[1023]);
+                Assert.Equal(3, reference.ObjectNumber); Assert.Equal(1, reference.Generation);
+            }
             GC.KeepAlive(writing);GC.KeepAlive(sink);GC.KeepAlive(model);GC.KeepAlive(borrowed);
         }
         finally {await WriterIndexOwnershipTests.Drain(writing,sink);}

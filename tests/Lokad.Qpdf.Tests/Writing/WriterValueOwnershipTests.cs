@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -168,5 +169,47 @@ public sealed class WriterValueOwnershipTests
     {
         private readonly MemoryStream _stream = new(); public long Length => _stream.Length; internal byte[] Bytes => _stream.ToArray();
         public ValueTask AppendAsync(ReadOnlyMemory<byte> data, CancellationToken token) { token.ThrowIfCancellationRequested(); _stream.Write(data.Span); return ValueTask.CompletedTask; }
+    }
+
+    [Theory]
+    [InlineData("success")]
+    [InlineData("failure")]
+    [InlineData("caller-cancellation")]
+    [InlineData("governor-cancellation")]
+    public async Task MemberMetadataRetiresOnObservedLookupFailureOrCancellation(string outcome)
+    {
+        List<NumberedObject> model = Model(); PdfArray source = Assert.IsType<PdfArray>(model[4].Value);
+        model[3] = new NumberedObject(4, new PdfStream(new PdfDictionary(new Dictionary<PdfName, QpdfObject>()), "q\nQ\n"u8.ToArray()));
+        model[4] = new NumberedObject(5, PdfNull.Instance); model[5] = new NumberedObject(6, source);
+        using CancellationTokenSource cancellation = new(); bool governorCancellation = outcome == "governor-cancellation";
+        ResourceGovernor governor = new(QpdfLimits.Default, governorCancellation ? cancellation.Token : CancellationToken.None);
+        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
+        PausedSink sink = new("header", true, false); bool observed = false;
+        ObservedIds ids = new(() =>
+        {
+            observed = true;
+            Assert.True(governor.Snapshot().LiveMemoryBytes >= 161L + 1024L * IntPtr.Size);
+            if (outcome.EndsWith("cancellation", StringComparison.Ordinal)) { cancellation.Cancel(); }
+            if (outcome == "failure") { throw new QpdfException("Authored member metadata failure."); }
+        });
+        Task writing = Start(model, QpdfLimits.Default, governor, sink, ids, governorCancellation ? CancellationToken.None : cancellation.Token);
+        await sink.First.WaitAsync(TimeSpan.FromSeconds(10));
+        try
+        {
+            sink.ResumeAll(); await WriterIndexOwnershipTests.Finish(writing, outcome.EndsWith("cancellation", StringComparison.Ordinal) ? "cancellation" : outcome);
+            Assert.True(observed); Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes);
+            Assert.Equal(97L, prior.ReservedBytes); Assert.Equal(8, Assert.IsType<PdfReference>(source[1023]).ObjectNumber);
+            GC.KeepAlive(writing); GC.KeepAlive(ids); GC.KeepAlive(model); GC.KeepAlive(source);
+        }
+        finally { await Drain(writing, sink); }
+    }
+
+    private sealed class ObservedIds(Action observe) : IReadOnlyDictionary<int, int>
+    {
+        public bool TryGetValue(int key, out int value) { if (key == 6) { observe(); } value = 0; return false; }
+        public int Count => 0; public IEnumerable<int> Keys => Array.Empty<int>(); public IEnumerable<int> Values => Array.Empty<int>();
+        public int this[int key] => throw new KeyNotFoundException(); public bool ContainsKey(int key) => false;
+        public IEnumerator<KeyValuePair<int, int>> GetEnumerator() => Enumerable.Empty<KeyValuePair<int, int>>().GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }

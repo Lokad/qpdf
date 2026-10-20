@@ -127,6 +127,63 @@ public sealed class WriterOrderOwnershipTests
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(8, source.Count);
     }
 
+    public static IEnumerable<object[]> LinearizedOutcomes()
+    {
+        foreach (string route in new[] { "classic", "fallback" })
+        {
+            foreach (bool firstPass in new[] { false, true })
+            {
+                foreach (string half in new[] { "first-half", "second-half" })
+                {
+                    foreach (string outcome in new[] { "success", "failure", "cancellation" }) { yield return [route, firstPass, half, outcome]; }
+                }
+            }
+        }
+    }
+
+    private static List<NumberedObject> Model()
+    {
+        List<NumberedObject> source = LinearizedStreamedPartsTests.OnePageModel();
+        for (int index = 0; index < 512; index++) { source.Add(new NumberedObject(index + 6, PdfNull.Instance)); }
+        return source;
+    }
+
+    private static Task<long> StartLinearized(string route, List<NumberedObject> source, ResourceGovernor governor,
+        IByteSink sink, IByteSink? firstPass, CancellationToken token)
+    {
+        LinearizedWriter writer = new(QpdfLimits.Default, governor); byte[] id = new byte[16];
+        return route == "classic"
+            ? writer.WriteLinearizedAsync(new PdfVersion(1, 5), source, null, id, id, false, false, null, sink, firstPass, token).AsTask()
+            : writer.WriteLinearizedStreamedAsync(new PdfVersion(1, 5), source, Array.Empty<IReadOnlyList<int>>(), null,
+                id, id, false, false, null, sink, firstPass, token).AsTask();
+    }
+
+    [Theory]
+    [MemberData(nameof(LinearizedOutcomes))]
+    public async Task ClassicCrossReferencesPreserveOutcomesAcrossBothPasses(string route, bool firstPass, string half, string outcome)
+    {
+        List<NumberedObject> source = Model();
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using CancellationTokenSource cancellation = new();
+        PausedSink paused = new(half, outcome == "failure"); CountingSink other = new();
+        Task<long> writing = StartLinearized(route, source, governor, firstPass ? other : paused, firstPass ? paused : null, cancellation.Token);
+        await paused.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+        try
+        {
+            if (outcome == "cancellation") { cancellation.Cancel(); } else { paused.Resume(); }
+            await WriterIndexOwnershipTests.Finish(writing, outcome);
+            Assert.True(governor.Snapshot().LiveMemoryBytes < 4096L);
+            if (firstPass && outcome != "success") { Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); }
+            Assert.Equal(517, source.Count); Assert.Same(PdfNull.Instance, source[^1].Value);
+            GC.KeepAlive(writing); GC.KeepAlive(paused); GC.KeepAlive(source);
+        }
+        finally
+        {
+            paused.Resume();
+            try { await writing; } catch (QpdfException) { } catch (OperationCanceledException) { }
+        }
+    }
+
     internal sealed class PausedSink(string point, bool fail) : IByteSink
     {
         private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -145,9 +202,6 @@ public sealed class WriterOrderOwnershipTests
                 "dictionary-close" => chunk.Span.SequenceEqual("\n>>"u8),
                 "first-half" => chunk.Span.StartsWith("xref\n"u8) && !chunk.Span.StartsWith("xref\n0 "u8),
                 "second-half" => chunk.Span.StartsWith("xref\n0 "u8),
-                "after-first-half" => chunk.Span.StartsWith(" /Prev "u8),
-                "after-second-half" => chunk.Span.StartsWith("startxref\n"u8) && !chunk.Span.SequenceEqual("startxref\n0\n%%EOF\n"u8),
-                "qdf-version" => chunk.Span.StartsWith("%PDF-"u8),
                 _ => throw new InvalidOperationException("Unknown pause point."),
             };
             if (!_paused && selected)

@@ -6,32 +6,51 @@ namespace Lokad.Qpdf.Tests.Writing;
 public sealed class ObjectStreamHeaderOwnershipTests
 {
     [Theory]
-    [InlineData("ordinary", false)]
-    [InlineData("ordinary", true)]
-    [InlineData("qdf", false)]
-    [InlineData("linearized", false)]
-    [InlineData("linearized", true)]
-    [InlineData("counting", false)]
-    [InlineData("counting", true)]
-    public async Task HeaderAdmissionSurvivesAwaitAndRetiresBeforePayload(string route, bool compressed)
+    [InlineData("ordinary", false, "success")]
+    [InlineData("ordinary", false, "failure")]
+    [InlineData("ordinary", false, "cancellation")]
+    [InlineData("ordinary", true, "success")]
+    [InlineData("ordinary", true, "failure")]
+    [InlineData("ordinary", true, "cancellation")]
+    [InlineData("qdf", false, "success")]
+    [InlineData("qdf", false, "failure")]
+    [InlineData("qdf", false, "cancellation")]
+    [InlineData("linearized", false, "success")]
+    [InlineData("linearized", false, "failure")]
+    [InlineData("linearized", false, "cancellation")]
+    [InlineData("linearized", true, "success")]
+    [InlineData("linearized", true, "failure")]
+    [InlineData("linearized", true, "cancellation")]
+    [InlineData("counting", false, "success")]
+    [InlineData("counting", false, "failure")]
+    [InlineData("counting", false, "cancellation")]
+    [InlineData("counting", true, "success")]
+    [InlineData("counting", true, "failure")]
+    [InlineData("counting", true, "cancellation")]
+    public async Task HeaderAdmissionSurvivesAwaitAndRetiresBeforePayload(string route, bool compressed, string outcome)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        HeaderSink sink = new(governor, false);
-        Task<long> writing = ObjectStreamPayloadOwnershipTests.Start(route, compressed, governor, sink, CancellationToken.None);
+        using CancellationTokenSource cancellation = new();
+        HeaderSink sink = new(governor, outcome == "failure");
+        Task<long> writing = ObjectStreamPayloadOwnershipTests.Start(route, compressed, governor, sink, cancellation.Token);
         await sink.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         try
         {
             Assert.False(writing.IsCompleted);
-            sink.Resume();
-            Assert.True(await writing > 0L);
-            Assert.Equal(160L + sink.HeaderLength, sink.HeaderAdmission - sink.PayloadAdmission);
+            if (outcome == "cancellation") { cancellation.Cancel(); } else { sink.Resume(); }
+            await WriterIndexOwnershipTests.Finish(writing, outcome);
+            if (outcome == "success")
+            {
+                Assert.True(await writing > 0L);
+                Assert.Equal(160L + sink.HeaderLength, sink.HeaderAdmission - sink.PayloadAdmission);
+            }
             Assert.True(governor.Snapshot().LiveMemoryBytes < 4096L);
             GC.KeepAlive(writing); GC.KeepAlive(sink);
         }
         finally
         {
             sink.Resume();
-            await writing;
+            try { await writing; } catch (QpdfException) { } catch (OperationCanceledException) { }
         }
     }
 
