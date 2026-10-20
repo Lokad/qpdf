@@ -98,6 +98,7 @@ internal static class FlattenAnnotations
         int required = mode == "print" ? FlagPrint : 0;
         int forbidden = mode == "screen" ? FlagNoView : 0;
         bool warned = false;
+        Span<byte> nameBytes = stackalloc byte[16];
         foreach ((GraphCopier copier, int pageId) in occurrences)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -139,227 +140,131 @@ internal static class FlattenAnnotations
                 rotate = rotateInteger.Value;
             }
 
-            PdfDictionary? resources = EnsureResources(copier, page, resolver, governor);
+            PdfDictionary? resources = EnsureResources(page, resolver);
             if (resources is null)
             {
                 diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot flatten annotations without page resources; keeping annotations as is.");
                 continue;
             }
 
-            HashSet<string> taken = CollectTakenNames(resources, resolver);
-            int suffix = 1;
-            List<QpdfObject> kept = new(annots.Count);
-            List<byte> stamped = new(256);
-            bool changed = false;
-            foreach (QpdfObject item in annots.Items)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                governor.NoteOperation();
-                QpdfObject entryTarget = item is PdfReference itemReference
-                    ? ResolveOrNull(resolver, itemReference) ?? item
-                    : item;
-                if (entryTarget is not PdfDictionary annot)
-                {
-                    kept.Add(item);
-                    continue;
-                }
-
-                string subtype = string.Empty;
-                if (annot.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject? subtypeRaw) && subtypeRaw is PdfName subtypeName)
-                {
-                    subtype = subtypeName.DisplayText;
-                }
-
-                bool isWidget = subtype == "Widget";
-                if (needAppearances && isWidget)
-                {
-                    kept.Add(item);
-                    continue;
-                }
-
-                PdfStream? appearance = FindAppearanceStream(annot, resolver, out PdfReference? appearanceRaw);
-                if (appearance is null)
-                {
-                    if (HasAppearanceDictionary(annot))
-                    {
-                        changed = true;
-                        continue;
-                    }
-
-                    kept.Add(item);
-                    continue;
-                }
-
-                (PdfReference appearanceLink, PdfDictionary appearanceDict) = EnsureAppearanceObject(copier, appearance, appearanceRaw, governor, cancellationToken, ref allocator);
-                string name = UniqueFxoName(taken, ref suffix);
-                string content = AppearanceContent(name, annot, appearanceDict, (int)rotate, required, forbidden, resolver);
-                if (content.Length == 0)
-                {
-                    changed = true;
-                    continue;
-                }
-
-                resources = AddXObjectEntry(resources, name, appearanceLink, resolver, governor);
-                AppendAscii(stamped, content);
-                changed = true;
-            }
-
-            if (!changed)
-            {
-                continue;
-            }
-
-            byte[] prefix = Encoding.ASCII.GetBytes("q\n");
-            byte[] suffixBytes = stamped.Count == 0
-                ? Encoding.ASCII.GetBytes("\nQ\n")
-                : JoinTwo(Encoding.ASCII.GetBytes("\nQ\n"), [.. stamped], governor);
-            PdfStream before = EncodeContent(prefix, compress, level, limits, governor);
-            PdfStream after = EncodeContent(suffixBytes, compress, level, limits, governor);
-            PdfReference beforeLink = copier.AddIndirectObjectWithId(before, allocator);
-            allocator = checked(allocator + 1);
-            PdfReference afterLink = copier.AddIndirectObjectWithId(after, allocator);
-            allocator = checked(allocator + 1);
-            List<QpdfObject>? entries = ReadContentEntries(page, resolver);
+            using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
+            List<QpdfObject>? entries = ReadContentEntries(page, resolver, graph.Memory, governor, cancellationToken);
             if (entries is null)
             {
                 diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot flatten annotations with unreadable content; keeping the page as is.");
                 continue;
             }
+            // One live set of fixed-size matrices and one formatted scalar at a
+            // time. Growing content and resource containers are admitted separately.
+            graph.Memory.Reserve(2048L);
+            PdfNameTable<QpdfObject> xobjects = ResourceRebuild.CreateEntries(graph, out long resourceAllocation);
+            if (ResolveXObjects(resources, resolver) is PdfDictionary existing)
+            {
+                using PdfDictionary.EntryEnumerator source = existing.GetEntryEnumerator();
+                while (source.MoveNext(governor, cancellationToken))
+                { xobjects.Assign(graph.Memory, governor, source.Current.Key, source.Current.Value, cancellationToken); }
+            }
+            int suffix = 1;
+            List<QpdfObject> kept = ParserContainers.CreateList(graph.Memory);
+            using GovernedBufferStream stamped = new(governor, limits.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes), cancellationToken, 256);
+            stamped.Write("\nQ\n"u8);
+            bool changed = false;
+            foreach (QpdfObject item in annots.Items)
+            {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                QpdfObject entryTarget = item is PdfReference itemReference ? ResolveOrNull(resolver, itemReference) ?? item : item;
+                if (entryTarget is not PdfDictionary annot)
+                { ParserContainers.AddItem(graph.Memory, kept, item, IntPtr.Size); continue; }
+                bool isWidget = annot.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject? subtypeRaw)
+                    && subtypeRaw is PdfName subtype && PdfDictionaryLookup.NameEquals(subtype, "Widget"u8, governor, cancellationToken);
+                if (needAppearances && isWidget)
+                { ParserContainers.AddItem(graph.Memory, kept, item, IntPtr.Size); continue; }
 
-            List<QpdfObject> stacked = new(entries.Count + 2)
-            {
-                beforeLink,
-            };
-            stacked.AddRange(entries);
-            stacked.Add(afterLink);
-            Dictionary<PdfName, QpdfObject> rebuilt = new();
-            foreach (PdfName key in page.Keys)
-            {
-                if (key.DisplayText == "Contents" || key.DisplayText == "Annots" || key.DisplayText == "Resources")
+                PdfStream? appearance = FindAppearanceStream(annot, resolver, out PdfReference? appearanceRaw);
+                if (appearance is null)
                 {
+                    if (HasAppearanceDictionary(annot)) { changed = true; }
+                    else { ParserContainers.AddItem(graph.Memory, kept, item, IntPtr.Size); }
                     continue;
                 }
-
-                if (page.TryGet(key, out QpdfObject? found) && found is not null)
-                {
-                    rebuilt[key] = found;
-                }
+                string name = UniqueFxoName(xobjects, ref suffix, governor, cancellationToken);
+                changed = true;
+                if (!AppendAppearance(name, annot, appearance.Dictionary, (int)rotate, required, forbidden, resolver, stamped)) { continue; }
+                (PdfReference appearanceLink, _) = EnsureAppearanceObject(copier, appearance, appearanceRaw, governor, cancellationToken, ref allocator);
+                int length = Encoding.ASCII.GetBytes(name.AsSpan(), nameBytes);
+                PdfName key = PdfDictionaryRebuild.CreateName(graph, nameBytes[..length]);
+                xobjects.Assign(graph.Memory, governor, key, appearanceLink, cancellationToken);
             }
+            if (!changed) { continue; }
 
-            governor.ReserveMemory(192L);
-            rebuilt[PdfName.FromAscii("Contents")] = new PdfArray(stacked);
-            rebuilt[PdfName.FromAscii("Resources")] = resources;
-            if (kept.Count == 0)
+            PdfDictionary outputResources = resources;
+            if (stamped.Length > 3)
             {
-                copier.ReplaceCopiedObject(pageId, new PdfDictionary(rebuilt));
-                continue;
+                PdfDictionary xobjectDictionary = ResourceRebuild.Complete(graph, xobjects, resourceAllocation);
+                outputResources = PdfDictionaryRebuild.ReplaceEntry(graph, resources, "XObject"u8, xobjectDictionary);
             }
-
-            PdfArray keptArray = new(kept);
-            if (annotsTarget is PdfReference annotsReference2 && annotsRaw is PdfReference annotsOriginal)
+            else { graph.UpdateBytes(resourceAllocation, 0L); }
+            // Both payloads are admitted once and transferred into immutable streams.
+            graph.Memory.Reserve(34L); byte[] prefix = "q\n"u8.ToArray(); graph.Add(34L);
+            byte[] suffixBytes = stamped.ToArray(graph.Memory, cancellationToken);
+            graph.Add(32L + suffixBytes.Length);
+            PdfStream before = EncodeContent(prefix, compress, level, limits, graph);
+            PdfStream after = EncodeContent(suffixBytes, compress, level, limits, graph);
+            PdfReference beforeLink = copier.AddIndirectObjectWithId(before, allocator); allocator = checked(allocator + 1);
+            PdfReference afterLink = copier.AddIndirectObjectWithId(after, allocator); allocator = checked(allocator + 1);
+            List<QpdfObject> stacked = ParserContainers.CreateList(graph.Memory);
+            ParserContainers.AddItem(graph.Memory, stacked, beforeLink, IntPtr.Size);
+            foreach (QpdfObject entry in entries)
             {
-                copier.ReplaceCopiedObject(annotsOriginal.ObjectNumber, keptArray);
-                rebuilt[PdfName.FromAscii("Annots")] = annotsOriginal;
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                ParserContainers.AddItem(graph.Memory, stacked, entry, IntPtr.Size);
             }
-            else
+            ParserContainers.AddItem(graph.Memory, stacked, afterLink, IntPtr.Size);
+            PdfArray contents = ParserContainers.CopyArray(graph.Memory, stacked); graph.Add(64L + IntPtr.Size * (long)stacked.Count);
+            PdfNameTable<QpdfObject> rebuilt = PdfDictionaryRebuild.CreateEntries(graph, out long pageAllocation);
+            using PdfDictionary.EntryEnumerator pageEntries = page.GetEntryEnumerator();
+            while (pageEntries.MoveNext(governor, cancellationToken))
             {
-                rebuilt[PdfName.FromAscii("Annots")] = keptArray;
+                PdfName key = pageEntries.Current.Key;
+                if (PdfDictionaryLookup.NameEquals(key, "Contents"u8, governor, cancellationToken)
+                    || PdfDictionaryLookup.NameEquals(key, "Resources"u8, governor, cancellationToken)
+                    || PdfDictionaryLookup.NameEquals(key, "Annots"u8, governor, cancellationToken)) { continue; }
+                rebuilt.Assign(graph.Memory, governor, key, pageEntries.Current.Value, cancellationToken);
             }
-
-            copier.ReplaceCopiedObject(pageId, new PdfDictionary(rebuilt));
+            rebuilt.Assign(graph.Memory, governor, PdfName.FromAscii("Contents"), contents, cancellationToken);
+            rebuilt.Assign(graph.Memory, governor, PdfName.FromAscii("Resources"), outputResources, cancellationToken);
+            if (kept.Count > 0)
+            {
+                PdfArray keptArray = ParserContainers.CopyArray(graph.Memory, kept); graph.Add(64L + IntPtr.Size * (long)kept.Count);
+                rebuilt.Assign(graph.Memory, governor, PdfName.FromAscii("Annots"), keptArray, cancellationToken);
+            }
+            PdfDictionary result = PdfDictionaryRebuild.Complete(graph, rebuilt, pageAllocation);
+            copier.ReplaceCopiedObject(pageId, result); graph.Retain();
         }
 
         return allocator;
     }
 
-    private static PdfDictionary? EnsureResources(
-        GraphCopier copier,
-        PdfDictionary page,
-        PoolResolver resolver,
-        ResourceGovernor governor)
+    private static readonly PdfDictionary EmptyResources = new(new Dictionary<PdfName, QpdfObject>());
+
+    private static PdfDictionary? EnsureResources(PdfDictionary page, PoolResolver resolver)
     {
-        if (page.TryGet(PdfName.FromAscii("Resources"), out QpdfObject? raw) && raw is not null && raw is not PdfNull)
-        {
-            QpdfObject target = raw is PdfReference reference
-                ? ResolveOrNull(resolver, reference) ?? raw
-                : raw;
-            if (target is PdfDictionary dictionary)
-            {
-                if (target is PdfReference)
-                {
-                    return dictionary;
-                }
-
-                return dictionary;
-            }
-
-            return null;
-        }
-
-        governor.ReserveMemory(64L);
-        return new PdfDictionary(new Dictionary<PdfName, QpdfObject>());
+        if (!page.TryGet(PdfName.FromAscii("Resources"), out QpdfObject? raw) || raw is null || raw is PdfNull)
+        { return EmptyResources; }
+        return (raw is PdfReference reference ? ResolveOrNull(resolver, reference) : raw) as PdfDictionary;
     }
 
-    private static HashSet<string> CollectTakenNames(PdfDictionary resources, PoolResolver resolver)
+    private static string UniqueFxoName(PdfNameTable<QpdfObject> taken, ref int suffix, ResourceGovernor governor, CancellationToken token)
     {
-        HashSet<string> taken = new(StringComparer.Ordinal);
-        if (ResolveXObjects(resources, resolver) is PdfDictionary xobjects)
-        {
-            foreach (PdfName key in xobjects.Keys)
-            {
-                taken.Add(key.DisplayText);
-            }
-        }
-
-        return taken;
-    }
-
-    private static string UniqueFxoName(HashSet<string> taken, ref int suffix)
-    {
+        Span<byte> bytes = stackalloc byte[16];
         while (true)
         {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             string candidate = "Fxo" + suffix.ToString(CultureInfo.InvariantCulture);
-            suffix += 1;
-            if (taken.Add(candidate))
-            {
-                return candidate;
-            }
+            suffix = checked(suffix + 1);
+            int length = Encoding.ASCII.GetBytes(candidate.AsSpan(), bytes);
+            if (!taken.TryGetValue(bytes[..length], governor, token, out _)) { return candidate; }
         }
-    }
-
-    private static PdfDictionary AddXObjectEntry(
-        PdfDictionary resources,
-        string name,
-        PdfReference link,
-        PoolResolver resolver,
-        ResourceGovernor governor)
-    {
-        Dictionary<PdfName, QpdfObject> xobjects = new();
-        if (ResolveXObjects(resources, resolver) is PdfDictionary existing)
-        {
-            foreach (PdfName key in existing.Keys)
-            {
-                if (existing.TryGet(key, out QpdfObject? found) && found is not null)
-                {
-                    xobjects[key] = found;
-                }
-            }
-        }
-
-        governor.ReserveMemory(64L);
-        xobjects[new PdfName(Encoding.ASCII.GetBytes(name))] = link;
-        Dictionary<PdfName, QpdfObject> entries = new();
-        foreach (PdfName key in resources.Keys)
-        {
-            if (resources.TryGet(key, out QpdfObject? found) && found is not null)
-            {
-                entries[key] = found;
-            }
-        }
-
-        governor.ReserveMemory(64L);
-        entries[PdfName.FromAscii("XObject")] = new PdfDictionary(xobjects);
-        return new PdfDictionary(entries);
     }
 
     private static bool HasAppearanceDictionary(PdfDictionary annot)
@@ -468,14 +373,15 @@ internal static class FlattenAnnotations
         graph.Retain(); return (link, header);
     }
 
-    private static string AppearanceContent(
+    private static bool AppendAppearance(
         string name,
         PdfDictionary annot,
         PdfDictionary appearance,
         int rotate,
         int required,
         int forbidden,
-        PoolResolver resolver)
+        PoolResolver resolver,
+        GovernedBufferStream output)
     {
         long flags = 0L;
         if (annot.TryGet(PdfName.FromAscii("F"), out QpdfObject? flagsRaw))
@@ -491,19 +397,19 @@ internal static class FlattenAnnotations
 
         if ((flags & forbidden) != 0L)
         {
-            return string.Empty;
+            return false;
         }
 
         if ((flags & required) != required)
         {
-            return string.Empty;
+            return false;
         }
 
         double[]? box = ReadBox(appearance, "BBox", resolver);
         double[]? rect = ReadBox(annot, "Rect", resolver);
         if (box is null || rect is null)
         {
-            return string.Empty;
+            return false;
         }
 
         double[] matrix = IdentityMatrix();
@@ -531,7 +437,7 @@ internal static class FlattenAnnotations
         double movedHeight = moved[3] - moved[1];
         if (movedWidth == 0.0 || movedHeight == 0.0)
         {
-            return string.Empty;
+            return false;
         }
 
         double rectWidth = rect[2] - rect[0];
@@ -544,7 +450,14 @@ internal static class FlattenAnnotations
             final = ConcatMatrix(final, Rotate90Matrix(rotate));
         }
 
-        return string.Concat("q\n", FormatMatrix(final), " cm\n/", name, " Do\nQ\n");
+        output.Write("q\n"u8);
+        for (int i = 0; i < final.Length; i++)
+        {
+            if (i > 0) { output.WriteByte((byte)' '); }
+            AppendAscii(output, FormatDouble(final[i]));
+        }
+        output.Write(" cm\n/"u8); AppendAscii(output, name); output.Write(" Do\nQ\n"u8);
+        return true;
     }
 
     private static double[] RotateRect(double[] rect, int rotate)
@@ -723,18 +636,20 @@ internal static class FlattenAnnotations
         return numbers;
     }
 
-    private static List<QpdfObject>? ReadContentEntries(PdfDictionary page, PoolResolver resolver)
+    private static List<QpdfObject>? ReadContentEntries(PdfDictionary page, PoolResolver resolver, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
         if (!page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject? contents) || contents is null || contents is PdfNull)
         {
-            return [];
+            return ParserContainers.CreateList(memory);
         }
 
-        if (contents is PdfArray array)
+        QpdfObject targetContents = contents is PdfReference contentsReference ? ResolveOrNull(resolver, contentsReference) ?? contents : contents;
+        if (targetContents is PdfArray array)
         {
-            List<QpdfObject> entries = new(array.Count);
+            List<QpdfObject> entries = ParserContainers.CreateList(memory);
             foreach (QpdfObject item in array.Items)
             {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 if (item is PdfReference reference)
                 {
                     QpdfObject? target = ResolveOrNull(resolver, reference);
@@ -748,7 +663,7 @@ internal static class FlattenAnnotations
                     return null;
                 }
 
-                entries.Add(item);
+                ParserContainers.AddItem(memory, entries, item, IntPtr.Size);
             }
 
             return entries;
@@ -757,64 +672,37 @@ internal static class FlattenAnnotations
         if (contents is PdfReference singleReference)
         {
             QpdfObject? target = ResolveOrNull(resolver, singleReference);
-            return target is PdfStream ? [contents] : null;
+            if (target is not PdfStream) { return null; }
+            List<QpdfObject> entries = ParserContainers.CreateList(memory);
+            ParserContainers.AddItem(memory, entries, contents, IntPtr.Size); return entries;
         }
 
-        return contents is PdfStream ? [contents] : null;
+        if (contents is not PdfStream) { return null; }
+        List<QpdfObject> direct = ParserContainers.CreateList(memory);
+        ParserContainers.AddItem(memory, direct, contents, IntPtr.Size); return direct;
     }
 
-    private static PdfStream EncodeContent(
-        byte[] content,
-        bool compress,
-        int? level,
-        QpdfLimits limits,
-        ResourceGovernor governor)
+    private static PdfStream EncodeContent(byte[] content, bool compress, int? level, QpdfLimits limits, OwnedAllocationBatch graph)
     {
+        PdfDictionary header = EmptyResources;
         if (compress && content.Length > 0)
         {
-            byte[] encoded = FlateFilter.Encode(content, level, limits, governor);
-            governor.ReserveMemory(64L);
-            return new PdfStream(new PdfDictionary(new Dictionary<PdfName, QpdfObject>
-            {
-                [PdfName.FromAscii("Filter")] = PdfName.FromAscii("FlateDecode"),
-            }), encoded);
+            long rawBytes = 32L + content.Length;
+            content = FlateFilter.Encode(content, level, limits, graph.Governor, graph.Memory, graph.Token);
+            graph.UpdateBytes(rawBytes, 32L + content.Length);
+            header = PdfDictionaryRebuild.ReplaceEntry(graph, header, "Filter"u8, PdfName.FromAscii("FlateDecode"));
         }
-
-        return new PdfStream(new PdfDictionary(new Dictionary<PdfName, QpdfObject>()), content);
+        graph.Memory.Reserve(32L); PdfStream stream = PdfStream.FromOwnedData(header, content); graph.Add(32L); return stream;
     }
 
-    private static byte[] JoinTwo(byte[] first, byte[] second, ResourceGovernor governor)
+    private static void AppendAscii(GovernedBufferStream output, string text)
     {
-        governor.ReserveMemory(first.Length + second.Length);
-        byte[] output = new byte[first.Length + second.Length];
-        Buffer.BlockCopy(first, 0, output, 0, first.Length);
-        Buffer.BlockCopy(second, 0, output, first.Length, second.Length);
-        return output;
-    }
-
-    private static void AppendAscii(List<byte> output, string text)
-    {
-        byte[] bytes = Encoding.ASCII.GetBytes(text);
-        foreach (byte b in bytes)
+        Span<byte> bytes = stackalloc byte[256];
+        for (int at = 0; at < text.Length; at += Math.Min(bytes.Length, text.Length - at))
         {
-            output.Add(b);
+            int length = Encoding.ASCII.GetBytes(text.AsSpan(at, Math.Min(bytes.Length, text.Length - at)), bytes);
+            output.Write(bytes[..length]);
         }
-    }
-
-    private static string FormatMatrix(double[] values)
-    {
-        StringBuilder builder = new();
-        for (int i = 0; i < values.Length; i++)
-        {
-            if (i > 0)
-            {
-                builder.Append(" ");
-            }
-
-            builder.Append(FormatDouble(values[i]));
-        }
-
-        return builder.ToString();
     }
 
     private static string FormatDouble(double value)

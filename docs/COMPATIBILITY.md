@@ -35,6 +35,10 @@ Overlay header changes and annotation clones borrow immutable payloads through
 the existing source-to-job ownership transfer. Joining, slice adapters and decoded
 scratch receive admission before allocation; temporary decode storage retires
 after joining. Large jobs may therefore refuse earlier without publishing output.
+Annotation flattening now builds each page's XObject resources once, with admitted
+capacity growth and content buffers. Invalid page content is checked before
+appearance promotion, so a skipped page keeps its appearances and emits no unused
+wrapper streams. Indirect content arrays are accepted. Public signatures are unchanged.
 
 Overlay font-conflict rewriting compares decoded name bytes and emits escaped
 replacement names. Unchanged names, comments and whitespace retain their original
