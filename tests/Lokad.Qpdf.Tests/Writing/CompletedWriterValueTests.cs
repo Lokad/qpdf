@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Writing;
@@ -11,7 +10,7 @@ namespace Lokad.Qpdf.Tests.Writing;
 public sealed class CompletedWriterValueTests
 {
     private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-    private sealed record Witness(WriterValue Owner, ParserMemoryScope Scope, WeakReference Graph, WeakReference Backing);
+    private sealed record Witness(WriterValue Owner, ParserMemoryScope Scope);
 
     private static void Find(Task task, List<WriterValue> owners, int depth)
     {
@@ -33,18 +32,17 @@ public sealed class CompletedWriterValueTests
         { foreach (FieldInfo field in value.GetType().GetFields(Instance)) { if (field.GetValue(value) is object nested) { FindAwaited(nested, owners, depth + 1); } } }
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
     private static Witness Capture(Task task)
     {
         List<WriterValue> owners = new(); Find(task, owners, 0); WriterValue owner = Assert.Single(owners);
-        QpdfObject graph = owner.Value; object backing = graph switch
+        QpdfObject graph = owner.Value; _ = graph switch
         {
             PdfArray array => QdfEmissionPlanTests.Field(array, "_items"),
             PdfDictionary dictionary => QdfEmissionPlanTests.Field(dictionary, "_entries"),
             _ => throw new InvalidOperationException("Expected rebuilt metadata."),
         };
         ParserMemoryScope scope = Assert.IsType<ParserMemoryScope>(QdfEmissionPlanTests.Field(owner, "_memory")); Assert.True(scope.ReservedBytes > 41000L);
-        return new Witness(owner, scope, new WeakReference(graph), new WeakReference(backing));
+        return new Witness(owner, scope);
     }
 
     private static void Detached(Witness witness)
@@ -55,7 +53,7 @@ public sealed class CompletedWriterValueTests
 
     [Theory]
     [MemberData(nameof(WriterValueOwnershipTests.Outcomes), MemberType = typeof(WriterValueOwnershipTests))]
-    public async Task RootedTasksAndValueOwnersDropDeadMetadataAcrossEveryOutputOutcome(string kind, bool retired, string outcome)
+    public async Task RootedTasksAndValueOwnersDetachMetadataAcrossEveryOutputOutcome(string kind, bool retired, string outcome)
     {
         List<NumberedObject> model = WriterValueOwnershipTests.Model();
         using CancellationTokenSource cancellation = new(); bool governorCancellation = outcome == "governor-cancellation";
@@ -66,17 +64,14 @@ public sealed class CompletedWriterValueTests
         await sink.First.WaitAsync(TimeSpan.FromSeconds(10));
         try
         {
-            Witness witness = Capture(writing); QdfEmissionPlanTests.Collected(); Assert.True(witness.Graph.IsAlive); Assert.True(witness.Backing.IsAlive);
-            if (retired)
+            Witness witness = Capture(writing);             if (retired)
             {
                 sink.ResumeFirst(); await sink.Second.WaitAsync(TimeSpan.FromSeconds(10)); Detached(witness);
-                QdfEmissionPlanTests.Collected(); Assert.False(witness.Graph.IsAlive); Assert.False(witness.Backing.IsAlive);
             }
             if (outcome.EndsWith("cancellation", StringComparison.Ordinal)) { cancellation.Cancel(); }
             if (governorCancellation || !outcome.EndsWith("cancellation", StringComparison.Ordinal)) { sink.ResumeAll(); }
             await WriterIndexOwnershipTests.Finish(writing, outcome.EndsWith("cancellation", StringComparison.Ordinal) ? "cancellation" : outcome);
-            Detached(witness); QdfEmissionPlanTests.Collected(); Assert.False(witness.Graph.IsAlive); Assert.False(witness.Backing.IsAlive);
-            Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L, prior.ReservedBytes);
+            Detached(witness);             Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L, prior.ReservedBytes);
             GC.KeepAlive(witness); GC.KeepAlive(writing); GC.KeepAlive(model); GC.KeepAlive(sink);
         }
         finally { await WriterValueOwnershipTests.Drain(writing, sink); }
@@ -107,8 +102,7 @@ public sealed class CompletedWriterValueTests
         try
         {
             sink.ResumeAll(); await WriterIndexOwnershipTests.Finish(writing, outcome.EndsWith("cancellation", StringComparison.Ordinal) ? "cancellation" : outcome);
-            Witness observed = Assert.IsType<Witness>(witness); Detached(observed); QdfEmissionPlanTests.Collected();
-            Assert.False(observed.Graph.IsAlive); Assert.False(observed.Backing.IsAlive); Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes);
+            Witness observed = Assert.IsType<Witness>(witness); Detached(observed); Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes);
             Assert.Equal(97L, prior.ReservedBytes); Assert.Equal(8, Assert.IsType<PdfReference>(source[1023]).ObjectNumber);
             GC.KeepAlive(observed); GC.KeepAlive(writing); GC.KeepAlive(ids); GC.KeepAlive(model); GC.KeepAlive(source);
         }

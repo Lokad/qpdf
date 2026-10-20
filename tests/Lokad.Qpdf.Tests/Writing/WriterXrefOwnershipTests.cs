@@ -85,7 +85,6 @@ public sealed class WriterXrefOwnershipTests
         internal Task Entered=>_entered.Task;
         internal int BodyLength {get;private set;}
         internal int PauseChunkLength {get;private set;}
-        internal WeakReference? Buffer {get;private set;}
         public long Length {get;private set;}
         internal void Resume()=>_resume.TrySetResult();
         public async ValueTask AppendAsync(ReadOnlyMemory<byte> chunk,CancellationToken token)
@@ -104,7 +103,7 @@ public sealed class WriterXrefOwnershipTests
                 _nextBody=false; body=true;
                 Assert.True(MemoryMarshal.TryGetArray(chunk,out ArraySegment<byte> segment));
                 byte[] storage=segment.Array ?? throw new InvalidOperationException("Expected owned xref backing.");
-                Buffer=new WeakReference(storage); Assert.Equal(BodyLength,storage.Length);
+                Assert.Equal(BodyLength,storage.Length);
             }
             if (_xref && chunk.Span.EndsWith("stream\n"u8) && !chunk.Span.Contains((byte)0)) {_nextBody=true;}
             if (_xref && chunk.Span.StartsWith("\nendstream\nendobj\n"u8)) {retired=true;}

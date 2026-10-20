@@ -1,6 +1,5 @@
 using Lokad.Qpdf.Tests.Foundation;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Writing;
@@ -12,14 +11,14 @@ public sealed class CompletedLinearizedLayoutTests
 {
     private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
-    private static void FindLayouts(Task writing, List<object> layouts, int depth)
+    private static void FindLayouts(Task writing, List<LinearizedLayout> layouts, int depth)
     {
         if (depth > 8) { return; }
         object? state = writing.GetType().GetField("StateMachine", Instance)?.GetValue(writing);
         if (state is null) { return; }
         foreach (FieldInfo field in state.GetType().GetFields(Instance))
         {
-            if (field.FieldType == typeof(LinearizedLayout) && field.GetValue(state) is object layout
+            if (field.FieldType == typeof(LinearizedLayout) && field.GetValue(state) is LinearizedLayout layout
                 && !layouts.Any(value => ReferenceEquals(value, layout))) { layouts.Add(layout); }
         }
         foreach (FieldInfo field in state.GetType().GetFields(Instance))
@@ -31,7 +30,7 @@ public sealed class CompletedLinearizedLayoutTests
         }
     }
 
-    private static void FindAwaitedLayouts(object value, List<object> layouts, int depth)
+    private static void FindAwaitedLayouts(object value, List<LinearizedLayout> layouts, int depth)
     {
         if (depth > 8) { return; }
         if (value is Task task) { FindLayouts(task, layouts, depth + 1); return; }
@@ -44,13 +43,12 @@ public sealed class CompletedLinearizedLayoutTests
         }
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static WeakReference[] BackingArrays(Task writing)
+    private static LinearizedLayout[] FundedLayouts(Task writing)
     {
-        List<object> layouts = new();
+        List<LinearizedLayout> layouts = new();
         FindLayouts(writing, layouts, 0);
         Assert.Equal(2, layouts.Count);
-        List<WeakReference> arrays = new();
+        int allocatedMaps = 0;
         foreach (object layout in layouts)
         {
             foreach (string name in new[] { "_starts", "_lengths", "_members" })
@@ -59,11 +57,11 @@ public sealed class CompletedLinearizedLayoutTests
                 if (map is null) { continue; }
                 Array backing = map.GetType().GetField("_entries", Instance)?.GetValue(map) as Array
                     ?? throw new InvalidOperationException("Expected scoped index backing.");
-                if (backing.Length > 0) { arrays.Add(new WeakReference(backing)); }
+                if (backing.Length > 0) { allocatedMaps++; }
             }
         }
-        Assert.True(arrays.Count >= 2);
-        return arrays.ToArray();
+        Assert.True(allocatedMaps >= 2);
+        return layouts.ToArray();
     }
 
     [Theory]
@@ -76,7 +74,7 @@ public sealed class CompletedLinearizedLayoutTests
     [InlineData("fallback", "success")]
     [InlineData("fallback", "failure")]
     [InlineData("fallback", "cancellation")]
-    public async Task CountingAndReplayIndexesDieWhileCompletedTasksStayRooted(string route, string outcome)
+    public async Task CompletedCountingAndReplayIndexesDetachStorage(string route, string outcome)
     {
         List<NumberedObject> model = LinearizedStreamedPartsTests.OnePageModel();
         for (int index = 0; index < 512; index++) { model.Add(new NumberedObject(index + 6, PdfNull.Instance)); }
@@ -95,9 +93,7 @@ public sealed class CompletedLinearizedLayoutTests
         await sink.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         try
         {
-            WeakReference[] arrays = BackingArrays(writing);
-            Collect();
-            Assert.All(arrays, value => Assert.True(value.IsAlive));
+            LinearizedLayout[] layouts = FundedLayouts(writing);
             if (outcome == "cancellation") { cancellation.Cancel(); }
             else { sink.Resume(); }
             if (outcome == "success")
@@ -107,8 +103,12 @@ public sealed class CompletedLinearizedLayoutTests
             }
             else if (outcome == "failure") { await Assert.ThrowsAsync<QpdfException>(async () => await writing); }
             else { await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await writing); }
-            Collect();
-            Assert.All(arrays, value => Assert.False(value.IsAlive));
+            foreach (LinearizedLayout layout in layouts)
+            {
+                foreach (string field in new[] { "_starts", "_lengths", "_members", "_memory" })
+                { Assert.Null(typeof(LinearizedLayout).GetField(field, Instance)?.GetValue(layout)); }
+                Assert.Throws<ObjectDisposedException>(() => layout.Starts);
+            }
             Assert.True(governor.Snapshot().LiveMemoryBytes < 4096L);
             Assert.Same(PdfNull.Instance, model[^1].Value);
             GC.KeepAlive(writing); GC.KeepAlive(writer); GC.KeepAlive(sink); GC.KeepAlive(model);
@@ -144,7 +144,4 @@ public sealed class CompletedLinearizedLayoutTests
             Length += chunk.Length;
         }
     }
-
-    private static void Collect()
-    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 }

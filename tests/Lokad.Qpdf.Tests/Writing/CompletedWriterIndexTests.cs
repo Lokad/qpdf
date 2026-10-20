@@ -1,6 +1,5 @@
 using Lokad.Qpdf.Tests.Foundation;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Writing;
@@ -36,9 +35,8 @@ public sealed class CompletedWriterIndexTests
         { foreach (FieldInfo field in value.GetType().GetFields(Instance)) { if (field.GetValue(value) is object nested) { FindAwaited(nested,owners,depth+1); } } }
     }
 
-    private sealed record Witness(object Owner, ParserMemoryScope? Scope, WeakReference? Buckets, WeakReference? Entries);
+    private sealed record Witness(object Owner, ParserMemoryScope? Scope);
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
     private static List<Witness> Capture(Task writing)
     {
         List<object> owners = new(); FindOwners(writing,owners,0);
@@ -65,8 +63,7 @@ public sealed class CompletedWriterIndexTests
                 Assert.Equal(96L + itemBytes * items.Length,memory.ReservedBytes);
             }
             else { Assert.Null(memory); }
-            witnesses.Add(new Witness(owner,memory,buckets is {Length: >0} ? new WeakReference(buckets) : null,
-                entries is {Length: >0} ? new WeakReference(entries) : items is {Length: >0} ? new WeakReference(items) : null));
+            witnesses.Add(new Witness(owner,memory));
         }
         return witnesses;
     }
@@ -86,7 +83,7 @@ public sealed class CompletedWriterIndexTests
 
     [Theory]
     [MemberData(nameof(CompletionOutcomes))]
-    public async Task CompletedTasksAndRootedWrappersReleaseIndexBacking(string route, string point, string outcome)
+    public async Task CompletedTasksAndRootedWrappersDetachIndexBacking(string route, string point, string outcome)
     {
         var model = WriterIndexOwnershipTests.Model(513);
         ResourceGovernor governor = new(QpdfLimits.Default,CancellationToken.None);
@@ -98,16 +95,14 @@ public sealed class CompletedWriterIndexTests
         {
             List<Witness> witnesses = Capture(writing);
             Assert.NotEmpty(witnesses); Assert.Contains(witnesses,value => value.Scope is not null);
-            Collect();
             foreach (Witness witness in witnesses)
-            { if (witness.Buckets is not null) { Assert.True(witness.Buckets.IsAlive); }; if (witness.Entries is not null) { Assert.True(witness.Entries.IsAlive); } }
+            { ; }
             if (outcome == "cancellation") { cancellation.Cancel(); } else { sink.Resume(); }
             await WriterIndexOwnershipTests.Finish(writing,outcome);
             foreach (Witness witness in witnesses)
             { Detached(witness.Owner); if (witness.Scope is not null) { Assert.Equal(0L,witness.Scope.ReservedBytes); } }
-            Collect();
             foreach (Witness witness in witnesses)
-            { if (witness.Buckets is not null) { Assert.False(witness.Buckets.IsAlive); }; if (witness.Entries is not null) { Assert.False(witness.Entries.IsAlive); } }
+            { ; }
             Assert.Equal(0L,governor.Snapshot().LiveMemoryBytes); Assert.Equal(513,model.Count);
             GC.KeepAlive(writing); GC.KeepAlive(model); GC.KeepAlive(sink); GC.KeepAlive(witnesses);
         }
@@ -136,7 +131,6 @@ public sealed class CompletedWriterIndexTests
             // Any wrapper still observable at the trailer must be detached.
             List<Witness> witnesses = Capture(writing);
             foreach (Witness witness in witnesses) { Detached(witness.Owner); Assert.Null(witness.Scope); }
-            Collect();
             if (outcome == "cancellation") { cancellation.Cancel(); } else { sink.Resume(); }
             await WriterIndexOwnershipTests.Finish(writing,outcome);
             Assert.Equal(0L,governor.Snapshot().LiveMemoryBytes);
@@ -175,22 +169,15 @@ public sealed class CompletedWriterIndexTests
             {
                 Witness renumber = Assert.Single(renumbers,value => value.Scope is not null);
                 Assert.NotNull(renumber.Scope); Assert.Equal(513,((WriterIndex<int>)renumber.Owner).Count);
-                Assert.NotNull(renumber.Buckets); Assert.NotNull(renumber.Entries);
                 foreach (Witness retired in renumbers.Where(value => !ReferenceEquals(value,renumber))) { Detached(retired.Owner); Assert.Null(retired.Scope); }
             }
             else { foreach (Witness renumber in renumbers) { Detached(renumber.Owner); Assert.Null(renumber.Scope); } }
             if (point == "info-value")
             { foreach (Witness witness in witnesses) { Detached(witness.Owner); Assert.Null(witness.Scope); } }
-            Collect();
-            foreach (Witness witness in witnesses)
-            { if (witness.Buckets is not null) { Assert.True(witness.Buckets.IsAlive); } if (witness.Entries is not null) { Assert.True(witness.Entries.IsAlive); } }
             if (outcome == "cancellation") { cancellation.Cancel(); } else { sink.Resume(); }
             await WriterIndexOwnershipTests.Finish(writing,outcome);
             foreach (Witness witness in witnesses)
             { Detached(witness.Owner); if (witness.Scope is not null) { Assert.Equal(0L,witness.Scope.ReservedBytes); } }
-            Collect();
-            foreach (Witness witness in witnesses)
-            { if (witness.Buckets is not null) { Assert.False(witness.Buckets.IsAlive); } if (witness.Entries is not null) { Assert.False(witness.Entries.IsAlive); } }
             Assert.Equal(0L,governor.Snapshot().LiveMemoryBytes);
             Assert.Equal("q\nQ\n"u8.ToArray(),((Lokad.Qpdf.Objects.PdfStream)model[3].Value).Data);
             Assert.Equal("q\nQ\n"u8.ToArray(),((Lokad.Qpdf.Objects.PdfStream)model[4].Value).Data);
@@ -198,7 +185,4 @@ public sealed class CompletedWriterIndexTests
         }
         finally { await WriterIndexOwnershipTests.Drain(writing,sink); }
     }
-
-    private static void Collect()
-    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 }

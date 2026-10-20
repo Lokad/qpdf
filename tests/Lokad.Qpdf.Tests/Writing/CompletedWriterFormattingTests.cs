@@ -1,6 +1,5 @@
 using Lokad.Qpdf.Tests.Foundation;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Writing;
 
@@ -46,7 +45,6 @@ public sealed class CompletedWriterFormattingTests
         return null;
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
     private static (WriterFormatting Owner, ParserMemoryScope Scope) Funded(Task writing, string route)
     {
         WriterFormatting owner = FindOwner(writing, 0) ?? throw new InvalidOperationException("Expected awaited encoding owner.");

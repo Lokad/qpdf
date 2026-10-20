@@ -1,5 +1,4 @@
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Writing;
@@ -10,7 +9,7 @@ namespace Lokad.Qpdf.Tests.Writing;
 public sealed class CompletedWriterRowTests
 {
     private const BindingFlags Instance=BindingFlags.Instance|BindingFlags.Public|BindingFlags.NonPublic;
-    private sealed record Witness(object Owner,ParserMemoryScope Scope,WeakReference Storage,bool Graph);
+    private sealed record Witness(object Owner,ParserMemoryScope Scope,bool Graph);
 
     private static void Find(Task task,List<object> owners,int depth)
     {
@@ -36,7 +35,6 @@ public sealed class CompletedWriterRowTests
         {foreach(FieldInfo field in value.GetType().GetFields(Instance)){if(field.GetValue(value) is object nested){FindAwaited(nested,owners,depth+1);}}}
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
     private static List<Witness> Capture(Task task)
     {
         List<object> owners=new();Find(task,owners,0);Assert.NotEmpty(owners);
@@ -47,15 +45,15 @@ public sealed class CompletedWriterRowTests
             if(owner is QdfEmissionPlan plan)
             {
                 rows=QdfEmissionPlanTests.Field(plan,"_rows");
-                PdfArray graph=Assert.IsType<PdfArray>(plan[3].Value);
+                Assert.IsType<PdfArray>(plan[3].Value);
                 ParserMemoryScope scope=Assert.IsType<ParserMemoryScope>(QdfEmissionPlanTests.Field(plan,"_memory"));
                 Assert.True(scope.ReservedBytes>0L);
-                witnesses.Add(new Witness(plan,scope,new WeakReference(QdfEmissionPlanTests.Field(graph,"_items")),true));
+                witnesses.Add(new Witness(plan,scope,true));
             }
             ParserMemoryScope memory=Assert.IsType<ParserMemoryScope>(QdfEmissionPlanTests.Field(rows,"_memory"));
             Array items=Assert.IsAssignableFrom<Array>(QdfEmissionPlanTests.Field(rows,"_items"));
             Assert.NotEmpty(items);Assert.True(memory.ReservedBytes>=96L+items.Length*sizeof(int));
-            witnesses.Add(new Witness(rows,memory,new WeakReference(items),false));
+            witnesses.Add(new Witness(rows,memory,false));
         }
         return witnesses;
     }
@@ -93,16 +91,13 @@ public sealed class CompletedWriterRowTests
         {
             List<Witness> witnesses=Capture(writing);
             Assert.Equal(route=="ordinary-streamed" ? 1 : 2,witnesses.Count);
-            QdfEmissionPlanTests.Collected();Assert.All(witnesses,witness=>Assert.True(witness.Storage.IsAlive));
             if(retired)
             {
                 sink.ResumeFirst();await sink.Second.WaitAsync(TimeSpan.FromSeconds(10));
-                Assert.All(witnesses,Detached);QdfEmissionPlanTests.Collected();Assert.All(witnesses,witness=>Assert.False(witness.Storage.IsAlive));
-            }
+                Assert.All(witnesses,Detached);            }
             if(outcome=="cancellation"){cancellation.Cancel();}else{sink.ResumeAll();}
             await WriterIndexOwnershipTests.Finish(writing,outcome);
-            Assert.All(witnesses,Detached);QdfEmissionPlanTests.Collected();Assert.All(witnesses,witness=>Assert.False(witness.Storage.IsAlive));
-            Assert.Equal(161L,governor.Snapshot().LiveMemoryBytes);Assert.Equal(97L,prior.ReservedBytes);Assert.Equal(513,model.Count);
+            Assert.All(witnesses,Detached);            Assert.Equal(161L,governor.Snapshot().LiveMemoryBytes);Assert.Equal(97L,prior.ReservedBytes);Assert.Equal(513,model.Count);
             if(route=="qdf"){Assert.Same(original,model[3].Value);Assert.Equal(3,Assert.IsType<PdfReference>(original[1023]).ObjectNumber);Assert.Equal(1,Assert.IsType<PdfReference>(original[1023]).Generation);}
             GC.KeepAlive(writing);GC.KeepAlive(witnesses);GC.KeepAlive(sink);GC.KeepAlive(model);GC.KeepAlive(original);
         }

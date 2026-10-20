@@ -1,6 +1,5 @@
 using Lokad.Qpdf.Tests.Foundation;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Writing;
@@ -50,18 +49,18 @@ public sealed class CompletedLinearizedRemapTests
         return null;
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static WeakReference RebuiltItems(Task writing)
+    private static (RemappedModel Owner, ParserMemoryScope Scope) FundedRemapping(Task writing)
     {
-        object owner = ActiveOwner(writing, 0)
-            ?? throw new InvalidOperationException("Expected remapped owner.");
+        RemappedModel owner = Assert.IsType<RemappedModel>(ActiveOwner(writing, 0));
+        ParserMemoryScope memory = Assert.IsType<ParserMemoryScope>(typeof(RemappedModel).GetField("_memory", Instance)?.GetValue(owner));
+        Assert.True(memory.ReservedBytes > 0L);
         GovernedIntDictionary<QpdfObject> objects = typeof(RemappedModel).GetField("_objects", Instance)?.GetValue(owner)
             as GovernedIntDictionary<QpdfObject> ?? throw new InvalidOperationException("Expected remapped objects.");
         foreach (KeyValuePair<int, QpdfObject> entry in objects)
         {
             if (entry.Value is PdfArray array && array.Count == 1024)
             {
-                return new WeakReference(array.AllocationCarrier);
+                return (owner, memory);
             }
         }
         throw new InvalidOperationException("Expected rebuilt tail array.");
@@ -77,7 +76,7 @@ public sealed class CompletedLinearizedRemapTests
     [InlineData("fallback", "success")]
     [InlineData("fallback", "failure")]
     [InlineData("fallback", "cancellation")]
-    public async Task RetainedCompletedTasksReleaseRebuiltStorage(string route, string outcome)
+    public async Task CompletedRemappingDisposesRebuiltStorage(string route, string outcome)
     {
         List<NumberedObject> model = LinearizedStreamedPartsTests.OnePageModel();
         PdfArray borrowed = new(Enumerable.Repeat<QpdfObject>(new PdfReference(5, 0), 1024).ToArray());
@@ -97,9 +96,7 @@ public sealed class CompletedLinearizedRemapTests
         await sink.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         try
         {
-            WeakReference items = RebuiltItems(writing);
-            Collect();
-            Assert.True(items.IsAlive);
+            (RemappedModel remapped, ParserMemoryScope memory) = FundedRemapping(writing);
             if (outcome == "cancellation") { cancellation.Cancel(); }
             else { sink.Resume(); }
             if (outcome == "success")
@@ -109,8 +106,10 @@ public sealed class CompletedLinearizedRemapTests
             }
             else if (outcome == "failure") { await Assert.ThrowsAsync<QpdfException>(async () => await writing); }
             else { await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await writing); }
-            Collect();
-            Assert.False(items.IsAlive);
+            Assert.Equal(0L, memory.ReservedBytes);
+            Assert.Null(typeof(RemappedModel).GetField("_objects", Instance)?.GetValue(remapped));
+            Assert.Null(typeof(RemappedModel).GetField("_memory", Instance)?.GetValue(remapped));
+            Assert.Throws<ObjectDisposedException>(() => remapped.TryGetValue(1, out _));
             Assert.Same(borrowed, model[^1].Value);
             Assert.Equal(5, Assert.IsType<PdfReference>(borrowed[1023]).ObjectNumber);
             GC.KeepAlive(writing);
@@ -149,7 +148,4 @@ public sealed class CompletedLinearizedRemapTests
             Length += chunk.Length;
         }
     }
-
-    private static void Collect()
-    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 }

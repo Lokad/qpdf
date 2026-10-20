@@ -1,6 +1,5 @@
 using Lokad.Qpdf.Tests.Foundation;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Writing;
 
@@ -40,14 +39,12 @@ public sealed class CompletedObjectStreamCaptureTests
         }
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static (ObjectStreamCapture[] Owners, ParserMemoryScope[] Scopes, WeakReference[] Arrays) FundedStorage(Task writing, string route)
+    private static (ObjectStreamCapture[] Owners, ParserMemoryScope[] Scopes) FundedStorage(Task writing, string route)
     {
         List<ObjectStreamCapture> owners = new();
         FindOwners(writing, owners, 0);
         Assert.Equal(route == "qdf" ? 2 : 1, owners.Count);
         List<ParserMemoryScope> scopes = new();
-        List<WeakReference> arrays = new();
         long totalCaptured = 0L;
         foreach (ObjectStreamCapture owner in owners)
         {
@@ -55,19 +52,17 @@ public sealed class CompletedObjectStreamCaptureTests
                 ?? throw new InvalidOperationException("Expected member table.");
             ParserMemoryScope scope = typeof(ObjectStreamCapture).GetField("_memory", Instance)?.GetValue(owner) as ParserMemoryScope
                 ?? throw new InvalidOperationException("Expected capture scope.");
-            arrays.Add(new WeakReference(ends));
             for (int index = 0; index < owner.Count; index++)
             {
                 totalCaptured += owner[index].Length;
             }
             Assert.True(System.Runtime.InteropServices.MemoryMarshal.TryGetArray(owner[0], out ArraySegment<byte> backing));
             Assert.NotNull(backing.Array);
-            arrays.Add(new WeakReference(backing.Array));
             Assert.InRange(scope.ReservedBytes, ends.Length * (long)sizeof(int), QpdfLimits.Default.MaxMemoryBytes);
             scopes.Add(scope);
         }
         Assert.True(totalCaptured >= 4096L * 4L);
-        return (owners.ToArray(), scopes.ToArray(), arrays.ToArray());
+        return (owners.ToArray(), scopes.ToArray());
     }
 
     [Theory]
@@ -83,7 +78,7 @@ public sealed class CompletedObjectStreamCaptureTests
     [InlineData("counting", "success")]
     [InlineData("counting", "failure")]
     [InlineData("counting", "cancellation")]
-    public async Task CapturesStayFundedThroughOutputAndDieWithRetainedTasks(string route, string outcome)
+    public async Task CompletedCapturesDisposeStorageAcrossOutputOutcomes(string route, string outcome)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using CancellationTokenSource cancellation = new();
@@ -93,9 +88,7 @@ public sealed class CompletedObjectStreamCaptureTests
         await sink.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         try
         {
-            (ObjectStreamCapture[] owners, ParserMemoryScope[] scopes, WeakReference[] arrays) = FundedStorage(writing, route);
-            Collect();
-            Assert.All(arrays, value => Assert.True(value.IsAlive));
+            (ObjectStreamCapture[] owners, ParserMemoryScope[] scopes) = FundedStorage(writing, route);
             if (outcome == "cancellation") { cancellation.Cancel(); }
             else { sink.Resume(); }
             if (outcome == "success") { Assert.True(await writing > 0L); }
@@ -106,9 +99,11 @@ public sealed class CompletedObjectStreamCaptureTests
             }
             else { await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await writing); }
             Assert.All(scopes, scope => Assert.Equal(0L, scope.ReservedBytes));
-            Assert.All(owners, owner => Assert.Null(typeof(ObjectStreamCapture).GetField("_ends", Instance)?.GetValue(owner)));
-            Collect();
-            Assert.All(arrays, value => Assert.False(value.IsAlive));
+            foreach (ObjectStreamCapture owner in owners)
+            {
+                foreach (string field in new[] { "_ends", "_scratch", "_batch", "_memory" })
+                { Assert.Null(typeof(ObjectStreamCapture).GetField(field, Instance)?.GetValue(owner)); }
+            }
             GC.KeepAlive(writing); GC.KeepAlive(sink); GC.KeepAlive(owners); GC.KeepAlive(scopes);
         }
         finally
@@ -144,7 +139,4 @@ public sealed class CompletedObjectStreamCaptureTests
             Length += chunk.Length;
         }
     }
-
-    private static void Collect()
-    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 }

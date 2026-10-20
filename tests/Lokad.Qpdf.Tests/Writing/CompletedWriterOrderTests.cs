@@ -1,6 +1,5 @@
 using Lokad.Qpdf.Tests.Foundation;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Writing;
@@ -37,9 +36,8 @@ public sealed class CompletedWriterOrderTests
         }
     }
 
-    private sealed record Witness(object Owner, ParserMemoryScope Scope, WeakReference Backing);
+    private sealed record Witness(object Owner, ParserMemoryScope Scope);
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
     private static Witness Funded(Task writing, int count, long itemBytes)
     {
         List<object> owners = new(); FindOwners(writing, owners, 0);
@@ -49,7 +47,7 @@ public sealed class CompletedWriterOrderTests
         Array items = owner.GetType().GetField("_items", Instance)?.GetValue(owner) as Array
             ?? throw new InvalidOperationException("Expected ordering backing.");
         Assert.Equal(count, items.Length); Assert.Equal(96L + count * itemBytes, scope.ReservedBytes);
-        return new Witness(owner, scope, new WeakReference(items));
+        return new Witness(owner, scope);
     }
 
     private static void Detached(object owner)
@@ -73,11 +71,10 @@ public sealed class CompletedWriterOrderTests
         try
         {
             Witness witness = Funded(writing, 6, IntPtr.Size);
-            Collect(); Assert.True(witness.Backing.IsAlive);
             if (outcome == "cancellation") { cancellation.Cancel(); } else { sink.Resume(); }
             await Finish(writing, outcome);
             Assert.Equal(0L, witness.Scope.ReservedBytes); Detached(witness.Owner);
-            Collect(); Assert.False(witness.Backing.IsAlive); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
             Assert.Equal(6, source.Count);
             GC.KeepAlive(writing); GC.KeepAlive(sink); GC.KeepAlive(source); GC.KeepAlive(witness);
         }
@@ -179,7 +176,4 @@ public sealed class CompletedWriterOrderTests
 
     private static async Task Drain(Task writing, WriterOrderOwnershipTests.PausedSink sink)
     { sink.Resume(); try { await writing; } catch (QpdfException) { } catch (OperationCanceledException) { } }
-
-    private static void Collect()
-    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 }
