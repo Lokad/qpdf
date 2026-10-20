@@ -41,6 +41,9 @@ Form merge name decoding, qualified names, collision storage and renamed bytes
 receive admission before materialization. Earlier sources remain the collision
 snapshot, including hierarchical and unnamed nodes. Large names may now refuse
 before allocating text; PDFDocEncoding/UTF-16 and suffix rules are unchanged.
+Resource-array merges borrow unchanged storage. Changed arrays admit their final
+capacity before copying, retain existing order/duplicates and append only unseen
+supported scalar values; cancellation also interrupts the inner equality search.
 
 Overlay catalog default appearances remain borrowed byte programs through import,
 without eager PDF-text decoding or re-encoding. Imported defaults preserve their

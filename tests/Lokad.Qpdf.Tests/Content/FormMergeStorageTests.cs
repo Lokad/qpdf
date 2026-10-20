@@ -35,11 +35,11 @@ public sealed class FormMergeStorageTests
         public void Dispose() => _engine.Dispose();
     }
 
-    internal static byte[] Fixture(string name)
+    internal static byte[] Fixture(string name, bool extraResource)
     {
         byte[] raw = [0xfe, 0xff, ..Encoding.BigEndianUnicode.GetBytes(name)];
         var objects = Inspection.CheckTests.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray());
-        objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] >> >>", null);
+        objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] /DR << /ProcSet [" + (extraResource ? "/PDF /Text" : "/PDF") + "] >> >> >>", null);
         objects[2] = (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R /Annots [5 0 R] >>", null);
         objects.Add((5, "<< /Type /Annot /Subtype /Widget /FT /Tx /T <" + Convert.ToHexString(raw) + "> /P 3 0 R /Rect [0 0 100 20] >>", null));
         return Inspection.CheckTests.Assemble(objects, 1);

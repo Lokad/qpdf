@@ -1174,40 +1174,46 @@ internal static class AcroFormCopy
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
-        List<QpdfObject> items = new(having.Count + other.Count);
-        for (int i = 0; i < having.Count; i++)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            items.Add(having[i]);
-        }
-
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        if (other.Count == 0) { union[rtype] = having; return; }
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        List<QpdfObject>? additions = null;
         for (int i = 0; i < other.Count; i++)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            if (other[i] is PdfName || other[i] is PdfByteString || other[i] is PdfInteger || other[i] is PdfReal || other[i] is PdfBoolean)
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            QpdfObject incoming = other[i];
+            if (incoming is not (PdfName or PdfByteString or PdfInteger or PdfReal or PdfBoolean)) { continue; }
+            bool seen = false;
+            for (int j = 0; j < having.Count; j++)
             {
-                bool seen = false;
-                foreach (QpdfObject existing in items)
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                if (having[j].Equals(incoming)) { seen = true; break; }
+            }
+            if (!seen && additions is not null)
+            {
+                for (int j = 0; j < additions.Count; j++)
                 {
-                    if (existing.Equals(other[i]))
-                    {
-                        seen = true;
-                        break;
-                    }
-                }
-
-                if (!seen)
-                {
-                    governor.ReserveMemory(16L);
-                    items.Add(other[i]);
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    if (additions[j].Equals(incoming)) { seen = true; break; }
                 }
             }
+            if (seen) { continue; }
+            additions ??= ParserContainers.CreateList<QpdfObject>(scratch);
+            ParserContainers.AddItem(scratch, additions, incoming);
         }
-
-        governor.ReserveMemory(32L);
-        union[rtype] = new PdfArray(items);
+        if (additions is null) { union[rtype] = having; return; }
+        long count = (long)having.Count + additions.Count;
+        if (count > Array.MaxLength) { throw new QpdfLimitException("Resource array entries", count, Array.MaxLength); }
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
+        long bytes = checked(32L + count * IntPtr.Size);
+        graph.Memory.Reserve(bytes); QpdfObject[] items = new QpdfObject[(int)count]; graph.Add(bytes);
+        for (int i = 0; i < items.Length; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            items[i] = i < having.Count ? having[i] : additions[i - having.Count];
+        }
+        graph.Memory.Reserve(24L); PdfArray result = PdfArray.FromOwnedItems(items); graph.Add(24L);
+        graph.Retain(); union[rtype] = result;
     }
 
     internal static PdfByteString? RewriteOverlayDa(PdfByteString appearance, PdfNameTable<PdfName>? fontMap,
