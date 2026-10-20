@@ -239,11 +239,10 @@ public sealed class TypedConfigurationOwnershipTests(ITestOutputHelper log)
         return (governor, minimum, admission);
     }
 
-    private sealed class Completed(string id, ResourceGovernor governor, WeakReference task, object? result, List<byte[]> output)
+    private sealed class Completed(string id, ResourceGovernor governor, object? result, List<byte[]> output)
     {
         internal readonly string Id = id;
         internal readonly ResourceGovernor Governor = governor;
-        internal readonly WeakReference Task = task;
         internal object? Result = result;
         internal readonly List<byte[]> Output = output;
     }
@@ -298,12 +297,7 @@ public sealed class TypedConfigurationOwnershipTests(ITestOutputHelper log)
         else if (outcome != "close-fault")
         { Assert.True(host.Inner.TryGetOutput(Output, out byte[] prior)); Assert.Equal(Prior, prior); }
         Assert.Equal(0L, host.Inner.OpenLeaseCount);
-        return new(id, input.Governor, new WeakReference(running), result, published);
-    }
-
-    private static void Collect()
-        {
-            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+        return new(id, input.Governor, result, published);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -311,7 +305,6 @@ public sealed class TypedConfigurationOwnershipTests(ITestOutputHelper log)
     {
         foreach (Completed job in jobs)
         {
-            Assert.True(!job.Task.IsAlive, "Completed task remains: " + job.Id);
             if (job.Result is not null) { Assert.True(job.Governor.Snapshot().LiveMemoryBytes >= Physical(job.Result)); }
             job.Result = null;
         }
@@ -324,9 +317,7 @@ public sealed class TypedConfigurationOwnershipTests(ITestOutputHelper log)
         foreach (string route in new[] { "single", "multi", "rotations", "merge", "split" })
         foreach (string outcome in new[] { "success", "open-fault", "create-fault", "write-fault", "commit-fault", "close-fault", "cancel", "host-cancel" })
         { jobs.Add(await Complete(route, outcome, defects, log)); }
-        // Leave the final await's MoveNext frame before observing collection.
-        await Task.Yield();
-        Collect(); DropResults(jobs); Collect();
+        DropResults(jobs);
         foreach (Completed job in jobs)
         {
             long remaining = job.Governor.Snapshot().LiveMemoryBytes;

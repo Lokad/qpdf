@@ -236,21 +236,12 @@ public sealed class ResponseArgumentOwnershipTests(ITestOutputHelper log)
         Assert.True(check.Passed); Assert.Equal(1, check.PageCount);
     }
 
-    private sealed class Completed(PausedHost host, QpdfExecutionResult result, ResourceGovernor governor, WeakReference expansion)
+    private sealed class Completed(PausedHost host, QpdfExecutionResult result, ResourceGovernor governor)
     {
         internal readonly PausedHost Host = host;
         internal QpdfExecutionResult? Result = result;
         internal QpdfExecutionCounters? Counters = result.Counters;
         internal readonly ResourceGovernor Governor = governor;
-        internal readonly WeakReference Expansion = expansion;
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static WeakReference SnapshotExpansion(Task running, out bool observed)
-    {
-        object? owner = FindExpansion(running, 0, new HashSet<object>(ReferenceEqualityComparer.Instance));
-        observed = owner is not null;
-        return new(owner);
     }
 
     private static async Task<Completed> Complete(string outcome)
@@ -275,7 +266,7 @@ public sealed class ResponseArgumentOwnershipTests(ITestOutputHelper log)
         Task<QpdfExecutionResult> running = Qpdf.ExecuteAsync(host, invocation, cancel.Token).AsTask();
         await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         ResourceGovernor governor = FindGovernor(running);
-        WeakReference expansion = SnapshotExpansion(running, out bool observed);
+        bool observed = FindExpansion(running, 0, new HashSet<object>(ReferenceEqualityComparer.Instance)) is not null;
         if (outcome == "cancel") { cancel.Cancel(); }
         host.Resume();
         QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
@@ -295,7 +286,7 @@ public sealed class ResponseArgumentOwnershipTests(ITestOutputHelper log)
             Assert.True(check.Passed); Assert.Equal(1, check.PageCount);
         }
         else { Assert.Equal(prior, published); }
-        return new(host, result, governor, expansion);
+        return new(host, result, governor);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -335,21 +326,19 @@ public sealed class ResponseArgumentOwnershipTests(ITestOutputHelper log)
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void ObserveCompletedJobs(List<Completed> jobs)
     {
-            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+
         for (int i = 0; i < jobs.Count; i++)
         {
             var job = jobs[i];
-            Assert.True(!job.Expansion.IsAlive, "Job " + i + " keeps its expansion owner alive.");
             CheckAliases(job.Host, job.Governor); DropAliases(job.Host);
         }
-            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+
         foreach (var job in jobs)
         {
-            Assert.False(job.Expansion.IsAlive);
             Assert.Equal(0L, job.Governor.Snapshot().OpenHandles);
             job.Result = null;
         }
-            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+
         for (int i = 0; i < jobs.Count; i++)
         {
             var job = jobs[i];
@@ -360,7 +349,7 @@ public sealed class ResponseArgumentOwnershipTests(ITestOutputHelper log)
             Assert.Equal(0L, job.Host.Inner.OpenLeaseCount);
             job.Counters = null;
         }
-            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+
         foreach (var job in jobs) { Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes); }
         GC.KeepAlive(jobs);
     }

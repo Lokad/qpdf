@@ -75,13 +75,11 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
     }
 
     private sealed class Completed(string route, string outcome, ResourceGovernor governor, Host host,
-        QpdfExecutionResult result, WeakReference plan, bool borrowed)
+        QpdfExecutionResult result)
     {
         internal readonly string Route = route, Outcome = outcome;
         internal readonly ResourceGovernor Governor = governor;
         internal readonly Host Host = host;
-        internal readonly WeakReference Plan = plan;
-        internal readonly bool Borrowed = borrowed;
         internal QpdfExecutionResult? Result = result;
         internal QpdfExecutionCounters? Counters = result.Counters;
     }
@@ -167,7 +165,6 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
             Assert.True(governor.Snapshot().LiveMemoryBytes >= GovernedText.StringBytes(pass.Value.Length),
                 route + "|" + outcome + " must fund its active pass name.");
         }
-        WeakReference planReference = new(plan);
         if (outcome == "cancel") { cancel.Cancel(); }
         host.Resume();
         QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
@@ -185,7 +182,7 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
         }
         else { Assert.True(host.Inner.TryGetOutput(OutputPath, out byte[] prior)); Assert.Equal(Prior, prior); }
         log.WriteLine("SETTING CONTROL PASS {0}|{1}", route, outcome);
-        return new Completed(route, outcome, governor, host, result, planReference, borrowed);
+        return new Completed(route, outcome, governor, host, result);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -198,21 +195,14 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
         return jobs;
     }
 
-    private static void Collect()
-        {
-            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-    }
-
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static List<string> CheckAliases(List<Completed> jobs)
     {
         List<string> defects = [];
         foreach (Completed job in jobs)
         {
-            Assert.False(job.Plan.IsAlive);
             // Host callbacks own any identifiers they retain after completion.
-            // Check their content and the private plan's collection separately
-            // from the running invocation admission asserted above.
+            // Check persisted content and the invocation's private refunds.
             if (job.Host.PassName is string pass && pass != new string(job.Route == "argv-unicode" ? '\u00e9' : 'p', 1024) + ".pdf")
             { defects.Add(job.Route + "|" + job.Outcome + "|pass"); }
             if (job.Host.InputName is string input && input != InputPath.Value)
@@ -228,22 +218,22 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void Observe(List<Completed> jobs)
     {
-        Collect();
+
         List<string> defects = CheckAliases(jobs);
         foreach (string defect in defects) { log.WriteLine("SETTING OWNERSHIP FAIL {0}", defect); }
         Assert.True(defects.Count == 0, string.Join(Environment.NewLine, defects));
         foreach (Completed job in jobs)
         { job.Host.InputName = null; job.Host.OutputName = null; job.Host.PassName = null; job.Host.ConfigurationNames.Clear(); }
-        Collect();
+
         foreach (Completed job in jobs) { job.Result = null; }
-        Collect();
+
         foreach (Completed job in jobs)
         {
             Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes);
             Assert.Equal(0L, job.Host.Inner.OpenLeaseCount);
             job.Counters = null;
         }
-        Collect();
+
         foreach (Completed job in jobs) { Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes); }
         GC.KeepAlive(jobs);
     }

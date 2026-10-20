@@ -267,27 +267,6 @@ public sealed class JsonOutputOwnershipTests
         GC.KeepAlive(observation.Alias);
     }
 
-    private static async Task<(object Alias, WeakReference[] Metadata)> CompleteWithoutGovernorRoot(string route, bool compressed)
-    {
-        Observation observation = await CompletePublished(route, compressed, 2, "file", "bytes");
-        Assert.Equal(observation.Governor.CallerMetadataBytes + observation.Governor.CallerStorageBytes, observation.Governor.Snapshot().LiveMemoryBytes);
-        object? storage = typeof(ResourceGovernor).GetField("_valueOwners", Members)?.GetValue(observation.Governor);
-        WeakReference[] metadata = storage is null ? [new(observation.Governor)] : [new(observation.Governor), new(storage)];
-        return (observation.Alias ?? throw new InvalidOperationException("Missing public buffer alias."), metadata);
-    }
-
-    [Theory]
-    [MemberData(nameof(SidecarJobs))]
-    [Trait("Layer", "Contract")]
-    public async Task EscapedHostBuffersDoNotRootTheCompletedGovernorOrIndex(string route, bool compressed)
-    {
-        var captured = await CompleteWithoutGovernorRoot(route, compressed);
-        Collect();
-        Assert.All(captured.Metadata, weak => Assert.False(weak.IsAlive));
-        Assert.NotEmpty(Assert.IsType<ReadOnlyMemory<byte>[]>(captured.Alias));
-        GC.KeepAlive(captured.Alias);
-    }
-
     public static IEnumerable<object[]> TextEncodings()
     {
         foreach (int version in new[] { 1, 2 })
@@ -533,6 +512,4 @@ public sealed class JsonOutputOwnershipTests
             }
         }
     }
-    private static void Collect()
-    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 }

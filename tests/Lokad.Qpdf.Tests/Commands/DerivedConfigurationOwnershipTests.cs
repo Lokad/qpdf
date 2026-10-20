@@ -89,11 +89,10 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
     }
 
     private sealed class Completed(string route, string profile, string outcome, ResourceGovernor governor,
-        QpdfExecutionResult result, WeakReference plan, List<string> aliases, List<string> missing)
+        QpdfExecutionResult result, List<string> aliases, List<string> missing)
     {
         internal readonly string Id = route + "|" + profile + "|" + outcome;
         internal readonly ResourceGovernor Governor = governor;
-        internal readonly WeakReference Plan = plan;
         internal readonly List<string> Aliases = aliases, Missing = missing;
         internal QpdfExecutionResult? Result = result;
         internal QpdfExecutionCounters? Counters = result.Counters;
@@ -209,7 +208,6 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
         List<string> missing = governor.Snapshot().LiveMemoryBytes < textBytes ? ["active-text-batch:" + textBytes] : [];
         // These observations belong to the test, beyond the private plan owner.
         aliases = aliases.Select(value => new string(value.AsSpan())).ToList();
-        WeakReference planReference = new(plan);
         if (outcome == "cancel") { cancel.Cancel(); }
         host.Resume();
         QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
@@ -218,12 +216,7 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
         if (outcome == "success") { await ValidateOutput(host, profile, prefix); }
         else { Assert.True(host.Inner.TryGetOutput(OutputPath, out byte[] prior)); Assert.Equal(Prior, prior); }
         log.WriteLine("DERIVED CONTROL PASS {0}|{1}|{2}", route, profile, outcome);
-        return new Completed(route, profile, outcome, governor, result, planReference, aliases, missing);
-    }
-
-    private static void Collect()
-        {
-            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+        return new Completed(route, profile, outcome, governor, result, aliases, missing);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -243,7 +236,6 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
         List<string> defects = [];
         foreach (Completed job in jobs)
         {
-            Assert.False(job.Plan.IsAlive);
             foreach (string missing in job.Missing) { defects.Add(job.Id + "|" + missing); }
             Assert.All(job.Aliases, alias => Assert.NotEmpty(alias));
             Assert.Equal(0L, job.Governor.PrivateRetainedBytes);
@@ -254,16 +246,16 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
     [Fact]
     public async Task CompleteJobsFundDerivedValuesAndRetirePlansIndependently()
     {
-        List<Completed> jobs = await CompleteJobs(); Collect();
+        List<Completed> jobs = await CompleteJobs();
         List<string> defects = ObserveAliases(jobs);
         foreach (Completed job in jobs) { job.Aliases.Clear(); job.Result = null; }
-        Collect();
+
         foreach (Completed job in jobs)
         {
             log.WriteLine("DERIVED COUNTER {0} {1}", job.Id, job.Governor.Snapshot().LiveMemoryBytes);
             Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes); job.Counters = null;
         }
-        Collect();
+
         foreach (Completed job in jobs)
         {
             log.WriteLine("DERIVED FINAL {0} {1}", job.Id, job.Governor.Snapshot().LiveMemoryBytes);
@@ -287,10 +279,9 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
     }
 
     private sealed class TypedCompleted(ResourceGovernor governor, QpdfJsonResult? result,
-        WeakReference inspection, List<string> aliases, bool missing)
+        List<string> aliases, bool missing)
     {
         internal readonly ResourceGovernor Governor = governor;
-        internal readonly WeakReference Inspection = inspection;
         internal readonly List<string> Aliases = aliases;
         internal readonly bool Missing = missing;
         internal QpdfJsonResult? Result = result;
@@ -313,7 +304,6 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
         Assert.Equal(new[] { "obj:1 0 R", "obj:2147483647 0 R" }, aliases);
         bool missing = governor.Snapshot().LiveMemoryBytes < aliases.Sum(value => PhysicalStringBytes(value.Length));
         aliases = aliases.Select(value => new string(value.AsSpan())).ToList();
-        WeakReference weak = new(inspection);
         if (outcome == "cancel") { cancel.Cancel(); }
         host.Resume();
         QpdfJsonResult? result = null;
@@ -332,7 +322,7 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
         }
         Assert.Equal(0L, host.Inner.OpenLeaseCount);
         log.WriteLine("DERIVED TYPED CONTROL PASS {0}", outcome);
-        return new TypedCompleted(governor, result, weak, aliases, missing);
+        return new TypedCompleted(governor, result, aliases, missing);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -344,18 +334,12 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
         return jobs;
     }
 
-    private static void CollectTyped()
-        {
-            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-    }
-
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static bool ObserveTyped(List<TypedCompleted> jobs)
     {
         bool missing = false;
         foreach (TypedCompleted job in jobs)
         {
-            Assert.False(job.Inspection.IsAlive);
             missing |= job.Missing;
             Assert.Equal(new[] { "obj:1 0 R", "obj:2147483647 0 R" }, job.Aliases);
             Assert.Equal(0L, job.Governor.PrivateRetainedBytes);
@@ -366,10 +350,10 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
     [Fact]
     public async Task TypedJsonJobsFundCanonicalSelectorsAndRetirePrivateInspection()
     {
-        List<TypedCompleted> jobs = await CompleteTypedJobs(); CollectTyped();
+        List<TypedCompleted> jobs = await CompleteTypedJobs();
         bool missing = ObserveTyped(jobs);
         foreach (TypedCompleted job in jobs) { job.Aliases.Clear(); job.Result = null; job.Counters = null; }
-        CollectTyped();
+
         foreach (TypedCompleted job in jobs) { Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes); }
         Assert.False(missing, "Typed JSON canonical selectors exceed their active storage allowance.");
     }

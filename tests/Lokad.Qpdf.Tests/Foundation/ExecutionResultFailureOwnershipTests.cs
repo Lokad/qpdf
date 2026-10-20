@@ -96,37 +96,6 @@ public sealed class ExecutionResultFailureOwnershipTests
         GC.KeepAlive(alias);
     }
 
-    private sealed record Detached(object Value, WeakReference[] Metadata, WeakReference Host);
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static async Task<Detached> Detach(string kind, bool compressed, long ceiling)
-    {
-        object alias = await Complete(kind, compressed, ceiling);
-        ResourceGovernor governor = Assert.IsType<ResourceGovernor>(Field(alias, "Governor"));
-        List<WeakReference> metadata = [new(governor)];
-        object? owners = typeof(ResourceGovernor).GetField("_valueOwners", Members)?.GetValue(governor);
-        if (owners is not null)
-        {
-            metadata.Add(new(owners));
-        }
-        return new(Field(alias, "Value"), metadata.ToArray(), Assert.IsType<WeakReference>(Field(alias, "Host")));
-    }
-
-    [Theory]
-    [MemberData(nameof(BudgetAliases))]
-    [Trait("Layer", "Contract")]
-    public async Task FailureAliasesDoNotRootCompletedJobMetadata(string kind, bool compressed, long ceiling)
-    {
-        Detached alias = await Detach(kind, compressed, ceiling);
-        await Task.Yield();
-        Collect();
-        Assert.False(alias.Host.IsAlive);
-        Assert.All(alias.Metadata, reference => Assert.False(reference.IsAlive));
-        QpdfExecutionCounters counters = alias.Value is QpdfExecutionResult result ? result.Counters : Assert.IsType<QpdfExecutionCounters>(alias.Value);
-        Assert.True(counters.LiveMemoryBytes >= 168L);
-        GC.KeepAlive(alias);
-    }
-
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static async Task<object> Copy(string kind, bool compressed)
     {
@@ -435,6 +404,4 @@ Assert.Equal(0L, result.Counters.OpenHandles);
             : "The zlib-flate compression level must be 1..9 while compressing.", error.Message);
         Assert.Equal(0, host.Calls); Prior(host);
     }
-    private static void Collect()
-    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 }

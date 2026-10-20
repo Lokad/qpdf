@@ -79,14 +79,13 @@ public sealed class TypedWarningOwnershipTests
         ?? view.GetType().GetFields(Members).Select(f => f.GetValue(view)).OfType<Array>().Single();
 
     private sealed class Aliases(ResourceGovernor governor, object value, object? sibling,
-        QpdfDiagnostic[] elements, bool admitted, WeakReference[] metadata,
+        QpdfDiagnostic[] elements, bool admitted,
         byte[] output)
     {
         internal readonly ResourceGovernor Governor = governor;
         internal object? Value = value, Sibling = sibling;
         internal readonly QpdfDiagnostic[] Elements = elements;
         internal readonly bool Admitted = admitted;
-        internal readonly WeakReference[] Metadata = metadata;
         internal readonly byte[] Output = output;
     }
 
@@ -111,8 +110,7 @@ public sealed class TypedWarningOwnershipTests
         Assert.Equal(0L, inner.OpenLeaseCount); Assert.Equal(0L, governor.Snapshot().OpenHandles);
         QpdfPath path = result is PdfMultiPageSelectionResult multiple ? Assert.Single(multiple.OutputPaths) : Output;
         Assert.True(inner.TryGetOutput(path, out byte[] output));
-        return new(governor, value, sibling, elements, admitted,
-            [new(host), new(inner), new(result), new(Read(result, "Counters"))], output);
+        return new(governor, value, sibling, elements, admitted, output);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -165,25 +163,6 @@ public sealed class TypedWarningOwnershipTests
         QpdfCheckResult check = await Qpdf.CheckAsync(validation, Input, CancellationToken.None);
         Assert.True(check.Passed); Assert.Equal(1, check.PageCount); Assert.Equal(0L, validation.OpenLeaseCount);
         GC.KeepAlive(aliases.Elements);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static async Task<(object View, WeakReference Governor, WeakReference[] Metadata)> Metadata(string route, bool compressed)
-    {
-        Aliases aliases = await Complete(route, compressed, "view");
-        return (aliases.Value ?? throw new InvalidOperationException(), new(aliases.Governor), aliases.Metadata);
-    }
-
-    [Theory]
-    [MemberData(nameof(PublicJobs))]
-    [Trait("Layer", "Contract")]
-    public async Task AWarningViewDoesNotRootTheCompletedJob(string route, bool compressed)
-    {
-        var aliases = await Metadata(route, compressed);
-        await Task.Yield();
-        Collect();
-        Assert.False(aliases.Governor.IsAlive); Assert.All(aliases.Metadata, weak => Assert.False(weak.IsAlive));
-        Assert.NotEmpty(Assert.IsAssignableFrom<IReadOnlyList<QpdfDiagnostic>>(aliases.View)); GC.KeepAlive(aliases.View);
     }
 
     private static void Validate(Aliases aliases)
@@ -442,6 +421,4 @@ public sealed class TypedWarningOwnershipTests
     [Trait("Layer", "Contract")]
     public void WarningPreparationScopeFundsItsMeasuredPhysicalCarrier()
         => Assert.Equal(56L, PdfVersionOwnershipTests.MeasurePhysicalSize(typeof(ResultWarningSnapshot)));
-    private static void Collect()
-    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 }

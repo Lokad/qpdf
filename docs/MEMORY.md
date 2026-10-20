@@ -190,5 +190,6 @@ caller storage refunds when its scope ends, independently of individual aliases.
 Async writer outcome matrices check owner detachment, disposal and refunds with
 completed tasks kept alive. Direct owner tests verify collection of released
 backing. They avoid asserting collection during an async producer's return, when
-runtime stack roots can still exist. Public alias tests leave the producer
-continuation before checking collection of completed metadata.
+runtime stack roots can still exist. Whole-job matrices validate persisted values
+and private refunds without requiring collection. Focused component and document
+cases retain collection proofs for disposed buffers and escaped public values.

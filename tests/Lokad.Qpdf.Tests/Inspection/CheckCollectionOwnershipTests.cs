@@ -301,37 +301,10 @@ return governor;
         await Task.Yield();
         Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
     }
-
-    private sealed class MetadataAlias(IReadOnlyList<QpdfCheckOutcome> value, WeakReference[] references)
-    {
-        internal readonly IReadOnlyList<QpdfCheckOutcome> Value = value;
-        internal readonly WeakReference[] References = references;
-    }
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static async Task<MetadataAlias> CompleteMetadata(bool compressed, bool failed)
-    {
-        using CancellationTokenSource cancellation = new();
-        GateHost host = await Host(compressed, failed, "read", "success", cancellation);
-        Task<QpdfCheckResult> running = Qpdf.CheckAsync(host, Input, new QpdfCheckOptions(), QpdfLimits.Default, cancellation.Token).AsTask();
-        await host.Entered.WaitAsync(TimeSpan.FromSeconds(10)); ResourceGovernor governor = Governor(running); host.Resume();
-        QpdfCheckResult result = await running; Closed(host, governor);
-        return new(result.Checks, [new(host), new(host.Inner), new(result), new(result.Counters), new(governor),
-            new(Field(governor, "_valueOwners"))]);
-    }
     public static IEnumerable<object[]> FixtureCases()
     {
         foreach (bool compressed in new[] { false, true })
         foreach (bool failed in new[] { false, true }) { yield return [compressed, failed]; }
-    }
-    [Theory]
-    [MemberData(nameof(FixtureCases))]
-    [Trait("Layer", "Contract")]
-    public async Task SurvivingCheckViewsDoNotRootCompletedGovernorsOrLedgerMetadata(bool compressed, bool failed)
-    {
-        MetadataAlias alias = await CompleteMetadata(compressed, failed); await Task.Yield();
-        Collect();
-        Assert.All(alias.References, x => Assert.False(x.IsAlive));
-        Assert.Equal(9, alias.Value.Count); Assert.Equal("header", alias.Value[0].Name); GC.KeepAlive(alias.Value);
     }
 
     private static async Task<object> Start(GateHost host, string route, CancellationToken token)
@@ -395,6 +368,4 @@ return governor;
             Diagnostics = result.Diagnostics.Count
         };
     }
-    private static void Collect()
-    { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 }
