@@ -53,6 +53,42 @@ public sealed class ContentSafetyTests
     }
 
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task SharedStreamsNormalizeOnceWithinThePhase(bool job, bool indirect)
+    {
+        byte[] payload = Encoding.ASCII.GetBytes(new string(' ', 1048576) + "q\rQ");
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), Fixture(payload, "", indirect, 32), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = await Run(host, "normalize", job, QpdfLimits.Default with { MaxMemoryBytes = 16L * 1024 * 1024 });
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Empty(result.Diagnostics); Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.InRange(result.Counters.PeakMemoryBytes, 1048576L, 8L * 1024 * 1024);
+        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output));
+        host.AddInput(QpdfPath.From("result"), output, QpdfInputOwnership.Transfer);
+        PdfStream escaped;
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("result"), CancellationToken.None))
+        {
+            escaped = Streams(document, 0)[1];
+            for (int page = 1; page < 32; page++) { Assert.Same(escaped, Streams(document, page)[1]); }
+        }
+        Assert.Equal(payload.Length, escaped.RawMemory.Length); Assert.True(escaped.RawMemory.Span.EndsWith("q\nQ"u8));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SharedOpaqueStreamsWarnOnceWithoutExhaustingDiagnostics(bool job)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), Fixture("q\rQ"u8.ToArray(), "/Filter /UnknownFilter", true, 32), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = await Run(host, "normalize", job, QpdfLimits.Default with { MaxDiagnostics = 2 });
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode); Assert.Single(result.Diagnostics);
+        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out _)); Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
     [InlineData("coalesce", false)]
     [InlineData("coalesce", true)]
     [InlineData("normalize", false)]

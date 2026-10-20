@@ -34,6 +34,9 @@ These operations share content-entry collection and accept indirect content
 arrays. Stream identities and shared array references survive normalization;
 coalescing/externalization remove replaced streams only when no remaining copied
 object refers to them. Unreferenced-object preservation remains explicit.
+Normalization processes each shared indirect stream version once per phase,
+including skipped streams, avoiding repeated buffers and repeated warnings.
+Per-page resource operations still run; a replaced stream version is reconsidered.
 
 Overlay catalog default appearances remain borrowed byte programs through import,
 without eager PDF-text decoding or re-encoding. Imported defaults preserve their

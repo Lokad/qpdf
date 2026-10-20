@@ -107,6 +107,9 @@ internal static class ContentTransforms
             return;
         }
 
+        using ParserMemoryScope phase = ParserMemoryScope.Create(governor);
+        GovernedIntDictionary<PdfStream>? normalized = request.Normalize
+            ? GovernedIntDictionary<PdfStream>.Create(phase, governor, IntPtr.Size, cancellationToken) : null;
         foreach (int pageId in pageIds)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -127,9 +130,9 @@ internal static class ContentTransforms
                 page = CoalescePage(copier, pageId, page, request, limits, governor, diagnostics, cancellationToken);
             }
 
-            if (request.Normalize)
+            if (normalized is not null)
             {
-                page = NormalizePage(copier, pageId, page, request, limits, governor, diagnostics, cancellationToken);
+                page = NormalizePage(copier, pageId, page, normalized, phase, limits, governor, diagnostics, cancellationToken);
             }
 
             if (prune)
@@ -334,7 +337,8 @@ internal static class ContentTransforms
         GraphCopier copier,
         int pageId,
         PdfDictionary page,
-        ContentTransformRequest request,
+        GovernedIntDictionary<PdfStream> normalized,
+        ParserMemoryScope phase,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
@@ -356,7 +360,16 @@ internal static class ContentTransforms
                 ContentEntries.Entry entry = entries.Get(entryIndex);
                 cancellationToken.ThrowIfCancellationRequested();
                 governor.NoteOperation();
-                PdfStream? replacement = BuildNormalizedContent(entry.Stream, resolver, limits, governor, diagnostics, cancellationToken);
+                PdfStream stream = entry.Stream;
+                if (entry.ObjectId is int identity)
+                {
+                    // Other page transforms may replace a shared stream. Cache
+                    // only the current pool version, including failed attempts.
+                    if (copier.CopiedObjects.TryGetValue(identity, out QpdfObject? poolValue) && poolValue is PdfStream found) { stream = found; }
+                    if (normalized.TryGetValue(identity, out PdfStream? previous) && ReferenceEquals(previous, stream)) { continue; }
+                }
+                PdfStream? replacement = BuildNormalizedContent(stream, resolver, limits, governor, diagnostics, cancellationToken);
+                if (entry.ObjectId is int id) { normalized.Assign(phase, id, replacement ?? stream); }
                 if (replacement is null) { continue; }
                 if (entry.ObjectId.HasValue)
                 {
