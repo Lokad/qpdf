@@ -397,6 +397,7 @@ public static partial class Qpdf
                     }
 
                     Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, inputPath, occurrences, settings.Underlays, settings.Overlays, singleCompress, singleLevel, recovery, limits, governor, diagnostics, copyMemory, cancellationToken, copier.NextId, null).ConfigureAwait(false);
+                    copier.AdvanceNextId(overlayApplied.NextId);
 
                     int flattenAllocator = overlayApplied.NextId;
                     bool needAppearances = (settings.FlattenAnnotations is not null || settings.GenerateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine);
@@ -433,36 +434,13 @@ public static partial class Qpdf
                     {
                         Content.ImageOptimizer.Apply(occurrences, settings.Optimize, limits, governor, cancellationToken);
                     }
-
+                    copier.AdvanceNextId(flattenAllocator);
 
                     (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(document.OwnVersion(), settings.MinVersion, settings.ForceVersion, governor);
                     string streamMode = ResolveObjectStreamMode(settings.ObjectStreams);
                     if (settings.ForceVersion is not null && CompareVersions(negotiated.Major, negotiated.Minor, 1, 5) < 0)
                     {
                         streamMode = "disable";
-                    }
-
-                    HashSet<int> compressedOrig = CollectCompressedOriginals(document.Engine, streamMode == "preserve");
-                    Dictionary<int, QpdfObject> singlePool = new(copier.CopiedObjects);
-                    foreach (GraphCopier overlayCopier in overlayApplied.Copiers)
-                    {
-                        foreach (KeyValuePair<int, QpdfObject> overlayEntry in overlayCopier.CopiedObjects)
-                        {
-                            singlePool[overlayEntry.Key] = overlayEntry.Value;
-                        }
-                    }
-                    List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> singleSources = new(2)
-                    {
-                        (copier.SourceToDestination, compressedOrig),
-                    };
-                    AttachmentAssembly singleAttached = await AssembleAttachmentsAsync(host, singleExisting, singlePool, settings.Edits, singlePageMode, singleCompress, singleLevel, streamMode == "preserve", singleSources, recovery, limits, governor, diagnostics, copyMemory, cancellationToken).ConfigureAwait(false);
-                    HashSet<int> singleCompressed = ResolveCompressedSet(streamMode, singlePool, singleSources, governor);
-                    PdfVersion effective = negotiated;
-                    int extensionLevel = negotiatedExtension;
-                    if (singleCompressed.Count > 0 && CompareVersions(effective.Major, effective.Minor, 1, 5) < 0)
-                    {
-                        effective = governor.OwnVersion(1, 5);
-                        extensionLevel = 0;
                     }
 
                     PdfDictionary? singleLabels = null;
@@ -483,6 +461,14 @@ public static partial class Qpdf
                         singleLabels = singleItems.Count == 0 ? null : NumbersDictionary(singleItems, governor);
                     }
 
+                    Dictionary<int, QpdfObject> singlePool = new(copier.CopiedObjects);
+                    foreach (GraphCopier overlayCopier in overlayApplied.Copiers)
+                    {
+                        foreach (KeyValuePair<int, QpdfObject> overlayEntry in overlayCopier.CopiedObjects)
+                        {
+                            singlePool.Add(overlayEntry.Key, overlayEntry.Value);
+                        }
+                    }
                     byte[]? originalId = TryGetOriginalId(document.Engine);
                     string countText = kids.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     PdfDictionary? singleAcroForm = settings.RemoveAcroform
@@ -503,6 +489,22 @@ public static partial class Qpdf
                     if (singleGenerated)
                     {
                         singleAcroForm = ClearNeedAppearances(singleAcroForm, governor);
+                    }
+
+                    // Finish source copying before attachments allocate from the assembled pool.
+                    HashSet<int> compressedOrig = CollectCompressedOriginals(document.Engine, streamMode == "preserve");
+                    List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> singleSources = new(2)
+                    {
+                        (copier.SourceToDestination, compressedOrig),
+                    };
+                    AttachmentAssembly singleAttached = await AssembleAttachmentsAsync(host, singleExisting, singlePool, settings.Edits, singlePageMode, singleCompress, singleLevel, streamMode == "preserve", singleSources, recovery, limits, governor, diagnostics, copyMemory, cancellationToken).ConfigureAwait(false);
+                    HashSet<int> singleCompressed = ResolveCompressedSet(streamMode, singlePool, singleSources, governor);
+                    PdfVersion effective = negotiated;
+                    int extensionLevel = negotiatedExtension;
+                    if (singleCompressed.Count > 0 && CompareVersions(effective.Major, effective.Minor, 1, 5) < 0)
+                    {
+                        effective = governor.OwnVersion(1, 5);
+                        extensionLevel = 0;
                     }
 
                     PdfDictionary catalog = NewCatalog(singleLabels, effective, extensionLevel, singleMetadata, singleAttached.NamesRef, singleAttached.PageMode, singleOutlines, singleAcroForm, singleStructTree, singleMarkInfo, singleExtras);

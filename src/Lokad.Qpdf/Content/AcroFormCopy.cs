@@ -250,7 +250,10 @@ internal static class AcroFormCopy
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
-            pool.TryAdd(entry.Key, entry.Value);
+            if (!pool.TryAdd(entry.Key, entry.Value) && !ReferenceEquals(pool[entry.Key], entry.Value))
+            {
+                throw new QpdfException("Form copy encountered conflicting output object identities.");
+            }
         }
         if (part is null && overlayImports.Count == 0)
         {

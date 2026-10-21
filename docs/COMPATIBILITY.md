@@ -45,6 +45,11 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Page selection finishes copying catalog labels and form defaults before allocating
+added attachments, and coordinates later copies with overlay/appearance objects.
+Cold font and default-program references therefore keep their original meaning
+when these operations are combined. Output object numbers can change.
+
 Overlay form reachability admits traversal and reached-set capacities before
 allocation. Repeated field references no longer queue a full pending array;
 large distinct field sets can refuse earlier. Cancellation interrupts traversal,
