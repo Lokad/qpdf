@@ -208,8 +208,8 @@ internal static class FlattenAnnotations
             graph.Memory.Reserve(34L); byte[] prefix = "q\n"u8.ToArray(); graph.Add(34L);
             byte[] suffixBytes = stamped.ToArray(graph.Memory, cancellationToken);
             graph.Add(32L + suffixBytes.Length);
-            PdfStream before = EncodeContent(prefix, compress, level, limits, graph);
-            PdfStream after = EncodeContent(suffixBytes, compress, level, limits, graph);
+            PdfStream before = ContentTransforms.EncodeContent(prefix, compress, level, limits, graph);
+            PdfStream after = ContentTransforms.EncodeContent(suffixBytes, compress, level, limits, graph);
             PdfReference beforeLink = copier.AddIndirectObjectWithId(before, allocator); allocator = checked(allocator + 1);
             PdfReference afterLink = copier.AddIndirectObjectWithId(after, allocator); allocator = checked(allocator + 1);
             List<QpdfObject> stacked = ParserContainers.CreateList(graph.Memory);
@@ -680,19 +680,6 @@ internal static class FlattenAnnotations
         if (contents is not PdfStream) { return null; }
         List<QpdfObject> direct = ParserContainers.CreateList(memory);
         ParserContainers.AddItem(memory, direct, contents, IntPtr.Size); return direct;
-    }
-
-    private static PdfStream EncodeContent(byte[] content, bool compress, int? level, QpdfLimits limits, OwnedAllocationBatch graph)
-    {
-        PdfDictionary header = EmptyResources;
-        if (compress && content.Length > 0)
-        {
-            long rawBytes = 32L + content.Length;
-            content = FlateFilter.Encode(content, level, limits, graph.Governor, graph.Memory, graph.Token);
-            graph.UpdateBytes(rawBytes, 32L + content.Length);
-            header = PdfDictionaryRebuild.ReplaceEntry(graph, header, "Filter"u8, PdfName.FromAscii("FlateDecode"));
-        }
-        graph.Memory.Reserve(32L); PdfStream stream = PdfStream.FromOwnedData(header, content); graph.Add(32L); return stream;
     }
 
     private static void AppendAscii(GovernedBufferStream output, string text)

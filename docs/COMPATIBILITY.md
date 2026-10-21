@@ -51,6 +51,11 @@ bytes through import/update instead of replacing them with replacement text.
 Checkbox synchronization preserves the raw appearance-state name in `/AS` and
 `/V`, including escaped and non-ASCII bytes. Merged widgets update both entries
 together; replacement dictionaries receive admission before graph mutation.
+Rotation and page-content checking share content-entry collection and accept
+indirect arrays. Malformed instructions behind those arrays now fail content
+checking just as direct arrays do. Rotation keeps existing unreadable-content
+warnings; growing content/annotation containers and traversal sets receive
+admission before allocation, so large rotations can refuse earlier.
 
 JSON outline inspection rejects cycles through sibling links as well as child
 links, with cancellation and nesting bounds independent of cycle detection.

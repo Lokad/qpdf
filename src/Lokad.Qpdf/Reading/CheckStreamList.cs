@@ -44,7 +44,6 @@ internal sealed class CheckStreamList : IDisposable
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (items.Count == items.Capacity)
         {
-            long capacity = Math.Min(Array.MaxLength, Math.Max(4L, items.Capacity * 2L));
             governor.NoteOperation();
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         }

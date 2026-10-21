@@ -15,7 +15,7 @@ public sealed class ContentEntriesTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         PdfStream stream = Stream(); ContentEntries entries = ContentEntries.Create(governor, CancellationToken.None);
-        for (int index = 0; index < 17; index++) { entries.Add(new(index, index, stream)); }
+        for (int index = 0; index < 17; index++) { entries.Add(new(new PdfReference(index, 0), index, stream)); }
         ContentEntries.Entry borrowed = entries.Get(16);
         Assert.Equal(17, entries.Count); Assert.True(governor.Snapshot().LiveMemoryBytes >= 960L);
         entries.Dispose(); entries.Dispose();

@@ -101,7 +101,6 @@ internal static class DocumentCheck
         governor.NoteOperation();
         if (items.Count == items.Capacity)
         {
-            long capacity = Math.Min(Array.MaxLength, Math.Max(4L, items.Capacity * 2L));
             governor.CheckCancellation();
         }
         ParserContainers.AddItem(memory, items, value, itemBytes);
@@ -384,56 +383,8 @@ internal static class DocumentCheck
                 continue;
             }
 
-            using CheckStreamList streams = CheckStreamList.Create(governor);
-            bool unreadable = false;
-            if (contents is PdfArray array)
-            {
-                for (int itemIndex = 0; itemIndex < array.Count; itemIndex++)
-                {
-                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                    QpdfObject item = array[itemIndex];
-                    QpdfObject target = item;
-                    if (item is PdfReference reference)
-                    {
-                        if (!PdfObjectLookup.TryResolve(reference, resolver, governor, cancellationToken, out QpdfObject? resolved) || resolved is null)
-                        {
-                            unreadable = true;
-                            break;
-                        }
-
-                        target = resolved;
-                    }
-
-                    if (target is not PdfStream stream)
-                    {
-                        unreadable = true;
-                        break;
-                    }
-
-                    streams.Add(stream, cancellationToken);
-                }
-            }
-            else if (contents is PdfReference singleReference)
-            {
-                if (!PdfObjectLookup.TryResolve(singleReference, resolver, governor, cancellationToken, out QpdfObject? resolved) || resolved is not PdfStream resolvedStream)
-                {
-                    unreadable = true;
-                }
-                else
-                {
-                    streams.Add(resolvedStream, cancellationToken);
-                }
-            }
-            else if (contents is PdfStream single)
-            {
-                streams.Add(single, cancellationToken);
-            }
-            else
-            {
-                unreadable = true;
-            }
-
-            if (unreadable)
+            using ContentEntries? streams = ContentEntries.TryRead(contents, resolver, governor, cancellationToken);
+            if (streams is null)
             {
                 skipped += 1;
                 continue;
@@ -441,7 +392,7 @@ internal static class DocumentCheck
 
             for (int streamIndex = 0; streamIndex < streams.Count; streamIndex++)
             {
-                PdfStream stream = streams.Get(streamIndex, cancellationToken);
+                PdfStream stream = streams.Get(streamIndex).Stream;
                 cancellationToken.ThrowIfCancellationRequested();
                 using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
                 byte[]? bytes = DecodeCheckStream(stream, resolver, options.DecodeLevel, limits, governor, decodedMemory, cancellationToken);

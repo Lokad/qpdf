@@ -57,7 +57,6 @@ internal sealed class OrphanRemovalPlan : IDisposable
         Visit();
         if (items.Count == items.Capacity)
         {
-            long capacity = Math.Min(Array.MaxLength, Math.Max(4L, items.Capacity * 2L));
             Governor.NoteOperation(); Check();
         }
         ParserContainers.AddItem(Memory, items, value, itemBytes);

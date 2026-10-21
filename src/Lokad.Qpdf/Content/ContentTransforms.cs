@@ -244,7 +244,6 @@ internal static class ContentTransforms
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (ids.Count == ids.Capacity)
         {
-            long capacity = Math.Min(Array.MaxLength, Math.Max(4L, ids.Capacity * 2L));
             governor.NoteOperation();
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         }
@@ -323,6 +322,21 @@ internal static class ContentTransforms
         }
         PdfDictionary dictionary = PdfDictionaryRebuild.Complete(graph, header, allocation);
         PdfStream stream = CreateContentStream(graph, dictionary, data); graph.Retain(); return stream;
+    }
+
+    private static readonly PdfDictionary EmptyContentHeader = new(new Dictionary<PdfName, QpdfObject>());
+
+    internal static PdfStream EncodeContent(byte[] content, bool compress, int? level, QpdfLimits limits, OwnedAllocationBatch graph)
+    {
+        PdfDictionary header = EmptyContentHeader;
+        if (compress && content.Length > 0)
+        {
+            long rawBytes = 32L + content.Length;
+            content = FlateFilter.Encode(content, level, limits, graph.Governor, graph.Memory, graph.Token);
+            graph.UpdateBytes(rawBytes, 32L + content.Length);
+            header = PdfDictionaryRebuild.ReplaceEntry(graph, header, "Filter"u8, PdfName.FromAscii("FlateDecode"));
+        }
+        graph.Memory.Reserve(32L); PdfStream stream = PdfStream.FromOwnedData(header, content); graph.Add(32L); return stream;
     }
 
     private static void AddContentBuffer(OwnedAllocationBatch graph, byte[] data)

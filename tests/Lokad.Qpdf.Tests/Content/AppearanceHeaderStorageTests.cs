@@ -3,6 +3,7 @@ using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Writing;
+using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -108,12 +109,13 @@ public sealed class AppearanceHeaderStorageTests
         ResourceGovernor governor = new(limits, CancellationToken.None);
         using DocumentEngine engine = Engine(); GraphCopier copier = new(engine, governor, limits, 1);
         PdfReference link = copier.AddIndirectObjectWithId(source, 1); PoolResolver resolver = new(copier.CopiedObjects);
-        HashSet<int> visited = new();
-        FlattenRotation.RotateAppearanceTarget(copier, link, resolver, [1, 0, 0, 1, 0, 0], visited, governor, CancellationToken.None);
+        using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
+        HashSet<int> visited = ParserContainers.CreateSet<int>(traversal);
+        FlattenRotation.RotateAppearanceTarget(copier, link, resolver, [1, 0, 0, 1, 0, 0], visited, traversal, governor, CancellationToken.None);
         PdfStream replacement = Assert.IsType<PdfStream>(copier.CopiedObjects[1]);
         Assert.Same(source.AllocationCarrier, replacement.AllocationCarrier);
         long live = governor.Snapshot().LiveMemoryBytes;
-        FlattenRotation.RotateAppearanceTarget(copier, link, resolver, [1, 0, 0, 1, 0, 0], visited, governor, CancellationToken.None);
+        FlattenRotation.RotateAppearanceTarget(copier, link, resolver, [1, 0, 0, 1, 0, 0], visited, traversal, governor, CancellationToken.None);
         Assert.Same(replacement, copier.CopiedObjects[1]); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
     }
 
@@ -131,7 +133,12 @@ public sealed class AppearanceHeaderStorageTests
         int allocator = 2;
         Assert.Throws<QpdfLimitException>(() =>
         {
-            if (rotation) { FlattenRotation.RotateAppearanceTarget(copier, link, new(copier.CopiedObjects), [1, 0, 0, 1, 0, 0], new(), governor, CancellationToken.None); }
+            if (rotation)
+            {
+                using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
+                HashSet<int> visited = ParserContainers.CreateSet<int>(traversal);
+                FlattenRotation.RotateAppearanceTarget(copier, link, new(copier.CopiedObjects), [1, 0, 0, 1, 0, 0], visited, traversal, governor, CancellationToken.None);
+            }
             else { FlattenAnnotations.EnsureAppearanceObject(copier, source, link, governor, CancellationToken.None, ref allocator); }
         });
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes); Assert.Same(source, copier.CopiedObjects[1]);

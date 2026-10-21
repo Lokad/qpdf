@@ -7,7 +7,11 @@ namespace Lokad.Qpdf.Content;
 /// <summary>Owns inline content-entry metadata while borrowing streams and their payloads.</summary>
 internal sealed class ContentEntries : IDisposable
 {
-    internal readonly record struct Entry(int? ObjectId, int ArrayIndex, PdfStream Stream);
+    internal readonly record struct Entry(PdfReference? Reference, int ArrayIndex, PdfStream Stream)
+    {
+        internal int? ObjectId => Reference?.ObjectNumber;
+        internal QpdfObject Value => Reference is null ? Stream : Reference;
+    }
     private ParserMemoryScope? _memory;
     private ResourceGovernor? _governor;
     private List<Entry>? _items;
@@ -54,7 +58,7 @@ internal sealed class ContentEntries : IDisposable
                 if (array is not null && item is PdfReference link)
                 { resolver.TryResolve(link, out stream); }
                 if (stream is not PdfStream value) { entries.Dispose(); return null; }
-                entries.Add(new((item as PdfReference)?.ObjectNumber, index, value));
+                entries.Add(new(item as PdfReference, index, value));
             }
             return entries;
         }
