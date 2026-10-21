@@ -4825,14 +4825,10 @@ public static partial class Qpdf
 
     private static IReadOnlyDictionary<PdfName, QpdfObject> MaterializeAncestors(
         DocumentEngine engine, PageLocation location, GraphCopier copier,
-        ResourceGovernor governor, QpdfLimits limits, CancellationToken cancellationToken)
-        => MaterializeAncestors(engine, location, copier, governor, limits, cancellationToken, null);
-
-    private static IReadOnlyDictionary<PdfName, QpdfObject> MaterializeAncestors(
-        DocumentEngine engine, PageLocation location, GraphCopier copier,
         ResourceGovernor governor, QpdfLimits limits, CancellationToken cancellationToken,
-        ParserMemoryScope? ownership)
+        ParserMemoryScope ownership)
     {
+        ownership.CheckOwner(governor);
         Dictionary<PdfName, QpdfObject>? extra = null;
         PageInheritance.InheritedValues inherited = PageInheritance.FindAncestors(engine, location, WriterInherited,
             limits, governor, cancellationToken);
@@ -4844,9 +4840,8 @@ public static partial class Qpdf
             if (value is null) { continue; }
             QpdfObject copied = copier.CopyValue(value, 0);
             if (copied is PdfNull) { continue; }
-            extra ??= ownership is null ? new()
-                : ParserContainers.CreateDictionary<PdfName, QpdfObject>(ownership);
-            if (ownership is not null) { ParserContainers.EnsureEntryCapacity(ownership, extra, IntPtr.Size); }
+            extra ??= ParserContainers.CreateDictionary<PdfName, QpdfObject>(ownership);
+            ParserContainers.EnsureEntryCapacity(ownership, extra, IntPtr.Size);
             extra[key] = copied;
         }
         return extra is null ? System.Collections.ObjectModel.ReadOnlyDictionary<PdfName, QpdfObject>.Empty : extra;
