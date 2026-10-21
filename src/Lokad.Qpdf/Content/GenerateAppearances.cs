@@ -112,7 +112,7 @@ internal static class GenerateAppearances
                 FieldContext field = ResolveField(copier, annot, annotId, resolver);
                 if (field.Type == "Btn")
                 {
-                    if (SyncButton(copier, annot, item, annotId, field, resolver, entries, diagnostics, governor))
+                    if (SyncButton(copier, annot, item, annotId, field, resolver, entries, diagnostics, governor, cancellationToken))
                     {
                         pageChanged = true;
                     }
@@ -430,22 +430,6 @@ internal static class GenerateAppearances
         return choices;
     }
 
-    private static PdfDictionary SetName(PdfDictionary dictionary, string key, string name, ResourceGovernor governor)
-    {
-        Dictionary<PdfName, QpdfObject> entries = new();
-        foreach (PdfName existing in dictionary.Keys)
-        {
-            if (dictionary.TryGet(existing, out QpdfObject? found) && found is not null)
-            {
-                entries[existing] = found;
-            }
-        }
-
-        governor.ReserveMemory(64L);
-        entries[PdfName.FromAscii(key)] = new PdfName(Encoding.ASCII.GetBytes(name));
-        return new PdfDictionary(entries);
-    }
-
     private static bool SyncButton(
         GraphCopier copier,
         PdfDictionary annot,
@@ -455,10 +439,10 @@ internal static class GenerateAppearances
         PoolResolver resolver,
         List<QpdfObject> entries,
         DiagnosticBag diagnostics,
-        ResourceGovernor governor)
+        ResourceGovernor governor,
+        CancellationToken token)
     {
-        string? valueName = field.Value is PdfName valueNameObject ? valueNameObject.DisplayText : null;
-        if (valueName is null)
+        if (field.Value is not PdfName valueName)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot synchronize a button without a name value; keeping it as is.");
             return false;
@@ -481,18 +465,48 @@ internal static class GenerateAppearances
             return false;
         }
 
-        string on = FirstOnState(annot, resolver) ?? "Yes";
-        string selected = valueName == "Off" ? "Off" : on;
-        if (!WriteFieldName(copier, field, annot, item, annotId, entries, "V", selected, governor, diagnostics))
+        if (field.Node is null)
         {
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot update a field without a field node; keeping it as is.");
             return false;
         }
-
-        WriteAnnotName(copier, annot, item, annotId, entries, "AS", selected, governor);
+        bool merged = ReferenceEquals(field.Node, annot);
+        if (!merged && !field.NodeId.HasValue)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot update a field embedded without identity; keeping it as is.");
+            return false;
+        }
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
+        PdfName selected = valueName.RawSpan.SequenceEqual("Off"u8) ? valueName
+            : FirstOnState(annot, resolver, governor, token) ?? PdfDictionaryRebuild.CreateName(graph, "Yes"u8);
+        PdfDictionary? updatedField = merged ? null : PdfDictionaryRebuild.ReplaceEntry(graph, field.Node, "V"u8, selected);
+        PdfNameTable<QpdfObject> annotation = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
+        bool hasValue = false, hasState = false;
+        using (PdfDictionary.EntryEnumerator source = annot.GetEntryEnumerator())
+        {
+            while (source.MoveNext(governor, token))
+            {
+                PdfName key = source.Current.Key; QpdfObject value = source.Current.Value;
+                if (merged && key.RawSpan.SequenceEqual("V"u8)) { value = selected; hasValue = true; }
+                if (key.RawSpan.SequenceEqual("AS"u8)) { value = selected; hasState = true; }
+                annotation.Assign(graph.Memory, governor, key, value, token);
+            }
+        }
+        if (merged && !hasValue) { annotation.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "V"u8), selected, token); }
+        if (!hasState) { annotation.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "AS"u8), selected, token); }
+        PdfDictionary updatedAnnot = PdfDictionaryRebuild.Complete(graph, annotation, allocation);
+        if (field.NodeId is int fieldId) { copier.ValidateReplacement(fieldId); }
+        if (annotId is int widgetId) { copier.ValidateReplacement(widgetId); }
+        // Prepare both dictionaries before changing either graph slot. A merged
+        // widget publishes V and AS together instead of overwriting its V update.
+        graph.Retain();
+        if (updatedField is not null && field.NodeId is int separateId) { copier.ReplaceCopiedObject(separateId, updatedField); }
+        if (annotId is int id) { copier.ReplaceCopiedObject(id, updatedAnnot); entries.Add(item); }
+        else { entries.Add(updatedAnnot); }
         return true;
     }
 
-    private static string? FirstOnState(PdfDictionary annot, PoolResolver resolver)
+    private static PdfName? FirstOnState(PdfDictionary annot, PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
     {
         if (!annot.TryGet(PdfName.FromAscii("AP"), out QpdfObject? ap) || ap is null || ap is PdfNull)
         {
@@ -520,77 +534,13 @@ internal static class GenerateAppearances
             return null;
         }
 
-        foreach (PdfName key in states.Keys)
+        using PdfDictionary.EntryEnumerator entries = states.GetEntryEnumerator();
+        while (entries.MoveNext(governor, token))
         {
-            if (key.DisplayText != "Off")
-            {
-                return key.DisplayText;
-            }
+            PdfName key = entries.Current.Key;
+            if (!key.RawSpan.SequenceEqual("Off"u8)) { return key; }
         }
-
         return null;
-    }
-
-    private static bool WriteFieldName(
-        GraphCopier copier,
-        FieldContext field,
-        PdfDictionary annot,
-        QpdfObject item,
-        int? annotId,
-        List<QpdfObject> entries,
-        string key,
-        string name,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics)
-    {
-        if (field.Node is null)
-        {
-            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot update a field without a field node; keeping it as is.");
-            return false;
-        }
-
-        if (field.NodeId.HasValue)
-        {
-            copier.ReplaceCopiedObject(field.NodeId.Value, SetName(field.Node, key, name, governor));
-            return true;
-        }
-
-        if (ReferenceEquals(field.Node, annot))
-        {
-            if (annotId.HasValue)
-            {
-                copier.ReplaceCopiedObject(annotId.Value, SetName(annot, key, name, governor));
-            }
-            else
-            {
-                entries.Add(SetName(annot, key, name, governor));
-            }
-
-            return true;
-        }
-
-        diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot update a field embedded without identity; keeping it as is.");
-        return false;
-    }
-
-    private static void WriteAnnotName(
-        GraphCopier copier,
-        PdfDictionary annot,
-        QpdfObject item,
-        int? annotId,
-        List<QpdfObject> entries,
-        string key,
-        string name,
-        ResourceGovernor governor)
-    {
-        if (annotId.HasValue)
-        {
-            copier.ReplaceCopiedObject(annotId.Value, SetName(annot, key, name, governor));
-            entries.Add(item);
-            return;
-        }
-
-        entries.Add(SetName(annot, key, name, governor));
     }
 
     private static bool GenerateText(

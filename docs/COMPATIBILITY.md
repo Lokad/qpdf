@@ -48,6 +48,9 @@ unset defaults. These distinctions are part of the supported contract.
 JSON names use strict UTF-8 scalar validation. Surrogate encodings and values
 above Unicode's range now export with `n:` byte escaping, preserving raw name
 bytes through import/update instead of replacing them with replacement text.
+Checkbox synchronization preserves the raw appearance-state name in `/AS` and
+`/V`, including escaped and non-ASCII bytes. Merged widgets update both entries
+together; replacement dictionaries receive admission before graph mutation.
 
 JSON outline inspection rejects cycles through sibling links as well as child
 links, with cancellation and nesting bounds independent of cycle detection.
