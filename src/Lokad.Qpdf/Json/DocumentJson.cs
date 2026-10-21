@@ -1118,9 +1118,15 @@ internal static class DocumentJson
                     || TryResolve(engine, candidate) is not PdfStream stream) { continue; }
                 if (!first) { builder.Append(','); } first = false;
                 PdfJsonWriter.AppendJsonString(builder, name); builder.Append(": ");
-                EmbeddedFiles.EmbeddedStreamMetadata metadata = ReferenceEquals(stream, attachment.Stream)
-                    ? new(attachment.MimeType, attachment.CreationDate, attachment.ModDate, attachment.Checksum, attachment.Size)
-                    : EmbeddedFiles.ReadStreamMetadata(engine, stream, textMemory, governor, token);
+                EmbeddedFiles.EmbeddedStreamMetadata metadata;
+                if (ReferenceEquals(stream, attachment.Stream))
+                { metadata = new(attachment.MimeType, attachment.CreationDate, attachment.ModDate, attachment.Checksum, attachment.Size); }
+                else
+                {
+                    PdfDictionary? parameters = stream.Dictionary.TryGet(PdfName.FromAscii("Params"), out QpdfObject parametersRaw)
+                        ? TryResolve(engine, parametersRaw) as PdfDictionary : null;
+                    metadata = EmbeddedFiles.ReadStreamMetadata(stream, parameters, textMemory, governor, token);
+                }
                 AppendEmbeddedStream(builder, metadata);
                 textMemory.Discard();
             }

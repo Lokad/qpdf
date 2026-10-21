@@ -68,6 +68,29 @@ public sealed class AttachmentJsonTests
     [InlineData("D:2024", null)]
     public void DateFormattingHasBoundedSyntax(string value, string? expected) => Assert.Equal(expected, DocumentJson.ToIso8601(value));
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DamagedOptionalParametersPreservePreferredAndAlternateStreamPolicies(bool preferred)
+    {
+        byte[] input = CheckTests.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 4 0 R >> >>", null),
+            (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] >>", null),
+            (4, "<< /Names [(K) 5 0 R] >>", null),
+            (5, "<< /UF (preferred) /EF << /UF 6 0 R /F 7 0 R >> >>", null),
+            (6, "<< /Length 1" + (preferred ? " /Params 99 0 R" : "") + " >>", "U"u8.ToArray()),
+            (7, "<< /Length 1 /Params 99 0 R >>", "F"u8.ToArray())], 1);
+        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Transfer);
+        QpdfJsonResult result = await Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("input"), QpdfPath.From("output"), new QpdfJsonOptions(2, ["attachments"]), CancellationToken.None);
+        using JsonDocument json = JsonDocument.Parse(result.Json); JsonElement attachments = json.RootElement.GetProperty("attachments");
+        if (preferred)
+        { Assert.Empty(attachments.EnumerateObject()); Assert.Contains(result.Warnings, d => d.Message.Contains("Skipped unlistable attachment", StringComparison.Ordinal)); }
+        else
+        { Assert.Equal(JsonValueKind.Null, attachments.GetProperty("K").GetProperty("streams").GetProperty("F").GetProperty("modificationdate").ValueKind); }
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
     [Fact]
     public void InvalidLongDatesDoNotProduceLargeSubstringCopies()
     {

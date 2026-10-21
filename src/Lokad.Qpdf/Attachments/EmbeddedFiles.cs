@@ -263,7 +263,13 @@ internal static class EmbeddedFiles
             throw new QpdfParseException("Embedded file specification has no embedded stream.", null, null);
         }
 
-        EmbeddedStreamMetadata metadata = ReadStreamMetadata(engine, data, memory, governor, cancellationToken);
+        PdfDictionary? parameters = null;
+        if (data.Dictionary.TryGet(PdfName.FromAscii("Params"), out QpdfObject parametersRaw) && parametersRaw is not PdfNull)
+        {
+            parameters = (parametersRaw is PdfReference parametersReference
+                ? ResolveRequired(engine, parametersReference, "embedded stream parameters") : parametersRaw) as PdfDictionary;
+        }
+        EmbeddedStreamMetadata metadata = ReadStreamMetadata(data, parameters, memory, governor, cancellationToken);
 
         governor.NoteOperation();
         if (value is PdfReference) { memory.Reserve(72L); }
@@ -277,7 +283,7 @@ internal static class EmbeddedFiles
 
     internal readonly record struct EmbeddedStreamMetadata(string MimeType, string CreationDate, string ModDate, string Checksum, long Size);
 
-    internal static EmbeddedStreamMetadata ReadStreamMetadata(DocumentEngine engine, PdfStream data, ParserMemoryScope memory,
+    internal static EmbeddedStreamMetadata ReadStreamMetadata(PdfStream data, PdfDictionary? parms, ParserMemoryScope memory,
         ResourceGovernor governor, CancellationToken cancellationToken)
     {
         memory.CheckOwner(governor); cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -291,13 +297,6 @@ internal static class EmbeddedFiles
         string modDate = string.Empty;
         string checksum = string.Empty;
         long size = -1L;
-        PdfDictionary? parms = null;
-        if (data.Dictionary.TryGet(PdfName.FromAscii("Params"), out QpdfObject? parmsRaw) && parmsRaw is not null && parmsRaw is not PdfNull)
-        {
-            QpdfObject parmsTarget = parmsRaw is PdfReference parmsReference ? ResolveRequired(engine, parmsReference, "embedded stream parameters") : parmsRaw;
-            parms = parmsTarget as PdfDictionary;
-        }
-
         if (parms is not null)
         {
             if (parms.TryGet(PdfName.FromAscii("CreationDate"), out QpdfObject? creationRaw) && creationRaw is PdfByteString creationText)
