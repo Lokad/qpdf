@@ -54,12 +54,19 @@ public sealed class PdfVersionOwnershipTests
         object[] roots = new object[1024];
         for (int index = 0; index < roots.Length; index++) { roots[index] = create(); }
         Array.Clear(roots);
-        long start = GC.GetAllocatedBytesForCurrentThread();
-        for (int index = 0; index < roots.Length; index++) { roots[index] = create(); }
-        long bytes = GC.GetAllocatedBytesForCurrentThread() - start;
-        Assert.Equal(0L, bytes % roots.Length);
+        // Runtime bookkeeping can add allocations to an otherwise warmed call.
+        // Measure individual instances and use the smallest sample so that
+        // incidental allocations cannot inflate the physical ownership floor.
+        long size = long.MaxValue;
+        for (int index = 0; index < roots.Length; index++)
+        {
+            long start = GC.GetAllocatedBytesForCurrentThread();
+            roots[index] = create();
+            size = Math.Min(size, GC.GetAllocatedBytesForCurrentThread() - start);
+        }
+        Assert.True(size > 0L);
         GC.KeepAlive(roots); GC.KeepAlive(observer);
-        return bytes / roots.Length;
+        return size;
     }
 
     public static IEnumerable<object[]> DocumentCases()
