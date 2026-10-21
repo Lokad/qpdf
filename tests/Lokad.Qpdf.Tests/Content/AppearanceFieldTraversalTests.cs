@@ -48,6 +48,7 @@ public sealed class AppearanceFieldTraversalTests
     [InlineData("direct-kids")]
     [InlineData("parent")]
     [InlineData("broken")]
+    [InlineData("broken-without-kids")]
     [InlineData("parent-cycle")]
     [InlineData("kids-cycle")]
     [InlineData("value-cycle")]
@@ -56,10 +57,10 @@ public sealed class AppearanceFieldTraversalTests
         using DocumentEngine engine = Engine(); ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
         GraphCopier copier = new(engine, construction, QpdfLimits.Default, 1);
         PdfDictionary widget = kind is "kids" or "direct-kids" or "kids-cycle" ? Dict(("Subtype", PdfName.FromAscii("Widget")))
-            : Dict(("Subtype", PdfName.FromAscii("Widget")), ("Parent", new PdfReference(kind == "broken" ? 99 : 2, 0)));
+            : Dict(("Subtype", PdfName.FromAscii("Widget")), ("Parent", new PdfReference(kind.StartsWith("broken", StringComparison.Ordinal) ? 99 : 2, 0)));
         QpdfObject child = kind == "direct-kids" ? widget : new PdfReference(3, 0);
         PdfDictionary field = Dict(("FT", PdfName.FromAscii("Btn")), ("V", kind == "value-cycle" ? new PdfReference(4, 0) : PdfName.FromAscii("Off")),
-            ("Kids", new PdfArray(kind == "parent" ? [] : [child])),
+            ("Kids", new PdfArray(kind is "parent" or "broken-without-kids" ? [] : [child])),
             ("Parent", kind is "parent-cycle" or "kids-cycle" ? new PdfReference(3, 0) : PdfNull.Instance));
         PdfDictionary page = Dict(("Annots", new PdfArray([child])));
         copier.AddIndirectObjectWithId(page, 1); copier.AddIndirectObjectWithId(field, 2); copier.AddIndirectObjectWithId(widget, 3);
@@ -68,7 +69,7 @@ public sealed class AppearanceFieldTraversalTests
         int next = GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, PdfDictionary?>(), QpdfLimits.Default,
             governor, diagnostics, CancellationToken.None, new HashSet<int> { 3 }, kind == "direct-kids", 5);
         Assert.Equal(5, next);
-        if (kind is "broken" or "value-cycle") { Assert.Same(widget, copier.CopiedObjects[3]); }
+        if (kind is "broken-without-kids" or "value-cycle") { Assert.Same(widget, copier.CopiedObjects[3]); }
         else
         {
             PdfDictionary result = kind == "direct-kids"

@@ -276,9 +276,11 @@ internal static class GenerateAppearances
                 && parentRaw is not PdfNull)
             {
                 QpdfObject? parent = parentRaw is PdfReference link ? ResolveOrNull(resolver, link) : parentRaw;
-                if (parent is not PdfDictionary dictionary) { break; }
-                current = dictionary; currentId = (parentRaw as PdfReference)?.ObjectNumber;
-                continue;
+                if (parent is PdfDictionary dictionary)
+                {
+                    current = dictionary; currentId = (parentRaw as PdfReference)?.ObjectNumber;
+                    continue;
+                }
             }
             FieldParents index = GetParents(copier, resolver, parents, traversal, governor, token);
             bool hasParent = currentId is int number ? index.Ids.TryGetValue(number, out int parentId)

@@ -53,7 +53,8 @@ inherited, without changing a shared ancestor or unrelated sibling. Indirect
 `/FT`, `/V`, `/DA` and `/Ff` values resolve consistently with direct values.
 Parent traversal keeps bounded lenient `/Kids` fallback, using one admitted
 reverse index per copied graph. Damaged multiple-parent graphs choose the first
-indexed parent deterministically; cycles and broken explicit links stop traversal.
+indexed parent deterministically. Missing or broken `/Parent` links can use that
+fallback; cycles and links without a usable fallback stop traversal.
 Indirect widget updates preserve the original annotation array. Direct widgets
 use one admitted replacement array, preserving skipped entries and order.
 Annotation flattening shares content-entry collection with checking and rotation;
