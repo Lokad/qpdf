@@ -123,7 +123,7 @@ public sealed class WriterValueTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void UnchangedDictionaryElidesClrNullEntriesWithoutReordering(bool owned)
+    public void UnchangedDictionaryElidesClrNullEntriesWithoutReordering(bool writerIndex)
     {
         PdfName first = PdfName.FromAscii("First"), absent = PdfName.FromAscii("Absent"), last = PdfName.FromAscii("Last");
         Dictionary<PdfName, QpdfObject?> entries = new()
@@ -131,9 +131,10 @@ public sealed class WriterValueTests
         PdfDictionary source = Activator.CreateInstance(typeof(PdfDictionary), [entries]) as PdfDictionary ?? throw new InvalidOperationException();
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using WriterIndex<int> map = Map(governor);
-        using WriterValue? owner = owned ? WriterValue.Remap(source, map, governor, CancellationToken.None) : null;
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        using WriterValue? owner = writerIndex ? WriterValue.Remap(source, map, governor, CancellationToken.None) : null;
         PdfDictionary result = Assert.IsType<PdfDictionary>(owner is null
-            ? ObjectRemap.RemapIds(source, new Dictionary<int, int>(), governor) : owner.Value);
+            ? ObjectRemap.RemapIds(source, new Dictionary<int, int>(), memory, governor, CancellationToken.None) : owner.Value);
         Assert.NotSame(source, result); Assert.Equal(new[] { first, last }, result.Keys);
         Assert.Same(PdfNull.Instance, Entry(result, "First"));
         Assert.Equal(3, source.Count); Assert.Equal(2, result.Count);

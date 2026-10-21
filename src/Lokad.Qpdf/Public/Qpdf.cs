@@ -1551,7 +1551,7 @@ public static partial class Qpdf
             PdfDictionary? remappedAcroForm = null;
             if (groupAcroForm is not null)
             {
-                if (Writing.ObjectRemap.RemapIds(groupAcroForm, renumber, governor) is not PdfDictionary remapped)
+                if (Writing.ObjectRemap.RemapIds(groupAcroForm, renumber, groupMemory, governor, cancellationToken) is not PdfDictionary remapped)
                 {
                     throw new QpdfException("Split publication rebuilt a non-dictionary form entry.");
                 }
@@ -1561,7 +1561,7 @@ public static partial class Qpdf
             QpdfObject? remappedLabels = null;
             if (slicedLabels is not null)
             {
-                if (Writing.ObjectRemap.RemapIds(slicedLabels, renumber, governor) is not PdfDictionary remappedLabelsDictionary)
+                if (Writing.ObjectRemap.RemapIds(slicedLabels, renumber, groupMemory, governor, cancellationToken) is not PdfDictionary remappedLabelsDictionary)
                 {
                     throw new QpdfException("Split publication rebuilt a non-dictionary label tree.");
                 }
@@ -1575,7 +1575,7 @@ public static partial class Qpdf
             ParserContainers.AddItem(presentationMemory, sub, groupPages, 16L);
             foreach (int id in kept)
             {
-                NumberedObject item = new(renumber[id], Writing.ObjectRemap.RemapIds(pool[id], renumber, governor));
+                NumberedObject item = new(renumber[id], Writing.ObjectRemap.RemapIds(pool[id], renumber, groupMemory, governor, cancellationToken));
                 ParserContainers.AddItem(presentationMemory, sub, item, 16L);
             }
 

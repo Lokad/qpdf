@@ -45,6 +45,13 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Split publication admits changed references, array backing, dictionary tables
+and stream headers during identity remapping. Large remaps can refuse earlier
+under local/shared memory limits. Rebuilt metadata stays funded through complete
+byte capture; unchanged values and stream payloads remain borrowed. Reference
+errors, generation normalization and staged output behavior are preserved.
+No public signatures change.
+
 Shared graph reachability borrows array and frozen dictionary storage instead
 of queuing every child. Repeated references in wide containers can now fit
 smaller memory allowances. Traversal scratch refunds before returning the reached
