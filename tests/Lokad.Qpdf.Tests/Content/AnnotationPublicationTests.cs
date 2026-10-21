@@ -1,5 +1,6 @@
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.TestSupport;
+using Lokad.Qpdf.Tests.Writing;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -33,24 +34,42 @@ public sealed class AnnotationPublicationTests
     private static async Task<InMemoryQpdfHost> Storage(string mode)
     {
         InMemoryQpdfHost host = new();
-        byte[] input = mode.StartsWith("generate-text", StringComparison.Ordinal)
+        byte[] input = mode.StartsWith("os-", StringComparison.Ordinal) ? ObjectStreamPlanningTests.Fixture(201)
+            : mode.StartsWith("generate-text", StringComparison.Ordinal)
             ? AppearanceProgramTests.Fixture(new string(' ', 32768) + "/Tx BMC\n0 0 10 10 re f EMC", "", "/DA (/Helv 17 Tf)", "")
             : mode.StartsWith("generate", StringComparison.Ordinal) ? AppearanceGenerationRegressionTests.CheckboxFixture(64)
             : mode.StartsWith("catalog-extras", StringComparison.Ordinal) || mode.StartsWith("split-max", StringComparison.Ordinal) ? CatalogStorageTests.Fixture(512)
             : mode.StartsWith("catalog", StringComparison.Ordinal) ? OrdinaryFormStorageTests.Fixture(512)
             : mode == "merge" ? FormMergeStorageTests.Fixture(new string('F', 32768), false) : mode is "overlay" or "flatten" ? FlattenResourceStorageTests.Fixture(64, false)
             : ContentSafetyTests.Fixture(System.Text.Encoding.ASCII.GetBytes(new string(' ', 524288) + "BI /W 1 /H 1 /BPC 8 /CS /G ID X EI"), "", false, 1);
+        if (mode.StartsWith("os-preserve", StringComparison.Ordinal))
+        {
+            using InMemoryQpdfHost seed = new();
+            seed.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Transfer);
+            QpdfExecutionResult generated = await Qpdf.ExecuteAsync(seed, new(["input", "--object-streams=generate", "output"]), CancellationToken.None);
+            Assert.Equal(QpdfExecutionStatus.Completed, generated.Status);
+            Assert.True(seed.TryGetOutput(Output, out input));
+        }
         host.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Transfer);
         host.AddInput(QpdfPath.From("payload"), "abc"u8.ToArray(), QpdfInputOwnership.Transfer);
         host.AddInput(QpdfPath.From("overlay"), mode == "merge" ? FormMergeStorageTests.Fixture(new string('F', 32768), true) : mode.StartsWith("overlay-form", StringComparison.Ordinal) ? OverlayFormStorageTests.Fixture() : FlattenResourceStorageTests.Fixture(4, false), QpdfInputOwnership.Transfer);
-        QpdfPath initialPath = mode.StartsWith("split-max", StringComparison.Ordinal) ? QpdfPath.From("output-1") : Output;
+        QpdfPath initialPath = mode.StartsWith("split-max", StringComparison.Ordinal) || mode.StartsWith("os-split", StringComparison.Ordinal) ? QpdfPath.From("output-1") : Output;
         await using IQpdfOutputTransaction initial = await host.CreateOutputAsync(initialPath, CancellationToken.None);
         await initial.WriteAsync(new byte[] { 17, 23, 41 }, CancellationToken.None); await initial.CommitAsync(CancellationToken.None);
         return host;
     }
 
     private static ValueTask<QpdfExecutionResult> Run(Host host, string mode, CancellationToken token)
-        => mode == "split-max-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","splitPages":"2147483647"}""", token)
+        => mode == "os-generate-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","objectStreams":"generate"}""", token)
+            : mode == "os-preserve-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","objectStreams":"preserve"}""", token)
+            : mode == "os-split-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","objectStreams":"generate","splitPages":"1"}""", token)
+            : mode == "os-linearized-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","objectStreams":"generate","linearize":true}""", token)
+            : mode.StartsWith("os-", StringComparison.Ordinal) ? Qpdf.ExecuteAsync(host, new(mode switch {
+                "os-split" => ["input", "--object-streams=generate", "--split-pages=1", "output"],
+                "os-linearized" => ["input", "--object-streams=generate", "--linearize", "output"],
+                "os-preserve" => ["input", "--object-streams=preserve", "output"],
+                _ => ["input", "--object-streams=generate", "output"] }), token)
+            : mode == "split-max-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","splitPages":"2147483647"}""", token)
             : mode == "split-max" ? Qpdf.ExecuteAsync(host, new(["input", "--split-pages=2147483647", "output"]), token)
             : mode == "catalog-extras-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","pages":[{"file":".","range":"1,1"}],"rotate":["+90:2"]}""", token)
             : mode == "catalog-extras" ? Qpdf.ExecuteAsync(host, new(["input", "--pages", ".", "1,1", "--", "--rotate=+90:2", "output"]), token)
@@ -64,6 +83,14 @@ public sealed class AnnotationPublicationTests
                 "normalize" => "--normalize-content=y", _ => "--externalize-inline-images" }, "--ii-min-bytes=0", "--", "output"]), token);
 
     [Theory]
+    [InlineData("os-generate")]
+    [InlineData("os-generate-job")]
+    [InlineData("os-preserve")]
+    [InlineData("os-preserve-job")]
+    [InlineData("os-split")]
+    [InlineData("os-split-job")]
+    [InlineData("os-linearized")]
+    [InlineData("os-linearized-job")]
     [InlineData("catalog-extras")]
     [InlineData("catalog-extras-job")]
     [InlineData("split-max")]
@@ -97,7 +124,7 @@ public sealed class AnnotationPublicationTests
             }
             Assert.Equal(0L, root.ReservedBytes);
         }
-        Assert.InRange(growths, 1, 64);
+        Assert.InRange(growths, 1, mode.StartsWith("os-", StringComparison.Ordinal) ? 96 : 64);
         for (int growth = 1; growth <= growths; growth++)
         {
             using InMemoryQpdfHost storage = await Storage(mode);
@@ -109,7 +136,7 @@ public sealed class AnnotationPublicationTests
                 result = await Run(new(storage, owner, "none", cancellation), mode, cancellation.Token);
                 Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
                 Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded);
-                QpdfPath target = mode.StartsWith("split-max", StringComparison.Ordinal) ? QpdfPath.From("output-1") : Output;
+                QpdfPath target = mode.StartsWith("split-max", StringComparison.Ordinal) || mode.StartsWith("os-split", StringComparison.Ordinal) ? QpdfPath.From("output-1") : Output;
                 Assert.True(storage.TryGetOutput(target, out byte[] bytes)); Assert.Equal(new byte[] { 17, 23, 41 }, bytes);
                 Assert.Equal(0L, storage.OpenLeaseCount);
             }
@@ -118,6 +145,46 @@ public sealed class AnnotationPublicationTests
     }
 
     [Theory]
+    [InlineData("create", "os-generate")]
+    [InlineData("write", "os-generate")]
+    [InlineData("commit", "os-generate")]
+    [InlineData("cancel", "os-generate")]
+    [InlineData("close", "os-generate")]
+    [InlineData("create", "os-generate-job")]
+    [InlineData("write", "os-generate-job")]
+    [InlineData("commit", "os-generate-job")]
+    [InlineData("cancel", "os-generate-job")]
+    [InlineData("close", "os-generate-job")]
+    [InlineData("create", "os-preserve")]
+    [InlineData("write", "os-preserve")]
+    [InlineData("commit", "os-preserve")]
+    [InlineData("cancel", "os-preserve")]
+    [InlineData("close", "os-preserve")]
+    [InlineData("create", "os-preserve-job")]
+    [InlineData("write", "os-preserve-job")]
+    [InlineData("commit", "os-preserve-job")]
+    [InlineData("cancel", "os-preserve-job")]
+    [InlineData("close", "os-preserve-job")]
+    [InlineData("create", "os-split")]
+    [InlineData("write", "os-split")]
+    [InlineData("commit", "os-split")]
+    [InlineData("cancel", "os-split")]
+    [InlineData("close", "os-split")]
+    [InlineData("create", "os-split-job")]
+    [InlineData("write", "os-split-job")]
+    [InlineData("commit", "os-split-job")]
+    [InlineData("cancel", "os-split-job")]
+    [InlineData("close", "os-split-job")]
+    [InlineData("create", "os-linearized")]
+    [InlineData("write", "os-linearized")]
+    [InlineData("commit", "os-linearized")]
+    [InlineData("cancel", "os-linearized")]
+    [InlineData("close", "os-linearized")]
+    [InlineData("create", "os-linearized-job")]
+    [InlineData("write", "os-linearized-job")]
+    [InlineData("commit", "os-linearized-job")]
+    [InlineData("cancel", "os-linearized-job")]
+    [InlineData("close", "os-linearized-job")]
     [InlineData("create", "catalog-extras")]
     [InlineData("write", "catalog-extras")]
     [InlineData("commit", "catalog-extras")]
@@ -216,7 +283,7 @@ public sealed class AnnotationPublicationTests
         {
             QpdfExecutionResult result = await Run(new(storage, owner, phase, cancellation), mode, cancellation.Token);
             Assert.Equal(phase == "cancel" ? QpdfExecutionStatus.Canceled : QpdfExecutionStatus.Failed, result.Status);
-            QpdfPath target = mode.StartsWith("split-max", StringComparison.Ordinal) ? QpdfPath.From("output-1") : Output;
+            QpdfPath target = mode.StartsWith("split-max", StringComparison.Ordinal) || mode.StartsWith("os-split", StringComparison.Ordinal) ? QpdfPath.From("output-1") : Output;
             Assert.Equal(0L, storage.OpenLeaseCount); Assert.True(storage.TryGetOutput(target, out byte[] bytes));
             if (phase == "close") { Assert.True(bytes.AsSpan().StartsWith("%PDF-"u8)); }
             else { Assert.Equal(new byte[] { 17, 23, 41 }, bytes); }

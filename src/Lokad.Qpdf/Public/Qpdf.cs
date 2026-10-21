@@ -495,13 +495,13 @@ public static partial class Qpdf
                     }
 
                     // Finish source copying before attachments allocate from the assembled pool.
-                    HashSet<int> compressedOrig = CollectCompressedOriginals(document.Engine, streamMode == "preserve");
+                    HashSet<int> compressedOrig = CollectCompressedOriginals(document.Engine, streamMode == "preserve", copyMemory, governor, cancellationToken);
                     List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> singleSources = new(2)
                     {
                         (copier.SourceToDestination, compressedOrig),
                     };
                     AttachmentAssembly singleAttached = await AssembleAttachmentsAsync(host, singleExisting, singlePool, settings.Edits, singlePageMode, singleCompress, singleLevel, streamMode == "preserve", singleSources, recovery, limits, governor, diagnostics, copyMemory, cancellationToken).ConfigureAwait(false);
-                    HashSet<int> singleCompressed = ResolveCompressedSet(streamMode, singlePool, singleSources, governor);
+                    HashSet<int> singleCompressed = ResolveCompressedSet(streamMode, singlePool, singleSources, copyMemory, governor, cancellationToken);
                     PdfVersion effective = negotiated;
                     int extensionLevel = negotiatedExtension;
                     if (singleCompressed.Count > 0 && CompareVersions(effective.Major, effective.Minor, 1, 5) < 0)
@@ -530,7 +530,7 @@ public static partial class Qpdf
                     }
                     GovernedSort.Sort(CollectionsMarshal.AsSpan(model)[2..], new WriterObjectOrder(), governor, cancellationToken);
 
-                    List<List<int>> singleGroups = PlanObjectStreamGroups(singleCompressed, governor);
+                    List<List<int>> singleGroups = PlanObjectStreamGroups(singleCompressed, copyMemory, governor, cancellationToken);
                     IReadOnlyList<IReadOnlyList<int>>? singleStreams = singleGroups.Count == 0 ? null : singleGroups;
                     IReadOnlyDictionary<int, int>? singleOriginalIds = null;
                     if (settings.Qdf.Enabled)
@@ -960,7 +960,7 @@ public static partial class Qpdf
                     originalId1 = TryGetOriginalId(document.Engine);
                 }
 
-                sourceCompressed.Add(CollectCompressedOriginals(document.Engine, settings.ObjectStreams is not ("disable" or "generate")));
+                sourceCompressed.Add(CollectCompressedOriginals(document.Engine, settings.ObjectStreams is not ("disable" or "generate"), selectionMemory, governor, cancellationToken));
 
                 IReadOnlyList<int> requested = sources[s].Selection.Resolve(document.PageReferences.Count, limits.MaxContainerSize);
                 foreach (int pageNumber in requested)
@@ -1306,7 +1306,7 @@ public static partial class Qpdf
             multiStreamMode = "disable";
         }
 
-        HashSet<int> multiCompressed = ResolveCompressedSet(multiStreamMode, pool, multiSources, governor);
+        HashSet<int> multiCompressed = ResolveCompressedSet(multiStreamMode, pool, multiSources, selectionMemory, governor, cancellationToken);
         PdfVersion effective = negotiatedMulti;
         int extensionLevel = negotiatedMultiExtension;
         if (multiCompressed.Count > 0 && CompareVersions(effective.Major, effective.Minor, 1, 5) < 0)
@@ -1315,8 +1315,6 @@ public static partial class Qpdf
             extensionLevel = 0;
         }
 
-        List<List<int>> multiGroups = PlanObjectStreamGroups(multiCompressed, governor);
-        IReadOnlyList<IReadOnlyList<int>>? multiStreams = multiGroups.Count == 0 ? null : multiGroups;
         IReadOnlyDictionary<int, int>? multiOriginalIds = null;
         if (settings.Qdf.Enabled)
         {
@@ -1382,6 +1380,8 @@ public static partial class Qpdf
         if (governor.HasTypedResult) { selectionMemory.PrepareResultStorage(checked(24L * mapping.Count)); }
         if (!splitPages.HasValue)
         {
+            List<List<int>> multiGroups = PlanObjectStreamGroups(multiCompressed, selectionMemory, governor, cancellationToken);
+            IReadOnlyList<IReadOnlyList<int>>? multiStreams = multiGroups.Count == 0 ? null : multiGroups;
             int modelCount = checked(pool.Count + 2);
             selectionMemory.Reserve(checked(64L + 16L * modelCount));
             List<NumberedObject> model = new(modelCount)
@@ -1580,8 +1580,8 @@ public static partial class Qpdf
             }
 
             QpdfPath path = QpdfPath.From(names[g]);
-            HashSet<int> groupCompressed = RemapCompressedSet(multiCompressed, renumber);
-            List<List<int>> groupGroups = PlanObjectStreamGroups(groupCompressed, governor);
+            HashSet<int> groupCompressed = RemapCompressedSet(multiCompressed, renumber, groupMemory, governor, cancellationToken);
+            List<List<int>> groupGroups = PlanObjectStreamGroups(groupCompressed, groupMemory, governor, cancellationToken);
             IReadOnlyList<IReadOnlyList<int>>? groupStreams = groupGroups.Count == 0 ? null : groupGroups;
             Dictionary<int, int>? groupOriginalIds = null;
             if (multiOriginalIds is not null)
@@ -2807,27 +2807,35 @@ public static partial class Qpdf
         throw new QpdfParseException("--object-streams mode must be disable, preserve, or generate.", 0L, null);
     }
 
-    private static HashSet<int> CollectCompressedOriginals(DocumentEngine engine, bool preserve)
+    private static HashSet<int> CollectCompressedOriginals(DocumentEngine engine, bool preserve,
+        ParserMemoryScope ownership, ResourceGovernor governor, CancellationToken token)
     {
         if (engine is null)
         {
             throw new ArgumentNullException(nameof(engine));
         }
 
-        HashSet<int> compressed = new();
-        if (!preserve) { return compressed; }
-        foreach (KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
+        ownership.CheckOwner(governor); token.ThrowIfCancellationRequested();
+        using ParserMemoryScope candidate = ParserMemoryScope.Create(governor);
+        HashSet<int> compressed = ParserContainers.CreateSet<int>(candidate);
+        if (preserve)
         {
-            if (entry.Value.Kind == XrefEntryKind.Compressed)
+            foreach (KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
             {
-                compressed.Add(entry.Key);
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                if (entry.Value.Kind == XrefEntryKind.Compressed)
+                {
+                    ParserContainers.AddSetItem(candidate, compressed, entry.Key, sizeof(int));
+                }
             }
         }
 
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        candidate.TransferTo(ownership);
         return compressed;
     }
 
-    private static bool IsCompressibleValue(int number, QpdfObject value, ResourceGovernor governor)
+    private static bool IsCompressibleValue(int number, QpdfObject value, ResourceGovernor governor, CancellationToken token)
     {
         if (number == 1 || number == 2)
         {
@@ -2841,11 +2849,11 @@ public static partial class Qpdf
 
         if (value is PdfDictionary dictionary)
         {
-            if (PdfDictionaryLookup.TryGet(dictionary, "Type"u8, governor, CancellationToken.None, out QpdfObject typeRaw)
+            if (PdfDictionaryLookup.TryGet(dictionary, "Type"u8, governor, token, out QpdfObject typeRaw)
                 && typeRaw is PdfName typeName && typeName.RawSpan.SequenceEqual("Sig"u8)
-                && PdfDictionaryLookup.TryGet(dictionary, "ByteRange"u8, governor, CancellationToken.None, out QpdfObject byteRange)
+                && PdfDictionaryLookup.TryGet(dictionary, "ByteRange"u8, governor, token, out QpdfObject byteRange)
                 && byteRange is not PdfNull
-                && PdfDictionaryLookup.TryGet(dictionary, "Contents"u8, governor, CancellationToken.None, out QpdfObject contents)
+                && PdfDictionaryLookup.TryGet(dictionary, "Contents"u8, governor, token, out QpdfObject contents)
                 && contents is not PdfNull)
             {
                 return false;
@@ -2859,7 +2867,7 @@ public static partial class Qpdf
         string mode,
         IReadOnlyDictionary<int, QpdfObject> pool,
         List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> sources,
-        ResourceGovernor governor)
+        ParserMemoryScope ownership, ResourceGovernor governor, CancellationToken token)
     {
         if (mode is null)
         {
@@ -2881,9 +2889,13 @@ public static partial class Qpdf
             throw new ArgumentNullException(nameof(governor));
         }
 
-        HashSet<int> compressed = new();
+        ownership.CheckOwner(governor); token.ThrowIfCancellationRequested();
+        using ParserMemoryScope candidate = ParserMemoryScope.Create(governor);
+        HashSet<int> compressed = ParserContainers.CreateSet<int>(candidate);
         if (mode == "disable")
         {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            candidate.TransferTo(ownership);
             return compressed;
         }
 
@@ -2891,13 +2903,15 @@ public static partial class Qpdf
         {
             foreach (KeyValuePair<int, QpdfObject> entry in pool)
             {
-                governor.NoteOperation();
-                if (IsCompressibleValue(entry.Key, entry.Value, governor))
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                if (IsCompressibleValue(entry.Key, entry.Value, governor, token))
                 {
-                    compressed.Add(entry.Key);
+                    ParserContainers.AddSetItem(candidate, compressed, entry.Key, sizeof(int));
                 }
             }
 
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            candidate.TransferTo(ownership);
             return compressed;
         }
 
@@ -2908,23 +2922,27 @@ public static partial class Qpdf
 
         foreach ((IReadOnlyDictionary<int, int> map, HashSet<int> origs) in sources)
         {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             foreach (int orig in origs)
             {
-                governor.NoteOperation();
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 if (map.TryGetValue(orig, out int dest)
                     && pool.TryGetValue(dest, out QpdfObject? value)
                     && value is not null
-                    && IsCompressibleValue(dest, value, governor))
+                    && IsCompressibleValue(dest, value, governor, token))
                 {
-                    compressed.Add(dest);
+                    ParserContainers.AddSetItem(candidate, compressed, dest, sizeof(int));
                 }
             }
         }
 
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        candidate.TransferTo(ownership);
         return compressed;
     }
 
-    private static List<List<int>> PlanObjectStreamGroups(HashSet<int> compressed, ResourceGovernor governor)
+    private static List<List<int>> PlanObjectStreamGroups(HashSet<int> compressed,
+        ParserMemoryScope ownership, ResourceGovernor governor, CancellationToken token)
     {
         if (compressed is null)
         {
@@ -2936,27 +2954,45 @@ public static partial class Qpdf
             throw new ArgumentNullException(nameof(governor));
         }
 
-        List<int> ordered = new(compressed);
-        ordered.Sort();
-        List<List<int>> groups = new();
-        if (ordered.Count == 0)
+        ownership.CheckOwner(governor); token.ThrowIfCancellationRequested();
+        using ParserMemoryScope candidate = ParserMemoryScope.Create(governor);
+        List<List<int>> groups = ParserContainers.CreateList<List<int>>(candidate);
+        if (compressed.Count == 0)
         {
+            candidate.TransferTo(ownership);
             return groups;
         }
 
-        int streamCount = (ordered.Count + 99) / 100;
-        int perStream = (ordered.Count + streamCount - 1) / streamCount;
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        scratch.Reserve(64L + sizeof(int) * (long)compressed.Count);
+        List<int> ordered = new(compressed.Count);
+        foreach (int number in compressed)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); ordered.Add(number);
+        }
+        GovernedSort.Sort(CollectionsMarshal.AsSpan(ordered), new WriterNumberOrder(), governor, token);
+        int streamCount = 1 + (ordered.Count - 1) / 100;
+        int perStream = 1 + (ordered.Count - 1) / streamCount;
         for (int i = 0; i < ordered.Count; i += perStream)
         {
-            governor.NoteOperation();
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             int take = Math.Min(perStream, ordered.Count - i);
-            groups.Add(ordered.GetRange(i, take));
+            candidate.Reserve(64L + sizeof(int) * (long)take);
+            List<int> group = new(take);
+            for (int index = i; index < i + take; index++)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation(); group.Add(ordered[index]);
+            }
+            ParserContainers.AddItem(candidate, groups, group, IntPtr.Size);
         }
 
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        candidate.TransferTo(ownership);
         return groups;
     }
 
-    private static HashSet<int> RemapCompressedSet(HashSet<int> compressed, Dictionary<int, int> renumber)
+    private static HashSet<int> RemapCompressedSet(HashSet<int> compressed, Dictionary<int, int> renumber,
+        ParserMemoryScope ownership, ResourceGovernor governor, CancellationToken token)
     {
         if (compressed is null)
         {
@@ -2968,15 +3004,20 @@ public static partial class Qpdf
             throw new ArgumentNullException(nameof(renumber));
         }
 
-        HashSet<int> remapped = new();
+        ownership.CheckOwner(governor); token.ThrowIfCancellationRequested();
+        using ParserMemoryScope candidate = ParserMemoryScope.Create(governor);
+        HashSet<int> remapped = ParserContainers.CreateSet<int>(candidate);
         foreach (int id in compressed)
         {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (renumber.TryGetValue(id, out int mapped))
             {
-                remapped.Add(mapped);
+                ParserContainers.AddSetItem(candidate, remapped, mapped, sizeof(int));
             }
         }
 
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        candidate.TransferTo(ownership);
         return remapped;
     }
 
@@ -3560,7 +3601,7 @@ public static partial class Qpdf
                 pool[id] = copyCopier.CopiedObjects[id];
             }
 
-            compressibleSources.Add((copyCopier.SourceToDestination, CollectCompressedOriginals(source.Engine, preserveObjectStreams)));
+            compressibleSources.Add((copyCopier.SourceToDestination, CollectCompressedOriginals(source.Engine, preserveObjectStreams, ownership, governor, cancellationToken)));
             source.Engine.TransferExclusiveValuesTo(ownership);
         }
 

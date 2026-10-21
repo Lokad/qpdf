@@ -45,6 +45,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Object-stream preparation admits candidate sets, remapping, sorting storage and
+group capacity before allocation. Large generate/preserve/split jobs can refuse
+earlier under local or shared memory limits, and cancellation interrupts planning.
+Sorted balanced groups of at most 100 objects, signature exclusions and staged
+output commit behavior remain unchanged. No public signatures change.
+
 Trailer IDs are checked through borrowed byte storage before copying. Empty
 and greater-than-256-byte first IDs retain their existing rejection policy;
 rejected large strings no longer allocate payload copies. Accepted IDs still
