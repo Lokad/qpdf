@@ -3578,7 +3578,7 @@ public static partial class Qpdf
             }
         }
 
-        List<string> duplicates = new();
+        bool duplicateKeys = false;
         foreach (AttachmentAdd add in edits.Adds)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -3597,11 +3597,12 @@ public static partial class Qpdf
 
             if (!add.Replace && existing.ContainsKey(key))
             {
-                duplicates.Add(key);
+                duplicateKeys = true;
                 continue;
             }
 
             byte[] data = await ReadAttachmentFileAsync(host, add.File, limits, governor, ownership, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (add.MimeType is not null && !IsAscii(add.MimeType))
             {
                 throw new QpdfParseException("Attachment MIME type must be ASCII.", 0L, null);
@@ -3623,7 +3624,8 @@ public static partial class Qpdf
             }
 
             ownership.Reserve(64L);
-            pool[streamId] = new PdfStream(streamDict, stored);
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            pool[streamId] = PdfStream.FromOwnedData(streamDict, stored);
             ids.Add(streamId);
             PdfDictionary spec = AttachmentBuilder.BuildFilespecDictionary(fileName, add.Description, streamId);
             int specId = nextId;
@@ -3638,7 +3640,7 @@ public static partial class Qpdf
             existing[key] = new PdfReference(specId, 0);
         }
 
-        if (duplicates.Count > 0)
+        if (duplicateKeys)
         {
             throw new QpdfParseException("Attachments with conflicting keys already exist; use --replace to replace or --key to specify a different key.", 0L, null);
         }

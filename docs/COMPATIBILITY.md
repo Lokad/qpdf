@@ -45,6 +45,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Attachment assembly adopts the owned read/compression payload instead of making
+another defensive copy. Cancellation at attachment-input close is checked before
+metadata construction. Duplicate-key conflicts retain their fixed error and
+processing behavior without storing unused copies of the conflicting keys.
+Public stream construction remains defensive; no public signatures change.
+
 `--test-json-schema` scans admitted UTF-8 tokens for top-level help coverage,
 without constructing a DOM for the complete generated output. UTF-8 capacity and
 key/diagnostic storage receive admission before allocation, so tight limits can
