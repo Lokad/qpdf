@@ -4303,7 +4303,9 @@ public static partial class Qpdf
         QpdfLimits limits,
         CancellationToken cancellationToken)
     {
-        return EditAttachmentsAsync(host, inputPath, outputPath, ToAttachmentAdds(attachments, nameof(attachments)), [], [], limits, cancellationToken);
+        ArgumentNullException.ThrowIfNull(attachments);
+        if (attachments.Count == 0) { throw new ArgumentException("At least one attachment is required.", nameof(attachments)); }
+        return EditAttachmentsAsync(host, inputPath, outputPath, attachments, null, null, limits, cancellationToken);
     }
 
     /// <summary>
@@ -4342,23 +4344,7 @@ public static partial class Qpdf
             throw new ArgumentException("At least one attachment key is required.", nameof(keys));
         }
 
-        List<string> removes = new(keys.Count);
-        foreach (string key in keys)
-        {
-            if (key is null)
-            {
-                throw new ArgumentException("Attachment keys must not contain null entries.", nameof(keys));
-            }
-
-            if (key.Length == 0)
-            {
-                throw new ArgumentException("Attachment keys must not be empty.", nameof(keys));
-            }
-
-            removes.Add(key);
-        }
-
-        return EditAttachmentsAsync(host, inputPath, outputPath, [], removes, [], limits, cancellationToken);
+        return EditAttachmentsAsync(host, inputPath, outputPath, null, keys, null, limits, cancellationToken);
     }
 
     /// <summary>
@@ -4397,107 +4383,91 @@ public static partial class Qpdf
             throw new ArgumentException("At least one attachment source is required.", nameof(sources));
         }
 
-        List<AttachmentCopy> copies = new(sources.Count);
-        foreach (QpdfAttachmentCopy source in sources)
-        {
-            if (source is null)
-            {
-                throw new ArgumentException("Attachment sources must not contain null entries.", nameof(sources));
-            }
-
-            copies.Add(new AttachmentCopy(source.Input.Value, source.Prefix));
-        }
-
-        return EditAttachmentsAsync(host, inputPath, outputPath, [], [], copies, limits, cancellationToken);
+        return EditAttachmentsAsync(host, inputPath, outputPath, null, null, sources, limits, cancellationToken);
     }
 
-    private static List<AttachmentAdd> ToAttachmentAdds(IReadOnlyList<QpdfAttachmentSpec> attachments, string name)
+    private static IReadOnlyList<AttachmentAdd> ToAttachmentAdds(IReadOnlyList<QpdfAttachmentSpec> attachments,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
-        if (attachments is null)
+        // Exact cardinality funds the list backing and all projected records in
+        // one request; cancellation is independent of this capacity admission.
+        int count = attachments.Count;
+        memory.Reserve(checked(64L + 88L * count));
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        List<AttachmentAdd> adds = new(count);
+        for (int index = 0; index < count; index++)
         {
-            throw new ArgumentNullException(name);
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            QpdfAttachmentSpec spec = attachments[index];
+            if (spec is null) { throw new ArgumentException("Attachments must not contain null entries.", nameof(attachments)); }
+            if (spec.File.Length == 0) { throw new ArgumentException("Attachment files must not be empty.", nameof(attachments)); }
+            if (spec.Key is not null && spec.Key.Length == 0) { throw new ArgumentException("Attachment keys must not be empty.", nameof(attachments)); }
+            if (spec.FileName is not null && spec.FileName.Length == 0) { throw new ArgumentException("Attachment filenames must not be empty.", nameof(attachments)); }
+            adds.Add(new AttachmentAdd(spec.File, spec.Key, spec.FileName,
+                string.IsNullOrEmpty(spec.CreationDate) ? null : spec.CreationDate,
+                string.IsNullOrEmpty(spec.ModDate) ? null : spec.ModDate,
+                string.IsNullOrEmpty(spec.MimeType) ? null : spec.MimeType,
+                string.IsNullOrEmpty(spec.Description) ? null : spec.Description, spec.Replace));
         }
-
-        if (attachments.Count == 0)
-        {
-            throw new ArgumentException("At least one attachment is required.", name);
-        }
-
-        List<AttachmentAdd> adds = new(attachments.Count);
-        foreach (QpdfAttachmentSpec spec in attachments)
-        {
-            if (spec is null)
-            {
-                throw new ArgumentException("Attachments must not contain null entries.", name);
-            }
-
-            if (spec.File.Length == 0)
-            {
-                throw new ArgumentException("Attachment files must not be empty.", name);
-            }
-
-            if (spec.Key is not null && spec.Key.Length == 0)
-            {
-                throw new ArgumentException("Attachment keys must not be empty.", name);
-            }
-
-            if (spec.FileName is not null && spec.FileName.Length == 0)
-            {
-                throw new ArgumentException("Attachment filenames must not be empty.", name);
-            }
-
-            adds.Add(new AttachmentAdd(
-                spec.File,
-                spec.Key,
-                spec.FileName,
-                spec.CreationDate is null || spec.CreationDate.Length == 0 ? null : spec.CreationDate,
-                spec.ModDate is null || spec.ModDate.Length == 0 ? null : spec.ModDate,
-                spec.MimeType is null || spec.MimeType.Length == 0 ? null : spec.MimeType,
-                spec.Description is null || spec.Description.Length == 0 ? null : spec.Description,
-                spec.Replace));
-        }
-
         return adds;
     }
 
     private static async ValueTask<QpdfAttachmentEditResult> EditAttachmentsAsync(
-        IQpdfHost host,
-        QpdfPath inputPath,
-        QpdfPath outputPath,
-        List<AttachmentAdd> adds,
-        List<string> removes,
-        List<AttachmentCopy> copies,
-        QpdfLimits limits,
-        CancellationToken cancellationToken)
+        IQpdfHost host, QpdfPath inputPath, QpdfPath outputPath,
+        IReadOnlyList<QpdfAttachmentSpec>? attachments, IReadOnlyList<string>? keys, IReadOnlyList<QpdfAttachmentCopy>? sources,
+        QpdfLimits limits, CancellationToken cancellationToken)
     {
-        if (host is null)
-        {
-            throw new ArgumentNullException(nameof(host));
-        }
-
-        if (limits is null)
-        {
-            throw new ArgumentNullException(nameof(limits));
-        }
-
-        limits.Validate();
-        WholeFilePlan plan = new(inputPath, outputPath, QpdfRecoveryMode.Strict)
-        {
-            AttachmentsToAdd = adds,
-            AttachmentsToRemove = removes,
-            AttachmentsToCopy = copies,
-        };
+        ArgumentNullException.ThrowIfNull(host); ArgumentNullException.ThrowIfNull(limits); limits.Validate();
         ResourceGovernor governor = new(limits, cancellationToken, host);
-        governor.PrepareTypedResult(QpdfAttachmentEditResult.StorageBytes);
         try
         {
-            DiagnosticBag diagnostics = new(governor);
-            (MultiPageSelectionOutcome result, int attachmentCount) = await WholeFileCoreAsync(
-                host, plan, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+            governor.PrepareTypedResult(QpdfAttachmentEditResult.StorageBytes);
+            MultiPageSelectionOutcome result; int attachmentCount;
+            using (ParserMemoryScope requests = ParserMemoryScope.Create(governor))
+            {
+                requests.Reserve(1024L); // Bounded plan/configuration metadata.
+                IReadOnlyList<AttachmentAdd> adds = attachments is null ? [] : ToAttachmentAdds(attachments, requests, governor, cancellationToken);
+                List<string>? removes = null;
+                if (keys is not null)
+                {
+                    int count = keys.Count;
+                    requests.Reserve(checked(64L + IntPtr.Size * (long)count));
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    removes = new(count);
+                    for (int index = 0; index < count; index++)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                        string key = keys[index];
+                        if (key is null) { throw new ArgumentException("Attachment keys must not contain null entries.", nameof(keys)); }
+                        if (key.Length == 0) { throw new ArgumentException("Attachment keys must not be empty.", nameof(keys)); }
+                        removes.Add(key);
+                    }
+                }
+                List<AttachmentCopy>? copies = null;
+                if (sources is not null)
+                {
+                    int count = sources.Count;
+                    requests.Reserve(checked(64L + 40L * count));
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    copies = new(count);
+                    for (int index = 0; index < count; index++)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                        QpdfAttachmentCopy source = sources[index];
+                        if (source is null) { throw new ArgumentException("Attachment sources must not contain null entries.", nameof(sources)); }
+                        copies.Add(new AttachmentCopy(source.Input.Value, source.Prefix));
+                    }
+                }
+                WholeFilePlan plan = new(inputPath, outputPath, QpdfRecoveryMode.Strict)
+                {
+                    AttachmentsToAdd = adds, AttachmentsToRemove = removes is null ? [] : removes,
+                    AttachmentsToCopy = copies is null ? [] : copies,
+                };
+                DiagnosticBag diagnostics = new(governor);
+                (result, attachmentCount) = await WholeFileCoreAsync(host, plan, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+            }
             QpdfAttachmentEditResult edited = new(attachmentCount, result.Warnings, governor.TypedCounters, true);
-            governor.AcceptTypedResult();
-            governor.FinishTypedCounters();
-            return edited;
+            governor.AcceptTypedResult(); governor.FinishTypedCounters(); return edited;
         }
         finally { governor.AbandonTypedCounters(); }
     }

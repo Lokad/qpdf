@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
 using System.Reflection;
 using Lokad.Qpdf.Commands;
@@ -29,6 +30,23 @@ public sealed class AttachmentConstructionTests
             public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken token)
                 => ValueTask.FromResult<ReadOnlyMemory<byte>>(host.Data);
             public ValueTask DisposeAsync() { host.Close(); return ValueTask.CompletedTask; }
+        }
+    }
+
+    private sealed class CancelingGrowth(IMemoryBudget inner, CancellationTokenSource cancellation) : IMemoryBudget
+    {
+        public IMemoryScope CreateScope() => inner.CreateScope();
+        public bool TryReserve(long bytes, [NotNullWhen(true)] out IMemoryReservation? reservation)
+        {
+            bool accepted = inner.TryReserve(bytes, out IMemoryReservation? storage);
+            reservation = storage is null ? null : new Reservation(storage, cancellation); return accepted;
+        }
+        private sealed class Reservation(IMemoryReservation inner, CancellationTokenSource cancellation) : IMemoryReservation
+        {
+            public long Bytes => inner.Bytes;
+            public bool TryResize(long bytes)
+            { bool accepted = inner.TryResize(bytes); if (bytes >= 65536) { cancellation.Cancel(); } return accepted; }
+            public void Dispose() => inner.Dispose();
         }
     }
 
@@ -190,6 +208,26 @@ public sealed class AttachmentConstructionTests
             : new byte[] { 0xfe, 0xff }.Concat(System.Text.Encoding.BigEndianUnicode.GetBytes(value)).ToArray();
         Assert.Equal(expected, name.ValueMemory.ToArray()); Assert.Equal(!ascii, name.Hex);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CancellationAfterTextAdmissionPrecedesEncodingAndRefundsBothTokens(bool governorToken)
+    {
+        string value = new('\u00e9', 1048576);
+        RecordingMemoryBudget root = new(8 * 1024 * 1024); using IMemoryScope caller = root.CreateScope();
+        using CancellationTokenSource cancellation = new(); Host host = new([], null, new CancelingGrowth(caller, cancellation));
+        ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None, host);
+        using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
+        {
+            long allocated = GC.GetAllocatedBytesForCurrentThread();
+            Assert.ThrowsAny<OperationCanceledException>(() => AttachmentBuilder.BuildFilespecDictionary(value, null, 3,
+                governor, memory, governorToken ? CancellationToken.None : cancellation.Token));
+            Assert.True(cancellation.IsCancellationRequested);
+            Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 65536L);
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, root.ReservedBytes);
     }
 
 }

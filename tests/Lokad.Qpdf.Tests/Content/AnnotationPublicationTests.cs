@@ -34,7 +34,8 @@ public sealed class AnnotationPublicationTests
     private static async Task<InMemoryQpdfHost> Storage(string mode)
     {
         InMemoryQpdfHost host = new();
-        byte[] input = mode.StartsWith("os-", StringComparison.Ordinal) ? ObjectStreamPlanningTests.Fixture(mode.Contains("qdf", StringComparison.Ordinal) ? 16 : 201)
+        byte[] input = mode.StartsWith("attachment", StringComparison.Ordinal) ? File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "minimal-1page.pdf"))
+            : mode.StartsWith("os-", StringComparison.Ordinal) ? ObjectStreamPlanningTests.Fixture(mode.Contains("qdf", StringComparison.Ordinal) ? 16 : 201)
             : mode.StartsWith("generate-text", StringComparison.Ordinal)
             ? AppearanceProgramTests.Fixture(new string(' ', 32768) + "/Tx BMC\n0 0 10 10 re f EMC", "", "/DA (/Helv 17 Tf)", "")
             : mode.StartsWith("generate", StringComparison.Ordinal) ? AppearanceGenerationRegressionTests.CheckboxFixture(64)
@@ -60,7 +61,11 @@ public sealed class AnnotationPublicationTests
     }
 
     private static ValueTask<QpdfExecutionResult> Run(Host host, string mode, CancellationToken token)
-        => mode == "os-qdf-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","objectStreams":"generate","qdf":""}""", token)
+        => mode == "attachment-job" ? Qpdf.ExecuteJobAsync(host, System.Text.Json.JsonSerializer.Serialize(new
+            { inputFile = "input", outputFile = "output", addAttachment = Enumerable.Range(0, 4).Select(index => new
+                { file = "payload", key = index.ToString("D3"), filename = "Euro \u20ac", description = new string('x', 256) }).ToArray() }), token)
+            : mode == "attachment" ? Qpdf.ExecuteAsync(host, new(AttachmentArguments()), token)
+            : mode == "os-qdf-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","objectStreams":"generate","qdf":""}""", token)
             : mode == "os-qdf-noids-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","objectStreams":"generate","qdf":"","noOriginalObjectIds":""}""", token)
             : mode == "os-split-qdf-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","objectStreams":"generate","qdf":"","splitPages":"1"}""", token)
             : mode == "os-split-qdf-noids-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","objectStreams":"generate","qdf":"","noOriginalObjectIds":"","splitPages":"1"}""", token)
@@ -90,6 +95,15 @@ public sealed class AnnotationPublicationTests
             : ["input", mode switch { "generate" or "generate-text" => "--generate-appearances", "flatten" => "--flatten-annotations=all", "coalesce" => "--coalesce-contents",
                 "normalize" => "--normalize-content=y", _ => "--externalize-inline-images" }, "--ii-min-bytes=0", "--", "output"]), token);
 
+    // Keep exhaustive growth refusal bounded; construction tests cover 65+ name trees.
+    private static IReadOnlyList<string> AttachmentArguments()
+    {
+        List<string> arguments = ["input"];
+        for (int index = 0; index < 4; index++)
+        { arguments.AddRange(["--add-attachment", "payload", "--key=" + index.ToString("D3"), "--filename=Euro \u20ac", "--description=" + new string('x', 256), "--"]); }
+        arguments.Add("output"); return arguments;
+    }
+
     [Theory]
     [InlineData("os-qdf")]
     [InlineData("os-qdf-job")]
@@ -111,6 +125,8 @@ public sealed class AnnotationPublicationTests
     [InlineData("catalog-extras-job")]
     [InlineData("split-max")]
     [InlineData("split-max-job")]
+    [InlineData("attachment")]
+    [InlineData("attachment-job")]
     [InlineData("catalog")]
     [InlineData("catalog-job")]
     [InlineData("flatten")]
@@ -262,6 +278,16 @@ public sealed class AnnotationPublicationTests
     [InlineData("commit", "split-max-job")]
     [InlineData("cancel", "split-max-job")]
     [InlineData("close", "split-max-job")]
+    [InlineData("create", "attachment")]
+    [InlineData("write", "attachment")]
+    [InlineData("commit", "attachment")]
+    [InlineData("cancel", "attachment")]
+    [InlineData("close", "attachment")]
+    [InlineData("create", "attachment-job")]
+    [InlineData("write", "attachment-job")]
+    [InlineData("commit", "attachment-job")]
+    [InlineData("cancel", "attachment-job")]
+    [InlineData("close", "attachment-job")]
     [InlineData("create", "catalog")]
     [InlineData("write", "catalog")]
     [InlineData("commit", "catalog")]

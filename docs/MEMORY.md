@@ -226,6 +226,9 @@ checks cancellation in bounded chunks; small fixed vocabulary headers reuse
 the admitted name table. Owned input/compression payloads transfer into stream
 wrappers without another payload copy. Failure refunds the construction owner;
 publication still holds the completed graph and bytes through host cleanup.
+Typed attachment projections use known cardinality to admit one exact list and
+record allowance. Their temporary owner stays live through execution and refunds
+before final typed counters are captured, including failure and cancellation.
 
 Prepared JSON UTF-8 buffers and sidecar names stay under the private preparation
 owner through awaited publication and transaction cleanup. Host callbacks borrow

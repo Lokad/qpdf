@@ -45,6 +45,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Typed attachment add/copy/remove calls admit their request projection under the
+invocation governor before allocating lists or records and before opening inputs.
+Cancellation interrupts projection. Null/empty containers still reject at entry;
+entry validation now runs in the asynchronous operation, where cancellation or
+admission refusal can precede an invalid-entry error. Public signatures are stable.
+
 Attachment metadata receives admission before encoding and checks cancellation
 while scanning/copying. Headers and name-tree arrays adopt admitted storage;
 large metadata can now refuse before materialization. Existing ASCII/UTF-16
