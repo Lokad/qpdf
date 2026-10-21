@@ -1,3 +1,4 @@
+using System.Buffers.Text;
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
@@ -323,6 +324,12 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
     internal IEnumerable<int> InspectionObjectNumbers => _inspectionObjects?.Keys ?? [];
 
     bool IIndirectResolver.TryResolve(PdfReference reference, out QpdfObject? value)
+        => TryResolve(reference, false, out value);
+
+    internal PdfArray? ResolveArray(PdfReference reference)
+        => TryResolve(reference, true, out QpdfObject? value) ? value as PdfArray : null;
+
+    private bool TryResolve(PdfReference reference, bool arrayOnly, out QpdfObject? value)
     {
         _ = Cache;
         if (reference is null)
@@ -372,8 +379,42 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
             return true;
         }
 
+        if (arrayOnly && entry.Kind == XrefEntryKind.Uncompressed && !StartsWithArray(reference, entry.First))
+        { value = null; return false; }
         value = Load(reference.ObjectNumber, entry);
         return true;
+    }
+
+    // Inspect only the header and first value token. A stream dictionary stops
+    // here, so JSON can report its reference without copying the stream payload.
+    // Arrays and compressed members still use the ordinary parser/cache owner.
+    private bool StartsWithArray(PdfReference reference, long offset)
+    {
+        _governor.CheckCancellation(); _governor.ReserveMemory(128L);
+        PdfTokenizer? tokenizer = null;
+        try
+        {
+            ReadOnlyMemory<byte> data = _selectiveInput is null ? _data : _selectiveInput.At(offset);
+            tokenizer = _idleTokenizer ?? new(data); _idleTokenizer = null;
+            if (_selectiveInput is null) { tokenizer.ResetForObject(offset); }
+            else { tokenizer.ResetForMember(data); }
+            // Uncertain/mismatched headers go through full parsing for its
+            // existing validation and recovery, rather than being hidden.
+            if (!tokenizer.TryReadToken(out PdfToken number, false, _governor) || number.Kind != PdfTokenKind.Integer
+                || !Utf8Parser.TryParse(number.Data.Span, out int objectNumber, out int numberBytes)
+                || numberBytes != number.Data.Length || objectNumber != reference.ObjectNumber
+                || !tokenizer.TryReadToken(out PdfToken generation, false, _governor) || generation.Kind != PdfTokenKind.Integer
+                || !Utf8Parser.TryParse(generation.Data.Span, out int generationNumber, out int generationBytes)
+                || generationBytes != generation.Data.Length || generationNumber != reference.Generation
+                || !tokenizer.TryReadToken(out PdfToken marker, false, _governor) || marker.Kind != PdfTokenKind.Object)
+            { return true; }
+            return !tokenizer.TryReadToken(out PdfToken first, false, _governor) || first.Kind == PdfTokenKind.ArrayOpen;
+        }
+        finally
+        {
+            if (tokenizer is not null) { _idleTokenizer = tokenizer; }
+            _governor.ReleaseMemory(128L);
+        }
     }
 
     internal QpdfObject Load(int number)

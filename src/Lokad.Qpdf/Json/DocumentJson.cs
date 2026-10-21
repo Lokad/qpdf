@@ -927,7 +927,7 @@ internal static class DocumentJson
 
         // Resolve only the outer container. Entries keep their stream identity;
         // malformed non-array values remain visible in the inspection report.
-        if (contents is PdfReference && TryResolve(engine, contents) is PdfArray indirect) { contents = indirect; }
+        if (contents is PdfReference reference && engine.ResolveArray(reference) is PdfArray indirect) { contents = indirect; }
         builder.Append((char)91);
         if (contents is PdfArray array)
         {

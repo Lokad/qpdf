@@ -56,6 +56,10 @@ indirect arrays. Malformed instructions behind those arrays now fail content
 checking just as direct arrays do. Rotation keeps existing unreadable-content
 warnings; growing content/annotation containers and traversal sets receive
 admission before allocation, so large rotations can refuse earlier.
+Page JSON identifies an uncompressed content array from its first value token;
+ordinary stream references no longer require materializing their payloads.
+Array contents, compressed members, cached values and generation checks retain
+the ordinary reader's parsing and ownership rules.
 
 JSON outline inspection rejects cycles through sibling links as well as child
 links, with cancellation and nesting bounds independent of cycle detection.

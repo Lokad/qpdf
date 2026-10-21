@@ -14,6 +14,7 @@ public sealed class InspectionFailureTests
         "acroform" => AcroFormJsonTests.Fixture("/Parent 6 0 R", "/T (" + new string('N', 32768) + ")", "/FT /Ch /TU (label) /Opt [(one) [(export) (two)]]"),
         "contents" => PageJsonStorageTests.Fixture("6 0 R", "[" + string.Join(' ', Enumerable.Repeat("4 0 R", 256)) + "]", "/Resources << >>"),
         "images" => PageJsonStorageTests.Fixture("[]", "[]", "/Resources << /XObject << " + string.Join(' ', Enumerable.Range(0, 128).Reverse().Select(i => "/Image" + i + " 4 0 R")) + " >> >>"),
+        "stream" => JsonArrayReaderTests.LargeStream(),
         _ => JsonLabelCursorTests.Fixture(128, string.Join(" ", Enumerable.Range(0, 128).Select(i => i + " " + i))) };
 
     private sealed class Host(InMemoryQpdfHost storage, IMemoryBudget budget, string phase, Exception? failure) : IQpdfHost, IQpdfMemoryHost
@@ -46,14 +47,14 @@ public sealed class InspectionFailureTests
 
     private static ValueTask<QpdfExecutionResult> Run(IQpdfHost host, string mode, bool job)
     {
-        string key = mode is "labels" or "contents" or "images" ? "pages" : mode;
+        string key = mode is "labels" or "contents" or "images" or "stream" ? "pages" : mode;
         return job ? Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new { inputFile = "input", outputFile = "output", json = "2", jsonKey = new[] { key } }), CancellationToken.None)
             : Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["input", "--json=2", "--json-key=" + key, "--", "output"]), CancellationToken.None);
     }
 
     public static IEnumerable<object[]> Faults()
     {
-        foreach (string mode in new[] { "attachments", "pages", "labels", "acroform", "contents", "images" })
+        foreach (string mode in new[] { "attachments", "pages", "labels", "acroform", "contents", "images", "stream" })
         foreach (string phase in new[] { "read", "input-close", "create", "write", "commit", "close" })
         foreach (string kind in new[] { "host", "cancel", "oom" }) { yield return [mode, phase, kind]; }
     }
@@ -99,6 +100,8 @@ public sealed class InspectionFailureTests
     [InlineData("contents", true)]
     [InlineData("images", false)]
     [InlineData("images", true)]
+    [InlineData("stream", false)]
+    [InlineData("stream", true)]
     public async Task EveryObservedSharedAdmissionRefusalPreservesOutput(string mode, bool job)
     {
         using InMemoryQpdfHost storage = new(); storage.AddInput(Input, Fixture(mode), QpdfInputOwnership.Transfer);
