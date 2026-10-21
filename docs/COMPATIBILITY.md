@@ -45,6 +45,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+QDF original-ID maps receive admission and cancellation during construction;
+large provenance maps can refuse earlier. Suppressing original-ID comments skips
+their preparation entirely. Ordinary, merged and split output retain the existing
+source-ID comments and last-source precedence when comments are requested.
+No public signatures change.
+
 Split publication admits changed references, array backing, dictionary tables
 and stream headers during identity remapping. Large remaps can refuse earlier
 under local/shared memory limits. Rebuilt metadata stays funded through complete

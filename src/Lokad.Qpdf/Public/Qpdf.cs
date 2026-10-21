@@ -533,14 +533,16 @@ public static partial class Qpdf
                     List<List<int>> singleGroups = PlanObjectStreamGroups(singleCompressed, copyMemory, governor, cancellationToken);
                     IReadOnlyList<IReadOnlyList<int>>? singleStreams = singleGroups.Count == 0 ? null : singleGroups;
                     IReadOnlyDictionary<int, int>? singleOriginalIds = null;
-                    if (settings.Qdf.Enabled)
+                    if (settings.Qdf.Enabled && !settings.Qdf.NoOriginalIds)
                     {
-                        List<IReadOnlyDictionary<int, int>> singleOriginalMaps = new() { copier.SourceToDestination };
+                        List<IReadOnlyDictionary<int, int>> singleOriginalMaps = ParserContainers.CreateList<IReadOnlyDictionary<int, int>>(copyMemory);
+                        ParserContainers.AddItem(copyMemory, singleOriginalMaps, copier.SourceToDestination, IntPtr.Size);
                         foreach (GraphCopier overlayCopier in overlayApplied.Copiers)
                         {
-                            singleOriginalMaps.Add(overlayCopier.SourceToDestination);
+                            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                            ParserContainers.AddItem(copyMemory, singleOriginalMaps, overlayCopier.SourceToDestination, IntPtr.Size);
                         }
-                        singleOriginalIds = InvertOriginals(singleOriginalMaps);
+                        singleOriginalIds = InvertOriginals(singleOriginalMaps, copyMemory, governor, cancellationToken);
                     }
                     // Metadata admission stays with this operation through publication.
                     // Returned immutable arrays do not retain an execution owner.
@@ -1316,18 +1318,20 @@ public static partial class Qpdf
         }
 
         IReadOnlyDictionary<int, int>? multiOriginalIds = null;
-        if (settings.Qdf.Enabled)
+        if (settings.Qdf.Enabled && !settings.Qdf.NoOriginalIds)
         {
-            List<IReadOnlyDictionary<int, int>> multiOriginalMaps = new();
+            List<IReadOnlyDictionary<int, int>> multiOriginalMaps = ParserContainers.CreateList<IReadOnlyDictionary<int, int>>(selectionMemory);
             foreach (GraphCopier sourceCopier in copiers)
             {
-                multiOriginalMaps.Add(sourceCopier.SourceToDestination);
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                ParserContainers.AddItem(selectionMemory, multiOriginalMaps, sourceCopier.SourceToDestination, IntPtr.Size);
             }
             foreach (GraphCopier overlayCopier in overlayApplied.Copiers)
             {
-                multiOriginalMaps.Add(overlayCopier.SourceToDestination);
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                ParserContainers.AddItem(selectionMemory, multiOriginalMaps, overlayCopier.SourceToDestination, IntPtr.Size);
             }
-            multiOriginalIds = InvertOriginals(multiOriginalMaps);
+            multiOriginalIds = InvertOriginals(multiOriginalMaps, selectionMemory, governor, cancellationToken);
         }
         Content.CopiedForm? multiCombined = settings.RemoveAcroform
             ? null
@@ -1586,12 +1590,13 @@ public static partial class Qpdf
             Dictionary<int, int>? groupOriginalIds = null;
             if (multiOriginalIds is not null)
             {
-                groupOriginalIds = new();
+                groupOriginalIds = ParserContainers.CreateDictionary<int, int>(groupMemory);
                 foreach (int keptId in kept)
                 {
-                    if (renumber.TryGetValue(keptId, out int renamed) && multiOriginalIds.TryGetValue(keptId, out int source))
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    if (multiOriginalIds.TryGetValue(keptId, out int source))
                     {
-                        groupOriginalIds[renamed] = source;
+                        GovernedCollections.Assign(groupMemory, governor, groupOriginalIds, renumber[keptId], source, sizeof(int));
                     }
                 }
             }
@@ -2130,17 +2135,24 @@ public static partial class Qpdf
         }
     }
 
-    private static Dictionary<int, int> InvertOriginals(IEnumerable<IReadOnlyDictionary<int, int>> maps)
+    private static Dictionary<int, int> InvertOriginals(IEnumerable<IReadOnlyDictionary<int, int>> maps,
+        ParserMemoryScope ownership, ResourceGovernor governor, CancellationToken token)
     {
-        Dictionary<int, int> inverted = new();
+        ownership.CheckOwner(governor); token.ThrowIfCancellationRequested();
+        using ParserMemoryScope candidate = ParserMemoryScope.Create(governor);
+        Dictionary<int, int> inverted = ParserContainers.CreateDictionary<int, int>(candidate);
         foreach (IReadOnlyDictionary<int, int> map in maps)
         {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             foreach (KeyValuePair<int, int> entry in map)
             {
-                inverted[entry.Value] = entry.Key;
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                GovernedCollections.Assign(candidate, governor, inverted, entry.Value, entry.Key, sizeof(int));
             }
         }
 
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        candidate.TransferTo(ownership);
         return inverted;
     }
 
