@@ -48,6 +48,10 @@ unset defaults. These distinctions are part of the supported contract.
 Every accepted positive split group size, including `2147483647`, can exceed
 the page count and produces one complete group. Group arithmetic no longer
 overflows into negative page ranges; planning receives admission and cancellation.
+Ordinary page ordering uses the same admitted, cancellable collation path as
+inspection. Rotation resolves only affected pages and no longer snapshots every
+page dictionary. Large planning/header allocations can refuse earlier; rotation
+composition and independent duplicate-page occurrences remain unchanged.
 
 Page selection finishes copying catalog labels and form defaults before allocating
 added attachments, and coordinates later copies with overlay/appearance objects.

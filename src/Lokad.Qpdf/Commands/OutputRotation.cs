@@ -134,11 +134,6 @@ internal sealed record OutputRotation(PdfRotationMode Mode, int Angle, string? R
         return new OutputRotation(rotation.Mode, Normalize(rotation.Angle), range);
     }
 
-    internal List<int> Expand(int total, long maxEntries)
-    {
-        return [.. Pages.PageRanges.Expand(Range, total, maxEntries)];
-    }
-
     private static int Normalize(int angle)
     {
         return ((angle % 360) + 360) % 360;

@@ -228,10 +228,12 @@ public static partial class Qpdf
                 }
             }
 
-            List<(GraphCopier Copier, int Id, PdfDictionary Page)> occurrences = ParserContainers.CreateList<(GraphCopier, int, PdfDictionary)>(memory);
-            foreach (InspectionPage selected in selectedPages)
+            List<List<(PdfRotationMode Mode, int Angle)>> folds = ResolveRotationFolds(plan.Rotations, selectedPages.Count, governor, limits, memory);
+            for (int i = 0; i < selectedPages.Count; i++)
             {
-                memory.Reserve(24L);
+                governor.CheckCancellation();
+                if (folds[i].Count == 0) { continue; }
+                InspectionPage selected = selectedPages[i];
                 PdfDictionary page = selected.Page;
                 QpdfObject? inherited = PageInheritance.Find(document.Engine, new PageLocation(new PdfReference(selected.Number, selected.Generation), page),
                     InspectionRotate, limits, governor, cancellationToken);
@@ -242,9 +244,8 @@ public static partial class Qpdf
                     memory.Reserve(32L);
                     page = PdfDictionary.FromOwnedEntries(entries);
                 }
-                ParserContainers.AddItem(memory, occurrences, (pool, selected.Number, page), 24L);
+                ApplyRotation(pool, selected.Number, page, folds[i], i + 1, governor, memory);
             }
-            ApplyRotations(occurrences, ResolveRotationFolds(plan.Rotations, selectedPages.Count, governor, limits, memory), governor, memory);
             if (overlay)
             {
                 List<(GraphCopier Copier, int Id)> overlayPages = ParserContainers.CreateList<(GraphCopier, int)>(memory);
@@ -395,14 +396,17 @@ public static partial class Qpdf
     }
 
     private static List<(int Source, int Slot)> CollatePageOrder(IReadOnlyList<int> counts,
-        PdfPageCollation? collation, ResourceGovernor? governor, ParserMemoryScope? memory)
+        PdfPageCollation? collation, ResourceGovernor governor, ParserMemoryScope memory)
     {
+        memory.CheckOwner(governor); governor.CheckCancellation();
         if (collation is not null && collation.GroupSizes.Count != 1 && collation.GroupSizes.Count != counts.Count)
         {
             throw new ArgumentException("Collation group sizes must hold one value or one per source.", nameof(collation));
         }
-        List<(int Source, int Slot)> order = memory is null ? new() : ParserContainers.CreateList<(int, int)>(memory);
-        memory?.Reserve(checked(32L + sizeof(int) * (long)counts.Count));
+        using ParserMemoryScope result = ParserMemoryScope.Create(governor);
+        List<(int Source, int Slot)> order = ParserContainers.CreateList<(int, int)>(result);
+        long cursorBytes = checked(32L + sizeof(int) * (long)counts.Count);
+        result.Reserve(cursorBytes);
         int[] cursors = new int[counts.Count];
         bool more = true;
         while (more)
@@ -410,18 +414,17 @@ public static partial class Qpdf
             more = false;
             for (int source = 0; source < counts.Count; source++)
             {
-                governor?.NoteOperation();
+                governor.CheckCancellation();
                 int size = collation is null ? counts[source]
                     : collation.GroupSizes.Count == 1 ? collation.GroupSizes[0] : collation.GroupSizes[source];
                 for (int i = 0; i < size && cursors[source] < counts[source]; i++)
                 {
-                    governor?.NoteOperation();
-                    if (memory is null) { order.Add((source, cursors[source]++)); }
-                    else { ParserContainers.AddItem(memory, order, (source, cursors[source]++), 8L); }
+                    governor.CheckCancellation();
+                    ParserContainers.AddItem(result, order, (source, cursors[source]++), 8L);
                     more = true;
                 }
             }
         }
-        return order;
+        result.Release(cursorBytes); result.TransferTo(memory); return order;
     }
 }

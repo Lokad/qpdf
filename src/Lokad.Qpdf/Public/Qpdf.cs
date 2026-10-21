@@ -1102,7 +1102,7 @@ public static partial class Qpdf
             { throw new CompleteInputRequiredException(); }
         }
 
-        List<(int Source, int Slot)> order = CollateOrder(perSource, collation);
+        List<(int Source, int Slot)> order = CollateOrder(perSource, collation, governor, selectionMemory);
         List<PdfPageSelectionMapping> mapping = ParserContainers.CreateList<PdfPageSelectionMapping>(selectionMemory);
         List<PdfReference> kids = new(order.Count);
         List<(GraphCopier Copier, int Id)> occurrences = new(order.Count);
@@ -1631,15 +1631,8 @@ public static partial class Qpdf
     }
 
     private static List<List<(PdfRotationMode Mode, int Angle)>> ResolveRotationFolds(
-        IReadOnlyList<OutputRotation> rotations,
-        int total,
-        ResourceGovernor governor,
-        QpdfLimits limits)
-        => ResolveRotationFolds(rotations, total, governor, limits, null);
-
-    private static List<List<(PdfRotationMode Mode, int Angle)>> ResolveRotationFolds(
         IReadOnlyList<OutputRotation> rotations, int total, ResourceGovernor governor,
-        QpdfLimits limits, ParserMemoryScope? ownership)
+        QpdfLimits limits, ParserMemoryScope ownership)
     {
         if (limits is null)
         {
@@ -1647,27 +1640,22 @@ public static partial class Qpdf
         }
 
         limits.Validate();
-        List<List<(PdfRotationMode Mode, int Angle)>> folds = ownership is null
-            ? new(total) : ParserContainers.CreateList<List<(PdfRotationMode Mode, int Angle)>>(ownership);
+        ownership.CheckOwner(governor);
+        List<List<(PdfRotationMode Mode, int Angle)>> folds = ParserContainers.CreateList<List<(PdfRotationMode Mode, int Angle)>>(ownership);
         for (int i = 0; i < total; i++)
         {
-            if (ownership is null) { folds.Add(new()); }
-            else
-            {
-                governor.NoteOperation();
-                ParserContainers.AddItem(ownership, folds, ParserContainers.CreateList<(PdfRotationMode, int)>(ownership), IntPtr.Size);
-            }
+            governor.CheckCancellation();
+            ParserContainers.AddItem(ownership, folds, ParserContainers.CreateList<(PdfRotationMode, int)>(ownership), IntPtr.Size);
         }
 
         foreach (OutputRotation specification in rotations)
         {
-            IReadOnlyList<int> positions = ownership is null ? specification.Expand(total, limits.MaxContainerSize)
-                : Pages.PageRanges.Expand(specification.Range, total, limits.MaxContainerSize, governor, ownership);
+            governor.CheckCancellation();
+            IReadOnlyList<int> positions = Pages.PageRanges.Expand(specification.Range, total, limits.MaxContainerSize, governor, ownership);
             foreach (int position in positions)
             {
-                governor.NoteOperation();
-                if (ownership is null) { folds[position - 1].Add((specification.Mode, specification.Angle)); }
-                else { ParserContainers.AddItem(ownership, folds[position - 1], (specification.Mode, specification.Angle), 8L); }
+                governor.CheckCancellation();
+                ParserContainers.AddItem(ownership, folds[position - 1], (specification.Mode, specification.Angle), 8L);
             }
         }
 
@@ -1677,101 +1665,69 @@ public static partial class Qpdf
     private static void ApplyRotations(
         List<(GraphCopier Copier, int Id)> occurrences,
         List<List<(PdfRotationMode Mode, int Angle)>> folds,
-        ResourceGovernor governor)
-        => ApplyRotations(occurrences, folds, governor, null);
-
-    private static void ApplyRotations(
-        List<(GraphCopier Copier, int Id)> occurrences,
-        List<List<(PdfRotationMode Mode, int Angle)>> folds,
-        ResourceGovernor governor, ParserMemoryScope? ownership)
+        ResourceGovernor governor, ParserMemoryScope ownership)
     {
-        // Selection transforms can replace a page after copying. Resolve its
-        // current dictionary only when rotations need the shared snapshot path.
-        List<(GraphCopier Copier, int Id, PdfDictionary Page)> pages = new(occurrences.Count);
-        foreach ((GraphCopier copier, int id) in occurrences)
+        ownership.CheckOwner(governor);
+        for (int i = 0; i < occurrences.Count; i++)
         {
             governor.CheckCancellation();
+            if (folds[i].Count == 0) { continue; }
+            (GraphCopier copier, int id) = occurrences[i];
             if (!copier.CopiedObjects.TryGetValue(id, out QpdfObject? value) || value is not PdfDictionary page)
             {
                 throw new QpdfException("Rotation reached a missing copied page dictionary.");
             }
-            pages.Add((copier, id, page));
+            ApplyRotation(copier, id, page, folds[i], i + 1, governor, ownership);
         }
-        ApplyRotations(pages, folds, governor, ownership);
     }
 
-    private static void ApplyRotations(
-        List<(GraphCopier Copier, int Id, PdfDictionary Page)> occurrences,
-        List<List<(PdfRotationMode Mode, int Angle)>> folds,
-        ResourceGovernor governor, ParserMemoryScope? ownership)
+    private static void ApplyRotation(GraphCopier copier, int id, PdfDictionary page,
+        IReadOnlyList<(PdfRotationMode Mode, int Angle)> specifications, int pageNumber,
+        ResourceGovernor governor, ParserMemoryScope ownership)
     {
-        ownership?.Reserve(128L);
+        using ParserMemoryScope header = ParserMemoryScope.Create(governor);
+        header.Reserve(176L);
         PdfName rotateKey = PdfName.FromAscii("Rotate");
-        for (int i = 0; i < occurrences.Count; i++)
+        int current = 0;
+        if (page.TryGet(rotateKey, out QpdfObject raw))
         {
-            List<(PdfRotationMode Mode, int Angle)> specifications = folds[i];
-            if (specifications.Count == 0)
+            if (raw is PdfNull)
             {
-                continue;
+                current = 0;
             }
-
-            PdfDictionary page = occurrences[i].Page;
-            int current = 0;
-            if (page.TryGet(rotateKey, out QpdfObject raw))
+            else if (raw is PdfInteger inherited)
             {
-                if (raw is PdfNull)
-                {
-                    current = 0;
-                }
-                else if (raw is PdfInteger inherited)
-                {
-                    current = NormalizeRotation(inherited.Value);
-                }
-                else
-                {
-                    throw new QpdfParseException($"Output page {i + 1} has an invalid /Rotate value.", null, null);
-                }
+                current = NormalizeRotation(inherited.Value);
             }
-
-            foreach ((PdfRotationMode mode, int angle) in specifications)
+            else
             {
-                if (ownership is not null) { governor.NoteOperation(); }
-                current = mode switch
-                {
-                    PdfRotationMode.Set => angle,
-                    PdfRotationMode.Add => NormalizeRotation((long)current + angle),
-                    PdfRotationMode.Subtract => NormalizeRotation((long)current - angle),
-                    _ => throw new QpdfException($"Unknown rotation mode {(int)mode}."),
-                };
+                throw new QpdfParseException($"Output page {pageNumber} has an invalid /Rotate value.", null, null);
             }
-
-            if (ownership is null) { governor.ReserveMemory(64L); }
-            Dictionary<PdfName, QpdfObject> entries = ownership is null ? new()
-                : ParserContainers.CreateDictionary<PdfName, QpdfObject>(ownership);
-            foreach (PdfName key in page.Keys)
-            {
-                if (page.TryGet(key, out QpdfObject entryValue))
-                {
-                    if (ownership is not null)
-                    {
-                        governor.NoteOperation();
-                        ParserContainers.EnsureEntryCapacity(ownership, entries, IntPtr.Size);
-                    }
-                    entries[key] = entryValue;
-                }
-            }
-
-            if (ownership is not null)
-            {
-                ownership.Reserve(112L);
-                if (!entries.ContainsKey(rotateKey)) { ParserContainers.EnsureEntryCapacity(ownership, entries, IntPtr.Size); }
-            }
-            entries[rotateKey] = new PdfInteger(
-                current.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                current);
-            occurrences[i].Copier.ReplaceCopiedObject(occurrences[i].Id, ownership is null
-                ? new PdfDictionary(entries) : PdfDictionary.FromOwnedEntries(entries));
         }
+
+        foreach ((PdfRotationMode mode, int angle) in specifications)
+        {
+            governor.CheckCancellation();
+            current = mode switch
+            {
+                PdfRotationMode.Set => angle,
+                PdfRotationMode.Add => NormalizeRotation((long)current + angle),
+                PdfRotationMode.Subtract => NormalizeRotation((long)current - angle),
+                _ => throw new QpdfException($"Unknown rotation mode {(int)mode}."),
+            };
+        }
+
+        Dictionary<PdfName, QpdfObject> entries = ParserContainers.CreateDictionary<PdfName, QpdfObject>(header);
+        using PdfDictionary.EntryEnumerator source = page.GetEntryEnumerator();
+        while (source.MoveNext(governor, governor.CancellationToken))
+        {
+            ParserContainers.EnsureEntryCapacity(header, entries, IntPtr.Size);
+            entries[source.Current.Key] = source.Current.Value;
+        }
+        if (!entries.ContainsKey(rotateKey)) { ParserContainers.EnsureEntryCapacity(header, entries, IntPtr.Size); }
+        entries[rotateKey] = new PdfInteger(current.ToString(System.Globalization.CultureInfo.InvariantCulture), current);
+        PdfDictionary rotated = PdfDictionary.FromOwnedEntries(entries);
+        header.TransferTo(ownership); copier.ReplaceCopiedObject(id, rotated);
     }
 
     private static int NormalizeRotation(long value)
@@ -1781,11 +1737,16 @@ public static partial class Qpdf
 
     private static List<(int Source, int Slot)> CollateOrder(
         List<List<(GraphCopier Copier, int Id, int SourcePage)>> perSource,
-        PdfPageCollation? collation)
+        PdfPageCollation? collation, ResourceGovernor governor, ParserMemoryScope memory)
     {
-        List<int> counts = new(perSource.Count);
-        foreach (var source in perSource) { counts.Add(source.Count); }
-        return CollatePageOrder(counts, collation, null, null);
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        List<int> counts = ParserContainers.CreateList<int>(scratch);
+        foreach (var source in perSource)
+        {
+            governor.CheckCancellation();
+            ParserContainers.AddItem(scratch, counts, source.Count, sizeof(int));
+        }
+        return CollatePageOrder(counts, collation, governor, memory);
     }
 
     private static PdfDictionary PagesNode(List<PdfReference> groupKids)
