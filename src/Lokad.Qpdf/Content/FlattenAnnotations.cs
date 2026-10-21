@@ -148,7 +148,8 @@ internal static class FlattenAnnotations
             }
 
             using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
-            List<QpdfObject>? entries = ReadContentEntries(page, resolver, graph.Memory, governor, cancellationToken);
+            using ContentEntries? entries = page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject rawContents) && rawContents is not PdfNull
+                ? ContentEntries.TryRead(rawContents, resolver, governor, cancellationToken) : ContentEntries.Create(governor, cancellationToken);
             if (entries is null)
             {
                 diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot flatten annotations with unreadable content; keeping the page as is.");
@@ -169,9 +170,10 @@ internal static class FlattenAnnotations
             using GovernedBufferStream stamped = new(governor, limits.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes), cancellationToken, 256);
             stamped.Write("\nQ\n"u8);
             bool changed = false;
-            foreach (QpdfObject item in annots.Items)
+            for (int index = 0; index < annots.Count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                QpdfObject item = annots[index];
                 QpdfObject entryTarget = item is PdfReference itemReference ? ResolveOrNull(resolver, itemReference) ?? item : item;
                 if (entryTarget is not PdfDictionary annot)
                 { ParserContainers.AddItem(graph.Memory, kept, item, IntPtr.Size); continue; }
@@ -180,7 +182,7 @@ internal static class FlattenAnnotations
                 if (needAppearances && isWidget)
                 { ParserContainers.AddItem(graph.Memory, kept, item, IntPtr.Size); continue; }
 
-                PdfStream? appearance = FindAppearanceStream(annot, resolver, out PdfReference? appearanceRaw);
+                PdfStream? appearance = FindAppearanceStream(annot, resolver, governor, cancellationToken, out PdfReference? appearanceRaw);
                 if (appearance is null)
                 {
                     if (HasAppearanceDictionary(annot)) { changed = true; }
@@ -212,15 +214,12 @@ internal static class FlattenAnnotations
             PdfStream after = ContentTransforms.EncodeContent(suffixBytes, compress, level, limits, graph);
             PdfReference beforeLink = copier.AddIndirectObjectWithId(before, allocator); allocator = checked(allocator + 1);
             PdfReference afterLink = copier.AddIndirectObjectWithId(after, allocator); allocator = checked(allocator + 1);
-            List<QpdfObject> stacked = ParserContainers.CreateList(graph.Memory);
-            ParserContainers.AddItem(graph.Memory, stacked, beforeLink, IntPtr.Size);
-            foreach (QpdfObject entry in entries)
-            {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                ParserContainers.AddItem(graph.Memory, stacked, entry, IntPtr.Size);
-            }
-            ParserContainers.AddItem(graph.Memory, stacked, afterLink, IntPtr.Size);
-            PdfArray contents = ParserContainers.CopyArray(graph.Memory, stacked); graph.Add(64L + IntPtr.Size * (long)stacked.Count);
+            int count = checked(entries.Count + 2);
+            long arrayBytes = checked(32L + IntPtr.Size * (long)count);
+            graph.Memory.Reserve(arrayBytes); QpdfObject[] stacked = new QpdfObject[count]; graph.Add(arrayBytes);
+            stacked[0] = beforeLink; stacked[^1] = afterLink;
+            for (int index = 0; index < entries.Count; index++) { stacked[index + 1] = entries.Get(index).Value; }
+            graph.Memory.Reserve(24L); PdfArray contents = PdfArray.FromOwnedItems(stacked); graph.Add(24L);
             PdfNameTable<QpdfObject> rebuilt = PdfDictionaryRebuild.CreateEntries(graph, out long pageAllocation);
             using PdfDictionary.EntryEnumerator pageEntries = page.GetEntryEnumerator();
             while (pageEntries.MoveNext(governor, cancellationToken))
@@ -273,7 +272,7 @@ internal static class FlattenAnnotations
     }
 
 
-    private static PdfStream? FindAppearanceStream(PdfDictionary annot, PoolResolver resolver, out PdfReference? link)
+    private static PdfStream? FindAppearanceStream(PdfDictionary annot, PoolResolver resolver, ResourceGovernor governor, CancellationToken token, out PdfReference? link)
     {
         link = null;
         if (!annot.TryGet(PdfName.FromAscii("AP"), out QpdfObject? ap) || ap is null || ap is PdfNull)
@@ -281,7 +280,6 @@ internal static class FlattenAnnotations
             return null;
         }
 
-        PdfReference? apLink = ap as PdfReference;
         QpdfObject apTarget = ap is PdfReference apReference
             ? ResolveOrNull(resolver, apReference) ?? ap
             : ap;
@@ -310,42 +308,11 @@ internal static class FlattenAnnotations
             return null;
         }
 
-        string state = string.Empty;
-        if (annot.TryGet(PdfName.FromAscii("AS"), out QpdfObject? stateRaw) && stateRaw is PdfName stateName)
-        {
-            state = stateName.DisplayText;
-        }
-
-        if (state.Length == 0)
-        {
-            return null;
-        }
-
-        foreach (PdfName key in states.Keys)
-        {
-            if (key.DisplayText != state)
-            {
-                continue;
-            }
-
-            if (!states.TryGet(key, out QpdfObject? found) || found is null)
-            {
-                return null;
-            }
-
-            QpdfObject stateTarget = found is PdfReference foundReference
-                ? ResolveOrNull(resolver, foundReference) ?? found
-                : found;
-            if (stateTarget is PdfStream stateStream)
-            {
-                link = found as PdfReference;
-                return stateStream;
-            }
-
-            return null;
-        }
-
-        return null;
+        if (!PdfDictionaryLookup.TryGet(annot, "AS"u8, governor, token, out QpdfObject stateRaw) || stateRaw is not PdfName state
+            || !PdfDictionaryLookup.TryGet(states, state.RawSpan, governor, token, out QpdfObject found)) { return null; }
+        QpdfObject target = found is PdfReference reference ? ResolveOrNull(resolver, reference) ?? found : found;
+        if (target is not PdfStream stream) { return null; }
+        link = found as PdfReference; return stream;
     }
 
     internal static (PdfReference Link, PdfDictionary Dictionary) EnsureAppearanceObject(
@@ -634,52 +601,6 @@ internal static class FlattenAnnotations
         }
 
         return numbers;
-    }
-
-    private static List<QpdfObject>? ReadContentEntries(PdfDictionary page, PoolResolver resolver, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
-    {
-        if (!page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject? contents) || contents is null || contents is PdfNull)
-        {
-            return ParserContainers.CreateList(memory);
-        }
-
-        QpdfObject targetContents = contents is PdfReference contentsReference ? ResolveOrNull(resolver, contentsReference) ?? contents : contents;
-        if (targetContents is PdfArray array)
-        {
-            List<QpdfObject> entries = ParserContainers.CreateList(memory);
-            foreach (QpdfObject item in array.Items)
-            {
-                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                if (item is PdfReference reference)
-                {
-                    QpdfObject? target = ResolveOrNull(resolver, reference);
-                    if (target is not PdfStream)
-                    {
-                        return null;
-                    }
-                }
-                else if (item is not PdfStream)
-                {
-                    return null;
-                }
-
-                ParserContainers.AddItem(memory, entries, item, IntPtr.Size);
-            }
-
-            return entries;
-        }
-
-        if (contents is PdfReference singleReference)
-        {
-            QpdfObject? target = ResolveOrNull(resolver, singleReference);
-            if (target is not PdfStream) { return null; }
-            List<QpdfObject> entries = ParserContainers.CreateList(memory);
-            ParserContainers.AddItem(memory, entries, contents, IntPtr.Size); return entries;
-        }
-
-        if (contents is not PdfStream) { return null; }
-        List<QpdfObject> direct = ParserContainers.CreateList(memory);
-        ParserContainers.AddItem(memory, direct, contents, IntPtr.Size); return direct;
     }
 
     private static void AppendAscii(GovernedBufferStream output, string text)

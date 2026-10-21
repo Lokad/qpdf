@@ -168,6 +168,12 @@ rotation share that collector. Temporary matrices and formatting storage refund
 after consumption, while rewritten stream headers borrow existing payloads.
 JSON's array lookup inspects an admitted tokenizer header before ordinary array
 loading; reporting an uncompressed stream reference does not copy its payload.
+Appearance generation borrows annotation arrays for indirect widgets, admits
+direct-widget replacement arrays before copying and retains their page rebuild
+under a graph batch. Generated identities and the lazy parent index have a phase
+owner; per-field ancestor scratch refunds after lookup. Choice arrays and
+appearance-state names are borrowed. Flattening uses the same admitted content
+collector as rotation and checking, with an exact final content-array capacity.
 
 Prepared JSON UTF-8 buffers and sidecar names stay under the private preparation
 owner through awaited publication and transaction cleanup. Host callbacks borrow

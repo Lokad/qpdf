@@ -7,6 +7,20 @@ namespace Lokad.Qpdf.Tests.Content;
 
 public sealed class AppearanceGenerationRegressionTests
 {
+    internal static byte[] CheckboxFixture(int count)
+    {
+        string fields = string.Join(" ", Enumerable.Range(6, count).Select(i => i + " 0 R"));
+        List<(int, string, byte[]?)> objects = [
+            (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [" + fields + "] /NeedAppearances true >> >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Annots [" + fields + "] >>", null),
+            (4, "<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length 1 >>", "q"u8.ToArray()),
+            (5, "<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length 1 >>", "Q"u8.ToArray())];
+        for (int i = 0; i < count; i++)
+        { objects.Add((6 + i, "<< /Subtype /Widget /FT /Btn /T (F" + i + ") /V /Yes /AS /Off /Rect [0 0 10 10] /AP << /N << /Off 4 0 R /Yes 5 0 R >> >> >>", null)); }
+        return CheckTests.Assemble(objects, 1);
+    }
+
     [Theory]
     [InlineData(32768, "/Yes")]
     [InlineData(65536, "/Yes")]
@@ -84,6 +98,7 @@ public sealed class AppearanceGenerationRegressionTests
     [InlineData("FT")]
     [InlineData("V")]
     [InlineData("DA")]
+    [InlineData("State")]
     public async Task IndirectTextAttributesMatchDirectValues(string attribute)
     {
         foreach (bool indirect in new[] { false, true })
@@ -98,11 +113,12 @@ public sealed class AppearanceGenerationRegressionTests
                 (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
                 (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Annots [5 0 R] >>", null),
                 (4, "null", null),
-                (5, "<< /Subtype /Widget /FT " + ft + " /T (Text) /V " + value + " /DA " + da + " /Rect [0 0 100 20] /AP << /N 6 0 R >> >>", null),
+                (5, "<< /Subtype /Widget /FT " + ft + " /T (Text) /V " + value + " /DA " + da + " /Rect [0 0 100 20] /AP << /N "
+                    + (attribute == "State" ? indirect ? "12 0 R" : "<< /A#23B 6 0 R >>" : "6 0 R") + " >> /AS /A#23B >>", null),
                 (6, "<< /Type /XObject /Subtype /Form /BBox [0 0 100 20] /Resources << /Font << /Helv 9 0 R >> >> /Length " + old.Length + " >>", old),
                 (7, "null", null), (8, "(Hello)", null),
                 (9, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>", null),
-                (10, "/Tx", null), (11, "(/Helv 17 Tf)", null)], 1);
+                (10, "/Tx", null), (11, "(/Helv 17 Tf)", null), (12, "<< /A#23B 6 0 R >>", null)], 1);
             using InMemoryQpdfHost host = new(); byte[] output = await Generate(host, input, job, QpdfExitCode.Success);
             host.AddInput(QpdfPath.From("again"), output, QpdfInputOwnership.Transfer);
             await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("again"), CancellationToken.None);

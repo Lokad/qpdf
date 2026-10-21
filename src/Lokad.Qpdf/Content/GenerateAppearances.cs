@@ -52,7 +52,7 @@ internal static class GenerateAppearances
         limits.Validate();
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
         Dictionary<GraphCopier, FieldParents> parents = ParserContainers.CreateDictionary<GraphCopier, FieldParents>(traversal);
-        HashSet<int> generated = new();
+        HashSet<int> generated = ParserContainers.CreateSet<int>(traversal);
         foreach ((GraphCopier copier, int pageId) in occurrences)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -62,12 +62,13 @@ internal static class GenerateAppearances
                 continue;
             }
 
-            if (!page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject? annotsRaw) || annotsRaw is null || annotsRaw is PdfNull)
+            if (!PdfDictionaryLookup.TryGet(page, "Annots"u8, governor, cancellationToken, out QpdfObject annotsRaw) || annotsRaw is null || annotsRaw is PdfNull)
             {
                 continue;
             }
 
-            PoolResolver resolver = new(copier.CopiedObjects);
+            using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
+            PoolResolver resolver = PoolResolver.Create(graph.Memory, copier.CopiedObjects);
             QpdfObject annotsTarget = annotsRaw is PdfReference annotsReference
                 ? ResolveOrNull(resolver, annotsReference) ?? annotsRaw
                 : annotsRaw;
@@ -77,94 +78,49 @@ internal static class GenerateAppearances
             }
 
             bool pageChanged = false;
-            List<QpdfObject> entries = new(annots.Count);
+            QpdfObject[]? directEntries = null;
             for (int index = 0; index < annots.Count; index++)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                governor.NoteOperation();
+                cancellationToken.ThrowIfCancellationRequested(); governor.NoteOperation();
                 QpdfObject item = annots[index];
                 QpdfObject entryTarget = item is PdfReference itemReference
-                    ? ResolveOrNull(resolver, itemReference) ?? item
-                    : item;
-                if (entryTarget is not PdfDictionary annot)
-                {
-                    entries.Add(item);
-                    continue;
-                }
-
-                if (!IsWidget(annot))
-                {
-                    entries.Add(item);
-                    continue;
-                }
-
+                    ? ResolveOrNull(resolver, itemReference) ?? item : item;
+                if (entryTarget is not PdfDictionary annot || !IsWidget(annot, governor, cancellationToken)) { continue; }
                 int? annotId = (item as PdfReference)?.ObjectNumber;
-                if (annotId.HasValue && !generated.Add(annotId.Value))
-                {
-                    entries.Add(item);
-                    continue;
-                }
-
-                if (!IsReached(annotId, reachedAnnots, warnUnreachable, diagnostics))
-                {
-                    entries.Add(item);
-                    continue;
-                }
-
+                if (annotId.HasValue && !ParserContainers.AddSetItem(traversal, generated, annotId.Value, sizeof(int))) { continue; }
+                if (!IsReached(annotId, reachedAnnots, warnUnreachable, diagnostics)) { continue; }
                 FieldContext field = ResolveField(copier, annot, annotId, resolver, parents, traversal, limits, governor, cancellationToken);
+                if (field.Type == FieldType.Other) { continue; }
+                // Indirect widgets replace their existing graph slot. Only direct
+                // widgets need an annotation-array copy, funded before mutation.
+                if (!annotId.HasValue && directEntries is null)
+                {
+                    long bytes = checked(32L + IntPtr.Size * (long)annots.Count);
+                    graph.Memory.Reserve(bytes); directEntries = new QpdfObject[annots.Count]; graph.Add(bytes);
+                    for (int at = 0; at < annots.Count; at++)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                        directEntries[at] = annots[at];
+                    }
+                }
+                PdfDictionary? updated;
                 if (field.Type == FieldType.Button)
-                {
-                    if (SyncButton(copier, annot, item, annotId, field, resolver, entries, diagnostics, governor, cancellationToken))
-                    {
-                        pageChanged = true;
-                    }
-                    else
-                    {
-                        entries.Add(item);
-                    }
-
-                    continue;
-                }
-
-                if (field.Type != FieldType.Text && field.Type != FieldType.Choice)
-                {
-                    entries.Add(item);
-                    continue;
-                }
-
-                PdfDictionary? formResourcesForCopier = null;
-                if (formResources.TryGetValue(copier, out PdfDictionary? mappedResources))
-                {
-                    formResourcesForCopier = mappedResources;
-                }
-                if (GenerateText(copier, annot, item, annotId, field, resolver, entries, limits, governor, diagnostics, cancellationToken, formResourcesForCopier, ref allocator))
-                {
-                    pageChanged = true;
-                }
-            }
-
-            if (pageChanged)
-            {
-                PdfArray rebuilt = new(entries);
-                if (annotsRaw is PdfReference annotsOriginal)
-                {
-                    copier.ReplaceCopiedObject(annotsOriginal.ObjectNumber, rebuilt);
-                }
+                { updated = SyncButton(copier, annot, annotId, field, resolver, diagnostics, governor, cancellationToken); }
                 else
                 {
-                    Dictionary<PdfName, QpdfObject> pageEntries = new();
-                    foreach (PdfName key in page.Keys)
-                    {
-                        if (page.TryGet(key, out QpdfObject? found) && found is not null)
-                        {
-                            pageEntries[key] = found;
-                        }
-                    }
-
-                    governor.ReserveMemory(64L);
-                    pageEntries[PdfName.FromAscii("Annots")] = rebuilt;
-                    copier.ReplaceCopiedObject(pageId, new PdfDictionary(pageEntries));
+                    formResources.TryGetValue(copier, out PdfDictionary? resources);
+                    updated = GenerateText(copier, annot, annotId, field, resolver, limits, governor, diagnostics,
+                        cancellationToken, resources, ref allocator);
                 }
+                if (updated is not null && !annotId.HasValue && directEntries is not null)
+                { directEntries[index] = updated; pageChanged = true; }
+            }
+            if (pageChanged && directEntries is not null)
+            {
+                graph.Memory.Reserve(24L); PdfArray rebuilt = PdfArray.FromOwnedItems(directEntries); graph.Add(24L);
+                int target = (annotsRaw as PdfReference)?.ObjectNumber ?? pageId;
+                QpdfObject replacement = annotsRaw is PdfReference ? rebuilt : PdfDictionaryRebuild.ReplaceEntry(graph, page, "Annots"u8, rebuilt);
+                copier.ValidateReplacement(target); graph.Retain(); copier.ReplaceCopiedObject(target, replacement);
             }
         }
 
@@ -202,9 +158,9 @@ internal static class GenerateAppearances
         FieldType Type, long Flags, QpdfObject? Value, ReadOnlyMemory<byte>? DefaultAppearance,
         PdfDictionary Node, int? NodeId);
 
-    private static bool IsWidget(PdfDictionary annot)
+    private static bool IsWidget(PdfDictionary annot, ResourceGovernor governor, CancellationToken token)
     {
-        return annot.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject? subtype)
+        return PdfDictionaryLookup.TryGet(annot, "Subtype"u8, governor, token, out QpdfObject subtype)
             && subtype is PdfName name && name.RawSpan.SequenceEqual("Widget"u8);
     }
 
@@ -348,9 +304,10 @@ internal static class GenerateAppearances
             return choices;
         }
 
-        foreach (QpdfObject item in array.Items)
+        for (int index = 0; index < array.Count; index++)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            QpdfObject item = array[index];
             QpdfObject entry = item is PdfReference entryReference
                 ? ResolveOrNull(resolver, entryReference) ?? item
                 : item;
@@ -375,14 +332,12 @@ internal static class GenerateAppearances
         return choices;
     }
 
-    private static bool SyncButton(
+    private static PdfDictionary? SyncButton(
         GraphCopier copier,
         PdfDictionary annot,
-        QpdfObject item,
         int? annotId,
         FieldContext field,
         PoolResolver resolver,
-        List<QpdfObject> entries,
         DiagnosticBag diagnostics,
         ResourceGovernor governor,
         CancellationToken token)
@@ -390,7 +345,7 @@ internal static class GenerateAppearances
         if (field.Value is not PdfName valueName)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot synchronize a button without a name value; keeping it as is.");
-            return false;
+            return null;
         }
 
         bool radio = (field.Flags & 32768L) != 0L;
@@ -398,7 +353,7 @@ internal static class GenerateAppearances
         if (pushbutton)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Pushbutton values cannot be synchronized; keeping it as is.");
-            return false;
+            return null;
         }
 
         if (radio)
@@ -407,14 +362,14 @@ internal static class GenerateAppearances
             // synchronize, so radios degrade to skip on every path, with the
             // reference warning that it cannot set a radio button value.
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Radio button values cannot be synchronized; keeping it as is.");
-            return false;
+            return null;
         }
 
         bool merged = ReferenceEquals(field.Node, annot);
         if (!merged && !field.NodeId.HasValue)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot update a field embedded without identity; keeping it as is.");
-            return false;
+            return null;
         }
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         PdfName selected = valueName.RawSpan.SequenceEqual("Off"u8) ? valueName
@@ -441,9 +396,8 @@ internal static class GenerateAppearances
         // widget publishes V and AS together instead of overwriting its V update.
         graph.Retain();
         if (updatedField is not null && field.NodeId is int separateId) { copier.ReplaceCopiedObject(separateId, updatedField); }
-        if (annotId is int id) { copier.ReplaceCopiedObject(id, updatedAnnot); entries.Add(item); }
-        else { entries.Add(updatedAnnot); }
-        return true;
+        if (annotId is int id) { copier.ReplaceCopiedObject(id, updatedAnnot); }
+        return updatedAnnot;
     }
 
     private static PdfName? FirstOnState(PdfDictionary annot, PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
@@ -483,14 +437,12 @@ internal static class GenerateAppearances
         return null;
     }
 
-    private static bool GenerateText(
+    private static PdfDictionary? GenerateText(
         GraphCopier copier,
         PdfDictionary annot,
-        QpdfObject item,
         int? annotId,
         FieldContext field,
         PoolResolver resolver,
-        List<QpdfObject> entries,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
@@ -500,7 +452,7 @@ internal static class GenerateAppearances
     {
         cancellationToken.ThrowIfCancellationRequested();
         governor.NoteOperation();
-        GenAppearance foundAp = FindGenAppearance(annot, resolver);
+        GenAppearance foundAp = FindGenAppearance(annot, resolver, governor, cancellationToken);
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
         PdfStream? found = foundAp.Stream;
@@ -534,8 +486,7 @@ internal static class GenerateAppearances
             if (raw is null)
             {
                 diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot decode an appearance stream; keeping the field as is.");
-                entries.Add(item);
-                return false;
+                return null;
             }
 
             decoded = raw.Value;
@@ -546,8 +497,7 @@ internal static class GenerateAppearances
         if (bbox is null)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot generate an appearance without a bounding box; keeping the field as is.");
-            entries.Add(item);
-            return false;
+            return null;
         }
 
         string valueText = string.Empty;
@@ -595,22 +545,13 @@ internal static class GenerateAppearances
         PdfDictionary newAp = BuildAp(foundAp.Ap, builtLink, graph);
         PdfDictionary updatedAnnot = PdfDictionaryRebuild.ReplaceEntry(graph, annot, "AP"u8, newAp);
         graph.Retain();
-        if (annotId.HasValue)
-        {
-            copier.ReplaceCopiedObject(annotId.Value, updatedAnnot);
-            entries.Add(item);
-        }
-        else
-        {
-            entries.Add(updatedAnnot);
-        }
-
-        return true;
+        if (annotId.HasValue) { copier.ReplaceCopiedObject(annotId.Value, updatedAnnot); }
+        return updatedAnnot;
     }
 
     private readonly record struct GenAppearance(PdfStream? Stream, PdfDictionary? Ap);
 
-    private static GenAppearance FindGenAppearance(PdfDictionary annot, PoolResolver resolver)
+    private static GenAppearance FindGenAppearance(PdfDictionary annot, PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
     {
         if (!annot.TryGet(PdfName.FromAscii("AP"), out QpdfObject? ap) || ap is null || ap is PdfNull)
         {
@@ -643,41 +584,11 @@ internal static class GenerateAppearances
             return new GenAppearance(null, apDict);
         }
 
-        string state = string.Empty;
-        if (annot.TryGet(PdfName.FromAscii("AS"), out QpdfObject? stateRaw) && stateRaw is PdfName stateName)
-        {
-            state = stateName.DisplayText;
-        }
-
-        if (state.Length == 0)
-        {
-            return new GenAppearance(null, apDict);
-        }
-
-        foreach (PdfName key in states.Keys)
-        {
-            if (key.DisplayText != state)
-            {
-                continue;
-            }
-
-            if (!states.TryGet(key, out QpdfObject? found) || found is null)
-            {
-                return new GenAppearance(null, apDict);
-            }
-
-            QpdfObject stateTarget = found is PdfReference foundReference
-                ? ResolveOrNull(resolver, foundReference) ?? found
-                : found;
-            if (stateTarget is PdfStream stateStream)
-            {
-                return new GenAppearance(stateStream, apDict);
-            }
-
-            return new GenAppearance(null, apDict);
-        }
-
-        return new GenAppearance(null, apDict);
+        if (!PdfDictionaryLookup.TryGet(annot, "AS"u8, governor, token, out QpdfObject stateRaw) || stateRaw is not PdfName state
+            || !PdfDictionaryLookup.TryGet(states, state.RawSpan, governor, token, out QpdfObject found))
+        { return new GenAppearance(null, apDict); }
+        QpdfObject target = found is PdfReference link ? ResolveOrNull(resolver, link) ?? found : found;
+        return new GenAppearance(target as PdfStream, apDict);
     }
 
     private static PdfDictionary BuildAp(PdfDictionary? ap, PdfReference link, OwnedAllocationBatch graph)

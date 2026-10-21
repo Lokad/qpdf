@@ -54,6 +54,11 @@ inherited, without changing a shared ancestor or unrelated sibling. Indirect
 Parent traversal keeps bounded lenient `/Kids` fallback, using one admitted
 reverse index per copied graph. Damaged multiple-parent graphs choose the first
 indexed parent deterministically; cycles and broken explicit links stop traversal.
+Indirect widget updates preserve the original annotation array. Direct widgets
+use one admitted replacement array, preserving skipped entries and order.
+Annotation flattening shares content-entry collection with checking and rotation;
+large metadata can refuse before allocation. Appearance-state lookup compares
+raw name bytes without decoding all state names.
 
 JSON names use strict UTF-8 scalar validation. Surrogate encodings and values
 above Unicode's range now export with `n:` byte escaping, preserving raw name
