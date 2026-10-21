@@ -157,6 +157,9 @@ repeats and duplicate placements are preserved. Public signatures are unchanged.
 Overlay annotation rectangles normalize reversed endpoints without losing their
 extent. Shared appearance streams receive the placement matrix once per copied
 stream; separate placements retain independent copies, including widget forms.
+Ordinary indirect annotations share the placement's identity memo, so Popup,
+Parent and reply links identify the actual transformed page annotations instead
+of additional untransformed clones. This can change output object numbers.
 Empty or entirely skipped overlay annotations leave the destination annotation
 array unchanged, including an absent `/Annots` entry. Annotation metadata, append
 arrays and page/rectangle header rebuilds receive admission before allocation;

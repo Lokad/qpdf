@@ -1230,12 +1230,18 @@ internal static class Overlays
             }
 
             annotIndex += 1;
-            QpdfObject built = BuildOverlayContainer(target, engine, destCopier, memo, scratch, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, 0);
-            int id = allocator;
-            checked { allocator += 1; }
-            ownership.Reserve(64L);
-            destCopier.AddIndirectObjectWithId(built, id);
-            ownership.Reserve(32L); ParserContainers.AddItem(scratch, fresh, new PdfReference(id, 0), IntPtr.Size);
+            // Root and nested references share one placement memo, including
+            // Popup/Parent and reply links between ordinary annotations.
+            QpdfObject built = CopyOverlayNode(item, engine, destCopier, memo, scratch, ref allocator, ref nullId,
+                limits, governor, ownership, cancellationToken, 0);
+            PdfReference clone;
+            if (built is PdfReference mapped) { clone = mapped; }
+            else
+            {
+                int id = allocator; allocator = checked(allocator + 1);
+                ownership.Reserve(32L); clone = destCopier.AddIndirectObjectWithId(built, id);
+            }
+            ParserContainers.AddItem(scratch, fresh, clone, IntPtr.Size);
         }
 
         if (fresh.Count == 0) { return; }
