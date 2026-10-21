@@ -225,6 +225,11 @@ owner through awaited publication and transaction cleanup. Host callbacks borrow
 that storage; persistent host copies and identifiers have a host owner. After
 cleanup, the library refunds its unreturned publication candidates. Returned JSON
 text retains its caller charge independently from published UTF-8 bytes.
+Schema testing uses a temporary admitted UTF-8 buffer and token reader instead
+of a full-output DOM. Encoding checks cancellation in bounded chunks; scanning
+checks at each token. Only top-level help/drift keys need decoded storage, with
+admitted list growth and unescape capacity. Drift messages use the existing
+bounded diagnostic builder and explicit quota failure before publication.
 
 Parser and transform construction scopes transfer their existing estimates to
 coarse graph owners. Retention does not walk object references or create weak

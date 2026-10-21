@@ -2376,41 +2376,82 @@ public static partial class Qpdf
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        string help = version == 1 ? HelpText.JsonHelpV1 : HelpText.JsonHelpV2;
-        HashSet<string> described = new(StringComparer.Ordinal);
-        using (System.Text.Json.JsonDocument helpDocument = System.Text.Json.JsonDocument.Parse(help))
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        memory.Reserve(80L);
+        using GovernedBufferStream bytes = new(governor, Array.MaxLength, nameof(QpdfLimits.MaxOutputBytes), cancellationToken, 1024);
+        List<string> described = ParserContainers.CreateList<string>(memory);
+        EncodeSchemaJson(version == 1 ? HelpText.JsonHelpV1 : HelpText.JsonHelpV2, bytes, governor, cancellationToken);
+        System.Text.Json.Utf8JsonReader help = new(bytes.WrittenSpan);
+        while (help.Read())
         {
-            foreach (System.Text.Json.JsonProperty property in helpDocument.RootElement.EnumerateObject())
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (help.TokenType == System.Text.Json.JsonTokenType.PropertyName && help.CurrentDepth == 1)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                governor.NoteOperation();
-                described.Add(property.Name);
+                ParserContainers.AddItem(memory, described, ReadSchemaKey(ref help, memory), IntPtr.Size);
             }
         }
 
-        List<string> missing = new();
-        using (System.Text.Json.JsonDocument generated = System.Text.Json.JsonDocument.Parse(json))
+        bytes.ResetWrittenBytes();
+        EncodeSchemaJson(json, bytes, governor, cancellationToken);
+        List<string> missing = ParserContainers.CreateList<string>(memory);
+        System.Text.Json.Utf8JsonReader generated = new(bytes.WrittenSpan);
+        if (!generated.Read() || generated.TokenType != System.Text.Json.JsonTokenType.StartObject)
+        { throw new System.Text.Json.JsonException("JSON schema checking requires an object."); }
+        while (generated.Read())
         {
-            foreach (System.Text.Json.JsonProperty property in generated.RootElement.EnumerateObject())
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (generated.TokenType != System.Text.Json.JsonTokenType.PropertyName || generated.CurrentDepth != 1) { continue; }
+            bool found = false;
+            foreach (string key in described)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                governor.NoteOperation();
-                if (!described.Contains(property.Name))
-                {
-                    missing.Add(property.Name);
-                }
+                // A help key is ASCII. Even fully escaped, a matching token has
+                // at most six bytes per character; skip long unmatched names
+                // before ValueTextEquals might materialize unescape scratch.
+                if (generated.ValueSpan.Length <= 6L * key.Length && generated.ValueTextEquals(key)) { found = true; break; }
             }
+            if (!found) { ParserContainers.AddItem(memory, missing, ReadSchemaKey(ref generated, memory), IntPtr.Size); }
         }
 
         if (missing.Count > 0)
         {
-            diagnostics.AddParts(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error,
-                ["JSON output has keys missing from --json-help version ", version, ": ", string.Join(", ", missing), "."]);
+            using DisplayBuffer message = DisplayBuffer.Create(governor, true);
+            message.Append("JSON output has keys missing from --json-help version "); message.AppendInteger(version); message.Append(": ");
+            for (int index = 0; index < missing.Count; index++)
+            {
+                if (index != 0) { message.Append(", "); }
+                message.Append(missing[index]);
+            }
+            message.Append('.');
+            using GovernedText text = message.Finish();
+            diagnostics.AddOwned(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, text);
             return;
         }
-
         diagnostics.AddParts(QpdfDiagnosticCode.JsonSchemaCheck, QpdfDiagnosticSeverity.Info,
             ["JSON schema check passed for version ", version, "."]);
+    }
+
+    private static string ReadSchemaKey(ref System.Text.Json.Utf8JsonReader reader, ParserMemoryScope memory)
+    {
+        // Fund the decoded UTF-16 string and any UTF-8 unescape scratch before
+        // GetString. Names in the fixed help inventory are tiny; unknown output
+        // keys remain subject to memory and diagnostic bounds.
+        memory.Reserve(checked(GovernedText.StringBytes(reader.ValueSpan.Length) + 32L + 2L * reader.ValueSpan.Length));
+        return reader.GetString() ?? string.Empty;
+    }
+
+    private static void EncodeSchemaJson(string text, GovernedBufferStream bytes,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        Span<byte> encoded = stackalloc byte[1024];
+        ReadOnlySpan<char> remaining = text;
+        while (!remaining.IsEmpty)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            int count = Math.Min(256, remaining.Length);
+            if (count < remaining.Length && char.IsHighSurrogate(remaining[count - 1]) && char.IsLowSurrogate(remaining[count])) { count--; }
+            int length = System.Text.Encoding.UTF8.GetBytes(remaining[..count], encoded);
+            bytes.Write(encoded[..length], token); remaining = remaining[count..];
+        }
     }
 
     private static readonly PdfName InspectionContents = PdfName.FromAscii("Contents");

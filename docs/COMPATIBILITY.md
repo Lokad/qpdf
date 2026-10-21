@@ -45,6 +45,13 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+`--test-json-schema` scans admitted UTF-8 tokens for top-level help coverage,
+without constructing a DOM for the complete generated output. UTF-8 capacity and
+key/diagnostic storage receive admission before allocation, so tight limits can
+refuse checks previously omitted from accounting. Version-specific coverage,
+diagnostic overflow and acceptance before input close/publication are preserved.
+No public signatures change.
+
 Image optimization admits its form-visit set before growth and uses borrowed
 name lookups. Wide form graphs can now refuse under local/shared memory limits.
 Resource dictionaries retain their identities: optimization replaces indirect
