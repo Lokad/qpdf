@@ -10,10 +10,13 @@ public sealed class JsonSchemaMemoryTests
 {
     // Exercise the checker called by JSON inspection, including drift and bad
     // JSON that the ordinary serializer deliberately cannot produce.
-    private static readonly Action<string, int, ResourceGovernor, DiagnosticBag, CancellationToken> Check =
+    private static readonly Action<string, long, int, ResourceGovernor, DiagnosticBag, CancellationToken> Checker =
         (typeof(Qpdf).GetMethod("CheckJsonSchema", BindingFlags.Static | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("Missing JSON inspection checker."))
-        .CreateDelegate<Action<string, int, ResourceGovernor, DiagnosticBag, CancellationToken>>();
+        .CreateDelegate<Action<string, long, int, ResourceGovernor, DiagnosticBag, CancellationToken>>();
+
+    private static void Check(string json, int version, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+        => Checker(json, System.Text.Encoding.UTF8.GetByteCount(json), version, governor, diagnostics, token);
 
     private sealed class MemoryHost(IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
     {
@@ -55,7 +58,7 @@ public sealed class JsonSchemaMemoryTests
         DiagnosticBag diagnostics = new(governor);
         Check(json, version, governor, diagnostics, CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.JsonSchemaCheck, Assert.Single(diagnostics.Entries).Code);
-        Assert.InRange(governor.Snapshot().PeakMemoryBytes, json.Length, 4L * json.Length);
+        Assert.InRange(governor.Snapshot().PeakMemoryBytes, json.Length, json.Length + 8192L);
         Assert.InRange(governor.Snapshot().LiveMemoryBytes, 1L, 1024L);
         governor.CompletePrivateStorage();
     }

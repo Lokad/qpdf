@@ -2371,6 +2371,7 @@ public static partial class Qpdf
 
     private static void CheckJsonSchema(
         string json,
+        long utf8Bytes,
         int version,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
@@ -2392,7 +2393,13 @@ public static partial class Qpdf
         }
 
         bytes.ResetWrittenBytes();
+        if (utf8Bytes > Array.MaxLength)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), utf8Bytes, Array.MaxLength); }
+        // The serializer already counted UTF-8 bytes. Admit the final capacity
+        // once instead of growing through copies of the complete output.
+        bytes.PrepareCapacity(checked((int)utf8Bytes), cancellationToken);
         EncodeSchemaJson(json, bytes, governor, cancellationToken);
+        if (bytes.Length != utf8Bytes) { throw new InvalidOperationException("JSON UTF-8 sizing disagrees with encoding."); }
         List<string> missing = ParserContainers.CreateList<string>(memory);
         System.Text.Json.Utf8JsonReader generated = new(bytes.WrittenSpan);
         if (!generated.Read() || generated.TokenType != System.Text.Json.JsonTokenType.StartObject)
@@ -4687,7 +4694,7 @@ public static partial class Qpdf
             if (testJsonSchema)
             {
                 // Preserve the schema note's acceptance before input close.
-                CheckJsonSchema(text.Value, inspection.Version, governor, diagnostics, cancellationToken);
+                CheckJsonSchema(text.Value, text.Utf8Bytes, inspection.Version, governor, diagnostics, cancellationToken);
                 await document.DisposeAsync().ConfigureAwait(false);
             }
             output.Prepare(text, outputPath.HasValue, escapeText, limits);
