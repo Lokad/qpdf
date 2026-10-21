@@ -77,7 +77,7 @@ internal static class DocumentJson
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 AppendKey(builder, ref firstKey, "pages");
-                AppendPages(builder, document, outlines, request, labels, limits, governor, diagnostics, cancellationToken);
+                AppendPages(builder, document, outlines, request, labels, limits, governor, diagnostics, inspectionMemory, cancellationToken);
             }
 
             if (request.Wants("pagelabels"))
@@ -572,9 +572,16 @@ internal static class DocumentJson
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
+        ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
         IReadOnlyList<PageLocation> pages = document.PageReferences;
+        GovernedIntDictionary<List<OutlineEntry>>? pageOutlines = null;
+        if (outlines.Count > 0)
+        {
+            pageOutlines = GovernedIntDictionary<List<OutlineEntry>>.Create(memory, governor, IntPtr.Size, cancellationToken);
+            IndexPageOutlines(outlines, pageOutlines, memory, governor, cancellationToken);
+        }
         builder.Append((char)91);
         for (int i = 0; i < pages.Count; i++)
         {
@@ -614,7 +621,7 @@ internal static class DocumentJson
             }
 
             builder.Append(",\"outlines\": ");
-            AppendPageOutlines(builder, outlines, i + 1, request, governor, limits);
+            AppendPageOutlines(builder, pageOutlines, i + 1, request, governor, limits);
             builder.Append(",\"pageposfrom1\": ");
             builder.AppendInteger((i + 1));
             builder.Append((char)125);
@@ -931,9 +938,28 @@ internal static class DocumentJson
 
         builder.Append((char)93);
     }
+    private static void IndexPageOutlines(List<OutlineEntry> entries, GovernedIntDictionary<List<OutlineEntry>> index,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        foreach (OutlineEntry entry in entries)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (entry.DestinationPage is int page)
+            {
+                if (!index.TryGetValue(page, out List<OutlineEntry>? targets))
+                {
+                    targets = ParserContainers.CreateList<OutlineEntry>(memory);
+                    index.TryAdd(memory, page, targets);
+                }
+                ParserContainers.AddItem(memory, targets, entry, IntPtr.Size);
+            }
+            IndexPageOutlines(entry.Children, index, memory, governor, token);
+        }
+    }
+
     private static void AppendPageOutlines(
         DisplayBuffer builder,
-        List<OutlineEntry> outlines,
+        GovernedIntDictionary<List<OutlineEntry>>? outlines,
         int pageposfrom1,
         JsonRequest request,
         ResourceGovernor governor,
@@ -941,9 +967,9 @@ internal static class DocumentJson
     {
         builder.Append((char)91);
         bool first = true;
-        foreach (OutlineEntry entry in outlines)
+        if (outlines is not null && outlines.TryGetValue(pageposfrom1, out List<OutlineEntry>? entries))
         {
-            if (entry.DestinationPage == pageposfrom1)
+            foreach (OutlineEntry entry in entries)
             {
                 if (!first)
                 {

@@ -38,6 +38,8 @@ Attachment JSON reads modification dates from `/ModDate`, independently of
 `/CreationDate`; a missing field remains null. Full PDF timestamps with signed
 time-zone offsets now retain that offset. Date formatting checks bounded syntax
 before allocating. Named streams share metadata reading with typed listings.
+Page JSON includes nested bookmarks with explicit page destinations in tree
+order. An admitted sparse lookup avoids traversing the outline tree per page.
 
 Coalescing, normalization and inline-image interpretation now require unfiltered
 or successfully decoded content. Unsupported/damaged encodings and filter-count

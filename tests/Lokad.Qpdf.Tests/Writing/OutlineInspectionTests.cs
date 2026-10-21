@@ -83,6 +83,31 @@ public sealed class OutlineInspectionTests
     }
 
     [Theory]
+    [InlineData("typed")]
+    [InlineData("argv")]
+    [InlineData("job")]
+    public async Task PageSummariesIncludeNestedBookmarksInTreeOrder(string route)
+    {
+        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), Fixture(
+            "<< /Title (A) /Dest [3 0 R /Fit] /First 6 0 R /Next 7 0 R >>",
+            "<< /Title (Child) /Dest [3 0 R /Fit] /First << /Title (Direct) /Dest [3 0 R /Fit] >> >>",
+            "<< /Title (B) /Dest [3 0 R /Fit] >>"), QpdfInputOwnership.Transfer);
+        if (route == "typed") { await Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("input"), QpdfPath.From("output"), new QpdfJsonOptions(2, ["pages"]), CancellationToken.None); }
+        else
+        {
+            QpdfExecutionResult result = route == "job"
+                ? await Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","json":"2","jsonKey":["pages"]}""", CancellationToken.None)
+                : await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["input", "--json=2", "--json-key=pages", "--", "output"]), CancellationToken.None);
+            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        }
+        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output)); Assert.Equal(0L, host.OpenLeaseCount);
+        using JsonDocument json = JsonDocument.Parse(output);
+        JsonElement entries = json.RootElement.GetProperty("pages")[0].GetProperty("outlines");
+        Assert.Equal(new[] { "A", "Child", "Direct", "B" }, entries.EnumerateArray().Select(entry => entry.GetProperty("title").GetString()));
+        Assert.All(entries.EnumerateArray(), entry => Assert.False(entry.TryGetProperty("kids", out _)));
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task RefusalAndCancellationRefundInspectionScratch(bool canceled)
