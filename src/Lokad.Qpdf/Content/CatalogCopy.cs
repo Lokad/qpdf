@@ -138,15 +138,15 @@ internal static class CatalogCopy
     /// or reach structural nodes are skipped silently like the reference, while
     /// budget exhaustion and cancellation still fail loudly.
     /// </summary>
-    internal static Dictionary<PdfName, QpdfObject> TryCopyExtras(
+    internal static IReadOnlyDictionary<PdfName, QpdfObject> TryCopyExtras(
         DocumentEngine engine,
         GraphCopier copier,
         bool preserveCatalog,
         bool removeAcroform,
         ResourceGovernor governor,
+        ParserMemoryScope ownership,
         CancellationToken cancellationToken)
     {
-        Dictionary<PdfName, QpdfObject> extras = new();
         if (engine is null)
         {
             throw new ArgumentNullException(nameof(engine));
@@ -162,29 +162,21 @@ internal static class CatalogCopy
             throw new ArgumentNullException(nameof(governor));
         }
 
-        if (!preserveCatalog)
+        ownership.CheckOwner(governor);
+        using ParserMemoryScope result = ParserMemoryScope.Create(governor);
+        PdfNameTable<QpdfObject> extras = PdfNameTable<QpdfObject>.Create(result, governor, IntPtr.Size, cancellationToken);
+        PdfDictionary? catalog = preserveCatalog ? TryGetCatalog(engine) : null;
+        using PdfDictionary.EntryEnumerator entries = catalog is null ? default : catalog.GetEntryEnumerator();
+        while (catalog is not null && entries.MoveNext(governor, cancellationToken))
         {
-            return extras;
-        }
-
-        cancellationToken.ThrowIfCancellationRequested();
-        governor.NoteOperation();
-        PdfDictionary? catalog = TryGetCatalog(engine);
-        if (catalog is null)
-        {
-            return extras;
-        }
-
-        foreach (PdfName key in catalog.Keys)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            if (IsHandledCatalogKey(key.DisplayText))
+            PdfName key = entries.Current.Key;
+            if (IsHandledCatalogKey(key.RawSpan))
             {
                 continue;
             }
 
-            if (!catalog.TryGet(key, out QpdfObject? raw) || raw is null || raw is PdfNull)
+            QpdfObject raw = entries.Current.Value;
+            if (raw is null || raw is PdfNull)
             {
                 continue;
             }
@@ -206,28 +198,29 @@ internal static class CatalogCopy
 
             try
             {
-                extras[key] = copier.CopyValue(raw, 0);
+                extras.Assign(result, governor, key, copier.CopyValue(raw, 0), cancellationToken);
             }
             catch (QpdfParseException)
             {
                 continue;
             }
         }
-        return extras;
+        extras.Freeze(result, governor, cancellationToken);
+        result.TransferTo(ownership); return extras;
     }
 
-    private static bool IsHandledCatalogKey(string name)
+    private static bool IsHandledCatalogKey(ReadOnlySpan<byte> name)
     {
-        return name == "Type"
-            || name == "Pages"
-            || name == "PageLabels"
-            || name == "Outlines"
-            || name == "StructTreeRoot"
-            || name == "MarkInfo"
-            || name == "Metadata"
-            || name == "Names"
-            || name == "Version"
-            || name == "Extensions";
+        return name.SequenceEqual("Type"u8)
+            || name.SequenceEqual("Pages"u8)
+            || name.SequenceEqual("PageLabels"u8)
+            || name.SequenceEqual("Outlines"u8)
+            || name.SequenceEqual("StructTreeRoot"u8)
+            || name.SequenceEqual("MarkInfo"u8)
+            || name.SequenceEqual("Metadata"u8)
+            || name.SequenceEqual("Names"u8)
+            || name.SequenceEqual("Version"u8)
+            || name.SequenceEqual("Extensions"u8);
     }
 
     private static PdfDictionary? TryGetCatalog(DocumentEngine engine)

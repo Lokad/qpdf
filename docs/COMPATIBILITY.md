@@ -52,6 +52,12 @@ Ordinary page ordering uses the same admitted, cancellable collation path as
 inspection. Rotation resolves only affected pages and no longer snapshots every
 page dictionary. Large planning/header allocations can refuse earlier; rotation
 composition and independent duplicate-page occurrences remain unchanged.
+Catalog preservation borrows raw keys and admits its temporary metadata and
+final dictionary before allocation. The final dictionary adopts its new storage
+without another defensive copy; large catalogs can refuse earlier. Both caller
+and governor cancellation interrupt construction. Opaque form arrays, primary
+merge extras and split omission policy retain their existing behavior.
+No public signatures change.
 
 Page selection finishes copying catalog labels and form defaults before allocating
 added attachments, and coordinates later copies with overlay/appearance objects.
