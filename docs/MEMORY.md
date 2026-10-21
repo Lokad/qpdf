@@ -151,6 +151,16 @@ private buffers themselves; the execution capability alone does not govern those
 buffers. Low-level input callers admit freshly returned bytes before reading;
 the budget-aware helper provides that boundary.
 
+AcroForm JSON borrows parsed bytes and arrays. A field scope funds ancestor
+storage, cycle detection and decoded/qualified names until their characters enter
+the admitted JSON buffer. Partial names reuse their decoded value; each choice
+refunds its text after serialization. Image JSON admits name capacity and inline
+descriptor growth per page, and sorts borrowed names with the shared comparator.
+Page contents iterate borrowed direct or resolved indirect arrays. These scopes
+use the existing coarse shared reservation; they do not reserve from the host
+per name, character or comparison. Import text encoding remains covered by its
+aggregate model estimate, independently of the graph-edit allocator.
+
 Prepared JSON UTF-8 buffers and sidecar names stay under the private preparation
 owner through awaited publication and transaction cleanup. Host callbacks borrow
 that storage; persistent host copies and identifiers have a host owner. After
