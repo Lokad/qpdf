@@ -38,6 +38,19 @@ fileless result assembly or transactional publication. Filter chains retain thei
 independent intermediate decompression limits; normalized output can be smaller
 than its source, so its output ceiling is applied during construction.
 
+Object-stream writing admits source/candidate sets, remapping and final group
+capacity under the existing copy/selection phase. Sorting scratch refunds before
+returning the groups; a failed candidate transfers no partial charge. Split
+groups refund after their PDF has been serialized into owned publication bytes.
+The unused whole-document grouping pass is omitted for split output.
+
+Shared graph reachability borrows arrays and frozen dictionary values through
+reverse cursors, keeping their pending storage proportional to nesting depth.
+Legacy dictionary storage needs an admitted reverse snapshot, refunded when its
+frame finishes. Generation-aware visited references are temporary; only the
+completed set of reached object numbers transfers to the requesting phase.
+Cycles, missing references and cancellation retain their existing semantics.
+
 Image optimization borrows raw samples from the copied graph where possible.
 Decoded samples, separator trimming and JPEG candidates have temporary owners;
 rejected candidates refund their storage, and accepted buffers and headers

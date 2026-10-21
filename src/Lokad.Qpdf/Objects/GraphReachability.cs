@@ -9,46 +9,68 @@ internal static class GraphReachability
     internal static HashSet<int> Find(IIndirectResolver resolver, QpdfObject root,
         ParserMemoryScope memory, ResourceGovernor governor)
     {
-        HashSet<int> numbers = ParserContainers.CreateSet<int>(memory);
-        HashSet<(int Number, int Generation)> visited = ParserContainers.CreateSet<(int, int)>(memory);
-        List<QpdfObject> pending = ParserContainers.CreateList(memory);
-        ParserContainers.AddItem(memory, pending, root);
-        while (pending.Count > 0)
+        memory.CheckOwner(governor);
+        using ParserMemoryScope result = ParserMemoryScope.Create(governor);
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        HashSet<int> numbers = ParserContainers.CreateSet<int>(result);
+        HashSet<(int Number, int Generation)> visited = ParserContainers.CreateSet<(int, int)>(scratch);
+        List<(object Values, int Next)> frames = ParserContainers.CreateList<(object, int)>(scratch);
+        QpdfObject? current = root;
+        while (current is not null || frames.Count > 0)
         {
             governor.CheckCancellation();
-            QpdfObject current = pending[^1];
-            pending.RemoveAt(pending.Count - 1);
-            if (current is PdfReference reference)
+            if (current is null)
             {
-                if (ParserContainers.AddSetItem(memory, visited, (reference.ObjectNumber, reference.Generation), 8L)
+                (object values, int next) = frames[^1];
+                if (next < 0)
+                {
+                    frames.RemoveAt(frames.Count - 1);
+                    if (values is List<QpdfObject> legacy) { ParserContainers.ReleaseList(scratch, legacy); }
+                    continue;
+                }
+                frames[^1] = (values, next - 1);
+                current = values is PdfNameTable<QpdfObject> names ? names.GetFrozenValueAt(next)
+                    : ((IReadOnlyList<QpdfObject>)values)[next];
+            }
+            QpdfObject valueToVisit = current;
+            current = null;
+            if (valueToVisit is PdfReference reference)
+            {
+                if (ParserContainers.AddSetItem(scratch, visited, (reference.ObjectNumber, reference.Generation), 8L)
                     && resolver.TryResolve(reference, out QpdfObject? value) && value is not null)
                 {
-                    ParserContainers.AddSetItem(memory, numbers, reference.ObjectNumber, sizeof(int));
-                    ParserContainers.AddItem(memory, pending, value);
+                    ParserContainers.AddSetItem(result, numbers, reference.ObjectNumber, sizeof(int));
+                    current = value;
                 }
             }
-            else if (current is PdfArray array)
+            else if (valueToVisit is PdfArray array)
             {
-                for (int i = 0; i < array.Count; i++)
+                if (array.Count > 0) { ParserContainers.AddItem(scratch, frames, (array.BorrowedItems, array.Count - 1), 16L); }
+            }
+            else if (valueToVisit is PdfDictionary dictionary)
+            {
+                if (dictionary.Count == 0) { continue; }
+                object values = dictionary.AllocationCarrier;
+                if (values is not PdfNameTable<QpdfObject>)
                 {
-                    governor.NoteOperation();
-                    ParserContainers.AddItem(memory, pending, array[i]);
+                    // Public/legacy dictionaries have no reverse cursor. Keep
+                    // their admitted snapshot local to this frame; frozen name
+                    // tables and arrays borrow storage directly.
+                    List<QpdfObject> legacy = ParserContainers.CreateList(scratch);
+                    using var entries = dictionary.GetEntryEnumerator();
+                    while (entries.MoveNext(governor, governor.CancellationToken))
+                    { ParserContainers.AddItem(scratch, legacy, entries.Current.Value); }
+                    values = legacy;
                 }
+                ParserContainers.AddItem(scratch, frames, (values, dictionary.Count - 1), 16L);
             }
-            else if (current is PdfDictionary dictionary)
+            else if (valueToVisit is PdfStream stream)
             {
-                using var entries = dictionary.GetEntryEnumerator();
-                while (entries.MoveNext())
-                {
-                    governor.NoteOperation();
-                    ParserContainers.AddItem(memory, pending, entries.Current.Value);
-                }
-            }
-            else if (current is PdfStream stream)
-            {
-                ParserContainers.AddItem(memory, pending, stream.Dictionary);
+                current = stream.Dictionary;
             }
         }
+        governor.CheckCancellation();
+        result.TransferTo(memory);
         return numbers;
     }
 }

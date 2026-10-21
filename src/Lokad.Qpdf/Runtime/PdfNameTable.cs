@@ -53,6 +53,13 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
     internal bool IsFrozen => _frozen;
     internal int Capacity => _entries.Length;
     internal long StorageBytes => checked(WrapperBytes + ArrayBytes(Capacity));
+    internal T GetFrozenValueAt(int index)
+    {
+        if (!_frozen) { throw new InvalidOperationException("Indexed reads require frozen name storage."); }
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, _count);
+        return _entries[index].Value;
+    }
     public IEnumerable<PdfName> Keys => this;
     // Frozen storage caches a key view on demand. Keep the dictionary's
     // nongeneric key enumeration distinct from the table's entries.

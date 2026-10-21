@@ -45,6 +45,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Shared graph reachability borrows array and frozen dictionary storage instead
+of queuing every child. Repeated references in wide containers can now fit
+smaller memory allowances. Traversal scratch refunds before returning the reached
+set; reverse visitation, generation-aware cycles and missing-reference handling
+are preserved. No public signatures change.
+
 Object-stream preparation admits candidate sets, remapping, sorting storage and
 group capacity before allocation. Large generate/preserve/split jobs can refuse
 earlier under local or shared memory limits, and cancellation interrupts planning.
