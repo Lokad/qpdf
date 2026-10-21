@@ -116,6 +116,10 @@ internal static class GenerateAppearances
                     {
                         pageChanged = true;
                     }
+                    else
+                    {
+                        entries.Add(item);
+                    }
 
                     continue;
                 }

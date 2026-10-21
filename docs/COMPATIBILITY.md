@@ -45,6 +45,10 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Appearance generation preserves skipped buttons in a page's annotation array
+when other widgets on that page are updated. Radio buttons, pushbuttons and
+buttons without a usable name value keep their existing state and warnings.
+
 JSON names use strict UTF-8 scalar validation. Surrogate encodings and values
 above Unicode's range now export with `n:` byte escaping, preserving raw name
 bytes through import/update instead of replacing them with replacement text.
