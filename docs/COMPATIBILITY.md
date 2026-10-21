@@ -48,6 +48,12 @@ unset defaults. These distinctions are part of the supported contract.
 Appearance generation preserves skipped buttons in a page's annotation array
 when other widgets on that page are updated. Radio buttons, pushbuttons and
 buttons without a usable name value keep their existing state and warnings.
+Separate and merged widgets update their own terminal field when `/FT` is
+inherited, without changing a shared ancestor or unrelated sibling. Indirect
+`/FT`, `/V`, `/DA` and `/Ff` values resolve consistently with direct values.
+Parent traversal keeps bounded lenient `/Kids` fallback, using one admitted
+reverse index per copied graph. Damaged multiple-parent graphs choose the first
+indexed parent deterministically; cycles and broken explicit links stop traversal.
 
 JSON names use strict UTF-8 scalar validation. Surrogate encodings and values
 above Unicode's range now export with `n:` byte escaping, preserving raw name

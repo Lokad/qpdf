@@ -1699,7 +1699,7 @@ internal static class DocumentJson
 
         // A separate widget points at its terminal field, which may inherit FT
         // from a named group. A merged widget carries field entries itself.
-        int fieldIndex = chain.Count > 1 && !HasFieldEntries(annot, governor, token) ? 1 : 0;
+        int fieldIndex = chain.Count > 1 && !Content.AcroFormCopy.HasFieldEntries(annot, governor, token) ? 1 : 0;
         PdfName? fieldType = null;
         foreach ((PdfReference? _, PdfDictionary node) in chain)
         {
@@ -1728,22 +1728,6 @@ internal static class DocumentJson
         string qualified = parts.Count == 1 ? parts[0] : string.Join(".", parts);
         memory.Reserve(64L);
         return new AcroField(chain, fieldIndex, fieldType, qualified, partial);
-    }
-
-    private static bool HasFieldEntries(PdfDictionary node, ResourceGovernor governor, CancellationToken token)
-    {
-        using PdfDictionary.EntryEnumerator entries = node.GetEntryEnumerator();
-        while (entries.MoveNext())
-        {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            if (entries.Current.Value is PdfNull) { continue; }
-            ReadOnlySpan<byte> key = entries.Current.Key.RawSpan;
-            if (key.SequenceEqual("T"u8) || key.SequenceEqual("FT"u8) || key.SequenceEqual("TU"u8)
-                || key.SequenceEqual("TM"u8) || key.SequenceEqual("Ff"u8) || key.SequenceEqual("V"u8)
-                || key.SequenceEqual("DV"u8) || key.SequenceEqual("DA"u8) || key.SequenceEqual("Q"u8)
-                || key.SequenceEqual("Opt"u8) || key.SequenceEqual("MaxLen"u8)) { return true; }
-        }
-        return false;
     }
 
     private static QpdfObject? InheritedValue(DocumentEngine engine, List<(PdfReference? Reference, PdfDictionary Node)> chain, string key)

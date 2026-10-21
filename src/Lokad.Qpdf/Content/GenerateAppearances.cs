@@ -50,6 +50,8 @@ internal static class GenerateAppearances
         }
 
         limits.Validate();
+        using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
+        Dictionary<GraphCopier, FieldParents> parents = ParserContainers.CreateDictionary<GraphCopier, FieldParents>(traversal);
         HashSet<int> generated = new();
         foreach ((GraphCopier copier, int pageId) in occurrences)
         {
@@ -109,8 +111,8 @@ internal static class GenerateAppearances
                     continue;
                 }
 
-                FieldContext field = ResolveField(copier, annot, annotId, resolver);
-                if (field.Type == "Btn")
+                FieldContext field = ResolveField(copier, annot, annotId, resolver, parents, traversal, limits, governor, cancellationToken);
+                if (field.Type == FieldType.Button)
                 {
                     if (SyncButton(copier, annot, item, annotId, field, resolver, entries, diagnostics, governor, cancellationToken))
                     {
@@ -124,7 +126,7 @@ internal static class GenerateAppearances
                     continue;
                 }
 
-                if (field.Type != "Tx" && field.Type != "Ch")
+                if (field.Type != FieldType.Text && field.Type != FieldType.Choice)
                 {
                     entries.Add(item);
                     continue;
@@ -194,201 +196,140 @@ internal static class GenerateAppearances
         return warnUnreachable;
     }
 
-    private sealed record FieldContext(
-        string Type,
-        long Flags,
-        QpdfObject? Value,
-        ReadOnlyMemory<byte>? DefaultAppearance,
-        PdfDictionary? Node,
-        int? NodeId);
+    private enum FieldType { Other, Button, Text, Choice }
+
+    private readonly record struct FieldContext(
+        FieldType Type, long Flags, QpdfObject? Value, ReadOnlyMemory<byte>? DefaultAppearance,
+        PdfDictionary Node, int? NodeId);
 
     private static bool IsWidget(PdfDictionary annot)
     {
         return annot.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject? subtype)
-            && subtype is PdfName name
-            && name.DisplayText == "Widget";
+            && subtype is PdfName name && name.RawSpan.SequenceEqual("Widget"u8);
     }
 
-    private static FieldContext ResolveField(
-        GraphCopier copier,
-        PdfDictionary annot,
-        int? annotId,
-        PoolResolver resolver)
+    private static FieldContext ResolveField(GraphCopier copier, PdfDictionary annot, int? annotId,
+        PoolResolver resolver, Dictionary<GraphCopier, FieldParents> parents, ParserMemoryScope traversal,
+        QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
-        List<(PdfDictionary Node, int? Id)> chain = FindFieldChain(copier, annot, annotId, resolver);
-        string type = string.Empty;
-        long flags = 0L;
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        List<(PdfDictionary Node, int? Id)> chain = FindFieldChain(copier, annot, annotId, resolver, parents,
+            traversal, scratch, limits, governor, token);
+        // A separate widget belongs to its immediate terminal field, independently
+        // of which ancestor supplies FT. A merged widget carries field entries.
+        int fieldIndex = chain.Count > 1 && !AcroFormCopy.HasFieldEntries(annot, governor, token) ? 1 : 0;
+        FieldType type = FieldType.Other;
+        bool typeFound = false, flagsFound = false;
+        long flags = 0;
         QpdfObject? value = null;
         ReadOnlyMemory<byte>? appearance = null;
-        PdfDictionary? node = null;
-        int? nodeId = null;
-        bool flagsFound = false;
-        foreach ((PdfDictionary current, int? currentId) in chain)
+        foreach ((PdfDictionary current, int? _) in chain)
         {
-            if (type.Length == 0 && current.TryGet(PdfName.FromAscii("FT"), out QpdfObject? typeRaw) && typeRaw is PdfName typeName)
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (!typeFound && ReadFieldValue(current, "FT"u8, resolver, governor, token) is PdfName name)
             {
-                type = typeName.DisplayText;
-                node = current;
-                nodeId = currentId;
+                typeFound = true;
+                type = name.RawSpan.SequenceEqual("Btn"u8) ? FieldType.Button
+                    : name.RawSpan.SequenceEqual("Tx"u8) ? FieldType.Text
+                    : name.RawSpan.SequenceEqual("Ch"u8) ? FieldType.Choice : FieldType.Other;
             }
-
-            if (value is null && current.TryGet(PdfName.FromAscii("V"), out QpdfObject? valueRaw) && valueRaw is not null && valueRaw is not PdfNull)
-            {
-                value = valueRaw;
-            }
-
-            if (appearance is null && current.TryGet(PdfName.FromAscii("DA"), out QpdfObject? appearanceRaw) && appearanceRaw is PdfByteString appearanceString)
-            {
-                appearance = appearanceString.ValueMemory;
-            }
-
-            if (!flagsFound && current.TryGet(PdfName.FromAscii("Ff"), out QpdfObject? flagsRaw) && flagsRaw is not null && flagsRaw is not PdfNull)
-            {
-                QpdfObject flagsTarget = flagsRaw is PdfReference flagsReference
-                    ? ResolveOrNull(resolver, flagsReference) ?? flagsRaw
-                    : flagsRaw;
-                if (flagsTarget is PdfInteger flagsInteger)
-                {
-                    flags = flagsInteger.Value;
-                    flagsFound = true;
-                }
-            }
+            value ??= ReadFieldValue(current, "V"u8, resolver, governor, token);
+            if (appearance is null && ReadFieldValue(current, "DA"u8, resolver, governor, token) is PdfByteString text)
+            { appearance = text.ValueMemory; }
+            if (!flagsFound && ReadFieldValue(current, "Ff"u8, resolver, governor, token) is PdfInteger integer)
+            { flags = integer.Value; flagsFound = true; }
         }
-
-        return new FieldContext(type, flags, value, appearance, node, nodeId);
+        return new(type, flags, value, appearance, chain[fieldIndex].Node, chain[fieldIndex].Id);
     }
 
-    private static List<(PdfDictionary Node, int? Id)> FindFieldChain(
-        GraphCopier copier,
-        PdfDictionary annot,
-        int? annotId,
-        PoolResolver resolver)
+    private static QpdfObject? ReadFieldValue(PdfDictionary node, ReadOnlySpan<byte> key,
+        PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
     {
-        List<(PdfDictionary Node, int? Id)> chain = new()
+        if (!PdfDictionaryLookup.TryGet(node, key, governor, token, out QpdfObject value)) { return null; }
+        for (int depth = 0; depth < 32; depth++)
         {
-            (annot, annotId),
-        };
-        HashSet<int> visited = new();
-        if (annotId.HasValue)
-        {
-            visited.Add(annotId.Value);
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (value is not PdfReference link) { return value is PdfNull ? null : value; }
+            QpdfObject? resolved = ResolveOrNull(resolver, link);
+            if (resolved is null) { return null; }
+            value = resolved;
         }
+        return null;
+    }
 
-        // Follow preserved /Parent links first like the reference: a widget whose
-        // field holds FT/V/DA without a /Kids back-link still resolves outward.
-        PdfDictionary? cursor = annot;
-        int parentDepth = 0;
-        while (parentDepth < 32 && cursor is not null)
+    // A single lazy reverse index preserves lenient Kids-only parents. Keys use
+    // object numbers or direct identity, so later V/AS replacements stay visible.
+    private sealed class FieldParents
+    {
+        internal readonly Dictionary<int, int> Ids;
+        internal readonly Dictionary<PdfDictionary, int> Direct;
+        internal FieldParents(ParserMemoryScope memory)
         {
-            parentDepth += 1;
-            if (!cursor.TryGet(PdfName.FromAscii("Parent"), out QpdfObject? parentRaw) || parentRaw is null || parentRaw is PdfNull)
+            memory.Reserve(32L);
+            Ids = ParserContainers.CreateDictionary<int, int>(memory);
+            memory.Reserve(96L);
+            Direct = new(ReferenceEqualityComparer.Instance);
+        }
+    }
+
+    private static FieldParents GetParents(GraphCopier copier, PoolResolver resolver,
+        Dictionary<GraphCopier, FieldParents> parents, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        if (parents.TryGetValue(copier, out FieldParents? found)) { return found; }
+        FieldParents built = new(memory);
+        foreach ((int id, QpdfObject raw) in copier.CopiedObjects)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (raw is not PdfDictionary node || ReadFieldValue(node, "Kids"u8, resolver, governor, token) is not PdfArray kids) { continue; }
+            for (int index = 0; index < kids.Count; index++)
             {
-                break;
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                if (kids[index] is PdfReference link && !built.Ids.ContainsKey(link.ObjectNumber))
+                {
+                    ParserContainers.EnsureEntryCapacity(memory, built.Ids, sizeof(int));
+                    built.Ids.Add(link.ObjectNumber, id);
+                }
+                else if (kids[index] is PdfDictionary direct && !built.Direct.ContainsKey(direct))
+                {
+                    ParserContainers.EnsureEntryCapacity(memory, built.Direct, sizeof(int));
+                    built.Direct.Add(direct, id);
+                }
             }
+        }
+        ParserContainers.EnsureEntryCapacity(memory, parents, IntPtr.Size);
+        parents.Add(copier, built); return built;
+    }
 
-            if (parentRaw is PdfReference parentReference)
+    private static List<(PdfDictionary Node, int? Id)> FindFieldChain(GraphCopier copier,
+        PdfDictionary annot, int? annotId, PoolResolver resolver, Dictionary<GraphCopier, FieldParents> parents,
+        ParserMemoryScope traversal, ParserMemoryScope scratch, QpdfLimits limits,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        List<(PdfDictionary Node, int? Id)> chain = ParserContainers.CreateList<(PdfDictionary Node, int? Id)>(scratch);
+        PdfDictionary current = annot; int? currentId = annotId;
+        for (int depth = 0; depth <= Math.Min(64L, limits.MaxNestingDepth); depth++)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            bool seen = false;
+            foreach ((PdfDictionary node, int? id) in chain)
+            { if (ReferenceEquals(node, current) || (currentId.HasValue && id == currentId)) { seen = true; break; } }
+            if (seen) { break; }
+            ParserContainers.AddItem(scratch, chain, (current, currentId), 16L);
+            if (PdfDictionaryLookup.TryGet(current, "Parent"u8, governor, token, out QpdfObject parentRaw)
+                && parentRaw is not PdfNull)
             {
-                if (!visited.Add(parentReference.ObjectNumber))
-                {
-                    break;
-                }
-
-                if (ResolveOrNull(resolver, parentReference) is not PdfDictionary parentDict)
-                {
-                    break;
-                }
-
-                chain.Add((parentDict, parentReference.ObjectNumber));
-                cursor = parentDict;
+                QpdfObject? parent = parentRaw is PdfReference link ? ResolveOrNull(resolver, link) : parentRaw;
+                if (parent is not PdfDictionary dictionary) { break; }
+                current = dictionary; currentId = (parentRaw as PdfReference)?.ObjectNumber;
                 continue;
             }
-
-            if (parentRaw is PdfDictionary parentDirect)
-            {
-                bool seen = false;
-                foreach ((PdfDictionary node, int? _) in chain)
-                {
-                    if (ReferenceEquals(node, parentDirect))
-                    {
-                        seen = true;
-                        break;
-                    }
-                }
-
-                if (seen)
-                {
-                    break;
-                }
-
-                chain.Add((parentDirect, null));
-                cursor = parentDirect;
-                continue;
-            }
-
-            break;
+            FieldParents index = GetParents(copier, resolver, parents, traversal, governor, token);
+            bool hasParent = currentId is int number ? index.Ids.TryGetValue(number, out int parentId)
+                : index.Direct.TryGetValue(current, out parentId);
+            if (!hasParent || !copier.CopiedObjects.TryGetValue(parentId, out QpdfObject? candidate) || candidate is not PdfDictionary ancestor) { break; }
+            current = ancestor; currentId = parentId;
         }
-
-        int? current = chain[chain.Count - 1].Id;
-        PdfDictionary? direct = chain[chain.Count - 1].Id.HasValue ? null : chain[chain.Count - 1].Node;
-        int depth = 0;
-        while (depth < 32)
-        {
-            depth += 1;
-            bool found = false;
-            foreach (KeyValuePair<int, QpdfObject> entry in copier.CopiedObjects)
-            {
-                if (entry.Value is not PdfDictionary candidate)
-                {
-                    continue;
-                }
-
-                if (!candidate.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw) || kidsRaw is null || kidsRaw is PdfNull)
-                {
-                    continue;
-                }
-
-                QpdfObject kidsTarget = kidsRaw is PdfReference kidsReference
-                    ? ResolveOrNull(resolver, kidsReference) ?? kidsRaw
-                    : kidsRaw;
-                if (kidsTarget is not PdfArray kids)
-                {
-                    continue;
-                }
-
-                bool contains = false;
-                foreach (QpdfObject kid in kids.Items)
-                {
-                    if (current.HasValue && kid is PdfReference kidReference && kidReference.ObjectNumber == current.Value)
-                    {
-                        contains = true;
-                        break;
-                    }
-
-                    if (!current.HasValue && direct is not null && ReferenceEquals(kid, direct))
-                    {
-                        contains = true;
-                        break;
-                    }
-                }
-
-                if (!contains || !visited.Add(entry.Key))
-                {
-                    continue;
-                }
-
-                chain.Add((candidate, entry.Key));
-                current = entry.Key;
-                direct = null;
-                found = true;
-                break;
-            }
-
-            if (!found)
-            {
-                break;
-            }
-        }
-
         return chain;
     }
     private static List<string> ReadChoices(PdfDictionary field, PoolResolver resolver, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
@@ -469,11 +410,6 @@ internal static class GenerateAppearances
             return false;
         }
 
-        if (field.Node is null)
-        {
-            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot update a field without a field node; keeping it as is.");
-            return false;
-        }
         bool merged = ReferenceEquals(field.Node, annot);
         if (!merged && !field.NodeId.HasValue)
         {
@@ -624,7 +560,7 @@ internal static class GenerateAppearances
         AppearanceEncoding encoding = SelectEncoding(appearanceDict, font.FontName, formResources, resolver, governor, cancellationToken);
         byte[] encodedValue = EncodeValue(valueText, encoding, scratch, governor, cancellationToken);
         List<byte[]> encodedOpt = ParserContainers.CreateList<byte[]>(scratch);
-        if (field.Type == "Ch" && (field.Flags & FlagCombo) == 0L && field.Node is not null)
+        if (field.Type == FieldType.Choice && (field.Flags & FlagCombo) == 0L)
         {
             foreach (string choice in ReadChoices(field.Node, resolver, scratch, governor, cancellationToken))
             {
