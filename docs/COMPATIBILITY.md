@@ -45,6 +45,10 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+JSON names use strict UTF-8 scalar validation. Surrogate encodings and values
+above Unicode's range now export with `n:` byte escaping, preserving raw name
+bytes through import/update instead of replacing them with replacement text.
+
 JSON outline inspection rejects cycles through sibling links as well as child
 links, with cancellation and nesting bounds independent of cycle detection.
 Decoded titles, outline collections and destination indexes receive memory

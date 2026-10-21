@@ -54,7 +54,7 @@ internal static class PdfJsonWriter
     internal static void AppendName(DisplayBuffer builder, PdfName name, int version)
     {
         ReadOnlySpan<byte> raw = name.RawSpan;
-        bool valid = version != 1 && AnalyzeName(raw, builder.Governor).Valid;
+        bool valid = version != 1 && IsUtf8Name(raw, builder.Governor);
         builder.Append('"');
         if (version != 1 && !valid) { builder.Append("n:"); }
         builder.Append('/');
@@ -294,63 +294,17 @@ internal static class PdfJsonWriter
             return a.Length - b.Length;
         }
     }
-    internal static (bool Valid, bool Plain) AnalyzeName(ReadOnlySpan<byte> slashForm, ResourceGovernor governor)
+    private static bool IsUtf8Name(ReadOnlySpan<byte> value, ResourceGovernor governor)
     {
-        int tail = 0;
-        bool tail2 = false;
-        bool tail3 = false;
-        bool needsEscaping = false;
-        for (int index = 0; index < slashForm.Length; index++)
+        while (!value.IsEmpty)
         {
-            CheckChunkCancellation(governor, index);
-            byte raw = slashForm[index];
-            int c = raw;
-            if (tail > 0)
-            {
-                if ((c & 0xC0) != 0x80) { return (false, false); }
-                if (tail2)
-                {
-                    if ((c & 0xE0) == 0x80) { return (false, false); }
-                    tail2 = false;
-                }
-                else if (tail3)
-                {
-                    if ((c & 0xF0) == 0x80) { return (false, false); }
-                    tail3 = false;
-                }
-
-                tail -= 1;
-            }
-            else if (c < 0x80)
-            {
-                if (!needsEscaping)
-                {
-                    needsEscaping = !((c > 34 && c != 92) || c == 32 || c == 33);
-                }
-            }
-            else if ((c & 0xE0) == 0xC0)
-            {
-                if ((c & 0xFE) == 0xC0) { return (false, false); }
-                tail = 1;
-            }
-            else if ((c & 0xF0) == 0xE0)
-            {
-                tail = 2;
-                tail2 = c == 0xE0;
-            }
-            else if ((c & 0xF8) == 0xF0)
-            {
-                tail = 3;
-                tail3 = c == 0xF0;
-            }
-            else
-            {
-                return (false, false);
-            }
+            governor.CheckCancellation();
+            if (Rune.DecodeFromUtf8(value, out _, out int consumed) != OperationStatus.Done) { return false; }
+            value = value[consumed..];
         }
-
-        return (tail == 0, !needsEscaping);
+        return true;
     }
+
     internal static bool UseHexString(ReadOnlySpan<byte> value, ResourceGovernor governor)
     {
         governor.CheckCancellation();
