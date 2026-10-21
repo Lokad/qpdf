@@ -25,27 +25,37 @@ internal static class PdfText
     internal static bool TryEncodePdfDocByte(char value, out byte encoded)
         => EncodeMap.TryGetValue(value, out encoded);
 
-    // One admitted final array; field names fall back to the same UTF-16BE
-    // code units as before when PDFDocEncoding cannot represent the text.
-    internal static byte[] Encode(string value, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    // Allocation belongs to the caller: JSON import prepays its model, while
+    // graph edits admit the final array through their parser scope.
+    internal static int GetEncodedLength(ReadOnlySpan<char> value, ResourceGovernor governor, CancellationToken token)
     {
-        memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        bool pdfDoc = true;
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         for (int i = 0; i < value.Length; i++)
         {
             if ((i & 255) == 0) { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); }
-            if (!TryEncodePdfDocByte(value[i], out _)) { pdfDoc = false; break; }
+            if (!TryEncodePdfDocByte(value[i], out _)) { return checked(2 + value.Length * 2); }
         }
-        int length = pdfDoc ? value.Length : checked(2 + value.Length * 2);
-        memory.Reserve(checked(32L + length)); byte[] bytes = new byte[length];
-        if (!pdfDoc) { bytes[0] = 0xfe; bytes[1] = 0xff; }
+        return value.Length;
+    }
+
+    internal static void Encode(ReadOnlySpan<char> value, Span<byte> target, ResourceGovernor governor, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        bool pdfDoc = target.Length == value.Length;
+        if (!pdfDoc)
+        {
+            if (target.Length != checked(2 + value.Length * 2)) { throw new ArgumentException("Incorrect text buffer length.", nameof(target)); }
+            target[0] = 0xfe; target[1] = 0xff;
+        }
         for (int i = 0; i < value.Length; i++)
         {
             if ((i & 255) == 0) { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); }
-            if (pdfDoc) { TryEncodePdfDocByte(value[i], out bytes[i]); }
-            else { bytes[2 + 2 * i] = (byte)(value[i] >> 8); bytes[3 + 2 * i] = (byte)value[i]; }
+            if (pdfDoc)
+            {
+                if (!TryEncodePdfDocByte(value[i], out target[i])) { throw new ArgumentException("Text requires UTF-16 encoding.", nameof(target)); }
+            }
+            else { target[2 + 2 * i] = (byte)(value[i] >> 8); target[3 + 2 * i] = (byte)value[i]; }
         }
-        return bytes;
     }
 
     private static Dictionary<char, byte> BuildEncodeMap()

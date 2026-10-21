@@ -51,17 +51,6 @@ internal static class PdfJsonWriter
         { governor.CheckCancellation(); }
     }
 
-    // Keep the existing syntax fixture's internal entry point. Runtime JSON
-    // consumers use the admitted buffer directly.
-    internal static void AppendName(StringBuilder builder, PdfName name, int version)
-    {
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        using DisplayBuffer output = DisplayBuffer.Create(governor, false);
-        AppendName(output, name, version);
-        using GovernedText text = output.Finish();
-        builder.Append(text.Value);
-    }
-
     internal static void AppendName(DisplayBuffer builder, PdfName name, int version)
     {
         ReadOnlySpan<byte> raw = name.RawSpan;
@@ -159,7 +148,7 @@ internal static class PdfJsonWriter
         for (int index = 0; index < value.Length; index++)
         {
             CheckChunkCancellation(governor, index);
-            if (EncodePdfDocChar(PdfText.DecodePdfDocByte(value[index])) != value[index]) { return false; }
+            if (!PdfText.TryEncodePdfDocByte(PdfText.DecodePdfDocByte(value[index]), out byte encoded) || encoded != value[index]) { return false; }
         }
         return true;
     }
@@ -362,26 +351,16 @@ internal static class PdfJsonWriter
 
         return (tail == 0, !needsEscaping);
     }
-    internal static bool UseHexString(byte[] value)
-    {
-        return UseHexStringCore(value, null);
-    }
-
     internal static bool UseHexString(ReadOnlySpan<byte> value, ResourceGovernor governor)
     {
-        return UseHexStringCore(value, governor);
-    }
-
-    private static bool UseHexStringCore(ReadOnlySpan<byte> value, ResourceGovernor? governor)
-    {
-        governor?.CheckCancellation();
+        governor.CheckCancellation();
         int nonAscii = 0;
         for (int i = 0; i < value.Length; i++)
         {
             if ((i & 255) == 0)
             {
-                governor?.NoteOperation();
-                governor?.CheckCancellation();
+                governor.NoteOperation();
+                governor.CheckCancellation();
             }
             byte raw = value[i];
             if (raw is >= 127 or >= 24 and < 32) { nonAscii += 1; }
@@ -392,42 +371,5 @@ internal static class PdfJsonWriter
         }
 
         return 5L * nonAscii > value.Length;
-    }
-    private static readonly int[] LowTable =
-        [0x02D8, 0x02C7, 0x02C6, 0x02D9, 0x02DD, 0x02DB, 0x02DA, 0x02DC];
-
-    private static readonly int[] HighTable =
-    [
-        0xFFFD, 0x2022, 0x2020, 0x2021, 0x2026, 0x2014, 0x2013, 0x0192,
-        0x2044, 0x2039, 0x203A, 0x2212, 0x2030, 0x201E, 0x201C, 0x201D,
-        0x2018, 0x2019, 0x201A, 0x2122, 0xFB01, 0xFB02, 0x0141, 0x0152,
-        0x0160, 0x0178, 0x017D, 0x0131, 0x0142, 0x0153, 0x0161, 0x017E,
-        0xFFFD, 0x20AC,
-    ];
-
-    private static byte EncodePdfDocChar(char c)
-    {
-        if (c < 128)
-        {
-            return (byte)c;
-        }
-
-        for (int i = 0; i < LowTable.Length; i++)
-        {
-            if (LowTable[i] == c)
-            {
-                return (byte)(24 + i);
-            }
-        }
-
-        for (int i = 0; i < HighTable.Length; i++)
-        {
-            if (HighTable[i] == c)
-            {
-                return (byte)(127 + i);
-            }
-        }
-
-        return 63;
     }
 }

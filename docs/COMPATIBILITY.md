@@ -7,6 +7,12 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+JSON text import and export share PDFDocEncoding conversion. Unicode controls
+that occupy repurposed PDF byte slots now use UTF-16 rather than changing into
+accent marks. Ordinary Latin-1 text can use PDFDocEncoding and export as `u:`
+when the existing binary heuristic permits it; undefined bytes remain `b:`.
+No public signatures change.
+
 | Boundary | Current behavior |
 | --- | --- |
 | JPEG processing | Grayscale/RGB decoding and recompression require a caller-supplied codec. Existing images can pass through unchanged without one. |

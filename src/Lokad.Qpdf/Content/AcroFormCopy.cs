@@ -474,7 +474,10 @@ internal static class AcroFormCopy
                     if (snapshot.Contains(renamed)) { continue; }
                     candidate.TransferTo(names);
                     using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
-                    byte[] raw = PdfText.Encode(renamedOwn, graph.Memory, governor, token);
+                    int length = PdfText.GetEncodedLength(renamedOwn, governor, token);
+                    graph.Memory.Reserve(checked(32L + length));
+                    byte[] raw = new byte[length];
+                    PdfText.Encode(renamedOwn, raw, governor, token);
                     graph.Add(checked(32L + raw.Length)); graph.Memory.Reserve(32L);
                     PdfByteString text = PdfByteString.FromOwnedBytes(raw, false); graph.Add(32L);
                     node = PdfDictionaryRebuild.ReplaceEntry(graph, node, "T"u8, text);

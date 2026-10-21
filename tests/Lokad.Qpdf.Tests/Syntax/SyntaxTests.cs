@@ -4,6 +4,7 @@ using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Json;
+using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Syntax;
 
@@ -382,9 +383,10 @@ public sealed class ObjectModelTests
         PdfParser parser = new(QpdfLimits.Default, governor, new DiagnosticBag(governor), null);
         PdfName name = Assert.IsType<PdfName>(parser.ParseValue(new PdfTokenizer(Encoding.ASCII.GetBytes("/#2341")), 0));
         Assert.Equal("#41", Encoding.ASCII.GetString(name.RawBytes));
-        StringBuilder json = new();
+        using DisplayBuffer json = DisplayBuffer.CreateJson(governor);
         PdfJsonWriter.AppendName(json, name, 2);
-        Assert.Equal("\"/#41\"", json.ToString());
+        using GovernedText text = json.Finish();
+        Assert.Equal("\"/#41\"", text.Value);
     }
 
     [Fact]

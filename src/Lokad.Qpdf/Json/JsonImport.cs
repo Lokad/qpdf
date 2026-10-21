@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Attachments;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 
@@ -761,7 +762,12 @@ internal static class JsonImport
         if (IsIndirectReference(text, out int number, out int generation)) { return new PdfReference(number, generation); }
         ReadOnlySpan<char> span = text.AsSpan();
         if (span.StartsWith("u:", StringComparison.Ordinal))
-        { return PdfByteString.FromOwnedBytes(EncodeTextString(span[2..], governor, token), false); }
+        {
+            ReadOnlySpan<char> value = span[2..];
+            byte[] bytes = new byte[PdfText.GetEncodedLength(value, governor, token)];
+            PdfText.Encode(value, bytes, governor, token);
+            return PdfByteString.FromOwnedBytes(bytes, false);
+        }
         if (span.StartsWith("b:", StringComparison.Ordinal))
         {
             ReadOnlySpan<char> hex = span[2..];
@@ -886,68 +892,6 @@ internal static class JsonImport
         return c - (char)87;
     }
 
-    private static readonly int[] PdfDocLowTable =
-        [0x02D8, 0x02C7, 0x02C6, 0x02D9, 0x02DD, 0x02DB, 0x02DA, 0x02DC];
-
-    private static readonly int[] PdfDocHighTable =
-    [
-        0xFFFD, 0x2022, 0x2020, 0x2021, 0x2026, 0x2014, 0x2013, 0x0192,
-        0x2044, 0x2039, 0x203A, 0x2212, 0x2030, 0x201E, 0x201C, 0x201D,
-        0x2018, 0x2019, 0x201A, 0x2122, 0xFB01, 0xFB02, 0x0141, 0x0152,
-        0x0160, 0x0178, 0x017D, 0x0131, 0x0142, 0x0153, 0x0161, 0x017E,
-        0xFFFD, 0x20AC,
-    ];
-
-    private static byte[] EncodeTextString(ReadOnlySpan<char> text, ResourceGovernor governor, CancellationToken token)
-    {
-        bool pdfDoc = true;
-        for (int index = 0; index < text.Length; index++)
-        {
-            CheckTextCancellation(index, governor, token);
-            int unit = char.IsHighSurrogate(text[index]) && index + 1 < text.Length
-                ? char.ConvertToUtf32(text[index], text[index + 1]) : text[index];
-            if (!TryEncodePdfDoc(unit, out _)) { pdfDoc = false; break; }
-        }
-        byte[] result = new byte[pdfDoc ? text.Length : checked(text.Length * 2 + 2)];
-        if (!pdfDoc) { result[0] = 0xFE; result[1] = 0xFF; }
-        for (int index = 0; index < text.Length; index++)
-        {
-            CheckTextCancellation(index, governor, token);
-            if (pdfDoc) { TryEncodePdfDoc(text[index], out result[index]); }
-            else { result[index * 2 + 2] = (byte)(text[index] >> 8); result[index * 2 + 3] = (byte)text[index]; }
-        }
-        return result;
-    }
-
-    private static bool TryEncodePdfDoc(int unit, out byte mapped)
-    {
-        if (unit >= 0 && unit < 128)
-        {
-            mapped = (byte)unit;
-            return true;
-        }
-
-        for (int i = 0; i < PdfDocLowTable.Length; i++)
-        {
-            if (PdfDocLowTable[i] == unit)
-            {
-                mapped = (byte)(24 + i);
-                return true;
-            }
-        }
-
-        for (int i = 0; i < PdfDocHighTable.Length; i++)
-        {
-            if (PdfDocHighTable[i] == unit)
-            {
-                mapped = (byte)(127 + i);
-                return true;
-            }
-        }
-
-        mapped = 0;
-        return false;
-    }
     internal sealed record RenumberedModel(
         List<Writing.NumberedObject> Model,
         int? InfoNumber,
