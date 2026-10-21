@@ -596,7 +596,7 @@ internal static class DocumentJson
             builder.Append(",\"images\": ");
             AppendImages(builder, document.Engine, location, request, limits, governor, cancellationToken);
             builder.Append(",\"contents\": ");
-            AppendContents(builder, location.Page, request, governor, limits);
+            AppendContents(builder, document.Engine, location.Page, request, governor, limits);
             builder.Append(",\"label\": ");
             while (hasLabel && labelEntries.Current.Key <= i)
             {
@@ -623,7 +623,7 @@ internal static class DocumentJson
         builder.Append((char)93);
     }
 
-    private sealed record PageImageDetail(PdfName Name, PdfReference Reference, PdfStream Stream);
+    private readonly record struct PageImageDetail(PdfName Name, PdfReference Reference, PdfStream Stream);
 
     private static void AppendImages(
         DisplayBuffer builder,
@@ -636,7 +636,8 @@ internal static class DocumentJson
     {
         builder.Append((char)91);
         bool first = true;
-        foreach (PageImageDetail detail in ListImages(engine, location, limits, governor, cancellationToken))
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        foreach (PageImageDetail detail in ListImages(engine, location, limits, memory, governor, cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
@@ -768,11 +769,13 @@ internal static class DocumentJson
         DocumentEngine engine,
         PageLocation location,
         QpdfLimits limits,
+        ParserMemoryScope memory,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
-        List<PageImageDetail> images = new();
-        PdfDictionary? resources = EffectiveImageResources(engine, location, limits, governor, cancellationToken);
+        memory.CheckOwner(governor); cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        List<PageImageDetail> images = ParserContainers.CreateList<PageImageDetail>(memory);
+        PdfDictionary? resources = EffectiveImageResources(engine, location, limits, memory, governor, cancellationToken);
         if (resources is null)
         {
             return images;
@@ -795,8 +798,17 @@ internal static class DocumentJson
             return images;
         }
 
-        List<PdfName> names = new(xobjects.Keys);
-        names.Sort(static (left, right) => string.CompareOrdinal(left.DisplayText, right.DisplayText));
+        memory.Reserve(checked(32L + (xobjects.Count == 0 ? 0L : 32L + IntPtr.Size * (long)xobjects.Count)));
+        List<PdfName> names = new(xobjects.Count);
+        using (PdfDictionary.EntryEnumerator entries = xobjects.GetEntryEnumerator())
+        {
+            while (entries.MoveNext())
+            {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                names.Add(entries.Current.Key);
+            }
+        }
+        GovernedCollections.SortNames(memory, governor, names);
         foreach (PdfName key in names)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -811,12 +823,12 @@ internal static class DocumentJson
                 continue;
             }
 
-            if (!stream.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject subtype) || subtype is not PdfName subtypeName || subtypeName.DisplayText != "Image")
+            if (!stream.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject subtype) || subtype is not PdfName subtypeName || !subtypeName.RawSpan.SequenceEqual("Image"u8))
             {
                 continue;
             }
 
-            images.Add(new PageImageDetail(key, reference, stream));
+            ParserContainers.AddItem(memory, images, new PageImageDetail(key, reference, stream), 3L * IntPtr.Size);
         }
 
         return images;
@@ -826,14 +838,11 @@ internal static class DocumentJson
         DocumentEngine engine,
         PageLocation location,
         QpdfLimits limits,
+        ParserMemoryScope memory,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
-        HashSet<int> visited = new();
-        if (location.Source is not null)
-        {
-            visited.Add(location.Source.ObjectNumber);
-        }
+        GovernedIntSet? visited = null;
 
         PdfDictionary current = location.Page;
         int depth = 0;
@@ -865,7 +874,12 @@ internal static class DocumentJson
             PdfDictionary parent;
             if (parentRaw is PdfReference parentReference)
             {
-                if (!visited.Add(parentReference.ObjectNumber))
+                if (visited is null)
+                {
+                    visited = GovernedIntSet.Create(memory, governor, cancellationToken);
+                    if (location.Source is not null) { visited.Add(memory, location.Source.ObjectNumber); }
+                }
+                if (!visited.Add(memory, parentReference.ObjectNumber))
                 {
                     throw new QpdfParseException($"Page ancestry cycle at object {parentReference.ObjectNumber}.", null, parentReference.ObjectNumber);
                 }
@@ -899,6 +913,7 @@ internal static class DocumentJson
 
     private static void AppendContents(
         DisplayBuffer builder,
+        DocumentEngine engine,
         PdfDictionary page,
         JsonRequest request,
         ResourceGovernor governor,
@@ -910,18 +925,20 @@ internal static class DocumentJson
             return;
         }
 
+        // Resolve only the outer container. Entries keep their stream identity;
+        // malformed non-array values remain visible in the inspection report.
+        if (contents is PdfReference && TryResolve(engine, contents) is PdfArray indirect) { contents = indirect; }
         builder.Append((char)91);
         if (contents is PdfArray array)
         {
-            QpdfObject[] items = array.Items;
-            for (int i = 0; i < items.Length; i++)
+            for (int i = 0; i < array.Count; i++)
             {
                 if (i > 0)
                 {
                     builder.Append((char)44);
                 }
 
-                PdfJsonWriter.AppendValue(builder, items[i], request.Version, governor, 0, limits);
+                PdfJsonWriter.AppendValue(builder, array[i], request.Version, governor, 0, limits);
             }
         }
         else

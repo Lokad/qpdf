@@ -20,6 +20,13 @@ its immediate terminal field even when `/FT` is inherited from a group; a merged
 widget with field entries reports itself. Parent links, full/partial names,
 inherited values and bounded lenient handling of broken parents remain visible.
 
+Page JSON expands an indirect `/Contents` array into its entries, preserving
+stream references and order like a direct array. Non-array and malformed entries
+remain visible for inspection. Contents iteration borrows array storage. Image
+inspection admits descriptor capacity and compares borrowed name bytes using the
+existing ordinal display order, without creating strings for each comparison.
+Invalid image-resource overrides retain their existing inheritance policy.
+
 | Boundary | Current behavior |
 | --- | --- |
 | JPEG processing | Grayscale/RGB decoding and recompression require a caller-supplied codec. Existing images can pass through unchanged without one. |
