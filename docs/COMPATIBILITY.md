@@ -45,6 +45,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Appearance text replacement matches the first `/Tx` marked-content block with
+bounded `BMC`/`BDC` nesting, preserving unrelated bytes and inline image data.
+Malformed programs warn and keep their original appearances; nesting, memory,
+decompression and cancellation limits remain fatal. A missing text block appends
+a separated `/Tx` block after the unchanged original program.
+
 Appearance generation preserves skipped buttons in a page's annotation array
 when other widgets on that page are updated. Radio buttons, pushbuttons and
 buttons without a usable name value keep their existing state and warnings.

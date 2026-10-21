@@ -520,7 +520,13 @@ internal static class GenerateAppearances
             }
         }
 
-        byte[] built = FilterAppearance(decoded, font.Appearance, encodedValue, encodedOpt, font.Size, bbox, limits, governor, scratch, cancellationToken);
+        byte[] built;
+        try { built = FilterAppearance(decoded, font.Appearance, encodedValue, encodedOpt, font.Size, bbox, limits, governor, scratch, cancellationToken); }
+        catch (QpdfParseException)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot rewrite a malformed appearance program; keeping the field as is.");
+            return null;
+        }
         PdfDictionary? mergedResources = TryMergeDrFont(appearanceDict, font.FontName, formResources, resolver, governor, cancellationToken);
         PdfNameTable<QpdfObject> streamEntries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         using (PdfDictionary.EntryEnumerator source = appearanceDict.GetEntryEnumerator())
@@ -982,67 +988,74 @@ internal static class GenerateAppearances
         ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
-        ContentTokenizer tokenizer = new(data, limits, governor, cancellationToken)
-        {
-            IncludeComments = true,
-            IncludeWhitespace = true,
-        };
-        using GovernedBufferStream output = new(governor, limits.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes));
-        int state = 0;
-        bool replaced = false;
+        // Locate one complete text block before constructing output. All other
+        // bytes are borrowed unchanged, including comments and inline images.
+        memory.Reserve(192L);
+        ContentTokenizer tokenizer = new(data, limits, governor, cancellationToken);
+        List<ContentTokenKind> containers = ParserContainers.CreateList<ContentTokenKind>(memory);
+        int depth = 0, selectedDepth = 0, start = -1, end = -1, operands = 0;
+        bool textTag = false, namedTag = false, properties = false;
+        Span<byte> tagBytes = stackalloc byte[2];
         while (tokenizer.TryReadToken(out ContentToken token))
         {
             governor.NoteOperation();
-            if (state == 2)
+            if (token.Kind is ContentTokenKind.ArrayClose or ContentTokenKind.DictionaryClose)
             {
-                if (token.Kind == ContentTokenKind.Operator && token.Data.Span.SequenceEqual("EMC"u8))
+                ContentTokenKind opening = token.Kind == ContentTokenKind.ArrayClose ? ContentTokenKind.ArrayOpen : ContentTokenKind.DictionaryOpen;
+                if (containers.Count == 0 || containers[^1] != opening)
+                { throw new QpdfParseException("Mismatched appearance container.", token.Offset, null); }
+                containers.RemoveAt(containers.Count - 1); continue;
+            }
+            if (token.Kind is ContentTokenKind.ArrayOpen or ContentTokenKind.DictionaryOpen)
+            {
+                if (containers.Count == 0)
+                { if (operands == 1) { properties = token.Kind == ContentTokenKind.DictionaryOpen; } operands++; }
+                if (containers.Count >= limits.MaxNestingDepth)
+                { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), containers.Count + 1L, limits.MaxNestingDepth); }
+                ParserContainers.AddItem(memory, containers, token.Kind, sizeof(int)); continue;
+            }
+            if (containers.Count != 0) { continue; }
+            if (token.Kind != ContentTokenKind.Operator)
+            {
+                if (operands == 1) { properties = token.Kind == ContentTokenKind.Name; }
+                if (operands++ == 0)
                 {
-                    WriteTextAppearance(output, appearance, value, options, size, box, governor, memory, cancellationToken);
-                    replaced = true;
-                    state = 3;
+                    namedTag = token.Kind == ContentTokenKind.Name;
+                    if (namedTag && token.Data.Length <= 6)
+                    {
+                        PdfNameBytes tag = PdfNameBytes.Decode(token.Data.Span, governor, cancellationToken);
+                        if (tag.Length == 2) { tag.CopyTo(tagBytes, governor, cancellationToken); textTag = tagBytes.SequenceEqual("Tx"u8); }
+                    }
                 }
-
                 continue;
             }
-
-            if (state == 3)
+            ReadOnlySpan<byte> word = token.Data.Span;
+            if (word.SequenceEqual("BMC"u8) || word.SequenceEqual("BDC"u8))
             {
-                AppendRaw(output, token, cancellationToken);
-                continue;
+                bool simple = word.SequenceEqual("BMC"u8);
+                if (!namedTag || operands != (simple ? 1 : 2) || (!simple && !properties))
+                { throw new QpdfParseException("Invalid marked-content operands in appearance.", token.Offset, null); }
+                if (depth >= limits.MaxNestingDepth)
+                { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth + 1L, limits.MaxNestingDepth); }
+                depth++;
+                if (start < 0 && textTag) { start = checked((int)tokenizer.Position); selectedDepth = depth; }
             }
-
-            if (state == 0)
+            else if (word.SequenceEqual("EMC"u8))
             {
-                AppendRaw(output, token, cancellationToken);
-                if (token.Kind == ContentTokenKind.Operator && token.Data.Span.SequenceEqual("BMC"u8))
-                {
-                    state = 1;
-                }
-
-                continue;
+                if (depth == 0) { throw new QpdfParseException("Unmatched EMC in appearance.", token.Offset, null); }
+                if (depth == selectedDepth && end < 0) { end = checked((int)tokenizer.Position); }
+                depth--;
             }
-
-            if (token.Kind == ContentTokenKind.Comment || token.Kind == ContentTokenKind.Whitespace)
-            {
-                AppendRaw(output, token, cancellationToken);
-                continue;
-            }
-
-            state = 2;
-            if (token.Kind == ContentTokenKind.Operator && token.Data.Span.SequenceEqual("EMC"u8))
-            {
-                WriteTextAppearance(output, appearance, value, options, size, box, governor, memory, cancellationToken);
-                replaced = true;
-                state = 3;
-            }
+            else if (word.SequenceEqual("ID"u8)) { tokenizer.TryReadInlineImageData(out _); }
+            operands = 0; textTag = false; namedTag = false; properties = false;
         }
-
-        if (!replaced)
-        {
-            AppendAscii(output, "/Tx BMC\n");
-            WriteTextAppearance(output, appearance, value, options, size, box, governor, memory, cancellationToken);
-        }
-
+        if (depth != 0 || containers.Count != 0)
+        { throw new QpdfParseException("Unterminated marked content or container in appearance.", data.Length, null); }
+        using GovernedBufferStream output = new(governor, limits.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes), cancellationToken, 256);
+        output.Write(start < 0 ? data.Span : data.Span[..start], cancellationToken);
+        AppendAscii(output, start < 0 ? "\n/Tx BMC\n" : "\n");
+        WriteTextAppearance(output, appearance, value, options, size, box, governor, memory, cancellationToken);
+        if (end >= 0) { output.Write(data.Span[end..], cancellationToken); }
         return output.ToArray(memory, cancellationToken);
     }
     private static void WriteTextAppearance(
@@ -1171,12 +1184,6 @@ internal static class GenerateAppearances
         }
 
         return true;
-    }
-
-    private static void AppendRaw(GovernedBufferStream output, ContentToken token, CancellationToken cancellationToken)
-    {
-        if (token.Kind == ContentTokenKind.Name) { output.WriteByte((byte)'/'); }
-        output.Write(token.Data.Span, cancellationToken);
     }
 
     private static void AppendAscii(GovernedBufferStream output, string text)
