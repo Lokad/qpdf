@@ -45,6 +45,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Shared admission keeps less than two spare 16 KiB blocks between significant
+releases, preventing repeated grow/shrink calls for tiny scratch at a block
+boundary. Significant releases still return capacity promptly; zero-live cleanup
+and final completion trim retain their behavior. Local/shared ceilings and
+refused-growth policy remain binding. No public signatures change.
+
 Split model-list capacity refunds after each PDF is captured into owned bytes,
 instead of remaining charged through the whole batch. Group roots, ordering,
 renumbering and rebuilt page children receive admission and cancellation. The

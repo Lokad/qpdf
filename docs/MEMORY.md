@@ -133,8 +133,10 @@ The engine batches its existing storage estimates into one reservation per
 invocation. Small allocations use already admitted capacity; growth normally
 adds 16 KiB blocks, with a smaller initial admission for tiny jobs. Replacement
 buffers retain both old and new charges during copying. Root charges include
-block slack during execution; completion attempts one trim to the retained
-estimate. A declined optional shrink keeps the existing charge and stops further
+less than two spare blocks during execution to avoid host resize pairs for tiny
+scratch at a block boundary. Larger releases shrink immediately; zero live bytes
+refund the reservation. Completion attempts one trim to the retained estimate.
+A declined optional shrink keeps the existing charge and stops further
 trim attempts without failing an already completed publication. Local counters
 report the estimates.
 Returned storage remains beneath the supplied caller scope after the call ends.

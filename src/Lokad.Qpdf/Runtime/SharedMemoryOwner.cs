@@ -38,7 +38,9 @@ internal sealed class SharedMemoryOwner(IMemoryBudget budget, long localCeiling)
             _reservation = null;
             _reserved = 0L;
         }
-        else if (!_shrinkDeclined && _reserved - liveBytes >= BlockBytes)
+        // Keep less than two spare blocks between phases. A one-block margin
+        // avoids resize pairs when tiny scratch crosses an exact boundary.
+        else if (!_shrinkDeclined && _reserved - liveBytes >= 2L * BlockBytes)
         {
             long target = Capacity(liveBytes);
             if (_reservation.TryResize(target)) { _reserved = target; }

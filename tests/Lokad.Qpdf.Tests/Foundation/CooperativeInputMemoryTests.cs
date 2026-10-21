@@ -20,7 +20,8 @@ public sealed class CooperativeInputMemoryTests
         Assert.Equal(expected, read);
         Assert.Equal(20032L, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(chunkSize == expected.Length ? 20032L : 40064L, governor.Snapshot().PeakMemoryBytes);
-        Assert.InRange(root.ReservedBytes, 20032L, 20032L + SharedMemoryOwner.BlockBytes);
+        // An active execution may retain one spare block to avoid scratch churn.
+        Assert.InRange(root.ReservedBytes, 20032L, 20032L + 2L * SharedMemoryOwner.BlockBytes - 1L);
         Assert.Equal(1, root.ReserveCalls);
         Assert.InRange(root.ResizeCalls, 0, 2);
         governor.ReleaseMemory(20032L);
