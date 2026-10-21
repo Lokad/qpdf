@@ -45,6 +45,11 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Trailer IDs are checked through borrowed byte storage before copying. Empty
+and greater-than-256-byte first IDs retain their existing rejection policy;
+rejected large strings no longer allocate payload copies. Accepted IDs still
+receive a bounded independent copy. No public signatures change.
+
 Every accepted positive split group size, including `2147483647`, can exceed
 the page count and produces one complete group. Group arithmetic no longer
 overflows into negative page ranges; planning receives admission and cancellation.

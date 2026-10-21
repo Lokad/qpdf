@@ -2784,7 +2784,7 @@ public static partial class Qpdf
             return null;
         }
 
-        if (array[0] is not PdfByteString first || first.Value.Length == 0 || first.Value.Length > 256)
+        if (array[0] is not PdfByteString first || first.ValueMemory.Length == 0 || first.ValueMemory.Length > 256)
         {
             return null;
         }
