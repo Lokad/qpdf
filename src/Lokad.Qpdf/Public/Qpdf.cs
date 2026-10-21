@@ -3603,20 +3603,19 @@ public static partial class Qpdf
 
             byte[] data = await ReadAttachmentFileAsync(host, add.File, limits, governor, ownership, cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            if (add.MimeType is not null && !IsAscii(add.MimeType))
+            if (add.MimeType is not null && !IsAscii(add.MimeType, governor, cancellationToken))
             {
                 throw new QpdfParseException("Attachment MIME type must be ASCII.", 0L, null);
             }
 
             byte[] checksum = AttachmentBuilder.Checksum(data);
-            PdfDictionary streamDict = AttachmentBuilder.BuildStreamDictionary(data.Length, checksum, add.MimeType, add.CreationDate, add.ModDate, governor, ownership);
             byte[] stored = data;
             if (compress && data.Length > 0)
             {
                 stored = FlateFilter.Encode(data, level, limits, governor, ownership, cancellationToken);
-                streamDict = AttachmentBuilder.WithFilter(streamDict, governor, ownership);
             }
 
+            PdfDictionary streamDict = AttachmentBuilder.BuildStreamDictionary(data.Length, checksum, add.MimeType, add.CreationDate, add.ModDate, compress && data.Length > 0, governor, ownership, cancellationToken);
             int streamId = nextId;
             checked
             {
@@ -3627,7 +3626,7 @@ public static partial class Qpdf
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             pool[streamId] = PdfStream.FromOwnedData(streamDict, stored);
             ids.Add(streamId);
-            PdfDictionary spec = AttachmentBuilder.BuildFilespecDictionary(fileName, add.Description, streamId);
+            PdfDictionary spec = AttachmentBuilder.BuildFilespecDictionary(fileName, add.Description, streamId, governor, ownership, cancellationToken);
             int specId = nextId;
             checked
             {
@@ -3719,7 +3718,7 @@ public static partial class Qpdf
             pairs.Add(entry);
         }
 
-        PdfDictionary tree = AttachmentBuilder.BuildNameTree(pairs, governor, ownership);
+        PdfDictionary tree = AttachmentBuilder.BuildNameTree(pairs, governor, ownership, cancellationToken);
         ownership.Reserve(64L);
         PdfDictionary wrapper = new(new Dictionary<PdfName, QpdfObject>
         {
@@ -3738,11 +3737,12 @@ public static partial class Qpdf
         return new AttachmentAssembly(new PdfReference(rootId, 0), pageMode, ids, existing.Count);
     }
 
-    private static bool IsAscii(string text)
+    private static bool IsAscii(string text, ResourceGovernor governor, CancellationToken token)
     {
-        foreach (char c in text)
+        for (int index = 0; index < text.Length; index++)
         {
-            if (c > 127)
+            if ((index & 255) == 0) { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); }
+            if (text[index] > 127)
             {
                 return false;
             }

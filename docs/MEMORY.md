@@ -220,6 +220,13 @@ owner. Borrowed entry/name lookups avoid per-entry name/display copies. Indirect
 stream replacement preserves resource aliases without rebuilding page or form
 headers; cycles stop at the admitted visit set and form depth remains bounded.
 
+Attachment construction admits final encoded text/name backing, header tables
+and name-tree arrays under the existing graph construction scope. Encoding
+checks cancellation in bounded chunks; small fixed vocabulary headers reuse
+the admitted name table. Owned input/compression payloads transfer into stream
+wrappers without another payload copy. Failure refunds the construction owner;
+publication still holds the completed graph and bytes through host cleanup.
+
 Prepared JSON UTF-8 buffers and sidecar names stay under the private preparation
 owner through awaited publication and transaction cleanup. Host callbacks borrow
 that storage; persistent host copies and identifiers have a host owner. After

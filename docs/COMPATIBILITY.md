@@ -45,6 +45,11 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Attachment metadata receives admission before encoding and checks cancellation
+while scanning/copying. Headers and name-tree arrays adopt admitted storage;
+large metadata can now refuse before materialization. Existing ASCII/UTF-16
+encoding choices and attachment name-tree grouping remain unchanged.
+
 Attachment assembly adopts the owned read/compression payload instead of making
 another defensive copy. Cancellation at attachment-input close is checked before
 metadata construction. Duplicate-key conflicts retain their fixed error and

@@ -1,6 +1,9 @@
 using System.IO.Compression;
 using System.Reflection;
 using Lokad.Qpdf.Commands;
+using Lokad.Qpdf.Attachments;
+using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.TestSupport;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 
@@ -8,8 +11,10 @@ namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class AttachmentConstructionTests
 {
-    private sealed class Host(byte[] data, CancellationTokenSource? cancellation) : IQpdfHost
+    private sealed class Host(byte[] data, CancellationTokenSource? cancellation, IMemoryBudget? budget) : IQpdfHost, IQpdfMemoryHost
     {
+        internal Host(byte[] data, CancellationTokenSource? cancellation) : this(data, cancellation, null) { }
+        public IMemoryBudget? MemoryBudget => budget;
         internal int Opens, Closes;
         internal byte[] Data => data;
         internal void Close() { Closes++; cancellation?.Cancel(); }
@@ -100,4 +105,91 @@ public sealed class AttachmentConstructionTests
         }
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
+    [Theory]
+    [InlineData("key", false)]
+    [InlineData("name", false)]
+    [InlineData("description", false)]
+    [InlineData("mime", false)]
+    [InlineData("creation", false)]
+    [InlineData("modification", false)]
+    [InlineData("key", true)]
+    [InlineData("name", true)]
+    [InlineData("description", true)]
+    [InlineData("mime", true)]
+    [InlineData("creation", true)]
+    [InlineData("modification", true)]
+    public async Task LargeMetadataRefusesBeforeEncodingAndPreservesEarlierStorage(string field, bool shared)
+    {
+        string large = new(field == "mime" ? 'x' : '\u00e9', 1048576);
+        AttachmentAdd add = new("file", field == "key" ? large : "key", field == "name" ? large : "name",
+            field == "creation" ? large : null, field == "modification" ? large : null,
+            field == "mime" ? large : null, field == "description" ? large : null, false);
+        RecordingMemoryBudget root = new(4096); using IMemoryScope caller = root.CreateScope();
+        Host host = new([], null, shared ? caller : null);
+        QpdfLimits limits = shared ? QpdfLimits.Default : QpdfLimits.Default with { MaxMemoryBytes = 4096 };
+        ResourceGovernor governor = new(limits, CancellationToken.None, host);
+        using (ParserMemoryScope prior = ParserMemoryScope.Create(governor))
+        {
+            prior.Reserve(17L); long baseline = governor.Snapshot().LiveMemoryBytes;
+            using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
+            {
+                long allocated = GC.GetAllocatedBytesForCurrentThread();
+                Task Run() => Assemble(host, [], new([add], [], []), new(StringComparer.Ordinal), false, limits, governor, memory, CancellationToken.None);
+                if (shared) { await Assert.ThrowsAsync<QpdfMemoryAdmissionException>(Run); }
+                else { await Assert.ThrowsAsync<QpdfLimitException>(Run); }
+                Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 65536L);
+            }
+            Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes); Assert.Equal(host.Opens, host.Closes);
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, root.ReservedBytes);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(64)]
+    [InlineData(65)]
+    [InlineData(129)]
+    public async Task NameTreeBoundariesAndUnicodeRoundTripThroughThePublicPipeline(int count)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "minimal-1page.pdf")), QpdfInputOwnership.Copy);
+        host.AddInput(QpdfPath.From("file"), "payload"u8.ToArray(), QpdfInputOwnership.Copy);
+        const string name = "Euro \u20ac \ud83d\ude00";
+        QpdfAttachmentSpec[] specs = Enumerable.Range(0, count).Select(index =>
+            new QpdfAttachmentSpec("file", index.ToString("D3") + name, name, new string('a', 255) + "\ud83d\ude00", "text/plain", "D:20240101000000Z", null, false)).ToArray();
+        await Qpdf.AddAttachmentsAsync(host, QpdfPath.From("input"), QpdfPath.From("output"), specs, CancellationToken.None);
+        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] pdf));
+        host.AddInput(QpdfPath.From("reread"), pdf, QpdfInputOwnership.Copy);
+        IReadOnlyList<QpdfAttachmentInfo> listing = await Qpdf.ListAttachmentsAsync(host, QpdfPath.From("reread"),
+            QpdfLimits.Default with { MaxDiagnostics = 4096 }, CancellationToken.None);
+        Assert.Equal(count, listing.Count);
+        for (int index = 0; index < count; index++)
+        {
+            Assert.Equal(specs[index].Key, listing[index].Key); Assert.Equal(name, listing[index].FileName);
+            Assert.Equal(specs[index].Description, listing[index].Description);
+            Assert.Equal("D:20240101000000Z", listing[index].CreationDate);
+        }
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData("ASCII")]
+    [InlineData("Latin \u00e9")]
+    [InlineData("\ud800")]
+    public void EncodedMetadataKeepsTheExistingAsciiAndUtf16Representation(string value)
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        PdfByteString name;
+        using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
+        {
+            PdfDictionary spec = AttachmentBuilder.BuildFilespecDictionary(value, null, 3, governor, memory, CancellationToken.None);
+            Assert.True(spec.TryGet(PdfName.FromAscii("F"), out QpdfObject raw)); name = Assert.IsType<PdfByteString>(raw);
+        }
+        bool ascii = value.All(unit => unit <= 127);
+        byte[] expected = ascii ? System.Text.Encoding.ASCII.GetBytes(value)
+            : new byte[] { 0xfe, 0xff }.Concat(System.Text.Encoding.BigEndianUnicode.GetBytes(value)).ToArray();
+        Assert.Equal(expected, name.ValueMemory.ToArray()); Assert.Equal(!ascii, name.Hex);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
 }

@@ -7,223 +7,145 @@ namespace Lokad.Qpdf.Attachments;
 
 internal static class AttachmentBuilder
 {
-    internal static PdfByteString EncodeText(string text)
+    private static PdfByteString EncodeText(string text, ResourceGovernor governor,
+        ParserMemoryScope memory, CancellationToken token)
     {
-        if (text is null)
-        {
-            throw new ArgumentNullException(nameof(text));
-        }
-
+        memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         bool ascii = true;
-        foreach (char c in text)
+        for (int index = 0; index < text.Length; index++)
         {
-            if (c > 127)
-            {
-                ascii = false;
-                break;
-            }
+            if ((index & 255) == 0) { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); }
+            if (text[index] > 127) { ascii = false; break; }
         }
-
-        if (ascii)
+        long length = ascii ? text.Length : 2L + 2L * text.Length;
+        if (length > Array.MaxLength) { throw new QpdfParseException("Attachment text exceeds supported capacity.", null, null); }
+        memory.Reserve(64L + length);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        byte[] bytes = length == 0 ? Array.Empty<byte>() : new byte[(int)length];
+        int written = ascii ? 0 : 2;
+        if (!ascii) { bytes[0] = 0xfe; bytes[1] = 0xff; }
+        Encoding encoding = ascii ? Encoding.ASCII : Encoding.BigEndianUnicode;
+        ReadOnlySpan<char> remaining = text;
+        while (!remaining.IsEmpty)
         {
-            return new PdfByteString(Encoding.ASCII.GetBytes(text), false);
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            int count = Math.Min(256, remaining.Length);
+            if (count < remaining.Length && char.IsHighSurrogate(remaining[count - 1]) && char.IsLowSurrogate(remaining[count])) { count--; }
+            written += encoding.GetBytes(remaining[..count], bytes.AsSpan(written));
+            remaining = remaining[count..];
         }
+        return PdfByteString.FromOwnedBytes(bytes, !ascii);
+    }
 
-        byte[] body = Encoding.BigEndianUnicode.GetBytes(text);
-        byte[] result = new byte[body.Length + 2];
-        result[0] = 0xFE;
-        result[1] = 0xFF;
-        Buffer.BlockCopy(body, 0, result, 2, body.Length);
-        return new PdfByteString(result, true);
+    private static PdfName Name(string text, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
+    {
+        memory.Reserve(64L + text.Length); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        byte[] bytes = new byte[text.Length];
+        for (int index = 0; index < text.Length; index++)
+        {
+            if ((index & 255) == 0) { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); }
+            if (text[index] > 127) { throw new ArgumentException("Name text must be ASCII.", nameof(text)); }
+            bytes[index] = (byte)text[index];
+        }
+        return PdfName.FromOwnedBytes(bytes);
+    }
+
+    // Each header has a fixed small vocabulary; the existing table admits its
+    // backing once and adopts it without a defensive dictionary copy.
+    private static PdfDictionary Dictionary(ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token,
+        ReadOnlySpan<(string Key, QpdfObject? Value)> values)
+    {
+        memory.CheckOwner(governor);
+        PdfNameTable<QpdfObject> entries = PdfNameTable<QpdfObject>.Create(memory, governor, IntPtr.Size, token);
+        entries.EnsureCapacity(memory, governor, values.Length, token);
+        foreach ((string key, QpdfObject? value) in values)
+        {
+            if (value is not null) { entries.Assign(memory, governor, Name(key, governor, memory, token), value, token); }
+        }
+        entries.Freeze(memory, governor, token); memory.Reserve(32L);
+        return PdfDictionary.FromOwnedEntries(entries);
     }
 
     internal static string Basename(string path)
     {
-        if (path is null)
-        {
-            throw new ArgumentNullException(nameof(path));
-        }
-
+        ArgumentNullException.ThrowIfNull(path);
         int cut = Math.Max(path.LastIndexOf('/'), path.LastIndexOf((char)92));
         return cut < 0 ? path : path.Substring(cut + 1);
     }
 
-    internal static PdfDictionary BuildStreamDictionary(
-        long length,
-        byte[] checksum,
-        string? mimeType,
-        string? creationDate,
-        string? modDate,
-        ResourceGovernor governor,
-        ParserMemoryScope ownership)
+    internal static PdfDictionary BuildStreamDictionary(long length, byte[] checksum,
+        string? mimeType, string? creationDate, string? modDate, bool flate,
+        ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
     {
-        ownership.CheckOwner(governor);
-        if (checksum is null)
-        {
-            throw new ArgumentNullException(nameof(checksum));
-        }
-
-        if (governor is null)
-        {
-            throw new ArgumentNullException(nameof(governor));
-        }
-
-        ownership.Reserve(128L);
-        Dictionary<PdfName, QpdfObject> parms = new()
-        {
-            [PdfName.FromAscii("Size")] = new PdfInteger(length.ToString(System.Globalization.CultureInfo.InvariantCulture), length),
-            [PdfName.FromAscii("CheckSum")] = new PdfByteString((byte[])checksum.Clone(), true),
-        };
-        if (creationDate is not null)
-        {
-            ownership.Reserve(32L);
-            parms[PdfName.FromAscii("CreationDate")] = EncodeText(creationDate);
-        }
-
-        if (modDate is not null)
-        {
-            ownership.Reserve(32L);
-            parms[PdfName.FromAscii("ModDate")] = EncodeText(modDate);
-        }
-
-        Dictionary<PdfName, QpdfObject> entries = new()
-        {
-            [PdfName.FromAscii("Type")] = PdfName.FromAscii("EmbeddedFile"),
-            [PdfName.FromAscii("Length")] = new PdfInteger(length.ToString(System.Globalization.CultureInfo.InvariantCulture), length),
-            [PdfName.FromAscii("Params")] = new PdfDictionary(parms),
-        };
-        if (mimeType is not null)
-        {
-            ownership.Reserve(32L);
-            entries[PdfName.FromAscii("Subtype")] = PdfName.FromAscii(mimeType);
-        }
-
-        return new PdfDictionary(entries);
+        memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        ArgumentNullException.ThrowIfNull(checksum);
+        memory.Reserve(192L + checksum.LongLength);
+        PdfInteger size = new(length.ToString(System.Globalization.CultureInfo.InvariantCulture), length);
+        PdfByteString digest = PdfByteString.FromOwnedBytes(checksum, true);
+        PdfDictionary parameters = Dictionary(governor, memory, token,
+        [
+            ("Size", size), ("CheckSum", digest),
+            ("CreationDate", creationDate is null ? null : EncodeText(creationDate, governor, memory, token)),
+            ("ModDate", modDate is null ? null : EncodeText(modDate, governor, memory, token)),
+        ]);
+        return Dictionary(governor, memory, token,
+        [
+            ("Type", Name("EmbeddedFile", governor, memory, token)), ("Length", size), ("Params", parameters),
+            ("Subtype", mimeType is null ? null : Name(mimeType, governor, memory, token)),
+            ("Filter", flate ? Name("FlateDecode", governor, memory, token) : null),
+        ]);
     }
 
-    internal static PdfDictionary WithFilter(PdfDictionary dictionary, ResourceGovernor governor, ParserMemoryScope ownership)
+    internal static PdfDictionary BuildFilespecDictionary(string fileName, string? description, int streamId,
+        ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
     {
-        ownership.CheckOwner(governor);
-        if (dictionary is null)
-        {
-            throw new ArgumentNullException(nameof(dictionary));
-        }
-
-        if (governor is null)
-        {
-            throw new ArgumentNullException(nameof(governor));
-        }
-
-        Dictionary<PdfName, QpdfObject> entries = new();
-        foreach (PdfName key in dictionary.Keys)
-        {
-            if (dictionary.TryGet(key, out QpdfObject? entry) && entry is not null)
-            {
-                entries[key] = entry;
-            }
-        }
-
-        ownership.Reserve(64L);
-        entries[PdfName.FromAscii("Filter")] = PdfName.FromAscii("FlateDecode");
-        return new PdfDictionary(entries);
-    }
-
-    internal static PdfDictionary BuildFilespecDictionary(string fileName, string? description, int streamId)
-    {
-        if (fileName is null)
-        {
-            throw new ArgumentNullException(nameof(fileName));
-        }
-
-        PdfByteString name = EncodeText(fileName);
-        PdfReference stream = new(streamId, 0);
-        Dictionary<PdfName, QpdfObject> entries = new()
-        {
-            [PdfName.FromAscii("Type")] = PdfName.FromAscii("Filespec"),
-            [PdfName.FromAscii("F")] = name,
-            [PdfName.FromAscii("UF")] = name,
-            [PdfName.FromAscii("EF")] = new PdfDictionary(new Dictionary<PdfName, QpdfObject>
-            {
-                [PdfName.FromAscii("F")] = stream,
-                [PdfName.FromAscii("UF")] = stream,
-            }),
-        };
-        if (description is not null)
-        {
-            entries[PdfName.FromAscii("Desc")] = EncodeText(description);
-        }
-
-        return new PdfDictionary(entries);
+        memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        PdfByteString name = EncodeText(fileName, governor, memory, token);
+        memory.Reserve(32L); PdfReference stream = new(streamId, 0);
+        PdfDictionary embedded = Dictionary(governor, memory, token, [("F", stream), ("UF", stream)]);
+        return Dictionary(governor, memory, token,
+        [
+            ("Type", Name("Filespec", governor, memory, token)), ("F", name), ("UF", name), ("EF", embedded),
+            ("Desc", description is null ? null : EncodeText(description, governor, memory, token)),
+        ]);
     }
 
     internal static PdfDictionary BuildNameTree(IReadOnlyList<KeyValuePair<string, PdfReference>> pairs,
-        ResourceGovernor governor, ParserMemoryScope ownership)
+        ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
     {
-        ownership.CheckOwner(governor);
-        if (pairs is null)
+        memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        ArgumentNullException.ThrowIfNull(pairs);
+        if (pairs.Count == 0) { throw new QpdfException("Attachment name tree needs at least one entry."); }
+        int leafCount = (pairs.Count - 1) / 64 + 1;
+        QpdfObject[] leaves = Array.Empty<QpdfObject>();
+        if (leafCount > 1) { memory.Reserve(64L + IntPtr.Size * (long)leafCount); leaves = new QpdfObject[leafCount]; }
+        PdfByteString? first = null, last = null;
+        for (int leaf = 0; leaf < leafCount; leaf++)
         {
-            throw new ArgumentNullException(nameof(pairs));
-        }
-
-        if (governor is null)
-        {
-            throw new ArgumentNullException(nameof(governor));
-        }
-
-        if (pairs.Count == 0)
-        {
-            throw new QpdfException("Attachment name tree needs at least one entry.");
-        }
-
-        List<PdfDictionary> leaves = new();
-        for (int i = 0; i < pairs.Count; i += 64)
-        {
-            governor.NoteOperation();
-            int take = Math.Min(64, pairs.Count - i);
-            List<QpdfObject> items = new(take * 2);
-            for (int j = 0; j < take; j++)
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            int start = checked(leaf * 64), take = Math.Min(64, pairs.Count - start);
+            memory.Reserve(64L + 2L * IntPtr.Size * take);
+            QpdfObject[] items = new QpdfObject[2 * take];
+            for (int index = 0; index < take; index++)
             {
-                ownership.Reserve(64L);
-                items.Add(EncodeText(pairs[i + j].Key));
-                items.Add(pairs[i + j].Value);
+                PdfByteString key = EncodeText(pairs[start + index].Key, governor, memory, token);
+                first ??= key; last = key;
+                items[2 * index] = key; items[2 * index + 1] = pairs[start + index].Value;
             }
-
-            leaves.Add(new PdfDictionary(new Dictionary<PdfName, QpdfObject>
-            {
-                [PdfName.FromAscii("Names")] = new PdfArray(items),
-            }));
+            PdfDictionary node = Dictionary(governor, memory, token, [("Names", PdfArray.FromOwnedItems(items))]);
+            if (leafCount == 1) { return node; }
+            leaves[leaf] = node;
         }
-
-        if (leaves.Count == 1)
-        {
-            return leaves[0];
-        }
-
-        List<QpdfObject> kids = new(leaves.Count);
-        foreach (PdfDictionary leaf in leaves)
-        {
-            ownership.Reserve(32L);
-            kids.Add(leaf);
-        }
-
-        return new PdfDictionary(new Dictionary<PdfName, QpdfObject>
-        {
-            [PdfName.FromAscii("Kids")] = new PdfArray(kids),
-            [PdfName.FromAscii("Limits")] = new PdfArray(new QpdfObject[]
-            {
-                EncodeText(pairs[0].Key),
-                EncodeText(pairs[pairs.Count - 1].Key),
-            }),
-        });
+        memory.Reserve(64L + 2L * IntPtr.Size);
+        QpdfObject[] limits = [first ?? throw new InvalidOperationException("Missing first attachment key."),
+            last ?? throw new InvalidOperationException("Missing last attachment key.")];
+        return Dictionary(governor, memory, token,
+            [("Kids", PdfArray.FromOwnedItems(leaves)), ("Limits", PdfArray.FromOwnedItems(limits))]);
     }
 
     internal static byte[] Checksum(byte[] data)
     {
-        if (data is null)
-        {
-            throw new ArgumentNullException(nameof(data));
-        }
-
+        ArgumentNullException.ThrowIfNull(data);
         return MD5.HashData(data);
     }
 }
