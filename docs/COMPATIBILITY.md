@@ -45,6 +45,13 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Split model-list capacity refunds after each PDF is captured into owned bytes,
+instead of remaining charged through the whole batch. Group roots, ordering,
+renumbering and rebuilt page children receive admission and cancellation. The
+page node adopts its child array without another copy. All PDFs are still
+prepared before the first publication; sequential commit and close-fault
+semantics remain unchanged. No public signatures change.
+
 QDF original-ID maps receive admission and cancellation during construction;
 large provenance maps can refuse earlier. Suppressing original-ID comments skips
 their preparation entirely. Ordinary, merged and split output retain the existing

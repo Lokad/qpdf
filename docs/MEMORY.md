@@ -44,6 +44,13 @@ returning the groups; a failed candidate transfers no partial charge. Split
 groups refund after their PDF has been serialized into owned publication bytes.
 The unused whole-document grouping pass is omitted for split output.
 
+Split identity remapping always uses the active group owner; there is no
+unowned allocation branch. Unchanged values and stream payloads stay borrowed.
+Group roots, ordering, renumbering, page children and model lists refund after
+complete byte capture. Prepared bytes and publication records keep their batch
+lifetime through later commits. QDF provenance maps are admitted and cancellable under the copy,
+selection or group phase; suppression skips their construction altogether.
+
 Shared graph reachability borrows arrays and frozen dictionary values through
 reverse cursors, keeping their pending storage proportional to nesting depth.
 Legacy dictionary storage needs an admitted reverse snapshot, refunded when its

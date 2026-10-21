@@ -34,7 +34,7 @@ public sealed class AnnotationPublicationTests
     private static async Task<InMemoryQpdfHost> Storage(string mode)
     {
         InMemoryQpdfHost host = new();
-        byte[] input = mode.StartsWith("os-", StringComparison.Ordinal) ? ObjectStreamPlanningTests.Fixture(201)
+        byte[] input = mode.StartsWith("os-", StringComparison.Ordinal) ? ObjectStreamPlanningTests.Fixture(mode.Contains("qdf", StringComparison.Ordinal) ? 16 : 201)
             : mode.StartsWith("generate-text", StringComparison.Ordinal)
             ? AppearanceProgramTests.Fixture(new string(' ', 32768) + "/Tx BMC\n0 0 10 10 re f EMC", "", "/DA (/Helv 17 Tf)", "")
             : mode.StartsWith("generate", StringComparison.Ordinal) ? AppearanceGenerationRegressionTests.CheckboxFixture(64)
@@ -60,11 +60,19 @@ public sealed class AnnotationPublicationTests
     }
 
     private static ValueTask<QpdfExecutionResult> Run(Host host, string mode, CancellationToken token)
-        => mode == "os-generate-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","objectStreams":"generate"}""", token)
+        => mode == "os-qdf-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","objectStreams":"generate","qdf":""}""", token)
+            : mode == "os-qdf-noids-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","objectStreams":"generate","qdf":"","noOriginalObjectIds":""}""", token)
+            : mode == "os-split-qdf-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","objectStreams":"generate","qdf":"","splitPages":"1"}""", token)
+            : mode == "os-split-qdf-noids-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","objectStreams":"generate","qdf":"","noOriginalObjectIds":"","splitPages":"1"}""", token)
+            : mode == "os-generate-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","objectStreams":"generate"}""", token)
             : mode == "os-preserve-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","objectStreams":"preserve"}""", token)
             : mode == "os-split-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","objectStreams":"generate","splitPages":"1"}""", token)
             : mode == "os-linearized-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","objectStreams":"generate","linearize":true}""", token)
             : mode.StartsWith("os-", StringComparison.Ordinal) ? Qpdf.ExecuteAsync(host, new(mode switch {
+                "os-qdf" => ["input", "--object-streams=generate", "--qdf", "output"],
+                "os-qdf-noids" => ["input", "--object-streams=generate", "--qdf", "--no-original-object-ids", "output"],
+                "os-split-qdf" => ["input", "--object-streams=generate", "--qdf", "--split-pages=1", "output"],
+                "os-split-qdf-noids" => ["input", "--object-streams=generate", "--qdf", "--no-original-object-ids", "--split-pages=1", "output"],
                 "os-split" => ["input", "--object-streams=generate", "--split-pages=1", "output"],
                 "os-linearized" => ["input", "--object-streams=generate", "--linearize", "output"],
                 "os-preserve" => ["input", "--object-streams=preserve", "output"],
@@ -83,6 +91,14 @@ public sealed class AnnotationPublicationTests
                 "normalize" => "--normalize-content=y", _ => "--externalize-inline-images" }, "--ii-min-bytes=0", "--", "output"]), token);
 
     [Theory]
+    [InlineData("os-qdf")]
+    [InlineData("os-qdf-job")]
+    [InlineData("os-qdf-noids")]
+    [InlineData("os-qdf-noids-job")]
+    [InlineData("os-split-qdf")]
+    [InlineData("os-split-qdf-job")]
+    [InlineData("os-split-qdf-noids")]
+    [InlineData("os-split-qdf-noids-job")]
     [InlineData("os-generate")]
     [InlineData("os-generate-job")]
     [InlineData("os-preserve")]
@@ -124,7 +140,8 @@ public sealed class AnnotationPublicationTests
             }
             Assert.Equal(0L, root.ReservedBytes);
         }
-        Assert.InRange(growths, 1, mode.StartsWith("os-", StringComparison.Ordinal) ? 96 : 64);
+        Assert.InRange(growths, 1, mode.Contains("qdf", StringComparison.Ordinal) ? 128
+            : mode.StartsWith("os-", StringComparison.Ordinal) ? 96 : 64);
         for (int growth = 1; growth <= growths; growth++)
         {
             using InMemoryQpdfHost storage = await Storage(mode);
@@ -145,6 +162,46 @@ public sealed class AnnotationPublicationTests
     }
 
     [Theory]
+    [InlineData("create", "os-qdf")]
+    [InlineData("write", "os-qdf")]
+    [InlineData("commit", "os-qdf")]
+    [InlineData("cancel", "os-qdf")]
+    [InlineData("close", "os-qdf")]
+    [InlineData("create", "os-qdf-job")]
+    [InlineData("write", "os-qdf-job")]
+    [InlineData("commit", "os-qdf-job")]
+    [InlineData("cancel", "os-qdf-job")]
+    [InlineData("close", "os-qdf-job")]
+    [InlineData("create", "os-qdf-noids")]
+    [InlineData("write", "os-qdf-noids")]
+    [InlineData("commit", "os-qdf-noids")]
+    [InlineData("cancel", "os-qdf-noids")]
+    [InlineData("close", "os-qdf-noids")]
+    [InlineData("create", "os-qdf-noids-job")]
+    [InlineData("write", "os-qdf-noids-job")]
+    [InlineData("commit", "os-qdf-noids-job")]
+    [InlineData("cancel", "os-qdf-noids-job")]
+    [InlineData("close", "os-qdf-noids-job")]
+    [InlineData("create", "os-split-qdf")]
+    [InlineData("write", "os-split-qdf")]
+    [InlineData("commit", "os-split-qdf")]
+    [InlineData("cancel", "os-split-qdf")]
+    [InlineData("close", "os-split-qdf")]
+    [InlineData("create", "os-split-qdf-job")]
+    [InlineData("write", "os-split-qdf-job")]
+    [InlineData("commit", "os-split-qdf-job")]
+    [InlineData("cancel", "os-split-qdf-job")]
+    [InlineData("close", "os-split-qdf-job")]
+    [InlineData("create", "os-split-qdf-noids")]
+    [InlineData("write", "os-split-qdf-noids")]
+    [InlineData("commit", "os-split-qdf-noids")]
+    [InlineData("cancel", "os-split-qdf-noids")]
+    [InlineData("close", "os-split-qdf-noids")]
+    [InlineData("create", "os-split-qdf-noids-job")]
+    [InlineData("write", "os-split-qdf-noids-job")]
+    [InlineData("commit", "os-split-qdf-noids-job")]
+    [InlineData("cancel", "os-split-qdf-noids-job")]
+    [InlineData("close", "os-split-qdf-noids-job")]
     [InlineData("create", "os-generate")]
     [InlineData("write", "os-generate")]
     [InlineData("commit", "os-generate")]

@@ -1391,7 +1391,7 @@ public static partial class Qpdf
             List<NumberedObject> model = new(modelCount)
             {
                 new NumberedObject(1, NewCatalog(catalogLabels, effective, extensionLevel, primaryMetadata, multiAttached.NamesRef, multiAttached.PageMode, primaryOutlines, multiAcroForm, primaryStructTree, primaryMarkInfo, primaryExtras, governor, cancellationToken)),
-                new NumberedObject(2, PagesNode(kids)),
+                new NumberedObject(2, PagesNode(kids, selectionMemory, governor, cancellationToken)),
             };
             foreach (KeyValuePair<int, QpdfObject> entry in pool)
             {
@@ -1441,20 +1441,21 @@ public static partial class Qpdf
             using ParserMemoryScope groupMemory = ParserMemoryScope.Create(governor);
             cancellationToken.ThrowIfCancellationRequested();
             (int first, int last) = groups[g];
-            List<PdfReference> groupKids = kids.GetRange(first - 1, last - first + 1);
-            List<int> groupIds = new(groupKids.Count);
-            foreach (PdfReference kid in groupKids)
+            List<int> roots = ParserContainers.CreateList<int>(groupMemory);
+            for (int slot = first - 1; slot < last; slot++)
             {
-                groupIds.Add(kid.ObjectNumber);
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                ParserContainers.AddItem(groupMemory, roots, kids[slot].ObjectNumber, sizeof(int));
             }
 
             PdfDictionary? groupAcroForm = null;
             if (multiCombined is not null)
             {
-                List<(GraphCopier Copier, int Id)> groupOccurrences = new(last - first + 1);
-                for (int slot = first - 1; slot <= last - 1; slot++)
+                List<(GraphCopier Copier, int Id)> groupOccurrences = ParserContainers.CreateList<(GraphCopier, int)>(groupMemory);
+                for (int slot = first - 1; slot < last; slot++)
                 {
-                    groupOccurrences.Add((occurrences[slot].Copier, occurrences[slot].Id));
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    ParserContainers.AddItem(groupMemory, groupOccurrences, (occurrences[slot].Copier, occurrences[slot].Id), 16L);
                 }
 
                 HashSet<int> groupAnnots = Content.AcroFormCopy.CollectAnnotRefs(groupOccurrences, governor, groupMemory, cancellationToken);
@@ -1466,20 +1467,39 @@ public static partial class Qpdf
             }
 
             PdfDictionary? slicedLabels = SlicePageLabels(labelItems, first, last, governor);
-            List<int> roots = new(groupIds);
             if (groupAcroForm is not null)
             {
-                roots.AddRange(Content.AcroFormCopy.CollectRefNumbers(groupAcroForm, governor, groupMemory, cancellationToken));
+                foreach (int id in Content.AcroFormCopy.CollectRefNumbers(groupAcroForm, governor, groupMemory, cancellationToken))
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    ParserContainers.AddItem(groupMemory, roots, id, sizeof(int));
+                }
             }
 
             if (slicedLabels is not null)
             {
-                roots.AddRange(Content.AcroFormCopy.CollectRefNumbers(slicedLabels, governor, groupMemory, cancellationToken));
+                foreach (int id in Content.AcroFormCopy.CollectRefNumbers(slicedLabels, governor, groupMemory, cancellationToken))
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    ParserContainers.AddItem(groupMemory, roots, id, sizeof(int));
+                }
             }
 
-            roots.AddRange(allPreserved);
-            roots.AddRange(catalogExtraIds);
-            roots.AddRange(multiAttached.ObjectIds);
+            foreach (int id in allPreserved)
+            {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                ParserContainers.AddItem(groupMemory, roots, id, sizeof(int));
+            }
+            foreach (int id in catalogExtraIds)
+            {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                ParserContainers.AddItem(groupMemory, roots, id, sizeof(int));
+            }
+            foreach (int id in multiAttached.ObjectIds)
+            {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                ParserContainers.AddItem(groupMemory, roots, id, sizeof(int));
+            }
             using ParserMemoryScope reachabilityMemory = ParserMemoryScope.Create(governor);
             HashSet<int> reachable = ReachableIds(pool, roots, reachabilityMemory, governor);
             if (settings.PreserveUnreferenced)
@@ -1490,6 +1510,7 @@ public static partial class Qpdf
                     ParserContainers.AddSetItem(reachabilityMemory, reachable, id, sizeof(int));
                 }
             }
+            groupMemory.Reserve(checked(64L + sizeof(int) * (long)reachable.Count));
             List<int> kept = new(reachable.Count);
             foreach (int id in reachable)
             {
@@ -1500,17 +1521,21 @@ public static partial class Qpdf
                 }
             }
 
-            kept.Sort();
-            Dictionary<int, int> renumber = new(kept.Count);
+            GovernedSort.Sort(CollectionsMarshal.AsSpan(kept), new WriterNumberOrder(), governor, cancellationToken);
+            Dictionary<int, int> renumber = ParserContainers.CreateDictionary<int, int>(groupMemory);
+            ParserContainers.HintEntryCapacity(groupMemory, renumber, kept.Count, sizeof(int), governor);
             for (int r = 0; r < kept.Count; r++)
             {
-                renumber[kept[r]] = 3 + r;
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                GovernedCollections.Assign(groupMemory, governor, renumber, kept[r], 3 + r, sizeof(int));
             }
 
-            List<PdfReference> renumberedKids = new(groupKids.Count);
-            foreach (PdfReference kid in groupKids)
+            List<PdfReference> renumberedKids = ParserContainers.CreateList<PdfReference>(groupMemory);
+            for (int slot = first - 1; slot < last; slot++)
             {
-                renumberedKids.Add(new PdfReference(renumber[kid.ObjectNumber], 0));
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                groupMemory.Reserve(32L);
+                ParserContainers.AddItem(groupMemory, renumberedKids, new PdfReference(renumber[kids[slot].ObjectNumber], 0), IntPtr.Size);
             }
 
             PdfReference? groupMetadata = null;
@@ -1572,15 +1597,15 @@ public static partial class Qpdf
 
                 remappedLabels = remappedLabelsDictionary;
             }
-            List<NumberedObject> sub = ParserContainers.CreateList<NumberedObject>(presentationMemory);
+            List<NumberedObject> sub = ParserContainers.CreateList<NumberedObject>(groupMemory);
             NumberedObject groupCatalog = new(1, NewCatalog(remappedLabels, effective, extensionLevel, groupMetadata, groupNames, multiAttached.PageMode, groupOutlines, remappedAcroForm, groupStructTree, groupMarkInfo, null, governor, cancellationToken));
-            NumberedObject groupPages = new(2, PagesNode(renumberedKids));
-            ParserContainers.AddItem(presentationMemory, sub, groupCatalog, 16L);
-            ParserContainers.AddItem(presentationMemory, sub, groupPages, 16L);
+            NumberedObject groupPages = new(2, PagesNode(renumberedKids, groupMemory, governor, cancellationToken));
+            ParserContainers.AddItem(groupMemory, sub, groupCatalog, 16L);
+            ParserContainers.AddItem(groupMemory, sub, groupPages, 16L);
             foreach (int id in kept)
             {
                 NumberedObject item = new(renumber[id], Writing.ObjectRemap.RemapIds(pool[id], renumber, groupMemory, governor, cancellationToken));
-                ParserContainers.AddItem(presentationMemory, sub, item, 16L);
+                ParserContainers.AddItem(groupMemory, sub, item, 16L);
             }
 
             QpdfPath path = QpdfPath.From(names[g]);
@@ -1754,13 +1779,23 @@ public static partial class Qpdf
         return CollatePageOrder(counts, collation, governor, memory);
     }
 
-    private static PdfDictionary PagesNode(List<PdfReference> groupKids)
+    private static PdfDictionary PagesNode(IReadOnlyList<PdfReference> groupKids,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
+        memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        // Fixed bounded names, three-entry table and count token; child backing
+        // is admitted exactly and adopted without a second array copy.
+        memory.Reserve(checked(1024L + IntPtr.Size * (long)groupKids.Count));
+        QpdfObject[] children = new QpdfObject[groupKids.Count];
+        for (int index = 0; index < groupKids.Count; index++)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); children[index] = groupKids[index];
+        }
         string text = groupKids.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        return new PdfDictionary(new Dictionary<PdfName, QpdfObject>
+        return PdfDictionary.FromOwnedEntries(new Dictionary<PdfName, QpdfObject>(3)
         {
             [PdfName.FromAscii("Type")] = PdfName.FromAscii("Pages"),
-            [PdfName.FromAscii("Kids")] = new PdfArray(groupKids),
+            [PdfName.FromAscii("Kids")] = PdfArray.FromOwnedItems(children),
             [PdfName.FromAscii("Count")] = new PdfInteger(text, groupKids.Count),
         });
     }
@@ -3861,10 +3896,11 @@ public static partial class Qpdf
         PdfVersion effective = negotiated;
         int extensionLevel = negotiatedExtension;
         PdfDictionary catalog = NewCatalog(BuildPageLabels(plan.Labels, 0, governor), effective, extensionLevel, null, null, null, null, null, null, null, null, governor, cancellationToken);
+        using ParserMemoryScope modelMemory = ParserMemoryScope.Create(governor);
         List<NumberedObject> model = new()
         {
             new NumberedObject(1, catalog),
-            new NumberedObject(2, PagesNode(new List<PdfReference>())),
+            new NumberedObject(2, PagesNode(Array.Empty<PdfReference>(), modelMemory, governor, cancellationToken)),
         };
         byte[]? originalId = TryGetOriginalId(document.Engine);
         await PublishModelAsync(host, effective, extensionLevel, model, null, emptyCompress, emptyLevel, null, originalId, plan.StaticId, plan.NewlineBeforeEndstream, new Writing.QdfOptions(plan.Qdf, plan.NoOriginalObjectIds), new Dictionary<int, int>(), plan.Linearize, plan.LinearizePass1, plan.Output, limits, governor, cancellationToken).ConfigureAwait(false);
