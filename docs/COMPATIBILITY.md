@@ -40,6 +40,8 @@ time-zone offsets now retain that offset. Date formatting checks bounded syntax
 before allocating. Named streams share metadata reading with typed listings.
 Page JSON includes nested bookmarks with explicit page destinations in tree
 order. An admitted sparse lookup avoids traversing the outline tree per page.
+Sequential JSON pages advance through sorted label breakpoints once, preserving
+the last duplicate index and arbitrary label values without repeated prefix scans.
 
 Coalescing, normalization and inline-image interpretation now require unfiltered
 or successfully decoded content. Unsupported/damaged encodings and filter-count

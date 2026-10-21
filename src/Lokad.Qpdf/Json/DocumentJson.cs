@@ -77,7 +77,7 @@ internal static class DocumentJson
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 AppendKey(builder, ref firstKey, "pages");
-                AppendPages(builder, document, outlines, request, labels, limits, governor, diagnostics, inspectionMemory, cancellationToken);
+                AppendPages(builder, document, outlines, request, labels, limits, governor, inspectionMemory, cancellationToken);
             }
 
             if (request.Wants("pagelabels"))
@@ -317,21 +317,6 @@ internal static class DocumentJson
         }
     }
 
-    private static QpdfObject? LabelForPage(SortedDictionary<int, QpdfObject> labels, int pageZeroBased)
-    {
-        QpdfObject? best = null;
-        foreach (KeyValuePair<int, QpdfObject> entry in labels)
-        {
-            if (entry.Key > pageZeroBased)
-            {
-                break;
-            }
-
-            best = entry.Value;
-        }
-
-        return best;
-    }
     private static void AppendPageLabels(
         DisplayBuffer builder,
         JsonRequest request,
@@ -571,7 +556,6 @@ internal static class DocumentJson
         SortedDictionary<int, QpdfObject> labels,
         QpdfLimits limits,
         ResourceGovernor governor,
-        DiagnosticBag diagnostics,
         ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
@@ -582,6 +566,9 @@ internal static class DocumentJson
             pageOutlines = GovernedIntDictionary<List<OutlineEntry>>.Create(memory, governor, IntPtr.Size, cancellationToken);
             IndexPageOutlines(outlines, pageOutlines, memory, governor, cancellationToken);
         }
+        using SortedDictionary<int, QpdfObject>.Enumerator labelEntries = labels.GetEnumerator();
+        bool hasLabel = labelEntries.MoveNext();
+        QpdfObject? label = null;
         builder.Append((char)91);
         for (int i = 0; i < pages.Count; i++)
         {
@@ -610,7 +597,12 @@ internal static class DocumentJson
             builder.Append(",\"contents\": ");
             AppendContents(builder, location.Page, request, governor, limits);
             builder.Append(",\"label\": ");
-            QpdfObject? label = LabelForPage(labels, i);
+            while (hasLabel && labelEntries.Current.Key <= i)
+            {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                label = labelEntries.Current.Value;
+                hasLabel = labelEntries.MoveNext();
+            }
             if (label is null || label is PdfNull)
             {
                 builder.Append("null");
