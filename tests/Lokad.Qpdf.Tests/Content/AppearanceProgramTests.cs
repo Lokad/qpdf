@@ -113,4 +113,3 @@ public sealed class AppearanceProgramTests
     private static QpdfObject Resolve(QpdfDocument document, QpdfObject value)
         => value is PdfReference reference ? document.GetObject(reference.ObjectNumber) : value;
 }
-

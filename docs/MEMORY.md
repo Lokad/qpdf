@@ -48,6 +48,12 @@ Rotation matrices and annotation Form promotion also rebuild only admitted
 headers. Direct and shared appearance streams keep their immutable payload
 storage; failed header construction refunds its fresh allocations.
 
+Overlay annotation import borrows source arrays and admits memo/list capacity in
+a temporary placement scope. Only actual imports trigger one exact destination
+array allocation. Page headers replace Resources and Contents together; rectangle
+headers use the same admitted dictionary rebuilds. Fresh retained values transfer
+to the job owner before installation; failed construction refunds its batch.
+
 Default-appearance analysis scans borrowed bytes once, retaining only the last
 font and size. It admits decoded font-name bytes and any corrected appearance
 before materializing them. Appearance decoding and construction use a temporary

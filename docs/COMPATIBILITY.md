@@ -152,6 +152,10 @@ repeats and duplicate placements are preserved. Public signatures are unchanged.
 Overlay annotation rectangles normalize reversed endpoints without losing their
 extent. Shared appearance streams receive the placement matrix once per copied
 stream; separate placements retain independent copies, including widget forms.
+Empty or entirely skipped overlay annotations leave the destination annotation
+array unchanged, including an absent `/Annots` entry. Annotation metadata, append
+arrays and page/rectangle header rebuilds receive admission before allocation;
+large placements may refuse earlier without publishing output.
 Unsupported or damaged content encodings now warn and skip the affected overlay;
 an unreadable destination remains unchanged. Encoded bytes are never relabeled as
 unfiltered Form instructions. Opaque stream copying and raw inspection remain available.

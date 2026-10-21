@@ -4564,7 +4564,7 @@
           "OverlayTests.NonDictionaryAnnotationSkippedWithWarning",
           "OverlayTests.DirectWidgetClonedWithoutFieldWhenFormless",
           "OverlayTests.RepeatedOverlayClonesAnnotationsIndependently",
-          "OverlayTests.EmptyAnnotsArrayCreated",
+          "OverlayTests.EmptyOverlayAnnotsKeepDestinationWithoutAnArray",
           "OverlayTests.ExistingAnnotationsAppended",
           "ResourceEnforcementTests.OverlayAnnotationsYieldToExhaustedBudget",
           "OverlayTests.OverlayWidgetImportsFieldWithValueAndEmptyDr",
@@ -6274,7 +6274,7 @@
           "OverlayTests.NonDictionaryAnnotationSkippedWithWarning",
           "OverlayTests.DirectWidgetClonedWithoutFieldWhenFormless",
           "OverlayTests.RepeatedOverlayClonesAnnotationsIndependently",
-          "OverlayTests.EmptyAnnotsArrayCreated",
+          "OverlayTests.EmptyOverlayAnnotsKeepDestinationWithoutAnArray",
           "OverlayTests.ExistingAnnotationsAppended",
           "ResourceEnforcementTests.OverlayAnnotationsYieldToExhaustedBudget",
           "OverlayTests.UnderlayWidgetImportsField"
@@ -6727,7 +6727,7 @@
           "OverlayTests.NonDictionaryAnnotationSkippedWithWarning",
           "OverlayTests.DirectWidgetClonedWithoutFieldWhenFormless",
           "OverlayTests.RepeatedOverlayClonesAnnotationsIndependently",
-          "OverlayTests.EmptyAnnotsArrayCreated",
+          "OverlayTests.EmptyOverlayAnnotsKeepDestinationWithoutAnArray",
           "OverlayTests.ExistingAnnotationsAppended",
           "ResourceEnforcementTests.OverlayAnnotationsYieldToExhaustedBudget",
           "OverlayTests.OverlayFileLongFormMatchesPositional",
@@ -6791,7 +6791,7 @@
           "OverlayTests.NonDictionaryAnnotationSkippedWithWarning",
           "OverlayTests.DirectWidgetClonedWithoutFieldWhenFormless",
           "OverlayTests.RepeatedOverlayClonesAnnotationsIndependently",
-          "OverlayTests.EmptyAnnotsArrayCreated",
+          "OverlayTests.EmptyOverlayAnnotsKeepDestinationWithoutAnArray",
           "OverlayTests.ExistingAnnotationsAppended",
           "ResourceEnforcementTests.OverlayAnnotationsYieldToExhaustedBudget"
         ],
@@ -6884,7 +6884,7 @@
           "OverlayTests.NonDictionaryAnnotationSkippedWithWarning",
           "OverlayTests.DirectWidgetClonedWithoutFieldWhenFormless",
           "OverlayTests.RepeatedOverlayClonesAnnotationsIndependently",
-          "OverlayTests.EmptyAnnotsArrayCreated",
+          "OverlayTests.EmptyOverlayAnnotsKeepDestinationWithoutAnArray",
           "OverlayTests.ExistingAnnotationsAppended",
           "ResourceEnforcementTests.OverlayAnnotationsYieldToExhaustedBudget",
           "OverlayTests.OverlayWidgetRepeatRenamesAcrossPlacements"
@@ -6946,7 +6946,7 @@
           "OverlayTests.NonDictionaryAnnotationSkippedWithWarning",
           "OverlayTests.DirectWidgetClonedWithoutFieldWhenFormless",
           "OverlayTests.RepeatedOverlayClonesAnnotationsIndependently",
-          "OverlayTests.EmptyAnnotsArrayCreated",
+          "OverlayTests.EmptyOverlayAnnotsKeepDestinationWithoutAnArray",
           "OverlayTests.ExistingAnnotationsAppended",
           "ResourceEnforcementTests.OverlayAnnotationsYieldToExhaustedBudget",
           "OverlayTests.EmptyToRangeAppliesOverlayNowhere"

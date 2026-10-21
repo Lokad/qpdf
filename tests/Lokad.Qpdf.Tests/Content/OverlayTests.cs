@@ -1455,7 +1455,7 @@ Assert.NotEqual(firstLink.ObjectNumber, lastLink.ObjectNumber);
 Assert.Equal(AnnotRect(first[0]), AnnotRect(last[0]));
 }
 [Fact]
-public async Task EmptyAnnotsArrayCreated()
+public async Task EmptyOverlayAnnotsKeepDestinationWithoutAnArray()
 {
 byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
 byte[] overlay = BuildAnnotPdf("[0 0 612 792]", "[]", new List<(string Dict, byte[]? StreamData)>(), "BT (Stamp) Tj ET");
@@ -1463,8 +1463,7 @@ byte[] overlay = BuildAnnotPdf("[0 0 612 792]", "[]", new List<(string Dict, byt
 Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 await using QpdfDocument output = await OpenOutputAsync(pdf);
 PageLocation location = output.PageReferences[0];
-Assert.True(location.Page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject? annotsRaw));
-Assert.Equal(0, Assert.IsType<PdfArray>(annotsRaw).Count);
+Assert.False(location.Page.TryGet(PdfName.FromAscii("Annots"), out _));
 }
 [Fact]
 public async Task ExistingAnnotationsAppended()
