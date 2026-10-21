@@ -437,7 +437,7 @@ public sealed class JsonInspectionTests
         JsonElement streams = file.GetProperty("streams");
         Assert.True(streams.TryGetProperty("F", out JsonElement stream));
         Assert.Equal("2024-01-02T15:04:06Z", stream.GetProperty("creationdate").GetString());
-        Assert.Equal("2024-01-02T15:04:06Z", stream.GetProperty("modificationdate").GetString());
+        Assert.Equal(JsonValueKind.Null, stream.GetProperty("modificationdate").ValueKind);
         Assert.Equal("text/plain", stream.GetProperty("mimetype").GetString());
         Assert.Equal("0102", stream.GetProperty("checksum").GetString());
     }

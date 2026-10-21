@@ -1032,9 +1032,9 @@ internal static class DocumentJson
             }
 
             builder.Append(",\"names\": ");
-            AppendAttachmentNames(builder, attachment, engine);
+            AppendAttachmentNames(builder, attachment, engine, governor, cancellationToken);
             builder.Append(",\"streams\": ");
-            AppendAttachmentStreams(builder, engine, attachment, governor, limits);
+            AppendAttachmentStreams(builder, engine, attachment, governor, cancellationToken);
             builder.Append((char)125);
         }
 
@@ -1053,10 +1053,12 @@ internal static class DocumentJson
         return TryResolve(engine, attachment.Spec) as PdfDictionary;
     }
 
-    private static void AppendAttachmentNames(DisplayBuffer builder, EmbeddedAttachment attachment, DocumentEngine engine)
+    private static void AppendAttachmentNames(DisplayBuffer builder, EmbeddedAttachment attachment, DocumentEngine engine,
+        ResourceGovernor governor, CancellationToken token)
     {
         builder.Append((char)123);
         bool first = true;
+        using ParserMemoryScope textMemory = ParserMemoryScope.Create(governor);
         PdfDictionary? spec = AttachmentSpec(engine, attachment);
         if (spec is not null)
         {
@@ -1072,7 +1074,8 @@ internal static class DocumentJson
                     first = false;
                     PdfJsonWriter.AppendJsonString(builder, name);
                     builder.Append(": ");
-                    PdfJsonWriter.AppendJsonString(builder, PdfText.Decode(text.Value));
+                    PdfJsonWriter.AppendJsonString(builder, PdfText.Decode(text.ValueMemory, textMemory, governor, token));
+                    textMemory.Discard();
                 }
             }
         }
@@ -1080,70 +1083,31 @@ internal static class DocumentJson
         builder.Append((char)125);
     }
 
-    private static void AppendAttachmentStreams(
-        DisplayBuffer builder,
-        DocumentEngine engine,
-        EmbeddedAttachment attachment,
-        ResourceGovernor governor,
-        QpdfLimits limits)
+    private static void AppendAttachmentStreams(DisplayBuffer builder, DocumentEngine engine,
+        EmbeddedAttachment attachment, ResourceGovernor governor, CancellationToken token)
     {
-        builder.Append((char)123);
-        bool first = true;
+        builder.Append('{'); bool first = true;
         PdfDictionary? spec = AttachmentSpec(engine, attachment);
-        if (spec is not null
-            && spec.TryGet(PdfName.FromAscii("EF"), out QpdfObject? efRaw)
-            && efRaw is not null
-            && efRaw is not PdfNull)
+        PdfDictionary? streams = spec is not null && spec.TryGet(PdfName.FromAscii("EF"), out QpdfObject raw)
+            ? TryResolve(engine, raw) as PdfDictionary : null;
+        using ParserMemoryScope textMemory = ParserMemoryScope.Create(governor);
+        if (streams is not null)
         {
-            QpdfObject efTarget = efRaw;
-            if (efRaw is PdfReference efReference)
+            foreach (string name in NameKeys)
             {
-                if (((IIndirectResolver)engine).TryResolve(efReference, out QpdfObject? resolved) && resolved is not null && resolved is not PdfNull)
-                {
-                    efTarget = resolved;
-                }
-            }
-
-            if (efTarget is PdfDictionary ef)
-            {
-                foreach (string name in NameKeys)
-                {
-                    if (!ef.TryGet(PdfName.FromAscii(name), out QpdfObject? candidate) || candidate is null || candidate is PdfNull)
-                    {
-                        continue;
-                    }
-
-                    QpdfObject target = candidate;
-                    if (candidate is PdfReference streamReference)
-                    {
-                        if (!((IIndirectResolver)engine).TryResolve(streamReference, out QpdfObject? resolved) || resolved is null)
-                        {
-                            continue;
-                        }
-
-                        target = resolved;
-                    }
-
-                    if (target is not PdfStream stream)
-                    {
-                        continue;
-                    }
-
-                    governor.NoteOperation();
-                    if (!first)
-                    {
-                        builder.Append((char)44);
-                    }
-
-                    first = false;
-                    PdfJsonWriter.AppendJsonString(builder, name);
-                    builder.Append(": ");
-                    AppendEmbeddedStream(builder, engine, stream);
-                }
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                if (!streams.TryGet(PdfName.FromAscii(name), out QpdfObject candidate)
+                    || TryResolve(engine, candidate) is not PdfStream stream) { continue; }
+                if (!first) { builder.Append(','); } first = false;
+                PdfJsonWriter.AppendJsonString(builder, name); builder.Append(": ");
+                EmbeddedFiles.EmbeddedStreamMetadata metadata = ReferenceEquals(stream, attachment.Stream)
+                    ? new(attachment.MimeType, attachment.CreationDate, attachment.ModDate, attachment.Checksum, attachment.Size)
+                    : EmbeddedFiles.ReadStreamMetadata(engine, stream, textMemory, governor, token);
+                AppendEmbeddedStream(builder, metadata);
+                textMemory.Discard();
             }
         }
-
-        builder.Append((char)125);
+        builder.Append('}');
     }
 
     private static QpdfObject? TryResolve(DocumentEngine engine, QpdfObject? raw)
@@ -1161,60 +1125,17 @@ internal static class DocumentJson
         return raw;
     }
 
-    private static void AppendEmbeddedStream(DisplayBuffer builder, DocumentEngine engine, PdfStream stream)
+    private static void AppendEmbeddedStream(DisplayBuffer builder, EmbeddedFiles.EmbeddedStreamMetadata metadata)
     {
-        string creation = string.Empty;
-        string checksum = string.Empty;
-        string mime = string.Empty;
-        if (stream.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject subtypeRaw) && subtypeRaw is PdfName subtype)
-        {
-            mime = subtype.DisplayText;
-        }
-
-        PdfDictionary? parms = null;
-        if (stream.Dictionary.TryGet(PdfName.FromAscii("Params"), out QpdfObject? parmsRaw) && parmsRaw is not null && parmsRaw is not PdfNull)
-        {
-            parms = TryResolve(engine, parmsRaw) as PdfDictionary;
-        }
-
-        if (parms is not null)
-        {
-            if (parms.TryGet(PdfName.FromAscii("CreationDate"), out QpdfObject? creationRaw) && creationRaw is PdfByteString creationText)
-            {
-                creation = PdfText.Decode(creationText.Value);
-            }
-
-            if (parms.TryGet(PdfName.FromAscii("CheckSum"), out QpdfObject? checksumRaw) && checksumRaw is PdfByteString checksumBytes)
-            {
-                checksum = Convert.ToHexStringLower(checksumBytes.Value);
-            }
-        }
-
-        builder.Append("{\"creationdate\": ");
-        AppendIsoDate(builder, creation);
-        builder.Append(",\"modificationdate\": ");
-        AppendIsoDate(builder, creation);
+        builder.Append("{\"creationdate\": "); AppendIsoDate(builder, metadata.CreationDate);
+        builder.Append(",\"modificationdate\": "); AppendIsoDate(builder, metadata.ModDate);
         builder.Append(",\"mimetype\": ");
-        if (mime.Length == 0)
-        {
-            builder.Append("null");
-        }
-        else
-        {
-            PdfJsonWriter.AppendJsonString(builder, mime);
-        }
-
+        if (metadata.MimeType.Length == 0) { builder.Append("null"); }
+        else { PdfJsonWriter.AppendJsonString(builder, metadata.MimeType); }
         builder.Append(",\"checksum\": ");
-        if (checksum.Length == 0)
-        {
-            builder.Append("null");
-        }
-        else
-        {
-            PdfJsonWriter.AppendJsonString(builder, checksum);
-        }
-
-        builder.Append((char)125);
+        if (metadata.Checksum.Length == 0) { builder.Append("null"); }
+        else { PdfJsonWriter.AppendJsonString(builder, metadata.Checksum); }
+        builder.Append('}');
     }
 
     internal static void AppendIsoDate(DisplayBuffer builder, string pdfDate)
@@ -1232,76 +1153,36 @@ internal static class DocumentJson
 
     internal static string? ToIso8601(string pdfDate)
     {
-        if (pdfDate is null || pdfDate.Length < 16)
+        // Inspect the bounded timestamp syntax before allocating any presentation text.
+        if (pdfDate is null || pdfDate.Length is not (16 or 17 or 23)
+            || !pdfDate.StartsWith("D:", StringComparison.Ordinal)) { return null; }
+        for (int i = 2; i < 16; i++) { if (pdfDate[i] is < '0' or > '9') { return null; } }
+        bool utc = true;
+        if (pdfDate.Length == 17 && pdfDate[16] != 'Z') { return null; }
+        if (pdfDate.Length == 23)
         {
-            return null;
+            if (pdfDate[16] is not ('+' or '-') || pdfDate[19] != '\'' || pdfDate[22] != '\'') { return null; }
+            for (int i = 17; i < 22; i++) { if (i != 19 && pdfDate[i] is < '0' or > '9') { return null; } }
+            int hours = (pdfDate[17] - '0') * 10 + pdfDate[18] - '0';
+            int minutes = (pdfDate[20] - '0') * 10 + pdfDate[21] - '0';
+            if (hours > 23 || minutes > 59) { return null; }
+            utc = hours == 0 && minutes == 0;
         }
-
-        if (!pdfDate.StartsWith("D:", StringComparison.Ordinal))
+        return string.Create(utc ? 20 : 25, (pdfDate, utc), static (target, state) =>
         {
-            return null;
-        }
-
-        string digits = pdfDate.Substring(2);
-        if (digits.Length < 14)
-        {
-            return null;
-        }
-
-        foreach (char c in digits.Substring(0, 14))
-        {
-            if (c < 48 || c > 57)
+            ReadOnlySpan<char> digits = state.pdfDate.AsSpan(2, 14);
+            digits[..4].CopyTo(target); target[4] = '-'; digits.Slice(4, 2).CopyTo(target[5..]); target[7] = '-';
+            digits.Slice(6, 2).CopyTo(target[8..]); target[10] = 'T'; digits.Slice(8, 2).CopyTo(target[11..]); target[13] = ':';
+            digits.Slice(10, 2).CopyTo(target[14..]); target[16] = ':'; digits.Slice(12, 2).CopyTo(target[17..]);
+            if (state.utc) { target[19] = 'Z'; }
+            else
             {
-                return null;
+                target[19] = state.pdfDate[16]; state.pdfDate.AsSpan(17, 2).CopyTo(target[20..]); target[22] = ':';
+                state.pdfDate.AsSpan(20, 2).CopyTo(target[23..]);
             }
-        }
-
-        string rest = digits.Substring(14);
-        int tzMinutes = 0;
-        if (rest.Length == 0)
-        {
-            tzMinutes = 0;
-        }
-        else if (rest == "Z")
-        {
-            tzMinutes = 0;
-        }
-        else
-        {
-            if (rest.Length != 6 || (rest[0] != 43 && rest[0] != 45) || rest[3] != 39 || rest[5] != 39)
-            {
-                return null;
-            }
-
-            if (!IsTwoDigits(rest, 1) || !IsTwoDigits(rest, 4))
-            {
-                return null;
-            }
-
-            tzMinutes = ((rest[1] - 48) * 10 + (rest[2] - 48)) * 60 + ((rest[4] - 48) * 10 + (rest[5] - 48));
-            if (rest[0] == 43)
-            {
-                tzMinutes = -tzMinutes;
-            }
-        }
-
-        string suffix = tzMinutes == 0
-            ? "Z"
-            : (tzMinutes < 0 ? "+" : "-") + Two(Math.Abs(tzMinutes) / 60) + ":" + Two(Math.Abs(tzMinutes) % 60);
-        return digits.Substring(0, 4) + "-" + digits.Substring(4, 2) + "-" + digits.Substring(6, 2)
-            + "T" + digits.Substring(8, 2) + ":" + digits.Substring(10, 2) + ":" + digits.Substring(12, 2)
-            + suffix;
+        });
     }
 
-    private static bool IsTwoDigits(string text, int at)
-    {
-        return text[at] >= 48 && text[at] <= 57 && text[at + 1] >= 48 && text[at + 1] <= 57;
-    }
-
-    private static string Two(int value)
-    {
-        return value < 10 ? "0" + value.ToString(CultureInfo.InvariantCulture) : value.ToString(CultureInfo.InvariantCulture);
-    }
     private static void AppendObjects(
         DisplayBuffer builder,
         QpdfDocument document,

@@ -34,6 +34,10 @@ Attachment keys, names, descriptions, dates, checksums and MIME names now receiv
 admission before decoding or copying. Large metadata may therefore refuse earlier.
 Listing results retain independent decoded text after their input closes;
 temporary metadata and traversal storage refund on failure or cancellation.
+Attachment JSON reads modification dates from `/ModDate`, independently of
+`/CreationDate`; a missing field remains null. Full PDF timestamps with signed
+time-zone offsets now retain that offset. Date formatting checks bounded syntax
+before allocating. Named streams share metadata reading with typed listings.
 
 Coalescing, normalization and inline-image interpretation now require unfiltered
 or successfully decoded content. Unsupported/damaged encodings and filter-count
