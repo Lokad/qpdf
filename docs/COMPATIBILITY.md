@@ -45,6 +45,11 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Overlay form reachability admits traversal and reached-set capacities before
+allocation. Repeated field references no longer queue a full pending array;
+large distinct field sets can refuse earlier. Cancellation interrupts traversal,
+including field-array consumption. No public signatures change.
+
 Appearance text replacement matches the first `/Tx` marked-content block with
 bounded `BMC`/`BDC` nesting, preserving unrelated bytes and inline image data.
 Malformed programs warn and keep their original appearances; nesting, memory,

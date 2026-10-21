@@ -255,7 +255,7 @@ internal static class Overlays
 
         if (source.FormInfo is null)
         {
-            AcroFormCopy.OverlaySourceForm? formInfo = AcroFormCopy.TryReadOverlaySourceForm(source.Document.Engine, limits, governor, cancellationToken);
+            AcroFormCopy.OverlaySourceForm? formInfo = AcroFormCopy.TryReadOverlaySourceForm(source.Document.Engine, limits, governor, planning, cancellationToken);
             if (formInfo is not null)
             {
                 if (formInfo.FieldsNotArray)

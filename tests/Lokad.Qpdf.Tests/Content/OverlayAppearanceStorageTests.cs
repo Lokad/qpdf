@@ -21,15 +21,16 @@ public sealed class OverlayAppearanceStorageTests
             _ = document.GetObject(1);
             QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 1024L };
             ResourceGovernor governor = new(limits, CancellationToken.None);
+            using ParserMemoryScope planning = ParserMemoryScope.Create(governor);
             long allocated = GC.GetAllocatedBytesForCurrentThread();
-            AcroFormCopy.OverlaySourceForm? source = AcroFormCopy.TryReadOverlaySourceForm(document.Engine, limits, governor, CancellationToken.None);
+            AcroFormCopy.OverlaySourceForm? source = AcroFormCopy.TryReadOverlaySourceForm(document.Engine, limits, governor, planning, CancellationToken.None);
             Assert.NotNull(source); borrowed = Assert.IsType<PdfByteString>(source.DefaultAppearance);
             Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 65536L);
-            Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+            Assert.True(governor.Snapshot().LiveMemoryBytes > 0L);
             CopiedForm combined = new([], false, false, false, null, false, [], new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("DA")] = borrowed });
             Assert.Same(borrowed, AcroFormCopy.ReadMergedDefaults(combined).Appearance);
             using CancellationTokenSource cancellation = new(); cancellation.Cancel();
-            Assert.ThrowsAny<OperationCanceledException>(() => AcroFormCopy.TryReadOverlaySourceForm(document.Engine, limits, governor, cancellation.Token));
+            Assert.ThrowsAny<OperationCanceledException>(() => AcroFormCopy.TryReadOverlaySourceForm(document.Engine, limits, governor, planning, cancellation.Token));
         }
         Assert.Equal(raw, borrowed.ValueSpan.ToArray());
     }

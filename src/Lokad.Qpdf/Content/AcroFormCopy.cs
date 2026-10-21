@@ -723,163 +723,81 @@ internal static class AcroFormCopy
     /// the reference fallback note for widgets the field tree never mentions.
     /// </summary>
     internal static OverlaySourceForm? TryReadOverlaySourceForm(
-        DocumentEngine engine,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        CancellationToken cancellationToken)
+        DocumentEngine engine, QpdfLimits limits, ResourceGovernor governor,
+        ParserMemoryScope ownership, CancellationToken cancellationToken)
     {
-        if (engine is null)
-        {
-            throw new ArgumentNullException(nameof(engine));
-        }
-
-        if (limits is null)
-        {
-            throw new ArgumentNullException(nameof(limits));
-        }
-
-        if (governor is null)
-        {
-            throw new ArgumentNullException(nameof(governor));
-        }
-
-        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        limits.Validate();
+        ArgumentNullException.ThrowIfNull(engine); ArgumentNullException.ThrowIfNull(limits);
+        ArgumentNullException.ThrowIfNull(governor); ownership.CheckOwner(governor);
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); limits.Validate();
         PdfDictionary? source;
-        try
-        {
-            source = TryGetSourceForm(engine);
-        }
-        catch (QpdfParseException)
-        {
-            return null;
-        }
+        try { source = TryGetSourceForm(engine); }
+        catch (QpdfParseException) { return null; }
+        if (source is null) { return null; }
 
-        if (source is null)
-        {
-            return null;
-        }
-
-        bool hasFields = source.TryGet(PdfName.FromAscii("Fields"), out QpdfObject? fieldsRaw) && fieldsRaw is not null && fieldsRaw is not PdfNull;
-        PdfByteString appearance = EmptyAppearance;
-        if (source.TryGet(PdfName.FromAscii("DA"), out QpdfObject? appearanceRaw) && appearanceRaw is PdfByteString appearanceBytes)
-        {
-            appearance = appearanceBytes;
-        }
-
-        int quadding = 0;
-        if (source.TryGet(PdfName.FromAscii("Q"), out QpdfObject? quaddingRaw) && quaddingRaw is PdfInteger quaddingInteger
-            && quaddingInteger.Value >= int.MinValue && quaddingInteger.Value <= int.MaxValue)
-        {
-            quadding = (int)quaddingInteger.Value;
-        }
-
-        bool needAppearances = source.TryGet(PdfName.FromAscii("NeedAppearances"), out QpdfObject? needRaw) && needRaw is PdfBoolean needFlag && needFlag.Value;
-        QpdfObject? resources = source.TryGet(PdfName.FromAscii("DR"), out QpdfObject? resourcesRaw) && resourcesRaw is not null && resourcesRaw is not PdfNull
-            ? resourcesRaw
-            : null;
-        (HashSet<int> reached, bool fieldsNotArray, bool hasDirectNodes) = CollectReachedFieldObjects(engine, source, hasFields, limits, governor, cancellationToken);
-        return new OverlaySourceForm(hasFields, appearance, quadding, needAppearances, resources, reached, fieldsNotArray, hasDirectNodes);
+        using ParserMemoryScope result = ParserMemoryScope.Create(governor);
+        result.Reserve(72L);
+        bool hasFields = PdfDictionaryLookup.TryGet(source, "Fields"u8, governor, cancellationToken, out QpdfObject fieldsRaw)
+            && fieldsRaw is not PdfNull;
+        PdfByteString appearance = PdfDictionaryLookup.TryGet(source, "DA"u8, governor, cancellationToken, out QpdfObject daRaw)
+            && daRaw is PdfByteString da ? da : EmptyAppearance;
+        int quadding = PdfDictionaryLookup.TryGet(source, "Q"u8, governor, cancellationToken, out QpdfObject qRaw)
+            && qRaw is PdfInteger q && q.Value is >= int.MinValue and <= int.MaxValue ? (int)q.Value : 0;
+        bool need = PdfDictionaryLookup.TryGet(source, "NeedAppearances"u8, governor, cancellationToken, out QpdfObject needRaw)
+            && needRaw is PdfBoolean flag && flag.Value;
+        QpdfObject? resources = PdfDictionaryLookup.TryGet(source, "DR"u8, governor, cancellationToken, out QpdfObject drRaw)
+            && drRaw is not PdfNull ? drRaw : null;
+        (HashSet<int> reached, bool fieldsNotArray, bool hasDirectNodes) = CollectReachedFieldObjects(
+            engine, fieldsRaw, hasFields, limits, governor, result, cancellationToken);
+        OverlaySourceForm form = new(hasFields, appearance, quadding, need, resources, reached, fieldsNotArray, hasDirectNodes);
+        result.TransferTo(ownership); return form;
     }
 
     private static (HashSet<int> Reached, bool FieldsNotArray, bool HasDirectNodes) CollectReachedFieldObjects(
-        DocumentEngine engine,
-        PdfDictionary source,
-        bool hasFields,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        CancellationToken cancellationToken)
+        DocumentEngine engine, QpdfObject fieldsRaw, bool hasFields, QpdfLimits limits,
+        ResourceGovernor governor, ParserMemoryScope result, CancellationToken token)
     {
-        HashSet<int> reached = new();
-        if (!hasFields)
+        HashSet<int> reached = ParserContainers.CreateSet<int>(result);
+        if (!hasFields) { return (reached, false, false); }
+        IIndirectResolver resolver = engine;
+        QpdfObject target = fieldsRaw;
+        if (target is PdfReference link)
         {
-            return (reached, false, false);
-        }
-
-        if (!source.TryGet(PdfName.FromAscii("Fields"), out QpdfObject? raw) || raw is null || raw is PdfNull)
-        {
-            return (reached, false, false);
-        }
-
-        IIndirectResolver resolver = (IIndirectResolver)engine;
-        QpdfObject target = raw;
-        if (raw is PdfReference fieldsReference)
-        {
-            if (!resolver.TryResolve(fieldsReference, out QpdfObject? resolved) || resolved is null || resolved is PdfNull)
-            {
-                return (reached, true, false);
-            }
-
+            if (!resolver.TryResolve(link, out QpdfObject? resolved) || resolved is null || resolved is PdfNull)
+            { return (reached, true, false); }
             target = resolved;
         }
+        if (target is not PdfArray fields) { return (reached, true, false); }
 
-        if (target is not PdfArray fields)
-        {
-            return (reached, true, false);
-        }
-
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        HashSet<int> visited = ParserContainers.CreateSet<int>(scratch);
+        List<(PdfArray Nodes, int Next, int Depth)> frames = ParserContainers.CreateList<(PdfArray, int, int)>(scratch);
+        ParserContainers.AddItem(scratch, frames, (fields, 0, 0), 16L);
         bool hasDirectNodes = false;
-        HashSet<int> visited = new();
-        Stack<(QpdfObject Node, int Depth)> stack = new();
-        for (int i = 0; i < fields.Count; i++)
+        while (frames.Count != 0)
         {
-            stack.Push((fields[i], 0));
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.NoteOperation();
+            var frame = frames[^1];
+            if (frame.Next == frame.Nodes.Count) { frames.RemoveAt(frames.Count - 1); continue; }
+            // Preserve the former stack's last-to-first order without queuing
+            // a complete array of pending references.
+            QpdfObject node = frame.Nodes[frame.Nodes.Count - 1 - frame.Next];
+            frames[^1] = (frame.Nodes, frame.Next + 1, frame.Depth);
+            if (node is not PdfReference reference)
+            { if (node is PdfDictionary) { hasDirectNodes = true; } continue; }
+            if (!ParserContainers.AddSetItem(scratch, visited, reference.ObjectNumber, sizeof(int))) { continue; }
+            if (!resolver.TryResolve(reference, out QpdfObject? resolvedNode) || resolvedNode is not PdfDictionary dictionary) { continue; }
+            ParserContainers.AddSetItem(result, reached, reference.ObjectNumber, sizeof(int));
+            if (frame.Depth >= limits.MaxNestingDepth
+                || !PdfDictionaryLookup.TryGet(dictionary, "Kids"u8, governor, token, out QpdfObject kidsRaw) || kidsRaw is PdfNull) { continue; }
+            QpdfObject kidsTarget = kidsRaw;
+            if (kidsRaw is PdfReference kidsLink)
+            {
+                if (!resolver.TryResolve(kidsLink, out QpdfObject? kidsResolved) || kidsResolved is null || kidsResolved is PdfNull) { continue; }
+                kidsTarget = kidsResolved;
+            }
+            if (kidsTarget is PdfArray kids)
+            { ParserContainers.AddItem(scratch, frames, (kids, 0, frame.Depth + 1), 16L); }
         }
-
-        while (stack.TryPop(out (QpdfObject Node, int Depth) current))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            if (current.Depth > limits.MaxNestingDepth)
-            {
-                continue;
-            }
-
-            if (current.Node is PdfReference reference)
-            {
-                if (!visited.Add(reference.ObjectNumber))
-                {
-                    continue;
-                }
-
-                if (!resolver.TryResolve(reference, out QpdfObject? resolved) || resolved is not PdfDictionary dictionary)
-                {
-                    continue;
-                }
-
-                reached.Add(reference.ObjectNumber);
-                if (!dictionary.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw) || kidsRaw is null || kidsRaw is PdfNull)
-                {
-                    continue;
-                }
-
-                QpdfObject kidsTarget = kidsRaw;
-                if (kidsRaw is PdfReference kidsReference)
-                {
-                    if (!resolver.TryResolve(kidsReference, out QpdfObject? kidsResolved) || kidsResolved is null || kidsResolved is PdfNull)
-                    {
-                        continue;
-                    }
-
-                    kidsTarget = kidsResolved;
-                }
-
-                if (kidsTarget is not PdfArray kids)
-                {
-                    continue;
-                }
-
-                for (int i = 0; i < kids.Count; i++)
-                {
-                    stack.Push((kids[i], current.Depth + 1));
-                }
-            }
-            else if (current.Node is PdfDictionary)
-            {
-                hasDirectNodes = true;
-            }
-        }
-
         return (reached, false, hasDirectNodes);
     }
 

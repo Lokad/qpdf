@@ -53,6 +53,9 @@ a temporary placement scope. Only actual imports trigger one exact destination
 array allocation. Page headers replace Resources and Contents together; rectangle
 headers use the same admitted dictionary rebuilds. Fresh retained values transfer
 to the job owner before installation; failed construction refunds its batch.
+Overlay form reachability borrows field arrays through one admitted cursor per
+nesting level. Visited nodes have a temporary owner; the reached set stays funded
+under overlay planning and refunds when that phase closes.
 
 Default-appearance analysis scans borrowed bytes once, retaining only the last
 font and size. It admits decoded font-name bytes and any corrected appearance
