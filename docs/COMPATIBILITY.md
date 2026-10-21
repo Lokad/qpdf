@@ -49,6 +49,8 @@ Page selection finishes copying catalog labels and form defaults before allocati
 added attachments, and coordinates later copies with overlay/appearance objects.
 Cold font and default-program references therefore keep their original meaning
 when these operations are combined. Output object numbers can change.
+QDF page/content comment preparation borrows array entries instead of copying
+them; comment numbering and shared-stream first-use behavior are unchanged.
 
 Overlay form reachability admits traversal and reached-set capacities before
 allocation. Repeated field references no longer queue a full pending array;

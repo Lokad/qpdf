@@ -548,9 +548,10 @@ internal sealed partial class PdfSerializer
             }
 
             int seq = 0;
-            foreach (QpdfObject kid in kids.Items)
+            for (int index = 0; index < kids.Count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested(); _governor.NoteOperation();
+                QpdfObject kid = kids[index];
                 if (kid is not PdfReference kidReference)
                 {
                     continue;
@@ -585,9 +586,10 @@ internal sealed partial class PdfSerializer
 
                 if (contents is PdfArray contentArray)
                 {
-                    foreach (QpdfObject item in contentArray.Items)
+                    for (int contentIndex = 0; contentIndex < contentArray.Count; contentIndex++)
                     {
                         cancellationToken.ThrowIfCancellationRequested(); _governor.NoteOperation();
+                        QpdfObject item = contentArray[contentIndex];
                         if (item is PdfReference itemReference
                             && combined.TryGetValue(itemReference.ObjectNumber, out int itemNumber)
                             && !marks.ContainsKey(itemNumber))
