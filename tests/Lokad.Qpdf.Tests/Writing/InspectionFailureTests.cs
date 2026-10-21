@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.TestSupport;
+using Lokad.Qpdf.Tests.Content;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -15,6 +16,7 @@ public sealed class InspectionFailureTests
         "contents" => PageJsonStorageTests.Fixture("6 0 R", "[" + string.Join(' ', Enumerable.Repeat("4 0 R", 256)) + "]", "/Resources << >>"),
         "images" => PageJsonStorageTests.Fixture("[]", "[]", "/Resources << /XObject << " + string.Join(' ', Enumerable.Range(0, 128).Reverse().Select(i => "/Image" + i + " 4 0 R")) + " >> >>"),
         "stream" => JsonArrayReaderTests.LargeStream(),
+        "rotation" => RotationContentTests.Fixture("5 0 R", "[" + string.Join(' ', Enumerable.Repeat("4 0 R", 128)) + "]", "q Q"u8.ToArray()),
         _ => JsonLabelCursorTests.Fixture(128, string.Join(" ", Enumerable.Range(0, 128).Select(i => i + " " + i))) };
 
     private sealed class Host(InMemoryQpdfHost storage, IMemoryBudget budget, string phase, Exception? failure) : IQpdfHost, IQpdfMemoryHost
@@ -47,6 +49,11 @@ public sealed class InspectionFailureTests
 
     private static ValueTask<QpdfExecutionResult> Run(IQpdfHost host, string mode, bool job)
     {
+        if (mode == "rotation")
+        {
+            return job ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","flattenRotation":true,"pages":[{"file":".","range":"1"}]}""", CancellationToken.None)
+                : Qpdf.ExecuteAsync(host, new(["input", "--flatten-rotation", "--pages", ".", "1", "--", "output"]), CancellationToken.None);
+        }
         string key = mode is "labels" or "contents" or "images" or "stream" ? "pages" : mode;
         return job ? Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new { inputFile = "input", outputFile = "output", json = "2", jsonKey = new[] { key } }), CancellationToken.None)
             : Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["input", "--json=2", "--json-key=" + key, "--", "output"]), CancellationToken.None);
@@ -54,7 +61,7 @@ public sealed class InspectionFailureTests
 
     public static IEnumerable<object[]> Faults()
     {
-        foreach (string mode in new[] { "attachments", "pages", "labels", "acroform", "contents", "images", "stream" })
+        foreach (string mode in new[] { "attachments", "pages", "labels", "acroform", "contents", "images", "stream", "rotation" })
         foreach (string phase in new[] { "read", "input-close", "create", "write", "commit", "close" })
         foreach (string kind in new[] { "host", "cancel", "oom" }) { yield return [mode, phase, kind]; }
     }
@@ -82,7 +89,16 @@ public sealed class InspectionFailureTests
         }
         Assert.True(host.Injected); Assert.Equal(0L, storage.OpenLeaseCount);
         Assert.True(storage.TryGetOutput(Output, out byte[] output));
-        if (phase == "close") { using JsonDocument json = JsonDocument.Parse(output); Assert.Equal(2, json.RootElement.GetProperty("version").GetInt32()); }
+        // Rewrites keep borrowed input alive through commit. Its later input
+        // close fault, like a transaction close fault, cannot undo publication.
+        bool committed = phase == "close" || (mode == "rotation" && phase == "input-close");
+        if (committed && mode == "rotation")
+        {
+            storage.AddInput(QpdfPath.From("committed"), output, QpdfInputOwnership.Transfer);
+            await using QpdfDocument document = await QpdfDocument.OpenAsync(storage, QpdfPath.From("committed"), CancellationToken.None);
+            Assert.Equal(1, document.PageCount);
+        }
+        else if (committed) { using JsonDocument json = JsonDocument.Parse(output); Assert.Equal(2, json.RootElement.GetProperty("version").GetInt32()); }
         else { Assert.Equal("prior"u8.ToArray(), output); }
         Assert.InRange(root.ReservedBytes, 0L, 2048L); caller.Dispose(); Assert.Equal(0L, root.ReservedBytes);
     }
@@ -102,6 +118,8 @@ public sealed class InspectionFailureTests
     [InlineData("images", true)]
     [InlineData("stream", false)]
     [InlineData("stream", true)]
+    [InlineData("rotation", false)]
+    [InlineData("rotation", true)]
     public async Task EveryObservedSharedAdmissionRefusalPreservesOutput(string mode, bool job)
     {
         using InMemoryQpdfHost storage = new(); storage.AddInput(Input, Fixture(mode), QpdfInputOwnership.Transfer);

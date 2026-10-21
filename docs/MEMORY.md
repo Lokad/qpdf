@@ -161,6 +161,14 @@ use the existing coarse shared reservation; they do not reserve from the host
 per name, character or comparison. Import text encoding remains covered by its
 aggregate model estimate, independently of the graph-edit allocator.
 
+Rotation admits retained arrays, numeric text and replacement dictionaries in a
+page batch; traversal sets have a phase owner. Content collection borrows original
+stream references and admits its known metadata capacity once. Checking and
+rotation share that collector. Temporary matrices and formatting storage refund
+after consumption, while rewritten stream headers borrow existing payloads.
+JSON's array lookup inspects an admitted tokenizer header before ordinary array
+loading; reporting an uncompressed stream reference does not copy its payload.
+
 Prepared JSON UTF-8 buffers and sidecar names stay under the private preparation
 owner through awaited publication and transaction cleanup. Host callbacks borrow
 that storage; persistent host copies and identifiers have a host owner. After

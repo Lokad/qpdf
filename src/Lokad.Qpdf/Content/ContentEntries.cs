@@ -50,6 +50,14 @@ internal sealed class ContentEntries : IDisposable
         {
             PdfArray? array = target as PdfArray;
             int count = array?.Count ?? 1;
+            if (count > 0)
+            {
+                // Parsed container size is known: admit one metadata array,
+                // avoiding growth copies and their overlapping capacities.
+                ParserMemoryScope memory = entries._memory ?? throw new ObjectDisposedException(nameof(ContentEntries));
+                memory.Reserve(checked(32L + 24L * count));
+                entries.Items.Capacity = count;
+            }
             for (int index = 0; index < count; index++)
             {
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();

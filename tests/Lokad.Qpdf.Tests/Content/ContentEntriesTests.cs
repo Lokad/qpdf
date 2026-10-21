@@ -11,6 +11,28 @@ public sealed class ContentEntriesTests
     private static PdfStream Stream() => new(new PdfDictionary(new Dictionary<PdfName, QpdfObject>()), new byte[4096]);
 
     [Fact]
+    public void KnownArrayCapacityRefusesBeforeCopyingAndRefunds()
+    {
+        PdfStream stream = Stream(); PoolResolver resolver = new(new Dictionary<int, QpdfObject> { [7] = stream });
+        PdfArray array = new(Enumerable.Repeat<QpdfObject>(new PdfReference(7, 0), 262144).ToArray());
+        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096 }, CancellationToken.None);
+        long allocated = GC.GetAllocatedBytesForCurrentThread();
+        Assert.Throws<QpdfLimitException>(() => ContentEntries.TryRead(array, resolver, governor, CancellationToken.None));
+        Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 131072L);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Fact]
+    public void BorrowedEntriesKeepTheirOriginalReferenceGeneration()
+    {
+        PdfStream stream = Stream(); PdfReference reference = new(7, 99);
+        PoolResolver resolver = new(new Dictionary<int, QpdfObject> { [7] = stream });
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ContentEntries entries = Assert.IsType<ContentEntries>(ContentEntries.TryRead(new PdfArray([reference]), resolver, governor, CancellationToken.None));
+        Assert.Same(reference, entries.Get(0).Value); Assert.Same(stream, entries.Get(0).Stream);
+    }
+
+    [Fact]
     public void DisposedOwnerDropsScratchAndRejectsFurtherAccess()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
