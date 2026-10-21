@@ -49,6 +49,10 @@ Overlay form reachability admits traversal and reached-set capacities before
 allocation. Repeated field references no longer queue a full pending array;
 large distinct field sets can refuse earlier. Cancellation interrupts traversal,
 including field-array consumption. No public signatures change.
+Imported fields retain unchanged headers. Resource unions, changed defaults,
+parent repairs and direct-child arrays receive admission before allocation, so
+large fixups can refuse earlier while preserving transactional output. Existing
+parent/cycle repair and raw default-program behavior remain unchanged.
 
 Appearance text replacement matches the first `/Tx` marked-content block with
 bounded `BMC`/`BDC` nesting, preserving unrelated bytes and inline image data.

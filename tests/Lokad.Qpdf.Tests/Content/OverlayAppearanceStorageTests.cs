@@ -51,13 +51,14 @@ public sealed class OverlayAppearanceStorageTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         PdfNameTable<PdfName> map = Map(memory, governor);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
         long baseline = governor.Snapshot().LiveMemoryBytes;
         PdfByteString? result = AcroFormCopy.RewriteOverlayDa(new(Encoding.ASCII.GetBytes(text), false), map,
-            QpdfLimits.Default, governor, CancellationToken.None);
+            QpdfLimits.Default, graph);
         if (expected is null) { Assert.Null(result); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes); }
         else
         {
-            Assert.NotNull(result); Assert.Equal(expected, Encoding.ASCII.GetString(result.ValueSpan));
+            graph.Retain(); Assert.NotNull(result); Assert.Equal(expected, Encoding.ASCII.GetString(result.ValueSpan));
             Assert.True(governor.Snapshot().LiveMemoryBytes >= baseline + result.ValueSpan.Length);
             governor.CompletePrivateStorage(); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
         }
@@ -70,8 +71,10 @@ public sealed class OverlayAppearanceStorageTests
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 1024L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        PdfNameTable<PdfName> map = Map(memory, governor); long baseline = governor.Snapshot().LiveMemoryBytes;
-        Assert.Null(AcroFormCopy.RewriteOverlayDa(input, map, limits, governor, CancellationToken.None));
+        PdfNameTable<PdfName> map = Map(memory, governor);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
+        long baseline = governor.Snapshot().LiveMemoryBytes;
+        Assert.Null(AcroFormCopy.RewriteOverlayDa(input, map, limits, graph));
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 
@@ -85,13 +88,15 @@ public sealed class OverlayAppearanceStorageTests
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 2048L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        PdfNameTable<PdfName> map = Map(memory, governor); long baseline = governor.Snapshot().LiveMemoryBytes;
+        PdfNameTable<PdfName> map = Map(memory, governor);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, source.Token);
+        long baseline = governor.Snapshot().LiveMemoryBytes;
         if (cancel)
         {
             source.Cancel();
-            Assert.ThrowsAny<OperationCanceledException>(() => AcroFormCopy.RewriteOverlayDa(input, map, limits, governor, source.Token));
+            Assert.ThrowsAny<OperationCanceledException>(() => AcroFormCopy.RewriteOverlayDa(input, map, limits, graph));
         }
-        else { Assert.Throws<QpdfLimitException>(() => AcroFormCopy.RewriteOverlayDa(input, map, limits, governor, CancellationToken.None)); }
+        else { Assert.Throws<QpdfLimitException>(() => AcroFormCopy.RewriteOverlayDa(input, map, limits, graph)); }
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 }

@@ -56,6 +56,11 @@ to the job owner before installation; failed construction refunds its batch.
 Overlay form reachability borrows field arrays through one admitted cursor per
 nesting level. Visited nodes have a temporary owner; the reached set stays funded
 under overlay planning and refunds when that phase closes.
+Imported fields inspect borrowed headers before deciding whether to rebuild.
+Changed headers, repaired parent links and direct-child arrays receive admission;
+default-program rewrites share their header's allocation batch. Resource unions
+admit dictionary growth and transfer the completed dictionary without copying it.
+Field traversal scratch refunds after each import, including failed construction.
 
 Default-appearance analysis scans borrowed bytes once, retaining only the last
 font and size. It admits decoded font-name bytes and any corrected appearance

@@ -39,15 +39,16 @@ public sealed class AnnotationPublicationTests
             : mode == "merge" ? FormMergeStorageTests.Fixture(new string('F', 32768), false) : mode is "overlay" or "flatten" ? FlattenResourceStorageTests.Fixture(64, false)
             : ContentSafetyTests.Fixture(System.Text.Encoding.ASCII.GetBytes(new string(' ', 524288) + "BI /W 1 /H 1 /BPC 8 /CS /G ID X EI"), "", false, 1);
         host.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Transfer);
-        host.AddInput(QpdfPath.From("overlay"), mode == "merge" ? FormMergeStorageTests.Fixture(new string('F', 32768), true) : FlattenResourceStorageTests.Fixture(4, false), QpdfInputOwnership.Transfer);
+        host.AddInput(QpdfPath.From("overlay"), mode == "merge" ? FormMergeStorageTests.Fixture(new string('F', 32768), true) : mode.StartsWith("overlay-form", StringComparison.Ordinal) ? OverlayFormStorageTests.Fixture() : FlattenResourceStorageTests.Fixture(4, false), QpdfInputOwnership.Transfer);
         await using IQpdfOutputTransaction initial = await host.CreateOutputAsync(Output, CancellationToken.None);
         await initial.WriteAsync(new byte[] { 17, 23, 41 }, CancellationToken.None); await initial.CommitAsync(CancellationToken.None);
         return host;
     }
 
     private static ValueTask<QpdfExecutionResult> Run(Host host, string mode, CancellationToken token)
-        => mode is "generate-job" or "generate-text-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","generateAppearances":true}""", token)
-            : Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(mode == "merge" ? ["input", "--pages", ".", "1", "overlay", "1", "--", "output"] : mode == "overlay"
+        => mode == "overlay-form-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","overlay":{"file":"overlay"}}""", token)
+            : mode is "generate-job" or "generate-text-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","generateAppearances":true}""", token)
+            : Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(mode == "merge" ? ["input", "--pages", ".", "1", "overlay", "1", "--", "output"] : mode is "overlay" or "overlay-form"
             ? ["input", "--overlay", "overlay", "--", "output"]
             : ["input", mode switch { "generate" or "generate-text" => "--generate-appearances", "flatten" => "--flatten-annotations=all", "coalesce" => "--coalesce-contents",
                 "normalize" => "--normalize-content=y", _ => "--externalize-inline-images" }, "--ii-min-bytes=0", "--", "output"]), token);
@@ -55,6 +56,8 @@ public sealed class AnnotationPublicationTests
     [Theory]
     [InlineData("flatten")]
     [InlineData("overlay")]
+    [InlineData("overlay-form")]
+    [InlineData("overlay-form-job")]
     [InlineData("coalesce")]
     [InlineData("normalize")]
     [InlineData("externalize")]
@@ -98,6 +101,16 @@ public sealed class AnnotationPublicationTests
     }
 
     [Theory]
+    [InlineData("create", "overlay-form")]
+    [InlineData("write", "overlay-form")]
+    [InlineData("commit", "overlay-form")]
+    [InlineData("cancel", "overlay-form")]
+    [InlineData("close", "overlay-form")]
+    [InlineData("create", "overlay-form-job")]
+    [InlineData("write", "overlay-form-job")]
+    [InlineData("commit", "overlay-form-job")]
+    [InlineData("cancel", "overlay-form-job")]
+    [InlineData("close", "overlay-form-job")]
     [InlineData("create", "flatten")]
     [InlineData("create", "generate-text")]
     [InlineData("write", "generate-text")]
