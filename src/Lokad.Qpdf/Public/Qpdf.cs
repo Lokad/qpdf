@@ -375,16 +375,6 @@ public static partial class Qpdf
                     (PdfReference? singleInfo, PdfReference? singleMetadata) = CopyCatalogExtras(copier, document.Engine, settings.RemoveInfo, settings.RemoveMetadata, diagnostics);
                     PdfReference? singleOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, settings.PreserveCatalog, settings.Linearize, governor, cancellationToken);
                     (PdfReference? singleStructTree, QpdfObject? singleMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, settings.PreserveCatalog, settings.RemoveStructure, governor, cancellationToken);
-                    Dictionary<GraphCopier, PdfDictionary?> singleFormResources = new();
-                    if (!settings.RemoveAcroform)
-                    {
-                        PdfDictionary? singleDefaultResources = Content.AcroFormCopy.TryCopyFormDR(document.Engine, copier, governor, cancellationToken);
-                        if (singleDefaultResources is not null)
-                        {
-                            singleFormResources[copier] = singleDefaultResources;
-                        }
-                    }
-
                     Dictionary<PdfName, QpdfObject> singleExtras = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, settings.PreserveCatalog, settings.RemoveAcroform, governor, cancellationToken);
                     SortedDictionary<string, PdfReference> singleExisting = PreserveExistingAttachments(copier, document.Engine, settings.Edits, limits, governor, diagnostics, copyMemory, cancellationToken);
                     string? singlePageMode = ReadInputPageMode(document.Engine);
@@ -425,7 +415,10 @@ public static partial class Qpdf
                         }
 
                         HashSet<int>? gateReached = CollectGenerateReached(gateParts, gateSurvivors, true, limits, governor, cancellationToken);
-                        flattenAllocator = Content.GenerateAppearances.Apply(occurrences, singleFormResources, limits, governor, diagnostics, cancellationToken, gateReached, false, flattenAllocator);
+                        Dictionary<GraphCopier, Content.CopiedForm?> singleForms = ParserContainers.CreateDictionary<GraphCopier, Content.CopiedForm?>(copyMemory);
+                        ParserContainers.EnsureEntryCapacity(copyMemory, singleForms, IntPtr.Size); singleForms.Add(copier, gateForm);
+                        flattenAllocator = Math.Max(flattenAllocator, copier.NextId);
+                        flattenAllocator = Content.GenerateAppearances.Apply(occurrences, singleForms, limits, governor, diagnostics, cancellationToken, gateReached, false, flattenAllocator);
                         needAppearances = false;
                     }
                     if (settings.FlattenAnnotations is not null)
@@ -1128,13 +1121,11 @@ public static partial class Qpdf
         bool multiGenerated = settings.GenerateAppearances && needAppearances;
         if (multiGenerated)
         {
-            Dictionary<GraphCopier, PdfDictionary?> multiFormResources = new();
+            Dictionary<GraphCopier, Content.CopiedForm?> generationForms = ParserContainers.CreateDictionary<GraphCopier, Content.CopiedForm?>(selectionMemory);
             for (int s = 0; s < copiers.Count && s < multiForms.Count; s++)
             {
-                if (multiForms[s]?.DefaultResources is PdfDictionary sourceResources)
-                {
-                    multiFormResources[copiers[s]] = sourceResources;
-                }
+                ParserContainers.EnsureEntryCapacity(selectionMemory, generationForms, IntPtr.Size);
+                generationForms.Add(copiers[s], multiForms[s]);
             }
 
             HashSet<int> multiSurvivors = Content.AcroFormCopy.CollectAnnotRefs(occurrences, governor, cancellationToken);
@@ -1149,7 +1140,7 @@ public static partial class Qpdf
             }
 
             HashSet<int>? multiReached = CollectGenerateReached(multiGateParts, multiSurvivors, pruneUnreachableFields, limits, governor, cancellationToken);
-            multiFlattenAllocator = Content.GenerateAppearances.Apply(occurrences, multiFormResources, limits, governor, diagnostics, cancellationToken, multiReached, !pruneUnreachableFields, multiFlattenAllocator);
+            multiFlattenAllocator = Content.GenerateAppearances.Apply(occurrences, generationForms, limits, governor, diagnostics, cancellationToken, multiReached, !pruneUnreachableFields, multiFlattenAllocator);
             needAppearances = false;
         }
         if (settings.FlattenAnnotations is not null)

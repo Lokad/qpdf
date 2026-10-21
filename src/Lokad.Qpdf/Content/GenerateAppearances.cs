@@ -13,10 +13,11 @@ namespace Lokad.Qpdf.Content;
 internal static class GenerateAppearances
 {
     private const int FlagCombo = 131072;
+    private static readonly PdfName DefaultAppearanceKey = PdfName.FromAscii("DA");
 
     internal static int Apply(
         IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
-        IReadOnlyDictionary<GraphCopier, PdfDictionary?> formResources,
+        IReadOnlyDictionary<GraphCopier, CopiedForm?> forms,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
@@ -29,9 +30,9 @@ internal static class GenerateAppearances
         {
             throw new ArgumentNullException(nameof(occurrences));
         }
-        if (formResources is null)
+        if (forms is null)
         {
-            throw new ArgumentNullException(nameof(formResources));
+            throw new ArgumentNullException(nameof(forms));
         }
 
         if (limits is null)
@@ -77,6 +78,11 @@ internal static class GenerateAppearances
                 continue;
             }
 
+            forms.TryGetValue(copier, out CopiedForm? form);
+            PdfDictionary? formResources = form?.DefaultResources is QpdfObject resourcesRaw
+                ? ResolveFieldValue(resourcesRaw, resolver, governor, cancellationToken) as PdfDictionary : null;
+            PdfByteString? defaultAppearance = form is not null && form.Extras.TryGetValue(DefaultAppearanceKey, out QpdfObject? daRaw)
+                && daRaw is not null ? ResolveFieldValue(daRaw, resolver, governor, cancellationToken) as PdfByteString : null;
             bool pageChanged = false;
             QpdfObject[]? directEntries = null;
             for (int index = 0; index < annots.Count; index++)
@@ -108,9 +114,8 @@ internal static class GenerateAppearances
                 { updated = SyncButton(copier, annot, annotId, field, resolver, diagnostics, governor, cancellationToken); }
                 else
                 {
-                    formResources.TryGetValue(copier, out PdfDictionary? resources);
                     updated = GenerateText(copier, annot, annotId, field, resolver, limits, governor, diagnostics,
-                        cancellationToken, resources, ref allocator);
+                        cancellationToken, formResources, defaultAppearance, ref allocator);
                 }
                 if (updated is not null && !annotId.HasValue && directEntries is not null)
                 { directEntries[index] = updated; pageChanged = true; }
@@ -202,6 +207,12 @@ internal static class GenerateAppearances
         PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
     {
         if (!PdfDictionaryLookup.TryGet(node, key, governor, token, out QpdfObject value)) { return null; }
+        return ResolveFieldValue(value, resolver, governor, token);
+    }
+
+    private static QpdfObject? ResolveFieldValue(QpdfObject value, PoolResolver resolver,
+        ResourceGovernor governor, CancellationToken token)
+    {
         for (int depth = 0; depth < 32; depth++)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -450,6 +461,7 @@ internal static class GenerateAppearances
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken,
         PdfDictionary? formResources,
+        PdfByteString? defaultAppearance,
         ref int allocator)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -501,6 +513,12 @@ internal static class GenerateAppearances
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot generate an appearance without a bounding box; keeping the field as is.");
             return null;
         }
+        if (PdfDictionaryLookup.TryGet(appearanceDict, "Resources"u8, governor, cancellationToken, out QpdfObject resourceValue)
+            && resourceValue is not PdfNull && ResolveFieldValue(resourceValue, resolver, governor, cancellationToken) is not PdfDictionary)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot resolve appearance resources; keeping the field as is.");
+            return null;
+        }
 
         string valueText = string.Empty;
         if (field.Value is PdfByteString valueString)
@@ -508,7 +526,12 @@ internal static class GenerateAppearances
             valueText = PdfText.Decode(valueString.ValueMemory, scratch, governor, cancellationToken);
         }
 
-        TfResult font = AnalyzeDa(field.DefaultAppearance ?? ReadOnlyMemory<byte>.Empty, limits, governor, scratch, cancellationToken);
+        TfResult font = AnalyzeDa(field.DefaultAppearance ?? defaultAppearance?.ValueMemory ?? ReadOnlyMemory<byte>.Empty, limits, governor, scratch, cancellationToken);
+        if (font.FontName.Length == 0)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot generate text without a usable default appearance; keeping the field as is.");
+            return null;
+        }
         AppearanceEncoding encoding = SelectEncoding(appearanceDict, font.FontName, formResources, resolver, governor, cancellationToken);
         byte[] encodedValue = EncodeValue(valueText, encoding, scratch, governor, cancellationToken);
         List<byte[]> encodedOpt = ParserContainers.CreateList<byte[]>(scratch);
@@ -527,7 +550,7 @@ internal static class GenerateAppearances
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot rewrite a malformed appearance program; keeping the field as is.");
             return null;
         }
-        PdfDictionary? mergedResources = TryMergeDrFont(appearanceDict, font.FontName, formResources, resolver, governor, cancellationToken);
+        PdfDictionary? mergedResources = TryMergeDrFont(appearanceDict, font.FontName, formResources, resolver, graph);
         PdfNameTable<QpdfObject> streamEntries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         using (PdfDictionary.EntryEnumerator source = appearanceDict.GetEntryEnumerator())
         {
@@ -536,11 +559,12 @@ internal static class GenerateAppearances
                 PdfName key = source.Current.Key;
                 if (PdfDictionaryLookup.NameEquals(key, "Filter"u8, governor, cancellationToken)
                     || PdfDictionaryLookup.NameEquals(key, "DecodeParms"u8, governor, cancellationToken)) { continue; }
-                QpdfObject kept = mergedResources is not null && PdfDictionaryLookup.NameEquals(key, "Resources"u8, governor, cancellationToken)
-                    ? mergedResources : source.Current.Value;
-                streamEntries.Assign(graph.Memory, governor, key, kept, cancellationToken);
+                if (mergedResources is not null && PdfDictionaryLookup.NameEquals(key, "Resources"u8, governor, cancellationToken)) { continue; }
+                streamEntries.Assign(graph.Memory, governor, key, source.Current.Value, cancellationToken);
             }
         }
+        if (mergedResources is not null)
+        { streamEntries.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "Resources"u8), mergedResources, cancellationToken); }
         streamEntries.Assign(graph.Memory, governor, PdfName.FromAscii("Type"), PdfName.FromAscii("XObject"), cancellationToken);
         streamEntries.Assign(graph.Memory, governor, PdfName.FromAscii("Subtype"), PdfName.FromAscii("Form"), cancellationToken);
         PdfDictionary header = PdfDictionaryRebuild.Complete(graph, streamEntries, allocation);
@@ -807,18 +831,22 @@ internal static class GenerateAppearances
     }
 
     private static PdfDictionary? TryMergeDrFont(PdfDictionary appearance, ReadOnlySpan<byte> fontName,
-        PdfDictionary? formResources, PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
+        PdfDictionary? formResources, PoolResolver resolver, OwnedAllocationBatch graph)
     {
-        if (fontName.IsEmpty || formResources is null
-            || !PdfDictionaryLookup.TryGet(appearance, "Resources"u8, governor, token, out QpdfObject resourcesRaw)) { return null; }
-        QpdfObject? resources = resourcesRaw is PdfReference link ? ResolveOrNull(resolver, link) : resourcesRaw;
-        if (resources is not PdfDictionary appearanceResources
-            || TryGetFontRaw(appearanceResources, fontName, resolver, governor, token) is not null
+        ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
+        if (fontName.IsEmpty || formResources is null) { return null; }
+        PdfDictionary? appearanceResources = null;
+        if (PdfDictionaryLookup.TryGet(appearance, "Resources"u8, governor, token, out QpdfObject resourcesRaw)
+            && resourcesRaw is not PdfNull)
+        {
+            appearanceResources = ResolveFieldValue(resourcesRaw, resolver, governor, token) as PdfDictionary;
+            if (appearanceResources is null) { return null; }
+        }
+        if ((appearanceResources is not null && TryGetFontRaw(appearanceResources, fontName, resolver, governor, token) is not null)
             || TryGetFontRaw(formResources, fontName, resolver, governor, token) is not QpdfObject drFont) { return null; }
 
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         PdfNameTable<QpdfObject> fonts = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
-        if (PdfDictionaryLookup.TryGet(appearanceResources, "Font"u8, governor, token, out QpdfObject fontsRaw))
+        if (appearanceResources is not null && PdfDictionaryLookup.TryGet(appearanceResources, "Font"u8, governor, token, out QpdfObject fontsRaw))
         {
             QpdfObject? target = fontsRaw is PdfReference fontLink ? ResolveOrNull(resolver, fontLink) : fontsRaw;
             if (target is PdfDictionary fontDictionary)
@@ -830,8 +858,15 @@ internal static class GenerateAppearances
         }
         fonts.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, fontName), drFont, token);
         PdfDictionary mergedFonts = PdfDictionaryRebuild.Complete(graph, fonts, allocation);
-        PdfDictionary merged = PdfDictionaryRebuild.ReplaceEntry(graph, appearanceResources, "Font"u8, mergedFonts);
-        graph.Retain(); return merged;
+        PdfDictionary merged;
+        if (appearanceResources is not null) { merged = PdfDictionaryRebuild.ReplaceEntry(graph, appearanceResources, "Font"u8, mergedFonts); }
+        else
+        {
+            PdfNameTable<QpdfObject> resources = PdfDictionaryRebuild.CreateEntries(graph, out long resourceBytes);
+            resources.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "Font"u8), mergedFonts, token);
+            merged = PdfDictionaryRebuild.Complete(graph, resources, resourceBytes);
+        }
+        return merged;
     }
 
     private static QpdfObject? TryGetFontRaw(PdfDictionary resources, ReadOnlySpan<byte> fontName,

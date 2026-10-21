@@ -1917,57 +1917,6 @@ internal static class AcroFormCopy
         return (kept, closure);
     }
 
-    /// <summary>
-    /// Copies the source form default-resources dictionary into the pool for
-    /// generation-time font lookups. Missing forms, missing resources, and
-    /// unresolvable or structural values yield null so callers fall back to
-    /// appearance-local resources; budget exhaustion and cancellation still
-    /// fail loudly.
-    /// </summary>
-    internal static PdfDictionary? TryCopyFormDR(
-        DocumentEngine engine,
-        GraphCopier copier,
-        ResourceGovernor governor,
-        CancellationToken cancellationToken)
-    {
-        if (engine is null)
-        {
-            throw new ArgumentNullException(nameof(engine));
-        }
-        if (copier is null)
-        {
-            throw new ArgumentNullException(nameof(copier));
-        }
-        if (governor is null)
-        {
-            throw new ArgumentNullException(nameof(governor));
-        }
-        cancellationToken.ThrowIfCancellationRequested();
-        governor.NoteOperation();
-        PdfDictionary? source = TryGetSourceForm(engine);
-        if (source is null)
-        {
-            return null;
-        }
-        if (!source.TryGet(PdfName.FromAscii("DR"), out QpdfObject? raw) || raw is null || raw is PdfNull)
-        {
-            return null;
-        }
-        try
-        {
-            QpdfObject copied = copier.CopyValue(raw, 0);
-            if (copied is PdfReference link && copier.CopiedObjects.TryGetValue(link.ObjectNumber, out QpdfObject? target) && target is PdfDictionary dictionary)
-            {
-                return dictionary;
-            }
-            return copied as PdfDictionary;
-        }
-        catch (QpdfParseException)
-        {
-            return null;
-        }
-    }
-
     internal static PdfDictionary? TryGetSourceForm(DocumentEngine engine)
     {
         if (!engine.Trailer.TryGet(PdfName.FromAscii("Root"), out QpdfObject? root) || root is null || root is PdfNull)

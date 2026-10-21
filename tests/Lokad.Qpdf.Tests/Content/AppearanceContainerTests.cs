@@ -41,7 +41,7 @@ public sealed class AppearanceContainerTests
         void Run()
         {
             if (mode.StartsWith("generation", StringComparison.Ordinal))
-            { GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, PdfDictionary?>(), QpdfLimits.Default, governor, diagnostics, CancellationToken.None, new HashSet<int> { 3 }, true, 5); }
+            { GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, CopiedForm?>(), QpdfLimits.Default, governor, diagnostics, CancellationToken.None, new HashSet<int> { 3 }, true, 5); }
             else { FlattenAnnotations.Apply([(copier, 1)], "all", false, false, null, QpdfLimits.Default, governor, diagnostics, CancellationToken.None, 5); }
         }
         if (mode == "generation-noop") { Run(); } else { Assert.Throws<QpdfLimitException>(Run); }
@@ -62,7 +62,7 @@ public sealed class AppearanceContainerTests
         PdfDictionary widget = Dict(("Subtype", PdfName.FromAscii("Widget")), ("FT", PdfName.FromAscii("Btn")), ("V", PdfName.FromAscii("Off")));
         copier.AddIndirectObjectWithId(page, 1); copier.AddIndirectObjectWithId(annots, 2); copier.AddIndirectObjectWithId(widget, 3);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, PdfDictionary?>(), QpdfLimits.Default,
+        GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, CopiedForm?>(), QpdfLimits.Default,
             governor, new(governor), CancellationToken.None, new HashSet<int> { 3 }, false, 4);
         Assert.Same(page, copier.CopiedObjects[1]); Assert.Same(annots, copier.CopiedObjects[2]); Assert.NotSame(widget, copier.CopiedObjects[3]);
     }
@@ -82,7 +82,7 @@ public sealed class AppearanceContainerTests
             PdfDictionary widget = Dict(("Subtype", PdfName.FromAscii("Widget")), ("FT", PdfName.FromAscii("Btn")), ("V", PdfName.FromAscii("Off")));
             PdfArray original = new([skipped, widget]); PdfDictionary page = Dict(("Annots", indirectArray ? new PdfReference(2, 0) : original));
             copier.AddIndirectObjectWithId(page, 1); copier.AddIndirectObjectWithId(original, 2);
-            GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, PdfDictionary?>(), QpdfLimits.Default,
+            GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, CopiedForm?>(), QpdfLimits.Default,
                 governor, new(governor), CancellationToken.None, new HashSet<int>(), true, 3);
             if (indirectArray) { escaped = Assert.IsType<PdfArray>(copier.CopiedObjects[2]); }
             else

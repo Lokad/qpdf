@@ -19,8 +19,9 @@ public sealed class AppearanceProgramTests
             (4, "null", null),
             (5, "<< /Subtype /Widget /FT /Tx /T (Text) /V (Hello) /Rect [0 0 100 20] /AP << /N 6 0 R >> " + field + " >>", null),
             (6, "<< /Type /XObject /Subtype /Form /BBox [0 0 100 20] " + resources + " /Length " + data.Length + " >>", data),
-            (7, "null", null), (8, "<< /Font << /Helv 9 0 R >> >>", null),
-            (9, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>", null)], 1);
+            (7, "(/H#65lv 17 Tf)", null), (8, "<< /Font << /Helv 9 0 R >> >>", null),
+            (9, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>", null),
+            (10, "<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>", null), (11, "<< >>", null)], 1);
     }
 
     [Theory]
@@ -36,7 +37,7 @@ public sealed class AppearanceProgramTests
         foreach (bool job in new[] { false, true })
         {
             byte[] input = Fixture(prefix + block + suffix, "/DA (/Helv 17 Tf)", "", "/Resources 8 0 R");
-            var generated = await Generate(input, job); Assert.Equal(QpdfExitCode.Success, generated.Result.ExitCode);
+            var generated = await Generate(input, job, false); Assert.Equal(QpdfExitCode.Success, generated.Result.ExitCode);
             PdfStream appearance = await ReadAppearance(generated.Pdf);
             string text = Encoding.ASCII.GetString(appearance.RawMemory.Span);
             Assert.StartsWith(prefix, text); Assert.EndsWith(suffix, text); Assert.Contains("(Hello) Tj", text); Assert.DoesNotContain("(Old)", text);
@@ -65,7 +66,7 @@ public sealed class AppearanceProgramTests
     {
         foreach (bool job in new[] { false, true })
         {
-            var generated = await Generate(Fixture(program, "/DA (/Helv 17 Tf)", "", "/Resources 8 0 R"), job);
+            var generated = await Generate(Fixture(program, "/DA (/Helv 17 Tf)", "", "/Resources 8 0 R"), job, false);
             Assert.Equal(QpdfExitCode.Warning, generated.Result.ExitCode);
             Assert.Contains(generated.Result.Diagnostics, d => d.Message.Contains("malformed appearance", StringComparison.Ordinal));
             Assert.Equal(Encoding.ASCII.GetBytes(program), (await ReadAppearance(generated.Pdf)).RawMemory.ToArray());
@@ -84,12 +85,16 @@ public sealed class AppearanceProgramTests
         Assert.False(host.TryGetOutput(QpdfPath.From("output"), out _)); Assert.Equal(0L, host.OpenLeaseCount);
     }
 
-    internal static async Task<(byte[] Pdf, QpdfExecutionResult Result)> Generate(byte[] input, bool job)
+    internal static async Task<(byte[] Pdf, QpdfExecutionResult Result)> Generate(byte[] input, bool job, bool selection)
     {
         using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Transfer);
         QpdfExecutionResult result = job
-            ? await Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","generateAppearances":true,"compressStreams":"n"}""", CancellationToken.None)
-            : await Qpdf.ExecuteAsync(host, new(["input", "--generate-appearances", "--compress-streams=n", "--", "output"]), CancellationToken.None);
+            ? await Qpdf.ExecuteJobAsync(host, selection
+                ? """{"inputFile":"input","outputFile":"output","generateAppearances":true,"compressStreams":"n","pages":[{"file":".","range":"1"}]}"""
+                : """{"inputFile":"input","outputFile":"output","generateAppearances":true,"compressStreams":"n"}""", CancellationToken.None)
+            : await Qpdf.ExecuteAsync(host, new(selection
+                ? ["input", "--generate-appearances", "--compress-streams=n", "--pages", ".", "1", "--", "output"]
+                : ["input", "--generate-appearances", "--compress-streams=n", "--", "output"]), CancellationToken.None);
         Assert.True(result.Status == QpdfExecutionStatus.Completed, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         Assert.Equal(0L, host.OpenLeaseCount); Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output)); return (output, result);
     }

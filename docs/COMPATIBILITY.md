@@ -50,6 +50,11 @@ bounded `BMC`/`BDC` nesting, preserving unrelated bytes and inline image data.
 Malformed programs warn and keep their original appearances; nesting, memory,
 decompression and cancellation limits remain fatal. A missing text block appends
 a separated `/Tx` block after the unchanged original program.
+Generation borrows the copied form's default `/DA` program when no field ancestor
+supplies one, including indirect defaults. A selected font from AcroForm `/DR`
+is added to absent, empty or indirect appearance resources; local bindings win.
+Text without a usable default program warns and preserves its original appearance
+instead of emitting text without a font selection. No public signatures change.
 
 Appearance generation preserves skipped buttons in a page's annotation array
 when other widgets on that page are updated. Radio buttons, pushbuttons and

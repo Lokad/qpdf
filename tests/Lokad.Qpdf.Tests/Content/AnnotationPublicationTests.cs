@@ -33,7 +33,9 @@ public sealed class AnnotationPublicationTests
     private static async Task<InMemoryQpdfHost> Storage(string mode)
     {
         InMemoryQpdfHost host = new();
-        byte[] input = mode.StartsWith("generate", StringComparison.Ordinal) ? AppearanceGenerationRegressionTests.CheckboxFixture(64)
+        byte[] input = mode.StartsWith("generate-text", StringComparison.Ordinal)
+            ? AppearanceProgramTests.Fixture(new string(' ', 32768) + "/Tx BMC\n0 0 10 10 re f EMC", "", "/DA (/Helv 17 Tf)", "")
+            : mode.StartsWith("generate", StringComparison.Ordinal) ? AppearanceGenerationRegressionTests.CheckboxFixture(64)
             : mode == "merge" ? FormMergeStorageTests.Fixture(new string('F', 32768), false) : mode is "overlay" or "flatten" ? FlattenResourceStorageTests.Fixture(64, false)
             : ContentSafetyTests.Fixture(System.Text.Encoding.ASCII.GetBytes(new string(' ', 524288) + "BI /W 1 /H 1 /BPC 8 /CS /G ID X EI"), "", false, 1);
         host.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Transfer);
@@ -44,10 +46,10 @@ public sealed class AnnotationPublicationTests
     }
 
     private static ValueTask<QpdfExecutionResult> Run(Host host, string mode, CancellationToken token)
-        => mode == "generate-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","generateAppearances":true}""", token)
+        => mode is "generate-job" or "generate-text-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","generateAppearances":true}""", token)
             : Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(mode == "merge" ? ["input", "--pages", ".", "1", "overlay", "1", "--", "output"] : mode == "overlay"
             ? ["input", "--overlay", "overlay", "--", "output"]
-            : ["input", mode switch { "generate" => "--generate-appearances", "flatten" => "--flatten-annotations=all", "coalesce" => "--coalesce-contents",
+            : ["input", mode switch { "generate" or "generate-text" => "--generate-appearances", "flatten" => "--flatten-annotations=all", "coalesce" => "--coalesce-contents",
                 "normalize" => "--normalize-content=y", _ => "--externalize-inline-images" }, "--ii-min-bytes=0", "--", "output"]), token);
 
     [Theory]
@@ -59,6 +61,8 @@ public sealed class AnnotationPublicationTests
     [InlineData("merge")]
     [InlineData("generate")]
     [InlineData("generate-job")]
+    [InlineData("generate-text")]
+    [InlineData("generate-text-job")]
     public async Task EverySharedGrowthCanRefuseWithoutPublishing(string mode)
     {
         int growths;
@@ -95,6 +99,16 @@ public sealed class AnnotationPublicationTests
 
     [Theory]
     [InlineData("create", "flatten")]
+    [InlineData("create", "generate-text")]
+    [InlineData("write", "generate-text")]
+    [InlineData("commit", "generate-text")]
+    [InlineData("cancel", "generate-text")]
+    [InlineData("close", "generate-text")]
+    [InlineData("create", "generate-text-job")]
+    [InlineData("write", "generate-text-job")]
+    [InlineData("commit", "generate-text-job")]
+    [InlineData("cancel", "generate-text-job")]
+    [InlineData("close", "generate-text-job")]
     [InlineData("create", "generate")]
     [InlineData("write", "generate")]
     [InlineData("commit", "generate")]

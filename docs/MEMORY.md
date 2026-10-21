@@ -52,6 +52,10 @@ Default-appearance analysis scans borrowed bytes once, retaining only the last
 font and size. It admits decoded font-name bytes and any corrected appearance
 before materializing them. Appearance decoding and construction use a temporary
 scope and bounded buffers; only the final stream transfers into the graph.
+Generation borrows the already copied form's default program and resources.
+Missing font bindings are built in the same allocation batch as their appearance,
+so failed construction refunds both. Marked-content matching scans borrowed bytes
+with admitted container scratch before allocating replacement output.
 Field values and choice strings borrow their encoded source and admit final
 decoded text and encoded arrays before allocation. Their scratch scope stays
 open through appearance construction; failed or canceled conversion refunds its
