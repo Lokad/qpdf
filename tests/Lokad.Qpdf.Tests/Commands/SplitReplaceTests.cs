@@ -460,4 +460,38 @@ public sealed class SplitReplaceTests
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/x-1.pdf"), out byte[] _));
         Assert.Equal(0L, host.OpenLeaseCount);
     }
+
+    [Theory]
+    [InlineData("argv", 9)]
+    [InlineData("argv", int.MaxValue - 1)]
+    [InlineData("argv", int.MaxValue)]
+    [InlineData("job", 9)]
+    [InlineData("job", int.MaxValue - 1)]
+    [InlineData("job", int.MaxValue)]
+    [InlineData("typed", 9)]
+    [InlineData("typed", int.MaxValue - 1)]
+    [InlineData("typed", int.MaxValue)]
+    public async Task OversizedPositiveGroupsProduceOneCompleteOutput(string route, int groupSize)
+    {
+        using InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        if (route == "typed")
+        {
+            PdfMultiPageSelectionResult result = await Qpdf.SelectPagesAsync(host,
+                [new PdfPageSource(QpdfPath.From("inputs/a.pdf"), PdfPageSelectionOptions.FromPages([1, 2]))],
+                QpdfPath.From("outputs/s.pdf"), new PdfPageMergeOptions { SplitPages = groupSize }, CancellationToken.None);
+            Assert.Equal(2, result.PageCount);
+        }
+        else
+        {
+            QpdfExecutionResult result = route == "argv"
+                ? await Qpdf.ExecuteAsync(host, new(["inputs/a.pdf", "--split-pages=" + groupSize, "--pages", ".", "1-2", "--", "outputs/s.pdf"]), CancellationToken.None)
+                : await Qpdf.ExecuteJobAsync(host, "{\"inputFile\":\"inputs/a.pdf\",\"outputFile\":\"outputs/s.pdf\",\"pages\":[{\"file\":\".\",\"range\":\"1-2\"}],\"splitPages\":\"" + groupSize + "\"}", CancellationToken.None);
+            Assert.Equal(QpdfExecutionStatus.Completed, result.Status); Assert.Empty(result.Diagnostics);
+        }
+        Assert.Equal(0L, host.OpenLeaseCount);
+        await using (QpdfDocument output = await Reopen(host, "outputs/s-1-2.pdf")) { Assert.Equal(2, output.PageCount); }
+        Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/s.pdf"), out _));
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/s-1.pdf"), out _));
+    }
 }

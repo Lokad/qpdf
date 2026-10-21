@@ -45,6 +45,10 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Every accepted positive split group size, including `2147483647`, can exceed
+the page count and produces one complete group. Group arithmetic no longer
+overflows into negative page ranges; planning receives admission and cancellation.
+
 Page selection finishes copying catalog labels and form defaults before allocating
 added attachments, and coordinates later copies with overlay/appearance objects.
 Cold font and default-program references therefore keep their original meaning

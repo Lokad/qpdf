@@ -1428,7 +1428,7 @@ public static partial class Qpdf
             }
         }
 
-        List<(int First, int Last)> groups = PartitionGroups(kids.Count, splitPages.Value);
+        List<(int First, int Last)> groups = PartitionGroups(kids.Count, splitPages.Value, selectionMemory, governor);
         using PreparedSplitPublications preparation = PreparedSplitPublications.Create(governor);
         ParserMemoryScope presentationMemory = preparation.Memory;
         List<PreparedSplitPublication> prepared = preparation.Items;
@@ -1965,12 +1965,18 @@ public static partial class Qpdf
         return NumbersDictionary(sliced, governor);
     }
 
-    private static List<(int First, int Last)> PartitionGroups(int total, int groupSize)
+    private static List<(int First, int Last)> PartitionGroups(int total, int groupSize,
+        ParserMemoryScope memory, ResourceGovernor governor)
     {
-        List<(int First, int Last)> groups = new();
-        for (int first = 1; first <= total; first += groupSize)
+        memory.CheckOwner(governor);
+        List<(int First, int Last)> groups = ParserContainers.CreateList<(int, int)>(memory);
+        for (int first = 1; first <= total;)
         {
-            groups.Add((first, Math.Min(first + groupSize - 1, total)));
+            governor.CheckCancellation();
+            int last = (int)Math.Min(total, (long)first + groupSize - 1L);
+            ParserContainers.AddItem(memory, groups, (first, last), 8L);
+            if (last == total) { break; }
+            first = last + 1;
         }
 
         return groups;
@@ -2013,7 +2019,8 @@ public static partial class Qpdf
                     CopySplitNamePart(state.pattern.AsSpan(state.suffix), target[position..], state.governor);
                 });
             ParserContainers.AddItem(memory, names, name, IntPtr.Size);
-            first = checked(last + 1);
+            if (last == total) { break; }
+            first = last + 1;
         }
         return names;
     }
