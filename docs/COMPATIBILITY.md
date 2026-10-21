@@ -13,6 +13,13 @@ accent marks. Ordinary Latin-1 text can use PDFDocEncoding and export as `u:`
 when the existing binary heuristic permits it; undefined bytes remain `b:`.
 No public signatures change.
 
+AcroForm JSON funds decoded names, choice text and ancestor scratch before
+materialization, and refunds scratch after each field is copied into the JSON
+buffer. Large metadata can therefore refuse earlier. A separate widget reports
+its immediate terminal field even when `/FT` is inherited from a group; a merged
+widget with field entries reports itself. Parent links, full/partial names,
+inherited values and bounded lenient handling of broken parents remain visible.
+
 | Boundary | Current behavior |
 | --- | --- |
 | JPEG processing | Grayscale/RGB decoding and recompression require a caller-supplied codec. Existing images can pass through unchanged without one. |
