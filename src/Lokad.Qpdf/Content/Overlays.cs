@@ -571,13 +571,12 @@ internal static class Overlays
         PdfStream pageForm = EncodeForm(new PdfDictionary(formEntries), pageContent, compress, level, limits, governor, ownership);
         PdfReference pageFormLink = copier.AddIndirectObjectWithId(pageForm, allocator);
         allocator = checked(allocator + 1);
-        HashSet<string> taken = new(StringComparer.Ordinal)
-        {
-            "Fx0",
-        };
-        CollectTakenNames(pageResources, taken);
+        // Original resources belong to the nested Fx0 Form, not this fresh
+        // page namespace. Sequential placement names cannot collide here.
         int suffix = 1;
-        Dictionary<string, PdfReference> added = new(StringComparer.Ordinal);
+        PdfNameTable<QpdfObject> xobjects = PdfNameTable<QpdfObject>.Create(ownership, governor, IntPtr.Size, cancellationToken);
+        ownership.Reserve(64L);
+        xobjects.Assign(ownership, governor, PdfName.FromAscii("Fx0"), pageFormLink, cancellationToken);
         using GovernedBufferStream stacked = new(governor, limits.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes), cancellationToken, 256);
         double[] destTransform = TransformMatrix(placeBox, rotate, userUnit, true);
         foreach (OverlayPlacement placement in underlays)
@@ -585,8 +584,9 @@ internal static class Overlays
             cancellationToken.ThrowIfCancellationRequested();
             OverlayForm? form = GetOrBuildOverlayForm(placement, formCache, compress, level, limits, governor, planning, ownership, cancellationToken, ref allocator);
             if (form is null) { continue; }
-            string name = UniqueFxName(taken, ref suffix);
-            added[name] = form.Link;
+            ownership.Reserve(192L); // Bounded decimal name, its bytes and temporary formatting.
+            string name = "Fx" + suffix.ToString(CultureInfo.InvariantCulture); suffix = checked(suffix + 1);
+            xobjects.Assign(ownership, governor, PdfName.FromAscii(name), form.Link, cancellationToken);
             AppendPlacement(stacked, name, PlacementMatrix(form.Box, form.FormMatrix, placeBox, destTransform, true, false));
         }
 
@@ -596,22 +596,18 @@ internal static class Overlays
             cancellationToken.ThrowIfCancellationRequested();
             OverlayForm? form = GetOrBuildOverlayForm(placement, formCache, compress, level, limits, governor, planning, ownership, cancellationToken, ref allocator);
             if (form is null) { continue; }
-            string name = UniqueFxName(taken, ref suffix);
-            added[name] = form.Link;
+            ownership.Reserve(192L); // Bounded decimal name, its bytes and temporary formatting.
+            string name = "Fx" + suffix.ToString(CultureInfo.InvariantCulture); suffix = checked(suffix + 1);
+            xobjects.Assign(ownership, governor, PdfName.FromAscii(name), form.Link, cancellationToken);
             AppendPlacement(stacked, name, PlacementMatrix(form.Box, form.FormMatrix, placeBox, destTransform, true, false));
         }
 
-        Dictionary<PdfName, QpdfObject> xobjects = new();
-        xobjects[new PdfName(Encoding.ASCII.GetBytes("Fx0"))] = pageFormLink;
-        foreach (KeyValuePair<string, PdfReference> entry in added)
-        {
-            xobjects[new PdfName(Encoding.ASCII.GetBytes(entry.Key))] = entry.Value;
-        }
-
-        ownership.Reserve(128L);
+        xobjects.Freeze(ownership, governor, cancellationToken);
+        ownership.Reserve(24L); PdfDictionary forms = PdfDictionary.FromOwnedEntries(xobjects);
+        ownership.Reserve(512L); // Fixed one-entry resource dictionaries and their key.
         Dictionary<PdfName, QpdfObject> resources = new()
         {
-            [PdfName.FromAscii("XObject")] = new PdfDictionary(xobjects),
+            [PdfName.FromAscii("XObject")] = forms,
         };
         PdfDictionary replaced = ReplaceEntry(page, PdfName.FromAscii("Resources"), new PdfDictionary(resources), governor, ownership);
         byte[] stackedBytes = stacked.ToArray(ownership, cancellationToken);
@@ -723,38 +719,6 @@ internal static class Overlays
 
         ownership.Reserve(32L);
         return PdfStream.FromOwnedData(dictionary, content);
-    }
-
-    private static string UniqueFxName(HashSet<string> taken, ref int suffix)
-    {
-        while (true)
-        {
-            string candidate = "Fx" + suffix.ToString(CultureInfo.InvariantCulture);
-            suffix += 1;
-            if (!taken.Contains(candidate))
-            {
-                taken.Add(candidate);
-                return candidate;
-            }
-        }
-    }
-
-    private static void CollectTakenNames(PdfDictionary? resources, HashSet<string> taken)
-    {
-        if (resources is null)
-        {
-            return;
-        }
-
-        if (!resources.TryGet(PdfName.FromAscii("XObject"), out QpdfObject? xobjectsRaw) || xobjectsRaw is not PdfDictionary xobjects)
-        {
-            return;
-        }
-
-        foreach (PdfName key in xobjects.Keys)
-        {
-            taken.Add(key.DisplayText);
-        }
     }
 
     private static void AppendPlacement(GovernedBufferStream output, string name, double[] cm)

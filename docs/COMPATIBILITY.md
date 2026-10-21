@@ -59,6 +59,11 @@ use one admitted replacement array, preserving skipped entries and order.
 Annotation flattening shares content-entry collection with checking and rotation;
 large metadata can refuse before allocation. Appearance-state lookup compares
 raw name bytes without decoding all state names.
+Overlay and underlay placements now use sequential `/Fx1`, `/Fx2`, ... names
+in the fresh page resource dictionary. Names in the original page's resources
+remain inside the `/Fx0` Form and do not reserve names in the outer namespace.
+This can change generated resource names while preserving the original content
+and its resource references. Placement resource storage receives admission.
 
 JSON names use strict UTF-8 scalar validation. Surrogate encodings and values
 above Unicode's range now export with `n:` byte escaping, preserving raw name
