@@ -25,6 +25,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+JSON outline inspection rejects cycles through sibling links as well as child
+links, with cancellation and nesting bounds independent of cycle detection.
+Decoded titles, outline collections and destination indexes receive memory
+admission before allocation. Destination indexes are built only for a nonempty
+requested outline tree; filtered JSON requests avoid this unused work.
+
 Coalescing, normalization and inline-image interpretation now require unfiltered
 or successfully decoded content. Unsupported/damaged encodings and filter-count
 ceilings preserve the affected content and headers; page operations warn rather
