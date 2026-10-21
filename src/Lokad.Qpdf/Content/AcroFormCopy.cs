@@ -61,15 +61,15 @@ internal static class AcroFormCopy
         bool pruneUnreachableFields,
         QpdfLimits limits,
         ResourceGovernor governor,
-        DiagnosticBag diagnostics,
+        ParserMemoryScope ownership,
         CancellationToken cancellationToken)
         => ReadSourceForm(engine, copier, keptPages, pruneUnreachableFields, limits,
-            governor, diagnostics, cancellationToken, false);
+            governor, ownership, cancellationToken, false);
 
     private static CopiedForm? ReadSourceForm(
         DocumentEngine engine, GraphCopier copier, IReadOnlyList<PageLocation> keptPages,
         bool pruneUnreachableFields, QpdfLimits limits, ResourceGovernor governor,
-        DiagnosticBag diagnostics, CancellationToken cancellationToken, bool retainSourceObjects)
+        ParserMemoryScope ownership, CancellationToken cancellationToken, bool retainSourceObjects)
     {
         if (engine is null)
         {
@@ -96,11 +96,8 @@ internal static class AcroFormCopy
             throw new ArgumentNullException(nameof(governor));
         }
 
-        if (diagnostics is null)
-        {
-            throw new ArgumentNullException(nameof(diagnostics));
-        }
-
+        ownership.CheckOwner(governor);
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         limits.Validate();
         PdfDictionary? source = TryGetSourceForm(engine);
         if (source is null)
@@ -108,11 +105,13 @@ internal static class AcroFormCopy
             return null;
         }
 
+        using ParserMemoryScope result = ParserMemoryScope.Create(governor);
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
         IIndirectResolver resolver = (IIndirectResolver)engine;
-        HashSet<int> keptWidgets = CollectKeptWidgets(resolver, keptPages, limits, governor, cancellationToken);
+        HashSet<int> keptWidgets = CollectKeptWidgets(resolver, keptPages, governor, scratch, cancellationToken);
         bool hasFields = IsFieldArrayPresent(resolver, source);
-        List<QpdfObject> keptEntries = FilterTopEntries(resolver, source, keptWidgets, pruneUnreachableFields, limits, governor, cancellationToken);
-        List<PdfReference> copiedFields = new(keptEntries.Count);
+        List<QpdfObject> keptEntries = FilterTopEntries(resolver, source, keptWidgets, pruneUnreachableFields, limits, governor, scratch, cancellationToken);
+        List<PdfReference> copiedFields = ParserContainers.CreateList<PdfReference>(result);
         foreach (QpdfObject entry in keptEntries)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -121,7 +120,7 @@ internal static class AcroFormCopy
             {
                 if ((retainSourceObjects ? copier.RetainSourceValue(entry) : copier.CopyValue(entry, 0)) is PdfReference copiedReference)
                 {
-                    copiedFields.Add(copiedReference);
+                    ParserContainers.AddItem(result, copiedFields, copiedReference, IntPtr.Size);
                 }
 
                 continue;
@@ -130,30 +129,31 @@ internal static class AcroFormCopy
             PdfReference link = retainSourceObjects
                 ? copier.AddIndirectObjectWithId(copier.RetainSourceValue(entry), copier.NextId)
                 : copier.AddIndirectObject(entry) ?? throw new QpdfException("Form field copy pruned unexpectedly.");
-            copiedFields.Add(link);
+            ParserContainers.AddItem(result, copiedFields, link, IntPtr.Size);
         }
         bool hasNeed = false;
         bool need = false;
         QpdfObject? resources = null;
         bool hasOrder = false;
-        List<QpdfObject> order = new();
-        Dictionary<PdfName, QpdfObject> extras = new();
-        foreach (PdfName key in source.Keys)
+        IReadOnlyList<QpdfObject> order = Array.Empty<QpdfObject>();
+        Dictionary<PdfName, QpdfObject> extras = ParserContainers.CreateDictionary<PdfName, QpdfObject>(result);
+        using PdfDictionary.EntryEnumerator sourceEntries = source.GetEntryEnumerator();
+        while (sourceEntries.MoveNext(governor, cancellationToken))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            string text = key.DisplayText;
-            if (text == "Fields")
+            PdfName key = sourceEntries.Current.Key;
+            QpdfObject raw = sourceEntries.Current.Value;
+            ReadOnlySpan<byte> text = key.RawSpan;
+            if (text.SequenceEqual("Fields"u8))
             {
                 continue;
             }
 
-            if (!source.TryGet(key, out QpdfObject? raw) || raw is null || raw is PdfNull)
+            if (raw is null || raw is PdfNull)
             {
                 continue;
             }
 
-            if (text == "NeedAppearances" && raw is PdfBoolean flag)
+            if (text.SequenceEqual("NeedAppearances"u8) && raw is PdfBoolean flag)
             {
                 hasNeed = true;
                 need = flag.Value;
@@ -161,28 +161,27 @@ internal static class AcroFormCopy
             }
 
             QpdfObject copied = retainSourceObjects ? copier.RetainSourceValue(raw) : copier.CopyValue(raw, 0);
-            if (text == "DR")
+            if (text.SequenceEqual("DR"u8))
             {
                 resources = copied;
                 continue;
             }
 
-            if (text == "CO" && copied is PdfArray copiedOrder)
+            if (text.SequenceEqual("CO"u8) && copied is PdfArray copiedOrder)
             {
                 hasOrder = true;
-                foreach (QpdfObject item in copiedOrder.Items)
-                {
-                    order.Add(item);
-                }
+                order = copiedOrder.BorrowedItems;
 
                 continue;
             }
 
-            governor.ReserveMemory(32L);
+            ParserContainers.EnsureEntryCapacity(result, extras, IntPtr.Size);
             extras[key] = copied;
         }
 
-        return new CopiedForm(copiedFields, hasFields, hasNeed, need, resources, hasOrder, order, extras);
+        result.Reserve(80L);
+        CopiedForm form = new(copiedFields, hasFields, hasNeed, need, resources, hasOrder, order, extras);
+        result.TransferTo(ownership); return form;
     }
 
     internal static PdfDictionary? BuildSingle(
@@ -196,6 +195,7 @@ internal static class AcroFormCopy
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
+        ParserMemoryScope ownership,
         CancellationToken cancellationToken,
         bool retainSourceObjects)
     {
@@ -244,15 +244,22 @@ internal static class AcroFormCopy
             throw new ArgumentNullException(nameof(overlayImports));
         }
 
+        ownership.CheckOwner(governor);
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
         CopiedForm? part = ReadSourceForm(engine, copier, keptPages, pruneUnreachableFields, limits,
-            governor, diagnostics, cancellationToken, retainSourceObjects);
+            governor, scratch, cancellationToken, retainSourceObjects);
         foreach (KeyValuePair<int, QpdfObject> entry in copier.CopiedObjects)
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
-            if (!pool.TryAdd(entry.Key, entry.Value) && !ReferenceEquals(pool[entry.Key], entry.Value))
+            if (pool.TryGetValue(entry.Key, out QpdfObject? existing) && !ReferenceEquals(existing, entry.Value))
             {
                 throw new QpdfException("Form copy encountered conflicting output object identities.");
+            }
+            if (existing is null)
+            {
+                ParserContainers.EnsureEntryCapacity(ownership, pool, IntPtr.Size);
+                pool.Add(entry.Key, entry.Value);
             }
         }
         if (part is null && overlayImports.Count == 0)
@@ -260,12 +267,12 @@ internal static class AcroFormCopy
             return null;
         }
 
-        List<CopiedForm?> allForms = new((part is null ? 0 : 1) + overlayImports.Count);
-        List<GraphCopier> allCopiers = new(allForms.Capacity);
+        List<CopiedForm?> allForms = ParserContainers.CreateList<CopiedForm?>(scratch);
+        List<GraphCopier> allCopiers = ParserContainers.CreateList<GraphCopier>(scratch);
         if (part is not null)
         {
-            allForms.Add(part);
-            allCopiers.Add(copier);
+            ParserContainers.AddItem(scratch, allForms, part, IntPtr.Size);
+            ParserContainers.AddItem(scratch, allCopiers, copier, IntPtr.Size);
         }
 
         foreach (OverlayFieldImport import in overlayImports)
@@ -275,21 +282,24 @@ internal static class AcroFormCopy
                 throw new ArgumentException("Overlay imports must not contain null entries.", nameof(overlayImports));
             }
 
-            allForms.Add(import.Part);
-            allCopiers.Add(import.Copier);
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            ParserContainers.AddItem(scratch, allForms, import.Part, IntPtr.Size);
+            ParserContainers.AddItem(scratch, allCopiers, import.Copier, IntPtr.Size);
         }
 
         RenameCollidingFields(allForms, allCopiers, limits, governor, cancellationToken);
-        List<CopiedForm> present = new(allForms.Count);
-        foreach (CopiedForm? form in allForms)
+        // Renaming replaces copier headers; publish those owned identities into
+        // the earlier pool snapshot before defaults and field fixups read it.
+        foreach (GraphCopier sourceCopier in allCopiers)
         {
-            if (form is not null)
+            foreach (KeyValuePair<int, QpdfObject> entry in sourceCopier.CopiedObjects)
             {
-                present.Add(form);
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                pool[entry.Key] = entry.Value;
             }
         }
 
-        CopiedForm? combined = Combine(present);
+        CopiedForm? combined = Combine(allForms, governor, scratch, cancellationToken);
         if (combined is null)
         {
             return null;
@@ -315,44 +325,44 @@ internal static class AcroFormCopy
             combined = ApplyOverlayImports(combined, overlayImports, destAppearance, destQuadding, overlayImports[0].Copier, pool, ref allocator, limits, governor, diagnostics, cancellationToken);
         }
 
-        HashSet<int> survivors = CollectAnnotRefs(occurrences, governor, cancellationToken);
+        HashSet<int> survivors = CollectAnnotRefs(occurrences, governor, scratch, cancellationToken);
         return BuildCatalogForm(combined, pool, survivors, pruneUnreachableFields, limits, governor, cancellationToken);
     }
 
-    internal static CopiedForm? Combine(IReadOnlyList<CopiedForm> parts)
+    internal static CopiedForm? Combine(IReadOnlyList<CopiedForm?> parts, ResourceGovernor governor,
+        ParserMemoryScope ownership, CancellationToken token)
     {
         if (parts is null)
         {
             throw new ArgumentNullException(nameof(parts));
         }
 
-        List<CopiedForm> present = new(parts.Count);
-        foreach (CopiedForm part in parts)
+        ownership.CheckOwner(governor);
+        int count = 0; CopiedForm? only = null;
+        foreach (CopiedForm? part in parts)
         {
-            if (part is null)
-            {
-                throw new ArgumentException("Form parts must not contain null entries.", nameof(parts));
-            }
-
-            present.Add(part);
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (part is not null) { count++; only = part; }
         }
-
-        if (present.Count == 0)
-        {
-            return null;
-        }
-
-        List<PdfReference> fields = new();
+        if (count < 2) { return only; }
+        using ParserMemoryScope result = ParserMemoryScope.Create(governor);
+        List<PdfReference> fields = ParserContainers.CreateList<PdfReference>(result);
         bool hasFields = false;
         bool hasNeed = false;
         bool need = false;
         QpdfObject? resources = null;
         bool hasOrder = false;
-        List<QpdfObject> order = new();
-        Dictionary<PdfName, QpdfObject> extras = new();
-        foreach (CopiedForm part in present)
+        List<QpdfObject> order = ParserContainers.CreateList(result);
+        Dictionary<PdfName, QpdfObject> extras = ParserContainers.CreateDictionary<PdfName, QpdfObject>(result);
+        foreach (CopiedForm? part in parts)
         {
-            fields.AddRange(part.Fields);
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (part is null) { continue; }
+            foreach (PdfReference field in part.Fields)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                ParserContainers.AddItem(result, fields, field, IntPtr.Size);
+            }
             if (part.HasFields)
             {
                 hasFields = true;
@@ -371,19 +381,27 @@ internal static class AcroFormCopy
             if (part.HasCalculationOrder)
             {
                 hasOrder = true;
-                order.AddRange(part.CalculationOrder);
+                foreach (QpdfObject item in part.CalculationOrder)
+                {
+                    token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    ParserContainers.AddItem(result, order, item);
+                }
             }
 
             foreach (KeyValuePair<PdfName, QpdfObject> extra in part.Extras)
             {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 if (!extras.ContainsKey(extra.Key))
                 {
+                    ParserContainers.EnsureEntryCapacity(result, extras, IntPtr.Size);
                     extras[extra.Key] = extra.Value;
                 }
             }
         }
 
-        return new CopiedForm(fields, hasFields, hasNeed, need, resources, hasOrder, order, extras);
+        result.Reserve(80L);
+        CopiedForm form = new(fields, hasFields, hasNeed, need, resources, hasOrder, order, extras);
+        result.TransferTo(ownership); return form;
     }
 
     /// <summary>
@@ -1344,6 +1362,7 @@ internal static class AcroFormCopy
     internal static HashSet<int> CollectAnnotRefs(
         IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
         ResourceGovernor governor,
+        ParserMemoryScope ownership,
         CancellationToken cancellationToken)
     {
         if (occurrences is null)
@@ -1356,7 +1375,9 @@ internal static class AcroFormCopy
             throw new ArgumentNullException(nameof(governor));
         }
 
-        HashSet<int> found = new();
+        ownership.CheckOwner(governor);
+        using ParserMemoryScope result = ParserMemoryScope.Create(governor);
+        HashSet<int> found = ParserContainers.CreateSet<int>(result);
         foreach ((GraphCopier copier, int pageId) in occurrences)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1384,15 +1405,16 @@ internal static class AcroFormCopy
 
             for (int i = 0; i < annots.Count; i++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 governor.NoteOperation();
                 if (annots[i] is PdfReference reference)
                 {
-                    found.Add(reference.ObjectNumber);
+                    ParserContainers.AddSetItem(result, found, reference.ObjectNumber, sizeof(int));
                 }
             }
         }
 
-        return found;
+        result.TransferTo(ownership); return found;
     }
 
     internal static PdfDictionary? BuildCatalogForm(
@@ -1430,42 +1452,29 @@ internal static class AcroFormCopy
         }
 
         limits.Validate();
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (combined.Fields.Count == 0)
         {
             if (!combined.HasFields)
             {
-                return Assemble(combined, [], []);
+                return Assemble(combined, [], null, governor, cancellationToken);
             }
 
-            return pruneUnreachableFields ? null : Assemble(combined, [], []);
+            return pruneUnreachableFields ? null : Assemble(combined, [], null, governor, cancellationToken);
         }
 
-        (List<PdfReference> kept, HashSet<int> closure) = CollectKeptClosure(pool, combined.Fields, survivingAnnots, pruneUnreachableFields, limits, governor, cancellationToken);
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        (List<PdfReference> kept, HashSet<int> closure) = CollectKeptClosure(pool, combined.Fields, survivingAnnots, pruneUnreachableFields, limits, governor, scratch, cancellationToken);
         if (kept.Count == 0)
         {
             return null;
         }
 
-        List<QpdfObject> order = new();
-        if (combined.HasCalculationOrder)
-        {
-            foreach (QpdfObject item in combined.CalculationOrder)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                governor.NoteOperation();
-                if (item is PdfReference reference && !closure.Contains(reference.ObjectNumber))
-                {
-                    continue;
-                }
-
-                order.Add(item);
-            }
-        }
-
-        return Assemble(combined, kept, order);
+        return Assemble(combined, kept, closure, governor, cancellationToken);
     }
 
-    internal static HashSet<int> CollectRefNumbers(QpdfObject value, ResourceGovernor governor, CancellationToken cancellationToken)
+    internal static HashSet<int> CollectRefNumbers(QpdfObject value, ResourceGovernor governor,
+        ParserMemoryScope ownership, CancellationToken cancellationToken)
     {
         if (value is null)
         {
@@ -1477,74 +1486,101 @@ internal static class AcroFormCopy
             throw new ArgumentNullException(nameof(governor));
         }
 
-        HashSet<int> found = new();
-        Stack<QpdfObject> stack = new();
-        stack.Push(value);
-        while (stack.TryPop(out QpdfObject? current))
+        ownership.CheckOwner(governor);
+        using ParserMemoryScope result = ParserMemoryScope.Create(governor);
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        HashSet<int> found = ParserContainers.CreateSet<int>(result);
+        List<QpdfObject> stack = ParserContainers.CreateList(scratch);
+        ParserContainers.AddItem(scratch, stack, value);
+        while (stack.Count != 0)
         {
+            QpdfObject current = stack[^1]; stack.RemoveAt(stack.Count - 1);
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
             if (current is PdfReference reference)
             {
-                found.Add(reference.ObjectNumber);
+                ParserContainers.AddSetItem(result, found, reference.ObjectNumber, sizeof(int));
             }
             else if (current is PdfArray array)
             {
                 for (int i = 0; i < array.Count; i++)
                 {
-                    stack.Push(array[i]);
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    ParserContainers.AddItem(scratch, stack, array[i]);
                 }
             }
             else if (current is PdfDictionary dictionary)
             {
-                foreach (PdfName key in dictionary.Keys)
+                using PdfDictionary.EntryEnumerator entries = dictionary.GetEntryEnumerator();
+                while (entries.MoveNext(governor, cancellationToken))
                 {
-                    if (dictionary.TryGet(key, out QpdfObject? entry) && entry is not null)
-                    {
-                        stack.Push(entry);
-                    }
+                    ParserContainers.AddItem(scratch, stack, entries.Current.Value);
                 }
             }
             else if (current is PdfStream stream)
             {
-                stack.Push(stream.Dictionary);
+                ParserContainers.AddItem(scratch, stack, stream.Dictionary);
             }
         }
 
-        return found;
+        result.TransferTo(ownership); return found;
     }
 
-    private static PdfDictionary Assemble(CopiedForm combined, IReadOnlyList<PdfReference> fields, IReadOnlyList<QpdfObject> order)
+    private static PdfDictionary Assemble(CopiedForm combined, IReadOnlyList<PdfReference> fields,
+        HashSet<int>? closure, ResourceGovernor governor, CancellationToken token)
     {
-        Dictionary<PdfName, QpdfObject> entries = new();
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
+        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         if (combined.HasFields)
         {
-            entries[PdfName.FromAscii("Fields")] = new PdfArray(fields);
+            entries.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "Fields"u8),
+                CopyFormArray(graph, fields, null), token);
         }
         if (combined.HasNeedAppearances)
         {
-            entries[PdfName.FromAscii("NeedAppearances")] = new PdfBoolean(combined.NeedAppearances);
+            graph.Memory.Reserve(24L); graph.Add(24L);
+            entries.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "NeedAppearances"u8), new PdfBoolean(combined.NeedAppearances), token);
         }
 
         if (combined.DefaultResources is not null)
         {
-            entries[PdfName.FromAscii("DR")] = combined.DefaultResources;
+            entries.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "DR"u8), combined.DefaultResources, token);
         }
 
         if (combined.HasCalculationOrder)
         {
-            entries[PdfName.FromAscii("CO")] = new PdfArray(order);
+            // A registration-free form historically clears its calculation order.
+            IReadOnlyList<QpdfObject> order = fields.Count == 0 ? Array.Empty<QpdfObject>() : combined.CalculationOrder;
+            entries.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "CO"u8), CopyFormArray(graph, order, closure), token);
         }
 
         foreach (KeyValuePair<PdfName, QpdfObject> extra in combined.Extras)
         {
-            if (!entries.ContainsKey(extra.Key))
-            {
-                entries[extra.Key] = extra.Value;
-            }
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            entries.TryAdd(graph.Memory, governor, extra.Key, extra.Value, token);
         }
 
-        return new PdfDictionary(entries);
+        PdfDictionary form = PdfDictionaryRebuild.Complete(graph, entries, allocation);
+        graph.Retain(); return form;
+    }
+
+    private static PdfArray CopyFormArray(OwnedAllocationBatch graph, IReadOnlyList<QpdfObject> items, HashSet<int>? closure)
+    {
+        int count = 0;
+        foreach (QpdfObject item in items)
+        {
+            graph.Token.ThrowIfCancellationRequested(); graph.Governor.CheckCancellation();
+            if (closure is null || item is not PdfReference link || closure.Contains(link.ObjectNumber)) { count++; }
+        }
+        long bytes = checked(64L + (long)IntPtr.Size * count);
+        graph.Memory.Reserve(bytes);
+        QpdfObject[] kept = new QpdfObject[count]; int next = 0;
+        foreach (QpdfObject item in items)
+        {
+            graph.Token.ThrowIfCancellationRequested(); graph.Governor.CheckCancellation();
+            if (closure is null || item is not PdfReference link || closure.Contains(link.ObjectNumber)) { kept[next++] = item; }
+        }
+        graph.Add(bytes); return PdfArray.FromOwnedItems(kept);
     }
 
     /// <summary>
@@ -1561,10 +1597,13 @@ internal static class AcroFormCopy
         bool pruneUnreachableFields,
         QpdfLimits limits,
         ResourceGovernor governor,
+        ParserMemoryScope ownership,
         CancellationToken cancellationToken)
     {
-        List<PdfReference> kept = new(fields.Count);
-        HashSet<int> closure = new();
+        ownership.CheckOwner(governor);
+        using ParserMemoryScope result = ParserMemoryScope.Create(governor);
+        List<PdfReference> kept = ParserContainers.CreateList<PdfReference>(result);
+        HashSet<int> closure = ParserContainers.CreateSet<int>(result);
         foreach (PdfReference field in fields)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1574,22 +1613,12 @@ internal static class AcroFormCopy
                 continue;
             }
 
-            HashSet<int> members = WalkPoolMembers(pool, field.ObjectNumber, limits, governor, cancellationToken);
-            if (members.Count == 0 && !pruneUnreachableFields)
-            {
-                kept.Add(field);
-                closure.Add(field.ObjectNumber);
-                foreach (int id in CollectPoolSubtree(pool, field.ObjectNumber, limits, governor, cancellationToken))
-                {
-                    closure.Add(id);
-                }
-
-                continue;
-            }
-
-            bool survives = false;
+            using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
+            HashSet<int> members = WalkPoolMembers(pool, field.ObjectNumber, limits, governor, traversal, cancellationToken);
+            bool survives = members.Count == 0 && !pruneUnreachableFields;
             foreach (int member in members)
             {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 if (survivingAnnots.Contains(member))
                 {
                     survives = true;
@@ -1602,15 +1631,18 @@ internal static class AcroFormCopy
                 continue;
             }
 
-            kept.Add(field);
-            closure.Add(field.ObjectNumber);
-            foreach (int id in CollectPoolSubtree(pool, field.ObjectNumber, limits, governor, cancellationToken))
+            ParserContainers.AddItem(result, kept, field, IntPtr.Size);
+            // An earlier retained root may already have reached this entire
+            // subtree. Keep registration order/duplicates without walking it again.
+            if (closure.Contains(field.ObjectNumber)) { continue; }
+            foreach (int id in CollectPoolSubtree(pool, field.ObjectNumber, limits, governor, traversal, cancellationToken))
             {
-                closure.Add(id);
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                ParserContainers.AddSetItem(result, closure, id, sizeof(int));
             }
         }
 
-        return (kept, closure);
+        result.TransferTo(ownership); return (kept, closure);
     }
 
     internal static PdfDictionary? TryGetSourceForm(DocumentEngine engine)
@@ -1670,11 +1702,11 @@ internal static class AcroFormCopy
     private static HashSet<int> CollectKeptWidgets(
         IIndirectResolver resolver,
         IReadOnlyList<PageLocation> keptPages,
-        QpdfLimits limits,
         ResourceGovernor governor,
+        ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
-        HashSet<int> found = new();
+        HashSet<int> found = ParserContainers.CreateSet<int>(memory);
         foreach (PageLocation location in keptPages)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1714,7 +1746,7 @@ internal static class AcroFormCopy
 
                 if (IsWidget(annot))
                 {
-                    found.Add(itemReference.ObjectNumber);
+                    ParserContainers.AddSetItem(memory, found, itemReference.ObjectNumber, sizeof(int));
                 }
             }
         }
@@ -1762,9 +1794,10 @@ internal static class AcroFormCopy
         bool pruneUnreachableFields,
         QpdfLimits limits,
         ResourceGovernor governor,
+        ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
-        List<QpdfObject> kept = new();
+        List<QpdfObject> kept = ParserContainers.CreateList(memory);
         if (!source.TryGet(PdfName.FromAscii("Fields"), out QpdfObject? raw) || raw is null || raw is PdfNull)
         {
             return kept;
@@ -1791,7 +1824,7 @@ internal static class AcroFormCopy
 
             if (entry is not PdfReference reference)
             {
-                kept.Add(entry);
+                ParserContainers.AddItem(memory, kept, entry);
                 continue;
             }
 
@@ -1805,7 +1838,8 @@ internal static class AcroFormCopy
                 throw new QpdfParseException("Catalog /AcroForm /Fields entries must be dictionaries.", null, reference.ObjectNumber);
             }
 
-            HashSet<int> members = WalkSourceMembers(resolver, field, reference.ObjectNumber, limits, governor, cancellationToken);
+            using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
+            HashSet<int> members = WalkSourceMembers(resolver, field, reference.ObjectNumber, limits, governor, traversal, cancellationToken);
             if (members.Count == 0 && pruneUnreachableFields)
             {
                 continue;
@@ -1813,13 +1847,14 @@ internal static class AcroFormCopy
 
             if (members.Count == 0)
             {
-                kept.Add(entry);
+                ParserContainers.AddItem(memory, kept, entry);
                 continue;
             }
 
             bool survives = false;
             foreach (int member in members)
             {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 if (keptWidgets.Contains(member))
                 {
                     survives = true;
@@ -1829,7 +1864,7 @@ internal static class AcroFormCopy
 
             if (survives)
             {
-                kept.Add(entry);
+                ParserContainers.AddItem(memory, kept, entry);
             }
         }
 
@@ -1842,19 +1877,22 @@ internal static class AcroFormCopy
         int rootNumber,
         QpdfLimits limits,
         ResourceGovernor governor,
+        ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
-        HashSet<int> members = new();
+        HashSet<int> members = ParserContainers.CreateSet<int>(memory);
         if (IsWidget(root))
         {
-            members.Add(rootNumber);
+            ParserContainers.AddSetItem(memory, members, rootNumber, sizeof(int));
         }
 
-        HashSet<int> visited = new() { rootNumber };
-        Stack<(PdfDictionary Node, int Depth)> stack = new();
-        stack.Push((root, 0));
-        while (stack.TryPop(out (PdfDictionary Node, int Depth) current))
+        HashSet<int> visited = ParserContainers.CreateSet<int>(memory);
+        ParserContainers.AddSetItem(memory, visited, rootNumber, sizeof(int));
+        List<(PdfDictionary Node, int Depth)> stack = ParserContainers.CreateList<(PdfDictionary, int)>(memory);
+        ParserContainers.AddItem(memory, stack, (root, 0), 16L);
+        while (stack.Count != 0)
         {
+            var current = stack[^1]; stack.RemoveAt(stack.Count - 1);
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
             if (current.Depth > limits.MaxNestingDepth)
@@ -1885,7 +1923,7 @@ internal static class AcroFormCopy
                     continue;
                 }
 
-                if (!visited.Add(kidReference.ObjectNumber))
+                if (!ParserContainers.AddSetItem(memory, visited, kidReference.ObjectNumber, sizeof(int)))
                 {
                     continue;
                 }
@@ -1897,10 +1935,10 @@ internal static class AcroFormCopy
 
                 if (IsWidget(kid))
                 {
-                    members.Add(kidReference.ObjectNumber);
+                    ParserContainers.AddSetItem(memory, members, kidReference.ObjectNumber, sizeof(int));
                 }
 
-                stack.Push((kid, current.Depth + 1));
+                ParserContainers.AddItem(memory, stack, (kid, current.Depth + 1), 16L);
             }
         }
 
@@ -1912,9 +1950,10 @@ internal static class AcroFormCopy
         int rootNumber,
         QpdfLimits limits,
         ResourceGovernor governor,
+        ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
-        HashSet<int> members = new();
+        HashSet<int> members = ParserContainers.CreateSet<int>(memory);
         if (!pool.TryGetValue(rootNumber, out QpdfObject? root) || root is not PdfDictionary rootDict)
         {
             return members;
@@ -1922,14 +1961,16 @@ internal static class AcroFormCopy
 
         if (IsWidget(rootDict))
         {
-            members.Add(rootNumber);
+            ParserContainers.AddSetItem(memory, members, rootNumber, sizeof(int));
         }
 
-        HashSet<int> visited = new() { rootNumber };
-        Stack<(PdfDictionary Node, int Depth)> stack = new();
-        stack.Push((rootDict, 0));
-        while (stack.TryPop(out (PdfDictionary Node, int Depth) current))
+        HashSet<int> visited = ParserContainers.CreateSet<int>(memory);
+        ParserContainers.AddSetItem(memory, visited, rootNumber, sizeof(int));
+        List<(PdfDictionary Node, int Depth)> stack = ParserContainers.CreateList<(PdfDictionary, int)>(memory);
+        ParserContainers.AddItem(memory, stack, (rootDict, 0), 16L);
+        while (stack.Count != 0)
         {
+            var current = stack[^1]; stack.RemoveAt(stack.Count - 1);
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
             if (current.Depth > limits.MaxNestingDepth)
@@ -1957,7 +1998,7 @@ internal static class AcroFormCopy
                     continue;
                 }
 
-                if (!visited.Add(kidReference.ObjectNumber))
+                if (!ParserContainers.AddSetItem(memory, visited, kidReference.ObjectNumber, sizeof(int)))
                 {
                     continue;
                 }
@@ -1969,10 +2010,10 @@ internal static class AcroFormCopy
 
                 if (IsWidget(kid))
                 {
-                    members.Add(kidReference.ObjectNumber);
+                    ParserContainers.AddSetItem(memory, members, kidReference.ObjectNumber, sizeof(int));
                 }
 
-                stack.Push((kid, current.Depth + 1));
+                ParserContainers.AddItem(memory, stack, (kid, current.Depth + 1), 16L);
             }
         }
 
@@ -1984,16 +2025,18 @@ internal static class AcroFormCopy
         int rootNumber,
         QpdfLimits limits,
         ResourceGovernor governor,
+        ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
-        HashSet<int> found = new();
-        Stack<int> stack = new();
-        stack.Push(rootNumber);
-        while (stack.TryPop(out int number))
+        HashSet<int> found = ParserContainers.CreateSet<int>(memory);
+        List<int> stack = ParserContainers.CreateList<int>(memory);
+        ParserContainers.AddItem(memory, stack, rootNumber, sizeof(int));
+        while (stack.Count != 0)
         {
+            int number = stack[^1]; stack.RemoveAt(stack.Count - 1);
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
-            if (!found.Add(number))
+            if (!ParserContainers.AddSetItem(memory, found, number, sizeof(int)))
             {
                 continue;
             }
@@ -2008,11 +2051,13 @@ internal static class AcroFormCopy
                 continue;
             }
 
-            foreach (int id in CollectRefNumbers(value, governor, cancellationToken))
+            using ParserMemoryScope references = ParserMemoryScope.Create(governor);
+            foreach (int id in CollectRefNumbers(value, governor, references, cancellationToken))
             {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 if (!found.Contains(id))
                 {
-                    stack.Push(id);
+                    ParserContainers.AddItem(memory, stack, id, sizeof(int));
                 }
             }
         }
@@ -2041,6 +2086,6 @@ internal static class AcroFormCopy
     {
         return dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject? raw)
             && raw is PdfName name
-            && name.DisplayText == "Widget";
+            && name.RawSpan.SequenceEqual("Widget"u8);
     }
 }

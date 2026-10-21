@@ -172,7 +172,7 @@ public static partial class Qpdf
     /// only on whole-file paths. Returns null when no output registration list survives, in
     /// which case every widget stays untouched like the reference.
     /// </summary>
-    private static HashSet<int>? CollectGenerateReached(IReadOnlyList<(IReadOnlyDictionary<int, QpdfObject> Pool, Content.CopiedForm? Part)> parts, HashSet<int> survivors, bool pruneUnreachableFields, QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
+    private static HashSet<int>? CollectGenerateReached(IReadOnlyList<(IReadOnlyDictionary<int, QpdfObject> Pool, Content.CopiedForm? Part)> parts, HashSet<int> survivors, bool pruneUnreachableFields, QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken cancellationToken)
     {
         if (parts is null)
         {
@@ -196,7 +196,7 @@ public static partial class Qpdf
 
         limits.Validate();
         bool anyFields = false;
-        HashSet<int> reached = new();
+        HashSet<int> reached = ParserContainers.CreateSet<int>(memory);
         foreach ((IReadOnlyDictionary<int, QpdfObject> pool, Content.CopiedForm? part) in parts)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -205,7 +205,8 @@ public static partial class Qpdf
                 continue;
             }
 
-            (List<PdfReference> kept, HashSet<int> closure) = Content.AcroFormCopy.CollectKeptClosure(pool, part.Fields, survivors, pruneUnreachableFields, limits, governor, cancellationToken);
+            using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+            (List<PdfReference> kept, HashSet<int> closure) = Content.AcroFormCopy.CollectKeptClosure(pool, part.Fields, survivors, pruneUnreachableFields, limits, governor, scratch, cancellationToken);
             if (kept.Count == 0)
             {
                 continue;
@@ -214,7 +215,8 @@ public static partial class Qpdf
             anyFields = true;
             foreach (int id in closure)
             {
-                reached.Add(id);
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                ParserContainers.AddSetItem(memory, reached, id, sizeof(int));
             }
         }
 
@@ -404,20 +406,20 @@ public static partial class Qpdf
                     bool singleGenerated = settings.GenerateAppearances && needAppearances;
                     if (singleGenerated)
                     {
-                        Content.CopiedForm? gateForm = Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, KeptLocations(document, requested), true, limits, governor, diagnostics, cancellationToken);
-                        HashSet<int> gateSurvivors = Content.AcroFormCopy.CollectAnnotRefs(occurrences, governor, cancellationToken);
-                        List<(IReadOnlyDictionary<int, QpdfObject> Pool, Content.CopiedForm? Part)> gateParts = new(1 + overlayApplied.FieldImports.Count)
-                        {
-                            (copier.CopiedObjects, gateForm),
-                        };
+                        using ParserMemoryScope gateMemory = ParserMemoryScope.Create(governor);
+                        Content.CopiedForm? gateForm = Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, KeptLocations(document, requested), true, limits, governor, gateMemory, cancellationToken);
+                        HashSet<int> gateSurvivors = Content.AcroFormCopy.CollectAnnotRefs(occurrences, governor, gateMemory, cancellationToken);
+                        List<(IReadOnlyDictionary<int, QpdfObject> Pool, Content.CopiedForm? Part)> gateParts = ParserContainers.CreateList<(IReadOnlyDictionary<int, QpdfObject>, Content.CopiedForm?)>(gateMemory);
+                        ParserContainers.AddItem(gateMemory, gateParts, (copier.CopiedObjects, gateForm), 16L);
                         foreach (Content.AcroFormCopy.OverlayFieldImport import in overlayApplied.FieldImports)
                         {
-                            gateParts.Add((import.Copier.CopiedObjects, import.Part));
+                            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                            ParserContainers.AddItem(gateMemory, gateParts, (import.Copier.CopiedObjects, import.Part), 16L);
                         }
 
-                        HashSet<int>? gateReached = CollectGenerateReached(gateParts, gateSurvivors, true, limits, governor, cancellationToken);
-                        Dictionary<GraphCopier, Content.CopiedForm?> singleForms = ParserContainers.CreateDictionary<GraphCopier, Content.CopiedForm?>(copyMemory);
-                        ParserContainers.EnsureEntryCapacity(copyMemory, singleForms, IntPtr.Size); singleForms.Add(copier, gateForm);
+                        HashSet<int>? gateReached = CollectGenerateReached(gateParts, gateSurvivors, true, limits, governor, gateMemory, cancellationToken);
+                        Dictionary<GraphCopier, Content.CopiedForm?> singleForms = ParserContainers.CreateDictionary<GraphCopier, Content.CopiedForm?>(gateMemory);
+                        ParserContainers.EnsureEntryCapacity(gateMemory, singleForms, IntPtr.Size); singleForms.Add(copier, gateForm);
                         flattenAllocator = Math.Max(flattenAllocator, copier.NextId);
                         flattenAllocator = Content.GenerateAppearances.Apply(occurrences, singleForms, limits, governor, diagnostics, cancellationToken, gateReached, false, flattenAllocator);
                         needAppearances = false;
@@ -484,6 +486,7 @@ public static partial class Qpdf
                             limits,
                             governor,
                             diagnostics,
+                            copyMemory,
                             cancellationToken,
                             false);
                     if (singleGenerated)
@@ -1010,11 +1013,11 @@ public static partial class Qpdf
                         pruneUnreachableFields,
                         limits,
                         governor,
-                        diagnostics,
+                        selectionMemory,
                         cancellationToken);
                 multiForms.Add(sourceForm);
                 gateForms.Add(settings.RemoveAcroform
-                    ? Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, KeptLocations(document, requested), pruneUnreachableFields, limits, governor, diagnostics, cancellationToken)
+                    ? Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, KeptLocations(document, requested), pruneUnreachableFields, limits, governor, selectionMemory, cancellationToken)
                     : sourceForm);
                 if (needSourceLabels)
                 {
@@ -1123,25 +1126,28 @@ public static partial class Qpdf
         bool multiGenerated = settings.GenerateAppearances && needAppearances;
         if (multiGenerated)
         {
-            Dictionary<GraphCopier, Content.CopiedForm?> generationForms = ParserContainers.CreateDictionary<GraphCopier, Content.CopiedForm?>(selectionMemory);
+            using ParserMemoryScope gateMemory = ParserMemoryScope.Create(governor);
+            Dictionary<GraphCopier, Content.CopiedForm?> generationForms = ParserContainers.CreateDictionary<GraphCopier, Content.CopiedForm?>(gateMemory);
             for (int s = 0; s < copiers.Count && s < multiForms.Count; s++)
             {
-                ParserContainers.EnsureEntryCapacity(selectionMemory, generationForms, IntPtr.Size);
+                ParserContainers.EnsureEntryCapacity(gateMemory, generationForms, IntPtr.Size);
                 generationForms.Add(copiers[s], multiForms[s]);
             }
 
-            HashSet<int> multiSurvivors = Content.AcroFormCopy.CollectAnnotRefs(occurrences, governor, cancellationToken);
-            List<(IReadOnlyDictionary<int, QpdfObject> Pool, Content.CopiedForm? Part)> multiGateParts = new(copiers.Count + overlayApplied.FieldImports.Count);
+            HashSet<int> multiSurvivors = Content.AcroFormCopy.CollectAnnotRefs(occurrences, governor, gateMemory, cancellationToken);
+            List<(IReadOnlyDictionary<int, QpdfObject> Pool, Content.CopiedForm? Part)> multiGateParts = ParserContainers.CreateList<(IReadOnlyDictionary<int, QpdfObject>, Content.CopiedForm?)>(gateMemory);
             for (int s = 0; s < copiers.Count && s < gateForms.Count; s++)
             {
-                multiGateParts.Add((copiers[s].CopiedObjects, gateForms[s]));
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                ParserContainers.AddItem(gateMemory, multiGateParts, (copiers[s].CopiedObjects, gateForms[s]), 16L);
             }
             foreach (Content.AcroFormCopy.OverlayFieldImport import in overlayApplied.FieldImports)
             {
-                multiGateParts.Add((import.Copier.CopiedObjects, import.Part));
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                ParserContainers.AddItem(gateMemory, multiGateParts, (import.Copier.CopiedObjects, import.Part), 16L);
             }
 
-            HashSet<int>? multiReached = CollectGenerateReached(multiGateParts, multiSurvivors, pruneUnreachableFields, limits, governor, cancellationToken);
+            HashSet<int>? multiReached = CollectGenerateReached(multiGateParts, multiSurvivors, pruneUnreachableFields, limits, governor, gateMemory, cancellationToken);
             multiFlattenAllocator = Content.GenerateAppearances.Apply(occurrences, generationForms, limits, governor, diagnostics, cancellationToken, multiReached, !pruneUnreachableFields, multiFlattenAllocator);
             needAppearances = false;
         }
@@ -1327,7 +1333,7 @@ public static partial class Qpdf
         }
         Content.CopiedForm? multiCombined = settings.RemoveAcroform
             ? null
-            : Content.AcroFormCopy.Combine(NonNullForms(renameForms));
+            : Content.AcroFormCopy.Combine(renameForms, governor, selectionMemory, cancellationToken);
         if (multiCombined is not null && overlayApplied.FieldImports.Count > 0)
         {
             (PdfByteString? multiDestAppearance, int? multiDestQuadding) = Content.AcroFormCopy.ReadMergedDefaults(multiCombined);
@@ -1363,7 +1369,7 @@ public static partial class Qpdf
             : Content.AcroFormCopy.BuildCatalogForm(
                 multiCombined,
                 pool,
-                Content.AcroFormCopy.CollectAnnotRefs(occurrences, governor, cancellationToken),
+                Content.AcroFormCopy.CollectAnnotRefs(occurrences, governor, selectionMemory, cancellationToken),
                 pruneUnreachableFields,
                 limits,
                 governor,
@@ -1428,6 +1434,7 @@ public static partial class Qpdf
         List<PreparedSplitPublication> prepared = preparation.Items;
         for (int g = 0; g < groups.Count; g++)
         {
+            using ParserMemoryScope groupMemory = ParserMemoryScope.Create(governor);
             cancellationToken.ThrowIfCancellationRequested();
             (int first, int last) = groups[g];
             List<PdfReference> groupKids = kids.GetRange(first - 1, last - first + 1);
@@ -1446,7 +1453,7 @@ public static partial class Qpdf
                     groupOccurrences.Add((occurrences[slot].Copier, occurrences[slot].Id));
                 }
 
-                HashSet<int> groupAnnots = Content.AcroFormCopy.CollectAnnotRefs(groupOccurrences, governor, cancellationToken);
+                HashSet<int> groupAnnots = Content.AcroFormCopy.CollectAnnotRefs(groupOccurrences, governor, groupMemory, cancellationToken);
                 groupAcroForm = Content.AcroFormCopy.BuildCatalogForm(multiCombined, pool, groupAnnots, pruneUnreachableFields, limits, governor, cancellationToken);
                 if (multiGenerated)
                 {
@@ -1458,12 +1465,12 @@ public static partial class Qpdf
             List<int> roots = new(groupIds);
             if (groupAcroForm is not null)
             {
-                roots.AddRange(Content.AcroFormCopy.CollectRefNumbers(groupAcroForm, governor, cancellationToken));
+                roots.AddRange(Content.AcroFormCopy.CollectRefNumbers(groupAcroForm, governor, groupMemory, cancellationToken));
             }
 
             if (slicedLabels is not null)
             {
-                roots.AddRange(Content.AcroFormCopy.CollectRefNumbers(slicedLabels, governor, cancellationToken));
+                roots.AddRange(Content.AcroFormCopy.CollectRefNumbers(slicedLabels, governor, groupMemory, cancellationToken));
             }
 
             roots.AddRange(allPreserved);
@@ -3121,25 +3128,6 @@ public static partial class Qpdf
         }
 
         return root as PdfDictionary;
-    }
-
-    private static List<Content.CopiedForm> NonNullForms(List<Content.CopiedForm?> parts)
-    {
-        if (parts is null)
-        {
-            throw new ArgumentNullException(nameof(parts));
-        }
-
-        List<Content.CopiedForm> present = new(parts.Count);
-        foreach (Content.CopiedForm? part in parts)
-        {
-            if (part is not null)
-            {
-                present.Add(part);
-            }
-        }
-
-        return present;
     }
 
     private static HashSet<int> PreservationExclusions(

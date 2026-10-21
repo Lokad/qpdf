@@ -359,7 +359,7 @@ public static partial class Qpdf
         }
         PdfDictionary? form = Content.AcroFormCopy.BuildSingle(document.Engine, pool, kept,
             pruneFields, occurrences, assembled, imports, limits, governor, diagnostics,
-            cancellationToken, true);
+            memory, cancellationToken, true);
         foreach (KeyValuePair<int, QpdfObject> entry in assembled)
         {
             governor.NoteOperation();

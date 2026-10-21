@@ -51,6 +51,12 @@ Cold font and default-program references therefore keep their original meaning
 when these operations are combined. Output object numbers can change.
 QDF page/content comment preparation borrows array entries instead of copying
 them; comment numbering and shared-stream first-use behavior are unchanged.
+Ordinary form preservation now admits temporary registrations, metadata merges
+and graph traversal, plus the final catalog dictionary and calculation-order
+arrays. Large forms can refuse earlier under local or shared memory limits;
+cancellation interrupts metadata assembly. Unchanged single-source metadata is
+borrowed, and temporary storage refunds independently of escaping output values.
+No public signatures change.
 
 Overlay form reachability admits traversal and reached-set capacities before
 allocation. Repeated field references no longer queue a full pending array;

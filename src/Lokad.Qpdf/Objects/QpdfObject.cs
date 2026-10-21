@@ -508,6 +508,7 @@ public sealed class PdfArray : QpdfObject, IEquatable<PdfArray>
         => CallerMemoryCopy.Copy<QpdfObject>(_items, IntPtr.Size, memoryBudget, cancellationToken);
 
     internal object AllocationCarrier => _items;
+    internal IReadOnlyList<QpdfObject> BorrowedItems => _items;
 
     /// <summary>Indicates whether this instance equals another PdfArray.</summary>
     public bool Equals(PdfArray? other)
