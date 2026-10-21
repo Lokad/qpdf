@@ -215,6 +215,11 @@ owner; per-field ancestor scratch refunds after lookup. Choice arrays and
 appearance-state names are borrowed. Flattening uses the same admitted content
 collector as rotation and checking, with an exact final content-array capacity.
 
+Image optimization keeps form visitation under a temporary admitted container
+owner. Borrowed entry/name lookups avoid per-entry name/display copies. Indirect
+stream replacement preserves resource aliases without rebuilding page or form
+headers; cycles stop at the admitted visit set and form depth remains bounded.
+
 Prepared JSON UTF-8 buffers and sidecar names stay under the private preparation
 owner through awaited publication and transaction cleanup. Host callbacks borrow
 that storage; persistent host copies and identifiers have a host owner. After

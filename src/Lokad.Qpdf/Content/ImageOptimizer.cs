@@ -63,229 +63,64 @@ internal static class ImageOptimizer
             return;
         }
 
-        HashSet<int> visitedForms = new();
+        using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
+        HashSet<int> visitedForms = ParserContainers.CreateSet<int>(traversal);
+        traversal.Reserve(32L); // One short-lived pool resolver at a time.
         foreach ((GraphCopier copier, int pageId) in occurrences)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            if (!copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? raw) || raw is not PdfDictionary page)
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? raw) && raw is PdfDictionary page)
             {
-                continue;
-            }
-
-            PoolResolver resolver = new(copier.CopiedObjects);
-            PdfDictionary? rebuilt = ProcessPage(copier, resolver, page, pageId, request, limits, governor, visitedForms, cancellationToken);
-            if (rebuilt is not null)
-            {
-                copier.ReplaceCopiedObject(pageId, rebuilt);
+                ProcessResources(copier, new PoolResolver(copier.CopiedObjects), page, request,
+                    limits, governor, traversal, visitedForms, 0, cancellationToken);
             }
         }
     }
 
-    private static PdfDictionary? ProcessPage(
+    private static void ProcessResources(
         GraphCopier copier,
         PoolResolver resolver,
-        PdfDictionary page,
-        int pageId,
+        PdfDictionary owner,
         ImageOptimizeRequest request,
         QpdfLimits limits,
         ResourceGovernor governor,
+        ParserMemoryScope traversal,
         HashSet<int> visitedForms,
-        CancellationToken cancellationToken)
+        int depth,
+        CancellationToken token)
     {
-        if (!page.TryGet(PdfName.FromAscii("Resources"), out QpdfObject? resourcesRaw) || resourcesRaw is null || resourcesRaw is PdfNull)
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        if (depth > limits.MaxNestingDepth)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, limits.MaxNestingDepth); }
+        if (!PdfDictionaryLookup.TryGet(owner, "Resources"u8, governor, token, out QpdfObject raw)) { return; }
+        QpdfObject? resolved = raw is PdfReference resourcesLink ? ResolveOrNull(resolver, resourcesLink) : raw;
+        if (resolved is not PdfDictionary resources ||
+            !PdfDictionaryLookup.TryGet(resources, "XObject"u8, governor, token, out raw)) { return; }
+        resolved = raw is PdfReference objectsLink ? ResolveOrNull(resolver, objectsLink) : raw;
+        if (resolved is not PdfDictionary xobjects) { return; }
+
+        // PDF streams are indirect objects, including images externalized from
+        // inline content. Replacing a pool entry preserves every resource alias;
+        // page/resource dictionaries do not need to be copied or rebuilt.
+        using PdfDictionary.EntryEnumerator entries = xobjects.GetEntryEnumerator();
+        while (entries.MoveNext(governor, token))
         {
-            return null;
-        }
-
-        int? resourcesId = (resourcesRaw as PdfReference)?.ObjectNumber;
-        QpdfObject resourcesTarget = resourcesRaw is PdfReference resourcesReference
-            ? ResolveOrNull(resolver, resourcesReference) ?? resourcesRaw
-            : resourcesRaw;
-        if (resourcesTarget is not PdfDictionary resources)
-        {
-            return null;
-        }
-
-        PdfDictionary? rebuilt = ProcessResources(copier, resolver, resources, resourcesId, request, limits, governor, visitedForms, cancellationToken);
-        if (rebuilt is null)
-        {
-            return null;
-        }
-
-        if (resourcesId.HasValue)
-        {
-            copier.ReplaceCopiedObject(resourcesId.Value, rebuilt);
-            return null;
-        }
-
-        return WithEntry(page, PdfName.FromAscii("Resources"), rebuilt, governor);
-    }
-
-    private static PdfDictionary? ProcessResources(
-        GraphCopier copier,
-        PoolResolver resolver,
-        PdfDictionary resources,
-        int? resourcesId,
-        ImageOptimizeRequest request,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        HashSet<int> visitedForms,
-        CancellationToken cancellationToken)
-    {
-        if (!resources.TryGet(PdfName.FromAscii("XObject"), out QpdfObject? xobjectRaw) || xobjectRaw is null || xobjectRaw is PdfNull)
-        {
-            return null;
-        }
-
-        int? xobjectId = (xobjectRaw as PdfReference)?.ObjectNumber;
-        QpdfObject xobjectTarget = xobjectRaw is PdfReference xobjectReference
-            ? ResolveOrNull(resolver, xobjectReference) ?? xobjectRaw
-            : xobjectRaw;
-        if (xobjectTarget is not PdfDictionary xobjects)
-        {
-            return null;
-        }
-
-        PdfDictionary? rebuilt = ProcessXObjects(copier, resolver, xobjects, request, limits, governor, visitedForms, cancellationToken);
-        if (rebuilt is null)
-        {
-            return null;
-        }
-
-        if (xobjectId.HasValue)
-        {
-            copier.ReplaceCopiedObject(xobjectId.Value, rebuilt);
-            return null;
-        }
-
-        return WithEntry(resources, PdfName.FromAscii("XObject"), rebuilt, governor);
-    }
-
-    private static PdfDictionary? ProcessXObjects(
-        GraphCopier copier,
-        PoolResolver resolver,
-        PdfDictionary xobjects,
-        ImageOptimizeRequest request,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        HashSet<int> visitedForms,
-        CancellationToken cancellationToken)
-    {
-        Dictionary<PdfName, QpdfObject>? entries = null;
-        foreach (PdfName key in xobjects.Keys)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (!xobjects.TryGet(key, out QpdfObject? entry) || entry is null)
+            if (entries.Current.Value is not PdfReference link ||
+                ResolveOrNull(resolver, link) is not PdfStream stream) { continue; }
+            if (IsSubtype(stream.Dictionary, "Form"u8, governor, token))
             {
-                continue;
-            }
-
-            int? entryId = (entry as PdfReference)?.ObjectNumber;
-            QpdfObject target = entry is PdfReference entryReference
-                ? ResolveOrNull(resolver, entryReference) ?? entry
-                : entry;
-            if (target is not PdfStream stream)
-            {
-                continue;
-            }
-
-            if (!IsSubtype(stream.Dictionary, "Image"))
-            {
-                if (IsSubtype(stream.Dictionary, "Form"))
+                if (ParserContainers.AddSetItem(traversal, visitedForms, link.ObjectNumber, sizeof(int)))
                 {
-                    PdfStream? rebuiltForm = ProcessForm(copier, resolver, stream, entryId, request, limits, governor, visitedForms, cancellationToken);
-                    if (rebuiltForm is not null)
-                    {
-                        if (entryId.HasValue)
-                        {
-                            copier.ReplaceCopiedObject(entryId.Value, rebuiltForm);
-                        }
-                        else
-                        {
-                            entries ??= CopyEntries(xobjects, governor);
-                            entries[key] = rebuiltForm;
-                        }
-                    }
-                }
-
-                continue;
-            }
-
-            PdfStream? optimized = TryOptimize(stream, request, resolver, limits, governor, cancellationToken);
-            if (optimized is null)
-            {
-                continue;
-            }
-
-            governor.NoteOperation();
-            if (entryId.HasValue)
-            {
-                if (copier.CopiedObjects.ContainsKey(entryId.Value))
-                {
-                    copier.ReplaceCopiedObject(entryId.Value, optimized);
+                    ProcessResources(copier, resolver, stream.Dictionary, request, limits, governor,
+                        traversal, visitedForms, checked(depth + 1), token);
                 }
             }
-            else
+            else if (IsSubtype(stream.Dictionary, "Image"u8, governor, token))
             {
-                entries ??= CopyEntries(xobjects, governor);
-                entries[key] = optimized;
+                PdfStream? optimized = TryOptimize(stream, request, resolver, limits, governor, token);
+                if (optimized is not null) { copier.ReplaceCopiedObject(link.ObjectNumber, optimized); }
             }
         }
-
-        if (entries is null)
-        {
-            return null;
-        }
-
-        return new PdfDictionary(entries);
-    }
-
-    private static PdfStream? ProcessForm(
-        GraphCopier copier,
-        PoolResolver resolver,
-        PdfStream form,
-        int? formId,
-        ImageOptimizeRequest request,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        HashSet<int> visitedForms,
-        CancellationToken cancellationToken)
-    {
-        if (formId.HasValue && !visitedForms.Add(formId.Value))
-        {
-            return null;
-        }
-
-        if (!form.Dictionary.TryGet(PdfName.FromAscii("Resources"), out QpdfObject? resourcesRaw) || resourcesRaw is null || resourcesRaw is PdfNull)
-        {
-            return null;
-        }
-
-        int? resourcesId = (resourcesRaw as PdfReference)?.ObjectNumber;
-        QpdfObject resourcesTarget = resourcesRaw is PdfReference resourcesReference
-            ? ResolveOrNull(resolver, resourcesReference) ?? resourcesRaw
-            : resourcesRaw;
-        if (resourcesTarget is not PdfDictionary resources)
-        {
-            return null;
-        }
-
-        PdfDictionary? rebuilt = ProcessResources(copier, resolver, resources, resourcesId, request, limits, governor, visitedForms, cancellationToken);
-        if (rebuilt is null)
-        {
-            return null;
-        }
-
-        if (resourcesId.HasValue)
-        {
-            copier.ReplaceCopiedObject(resourcesId.Value, rebuilt);
-            return null;
-        }
-
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
-        PdfStream result = ResourceRebuild.ReplaceResources(graph, form, rebuilt);
-        graph.Retain(); return result;
     }
 
     internal static PdfStream? TryOptimize(
@@ -297,17 +132,17 @@ internal static class ImageOptimizer
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        if (!ReadDimensions(image.Dictionary, resolver, out long width, out long height) || width <= 0L || height <= 0L)
+        if (!ReadDimensions(image.Dictionary, resolver, governor, cancellationToken, out long width, out long height) || width <= 0L || height <= 0L)
         {
             return null;
         }
 
-        if (!ReadBitsPerComponent(image.Dictionary, resolver))
+        if (!ReadBitsPerComponent(image.Dictionary, resolver, governor, cancellationToken))
         {
             return null;
         }
 
-        int components = ReadComponents(image.Dictionary, resolver);
+        int components = ReadComponents(image.Dictionary, resolver, governor, cancellationToken);
         if (components != 1 && components != 3)
         {
             return null;
@@ -471,112 +306,55 @@ internal static class ImageOptimizer
         return value == 0 || value == 9 || value == 10 || value == 12 || value == 13 || value == 32;
     }
 
-    private static bool IsSubtype(PdfDictionary dictionary, string subtype)
-    {
-        return dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject? raw)
-            && raw is PdfName name
-            && name.DisplayText == subtype;
-    }
+    private static bool IsSubtype(PdfDictionary dictionary, ReadOnlySpan<byte> subtype,
+        ResourceGovernor governor, CancellationToken token)
+        => PdfDictionaryLookup.TryGet(dictionary, "Subtype"u8, governor, token, out QpdfObject raw)
+            && raw is PdfName name && PdfDictionaryLookup.NameEquals(name, subtype, governor, token);
 
-    private static bool ReadDimensions(PdfDictionary dictionary, PoolResolver resolver, out long width, out long height)
+    private static bool ReadDimensions(PdfDictionary dictionary, PoolResolver resolver,
+        ResourceGovernor governor, CancellationToken token, out long width, out long height)
     {
         width = 0L;
         height = 0L;
-        return ReadLong(dictionary, resolver, "Width", out width) && ReadLong(dictionary, resolver, "Height", out height);
+        return ReadLong(dictionary, resolver, "Width"u8, governor, token, out width)
+            && ReadLong(dictionary, resolver, "Height"u8, governor, token, out height);
     }
 
-    private static bool ReadLong(PdfDictionary dictionary, PoolResolver resolver, string key, out long value)
+    private static bool ReadLong(PdfDictionary dictionary, PoolResolver resolver, ReadOnlySpan<byte> key,
+        ResourceGovernor governor, CancellationToken token, out long value)
     {
         value = 0L;
-        if (!dictionary.TryGet(PdfName.FromAscii(key), out QpdfObject? raw) || raw is null || raw is PdfNull)
-        {
-            return false;
-        }
-
-        QpdfObject target = raw is PdfReference reference
-            ? ResolveOrNull(resolver, reference) ?? raw
-            : raw;
+        if (!PdfDictionaryLookup.TryGet(dictionary, key, governor, token, out QpdfObject raw)) { return false; }
+        QpdfObject? target = raw is PdfReference reference ? ResolveOrNull(resolver, reference) : raw;
         if (target is PdfInteger integer)
         {
             value = integer.Value;
             return true;
         }
-
-        if (target is PdfReal real)
+        if (target is PdfReal real && double.IsFinite(real.Value))
         {
-            if (!double.IsFinite(real.Value))
-            {
-                return false;
-            }
-
             value = (long)real.Value;
             return true;
         }
-
         return false;
     }
 
-    private static bool ReadBitsPerComponent(PdfDictionary dictionary, PoolResolver resolver)
+    private static bool ReadBitsPerComponent(PdfDictionary dictionary, PoolResolver resolver,
+        ResourceGovernor governor, CancellationToken token)
     {
-        if (!dictionary.TryGet(PdfName.FromAscii("BitsPerComponent"), out QpdfObject? raw) || raw is null || raw is PdfNull)
-        {
-            return false;
-        }
-
-        QpdfObject target = raw is PdfReference reference
-            ? ResolveOrNull(resolver, reference) ?? raw
-            : raw;
+        if (!PdfDictionaryLookup.TryGet(dictionary, "BitsPerComponent"u8, governor, token, out QpdfObject raw)) { return false; }
+        QpdfObject? target = raw is PdfReference reference ? ResolveOrNull(resolver, reference) : raw;
         return target is PdfInteger integer && integer.Value == 8L;
     }
 
-    private static int ReadComponents(PdfDictionary dictionary, PoolResolver resolver)
+    private static int ReadComponents(PdfDictionary dictionary, PoolResolver resolver,
+        ResourceGovernor governor, CancellationToken token)
     {
-        if (!dictionary.TryGet(PdfName.FromAscii("ColorSpace"), out QpdfObject? raw) || raw is null || raw is PdfNull)
-        {
-            return 0;
-        }
-
-        QpdfObject target = raw is PdfReference reference
-            ? ResolveOrNull(resolver, reference) ?? raw
-            : raw;
-        if (target is not PdfName name)
-        {
-            return 0;
-        }
-
-        if (name.DisplayText == "DeviceGray")
-        {
-            return 1;
-        }
-
-        if (name.DisplayText == "DeviceRGB")
-        {
-            return 3;
-        }
-
-        return 0;
-    }
-
-    private static Dictionary<PdfName, QpdfObject> CopyEntries(PdfDictionary dictionary, ResourceGovernor governor)
-    {
-        Dictionary<PdfName, QpdfObject> entries = new();
-        foreach (PdfName existing in dictionary.Keys)
-        {
-            if (dictionary.TryGet(existing, out QpdfObject? found) && found is not null)
-            {
-                entries[existing] = found;
-            }
-        }
-
-        governor.ReserveMemory(64L);
-        return entries;
-    }
-
-    private static PdfDictionary WithEntry(PdfDictionary dictionary, PdfName key, QpdfObject value, ResourceGovernor governor)
-    {
-        Dictionary<PdfName, QpdfObject> entries = CopyEntries(dictionary, governor);
-        entries[key] = value;
-        return new PdfDictionary(entries);
+        if (!PdfDictionaryLookup.TryGet(dictionary, "ColorSpace"u8, governor, token, out QpdfObject raw)) { return 0; }
+        QpdfObject? target = raw is PdfReference reference ? ResolveOrNull(resolver, reference) : raw;
+        if (target is not PdfName name) { return 0; }
+        if (PdfDictionaryLookup.NameEquals(name, "DeviceGray"u8, governor, token)) { return 1; }
+        return PdfDictionaryLookup.NameEquals(name, "DeviceRGB"u8, governor, token) ? 3 : 0;
     }
 
     private static QpdfObject? ResolveOrNull(PoolResolver resolver, PdfReference reference)

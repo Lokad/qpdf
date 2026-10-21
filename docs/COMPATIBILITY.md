@@ -45,6 +45,13 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Image optimization admits its form-visit set before growth and uses borrowed
+name lookups. Wide form graphs can now refuse under local/shared memory limits.
+Resource dictionaries retain their identities: optimization replaces indirect
+stream entries in the copied pool. Unused direct-stream header rebuilding is
+removed; PDF and JSON inputs and externalized inline images use indirect streams.
+Eligibility, silent skips and the host JPEG contract retain their behavior.
+
 Shared admission keeps less than two spare 16 KiB blocks between significant
 releases, preventing repeated grow/shrink calls for tiny scratch at a block
 boundary. Significant releases still return capacity promptly; zero-live cleanup
