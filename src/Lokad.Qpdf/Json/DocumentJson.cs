@@ -91,7 +91,7 @@ internal static class DocumentJson
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 AppendKey(builder, ref firstKey, "attachments");
-                AppendAttachments(builder, engine, request, limits, governor, diagnostics, cancellationToken);
+                AppendAttachments(builder, engine, limits, governor, diagnostics, inspectionMemory, cancellationToken);
             }
 
             if (request.Wants("encrypt"))
@@ -975,13 +975,13 @@ internal static class DocumentJson
     private static void AppendAttachments(
         DisplayBuffer builder,
         DocumentEngine engine,
-        JsonRequest request,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
+        ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
-        List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(engine, limits, governor, diagnostics, cancellationToken);
+        List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(engine, limits, governor, diagnostics, memory, cancellationToken);
         builder.Append((char)123);
         bool firstAttachment = true;
         foreach (EmbeddedAttachment attachment in found)

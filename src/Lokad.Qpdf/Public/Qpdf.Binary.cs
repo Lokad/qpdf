@@ -15,7 +15,7 @@ public static partial class Qpdf
         QpdfDocument document, string key, QpdfLimits limits, ResourceGovernor governor,
         DiagnosticBag diagnostics, ParserMemoryScope memory, CancellationToken cancellationToken)
     {
-        List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(document.Engine, limits, governor, diagnostics, cancellationToken);
+        List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(document.Engine, limits, governor, diagnostics, memory, cancellationToken);
         foreach (EmbeddedAttachment attachment in found)
         {
             governor.CheckCancellation();

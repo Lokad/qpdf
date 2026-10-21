@@ -174,7 +174,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             governor.AcceptDocument();
             return document;
         }
-        catch { governor.AbandonDocument(); throw; }
+        catch { governor.CompleteStorage(); throw; }
     }
 
     /// <summary>

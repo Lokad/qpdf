@@ -51,7 +51,11 @@ public static partial class Qpdf
                         }
                     }
                     if (plan.ShowPages) { ShowPages(document, plan, limits, governor, diagnostics, cancellationToken); }
-                    if (plan.ListAttachments) { _ = ListAttachments(document, plan.Input, limits, governor, diagnostics, cancellationToken); }
+                    if (plan.ListAttachments)
+                    {
+                        using ParserMemoryScope listingMemory = ParserMemoryScope.Create(governor);
+                        _ = ListAttachments(document, plan.Input, limits, governor, diagnostics, listingMemory, null, cancellationToken);
+                    }
                     if (plan.AttachmentKey is not null)
                     {
                         using ParserMemoryScope attachmentMemory = ParserMemoryScope.Create(governor);

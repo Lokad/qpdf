@@ -30,6 +30,10 @@ links, with cancellation and nesting bounds independent of cycle detection.
 Decoded titles, outline collections and destination indexes receive memory
 admission before allocation. Destination indexes are built only for a nonempty
 requested outline tree; filtered JSON requests avoid this unused work.
+Attachment keys, names, descriptions, dates, checksums and MIME names now receive
+admission before decoding or copying. Large metadata may therefore refuse earlier.
+Listing results retain independent decoded text after their input closes;
+temporary metadata and traversal storage refund on failure or cancellation.
 
 Coalescing, normalization and inline-image interpretation now require unfiltered
 or successfully decoded content. Unsupported/damaged encodings and filter-count

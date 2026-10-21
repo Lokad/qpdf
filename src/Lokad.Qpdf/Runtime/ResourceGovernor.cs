@@ -428,7 +428,7 @@ internal sealed class ResourceGovernor
         DocumentAccepted = true;
     }
 
-    internal void AbandonDocument()
+    internal void CompleteStorage()
     {
         CompletePrivateStorage();
         _sharedMemory?.Complete(Math.Max(0L, LiveMemoryBytes - _hostMemoryBytes));

@@ -27,6 +27,10 @@ Attachment extraction borrows unfiltered or fallback bytes from the open documen
 through output consumption. Filtered input slices are admitted before copying;
 decoded arrays stay in a temporary scope through inspection or transactional
 publication and are refunded on success, cancellation or output failure.
+Attachment metadata uses borrowed PDF bytes and admits decoded strings, checksum
+text and collection growth before materialization. Typed listings transfer only
+their returned text, records and readonly collection to the caller owner after
+input cleanup succeeds; temporary traversal and graph storage refund immediately.
 
 Object stream inspection borrows raw bytes through consumption and checks their
 output size before copying. Filtered and normalized buffers stay admitted through

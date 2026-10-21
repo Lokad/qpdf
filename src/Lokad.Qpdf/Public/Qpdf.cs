@@ -3394,7 +3394,7 @@ public static partial class Qpdf
         SortedDictionary<string, PdfReference> kept = new(StringComparer.Ordinal);
         if (edits.HasEdits)
         {
-            List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(engine, limits, governor, diagnostics, cancellationToken, ownership);
+            List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(engine, limits, governor, diagnostics, ownership, cancellationToken);
             foreach (EmbeddedAttachment attachment in found)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -3555,7 +3555,7 @@ public static partial class Qpdf
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
             await using QpdfDocument source = await QpdfDocument.OpenCore(host, SelectionPlan.CheckedPath(copy.File), limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
-            List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(source.Engine, limits, governor, diagnostics, cancellationToken, ownership);
+            List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(source.Engine, limits, governor, diagnostics, ownership, cancellationToken);
             GraphCopier copyCopier = GraphCopier.CreateOwned(source.Engine, governor, limits, nextId, ownership);
             foreach (EmbeddedAttachment attachment in found)
             {
@@ -3956,7 +3956,8 @@ public static partial class Qpdf
         limits.Validate();
         ResourceGovernor governor = new(limits, cancellationToken, host);
         DiagnosticBag diagnostics = new(governor);
-        return await ListAttachmentsCoreAsync(host, inputPath, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        try { return await ListAttachmentsCoreAsync(host, inputPath, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, true, cancellationToken).ConfigureAwait(false); }
+        finally { governor.CompleteStorage(); }
     }
 
     /// <summary>
@@ -5111,17 +5112,18 @@ public static partial class Qpdf
     }
 
     private static async ValueTask<IReadOnlyList<QpdfAttachmentInfo>> ListAttachmentsCoreAsync(
-        IQpdfHost host,
-        QpdfPath inputPath,
-        QpdfLimits limits,
-        QpdfRecoveryMode recovery,
-        bool emptyDocument,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
-        CancellationToken cancellationToken)
+        IQpdfHost host, QpdfPath inputPath, QpdfLimits limits, QpdfRecoveryMode recovery, bool emptyDocument,
+        ResourceGovernor governor, DiagnosticBag diagnostics, bool returnMetadata, CancellationToken cancellationToken)
     {
-        await using QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
-        return ListAttachments(document, inputPath, limits, governor, diagnostics, cancellationToken);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        using ParserMemoryScope? results = returnMetadata ? ParserMemoryScope.Create(governor) : null;
+        await using QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor,
+            diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
+        IReadOnlyList<QpdfAttachmentInfo> infos = ListAttachments(document, inputPath, limits, governor, diagnostics,
+            memory, results, cancellationToken);
+        await document.DisposeAsync().ConfigureAwait(false);
+        if (results is not null) { results.RetainCallerStorage(results.ReservedBytes); }
+        return infos;
     }
 
     private static QpdfLimits ResolveParserLimits(JobPlan plan, QpdfLimits host, bool hostExplicit)
@@ -5367,7 +5369,7 @@ public static partial class Qpdf
             {
                 if (attachments.List)
                 {
-                    await ListAttachmentsCoreAsync(host, attachments.Input, limits, attachments.Recovery, attachments.EmptyDocument, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                    await ListAttachmentsCoreAsync(host, attachments.Input, limits, attachments.Recovery, attachments.EmptyDocument, governor, diagnostics, false, cancellationToken).ConfigureAwait(false);
                 }
 
                 if (attachments.Key is not null)

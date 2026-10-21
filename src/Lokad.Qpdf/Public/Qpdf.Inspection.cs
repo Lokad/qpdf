@@ -19,22 +19,18 @@ public static partial class Qpdf
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
+        ParserMemoryScope memory,
+        ParserMemoryScope? results,
         CancellationToken cancellationToken)
     {
-        List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(document.Engine, limits, governor, diagnostics, cancellationToken);
-        List<QpdfAttachmentInfo> infos = new(found.Count);
-        foreach (EmbeddedAttachment attachment in found)
-        {
-            infos.Add(new QpdfAttachmentInfo(attachment.Key, attachment.FileName, attachment.Description, attachment.MimeType, attachment.CreationDate, attachment.ModDate, attachment.Checksum, attachment.StreamObjectNumber, attachment.Size));
-        }
-
-        if (infos.Count == 0)
+        List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(document.Engine, limits, governor, diagnostics, memory, cancellationToken);
+        if (found.Count == 0)
         {
             diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, [inputPath.Value, " has no embedded files"]);
-            return infos;
+            return Array.Empty<QpdfAttachmentInfo>();
         }
 
-        foreach (QpdfAttachmentInfo info in infos)
+        foreach (EmbeddedAttachment info in found)
         {
             int generation = 0;
             if (info.StreamObjectNumber >= 0
@@ -81,7 +77,25 @@ public static partial class Qpdf
             }
         }
 
-        return infos;
+        if (results is null) { return Array.Empty<QpdfAttachmentInfo>(); }
+        results.Reserve(checked(48L + IntPtr.Size * (long)found.Count));
+        QpdfAttachmentInfo[] infos = new QpdfAttachmentInfo[found.Count];
+        long textBytes = 0L;
+        for (int i = 0; i < found.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            EmbeddedAttachment info = found[i]; results.Reserve(96L);
+            infos[i] = new(info.Key, info.FileName, info.Description, info.MimeType, info.CreationDate, info.ModDate,
+                info.Checksum, info.StreamObjectNumber, info.Size);
+            textBytes = checked(textBytes + GovernedText.StringBytes(info.Key.Length) + GovernedText.StringBytes(info.FileName.Length)
+                + GovernedText.StringBytes(info.Description.Length) + GovernedText.StringBytes(info.MimeType.Length)
+                + GovernedText.StringBytes(info.CreationDate.Length) + GovernedText.StringBytes(info.ModDate.Length)
+                + GovernedText.StringBytes(info.Checksum.Length));
+        }
+        IReadOnlyList<QpdfAttachmentInfo> view = Array.AsReadOnly(infos);
+        // These decoded strings are independent of the PDF graph and remain alive with the returned records.
+        memory.TransferTo(results, textBytes);
+        return view;
     }
 
     private static void InspectLinearization(
