@@ -12,6 +12,12 @@ Annotation flattening normalizes page rotations modulo 360 before applying
 now produce the same placement as their cardinal angle; public signatures
 are unchanged.
 
+Annotation and rotation flattening fail before publication if computed geometry
+is non-finite. Previously, extreme finite coordinates could publish `NaN` or
+`Infinity` operands while reporting success. Generated integral real coordinates
+outside the 64-bit integer range retain a decimal point for strict readback.
+Ordinary finite formatting and public signatures are unchanged.
+
 JSON text import and export share PDFDocEncoding conversion. Unicode controls
 that occupy repurposed PDF byte slots now use UTF-16 rather than changing into
 accent marks. Ordinary Latin-1 text can use PDFDocEncoding and export as `u:`

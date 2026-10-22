@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
@@ -466,11 +465,8 @@ internal static class FlattenRotation
 
     private static string FormatDouble(double value, ParserMemoryScope memory)
     {
-        if (value > -0.00001 && value < 0.00001) { value = 0.0; }
-        double rounded = Math.Round(value, 5, MidpointRounding.AwayFromZero);
         Span<char> text = stackalloc char[384];
-        if (!rounded.TryFormat(text, out int length, "0.#####", CultureInfo.InvariantCulture))
-        { throw new QpdfParseException("Rotation coordinate exceeds its numeric format.", null, null); }
+        int length = WriterNumber.FormatGeometry(value, text);
         memory.Reserve(GovernedText.StringBytes(length));
         return new string(text[..length]);
     }

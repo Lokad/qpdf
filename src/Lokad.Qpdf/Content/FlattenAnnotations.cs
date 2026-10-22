@@ -615,13 +615,9 @@ internal static class FlattenAnnotations
 
     private static string FormatDouble(double value)
     {
-        if (value > -0.00001 && value < 0.00001)
-        {
-            value = 0.0;
-        }
-
-        double rounded = Math.Round(value, 5, MidpointRounding.AwayFromZero);
-        return rounded.ToString("0.#####", CultureInfo.InvariantCulture);
+        Span<char> text = stackalloc char[384];
+        int length = WriterNumber.FormatGeometry(value, text);
+        return new string(text[..length]);
     }
 
     private static PdfDictionary? ResolveXObjects(PdfDictionary resources, PoolResolver resolver)
