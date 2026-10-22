@@ -71,7 +71,10 @@ uses a two-pass physical layout.
 [IQpdfHost](src/Lokad.Qpdf/Public/IQpdfHost.cs) supplies stable input leases and
 staged output transactions. Paths identify host resources; the library has no
 ambient filesystem, process or network access. The built-in host stores bytes in
-memory. Physical adapters belong to applications or development tools.
+memory, with separate registered-input and published-output stores. Publishing at
+an input path does not change its registration; callers export and register the
+output explicitly to read it as input. Physical adapters belong to applications
+or development tools.
 
 The memory host can borrow a durable memory budget for retained input, staging
 and publication. Replaced input storage stays charged through its last lease;

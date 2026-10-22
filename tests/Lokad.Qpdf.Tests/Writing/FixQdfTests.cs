@@ -299,7 +299,7 @@ public sealed class FixQdfTests
     }
 
     [Fact]
-    public async Task SameInputOutputPathRepairsInPlace()
+    public async Task SameInputOutputPathPublishesRepairedBytesWithoutChangingRegistration()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--qdf", "--pages", ".", "1");
@@ -311,6 +311,11 @@ public sealed class FixQdfTests
         Assert.True(fixHost.TryGetOutput(QpdfPath.From("inputs/a.pdf"), out byte[] repaired));
         byte[] contents = await ReadContentsAsync(repaired);
         Assert.Equal("BT /F1 24 Tf 100 700 Td (HelloHello) Tj ET", Encoding.ASCII.GetString(contents));
+        await using (IQpdfInput original = await fixHost.OpenInputAsync(QpdfPath.From("inputs/a.pdf"), CancellationToken.None))
+        {
+            Assert.Equal(edited, await QpdfInputReader.ReadExactlyAsync(original, 0L, edited.Length, CancellationToken.None));
+        }
+        Assert.Equal(0L, fixHost.OpenLeaseCount);
     }
 
     private static byte[] ReplaceBytes(byte[] input, byte[] needle, byte[] replacement)

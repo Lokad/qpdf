@@ -137,9 +137,9 @@ public sealed class SplitReplaceTests
     }
 
     [Fact]
-    public async Task ReplaceInputOverwritesInPlace()
+    public async Task ReplaceInputPublishesAtInputPathWithoutChangingMemoryHostRegistration()
     {
-        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        using InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
             new QpdfCommandInvocation(["inputs/a.pdf", "--replace-input", "--pages", ".", "2", "--"]),
@@ -147,9 +147,13 @@ public sealed class SplitReplaceTests
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("inputs/a.pdf"), out byte[] published));
-        host.AddInput(QpdfPath.From("inputs/reread.pdf"), published, QpdfInputOwnership.Copy);
+        await using (QpdfDocument original = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), CancellationToken.None))
         {
-            await using QpdfDocument output = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/reread.pdf"), CancellationToken.None);
+            Assert.Equal(2, original.PageCount);
+        }
+        host.AddInput(QpdfPath.From("inputs/a.pdf"), published, QpdfInputOwnership.Copy);
+        await using (QpdfDocument output = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), CancellationToken.None))
+        {
             Assert.Equal(1, output.PageCount);
         }
 

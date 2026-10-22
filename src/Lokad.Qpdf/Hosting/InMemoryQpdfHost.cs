@@ -3,7 +3,13 @@ using Lokad.Qpdf.Runtime;
 namespace Lokad.Qpdf.Hosting;
 
 /// <summary>A host whose registered inputs, staging and published outputs live in memory.</summary>
-/// <remarks>Not safe for concurrent mutation. Close its leases before disposing the host.</remarks>
+/// <remarks>
+/// Registered inputs and published outputs are separate stores, even at the same path.
+/// Publication does not change what <see cref="OpenInputAsync"/> reads. To read a
+/// published output as input, export it with <see cref="TryGetOutput(QpdfPath, out byte[])"/>
+/// and register it with <see cref="AddInput(QpdfPath, byte[], QpdfInputOwnership)"/>.
+/// Not safe for concurrent mutation. Close its leases before disposing the host.
+/// </remarks>
 public sealed partial class InMemoryQpdfHost : IQpdfHost, IQpdfJpegCodecHost, IQpdfMemoryHost, IDisposable
 {
     // Payload owner and approximate dictionary backing capacity, amortized per file.

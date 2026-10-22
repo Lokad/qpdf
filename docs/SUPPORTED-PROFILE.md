@@ -189,7 +189,10 @@ echoing values.
   closes on success, failure, and cancellation.
 - `--split-pages` publishes one file per page group with pruned objects and
   sliced labels (typed callers use `PdfPageMergeOptions.SplitPages`); `--replace-input`
-  overwrites the single input with no backup.
+  publishes at the single input's path with no backup. The host defines physical
+  replacement semantics. `InMemoryQpdfHost` keeps registered inputs and published
+  outputs separate: reopening that path reads the original registration until
+  the caller exports the output with `TryGetOutput` and registers it with `AddInput`.
   Partial split outputs can remain if a later group fails.
 - --overlay and --underlay blocks (--file, --to, --from, --repeat, repeatable with order kept) stamp whole pages from other files as /Fx form XObjects below or above each output page, centered with shrink-to-fit placement that inverts destination rotation and scale. Ranges use the full shared grammar with an empty --from= letting --repeat supply every page. Missing files fail; damaged or unsupported content warns and skips. Applied pages contribute placement-transformed annotation copies, including imported widgets and form fields within the form limitations above. Shared appearance streams transform once within each placement; separate placements stay independent. Empty or entirely skipped annotation imports preserve the destination array, including an absent Annots entry.
 - --flatten-rotation bakes page rotation into content: boxes rotate per the page angle, a counter-transform wraps the content streams, /Rotate is dropped, and annotation rectangles move with the page. Appearance headers are copied per transformed page while payload bytes remain shared; untouched pages retain their original appearances. Direct and indirect appearance-state dictionaries and matrices are equivalent.

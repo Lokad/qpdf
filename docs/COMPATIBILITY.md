@@ -114,6 +114,12 @@ failure does not roll back earlier publications. Typed domain-result calls throw
 on cancellation; execution-result calls return a canceled status. These are documentation corrections,
 with no runtime behavior or public signature changes.
 
+The built-in memory host keeps registered inputs separate from published outputs,
+including `--replace-input` and companion calls with equal input/output paths.
+Reopening reads the existing registration until the caller explicitly exports and
+registers the output. This clarifies existing behavior; public signatures and
+publication/lease semantics are unchanged.
+
 JSON object selectors use one admitted set of numeric object/generation identities
 and trailer membership across typed, argv and job calls. Duplicate selectors no
 longer allocate repeated canonical strings or execution snapshots. Tight memory
