@@ -20,7 +20,7 @@ public sealed class LinearizedCollectionOwnershipTests
     }
 
     private static IDisposable Classify(string route, List<NumberedObject> model,
-        Dictionary<int, QpdfObject> lookup, ParserMemoryScope memory, ResourceGovernor governor,
+        GovernedIntDictionary<QpdfObject> lookup, ParserMemoryScope memory, ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
         return route switch
@@ -49,9 +49,11 @@ public sealed class LinearizedCollectionOwnershipTests
     public void AdmissionFailurePreservesCallerStorageAndCanRetry(string route, long available)
     {
         List<NumberedObject> model = Model(512);
-        Dictionary<int, QpdfObject> lookup = model.ToDictionary(item => item.Number, item => item.Value);
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 2L * 1024L * 1024L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
+        using ParserMemoryScope lookupMemory = ParserMemoryScope.Create(governor);
+        GovernedIntDictionary<QpdfObject> lookup = GovernedIntDictionary<QpdfObject>.Create(lookupMemory, governor, IntPtr.Size, CancellationToken.None);
+        foreach (NumberedObject item in model) { lookup.TryAdd(lookupMemory, item.Number, item.Value); }
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         List<int> prior = ParserContainers.CreateList<int>(memory);
         ParserContainers.AddItem(memory, prior, 17, sizeof(int));
@@ -68,7 +70,6 @@ public sealed class LinearizedCollectionOwnershipTests
         Assert.Equal(priorBytes, memory.ReservedBytes);
         Assert.Equal(new[] { 17, 23 }, prior);
         Assert.InRange(governor.Snapshot().PeakMemoryBytes, baseline, limits.MaxMemoryBytes);
-        if (available == 63L) { }
         governor.ReleaseMemory(filler);
         using (ParserMemoryScope retryMemory = ParserMemoryScope.Create(governor))
         {
@@ -123,8 +124,11 @@ public sealed class LinearizedCollectionOwnershipTests
     public void DisposedWrappersDoNotKeepTheirRetiredCollections(string route)
     {
         List<NumberedObject> model = Model(512);
-        Dictionary<int, QpdfObject> lookup = model.ToDictionary(item => item.Number, item => item.Value);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope lookupMemory = ParserMemoryScope.Create(governor);
+        GovernedIntDictionary<QpdfObject> lookup = GovernedIntDictionary<QpdfObject>.Create(lookupMemory, governor, IntPtr.Size, CancellationToken.None);
+        foreach (NumberedObject item in model) { lookup.TryAdd(lookupMemory, item.Number, item.Value); }
+        long lookupBytes = governor.Snapshot().LiveMemoryBytes;
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         try
         {
@@ -136,7 +140,7 @@ public sealed class LinearizedCollectionOwnershipTests
             memory.Dispose();
             CollectFully();
             Assert.All(collections, item => Assert.False(item.IsAlive));
-            Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+            Assert.Equal(lookupBytes, governor.Snapshot().LiveMemoryBytes);
             Assert.Equal("BT (Hi) Tj ET"u8.ToArray(), ((PdfStream)lookup[4]).Data);
             GC.KeepAlive(result);
             GC.KeepAlive(model);
@@ -147,7 +151,7 @@ public sealed class LinearizedCollectionOwnershipTests
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static (IDisposable Result, WeakReference[] Collections) PreparedCollections(string route,
-        List<NumberedObject> model, Dictionary<int, QpdfObject> lookup, ParserMemoryScope memory, ResourceGovernor governor)
+        List<NumberedObject> model, GovernedIntDictionary<QpdfObject> lookup, ParserMemoryScope memory, ResourceGovernor governor)
     {
         IDisposable result = Classify(route, model, lookup, memory, governor, CancellationToken.None);
         string[] names = ["Part4", "Part6", "Part9", "Pages", "PageUsers", "Renumber", "ContainerMembers", "Members"];
@@ -177,9 +181,12 @@ public sealed class LinearizedCollectionOwnershipTests
     public void ThirtyTwoClassificationsRetireUnderTheOriginalThirtyTwoKiBCeiling(string route)
     {
         List<NumberedObject> model = Model(64);
-        Dictionary<int, QpdfObject> lookup = model.ToDictionary(item => item.Number, item => item.Value);
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 32L * 1024L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
+        using ParserMemoryScope lookupMemory = ParserMemoryScope.Create(governor);
+        GovernedIntDictionary<QpdfObject> lookup = GovernedIntDictionary<QpdfObject>.Create(lookupMemory, governor, IntPtr.Size, CancellationToken.None);
+        foreach (NumberedObject item in model) { lookup.TryAdd(lookupMemory, item.Number, item.Value); }
+        long lookupBytes = governor.Snapshot().LiveMemoryBytes;
         for (int cycle = 0; cycle < 32; cycle++)
         {
             using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
@@ -187,7 +194,7 @@ public sealed class LinearizedCollectionOwnershipTests
                 using IDisposable result = Classify(route, model, lookup, memory, governor, CancellationToken.None);
                 Assert.True(memory.ReservedBytes > 64L * sizeof(int));
             }
-            Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+            Assert.Equal(lookupBytes, governor.Snapshot().LiveMemoryBytes);
         }
         Assert.InRange(governor.Snapshot().PeakMemoryBytes, 1L, limits.MaxMemoryBytes);
         Assert.Equal("BT (Hi) Tj ET"u8.ToArray(), ((PdfStream)lookup[4]).Data);
@@ -200,14 +207,17 @@ public sealed class LinearizedCollectionOwnershipTests
     public void ForeignGovernorRejectsBeforeConsumingEitherBudget(string route)
     {
         List<NumberedObject> model = Model(0);
-        Dictionary<int, QpdfObject> lookup = model.ToDictionary(item => item.Number, item => item.Value);
         ResourceGovernor owner = new(QpdfLimits.Default, CancellationToken.None);
         ResourceGovernor foreign = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope lookupMemory = ParserMemoryScope.Create(owner);
+        GovernedIntDictionary<QpdfObject> lookup = GovernedIntDictionary<QpdfObject>.Create(lookupMemory, owner, IntPtr.Size, CancellationToken.None);
+        foreach (NumberedObject item in model) { lookup.TryAdd(lookupMemory, item.Number, item.Value); }
+        long lookupBytes = owner.Snapshot().LiveMemoryBytes;
         using ParserMemoryScope memory = ParserMemoryScope.Create(owner);
         memory.Reserve(97L);
         Assert.Throws<InvalidOperationException>(() => Classify(route, model, lookup, memory, foreign, CancellationToken.None));
         Assert.Equal(97L, memory.ReservedBytes);
-        Assert.Equal(161L, owner.Snapshot().LiveMemoryBytes);
+        Assert.Equal(lookupBytes + 161L, owner.Snapshot().LiveMemoryBytes);
         Assert.Equal(0L, foreign.Snapshot().LiveMemoryBytes);
     }
 

@@ -379,45 +379,6 @@ internal sealed class LinearizedParts : IDisposable
     }
 
     // Copy only the borrowed index. Its PDF values keep their existing owners.
-    internal static ClassifiedGraph ClassifyGraph(Dictionary<int, QpdfObject> lookup, int catalogNumber,
-        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(lookup);
-        memory.CheckOwner(governor);
-        cancellationToken.ThrowIfCancellationRequested();
-        using ParserMemoryScope temporary = ParserMemoryScope.Create(governor);
-        GovernedIntDictionary<QpdfObject> indexed = CopyIndex(lookup, temporary, governor, IntPtr.Size, cancellationToken);
-        return ClassifyGraph(indexed, catalogNumber, memory, governor, cancellationToken);
-    }
-
-    internal static ClassifiedGraph ClassifyGraph(Dictionary<int, QpdfObject> lookup, int catalogNumber,
-        Dictionary<int, int> owners, IReadOnlyList<int> extraIds, ParserMemoryScope memory,
-        ResourceGovernor governor, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(lookup);
-        ArgumentNullException.ThrowIfNull(owners);
-        ArgumentNullException.ThrowIfNull(extraIds);
-        memory.CheckOwner(governor);
-        cancellationToken.ThrowIfCancellationRequested();
-        using ParserMemoryScope temporary = ParserMemoryScope.Create(governor);
-        GovernedIntDictionary<QpdfObject> indexed = CopyIndex(lookup, temporary, governor, IntPtr.Size, cancellationToken);
-        GovernedIntDictionary<int> indexedOwners = CopyIndex(owners, temporary, governor, sizeof(int), cancellationToken);
-        return ClassifyGraph(indexed, catalogNumber, indexedOwners, extraIds, memory, governor, cancellationToken);
-    }
-
-    private static GovernedIntDictionary<T> CopyIndex<T>(Dictionary<int, T> source, ParserMemoryScope memory,
-        ResourceGovernor governor, long valueBytes, CancellationToken cancellationToken)
-    {
-        GovernedIntDictionary<T> result = GovernedIntDictionary<T>.Create(memory, governor, valueBytes, cancellationToken);
-        foreach (KeyValuePair<int, T> entry in source)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            result.TryAdd(memory, entry.Key, entry.Value);
-        }
-        return result;
-    }
-
     internal static ClassifiedGraph ClassifyGraph(
         GovernedIntDictionary<QpdfObject> lookup,
         int catalogNumber,

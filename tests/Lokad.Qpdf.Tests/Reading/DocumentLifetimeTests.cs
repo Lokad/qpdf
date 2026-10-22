@@ -397,7 +397,7 @@ public sealed class DocumentLifetimeTests
             : mode == "memory" ? QpdfLimits.Default with { MaxMemoryBytes = 128L } : QpdfLimits.Default;
         ResourceGovernor governor = new(limits, cancellation.Token);
         Task<QpdfDocument> opening = QpdfDocument.OpenEmptyDocument(QpdfPath.From("empty"), limits, governor,
-            new DiagnosticBag(governor), QpdfRecoveryMode.Strict, cancellation.Token).AsTask();
+            new DiagnosticBag(governor), QpdfRecoveryMode.Strict, cancellation.Token, true).AsTask();
         if (mode == "cancel") { await Assert.ThrowsAnyAsync<OperationCanceledException>(() => opening); }
         else
         {

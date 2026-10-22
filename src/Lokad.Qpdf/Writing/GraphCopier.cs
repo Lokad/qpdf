@@ -183,9 +183,6 @@ internal sealed class GraphCopier
     /// reference (shared streams and dictionaries stay), and it clears stale
     /// source mappings so a later copy re-materializes instead of dangling.
     /// </summary>
-    internal void DropPoolObjectsIfUnreferenced(IReadOnlyList<int> candidates)
-        => DropPoolObjectsIfUnreferenced(candidates, _governor.CancellationToken);
-
     internal void DropPoolObjectsIfUnreferenced(IReadOnlyList<int> candidates, CancellationToken cancellationToken)
     {
         using OrphanRemovalPlan plan = OrphanRemovalPlan.Create(candidates, _copied, _mapping, _governor, cancellationToken);

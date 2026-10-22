@@ -355,7 +355,7 @@ internal static class JobJsonParser
 
                         seenCollate = true;
                         collate = RequireString(property.Value, "collate", textStorage);
-                        collationSizes = ArgvParser.ParseCollateValue(collate, 0L, textStorage.Collation);
+                        collationSizes = ArgvParser.ParseCollateValue(collate, 0L, textStorage.Collation ?? throw new InvalidOperationException("Missing collation owner."));
                         break;
                     case "rotate":
                         if (seenRotate && !configurationLayers)

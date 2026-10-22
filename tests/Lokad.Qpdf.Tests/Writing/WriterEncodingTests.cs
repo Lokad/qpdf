@@ -90,7 +90,7 @@ public sealed class WriterEncodingTests
         await serializer.AppendValueAsync(value, sink, 0, true, CancellationToken.None);
         string expected = stream ? "<</Z null /A [true] /Length 3 >>\nstream\nabc\nendstream"
             : "<</Z null /A [true] /Length 999 >>";
-        Assert.Equal(expected, Encoding.ASCII.GetString(sink.ToArray(memory, CancellationToken.None)));
+        Assert.Equal(expected, Encoding.ASCII.GetString(sink.WrittenMemory.Span));
         CountingSink counter = new();
         await serializer.AppendValueAsync(value, counter, 0, true, CancellationToken.None);
         Assert.Equal(expected.Length, counter.Length);
@@ -112,7 +112,7 @@ public sealed class WriterEncodingTests
         await serializer.AppendValueAsync(value, sink, 0, false, CancellationToken.None);
         const string expected = """[/A#23#20#2F#FF (\(\)\\\n\000\377) <00FF>]""";
         Assert.Equal(expected.Length, counter.Length);
-        Assert.Equal(expected, Encoding.ASCII.GetString(sink.ToArray(memory, CancellationToken.None)));
+        Assert.Equal(expected, Encoding.ASCII.GetString(sink.WrittenMemory.Span));
     }
 
     private static object Source(string kind, int size)

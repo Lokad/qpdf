@@ -216,15 +216,6 @@ public sealed class QpdfDocument : IAsyncDisposable
         }
     }
 
-    internal static ValueTask<QpdfDocument> OpenEmptyDocument(
-        QpdfPath path,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
-        QpdfRecoveryMode recovery,
-        CancellationToken cancellationToken)
-        => OpenEmptyDocument(path, limits, governor, diagnostics, recovery, cancellationToken, true);
-
     internal static async ValueTask<QpdfDocument> OpenEmptyDocument(
         QpdfPath path,
         QpdfLimits limits,

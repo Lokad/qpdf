@@ -13,9 +13,6 @@ namespace Lokad.Qpdf.Commands;
 /// </summary>
 internal sealed record OutputRotation(PdfRotationMode Mode, int Angle, string? Range)
 {
-    internal static OutputRotation Parse(string specification, long offset)
-        => Parse(specification, offset, null);
-
     internal static OutputRotation Parse(string specification, long offset, ConfigurationText? textStorage)
     {
         if (specification is null)

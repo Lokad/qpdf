@@ -10,9 +10,6 @@ namespace Lokad.Qpdf.Commands;
 /// </summary>
 internal sealed record PageLabelSpec(string FirstPage, PdfPageLabelStyle? Style, int? Start, string? Prefix)
 {
-    internal static PageLabelSpec Parse(string specification, long offset)
-        => Parse(specification, offset, null);
-
     internal static PageLabelSpec Parse(string specification, long offset, ConfigurationText? textStorage)
     {
         if (specification is null)

@@ -34,7 +34,7 @@ public sealed class InlineResourceGovernanceTests
     private static WeakReference Capture(ResourceGovernor governor, PdfDictionary resources, PdfDictionary colors, PdfByteString borrowed)
     {
         int suffix = 1; PoolResolver resolver = new(new Dictionary<int, QpdfObject> { [17] = colors });
-        InlineImageEntry image = InlineImageStorage.Create("/W 1 /H 1 /CS /Local"u8.ToArray(), "a"u8.ToArray(),
+        InlineImageEntry image = InlineImageStorage.CreateWithResources("/W 1 /H 1 /CS /Local"u8.ToArray(), "a"u8.ToArray(),
             0L, 0L, resources, ref suffix, QpdfLimits.Default, governor, new(governor), resolver, CancellationToken.None) ?? throw new InvalidOperationException();
         Assert.Equal(PdfName.FromAscii("IIm2"), image.Name);
         Assert.True(image.Stream.Dictionary.TryGet(PdfName.FromAscii("ColorSpace"), out QpdfObject? color)); Assert.Same(borrowed, color);

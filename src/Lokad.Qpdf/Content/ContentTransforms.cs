@@ -837,27 +837,6 @@ internal static class ContentTransforms
         return output.ToArray(memory, cancellationToken);
     }
 
-    private static bool IsHexDigit(byte b)
-    {
-        return (b >= (byte)'0' && b <= (byte)'9') || (b >= (byte)'a' && b <= (byte)'f')
-            || (b >= (byte)'A' && b <= (byte)'F');
-    }
-
-    private static int HexValue(byte b)
-    {
-        if (b >= (byte)'0' && b <= (byte)'9')
-        {
-            return b - (byte)'0';
-        }
-
-        if (b >= (byte)'a' && b <= (byte)'f')
-        {
-            return b - (byte)'a' + 10;
-        }
-
-        return b - (byte)'A' + 10;
-    }
-
     private static QpdfObject? ResolvePool(PoolResolver resolver, PdfReference reference,
         ResourceGovernor governor, CancellationToken cancellationToken)
     {

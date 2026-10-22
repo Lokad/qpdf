@@ -32,6 +32,10 @@ Every graph copier uses an explicit construction owner and the same admitted
 map and name-table storage. Tests use this production path; there is no unowned
 copier mode. Form-resource traversal tracks graph identities, with indirect
 form guards independent of resource-scope visits.
+Argv parsing and range expansion require their execution governor and construction
+owners. Linearization and inline-image tests exercise the same governed indexes
+and allocation batches as production; no unowned parser or dictionary adapters
+provide alternate execution modes.
 
 One resource governor spans configuration loading, reading, transformation,
 serialization and publication. Results capture diagnostics and counters after

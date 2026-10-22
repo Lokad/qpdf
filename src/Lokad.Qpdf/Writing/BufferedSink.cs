@@ -54,11 +54,6 @@ internal sealed class BufferedSink : ISynchronousByteSink, IDisposable
     public ValueTask AppendAsync(ReadOnlyMemory<byte> chunk, CancellationToken cancellationToken)
         => Buffer.WriteAsync(chunk, cancellationToken);
 
-    internal byte[] ToArray(ParserMemoryScope memory, CancellationToken cancellationToken)
-        => Buffer.ToArray(memory, cancellationToken);
-
-    internal void ResetWrittenBytes() => Buffer.ResetWrittenBytes();
-
     internal void TruncateWrittenBytes(int length) => Buffer.TruncateWrittenBytes(length);
 
     public void Dispose()

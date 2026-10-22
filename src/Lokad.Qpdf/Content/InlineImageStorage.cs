@@ -12,11 +12,6 @@ internal readonly record struct InlineImageEntry(PdfName Name, PdfStream Stream)
 /// <summary>Constructs image candidates through the shared parser and allocation handoff.</summary>
 internal static class InlineImageStorage
 {
-    internal static InlineImageEntry? Create(ReadOnlyMemory<byte> dictionaryBytes, ReadOnlyMemory<byte> imageBytes,
-        long minimum, long offset, PdfDictionary? resources, ref int suffix, QpdfLimits limits,
-        ResourceGovernor governor, DiagnosticBag diagnostics, PoolResolver resolver, CancellationToken token)
-        => CreateWithResources(dictionaryBytes, imageBytes, minimum, offset, resources, ref suffix, limits, governor, diagnostics, resolver, token);
-
     internal static InlineImageEntry? CreateWithResources(ReadOnlyMemory<byte> dictionaryBytes, ReadOnlyMemory<byte> imageBytes,
         long minimum, long offset, QpdfObject? resources, ref int suffix, QpdfLimits limits,
         ResourceGovernor governor, DiagnosticBag diagnostics, PoolResolver resolver, CancellationToken token)

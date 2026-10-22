@@ -316,7 +316,8 @@ public sealed class PagesBlockGrammarTests
     [InlineData("--global")]
     public void OtherBlockContentsCannotOpenPagesContext(string block)
     {
-        PagesArgumentBlock.Validate([block, "--pages", "--deterministic-id", "--", "inputs/a.pdf"], null);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        PagesArgumentBlock.Validate([block, "--pages", "--deterministic-id", "--", "inputs/a.pdf"], governor);
     }
 
     private static async Task<InMemoryQpdfHost> Host()

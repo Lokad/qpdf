@@ -38,13 +38,11 @@ internal static class PageRanges
         Parse(range);
     }
 
-    internal static IReadOnlyList<int> Expand(string? range, int total, long maxEntries)
-        => Expand(range, total, maxEntries, null, null);
-
     internal static IReadOnlyList<int> Expand(string? range, int total, long maxEntries,
-        ResourceGovernor? governor, ParserMemoryScope? memory)
+        ResourceGovernor governor, ParserMemoryScope memory)
     {
-        if (total == 0 && governor is not null && string.IsNullOrEmpty(range)) { return []; }
+        memory.CheckOwner(governor); governor.CheckCancellation();
+        if (total == 0 && string.IsNullOrEmpty(range)) { return []; }
         if (total < 1)
         {
             throw new ArgumentOutOfRangeException(nameof(total), "Page counts are 1-based and must be positive.");
@@ -62,7 +60,7 @@ internal static class PageRanges
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), (long)total, maxEntries);
             }
 
-            List<int> all = CreateMembers(memory, total);
+            List<int> all = ParserContainers.CreateList<int>(memory);
             for (int page = 1; page <= total; page++)
             {
                 AddMember(all, page, governor, memory);
@@ -78,10 +76,10 @@ internal static class PageRanges
 
         // Range text is capped at 4096 characters. This envelope covers its
         // bounded lexical strings, split array and endpoint/group records.
-        memory?.Reserve(checked(256L + 128L * range.Length));
-        governor?.NoteOperation();
+        memory.Reserve(checked(256L + 128L * range.Length));
+        governor.NoteOperation();
         (List<Group> groups, bool oddOnly, bool evenOnly) = Parse(range);
-        List<int> selected = CreateMembers(memory, 0);
+        List<int> selected = ParserContainers.CreateList<int>(memory);
         foreach (Group group in groups)
         {
             List<int> members = ExpandGroup(group, range, total, maxEntries, selected.Count, governor, memory);
@@ -100,21 +98,16 @@ internal static class PageRanges
                 continue;
             }
 
-            HashSet<int> excluded;
-            if (memory is null) { excluded = new(members); }
-            else
+            HashSet<int> excluded = ParserContainers.CreateSet<int>(memory);
+            foreach (int member in members)
             {
-                excluded = ParserContainers.CreateSet<int>(memory);
-                foreach (int member in members)
-                {
-                    governor?.NoteOperation();
-                    ParserContainers.AddSetItem(memory, excluded, member, sizeof(int));
-                }
+                governor.NoteOperation();
+                ParserContainers.AddSetItem(memory, excluded, member, sizeof(int));
             }
             int kept = 0;
             for (int i = 0; i < selected.Count; i++)
             {
-                governor?.NoteOperation();
+                governor.NoteOperation();
                 if (excluded.Contains(selected[i]))
                 {
                     continue;
@@ -132,10 +125,10 @@ internal static class PageRanges
             return selected;
         }
 
-        List<int> filtered = CreateMembers(memory, selected.Count);
+        List<int> filtered = ParserContainers.CreateList<int>(memory);
         for (int i = 0; i < selected.Count; i++)
         {
-            governor?.NoteOperation();
+            governor.NoteOperation();
             bool oddPosition = (i % 2) == 0;
             if (oddPosition == oddOnly)
             {
@@ -275,23 +268,19 @@ internal static class PageRanges
         return new Endpoint(relative, value);
     }
 
-    private static List<int> CreateMembers(ParserMemoryScope? memory, int capacity)
-        => memory is null ? new(capacity) : ParserContainers.CreateList<int>(memory);
-
-    private static void AddMember(List<int> items, int value, ResourceGovernor? governor, ParserMemoryScope? memory)
+    private static void AddMember(List<int> items, int value, ResourceGovernor governor, ParserMemoryScope memory)
     {
-        governor?.NoteOperation();
-        if (memory is null) { items.Add(value); }
-        else { ParserContainers.AddItem(memory, items, value, sizeof(int)); }
+        governor.NoteOperation();
+        ParserContainers.AddItem(memory, items, value, sizeof(int));
     }
 
     private static List<int> ExpandGroup(Group group, string range, int total, long maxEntries, int selectedCount,
-        ResourceGovernor? governor, ParserMemoryScope? memory)
+        ResourceGovernor governor, ParserMemoryScope memory)
     {
         int first = ResolveEndpoint(group.First, range, total);
         if (group.Last is null)
         {
-            List<int> single = CreateMembers(memory, 1);
+            List<int> single = ParserContainers.CreateList<int>(memory);
             AddMember(single, first, governor, memory);
             return single;
         }
@@ -315,7 +304,7 @@ internal static class PageRanges
             throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), span, maxEntries);
         }
 
-        List<int> members = CreateMembers(memory, (int)span);
+        List<int> members = ParserContainers.CreateList<int>(memory);
         if (first <= last)
         {
             for (int page = first; page <= last; page++)

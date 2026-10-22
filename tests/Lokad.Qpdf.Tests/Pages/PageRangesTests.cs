@@ -1,4 +1,5 @@
 using Lokad.Qpdf.Pages;
+using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Tests.Pages;
 
@@ -6,8 +7,18 @@ public sealed class PageRangesTests
 {
     private static void Matches(int total, string? range, int[] expected)
     {
-        IReadOnlyList<int> actual = PageRanges.Expand(range, total, long.MaxValue);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        IReadOnlyList<int> actual = PageRanges.Expand(range, total, long.MaxValue, governor, memory);
         Assert.Equal(expected, actual);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void EmptyDocumentAndAllPagesRangeSelectNothing(string? range)
+    {
+        Matches(0, range, []);
     }
 
     [Fact]
@@ -98,7 +109,9 @@ public sealed class PageRangesTests
     [InlineData("99999999999999999999")]
     public void OracleProbedRejectionsFail(string range)
     {
-        Assert.Throws<QpdfParseException>(() => PageRanges.Expand(range, 6, long.MaxValue));
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        Assert.Throws<QpdfParseException>(() => PageRanges.Expand(range, 6, long.MaxValue, governor, memory));
     }
 
     [Theory]
@@ -109,38 +122,50 @@ public sealed class PageRangesTests
     [InlineData("4-10,x7-9")]
     public void OutOfRangeEndpointsFailCleanly(string range)
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => PageRanges.Expand(range, 6, long.MaxValue));
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        Assert.Throws<ArgumentOutOfRangeException>(() => PageRanges.Expand(range, 6, long.MaxValue, governor, memory));
     }
 
     [Fact]
     public void ExcludedEndpointsStillValidate()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => PageRanges.Expand("4-10,x7-9", 6, long.MaxValue));
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        Assert.Throws<ArgumentOutOfRangeException>(() => PageRanges.Expand("4-10,x7-9", 6, long.MaxValue, governor, memory));
     }
 
     [Fact]
     public void ZeroTotalFails()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => PageRanges.Expand("1", 0, long.MaxValue));
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        Assert.Throws<ArgumentOutOfRangeException>(() => PageRanges.Expand("1", 0, long.MaxValue, governor, memory));
     }
 
     [Fact]
     public void OversizedTextFailsBeforeAllocating()
     {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         string range = new string('1', PageRanges.MaxRangeTextLength + 1);
-        Assert.Throws<QpdfParseException>(() => PageRanges.Expand(range, 6, long.MaxValue));
+        Assert.Throws<QpdfParseException>(() => PageRanges.Expand(range, 6, long.MaxValue, governor, memory));
     }
 
     [Fact]
     public void ExpansionHonorsTheEntryBudget()
     {
-        Assert.Throws<QpdfLimitException>(() => PageRanges.Expand("1-6", 6, 5L));
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        Assert.Throws<QpdfLimitException>(() => PageRanges.Expand("1-6", 6, 5L, governor, memory));
         Matches(6, "1-6", [1, 2, 3, 4, 5, 6]);
     }
     [Fact]
     public void EntireSelectionHonorsTheEntryBudget()
     {
-        Assert.Throws<QpdfLimitException>(() => PageRanges.Expand(null, 10000, 1L));
-        Assert.Throws<QpdfLimitException>(() => PageRanges.Expand("", 10000, 1L));
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        Assert.Throws<QpdfLimitException>(() => PageRanges.Expand(null, 10000, 1L, governor, memory));
+        Assert.Throws<QpdfLimitException>(() => PageRanges.Expand("", 10000, 1L, governor, memory));
     }
 }

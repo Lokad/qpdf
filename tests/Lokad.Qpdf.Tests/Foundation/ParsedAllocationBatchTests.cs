@@ -37,7 +37,7 @@ public sealed class ParsedAllocationBatchTests
         PdfDictionary spaces=new(new Dictionary<PdfName,QpdfObject>{[PdfName.FromAscii("Named")]=borrowed});
         PdfDictionary resources=new(new Dictionary<PdfName,QpdfObject>{[PdfName.FromAscii("ColorSpace")]=spaces});
         int suffix=1;
-        Lokad.Qpdf.Content.InlineImageEntry image=Lokad.Qpdf.Content.InlineImageStorage.Create("/CS /Named /W 1"u8.ToArray(),"abc"u8.ToArray(),0L,0L,resources,ref suffix,QpdfLimits.Default,governor,new(governor),new(new Dictionary<int,QpdfObject>()),CancellationToken.None)??throw new InvalidOperationException();
+        Lokad.Qpdf.Content.InlineImageEntry image=Lokad.Qpdf.Content.InlineImageStorage.CreateWithResources("/CS /Named /W 1"u8.ToArray(),"abc"u8.ToArray(),0L,0L,resources,ref suffix,QpdfLimits.Default,governor,new(governor),new(new Dictionary<int,QpdfObject>()),CancellationToken.None)??throw new InvalidOperationException();
         Assert.True(image.Stream.Dictionary.TryGet(PdfName.FromAscii("ColorSpace"),out QpdfObject? found));Assert.Same(borrowed,found);
         Assert.True(governor.Snapshot().PeakMemoryBytes<16384L);GC.KeepAlive(image);GC.KeepAlive(resources);
     }

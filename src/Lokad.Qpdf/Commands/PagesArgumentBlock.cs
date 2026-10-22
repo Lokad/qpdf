@@ -5,7 +5,7 @@ namespace Lokad.Qpdf.Commands;
 /// <summary>Preserves pages context before main options are extracted.</summary>
 internal static class PagesArgumentBlock
 {
-    internal static void Validate(IReadOnlyList<string> argv, ResourceGovernor? governor)
+    internal static void Validate(IReadOnlyList<string> argv, ResourceGovernor governor)
     {
         for (int index = 0; index < argv.Count; index++)
         {
@@ -29,7 +29,7 @@ internal static class PagesArgumentBlock
         }
     }
 
-    internal static int FindEnd(IReadOnlyList<string> argv, int pagesAt, ResourceGovernor? governor)
+    internal static int FindEnd(IReadOnlyList<string> argv, int pagesAt, ResourceGovernor governor)
     {
         for (int index = pagesAt + 1; index < argv.Count; index++)
         {
@@ -58,9 +58,9 @@ internal static class PagesArgumentBlock
             $"Unrecognized argument {token} (pages options must be terminated with --).", index, null);
     }
 
-    private static void Visit(ResourceGovernor? governor)
+    private static void Visit(ResourceGovernor governor)
     {
-        governor?.CheckCancellation();
-        governor?.NoteOperation();
+        governor.CheckCancellation();
+        governor.NoteOperation();
     }
 }

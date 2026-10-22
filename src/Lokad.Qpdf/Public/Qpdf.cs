@@ -3192,20 +3192,6 @@ public static partial class Qpdf
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
-        CancellationToken cancellationToken)
-        => TransformCopierStreams(copier, engine, compress, decode, recompressFlate, level,
-            limits, governor, diagnostics, cancellationToken, null);
-
-    private static void TransformCopierStreams(
-        GraphCopier copier,
-        DocumentEngine engine,
-        bool compress,
-        string decode,
-        bool recompressFlate,
-        int? level,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
         CancellationToken cancellationToken,
         PdfReference? metadata)
     {
@@ -4626,9 +4612,6 @@ public static partial class Qpdf
             }
         }
     }
-
-    internal static List<string> ValidateJsonObjects(IReadOnlyList<string> objects, long index)
-        => ValidateJsonObjects(objects, index, null);
 
     internal static List<string> ValidateJsonObjects(IReadOnlyList<string> objects, long index, ConfigurationText? textStorage)
     {

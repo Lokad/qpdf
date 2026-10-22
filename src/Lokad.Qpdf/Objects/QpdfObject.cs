@@ -362,25 +362,6 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
 
     internal static int WriteDisplayByte(byte value, Span<char> target) => PdfNameDisplay.WriteByte(value, target);
 
-    private static int HexValue(byte b)
-    {
-        if (b >= (byte)'0' && b <= (byte)'9')
-        {
-            return b - (byte)'0';
-        }
-
-        if (b >= (byte)'A' && b <= (byte)'F')
-        {
-            return b - (byte)'A' + 10;
-        }
-
-        if (b >= (byte)'a' && b <= (byte)'f')
-        {
-            return b - (byte)'a' + 10;
-        }
-
-        return -1;
-    }
 }
 
 /// <summary>

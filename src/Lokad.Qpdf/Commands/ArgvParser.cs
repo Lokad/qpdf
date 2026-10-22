@@ -24,10 +24,7 @@ internal static class ArgvParser
         "decrypt", "copy-encryption",
     };
 
-    internal static JobPlan Parse(IReadOnlyList<string> argv)
-        => Parse(argv, null);
-
-    internal static JobPlan Parse(IReadOnlyList<string> argv, Runtime.ResourceGovernor? governor)
+    internal static JobPlan Parse(IReadOnlyList<string> argv, Runtime.ResourceGovernor governor)
     {
         if (argv is null)
         {
@@ -39,15 +36,15 @@ internal static class ArgvParser
             throw new QpdfParseException("No command arguments were supplied.", 0L, null);
         }
 
-        using ConfigurationText? textStorage = governor is null ? null : ConfigurationText.Create(governor);
-        CollationPreparation? collationStorage = governor is null ? null : CollationPreparation.Create(governor);
-        if (textStorage is not null) { textStorage.Collation = collationStorage; }
+        using ConfigurationText textStorage = ConfigurationText.Create(governor);
+        CollationPreparation collationStorage = CollationPreparation.Create(governor);
+        textStorage.Collation = collationStorage;
         try
         {
             argv = ConfigurationText.Wrap(argv, textStorage);
             RejectCryptoOptions(argv, governor);
             PagesArgumentBlock.Validate(argv, governor);
-            using ArgumentFiltering? filtering = governor is null ? null : ArgumentFiltering.Create(governor);
+            using ArgumentFiltering filtering = ArgumentFiltering.Create(governor);
             argv = StripGlobalBlocks(argv, filtering);
             GlobalOptions globals = ExtractGlobalOptions(ref argv, filtering);
             JobPlan plan = ParseCore(argv, globals) with
@@ -61,18 +58,18 @@ internal static class ArgvParser
                 NoDefaultLimits = globals.NoDefaultLimits,
                 CollationStorage = collationStorage,
             };
-            textStorage?.RetainForExecution();
+            textStorage.RetainForExecution();
             return plan;
         }
-        catch { collationStorage?.Dispose(); throw; }
+        catch { collationStorage.Dispose(); throw; }
     }
 
-    internal static void RejectCryptoOptions(IReadOnlyList<string> argv, Runtime.ResourceGovernor? governor)
+    internal static void RejectCryptoOptions(IReadOnlyList<string> argv, Runtime.ResourceGovernor governor)
     {
         foreach (string token in argv)
         {
-            governor?.CheckCancellation();
-            governor?.NoteOperation();
+            governor.CheckCancellation();
+            governor.NoteOperation();
             if (token is not null && token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2
                 && IsCryptoOption(OptionName(token)))
             {
@@ -1258,7 +1255,7 @@ internal static class ArgvParser
         internal required long? ParserMaxErrors { get; init; }
 
         internal byte CompressionState { get; init; }
-        internal CollationPreparation? CollationStorage { get; init; }
+        internal required CollationPreparation CollationStorage { get; init; }
     }
 
     private static bool IsGlobalOptionToken(string token)
@@ -1280,13 +1277,13 @@ internal static class ArgvParser
             || token == "--max-stream-filters";
     }
 
-    private static IReadOnlyList<string> StripGlobalBlocks(IReadOnlyList<string> argv, ArgumentFiltering? filtering)
+    private static IReadOnlyList<string> StripGlobalBlocks(IReadOnlyList<string> argv, ArgumentFiltering filtering)
     {
         List<int>? remove = null;
         int i = 0;
         while (i < argv.Count)
         {
-            filtering?.Visit();
+            filtering.Visit();
             if (argv[i] != "--global")
             {
                 i += 1;
@@ -1298,7 +1295,7 @@ internal static class ArgvParser
             bool closed = false;
             while (i < argv.Count)
             {
-                filtering?.Visit();
+                filtering.Visit();
                 string token = argv[i];
                 if (token == "--")
                 {
@@ -1319,9 +1316,8 @@ internal static class ArgvParser
                 throw new QpdfParseException("Missing -- terminator after --global.", openAt, null);
             }
 
-            remove ??= filtering is null ? new List<int>() : filtering.CreateMarkers();
-            if (filtering is null) { remove.Add(openAt); remove.Add(i); }
-            else { filtering.Add(remove, openAt); filtering.Add(remove, i); }
+            remove ??= filtering.CreateMarkers();
+            filtering.Add(remove, openAt); filtering.Add(remove, i);
             i += 1;
         }
 
@@ -1330,23 +1326,23 @@ internal static class ArgvParser
             return argv;
         }
 
-        List<string> kept = filtering is null ? new(argv.Count - remove.Count) : filtering.CreateStripped();
+        List<string> kept = filtering.CreateStripped();
         int next = 0;
         for (int j = 0; j < argv.Count; j++)
         {
-            filtering?.Visit();
+            filtering.Visit();
             // Markers were appended in source order. Walk them once instead
             // of scanning the entire marker vector for every argument.
             if (next < remove.Count && remove[next] == j) { next++; continue; }
-            if (filtering is null) { kept.Add(argv[j]); } else { filtering.Add(kept, argv[j]); }
+            filtering.Add(kept, argv[j]);
         }
 
         return ConfigurationText.Preserve(argv, kept);
     }
 
-    private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv, ArgumentFiltering? filtering)
+    private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv, ArgumentFiltering filtering)
     {
-        List<string> kept = filtering is null ? new(argv.Count) : filtering.CreateKept();
+        List<string> kept = filtering.CreateKept();
         QpdfRecoveryMode recovery = QpdfRecoveryMode.BoundedRepair;
         bool warningExitZero = false;
         bool noWarn = false;
@@ -1461,7 +1457,7 @@ internal static class ArgvParser
         {
             for (int t = mainPagesAt + 1; t < argv.Count; t++)
             {
-                filtering?.Visit();
+                filtering.Visit();
                 if (argv[t] == "--")
                 {
                     mainPagesEnd = t;
@@ -1472,7 +1468,7 @@ internal static class ArgvParser
 
         for (int i = 0; i < argv.Count; i++)
         {
-            filtering?.Visit();
+            filtering.Visit();
             if (argv[i] == "--suppress-recovery")
             {
                 if (seenSuppress)
@@ -1541,10 +1537,10 @@ internal static class ArgvParser
                     collateValue = argv[i].AsSpan("--collate=".Length);
                 }
 
-                CollationPreparation? owner = ConfigurationText.OwnerOf(argv)?.Collation;
+                CollationPreparation owner = ConfigurationText.OwnerOf(argv)?.Collation
+                    ?? throw new InvalidOperationException("Missing collation owner.");
                 List<int> parsed = ParseCollateValue(collateValue, i, owner);
-                if (owner is null) { collate.AddRange(parsed); }
-                else { owner.Append(collate, parsed); }
+                owner.Append(collate, parsed);
                 continue;
             }
 
@@ -2280,7 +2276,7 @@ internal static class ArgvParser
                 continue;
             }
 
-            if (filtering is null) { kept.Add(argv[i]); } else { filtering.Add(kept, argv[i]); }
+            filtering.Add(kept, argv[i]);
         }
 
         argv = ConfigurationText.Preserve(argv, kept);
@@ -2346,7 +2342,7 @@ internal static class ArgvParser
             ParserMaxErrors = parserMaxErrors,
 
             CompressionState = compressionSettings.State,
-            CollationStorage = ConfigurationText.OwnerOf(argv)?.Collation,
+            CollationStorage = ConfigurationText.OwnerOf(argv)?.Collation ?? throw new InvalidOperationException("Missing collation owner."),
         };
     }
 
@@ -4018,10 +4014,9 @@ internal static class ArgvParser
         GlobalOptions globals,
         bool emptyInput)
     {
-        CollationPreparation? owner = globals.CollationStorage;
-        List<int> combined = owner is null ? new(globals.Collate.Count + collate.Count) : owner.CreateVector();
-        if (owner is null) { combined.AddRange(globals.Collate); combined.AddRange(collate); }
-        else { owner.Append(combined, globals.Collate); owner.Append(combined, collate); }
+        CollationPreparation owner = globals.CollationStorage;
+        List<int> combined = owner.CreateVector();
+        owner.Append(combined, globals.Collate); owner.Append(combined, collate);
         if (combined.Count != 0 && combined.Count != 1 && combined.Count != groups.Count)
         {
             throw new QpdfParseException("--pages: if --collate has more than one value, it must have one value per page specification.", 0L, null);
@@ -4034,7 +4029,7 @@ internal static class ArgvParser
         }
 
         PdfPageCollation? collation = combined.Count == 0 ? null
-            : owner is null ? new PdfPageCollation(combined) : owner.CreatePolicy(combined);
+            : owner.CreatePolicy(combined);
         return new MergePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), sources, collation, recovery) with
         {
             EmptyInput = emptyInput,
@@ -4091,18 +4086,15 @@ internal static class ArgvParser
         };
     }
 
-    internal static List<int> ParseCollateValue(string? value, long offset)
-        => ParseCollateValue(value, offset, null);
-
-    internal static List<int> ParseCollateValue(string? value, long offset, CollationPreparation? owner)
+    internal static List<int> ParseCollateValue(string? value, long offset, CollationPreparation owner)
         => ParseCollateValue(value.AsSpan(), offset, owner);
 
-    private static List<int> ParseCollateValue(ReadOnlySpan<char> value, long offset, CollationPreparation? owner)
+    private static List<int> ParseCollateValue(ReadOnlySpan<char> value, long offset, CollationPreparation owner)
     {
-        List<int> sizes = owner is null ? new() : owner.CreateVector();
+        List<int> sizes = owner.CreateVector();
         if (value.Length == 0)
         {
-            if (owner is null) { sizes.Add(1); } else { owner.Add(sizes, 1); }
+            owner.Add(sizes, 1);
             return sizes;
         }
 
@@ -4110,8 +4102,8 @@ internal static class ArgvParser
         while (start <= value.Length)
         {
             int end = start;
-            while (end < value.Length && value[end] != ',') { owner?.Visit(); end++; }
-            owner?.Visit();
+            while (end < value.Length && value[end] != ',') { owner.Visit(); end++; }
+            owner.Visit();
             ReadOnlySpan<char> item = value.Slice(start, end - start);
             if (item.Length == 0 || item.Length > 10)
             {
@@ -4134,7 +4126,7 @@ internal static class ArgvParser
                 throw new QpdfParseException($"Invalid --collate value '{value}': group size is too large.", offset, null);
             }
 
-            if (owner is null) { sizes.Add((int)size); } else { owner.Add(sizes, (int)size); }
+            owner.Add(sizes, (int)size);
             if (end == value.Length) { break; }
             start = end + 1;
         }

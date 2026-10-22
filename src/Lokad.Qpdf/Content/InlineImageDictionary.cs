@@ -7,21 +7,6 @@ namespace Lokad.Qpdf.Content;
 /// <summary>Expands inline-image names while owning only fresh dictionary/name/array storage.</summary>
 internal static class InlineImageDictionary
 {
-    internal static PdfDictionary Convert(PdfDictionary raw, PdfDictionary resources,
-        ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
-    {
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
-        PdfDictionary result = Build(graph, raw, resources, diagnostics);
-        graph.Retain(); return result;
-    }
-
-    internal static PdfDictionary Build(OwnedAllocationBatch graph, PdfDictionary raw, PdfDictionary resources, DiagnosticBag diagnostics)
-        => Build(graph, raw, resources, diagnostics, null);
-
-    internal static PdfDictionary Build(OwnedAllocationBatch graph, PdfDictionary raw, PdfDictionary? resources,
-        DiagnosticBag diagnostics, IIndirectResolver? resolver)
-        => BuildWithResources(graph, raw, resources, diagnostics, resolver);
-
     internal static PdfDictionary BuildWithResources(OwnedAllocationBatch graph, PdfDictionary raw, QpdfObject? resources,
         DiagnosticBag diagnostics, IIndirectResolver? resolver)
     {
