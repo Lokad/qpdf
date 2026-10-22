@@ -132,7 +132,8 @@ internal static class ImageOptimizer
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        if (!ReadDimensions(image.Dictionary, resolver, governor, cancellationToken, out long width, out long height) || width <= 0L || height <= 0L)
+        if (!ReadDimensions(image.Dictionary, resolver, governor, cancellationToken, out long width, out long height)
+            || width <= 0L || height <= 0L || width > int.MaxValue || height > int.MaxValue)
         {
             return null;
         }
@@ -148,9 +149,10 @@ internal static class ImageOptimizer
             return null;
         }
 
+        long pixels = width * height; // Both dimensions fit positive Int32 values.
         if ((request.MinWidth > 0L && width <= request.MinWidth)
             || (request.MinHeight > 0L && height <= request.MinHeight)
-            || (request.MinArea > 0L && checked(width * height) <= request.MinArea))
+            || (request.MinArea > 0L && pixels <= request.MinArea))
         {
             return null;
         }
@@ -187,6 +189,15 @@ internal static class ImageOptimizer
             return null;
         }
 
+        long maximum = Math.Min(limits.MaxDecodedBytes, Array.MaxLength);
+        if (pixels > maximum / components)
+        {
+            long requested = pixels > long.MaxValue / components ? long.MaxValue : pixels * components;
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), requested, maximum);
+        }
+        long expected = pixels * components;
+        governor.CheckDecodedBytes(expected);
+
         if (governor.JpegCodec is null)
         {
             throw new QpdfFilterException(QpdfFilterFailureReason.UnsupportedFilter, DctFilter.FilterName,
@@ -212,7 +223,6 @@ internal static class ImageOptimizer
         }
 
         stages.Dispose();
-        long expected = checked(checked(width * height) * components);
         if ((long)raw.Length != expected)
         {
             // Inline-image extraction conventionally retains the separator whitespace before EI;
@@ -224,11 +234,6 @@ internal static class ImageOptimizer
             }
 
             raw = trimmed;
-        }
-
-        if (width > int.MaxValue || height > int.MaxValue)
-        {
-            return null;
         }
 
         cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();

@@ -18,6 +18,12 @@ is non-finite. Previously, extreme finite coordinates could publish `NaN` or
 outside the 64-bit integer range retain a decimal point for strict readback.
 Ordinary finite formatting and public signatures are unchanged.
 
+Image optimization leaves dimensions outside its positive 32-bit codec domain
+opaque. Eligible sample sizes are checked against decoded-byte/array ceilings
+before decoding or codec calls; oversized declarations now fail explicitly as
+`BudgetExceeded` rather than overflowing arithmetic or decoding first. Existing
+unsupported filters and ordinary dimension-mismatch handling remain unchanged.
+
 JSON text import and export share PDFDocEncoding conversion. Unicode controls
 that occupy repurposed PDF byte slots now use UTF-16 rather than changing into
 accent marks. Ordinary Latin-1 text can use PDFDocEncoding and export as `u:`
