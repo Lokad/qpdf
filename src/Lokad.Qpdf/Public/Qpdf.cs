@@ -3942,15 +3942,9 @@ public static partial class Qpdf
             throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), total, limits.MaxContainerSize);
         }
 
-        List<int> pages = new(total);
-        for (int page = 1; page <= total; page++)
-        {
-            pages.Add(page);
-        }
-
         List<PdfPageSource> solo = new(1)
         {
-            new PdfPageSource(plan.Input, PdfPageSelectionOptions.FromPages(pages)),
+            new PdfPageSource(plan.Input, PdfPageSelectionOptions.FromRange(null)),
         };
         QpdfObject? verbatimTree = plan.Labels.Count == 0 && !plan.RemoveLabels && !plan.SplitPages.HasValue
             ? Content.PageLabelMerge.TryGetRawTree(document.Engine)
