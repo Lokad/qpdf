@@ -437,8 +437,8 @@ public sealed class GlobalLimitsTests
     {
         byte[] input = BuildDeepPage(300);
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);
-        QpdfLimits loose = QpdfLimits.Default with { MaxNestingDepth = 600L };
-        QpdfExecutionResult allowed = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--parser-max-nesting=499"]), new QpdfExecutionOptions(loose), CancellationToken.None);
+        QpdfLimits loose = QpdfLimits.Default with { MaxNestingDepth = 499L };
+        QpdfExecutionResult allowed = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--parser-max-nesting=400"]), new QpdfExecutionOptions(loose), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, allowed.ExitCode);
     }
 

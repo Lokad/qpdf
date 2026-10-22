@@ -78,6 +78,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+`QpdfLimits.MaxNestingDepth` accepts 1..499 for direct and host-supplied budgets,
+with the default remaining 256. Larger values now throw `ArgumentOutOfRangeException`
+before host access. Previously they passed validation and could allow recursive
+parsing to exhaust the CLR stack instead of returning a normal depth error.
+This intentionally restricts accepted settings; public signatures are unchanged.
+
 Skipped stream checks describe unavailable filters and JPEG host capabilities
 without promising future implementation. Disabled decoding remains an explicit
 skip; grayscale/RGB decoding still requires a host codec, and four-component

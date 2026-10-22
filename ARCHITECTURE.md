@@ -103,8 +103,9 @@ after commit does not undo publication. The host defines its transaction semanti
 
 [QpdfLimits](src/Lokad.Qpdf/Public/QpdfLimits.cs) bounds input/output bytes, decoded
 data, estimated memory, host operations, handles, diagnostics and nesting. Invocation options
-can tighten host policy but cannot raise explicit host ceilings. Significant
-storage, growth overlap and decompression receive admission before allocation.
+can tighten host policy but cannot raise explicit host ceilings. Nesting budgets,
+including direct host settings, must remain within 1..499. Significant storage,
+growth overlap and decompression receive admission before allocation.
 Output bytes are charged cumulatively across the job's outputs, including
 prepared output discarded on failure. Operations returning typed domain results
 throw on cancellation; execution entry points return a canceled execution result.

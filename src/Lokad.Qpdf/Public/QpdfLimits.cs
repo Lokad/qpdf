@@ -44,10 +44,10 @@ public sealed record QpdfLimits
     /// This interval is not a cumulative CPU budget.</remarks>
     public long CancellationCheckInterval { get; init; } = 1024L;
 
-    /// <summary>Upstream default parser nesting cap, the largest invocation-level override accepted.</summary>
+    /// <summary>Managed nesting ceiling for public budgets and invocation overrides.</summary>
     internal const long ParserNestingCeiling = 499L;
 
-    /// <summary>Maximum nesting depth for arrays, dictionaries, and page-tree recursion.</summary>
+    /// <summary>Maximum nesting depth for arrays, dictionaries, and page-tree recursion, within 1..499.</summary>
     public long MaxNestingDepth { get; init; } = 256L;
 
     /// <summary>Maximum stream filters decoded per stream; over-limit streams stay opaque.</summary>
@@ -71,8 +71,8 @@ public sealed record QpdfLimits
     /// <summary>Gets the default budgets.</summary>
     public static QpdfLimits Default { get; } = new QpdfLimits();
 
-    /// <summary>Validates that every budget is positive.</summary>
-    /// <exception cref="ArgumentOutOfRangeException">A budget is not positive.</exception>
+    /// <summary>Validates each budget's supported range.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">A budget is outside its supported range.</exception>
     public void Validate()
     {
         if (MaxInputBytes <= 0)
@@ -120,9 +120,9 @@ public sealed record QpdfLimits
             throw new ArgumentOutOfRangeException(nameof(CancellationCheckInterval), "Budget must be positive.");
         }
 
-        if (MaxNestingDepth <= 0)
+        if (MaxNestingDepth <= 0 || MaxNestingDepth > ParserNestingCeiling)
         {
-            throw new ArgumentOutOfRangeException(nameof(MaxNestingDepth), "Budget must be positive.");
+            throw new ArgumentOutOfRangeException(nameof(MaxNestingDepth), $"Nesting budget must be within 1..{ParserNestingCeiling}.");
         }
 
         if (MaxRevisions <= 0)
