@@ -49,13 +49,7 @@ try {
         $warmOutput = [IO.File]::ReadAllText($warm.StandardOutput)
         [IO.File]::WriteAllText($warm.StandardOutput+'.cold',$cold.Output)
         [IO.File]::WriteAllText($warm.StandardError+'.cold',$cold.Error)
-        # Maintenance work may vary with ordinary CLR collection timing even
-        # between two cold calls. Preserve the counter record, compare all
-        # status/diagnostic bytes, and keep the original job limits unchanged.
-        $counter = '(?m)^emit: counters work=\d+ decoded=\d+ peakmem=\d+\r?\n'
-        if (@([regex]::Matches($cold.Output,$counter)).Count -ne @([regex]::Matches($warmOutput,$counter)).Count -or
-            $cold.ExitCode -ne $warm.ExitCode -or
-            [regex]::Replace($cold.Output,$counter,'') -cne [regex]::Replace($warmOutput,$counter,'') -or
+        if ($cold.ExitCode -ne $warm.ExitCode -or $cold.Output -cne $warmOutput -or
             $cold.Error -cne [IO.File]::ReadAllText($warm.StandardError)) { throw "Cold/batch result differs: $($arguments -join ' ')" }
     }
     $coldPdf = Join-Path $WorkRoot 'cold.pdf'; $warmPdf = Join-Path $WorkRoot 'warm.pdf'

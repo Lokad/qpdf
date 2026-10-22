@@ -1,8 +1,8 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('SelectionContract', 'SelectionOwnership', 'ResultsContract', 'ResultsOwnership',
+    [ValidateSet('SelectionContract', 'SelectionOwnership', 'ResultsContract',
         'DiagnosticsContract', 'DiagnosticsOwnership', 'DiagnosticStress',
-        'CarriersContract', 'CarriersOwnership', 'WriterOwnership', 'LifetimeStress')]
+        'CarriersContract', 'CarriersOwnership')]
     [string] $Lane,
     [switch] $List
 )
@@ -23,23 +23,13 @@ switch ($Lane) {
     'DiagnosticStress' {
         $filter = 'FullyQualifiedName~PracticalMemoryTests&Layer=Stress'
     }
-    'LifetimeStress' {
-        $filter = 'FullyQualifiedName~PracticalMemoryTests&Layer=Stress'
-    }
     'CarriersContract' {
         $filter = '(FullyQualifiedName~PdfVersionOwnershipTests|FullyQualifiedName~JsonOutputOwnershipTests|FullyQualifiedName~ExecutionResultFailureOwnershipTests|FullyQualifiedName~SelectionBackingOwnershipTests|FullyQualifiedName~TypedWarningOwnershipTests|FullyQualifiedName~CheckCollectionOwnershipTests|FullyQualifiedName~DocumentWarningSnapshotTests)&Layer=Contract'
     }
     'CarriersOwnership' {
         $filter = '(FullyQualifiedName~PdfVersionOwnershipTests|FullyQualifiedName~JsonOutputOwnershipTests|FullyQualifiedName~ExecutionResultFailureOwnershipTests|FullyQualifiedName~SelectionBackingOwnershipTests|FullyQualifiedName~TypedWarningOwnershipTests|FullyQualifiedName~CheckCollectionOwnershipTests|FullyQualifiedName~DocumentWarningSnapshotTests)&Layer=Ownership'
     }
-    'WriterOwnership' {
-        $filter = 'FullyQualifiedName~Lokad.Qpdf.Tests.Writing.Completed&Layer=Ownership'
-    }
     'ResultsContract' {
-        $filter = '(FullyQualifiedName~ExecutionResultOwnershipTests|FullyQualifiedName~TypedCounterOwnershipTests|FullyQualifiedName~TypedResultOwnershipTests)&Layer=Contract'
-    }
-    'ResultsOwnership' {
-        # Compatibility alias: the superseded receipt/GC matrices are removed.
         $filter = '(FullyQualifiedName~ExecutionResultOwnershipTests|FullyQualifiedName~TypedCounterOwnershipTests|FullyQualifiedName~TypedResultOwnershipTests)&Layer=Contract'
     }
     'DiagnosticsContract' {
