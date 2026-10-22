@@ -34,8 +34,9 @@ public sealed class FilterErrorMemoryTests
         using FilterPlan plan = FilterChain.Resolve(dictionary, null, governor, CancellationToken.None);
         string name = plan[0].Name;
         long before = GC.GetAllocatedBytesForCurrentThread();
+        using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
         QpdfFilterException error = Assert.Throws<QpdfFilterException>(() =>
-            FilterChain.Decode([], plan, QpdfLimits.Default, governor));
+            FilterChain.Decode([], plan, QpdfLimits.Default, governor, decodedMemory));
         Assert.InRange(GC.GetAllocatedBytesForCurrentThread() - before, 0L, 16384L);
         Assert.Equal(QpdfFilterFailureReason.UnsupportedFilter, error.Reason);
         plan.Dispose();

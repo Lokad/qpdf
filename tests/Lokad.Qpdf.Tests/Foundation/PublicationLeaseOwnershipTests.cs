@@ -14,8 +14,8 @@ public sealed class PublicationLeaseOwnershipTests
         DiagnosticBag bag = new(governor);
         ExecutionPresentation? presentation = ExecutionPresentation.Create(governor, bag, false, false, false, false, false, CancellationToken.None);
         Assert.NotNull(presentation);
-        QpdfExecutionResult canceled = QpdfExecutionResult.Canceled([], governor.Snapshot());
-        Assert.Same(canceled, presentation.Failure(canceled));
+        ExecutionOutcome canceled = ExecutionOutcome.Canceled([]);
+        Assert.Equal(canceled, presentation.Failure(canceled));
         presentation.Dispose();
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(canceled);

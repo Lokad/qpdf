@@ -130,12 +130,6 @@ internal sealed class ExecutionPresentation : ExecutionPreparation, IDisposable
         return new(diagnostics, exit);
     }
 
-    internal QpdfExecutionResult Failure(QpdfExecutionResult result)
-    {
-        IReadOnlyList<QpdfDiagnostic>? failure = FreezeFailure(result.Diagnostics);
-        return failure is null ? result : new QpdfExecutionResult(result.Status, result.ExitCode, failure, result.Counters, true);
-    }
-
     internal ExecutionOutcome Failure(ExecutionOutcome result)
     {
         IReadOnlyList<QpdfDiagnostic>? failure = FreezeFailure(result.Diagnostics);

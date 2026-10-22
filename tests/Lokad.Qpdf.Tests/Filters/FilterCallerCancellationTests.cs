@@ -25,12 +25,16 @@ public sealed class FilterCallerCancellationTests
     public void CallerCancellationAfterOneDecodedStageRetiresOnlyChainStorage(string outer)
     {
         using CancellationTokenSource source = new(); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        using ParserMemoryScope memory = ParserMemoryScope.Create(governor); memory.Reserve(97L); long live = governor.Snapshot().LiveMemoryBytes;
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor); memory.Reserve(97L);
         byte[] inner = DecoderOwnershipFixtures.Encode("FlateDecode", "owned"u8.ToArray()); byte[] input = DecoderOwnershipFixtures.Encode(outer, inner);
         CancellingResolver resolver = new(source, governor);
         PdfDictionary parameters = DecoderOwnershipFixtures.Dictionary(("Predictor", new PdfReference(99, 0)));
-        Assert.ThrowsAny<OperationCanceledException>(() => FilterChain.Decode(input,
-            [new(outer, null, null), new("FlateDecode", parameters, resolver)], QpdfLimits.Default, governor, memory, source.Token));
+        using FilterPlan stages = FilterPlan.Create(governor, CancellationToken.None);
+        stages.Allocate(2);
+        stages.Set(0, new(outer, null, null));
+        stages.Set(1, new("FlateDecode", parameters, resolver));
+        long live = governor.Snapshot().LiveMemoryBytes;
+        Assert.ThrowsAny<OperationCanceledException>(() => FilterChain.Decode(input, stages, QpdfLimits.Default, governor, memory, source.Token));
         Assert.Equal(inner.Length, resolver.DecodedAtCancellation); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L, memory.ReservedBytes);
     }
 }

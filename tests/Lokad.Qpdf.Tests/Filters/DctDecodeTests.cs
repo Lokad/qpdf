@@ -523,7 +523,8 @@ public sealed class DctDecodeTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
         using FilterPlan stages = FilterChain.Resolve(dictionary, null, governor, governor.CancellationToken);
-        return FilterChain.Decode(data, stages, QpdfLimits.Default, governor);
+        using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
+        return FilterChain.Decode(data, stages, QpdfLimits.Default, governor, decodedMemory);
     }
 
     private static byte[] ZLibCompress(byte[] input)
@@ -542,7 +543,11 @@ public sealed class DctDecodeTests
         byte[] jpeg = EncodeGrayJpeg(8, 8);
         QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = 96L };
         ResourceGovernor governor = new(limits, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
-        byte[] result = FilterChain.Decode(jpeg, [new FilterStage("DCTDecode", null, null)], limits, governor);
+        using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
+        using FilterPlan stages = FilterPlan.Create(governor, CancellationToken.None);
+        stages.Allocate(1);
+        stages.Set(0, new FilterStage("DCTDecode", null, null));
+        byte[] result = FilterChain.Decode(jpeg, stages, limits, governor, decodedMemory);
         Assert.Equal(64, result.Length);
         Assert.Equal(64L, governor.Snapshot().TotalDecodedBytes);
     }

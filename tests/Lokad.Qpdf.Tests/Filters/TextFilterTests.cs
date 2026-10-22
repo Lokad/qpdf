@@ -25,7 +25,8 @@ public sealed class TextFilterTests
     {
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
         using FilterPlan stages = FilterChain.Resolve(dict, null, governor, governor.CancellationToken);
-        return FilterChain.Decode(input, stages, limits, governor);
+        using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
+        return FilterChain.Decode(input, stages, limits, governor, decodedMemory);
     }
 
     private static string Ascii85Encode(byte[] raw)

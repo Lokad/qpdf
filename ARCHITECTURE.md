@@ -37,7 +37,9 @@ form guards independent of resource-scope visits.
 Argv parsing and range expansion require their execution governor and construction
 owners. Linearization and inline-image tests exercise the same governed indexes
 and allocation batches as production; no unowned parser or dictionary adapters
-provide alternate execution modes.
+provide alternate execution modes. Filter decoders require an owned stage plan
+and result scope; plans expose indexed access and struct iteration without boxed
+enumeration owners.
 
 One resource governor spans configuration loading, reading, transformation,
 serialization and publication. Results capture diagnostics and counters after

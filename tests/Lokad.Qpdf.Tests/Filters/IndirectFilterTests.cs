@@ -83,7 +83,8 @@ public sealed class IndirectFilterTests
     {
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
         using FilterPlan stages = FilterChain.Resolve(dict, resolver, governor, governor.CancellationToken);
-        return FilterChain.Decode(input, stages, limits, governor);
+        using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
+        return FilterChain.Decode(input, stages, limits, governor, decodedMemory);
     }
 
     [Fact]
@@ -203,7 +204,8 @@ public sealed class IndirectFilterTests
         resolver.Add(12, new PdfInteger("2", 2L));
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
         using FilterPlan stages = FilterChain.Resolve(new PdfDictionary(entries), resolver, governor, governor.CancellationToken);
-        QpdfFilterException ex = Assert.Throws<QpdfFilterException>(() => FilterChain.Decode(TinyLzw(), stages, limits, governor));
+        using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
+        QpdfFilterException ex = Assert.Throws<QpdfFilterException>(() => FilterChain.Decode(TinyLzw(), stages, limits, governor, decodedMemory));
         Assert.Equal(QpdfFilterFailureReason.InvalidData, ex.Reason);
     }
 

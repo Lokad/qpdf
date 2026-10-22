@@ -1,10 +1,9 @@
-using System.Collections;
 using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Filters;
 
 /// <summary>Owns admitted stage storage while borrowing immutable parameters and resolvers.</summary>
-internal sealed class FilterPlan : IReadOnlyList<FilterStage>, IDisposable
+internal sealed class FilterPlan : IDisposable
 {
     private ParserMemoryScope? _memory;
     private ResourceGovernor? _governor;
@@ -74,8 +73,6 @@ internal sealed class FilterPlan : IReadOnlyList<FilterStage>, IDisposable
     }
 
     public Enumerator GetEnumerator() => new(this);
-    IEnumerator<FilterStage> IEnumerable<FilterStage>.GetEnumerator() => BoxedEnumerator.Create(this);
-    IEnumerator IEnumerable.GetEnumerator() => BoxedEnumerator.Create(this);
 
     internal struct Enumerator
     {
@@ -84,45 +81,6 @@ internal sealed class FilterPlan : IReadOnlyList<FilterStage>, IDisposable
         internal Enumerator(FilterPlan owner) { _owner = owner; _index = -1; }
         public FilterStage Current => _owner[_index];
         public bool MoveNext() { _owner.Visit(); return ++_index < _owner.Count; }
-    }
-
-    private sealed class BoxedEnumerator : IEnumerator<FilterStage>
-    {
-        private FilterPlan? _owner;
-        private ParserMemoryScope? _memory;
-        private int _index;
-        private BoxedEnumerator(FilterPlan owner, ParserMemoryScope memory)
-        { _owner = owner; _memory = memory; _index = -1; }
-
-        internal static BoxedEnumerator Create(FilterPlan owner)
-        {
-            owner.Visit(); ParserMemoryScope memory = ParserMemoryScope.Create(owner.Governor);
-            try { memory.Reserve(48L); owner.Visit(); return new BoxedEnumerator(owner, memory); }
-            catch { memory.Dispose(); throw; }
-        }
-
-        private FilterPlan Owner => _owner ?? throw new ObjectDisposedException(nameof(BoxedEnumerator));
-        public FilterStage Current => Owner[_index];
-        object IEnumerator.Current
-        {
-            get
-            {
-                FilterStage stage = Current;
-                ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(BoxedEnumerator));
-                const long boxBytes = 40L;
-                memory.Reserve(boxBytes);
-                try
-                {
-                    object boxed = stage;
-                    return boxed;
-                }
-                catch { memory.Release(boxBytes); throw; }
-            }
-        }
-        public bool MoveNext() { Owner.Visit(); return ++_index < Owner.Count; }
-        public void Reset() { Owner.Visit(); _index = -1; }
-        public void Dispose()
-        { ParserMemoryScope? memory = _memory; _owner = null; _memory = null; memory?.Dispose(); }
     }
 
     public void Dispose()

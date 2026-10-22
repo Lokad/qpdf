@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Objects;
@@ -34,7 +33,7 @@ public sealed class FilterPlanTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using FilterPlan plan = FilterChain.Resolve(Dictionary(PdfName.FromAscii(spelling), PdfNull.Instance), null, governor, CancellationToken.None);
-        Assert.Equal(expected, Assert.Single(plan).Name);
+        Assert.Equal(expected, plan[0].Name);
         using FilterPlan twin = FilterChain.Resolve(Dictionary(PdfName.FromAscii(spelling), PdfNull.Instance), null, governor, CancellationToken.None);
         Assert.Same(plan[0].Name, twin[0].Name); twin.Dispose();
         Assert.True(governor.Snapshot().LiveMemoryBytes >= 3L * IntPtr.Size);
@@ -54,7 +53,7 @@ public sealed class FilterPlanTests
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
         long before = governor.Snapshot().LiveMemoryBytes;
         using FilterPlan plan = FilterChain.Resolve(dictionary, null, governor, CancellationToken.None);
-        Assert.Empty(plan); Assert.True(governor.Snapshot().LiveMemoryBytes > before);
+        Assert.Equal(0, plan.Count); Assert.True(governor.Snapshot().LiveMemoryBytes > before);
         plan.Dispose(); Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L, prior.ReservedBytes);
     }
 
@@ -69,7 +68,7 @@ public sealed class FilterPlanTests
         QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => FilterChain.Resolve(Dictionary(many, PdfNull.Instance), null, governor, CancellationToken.None));
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName); Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
         using FilterPlan retry = FilterChain.Resolve(Dictionary(PdfName.FromAscii("Fl"), PdfNull.Instance), null, governor, CancellationToken.None);
-        Assert.Equal("FlateDecode", Assert.Single(retry).Name); retry.Dispose(); Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal("FlateDecode", retry[0].Name); retry.Dispose(); Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]
@@ -195,38 +194,22 @@ public sealed class FilterPlanTests
         ResourceGovernor governor = new(limits, CancellationToken.None);
         using FilterPlan plan = FilterChain.Resolve(Dictionary(new PdfArray([PdfName.FromAscii("Fl"), PdfName.FromAscii("RL")]), PdfNull.Instance), null, governor, CancellationToken.None);
         Assert.True(FilterChain.AllStagesInLevel(plan, "specialized")); Assert.False(FilterChain.AllStagesInLevel(plan, "generalized"));
-        QpdfFilterException failure = Assert.Throws<QpdfFilterException>(() => FilterChain.Decode([], plan, limits, governor));
-        Assert.Equal(QpdfFilterFailureReason.TooManyFilters, failure.Reason); plan.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
+        QpdfFilterException failure = Assert.Throws<QpdfFilterException>(() => FilterChain.Decode([], plan, limits, governor, decodedMemory));
+        Assert.Equal(QpdfFilterFailureReason.TooManyFilters, failure.Reason); plan.Dispose(); decodedMemory.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]
-    public void InterfaceEnumeratorKeepsOnlyItsOwnAdmissionAfterPlanDisposal()
+    public void StructEnumeratorAndIndexRejectTheDisposedPlan()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         FilterPlan plan = FilterChain.Resolve(Dictionary(PdfName.FromAscii("Fl"), PdfNull.Instance), null, governor, CancellationToken.None);
-        IEnumerator<FilterStage> iterator = ((IEnumerable<FilterStage>)plan).GetEnumerator();
+        FilterPlan.Enumerator iterator = plan.GetEnumerator();
         Assert.True(iterator.MoveNext()); Assert.Equal("FlateDecode", iterator.Current.Name);
-        plan.Dispose(); Assert.True(governor.Snapshot().LiveMemoryBytes > 0L);
-        Assert.Throws<ObjectDisposedException>(() => iterator.MoveNext()); iterator.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        iterator.Dispose(); Assert.Throws<ObjectDisposedException>(() => iterator.Current);
-    }
-
-    [Fact]
-    public void BoxingAStageDoesNotRetainThePrivatePlanBudget()
-    {
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        object stage = Box(governor);
-        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal("FlateDecode", Assert.IsType<FilterStage>(stage).Name); GC.KeepAlive(stage);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static object Box(ResourceGovernor governor)
-    {
-        using FilterPlan plan = FilterChain.Resolve(Dictionary(PdfName.FromAscii("Fl"), PdfNull.Instance), null, governor, CancellationToken.None);
-        IEnumerator iterator = ((IEnumerable)plan).GetEnumerator();
-        try { Assert.True(iterator.MoveNext()); return iterator.Current; }
-        finally { ((IDisposable)iterator).Dispose(); }
+        plan.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Throws<ObjectDisposedException>(() => iterator.MoveNext());
+        Assert.Throws<ObjectDisposedException>(() => iterator.Current);
+        Assert.Throws<ObjectDisposedException>(() => plan[0]);
     }
 
     [Fact]
@@ -235,8 +218,9 @@ public sealed class FilterPlanTests
         ResourceGovernor owner = new(QpdfLimits.Default, CancellationToken.None), foreign = new(QpdfLimits.Default, CancellationToken.None);
         using FilterPlan plan = FilterChain.Resolve(Dictionary(PdfName.FromAscii("Fl"), PdfNull.Instance), null, owner, CancellationToken.None);
         long before = owner.Snapshot().LiveMemoryBytes;
-        Assert.Throws<InvalidOperationException>(() => FilterChain.Decode([], plan, QpdfLimits.Default, foreign));
-        Assert.Equal(before, owner.Snapshot().LiveMemoryBytes); Assert.Equal(0L, foreign.Snapshot().LiveMemoryBytes);
+        using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(foreign);
+        Assert.Throws<InvalidOperationException>(() => FilterChain.Decode([], plan, QpdfLimits.Default, foreign, decodedMemory));
+        Assert.Equal(before, owner.Snapshot().LiveMemoryBytes); decodedMemory.Dispose(); Assert.Equal(0L, foreign.Snapshot().LiveMemoryBytes);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

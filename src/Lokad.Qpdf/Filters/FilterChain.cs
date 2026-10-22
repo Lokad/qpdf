@@ -46,7 +46,7 @@ internal static class FilterChain
         catch { plan.Dispose(); throw; }
     }
 
-    internal static bool AllStagesInLevel(IReadOnlyList<FilterStage> stages, string decode)
+    internal static bool AllStagesInLevel(FilterPlan stages, string decode)
     {
         if (stages is null)
         {
@@ -79,23 +79,14 @@ internal static class FilterChain
 
     internal static byte[] Decode(
         byte[] input,
-        IReadOnlyList<FilterStage> stages,
-        QpdfLimits limits,
-        ResourceGovernor governor)
-    {
-        return Decode(input, stages, limits, governor, null);
-    }
-
-    internal static byte[] Decode(
-        byte[] input,
-        IReadOnlyList<FilterStage> stages,
+        FilterPlan stages,
         QpdfLimits limits,
         ResourceGovernor governor,
-        ParserMemoryScope? memory)
+        ParserMemoryScope memory)
         => Decode(input, stages, limits, governor, memory, CancellationToken.None);
 
-    internal static byte[] Decode(byte[] input, IReadOnlyList<FilterStage> stages, QpdfLimits limits,
-        ResourceGovernor governor, ParserMemoryScope? memory, CancellationToken token)
+    internal static byte[] Decode(byte[] input, FilterPlan stages, QpdfLimits limits,
+        ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
     {
         if (input is null)
         {
@@ -118,8 +109,8 @@ internal static class FilterChain
         }
 
         limits.Validate();
-        memory?.CheckOwner(governor);
-        if (stages is FilterPlan plan && !ReferenceEquals(plan.Governor, governor))
+        memory.CheckOwner(governor);
+        if (!ReferenceEquals(stages.Governor, governor))
         { throw new InvalidOperationException("Filter stages belong to a different governor."); }
         if (stages.Count > limits.MaxStreamFilters)
         {
@@ -137,7 +128,7 @@ internal static class FilterChain
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 byte[] passthrough = new byte[input.Length];
                 GovernedBufferStream.CopyBytes(input, passthrough, governor, token, CancellationToken.None);
-                memory?.AdoptReserved(bytes);
+                memory.AdoptReserved(bytes);
                 return passthrough;
             }
             catch { governor.ReleaseMemory(bytes); throw; }
@@ -156,8 +147,8 @@ internal static class FilterChain
                 owned = ArrayBytes(next);
             }
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            memory?.AdoptReserved(owned);
-            owned = 0L; // The caller's scope or legacy caller now funds only the final array.
+            memory.AdoptReserved(owned);
+            owned = 0L; // The caller's scope funds only the final array.
             return current;
         }
         finally { current = Array.Empty<byte>(); governor.ReleaseMemory(owned); }

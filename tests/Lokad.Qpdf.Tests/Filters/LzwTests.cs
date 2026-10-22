@@ -34,7 +34,8 @@ public sealed class LzwTests
     {
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
         using FilterPlan stages = FilterChain.Resolve(dict, null, governor, governor.CancellationToken);
-        return FilterChain.Decode(input, stages, limits, governor);
+        using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
+        return FilterChain.Decode(input, stages, limits, governor, decodedMemory);
     }
 
     private static byte[] LzwEncode(byte[] raw, bool earlyChange)
@@ -307,7 +308,8 @@ public sealed class LzwTests
         };
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
         using FilterPlan stages = FilterChain.Resolve(new PdfDictionary(entries), null, governor, governor.CancellationToken);
-        byte[] decoded = FilterChain.Decode(Encoding.ASCII.GetBytes(hex), stages, limits, governor);
+        using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
+        byte[] decoded = FilterChain.Decode(Encoding.ASCII.GetBytes(hex), stages, limits, governor, decodedMemory);
         Assert.Equal(raw, decoded);
     }
 
@@ -392,7 +394,8 @@ public sealed class LzwTests
         };
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
         using FilterPlan stages = FilterChain.Resolve(new PdfDictionary(entries), null, governor, governor.CancellationToken);
-        byte[] decoded = FilterChain.Decode(encoded, stages, limits, governor);
+        using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
+        byte[] decoded = FilterChain.Decode(encoded, stages, limits, governor, decodedMemory);
         Assert.Equal(raw, decoded);
     }
 

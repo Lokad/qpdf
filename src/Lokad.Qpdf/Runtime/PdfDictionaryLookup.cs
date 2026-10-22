@@ -7,21 +7,17 @@ internal static class PdfDictionaryLookup
 {
     internal static bool TryGet(PdfDictionary dictionary, ReadOnlySpan<byte> key,
         ResourceGovernor governor, CancellationToken token, out QpdfObject value)
-        => Lookup(dictionary, key, governor, token, null, false, out value);
+        => Lookup(dictionary, key, governor, token, null, out value);
 
     internal static bool TryGetObserved(PdfDictionary dictionary, ReadOnlySpan<byte> key,
         ResourceGovernor governor, CancellationToken token, Action observe, out QpdfObject value)
     {
         ArgumentNullException.ThrowIfNull(observe);
-        return Lookup(dictionary, key, governor, token, observe, false, out value);
+        return Lookup(dictionary, key, governor, token, observe, out value);
     }
 
-    internal static bool Contains(PdfDictionary dictionary, ReadOnlySpan<byte> key,
-        ResourceGovernor governor, CancellationToken token)
-        => Lookup(dictionary, key, governor, token, null, true, out _);
-
     private static bool Lookup(PdfDictionary dictionary, ReadOnlySpan<byte> key,
-        ResourceGovernor governor, CancellationToken token, Action? observe, bool includeNull, out QpdfObject value)
+        ResourceGovernor governor, CancellationToken token, Action? observe, out QpdfObject value)
     {
         ArgumentNullException.ThrowIfNull(dictionary); ArgumentNullException.ThrowIfNull(governor);
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -29,7 +25,7 @@ internal static class PdfDictionaryLookup
         {
             bool found = observe is null ? names.TryGetValue(key, governor, token, out QpdfObject? candidate)
                 : names.TryGetObserved(key, governor, token, observe, out candidate);
-            if (found && (candidate is not null || includeNull)) { value = candidate ?? PdfNull.Instance; return true; }
+            if (found && candidate is not null) { value = candidate; return true; }
         }
         else
         {
@@ -44,7 +40,6 @@ internal static class PdfDictionaryLookup
                 if (Equal(entries.Current.Key.RawSpan, key, governor, token, observe))
                 {
                     if (entries.Current.Value is QpdfObject candidate) { value = candidate; return true; }
-                    if (includeNull) { value = PdfNull.Instance; return true; }
                     break;
                 }
             }

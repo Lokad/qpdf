@@ -18,12 +18,15 @@ public sealed class FilterCodecOwnershipTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor); memory.Reserve(97L);
+
+        using FilterPlan stages = FilterPlan.Create(governor, CancellationToken.None);
+        stages.Allocate(1);
+        stages.Set(0, new(filter, null, null));
         long live = governor.Snapshot().LiveMemoryBytes;
-        byte[] output = FilterChain.Decode(DecoderOwnershipFixtures.Encode(filter, Array.Empty<byte>()),
-            [new(filter, null, null)], QpdfLimits.Default, governor, memory);
+        byte[] output = FilterChain.Decode(DecoderOwnershipFixtures.Encode(filter, Array.Empty<byte>()), stages, QpdfLimits.Default, governor, memory);
         Assert.Empty(output); Assert.Equal(97L, memory.ReservedBytes);
         Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, governor.Snapshot().TotalDecodedBytes);
-        memory.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        stages.Dispose(); memory.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]
@@ -38,12 +41,15 @@ public sealed class FilterCodecOwnershipTests
         byte[] raw = "\0\u00ff\n/Used 12 Tf"u8.ToArray(); byte[] encoded = DecoderOwnershipFixtures.Encode(filter, raw); byte[] original = encoded.ToArray();
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor); memory.Reserve(97L);
-        FilterStage[] stages = filter == "" ? [] : [new(filter, null, null)];
+        using FilterPlan stages = FilterPlan.Create(governor, CancellationToken.None);
+        stages.Allocate(filter == "" ? 0 : 1);
+        if (filter != "") { stages.Set(0, new(filter, null, null)); }
+        long prepared = governor.Snapshot().LiveMemoryBytes;
         byte[] output = FilterChain.Decode(encoded, stages, QpdfLimits.Default, governor, memory);
         Assert.Equal(raw, output); Assert.Equal(original, encoded); Assert.NotSame(encoded, output);
         Assert.Equal(97L + raw.Length + 32L, memory.ReservedBytes);
-        Assert.Equal(64L + memory.ReservedBytes, governor.Snapshot().LiveMemoryBytes);
-        memory.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(raw, output);
+        Assert.Equal(prepared + raw.Length + 32L, governor.Snapshot().LiveMemoryBytes);
+        stages.Dispose(); memory.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(raw, output);
     }
 
     [Theory]
@@ -61,8 +67,13 @@ public sealed class FilterCodecOwnershipTests
             _ => [0, 0, 0, 0, 0, 0, 0],
         };
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L); long live = governor.Snapshot().LiveMemoryBytes;
-        Assert.Throws<QpdfFilterException>(() => FilterChain.Decode(input, [new(filter, null, null)], QpdfLimits.Default, governor));
+        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
+        using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
+        using FilterPlan stages = FilterPlan.Create(governor, CancellationToken.None);
+        stages.Allocate(1);
+        stages.Set(0, new(filter, null, null));
+        long live = governor.Snapshot().LiveMemoryBytes;
+        Assert.Throws<QpdfFilterException>(() => FilterChain.Decode(input, stages, QpdfLimits.Default, governor, decodedMemory));
         Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L, prior.ReservedBytes);
     }
 
@@ -73,8 +84,13 @@ public sealed class FilterCodecOwnershipTests
     {
         byte[] input = DecoderOwnershipFixtures.Encode(first, [1, 2, 3]);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        using ParserMemoryScope memory = ParserMemoryScope.Create(governor); memory.Reserve(97L); long live = governor.Snapshot().LiveMemoryBytes;
-        Assert.Throws<QpdfFilterException>(() => FilterChain.Decode(input, [new(first, null, null), new("FlateDecode", null, null)], QpdfLimits.Default, governor, memory));
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor); memory.Reserve(97L);
+        using FilterPlan stages = FilterPlan.Create(governor, CancellationToken.None);
+        stages.Allocate(2);
+        stages.Set(0, new(first, null, null));
+        stages.Set(1, new("FlateDecode", null, null));
+        long live = governor.Snapshot().LiveMemoryBytes;
+        Assert.Throws<QpdfFilterException>(() => FilterChain.Decode(input, stages, QpdfLimits.Default, governor, memory));
         Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L, memory.ReservedBytes);
     }
 
@@ -89,10 +105,15 @@ public sealed class FilterCodecOwnershipTests
         byte[] raw = "owned output"u8.ToArray(); byte[] inner = DecoderOwnershipFixtures.Encode("FlateDecode", raw);
         byte[] input = DecoderOwnershipFixtures.Encode(outer, inner); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        byte[] output = FilterChain.Decode(input, [new(outer, null, null), new("FlateDecode", null, null)], QpdfLimits.Default, governor, memory);
+        using FilterPlan stages = FilterPlan.Create(governor, CancellationToken.None);
+        stages.Allocate(2);
+        stages.Set(0, new(outer, null, null));
+        stages.Set(1, new("FlateDecode", null, null));
+        long prepared = governor.Snapshot().LiveMemoryBytes;
+        byte[] output = FilterChain.Decode(input, stages, QpdfLimits.Default, governor, memory);
         Assert.Equal(raw, output); Assert.Equal(raw.Length + 32L, memory.ReservedBytes);
-        Assert.Equal(raw.Length + 32L + 64L, governor.Snapshot().LiveMemoryBytes);
-        memory.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(prepared + raw.Length + 32L, governor.Snapshot().LiveMemoryBytes);
+        stages.Dispose(); memory.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     private sealed class LoadingResolver : IIndirectResolver, IDisposable
@@ -109,8 +130,14 @@ public sealed class FilterCodecOwnershipTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); using LoadingResolver resolver = new(governor);
         PdfDictionary parameters = DecoderOwnershipFixtures.Dictionary(("Predictor", new PdfReference(99, 0)));
-        Assert.Throws<QpdfFilterException>(() => FilterChain.Decode("00>"u8.ToArray(),
-            [new("ASCIIHexDecode", null, null), new("FlateDecode", parameters, resolver)], QpdfLimits.Default, governor));
-        Assert.Equal(165L, governor.Snapshot().LiveMemoryBytes); resolver.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
+        using FilterPlan stages = FilterPlan.Create(governor, CancellationToken.None);
+        stages.Allocate(2);
+        stages.Set(0, new("ASCIIHexDecode", null, null));
+        stages.Set(1, new("FlateDecode", parameters, resolver));
+        long prepared = governor.Snapshot().LiveMemoryBytes;
+        Assert.Throws<QpdfFilterException>(() => FilterChain.Decode("00>"u8.ToArray(), stages, QpdfLimits.Default, governor, decodedMemory));
+        Assert.Equal(prepared + 165L, governor.Snapshot().LiveMemoryBytes);
+        stages.Dispose(); decodedMemory.Dispose(); resolver.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 }

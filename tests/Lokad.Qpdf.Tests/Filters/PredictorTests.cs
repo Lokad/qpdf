@@ -51,7 +51,8 @@ public sealed class PredictorTests
     {
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
         using FilterPlan stages = FilterChain.Resolve(StreamDict(parms), null, governor, governor.CancellationToken);
-        return FilterChain.Decode(ZLibCompress(predicted), stages, limits, governor);
+        using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
+        return FilterChain.Decode(ZLibCompress(predicted), stages, limits, governor, decodedMemory);
     }
 
     private static int ReadSampleBits(byte[] raw, int bitPosition, int bits)
@@ -244,8 +245,9 @@ public sealed class PredictorTests
         };
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
         using FilterPlan stages = FilterChain.Resolve(StreamDict(new PdfDictionary(entries)), null, governor, governor.CancellationToken);
+        using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
         QpdfFilterException ex = Assert.Throws<QpdfFilterException>(
-            () => FilterChain.Decode(ZLibCompress(raw), stages, limits, governor));
+            () => FilterChain.Decode(ZLibCompress(raw), stages, limits, governor, decodedMemory));
         Assert.Equal(QpdfFilterFailureReason.InvalidData, ex.Reason);
     }
 
@@ -302,7 +304,8 @@ public sealed class PredictorTests
         };
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
         using FilterPlan stages = FilterChain.Resolve(new PdfDictionary(entries), null, governor, governor.CancellationToken);
-        byte[] decoded = FilterChain.Decode(ZLibCompress(predicted), stages, limits, governor);
+        using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
+        byte[] decoded = FilterChain.Decode(ZLibCompress(predicted), stages, limits, governor, decodedMemory);
         Assert.Equal(raw, decoded);
     }
 
@@ -322,7 +325,8 @@ public sealed class PredictorTests
         };
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
         using FilterPlan stages = FilterChain.Resolve(new PdfDictionary(entries), null, governor, governor.CancellationToken);
-        byte[] decoded = FilterChain.Decode(twice, stages, limits, governor);
+        using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
+        byte[] decoded = FilterChain.Decode(twice, stages, limits, governor, decodedMemory);
         Assert.Equal(raw, decoded);
     }
 }

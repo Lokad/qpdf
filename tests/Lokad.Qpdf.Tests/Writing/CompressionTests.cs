@@ -186,7 +186,8 @@ public sealed class CompressionTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using FilterPlan stages = FilterChain.Resolve(dictionary, null, governor, governor.CancellationToken);
-        return FilterChain.Decode(data, stages, QpdfLimits.Default, governor);
+        using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
+        return FilterChain.Decode(data, stages, QpdfLimits.Default, governor, decodedMemory);
     }
 
     private static void AssertFilter(PdfDictionary dictionary, string expected)

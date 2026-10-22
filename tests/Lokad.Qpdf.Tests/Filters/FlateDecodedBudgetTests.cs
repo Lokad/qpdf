@@ -22,8 +22,12 @@ public sealed class FlateDecodedBudgetTests
         byte[] input = Compress(raw);
         QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = raw.Length };
         ResourceGovernor governor = new(limits, CancellationToken.None);
+        using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
+        using FilterPlan stages = FilterPlan.Create(governor, CancellationToken.None);
+        stages.Allocate(1);
+        stages.Set(0, new FilterStage(FlateFilter.FilterName, null, null));
         byte[] result = chain
-            ? FilterChain.Decode(input, [new FilterStage(FlateFilter.FilterName, null, null)], limits, governor)
+            ? FilterChain.Decode(input, stages, limits, governor, decodedMemory)
             : FlateFilter.Decode(input, null, limits, governor);
         Assert.Equal(raw, result);
         Assert.Equal(raw.Length, governor.Snapshot().TotalDecodedBytes);
@@ -67,12 +71,17 @@ public sealed class FlateDecodedBudgetTests
             [PdfName.FromAscii("Predictor")] = new PdfInteger("12", 12L),
             [PdfName.FromAscii("Columns")] = new PdfInteger("3", 3L),
         });
+        using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
+        using FilterPlan stages = FilterPlan.Create(governor, CancellationToken.None);
+        stages.Allocate(1);
+        stages.Set(0, new FilterStage(FlateFilter.FilterName, dictionary, null));
+        long prepared = governor.Snapshot().LiveMemoryBytes;
         byte[] result = chain
-            ? FilterChain.Decode(input, [new FilterStage(FlateFilter.FilterName, dictionary, null)], limits, governor)
+            ? FilterChain.Decode(input, stages, limits, governor, decodedMemory)
             : FlateFilter.Decode(input, new PredictorParameters(12, 3, 1, 8), limits, governor);
         Assert.Equal(new byte[] { 1, 2, 3, 4, 5, 6 }, result);
         Assert.Equal(6L + priorBytes, governor.Snapshot().TotalDecodedBytes);
-        Assert.Equal(result.Length + GovernedBufferStream.ArrayOverheadBytes, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(prepared + result.Length + GovernedBufferStream.ArrayOverheadBytes, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]
@@ -83,9 +92,12 @@ public sealed class FlateDecodedBudgetTests
         byte[] outer = Compress(inner);
         QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = inner.Length + raw.Length };
         ResourceGovernor governor = new(limits, CancellationToken.None);
-        byte[] result = FilterChain.Decode(outer,
-            [new FilterStage(FlateFilter.FilterName, null, null), new FilterStage(FlateFilter.FilterName, null, null)],
-            limits, governor);
+        using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
+        using FilterPlan stages = FilterPlan.Create(governor, CancellationToken.None);
+        stages.Allocate(2);
+        stages.Set(0, new FilterStage(FlateFilter.FilterName, null, null));
+        stages.Set(1, new FilterStage(FlateFilter.FilterName, null, null));
+        byte[] result = FilterChain.Decode(outer, stages, limits, governor, decodedMemory);
         Assert.Equal(raw, result);
         Assert.Equal(inner.Length + raw.Length, governor.Snapshot().TotalDecodedBytes);
     }
