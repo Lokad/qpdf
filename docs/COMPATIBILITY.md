@@ -45,6 +45,14 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Form-resource traversal visits resource dictionaries by graph identity instead
+of comparing their complete values. Shared scopes and indirect form cycles
+still stop at their visit guards; distinct equal scopes are each traversed in
+breadth-first order. Indirect form object numbers remain visited once. This
+removes quadratic comparisons between equally sized resource dictionaries;
+direct forms in distinct scopes retain their separate occurrences. Public
+signatures and ordinary PDF output semantics are unchanged.
+
 Typed attachment add/copy/remove calls admit their request projection under the
 invocation governor before allocating lists or records and before opening inputs.
 Cancellation interrupts projection. Null/empty containers still reject at entry;

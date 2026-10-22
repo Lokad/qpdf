@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
@@ -15,32 +14,19 @@ public sealed class FormResourceTraversalTests
     private static PdfDictionary Dictionary(params (string Key, QpdfObject Value)[] values)
     { Dictionary<PdfName, QpdfObject> entries = new(); foreach (var value in values) { entries.Add(PdfName.FromAscii(value.Key), value.Value); } return new(entries); }
     private static PdfStream Form(PdfDictionary resources) => new(Dictionary(("Subtype", PdfName.FromAscii("Form")), ("Resources", resources)), []);
-    private static readonly Func<GraphCopier, PdfDictionary, ResourceGovernor, CancellationToken, object> Collect =
+    private static readonly Func<GraphCopier, PdfDictionary, ResourceGovernor, CancellationToken, FormResourceWalk> Collect =
         (typeof(ContentTransforms).GetMethod("CollectFormStreams", BindingFlags.NonPublic | BindingFlags.Static) ?? throw new InvalidOperationException("Missing form collector."))
-        .CreateDelegate<Func<GraphCopier, PdfDictionary, ResourceGovernor, CancellationToken, object>>();
-    private static List<(int? Id, PdfStream Stream)> Read(object result)
+        .CreateDelegate<Func<GraphCopier, PdfDictionary, ResourceGovernor, CancellationToken, FormResourceWalk>>();
+    private static List<(int? Id, PdfStream Stream)> Read(FormResourceWalk result)
     {
         try
         {
             List<(int?, PdfStream)> items = new();
-            if (result is IList legacy)
-            {
-                foreach (object item in legacy) { ITuple tuple = (ITuple)item; items.Add(((int?)tuple[0], (PdfStream)(tuple[1] ?? throw new InvalidOperationException()))); }
-            }
-            else
-            {
-                Type type = result.GetType(); BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
-                int count = (int)(type.GetProperty("Count", flags)?.GetValue(result) ?? throw new InvalidOperationException());
-                MethodInfo get = type.GetMethod("Get", flags) ?? throw new InvalidOperationException();
-                for (int index = 0; index < count; index++)
-                {
-                    object item = get.Invoke(result, [index]) ?? throw new InvalidOperationException();
-                    items.Add(((int?)item.GetType().GetProperty("Id")?.GetValue(item), (PdfStream)(item.GetType().GetProperty("Stream")?.GetValue(item) ?? throw new InvalidOperationException())));
-                }
-            }
+            for (int index = 0; index < result.Count; index++)
+            { FormResourceWalk.Form form = result.Get(index); items.Add((form.Id, form.Stream)); }
             return items;
         }
-        finally { (result as IDisposable)?.Dispose(); }
+        finally { result.Dispose(); }
     }
     private sealed class Prepared : IDisposable
     {
@@ -71,7 +57,7 @@ public sealed class FormResourceTraversalTests
     }
 
     [Fact]
-    public void ScopeOrderIsBreadthFirstAndDistinctEqualScopesAreDeduplicated()
+    public void ScopeOrderIsBreadthFirstAndSharedIndirectFormsAreVisitedOnce()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         PdfStream child = Form(Dictionary()), sibling = Form(Dictionary());
@@ -82,6 +68,34 @@ public sealed class FormResourceTraversalTests
         List<(int? Id, PdfStream Stream)> forms = Read(Collect(prepared.Copier, Dictionary(("XObject", Dictionary(("First", first), ("Equal", equal), ("Last", last)))), governor, CancellationToken.None));
         Assert.Equal(5, forms.Count); Assert.Same(first, forms[0].Stream); Assert.Same(equal, forms[1].Stream); Assert.Same(last, forms[2].Stream);
         Assert.Same(child, forms[3].Stream); Assert.Same(sibling, forms[4].Stream); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Fact]
+    public void SharedAndCyclicResourcesStopAtTheirGraphIdentities()
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        PdfDictionary scope = Dictionary(("XObject", Dictionary(("Self", new PdfReference(10, 0)), ("Again", new PdfReference(10, 7)))));
+        PdfStream form = Form(scope);
+        using Prepared prepared = new(governor, new Dictionary<int, QpdfObject> { [10] = form });
+        List<(int? Id, PdfStream Stream)> forms = Read(Collect(prepared.Copier, scope, governor, CancellationToken.None));
+        Assert.Single(forms); Assert.Equal(10, forms[0].Id); Assert.Same(form, forms[0].Stream);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Fact]
+    public void DistinctEqualScopesRetainTheirDirectFormOccurrences()
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        PdfStream child = Form(Dictionary());
+        PdfDictionary first = Dictionary(("XObject", Dictionary(("Child", child))));
+        PdfDictionary equal = Dictionary(("XObject", Dictionary(("Child", child))));
+        PdfStream firstForm = Form(first), equalForm = Form(equal);
+        using Prepared prepared = new(governor, new Dictionary<int, QpdfObject>());
+        List<(int? Id, PdfStream Stream)> forms = Read(Collect(prepared.Copier,
+            Dictionary(("XObject", Dictionary(("First", firstForm), ("Equal", equalForm)))), governor, CancellationToken.None));
+        Assert.Equal(4, forms.Count); Assert.Same(firstForm, forms[0].Stream); Assert.Same(equalForm, forms[1].Stream);
+        Assert.Same(child, forms[2].Stream); Assert.Same(child, forms[3].Stream);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]

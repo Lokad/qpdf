@@ -19,8 +19,8 @@ public sealed class FormResourceWalkOwnershipTests
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 8192L }, CancellationToken.None);
         PdfStream borrowed = new(Dictionary(), new byte[2 * 1024 * 1024]);
         using FormResourceWalk walk = FormResourceWalk.Create(governor, CancellationToken.None);
-        Assert.Equal(704L, governor.Snapshot().LiveMemoryBytes); walk.Add(17, borrowed);
-        Assert.Equal(800L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(17, walk.Get(0).Id); Assert.Same(borrowed, walk.Get(0).Stream);
+        Assert.Equal(480L, governor.Snapshot().LiveMemoryBytes); walk.Add(17, borrowed);
+        Assert.Equal(576L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(17, walk.Get(0).Id); Assert.Same(borrowed, walk.Get(0).Stream);
         walk.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Throws<ObjectDisposedException>(() => walk.Count);
         Assert.Equal(2 * 1024 * 1024, borrowed.RawMemory.Length);
     }
@@ -29,10 +29,8 @@ public sealed class FormResourceWalkOwnershipTests
     [InlineData(63L)]
     [InlineData(143L)]
     [InlineData(207L)]
-    [InlineData(303L)]
+    [InlineData(239L)]
     [InlineData(479L)]
-    [InlineData(543L)]
-    [InlineData(703L)]
     public void PartialConstructionFailureReleasesEveryNewReceipt(long maximum)
     {
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = maximum }, CancellationToken.None);
@@ -82,16 +80,31 @@ public sealed class FormResourceWalkOwnershipTests
     }
 
     [Fact]
-    public void ScopeDeduplicationKeepsValueEqualityAndReferenceGenerationDistinctions()
+    public void ScopeVisitsUseIdentityWithoutMergingEqualValues()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using FormResourceWalk walk = FormResourceWalk.Create(governor, CancellationToken.None);
         PdfDictionary first = Dictionary(("XObject", Dictionary(("A", new PdfReference(12, 0)))));
         PdfDictionary equal = Dictionary(("XObject", Dictionary(("A", new PdfReference(12, 0)))));
         PdfDictionary different = Dictionary(("XObject", Dictionary(("A", new PdfReference(12, 1)))));
-        Assert.True(walk.AddScope(first)); Assert.False(walk.AddScope(equal)); Assert.True(walk.AddScope(different));
-        Assert.Equal(2, walk.ScopeCount); Assert.Same(first, walk.GetScope(0)); Assert.Same(different, walk.GetScope(1));
+        Assert.True(walk.AddScope(first)); Assert.True(walk.AddScope(equal)); Assert.True(walk.AddScope(different));
+        Assert.False(walk.AddScope(first)); Assert.Equal(3, walk.ScopeCount);
+        Assert.Same(first, walk.GetScope(0)); Assert.Same(equal, walk.GetScope(1)); Assert.Same(different, walk.GetScope(2));
         Assert.True(walk.VisitNumber(12)); Assert.False(walk.VisitNumber(12)); walk.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Fact]
+    public void RevisitingScopesDoesNotTraverseTheirDeepBorrowedValues()
+    {
+        QpdfObject left = PdfBoolean.True, right = new PdfBoolean(true);
+        for (int depth = 0; depth < 4096; depth++)
+        { left = new PdfArray([left]); right = new PdfArray([right]); }
+        PdfDictionary first = Dictionary(("Extension", left)), equal = Dictionary(("Extension", right));
+        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 2048L }, CancellationToken.None);
+        using FormResourceWalk walk = FormResourceWalk.Create(governor, CancellationToken.None);
+        Assert.True(walk.AddScope(first)); Assert.True(walk.AddScope(equal));
+        Assert.False(walk.AddScope(first)); Assert.False(walk.AddScope(equal));
+        Assert.Equal(2, walk.ScopeCount); walk.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]
@@ -114,10 +127,9 @@ public sealed class FormResourceWalkOwnershipTests
         using CancellationTokenSource source = new(); ResourceGovernor governor = new(QpdfLimits.Default, source.Token);
         FormResourceWalk walk = FormResourceWalk.Create(governor, source.Token); PdfStream borrowed = new(Dictionary(), new byte[2 * 1024 * 1024]);
         for (int index = 0; index < 17; index++) { walk.Add(index, borrowed); walk.VisitNumber(index); walk.AddScope(Dictionary(("V", new PdfReference(index, 0)))); }
-        object comparison = Field(walk, "_comparison"), scopes = Field(walk, "_scopes"), forms = Field(walk, "_forms"), visited = Field(walk, "_visited"), indexStorage = Field(visited, "_index");
-        object frames = Field(comparison, "_frames");
+        object scopes = Field(walk, "_scopes"), forms = Field(walk, "_forms"), visited = Field(walk, "_visited"), indexStorage = Field(visited, "_index");
         WeakReference[] witnesses = [new(governor), new(source), new(Field(walk, "_memory")), new(scopes), new(forms), new(Field(scopes, "_items")), new(Field(forms, "_items")),
-            new(Field(walk, "_seen")), new(visited), new(indexStorage), new(Field(indexStorage, "_entries")), new(Field(indexStorage, "_buckets")), new(comparison), new(frames), new(Field(frames, "_items")), new(Field(comparison, "_memory"))];
+            new(Field(walk, "_seen")), new(visited), new(indexStorage), new(Field(indexStorage, "_entries")), new(Field(indexStorage, "_buckets"))];
         walk.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); return new(walk, borrowed, witnesses);
     }
     [Fact]
