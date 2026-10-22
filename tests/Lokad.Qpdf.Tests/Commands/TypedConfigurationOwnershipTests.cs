@@ -176,10 +176,10 @@ public sealed class TypedConfigurationOwnershipTests(ITestOutputHelper log)
     }
 
     [Fact]
-    public async Task TypedRangeBoundariesKeepEmptyDefaultsAndOriginalLengthRejection()
+    public async Task TypedPositionsKeepEmptyDefaultsAndDuplicatesBeyondTheTextCeiling()
     {
         foreach (string route in new[] { "single", "rotations", "merge" })
-        foreach (string boundary in new[] { "null", "empty", "4095", "4096", "4097" })
+        foreach (string boundary in new[] { "null", "empty", "2048-repeats", "ordered", "2049-repeats" })
         {
             Host host = await CreateHost();
             PdfPageSource[] sources = [new(Input, PdfPageSelectionOptions.FromPages(Enumerable.Repeat(1, 11).ToArray()))];
@@ -187,39 +187,62 @@ public sealed class TypedConfigurationOwnershipTests(ITestOutputHelper log)
             {
                     "null" => null,
                     "empty" => [],
-                    "4095" => Enumerable.Repeat(1, 2048).ToArray(),
-                    "4096" => [.. Enumerable.Repeat(1, 2047), 11],
-                    "4097" => Enumerable.Repeat(1, 2049).ToArray(),
+                    "2048-repeats" => Enumerable.Repeat(1, 2048).ToArray(),
+                    "ordered" => [.. Enumerable.Repeat(1, 2047), 11],
+                    "2049-repeats" => Enumerable.Repeat(1, 2049).ToArray(),
                 _ => throw new InvalidOperationException(boundary),
             };
             PdfPageRotation[] rotations = [new(PdfRotationMode.Add, 90, pages)];
-            if (boundary == "4097")
+            await Run(host, route, sources, rotations, [], QpdfLimits.Default, CancellationToken.None);
+            Assert.True(host.Inner.TryGetOutput(Output, out byte[] output));
+            InMemoryQpdfHost reader = new(); reader.AddInput(Input, output, QpdfInputOwnership.Copy);
+            await using QpdfDocument document = await QpdfDocument.OpenAsync(reader, Input, CancellationToken.None);
+            Assert.Equal(11, document.PageCount);
+            for (int i = 0; i < 11; i++)
             {
-                QpdfParseException failure = await Assert.ThrowsAsync<QpdfParseException>(() => Run(host, route, sources, rotations, [], QpdfLimits.Default, CancellationToken.None));
-                Assert.Equal("Invalid page range: text exceeds 4096 characters. (offset 0).", failure.Message);
-                Assert.Equal(0, host.Opens); Assert.Equal(0L, host.Inner.OpenLeaseCount);
-                Assert.True(host.Inner.TryGetOutput(Output, out byte[] prior)); Assert.Equal(Prior, prior);
-            }
-            else
-            {
-                await Run(host, route, sources, rotations, [], QpdfLimits.Default, CancellationToken.None);
-                Assert.True(host.Inner.TryGetOutput(Output, out byte[] output));
-                InMemoryQpdfHost reader = new(); reader.AddInput(Input, output, QpdfInputOwnership.Copy);
-                await using QpdfDocument document = await QpdfDocument.OpenAsync(reader, Input, CancellationToken.None);
-                Assert.Equal(11, document.PageCount);
-                for (int i = 0; i < 11; i++)
+                long expected = boundary switch
                 {
-                    long expected = boundary is "null" or "empty" ? 90L : boundary == "4095" ? 0L : i == 0 ? 270L : i == 10 ? 90L : 0L;
-                    PdfDictionary page = document.PageReferences[i].Page;
-                    long actual = page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject angle) ? Assert.IsType<PdfInteger>(angle).Value : 0L;
-                    Assert.Equal(expected, actual);
-                }
+                    "null" or "empty" => 90L,
+                    "2048-repeats" => 0L,
+                    "2049-repeats" => i == 0 ? 90L : 0L,
+                    _ => i == 0 ? 270L : i == 10 ? 90L : 0L,
+                };
+                PdfDictionary page = document.PageReferences[i].Page;
+                long actual = page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject angle) ? Assert.IsType<PdfInteger>(angle).Value : 0L;
+                Assert.Equal(expected, actual);
             }
+            Assert.Equal(0L, host.Inner.OpenLeaseCount);
             log.WriteLine("TYPED CONFIG BOUNDARY {0}|{1} preserved", route, boundary);
         }
     }
 
     private const BindingFlags Fields = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+
+    [Theory]
+    [InlineData("single", false)]
+    [InlineData("rotations", false)]
+    [InlineData("merge", false)]
+    [InlineData("single", true)]
+    [InlineData("rotations", true)]
+    [InlineData("merge", true)]
+    public async Task NumericRotationBoundsPreservePriorOutputAndCloseInputs(string route, bool cardinality)
+    {
+        Host host = await CreateHost();
+        PdfPageSource[] sources = [new(Input, PdfPageSelectionOptions.FromPages([1, 2, 3]))];
+        PdfPageRotation[] rotations = [new(PdfRotationMode.Add, 90,
+            cardinality ? Enumerable.Repeat(1, 2049).ToArray() : [4])];
+        QpdfLimits limits = QpdfLimits.Default with { MaxContainerSize = 32L };
+        Func<Task> run = () => Run(host, route, sources, rotations, [], limits, CancellationToken.None);
+        if (cardinality)
+        {
+            QpdfLimitException failure = await Assert.ThrowsAsync<QpdfLimitException>(run);
+            Assert.Equal(nameof(QpdfLimits.MaxContainerSize), failure.LimitName);
+        }
+        else { await Assert.ThrowsAsync<ArgumentOutOfRangeException>(run); }
+        Assert.Equal(0L, host.Inner.OpenLeaseCount);
+        Assert.True(host.Inner.TryGetOutput(Output, out byte[] prior)); Assert.Equal(Prior, prior);
+    }
+
     private static readonly Dictionary<string, long> Sizes = [];
 
     private static long Physical(object value)
@@ -280,9 +303,10 @@ public sealed class TypedConfigurationOwnershipTests(ITestOutputHelper log)
             foreach (object item in list)
             {
                 Add(item);
-                string property = name == "Lokad.Qpdf.Commands.OutputRotation" ? "Range" : "FirstPage";
-                if (item.GetType().GetProperty(property, Fields)?.GetValue(item) is string text && text.Length > 0
-                    && (property == "Range" || preparation is not null)) { Add(text); }
+                // Numeric rotations borrow caller-owned immutable positions.
+                // Only typed label adaptation still creates numeric text.
+                if (name == "Lokad.Qpdf.Commands.PageLabelSpec" && preparation is not null
+                    && item.GetType().GetProperty("FirstPage", Fields)?.GetValue(item) is string text && text.Length > 0) { Add(text); }
             }
         }
         Assert.True(minimum > 0);

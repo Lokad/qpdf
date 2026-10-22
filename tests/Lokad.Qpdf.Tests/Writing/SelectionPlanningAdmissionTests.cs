@@ -88,6 +88,34 @@ public sealed class SelectionPlanningAdmissionTests
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LargeNumericRotationsRefuseFoldGrowthAndPreserveOutput(bool shared)
+    {
+        QpdfLimits limits = shared ? QpdfLimits.Default : QpdfLimits.Default with { MaxMemoryBytes = 128 * 1024L };
+        RecordingMemoryBudget root = new(shared ? 128 * 1024L : 4 * 1024 * 1024L);
+        using InMemoryQpdfHost storage = new();
+        storage.AddInput(Input, File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "minimal-1page.pdf")), QpdfInputOwnership.Transfer);
+        await using (IQpdfOutputTransaction seed = await storage.CreateOutputAsync(Output, CancellationToken.None))
+        { await seed.WriteAsync(new byte[] { 17, 23, 41 }, CancellationToken.None); await seed.CommitAsync(CancellationToken.None); }
+        PdfPageRotation rotation = new(PdfRotationMode.Add, 90, Enumerable.Repeat(1, 262144).ToArray());
+        using (IMemoryScope owner = root.CreateScope())
+        {
+            Func<Task> run = () => Qpdf.SelectPageAsync(new Host(storage, owner), Input, Output,
+                new PdfPageSelectionOptions(1), [rotation], limits, CancellationToken.None).AsTask();
+            if (shared) { await Assert.ThrowsAsync<QpdfMemoryAdmissionException>(run); }
+            else
+            {
+                QpdfLimitException failure = await Assert.ThrowsAsync<QpdfLimitException>(run);
+                Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
+            }
+            Assert.Equal(0L, storage.OpenLeaseCount);
+            Assert.True(storage.TryGetOutput(Output, out byte[] prior)); Assert.Equal(new byte[] { 17, 23, 41 }, prior);
+        }
+        Assert.Equal(0L, root.ReservedBytes);
+    }
+
+    [Theory]
     [InlineData(500000)]
     [InlineData(131072)]
     public void PreviewCardinalityChecksBothBranchesBeforeAllocating(int window)

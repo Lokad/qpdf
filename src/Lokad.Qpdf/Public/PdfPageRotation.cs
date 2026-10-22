@@ -17,7 +17,11 @@ public enum PdfRotationMode
 public sealed record PdfPageRotation
 {
     /// <summary>Creates a rotation for output pages.</summary>
-    /// <remarks>A null or empty page list selects every output page.</remarks>
+    /// <remarks>
+    /// A null or empty page list selects every output page. Explicit positions
+    /// preserve order and duplicates and use the operation's container limit,
+    /// without a text-length ceiling.
+    /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The angle is not a multiple of 90, or a page is not positive.</exception>
     public PdfPageRotation(PdfRotationMode mode, int angle, IReadOnlyList<int>? pages)
     {

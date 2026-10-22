@@ -1713,7 +1713,7 @@ public static partial class Qpdf
         foreach (OutputRotation specification in rotations)
         {
             governor.CheckCancellation();
-            IReadOnlyList<int> positions = Pages.PageRanges.Expand(specification.Range, total, limits.MaxContainerSize, governor, ownership);
+            IReadOnlyList<int> positions = specification.ResolvePositions(total, limits.MaxContainerSize, governor, ownership);
             foreach (int position in positions)
             {
                 governor.CheckCancellation();

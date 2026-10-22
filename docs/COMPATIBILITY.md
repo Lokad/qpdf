@@ -67,6 +67,13 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Typed rotations carry numeric positions directly through the shared rotation
+resolver. Explicit lists use `MaxContainerSize` and ordinary memory admission;
+the former 4096-character limit on a generated range string no longer applies.
+Null and empty lists still select every output page, and repeated positions
+still apply the rotation repeatedly in order. Argv/job range grammar and its
+4096-character ceiling are unchanged. No public signatures change.
+
 Page selection, rotation and collation expose read-only views of their defensive
 integer snapshots. Casts to mutable collection interfaces can no longer change
 validated settings. Engine-created views receive memory admission; public

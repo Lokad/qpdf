@@ -1,10 +1,10 @@
-using System.Globalization;
 using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Commands;
 
 /// <summary>
-/// A rotation over output positions with a lazily expanded range. The text form
+/// A rotation over output positions, borrowed from immutable typed settings or
+/// expanded lazily from a text range. The text form
 /// mirrors upstream `[+|-]angle[:range]`: the angle is any multiple of 90
 /// degrees normalized modulo 360, and the range uses the shared upstream
 /// page-range grammar (spans, descending ranges, `rN`/`z`, exclusions,
@@ -13,6 +13,8 @@ namespace Lokad.Qpdf.Commands;
 /// </summary>
 internal sealed record OutputRotation(PdfRotationMode Mode, int Angle, string? Range)
 {
+    private IReadOnlyList<int>? Positions { get; init; }
+
     internal static OutputRotation Parse(string specification, long offset, ConfigurationText? textStorage)
     {
         if (specification is null)
@@ -91,44 +93,27 @@ internal sealed record OutputRotation(PdfRotationMode Mode, int Angle, string? R
         }
 
         governor.CheckCancellation();
-        string? range = null;
-        if (rotation.Pages is IReadOnlyList<int> pages)
+        memory.Reserve(40L);
+        // Public settings own a defensive read-only snapshot. Borrow it through
+        // preparation/publication rather than copying or formatting its numbers.
+        return new OutputRotation(rotation.Mode, Normalize(rotation.Angle), null) { Positions = rotation.Pages };
+    }
+
+    internal IReadOnlyList<int> ResolvePositions(int total, long maxEntries,
+        ResourceGovernor governor, ParserMemoryScope memory)
+    {
+        memory.CheckOwner(governor); governor.CheckCancellation();
+        if (Positions is not { Count: > 0 } pages)
+        { return Pages.PageRanges.Expand(Range, total, maxEntries, governor, memory); }
+        if (pages.Count > maxEntries)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), pages.Count, maxEntries); }
+        foreach (int page in pages)
         {
-            int length = pages.Count == 0 ? 0 : pages.Count - 1;
-            Span<char> digits = stackalloc char[11];
-            foreach (int page in pages)
-            {
-                governor.CheckCancellation();
-                if (!page.TryFormat(digits, out int written, provider: CultureInfo.InvariantCulture))
-                { throw new InvalidOperationException("Typed page exceeds its bounded number storage."); }
-                length = checked(length + written);
-                if (length > Pages.PageRanges.MaxRangeTextLength)
-                { throw new QpdfParseException($"Invalid page range: text exceeds {Pages.PageRanges.MaxRangeTextLength} characters.", 0L, null); }
-            }
-            memory.Reserve(GovernedText.StringBytes(length));
-            range = string.Create(length, (pages, governor), static (target, state) =>
-            {
-                int offset = 0;
-                for (int i = 0; i < state.pages.Count; i++)
-                {
-                    state.governor.CheckCancellation(); state.governor.NoteOperation();
-                    if (i > 0) { target[offset++] = ','; }
-                    if (!state.pages[i].TryFormat(target[offset..], out int written, provider: CultureInfo.InvariantCulture))
-                    { throw new InvalidOperationException("Typed page changed its admitted number storage."); }
-                    offset += written;
-                }
-            });
-            if (range.Length > 0)
-            {
-                // Reuse the existing bounded grammar and its established lexical envelope.
-                using ParserMemoryScope syntax = ParserMemoryScope.Create(governor);
-                syntax.Reserve(checked(256L + 128L * range.Length));
-                governor.CheckCancellation();
-                Pages.PageRanges.CheckSyntax(range);
-            }
+            governor.CheckCancellation();
+            if (page < 1 || page > total)
+            { throw new ArgumentOutOfRangeException(nameof(Positions), $"Output page {page} exceeds the page count of {total}."); }
         }
-        memory.Reserve(32L);
-        return new OutputRotation(rotation.Mode, Normalize(rotation.Angle), range);
+        return pages;
     }
 
     private static int Normalize(int angle)
