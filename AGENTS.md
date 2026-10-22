@@ -30,6 +30,8 @@ pwsh -File tools/test-package-consumer.ps1 -PackagePath artifacts/nuget/Lokad.qp
 The consumer verifier copies the reviewed lock into an isolated run, binds only
 the local package hash to the supplied artifact, and restores in locked mode
 with a fresh cache/feed. External hashes and the tracked lock remain unchanged.
+Both package guards reject grouped and ungrouped dependencies. Negative checks
+mutate copied locks and package manifests and require rejection before restore.
 
 After an intentional dependency change, restore without locked mode once,
 review and commit the new lock files, then verify locked mode again. Update

@@ -45,7 +45,7 @@ try {
         $metadata.version -cne $dependencies['Lokad.qpdf'].resolved) {
         throw 'Artifact identity/version must match the reviewed consumer lock.'
     }
-    if (@($metadata.SelectNodes('*[local-name()="dependencies"]/*[local-name()="group"]/*[local-name()="dependency"]')).Count -ne 0) {
+    if (@($metadata.SelectNodes('*[local-name()="dependencies"]//*[local-name()="dependency"]')).Count -ne 0) {
         throw 'The core package must have no runtime package dependencies.'
     }
     $library = $package.GetEntry('lib/net10.0/Lokad.Qpdf.dll')

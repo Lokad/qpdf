@@ -22,7 +22,7 @@ try {
     try { [xml] $manifest = $reader.ReadToEnd() } finally { $reader.Dispose() }
     $metadata = $manifest.SelectSingleNode('/*[local-name()="package"]/*[local-name()="metadata"]')
     if ($metadata.id -cne 'Lokad.qpdf') { throw 'Incorrect package ID.' }
-    $dependencies = @($metadata.SelectNodes('*[local-name()="dependencies"]/*[local-name()="group"]/*[local-name()="dependency"]'))
+    $dependencies = @($metadata.SelectNodes('*[local-name()="dependencies"]//*[local-name()="dependency"]'))
     if ($dependencies.Count -ne 0) {
         throw 'The core package must have no runtime package dependencies.'
     }
