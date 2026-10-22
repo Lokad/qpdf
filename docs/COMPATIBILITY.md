@@ -7,6 +7,11 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Annotation flattening normalizes page rotations modulo 360 before applying
+`NoRotate` placement. Equivalent negative, full-turn and large 64-bit angles
+now produce the same placement as their cardinal angle; public signatures
+are unchanged.
+
 JSON text import and export share PDFDocEncoding conversion. Unicode controls
 that occupy repurposed PDF byte slots now use UTF-16 rather than changing into
 accent marks. Ordinary Latin-1 text can use PDFDocEncoding and export as `u:`
