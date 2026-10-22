@@ -329,7 +329,8 @@ public static partial class Qpdf
                     retryParse = document.Engine.HasSelectiveInput;
                     if (settings.ExternalizeInlineImages || (settings.Optimize.Optimize && !settings.Optimize.KeepInline)) { document.PrepareInlinePageResources(cancellationToken); }
                     int total = document.PageReferences.Count;
-                    IReadOnlyList<int> requested = options.Resolve(total, limits.MaxContainerSize);
+                    using ParserMemoryScope copyMemory = ParserMemoryScope.Create(governor);
+                    IReadOnlyList<int> requested = options.Resolve(total, limits.MaxContainerSize, governor, copyMemory);
                     if ((long)requested.Count > limits.MaxContainerSize)
                     {
                         throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), requested.Count, limits.MaxContainerSize);
@@ -337,21 +338,24 @@ public static partial class Qpdf
 
                     foreach (int pageNumber in requested)
                     {
+                        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                         if (pageNumber > total)
                         {
                             throw new ArgumentOutOfRangeException(nameof(options), $"Page {pageNumber} exceeds the page count of {total}.");
                         }
                     }
 
-                    using ParserMemoryScope copyMemory = ParserMemoryScope.Create(governor);
+                    IReadOnlyList<PageLocation> kept = KeptLocations(document, requested, copyMemory, governor, cancellationToken);
                     GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, limits, 3, copyMemory);
                     foreach (int pageNumber in requested)
                     {
+                        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                         copier.RegisterPageRoot(document.PageReferences[pageNumber - 1].Source?.ObjectNumber);
                     }
                     copier.HintPageCapacity(requested.Count);
-                    List<PdfReference> kids = new(requested.Count);
-                    List<(GraphCopier Copier, int Id)> occurrences = new(requested.Count);
+                    List<PdfReference> kids = ParserContainers.CreateList<PdfReference>(copyMemory, requested.Count, IntPtr.Size);
+                    copyMemory.Reserve(checked(24L * requested.Count));
+                    List<(GraphCopier Copier, int Id)> occurrences = ParserContainers.CreateList<(GraphCopier, int)>(copyMemory, requested.Count, 16L);
                     foreach (int pageNumber in requested)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
@@ -370,7 +374,8 @@ public static partial class Qpdf
                     }
                     if (settings.PreserveUnreferenced)
                     {
-                        HashSet<int> excluded = PreservationExclusions(document.Engine, KeptLocations(document, requested), limits, governor, cancellationToken);
+                        using ParserMemoryScope preservation = ParserMemoryScope.Create(governor);
+                        HashSet<int> excluded = PreservationExclusions(document.Engine, kept, limits, governor, preservation, cancellationToken);
                         copier.PreserveUnreferencedObjects(document.Engine, excluded, diagnostics, cancellationToken);
                     }
 
@@ -390,9 +395,10 @@ public static partial class Qpdf
                     Content.ContentTransformRequest? singleTransforms = PrepareSourceContentTransforms(settings.CoalesceContents, settings.NormalizeContent, settings.ExternalizeInlineImages || (settings.Optimize.Optimize && !settings.Optimize.KeepInline), settings.IiMinBytes, singleCompress, singleLevel, StreamTransformer.Options(singleDecode, settings.Compression.RecompressFlate), settings.Prune, document.Engine, limits, governor, cancellationToken, settings.PreserveUnreferenced, out bool singlePrune);
                     if (singleTransforms is not null)
                     {
-                        List<int> occurrenceIds = new(occurrences.Count);
+                        List<int> occurrenceIds = ParserContainers.CreateList<int>(copyMemory, occurrences.Count, sizeof(int));
                         foreach ((GraphCopier _, int occurrenceId) in occurrences)
                         {
+                            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                             occurrenceIds.Add(occurrenceId);
                         }
                         Content.ContentTransforms.ApplyPageTransforms(copier, occurrenceIds, singleTransforms, singlePrune, limits, governor, diagnostics, cancellationToken);
@@ -407,7 +413,7 @@ public static partial class Qpdf
                     if (singleGenerated)
                     {
                         using ParserMemoryScope gateMemory = ParserMemoryScope.Create(governor);
-                        Content.CopiedForm? gateForm = Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, KeptLocations(document, requested), true, limits, governor, gateMemory, cancellationToken);
+                        Content.CopiedForm? gateForm = Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, kept, true, limits, governor, gateMemory, cancellationToken);
                         HashSet<int> gateSurvivors = Content.AcroFormCopy.CollectAnnotRefs(occurrences, governor, gateMemory, cancellationToken);
                         List<(IReadOnlyDictionary<int, QpdfObject> Pool, Content.CopiedForm? Part)> gateParts = ParserContainers.CreateList<(IReadOnlyDictionary<int, QpdfObject>, Content.CopiedForm?)>(gateMemory);
                         ParserContainers.AddItem(gateMemory, gateParts, (copier.CopiedObjects, gateForm), 16L);
@@ -453,9 +459,10 @@ public static partial class Qpdf
                     else if (!settings.RemoveLabels && Content.PageLabelMerge.HasLabels(document.Engine))
                     {
                         Content.SourceLabels singleSource = Content.PageLabelMerge.ReadSource(document.Engine, copier, limits, governor, cancellationToken);
-                        List<(Content.SourceLabels Source, int Page)> singleOccurrences = new(requested.Count);
+                        List<(Content.SourceLabels Source, int Page)> singleOccurrences = ParserContainers.CreateList<(Content.SourceLabels, int)>(copyMemory, requested.Count, 16L);
                         foreach (int pageNumber in requested)
                         {
+                            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                             singleOccurrences.Add((singleSource, pageNumber));
                         }
 
@@ -463,22 +470,30 @@ public static partial class Qpdf
                         singleLabels = singleItems.Count == 0 ? null : NumbersDictionary(singleItems, governor);
                     }
 
-                    Dictionary<int, QpdfObject> singlePool = new(copier.CopiedObjects);
+                    Dictionary<int, QpdfObject> singlePool = ParserContainers.CreateDictionary<int, QpdfObject>(copyMemory);
+                    ParserContainers.HintEntryCapacity(copyMemory, singlePool, copier.CopiedObjects.Count, IntPtr.Size, governor);
+                    foreach (KeyValuePair<int, QpdfObject> entry in copier.CopiedObjects)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                        ParserContainers.EnsureEntryCapacity(copyMemory, singlePool, IntPtr.Size);
+                        singlePool.Add(entry.Key, entry.Value);
+                    }
                     foreach (GraphCopier overlayCopier in overlayApplied.Copiers)
                     {
                         foreach (KeyValuePair<int, QpdfObject> overlayEntry in overlayCopier.CopiedObjects)
                         {
+                            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                            ParserContainers.EnsureEntryCapacity(copyMemory, singlePool, IntPtr.Size);
                             singlePool.Add(overlayEntry.Key, overlayEntry.Value);
                         }
                     }
                     byte[]? originalId = TryGetOriginalId(document.Engine);
-                    string countText = kids.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     PdfDictionary? singleAcroForm = settings.RemoveAcroform
                         ? null
                         : Content.AcroFormCopy.BuildSingle(
                             document.Engine,
                             copier,
-                            KeptLocations(document, requested),
+                            kept,
                             true,
                             occurrences,
                             singlePool,
@@ -511,12 +526,7 @@ public static partial class Qpdf
                     }
 
                     PdfDictionary catalog = NewCatalog(singleLabels, effective, extensionLevel, singleMetadata, singleAttached.NamesRef, singleAttached.PageMode, singleOutlines, singleAcroForm, singleStructTree, singleMarkInfo, singleExtras, governor, cancellationToken);
-                    PdfDictionary pages = new(new Dictionary<PdfName, QpdfObject>
-                    {
-                        [PdfName.FromAscii("Type")] = PdfName.FromAscii("Pages"),
-                        [PdfName.FromAscii("Kids")] = new PdfArray(kids),
-                        [PdfName.FromAscii("Count")] = new PdfInteger(countText, kids.Count),
-                    });
+                    PdfDictionary pages = PagesNode(kids, copyMemory, governor, cancellationToken);
                     int modelCount = checked(singlePool.Count + 2);
                     copyMemory.Reserve(checked(64L + 16L * modelCount));
                     List<NumberedObject> model = new(modelCount)
@@ -901,17 +911,17 @@ public static partial class Qpdf
         using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
         using ParserMemoryScope selectionMemory = ParserMemoryScope.Create(governor);
         List<int> sourceCounts = ParserContainers.CreateList<int>(selectionMemory);
-        List<List<(GraphCopier Copier, int Id, int SourcePage)>> perSource = new(sources.Count);
+        List<List<(GraphCopier Copier, int Id, int SourcePage)>> perSource = ParserContainers.CreateList<List<(GraphCopier, int, int)>>(selectionMemory, sources.Count, IntPtr.Size);
         int nextId = 3;
         bool needAppearances = false;
-        List<GraphCopier> copiers = new(sources.Count);
+        List<GraphCopier> copiers = ParserContainers.CreateList<GraphCopier>(selectionMemory, sources.Count, IntPtr.Size);
         PdfVersion? version = null;
         byte[]? originalId1 = null;
-        List<HashSet<int>> sourceCompressed = new(sources.Count);
-        HashSet<int> allPreserved = new();
-        List<Content.CopiedForm?> multiForms = new(sources.Count);
-        List<Content.CopiedForm?> gateForms = new(sources.Count);
-        List<Content.SourceLabels?> multiLabels = new(sources.Count);
+        List<HashSet<int>> sourceCompressed = ParserContainers.CreateList<HashSet<int>>(selectionMemory, sources.Count, IntPtr.Size);
+        HashSet<int> allPreserved = ParserContainers.CreateSet<int>(selectionMemory);
+        List<Content.CopiedForm?> multiForms = ParserContainers.CreateList<Content.CopiedForm?>(selectionMemory, sources.Count, IntPtr.Size);
+        List<Content.CopiedForm?> gateForms = ParserContainers.CreateList<Content.CopiedForm?>(selectionMemory, sources.Count, IntPtr.Size);
+        List<Content.SourceLabels?> multiLabels = ParserContainers.CreateList<Content.SourceLabels?>(selectionMemory, sources.Count, IntPtr.Size);
         QpdfObject? verbatimCopied = null;
         bool needSourceLabels = !settings.RemoveLabels && (settings.Labels.Count == 0 || splitPages.HasValue);
         SortedDictionary<string, PdfReference> primaryExisting = new(StringComparer.Ordinal);
@@ -932,7 +942,7 @@ public static partial class Qpdf
         PdfReference? primaryStructTree = null;
         QpdfObject? primaryMarkInfo = null;
         IReadOnlyDictionary<PdfName, QpdfObject>? primaryExtras = null;
-        HashSet<int> catalogExtraIds = new();
+        HashSet<int> catalogExtraIds = ParserContainers.CreateSet<int>(selectionMemory);
         long selected = 0L;
         (bool multiCompress, string multiDecode, int? multiLevel) = ResolveCompression(settings.Compression, settings.Qdf.Enabled);
         for (int s = 0; s < sources.Count; s++)
@@ -964,9 +974,11 @@ public static partial class Qpdf
 
                 sourceCompressed.Add(CollectCompressedOriginals(document.Engine, settings.ObjectStreams is not ("disable" or "generate"), selectionMemory, governor, cancellationToken));
 
-                IReadOnlyList<int> requested = sources[s].Selection.Resolve(document.PageReferences.Count, limits.MaxContainerSize);
+                using ParserMemoryScope sourcePlan = ParserMemoryScope.Create(governor);
+                IReadOnlyList<int> requested = sources[s].Selection.Resolve(document.PageReferences.Count, limits.MaxContainerSize, governor, sourcePlan);
                 foreach (int pageNumber in requested)
                 {
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                     if (pageNumber > document.PageReferences.Count)
                     {
                         throw new ArgumentOutOfRangeException(nameof(sources), $"Source {s} page {pageNumber} exceeds the page count of {document.PageReferences.Count}.");
@@ -979,13 +991,15 @@ public static partial class Qpdf
                     throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), selected, limits.MaxContainerSize);
                 }
 
+                IReadOnlyList<PageLocation> kept = KeptLocations(document, requested, sourcePlan, governor, cancellationToken);
                 GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, limits, nextId, selectionMemory);
                 foreach (int pageNumber in requested)
                 {
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                     copier.RegisterPageRoot(document.PageReferences[pageNumber - 1].Source?.ObjectNumber);
                 }
                 copier.HintPageCapacity(requested.Count);
-                List<(GraphCopier Copier, int Id, int SourcePage)> taken = new(requested.Count);
+                List<(GraphCopier Copier, int Id, int SourcePage)> taken = ParserContainers.CreateList<(GraphCopier, int, int)>(selectionMemory, requested.Count, 16L);
                 foreach (int pageNumber in requested)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -999,10 +1013,11 @@ public static partial class Qpdf
 
                 if (settings.PreserveUnreferenced && s == primaryIdx && !emptyPrimary)
                 {
-                    HashSet<int> excluded = PreservationExclusions(document.Engine, KeptLocations(document, requested), limits, governor, cancellationToken);
+                    using ParserMemoryScope preservation = ParserMemoryScope.Create(governor);
+                    HashSet<int> excluded = PreservationExclusions(document.Engine, kept, limits, governor, preservation, cancellationToken);
                     foreach (int preserved in copier.PreserveUnreferencedObjects(document.Engine, excluded, diagnostics, cancellationToken))
                     {
-                        allPreserved.Add(preserved);
+                        ParserContainers.AddSetItem(selectionMemory, allPreserved, preserved, sizeof(int));
                     }
                 }
 
@@ -1011,7 +1026,7 @@ public static partial class Qpdf
                     : Content.AcroFormCopy.TryCopySourceForm(
                         document.Engine,
                         copier,
-                        KeptLocations(document, requested),
+                        kept,
                         pruneUnreachableFields,
                         limits,
                         governor,
@@ -1019,7 +1034,7 @@ public static partial class Qpdf
                         cancellationToken);
                 multiForms.Add(sourceForm);
                 gateForms.Add(settings.RemoveAcroform
-                    ? Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, KeptLocations(document, requested), pruneUnreachableFields, limits, governor, selectionMemory, cancellationToken)
+                    ? Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, kept, pruneUnreachableFields, limits, governor, selectionMemory, cancellationToken)
                     : sourceForm);
                 if (needSourceLabels)
                 {
@@ -1043,26 +1058,26 @@ public static partial class Qpdf
                     primaryExtras = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, settings.PreserveCatalog, settings.RemoveAcroform, governor, selectionMemory, cancellationToken);
                     if (primaryInfo is not null)
                     {
-                        catalogExtraIds.Add(primaryInfo.ObjectNumber);
+                        ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryInfo.ObjectNumber, sizeof(int));
                     }
 
                     if (primaryMetadata is not null)
                     {
-                        catalogExtraIds.Add(primaryMetadata.ObjectNumber);
+                        ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryMetadata.ObjectNumber, sizeof(int));
                     }
                     if (primaryOutlines is not null)
                     {
-                        catalogExtraIds.Add(primaryOutlines.ObjectNumber);
+                        ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryOutlines.ObjectNumber, sizeof(int));
                     }
 
                     if (primaryStructTree is not null)
                     {
-                        catalogExtraIds.Add(primaryStructTree.ObjectNumber);
+                        ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryStructTree.ObjectNumber, sizeof(int));
                     }
 
                     if (primaryMarkInfo is PdfReference primaryMarkRef)
                     {
-                        catalogExtraIds.Add(primaryMarkRef.ObjectNumber);
+                        ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryMarkRef.ObjectNumber, sizeof(int));
                     }
 
                     primaryExisting = PreserveExistingAttachments(copier, document.Engine, settings.Edits, limits, governor, diagnostics, selectionMemory, cancellationToken);
@@ -1077,9 +1092,10 @@ public static partial class Qpdf
                 Content.ContentTransformRequest? sourceTransforms = PrepareSourceContentTransforms(settings.CoalesceContents, settings.NormalizeContent, settings.ExternalizeInlineImages || (settings.Optimize.Optimize && !settings.Optimize.KeepInline), settings.IiMinBytes, multiCompress, multiLevel, StreamTransformer.Options(multiDecode, settings.Compression.RecompressFlate), settings.Prune, document.Engine, limits, governor, cancellationToken, settings.PreserveUnreferenced, out bool sourcePrune);
                 if (sourceTransforms is not null)
                 {
-                    List<int> takenIds = new(taken.Count);
+                    List<int> takenIds = ParserContainers.CreateList<int>(selectionMemory, taken.Count, sizeof(int));
                     foreach ((GraphCopier _, int takenId, int _) in taken)
                     {
+                        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                         takenIds.Add(takenId);
                     }
                     Content.ContentTransforms.ApplyPageTransforms(copier, takenIds, sourceTransforms, sourcePrune, limits, governor, diagnostics, cancellationToken);
@@ -1106,10 +1122,12 @@ public static partial class Qpdf
 
         List<(int Source, int Slot)> order = CollateOrder(perSource, collation, governor, selectionMemory);
         List<PdfPageSelectionMapping> mapping = ParserContainers.CreateList<PdfPageSelectionMapping>(selectionMemory);
-        List<PdfReference> kids = new(order.Count);
-        List<(GraphCopier Copier, int Id)> occurrences = new(order.Count);
+        List<PdfReference> kids = ParserContainers.CreateList<PdfReference>(selectionMemory, order.Count, IntPtr.Size);
+        selectionMemory.Reserve(checked(24L * order.Count));
+        List<(GraphCopier Copier, int Id)> occurrences = ParserContainers.CreateList<(GraphCopier, int)>(selectionMemory, order.Count, 16L);
         foreach ((int source, int slot) in order)
         {
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             (GraphCopier copier, int pageId, int pageNumber) = perSource[source][slot];
             kids.Add(new PdfReference(pageId, 0));
             selectionMemory.Reserve(24L);
@@ -1208,8 +1226,14 @@ public static partial class Qpdf
         List<GraphCopier> renameCopiers = copiers;
         if (!settings.RemoveAcroform && overlayApplied.FieldImports.Count > 0)
         {
-            renameForms = new List<Content.CopiedForm?>(multiForms);
-            renameCopiers = new List<GraphCopier>(copiers);
+            int count = checked(multiForms.Count + overlayApplied.FieldImports.Count);
+            renameForms = ParserContainers.CreateList<Content.CopiedForm?>(selectionMemory, count, IntPtr.Size);
+            renameCopiers = ParserContainers.CreateList<GraphCopier>(selectionMemory, count, IntPtr.Size);
+            for (int index = 0; index < multiForms.Count; index++)
+            {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                renameForms.Add(multiForms[index]); renameCopiers.Add(copiers[index]);
+            }
             foreach (Content.AcroFormCopy.OverlayFieldImport import in overlayApplied.FieldImports)
             {
                 renameForms.Add(import.Part);
@@ -1222,14 +1246,16 @@ public static partial class Qpdf
             Content.AcroFormCopy.RenameCollidingFields(renameForms, renameCopiers, limits, governor, cancellationToken);
         }
 
-        Dictionary<int, QpdfObject> pool = new();
+        Dictionary<int, QpdfObject> pool = ParserContainers.CreateDictionary<int, QpdfObject>(selectionMemory);
         foreach (GraphCopier copier in copiers)
         {
-            List<int> ids = new(copier.CopiedObjects.Keys);
-            ids.Sort();
-            foreach (int id in ids)
+            // Final writer models sort by object number; insertion order need not
+            // require a second sorted snapshot of every source's keys.
+            foreach (KeyValuePair<int, QpdfObject> entry in copier.CopiedObjects)
             {
-                pool[id] = copier.CopiedObjects[id];
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                if (!pool.ContainsKey(entry.Key)) { ParserContainers.EnsureEntryCapacity(selectionMemory, pool, IntPtr.Size); }
+                pool[entry.Key] = entry.Value;
             }
         }
 
@@ -1237,11 +1263,13 @@ public static partial class Qpdf
         {
             foreach (KeyValuePair<int, QpdfObject> overlayEntry in overlayCopier.CopiedObjects)
             {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                if (!pool.ContainsKey(overlayEntry.Key)) { ParserContainers.EnsureEntryCapacity(selectionMemory, pool, IntPtr.Size); }
                 pool[overlayEntry.Key] = overlayEntry.Value;
             }
         }
 
-        List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> multiSources = new(copiers.Count + 1);
+        List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> multiSources = ParserContainers.CreateList<(IReadOnlyDictionary<int, int>, HashSet<int>)>(selectionMemory, copiers.Count, 16L);
         for (int s = 0; s < copiers.Count; s++)
         {
             multiSources.Add((copiers[s].SourceToDestination, sourceCompressed[s]));
@@ -1271,11 +1299,12 @@ public static partial class Qpdf
                 }
             }
 
-            List<(Content.SourceLabels Source, int Page)> labelOccurrences = new(mapping.Count);
+            List<(Content.SourceLabels Source, int Page)> labelOccurrences = ParserContainers.CreateList<(Content.SourceLabels, int)>(selectionMemory, anyLabels ? mapping.Count : 0, 16L);
             if (anyLabels)
             {
                 foreach (PdfPageSelectionMapping entry in mapping)
                 {
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                     Content.SourceLabels? part = multiLabels[entry.SourceIndex];
                     if (part is null)
                     {
@@ -3249,6 +3278,7 @@ public static partial class Qpdf
         IReadOnlyList<PageLocation> kept,
         QpdfLimits limits,
         ResourceGovernor governor,
+        ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
         if (engine is null)
@@ -3272,10 +3302,12 @@ public static partial class Qpdf
         }
 
         limits.Validate();
-        HashSet<int> excluded = new();
+        memory.CheckOwner(governor);
+        HashSet<int> excluded = ParserContainers.CreateSet<int>(memory);
+        HashSet<int> visited = ParserContainers.CreateSet<int>(memory);
         if (engine.Trailer.TryGet(PdfName.FromAscii("Root"), out QpdfObject? root) && root is PdfReference rootReference)
         {
-            excluded.Add(rootReference.ObjectNumber);
+            ParserContainers.AddSetItem(memory, excluded, rootReference.ObjectNumber, sizeof(int));
         }
 
         IIndirectResolver resolver = (IIndirectResolver)engine;
@@ -3290,8 +3322,8 @@ public static partial class Qpdf
                 continue;
             }
 
-            HashSet<int> visited = new() { source.ObjectNumber };
-            excluded.Add(source.ObjectNumber);
+            visited.Clear(); ParserContainers.AddSetItem(memory, visited, source.ObjectNumber, sizeof(int));
+            ParserContainers.AddSetItem(memory, excluded, source.ObjectNumber, sizeof(int));
             PdfReference current = source;
             int depth = 0;
             while (true)
@@ -3313,12 +3345,12 @@ public static partial class Qpdf
                     break;
                 }
 
-                if (!visited.Add(next.ObjectNumber))
+                if (!ParserContainers.AddSetItem(memory, visited, next.ObjectNumber, sizeof(int)))
                 {
                     break;
                 }
 
-                excluded.Add(next.ObjectNumber);
+                ParserContainers.AddSetItem(memory, excluded, next.ObjectNumber, sizeof(int));
                 depth += 1;
                 if (depth > limits.MaxNestingDepth)
                 {
@@ -3332,7 +3364,8 @@ public static partial class Qpdf
         return excluded;
     }
 
-    private static List<PageLocation> KeptLocations(QpdfDocument document, IReadOnlyList<int> requested)
+    private static List<PageLocation> KeptLocations(QpdfDocument document, IReadOnlyList<int> requested,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken cancellationToken)
     {
         if (document is null)
         {
@@ -3344,9 +3377,12 @@ public static partial class Qpdf
             throw new ArgumentNullException(nameof(requested));
         }
 
-        List<PageLocation> kept = new(requested.Count);
+        memory.CheckOwner(governor); cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        List<PageLocation> kept = ParserContainers.CreateList<PageLocation>(memory, requested.Count, 16L);
         foreach (int pageNumber in requested)
         {
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             kept.Add(document.PageReferences[pageNumber - 1]);
         }
 
@@ -3624,6 +3660,7 @@ public static partial class Qpdf
 
             ownership.Reserve(64L);
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            ParserContainers.EnsureEntryCapacity(ownership, pool, IntPtr.Size);
             pool[streamId] = PdfStream.FromOwnedData(streamDict, stored);
             ids.Add(streamId);
             PdfDictionary spec = AttachmentBuilder.BuildFilespecDictionary(fileName, add.Description, streamId, governor, ownership, cancellationToken);
@@ -3634,6 +3671,7 @@ public static partial class Qpdf
             }
 
             ownership.Reserve(128L);
+            ParserContainers.EnsureEntryCapacity(ownership, pool, IntPtr.Size);
             pool[specId] = spec;
             ids.Add(specId);
             existing[key] = new PdfReference(specId, 0);
@@ -3694,6 +3732,7 @@ public static partial class Qpdf
             copiedIds.Sort();
             foreach (int id in copiedIds)
             {
+                ParserContainers.EnsureEntryCapacity(ownership, pool, IntPtr.Size);
                 pool[id] = copyCopier.CopiedObjects[id];
             }
 

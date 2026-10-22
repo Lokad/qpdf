@@ -1,6 +1,7 @@
 using System.Text;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Tests.Commands;
 
@@ -518,7 +519,9 @@ public sealed class MergeCommandTests
     [Fact]
     public async Task TypedNullRangeSelectsAllPages()
     {
-        IReadOnlyList<int> resolved = PdfPageSelectionOptions.FromRange(null).Resolve(3);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        IReadOnlyList<int> resolved = PdfPageSelectionOptions.FromRange(null).Resolve(3, long.MaxValue, governor, memory);
         Assert.Equal([1, 2, 3], resolved);
     }
 

@@ -215,9 +215,9 @@ public sealed class TypedCounterOwnershipTests
     public async Task RealPublicBudgetFailuresPreservePriorOutputs(string route, bool compressed)
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 2048L };
-        if (route is "typed-add" or "typed-remove" or "typed-copy")
+        if (route is "typed-add" or "typed-remove" or "typed-copy" || route.StartsWith("typed-pages", StringComparison.Ordinal))
         {
-            // Admitted request projection can now reject before the first read.
+            // Admitted request/source planning can reject before the first read.
             // Do not wait for a host pause that a valid early refusal never reaches.
             object host = await Prepare(route, compressed, "none", "budget");
             await Assert.ThrowsAsync<QpdfLimitException>(() => Start((IQpdfHost)host, route, limits, CancellationToken.None));

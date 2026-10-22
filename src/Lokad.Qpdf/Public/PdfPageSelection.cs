@@ -111,20 +111,19 @@ public sealed record PdfPageSelectionOptions
         return new PdfPageSelectionOptions([], null, range ?? string.Empty);
     }
 
-    internal IReadOnlyList<int> Resolve(int totalPages)
+    internal IReadOnlyList<int> Resolve(int totalPages, long maxEntries,
+        ResourceGovernor governor, ParserMemoryScope memory)
     {
-        return Resolve(totalPages, long.MaxValue);
-    }
-
-    internal IReadOnlyList<int> Resolve(int totalPages, long maxEntries)
-    {
+        memory.CheckOwner(governor); governor.CheckCancellation();
         if (Range is not null)
         {
-            return global::Lokad.Qpdf.Pages.PageRanges.Expand(Range, totalPages, maxEntries);
+            return global::Lokad.Qpdf.Pages.PageRanges.Expand(Range, totalPages, maxEntries, governor, memory);
         }
 
         if (!FirstAndLastCount.HasValue)
         {
+            if (Pages.Count > maxEntries)
+            { throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), Pages.Count, maxEntries); }
             return Pages;
         }
 
@@ -134,20 +133,22 @@ public sealed record PdfPageSelectionOptions
             return [];
         }
 
-        if ((long)window * 2L >= totalPages)
+        int count = (int)Math.Min(totalPages, (long)window * 2L);
+        if (count > maxEntries)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), count, maxEntries); }
+        memory.Reserve(checked(32L + sizeof(int) * (long)count));
+        int[] selected = new int[count];
+        if (count == totalPages)
         {
-            int[] all = new int[totalPages];
             for (int i = 0; i < totalPages; i++)
             {
-                all[i] = i + 1;
+                governor.NoteOperation(); selected[i] = i + 1;
             }
-
-            return all;
+            return selected;
         }
-
-        int[] selected = new int[checked(window * 2)];
         for (int i = 0; i < window; i++)
         {
+            governor.NoteOperation();
             selected[i] = i + 1;
             selected[window + i] = totalPages - window + 1 + i;
         }

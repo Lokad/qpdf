@@ -288,20 +288,4 @@ public sealed class SelectionBackingOwnershipTests
         captured.GetType().GetField("Value", Members)?.SetValue(captured, copy);
     }
 
-    public static IEnumerable<object[]> FixedBudgetJobs()
-        => TypedCounterOwnershipTests.BudgetJobs().Where(row => ((string)row[0]).StartsWith("typed-page", StringComparison.Ordinal));
-
-    [Theory]
-    [MemberData(nameof(FixedBudgetJobs))]
-    [Trait("Layer", "Contract")]
-    public async Task OriginalShortBudgetsFailAfterReadingAndKeepPriorTargets(string route, bool compressed)
-    {
-        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 2048L };
-        object captured = await Complete(route, compressed, "read", "budget", limits);
-        await Task.Yield();
-        QpdfExecutionCounters counters = Snapshot(captured);
-        Assert.True(counters.PeakMemoryBytes <= limits.MaxMemoryBytes);
-        Assert.Equal(0L, counters.OpenHandles);
-        GC.KeepAlive(captured);
-    }
 }

@@ -45,6 +45,13 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Page selection admits range expansion, page-sized working collections and graph
+pool tables before allocation. First/last previews check their cardinality before
+allocating; CPU loops cooperate with cancellation. Tight local or shared limits
+can now refuse earlier, including before a later malformed-object error. Selection
+order, duplicates, immutable result lifetimes and output transactions retain
+their behavior. No public signatures change.
+
 Form-resource traversal visits resource dictionaries by graph identity instead
 of comparing their complete values. Shared scopes and indirect form cycles
 still stop at their visit guards; distinct equal scopes are each traversed in

@@ -1,5 +1,13 @@
 # Cooperative memory admission
 
+Page selection admits known page/source list capacities once under existing
+construction owners, with coarse shared-budget growth. Expanded ranges and
+previews receive admission and cancellation checks. Each source reuses one
+kept-page snapshot; multisource range/snapshot scratch refunds when that source
+finishes. Preservation reuses its cycle set instead of allocating one per page.
+Copied graph pool tables and page-child backing stay funded through publication.
+Returned immutable selection metadata keeps its separate caller ownership.
+
 `IMemoryBudget`, `IMemoryScope` and `IMemoryReservation` let a host expose its
 shared memory allowance without adding a runtime package dependency. A library
 adapter forwards to the host's allowance; scopes introduce owners, not separate

@@ -18,6 +18,13 @@ internal static class ParserContainers
         return new List<T>();
     }
 
+    internal static List<T> CreateList<T>(ParserMemoryScope memory, int capacity, long itemBytes)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(capacity);
+        memory.Reserve(checked(32L + ArrayBytes(capacity, itemBytes)));
+        return new List<T>(capacity);
+    }
+
     internal static void AddItem(ParserMemoryScope memory, List<QpdfObject> items, QpdfObject value)
         => AddItem(memory, items, value, IntPtr.Size);
 
