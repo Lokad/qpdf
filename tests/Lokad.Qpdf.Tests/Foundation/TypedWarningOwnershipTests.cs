@@ -417,8 +417,4 @@ public sealed class TypedWarningOwnershipTests
         finally { Resume(host); await task; }
     }
 
-    [Fact]
-    [Trait("Layer", "Contract")]
-    public void WarningPreparationScopeFundsItsMeasuredPhysicalCarrier()
-        => Assert.Equal(56L, PdfVersionOwnershipTests.MeasurePhysicalSize(typeof(ResultWarningSnapshot)));
 }

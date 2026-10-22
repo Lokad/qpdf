@@ -1,6 +1,5 @@
 using System.IO.Compression;
 using System.Reflection;
-using Xunit.Abstractions;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
@@ -17,18 +16,6 @@ public sealed class PdfVersionOwnershipTests
     private static readonly QpdfPath Input = QpdfPath.From("input.pdf");
     private static readonly QpdfPath Output = QpdfPath.From("output.pdf");
     private static readonly Dictionary<Type, long> PhysicalSizes = [];
-
-    private sealed class DocumentAliases(ResourceGovernor governor, PdfVersion[] versions, WeakReference document,
-        WeakReference host, WeakReference header, WeakReference effective, bool same)
-    {
-        internal ResourceGovernor? Governor = governor;
-        internal PdfVersion[] Versions = versions;
-        internal readonly WeakReference Document = document;
-        internal readonly WeakReference Host = host;
-        internal readonly WeakReference Header = header;
-        internal readonly WeakReference Effective = effective;
-        internal readonly bool Same = same;
-    }
 
     private static object Field(object value, string name) => value.GetType().GetField(name, Members)?.GetValue(value)
         ?? throw new InvalidOperationException("Missing complete public-job fixture field: " + name);
@@ -73,8 +60,7 @@ public sealed class PdfVersionOwnershipTests
     {
         foreach (bool compressed in new[] { false, true })
         foreach (string catalog in new[] { "none", "direct", "indirect" })
-        foreach (string alias in new[] { "header", "effective", "both", "copy-header", "copy-effective", "none" })
-        { yield return [compressed, catalog, alias]; }
+        { yield return [compressed, catalog]; }
     }
 
     private static byte[] DocumentBytes(bool compressed, string catalog)
@@ -94,48 +80,27 @@ public sealed class PdfVersionOwnershipTests
         return CheckTests.Assemble(objects, 1);
     }
 
-    private static async Task<DocumentAliases> CompleteDocument(bool compressed, string catalog, string alias)
+    [Theory]
+    [MemberData(nameof(DocumentCases))]
+    [Trait("Layer", "Contract")]
+    public async Task HeaderCatalogAndCallerValuesRemainUsableAfterDisposal(bool compressed, string catalog)
     {
-        InMemoryQpdfHost host = new();
+        using InMemoryQpdfHost host = new();
         host.AddInput(Input, DocumentBytes(compressed, catalog), QpdfInputOwnership.Copy);
-        QpdfDocument? document = await QpdfDocument.OpenAsync(host, Input, CancellationToken.None);
+        QpdfDocument document = await QpdfDocument.OpenAsync(host, Input, CancellationToken.None);
         ResourceGovernor governor = (ResourceGovernor)Field(document, "_governor");
         await document.DisposeAsync();
         Assert.Equal(0L, host.OpenLeaseCount); Assert.Equal(0L, governor.Snapshot().OpenHandles);
         PdfVersion header = document.HeaderVersion;
         PdfVersion effective = document.Version;
         Assert.Equal("1.4", header.ToString()); Assert.Equal(catalog == "none" ? "1.4" : "1.7", effective.ToString());
-        bool same = ReferenceEquals(header, effective);
-        Assert.Equal(catalog == "none", same);
-        PdfVersion[] versions = alias switch
-        {
-            "header" => [header],
-            "effective" => [effective],
-            "both" => same ? [header] : [header, effective],
-            "copy-header" => [header with { }],
-            "copy-effective" => [new PdfVersion(effective.Major, effective.Minor)],
-            _ => [],
-        };
-        if (alias.StartsWith("copy-", StringComparison.Ordinal))
-        {
-            PdfVersion original = alias == "copy-header" ? header : effective;
-            Assert.Equal(original, versions[0]); Assert.Equal(original.GetHashCode(), versions[0].GetHashCode());
-            Assert.False(typeof(PdfVersion).GetProperty(nameof(PdfVersion.Major))?.CanWrite);
-            Assert.False(typeof(PdfVersion).GetProperty(nameof(PdfVersion.Minor))?.CanWrite);
-        }
-        DocumentAliases result = new(governor, versions, new(document), new(host), new(header), new(effective), same);
-        document = null;
-        return result;
-    }
-
-    [Theory]
-    [MemberData(nameof(DocumentCases))]
-    [Trait("Layer", "Contract")]
-    public async Task HeaderCatalogAndCallerValuesRemainUsableAfterDisposal(bool compressed, string catalog, string kind)
-    {
-        DocumentAliases aliases = await CompleteDocument(compressed, catalog, kind);
-        await Task.Yield();
-        ResourceGovernor governor = aliases.Governor ?? throw new InvalidOperationException();
+        Assert.Equal(catalog == "none", ReferenceEquals(header, effective));
+        PdfVersion copiedHeader = header with { };
+        PdfVersion copiedEffective = new(effective.Major, effective.Minor);
+        Assert.Equal(header, copiedHeader); Assert.Equal(header.GetHashCode(), copiedHeader.GetHashCode());
+        Assert.Equal(effective, copiedEffective); Assert.Equal(effective.GetHashCode(), copiedEffective.GetHashCode());
+        Assert.False(typeof(PdfVersion).GetProperty(nameof(PdfVersion.Major))?.CanWrite);
+        Assert.False(typeof(PdfVersion).GetProperty(nameof(PdfVersion.Minor))?.CanWrite);
     }
 
     public static IEnumerable<object[]> WriterCases()
@@ -188,9 +153,11 @@ public sealed class PdfVersionOwnershipTests
             : await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), options, token);
     }
 
-    private sealed record WriterObservation(ResourceGovernor Governor, WeakReference Host, WeakReference Result);
-
-    private static async Task<WriterObservation> CompleteWriter(string route, bool compressed, string profile, string boundary, string outcome)
+    [Theory]
+    [MemberData(nameof(WriterCases))]
+    [Trait("Layer", "Contract")]
+    public async Task WriterNegotiationsPreserveHeadersAndPublicationOutcomes(
+        string route, bool compressed, string profile, string boundary, string outcome)
     {
         using CancellationTokenSource cancellation = new();
         object host = await PrepareWriter(profile, compressed, boundary, outcome);
@@ -227,23 +194,12 @@ public sealed class PdfVersionOwnershipTests
                 Assert.StartsWith("%PDF-" + expected, Encoding.ASCII.GetString(output.AsSpan(0, 8)));
             }
             if (profile != "empty") { Assert.True((long)Field(host, "ReadBytes") > 0L); }
-            return new(governor, new(host), new(result));
         }
         finally
         {
             Resume(host);
             await running;
         }
-    }
-
-    [Theory]
-    [MemberData(nameof(WriterCases))]
-    [Trait("Layer", "Contract")]
-    public async Task WriterNegotiationsPreserveHeadersAndPublicationOutcomes(
-        string route, bool compressed, string profile, string boundary, string outcome)
-    {
-        WriterObservation observation = await CompleteWriter(route, compressed, profile, boundary, outcome);
-        await Task.Yield();
     }
 
 }
