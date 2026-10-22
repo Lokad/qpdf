@@ -924,6 +924,7 @@ public static partial class Qpdf
         List<Content.SourceLabels?> multiLabels = ParserContainers.CreateList<Content.SourceLabels?>(selectionMemory, sources.Count, IntPtr.Size);
         QpdfObject? verbatimCopied = null;
         bool needSourceLabels = !settings.RemoveLabels && (settings.Labels.Count == 0 || splitPages.HasValue);
+        selectionMemory.Reserve(96L);
         SortedDictionary<string, PdfReference> primaryExisting = new(StringComparer.Ordinal);
         string? primaryPageMode = null;
         int primaryIdx = 0;
@@ -3522,6 +3523,7 @@ public static partial class Qpdf
         CancellationToken cancellationToken)
     {
         ownership.CheckOwner(governor);
+        ownership.Reserve(96L);
         SortedDictionary<string, PdfReference> kept = new(StringComparer.Ordinal);
         if (edits.HasEdits)
         {
@@ -3534,6 +3536,7 @@ public static partial class Qpdf
                     PdfReference? link = copier.AddIndirectObject(attachment.Spec);
                     if (link is not null)
                     {
+                        if (!kept.ContainsKey(attachment.Key)) { ownership.Reserve(64L); }
                         kept[attachment.Key] = link;
                     }
                 }
@@ -3590,7 +3593,7 @@ public static partial class Qpdf
             throw new ArgumentNullException(nameof(compressibleSources));
         }
 
-        HashSet<int> ids = new();
+        HashSet<int> ids = ParserContainers.CreateSet<int>(ownership);
         if (!edits.HasEdits)
         {
             return new AttachmentAssembly(null, inputPageMode, ids, 0);
@@ -3662,7 +3665,7 @@ public static partial class Qpdf
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             ParserContainers.EnsureEntryCapacity(ownership, pool, IntPtr.Size);
             pool[streamId] = PdfStream.FromOwnedData(streamDict, stored);
-            ids.Add(streamId);
+            ParserContainers.AddSetItem(ownership, ids, streamId, sizeof(int));
             PdfDictionary spec = AttachmentBuilder.BuildFilespecDictionary(fileName, add.Description, streamId, governor, ownership, cancellationToken);
             int specId = nextId;
             checked
@@ -3673,7 +3676,8 @@ public static partial class Qpdf
             ownership.Reserve(128L);
             ParserContainers.EnsureEntryCapacity(ownership, pool, IntPtr.Size);
             pool[specId] = spec;
-            ids.Add(specId);
+            ParserContainers.AddSetItem(ownership, ids, specId, sizeof(int));
+            if (!existing.ContainsKey(key)) { ownership.Reserve(64L); }
             existing[key] = new PdfReference(specId, 0);
         }
 
@@ -3683,7 +3687,8 @@ public static partial class Qpdf
         }
 
         bool copiedAny = false;
-        List<string> copyConflicts = new();
+        string? firstCopyConflict = null;
+        bool moreCopyConflicts = false;
         foreach (AttachmentCopy copy in edits.Copies)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -3695,13 +3700,11 @@ public static partial class Qpdf
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 governor.NoteOperation();
-                string newKey = (copy.Prefix ?? string.Empty) + attachment.Key;
+                string newKey = AttachmentCopyKey(copy.Prefix, attachment.Key, governor, ownership, cancellationToken);
                 if (existing.ContainsKey(newKey))
                 {
-                    if (!copyConflicts.Contains(copy.File))
-                    {
-                        copyConflicts.Add(copy.File);
-                    }
+                    firstCopyConflict ??= copy.File;
+                    moreCopyConflicts |= !string.Equals(firstCopyConflict, copy.File, StringComparison.Ordinal);
 
                     continue;
                 }
@@ -3723,27 +3726,28 @@ public static partial class Qpdf
                     continue;
                 }
 
+                ownership.Reserve(64L); // SortedDictionary node; key text is funded separately.
                 existing[newKey] = link;
                 copiedAny = true;
             }
 
             nextId = copyCopier.NextId;
-            List<int> copiedIds = new(copyCopier.CopiedObjects.Keys);
-            copiedIds.Sort();
-            foreach (int id in copiedIds)
+            // Final writer models order object numbers; no sorted key snapshot is needed here.
+            foreach ((int id, QpdfObject value) in copyCopier.CopiedObjects)
             {
+                cancellationToken.ThrowIfCancellationRequested(); governor.NoteOperation();
                 ParserContainers.EnsureEntryCapacity(ownership, pool, IntPtr.Size);
-                pool[id] = copyCopier.CopiedObjects[id];
+                pool[id] = value;
             }
 
-            compressibleSources.Add((copyCopier.SourceToDestination, CollectCompressedOriginals(source.Engine, preserveObjectStreams, ownership, governor, cancellationToken)));
+            ParserContainers.AddItem(ownership, compressibleSources,
+                (copyCopier.SourceToDestination, CollectCompressedOriginals(source.Engine, preserveObjectStreams, ownership, governor, cancellationToken)), 2L * IntPtr.Size);
             source.Engine.TransferExclusiveValuesTo(ownership);
         }
 
-        if (copyConflicts.Count > 0)
+        if (firstCopyConflict is not null)
         {
-            string files = string.Join("', '", copyConflicts);
-            throw new QpdfParseException("Attachments copied from '" + files + "' conflict with existing keys; use --prefix to specify a key prefix.", 0L, null);
+            throw AttachmentCopyConflict(firstCopyConflict, moreCopyConflicts, governor, ownership, cancellationToken);
         }
 
         if (existing.Count == 0)
@@ -3751,9 +3755,11 @@ public static partial class Qpdf
             return new AttachmentAssembly(null, inputPageMode, ids, 0);
         }
 
-        List<KeyValuePair<string, PdfReference>> pairs = new(existing.Count);
+        List<KeyValuePair<string, PdfReference>> pairs = ParserContainers.CreateList<KeyValuePair<string, PdfReference>>(
+            ownership, existing.Count, 2L * IntPtr.Size);
         foreach (KeyValuePair<string, PdfReference> entry in existing)
         {
+            cancellationToken.ThrowIfCancellationRequested(); governor.NoteOperation();
             pairs.Add(entry);
         }
 
@@ -3770,10 +3776,56 @@ public static partial class Qpdf
         }
 
         ownership.Reserve(128L);
+        ParserContainers.EnsureEntryCapacity(ownership, pool, IntPtr.Size);
         pool[rootId] = wrapper;
-        ids.Add(rootId);
+        ParserContainers.AddSetItem(ownership, ids, rootId, sizeof(int));
         string? pageMode = edits.Adds.Count > 0 || copiedAny ? inputPageMode ?? "UseAttachments" : inputPageMode;
         return new AttachmentAssembly(new PdfReference(rootId, 0), pageMode, ids, existing.Count);
+    }
+
+    private static string AttachmentCopyKey(string? prefix, string key, ResourceGovernor governor,
+        ParserMemoryScope memory, CancellationToken token)
+    {
+        if (string.IsNullOrEmpty(prefix)) { return key; }
+        if (key.Length == 0) { return prefix; }
+        int length = checked(prefix.Length + key.Length);
+        memory.Reserve(GovernedText.StringBytes(length));
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        return string.Create(length, (prefix, key, governor, token), static (target, state) =>
+        {
+            int offset = 0;
+            while (offset < target.Length)
+            {
+                state.token.ThrowIfCancellationRequested(); state.governor.CheckCancellation();
+                ReadOnlySpan<char> source = offset < state.prefix.Length
+                    ? state.prefix.AsSpan(offset) : state.key.AsSpan(offset - state.prefix.Length);
+                int count = Math.Min(256, source.Length);
+                source[..count].CopyTo(target.Slice(offset, count));
+                offset += count;
+            }
+        });
+    }
+
+    private static QpdfParseException AttachmentCopyConflict(string firstFile, bool moreFiles,
+        ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
+    {
+        // One source, at most 256 UTF-16 units, plus an explicit overflow marker.
+        // Fund both the message and QpdfParseException's bounded offset suffix copy.
+        memory.Reserve(2L * GovernedText.StringBytes(512));
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        Span<char> message = stackalloc char[512];
+        const string start = "Attachments copied from '";
+        start.AsSpan().CopyTo(message);
+        int length = start.Length;
+        int take = Math.Min(firstFile.Length, 256);
+        if (take < firstFile.Length && char.IsHighSurrogate(firstFile[take - 1])) { take--; }
+        firstFile.AsSpan(0, take).CopyTo(message[length..]); length += take;
+        if (take < firstFile.Length) { "...".AsSpan().CopyTo(message[length..]); length += 3; }
+        string end = moreFiles
+            ? "' (additional source paths omitted) conflict with existing keys; use --prefix to specify a key prefix."
+            : "' conflict with existing keys; use --prefix to specify a key prefix.";
+        end.AsSpan().CopyTo(message[length..]); length += end.Length;
+        return new QpdfParseException(new string(message[..length]), 0L, null);
     }
 
     private static bool IsAscii(string text, ResourceGovernor governor, CancellationToken token)

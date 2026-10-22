@@ -326,6 +326,11 @@ open handles and diagnostic count. Codec providers use `CheckCancellation` and
 fuel. Nesting/container/revision bounds, cycle detection, decoded-byte limits,
 memory admission and transactional output remain enforced. Expanded page and
 object selections use `MaxContainerSize` for their cardinality bound.
+Attachment-copy prefix expansion and assembly collections receive admission before
+allocation, so tight jobs can refuse earlier. Copy-conflict errors identify the
+first source path, clipped to 256 UTF-16 units with `...`; an explicit marker
+reports omitted additional source paths. Short single-source errors are unchanged.
+No public signatures or dependency versions change.
 
 Diagnostic quotas cover actual stored records and UTF-8 message bytes, including
 requested summaries. Overflow fails explicitly; it preserves the accepted prefix

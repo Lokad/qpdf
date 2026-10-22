@@ -51,6 +51,16 @@ public sealed class AnnotationPublicationTests
             Assert.Equal(QpdfExecutionStatus.Completed, generated.Status);
             Assert.True(seed.TryGetOutput(Output, out input));
         }
+        if (mode.StartsWith("attachment-copy", StringComparison.Ordinal))
+        {
+            using InMemoryQpdfHost seed = new();
+            seed.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Copy);
+            seed.AddInput(QpdfPath.From("payload"), [17], QpdfInputOwnership.Transfer);
+            await Qpdf.AddAttachmentsAsync(seed, QpdfPath.From("input"), QpdfPath.From("source"),
+                Enumerable.Range(0, 4).Select(index => new QpdfAttachmentSpec("payload", "key" + index, "name", null, null, null, null, false)).ToArray(), CancellationToken.None);
+            Assert.True(seed.TryGetOutput(QpdfPath.From("source"), out byte[] source));
+            host.AddInput(QpdfPath.From("source"), source, QpdfInputOwnership.Transfer);
+        }
         host.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Transfer);
         host.AddInput(QpdfPath.From("payload"), "abc"u8.ToArray(), QpdfInputOwnership.Transfer);
         host.AddInput(QpdfPath.From("overlay"), mode == "merge" ? FormMergeStorageTests.Fixture(new string('F', 32768), true) : mode.StartsWith("overlay-form", StringComparison.Ordinal) ? OverlayFormStorageTests.Fixture() : FlattenResourceStorageTests.Fixture(4, false), QpdfInputOwnership.Transfer);
@@ -61,7 +71,10 @@ public sealed class AnnotationPublicationTests
     }
 
     private static ValueTask<QpdfExecutionResult> Run(Host host, string mode, CancellationToken token)
-        => mode == "attachment-job" ? Qpdf.ExecuteJobAsync(host, System.Text.Json.JsonSerializer.Serialize(new
+        => mode == "attachment-copy-job" ? Qpdf.ExecuteJobAsync(host,
+            """{"inputFile":"input","outputFile":"output","copyAttachmentsFrom":[{"file":"source","prefix":"copy-"}]}""", token)
+            : mode == "attachment-copy" ? Qpdf.ExecuteAsync(host, new(["input", "--copy-attachments-from", "source", "--prefix=copy-", "--", "output"]), token)
+            : mode == "attachment-job" ? Qpdf.ExecuteJobAsync(host, System.Text.Json.JsonSerializer.Serialize(new
             { inputFile = "input", outputFile = "output", addAttachment = Enumerable.Range(0, 4).Select(index => new
                 { file = "payload", key = index.ToString("D3"), filename = "Euro \u20ac", description = new string('x', 256) }).ToArray() }), token)
             : mode == "attachment" ? Qpdf.ExecuteAsync(host, new(AttachmentArguments()), token)
@@ -127,6 +140,8 @@ public sealed class AnnotationPublicationTests
     [InlineData("split-max-job")]
     [InlineData("attachment")]
     [InlineData("attachment-job")]
+    [InlineData("attachment-copy")]
+    [InlineData("attachment-copy-job")]
     [InlineData("catalog")]
     [InlineData("catalog-job")]
     [InlineData("flatten")]
@@ -357,6 +372,16 @@ public sealed class AnnotationPublicationTests
     [InlineData("commit", "merge")]
     [InlineData("cancel", "merge")]
     [InlineData("close", "merge")]
+    [InlineData("create", "attachment-copy")]
+    [InlineData("write", "attachment-copy")]
+    [InlineData("commit", "attachment-copy")]
+    [InlineData("cancel", "attachment-copy")]
+    [InlineData("close", "attachment-copy")]
+    [InlineData("create", "attachment-copy-job")]
+    [InlineData("write", "attachment-copy-job")]
+    [InlineData("commit", "attachment-copy-job")]
+    [InlineData("cancel", "attachment-copy-job")]
+    [InlineData("close", "attachment-copy-job")]
     public async Task OutputFaultsRefundOwnersAndRespectCommit(string phase, string mode)
     {
         using InMemoryQpdfHost storage = await Storage(mode);
