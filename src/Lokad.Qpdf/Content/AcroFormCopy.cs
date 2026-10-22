@@ -455,6 +455,7 @@ internal static class AcroFormCopy
         }
         using ParserMemoryScope names = ParserMemoryScope.Create(governor);
         HashSet<string> accumulated = ParserContainers.CreateSet<string>(names);
+        Dictionary<string, int> suffixes = ParserContainers.CreateDictionary<string, int>(names);
         for (int s = 0; s < forms.Count; s++)
         {
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -471,7 +472,7 @@ internal static class AcroFormCopy
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 if (!copier.CopiedObjects.TryGetValue(fieldRef.ObjectNumber, out QpdfObject? nodeRaw) || nodeRaw is not PdfDictionary node)
                 { continue; }
-                PdfDictionary renamed = RenameTree(copier, fieldRef.ObjectNumber, node, null, accumulated, finals, visited,
+                PdfDictionary renamed = RenameTree(copier, fieldRef.ObjectNumber, node, null, accumulated, suffixes, finals, visited,
                     names, traversal, limits, governor, cancellationToken, 0);
                 if (!ReferenceEquals(renamed, node)) { copier.ReplaceCopiedObject(fieldRef.ObjectNumber, renamed); }
             }
@@ -485,7 +486,7 @@ internal static class AcroFormCopy
 
     private static PdfDictionary RenameTree(
         GraphCopier copier, int? nodeId, PdfDictionary node, string? parentName,
-        HashSet<string> snapshot, List<string> finals, GovernedIntSet visited,
+        HashSet<string> snapshot, Dictionary<string, int> suffixes, List<string> finals, GovernedIntSet visited,
         ParserMemoryScope names, ParserMemoryScope traversal, QpdfLimits limits,
         ResourceGovernor governor, CancellationToken token, int depth)
     {
@@ -499,7 +500,11 @@ internal static class AcroFormCopy
             qualified = parentName is null ? own : AppendFieldName(parentName, '.', own, names, governor, token);
             if (snapshot.Contains(qualified))
             {
-                int suffix = 0;
+                // Earlier-source names only accumulate, so a prior free suffix
+                // is a lower bound. Recheck it: this source's duplicates must
+                // still pick the same free name until its finals are accumulated.
+                bool hasSuffix = suffixes.TryGetValue(qualified, out int suffix);
+                suffix = hasSuffix ? suffix - 1 : 0;
                 while (true)
                 {
                     token.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -510,6 +515,8 @@ internal static class AcroFormCopy
                     string renamedOwn = AppendFieldName(own, '+', digits, candidate, governor, token);
                     string renamed = parentName is null ? renamedOwn : AppendFieldName(parentName, '.', renamedOwn, candidate, governor, token);
                     if (snapshot.Contains(renamed)) { continue; }
+                    if (!hasSuffix) { ParserContainers.EnsureEntryCapacity(names, suffixes, sizeof(int)); }
+                    suffixes[qualified] = suffix;
                     candidate.TransferTo(names);
                     using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
                     int length = PdfText.GetEncodedLength(renamedOwn, governor, token);
@@ -538,10 +545,10 @@ internal static class AcroFormCopy
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             QpdfObject item = kids[i];
             if (item is PdfReference kidRef && copier.CopiedObjects.TryGetValue(kidRef.ObjectNumber, out QpdfObject? kidRaw) && kidRaw is PdfDictionary kid)
-            { RenameTree(copier, kidRef.ObjectNumber, kid, qualified, snapshot, finals, visited, names, traversal, limits, governor, token, depth + 1); }
+            { RenameTree(copier, kidRef.ObjectNumber, kid, qualified, snapshot, suffixes, finals, visited, names, traversal, limits, governor, token, depth + 1); }
             else if (item is PdfDictionary directKid)
             {
-                QpdfObject renamed = RenameTree(copier, null, directKid, qualified, snapshot, finals, visited, names, traversal, limits, governor, token, depth + 1);
+                QpdfObject renamed = RenameTree(copier, null, directKid, qualified, snapshot, suffixes, finals, visited, names, traversal, limits, governor, token, depth + 1);
                 if (!ReferenceEquals(renamed, item) && rebuiltKids is null)
                 {
                     rebuiltKids = ParserContainers.CreateList<QpdfObject>(traversal);

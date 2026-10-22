@@ -16,16 +16,15 @@ public sealed class FormMergeStorageTests
         internal readonly GraphCopier[] Copiers;
         internal readonly CopiedForm[] Forms;
         internal readonly PdfDictionary[] Fields;
-        internal Prepared(string first, string second)
+        internal Prepared(params string[] names)
         {
             ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
             PdfDictionary trailer = new(new Dictionary<PdfName, QpdfObject>());
             _engine = new(ReadOnlyMemory<byte>.Empty, new XRefTable(0L, new Dictionary<int, XrefEntry>(), trailer, [trailer]),
                 QpdfLimits.Default, construction, new DiagnosticBag(construction), QpdfRecoveryMode.Strict);
             _memory = ParserMemoryScope.Create(construction);
-            Copiers = new GraphCopier[2]; Forms = new CopiedForm[2]; Fields = new PdfDictionary[2];
-            string[] names = [first, second];
-            for (int i = 0; i < 2; i++)
+            Copiers = new GraphCopier[names.Length]; Forms = new CopiedForm[names.Length]; Fields = new PdfDictionary[names.Length];
+            for (int i = 0; i < names.Length; i++)
             {
                 byte[] raw = [0xfe, 0xff, ..Encoding.BigEndianUnicode.GetBytes(names[i])];
                 Fields[i] = new(new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("T")] = new PdfByteString(raw, false) });
@@ -93,5 +92,58 @@ public sealed class FormMergeStorageTests
         Assert.ThrowsAny<OperationCanceledException>(() => AcroFormCopy.RenameCollidingFields(prepared.Forms, prepared.Copiers,
             QpdfLimits.Default, governor, caller ? cancellation.Token : CancellationToken.None));
         Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Same(prepared.Fields[1], prepared.Copiers[1].CopiedObjects[2]);
+    }
+
+    [Fact]
+    public void CachedSuffixSearchStillFillsGapsAndSeparatesNames()
+    {
+        using Prepared prepared = new("Field", "Field+2", "Field", "Field", "Field+1", "Field");
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        AcroFormCopy.RenameCollidingFields(prepared.Forms, prepared.Copiers, QpdfLimits.Default, governor, CancellationToken.None);
+        string[] expected = ["Field", "Field+2", "Field+1", "Field+3", "Field+1+1", "Field+4"];
+        for (int i = 0; i < expected.Length; i++) { Assert.Equal(expected[i], Name(prepared.Copiers[i], i + 1)); }
+        governor.CompletePrivateStorage();
+    }
+
+    [Fact]
+    public void CachedFreeSuffixIsSharedByDuplicatesWithinTheSource()
+    {
+        using Prepared prepared = new("Field", "Field", "Field");
+        prepared.Copiers[1].AddIndirectObjectWithId(prepared.Fields[1], 4);
+        prepared.Forms[1] = prepared.Forms[1] with { Fields = [new PdfReference(2, 0), new PdfReference(4, 0)] };
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        AcroFormCopy.RenameCollidingFields(prepared.Forms, prepared.Copiers, QpdfLimits.Default, governor, CancellationToken.None);
+        Assert.Equal("Field+1", Name(prepared.Copiers[1], 2));
+        Assert.Equal("Field+1", Name(prepared.Copiers[1], 4));
+        Assert.Equal("Field+2", Name(prepared.Copiers[2], 3));
+        governor.CompletePrivateStorage();
+    }
+
+    [Fact]
+    public void RepeatedCollisionSearchHasLinearAllocationGrowth()
+    {
+        _ = RenameAllocations(8);
+        long small = RenameAllocations(128), large = RenameAllocations(512);
+        Assert.True(large < small * 6L + 65536L, $"Collision search regressed: {small} versus {large} bytes.");
+    }
+
+    private static long RenameAllocations(int count)
+    {
+        using Prepared prepared = new(Enumerable.Repeat("Field", count).ToArray());
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        AcroFormCopy.RenameCollidingFields(prepared.Forms, prepared.Copiers, QpdfLimits.Default, governor, CancellationToken.None);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.Equal("Field+" + (count - 1).ToString(System.Globalization.CultureInfo.InvariantCulture), Name(prepared.Copiers[^1], count));
+        governor.CompletePrivateStorage();
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        return allocated;
+    }
+
+    private static string Name(GraphCopier copier, int id)
+    {
+        PdfDictionary node = Assert.IsType<PdfDictionary>(copier.CopiedObjects[id]);
+        Assert.True(node.TryGet(PdfName.FromAscii("T"), out QpdfObject raw));
+        return Attachments.PdfText.Decode(Assert.IsType<PdfByteString>(raw).Value);
     }
 }

@@ -24,6 +24,11 @@ before decoding or codec calls; oversized declarations now fail explicitly as
 `BudgetExceeded` rather than overflowing arithmetic or decoding first. Existing
 unsupported filters and ordinary dimension-mismatch handling remain unchanged.
 
+Form merging reuses admitted suffix-search progress for colliding qualified
+names. The smallest free `+N` still depends only on earlier sources, so repeated
+names within one source keep their shared rename. Naming, encoding and public
+signatures are unchanged; repeated collisions no longer rescan all lower suffixes.
+
 JSON text import and export share PDFDocEncoding conversion. Unicode controls
 that occupy repurposed PDF byte slots now use UTF-16 rather than changing into
 accent marks. Ordinary Latin-1 text can use PDFDocEncoding and export as `u:`
