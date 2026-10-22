@@ -50,7 +50,7 @@ public sealed class PdfNameBytesTests
         return raw;
     }
     [Fact]
-    public void DecodedQueriesShareTheRawCollisionEngineAndFundNoScratchBytes()
+    public void DecodedQueriesShareFullContentHashesAndAllocateNoScratchBytes()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
@@ -60,14 +60,18 @@ public sealed class PdfNameBytesTests
         table.Freeze(memory, governor, CancellationToken.None); long live = governor.Snapshot().LiveMemoryBytes;
         byte[] raw = Long(true, (byte)'a'); ResourceGovernor lookup = new(QpdfLimits.Default, CancellationToken.None);
         PdfNameBytes query = PdfNameBytes.Decode(raw, lookup, CancellationToken.None);
-        Assert.True(table.TryGetValue(query, lookup, CancellationToken.None, out byte value)); Assert.Equal(1, value);
+        for (int warmup = 0; warmup < 32; warmup++) { Assert.True(table.TryGetValue(query, lookup, CancellationToken.None, out _)); }
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        bool found = table.TryGetValue(query, lookup, CancellationToken.None, out byte value);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.True(found); Assert.Equal(1, value); Assert.Equal(0L, allocated);
         Assert.Equal(0L, lookup.Snapshot().LiveMemoryBytes); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task DecodedCollisionCancellationAfterCompletedBytesPreservesFrozenStorage(bool governorToken)
+    public async Task DecodedHashCancellationAfterCompletedBytesPreservesFrozenStorage(bool governorToken)
     {
         ResourceGovernor owner = new(QpdfLimits.Default, CancellationToken.None); using ParserMemoryScope memory = ParserMemoryScope.Create(owner);
         PdfNameTable<byte> table = PdfNameTable<byte>.Create(memory, owner, 1L, CancellationToken.None);

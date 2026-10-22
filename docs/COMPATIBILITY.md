@@ -67,6 +67,11 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Name tables hash complete decoded name bytes, including suffixes after the first
+16 bytes. Long-name hashing checks cancellation in bounded chunks; borrowed raw
+and escaped lookups allocate no name copies. Name equality, duplicate-key order
+and public signatures are unchanged. Hash codes remain process-local values.
+
 Public API documentation describes the existing cumulative whole-job output
 ceiling and independent output commits. A later output or post-commit close
 failure does not roll back earlier publications. Typed domain-result calls throw

@@ -9,7 +9,7 @@ namespace Lokad.Qpdf.Tests.Foundation;
 public sealed class PdfNameTableTests
 {
     [Fact]
-    public void ValueConversionPreservesCollisionOrderAndSourceOnCancellation()
+    public void ValueConversionPreservesOrderAndSourceOnCancellation()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
@@ -66,13 +66,29 @@ public sealed class PdfNameTableTests
     private static object Field(object table, string name) => table.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(table)
         ?? throw new InvalidOperationException("Expected name storage field.");
 
+    [Theory]
+    [InlineData(16)]
+    [InlineData(255)]
+    [InlineData(256)]
+    [InlineData(511)]
+    public void HashIncludesBytesBeyondTheOldPrefixAndAcrossChunkBoundaries(int position)
+    {
+        HashSet<int> hashes = [];
+        for (int value = 0; value < 256; value++)
+        {
+            byte[] raw = new byte[512]; raw[position] = (byte)value;
+            hashes.Add(new PdfName(raw).GetHashCode());
+        }
+        Assert.True(hashes.Count > 128, $"Only {hashes.Count} hashes include byte {position}.");
+    }
+
     [Fact]
-    public void PrefixCollisionsBorrowBinaryKeysAndValuesAndPreserveLastWinsOrder()
+    public void CommonPrefixesBorrowBinaryKeysAndValuesAndPreserveLastWinsOrder()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         PdfNameTable<object> table = PdfNameTable<object>.Create(memory, governor, IntPtr.Size, CancellationToken.None);
         PdfName[] keys = Enumerable.Range(0, 32).Select(number => Key(number, 512)).ToArray(); object[] values = keys.Select(_ => new object()).ToArray();
-        Assert.Single(keys.Select(key => key.GetHashCode()).Distinct());
+        Assert.True(keys.Select(key => key.GetHashCode()).Distinct().Count() > keys.Length / 2);
         for (int index = 0; index < keys.Length; index++)
         {
             Assert.True(table.TryAdd(memory, governor, keys[index], values[index], CancellationToken.None, out object? previous));
@@ -203,7 +219,7 @@ Assert.Equal(table.StorageBytes, memory.ReservedBytes);
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task CancellationAfterActualCollisionByteWorkLeavesTableUsable(bool governorToken)
+    public async Task CancellationDuringLongNameHashLeavesTableUsable(bool governorToken)
     {
         using CancellationTokenSource cancellation = new(); ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);

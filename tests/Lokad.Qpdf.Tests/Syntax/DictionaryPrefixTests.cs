@@ -14,9 +14,10 @@ public sealed class DictionaryPrefixTests
     [InlineData(9, false)]
     [InlineData(4, true)]
     [InlineData(5, true)]
-    public async Task PublicRewritePreservesDictionaryAcrossScratchBoundaryAndCleanup(int count, bool collisions)
+    [InlineData(1024, true)]
+    public async Task PublicRewritePreservesDictionaryAcrossScratchBoundaryAndCleanup(int count, bool commonPrefix)
     {
-        string prefix = collisions ? "abcdefghijklmnop" : string.Empty;
+        string prefix = commonPrefix ? "abcdefghijklmnop" : string.Empty;
         StringBuilder body = new($"<< /{prefix}A#30 (discard) /{prefix}A0 [7 /Tag]");
         for (int index = 1; index < count; index++) { body.Append($" /{prefix}K{index} {index}"); }
         body.Append($" /{prefix}A0 (kept\\012) >>");
@@ -34,7 +35,6 @@ public sealed class DictionaryPrefixTests
         }
         IEnumerable<PdfName> keys = original.Keys;
         Validate(original, count, prefix);
-        if (collisions) { Assert.Single(keys.Select(key => key.GetHashCode()).Distinct()); }
 
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
             new QpdfCommandInvocation(["in.pdf", "--static-id", "--stream-data=preserve", "out.pdf"]), CancellationToken.None);

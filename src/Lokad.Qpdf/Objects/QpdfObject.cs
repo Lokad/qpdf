@@ -350,8 +350,7 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
     private static int CalculateHash(ReadOnlySpan<byte> raw)
     {
         HashCode hash = new();
-        int count = Math.Min(raw.Length, 16);
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < raw.Length; i++)
         {
             hash.Add(raw[i]);
         }
