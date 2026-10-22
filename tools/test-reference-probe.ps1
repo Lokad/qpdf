@@ -118,6 +118,33 @@ foreach ($rasterCase in @(
 Write-Output 'Reference probe controls passed: eight cold/batch semantic pairs including Unicode filenames, checked argv/job/Unicode-label bytes, fresh hosts, lazy inputs, both pipeline/process wrappers, 87 requests/two bounded workers and both protocol negatives.'
 Write-Output 'Raster controls passed: exact nonblank match, mismatch, blank crop, wrong expected dimensions and truncated payload.'
 
+# Exercise both real version guards through their existing command-line paths.
+$previousVersion = $env:QPDF_TEST_ORACLE_VERSION
+try {
+    foreach ($case in @(
+        @{Name='pinned'; Banner="qpdf version 12.4.2`nRun qpdf --copyright to see copyright and license information."; Exit=0},
+        @{Name='pinned-crlf'; Banner="qpdf version 12.4.2 `r`nCopyright information"; Exit=0},
+        @{Name='prefix'; Banner='qpdf version 112.4.2'; Exit=1},
+        @{Name='patch'; Banner='qpdf version 12.4.20'; Exit=1},
+        @{Name='other'; Banner='qpdf version 12.4.3'; Exit=1},
+        @{Name='qualified'; Banner='qpdf version 12.4.2-custom'; Exit=1},
+        @{Name='wrong-line'; Banner="qpdf version 12.4.3`nBuild reference 12.4.2"; Exit=1},
+        @{Name='missing'; Banner='Copyright 12.4.2'; Exit=1}
+    )) {
+        $env:QPDF_TEST_ORACLE_VERSION = $case.Banner
+        $bootstrap = & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'bootstrap-qpdf.ps1') -QpdfExe $OracleFixture 2>&1 | Out-String
+        $bootstrapExit = $LASTEXITCODE
+        $probe = Invoke-ColdProbe -Arguments @('probe-oracle','--qpdf-exe',$OracleFixture,'--input',(Join-Path $WorkRoot 'inputs/a.pdf')) -InputText ''
+        [IO.File]::WriteAllText((Join-Path $WorkRoot ("version-$($case.Name)-bootstrap.log")), $bootstrap)
+        [IO.File]::WriteAllText((Join-Path $WorkRoot ("version-$($case.Name)-probe.log")), $probe.Output + $probe.Error)
+        if ($bootstrapExit -ne $case.Exit -or $probe.ExitCode -ne $case.Exit -or
+            ($case.Exit -ne 0 -and ($bootstrap -notmatch 'qpdf version mismatch' -or $probe.Error -notmatch 'qpdf version mismatch'))) {
+            throw "Oracle version guard failed: $($case.Name) (bootstrap=$bootstrapExit probe=$($probe.ExitCode))."
+        }
+    }
+} finally { $env:QPDF_TEST_ORACLE_VERSION = $previousVersion }
+Write-Output 'Oracle version controls passed: pinned LF/CRLF banners accepted; prefix, patch, other, qualified, wrong-line and missing versions reject in both guards.'
+
 # Run the actual parser CLI, including its managed worker and native process
 # boundary. A timeout must retire the child and preserve its partial output.
 $pidFile = Join-Path $WorkRoot 'oracle.pid'

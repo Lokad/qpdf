@@ -34,9 +34,10 @@ internal static class OracleRunner
 
         string inputSha = ComputeSha256(inputPdf);
         string versionOutput = Invoke(qpdfExe, "--version", "version");
-        if (!versionOutput.Contains(expectedVersion, StringComparison.Ordinal))
+        string versionLine = versionOutput.Split(['\r', '\n'], 2)[0].Trim();
+        if (!string.Equals(versionLine, $"qpdf version {expectedVersion}", StringComparison.Ordinal))
         {
-            throw new ProbeException($"qpdf version mismatch. Expected {expectedVersion} in `qpdf --version` output, got: {SingleLine(versionOutput)}.", 1);
+            throw new ProbeException($"qpdf version mismatch. Expected 'qpdf version {expectedVersion}', got: {SingleLine(versionOutput)}.", 1);
         }
 
         string npagesOutput = Invoke(qpdfExe, $"--show-npages \"{inputPdf}\"", "show-npages");

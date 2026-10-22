@@ -81,7 +81,7 @@ internal static class Program
         Console.WriteLine("  QpdfProbe probe-jpeg");
         Console.WriteLine("  QpdfProbe probe-flate");
         Console.WriteLine();
-        Console.WriteLine("probe-oracle runs: qpdf --version (must contain 12.4.2), qpdf --show-npages, qpdf --check.");
+        Console.WriteLine("probe-oracle runs: qpdf --version (must report exactly 12.4.2), qpdf --show-npages, qpdf --check.");
         Console.WriteLine("validate opens the PDF with the pinned independent reader (PdfPig 0.1.16) and reports page count, header version and SHA-256.");
         Console.WriteLine("compare requires oracle npages, independent npages and --expected-npages to agree; mismatch exits 2.");
         Console.WriteLine("emit runs the managed library over <dir>/inputs through the public API and writes mapped outputs to disk.");

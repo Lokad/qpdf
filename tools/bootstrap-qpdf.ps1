@@ -26,8 +26,9 @@ if ($versionExit -ne 0) {
   throw "qpdf --version failed with exit $versionExit : $versionOutput"
 }
 
-if ($versionOutput -notmatch '12\.4\.2') {
-  throw "qpdf version mismatch. Expected 12.4.2 in `qpdf --version` output, got: $($versionOutput.Trim())."
+$versionLine = ($versionOutput -split '[\r\n]', 2)[0].Trim()
+if ($versionLine -cne 'qpdf version 12.4.2') {
+  throw "qpdf version mismatch. Expected 'qpdf version 12.4.2', got: $($versionOutput.Trim())."
 }
 
 $sha = (Get-FileHash -LiteralPath $resolved -Algorithm SHA256).Hash.ToLowerInvariant()

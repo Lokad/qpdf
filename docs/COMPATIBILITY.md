@@ -512,8 +512,11 @@ exits 2).
 | `qpdf-12.4.2-msvc64.zip` | `db87077e683630c1217e0e8f9a20a9749d952ab676e881c3689187763a5de25d` |
 | `bin/qpdf.exe` | `1bdaf878f37eaffea1ea3c30591214c77636a0f2fc7432427516b6e22e36c0ff` |
 
-The development-only oracle lives under ignored `external/oracle/`; setup and
-version/hash validation uses [bootstrap-qpdf.ps1](../tools/bootstrap-qpdf.ps1).
+The development-only oracle can live under ignored `external/oracle/`.
+[Installation](../tools/install-reference-qpdf.ps1) verifies the official archive
+and executable hashes. [Bootstrap](../tools/bootstrap-qpdf.ps1) and QpdfProbe
+require the exact first-line version banner and record the executable identity;
+copyright lines are allowed, but lookalike versions and qualified builds reject.
 Missing tools fail explicit reference jobs. Native qpdf, PdfPig and renderers
 never become production dependencies.
 Parser reference calls stop and await a timed-out oracle before closing capture
