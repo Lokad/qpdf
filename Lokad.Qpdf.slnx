@@ -3,6 +3,7 @@
     <Project Path="src/Lokad.Qpdf/Lokad.Qpdf.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Lokad.Qpdf.OracleFixture/Lokad.Qpdf.OracleFixture.csproj" />
     <Project Path="tests/Lokad.Qpdf.Tests/Lokad.Qpdf.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">

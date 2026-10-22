@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <Description>Controlled executable for development oracle guard tests. Not shipped.</Description>
+  </PropertyGroup>
+</Project>

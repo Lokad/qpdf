@@ -516,3 +516,7 @@ The development-only oracle lives under ignored `external/oracle/`; setup and
 version/hash validation uses [bootstrap-qpdf.ps1](../tools/bootstrap-qpdf.ps1).
 Missing tools fail explicit reference jobs. Native qpdf, PdfPig and renderers
 never become production dependencies.
+Parser reference calls stop and await a timed-out oracle before closing capture
+streams, retaining partial stdout/stderr for diagnosis. Their workspaces are fresh;
+`-WorkRoot` selects an explicit destination. CI exercises this failure path with
+a small controlled executable, without requiring native qpdf in ordinary tests.

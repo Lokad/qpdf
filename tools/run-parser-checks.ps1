@@ -7,6 +7,7 @@
 param(
   [Parameter(Mandatory = $true)] [string] $QpdfExe,
   [Parameter(Mandatory = $true)] [string] $ProbeDll,
+  [string] $WorkRoot,
   [switch] $StreamRecoveryOnly
 )
 
@@ -14,8 +15,11 @@ $ErrorActionPreference = 'Stop'
 $QpdfExe = (Resolve-Path -LiteralPath $QpdfExe).Path
 $ProbeDll = (Resolve-Path -LiteralPath $ProbeDll).Path
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$runRoot = Join-Path $repoRoot ('external/parser-checks/' + [Guid]::NewGuid().ToString('N'))
-New-Item -ItemType Directory -Path (Join-Path $runRoot 'inputs') -Force | Out-Null
+$runRoot = if ([string]::IsNullOrWhiteSpace($WorkRoot)) {
+  Join-Path $repoRoot ('external/parser-checks/' + [Guid]::NewGuid().ToString('N'))
+} else { [IO.Path]::GetFullPath($WorkRoot) }
+if (Test-Path -LiteralPath $runRoot) { throw "Parser workspace already exists: $runRoot" }
+New-Item -ItemType Directory -Path (Join-Path $runRoot 'inputs') | Out-Null
 $observations = [Collections.Generic.List[object]]::new()
 $rewriteObservations = [Collections.Generic.List[object]]::new()
 $observationIndex = [Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)
@@ -84,25 +88,40 @@ function Invoke-Oracle {
   $process.StartInfo = $start
   $stdout = [IO.MemoryStream]::new()
   $stderr = [IO.MemoryStream]::new()
+  $started = $false
+  $outTask = $null
+  $errTask = $null
   try {
-    if (-not $process.Start()) { throw 'Oracle process did not start.' }
+    $started = $process.Start()
+    if (-not $started) { throw 'Oracle process did not start.' }
     $outTask = $process.StandardOutput.BaseStream.CopyToAsync($stdout)
     $errTask = $process.StandardError.BaseStream.CopyToAsync($stderr)
-    if (-not $process.WaitForExit(30000)) { throw "Oracle process still live: PID $($process.Id). See $runRoot." }
-    $null = $outTask.GetAwaiter().GetResult()
-    $null = $errTask.GetAwaiter().GetResult()
-    $outBytes = $stdout.ToArray()
-    $errBytes = $stderr.ToArray()
-    [IO.File]::WriteAllBytes((Join-Path $runRoot "$Tag-stdout.bin"), $outBytes)
-    [IO.File]::WriteAllBytes((Join-Path $runRoot "$Tag-stderr.bin"), $errBytes)
-    return @{
-      Exit = $process.ExitCode
-      Value = [Text.Encoding]::Latin1.GetString($outBytes).TrimEnd([char[]]@([char]13,[char]10))
-      StdoutBase64 = [Convert]::ToBase64String($outBytes)
-      StderrBase64 = [Convert]::ToBase64String($errBytes)
-    }
+    if (-not $process.WaitForExit(30000)) { throw "Oracle process exceeded 30 seconds: PID $($process.Id). See $runRoot." }
+    $exitCode = $process.ExitCode
   }
-  finally { $stdout.Dispose(); $stderr.Dispose(); $process.Dispose() }
+  finally {
+    try {
+      if ($started) {
+        if (-not $process.HasExited) {
+          $process.Kill($true)
+          if (-not $process.WaitForExit(5000)) { throw 'Oracle process did not stop after termination.' }
+        }
+        foreach ($capture in @($outTask, $errTask)) {
+          if ($null -ne $capture -and -not $capture.Wait(5000)) { throw 'Oracle output capture did not finish.' }
+        }
+        $outBytes = $stdout.ToArray()
+        $errBytes = $stderr.ToArray()
+        [IO.File]::WriteAllBytes((Join-Path $runRoot "$Tag-stdout.bin"), $outBytes)
+        [IO.File]::WriteAllBytes((Join-Path $runRoot "$Tag-stderr.bin"), $errBytes)
+      }
+    } finally { $stdout.Dispose(); $stderr.Dispose(); $process.Dispose() }
+  }
+  return @{
+    Exit = $exitCode
+    Value = [Text.Encoding]::Latin1.GetString($outBytes).TrimEnd([char[]]@([char]13,[char]10))
+    StdoutBase64 = [Convert]::ToBase64String($outBytes)
+    StderrBase64 = [Convert]::ToBase64String($errBytes)
+  }
 }
 
 if (-not $StreamRecoveryOnly) {

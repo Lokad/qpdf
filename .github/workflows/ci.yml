@@ -48,6 +48,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           pwsh -File tools/test-reference-probe.ps1 `
             -ProbeDll tools/QpdfProbe/bin/Release/net10.0/QpdfProbe.dll `
+            -OracleFixture tests/Lokad.Qpdf.OracleFixture/bin/Release/net10.0/Lokad.Qpdf.OracleFixture${{ matrix.os == 'windows-latest' && '.exe' || '' }} `
             -WorkRoot artifacts/ci/tool-controls `
             2>&1 | Tee-Object artifacts/ci/logs/tool-controls.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

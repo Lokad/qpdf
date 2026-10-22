@@ -1,9 +1,11 @@
 param(
     [Parameter(Mandatory = $true)] [string] $ProbeDll,
-    [Parameter(Mandatory = $true)] [string] $WorkRoot
+    [Parameter(Mandatory = $true)] [string] $WorkRoot,
+    [Parameter(Mandatory = $true)] [string] $OracleFixture
 )
 $ErrorActionPreference = 'Stop'
 $ProbeDll = (Resolve-Path -LiteralPath $ProbeDll).Path
+$OracleFixture = (Resolve-Path -LiteralPath $OracleFixture).Path
 $WorkRoot = [IO.Path]::GetFullPath($WorkRoot)
 if (Test-Path -LiteralPath $WorkRoot) { throw 'Probe test workspace already exists.' }
 New-Item -ItemType Directory -Path (Join-Path $WorkRoot 'inputs') | Out-Null
@@ -115,3 +117,42 @@ foreach ($rasterCase in @(
 }
 Write-Output 'Reference probe controls passed: eight cold/batch semantic pairs including Unicode filenames, checked argv/job/Unicode-label bytes, fresh hosts, lazy inputs, both pipeline/process wrappers, 87 requests/two bounded workers and both protocol negatives.'
 Write-Output 'Raster controls passed: exact nonblank match, mismatch, blank crop, wrong expected dimensions and truncated payload.'
+
+# Run the actual parser CLI, including its managed worker and native process
+# boundary. A timeout must retire the child and preserve its partial output.
+$pidFile = Join-Path $WorkRoot 'oracle.pid'
+$parserRoot = Join-Path $WorkRoot 'parser-timeout'
+$previousPidFile = $env:QPDF_TEST_ORACLE_PID_FILE
+try {
+    $env:QPDF_TEST_ORACLE_PID_FILE = $pidFile
+    $timeoutOutput = & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'run-parser-checks.ps1') `
+        -QpdfExe $OracleFixture -ProbeDll $ProbeDll -StreamRecoveryOnly -WorkRoot $parserRoot 2>&1 | Out-String
+    $timeoutExit = $LASTEXITCODE
+    [IO.File]::WriteAllText((Join-Path $WorkRoot 'parser-timeout.log'), $timeoutOutput)
+    if ($timeoutExit -eq 0 -or $timeoutOutput -notmatch 'Oracle process exceeded 30 seconds') { throw 'Parser timeout control did not reach its oracle deadline.' }
+    $child = Get-Process -Id ([int][IO.File]::ReadAllText($pidFile)) -ErrorAction SilentlyContinue
+    if ($null -ne $child) {
+        try {
+            if (-not $child.HasExited -and $child.Path -ceq $OracleFixture) { throw 'Timed-out oracle is still running.' }
+        } finally { $child.Dispose() }
+    }
+    foreach ($channel in @('stdout', 'stderr')) {
+        $capture = @(Get-ChildItem -LiteralPath $parserRoot -Filter "*-$channel.bin")
+        if ($capture.Count -ne 1 -or [IO.File]::ReadAllText($capture[0].FullName).Trim() -cne "oracle $channel before timeout") { throw "Parser timeout lost $channel diagnostics." }
+    }
+} finally {
+    $env:QPDF_TEST_ORACLE_PID_FILE = $previousPidFile
+    if (Test-Path -LiteralPath $pidFile) {
+        $child = Get-Process -Id ([int][IO.File]::ReadAllText($pidFile)) -ErrorAction SilentlyContinue
+        if ($null -ne $child) {
+            try {
+                if (-not $child.HasExited -and $child.Path -ceq $OracleFixture) {
+                    $child.Kill($true)
+                    if (-not $child.WaitForExit(5000)) { throw 'Oracle fixture did not stop during test cleanup.' }
+                }
+            } finally { $child.Dispose() }
+        }
+    }
+}
+Write-Output 'Parser timeout control passed: owned oracle exited and both partial output streams survived.'
+exit 0
