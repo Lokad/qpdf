@@ -13,15 +13,17 @@ using Lokad.Qpdf.Writing;
 namespace Lokad.Qpdf;
 
 /// <summary>
-/// Typed PDF operations over the shared engine. Each operation opens its
-/// input, copies the selected graph once, serializes deterministically with a
-/// counting pass, and publishes through a staged host transaction.
+/// PDF operations over the shared reader, transformations and writer. Inputs
+/// and staged output transactions are supplied by the caller's host.
 /// Every call builds a fresh per-job governor from the supplied or default
-/// <see cref="QpdfLimits"/>; exhausted budgets fail explicitly without publication.
+/// <see cref="QpdfLimits"/>; exhausted budgets fail explicitly.
 /// Calls hold no shared mutable state and are safe to run concurrently against
-/// distinct hosts. Cancellation is cooperative: cancelled calls report
-/// <see cref="QpdfExecutionStatus.Canceled"/> and never publish partial output,
-/// and failed calls leave existing targets untouched.
+/// distinct hosts. Cancellation is cooperative: operations returning typed domain
+/// results throw <see cref="OperationCanceledException"/>. Execution entry points
+/// returning <see cref="QpdfExecutionResult"/> report <see cref="QpdfExecutionStatus.Canceled"/>.
+/// Failure or cancellation discards uncommitted staging. Outputs commit
+/// independently; a later output or post-commit cleanup failure does not undo
+/// an earlier publication. The host defines each transaction's guarantees.
 /// </summary>
 public static partial class Qpdf
     // Command adapters: argv and job JSON converge on the typed selection plan.

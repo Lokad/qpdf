@@ -10,7 +10,8 @@ public sealed record QpdfLimits
     /// <summary>Maximum bytes accepted for a single input.</summary>
     public long MaxInputBytes { get; init; } = 256L * 1024L * 1024L;
 
-    /// <summary>Maximum bytes produced for a single output.</summary>
+    /// <summary>Maximum cumulative output bytes charged to one job, across all outputs.</summary>
+    /// <remarks>Charges can include prepared output discarded on failure.</remarks>
     public long MaxOutputBytes { get; init; } = 256L * 1024L * 1024L;
 
     /// <summary>Maximum estimated working-set bytes charged to one job.</summary>

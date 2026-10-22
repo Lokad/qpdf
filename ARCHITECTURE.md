@@ -102,6 +102,9 @@ after commit does not undo publication. The host defines its transaction semanti
 data, estimated memory, host operations, handles, diagnostics and nesting. Invocation options
 can tighten host policy but cannot raise explicit host ceilings. Significant
 storage, growth overlap and decompression receive admission before allocation.
+Output bytes are charged cumulatively across the job's outputs, including
+prepared output discarded on failure. Operations returning typed domain results
+throw on cancellation; execution entry points return a canceled execution result.
 
 Memory counters describe a charged working-set estimate, not CLR heap or process
 RSS. Hosts must also account for their buffers, concurrent jobs and caller-retained

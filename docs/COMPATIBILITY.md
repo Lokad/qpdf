@@ -67,6 +67,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Public API documentation describes the existing cumulative whole-job output
+ceiling and independent output commits. A later output or post-commit close
+failure does not roll back earlier publications. Typed domain-result calls throw
+on cancellation; execution-result calls return a canceled status. These are documentation corrections,
+with no runtime behavior or public signature changes.
+
 JSON object selectors use one admitted set of numeric object/generation identities
 and trailer membership across typed, argv and job calls. Duplicate selectors no
 longer allocate repeated canonical strings or execution snapshots. Tight memory
