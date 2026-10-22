@@ -272,13 +272,15 @@ internal static class FlattenRotation
             QpdfObject entry = appearances.Current.Value;
             if (entry is PdfNull) { continue; }
 
-            if (entry is PdfReference entryReference)
+            QpdfObject target = entry is PdfReference entryReference
+                ? ResolveOrNull(resolver, entryReference) ?? entry : entry;
+            if (target is PdfStream && entry is PdfReference streamReference)
             {
-                RotateAppearanceTarget(copier, entryReference, resolver, matrix, matricized, traversal, governor, cancellationToken);
+                RotateAppearanceTarget(copier, streamReference, resolver, matrix, matricized, traversal, governor, cancellationToken);
                 continue;
             }
 
-            if (entry is not PdfDictionary states)
+            if (target is not PdfDictionary states)
             {
                 continue;
             }
@@ -321,9 +323,10 @@ internal static class FlattenRotation
 
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor); scratch.Reserve(256L);
         double[] composed = matrix;
-        if (stream.Dictionary.TryGet(PdfName.FromAscii("Matrix"), out QpdfObject? existing) && existing is PdfArray existingArray)
+        if (stream.Dictionary.TryGet(PdfName.FromAscii("Matrix"), out QpdfObject? existing))
         {
-            double[]? old = ReadMatrix(existingArray);
+            QpdfObject? target = existing is PdfReference link ? ResolveOrNull(resolver, link) : existing;
+            double[]? old = target is PdfArray array ? ReadMatrix(array, resolver) : null;
             if (old is not null)
             {
                 composed = MultiplyMatrices(matrix, old);
@@ -337,7 +340,7 @@ internal static class FlattenRotation
         copier.ReplaceCopiedObject(reference.ObjectNumber, result); graph.Retain();
     }
 
-    private static double[]? ReadMatrix(PdfArray array)
+    private static double[]? ReadMatrix(PdfArray array, PoolResolver resolver)
     {
         if (array.Count != 6)
         {
@@ -347,11 +350,12 @@ internal static class FlattenRotation
         double[] numbers = new double[6];
         for (int i = 0; i < 6; i++)
         {
-            if (array[i] is PdfInteger integer)
+            QpdfObject? item = array[i] is PdfReference reference ? ResolveOrNull(resolver, reference) : array[i];
+            if (item is PdfInteger integer)
             {
                 numbers[i] = (double)integer.Value;
             }
-            else if (array[i] is PdfReal real)
+            else if (item is PdfReal real)
             {
                 numbers[i] = real.Value;
             }

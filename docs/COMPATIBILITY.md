@@ -7,6 +7,10 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Rotation flattening resolves indirect appearance-state dictionaries, matrices
+and their numeric entries before transformation. Equivalent direct and indirect
+values now produce the same appearance; public signatures are unchanged.
+
 Annotation flattening normalizes page rotations modulo 360 before applying
 `NoRotate` placement. Equivalent negative, full-turn and large 64-bit angles
 now produce the same placement as their cardinal angle; public signatures
