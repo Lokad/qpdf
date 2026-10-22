@@ -119,7 +119,7 @@ public sealed class OutlineInspectionTests
         ResourceGovernor governor = new(limits, CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(71L);
         long baseline = governor.Snapshot().LiveMemoryBytes;
-        JsonRequest request = new(2, ["outlines"], "none", "none", null, [], false);
+        JsonRequest request = new(2, ["outlines"], "none", "none", null, null, false);
         void Inspect()
         {
             using PreparedJsonOutput output = PreparedJsonOutput.Create(governor);

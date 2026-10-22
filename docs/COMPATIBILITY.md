@@ -45,6 +45,14 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+JSON object selectors use one admitted set of numeric object/generation identities
+and trailer membership across typed, argv and job calls. Duplicate selectors no
+longer allocate repeated canonical strings or execution snapshots. Tight memory
+limits can refuse selection preparation before opening the PDF. Invalid-selector
+errors clip the input excerpt to 128 UTF-16 units with `...`, preserving grammar
+guidance and offsets. Short errors and JSON selection/output semantics are unchanged;
+no public signatures change.
+
 Page selection admits range expansion, page-sized working collections and graph
 pool tables before allocation. First/last previews check their cardinality before
 allocating; CPU loops cooperate with cancellation. Tight local or shared limits

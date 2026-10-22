@@ -26,7 +26,8 @@ internal sealed class ConfigurationText : IDisposable
         catch { memory.Dispose(); throw; }
     }
 
-    private ParserMemoryScope Memory => _memory ?? throw new ObjectDisposedException(nameof(ConfigurationText));
+    internal ResourceGovernor Governor => _governor;
+    internal ParserMemoryScope Memory => _memory ?? throw new ObjectDisposedException(nameof(ConfigurationText));
 
     // Small documents use a cheap blanket admission split: this part funds
     // decoded copies, and the rest funds encoded/DOM storage. Large documents
@@ -107,35 +108,6 @@ internal sealed class ConfigurationText : IDisposable
 
     internal static string Slice(ConfigurationText? owner, string source, int start, int length)
         => owner is null ? source.Substring(start, length) : owner.CopySubstring(source, start, length);
-
-    internal static string ObjectSelector(ConfigurationText? owner, int number, int generation)
-    {
-        owner?._governor.CheckCancellation();
-        owner?._governor.NoteOperation();
-        int length = 7 + Digits(number) + Digits(generation);
-        long bytes = GovernedText.StringBytes(length);
-        owner?.Memory.Reserve(bytes);
-        string value = string.Create(length, (number, generation), static (target, state) =>
-        {
-            "obj:".AsSpan().CopyTo(target);
-            if (!state.number.TryFormat(target[4..], out int written, provider: System.Globalization.CultureInfo.InvariantCulture))
-            { throw new InvalidOperationException("Object selector number exceeds its admitted length."); }
-            int offset = 4 + written;
-            target[offset++] = ' ';
-            if (!state.generation.TryFormat(target[offset..], out written, provider: System.Globalization.CultureInfo.InvariantCulture))
-            { throw new InvalidOperationException("Object selector generation exceeds its admitted length."); }
-            offset += written;
-            target[offset++] = ' '; target[offset] = 'R';
-        });
-        return value;
-    }
-
-    private static int Digits(int value)
-    {
-        int digits = 1;
-        while (value >= 10) { value /= 10; digits++; }
-        return digits;
-    }
 
     internal static string Slice(IReadOnlyList<string> arguments, string source, int start)
         => Slice(arguments, source, start, source.Length - start);

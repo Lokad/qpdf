@@ -4239,7 +4239,7 @@ public static partial class Qpdf
             JsonInspectionOutcome result;
             using (ConfigurationText? textStorage = options.Objects.Count == 0 ? null : ConfigurationText.Create(governor))
             {
-                List<string> wanted = ValidateJsonObjects(options.Objects, 0L, textStorage);
+                HashSet<(bool Trailer, int Number, int Generation)>? wanted = ValidateJsonObjects(options.Objects, 0L, textStorage);
                 Commands.JsonInspection inspection = new(options.Version, options.Keys, null, options.StreamData, options.StreamPrefix, wanted, options.MinimalOutput);
                 result = await JsonCoreAsync(host, inputPath, outputPath, inspection, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, false, true, cancellationToken).ConfigureAwait(false);
             }
@@ -4607,48 +4607,54 @@ public static partial class Qpdf
         }
     }
 
-    internal static List<string> ValidateJsonObjects(IReadOnlyList<string> objects, long index, ConfigurationText? textStorage)
+    internal static HashSet<(bool Trailer, int Number, int Generation)>? ValidateJsonObjects(
+        IReadOnlyList<string> objects, long index, ConfigurationText? textStorage)
     {
-        if (objects is null)
+        ArgumentNullException.ThrowIfNull(objects);
+        if (objects.Count == 0) { return null; }
+        ConfigurationText owner = textStorage ?? throw new InvalidOperationException("Missing JSON selection owner.");
+        HashSet<(bool Trailer, int Number, int Generation)>? selected = null;
+        foreach (string spec in objects) { selected = AddJsonObject(selected, spec, index, owner); }
+        return selected;
+    }
+
+    internal static HashSet<(bool Trailer, int Number, int Generation)> AddJsonObject(
+        HashSet<(bool Trailer, int Number, int Generation)>? selected, string spec, long index, ConfigurationText owner)
+    {
+        ResourceGovernor governor = owner.Governor;
+        governor.CheckCancellation();
+        if (spec is null) { throw new QpdfParseException("JSON object selectors must not be null.", index, null); }
+        bool trailer = string.Equals(spec, "trailer", StringComparison.Ordinal);
+        int number = 0, generation = 0;
+        if (!trailer)
         {
-            throw new ArgumentNullException(nameof(objects));
-        }
-
-        List<string> canonical = new(objects.Count);
-        foreach (string spec in objects)
-        {
-            if (spec is null)
-            {
-                throw new QpdfParseException("JSON object selectors must not be null.", index, null);
-            }
-
-            if (string.Equals(spec, "trailer", StringComparison.Ordinal))
-            {
-                canonical.Add("trailer");
-                continue;
-            }
-
+            // Two ten-digit integers and a comma are the longest valid spelling.
+            if (spec.Length > 21) { throw InvalidJsonObject(spec, index, owner); }
             int comma = spec.IndexOf(',');
-            if (comma >= 0 && spec.AsSpan(comma + 1).Contains(','))
-            {
-                throw new QpdfParseException("JSON object '" + spec + "' must be trailer or obj[,gen].", index, null);
-            }
-
-            if (!TryParseObjectNumber(comma < 0 ? spec.AsSpan() : spec.AsSpan(0, comma), out int number))
-            {
-                throw new QpdfParseException("JSON object '" + spec + "' must be trailer or obj[,gen].", index, null);
-            }
-
-            int generation = 0;
-            if (comma >= 0 && !TryParseObjectNumber(spec.AsSpan(comma + 1), out generation))
-            {
-                throw new QpdfParseException("JSON object '" + spec + "' must be trailer or obj[,gen].", index, null);
-            }
-
-            canonical.Add(ConfigurationText.ObjectSelector(textStorage, number, generation));
+            if (!TryParseObjectNumber(comma < 0 ? spec.AsSpan() : spec.AsSpan(0, comma), out number)
+                || comma >= 0 && !TryParseObjectNumber(spec.AsSpan(comma + 1), out generation))
+            { throw InvalidJsonObject(spec, index, owner); }
         }
+        selected ??= ParserContainers.CreateSet<(bool Trailer, int Number, int Generation)>(owner.Memory);
+        ParserContainers.AddSetItem(owner.Memory, selected, (trailer, number, generation), 12L);
+        return selected;
+    }
 
-        return canonical;
+    private static QpdfParseException InvalidJsonObject(string spec, long index, ConfigurationText owner)
+    {
+        // Bound the excerpt before formatting and fund the offset suffix copy too.
+        owner.Memory.Reserve(2L * GovernedText.StringBytes(256));
+        owner.Governor.CheckCancellation();
+        Span<char> message = stackalloc char[256];
+        const string start = "JSON object '";
+        start.AsSpan().CopyTo(message);
+        int length = start.Length, take = Math.Min(spec.Length, 128);
+        if (take < spec.Length && char.IsHighSurrogate(spec[take - 1])) { take--; }
+        spec.AsSpan(0, take).CopyTo(message[length..]); length += take;
+        if (take < spec.Length) { "...".AsSpan().CopyTo(message[length..]); length += 3; }
+        const string end = "' must be trailer or obj[,gen].";
+        end.AsSpan().CopyTo(message[length..]); length += end.Length;
+        return new QpdfParseException(new string(message[..length]), index, null);
     }
 
     private static bool TryParseObjectNumber(ReadOnlySpan<char> text, out int number)
@@ -4695,7 +4701,8 @@ public static partial class Qpdf
     {
         using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
         ValidateJsonKeys(inspection.Version, inspection.Keys);
-        List<string> wanted = [.. inspection.Objects];
+        // The configuration owner funds this immutable selection through execution.
+        HashSet<(bool Trailer, int Number, int Generation)>? wanted = inspection.Objects;
         if (outputPath.HasValue && string.Equals(inputPath.Value, outputPath.Value.Value, StringComparison.Ordinal))
         {
             throw new QpdfParseException("The output file must differ from the input file.", 0L, null);

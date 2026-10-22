@@ -200,11 +200,17 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
             ?? throw new InvalidOperationException("Missing complete-job governor.");
         JobPlan plan = Find<JobPlan>(running, 0, new HashSet<object>(ReferenceEqualityComparer.Instance))
             ?? throw new InvalidOperationException("Missing complete-job plan.");
-        List<string> aliases = profile == "json" ? [.. Assert.IsType<JsonPlan>(plan).Objects]
+        HashSet<(bool Trailer, int Number, int Generation)>? selected = (plan as JsonPlan)?.Objects;
+        if (profile == "json")
+        {
+            Assert.NotNull(selected);
+            Assert.True(selected.SetEquals([(false, 1, 0), (false, int.MaxValue, 0)]));
+        }
+        List<string> aliases = profile == "json" ? []
             : [Assert.Single(plan.Labels).FirstPage, Assert.Single(plan.Labels).Prefix ?? throw new InvalidOperationException("Missing prefix."),
                 Assert.Single(plan.Rotations).Range ?? throw new InvalidOperationException("Missing range.")];
-        Assert.Equal(profile == "json" ? new[] { "obj:1 0 R", "obj:2147483647 0 R" } : new[] { "r1", prefix, Range }, aliases);
-        long textBytes = aliases.Sum(value => PhysicalStringBytes(value.Length));
+        Assert.Equal(profile == "json" ? Array.Empty<string>() : new[] { "r1", prefix, Range }, aliases);
+        long textBytes = profile == "json" ? 96L + 12L * (selected?.Count ?? 0) : aliases.Sum(value => PhysicalStringBytes(value.Length));
         List<string> missing = governor.Snapshot().LiveMemoryBytes < textBytes ? ["active-text-batch:" + textBytes] : [];
         // These observations belong to the test, beyond the private plan owner.
         aliases = aliases.Select(value => new string(value.AsSpan())).ToList();
@@ -278,11 +284,9 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
         Assert.True(host.Inner.TryGetOutput(OutputPath, out byte[] prior)); Assert.Equal(Prior, prior);
     }
 
-    private sealed class TypedCompleted(ResourceGovernor governor, QpdfJsonResult? result,
-        List<string> aliases, bool missing)
+    private sealed class TypedCompleted(ResourceGovernor governor, QpdfJsonResult? result, bool missing)
     {
         internal readonly ResourceGovernor Governor = governor;
-        internal readonly List<string> Aliases = aliases;
         internal readonly bool Missing = missing;
         internal QpdfJsonResult? Result = result;
         internal QpdfExecutionCounters? Counters = result?.Counters;
@@ -300,10 +304,9 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
             ?? throw new InvalidOperationException("Missing typed job governor.");
         JsonInspection inspection = Find<JsonInspection>(running, 0, new HashSet<object>(ReferenceEqualityComparer.Instance))
             ?? throw new InvalidOperationException("Missing typed JSON inspection.");
-        List<string> aliases = [.. inspection.Objects];
-        Assert.Equal(new[] { "obj:1 0 R", "obj:2147483647 0 R" }, aliases);
-        bool missing = governor.Snapshot().LiveMemoryBytes < aliases.Sum(value => PhysicalStringBytes(value.Length));
-        aliases = aliases.Select(value => new string(value.AsSpan())).ToList();
+        Assert.NotNull(inspection.Objects);
+        Assert.True(inspection.Objects.SetEquals([(false, 1, 0), (false, int.MaxValue, 0)]));
+        bool missing = governor.Snapshot().LiveMemoryBytes < 96L + 12L * inspection.Objects.Count;
         if (outcome == "cancel") { cancel.Cancel(); }
         host.Resume();
         QpdfJsonResult? result = null;
@@ -322,7 +325,7 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
         }
         Assert.Equal(0L, host.Inner.OpenLeaseCount);
         log.WriteLine("DERIVED TYPED CONTROL PASS {0}", outcome);
-        return new TypedCompleted(governor, result, aliases, missing);
+        return new TypedCompleted(governor, result, missing);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -341,8 +344,7 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
         foreach (TypedCompleted job in jobs)
         {
             missing |= job.Missing;
-            Assert.Equal(new[] { "obj:1 0 R", "obj:2147483647 0 R" }, job.Aliases);
-            Assert.Equal(0L, job.Governor.PrivateRetainedBytes);
+                        Assert.Equal(0L, job.Governor.PrivateRetainedBytes);
         }
         return missing;
     }
@@ -352,9 +354,9 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
     {
         List<TypedCompleted> jobs = await CompleteTypedJobs();
         bool missing = ObserveTyped(jobs);
-        foreach (TypedCompleted job in jobs) { job.Aliases.Clear(); job.Result = null; job.Counters = null; }
+        foreach (TypedCompleted job in jobs) { job.Result = null; job.Counters = null; }
 
         foreach (TypedCompleted job in jobs) { Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes); }
-        Assert.False(missing, "Typed JSON canonical selectors exceed their active storage allowance.");
+        Assert.False(missing, "Typed JSON selector storage exceeds its active allowance.");
     }
 }

@@ -304,7 +304,7 @@ internal sealed record JsonPlan(QpdfPath Input, QpdfPath? Output, int Version, I
 
     public string? StreamPrefix { get; init; }
 
-    public IReadOnlyList<string> Objects { get; init; } = [];
+    public HashSet<(bool Trailer, int Number, int Generation)>? Objects { get; init; }
 
     public bool MinimalOutput { get; init; }
 }
@@ -316,7 +316,7 @@ internal sealed record JsonInspection(
     string? DecodeLevel,
     string StreamData,
     string? StreamPrefix,
-    IReadOnlyList<string> Objects,
+    HashSet<(bool Trailer, int Number, int Generation)>? Objects,
     bool MinimalOutput);
 
 /// <summary>Validated JSON import: a qpdf JSON file converted to PDF.</summary>

@@ -19,7 +19,7 @@ internal sealed record JsonRequest(
     string DecodeLevel,
     string StreamData,
     string? StreamPrefix,
-    IReadOnlyList<string> Objects,
+    HashSet<(bool Trailer, int Number, int Generation)>? Objects,
     bool MinimalOutput)
 {
     internal bool Wants(string key)
@@ -27,10 +27,10 @@ internal sealed record JsonRequest(
         return Keys.Count == 0 || Keys.Contains(key);
     }
 
-    internal bool WantsObject(string canonical)
-    {
-        return Objects.Count == 0 || Objects.Contains(canonical);
-    }
+    internal bool WantsObject(int number, int generation)
+        => Objects is null || Objects.Contains((false, number, generation));
+
+    internal bool WantsTrailer => Objects is null || Objects.Contains((true, 0, 0));
 }
 
 /// <summary>
@@ -1269,7 +1269,7 @@ internal static class DocumentJson
                     int generation = engine.XRefEntries[number].Kind == XrefEntryKind.Compressed
                         ? 0
                         : engine.XRefEntries[number].Second;
-                    if (!WantsObject(request, builder, number, generation))
+                    if (!request.WantsObject(number, generation))
                     {
                         continue;
                     }
@@ -1286,7 +1286,7 @@ internal static class DocumentJson
                     PdfJsonWriter.AppendValue(builder, value, 1, governor, 0, limits);
                 }
 
-                if (request.WantsObject("trailer"))
+                if (request.WantsTrailer)
                 {
                     if (!first)
                     {
@@ -1317,7 +1317,7 @@ internal static class DocumentJson
                 int generation = engine.XRefEntries[number].Kind == XrefEntryKind.Compressed
                     ? 0
                     : engine.XRefEntries[number].Second;
-                if (!WantsObject(request, builder, number, generation))
+                if (!request.WantsObject(number, generation))
                 {
                     continue;
                 }
@@ -1343,7 +1343,7 @@ internal static class DocumentJson
                 }
             }
 
-            if (request.WantsObject("trailer"))
+            if (request.WantsTrailer)
             {
                 if (!firstObject)
                 {
@@ -1363,23 +1363,6 @@ internal static class DocumentJson
     private readonly struct ObjectNumberComparer : IComparer<int>
     {
         public int Compare(int left, int right) => left.CompareTo(right);
-    }
-
-    private static bool WantsObject(JsonRequest request, DisplayBuffer builder, int number, int generation)
-    {
-        if (request.Objects.Count == 0) { return true; }
-        Span<char> key = stackalloc char[48];
-        "obj:".AsSpan().CopyTo(key);
-        number.TryFormat(key[4..], out int numberLength, provider: CultureInfo.InvariantCulture);
-        int position = 4 + numberLength; key[position++] = ' ';
-        generation.TryFormat(key[position..], out int generationLength, provider: CultureInfo.InvariantCulture);
-        position += generationLength; key[position++] = ' '; key[position++] = 'R';
-        foreach (string candidate in request.Objects)
-        {
-            builder.Governor.NoteOperation(); builder.Governor.CheckCancellation();
-            if (candidate.AsSpan().SequenceEqual(key[..position])) { return true; }
-        }
-        return false;
     }
 
     private static (byte[] Data, bool Decoded) ResolveStreamPayload(DocumentEngine engine,
@@ -1461,7 +1444,7 @@ internal static class DocumentJson
                 int generation = engine.XRefEntries[number].Kind == XrefEntryKind.Compressed
                     ? 0
                     : engine.XRefEntries[number].Second;
-                if (!WantsObject(request, builder, number, generation))
+                if (!request.WantsObject(number, generation))
                 {
                     continue;
                 }

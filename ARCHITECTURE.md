@@ -43,7 +43,9 @@ One resource governor spans configuration loading, reading, transformation,
 serialization and publication. Results capture diagnostics and counters after
 cleanup. Inspection can return text or bytes without creating a PDF output.
 Output-free job inspections share the check plan and its configuration controls;
-binary extraction plans handle explicit host output targets.
+binary extraction plans handle explicit host output targets. JSON selectors share
+one configuration-owned set of numeric identities through inspection; matching
+needs no canonical strings, execution clone or repeated scan of selector lists.
 
 ## Component map
 

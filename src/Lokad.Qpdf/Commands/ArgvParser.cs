@@ -3054,7 +3054,7 @@ internal static class ArgvParser
         bool seenJsonVersion = false;
         int jsonVersion = 0;
         List<string> keys = new();
-        List<string> objects = new();
+        HashSet<(bool Trailer, int Number, int Generation)>? objects = null;
         bool seenStreamData = false;
         string? streamData = null;
         string? streamPrefix = null;
@@ -3096,7 +3096,8 @@ internal static class ArgvParser
             if (token == "--json-object" || token.StartsWith("--json-object=", StringComparison.Ordinal))
             {
                 string selector = TakeParameter(argv, argv.Count, ref cursor, "--json-object");
-                objects.AddRange(Qpdf.ValidateJsonObjects([selector], cursor, ConfigurationText.OwnerOf(argv)));
+                objects = Qpdf.AddJsonObject(objects, selector, cursor, ConfigurationText.OwnerOf(argv)
+                    ?? throw new InvalidOperationException("Missing JSON selection owner."));
                 continue;
             }
 

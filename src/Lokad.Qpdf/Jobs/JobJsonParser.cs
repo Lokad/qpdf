@@ -1529,7 +1529,7 @@ internal static class JobJsonParser
                 }
 
                 Qpdf.ValidateJsonKeys(jsonNumber, effectiveKeys);
-                List<string> wantedObjects = Qpdf.ValidateJsonObjects(jsonObjects, 0L, textStorage);
+                HashSet<(bool Trailer, int Number, int Generation)>? wantedObjects = Qpdf.ValidateJsonObjects(jsonObjects, 0L, textStorage);
                 string jsonDecode = decodeLevel ?? (seenJsonOutput ? "none" : "generalized");
                 if (jsonDecode != "none" && jsonDecode != "generalized" && jsonDecode != "specialized" && jsonDecode != "all")
                 {
