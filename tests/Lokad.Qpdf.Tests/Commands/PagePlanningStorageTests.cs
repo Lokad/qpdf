@@ -70,7 +70,8 @@ public sealed class PagePlanningStorageTests
     public void UnaffectedRotationsBorrowOccurrencesWithoutSnapshottingPages()
     {
         using DocumentEngine engine = Engine(); ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
-        GraphCopier copier = new(engine, construction, QpdfLimits.Default, 3);
+        using ParserMemoryScope copierMemory = ParserMemoryScope.Create(construction);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 3, copierMemory);
         PdfDictionary page = new(new Dictionary<PdfName, QpdfObject>()); copier.AddIndirectObjectWithId(page, 3);
         List<(GraphCopier Copier, int Id)> occurrences = Enumerable.Repeat((copier, 3), 262144).ToList();
         List<List<(PdfRotationMode Mode, int Angle)>> folds = Enumerable.Repeat(new List<(PdfRotationMode, int)>(), occurrences.Count).ToList();
@@ -87,7 +88,8 @@ public sealed class PagePlanningStorageTests
     public void RefusedOrMalformedRotationPreservesSourceAndPriorAdmission(bool malformed)
     {
         using DocumentEngine engine = Engine(); ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
-        GraphCopier copier = new(engine, construction, QpdfLimits.Default, 3);
+        using ParserMemoryScope copierMemory = ParserMemoryScope.Create(construction);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 3, copierMemory);
         Dictionary<PdfName, QpdfObject> entries = Enumerable.Range(0, 16384).ToDictionary(i => PdfName.FromAscii("K" + i), _ => (QpdfObject)PdfNull.Instance);
         entries.Add(PdfName.FromAscii("Rotate"), malformed ? PdfName.FromAscii("broken") : new PdfInteger("90", 90));
         PdfDictionary page = new(entries); copier.AddIndirectObjectWithId(page, 3);

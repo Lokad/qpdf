@@ -17,7 +17,8 @@ public sealed class LabelComparisonStorageTests
         using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), Inspection.CheckTests.Assemble(objects, 1), QpdfInputOwnership.Transfer);
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input"), CancellationToken.None);
         ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
-        GraphCopier copier = new(document.Engine, construction, QpdfLimits.Default, 1);
+        using ParserMemoryScope copierMemory = ParserMemoryScope.Create(construction);
+        GraphCopier copier = GraphCopier.CreateOwned(document.Engine, construction, QpdfLimits.Default, 1, copierMemory);
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 1024 }, CancellationToken.None);
         long allocated = GC.GetAllocatedBytesForCurrentThread();
         Assert.Throws<QpdfLimitException>(() => PageLabelMerge.ReadSource(document.Engine, copier, QpdfLimits.Default,

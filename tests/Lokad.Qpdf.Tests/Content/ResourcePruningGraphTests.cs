@@ -25,6 +25,7 @@ public sealed class ResourcePruningGraphTests
     private sealed class Prepared : IDisposable
     {
         private readonly DocumentEngine _engine;
+        private readonly ParserMemoryScope _copyMemory;
         internal readonly GraphCopier Copier;
         internal readonly PdfName FontKey = PdfName.FromAscii("F"), BinaryKey = new([0, 255, 35]);
         internal readonly PdfByteString Borrowed = new(new byte[8192], false);
@@ -36,7 +37,8 @@ public sealed class ResourcePruningGraphTests
             ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None); PdfDictionary trailer = Dictionary();
             _engine = new(ReadOnlyMemory<byte>.Empty, new XRefTable(0L, new Dictionary<int, XrefEntry>(), trailer, [trailer]),
                 QpdfLimits.Default, construction, new DiagnosticBag(construction), QpdfRecoveryMode.Strict);
-            Copier = new(_engine, governor, QpdfLimits.Default, 1);
+            _copyMemory = ParserMemoryScope.Create(governor);
+            Copier = GraphCopier.CreateOwned(_engine, governor, QpdfLimits.Default, 1, _copyMemory);
             Fonts = new(new Dictionary<PdfName, QpdfObject> { [FontKey] = PdfNull.Instance, [PdfName.FromAscii("Unused")] = PdfNull.Instance });
             Resources = new(new Dictionary<PdfName, QpdfObject>
             {
@@ -51,7 +53,7 @@ public sealed class ResourcePruningGraphTests
             if (indirect) { pool.Add(7, Resources); }
         }
 
-        public void Dispose() { ((IDictionary<int, QpdfObject>)Copier.CopiedObjects).Clear(); _engine.Dispose(); }
+        public void Dispose() { ((IDictionary<int, QpdfObject>)Copier.CopiedObjects).Clear(); _engine.Dispose(); _copyMemory.Dispose(); }
     }
 
     private static PdfDictionary ResourcesOf(PdfDictionary page)

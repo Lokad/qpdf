@@ -36,7 +36,8 @@ public sealed class OverlayAdmissionTests
             i => PdfName.FromAscii(i.ToString(System.Globalization.CultureInfo.InvariantCulture)), _ => (QpdfObject)PdfNull.Instance));
         using DocumentEngine engine = Engine();
         ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
-        GraphCopier copier = new(engine, construction, QpdfLimits.Default, 1); copier.AddIndirectObjectWithId(source, 1);
+        using ParserMemoryScope copierMemory = ParserMemoryScope.Create(construction);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 1, copierMemory); copier.AddIndirectObjectWithId(source, 1);
         using CancellationTokenSource caller = new(), operation = new();
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 4096L };
         ResourceGovernor governor = new(limits, operation.Token);
@@ -74,9 +75,11 @@ public sealed class OverlayAdmissionTests
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("source"), CancellationToken.None))
         {
             ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
-            GraphCopier sourceCopier = new(document.Engine, construction, QpdfLimits.Default, 1);
+            using ParserMemoryScope sourceCopierMemory = ParserMemoryScope.Create(construction);
+            GraphCopier sourceCopier = GraphCopier.CreateOwned(document.Engine, construction, QpdfLimits.Default, 1, sourceCopierMemory);
             Overlays.OverlaySource source = new(document, sourceCopier, 1, null, new(StringComparer.Ordinal));
-            using DocumentEngine engine = Engine(); GraphCopier destination = new(engine, construction, QpdfLimits.Default, 10);
+            using DocumentEngine engine = Engine(); using ParserMemoryScope destinationMemory = ParserMemoryScope.Create(construction);
+            GraphCopier destination = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 10, destinationMemory);
             PdfArray original = new(Enumerable.Repeat<QpdfObject>(new PdfReference(12, 0), 262144).ToArray());
             PdfDictionary page = Dictionary(("Annots", new PdfReference(11, 0)));
             destination.AddIndirectObjectWithId(page, 10); destination.AddIndirectObjectWithId(original, 11);
@@ -114,7 +117,8 @@ public sealed class OverlayAdmissionTests
         using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
         {
             ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
-            GraphCopier copier = new(engine, construction, QpdfLimits.Default, 1); copier.AddIndirectObjectWithId(source, 1);
+            using ParserMemoryScope copierMemory = ParserMemoryScope.Create(construction);
+            GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 1, copierMemory); copier.AddIndirectObjectWithId(source, 1);
             long before = GC.GetAllocatedBytesForCurrentThread();
             if (rectangle)
             {

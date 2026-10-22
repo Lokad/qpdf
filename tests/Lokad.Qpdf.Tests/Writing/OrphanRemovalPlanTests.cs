@@ -17,10 +17,13 @@ public sealed class OrphanRemovalPlanTests
     public void CallerCancellationPrecedesGraphAdmission(bool empty)
     {
         using CancellationTokenSource cancellation = new(); cancellation.Cancel();
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 1L }, CancellationToken.None);
+        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096L }, CancellationToken.None);
         using OrphanFixture fixture = new(governor, PdfNull.Instance);
+        using ParserMemoryScope filler = ParserMemoryScope.Create(governor);
+        filler.Reserve(4096L - governor.Snapshot().LiveMemoryBytes - 1L);
+        long baseline = governor.Snapshot().LiveMemoryBytes;
         Assert.Throws<OperationCanceledException>(() => fixture.Copier.DropPoolObjectsIfUnreferenced(empty ? [] : [2], cancellation.Token));
-Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]
@@ -30,9 +33,10 @@ Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     {
         using CancellationTokenSource cancellation = new(); ResourceGovernor governor = new(QpdfLimits.Default, caller ? CancellationToken.None : cancellation.Token);
         using OrphanFixture fixture = new(governor, PdfNull.Instance);
+        long baseline = governor.Snapshot().LiveMemoryBytes;
         var before = fixture.Pool.ToArray(); var mapping = fixture.Mapping.ToArray();
         Assert.Throws<OperationCanceledException>(() => fixture.Copier.DropPoolObjectsIfUnreferenced(new CancellingCandidates(cancellation), caller ? cancellation.Token : CancellationToken.None));
-        OrphanFixture.AssertUnchanged(fixture.Pool, fixture.Mapping, before, mapping); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        OrphanFixture.AssertUnchanged(fixture.Pool, fixture.Mapping, before, mapping); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]

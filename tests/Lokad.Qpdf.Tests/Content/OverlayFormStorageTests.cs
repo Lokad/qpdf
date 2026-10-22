@@ -136,7 +136,8 @@ public sealed class OverlayFormStorageTests
         };
         using DocumentEngine engine = Engine(new Dictionary<int, QpdfObject>(), Dict());
         ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
-        GraphCopier copier = new(engine, construction, QpdfLimits.Default, 10); copier.AddIndirectObjectWithId(field, 10);
+        using ParserMemoryScope copierMemory = ParserMemoryScope.Create(construction);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 10, copierMemory); copier.AddIndirectObjectWithId(field, 10);
         if (edit == "indirect-kid") { copier.AddIndirectObjectWithId(large, 11); }
         CopiedForm form = new([new PdfReference(10, 0)], true, false, false, edit == "resource-union" ? large : null, false, [], new Dictionary<PdfName, QpdfObject>());
         PdfByteString appearance = new("/Helv 12 Tf"u8.ToArray(), false);
@@ -165,7 +166,8 @@ public sealed class OverlayFormStorageTests
         using (DocumentEngine engine = Engine(new Dictionary<int, QpdfObject>(), Dict()))
         {
             ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
-            GraphCopier copier = new(engine, construction, QpdfLimits.Default, 10);
+            using ParserMemoryScope copierMemory = ParserMemoryScope.Create(construction);
+            GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 10, copierMemory);
             PdfDictionary source = Dict(("Payload", payload)); copier.AddIndirectObjectWithId(source, 10);
             CopiedForm form = new([new PdfReference(10, 0)], true, false, false, null, false, [], new Dictionary<PdfName, QpdfObject>());
             AcroFormCopy.OverlayFieldImport import = new(copier, form, appearance, 1);
@@ -191,7 +193,8 @@ public sealed class OverlayFormStorageTests
         PdfArray kids = new([PdfNull.Instance, kid, scalar]);
         using DocumentEngine engine = Engine(new Dictionary<int, QpdfObject>(), Dict());
         ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
-        GraphCopier copier = new(engine, construction, QpdfLimits.Default, 10);
+        using ParserMemoryScope copierMemory = ParserMemoryScope.Create(construction);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 10, copierMemory);
         copier.AddIndirectObjectWithId(Dict(("Kids", indirectArray ? new PdfReference(11, 0) : kids)), 10);
         if (indirectArray) { copier.AddIndirectObjectWithId(kids, 11); }
         CopiedForm form = new([new PdfReference(10, 0)], true, false, false, null, false, [], new Dictionary<PdfName, QpdfObject>());
@@ -245,7 +248,8 @@ public sealed class OverlayFormStorageTests
     {
         using DocumentEngine engine = Engine(new Dictionary<int, QpdfObject>(), Dict());
         ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
-        GraphCopier copier = new(engine, construction, QpdfLimits.Default, 10);
+        using ParserMemoryScope copierMemory = ParserMemoryScope.Create(construction);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 10, copierMemory);
         PdfDictionary field = LargeField(16384); copier.AddIndirectObjectWithId(field, 10);
         CopiedForm form = new([new PdfReference(10, 0)], true, false, false, null, false, [], new Dictionary<PdfName, QpdfObject>());
         AcroFormCopy.OverlayFieldImport import = new(copier, form, new("/Helv 12 Tf"u8.ToArray(), false), 0);

@@ -18,20 +18,22 @@ public sealed class ResourcePruningJoinTests
     private sealed class Prepared : IDisposable
     {
         private readonly DocumentEngine _engine;
+        private readonly ParserMemoryScope _copyMemory;
         internal readonly GraphCopier Copier;
         internal Prepared(ResourceGovernor governor)
         {
             ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None); PdfDictionary trailer = Dictionary();
             _engine = new(ReadOnlyMemory<byte>.Empty, new XRefTable(0L, new Dictionary<int, XrefEntry>(), trailer, [trailer]),
                 QpdfLimits.Default, construction, new DiagnosticBag(construction), QpdfRecoveryMode.Strict);
-            Copier = new(_engine, governor, QpdfLimits.Default, 1);
+            _copyMemory = ParserMemoryScope.Create(governor);
+            Copier = GraphCopier.CreateOwned(_engine, governor, QpdfLimits.Default, 1, _copyMemory);
         }
         internal PdfDictionary Run(PdfDictionary page, ResourceGovernor governor, DiagnosticBag diagnostics)
         {
             ((IDictionary<int, QpdfObject>)Copier.CopiedObjects).Add(3, page);
             return Prune(Copier, 3, page, QpdfLimits.Default, governor, diagnostics, CancellationToken.None);
         }
-        public void Dispose() => _engine.Dispose();
+        public void Dispose() { _engine.Dispose(); _copyMemory.Dispose(); }
     }
 
     [Theory]
@@ -39,33 +41,33 @@ public sealed class ResourcePruningJoinTests
     [InlineData(true)]
     public void UnchangedPageReleasesJoinedAdmissionAcrossSingleAndMultipleStreams(bool multiple)
     {
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); using Prepared prepared = new(governor);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); using Prepared prepared = new(governor); long baseline = governor.Snapshot().LiveMemoryBytes;
         byte[] first = Encoding.ASCII.GetBytes(new string(' ', 16384) + "q");
         PdfStream stream = new(Dictionary(), first);
         QpdfObject contents = multiple ? new PdfArray([stream, new PdfStream(Dictionary(), "Q"u8.ToArray())]) : stream;
         PdfDictionary page = Dictionary(("Resources", Dictionary()), ("Contents", contents));
         Assert.Same(page, prepared.Run(page, governor, new DiagnosticBag(governor)));
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(first, stream.Data);
+        Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes); Assert.Equal(first, stream.Data);
     }
 
     [Fact]
     public void UnchangedFormReleasesItsJoinedAdmissionBeforePageAnalysisEnds()
     {
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); using Prepared prepared = new(governor);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); using Prepared prepared = new(governor); long baseline = governor.Snapshot().LiveMemoryBytes;
         PdfStream form = new(Dictionary(("Subtype", PdfName.FromAscii("Form")), ("Resources", Dictionary())),
             Encoding.ASCII.GetBytes(new string(' ', 16384) + "q"));
         ((IDictionary<int, QpdfObject>)prepared.Copier.CopiedObjects).Add(5, form);
         PdfDictionary resources = Dictionary(("XObject", Dictionary(("Form", new PdfReference(5, 0)))));
         PdfDictionary page = Dictionary(("Resources", resources), ("Contents", new PdfStream(Dictionary(), "/Form Do"u8.ToArray())));
         Assert.Same(page, prepared.Run(page, governor, new DiagnosticBag(governor)));
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
         Assert.Same(form, prepared.Copier.CopiedObjects[5]); Assert.Equal(16385, form.Data.Length);
     }
 
     [Fact]
     public void JoinedChunkBoundarySeparatesNamesFromFollowingOperators()
     {
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); using Prepared prepared = new(governor);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); using Prepared prepared = new(governor); long baseline = governor.Snapshot().LiveMemoryBytes;
         PdfDictionary fonts = Dictionary(("Used", Dictionary()), ("Unused", Dictionary()));
         PdfDictionary page = Dictionary(("Resources", Dictionary(("Font", fonts))),
             ("Contents", new PdfArray([new PdfStream(Dictionary(), "/Used"u8.ToArray()), new PdfStream(Dictionary(), "12 Tf"u8.ToArray())])));

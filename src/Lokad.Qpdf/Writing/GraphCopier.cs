@@ -32,14 +32,9 @@ internal sealed class GraphCopier
     private readonly Dictionary<int, int> _mapping;
     private readonly int _sourceObjectCount;
     private readonly Dictionary<int, QpdfObject> _copied;
-    private readonly ParserMemoryScope? _ownership;
+    private readonly ParserMemoryScope _ownership;
     private int _nextId;
     private int _rootPageNumber = -1;
-
-    internal GraphCopier(DocumentEngine engine, ResourceGovernor governor, QpdfLimits limits, int firstId)
-        : this(engine, governor, limits, firstId, null)
-    {
-    }
 
     internal static GraphCopier CreateOwned(DocumentEngine engine, ResourceGovernor governor,
         QpdfLimits limits, int firstId, ParserMemoryScope ownership)
@@ -50,7 +45,7 @@ internal sealed class GraphCopier
     }
 
     private GraphCopier(DocumentEngine engine, ResourceGovernor governor, QpdfLimits limits, int firstId,
-        ParserMemoryScope? ownership)
+        ParserMemoryScope ownership)
     {
         if (engine is null)
         {
@@ -74,39 +69,21 @@ internal sealed class GraphCopier
 
         _nextId = firstId;
         _ownership = ownership;
-        if (ownership is null)
-        {
-            _mapping = new();
-            _copied = new();
-        }
-        else
-        {
-            ownership.CheckOwner(governor);
-            _mapping = ParserContainers.CreateDictionary<int, int>(ownership);
-            _copied = ParserContainers.CreateDictionary<int, QpdfObject>(ownership);
-        }
+        _mapping = ParserContainers.CreateDictionary<int, int>(ownership);
+        _copied = ParserContainers.CreateDictionary<int, QpdfObject>(ownership);
     }
 
     internal void HintPageCapacity(int count)
     {
-        if (_ownership is not null)
-        {
-            // Each requested occurrence produces a destination page, including
-            // duplicates. Source identities need not be distinct, so only hint
-            // the destination map. Tight jobs retain ordinary bounded growth.
-            ParserContainers.HintEntryCapacity(_ownership, _copied, count, IntPtr.Size, _governor);
-        }
-    }
-
-    private void Reserve(long bytes)
-    {
-        if (_ownership is null) { _governor.ReserveMemory(bytes); }
-        else { _ownership.Reserve(bytes); }
+        // Each requested occurrence produces a destination page, including
+        // duplicates. Source identities need not be distinct, so only hint
+        // the destination map. Tight jobs retain ordinary bounded growth.
+        ParserContainers.HintEntryCapacity(_ownership, _copied, count, IntPtr.Size, _governor);
     }
 
     private void Store(int id, QpdfObject value)
     {
-        if (_ownership is not null && !_copied.ContainsKey(id))
+        if (!_copied.ContainsKey(id))
         {
             ParserContainers.EnsureEntryCapacity(_ownership, _copied, IntPtr.Size);
         }
@@ -115,7 +92,7 @@ internal sealed class GraphCopier
 
     private void Map(int source, int destination)
     {
-        if (_ownership is not null && !_mapping.ContainsKey(source))
+        if (!_mapping.ContainsKey(source))
         {
             // Keys identify source objects. Duplicate destination pages do not
             // increase this cardinality; their separate map keeps normal growth.
@@ -124,31 +101,18 @@ internal sealed class GraphCopier
         _mapping[source] = destination;
     }
 
-    private IReadOnlyDictionary<PdfName, QpdfObject> CreateEntries(int count)
+    private PdfNameTable<QpdfObject> CreateEntries(int count)
     {
-        if (_ownership is null) { return new Dictionary<PdfName, QpdfObject>(); }
         PdfNameTable<QpdfObject> entries = PdfNameTable<QpdfObject>.Create(_ownership, _governor, IntPtr.Size, _governor.CancellationToken);
         entries.EnsureCapacity(_ownership, _governor, count, _governor.CancellationToken);
         return entries;
     }
 
-    private void SetEntry(IReadOnlyDictionary<PdfName, QpdfObject> entries, PdfName key, QpdfObject value)
+    private PdfDictionary CompleteDictionary(PdfNameTable<QpdfObject> entries)
     {
-        if (_ownership is not null && entries is PdfNameTable<QpdfObject> names)
-        {
-            names.Assign(_ownership, _governor, key, value, _governor.CancellationToken);
-            return;
-        }
-        ((Dictionary<PdfName, QpdfObject>)entries)[key] = value;
-    }
-
-    private PdfDictionary CompleteDictionary(IReadOnlyDictionary<PdfName, QpdfObject> entries)
-    {
-        if (_ownership is null) { return new PdfDictionary(entries); }
-        if (entries is not PdfNameTable<QpdfObject> names) { throw new InvalidOperationException("Owned copy requires governed name storage."); }
-        names.Freeze(_ownership, _governor, _governor.CancellationToken);
+        entries.Freeze(_ownership, _governor, _governor.CancellationToken);
         _ownership.Reserve(32L);
-        return PdfDictionary.FromOwnedEntries(names);
+        return PdfDictionary.FromOwnedEntries(entries);
     }
 
     internal IReadOnlyDictionary<int, QpdfObject> CopiedObjects => _copied;
@@ -255,7 +219,7 @@ internal sealed class GraphCopier
             _nextId += 1;
         }
 
-        Reserve(64L);
+        _ownership.Reserve(64L);
         Store(id, CopyValue(value, 0));
         return new PdfReference(id, 0);
     }
@@ -281,7 +245,7 @@ internal sealed class GraphCopier
             throw new InvalidOperationException("Destination identity is already allocated.");
         }
 
-        Reserve(64L);
+        _ownership.Reserve(64L);
         Store(id, value);
         if (id >= _nextId)
         {
@@ -461,7 +425,7 @@ internal sealed class GraphCopier
         }
 
         _rootPageNumber = sourceNumber ?? -2;
-        IReadOnlyDictionary<PdfName, QpdfObject> entries = CreateEntries(checked(page.Count + extra.Count));
+        PdfNameTable<QpdfObject> entries = CreateEntries(checked(page.Count + extra.Count));
         using (PdfDictionary.EntryEnumerator source = page.GetEntryEnumerator())
         {
             while (source.MoveNext(_governor, _governor.CancellationToken))
@@ -470,8 +434,8 @@ internal sealed class GraphCopier
                 if (value is null) { continue; }
                 if (!retainSourceObjects && key.Equals(ParentKey)) { continue; }
 
-                Reserve(32L);
-                SetEntry(entries, key, retainSourceObjects ? value : CopyValue(value, 0));
+                _ownership.Reserve(32L);
+                entries.Assign(_ownership, _governor, key, retainSourceObjects ? value : CopyValue(value, 0), _governor.CancellationToken);
             }
         }
 
@@ -482,8 +446,8 @@ internal sealed class GraphCopier
                 : entries.TryGetValue(materialized.Key, out existing);
             if (!found || existing is PdfNull)
             {
-                Reserve(32L);
-                SetEntry(entries, materialized.Key, materialized.Value);
+                _ownership.Reserve(32L);
+                entries.Assign(_ownership, _governor, materialized.Key, materialized.Value, _governor.CancellationToken);
             }
         }
 
@@ -520,7 +484,7 @@ internal sealed class GraphCopier
                 QpdfObject copied = CopyValue(array[i], depth + 1);
                 if (items is null && !ReferenceEquals(copied, array[i]))
                 {
-                    Reserve(checked(64L + (long)IntPtr.Size * array.Count));
+                    _ownership.Reserve(checked(64L + (long)IntPtr.Size * array.Count));
                     items = new QpdfObject[array.Count];
                     _governor.NoteOperation();
                     for (int prefix = 0; prefix < i; prefix++)
@@ -546,7 +510,7 @@ internal sealed class GraphCopier
             PdfInteger? length = null;
             if (!StreamLengthMatches(stream.Dictionary, data.Length))
             {
-                Reserve(128L);
+                _ownership.Reserve(128L);
                 length = new PdfInteger(data.Length.ToString(CultureInfo.InvariantCulture), data.Length);
             }
             // Serialization uses the accepted payload length. An obsolete source
@@ -557,7 +521,7 @@ internal sealed class GraphCopier
             // until publication (transferring exclusive values before closure);
             // public document payloads already have an independent owner.
             if (ReferenceEquals(copiedDictionary, stream.Dictionary)) { return stream; }
-            Reserve(32L);
+            _ownership.Reserve(32L);
             _governor.CheckCancellation();
             return stream.WithDictionary(copiedDictionary);
         }
@@ -595,7 +559,7 @@ internal sealed class GraphCopier
         if (_mapping.TryGetValue(reference.ObjectNumber, out int mapped))
         {
             if (mapped == reference.ObjectNumber && reference.Generation == 0) { return reference; }
-            _ownership?.Reserve(24L);
+            _ownership.Reserve(24L);
             return new PdfReference(mapped, 0);
         }
 
@@ -623,7 +587,7 @@ internal sealed class GraphCopier
         QpdfObject copied = CopyValue(resolved, depth + 1);
         Store(id, copied);
         if (id == reference.ObjectNumber && reference.Generation == 0) { return reference; }
-        _ownership?.Reserve(24L);
+        _ownership.Reserve(24L);
         return new PdfReference(id, 0);
     }
 
@@ -633,7 +597,7 @@ internal sealed class GraphCopier
     private PdfDictionary CopyDictionary(PdfDictionary dictionary, int depth, PdfInteger? streamLength)
     {
         bool addLength = streamLength is not null && !dictionary.TryGet(LengthKey, out _);
-        IReadOnlyDictionary<PdfName, QpdfObject>? entries = null;
+        PdfNameTable<QpdfObject>? entries = null;
         int processed = 0;
         using PdfDictionary.EntryEnumerator source = dictionary.GetEntryEnumerator();
         while (source.MoveNext(_governor, _governor.CancellationToken))
@@ -655,8 +619,8 @@ internal sealed class GraphCopier
             { entries = CopyDictionaryPrefix(dictionary, processed, addLength); }
             if (entries is not null && copied is not null)
             {
-                Reserve(32L);
-                SetEntry(entries, key, copied);
+                _ownership.Reserve(32L);
+                entries.Assign(_ownership, _governor, key, copied, _governor.CancellationToken);
             }
             processed++;
         }
@@ -664,25 +628,25 @@ internal sealed class GraphCopier
         if (addLength && streamLength is not null)
         {
             entries ??= CopyDictionaryPrefix(dictionary, processed, true);
-            Reserve(32L);
-            SetEntry(entries, LengthKey, streamLength);
+            _ownership.Reserve(32L);
+            entries.Assign(_ownership, _governor, LengthKey, streamLength, _governor.CancellationToken);
         }
 
         return entries is null ? dictionary : CompleteDictionary(entries);
     }
 
-    private IReadOnlyDictionary<PdfName, QpdfObject> CopyDictionaryPrefix(PdfDictionary dictionary, int count, bool addLength)
+    private PdfNameTable<QpdfObject> CopyDictionaryPrefix(PdfDictionary dictionary, int count, bool addLength)
     {
         // Earlier children were already visited and stayed identical. Copy only
         // their entries; immutable source storage remains owned through publication.
-        Reserve(64L);
-        IReadOnlyDictionary<PdfName, QpdfObject> entries = CreateEntries(checked(dictionary.Count + (addLength ? 1 : 0)));
+        _ownership.Reserve(64L);
+        PdfNameTable<QpdfObject> entries = CreateEntries(checked(dictionary.Count + (addLength ? 1 : 0)));
         using PdfDictionary.EntryEnumerator prefix = dictionary.GetEntryEnumerator();
         for (int i = 0; i < count && prefix.MoveNext(_governor, _governor.CancellationToken); i++)
         {
-            Reserve(32L);
+            _ownership.Reserve(32L);
             (PdfName key, QpdfObject value) = prefix.Current;
-            SetEntry(entries, key, value);
+            entries.Assign(_ownership, _governor, key, value, _governor.CancellationToken);
         }
         return entries;
     }

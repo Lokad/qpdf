@@ -24,6 +24,7 @@ public sealed class OrphanRemovalTests
     {
         PdfStream borrowed = OrphanFixture.Stream(); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using OrphanFixture fixture = new(governor, borrowed);
+        long baseline = governor.Snapshot().LiveMemoryBytes;
         int[] candidates = shape switch { "empty" => [], "ignored" => [-1, 0, 404, 404], "orphan" => [2, 2, 0, -2, 404], _ => [1, 2] };
         if (shape == "shared") { fixture.Pool[90] = new PdfReference(1, 99); }
         if (shape == "self") { fixture.Pool[1] = new PdfReference(1, 99); }
@@ -42,7 +43,7 @@ public sealed class OrphanRemovalTests
         Assert.Equal(originals.Where(entry => !removed.Contains(entry.Key)).Select(entry => entry.Key), fixture.Pool.Keys);
         foreach (var entry in originals.Where(entry => !removed.Contains(entry.Key))) { Assert.Same(entry.Value, fixture.Pool[entry.Key]); }
         Assert.Equal(new[] { 11, 12, 21, 31, 91 }.Where(source => !removed.Contains(source / 10)), fixture.Mapping.Keys);
-        Assert.Equal(2 * 1024 * 1024, borrowed.RawMemory.Length); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(2 * 1024 * 1024, borrowed.RawMemory.Length); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]
@@ -50,12 +51,15 @@ public sealed class OrphanRemovalTests
     [InlineData(true)]
     public void ScratchMustBeAdmittedEvenForEmptyOrIgnoredCandidates(bool ignored)
     {
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 1L }, CancellationToken.None);
+        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096L }, CancellationToken.None);
         using OrphanFixture fixture = new(governor, PdfNull.Instance);
+        using ParserMemoryScope filler = ParserMemoryScope.Create(governor);
+        filler.Reserve(4096L - governor.Snapshot().LiveMemoryBytes - 1L);
+        long baseline = governor.Snapshot().LiveMemoryBytes;
         var before = fixture.Pool.ToArray(); var mapping = fixture.Mapping.ToArray();
         QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => Invoke(fixture.Copier, ignored ? [0, -1, 404] : []));
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
-        OrphanFixture.AssertUnchanged(fixture.Pool, fixture.Mapping, before, mapping); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        OrphanFixture.AssertUnchanged(fixture.Pool, fixture.Mapping, before, mapping); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]
@@ -63,11 +67,12 @@ public sealed class OrphanRemovalTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096L }, CancellationToken.None);
         using OrphanFixture fixture = new(governor, PdfNull.Instance);
+        long baseline = governor.Snapshot().LiveMemoryBytes;
         fixture.Pool[90] = new PdfArray(Enumerable.Repeat<QpdfObject>(new PdfReference(1, 99), 2048).ToArray());
         var before = fixture.Pool.ToArray(); var mapping = fixture.Mapping.ToArray();
         QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => Invoke(fixture.Copier, [1, 2]));
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
-        OrphanFixture.AssertUnchanged(fixture.Pool, fixture.Mapping, before, mapping); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        OrphanFixture.AssertUnchanged(fixture.Pool, fixture.Mapping, before, mapping); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]
@@ -75,19 +80,23 @@ public sealed class OrphanRemovalTests
     [InlineData(true)]
     public void GovernorCancellationPrecedesAdmissionAndWork(bool empty)
     {
-        using CancellationTokenSource cancellation = new(); cancellation.Cancel();
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 1L }, cancellation.Token);
+        using CancellationTokenSource cancellation = new();
+        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096L }, cancellation.Token);
         using OrphanFixture fixture = new(governor, PdfNull.Instance);
+        using ParserMemoryScope filler = ParserMemoryScope.Create(governor);
+        filler.Reserve(4096L - governor.Snapshot().LiveMemoryBytes - 1L); cancellation.Cancel();
+        long baseline = governor.Snapshot().LiveMemoryBytes;
         Assert.Throws<OperationCanceledException>(() => Invoke(fixture.Copier, empty ? [] : [2]));
-Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]
     public void NullCandidatesRetainArgumentFailurePrecedence()
     {
-        using CancellationTokenSource cancellation = new(); cancellation.Cancel();
+        using CancellationTokenSource cancellation = new();
         ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token);
-        using OrphanFixture fixture = new(governor, PdfNull.Instance);
+        using OrphanFixture fixture = new(governor, PdfNull.Instance); cancellation.Cancel();
+        long baseline = governor.Snapshot().LiveMemoryBytes;
         // Reflection deliberately supplies null to this non-nullable parameter.
         System.Reflection.MethodInfo method = typeof(GraphCopier).GetMethod("DropPoolObjectsIfUnreferenced",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
@@ -95,13 +104,14 @@ Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         System.Reflection.TargetInvocationException invocation = Assert.Throws<System.Reflection.TargetInvocationException>(
             () => method.Invoke(fixture.Copier, [null, CancellationToken.None]));
         ArgumentNullException failure = Assert.IsType<ArgumentNullException>(invocation.InnerException);
-        Assert.Equal("candidates", failure.ParamName); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal("candidates", failure.ParamName); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 }
 
 internal sealed class OrphanFixture : IDisposable
 {
     private readonly DocumentEngine _engine;
+    private readonly ParserMemoryScope _copyMemory;
     internal readonly GraphCopier Copier;
     internal Dictionary<int, QpdfObject> Pool => (Dictionary<int, QpdfObject>)Copier.CopiedObjects;
     internal Dictionary<int, int> Mapping => (Dictionary<int, int>)Copier.SourceToDestination;
@@ -111,7 +121,8 @@ internal sealed class OrphanFixture : IDisposable
         PdfDictionary trailer = new(new Dictionary<PdfName, QpdfObject>());
         _engine = new(ReadOnlyMemory<byte>.Empty, new XRefTable(0L, new Dictionary<int, XrefEntry>(), trailer, [trailer]),
             QpdfLimits.Default, construction, new DiagnosticBag(construction), QpdfRecoveryMode.Strict);
-        Copier = new(_engine, governor, QpdfLimits.Default, 1);
+        _copyMemory = ParserMemoryScope.Create(governor);
+        Copier = GraphCopier.CreateOwned(_engine, governor, QpdfLimits.Default, 1, _copyMemory);
         Pool.Add(1, borrowed); Pool.Add(2, borrowed); Pool.Add(3, PdfNull.Instance); Pool.Add(90, PdfNull.Instance);
         Mapping.Add(11, 1); Mapping.Add(12, 1); Mapping.Add(21, 2); Mapping.Add(31, 3); Mapping.Add(91, 90);
     }
@@ -123,5 +134,5 @@ internal sealed class OrphanFixture : IDisposable
         foreach (var entry in before) { Assert.Same(entry.Value, pool[entry.Key]); }
         Assert.Equal(sources, mapping.ToArray());
     }
-    public void Dispose() { _engine.Dispose(); }
+    public void Dispose() { _engine.Dispose(); _copyMemory.Dispose(); }
 }

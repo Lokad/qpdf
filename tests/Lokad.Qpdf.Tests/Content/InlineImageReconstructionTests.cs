@@ -22,7 +22,8 @@ public sealed class InlineImageReconstructionTests
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static Lokad.Qpdf.Content.InlineImages.RewriteResult Run(ResourceGovernor governor, byte[] bytes, PdfDictionary? page, long minimum, bool compress, DiagnosticBag diagnostics, CancellationToken token)
     {
-        using DocumentEngine engine = Engine(); GraphCopier copier = new(engine, governor, QpdfLimits.Default, 1);
+        using DocumentEngine engine = Engine(); using ParserMemoryScope copierMemory = ParserMemoryScope.Create(governor);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, governor, QpdfLimits.Default, 1, copierMemory);
         return Lokad.Qpdf.Content.InlineImages.RewriteContentCore(copier, page, bytes, minimum, compress, null,
             QpdfLimits.Default, governor, diagnostics, token, false, false, 0);
     }

@@ -54,10 +54,9 @@ public sealed class ImageTraversalMemoryTests
 
     // The pool belongs to the construction governor. Only traversal scratch is
     // under test, so a large preowned graph cannot hide a missing visit-set charge.
-    private static GraphCopier Forms(DocumentEngine engine, int count)
+    private static GraphCopier Forms(DocumentEngine engine, int count, ResourceGovernor construction, ParserMemoryScope memory)
     {
-        ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
-        GraphCopier copier = new(engine, construction, QpdfLimits.Default, 1);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 1, memory);
         Dictionary<PdfName, QpdfObject> links = new(count);
         PdfStream form = new(Dict(("Subtype", PdfName.FromAscii("Form"))), []);
         for (int index = 0; index < count; index++)
@@ -77,7 +76,10 @@ public sealed class ImageTraversalMemoryTests
     [InlineData(true)]
     public void LargeVisitSetRefusesAndRefundsWithoutReleasingEarlierStorage(bool shared)
     {
-        using DocumentEngine engine = Engine(); GraphCopier copier = Forms(engine, 4096);
+        using DocumentEngine engine = Engine();
+        ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope copyMemory = ParserMemoryScope.Create(construction);
+        GraphCopier copier = Forms(engine, 4096, construction, copyMemory);
         RecordingMemoryBudget root = new(4096);
         using IMemoryScope caller = root.CreateScope();
         QpdfLimits limits = shared ? QpdfLimits.Default : QpdfLimits.Default with { MaxMemoryBytes = 4096 };
@@ -96,7 +98,10 @@ public sealed class ImageTraversalMemoryTests
     [Fact]
     public void CancellationDuringVisitSetGrowthRefundsScratch()
     {
-        using DocumentEngine engine = Engine(); GraphCopier copier = Forms(engine, 4096);
+        using DocumentEngine engine = Engine();
+        ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope copyMemory = ParserMemoryScope.Create(construction);
+        GraphCopier copier = Forms(engine, 4096, construction, copyMemory);
         RecordingMemoryBudget root = new(1048576);
         using IMemoryScope caller = root.CreateScope(); using CancellationTokenSource cancellation = new();
         ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token,

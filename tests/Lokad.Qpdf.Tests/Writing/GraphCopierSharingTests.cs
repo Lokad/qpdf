@@ -2,6 +2,7 @@ using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.TestSupport;
 using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Writing;
 
@@ -9,6 +10,30 @@ namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class GraphCopierSharingTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PartialConstructionRefusalRefundsItsOwnerWithoutReleasingPriorStorage(bool shared)
+    {
+        QpdfLimits limits = shared ? QpdfLimits.Default : QpdfLimits.Default with { MaxMemoryBytes = 1099L };
+        RecordingMemoryBudget root = new(1024 * 1024L) { RefuseOnGrowth = shared ? 2 : 0 };
+        using IMemoryScope caller = root.CreateScope(); using InMemoryQpdfHost host = new(limits, null, caller);
+        ResourceGovernor governor = new(limits, CancellationToken.None, host);
+        using DocumentEngine engine = EmptyEngine(new(QpdfLimits.Default, CancellationToken.None));
+        using (ParserMemoryScope prior = ParserMemoryScope.Create(governor))
+        {
+            prior.Reserve(700L); long baseline = governor.Snapshot().LiveMemoryBytes;
+            using (ParserMemoryScope ownership = ParserMemoryScope.Create(governor))
+            {
+                Action construct = () => GraphCopier.CreateOwned(engine, governor, limits, 1, ownership);
+                if (shared) { Assert.Throws<QpdfMemoryAdmissionException>(construct); }
+                else { Assert.Throws<QpdfLimitException>(construct); }
+            }
+            Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes); Assert.Equal(700L, prior.ReservedBytes);
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, root.ReservedBytes);
+    }
+
     private static PdfDictionary Dictionary(params (string Key, QpdfObject Value)[] entries)
         => new(entries.ToDictionary(entry => PdfName.FromAscii(entry.Key), entry => entry.Value));
 

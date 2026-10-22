@@ -28,6 +28,11 @@ Selection cores borrow one immutable settings value containing the existing
 feature requests. Typed defaults and command-plan projection are defined once;
 source documents, selective-read retries and publication owners stay explicit.
 
+Every graph copier uses an explicit construction owner and the same admitted
+map and name-table storage. Tests use this production path; there is no unowned
+copier mode. Form-resource traversal tracks graph identities, with indirect
+form guards independent of resource-scope visits.
+
 One resource governor spans configuration loading, reading, transformation,
 serialization and publication. Results capture diagnostics and counters after
 cleanup. Inspection can return text or bytes without creating a PDF output.

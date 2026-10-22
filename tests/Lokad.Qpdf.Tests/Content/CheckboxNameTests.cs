@@ -62,7 +62,8 @@ public sealed class CheckboxNameTests
         ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
         PdfDictionary trailer = new(new Dictionary<PdfName, QpdfObject>());
         using DocumentEngine engine = new(ReadOnlyMemory<byte>.Empty, new XRefTable(0L, new Dictionary<int, XrefEntry>(), trailer, [trailer]), QpdfLimits.Default, construction, new(construction), QpdfRecoveryMode.Strict);
-        GraphCopier copier = new(engine, construction, QpdfLimits.Default, 1);
+        using ParserMemoryScope copierMemory = ParserMemoryScope.Create(construction);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 1, copierMemory);
         Dictionary<PdfName, QpdfObject> entries = new();
         for (int i = 0; i < 16384; i++) { entries[new PdfName(System.Text.Encoding.ASCII.GetBytes("Key" + i))] = PdfNull.Instance; }
         entries[PdfName.FromAscii("FT")] = PdfName.FromAscii("Btn"); entries[PdfName.FromAscii("V")] = PdfName.FromAscii("Yes");

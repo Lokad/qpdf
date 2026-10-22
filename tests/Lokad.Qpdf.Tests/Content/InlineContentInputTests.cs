@@ -24,6 +24,7 @@ public sealed class InlineContentInputTests
     private sealed class Prepared : IDisposable
     {
         private readonly DocumentEngine _engine;
+        private readonly ParserMemoryScope _memory;
         internal readonly ResourceGovernor Construction = new(QpdfLimits.Default, CancellationToken.None);
         internal readonly GraphCopier Copier;
         internal Prepared(PdfStream stream)
@@ -31,11 +32,12 @@ public sealed class InlineContentInputTests
             PdfDictionary trailer = Dictionary();
             _engine = new(ReadOnlyMemory<byte>.Empty, new XRefTable(0L, new Dictionary<int, XrefEntry>(), trailer, [trailer]), QpdfLimits.Default,
                 Construction, new DiagnosticBag(Construction), QpdfRecoveryMode.Strict);
-            Copier = new(_engine, Construction, QpdfLimits.Default, 1);
+            _memory = ParserMemoryScope.Create(Construction);
+            Copier = GraphCopier.CreateOwned(_engine, Construction, QpdfLimits.Default, 1, _memory);
             var pool = (IDictionary<int, QpdfObject>)Copier.CopiedObjects;
             pool[7] = stream; pool[8] = PdfNull.Instance; pool[9] = new PdfInteger("3", 3L);
         }
-        public void Dispose() { _engine.Dispose(); }
+        public void Dispose() { _engine.Dispose(); _memory.Dispose(); }
     }
 
     [Theory]

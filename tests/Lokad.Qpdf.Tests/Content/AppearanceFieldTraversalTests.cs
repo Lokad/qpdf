@@ -55,7 +55,8 @@ public sealed class AppearanceFieldTraversalTests
     public void ParentFallbackAndDamagedReferencesRemainBounded(string kind)
     {
         using DocumentEngine engine = Engine(); ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
-        GraphCopier copier = new(engine, construction, QpdfLimits.Default, 1);
+        using ParserMemoryScope copierMemory = ParserMemoryScope.Create(construction);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 1, copierMemory);
         PdfDictionary widget = kind is "kids" or "direct-kids" or "kids-cycle" ? Dict(("Subtype", PdfName.FromAscii("Widget")))
             : Dict(("Subtype", PdfName.FromAscii("Widget")), ("Parent", new PdfReference(kind.StartsWith("broken", StringComparison.Ordinal) ? 99 : 2, 0)));
         QpdfObject child = kind == "direct-kids" ? widget : new PdfReference(3, 0);
@@ -83,7 +84,8 @@ public sealed class AppearanceFieldTraversalTests
     public void LargeFallbackIndexRefusesBeforeCopyingKidsAndRefunds()
     {
         using DocumentEngine engine = Engine(); ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
-        GraphCopier copier = new(engine, construction, QpdfLimits.Default, 1);
+        using ParserMemoryScope copierMemory = ParserMemoryScope.Create(construction);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 1, copierMemory);
         PdfDictionary widget = Dict(("Subtype", PdfName.FromAscii("Widget")));
         PdfArray kids = new(Enumerable.Range(3, 262144).Select(i => (QpdfObject)new PdfReference(i, 0)).ToArray());
         PdfDictionary field = Dict(("FT", PdfName.FromAscii("Btn")), ("V", PdfName.FromAscii("Off")), ("Kids", kids));
@@ -103,7 +105,8 @@ public sealed class AppearanceFieldTraversalTests
     public void CancellationDuringIndexGrowthRefundsAndPreservesTheGraph(bool governorToken)
     {
         using DocumentEngine engine = Engine(); ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
-        GraphCopier copier = new(engine, construction, QpdfLimits.Default, 1);
+        using ParserMemoryScope copierMemory = ParserMemoryScope.Create(construction);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 1, copierMemory);
         PdfDictionary widget = Dict(("Subtype", PdfName.FromAscii("Widget")));
         PdfArray kids = new(Enumerable.Range(3, 262144).Select(i => (QpdfObject)new PdfReference(i, 0)).ToArray());
         PdfDictionary page = Dict(("Annots", new PdfArray([new PdfReference(3, 0)])));

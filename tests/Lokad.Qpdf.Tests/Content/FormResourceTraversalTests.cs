@@ -31,16 +31,18 @@ public sealed class FormResourceTraversalTests
     private sealed class Prepared : IDisposable
     {
         private readonly DocumentEngine _engine;
+        private readonly ParserMemoryScope _copyMemory;
         internal readonly GraphCopier Copier;
         internal Prepared(ResourceGovernor governor, IReadOnlyDictionary<int, QpdfObject> values)
         {
             ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None); PdfDictionary trailer = Dictionary();
             _engine = new(ReadOnlyMemory<byte>.Empty, new XRefTable(0L, new Dictionary<int, XrefEntry>(), trailer, [trailer]), QpdfLimits.Default, construction, new DiagnosticBag(construction), QpdfRecoveryMode.Strict);
-            Copier = new(_engine, governor, QpdfLimits.Default, 1);
+            _copyMemory = ParserMemoryScope.Create(governor);
+            Copier = GraphCopier.CreateOwned(_engine, governor, QpdfLimits.Default, 1, _copyMemory);
             IDictionary<int, QpdfObject> pool = (IDictionary<int, QpdfObject>)Copier.CopiedObjects;
             foreach (var value in values) { pool.Add(value.Key, value.Value); }
         }
-        public void Dispose() => _engine.Dispose();
+        public void Dispose() { _engine.Dispose(); _copyMemory.Dispose(); }
     }
 
     [Theory]
@@ -50,10 +52,10 @@ public sealed class FormResourceTraversalTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); PdfStream form = Form(Dictionary());
         QpdfObject first = indirect ? new PdfReference(10, 0) : form, second = indirect ? new PdfReference(10, 7) : form;
-        using Prepared prepared = new(governor, new Dictionary<int, QpdfObject> { [10] = form });
+        using Prepared prepared = new(governor, new Dictionary<int, QpdfObject> { [10] = form }); long baseline = governor.Snapshot().LiveMemoryBytes;
         List<(int? Id, PdfStream Stream)> forms = Read(Collect(prepared.Copier, Dictionary(("XObject", Dictionary(("A", first), ("B", second)))), governor, CancellationToken.None));
         Assert.Equal(indirect ? 1 : 2, forms.Count); Assert.All(forms, found => Assert.Same(form, found.Stream));
-        Assert.Equal(indirect ? 10 : (int?)null, forms[0].Id); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(indirect ? 10 : (int?)null, forms[0].Id); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]
@@ -64,10 +66,10 @@ public sealed class FormResourceTraversalTests
         PdfDictionary firstScope = Dictionary(("XObject", Dictionary(("Child", new PdfReference(30, 0)))));
         PdfDictionary equalScope = Dictionary(("XObject", Dictionary(("Child", new PdfReference(30, 0)))));
         PdfStream first = Form(firstScope), equal = Form(equalScope), last = Form(Dictionary(("XObject", Dictionary(("Sibling", new PdfReference(40, 0))))));
-        using Prepared prepared = new(governor, new Dictionary<int, QpdfObject> { [30] = child, [40] = sibling });
+        using Prepared prepared = new(governor, new Dictionary<int, QpdfObject> { [30] = child, [40] = sibling }); long baseline = governor.Snapshot().LiveMemoryBytes;
         List<(int? Id, PdfStream Stream)> forms = Read(Collect(prepared.Copier, Dictionary(("XObject", Dictionary(("First", first), ("Equal", equal), ("Last", last)))), governor, CancellationToken.None));
         Assert.Equal(5, forms.Count); Assert.Same(first, forms[0].Stream); Assert.Same(equal, forms[1].Stream); Assert.Same(last, forms[2].Stream);
-        Assert.Same(child, forms[3].Stream); Assert.Same(sibling, forms[4].Stream); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Same(child, forms[3].Stream); Assert.Same(sibling, forms[4].Stream); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]
@@ -76,10 +78,10 @@ public sealed class FormResourceTraversalTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         PdfDictionary scope = Dictionary(("XObject", Dictionary(("Self", new PdfReference(10, 0)), ("Again", new PdfReference(10, 7)))));
         PdfStream form = Form(scope);
-        using Prepared prepared = new(governor, new Dictionary<int, QpdfObject> { [10] = form });
+        using Prepared prepared = new(governor, new Dictionary<int, QpdfObject> { [10] = form }); long baseline = governor.Snapshot().LiveMemoryBytes;
         List<(int? Id, PdfStream Stream)> forms = Read(Collect(prepared.Copier, scope, governor, CancellationToken.None));
         Assert.Single(forms); Assert.Equal(10, forms[0].Id); Assert.Same(form, forms[0].Stream);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]
@@ -90,12 +92,12 @@ public sealed class FormResourceTraversalTests
         PdfDictionary first = Dictionary(("XObject", Dictionary(("Child", child))));
         PdfDictionary equal = Dictionary(("XObject", Dictionary(("Child", child))));
         PdfStream firstForm = Form(first), equalForm = Form(equal);
-        using Prepared prepared = new(governor, new Dictionary<int, QpdfObject>());
+        using Prepared prepared = new(governor, new Dictionary<int, QpdfObject>()); long baseline = governor.Snapshot().LiveMemoryBytes;
         List<(int? Id, PdfStream Stream)> forms = Read(Collect(prepared.Copier,
             Dictionary(("XObject", Dictionary(("First", firstForm), ("Equal", equalForm)))), governor, CancellationToken.None));
         Assert.Equal(4, forms.Count); Assert.Same(firstForm, forms[0].Stream); Assert.Same(equalForm, forms[1].Stream);
         Assert.Same(child, forms[2].Stream); Assert.Same(child, forms[3].Stream);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]
@@ -104,9 +106,9 @@ public sealed class FormResourceTraversalTests
     [InlineData("wrong")]
     public void AbsentAndNonDictionaryResourceSectionsStayEmpty(string shape)
     {
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); using Prepared prepared = new(governor, new Dictionary<int, QpdfObject>());
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); using Prepared prepared = new(governor, new Dictionary<int, QpdfObject>()); long baseline = governor.Snapshot().LiveMemoryBytes;
         PdfDictionary resources = shape == "missing" ? Dictionary() : Dictionary(("XObject", shape == "null" ? PdfNull.Instance : PdfBoolean.True));
-        Assert.Empty(Read(Collect(prepared.Copier, resources, governor, CancellationToken.None))); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Empty(Read(Collect(prepared.Copier, resources, governor, CancellationToken.None))); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]
@@ -114,11 +116,11 @@ public sealed class FormResourceTraversalTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 8192L }, CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
-        using Prepared prepared = new(governor, new Dictionary<int, QpdfObject>()); PdfDictionary resources = Dictionary();
+        using Prepared prepared = new(governor, new Dictionary<int, QpdfObject>()); long baseline = governor.Snapshot().LiveMemoryBytes; PdfDictionary resources = Dictionary();
         using ParserMemoryScope filler = ParserMemoryScope.Create(governor); filler.Reserve(8192L - governor.Snapshot().LiveMemoryBytes - 1L);
         long live = governor.Snapshot().LiveMemoryBytes;
         Assert.Throws<QpdfLimitException>(() => Collect(prepared.Copier, resources, governor, CancellationToken.None)); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
-        filler.Dispose(); Assert.Empty(Read(Collect(prepared.Copier, resources, governor, CancellationToken.None))); Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L, prior.ReservedBytes);
+        filler.Dispose(); Assert.Empty(Read(Collect(prepared.Copier, resources, governor, CancellationToken.None))); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L, prior.ReservedBytes);
     }
 
     [Theory]
@@ -127,9 +129,9 @@ public sealed class FormResourceTraversalTests
     public void BothPreCanceledContextsStopBeforeTraversalAllocations(bool governorToken)
     {
         using CancellationTokenSource source = new(); ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? source.Token : CancellationToken.None);
-        using Prepared prepared = new(governor, new Dictionary<int, QpdfObject>()); source.Cancel();
+        using Prepared prepared = new(governor, new Dictionary<int, QpdfObject>()); long baseline = governor.Snapshot().LiveMemoryBytes; source.Cancel();
         Assert.ThrowsAny<OperationCanceledException>(() => Collect(prepared.Copier, Dictionary(), governor, governorToken ? CancellationToken.None : source.Token));
-        Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);     }
+        Assert.Equal(baseline, governor.Snapshot().PeakMemoryBytes);     }
 
     private delegate QpdfObject? Resolve(PoolResolver resolver, PdfReference reference, ResourceGovernor governor, CancellationToken token);
     private static Resolve BindResolve()

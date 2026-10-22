@@ -19,6 +19,7 @@ public sealed class ResourcePruningChunkTests
     private sealed class Prepared : IDisposable
     {
         private readonly DocumentEngine _engine;
+        private readonly ParserMemoryScope _copyMemory;
         internal readonly GraphCopier Copier;
         internal Prepared(ResourceGovernor governor)
         {
@@ -26,9 +27,10 @@ public sealed class ResourcePruningChunkTests
             PdfDictionary trailer = DecoderOwnershipFixtures.Dictionary();
             _engine = new(ReadOnlyMemory<byte>.Empty, new XRefTable(0L, new Dictionary<int, XrefEntry>(), trailer, [trailer]),
                 QpdfLimits.Default, construction, new DiagnosticBag(construction), QpdfRecoveryMode.Strict);
-            Copier = new(_engine, governor, QpdfLimits.Default, 1);
+            _copyMemory = ParserMemoryScope.Create(governor);
+            Copier = GraphCopier.CreateOwned(_engine, governor, QpdfLimits.Default, 1, _copyMemory);
         }
-        public void Dispose() => _engine.Dispose();
+        public void Dispose() { _engine.Dispose(); _copyMemory.Dispose(); }
     }
     private static PdfStream Stream(string filter, byte[] raw, bool form)
     {
@@ -51,8 +53,8 @@ public sealed class ResourcePruningChunkTests
     public void AnalysisRetiresAllDecodedChunksAcrossPageAndFormShapes(string filter, string shape)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(61L); long live = governor.Snapshot().LiveMemoryBytes;
-        using Prepared prepared = new(governor);
+        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(61L);
+        using Prepared prepared = new(governor); long live = governor.Snapshot().LiveMemoryBytes;
         byte[] raw = System.Text.Encoding.ASCII.GetBytes(new string(' ', 16384) + "q");
         PdfStream stream = Stream(filter, raw, shape == "form"); byte[] original = stream.Data;
         PdfDictionary resources = DecoderOwnershipFixtures.Dictionary(); QpdfObject contents = stream;
@@ -75,8 +77,8 @@ public sealed class ResourcePruningChunkTests
     public void UnreadableLaterChunkRetiresOnlyCollectionStorage(bool unsupported)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(61L); long live = governor.Snapshot().LiveMemoryBytes;
-        using Prepared prepared = new(governor); PdfStream first = Stream("FlateDecode", "q"u8.ToArray(), false); byte[] original = first.Data;
+        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(61L);
+        using Prepared prepared = new(governor); long live = governor.Snapshot().LiveMemoryBytes; PdfStream first = Stream("FlateDecode", "q"u8.ToArray(), false); byte[] original = first.Data;
         PdfStream bad = new(DecoderOwnershipFixtures.Dictionary(("Filter", PdfName.FromAscii(unsupported ? "DCTDecode" : "ASCIIHexDecode"))), "ABCG>"u8.ToArray());
         PdfDictionary page = DecoderOwnershipFixtures.Dictionary(("Contents", new PdfArray([first, bad])));
         Assert.Null(Collect(prepared.Copier, page, new PoolResolver((IReadOnlyDictionary<int, QpdfObject>)prepared.Copier.CopiedObjects), QpdfLimits.Default, governor, CancellationToken.None));

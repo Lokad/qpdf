@@ -27,6 +27,7 @@ public sealed class ContentPlanTests
     private sealed class Prepared : IDisposable
     {
         private readonly DocumentEngine _engine;
+        private readonly ParserMemoryScope _memory;
         internal readonly GraphCopier Copier;
         internal readonly PdfStream Stream;
         internal readonly ResourceGovernor Construction = new(QpdfLimits.Default, CancellationToken.None);
@@ -35,12 +36,13 @@ public sealed class ContentPlanTests
             PdfDictionary trailer = Dictionary();
             _engine = new(ReadOnlyMemory<byte>.Empty, new XRefTable(0L, new Dictionary<int, XrefEntry>(), trailer, [trailer]), QpdfLimits.Default,
                 Construction, new DiagnosticBag(Construction), QpdfRecoveryMode.Strict);
-            Copier = new(_engine, Construction, QpdfLimits.Default, 1);
+            _memory = ParserMemoryScope.Create(Construction);
+            Copier = GraphCopier.CreateOwned(_engine, Construction, QpdfLimits.Default, 1, _memory);
             Stream = new(Dictionary(), new byte[2 * 1024 * 1024]);
             ((IDictionary<int, QpdfObject>)Copier.CopiedObjects)[7] = Stream;
             ((IDictionary<int, QpdfObject>)Copier.CopiedObjects)[8] = PdfNull.Instance;
         }
-        public void Dispose() { _engine.Dispose(); }
+        public void Dispose() { _engine.Dispose(); _memory.Dispose(); }
     }
 
     [Fact]

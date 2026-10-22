@@ -35,8 +35,9 @@ public sealed class ContentArrayRebuildTests
             PdfDictionary trailer = DecoderOwnershipFixtures.Dictionary();
             _engine = new(ReadOnlyMemory<byte>.Empty, new XRefTable(0L, new Dictionary<int, XrefEntry>(), trailer, [trailer]),
                 QpdfLimits.Default, construction, new DiagnosticBag(construction), QpdfRecoveryMode.Strict);
-            Copier = new(_engine, construction, QpdfLimits.Default, 1);
-            _memory = ParserMemoryScope.Create(construction); Mapping = GovernedIntDictionary<PdfStream>.Create(_memory, construction, IntPtr.Size, CancellationToken.None);
+            _memory = ParserMemoryScope.Create(construction);
+            Copier = GraphCopier.CreateOwned(_engine, construction, QpdfLimits.Default, 1, _memory);
+            Mapping = GovernedIntDictionary<PdfStream>.Create(_memory, construction, IntPtr.Size, CancellationToken.None);
             if (fill) { Mapping.Assign(_memory, 3, Replacement); }
         }
         public void Dispose() { _memory.Dispose(); _engine.Dispose(); }

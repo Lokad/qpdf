@@ -17,7 +17,8 @@ public sealed class AppearanceHeaderStorageTests
         PdfStream source = PdfStream.FromOwnedData(new(new Dictionary<PdfName, QpdfObject>()), new byte[8 * 1024 * 1024]);
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 8192L };
         ResourceGovernor governor = new(limits, CancellationToken.None) { OwnsDocumentCounters = true };
-        using DocumentEngine engine = Engine(); GraphCopier copier = new(engine, governor, limits, 1);
+        using DocumentEngine engine = Engine(); using ParserMemoryScope copierMemory = ParserMemoryScope.Create(governor);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, governor, limits, 1, copierMemory);
         PdfReference link = copier.AddIndirectObjectWithId(source, 1);
         PdfStream result;
         using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
@@ -52,7 +53,8 @@ public sealed class AppearanceHeaderStorageTests
             i => PdfName.FromAscii(i.ToString(System.Globalization.CultureInfo.InvariantCulture)), _ => (QpdfObject)PdfNull.Instance)), new byte[1048576]);
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 4096L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
-        using DocumentEngine engine = Engine(); GraphCopier copier = new(engine, governor, limits, 1);
+        using DocumentEngine engine = Engine(); using ParserMemoryScope copierMemory = ParserMemoryScope.Create(governor);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, governor, limits, 1, copierMemory);
         copier.AddIndirectObjectWithId(source, 1); long baseline = governor.Snapshot().LiveMemoryBytes;
         using CancellationTokenSource cancellation = new();
         if (cancel) { cancellation.Cancel(); }
@@ -83,7 +85,8 @@ public sealed class AppearanceHeaderStorageTests
         PdfStream source = PdfStream.FromOwnedData(header, payload);
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 8192L };
         ResourceGovernor governor = new(limits, CancellationToken.None) { OwnsDocumentCounters = true };
-        using DocumentEngine engine = Engine(); GraphCopier copier = new(engine, governor, limits, 1);
+        using DocumentEngine engine = Engine(); using ParserMemoryScope copierMemory = ParserMemoryScope.Create(governor);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, governor, limits, 1, copierMemory);
         PdfReference? link = indirect ? copier.AddIndirectObjectWithId(source, 1) : null;
         int allocator = 2;
         long allocated = GC.GetAllocatedBytesForCurrentThread();
@@ -107,7 +110,8 @@ public sealed class AppearanceHeaderStorageTests
         PdfStream source = PdfStream.FromOwnedData(new(new Dictionary<PdfName, QpdfObject>()), new byte[8 * 1024 * 1024]);
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 8192L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
-        using DocumentEngine engine = Engine(); GraphCopier copier = new(engine, governor, limits, 1);
+        using DocumentEngine engine = Engine(); using ParserMemoryScope copierMemory = ParserMemoryScope.Create(governor);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, governor, limits, 1, copierMemory);
         PdfReference link = copier.AddIndirectObjectWithId(source, 1); PoolResolver resolver = new(copier.CopiedObjects);
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
         HashSet<int> visited = ParserContainers.CreateSet<int>(traversal);
@@ -128,7 +132,8 @@ public sealed class AppearanceHeaderStorageTests
             i => PdfName.FromAscii(i.ToString(System.Globalization.CultureInfo.InvariantCulture)), _ => (QpdfObject)PdfNull.Instance)), new byte[1048576]);
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 4096L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
-        using DocumentEngine engine = Engine(); GraphCopier copier = new(engine, governor, limits, 1);
+        using DocumentEngine engine = Engine(); using ParserMemoryScope copierMemory = ParserMemoryScope.Create(governor);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, governor, limits, 1, copierMemory);
         PdfReference link = copier.AddIndirectObjectWithId(source, 1); long baseline = governor.Snapshot().LiveMemoryBytes;
         int allocator = 2;
         Assert.Throws<QpdfLimitException>(() =>

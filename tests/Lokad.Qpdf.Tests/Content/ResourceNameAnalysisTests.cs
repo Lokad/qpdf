@@ -24,15 +24,17 @@ public sealed class ResourceNameAnalysisTests
     private sealed class Prepared : IDisposable
     {
         private readonly DocumentEngine _engine;
+        private readonly ParserMemoryScope _copyMemory;
         internal readonly GraphCopier Copier;
         internal Prepared(ResourceGovernor governor)
         {
             ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None); PdfDictionary trailer = Dictionary();
             _engine = new(ReadOnlyMemory<byte>.Empty, new XRefTable(0L, new Dictionary<int, XrefEntry>(), trailer, [trailer]),
                 QpdfLimits.Default, construction, new DiagnosticBag(construction), QpdfRecoveryMode.Strict);
-            Copier = new(_engine, governor, QpdfLimits.Default, 1);
+            _copyMemory = ParserMemoryScope.Create(governor);
+            Copier = GraphCopier.CreateOwned(_engine, governor, QpdfLimits.Default, 1, _copyMemory);
         }
-        public void Dispose() => _engine.Dispose();
+        public void Dispose() { _engine.Dispose(); _copyMemory.Dispose(); }
     }
     private static PdfDictionary Page(string content, PdfDictionary resources)
         => Dictionary(("Resources", resources), ("Contents", new PdfStream(Dictionary(), Encoding.Latin1.GetBytes(content))));

@@ -83,7 +83,8 @@ public sealed class RotationContentTests
         ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
         PdfDictionary trailer = new(new Dictionary<PdfName, QpdfObject>());
         using DocumentEngine engine = new(ReadOnlyMemory<byte>.Empty, new XRefTable(0L, new Dictionary<int, XrefEntry>(), trailer, [trailer]), QpdfLimits.Default, construction, new(construction), QpdfRecoveryMode.Strict);
-        GraphCopier copier = new(engine, construction, QpdfLimits.Default, 1);
+        using ParserMemoryScope copierMemory = ParserMemoryScope.Create(construction);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 1, copierMemory);
         PdfArray large = new(Enumerable.Repeat<QpdfObject>(annotations ? PdfNull.Instance : new PdfReference(2, 0), 262144).ToArray());
         PdfDictionary page = new(new Dictionary<PdfName, QpdfObject> {
             [PdfName.FromAscii("Rotate")] = new PdfInteger("90", 90),

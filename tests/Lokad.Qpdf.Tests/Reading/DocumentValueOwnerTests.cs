@@ -349,7 +349,8 @@ public sealed class DocumentValueOwnerTests
         PdfName key = source.Keys.Single(item => item.RawSpan.SequenceEqual("Number"u8));
         Assert.True(source.TryGet(key, out QpdfObject value));
         Assert.True(source.TryGet(PdfName.FromAscii("Discard"), out QpdfObject discarded));
-        GraphCopier copier = new(document.Engine, governor, QpdfLimits.Default, 20);
+        using ParserMemoryScope copierMemory = ParserMemoryScope.Create(governor);
+        GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, QpdfLimits.Default, 20, copierMemory);
         PdfDictionary small = new(new Dictionary<PdfName, QpdfObject> { [key] = value });
         PdfDictionary copy = Assert.IsType<PdfDictionary>(copier.CopyValue(small, 0));
         Assert.True(copy.TryGet(key, out QpdfObject copied));

@@ -12,6 +12,7 @@ public sealed class FormMergeStorageTests
     private sealed class Prepared : IDisposable
     {
         private readonly DocumentEngine _engine;
+        private readonly ParserMemoryScope _memory;
         internal readonly GraphCopier[] Copiers;
         internal readonly CopiedForm[] Forms;
         internal readonly PdfDictionary[] Fields;
@@ -21,18 +22,19 @@ public sealed class FormMergeStorageTests
             PdfDictionary trailer = new(new Dictionary<PdfName, QpdfObject>());
             _engine = new(ReadOnlyMemory<byte>.Empty, new XRefTable(0L, new Dictionary<int, XrefEntry>(), trailer, [trailer]),
                 QpdfLimits.Default, construction, new DiagnosticBag(construction), QpdfRecoveryMode.Strict);
+            _memory = ParserMemoryScope.Create(construction);
             Copiers = new GraphCopier[2]; Forms = new CopiedForm[2]; Fields = new PdfDictionary[2];
             string[] names = [first, second];
             for (int i = 0; i < 2; i++)
             {
                 byte[] raw = [0xfe, 0xff, ..Encoding.BigEndianUnicode.GetBytes(names[i])];
                 Fields[i] = new(new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("T")] = new PdfByteString(raw, false) });
-                Copiers[i] = new(_engine, construction, QpdfLimits.Default, i + 1);
+                Copiers[i] = GraphCopier.CreateOwned(_engine, construction, QpdfLimits.Default, i + 1, _memory);
                 Copiers[i].AddIndirectObjectWithId(Fields[i], i + 1);
                 Forms[i] = new([new PdfReference(i + 1, 0)], true, false, false, null, false, [], new Dictionary<PdfName, QpdfObject>());
             }
         }
-        public void Dispose() => _engine.Dispose();
+        public void Dispose() { _engine.Dispose(); _memory.Dispose(); }
     }
 
     internal static byte[] Fixture(string name, bool extraResource)

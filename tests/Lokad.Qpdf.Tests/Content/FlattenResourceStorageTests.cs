@@ -41,7 +41,8 @@ public sealed class FlattenResourceStorageTests
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 8192L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
-        using DocumentEngine engine = Engine(); GraphCopier copier = new(engine, governor, limits, 1);
+        using DocumentEngine engine = Engine(); using ParserMemoryScope copierMemory = ParserMemoryScope.Create(governor);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, governor, limits, 1, copierMemory);
         PdfDictionary page = Page(copier, 1, 16384, false);
         long baseline = governor.Snapshot().LiveMemoryBytes, allocated = GC.GetAllocatedBytesForCurrentThread();
         Assert.Throws<QpdfLimitException>(() => FlattenAnnotations.Apply([(copier, 1)], "all", false, false, null, limits, governor, new(governor), CancellationToken.None, 3));
@@ -54,7 +55,8 @@ public sealed class FlattenResourceStorageTests
     public void DamagedContentDoesNotPromoteAppearancesOrInsertUnusedStreams()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        using DocumentEngine engine = Engine(); GraphCopier copier = new(engine, governor, QpdfLimits.Default, 1);
+        using DocumentEngine engine = Engine(); using ParserMemoryScope copierMemory = ParserMemoryScope.Create(governor);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, governor, QpdfLimits.Default, 1, copierMemory);
         PdfDictionary page = Page(copier, 1, 0, true); QpdfObject appearance = copier.CopiedObjects[2];
         DiagnosticBag diagnostics = new(governor);
         Assert.Equal(3, FlattenAnnotations.Apply([(copier, 1)], "all", false, false, null, QpdfLimits.Default, governor, diagnostics, CancellationToken.None, 3));
@@ -72,7 +74,8 @@ public sealed class FlattenResourceStorageTests
     private static long Allocations(int count)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None) { OwnsDocumentCounters = true };
-        using DocumentEngine engine = Engine(); GraphCopier copier = new(engine, governor, QpdfLimits.Default, 1);
+        using DocumentEngine engine = Engine(); using ParserMemoryScope copierMemory = ParserMemoryScope.Create(governor);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, governor, QpdfLimits.Default, 1, copierMemory);
         PdfDictionary original = Page(copier, count, 1, false); copier.AddIndirectObjectWithId(original, 3);
         long before = GC.GetAllocatedBytesForCurrentThread();
         FlattenAnnotations.Apply([(copier, 1)], "all", false, false, null, QpdfLimits.Default, governor, new(governor), CancellationToken.None, 4);
