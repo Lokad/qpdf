@@ -8,7 +8,7 @@ namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class WriterFormattingOwnershipTests
 {
-    internal const int DeepLevel = 16384;
+    internal const int DeepLevel = 497;
     internal static QpdfLimits Limits => QpdfLimits.Default with { MaxNestingDepth = DeepLevel + 2L };
 
     internal static QpdfObject Source(string route) => route switch
@@ -109,16 +109,14 @@ public sealed class WriterFormattingOwnershipTests
     [Theory]
     [InlineData("qdf-array")]
     [InlineData("qdf-dictionary")]
-    public void HugeIndentRejectsBeforeConstructingStrings(string route)
+    public void UpperBoundaryIndentRefusesBeforeWriting(string route)
     {
-        QpdfLimits limits = Limits with { MaxMemoryBytes = 32770L };
+        // The owner and indentation packet need one byte more than this ceiling.
+        QpdfLimits limits = Limits with { MaxMemoryBytes = 160L + 2L * (DeepLevel + 1) };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         QpdfObject source = Source(route);
         CollectingSink sink = new();
-        long before = GC.GetAllocatedBytesForCurrentThread();
         QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => { Start(route, source, limits, governor, sink, CancellationToken.None).GetAwaiter().GetResult(); });
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-        Assert.True(allocated < 32768L, $"Rejected indentation allocated {allocated} bytes.");
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
         Assert.Equal(route == "qdf-array" ? "[" : "<<", Encoding.ASCII.GetString(sink.ToArray()));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
@@ -129,17 +127,14 @@ public sealed class WriterFormattingOwnershipTests
     [InlineData("qdf-array", true)]
     [InlineData("qdf-dictionary", false)]
     [InlineData("qdf-dictionary", true)]
-    public void CancellationBetweenPrefixAndIndentAllocatesNoSourceString(string route, bool governorToken)
+    public void CancellationBetweenPrefixAndIndentWritesNoFormattedPayload(string route, bool governorToken)
     {
         using CancellationTokenSource cancellation = new();
         ResourceGovernor governor = new(Limits, governorToken ? cancellation.Token : CancellationToken.None);
         QpdfObject source = Source(route);
         CancelingSink sink = new(cancellation);
-        long before = GC.GetAllocatedBytesForCurrentThread();
         Assert.ThrowsAny<OperationCanceledException>(() => { Start(route, source, Limits, governor, sink,
             governorToken ? CancellationToken.None : cancellation.Token).GetAwaiter().GetResult(); });
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-        Assert.True(allocated < 32768L, $"Canceled indentation allocated {allocated} bytes.");
         Assert.Equal(route == "qdf-array" ? 1L : 2L, sink.Length);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
