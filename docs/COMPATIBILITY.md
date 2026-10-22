@@ -473,6 +473,10 @@ precedence, grammar or interactions; those require behavior fixtures.
 
 ## How compatibility is verified
 
+The obsolete development-only `probe-flate` command has been removed. Codec and
+companion tests exercise the shared production pipeline; the standalone BCL
+feasibility implementation and smoke-only command test are no longer maintained.
+
 Reference checks compare fresh managed/native outputs under the original input
 and budget controls. Stable inspection text, decoded bytes, page order, sharing,
 field relationships, error/warning exits and output integrity have mechanism-

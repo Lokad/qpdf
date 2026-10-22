@@ -37,7 +37,6 @@ internal static class Program
                 "fix-qdf" => FixQdfCommand.RunFixQdf(args[1..]),
                 "zlib-flate" => ZlibFlateCommand.RunZlibFlate(args[1..]),
                 "probe-jpeg" => ProbeJpeg(),
-                "probe-flate" => ProbeFlate(),
                 _ => Fail($"Unknown command '{args[0]}'. Use --help for usage."),
             };
         }
@@ -79,7 +78,6 @@ internal static class Program
         Console.WriteLine("  QpdfProbe fix-qdf --workdir <dir> --in <logical-input> --out <logical>=<physical>");
         Console.WriteLine("  QpdfProbe zlib-flate --workdir <dir> --in <logical-input> --out <logical>=<physical> --mode <compress|uncompress> [--level 1..9]");
         Console.WriteLine("  QpdfProbe probe-jpeg");
-        Console.WriteLine("  QpdfProbe probe-flate");
         Console.WriteLine();
         Console.WriteLine("probe-oracle runs: qpdf --version (must report exactly 12.4.2), qpdf --show-npages, qpdf --check.");
         Console.WriteLine("validate opens the PDF with the pinned independent reader (PdfPig 0.1.16) and reports page count, header version and SHA-256.");
@@ -87,19 +85,12 @@ internal static class Program
         Console.WriteLine("emit runs the managed library over <dir>/inputs through the public API and writes mapped outputs to disk.");
         Console.WriteLine("validate --allow-empty explicitly accepts an independently observed zero-page document.");
     Console.WriteLine("probe-jpeg exercises the pinned ImageSharp 3.1.12 JPEG codec (grayscale/RGB round-trips, quality endpoints, CMYK/YCCK gap, bounds, cancellation).");
-        Console.WriteLine("probe-flate exercises the governed BCL Flate pipeline (zlib round-trip, level mapping, truncation, expansion limit, cancellation).");
         Console.WriteLine("Missing executables or inputs are explicit failures, never silent skips.");
     }
 
     private static int ProbeJpeg()
     {
         JpegProbe.Run();
-        return 0;
-    }
-
-    private static int ProbeFlate()
-    {
-        FlateProbe.RunAsync().GetAwaiter().GetResult();
         return 0;
     }
 

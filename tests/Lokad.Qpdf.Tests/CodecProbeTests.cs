@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.IO.Compression;
 using System.Text;
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.ImageSharp;
@@ -12,61 +11,6 @@ namespace Lokad.Qpdf.Tests;
 
 public sealed class CodecProbeTests
 {
-    private const long TestMaxPixels = 1024 * 1024;
-    private const long TestMaxOutputBytes = 256 * 1024;
-
-    private static int MapQpdfQuality(int qpdfQuality)
-    {
-        if (qpdfQuality < 0 || qpdfQuality > 100)
-        {
-            throw new Xunit.Sdk.XunitException($"qpdf quality out of range: {qpdfQuality}.");
-        }
-
-        return qpdfQuality == 0 ? 1 : qpdfQuality;
-    }
-
-    private static CompressionLevel MapQpdfLevel(int qpdfLevel)
-    {
-        if (qpdfLevel < 1 || qpdfLevel > 9)
-        {
-            throw new Xunit.Sdk.XunitException($"qpdf level out of range: {qpdfLevel}.");
-        }
-
-        if (qpdfLevel == 1)
-        {
-            return CompressionLevel.Fastest;
-        }
-
-        if (qpdfLevel == 9)
-        {
-            return CompressionLevel.SmallestSize;
-        }
-
-        return CompressionLevel.Optimal;
-    }
-
-    private static byte[] DecompressBounded(byte[] input, long maxOutputBytes)
-    {
-        using MemoryStream source = new(input, writable: false);
-        using ZLibStream decompressor = new(source, CompressionMode.Decompress);
-        using MemoryStream output = new();
-        byte[] buffer = new byte[8192];
-        long total = 0;
-        int read;
-        while ((read = decompressor.Read(buffer, 0, buffer.Length)) > 0)
-        {
-            total += read;
-            if (total > maxOutputBytes)
-            {
-                throw new InvalidOperationException($"Expansion limit exceeded ({total} > {maxOutputBytes}).");
-            }
-
-            output.Write(buffer, 0, read);
-        }
-
-        return output.ToArray();
-    }
-
     [Fact]
     public void JpegGrayscaleRoundTripPreservesDimensions()
     {
@@ -102,7 +46,7 @@ public sealed class CodecProbeTests
     }
 
     [Fact]
-    public void JpegQualityEndpointsMatchPinnedContract()
+    public void PinnedEncoderRejectsOutOfRangeQuality()
     {
         Assert.Throws<ArgumentException>(() =>
         {
@@ -120,19 +64,11 @@ public sealed class CodecProbeTests
             };
             _ = encoder.Quality;
         });
-        Assert.Equal(1, MapQpdfQuality(0));
-        Assert.Equal(75, MapQpdfQuality(75));
-        Assert.Equal(100, MapQpdfQuality(100));
-        Assert.ThrowsAny<Exception>(() => MapQpdfQuality(101));
     }
 
     [Fact]
-    public void JpegFourComponentSamplesAreNotPreserved()
+    public void PinnedCodecCanReadCmykLabeledJpegAsRgb()
     {
-        // Enum labels exist, but decode yields color-converted RGB pixels.
-        Assert.Equal(JpegEncodingColor.Cmyk, JpegEncodingColor.Cmyk);
-        Assert.Equal(JpegEncodingColor.Ycck, JpegEncodingColor.Ycck);
-
         using Image<Rgb24> image = new(8, 8);
         JpegEncoder encoder = new()
         {
@@ -187,13 +123,6 @@ public sealed class CodecProbeTests
     }
 
     [Fact]
-    public void JpegOversizedDimensionsAreRejectedBeforeAllocation()
-    {
-        long pixels = (long)100000 * 100000;
-        Assert.True(pixels > TestMaxPixels);
-    }
-
-    [Fact]
     public async Task JpegCancelledDecodeHonorsCancellation()
     {
         using Image<Rgb24> image = new(8, 8);
@@ -211,133 +140,6 @@ public sealed class CodecProbeTests
         {
             using MemoryStream input = new(bytes);
             using Image<Rgb24> decoded = await Image.LoadAsync<Rgb24>(input, cts.Token);
-        });
-    }
-
-    [Fact]
-    public void FlateZlibRoundTripPreservesBytes()
-    {
-        byte[] payload = Encoding.ASCII.GetBytes("Flate probe payload 0123456789; ");
-        byte[] repeated = new byte[payload.Length * 32];
-        for (int i = 0; i < 32; i++)
-        {
-            Buffer.BlockCopy(payload, 0, repeated, i * payload.Length, payload.Length);
-        }
-
-        byte[] compressed;
-        using (MemoryStream output = new())
-        {
-            using (ZLibStream compressor = new(output, CompressionLevel.Optimal))
-            {
-                compressor.Write(repeated, 0, repeated.Length);
-            }
-
-            compressed = output.ToArray();
-        }
-
-        byte[] roundTripped = DecompressBounded(compressed, TestMaxOutputBytes);
-        Assert.Equal(repeated, roundTripped);
-    }
-
-    [Fact]
-    public void FlateLevelMappingFollowsDeclaredBuckets()
-    {
-        Assert.Equal(CompressionLevel.Fastest, MapQpdfLevel(1));
-        Assert.Equal(CompressionLevel.Optimal, MapQpdfLevel(5));
-        Assert.Equal(CompressionLevel.SmallestSize, MapQpdfLevel(9));
-        Assert.ThrowsAny<Exception>(() => MapQpdfLevel(0));
-        Assert.ThrowsAny<Exception>(() => MapQpdfLevel(10));
-    }
-
-    [Fact]
-    public void FlateTruncationIsDetected()
-    {
-        byte[] payload = Encoding.ASCII.GetBytes(new string('a', 1024));
-        byte[] compressed;
-        using (MemoryStream output = new())
-        {
-            using (ZLibStream compressor = new(output, CompressionLevel.Optimal))
-            {
-                compressor.Write(payload, 0, payload.Length);
-            }
-
-            compressed = output.ToArray();
-        }
-
-        byte[] truncated = new byte[compressed.Length / 2];
-        Buffer.BlockCopy(compressed, 0, truncated, 0, truncated.Length);
-        try
-        {
-            byte[] partial = DecompressBounded(truncated, TestMaxOutputBytes);
-            Assert.NotEqual(payload, partial);
-        }
-        catch (InvalidDataException)
-        {
-        }
-    }
-
-    [Fact]
-    public void FlateCorruptionIsRejected()
-    {
-        byte[] payload = Encoding.ASCII.GetBytes(new string('a', 1024));
-        byte[] compressed;
-        using (MemoryStream output = new())
-        {
-            using (ZLibStream compressor = new(output, CompressionLevel.Optimal))
-            {
-                compressor.Write(payload, 0, payload.Length);
-            }
-
-            compressed = output.ToArray();
-        }
-
-        byte[] corrupted = (byte[])compressed.Clone();
-        corrupted[corrupted.Length / 2] ^= 0xFF;
-        Assert.Throws<InvalidDataException>(() => DecompressBounded(corrupted, TestMaxOutputBytes));
-    }
-
-    [Fact]
-    public void FlateExpansionLimitIsEnforced()
-    {
-        byte[] zeros = new byte[65536];
-        byte[] bomb;
-        using (MemoryStream output = new())
-        {
-            using (ZLibStream compressor = new(output, CompressionLevel.Optimal))
-            {
-                compressor.Write(zeros, 0, zeros.Length);
-            }
-
-            bomb = output.ToArray();
-        }
-
-        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => DecompressBounded(bomb, 1024));
-        Assert.Contains("Expansion limit", ex.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task FlateCancelledDecodeHonorsCancellation()
-    {
-        byte[] payload = Encoding.ASCII.GetBytes("cancel me");
-        byte[] compressed;
-        using (MemoryStream output = new())
-        {
-            using (ZLibStream compressor = new(output, CompressionLevel.Optimal))
-            {
-                compressor.Write(payload, 0, payload.Length);
-            }
-
-            compressed = output.ToArray();
-        }
-
-        using CancellationTokenSource cts = new();
-        cts.Cancel();
-        using MemoryStream source = new(compressed, writable: false);
-        using ZLibStream decompressor = new(source, CompressionMode.Decompress);
-        byte[] buffer = new byte[64];
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
-        {
-            _ = await decompressor.ReadAsync(buffer, cts.Token);
         });
     }
 
@@ -421,14 +223,4 @@ public sealed class CodecProbeTests
         Assert.Equal(0, exit);
         Assert.Contains("jpeg:", stdout, StringComparison.Ordinal);
     }
-
-    [Fact]
-    public void ProbeFlateCommandSucceeds()
-    {
-        (int exit, string stdout, _) = RunProbe("probe-flate");
-        Assert.Equal(0, exit);
-        Assert.Contains("flate:", stdout, StringComparison.Ordinal);
-    }
 }
-
-
