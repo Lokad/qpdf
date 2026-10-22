@@ -85,9 +85,11 @@ dotnet pack src/Lokad.Qpdf/Lokad.Qpdf.csproj -c Release --no-build --no-restore
 The package is written to `artifacts/nuget`. Ordinary builds and tests require no
 native qpdf or other external PDF tools. Contributor checks are listed in
 [AGENTS.md](AGENTS.md); reference checks use [the pinned-tool verifier](tools/bootstrap-qpdf.ps1).
+CI also runs cold/batch probe, protocol and raster self-tests, plus deterministic
+warmup-readiness tests. These require no native PDF tools and measure no performance.
 
 - [Compatibility](docs/COMPATIBILITY.md): supported operations and caller-facing differences.
-- [Benchmarks](docs/BENCHMARKS.md): current timing, memory and output-size comparisons.
+- [Benchmarks](docs/BENCHMARKS.md): dated measurements, methodology and allocation/admission tools.
 - [Architecture](ARCHITECTURE.md): components, storage boundaries and resource ownership.
 
 Licensed under the [MIT license](LICENSE.txt).

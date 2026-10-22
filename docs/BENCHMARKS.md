@@ -1,6 +1,7 @@
 # Benchmarks
 
-Lokad.qpdf's warmed elapsed-time medians are **0.38–0.96× native qpdf 12.4.2**
+At revision `83a9f93`, measured 2026-10-15, Lokad.qpdf's warmed elapsed-time
+medians were **0.38–0.96× native qpdf 12.4.2**
 across 13 structural workloads; equivalent sparse job JSON is **0.39×**.
 Process memory is higher: roughly **75–147 MiB** for managed workers versus
 **6–11 MiB** for native workers on this set.
@@ -81,7 +82,7 @@ Negative controls detect wrong content/order, fake object streams and no-op chec
 Every timed output hash is verified; inputs stay unchanged.
 
 [Raw measurements](../benchmarks/results/2026-10-12-parity-progress.json.gz) include
-samples, hashes and build identities. Current entries:
+samples, hashes and build identities. Entries for the tables above:
 `warm-integrated-83a9f93-file-13-01` and `warm-integrated-83a9f93-job-01`.
 Archived full-acquisition memory-host results retain their separate contract.
 

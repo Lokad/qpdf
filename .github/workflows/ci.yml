@@ -42,6 +42,15 @@ jobs:
         run: |
           dotnet build Lokad.Qpdf.slnx -c Release --no-restore 2>&1 | Tee-Object artifacts/ci/logs/build.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Test development tool contracts
+        run: |
+          python tools/test-warm-readiness.py 2>&1 | Tee-Object artifacts/ci/logs/warm-readiness.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pwsh -File tools/test-reference-probe.ps1 `
+            -ProbeDll tools/QpdfProbe/bin/Release/net10.0/QpdfProbe.dll `
+            -WorkRoot artifacts/ci/tool-controls `
+            2>&1 | Tee-Object artifacts/ci/logs/tool-controls.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Test Release contracts
         timeout-minutes: 35
         run: |
