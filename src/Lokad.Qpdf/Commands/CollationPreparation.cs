@@ -39,9 +39,9 @@ internal sealed class CollationPreparation : IDisposable
 
     internal PdfPageCollation CreatePolicy(List<int> sizes)
     {
-        // The public constructor creates its own wrapper and exact integer snapshot.
+        // The public constructor creates the policy, read-only view and exact snapshot.
         Governor.CheckCancellation();
-        Memory.Reserve(checked(24L + ((24L + sizeof(int) * (long)sizes.Count + 7L) & ~7L)));
+        Memory.Reserve(checked(48L + ((24L + sizeof(int) * (long)sizes.Count + 7L) & ~7L)));
         return new PdfPageCollation(sizes);
     }
 

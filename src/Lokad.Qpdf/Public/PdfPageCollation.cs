@@ -28,7 +28,7 @@ public sealed record PdfPageCollation
             }
         }
 
-        GroupSizes = sizes;
+        GroupSizes = Array.AsReadOnly(sizes);
     }
 
     /// <summary>Creates a uniform interleaving policy taking the same count from every source.</summary>
@@ -43,7 +43,7 @@ public sealed record PdfPageCollation
         return new PdfPageCollation([groupSize]);
     }
 
-    /// <summary>Gets the group sizes: one uniform value, or one per source.</summary>
+    /// <summary>Gets a read-only snapshot of group sizes: one uniform value, or one per source.</summary>
     public IReadOnlyList<int> GroupSizes { get; }
 }
 

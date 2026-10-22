@@ -17,7 +17,7 @@ public enum PdfRotationMode
 public sealed record PdfPageRotation
 {
     /// <summary>Creates a rotation for output pages.</summary>
-    /// <exception cref="ArgumentNullException">The pages are null.</exception>
+    /// <remarks>A null or empty page list selects every output page.</remarks>
     /// <exception cref="ArgumentOutOfRangeException">The angle is not a multiple of 90, or a page is not positive.</exception>
     public PdfPageRotation(PdfRotationMode mode, int angle, IReadOnlyList<int>? pages)
     {
@@ -37,7 +37,7 @@ public sealed record PdfPageRotation
                 }
             }
 
-            Pages = selected;
+            Pages = Array.AsReadOnly(selected);
         }
         else
         {
@@ -54,6 +54,6 @@ public sealed record PdfPageRotation
     /// <summary>Gets the rotation angle in degrees.</summary>
     public int Angle { get; }
 
-    /// <summary>Gets the 1-based output pages, or null for every output page.</summary>
+    /// <summary>Gets a read-only snapshot of 1-based output pages; null or empty selects every output page.</summary>
     public IReadOnlyList<int>? Pages { get; }
 }

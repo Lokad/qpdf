@@ -67,6 +67,11 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Page selection, rotation and collation expose read-only views of their defensive
+integer snapshots. Casts to mutable collection interfaces can no longer change
+validated settings. Engine-created views receive memory admission; public
+signatures, selection order and duplicate behavior are unchanged.
+
 Name tables hash complete decoded name bytes, including suffixes after the first
 16 bytes. Long-name hashing checks cancellation in bounded chunks; borrowed raw
 and escaped lookups allocate no name copies. Name equality, duplicate-key order

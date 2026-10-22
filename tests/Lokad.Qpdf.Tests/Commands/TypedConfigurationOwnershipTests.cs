@@ -86,6 +86,58 @@ public sealed class TypedConfigurationOwnershipTests(ITestOutputHelper log)
     }
 
     [Fact]
+    public void IntegerSettingsKeepReadOnlyDefensiveSnapshots()
+    {
+        int[] source = [2, 1, 2];
+        PdfPageSelectionOptions selection = PdfPageSelectionOptions.FromPages(source);
+        PdfPageRotation rotation = new(PdfRotationMode.Add, 90, source);
+        PdfPageCollation collation = new(source);
+        source[0] = -5;
+        foreach (IReadOnlyList<int>? snapshot in new[] { selection.Pages, rotation.Pages, collation.GroupSizes })
+        {
+            Assert.NotNull(snapshot);
+            Assert.Equal(new[] { 2, 1, 2 }, snapshot);
+            IList<int> list = Assert.IsAssignableFrom<IList<int>>(snapshot);
+            Assert.True(list.IsReadOnly);
+            Assert.Throws<NotSupportedException>(() => list[0] = -5);
+            Assert.Throws<NotSupportedException>(() => list.Add(7));
+            Assert.Throws<NotSupportedException>(() => Assert.IsAssignableFrom<IList>(snapshot).Clear());
+        }
+        Assert.Same(selection.Pages, (selection with { }).Pages);
+        Assert.Same(rotation.Pages, (rotation with { }).Pages);
+        Assert.Same(collation.GroupSizes, (collation with { }).GroupSizes);
+        Assert.Throws<NotSupportedException>(() => ((IList<int>)new PdfPageSelectionOptions(1).Pages)[0] = -5);
+        Assert.Throws<NotSupportedException>(() => ((IList<int>)PdfPageSelectionOptions.Normalized([2, 1, 2]).Pages)[0] = -5);
+    }
+
+    [Fact]
+    public async Task InFlightSelectionAndRotationKeepTheirValidatedSnapshots()
+    {
+        Host host = await CreateHost(); host.Pause = true;
+        int[] pages = [1], positions = [1];
+        PdfPageSelectionOptions selection = PdfPageSelectionOptions.FromPages(pages);
+        PdfPageRotation rotation = new(PdfRotationMode.Add, 90, positions);
+        Task<PdfPageSelectionResult> running = Qpdf.SelectPageAsync(host, Input, Output,
+            selection, [rotation], QpdfLimits.Default, CancellationToken.None).AsTask();
+        try
+        {
+            await host.InputReached.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            pages[0] = 2; positions[0] = 2;
+            Assert.Throws<NotSupportedException>(() => ((IList<int>)selection.Pages)[0] = 2);
+            Assert.Throws<NotSupportedException>(() => Assert.IsAssignableFrom<IList<int>>(rotation.Pages)[0] = 2);
+        }
+        finally { host.InputResume.TrySetResult(); host.OutputResume.TrySetResult(); }
+        PdfPageSelectionResult result = await running;
+        Assert.Equal(new[] { 1 }, result.SourcePages);
+        Assert.Equal(0L, host.Inner.OpenLeaseCount);
+        Assert.True(host.Inner.TryGetOutput(Output, out byte[] output));
+        InMemoryQpdfHost reader = new(); reader.AddInput(Input, output, QpdfInputOwnership.Copy);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(reader, Input, CancellationToken.None);
+        Assert.True(document.PageReferences[0].Page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject angle));
+        Assert.Equal(90L, Assert.IsType<PdfInteger>(angle).Value);
+    }
+
+    [Fact]
     public async Task TypedRoutesPreserveRotationOrderAndLabels()
     {
         foreach (string route in new[] { "single", "multi", "rotations", "merge" })

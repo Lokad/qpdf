@@ -105,7 +105,10 @@ public sealed class CollationOwnershipTests(ITestOutputHelper log)
         JobPlan plan = values.OfType<JobPlan>().First();
         PdfPageCollation? policy = plan switch { MergePlan merge => merge.Collation, CheckPlan check => check.Collation, _ => null };
         Assert.NotNull(policy);
-        long minimum = PdfVersionOwnershipTests.MeasurePhysicalSize(policy.GetType()) + ArraySize(Assert.IsType<int[]>(policy.GroupSizes));
+        System.Collections.ObjectModel.ReadOnlyCollection<int> groups = Assert.IsType<System.Collections.ObjectModel.ReadOnlyCollection<int>>(policy.GroupSizes);
+        Array snapshot = Assert.IsType<int[]>(groups.GetType().GetField("list", Fields)?.GetValue(groups));
+        long minimum = PdfVersionOwnershipTests.MeasurePhysicalSize(policy.GetType())
+            + PdfVersionOwnershipTests.MeasurePhysicalSize(groups.GetType()) + ArraySize(snapshot);
         object? owner = typeof(JobPlan).GetProperty("CollationStorage", Fields)?.GetValue(plan);
         if (owner is not null)
         {

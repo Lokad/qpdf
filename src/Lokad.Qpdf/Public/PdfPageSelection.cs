@@ -14,19 +14,19 @@ public sealed record PdfPageSelectionOptions
             throw new ArgumentOutOfRangeException(nameof(pageNumber), "Page numbers are 1-based and must be positive.");
         }
 
-        Pages = [pageNumber];
+        Pages = Array.AsReadOnly(new[] { pageNumber });
         FirstAndLastCount = null;
         Range = null;
     }
 
-    private PdfPageSelectionOptions(IReadOnlyList<int> pages, int? firstAndLastCount, string? range)
+    private PdfPageSelectionOptions(int[] pages, int? firstAndLastCount, string? range)
     {
-        Pages = pages;
+        Pages = Array.AsReadOnly(pages);
         FirstAndLastCount = firstAndLastCount;
         Range = range;
     }
 
-    /// <summary>Gets the explicit ordered selection; duplicates and order are preserved.</summary>
+    /// <summary>Gets a read-only snapshot of the explicit selection; duplicates and order are preserved.</summary>
     public IReadOnlyList<int> Pages { get; }
 
     internal int? FirstAndLastCount { get; }
