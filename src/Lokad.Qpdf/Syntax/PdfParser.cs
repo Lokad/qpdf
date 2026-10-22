@@ -188,14 +188,6 @@ internal sealed class PdfParser
     }
 
     /// <summary>Parses one object-stream member with independent error state.</summary>
-    internal QpdfObject ParseObjectValue(PdfTokenizer tokenizer, int depth)
-    {
-        using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
-        QpdfObject value = ParseObjectValue(tokenizer, depth, memory);
-        memory.RetainGraph();
-        return value;
-    }
-
     internal QpdfObject ParseObjectValue(PdfTokenizer tokenizer, int depth, ParserMemoryScope memory)
     {
         memory.CheckOwner(_governor);
@@ -215,14 +207,6 @@ internal sealed class PdfParser
             }
         }
         finally { _memory = parent; }
-    }
-
-    internal QpdfObject ParseValue(PdfTokenizer tokenizer, int depth)
-    {
-        using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
-        QpdfObject value = ParseValue(tokenizer, depth, memory);
-        memory.RetainGraph();
-        return value;
     }
 
     internal QpdfObject ParseValue(PdfTokenizer tokenizer, int depth, ParserMemoryScope memory)
@@ -378,14 +362,6 @@ internal sealed class PdfParser
         long before = Memory.ReservedBytes;
         QpdfObject value = ParseToken(tokenizer, in token, depth);
         return new ParsedValue(value, checked(Memory.ReservedBytes - before));
-    }
-
-    internal (int Number, int Generation, QpdfObject Value) ParseIndirectObject(PdfTokenizer tokenizer, int depth)
-    {
-        using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
-        (int number, int generation, QpdfObject value) = ParseIndirectObject(tokenizer, depth, memory);
-        memory.RetainGraph();
-        return (number, generation, value);
     }
 
     internal (int Number, int Generation, QpdfObject Value) ParseIndirectObject(

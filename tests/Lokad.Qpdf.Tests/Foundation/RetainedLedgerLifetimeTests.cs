@@ -53,7 +53,9 @@ public sealed class RetainedLedgerLifetimeTests
         else
         {
             PdfParser parser = new(QpdfLimits.Default, governor, new DiagnosticBag(governor), null);
-            QpdfObject parsed = parser.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes(kind == "byte-buffer" ? "(ABC)" : kind == "array" ? "[null]" : "00000123")), 0);
+            using ParserMemoryScope parsedMemory0 = ParserMemoryScope.Create(governor);
+            QpdfObject parsed = parser.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes(kind == "byte-buffer" ? "(ABC)" : kind == "array" ? "[null]" : "00000123")), 0, parsedMemory0);
+            parsedMemory0.RetainGraph(); parsedMemory0.Dispose();
             value = kind == "integer-text" ? ((PdfInteger)parsed).Text : kind == "byte-buffer" ? ((PdfByteString)parsed).AllocationCarrier : parsed;
             minimum = kind == "integer-text" ? 16L : kind == "byte-buffer" ? 3L : 24L;
         }

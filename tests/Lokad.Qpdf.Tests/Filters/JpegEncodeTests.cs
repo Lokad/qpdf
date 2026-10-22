@@ -17,7 +17,7 @@ public sealed class JpegEncodeTests
         byte[] encoded = components == 1
             ? JpegCodec.EncodeGray(raw, 32, 24, 75, QpdfLimits.Default, governor)
             : JpegCodec.EncodeRgb(raw, 32, 24, 75, QpdfLimits.Default, governor);
-        Assert.True(DctFilter.TryParseFrame(encoded, out int width, out int height, out int actualComponents));
+        Assert.True(DctFilter.TryParseFrame(encoded, new ResourceGovernor(QpdfLimits.Default, CancellationToken.None), out int width, out int height, out int actualComponents));
         Assert.Equal(32, width);
         Assert.Equal(24, height);
         Assert.Equal(components, actualComponents);

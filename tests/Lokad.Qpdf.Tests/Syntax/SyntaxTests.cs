@@ -114,9 +114,12 @@ public sealed class ParserTests
 
     private static QpdfObject Parse(string text)
     {
-        (PdfParser parser, DiagnosticBag _, ResourceGovernor _) = CreateParser();
+        (PdfParser parser, DiagnosticBag _, ResourceGovernor governor) = CreateParser();
         PdfTokenizer tokenizer = new(Encoding.ASCII.GetBytes(text));
-        return parser.ParseValue(tokenizer, 0);
+        using ParserMemoryScope parsedMemory0 = ParserMemoryScope.Create(governor);
+        var parsed = parser.ParseValue(tokenizer, 0, parsedMemory0);
+        parsedMemory0.RetainGraph();
+        return parsed;
     }
 
     [Fact]
@@ -177,7 +180,9 @@ public sealed class ParserTests
         PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null);
         if (fits)
         {
-            PdfByteString parsed = Assert.IsType<PdfByteString>(parser.ParseValue(new PdfTokenizer(input), 0));
+            using ParserMemoryScope parsedMemory1 = ParserMemoryScope.Create(governor);
+            PdfByteString parsed = Assert.IsType<PdfByteString>(parser.ParseValue(new PdfTokenizer(input), 0, parsedMemory1));
+            parsedMemory1.RetainGraph(); parsedMemory1.Dispose();
             Assert.Equal(Enumerable.Repeat((byte)'A', 4096), parsed.Value);
             Array.Clear(input);
             Array.Clear(parsed.Value);
@@ -185,7 +190,11 @@ public sealed class ParserTests
         }
         else
         {
-            QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => parser.ParseValue(new PdfTokenizer(input), 0));
+            QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() =>
+            {
+                using ParserMemoryScope parsedMemory2 = ParserMemoryScope.Create(governor);
+                _ = parser.ParseValue(new PdfTokenizer(input), 0, parsedMemory2);
+            });
             Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
             Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         }
@@ -203,7 +212,9 @@ public sealed class ParserTests
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 8192L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null);
-        QpdfObject parsed = parser.ParseValue(new PdfTokenizer(input), 0);
+        using ParserMemoryScope parsedMemory3 = ParserMemoryScope.Create(governor);
+        QpdfObject parsed = parser.ParseValue(new PdfTokenizer(input), 0, parsedMemory3);
+        parsedMemory3.RetainGraph(); parsedMemory3.Dispose();
         Array.Clear(input);
         byte[] decoded = name ? Assert.IsType<PdfName>(parsed).RawBytes : Assert.IsType<PdfByteString>(parsed).Value;
         Assert.Equal(Enumerable.Repeat((byte)'A', 4096), decoded);
@@ -213,9 +224,11 @@ public sealed class ParserTests
     [Fact]
     public void DuplicateKeysKeepLastWithWarning()
     {
-        (PdfParser parser, DiagnosticBag bag, ResourceGovernor _) = CreateParser();
+        (PdfParser parser, DiagnosticBag bag, ResourceGovernor governor) = CreateParser();
         PdfTokenizer tokenizer = new(Encoding.ASCII.GetBytes("<</A 1 /A 2>>"));
-        PdfDictionary dictionary = Assert.IsType<PdfDictionary>(parser.ParseValue(tokenizer, 0));
+        using ParserMemoryScope parsedMemory4 = ParserMemoryScope.Create(governor);
+        PdfDictionary dictionary = Assert.IsType<PdfDictionary>(parser.ParseValue(tokenizer, 0, parsedMemory4));
+        parsedMemory4.RetainGraph(); parsedMemory4.Dispose();
         Assert.True(dictionary.TryGet(new PdfName([(byte)'A']), out QpdfObject value));
         Assert.Equal(new PdfInteger("2", 2L), value);
         Assert.Single(bag.Entries);
@@ -235,8 +248,10 @@ public sealed class ParserTests
     {
         byte[] payload = Enumerable.Range(0, 32768).Select(index => (byte)index).ToArray();
         byte[] source = [.."<</Length 32768>>\nstream\n"u8.ToArray(), ..payload, .."\nendstream"u8.ToArray()];
-        (PdfParser parser, DiagnosticBag _, ResourceGovernor _) = CreateParser();
-        PdfStream stream = Assert.IsType<PdfStream>(parser.ParseValue(new PdfTokenizer(source), 0));
+        (PdfParser parser, DiagnosticBag _, ResourceGovernor governor) = CreateParser();
+        using ParserMemoryScope parsedMemory5 = ParserMemoryScope.Create(governor);
+        PdfStream stream = Assert.IsType<PdfStream>(parser.ParseValue(new PdfTokenizer(source), 0, parsedMemory5));
+        parsedMemory5.RetainGraph(); parsedMemory5.Dispose();
         Array.Clear(source);
         byte[] returned = stream.Data;
         Array.Clear(returned);
@@ -248,8 +263,10 @@ public sealed class ParserTests
     public void ParsedEscapedNameSurvivesInputAndReturnedCopyMutation()
     {
         byte[] source = "/A#20B"u8.ToArray();
-        (PdfParser parser, DiagnosticBag _, ResourceGovernor _) = CreateParser();
-        PdfName name = Assert.IsType<PdfName>(parser.ParseValue(new PdfTokenizer(source), 0));
+        (PdfParser parser, DiagnosticBag _, ResourceGovernor governor) = CreateParser();
+        using ParserMemoryScope parsedMemory6 = ParserMemoryScope.Create(governor);
+        PdfName name = Assert.IsType<PdfName>(parser.ParseValue(new PdfTokenizer(source), 0, parsedMemory6));
+        parsedMemory6.RetainGraph(); parsedMemory6.Dispose();
         Array.Clear(source);
         byte[] returned = name.RawBytes;
         Array.Clear(returned);
@@ -266,7 +283,9 @@ public sealed class ParserTests
         resolver.Add(7, new PdfInteger("5", 5L));
         PdfParser parser = new(limits, governor, bag, resolver);
         PdfTokenizer tokenizer = new(Encoding.ASCII.GetBytes("<</Length 7 0 R>>\nstream\nhello\nendstream"));
-        PdfStream stream = Assert.IsType<PdfStream>(parser.ParseValue(tokenizer, 0));
+        using ParserMemoryScope parsedMemory7 = ParserMemoryScope.Create(governor);
+        PdfStream stream = Assert.IsType<PdfStream>(parser.ParseValue(tokenizer, 0, parsedMemory7));
+        parsedMemory7.RetainGraph(); parsedMemory7.Dispose();
         Assert.Equal([104, 101, 108, 108, 111], stream.Data);
     }
 
@@ -289,7 +308,11 @@ public sealed class ParserTests
         DiagnosticBag bag = new(governor);
         PdfParser parser = new(limits, governor, bag, null);
         PdfTokenizer tokenizer = new(Encoding.ASCII.GetBytes("[[[1]]]"));
-        Assert.Throws<QpdfParseException>(() => parser.ParseValue(tokenizer, 0));
+        Assert.Throws<QpdfParseException>(() =>
+        {
+            using ParserMemoryScope parsedMemory8 = ParserMemoryScope.Create(governor);
+            _ = parser.ParseValue(tokenizer, 0, parsedMemory8);
+        });
     }
 
     [Fact]
@@ -302,9 +325,11 @@ public sealed class ParserTests
     [Fact]
     public void ParsesIndirectObjects()
     {
-        (PdfParser parser, DiagnosticBag _, ResourceGovernor _) = CreateParser();
+        (PdfParser parser, DiagnosticBag _, ResourceGovernor governor) = CreateParser();
         PdfTokenizer tokenizer = new(Encoding.ASCII.GetBytes("5 0 obj [1] endobj"));
-        (int number, int generation, QpdfObject value) = parser.ParseIndirectObject(tokenizer, 0);
+        using ParserMemoryScope parsedMemory9 = ParserMemoryScope.Create(governor);
+        (int number, int generation, QpdfObject value) = parser.ParseIndirectObject(tokenizer, 0, parsedMemory9);
+        parsedMemory9.RetainGraph(); parsedMemory9.Dispose();
         Assert.Equal(5, number);
         Assert.Equal(0, generation);
         Assert.IsType<PdfArray>(value);
@@ -313,10 +338,22 @@ public sealed class ParserTests
     [Fact]
     public void RejectsMalformedIndirectObjects()
     {
-        (PdfParser parser, DiagnosticBag _, ResourceGovernor _) = CreateParser();
-        Assert.Throws<QpdfParseException>(() => parser.ParseIndirectObject(new PdfTokenizer(Encoding.ASCII.GetBytes("5 0 obj [1]")), 0));
-        Assert.Throws<QpdfParseException>(() => parser.ParseIndirectObject(new PdfTokenizer(Encoding.ASCII.GetBytes("5 x obj 1 endobj")), 0));
-        Assert.Throws<QpdfParseException>(() => parser.ParseIndirectObject(new PdfTokenizer(Encoding.ASCII.GetBytes("5 0 foo 1 endobj")), 0));
+        (PdfParser parser, DiagnosticBag _, ResourceGovernor governor) = CreateParser();
+        Assert.Throws<QpdfParseException>(() =>
+        {
+            using ParserMemoryScope parsedMemory10 = ParserMemoryScope.Create(governor);
+            _ = parser.ParseIndirectObject(new PdfTokenizer(Encoding.ASCII.GetBytes("5 0 obj [1]")), 0, parsedMemory10);
+        });
+        Assert.Throws<QpdfParseException>(() =>
+        {
+            using ParserMemoryScope parsedMemory11 = ParserMemoryScope.Create(governor);
+            _ = parser.ParseIndirectObject(new PdfTokenizer(Encoding.ASCII.GetBytes("5 x obj 1 endobj")), 0, parsedMemory11);
+        });
+        Assert.Throws<QpdfParseException>(() =>
+        {
+            using ParserMemoryScope parsedMemory12 = ParserMemoryScope.Create(governor);
+            _ = parser.ParseIndirectObject(new PdfTokenizer(Encoding.ASCII.GetBytes("5 0 foo 1 endobj")), 0, parsedMemory12);
+        });
     }
 }
 
@@ -381,7 +418,9 @@ public sealed class ObjectModelTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         PdfParser parser = new(QpdfLimits.Default, governor, new DiagnosticBag(governor), null);
-        PdfName name = Assert.IsType<PdfName>(parser.ParseValue(new PdfTokenizer(Encoding.ASCII.GetBytes("/#2341")), 0));
+        using ParserMemoryScope parsedMemory13 = ParserMemoryScope.Create(governor);
+        PdfName name = Assert.IsType<PdfName>(parser.ParseValue(new PdfTokenizer(Encoding.ASCII.GetBytes("/#2341")), 0, parsedMemory13));
+        parsedMemory13.RetainGraph(); parsedMemory13.Dispose();
         Assert.Equal("#41", Encoding.ASCII.GetString(name.RawBytes));
         using DisplayBuffer json = DisplayBuffer.CreateJson(governor);
         PdfJsonWriter.AppendName(json, name, 2);
@@ -394,7 +433,9 @@ public sealed class ObjectModelTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         PdfParser parser = new(QpdfLimits.Default, governor, new DiagnosticBag(governor), null);
-        PdfDictionary dictionary = Assert.IsType<PdfDictionary>(parser.ParseValue(new PdfTokenizer(Encoding.ASCII.GetBytes("<< /Filter /#2346lateDecode >>")), 0));
+        using ParserMemoryScope parsedMemory14 = ParserMemoryScope.Create(governor);
+        PdfDictionary dictionary = Assert.IsType<PdfDictionary>(parser.ParseValue(new PdfTokenizer(Encoding.ASCII.GetBytes("<< /Filter /#2346lateDecode >>")), 0, parsedMemory14));
+        parsedMemory14.RetainGraph(); parsedMemory14.Dispose();
         using FilterPlan stages = FilterChain.Resolve(dictionary, null, governor, governor.CancellationToken);
         Assert.NotEqual("FlateDecode", stages[0].Name);
     }

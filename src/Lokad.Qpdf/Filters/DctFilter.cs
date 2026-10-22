@@ -47,10 +47,7 @@ internal static class DctFilter
         finally { context.Close(); if (!success) { governor.ReleaseMemory(reserved); } }
     }
 
-    internal static bool TryParseFrame(byte[] input, out int width, out int height, out int components)
-        => TryParseFrame(input, null, out width, out height, out components);
-
-    internal static bool TryParseFrame(byte[] input, ResourceGovernor? governor, out int width, out int height, out int components)
+    internal static bool TryParseFrame(byte[] input, ResourceGovernor governor, out int width, out int height, out int components)
     {
         width = 0;
         height = 0;
@@ -63,8 +60,8 @@ internal static class DctFilter
         int pos = 2;
         while (pos + 1 < input.Length)
         {
-            governor?.CheckCancellation();
-            governor?.NoteOperation();
+            governor.CheckCancellation();
+            governor.NoteOperation();
             if (input[pos] != 0xFF)
             {
                 return false;
@@ -74,7 +71,7 @@ internal static class DctFilter
             while (m < input.Length && input[m] == 0xFF)
             {
                 m += 1;
-                if ((m & 1023) == 0) { governor?.CheckCancellation(); governor?.NoteOperation(); }
+                if ((m & 1023) == 0) { governor.CheckCancellation(); governor.NoteOperation(); }
             }
 
             if (m >= input.Length)

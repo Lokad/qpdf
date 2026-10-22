@@ -18,7 +18,9 @@ public sealed class LexicalParserTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         PdfParser parser = new(QpdfLimits.Default, governor, new DiagnosticBag(governor), null);
         string text = "[" + string.Join(" ", Enumerable.Range(1, count)) + "]";
-        PdfArray value = Assert.IsType<PdfArray>(parser.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes(text)), 0));
+        using ParserMemoryScope parsedMemory0 = ParserMemoryScope.Create(governor);
+        PdfArray value = Assert.IsType<PdfArray>(parser.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes(text)), 0, parsedMemory0));
+        parsedMemory0.RetainGraph(); parsedMemory0.Dispose();
         Assert.Equal(count, value.Count);
         QpdfObject[] publicCopy = value.Items;
         Array.Fill(publicCopy, PdfNull.Instance);
@@ -36,7 +38,10 @@ public sealed class LexicalParserTests
         PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null);
         string text = "[" + string.Join(" ", Enumerable.Range(1, count)) + " [@]]";
         QpdfParseException error = Assert.Throws<QpdfParseException>(() =>
-            parser.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes(text)), 0));
+        {
+            using ParserMemoryScope parsedMemory1 = ParserMemoryScope.Create(governor);
+            _ = parser.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes(text)), 0, parsedMemory1);
+        });
         Assert.Contains("top-level items", error.Message, StringComparison.Ordinal);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
@@ -85,7 +90,9 @@ public sealed class LexicalParserTests
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
         PdfParser parser = new(limits, governor, diagnostics, null) { TolerateObjectErrors = true, SanityChecks = sanity };
-        (_, _, QpdfObject value) = parser.ParseIndirectObject(new PdfTokenizer(Encoding.ASCII.GetBytes("5 0 obj " + body + " endobj")), 0);
+        using ParserMemoryScope parsedMemory2 = ParserMemoryScope.Create(governor);
+        (_, _, QpdfObject value) = parser.ParseIndirectObject(new PdfTokenizer(Encoding.ASCII.GetBytes("5 0 obj " + body + " endobj")), 0, parsedMemory2);
+        parsedMemory2.RetainGraph(); parsedMemory2.Dispose();
         using (var display = CanonicalDisplay.Render(value, limits, governor)) { Assert.Equal(expected, display.Value); }
         Assert.Equal(warns, diagnostics.Entries.Count != 0);
     }
@@ -101,7 +108,11 @@ public sealed class LexicalParserTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         PdfParser parser = new(QpdfLimits.Default, governor, new DiagnosticBag(governor), null);
-        Assert.Throws<QpdfParseException>(() => parser.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes(body)), 0));
+        Assert.Throws<QpdfParseException>(() =>
+        {
+            using ParserMemoryScope parsedMemory3 = ParserMemoryScope.Create(governor);
+            _ = parser.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes(body)), 0, parsedMemory3);
+        });
     }
 
     [Theory]
@@ -114,7 +125,9 @@ public sealed class LexicalParserTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         PdfParser parser = new(QpdfLimits.Default, governor, new DiagnosticBag(governor), null);
-        PdfByteString value = Assert.IsType<PdfByteString>(parser.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes(body)), 0));
+        using ParserMemoryScope parsedMemory4 = ParserMemoryScope.Create(governor);
+        PdfByteString value = Assert.IsType<PdfByteString>(parser.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes(body)), 0, parsedMemory4));
+        parsedMemory4.RetainGraph(); parsedMemory4.Dispose();
         Assert.Equal(Encoding.ASCII.GetBytes(expected), value.Value);
     }
 
@@ -123,7 +136,9 @@ public sealed class LexicalParserTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         PdfParser parser = new(QpdfLimits.Default, governor, new DiagnosticBag(governor), null);
-        PdfName value = Assert.IsType<PdfName>(parser.ParseObjectValue(new PdfTokenizer("/A#2300B"u8.ToArray()), 0));
+        using ParserMemoryScope parsedMemory5 = ParserMemoryScope.Create(governor);
+        PdfName value = Assert.IsType<PdfName>(parser.ParseObjectValue(new PdfTokenizer("/A#2300B"u8.ToArray()), 0, parsedMemory5));
+        parsedMemory5.RetainGraph(); parsedMemory5.Dispose();
         Assert.Equal("A#00B"u8.ToArray(), value.RawBytes);
     }
 
@@ -132,7 +147,9 @@ public sealed class LexicalParserTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         PdfParser parser = new(QpdfLimits.Default, governor, new DiagnosticBag(governor), null);
-        PdfName value = Assert.IsType<PdfName>(parser.ParseObjectValue(new PdfTokenizer("/A#7BB#7DC"u8.ToArray()), 0));
+        using ParserMemoryScope parsedMemory6 = ParserMemoryScope.Create(governor);
+        PdfName value = Assert.IsType<PdfName>(parser.ParseObjectValue(new PdfTokenizer("/A#7BB#7DC"u8.ToArray()), 0, parsedMemory6));
+        parsedMemory6.RetainGraph(); parsedMemory6.Dispose();
         Assert.Equal("A{B}C"u8.ToArray(), value.RawBytes);
     }
 
@@ -141,7 +158,9 @@ public sealed class LexicalParserTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         PdfParser parser = new(QpdfLimits.Default, governor, new DiagnosticBag(governor), null);
-        PdfArray value = Assert.IsType<PdfArray>(parser.ParseObjectValue(new PdfTokenizer("[ <ABCD> <ff00> ]"u8.ToArray()), 0));
+        using ParserMemoryScope parsedMemory7 = ParserMemoryScope.Create(governor);
+        PdfArray value = Assert.IsType<PdfArray>(parser.ParseObjectValue(new PdfTokenizer("[ <ABCD> <ff00> ]"u8.ToArray()), 0, parsedMemory7));
+        parsedMemory7.RetainGraph(); parsedMemory7.Dispose();
         Assert.Equal(new byte[] { 0xAB, 0xCD }, Assert.IsType<PdfByteString>(value[0]).Value);
         Assert.Equal(new byte[] { 0xFF, 0x00 }, Assert.IsType<PdfByteString>(value[1]).Value);
         using (var display = CanonicalDisplay.Render(value, QpdfLimits.Default, governor)) { Assert.Equal("[ <abcd> <ff00> ]", display.Value); }
@@ -153,7 +172,11 @@ public sealed class LexicalParserTests
         QpdfLimits limits = QpdfLimits.Default with { MaxDiagnostics = 1L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null) { TolerateObjectErrors = true };
-        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => parser.ParseObjectValue(new PdfTokenizer("[ /A#00B /C#00D ]"u8.ToArray()), 0));
+        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
+        {
+            using ParserMemoryScope parsedMemory8 = ParserMemoryScope.Create(governor);
+            _ = parser.ParseObjectValue(new PdfTokenizer("[ /A#00B /C#00D ]"u8.ToArray()), 0, parsedMemory8);
+        });
         Assert.Equal(nameof(QpdfLimits.MaxDiagnostics), error.LimitName);
     }
 }

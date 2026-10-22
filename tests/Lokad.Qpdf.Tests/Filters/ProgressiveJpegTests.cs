@@ -43,7 +43,7 @@ public sealed class ProgressiveJpegTests
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), CancellationToken.None);
         byte[] jpeg = Image(document).Data;
         Assert.True(jpeg.AsSpan().IndexOf(new byte[] { 0xFF, 0xC2 }) >= 0);
-        Assert.True(DctFilter.TryParseFrame(jpeg, out int actualWidth, out int actualHeight, out int actualComponents));
+        Assert.True(DctFilter.TryParseFrame(jpeg, new ResourceGovernor(QpdfLimits.Default, CancellationToken.None), out int actualWidth, out int actualHeight, out int actualComponents));
         Assert.Equal(width, actualWidth);
         Assert.Equal(height, actualHeight);
         Assert.Equal(components, actualComponents);

@@ -61,7 +61,9 @@ public sealed class NumericParserTests
         QpdfLimits limits = QpdfLimits.Default with { MaxParserErrors = budget };
         (PdfParser parser, ResourceGovernor governor, DiagnosticBag bag) = Create(limits, true);
         parser.SanityChecks = sanity;
-        (_, _, QpdfObject value) = parser.ParseIndirectObject(new PdfTokenizer(Encoding.ASCII.GetBytes("5 0 obj " + body + " endobj")), 0);
+        using ParserMemoryScope parsedMemory0 = ParserMemoryScope.Create(governor);
+        (_, _, QpdfObject value) = parser.ParseIndirectObject(new PdfTokenizer(Encoding.ASCII.GetBytes("5 0 obj " + body + " endobj")), 0, parsedMemory0);
+        parsedMemory0.RetainGraph(); parsedMemory0.Dispose();
         using (var display = CanonicalDisplay.Render(value, limits, governor)) { Assert.Equal(expected, display.Value); }
         Assert.Equal(warning, bag.Entries.Any());
         Assert.All(bag.Entries, d => Assert.Equal(QpdfDiagnosticCode.RepairedObject, d.Code));
@@ -78,8 +80,10 @@ public sealed class NumericParserTests
     [InlineData("-0", 0L)]
     public void StrictIntegersPreserveTheirTextAndFullSignedRange(string text, long expected)
     {
-        (PdfParser parser, _, DiagnosticBag bag) = Create(QpdfLimits.Default, false);
-        PdfInteger value = Assert.IsType<PdfInteger>(parser.ParseValue(new PdfTokenizer(Encoding.ASCII.GetBytes(text)), 0));
+        (PdfParser parser, ResourceGovernor governor, DiagnosticBag bag) = Create(QpdfLimits.Default, false);
+        using ParserMemoryScope parsedMemory1 = ParserMemoryScope.Create(governor);
+        PdfInteger value = Assert.IsType<PdfInteger>(parser.ParseValue(new PdfTokenizer(Encoding.ASCII.GetBytes(text)), 0, parsedMemory1));
+        parsedMemory1.RetainGraph(); parsedMemory1.Dispose();
         Assert.Equal(text, value.Text);
         Assert.Equal(expected, value.Value);
         Assert.Empty(bag.Entries);
@@ -91,18 +95,26 @@ public sealed class NumericParserTests
     [InlineData("[ 1 65536 R ]")]
     public void StrictNumericDamageStillFails(string body)
     {
-        (PdfParser parser, _, _) = Create(QpdfLimits.Default, false);
-        Assert.Throws<QpdfParseException>(() => parser.ParseValue(new PdfTokenizer(Encoding.ASCII.GetBytes(body)), 0));
+        (PdfParser parser, ResourceGovernor governor, _) = Create(QpdfLimits.Default, false);
+        Assert.Throws<QpdfParseException>(() =>
+        {
+            using ParserMemoryScope parsedMemory2 = ParserMemoryScope.Create(governor);
+            _ = parser.ParseValue(new PdfTokenizer(Encoding.ASCII.GetBytes(body)), 0, parsedMemory2);
+        });
     }
 
     [Fact]
     public void LongIntegerTextIsAdmittedBeforeAllocation()
     {
         byte[] data = Encoding.ASCII.GetBytes(new string('0', 65536) + "1");
-        (PdfParser parser, _, _) = Create(QpdfLimits.Default with { MaxMemoryBytes = 100000L }, true);
+        (PdfParser parser, ResourceGovernor governor, _) = Create(QpdfLimits.Default with { MaxMemoryBytes = 100000L }, true);
         PdfTokenizer tokenizer = new(data);
         long before = GC.GetAllocatedBytesForCurrentThread();
-        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => parser.ParseObjectValue(tokenizer, 0));
+        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
+        {
+            using ParserMemoryScope parsedMemory3 = ParserMemoryScope.Create(governor);
+            _ = parser.ParseObjectValue(tokenizer, 0, parsedMemory3);
+        });
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), error.LimitName);
         Assert.True(allocated < data.Length, $"Rejected integer allocated {allocated} bytes before returning.");
@@ -111,9 +123,15 @@ public sealed class NumericParserTests
     [Fact]
     public void NumericRepairDoesNotSwallowDiagnosticBudgetFailure()
     {
-        (PdfParser parser, _, _) = Create(QpdfLimits.Default with { MaxDiagnostics = 1L }, true);
-        parser.ParseObjectValue(new PdfTokenizer("9223372036854775808"u8.ToArray()), 0);
-        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => parser.ParseObjectValue(new PdfTokenizer("9223372036854775808"u8.ToArray()), 0));
+        (PdfParser parser, ResourceGovernor governor, _) = Create(QpdfLimits.Default with { MaxDiagnostics = 1L }, true);
+        using ParserMemoryScope parsedMemory4 = ParserMemoryScope.Create(governor);
+        parser.ParseObjectValue(new PdfTokenizer("9223372036854775808"u8.ToArray()), 0, parsedMemory4);
+        parsedMemory4.RetainGraph(); parsedMemory4.Dispose();
+        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
+        {
+            using ParserMemoryScope parsedMemory5 = ParserMemoryScope.Create(governor);
+            _ = parser.ParseObjectValue(new PdfTokenizer("9223372036854775808"u8.ToArray()), 0, parsedMemory5);
+        });
         Assert.Equal(nameof(QpdfLimits.MaxDiagnostics), error.LimitName);
     }
 
@@ -155,6 +173,9 @@ public sealed class NumericParserTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         PdfParser parser = new(QpdfLimits.Default, governor, new(governor), null);
-        return Assert.IsType<PdfInteger>(parser.ParseValue(new PdfTokenizer(System.Text.Encoding.ASCII.GetBytes(text)), 0));
+        using ParserMemoryScope parsedMemory6 = ParserMemoryScope.Create(governor);
+        var parsed = Assert.IsType<PdfInteger>(parser.ParseValue(new PdfTokenizer(System.Text.Encoding.ASCII.GetBytes(text)), 0, parsedMemory6));
+        parsedMemory6.RetainGraph();
+        return parsed;
     }
 }

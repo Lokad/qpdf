@@ -25,7 +25,9 @@ public sealed class NameCollisionTests
     {
         QpdfLimits limits = QpdfLimits.Default; ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor); PdfParser parser = new(limits, governor, diagnostics, null);
-        PdfDictionary dictionary = Assert.IsType<PdfDictionary>(parser.ParseObjectValue(new PdfTokenizer(Input(duplicate)), 0));
+        using ParserMemoryScope parsedMemory0 = ParserMemoryScope.Create(governor);
+        PdfDictionary dictionary = Assert.IsType<PdfDictionary>(parser.ParseObjectValue(new PdfTokenizer(Input(duplicate)), 0, parsedMemory0));
+        parsedMemory0.RetainGraph(); parsedMemory0.Dispose();
         Assert.Equal(32, dictionary.Count); Assert.Equal(32, dictionary.Keys.Count());
         for (int index = 0; index < 32; index++)
         {

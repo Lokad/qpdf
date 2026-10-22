@@ -52,9 +52,11 @@ public sealed class ParserOwnershipTests
         DiagnosticBag controlDiagnostics = new(control);
         for (int i = 0; i < 50; i++)
         {
+            using ParserMemoryScope parsedMemory0 = ParserMemoryScope.Create(governor);
             QpdfObject value = member
-                ? parser.ParseObjectValue(new PdfTokenizer(input), 0)
-                : parser.ParseIndirectObject(new PdfTokenizer(input), 0).Value;
+                ? parser.ParseObjectValue(new PdfTokenizer(input), 0, parsedMemory0)
+                : parser.ParseIndirectObject(new PdfTokenizer(input), 0, parsedMemory0).Value;
+            parsedMemory0.RetainGraph(); parsedMemory0.Dispose();
             Assert.Same(PdfNull.Instance, value);
             Assert.True(parser.ObjectAborted);
             DiagnosticControl.Replay(controlDiagnostics, diagnostics.Entries);
@@ -72,7 +74,11 @@ public sealed class ParserOwnershipTests
         ResourceGovernor governor = new(limits, CancellationToken.None);
         PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null);
         byte[] input = Encoding.ASCII.GetBytes("<< /A (" + new string('A', 4096) + ") /B @ >>");
-        Assert.Throws<QpdfParseException>(() => parser.ParseValue(new PdfTokenizer(input), 0));
+        Assert.Throws<QpdfParseException>(() =>
+        {
+            using ParserMemoryScope parsedMemory1 = ParserMemoryScope.Create(governor);
+            _ = parser.ParseValue(new PdfTokenizer(input), 0, parsedMemory1);
+        });
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.InRange(governor.Snapshot().PeakMemoryBytes, 4096L, limits.MaxMemoryBytes);
     }
@@ -84,22 +90,30 @@ public sealed class ParserOwnershipTests
         DiagnosticBag diagnostics = new(governor);
         PdfParser parser = new(limits, governor, diagnostics, null) { TolerateObjectErrors = true };
         string text = new('A', 4096);
-        PdfByteString kept = Assert.IsType<PdfByteString>(parser.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes("(" + text + ")")), 0));
+        using ParserMemoryScope parsedMemory2 = ParserMemoryScope.Create(governor);
+        PdfByteString kept = Assert.IsType<PdfByteString>(parser.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes("(" + text + ")")), 0, parsedMemory2));
+        parsedMemory2.RetainGraph(); parsedMemory2.Dispose();
         long retained = governor.Snapshot().LiveMemoryBytes;
         Assert.True(retained >= 4096L);
         ResourceGovernor control = new(limits, CancellationToken.None);
         DiagnosticBag controlDiagnostics = new(control);
         PdfParser controlParser = new(limits, control, controlDiagnostics, null) { TolerateObjectErrors = true };
-        QpdfObject controlValue = controlParser.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes("(" + text + ")")), 0);
+        using ParserMemoryScope parsedMemory3 = ParserMemoryScope.Create(control);
+        QpdfObject controlValue = controlParser.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes("(" + text + ")")), 0, parsedMemory3);
+        parsedMemory3.RetainGraph(); parsedMemory3.Dispose();
         byte[] abandoned = Encoding.ASCII.GetBytes("[ (" + text + ") @ ]");
         for (int i = 0; i < 20; i++)
         {
-            Assert.Same(PdfNull.Instance, parser.ParseObjectValue(new PdfTokenizer(abandoned), 0));
+            using ParserMemoryScope parsedMemory4 = ParserMemoryScope.Create(governor);
+            Assert.Same(PdfNull.Instance, parser.ParseObjectValue(new PdfTokenizer(abandoned), 0, parsedMemory4));
+            parsedMemory4.RetainGraph(); parsedMemory4.Dispose();
             DiagnosticControl.Replay(controlDiagnostics, diagnostics.Entries);
             Assert.Equal(control.Snapshot().LiveMemoryBytes, governor.Snapshot().LiveMemoryBytes);
         }
         Assert.Equal(Encoding.ASCII.GetBytes(text), kept.Value);
-        Assert.Equal(7L, Assert.IsType<PdfInteger>(parser.ParseObjectValue(new PdfTokenizer("7"u8.ToArray()), 0)).Value);
+        using ParserMemoryScope parsedMemory5 = ParserMemoryScope.Create(governor);
+        Assert.Equal(7L, Assert.IsType<PdfInteger>(parser.ParseObjectValue(new PdfTokenizer("7"u8.ToArray()), 0, parsedMemory5)).Value);
+        parsedMemory5.RetainGraph(); parsedMemory5.Dispose();
         Assert.False(parser.ObjectAborted);
         GC.KeepAlive(controlValue);
     }
@@ -130,11 +144,19 @@ public sealed class ParserOwnershipTests
         byte[] input = Encoding.ASCII.GetBytes("5 0 obj " + body);
         if (kind is "syntax" or "endobj")
         {
-            Assert.Throws<QpdfParseException>(() => parser.ParseIndirectObject(new PdfTokenizer(input), 0));
+            Assert.Throws<QpdfParseException>(() =>
+            {
+                using ParserMemoryScope parsedMemory6 = ParserMemoryScope.Create(governor);
+                _ = parser.ParseIndirectObject(new PdfTokenizer(input), 0, parsedMemory6);
+            });
         }
         else
         {
-            QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => parser.ParseIndirectObject(new PdfTokenizer(input), 0));
+            QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
+            {
+                using ParserMemoryScope parsedMemory7 = ParserMemoryScope.Create(governor);
+                _ = parser.ParseIndirectObject(new PdfTokenizer(input), 0, parsedMemory7);
+            });
             Assert.Equal(kind == "memory" ? nameof(QpdfLimits.MaxMemoryBytes) : nameof(QpdfLimits.MaxDiagnostics), error.LimitName);
         }
         ResourceGovernor control = new(limits, CancellationToken.None);
@@ -154,7 +176,11 @@ public sealed class ParserOwnershipTests
         RetainingResolver resolver = new(limits, governor, diagnostics);
         PdfParser parser = new(limits, governor, diagnostics, resolver);
         byte[] input = "5 0 obj << /Length 6 0 R /Audit (discard) >>\nstream\nabc\nendobj\nendobj"u8.ToArray();
-        Assert.Throws<QpdfParseException>(() => parser.ParseIndirectObject(new PdfTokenizer(input), 0));
+        Assert.Throws<QpdfParseException>(() =>
+        {
+            using ParserMemoryScope parsedMemory8 = ParserMemoryScope.Create(governor);
+            _ = parser.ParseIndirectObject(new PdfTokenizer(input), 0, parsedMemory8);
+        });
         Assert.Equal(resolver.RetainedBytes, governor.Snapshot().LiveMemoryBytes);
         Assert.True(resolver.RetainedBytes >= 4096L);
         Assert.Equal(3L, Assert.IsType<PdfInteger>(resolver.Value).Value);
@@ -324,7 +350,9 @@ public sealed class ParserOwnershipTests
         {
             long before = _governor.Snapshot().LiveMemoryBytes;
             PdfParser nested = new(_limits, _governor, _diagnostics, null);
-            Value = nested.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes(new string('0', 4096) + "3")), 0);
+            using ParserMemoryScope parsedMemory9 = ParserMemoryScope.Create(_governor);
+            Value = nested.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes(new string('0', 4096) + "3")), 0, parsedMemory9);
+            parsedMemory9.RetainGraph(); parsedMemory9.Dispose();
             RetainedBytes = _governor.Snapshot().LiveMemoryBytes - before;
             value = Value;
             return true;
@@ -339,7 +367,13 @@ public sealed class ParserOwnershipTests
         QpdfLimits limits = QpdfLimits.Default with { CancellationCheckInterval = 1L };
         ResourceGovernor governor = new(limits, cancellation.Token);
         PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null);
-        Task<QpdfObject> parse = Task.Factory.StartNew(() => parser.ParseObjectValue(new PdfTokenizer(input), 0),
+        Task<QpdfObject> parse = Task.Factory.StartNew(() =>
+        {
+            using ParserMemoryScope parsedMemory10 = ParserMemoryScope.Create(governor);
+            var parsed = parser.ParseObjectValue(new PdfTokenizer(input), 0, parsedMemory10);
+            parsedMemory10.RetainGraph();
+            return parsed;
+        },
             CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         bool observed = SpinWait.SpinUntil(() => governor.Snapshot().LiveMemoryBytes >= 4096L || parse.IsCompleted, TimeSpan.FromSeconds(10));
         cancellation.Cancel();

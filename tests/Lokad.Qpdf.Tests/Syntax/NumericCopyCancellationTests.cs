@@ -53,7 +53,9 @@ public sealed class NumericCopyCancellationTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         PdfParser parser = new(QpdfLimits.Default, governor, new(governor), null);
-        PdfReference value = Assert.IsType<PdfReference>(parser.ParseValue(new PdfTokenizer("17 0 R"u8.ToArray()), 0));
+        using ParserMemoryScope parsedMemory0 = ParserMemoryScope.Create(governor);
+        PdfReference value = Assert.IsType<PdfReference>(parser.ParseValue(new PdfTokenizer("17 0 R"u8.ToArray()), 0, parsedMemory0));
+        parsedMemory0.RetainGraph(); parsedMemory0.Dispose();
         Assert.Equal(17, value.ObjectNumber); Assert.Equal(0, value.Generation);
     }
 }

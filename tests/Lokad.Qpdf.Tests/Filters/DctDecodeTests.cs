@@ -263,7 +263,7 @@ public sealed class DctDecodeTests
     public async Task CmykLabeledJpegStaysOpaque()
     {
         byte[] jpeg = EncodeCmykLabeledJpeg(8, 8);
-        Assert.True(DctFilter.TryParseFrame(jpeg, out int width, out int height, out int components));
+        Assert.True(DctFilter.TryParseFrame(jpeg, new ResourceGovernor(QpdfLimits.Default, CancellationToken.None), out int width, out int height, out int components));
         Assert.Equal(4, components);
         Assert.Equal(8, width);
         Assert.Equal(8, height);
@@ -287,7 +287,7 @@ public sealed class DctDecodeTests
         byte[] patched = (byte[])jpeg.Clone();
         int at = FindFrameHeightOffset(jpeg);
         patched[at + 4] = 4;
-        Assert.True(DctFilter.TryParseFrame(patched, out int width, out int height, out int components));
+        Assert.True(DctFilter.TryParseFrame(patched, new ResourceGovernor(QpdfLimits.Default, CancellationToken.None), out int width, out int height, out int components));
         Assert.Equal(4, components);
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildDctPage(patched));
         List<string> argv = new() { "inputs/a.pdf", "--decode-level=all", "--pages", ".", "1", "--", "outputs/a.pdf" };
@@ -311,7 +311,7 @@ public sealed class DctDecodeTests
         // the approved codec has no CMYK pixel type, so decode must fail explicitly
         // instead of reducing to color-converted RGB.
         byte[] jpeg = CmykJpegBuilder.Build(new[] { 10, -20, 30, -40 }, null);
-        Assert.True(DctFilter.TryParseFrame(jpeg, out int width, out int height, out int components));
+        Assert.True(DctFilter.TryParseFrame(jpeg, new ResourceGovernor(QpdfLimits.Default, CancellationToken.None), out int width, out int height, out int components));
         Assert.Equal(4, components);
         Assert.Equal(8, width);
         Assert.Equal(8, height);
@@ -336,7 +336,7 @@ public sealed class DctDecodeTests
         // Same boundary for Adobe YCCK input: the oracle converts to CMYK on decode,
         // which the approved codec cannot reproduce, so it stays opaque as well.
         byte[] jpeg = CmykJpegBuilder.Build(new[] { 10, -20, 30, -40 }, 2);
-        Assert.True(DctFilter.TryParseFrame(jpeg, out int width, out int height, out int components));
+        Assert.True(DctFilter.TryParseFrame(jpeg, new ResourceGovernor(QpdfLimits.Default, CancellationToken.None), out int width, out int height, out int components));
         Assert.Equal(4, components);
         Assert.Equal(8, width);
         Assert.Equal(8, height);
@@ -450,7 +450,7 @@ public sealed class DctDecodeTests
     {
         byte[] jpeg = EncodeGrayJpeg(8, 8);
         byte[] patched = PatchFrameDimensions(jpeg, 30000, 30000);
-        Assert.True(DctFilter.TryParseFrame(patched, out int width, out int height, out int components));
+        Assert.True(DctFilter.TryParseFrame(patched, new ResourceGovernor(QpdfLimits.Default, CancellationToken.None), out int width, out int height, out int components));
         Assert.Equal(30000, width);
         Assert.Equal(30000, height);
         Assert.Equal(1, components);
@@ -463,7 +463,7 @@ public sealed class DctDecodeTests
         byte[] jpeg = EncodeRgbJpeg(32, 32);
         byte[] cut = new byte[200];
         Buffer.BlockCopy(jpeg, 0, cut, 0, 200);
-        Assert.True(DctFilter.TryParseFrame(cut, out int width, out int height, out int components));
+        Assert.True(DctFilter.TryParseFrame(cut, new ResourceGovernor(QpdfLimits.Default, CancellationToken.None), out int width, out int height, out int components));
         Assert.Equal(32, width);
         Assert.Equal(32, height);
         Assert.Equal(3, components);
@@ -488,7 +488,7 @@ public sealed class DctDecodeTests
         byte[] patched = (byte[])jpeg.Clone();
         int at = FindFrameHeightOffset(jpeg);
         patched[at + 4] = 2;
-        Assert.True(DctFilter.TryParseFrame(patched, out int width, out int height, out int components));
+        Assert.True(DctFilter.TryParseFrame(patched, new ResourceGovernor(QpdfLimits.Default, CancellationToken.None), out int width, out int height, out int components));
         Assert.Equal(2, components);
         byte[] input = BuildDctPage(patched);
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);

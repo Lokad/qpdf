@@ -283,7 +283,7 @@ public sealed class ImageOptimizeTests
         PdfStream image = await OutputImageAsync(host, pdf);
         Assert.Equal("DCTDecode", FilterOf(image));
         Assert.True(image.Data.Length < flated.Length);
-        Assert.True(DctFilter.TryParseFrame(image.Data, out int width, out int height, out int components));
+        Assert.True(DctFilter.TryParseFrame(image.Data, new ResourceGovernor(QpdfLimits.Default, CancellationToken.None), out int width, out int height, out int components));
         Assert.Equal(200, width);
         Assert.Equal(200, height);
         Assert.Equal(3, components);
@@ -302,7 +302,7 @@ public sealed class ImageOptimizeTests
         PdfStream image = await OutputImageAsync(host, pdf);
         Assert.Equal("DCTDecode", FilterOf(image));
         Assert.True(image.Data.Length < raw.Length);
-        Assert.True(DctFilter.TryParseFrame(image.Data, out int width, out int height, out int components));
+        Assert.True(DctFilter.TryParseFrame(image.Data, new ResourceGovernor(QpdfLimits.Default, CancellationToken.None), out int width, out int height, out int components));
         Assert.Equal(200, width);
         Assert.Equal(200, height);
         Assert.Equal(1, components);

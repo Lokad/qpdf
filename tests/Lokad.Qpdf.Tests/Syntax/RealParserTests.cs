@@ -79,8 +79,10 @@ public sealed class RealParserTests
     [MemberData(nameof(RoundingCases))]
     public void LongDecimalsRoundAtExactBinaryMidpoints(string text, ulong expectedBits, bool repair)
     {
-        (PdfParser parser, _) = Create(QpdfLimits.Default, repair);
-        PdfReal value = Assert.IsType<PdfReal>(parser.ParseValue(new PdfTokenizer(Encoding.ASCII.GetBytes(text)), 0));
+        (PdfParser parser, ResourceGovernor governor) = Create(QpdfLimits.Default, repair);
+        using ParserMemoryScope parsedMemory0 = ParserMemoryScope.Create(governor);
+        PdfReal value = Assert.IsType<PdfReal>(parser.ParseValue(new PdfTokenizer(Encoding.ASCII.GetBytes(text)), 0, parsedMemory0));
+        parsedMemory0.RetainGraph(); parsedMemory0.Dispose();
         Assert.Equal(text, value.Text);
         Assert.Equal(expectedBits, BitConverter.DoubleToUInt64Bits(value.Value));
     }
@@ -101,8 +103,10 @@ public sealed class RealParserTests
             string text = new string(digits).Insert(random.Next(0, Math.Min(400, length)), ".");
             if (sample % 2 == 0) { text = "-" + text; }
             Assert.True(double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double expected));
-            (PdfParser parser, _) = Create(QpdfLimits.Default, false);
-            PdfReal value = Assert.IsType<PdfReal>(parser.ParseValue(new PdfTokenizer(Encoding.ASCII.GetBytes(text)), 0));
+            (PdfParser parser, ResourceGovernor governor) = Create(QpdfLimits.Default, false);
+            using ParserMemoryScope parsedMemory1 = ParserMemoryScope.Create(governor);
+            PdfReal value = Assert.IsType<PdfReal>(parser.ParseValue(new PdfTokenizer(Encoding.ASCII.GetBytes(text)), 0, parsedMemory1));
+            parsedMemory1.RetainGraph(); parsedMemory1.Dispose();
             Assert.Equal(BitConverter.DoubleToUInt64Bits(expected), BitConverter.DoubleToUInt64Bits(value.Value));
         }
     }
@@ -110,13 +114,17 @@ public sealed class RealParserTests
     [Fact]
     public void RetainedTextDoesNotNeedAnotherFullSizeCharacterArray()
     {
-        (PdfParser warmup, _) = Create(QpdfLimits.Default, false);
-        warmup.ParseValue(new PdfTokenizer("0.5"u8.ToArray()), 0);
+        (PdfParser warmup, ResourceGovernor warmupGovernor) = Create(QpdfLimits.Default, false);
+        using ParserMemoryScope parsedMemory2 = ParserMemoryScope.Create(warmupGovernor);
+        warmup.ParseValue(new PdfTokenizer("0.5"u8.ToArray()), 0, parsedMemory2);
+        parsedMemory2.RetainGraph(); parsedMemory2.Dispose();
         byte[] bytes = Encoding.ASCII.GetBytes("0." + new string('1', 262144));
-        (PdfParser parser, _) = Create(QpdfLimits.Default, false);
+        (PdfParser parser, ResourceGovernor governor) = Create(QpdfLimits.Default, false);
         PdfTokenizer tokenizer = new(bytes);
         long before = GC.GetAllocatedBytesForCurrentThread();
-        PdfReal value = Assert.IsType<PdfReal>(parser.ParseValue(tokenizer, 0));
+        using ParserMemoryScope parsedMemory3 = ParserMemoryScope.Create(governor);
+        PdfReal value = Assert.IsType<PdfReal>(parser.ParseValue(tokenizer, 0, parsedMemory3));
+        parsedMemory3.RetainGraph(); parsedMemory3.Dispose();
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         Assert.Equal(bytes.Length, value.Text.Length);
         Assert.True(allocated < (bytes.Length * 2L) + 4096L, $"Real parsing allocated {allocated} bytes for {bytes.Length} source bytes.");
@@ -126,10 +134,14 @@ public sealed class RealParserTests
     public void RealTextAdmissionPrecedesMaterialization()
     {
         byte[] bytes = Encoding.ASCII.GetBytes("0." + new string('0', 65536) + "1");
-        (PdfParser parser, _) = Create(QpdfLimits.Default with { MaxMemoryBytes = 100000L }, true);
+        (PdfParser parser, ResourceGovernor governor) = Create(QpdfLimits.Default with { MaxMemoryBytes = 100000L }, true);
         PdfTokenizer tokenizer = new(bytes);
         long before = GC.GetAllocatedBytesForCurrentThread();
-        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => parser.ParseObjectValue(tokenizer, 0));
+        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
+        {
+            using ParserMemoryScope parsedMemory4 = ParserMemoryScope.Create(governor);
+            _ = parser.ParseObjectValue(tokenizer, 0, parsedMemory4);
+        });
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), error.LimitName);
         Assert.True(allocated < bytes.Length, $"Rejected real allocated {allocated} bytes before returning.");

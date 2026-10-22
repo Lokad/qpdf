@@ -298,8 +298,9 @@ public sealed class DamagedSyntaxTests
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
         PdfParser parser = new(limits, governor, diagnostics, null) { TolerateObjectErrors = true, SanityChecks = sanity };
-        (_, _, QpdfObject value) = parser.ParseIndirectObject(
-            new PdfTokenizer(Encoding.Latin1.GetBytes("5 0 obj\n" + body + "\nendobj\n")), 0);
+        using ParserMemoryScope parsedMemory0 = ParserMemoryScope.Create(governor);
+        (_, _, QpdfObject value) = parser.ParseIndirectObject(new PdfTokenizer(Encoding.Latin1.GetBytes("5 0 obj\n" + body + "\nendobj\n")), 0, parsedMemory0);
+        parsedMemory0.RetainGraph(); parsedMemory0.Dispose();
         using (var display = CanonicalDisplay.Render(value, limits, governor)) { Assert.Equal(expected, display.Value); }
         Assert.Equal(warns, diagnostics.Entries.Count != 0);
     }
@@ -320,7 +321,10 @@ public sealed class DamagedSyntaxTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         PdfParser parser = new(QpdfLimits.Default, governor, new DiagnosticBag(governor), null);
         Assert.Throws<QpdfParseException>(() =>
-            parser.ParseObjectValue(new PdfTokenizer(Encoding.Latin1.GetBytes(body)), 0));
+        {
+            using ParserMemoryScope parsedMemory1 = ParserMemoryScope.Create(governor);
+            _ = parser.ParseObjectValue(new PdfTokenizer(Encoding.Latin1.GetBytes(body)), 0, parsedMemory1);
+        });
     }
 
     internal static bool HasMalformedName(string name) =>
@@ -334,7 +338,9 @@ public sealed class DamagedSyntaxTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
         PdfParser parser = new(QpdfLimits.Default, governor, diagnostics, null) { TolerateObjectErrors = true };
-        PdfName value = Assert.IsType<PdfName>(parser.ParseObjectValue(new PdfTokenizer("/A#Q#G"u8.ToArray()), 0));
+        using ParserMemoryScope parsedMemory2 = ParserMemoryScope.Create(governor);
+        PdfName value = Assert.IsType<PdfName>(parser.ParseObjectValue(new PdfTokenizer("/A#Q#G"u8.ToArray()), 0, parsedMemory2));
+        parsedMemory2.RetainGraph(); parsedMemory2.Dispose();
         Assert.Equal(new byte[] { 65, 0, 81, 0, 71 }, value.RawBytes);
         Assert.NotEqual(new PdfName("A#Q#G"u8.ToArray()), value);
         Assert.Single(diagnostics.Entries);
@@ -347,7 +353,9 @@ public sealed class DamagedSyntaxTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         PdfParser parser = new(QpdfLimits.Default, governor, new DiagnosticBag(governor), null);
-        PdfByteString value = Assert.IsType<PdfByteString>(parser.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes(body)), 0));
+        using ParserMemoryScope parsedMemory3 = ParserMemoryScope.Create(governor);
+        PdfByteString value = Assert.IsType<PdfByteString>(parser.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes(body)), 0, parsedMemory3));
+        parsedMemory3.RetainGraph(); parsedMemory3.Dispose();
         Assert.False(value.Hex);
         Assert.Equal(expected, value.Value);
     }
