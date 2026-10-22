@@ -273,6 +273,44 @@ public sealed class GlobalLimitsTests
         Assert.Contains("499", SingleError(result).Message, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("argv-equals")]
+    [InlineData("argv-separated")]
+    [InlineData("argv-global")]
+    [InlineData("job-number")]
+    [InlineData("job-string")]
+    public async Task ZeroNestingRejectsBeforeHostAccess(string route)
+    {
+        using InMemoryQpdfHost host = new();
+        QpdfPath output = QpdfPath.From("outputs/a.pdf");
+        byte[] previous = [17, 23, 41];
+        await using (IQpdfOutputTransaction transaction = await host.CreateOutputAsync(output, CancellationToken.None))
+        {
+            await transaction.WriteAsync(previous, CancellationToken.None);
+            await transaction.CommitAsync(CancellationToken.None);
+        }
+        QpdfExecutionResult result = route switch
+        {
+            "argv-equals" => await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(
+                ["inputs/a.pdf", "--parser-max-nesting=0", output.Value]), CancellationToken.None),
+            "argv-separated" => await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(
+                ["inputs/a.pdf", "--parser-max-nesting", "0", output.Value]), CancellationToken.None),
+            "argv-global" => await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(
+                ["--global", "--parser-max-nesting=0", "--", "inputs/a.pdf", output.Value]), CancellationToken.None),
+            "job-number" => await Qpdf.ExecuteJobAsync(host,
+                """{"inputFile":"inputs/a.pdf","outputFile":"outputs/a.pdf","global":{"parserMaxNesting":0}}""", CancellationToken.None),
+            "job-string" => await Qpdf.ExecuteJobAsync(host,
+                """{"inputFile":"inputs/a.pdf","outputFile":"outputs/a.pdf","global":{"parserMaxNesting":"0"}}""", CancellationToken.None),
+            _ => throw new ArgumentOutOfRangeException(nameof(route))
+        };
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.Equal(0L, result.Counters.HostOperations);
+        Assert.Equal(0L, result.Counters.OpenHandles);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.True(host.TryGetOutput(output, out byte[] published));
+        Assert.Equal(previous, published);
+    }
+
     [Fact]
     public async Task NestedGlobalParityHolds()
     {

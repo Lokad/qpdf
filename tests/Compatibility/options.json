@@ -1911,6 +1911,7 @@
           "GlobalLimitsTests.BadNestingValuesFail",
           "GlobalLimitsTests.DuplicateNestingFlagFails",
           "GlobalLimitsTests.CeilingMessageNamesTheMaximum",
+          "GlobalLimitsTests.ZeroNestingRejectsBeforeHostAccess",
           "GlobalLimitsTests.BadNestedGlobalFails",
           "GlobalLimitsTests.FlagCannotRaiseTighterHostBudget"
         ],

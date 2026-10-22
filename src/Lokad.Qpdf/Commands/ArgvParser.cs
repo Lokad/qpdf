@@ -2443,7 +2443,7 @@ internal static class ArgvParser
 
         if (value is null || value.Length == 0 || value.Length > 10)
         {
-            throw new QpdfParseException($"Invalid --parser-max-nesting value \u0027{value}\u0027: expected a non-negative nesting depth.", i, null);
+            throw new QpdfParseException($"Invalid --parser-max-nesting value \u0027{value}\u0027: expected a nesting depth within 1..{QpdfLimits.ParserNestingCeiling}.", i, null);
         }
 
         long depth = 0L;
@@ -2451,15 +2451,15 @@ internal static class ArgvParser
         {
             if (digit < (char)48 || digit > (char)57)
             {
-                throw new QpdfParseException($"Invalid --parser-max-nesting value \u0027{value}\u0027: expected a non-negative nesting depth.", i, null);
+                throw new QpdfParseException($"Invalid --parser-max-nesting value \u0027{value}\u0027: expected a nesting depth within 1..{QpdfLimits.ParserNestingCeiling}.", i, null);
             }
 
             depth = checked(depth * 10L + (digit - (char)48));
         }
 
-        if (depth > QpdfLimits.ParserNestingCeiling)
+        if (depth < 1L || depth > QpdfLimits.ParserNestingCeiling)
         {
-            throw new QpdfParseException($"Invalid --parser-max-nesting value \u0027{value}\u0027: exceeds the supported maximum of {QpdfLimits.ParserNestingCeiling}.", i, null);
+            throw new QpdfParseException($"Invalid --parser-max-nesting value \u0027{value}\u0027: expected a nesting depth within 1..{QpdfLimits.ParserNestingCeiling}.", i, null);
         }
 
         return depth;

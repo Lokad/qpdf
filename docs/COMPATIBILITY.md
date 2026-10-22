@@ -83,6 +83,9 @@ with the default remaining 256. Larger values now throw `ArgumentOutOfRangeExcep
 before host access. Previously they passed validation and could allow recursive
 parsing to exhaust the CLR stack instead of returning a normal depth error.
 This intentionally restricts accepted settings; public signatures are unchanged.
+Zero-valued argv and job-JSON nesting overrides now return `InvalidArguments`
+before PDF host access, instead of escaping as `ArgumentOutOfRangeException`.
+Unlike native qpdf, which accepts zero as a depth cap, these overrides require 1..499.
 
 Skipped stream checks describe unavailable filters and JPEG host capabilities
 without promising future implementation. Disabled decoding remains an explicit
@@ -448,7 +451,7 @@ failure behavior; the tables below highlight differences important to callers.
 | --- | --- |
 | Invocation | Managed syntax also accepts a separate `--job-json-file file`, collation inside a pages block and bare `--no-default-limits`. Job numeric limits accept numbers; native job files use decimal strings. |
 | Inspection/output | Diagnostics and payloads are separate results. Failed/canceled jobs discard staged binary output; native stdout may already contain a prefix. Progress uses counted-byte milestones, and diagnostic wording is implementation-defined. Keep-open options are validated hints; host lease policy governs actual handles. |
-| Parser limits | Default nesting is 256 versus native 499; invocation overrides remain within the native maximum and host ceilings. Tight container limits fail with exit 2 where native recovery may warn and skip an object. |
+| Parser limits | Managed nesting settings accept 1..499 (default 256), within host ceilings. Native defaults to 499 and accepts zero as a depth cap; managed zero overrides reject as `InvalidArguments`. Tight container limits fail with exit 2 where native recovery may warn and skip an object. |
 | Filters | Partial predictor rows, unknown PNG row selectors, mismatched decode-parameter arrays and preset zlib dictionaries reject instead of using native's lenient handling. Unknown/above-level encodings remain opaque according to the operation's decode policy. |
 | Page graphs | Duplicate pages are independent page objects; content-stream sharing can differ. Only the four PDF inheritable page attributes materialize. Omitted-page references become null; page-tree/catalog references are rejected by contained copying. Typed preview drops outlines/structure; ordinary copies preserve them. |
 | Catalog/structure | Unresolvable extras drop; extras referring to rebuilt catalog/page-tree nodes may drop instead of remapping. Damaged structure drops leniently. Dangling outline destinations become null; named destinations do not resolve in JSON inspection. |

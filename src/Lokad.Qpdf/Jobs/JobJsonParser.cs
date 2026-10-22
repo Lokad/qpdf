@@ -2375,7 +2375,7 @@ internal static class JobJsonParser
 
         if (text is null || text.Length == 0 || text.Length > 10)
         {
-            throw new QpdfParseException("Job " + (char)34 + "parserMaxNesting" + (char)34 + " must be a non-negative nesting depth within 499.", 0L, null);
+            throw new QpdfParseException("Job " + (char)34 + "parserMaxNesting" + (char)34 + " must be a nesting depth within 1..499.", 0L, null);
         }
 
         long depth = 0L;
@@ -2383,15 +2383,15 @@ internal static class JobJsonParser
         {
             if (digit < (char)48 || digit > (char)57)
             {
-                throw new QpdfParseException("Job " + (char)34 + "parserMaxNesting" + (char)34 + " must be a non-negative nesting depth within 499.", 0L, null);
+                throw new QpdfParseException("Job " + (char)34 + "parserMaxNesting" + (char)34 + " must be a nesting depth within 1..499.", 0L, null);
             }
 
             depth = checked(depth * 10L + (digit - (char)48));
         }
 
-        if (depth > QpdfLimits.ParserNestingCeiling)
+        if (depth < 1L || depth > QpdfLimits.ParserNestingCeiling)
         {
-            throw new QpdfParseException("Job " + (char)34 + "parserMaxNesting" + (char)34 + " must be a non-negative nesting depth within 499.", 0L, null);
+            throw new QpdfParseException("Job " + (char)34 + "parserMaxNesting" + (char)34 + " must be a nesting depth within 1..499.", 0L, null);
         }
 
         return depth;
