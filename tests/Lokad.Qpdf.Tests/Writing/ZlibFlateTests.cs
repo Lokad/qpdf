@@ -88,7 +88,7 @@ public sealed class ZlibFlateTests
     {
         byte[] raw = BinaryPayload();
         InMemoryQpdfHost host = HostWith("inputs/a.bin", await CompressAsync(raw, null));
-        QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = raw.Length };
+        QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = raw.Length, MaxOpenHandles = 1L };
         QpdfExecutionResult result = await Qpdf.RunZlibFlateAsync(host, QpdfPath.From("inputs/a.bin"),
             QpdfPath.From("outputs/b.bin"), new QpdfZlibFlateOptions(QpdfZlibFlateMode.Uncompress, null),
             limits, CancellationToken.None);
@@ -96,6 +96,8 @@ public sealed class ZlibFlateTests
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/b.bin"), out byte[] output));
         Assert.Equal(raw, output);
         Assert.Equal(raw.Length, result.Counters.TotalDecodedBytes);
+        Assert.Equal(0L, result.Counters.OpenHandles);
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Fact]

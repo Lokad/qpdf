@@ -246,7 +246,7 @@ internal static class JobJsonLoader
         {
             long total = CheckedDocumentTotal(bytes);
             // Covers encoded storage, DOM/token tables, names and property sorting
-            // before allocation. BCL pool retention remains part of the A06 audit.
+            // before allocation. This coarse estimate does not bound BCL pool retention.
             long reservation = checked(bytes * 32L + 4096L);
             long copies = ConfigurationText.JsonCopyBytes(bytes);
             ReserveDocument(reservation - copies);

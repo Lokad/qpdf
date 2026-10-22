@@ -5926,7 +5926,7 @@ public static partial class Qpdf
             try
             {
                 using ParserMemoryScope working = ParserMemoryScope.Create(governor);
-                await using IQpdfInput input = await GovernedHost.OpenInputAsync(host, inputPath, governor, cancellationToken).ConfigureAwait(false);
+                IQpdfInput input = await GovernedHost.OpenInputAsync(host, inputPath, governor, cancellationToken).ConfigureAwait(false);
                 byte[] bytes;
                 try
                 {
@@ -6049,7 +6049,7 @@ public static partial class Qpdf
             try
             {
                 using ParserMemoryScope working = ParserMemoryScope.Create(governor);
-                await using IQpdfInput input = await GovernedHost.OpenInputAsync(host, inputPath, governor, cancellationToken).ConfigureAwait(false);
+                IQpdfInput input = await GovernedHost.OpenInputAsync(host, inputPath, governor, cancellationToken).ConfigureAwait(false);
                 byte[] bytes;
                 try
                 {

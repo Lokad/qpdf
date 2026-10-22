@@ -1,8 +1,8 @@
 namespace Lokad.Qpdf.Runtime;
 
 // Shared cores return values to both command and typed routes. Only a public
-// typed boundary creates a heap wrapper from its prepaid capacity. Backing
-// arrays, mappings, diagnostics and versions retain their separate audit scope.
+// typed boundary creates a heap wrapper from its admitted capacity. Outcomes
+// borrow backing collections and diagnostics from their existing storage owners.
 internal readonly record struct PageSelectionOutcome(int SourcePageCount, IReadOnlyList<int> SourcePages,
     int PageCount, IReadOnlyList<QpdfDiagnostic> Warnings)
 {

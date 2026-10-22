@@ -306,7 +306,8 @@ public sealed class FixQdfTests
         Assert.Equal(QpdfExitCode.Success, emit.ExitCode);
         byte[] edited = ReplaceFirst(qdf, "(Hello)", "(HelloHello)");
         InMemoryQpdfHost fixHost = HostWith("inputs/a.pdf", edited);
-        QpdfExecutionResult result = await Qpdf.FixQdfAsync(fixHost, QpdfPath.From("inputs/a.pdf"), QpdfPath.From("inputs/a.pdf"), CancellationToken.None);
+        QpdfExecutionResult result = await Qpdf.FixQdfAsync(fixHost, QpdfPath.From("inputs/a.pdf"), QpdfPath.From("inputs/a.pdf"),
+            QpdfLimits.Default with { MaxOpenHandles = 1L }, CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
         Assert.True(fixHost.TryGetOutput(QpdfPath.From("inputs/a.pdf"), out byte[] repaired));
         byte[] contents = await ReadContentsAsync(repaired);

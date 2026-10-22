@@ -380,6 +380,7 @@ echoing values.
 
 - `--qdf` emits the editable QDF view (per-object comments, uncompressed streams with indirect lengths, classic or object-stream layouts) with `--no-original-object-ids` suppressing original-ID comments;
   QDF implies generalized decoding with content normalization unless overridden. `FixQdfAsync` repairs edited QDF (stream lengths, object-stream tables, cross references, startxref offsets) and `RunZlibFlateAsync` compresses or uncompresses zlib bytes between host paths.
+  Both companions close their input before creating output staging; read or input-close failures publish nothing.
 - `--linearize` emits web-optimized output through a two-pass writer with generated page-offset, shared-object, and outline hint tables (hints Flate-encode under stream compression) and optional generated object streams;
   `--linearize-pass1` captures the counting pass while `--check-linearization` and `--show-linearization` inspect through the shared engine. QDF stays disabled over linearization.
 

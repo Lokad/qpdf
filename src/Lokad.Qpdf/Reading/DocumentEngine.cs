@@ -581,11 +581,9 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
                 throw new QpdfParseException($"Object {streamNumber} must declare /Type /ObjStm.", null, streamNumber);
             }
 
-            // the header pairs carried by this stream, matched against the
-            // cross-reference table, matching the pinned reference, whose reader
-            // matching the pinned reference, whose reader carries no Extends handling
-            // (even a self-reference like the objstm-extends.pdf fixture resolves).
-            // The key itself stays opaque data for the copy engine to preserve.
+            // Members come from this stream's header pairs, matched against the
+            // cross-reference table. /Extends remains opaque data for copying;
+            // it is not followed when reading members, matching the pinned reader.
 
             int count = ReadObjStmInt(dictionary, "N"u8, "N", 1, streamNumber);
             int first = ReadObjStmInt(dictionary, "First"u8, "First", 0, streamNumber);
