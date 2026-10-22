@@ -168,7 +168,6 @@ public sealed class JpegCodecBoundaryTests
             Context = context; Reservation = context.ReserveMemory(65536L);
             if (failure == "exception") { throw new InvalidOperationException("private codec detail"); }
             if (failure == "oom") { throw new OutOfMemoryException("injected allocation failure"); }
-            if (failure == "work") { }
             if (failure == "cancel") { cancellation?.Cancel(); context.CheckCancellation(); }
             // Deliberately leave the reservation outstanding to exercise scope cleanup.
         }

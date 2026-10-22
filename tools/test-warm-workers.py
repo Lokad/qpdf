@@ -62,7 +62,8 @@ class WorkerOwnershipTests(unittest.TestCase):
         worker = self.worker("import time; time.sleep(60)")
         real_wait = worker.process.wait
         def short_wait(*args, **kwargs):
-            kwargs["timeout"] = 0.1
+            if "timeout" in kwargs:
+                kwargs["timeout"] = 0.1
             return real_wait(*args, **kwargs)
         with patch.object(worker.process, "wait", side_effect=short_wait):
             with self.assertRaises(subprocess.TimeoutExpired):

@@ -68,7 +68,7 @@ public sealed class FormNameLookupTests
     [InlineData("wrong-title-type", true)]
     [InlineData("null", false)]
     [InlineData("missing", false)]
-    public void FieldClassificationPreservesNonNullTruthAndShortCircuitOrder(string shape, bool expected)
+    public void FieldClassificationPreservesNonNullTruth(string shape, bool expected)
     {
         Dictionary<PdfName, QpdfObject> entries = new();
         if (shape == "title") { entries.Add(PdfName.FromAscii("T"), new PdfByteString([], false)); }
@@ -79,7 +79,6 @@ public sealed class FormNameLookupTests
         PdfDictionary dictionary = new(entries); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         Assert.Equal(expected, Field(dictionary, governor, CancellationToken.None)); Assert.Equal(entries.Count, dictionary.Count);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        if (shape is "title" or "wrong-title-type") { }
     }
 
     private static PdfDictionary Wide(bool found, bool widget)
