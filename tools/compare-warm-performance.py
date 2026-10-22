@@ -1,5 +1,6 @@
 """Sequential warmed complete-job comparison; select one workload for short probes."""
 import argparse
+from contextlib import ExitStack
 import importlib.util
 import json
 import os
@@ -8,6 +9,7 @@ import shutil
 import select
 import statistics
 import subprocess
+import sys
 import time
 
 spec = importlib.util.spec_from_file_location("linux_comparison", Path(__file__).with_name("compare-linux-performance.py"))
@@ -20,8 +22,23 @@ PIN, commands, fingerprints, output_identity, run, sha, validate = (
 class Worker:
     def __init__(self, command, cwd, log):
         self.log = log.open("wb")
-        self.process = subprocess.Popen(command, cwd=cwd, stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE, stderr=self.log, text=True, bufsize=1)
+        try:
+            self.process = subprocess.Popen(command, cwd=cwd, stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE, stderr=self.log, text=True, bufsize=1)
+        except BaseException:
+            self.log.close()
+            raise
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exception_type, exception, traceback):
+        try:
+            self.close()
+        except Exception as error:
+            if exception is None:
+                raise
+            print("Warm worker cleanup also failed: " + str(error), file=sys.stderr)
 
     def job(self, arguments):
         if any("\n" in a or "\r" in a for a in arguments):
@@ -42,14 +59,19 @@ class Worker:
         return sample
 
     def close(self):
-        try:
-            self.process.stdin.close()
-        except BrokenPipeError:
-            pass
-        self.process.wait(timeout=15)
-        self.log.close()
-        if self.process.returncode:
-            raise RuntimeError("Worker exited " + str(self.process.returncode))
+        with self.log, self.process.stdout:
+            try:
+                try:
+                    self.process.stdin.close()
+                except BrokenPipeError:
+                    pass
+                self.process.wait(timeout=15)
+                if self.process.returncode:
+                    raise RuntimeError("Worker exited " + str(self.process.returncode))
+            finally:
+                if self.process.poll() is None:
+                    self.process.kill()
+                    self.process.wait()
 
 
 def describe(values):
@@ -192,10 +214,7 @@ def main():
             shutil.copyfile(root / "inputs" / name, workload_inputs / name)
             if sha(workload_inputs / name) != inputs[name]["sha256"]:
                 raise ValueError("Workload input differs from original")
-        workers = {"managed": Worker([str(dotnet), str(probe), "warm"], workload_root, root / (case["Name"] + "-managed.log")),
-            "native": Worker([str(driver)], workload_root, root / (case["Name"] + "-native.log"))}
-        if args.baseline_probe:
-            workers["baseline"] = Worker([str(dotnet), str(args.baseline_probe.resolve()), "warm"], workload_root, root / (case["Name"] + "-baseline.log"))
+        workers = {}
         identities = {}
         counter = 0
 
@@ -248,52 +267,57 @@ def main():
             shutil.rmtree(directory.parent)
             return sample
 
-        try:
-            for engine in workers:
-                job(engine, "validation", -1)
-            for name in case["Inputs"]:
-                (workload_inputs / name).read_bytes()
-            warmups[case["Name"]] = {engine: warm_up(
-                lambda: job(engine, "warmup", -1), args.warmup_seconds, engine != "native")
-                for engine in workers}
-            batches = {e: [] for e in workers}
-            for repetition in range(args.samples):
-                order = list(workers)
-                if repetition % 2 != 0:
-                    order.reverse()
-                for engine in order:
-                    elapsed, count = 0, 0
-                    while count < 3 or elapsed < args.sample_seconds * 1000:
-                        sample = job(engine, "measurement", repetition)
-                        elapsed += sample["elapsedMilliseconds"]
-                        count += 1
-                    batches[engine].append(elapsed / count)
+        with ExitStack() as owned:
+            try:
+                workers["managed"] = owned.enter_context(Worker([str(dotnet), str(probe), "warm"],
+                    workload_root, root / (case["Name"] + "-managed.log")))
+                workers["native"] = owned.enter_context(Worker([str(driver)],
+                    workload_root, root / (case["Name"] + "-native.log")))
+                if args.baseline_probe:
+                    workers["baseline"] = owned.enter_context(Worker([str(dotnet), str(args.baseline_probe.resolve()), "warm"],
+                        workload_root, root / (case["Name"] + "-baseline.log")))
+                for engine in workers:
+                    job(engine, "validation", -1)
+                for name in case["Inputs"]:
+                    (workload_inputs / name).read_bytes()
+                warmups[case["Name"]] = {engine: warm_up(
+                    lambda: job(engine, "warmup", -1), args.warmup_seconds, engine != "native")
+                    for engine in workers}
+                batches = {e: [] for e in workers}
+                for repetition in range(args.samples):
+                    order = list(workers)
+                    if repetition % 2 != 0:
+                        order.reverse()
+                    for engine in order:
+                        elapsed, count = 0, 0
+                        while count < 3 or elapsed < args.sample_seconds * 1000:
+                            sample = job(engine, "measurement", repetition)
+                            elapsed += sample["elapsedMilliseconds"]
+                            count += 1
+                        batches[engine].append(elapsed / count)
+                    (root / "samples.json").write_text(json.dumps(records, indent=2) + "\n")
+                summaries[case["Name"]] = {e: {"milliseconds": describe(batches[e]),
+                    "processPeakRssKiB": max(r["processPeakRssKiB"] for r in records if r["workload"] == case["Name"] and r["engine"] == e),
+                    "outputBytes": sum(v["bytes"] for v in identities[e].values())} for e in workers}
+                for engine in workers:
+                    summaries[case["Name"]][engine]["outputs"] = identities[engine]
+                    if engine != "native":
+                        last = next(r for r in reversed(records) if r["workload"] == case["Name"] and r["engine"] == engine)
+                        ready = warmups[case["Name"]][engine]
+                        summaries[case["Name"]][engine]["jitCompiledMethodsAfterWarmup"] = last["jitCompiledMethods"] - ready["jitCompiledMethods"]
+                        summaries[case["Name"]][engine]["jitCompilationMillisecondsAfterWarmup"] = last["jitCompilationMilliseconds"] - ready["jitCompilationMilliseconds"]
+                summaries[case["Name"]]["ratio"] = summaries[case["Name"]]["managed"]["milliseconds"]["median"] / summaries[case["Name"]]["native"]["milliseconds"]["median"]
+                if args.baseline_probe:
+                    summaries[case["Name"]]["improvementPercent"] = 100 * (1 - summaries[case["Name"]]["managed"]["milliseconds"]["median"] / summaries[case["Name"]]["baseline"]["milliseconds"]["median"])
+                print(case["Name"], json.dumps(summaries[case["Name"]]), flush=True)
+                if args.input_read_diagnostic:
+                    name = case["Inputs"][0]
+                    components["input-read"] = measure_input_read(workers["managed"], workload_inputs / name,
+                        inputs[name]["sha256"], args.warmup_seconds)
+                    print("input-read", json.dumps(components["input-read"]["summary"]), flush=True)
+            finally:
+                # Keep validation/warmup observations too if readiness or execution fails.
                 (root / "samples.json").write_text(json.dumps(records, indent=2) + "\n")
-            summaries[case["Name"]] = {e: {"milliseconds": describe(batches[e]),
-                "processPeakRssKiB": max(r["processPeakRssKiB"] for r in records if r["workload"] == case["Name"] and r["engine"] == e),
-                "outputBytes": sum(v["bytes"] for v in identities[e].values())} for e in workers}
-            for engine in workers:
-                summaries[case["Name"]][engine]["outputs"] = identities[engine]
-                if engine != "native":
-                    last = next(r for r in reversed(records) if r["workload"] == case["Name"] and r["engine"] == engine)
-                    ready = warmups[case["Name"]][engine]
-                    summaries[case["Name"]][engine]["jitCompiledMethodsAfterWarmup"] = last["jitCompiledMethods"] - ready["jitCompiledMethods"]
-                    summaries[case["Name"]][engine]["jitCompilationMillisecondsAfterWarmup"] = last["jitCompilationMilliseconds"] - ready["jitCompilationMilliseconds"]
-            summaries[case["Name"]]["ratio"] = summaries[case["Name"]]["managed"]["milliseconds"]["median"] / summaries[case["Name"]]["native"]["milliseconds"]["median"]
-            if args.baseline_probe:
-                summaries[case["Name"]]["improvementPercent"] = 100 * (1 - summaries[case["Name"]]["managed"]["milliseconds"]["median"] / summaries[case["Name"]]["baseline"]["milliseconds"]["median"])
-            print(case["Name"], json.dumps(summaries[case["Name"]]), flush=True)
-            if args.input_read_diagnostic:
-                name = case["Inputs"][0]
-                components["input-read"] = measure_input_read(workers["managed"], workload_inputs / name,
-                    inputs[name]["sha256"], args.warmup_seconds)
-                print("input-read", json.dumps(components["input-read"]["summary"]), flush=True)
-        finally:
-            # Keep validation/warmup observations too if readiness or execution fails.
-            (root / "samples.json").write_text(json.dumps(records, indent=2) + "\n")
-            for worker in workers.values():
-                worker.close()
-        (root / "samples.json").write_text(json.dumps(records, indent=2) + "\n")
     for name, identity in inputs.items():
         if sha(root / "inputs" / name) != identity["sha256"]:
             raise ValueError("Input changed")

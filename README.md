@@ -86,8 +86,9 @@ The package is written to `artifacts/nuget`. Ordinary builds and tests require n
 native qpdf or other external PDF tools. Contributor checks are listed in
 [AGENTS.md](AGENTS.md); reference checks use [the pinned-tool verifier](tools/bootstrap-qpdf.ps1).
 CI also runs cold/batch probe, protocol and raster self-tests, oracle version and
-timeout cleanup controls, and deterministic warmup-readiness tests. These use a
-small test executable, require no native PDF tools and measure no performance.
+timeout cleanup controls, deterministic warmup-readiness tests and benchmark worker
+cleanup tests. These use small controlled executables and Python children,
+require no native PDF tools and measure no performance.
 
 - [Compatibility](docs/COMPATIBILITY.md): supported operations and caller-facing differences.
 - [Benchmarks](docs/BENCHMARKS.md): dated measurements, methodology and allocation/admission tools.

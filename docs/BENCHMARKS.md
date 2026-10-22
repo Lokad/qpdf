@@ -70,6 +70,12 @@ fresh file inputs/outputs. After ≥30 jobs/two seconds of warmup, seven alterna
 batches/engine each run ≥350 ms/three jobs. Managed warmup also waits for two seconds
 of quiet JIT counters, boundedly. Use an idle host; retain all samples and later JIT.
 
+Worker startup and teardown stay outside job timing. Shutdown sends input EOF;
+a worker still running after 15 seconds is killed and awaited. Failed startup or
+cleanup still closes every owned worker and its streams, retaining stderr logs.
+Cleanup failures report separately on stderr when another exception is already
+active. CI exercises these paths with controlled Python children.
+
 Timing includes input acquisition, parsing, transformation, staging, publication,
 defensive export and file writes. Startup, protocol, validation and temporary-file
 deletion are excluded. No parsed cache, forced GC, fsync or library parallelism is
