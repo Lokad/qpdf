@@ -214,6 +214,14 @@ page batch; traversal sets have a phase owner. Content collection borrows origin
 stream references and admits its known metadata capacity once. Checking and
 rotation share that collector. Temporary matrices and formatting storage refund
 after consumption, while rewritten stream headers borrow existing payloads.
+Rotated appearance headers use a page-local admitted identity memo. Copies share
+the original payload bytes, and annotations on the same page share the copied
+stream. Other pages keep their original appearance headers. AP/state dictionaries
+and reference metadata receive admission; indirect containers stay indirect.
+The memo refunds after each page.
+The existing orphan-removal path drops obsolete AP/state/stream objects in at
+most three pool scans per copier, after all pages finish. Live aliases and
+explicit unreferenced-object preservation keep their originals.
 JSON's array lookup inspects an admitted tokenizer header before ordinary array
 loading; reporting an uncompressed stream reference does not copy its payload.
 Appearance generation borrows annotation arrays for indirect widgets, admits

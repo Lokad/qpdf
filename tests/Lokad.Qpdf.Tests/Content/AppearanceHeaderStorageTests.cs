@@ -105,22 +105,26 @@ public sealed class AppearanceHeaderStorageTests
     }
 
     [Fact]
-    public void MatrixRewriteBorrowsSharedPayloadAndRunsOnce()
+    public void PageLocalAppearanceCopiesBorrowPayloadAndShareWithinPage()
     {
         PdfStream source = PdfStream.FromOwnedData(new(new Dictionary<PdfName, QpdfObject>()), new byte[8 * 1024 * 1024]);
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 8192L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         using DocumentEngine engine = Engine(); using ParserMemoryScope copierMemory = ParserMemoryScope.Create(governor);
         GraphCopier copier = GraphCopier.CreateOwned(engine, governor, limits, 1, copierMemory);
-        PdfReference link = copier.AddIndirectObjectWithId(source, 1); PoolResolver resolver = new(copier.CopiedObjects);
+        PdfReference link = copier.AddIndirectObjectWithId(source, 1);
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
-        HashSet<int> visited = ParserContainers.CreateSet<int>(traversal);
-        FlattenRotation.RotateAppearanceTarget(copier, link, resolver, [1, 0, 0, 1, 0, 0], visited, traversal, governor, CancellationToken.None);
-        PdfStream replacement = Assert.IsType<PdfStream>(copier.CopiedObjects[1]);
+        Dictionary<int, PdfReference> copies = ParserContainers.CreateDictionary<int, PdfReference>(traversal);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
+        int allocator = 2;
+        PdfReference copy = FlattenRotation.CopyRotatedAppearance(copier, link, [0, -1, 1, 0, 0, 612], copies, traversal, graph, ref allocator);
+        PdfStream replacement = Assert.IsType<PdfStream>(copier.CopiedObjects[copy.ObjectNumber]);
+        Assert.Same(source, copier.CopiedObjects[1]); Assert.NotEqual(link, copy);
         Assert.Same(source.AllocationCarrier, replacement.AllocationCarrier);
         long live = governor.Snapshot().LiveMemoryBytes;
-        FlattenRotation.RotateAppearanceTarget(copier, link, resolver, [1, 0, 0, 1, 0, 0], visited, traversal, governor, CancellationToken.None);
-        Assert.Same(replacement, copier.CopiedObjects[1]); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(copy, FlattenRotation.CopyRotatedAppearance(copier, link, [0, -1, 1, 0, 0, 612], copies, traversal, graph, ref allocator));
+        Assert.Same(replacement, copier.CopiedObjects[copy.ObjectNumber]); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(3, allocator); graph.Retain();
     }
 
     [Theory]
@@ -141,8 +145,9 @@ public sealed class AppearanceHeaderStorageTests
             if (rotation)
             {
                 using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
-                HashSet<int> visited = ParserContainers.CreateSet<int>(traversal);
-                FlattenRotation.RotateAppearanceTarget(copier, link, new(copier.CopiedObjects), [1, 0, 0, 1, 0, 0], visited, traversal, governor, CancellationToken.None);
+                Dictionary<int, PdfReference> copies = ParserContainers.CreateDictionary<int, PdfReference>(traversal);
+                using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
+                FlattenRotation.CopyRotatedAppearance(copier, link, [1, 0, 0, 1, 0, 0], copies, traversal, graph, ref allocator);
             }
             else { FlattenAnnotations.EnsureAppearanceObject(copier, source, link, governor, CancellationToken.None, ref allocator); }
         });

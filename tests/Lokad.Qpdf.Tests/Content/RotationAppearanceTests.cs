@@ -7,6 +7,77 @@ namespace Lokad.Qpdf.Tests.Content;
 public sealed class RotationAppearanceTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ObsoleteAppearanceChainsOnlyRemainWhenPreservationIsRequested(bool preserve)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), Fixture("states", true), QpdfInputOwnership.Transfer);
+        List<string> arguments = ["input", "--flatten-rotation", "--stream-data=uncompress"];
+        if (preserve) { arguments.Add("--preserve-unreferenced"); }
+        arguments.Add("output");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new(arguments), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output));
+        // A unique appearance payload must not be serialized again merely
+        // because its original AP/state containers remained in the copied pool.
+        string text = System.Text.Encoding.ASCII.GetString(output);
+        Assert.Equal(preserve ? 2 : 1, text.Split("q Q", StringSplitOptions.None).Length - 1);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData(0, "argv")]
+    [InlineData(0, "selection")]
+    [InlineData(0, "job")]
+    [InlineData(270, "argv")]
+    [InlineData(270, "selection")]
+    [InlineData(270, "job")]
+    public async Task SharedAppearancesStayLocalToTheirPageAndKeepFieldIdentities(int secondAngle, string route)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), SharedFixture(secondAngle), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = await Run(host, route, CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output));
+        host.AddInput(QpdfPath.From("again"), output, QpdfInputOwnership.Transfer);
+        PdfStream first, second;
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("again"), CancellationToken.None))
+        {
+            first = Appearance(document, 0, 0); second = Appearance(document, 1, 0);
+            Assert.Same(first, Appearance(document, 0, 1)); Assert.NotSame(first, second);
+            PdfArray annots = Assert.IsType<PdfArray>(Value(document.PageReferences[0].Page, "Annots"));
+            PdfDictionary widget = Assert.IsType<PdfDictionary>(Resolve(document, annots[0]));
+            PdfDictionary reply = Assert.IsType<PdfDictionary>(Resolve(document, annots[1]));
+            Assert.Equal(annots[0], Value(reply, "IRT"));
+            PdfDictionary ap = Assert.IsType<PdfDictionary>(Resolve(document, Value(widget, "AP")));
+            Assert.Same(first, Resolve(document, Value(ap, "D")));
+            PdfDictionary catalog = Assert.IsType<PdfDictionary>(Resolve(document, Value(document.Engine.Trailer, "Root")));
+            PdfDictionary form = Assert.IsType<PdfDictionary>(Resolve(document, Value(catalog, "AcroForm")));
+            PdfArray fields = Assert.IsType<PdfArray>(Resolve(document, Value(form, "Fields")));
+            Assert.Contains(annots[0], fields.Items);
+        }
+        host.Dispose();
+        Assert.Equal(new double[] { 0, -1, 1, 0, 0, 612 }, Matrix(first));
+        if (secondAngle == 0) { Assert.False(second.Dictionary.TryGet(PdfName.FromAscii("Matrix"), out _)); }
+        else { Assert.Equal(new double[] { 0, 1, -1, 0, 792, 0 }, Matrix(second)); }
+        Assert.Equal("q Q"u8.ToArray(), first.Data); Assert.Equal(first.Data, second.Data);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    internal static byte[] SharedFixture(int secondAngle) => CheckTests.Assemble([
+        (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R 6 0 R] >> >>", null),
+        (2, "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>", null),
+        (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Rotate 90 /Annots [5 0 R 8 0 R] >>", null),
+        (4, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Rotate " + secondAngle + " /Annots [6 0 R] >>", null),
+        (5, "<< /Subtype /Widget /FT /Btn /T (first) /V /On /AS /On /Rect [10 20 50 40] /AP 9 0 R >>", null),
+        (6, "<< /Subtype /Widget /FT /Btn /T (second) /V /On /AS /On /Rect [10 20 50 40] /AP 9 0 R >>", null),
+        (7, "<< /Type /XObject /Subtype /Form /BBox [0 0 20 10] /Length 3 >>", "q Q"u8.ToArray()),
+        (8, "<< /Subtype /Stamp /Rect [20 30 60 50] /IRT 5 0 R /AP << /N 7 0 R >> >>", null),
+        (9, "<< /N 10 0 R /D 7 0 R >>", null),
+        (10, "<< /On 7 0 R /Off 7 0 R >>", null)], 1);
+
+    [Theory]
     [InlineData("states", "argv")]
     [InlineData("states", "selection")]
     [InlineData("states", "job")]
@@ -29,7 +100,18 @@ public sealed class RotationAppearanceTests
             host.AddInput(QpdfPath.From("again"), output, QpdfInputOwnership.Transfer);
             PdfStream escaped;
             await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("again"), CancellationToken.None))
-            { escaped = Appearance(document, 0, 0); }
+            {
+                escaped = Appearance(document, 0, 0);
+                PdfArray annots = Assert.IsType<PdfArray>(Value(document.PageReferences[0].Page, "Annots"));
+                PdfDictionary annot = Assert.IsType<PdfDictionary>(Resolve(document, annots[0]));
+                QpdfObject ap = Value(annot, "AP");
+                Assert.Equal(indirect, ap is PdfReference);
+                if (mode == "states")
+                {
+                    QpdfObject normal = Value(Assert.IsType<PdfDictionary>(Resolve(document, ap)), "N");
+                    Assert.Equal(indirect, normal is PdfReference);
+                }
+            }
             host.Dispose();
             Assert.Equal(expected, Matrix(escaped));
             Assert.Equal("q Q"u8.ToArray(), escaped.Data);

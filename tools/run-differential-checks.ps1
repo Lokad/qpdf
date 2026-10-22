@@ -392,6 +392,46 @@ foreach ($pair in @(('lib-ap', "$case/lib-ap.pdf"), ('ora-ap', "$case/ora-ap.pdf
 }
 Write-Output "[flatten-rotation-ap] appearance assertions done"
 
+# Appearance semantics must survive legal indirection and page-local aliases.
+function Get-RotationSemantics([string] $File) {
+  $inspection = & $QpdfExe --json --json-key=qpdf --json-key=pages $File
+  if ($LASTEXITCODE -ne 0) { throw "Rotation inspection failed: $File" }
+  $inspection | Set-Content -LiteralPath ($File + '.json') -Encoding utf8NoBOM
+  $document = ($inspection -join "`n") | ConvertFrom-Json -Depth 30
+  $objects = $document.qpdf[1]
+  function Resolve-RotationValue($Value) {
+    if ($Value -is [string] -and $Value -match '^\d+ \d+ R$') {
+      $object = $objects.PSObject.Properties["obj:$Value"].Value
+      if ($object.PSObject.Properties['value']) { return $object.value }
+      return $object
+    }
+    return $Value
+  }
+  $rows = @($document.pages | ForEach-Object {
+    $page = Resolve-RotationValue $_.object
+    $annots = @(Resolve-RotationValue $page.'/Annots')
+    $annot = Resolve-RotationValue $annots[0]
+    $ap = Resolve-RotationValue $annot.'/AP'
+    $normal = Resolve-RotationValue $ap.'/N'
+    if (-not $normal.PSObject.Properties['stream']) { $normal = Resolve-RotationValue $normal.'/On' }
+    [pscustomobject]@{ Media = $page.'/MediaBox'; Rotate = $page.'/Rotate'; Rect = $annot.'/Rect'; Matrix = $normal.stream.dict.'/Matrix' }
+  })
+  return ConvertTo-Json -InputObject $rows -Depth 10 -Compress
+}
+foreach ($name in @('rotation-indirect-states', 'rotation-indirect-matrix', 'rotation-shared-90-0', 'rotation-shared-90-270')) {
+  $case = New-Case $name
+  Copy-Item -LiteralPath "$fixtureDir/$name.pdf" -Destination "$case/inputs/a.pdf"
+  $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--flatten-rotation', 'outputs/a.pdf')
+  if ($code -ne 0) { throw "$name managed flattening failed ($code)" }
+  $code = Invoke-Oracle $case @('inputs/a.pdf', '--flatten-rotation', "$case/ora.pdf")
+  if ($code -ne 0) { throw "$name oracle flattening failed ($code)" }
+  Assert-Trio $name "$case/lib.pdf" "$case/ora.pdf" $(if ($name -like 'rotation-shared-*') { 2 } else { 1 })
+  $managed = Get-RotationSemantics "$case/lib.pdf"
+  $native = Get-RotationSemantics "$case/ora.pdf"
+  if ($managed -ne $native) { throw "$name appearance geometry mismatch: managed=$managed native=$native" }
+  Write-Output "[$name] page and appearance transforms agree"
+}
+
 # --- case: prune (page-operation resource pruning) ---
 $case = New-Case 'prune'
 Copy-Item "$fixtureDir/unref-1page.pdf" "$case/inputs/u.pdf"

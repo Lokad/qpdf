@@ -438,7 +438,7 @@ public static partial class Qpdf
                     }
                     if (settings.FlattenRotation)
                     {
-                        flattenAllocator = Content.FlattenRotation.Apply(occurrences, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, flattenAllocator);
+                        flattenAllocator = Content.FlattenRotation.Apply(occurrences, singleCompress, singleLevel, settings.PreserveUnreferenced, limits, governor, diagnostics, cancellationToken, flattenAllocator);
                     }
                     if (settings.Optimize.Optimize)
                     {
@@ -1181,7 +1181,7 @@ public static partial class Qpdf
 
         if (settings.FlattenRotation)
         {
-            nextId = Content.FlattenRotation.Apply(occurrences, multiCompress, multiLevel, limits, governor, diagnostics, cancellationToken, multiFlattenAllocator);
+            nextId = Content.FlattenRotation.Apply(occurrences, multiCompress, multiLevel, settings.PreserveUnreferenced, limits, governor, diagnostics, cancellationToken, multiFlattenAllocator);
         }
         if (settings.Optimize.Optimize)
         {

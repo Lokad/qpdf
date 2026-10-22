@@ -35,6 +35,7 @@ public sealed class AnnotationPublicationTests
     {
         InMemoryQpdfHost host = new();
         byte[] input = mode.StartsWith("attachment", StringComparison.Ordinal) ? File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "minimal-1page.pdf"))
+            : mode.StartsWith("rotation", StringComparison.Ordinal) ? RotationAppearanceTests.SharedFixture(270)
             : mode.StartsWith("os-", StringComparison.Ordinal) ? ObjectStreamPlanningTests.Fixture(mode.Contains("qdf", StringComparison.Ordinal) ? 16 : 201)
             : mode.StartsWith("generate-text", StringComparison.Ordinal)
             ? AppearanceProgramTests.Fixture(new string(' ', 32768) + "/Tx BMC\n0 0 10 10 re f EMC", "", "/DA (/Helv 17 Tf)", "")
@@ -71,7 +72,8 @@ public sealed class AnnotationPublicationTests
     }
 
     private static ValueTask<QpdfExecutionResult> Run(Host host, string mode, CancellationToken token)
-        => mode == "attachment-copy-job" ? Qpdf.ExecuteJobAsync(host,
+        => mode.StartsWith("rotation", StringComparison.Ordinal) ? RotationAppearanceTests.Run(host, mode == "rotation-job" ? "job" : "argv", token)
+            : mode == "attachment-copy-job" ? Qpdf.ExecuteJobAsync(host,
             """{"inputFile":"input","outputFile":"output","copyAttachmentsFrom":[{"file":"source","prefix":"copy-"}]}""", token)
             : mode == "attachment-copy" ? Qpdf.ExecuteAsync(host, new(["input", "--copy-attachments-from", "source", "--prefix=copy-", "--", "output"]), token)
             : mode == "attachment-job" ? Qpdf.ExecuteJobAsync(host, System.Text.Json.JsonSerializer.Serialize(new
@@ -156,6 +158,8 @@ public sealed class AnnotationPublicationTests
     [InlineData("generate-job")]
     [InlineData("generate-text")]
     [InlineData("generate-text-job")]
+    [InlineData("rotation")]
+    [InlineData("rotation-job")]
     public async Task EverySharedGrowthCanRefuseWithoutPublishing(string mode)
     {
         int growths;
@@ -382,6 +386,16 @@ public sealed class AnnotationPublicationTests
     [InlineData("commit", "attachment-copy-job")]
     [InlineData("cancel", "attachment-copy-job")]
     [InlineData("close", "attachment-copy-job")]
+    [InlineData("create", "rotation")]
+    [InlineData("write", "rotation")]
+    [InlineData("commit", "rotation")]
+    [InlineData("cancel", "rotation")]
+    [InlineData("close", "rotation")]
+    [InlineData("create", "rotation-job")]
+    [InlineData("write", "rotation-job")]
+    [InlineData("commit", "rotation-job")]
+    [InlineData("cancel", "rotation-job")]
+    [InlineData("close", "rotation-job")]
     public async Task OutputFaultsRefundOwnersAndRespectCommit(string phase, string mode)
     {
         using InMemoryQpdfHost storage = await Storage(mode);

@@ -93,7 +93,7 @@ public sealed class RotationContentTests
         copier.AddIndirectObjectWithId(page, 1); copier.AddIndirectObjectWithId(new PdfStream(new(new Dictionary<PdfName, QpdfObject>()), "q"u8.ToArray()), 2);
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = annotations ? 16384 : 8192 }, CancellationToken.None);
         long allocated = GC.GetAllocatedBytesForCurrentThread();
-        void Run() => FlattenRotation.Apply([(copier, 1)], false, null, QpdfLimits.Default, governor, new(governor), canceled ? new CancellationToken(true) : CancellationToken.None, 3);
+        void Run() => FlattenRotation.Apply([(copier, 1)], false, null, false, QpdfLimits.Default, governor, new(governor), canceled ? new CancellationToken(true) : CancellationToken.None, 3);
         if (canceled) { Assert.ThrowsAny<OperationCanceledException>(Run); } else { Assert.Throws<QpdfLimitException>(Run); }
         Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 131072L);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Same(page, copier.CopiedObjects[1]); Assert.Equal(262144, large.Count);

@@ -3067,10 +3067,13 @@
           "FlattenRotationTests.AppearanceMatricesMatchAngle",
           "FlattenRotationTests.DirectStreamAppearanceStaysUntouched",
           "FlattenRotationTests.DirectUserUnitSurvivesRotation",
-          "FlattenRotationTests.MarkupAppearanceRotates"
+          "FlattenRotationTests.MarkupAppearanceRotates",
+          "RotationAppearanceTests.DirectAndIndirectAppearanceValuesAreEquivalent",
+          "RotationAppearanceTests.SharedAppearancesStayLocalToTheirPageAndKeepFieldIdentities"
         ],
         "negative": [
-          "FlattenRotationTests.MalformedFlattenFlagsFail"
+          "FlattenRotationTests.MalformedFlattenFlagsFail",
+          "RotationAppearanceTests.DamagedAppearanceReferencesStayBounded"
         ],
         "interaction": [
           "FlattenRotationTests.JobRoundTripMatchesArgv"

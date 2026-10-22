@@ -10,6 +10,13 @@ Other required compatibility mismatches need a correction or an explicit scope d
 Rotation flattening resolves indirect appearance-state dictionaries, matrices
 and their numeric entries before transformation. Equivalent direct and indirect
 values now produce the same appearance; public signatures are unchanged.
+Rotation flattening copies appearance headers per transformed page, borrowing
+immutable payload bytes and sharing each rotated stream within that page.
+Appearances used by other pages remain unchanged. Annotation identities used
+by form fields and related annotations remain intact. Output object numbers and
+metadata memory charges can change; tight admission can refuse before publication.
+Obsolete source AP/state containers and streams are removed when unreferenced;
+live aliases and explicit `--preserve-unreferenced` retain them.
 
 Annotation flattening normalizes page rotations modulo 360 before applying
 `NoRotate` placement. Equivalent negative, full-turn and large 64-bit angles
