@@ -11,7 +11,7 @@ public enum QpdfCheckStatus
     /// <summary>The check ran and found a defect.</summary>
     Failed = 1,
 
-    /// <summary>The check did not run; its prerequisite is unimplemented.</summary>
+    /// <summary>Coverage is incomplete because the check was disabled or a required capability was unavailable.</summary>
     Skipped = 2,
 }
 

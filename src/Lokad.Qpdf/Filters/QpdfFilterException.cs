@@ -3,7 +3,7 @@ namespace Lokad.Qpdf.Filters;
 /// <summary>Why a governed filter decode failed. Messages never embed stream content.</summary>
 internal enum QpdfFilterFailureReason
 {
-    /// <summary>The filter is not implemented in this milestone.</summary>
+    /// <summary>The filter or frame cannot be decoded with the available host capabilities.</summary>
     UnsupportedFilter = 0,
 
     /// <summary>Encoded bytes end prematurely or fail integrity checks.</summary>

@@ -178,7 +178,7 @@ internal static class FilterChain
             return DecodeChecked(decoded, limits, governor);
         }
 
-        throw new QpdfFilterException(QpdfFilterFailureReason.UnsupportedFilter, stage.Name, "Filter is not implemented in this milestone.");
+        throw new QpdfFilterException(QpdfFilterFailureReason.UnsupportedFilter, stage.Name, "Filter decoding is unavailable.");
     }
 
     private static byte[] DecodePredictorStage(byte[] input, FilterStage stage, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)

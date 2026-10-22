@@ -120,7 +120,7 @@ public sealed class CheckDetailOwnershipTests
         Assert.Equal(QpdfCheckStatus.Skipped, outcome.Status);
         Assert.Equal("0 decoded, 1 unfiltered, 0 above level All. 3 skipped (MadeUp, Other unavailable).", outcome.Detail);
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.CheckSkipped
-            && diagnostic.Message == "Skipped check 'streams': " + outcome.Detail + " Decoding unavailable filters arrives in a later milestone.");
+            && diagnostic.Message == "Skipped check 'streams': " + outcome.Detail);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 

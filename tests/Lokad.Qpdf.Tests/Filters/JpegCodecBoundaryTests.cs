@@ -1,5 +1,6 @@
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.ImageSharp;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Tests.Content;
 
@@ -22,7 +23,14 @@ public sealed class JpegCodecBoundaryTests
         QpdfCheckResult check = await Qpdf.CheckAsync(host, source, CancellationToken.None);
         Assert.Equal(QpdfCheckStatus.Skipped, Assert.Single(check.Checks, c => c.Name == "streams").Status);
         Assert.Contains(check.Diagnostics, d => d.Message.Contains("DCTDecode unavailable", StringComparison.Ordinal));
+        Assert.Contains(check.Diagnostics, d => d.Message.Contains("requires a host codec", StringComparison.Ordinal));
+        Assert.DoesNotContain(check.Diagnostics, d => d.Message.Contains("milestone", StringComparison.Ordinal));
         Assert.Equal(0L, host.OpenLeaseCount);
+        using InMemoryQpdfHost supplied = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
+        supplied.AddInput(source, DctDecodeTests.BuildDctPage(jpeg), QpdfInputOwnership.Copy);
+        QpdfCheckResult decoded = await Qpdf.CheckAsync(supplied, source, CancellationToken.None);
+        Assert.Equal(QpdfCheckStatus.Passed, Assert.Single(decoded.Checks, c => c.Name == "streams").Status);
+        Assert.False(decoded.HasSkipped); Assert.Equal(0L, supplied.OpenLeaseCount);
     }
 
     [Fact]

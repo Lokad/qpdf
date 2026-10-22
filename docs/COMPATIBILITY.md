@@ -67,6 +67,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Skipped stream checks describe unavailable filters and JPEG host capabilities
+without promising future implementation. Disabled decoding remains an explicit
+skip; grayscale/RGB decoding still requires a host codec, and four-component
+JPEGs retain their accepted limitation. Public signatures and skip statuses
+are unchanged.
+
 Flate decoding requires a complete zlib frame, including the DEFLATE end marker,
 even when the produced bytes match the Adler checksum. Premature codec-input EOF
 now fails explicitly; the zlib companion preserves prior output and PDF checks

@@ -247,9 +247,25 @@ public sealed class CheckTests
         QpdfCheckOutcome streams = SingleOutcome(result, "streams");
         Assert.Equal(QpdfCheckStatus.Skipped, streams.Status);
         Assert.Contains("DCTDecode", streams.Detail, StringComparison.Ordinal);
+        Assert.Contains("grayscale/RGB", streams.Detail, StringComparison.Ordinal);
+        Assert.DoesNotContain(result.Diagnostics, item => item.Message.Contains("milestone", StringComparison.Ordinal));
         Assert.True(result.Passed);
         Assert.True(result.HasSkipped);
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.CheckSkipped && diagnostic.Severity == QpdfDiagnosticSeverity.Warning);
+    }
+
+    [Fact]
+    public async Task UnavailableFilterReportsItsNameWithoutARoadmapPromise()
+    {
+        List<(int, string, byte[]?)> objects = SinglePage("<< /Length 0 >>", []);
+        objects.Add((6, "<< /Filter /JPXDecode /Length 1 >>", new byte[] { 0 }));
+        using InMemoryQpdfHost host = HostWith("inputs/unavailable.pdf", Assemble(objects, 1));
+        QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/unavailable.pdf"), CancellationToken.None);
+        Assert.Equal(QpdfCheckStatus.Skipped, SingleOutcome(result, "streams").Status);
+        Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.CheckSkipped
+            && item.Message.Contains("JPXDecode unavailable", StringComparison.Ordinal));
+        Assert.DoesNotContain(result.Diagnostics, item => item.Message.Contains("milestone", StringComparison.Ordinal));
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Fact]

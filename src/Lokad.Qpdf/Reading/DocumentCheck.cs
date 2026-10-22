@@ -314,11 +314,17 @@ internal static class DocumentCheck
                 detail.AppendText(unavailable[index]);
             }
             detail.AppendText(" unavailable).");
+            if (ContainsUnavailable(governor, unavailable, DctFilter.FilterName))
+            {
+                detail.AppendText(governor.JpegCodec is null
+                    ? " JPEG decoding requires a host codec and supports grayscale/RGB samples only."
+                    : " JPEG decoding supports grayscale/RGB samples only.");
+            }
             QpdfCheckOutcome outcome = FinishOutcome(governor, "streams", QpdfCheckStatus.Skipped, detail);
             diagnostics.AddParts(
                 QpdfDiagnosticCode.CheckSkipped,
                 QpdfDiagnosticSeverity.Warning,
-                ["Skipped check 'streams': ", outcome.Detail, " Decoding unavailable filters arrives in a later milestone."]);
+                ["Skipped check 'streams': ", outcome.Detail]);
             return outcome;
         }
 
