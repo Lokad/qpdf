@@ -67,6 +67,13 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Flate decoding requires a complete zlib frame, including the DEFLATE end marker,
+even when the produced bytes match the Adler checksum. Premature codec-input EOF
+now fails explicitly; the zlib companion preserves prior output and PDF checks
+report a failed stream. Ordinary rewrite paths retain their existing warning and
+opaque-preservation policy. Valid frames, inline-image delimiter whitespace,
+resource limits and public signatures are unchanged.
+
 Typed rotations carry numeric positions directly through the shared rotation
 resolver. Explicit lists use `MaxContainerSize` and ordinary memory admission;
 the former 4096-character limit on a generated range string no longer applies.

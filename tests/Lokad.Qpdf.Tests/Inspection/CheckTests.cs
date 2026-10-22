@@ -212,6 +212,27 @@ public sealed class CheckTests
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.CheckFailed && diagnostic.Severity == QpdfDiagnosticSeverity.Error);
     }
 
+    [Theory]
+    [InlineData("789C000300FCFF71205101E700E3")]
+    [InlineData("789C0300000001")]
+    public async Task IncompleteFlateFramesFailTypedAndCommandChecks(string hex)
+    {
+        byte[] frame = Convert.FromHexString(hex);
+        using InMemoryQpdfHost host = HostWith("inputs/incomplete.pdf",
+            Assemble(SinglePage($"<< /Filter /FlateDecode /Length {frame.Length} >>", frame), 1));
+        QpdfPath input = QpdfPath.From("inputs/incomplete.pdf");
+        QpdfCheckResult check = await Qpdf.CheckAsync(host, input, CancellationToken.None);
+        Assert.False(check.Passed);
+        Assert.Equal(QpdfCheckStatus.Failed, SingleOutcome(check, "streams").Status);
+        Assert.Contains(check.Diagnostics, item => item.Code == QpdfDiagnosticCode.CheckFailed);
+        QpdfExecutionResult execution = await Qpdf.ExecuteAsync(host,
+            new([input.Value, "--check"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, execution.Status);
+        Assert.Equal(QpdfExitCode.Error, execution.ExitCode);
+        Assert.Contains(execution.Diagnostics, item => item.Code == QpdfDiagnosticCode.CheckFailed);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
     [Fact]
     public async Task UnavailableFilterSkipsStreamsWithWarning()
     {

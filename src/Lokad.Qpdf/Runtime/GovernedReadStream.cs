@@ -1,6 +1,6 @@
 namespace Lokad.Qpdf.Runtime;
 
-/// <summary>Borrowed in-memory codec input with bounded, charged refills.</summary>
+/// <summary>Bounded codec input that rejects exhaustion before the inflater finishes its frame.</summary>
 internal sealed class GovernedReadStream : Stream
 {
     internal const int MaximumReadBytes = 8192;
@@ -10,9 +10,6 @@ internal sealed class GovernedReadStream : Stream
     private ReadOnlyMemory<byte> _input;
     private int _position;
     private bool _disposed;
-
-    internal GovernedReadStream(ReadOnlyMemory<byte> input, ResourceGovernor governor)
-        : this(input, governor, CancellationToken.None) { }
 
     internal GovernedReadStream(ReadOnlyMemory<byte> input, ResourceGovernor governor, CancellationToken token)
     {
@@ -40,6 +37,10 @@ internal sealed class GovernedReadStream : Stream
         _governor.CheckCancellation();
         int count = Math.Min(Math.Min(buffer.Length, MaximumReadBytes), _input.Length - _position);
         _governor.NoteOperation();
+        // A complete frame makes the inflater stop without requesting more
+        // input. Returning EOF here would let BCL inflate accept truncation.
+        if (count == 0 && buffer.Length != 0)
+        { throw new InvalidDataException("Compressed input ended before its frame completed."); }
         _input.Span.Slice(_position, count).CopyTo(buffer);
         _position += count;
         return count;

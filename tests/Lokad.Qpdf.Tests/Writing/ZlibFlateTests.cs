@@ -1,5 +1,6 @@
 using System.Text;
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.TestSupport;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -165,6 +166,50 @@ public sealed class ZlibFlateTests
         (QpdfExecutionResult result, byte[]? output) = await RunAsync([], new QpdfZlibFlateOptions(QpdfZlibFlateMode.Uncompress, null));
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         Assert.Null(output);
+    }
+
+    [Theory]
+    [InlineData("789C000300FCFF71205101E700E3")]
+    [InlineData("789C0300000001")]
+    public async Task IncompleteFrameWithMatchingChecksumPreservesPriorOutput(string hex)
+    {
+        using InMemoryQpdfHost host = HostWith("inputs/a.bin", Convert.FromHexString(hex));
+        QpdfPath target = QpdfPath.From("outputs/b.bin");
+        await using (IQpdfOutputTransaction seed = await host.CreateOutputAsync(target, CancellationToken.None))
+        { await seed.WriteAsync(new byte[] { 7, 8, 9 }, CancellationToken.None); await seed.CommitAsync(CancellationToken.None); }
+        QpdfExecutionResult result = await Qpdf.RunZlibFlateAsync(host, QpdfPath.From("inputs/a.bin"), target,
+            new(QpdfZlibFlateMode.Uncompress, null), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+        Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.InvalidArguments);
+        Assert.Equal(0L, result.Counters.TotalOutputBytes);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.True(host.TryGetOutput(target, out byte[] prior)); Assert.Equal(new byte[] { 7, 8, 9 }, prior);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InflationAdmissionFailurePreservesOutputAndRetiresStorage(bool shared)
+    {
+        byte[] compressed = await CompressAsync(new byte[1024 * 1024], null);
+        RecordingMemoryBudget root = new(shared ? 192 * 1024L : 4 * 1024 * 1024L);
+        using (IMemoryScope owner = root.CreateScope())
+        using (InMemoryQpdfHost host = new(QpdfLimits.Default, null, owner))
+        {
+            QpdfPath input = QpdfPath.From("input"), target = QpdfPath.From("output");
+            host.AddInput(input, compressed, QpdfInputOwnership.Transfer);
+            await using (IQpdfOutputTransaction seed = await host.CreateOutputAsync(target, CancellationToken.None))
+            { await seed.WriteAsync(new byte[] { 7, 8, 9 }, CancellationToken.None); await seed.CommitAsync(CancellationToken.None); }
+            QpdfLimits limits = shared ? QpdfLimits.Default : QpdfLimits.Default with { MaxMemoryBytes = 192 * 1024L };
+            QpdfExecutionResult result = await Qpdf.RunZlibFlateAsync(host, input, target,
+                new(QpdfZlibFlateMode.Uncompress, null), limits, CancellationToken.None);
+            Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+            Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.BudgetExceeded);
+            Assert.True(host.TryGetOutput(target, out byte[] prior)); Assert.Equal(new byte[] { 7, 8, 9 }, prior);
+            Assert.Equal(0L, host.OpenLeaseCount);
+        }
+        Assert.Equal(0L, root.ReservedBytes);
     }
 
     [Fact]

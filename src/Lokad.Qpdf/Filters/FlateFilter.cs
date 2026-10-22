@@ -111,8 +111,10 @@ internal static class FlateFilter
         governor.ReserveMemory(reserved);
         try
         {
-            using GovernedReadStream source = new(input.AsMemory(2, input.Length - 6), governor, token);
-            using DeflateStream decompressor = new(source, CompressionMode.Decompress);
+            // Decode the complete zlib frame so checksum bytes or inline-image
+            // padding cannot masquerade as a missing DEFLATE end marker.
+            using GovernedReadStream source = new(input, governor, token);
+            using ZLibStream decompressor = new(source, CompressionMode.Decompress);
             long maximumRaw = Math.Min(limits.MaxDecodedBytes, Array.MaxLength);
             if (selectorStride > 0L)
             {
