@@ -3763,15 +3763,7 @@ public static partial class Qpdf
             return new AttachmentAssembly(null, inputPageMode, ids, 0);
         }
 
-        List<KeyValuePair<string, PdfReference>> pairs = ParserContainers.CreateList<KeyValuePair<string, PdfReference>>(
-            ownership, existing.Count, 2L * IntPtr.Size);
-        foreach (KeyValuePair<string, PdfReference> entry in existing)
-        {
-            cancellationToken.ThrowIfCancellationRequested(); governor.NoteOperation();
-            pairs.Add(entry);
-        }
-
-        PdfDictionary tree = AttachmentBuilder.BuildNameTree(pairs, governor, ownership, cancellationToken);
+        PdfDictionary tree = AttachmentBuilder.BuildNameTree(existing, governor, ownership, cancellationToken);
         ownership.Reserve(64L);
         PdfDictionary wrapper = new(new Dictionary<PdfName, QpdfObject>
         {

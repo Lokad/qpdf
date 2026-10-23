@@ -78,6 +78,14 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Attachment name-tree keys sort by emitted bytes, including mixed ASCII and
+UTF-16 keys. Previously decoded ordinal order could publish an unsorted tree
+whose existing entries a byte-order search missed; native qpdf shares this
+mixed-encoding defect. Keys encode once and already ordered input avoids sorting.
+Ordering scratch receives admission and retires after assembly; the redundant
+decoded-pair list is removed. Decoded listing and request matching stay ordinal.
+Physical bytes and estimates can change; public signatures are unchanged.
+
 JSON export normalizes a PDF real's leading plus sign and integer zeros, while
 preserving significant digits, fractional spelling and negative zero. Legal PDF
 tokens such as `+.5` and `-00.5` now publish valid JSON through every entry point;

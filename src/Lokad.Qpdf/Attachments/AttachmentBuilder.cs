@@ -110,7 +110,7 @@ internal static class AttachmentBuilder
         ]);
     }
 
-    internal static PdfDictionary BuildNameTree(IReadOnlyList<KeyValuePair<string, PdfReference>> pairs,
+    internal static PdfDictionary BuildNameTree(IReadOnlyCollection<KeyValuePair<string, PdfReference>> pairs,
         ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
     {
         memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -121,14 +121,50 @@ internal static class AttachmentBuilder
         int count = pairs.Count * 2;
         memory.Reserve(64L + IntPtr.Size * (long)count);
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        QpdfObject[] items = new QpdfObject[count];
-        for (int index = 0; index < pairs.Count; index++)
+        QpdfObject[] items;
+        using (ParserMemoryScope ordering = ParserMemoryScope.Create(governor))
         {
+            ordering.Reserve(32L + 2L * IntPtr.Size * pairs.Count);
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            items[2 * index] = EncodeText(pairs[index].Key, governor, memory, token);
-            items[2 * index + 1] = pairs[index].Value;
+            KeyValuePair<PdfByteString, PdfReference>[] encoded = new KeyValuePair<PdfByteString, PdfReference>[pairs.Count];
+            int index = 0;
+            bool sorted = true;
+            EncodedKeyOrder order = new(governor, token);
+            foreach (KeyValuePair<string, PdfReference> pair in pairs)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                encoded[index] = new(EncodeText(pair.Key, governor, memory, token), pair.Value);
+                if (sorted && index > 0 && order.Compare(encoded[index - 1], encoded[index]) > 0) { sorted = false; }
+                index++;
+            }
+            if (!sorted) { GovernedSort.Sort(encoded.AsSpan(), order, governor, token); }
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            items = new QpdfObject[count];
+            for (index = 0; index < encoded.Length; index++)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                items[2 * index] = encoded[index].Key;
+                items[2 * index + 1] = encoded[index].Value;
+            }
         }
         return Dictionary(governor, memory, token, [("Names", PdfArray.FromOwnedItems(items))]);
+    }
+
+    private readonly struct EncodedKeyOrder(ResourceGovernor governor, CancellationToken token) : IComparer<KeyValuePair<PdfByteString, PdfReference>>
+    {
+        public int Compare(KeyValuePair<PdfByteString, PdfReference> left, KeyValuePair<PdfByteString, PdfReference> right)
+        {
+            ReadOnlySpan<byte> first = left.Key.ValueMemory.Span, second = right.Key.ValueMemory.Span;
+            int length = Math.Min(first.Length, second.Length);
+            for (int offset = 0; offset < length; offset += Math.Min(8192, length - offset))
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                int count = Math.Min(8192, length - offset);
+                int order = first.Slice(offset, count).SequenceCompareTo(second.Slice(offset, count));
+                if (order != 0) { return order; }
+            }
+            return first.Length.CompareTo(second.Length);
+        }
     }
 
     internal static byte[] Checksum(byte[] data)

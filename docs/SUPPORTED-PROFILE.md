@@ -375,6 +375,9 @@ Numbers are normalized lexically under the existing cancellation/output bounds.
 
 ## Attachments profile
 
+Emitted name-tree keys sort by their encoded bytes, including mixed ASCII/UTF-16
+keys; listing order and request matching use decoded ordinal text.
+
 - Embedded files live in the catalog `/Names` `/EmbeddedFiles` name tree
   (`/Names` pairs plus `/Kids` branches, within nesting/container bounds and cancellation).
   Keys decode as PDF text (UTF-8 or UTF-16 with a byte-order mark, otherwise
