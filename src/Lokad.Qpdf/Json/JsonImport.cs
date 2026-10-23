@@ -17,7 +17,7 @@ internal sealed record ImportedModel(PdfVersion HeaderVersion, Dictionary<int, Q
 /// payloads come from inline base64 or host sidecar files, and unknown keys
 /// are ignored for forward compatibility.
 /// </summary>
-internal static class JsonImport
+internal static partial class JsonImport
 {
     internal static async ValueTask<JsonDocument> ReadJsonAsync(
         IQpdfHost host,
@@ -150,7 +150,7 @@ internal static class JsonImport
             if (property.Name == "trailer")
             {
                 sawTrailer = true;
-                trailer = ReadTrailer(property.Value, governor, cancellationToken);
+                trailer = ReadTrailer(property.Value, governor, memory, cancellationToken);
                 continue;
             }
 
@@ -257,7 +257,7 @@ internal static class JsonImport
             governor.NoteOperation();
             if (property.Name == "trailer")
             {
-                trailer = ReadTrailer(property.Value, governor, cancellationToken);
+                trailer = ReadTrailer(property.Value, governor, memory, cancellationToken);
                 continue;
             }
 
@@ -460,7 +460,7 @@ internal static class JsonImport
         return number;
     }
 
-    private static PdfDictionary ReadTrailer(JsonElement value, ResourceGovernor governor, CancellationToken token)
+    private static PdfDictionary ReadTrailer(JsonElement value, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
     {
         if (value.ValueKind != JsonValueKind.Object)
         {
@@ -476,7 +476,7 @@ internal static class JsonImport
             if (property.Name == "value")
             {
                 sawValue = true;
-                QpdfObject decoded = DecodeValue(property.Value, 0, governor, token);
+                QpdfObject decoded = DecodeValue(property.Value, 0, governor, memory, token);
                 if (decoded is not PdfDictionary dictionary)
                 {
                     throw new QpdfParseException("qpdf JSON trailer value must be a dictionary.", 0L, null);
@@ -527,7 +527,7 @@ internal static class JsonImport
             if (property.Name == "value")
             {
                 sawValue = true;
-                QpdfObject decoded = DecodeValue(property.Value, 0, governor, cancellationToken);
+                QpdfObject decoded = DecodeValue(property.Value, 0, governor, memory, cancellationToken);
                 if (decoded is PdfReference)
                 {
                     throw new QpdfParseException("qpdf JSON object value may not be an indirect object reference.", 0L, null);
@@ -551,7 +551,7 @@ internal static class JsonImport
                     governor.NoteOperation();
                     if (inner.Name == "dict")
                     {
-                        QpdfObject decoded = DecodeValue(inner.Value, 0, governor, cancellationToken);
+                        QpdfObject decoded = DecodeValue(inner.Value, 0, governor, memory, cancellationToken);
                         if (decoded is not PdfDictionary dictionary)
                         {
                             throw new QpdfParseException("qpdf JSON stream dict must be a dictionary.", 0L, null);
@@ -674,7 +674,7 @@ internal static class JsonImport
             await input.DisposeAsync().ConfigureAwait(false);
         }
     }
-    private static QpdfObject DecodeValue(JsonElement value, int depth, ResourceGovernor governor, CancellationToken token)
+    private static QpdfObject DecodeValue(JsonElement value, int depth, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (depth > governor.MaxNestingDepth)
@@ -690,7 +690,7 @@ internal static class JsonImport
             case JsonValueKind.False:
                 return PdfBoolean.False;
             case JsonValueKind.Number:
-                return DecodeNumber(value, governor);
+                return DecodeNumber(value, governor, memory, token);
             case JsonValueKind.String:
                 return DecodeString(value.GetString() ?? string.Empty, governor, token);
             case JsonValueKind.Array:
@@ -698,7 +698,7 @@ internal static class JsonImport
                 QpdfObject[] items = new QpdfObject[value.GetArrayLength()];
                 int index = 0;
                 foreach (JsonElement item in value.EnumerateArray())
-                { items[index++] = DecodeValue(item, depth + 1, governor, token); }
+                { items[index++] = DecodeValue(item, depth + 1, governor, memory, token); }
                 return PdfArray.FromOwnedItems(items);
             }
 
@@ -706,54 +706,13 @@ internal static class JsonImport
             {
                 Dictionary<PdfName, QpdfObject> entries = new(value.GetPropertyCount());
                 foreach (JsonProperty property in value.EnumerateObject())
-                { entries[DecodeName(property.Name, governor, token)] = DecodeValue(property.Value, depth + 1, governor, token); }
+                { entries[DecodeName(property.Name, governor, token)] = DecodeValue(property.Value, depth + 1, governor, memory, token); }
                 return PdfDictionary.FromOwnedEntries(entries);
             }
 
             default:
                 throw new QpdfParseException("Unsupported qpdf JSON value.", 0L, null);
         }
-    }
-
-    private static QpdfObject DecodeNumber(JsonElement value, ResourceGovernor governor)
-    {
-        string raw = value.GetRawText();
-        governor.NoteOperation();
-        if (IsLongText(raw) && long.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out long integer))
-        {
-            return new PdfInteger(raw, integer);
-        }
-
-        if (double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out double real))
-        {
-            return new PdfReal(raw, real);
-        }
-
-        throw new QpdfParseException("qpdf JSON number is not a PDF number.", 0L, null);
-    }
-
-    private static bool IsLongText(string raw)
-    {
-        if (raw.Length == 0)
-        {
-            return false;
-        }
-
-        int start = raw[0] == (char)45 ? 1 : 0;
-        if (start == 1 && raw.Length == 1)
-        {
-            return false;
-        }
-
-        for (int i = start; i < raw.Length; i++)
-        {
-            if (raw[i] < (char)48 || raw[i] > (char)57)
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private static QpdfObject DecodeString(string text, ResourceGovernor governor, CancellationToken token)

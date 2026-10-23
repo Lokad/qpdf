@@ -78,6 +78,18 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+JSON creation and update expand exponent notation into PDF decimal syntax without
+rounding its significant digits through binary floating point. Ordinary integer
+and decimal spellings remain unchanged. Exponent results within Int64 can become
+integers; larger integral real results keep a decimal point for strict readback.
+Plain integer tokens must fit signed 64-bit, real magnitudes must convert to a
+finite binary64 value, and exponents must fit signed 32-bit. Underflow preserves
+the exact decimal text even when the numeric approximation is zero. Expansion
+receives memory admission before allocation; unsupported values or refused storage
+fail before publication. Previously these cases could report success while
+publishing invalid numeric tokens. Native also mishandles some extreme magnitudes;
+managed rejection deliberately preserves readable output. No public signatures change.
+
 `QpdfLimits.MaxNestingDepth` accepts 1..499 for direct and host-supplied budgets,
 with the default remaining 256. Larger values now throw `ArgumentOutOfRangeException`
 before host access. Previously they passed validation and could allow recursive

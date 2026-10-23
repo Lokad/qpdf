@@ -3557,10 +3557,12 @@
           "JsonImportTests.CreateRoundTrip",
           "JsonImportTests.CreateReadsDatafiles",
           "JsonImportTests.CreateAppliesNameAndStringForms",
+          "JsonNumberTests.NumericFormsRoundTripThroughCreateAndUpdate",
           "JsonImportTests.UpdateChangesValues"
         ],
         "negative": [
           "JsonImportTests.MalformedJsonFails",
+          "JsonNumberTests.UnsupportedNumbersPreservePriorOutput",
           "JsonImportTests.ImportCombinationsFail",
           "JsonImportTests.MissingOutputFails"
         ],
@@ -3571,7 +3573,8 @@
           "JsonImportTests.TypedUpdateRoundTrip"
         ],
         "resource": [
-          "JsonImportTests.CreateYieldsToExhaustedBudget"
+          "JsonImportTests.CreateYieldsToExhaustedBudget",
+          "JsonNumberTests.ExpansionRefusalReleasesSharedAdmissionAndPreservesOutput"
         ],
         "oracle": [
           "diff:json-import"
@@ -6325,6 +6328,7 @@
         "positive": [
           "JsonImportTests.UpdateChangesValues",
           "JsonImportTests.UpdateKeepsStreamData",
+          "JsonNumberTests.NumericFormsRoundTripThroughCreateAndUpdate",
           "JsonImportTests.UpdateReplacesStreamData",
           "JsonImportTests.UpdateAddsObjects",
           "JsonImportTests.UpdateWithoutTrailerKeeps",
@@ -6333,6 +6337,7 @@
         ],
         "negative": [
           "JsonImportTests.UpdateCombinationsFail",
+          "JsonNumberTests.UnsupportedNumbersPreservePriorOutput",
           "JsonImportTests.UpdateMissingOutputFails",
           "JsonImportTests.UpdatePushedAttributesFail"
         ],

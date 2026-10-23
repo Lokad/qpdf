@@ -262,6 +262,11 @@ echoing values.
   JSON pdfversion overrides the output version when present. Pushed inherited
   attributes stay explicitly unsupported. The typed
   `UpdatePdfFromJsonAsync` shares the engine.
+  Numeric exponent notation expands to exact decimal PDF text under memory
+  admission. Plain integers require signed 64-bit values; real magnitudes must
+  have a finite binary64 approximation, and exponents fit signed 32-bit.
+  Unsupported values fail before output publication. Decimal underflow retains
+  its text; integral exponent results outside Int64 retain a decimal point.
 
 ## Page content profile
 
