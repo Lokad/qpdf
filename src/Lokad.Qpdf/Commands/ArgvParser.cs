@@ -802,7 +802,7 @@ internal static class ArgvParser
             string wholeInput = empty ? JobPlan.EmptyDocumentInput : ParseInputArea(argv, inputEnd, "whole-file rewriting");
             string wholeOutput = ParseOutputArea(argv, terminator >= 0 ? terminator : 0);
             return NewWholeFilePlan(wholeInput, wholeOutput, recovery, globals, new List<OutputRotation>(),
-                new List<PageLabelSpec>(), AttachmentEdits.Empty, new List<OverlaySpec>(), new List<OverlaySpec>()) with { EmptyDocument = empty };
+                new List<PageLabelSpec>(), AttachmentEdits.Empty, new List<OverlaySpec>(), new List<OverlaySpec>());
         }
 
         string input;
@@ -932,7 +932,7 @@ internal static class ArgvParser
 
         if (groups.Count == 0)
         {
-            return NewWholeFilePlan(input, output, recovery, globals, rotations, labels, edits, overlays, underlays) with { EmptyDocument = emptyInput };
+            return NewWholeFilePlan(input, output, recovery, globals, rotations, labels, edits, overlays, underlays);
         }
 
         if (emptyInput || groups.Count > 1 || collate.Count > 0 || globals.Collate.Count > 0 || (groups.Count == 1 && !SelectionPlan.IsPlainPageNumber(groups[0].Range)))
@@ -4142,8 +4142,9 @@ internal static class ArgvParser
         List<OverlaySpec> overlays,
         List<OverlaySpec> underlays)
     {
-        return new WholeFilePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), recovery) with
+        return new WholeFilePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), recovery)
             {
+                EmptyDocument = input == JobPlan.EmptyDocumentInput,
                 WarningExitZero = globals.WarningExitZero,
                 Verbose = globals.Verbose,
             Progress = globals.Progress,
