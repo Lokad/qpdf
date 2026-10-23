@@ -343,6 +343,8 @@ internal static class Overlays
         long rotate = 0L;
         bool hasRotate = false;
         QpdfObject? rotateRaw = FindInherited(engine, location, "Rotate", limits, governor, cancellationToken);
+        if (rotateRaw is PdfReference rotateReference)
+        { PdfObjectLookup.TryResolve(rotateReference, engine, governor, cancellationToken, out rotateRaw); }
         if (rotateRaw is PdfInteger rotateInteger)
         {
             rotate = rotateInteger.Value;
@@ -352,6 +354,8 @@ internal static class Overlays
         double userUnit = 1.0;
         bool hasUnit = false;
         QpdfObject? unitRaw = FindInherited(engine, location, "UserUnit", limits, governor, cancellationToken);
+        if (unitRaw is PdfReference unitReference)
+        { PdfObjectLookup.TryResolve(unitReference, engine, governor, cancellationToken, out unitRaw); }
         if (unitRaw is PdfInteger unitInteger)
         {
             userUnit = (double)unitInteger.Value;
@@ -506,7 +510,10 @@ internal static class Overlays
         }
 
         long rotate = 0L;
-        if (page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject? rotateRaw) && rotateRaw is PdfInteger rotateInteger)
+        page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject? rotateRaw);
+        if (rotateRaw is PdfReference rotateReference)
+        { PdfObjectLookup.TryResolve(rotateReference, resolver, governor, cancellationToken, out rotateRaw); }
+        if (rotateRaw is PdfInteger rotateInteger)
         {
             rotate = rotateInteger.Value;
         }
@@ -514,6 +521,8 @@ internal static class Overlays
         double userUnit = 1.0;
         if (page.TryGet(PdfName.FromAscii("UserUnit"), out QpdfObject? unitRaw))
         {
+            if (unitRaw is PdfReference unitReference)
+            { PdfObjectLookup.TryResolve(unitReference, resolver, governor, cancellationToken, out unitRaw); }
             if (unitRaw is PdfInteger unitInteger)
             {
                 userUnit = (double)unitInteger.Value;

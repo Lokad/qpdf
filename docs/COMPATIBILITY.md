@@ -78,6 +78,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Overlay and underlay placement resolve indirect `/Rotate` and `/UserUnit` scalars
+for source and destination pages. Previously these values silently used rotation
+zero or unit one, changing orientation and scale. Direct/indirect values now agree;
+inherited rotation, malformed-value defaults and the accepted inherited-UserUnit
+limitation retain their policies. Public signatures are unchanged.
+
 The reader uses the higher of the header and catalog `/Version`, including
 indirect catalog values. A lower catalog declaration no longer silently lowers
 the version of a rewritten PDF. Explicit `--force-version` downgrades still apply;

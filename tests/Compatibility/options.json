@@ -4581,6 +4581,7 @@
       "evidence": {
         "positive": [
           "OverlayTests.OverlayStacksStampOnTop",
+          "OverlayScalarTests.IndirectStampScalarsMatchDirectTransforms",
           "OverlayTests.MultipleOverlaysStackInOrder",
           "OverlayTests.PagesSelectionThenOverlay",
           "OverlayTests.MergeThenOverlayAppliesToFinalPages",
@@ -6306,6 +6307,7 @@
       "evidence": {
         "positive": [
           "OverlayTests.UnderlayGoesBelowOriginal",
+          "OverlayScalarTests.IndirectStampScalarsMatchDirectTransforms",
           "OverlayTests.UnderlayAndOverlayCombineAroundOriginal",
           "OverlayTests.EmptyFromWithRepeatCoversAllPages",
           "OverlayTests.UnderlayRangesShareGrammar",
