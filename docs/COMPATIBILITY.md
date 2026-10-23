@@ -78,6 +78,11 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Appearance generation resolves indirect named font encodings through the existing
+bounded field resolver. WinAnsi and MacRoman characters now agree with direct
+encoding declarations instead of silently becoming `?`. Local-font precedence,
+ASCII fallback, supported encoding choices and public signatures are unchanged.
+
 Overlay and underlay placement resolve indirect `/Rotate` and `/UserUnit` scalars
 for source and destination pages. Previously these values silently used rotation
 zero or unit one, changing orientation and scale. Direct/indirect values now agree;

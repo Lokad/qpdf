@@ -3173,6 +3173,7 @@
           "GenerateAppearancesTests.MissingAppearanceIsCreated",
           "GenerateAppearancesTests.CheckboxSynchronizesState",
           "GenerateAppearancesTests.FontEncodingKeepsAccentsWithEquivalentNameSpellings",
+          "AppearanceEncodingReferenceTests.IndirectEncodingNamesKeepGlyphsAndLocalFontPrecedence",
           "GenerateAppearancesTests.ListBoxHighlightsSelectedRow",
           "GenerateAppearancesTests.GenerateThenFlattenStampsFreshAppearance",
           "GenerateAppearancesTests.ParentHeldFieldIsSkipped",

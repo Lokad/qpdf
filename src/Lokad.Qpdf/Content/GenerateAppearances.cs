@@ -825,7 +825,7 @@ internal static class GenerateAppearances
             QpdfObject? font = fontRaw is PdfReference fontLink ? ResolveOrNull(resolver, fontLink) : fontRaw;
             if (font is PdfDictionary fontDictionary
                 && PdfDictionaryLookup.TryGet(fontDictionary, "Encoding"u8, governor, token, out QpdfObject encoding)
-                && encoding is PdfName name) { return name; }
+                && ResolveFieldValue(encoding, resolver, governor, token) is PdfName name) { return name; }
         }
         return null;
     }
