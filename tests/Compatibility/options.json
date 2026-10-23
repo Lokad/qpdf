@@ -5926,6 +5926,8 @@
       "evidence": {
         "positive": [
           "ShowPagesTests.ReportsTwoPageDictionaries",
+          "ShowPagesTests.ContentsListingResolvesOnlyTheOuterArray",
+          "ShowPagesTests.ContentsArrayInsideObjectStreamMatchesJsonReferences",
           "ShowPagesTests.ReportsSinglePageDictionary",
           "ShowPagesTests.FreedContentsReferenceListsEmpty",
           "ShowPagesTests.JobShowPagesMatchesArgv"
@@ -5937,7 +5939,9 @@
           "ShowPagesTests.JobShowPagesMatchesArgv"
         ],
         "resource": [
-          "ShowPagesTests.FailsOnExhaustedInputBudget"
+          "ShowPagesTests.FailsOnExhaustedInputBudget",
+          "ShowPagesTests.ContentsReferenceListingDoesNotLoadStreamPayloads",
+          "ShowPagesTests.ContentsInspectionKeepsDepthAndCancellationBounds"
         ],
         "oracle": [
           "diff:show-pages"

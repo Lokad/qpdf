@@ -2499,34 +2499,6 @@ public static partial class Qpdf
         }
     }
 
-    private static readonly PdfName InspectionContents = PdfName.FromAscii("Contents");
-
-    private static List<PdfReference> PageContentRefs(PdfDictionary page,
-        ResourceGovernor governor, ParserMemoryScope memory)
-    {
-        List<PdfReference> refs = ParserContainers.CreateList<PdfReference>(memory);
-        if (page.TryGet(InspectionContents, out QpdfObject? contents) && contents is not null)
-        {
-            if (contents is PdfReference single)
-            {
-                ParserContainers.AddItem(memory, refs, single, IntPtr.Size);
-            }
-            else if (contents is PdfArray array)
-            {
-                for (int i = 0; i < array.Count; i++)
-                {
-                    governor.NoteOperation();
-                    if (array[i] is PdfReference reference)
-                    {
-                        ParserContainers.AddItem(memory, refs, reference, IntPtr.Size);
-                    }
-                }
-            }
-        }
-
-        return refs;
-    }
-
     private static async ValueTask PublishModelAsync(
         IQpdfHost host,
         PdfVersion version,

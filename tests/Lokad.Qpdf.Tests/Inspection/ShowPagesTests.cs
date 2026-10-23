@@ -1,4 +1,5 @@
 using Lokad.Qpdf.Hosting;
+using System.Text.Json;
 
 namespace Lokad.Qpdf.Tests.Inspection;
 
@@ -29,6 +30,107 @@ public sealed class ShowPagesTests
         }
 
         return lines;
+    }
+
+    private static byte[] ContentsFixture(string shape, byte[] payload)
+    {
+        string references = shape == "generations" ? "6 3 R 4 2 R 6 3 R" : "6 0 R 4 0 R 6 0 R";
+        string array = shape.StartsWith("empty", StringComparison.Ordinal) ? "[]"
+            : shape == "mixed" ? "[6 0 R 17 (ignored) null 4 0 R 6 0 R]" : "[" + references + "]";
+        string contents = shape switch { "direct" or "empty-direct" => array, "single" => "4 0 R", _ => "5 0 R" };
+        string indirect = shape switch { "non-array" => "42", "cycle" => "5 0 R", "deep" => "[[[[[[4 0 R]]]]]]", _ => array };
+        return CheckTests.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Contents " + contents + " >>", null),
+            (4, "<< /Length " + payload.Length + " >>", payload),
+            (5, indirect, null),
+            (6, "<< /Length 0 >>", Array.Empty<byte>()),
+        ], 1, shape == "generations" ? new Dictionary<int, int> { [4] = 2, [6] = 3 } : null);
+    }
+
+    private static Task<QpdfExecutionResult> InspectContents(IQpdfHost host, string route, QpdfLimits limits, CancellationToken token)
+        => route == "argv"
+            ? Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["input", "--show-pages"]), new QpdfExecutionOptions(limits), token).AsTask()
+            : Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","showPages":""}""", new QpdfExecutionOptions(limits), token).AsTask();
+
+    public static IEnumerable<object[]> ContentsShapes()
+    {
+        foreach (string route in new[] { "argv", "job" })
+        foreach (string shape in new[] { "direct", "indirect", "empty-direct", "empty-indirect", "mixed", "generations", "single", "non-array", "cycle" })
+        { yield return [route, shape]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(ContentsShapes))]
+    public async Task ContentsListingResolvesOnlyTheOuterArray(string route, string shape)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), ContentsFixture(shape, "q Q"u8.ToArray()), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await InspectContents(host, route, QpdfLimits.Default, CancellationToken.None);
+        string[] expected = shape switch
+        {
+            "empty-direct" or "empty-indirect" => [], "single" => ["4 0 R"],
+            "non-array" or "cycle" => ["5 0 R"], "generations" => ["6 3 R", "4 2 R", "6 3 R"],
+            _ => ["6 0 R", "4 0 R", "6 0 R"],
+        };
+        Assert.Equal(new[] { "page 1: 3 0 R", "  content:" }.Concat(expected.Select(item => "    " + item)), PageLines(result));
+        QpdfJsonResult report = await Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("input"), QpdfPath.From("report"), new QpdfJsonOptions(2, ["pages"]), CancellationToken.None);
+        using JsonDocument json = JsonDocument.Parse(report.Json);
+        Assert.Equal(expected, json.RootElement.GetProperty("pages")[0].GetProperty("contents").EnumerateArray()
+            .Where(item => item.ValueKind == JsonValueKind.String && item.GetString()?.EndsWith(" R", StringComparison.Ordinal) == true)
+            .Select(item => item.GetString()));
+        Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData("argv")]
+    [InlineData("job")]
+    public async Task ContentsArrayInsideObjectStreamMatchesJsonReferences(string route)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("source"), ContentsFixture("indirect", "q Q"u8.ToArray()), QpdfInputOwnership.Copy);
+        QpdfExecutionResult generated = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["source", "--object-streams=generate", "packed"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, generated.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("packed"), out byte[] bytes));
+        host.AddInput(QpdfPath.From("input"), bytes, QpdfInputOwnership.Copy);
+        QpdfJsonResult report = await Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("input"), QpdfPath.From("report"), new QpdfJsonOptions(2, ["pages"]), CancellationToken.None);
+        using JsonDocument json = JsonDocument.Parse(report.Json);
+        string[] expected = json.RootElement.GetProperty("pages")[0].GetProperty("contents").EnumerateArray()
+            .Select(item => item.GetString() ?? throw new InvalidOperationException("Missing stream reference.")).ToArray();
+        QpdfExecutionResult result = await InspectContents(host, route, QpdfLimits.Default, CancellationToken.None);
+        Assert.Equal(expected.Select(item => "    " + item), PageLines(result).Skip(2));
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData("argv", "single")]
+    [InlineData("job", "single")]
+    [InlineData("argv", "indirect")]
+    [InlineData("job", "indirect")]
+    public async Task ContentsReferenceListingDoesNotLoadStreamPayloads(string route, string shape)
+    {
+        byte[] bytes = ContentsFixture(shape, new byte[4194304]);
+        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), bytes, QpdfInputOwnership.Transfer);
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = bytes.Length + 60000L };
+        QpdfExecutionResult result = await InspectContents(host, route, limits, CancellationToken.None);
+        Assert.Equal(shape == "single" ? new[] { "    4 0 R" } : new[] { "    6 0 R", "    4 0 R", "    6 0 R" }, PageLines(result).Skip(2));
+        Assert.InRange(result.Counters.PeakMemoryBytes, 1L, limits.MaxMemoryBytes);
+        Assert.Equal(0L, result.Counters.TotalDecodedBytes); Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData("argv", false)]
+    [InlineData("job", false)]
+    [InlineData("argv", true)]
+    [InlineData("job", true)]
+    public async Task ContentsInspectionKeepsDepthAndCancellationBounds(string route, bool canceled)
+    {
+        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), ContentsFixture("deep", []), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await InspectContents(host, route, QpdfLimits.Default with { MaxNestingDepth = 4L }, new CancellationToken(canceled));
+        Assert.Equal(canceled ? QpdfExecutionStatus.Canceled : QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Fact]

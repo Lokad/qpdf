@@ -78,6 +78,14 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+`--show-pages` resolves an indirect contents array and lists its stream references
+in order, like page JSON. Empty arrays list no content; object generations and
+duplicates are preserved. The former helper listed the array object itself.
+Inspection borrows array entries instead of copying a reference list and peeks at
+uncompressed value tokens to avoid loading stream payloads. Referenced arrays use
+the ordinary parser/cache bounds, recovery and cancellation. Public signatures and
+existing non-reference filtering are unchanged.
+
 PDF text metadata shares one decoder for UTF-8 and UTF-16 with a byte-order mark,
 and PDFDocEncoding otherwise. UTF-8 BOM attachment keys, names and descriptions,
 outline titles and form text now agree across typed, argv and job entry points;

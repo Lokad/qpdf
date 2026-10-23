@@ -336,11 +336,19 @@ public static partial class Qpdf
             }
 
             diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, "  content:");
-            using ParserMemoryScope contentMemory = ParserMemoryScope.Create(governor);
-            foreach (PdfReference content in PageContentRefs(location.Page, governor, contentMemory))
+            if (location.Page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject? contents) && contents is not null)
             {
-                governor.NoteOperation();
-                diagnostics.AddParts(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, ["    ", content.ObjectNumber, " ", content.Generation, " R"]);
+                if (contents is PdfReference root && document.Engine.ResolveArray(root) is PdfArray indirect) { contents = indirect; }
+                PdfArray? array = contents as PdfArray;
+                int count = array?.Count ?? 1;
+                for (int i = 0; i < count; i++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); governor.NoteOperation();
+                    if ((array is null ? contents : array[i]) is PdfReference content)
+                    {
+                        diagnostics.AddParts(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, ["    ", content.ObjectNumber, " ", content.Generation, " R"]);
+                    }
+                }
             }
 
             index = checked(index + 1);

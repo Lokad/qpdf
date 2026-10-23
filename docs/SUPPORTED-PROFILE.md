@@ -216,6 +216,9 @@ echoing values.
 
 ## Inspection profile
 
+- `--show-pages` lists content references from direct or indirect arrays, retaining
+  order, duplicates and generations. Empty arrays list no content. Inspection
+  resolves the outer array without loading stream payloads to print references.
 - `Qpdf.CheckAsync` reports nine declared checks: header, cross-reference,
   trailer, page tree, object-graph traversal, decode-level-gated stream
   decoding, page content, form-tree validation, and linearization.
