@@ -2808,6 +2808,8 @@
       "evidence": {
         "positive": [
           "EmptyInputTests.BareEmptyWritesZeroPageDocument",
+          "ZeroPageRewriteTests.ZeroPageEditsApplyThroughSharedAttachmentPipeline",
+          "ZeroPageRewriteTests.ZeroSplitGroupsPreserveEveryTarget",
           "EmptyInputTests.MergesFromEmptyBase",
           "EmptyInputTests.SingleGroupMergesFromEmptyBase",
           "EmptyInputTests.JobEmptyMatchesArgv",
@@ -2823,6 +2825,7 @@
         ],
         "negative": [
           "EmptyInputTests.MalformedEmptySelectionsFail",
+          "ZeroPageRewriteTests.EmptyJobMissingAttachmentSourcePreservesPriorOutput",
           "EmptyInputTests.EmptyWithReplaceInputFails",
           "EmptyInputTests.EmptyWithOverlayFails",
           "EmptyInputTests.BadEmptyJobsFail"

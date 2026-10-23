@@ -385,7 +385,7 @@ public static partial class Qpdf
                     PdfReference? singleOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, settings.PreserveCatalog, settings.Linearize, governor, cancellationToken);
                     (PdfReference? singleStructTree, QpdfObject? singleMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, settings.PreserveCatalog, settings.RemoveStructure, governor, cancellationToken);
                     IReadOnlyDictionary<PdfName, QpdfObject> singleExtras = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, settings.PreserveCatalog, settings.RemoveAcroform, governor, copyMemory, cancellationToken);
-                    SortedDictionary<string, PdfReference> singleExisting = PreserveExistingAttachments(copier, document.Engine, settings.Edits, limits, governor, diagnostics, copyMemory, cancellationToken);
+                    SortedDictionary<string, PdfReference> singleExisting = PreserveExistingAttachments(copier, document.Engine, settings.Edits, settings.PreserveAttachments, limits, governor, diagnostics, copyMemory, cancellationToken);
                     string? singlePageMode = ReadInputPageMode(document.Engine);
 
                     (bool singleCompress, string singleDecode, int? singleLevel) = ResolveCompression(settings.Compression, settings.Qdf.Enabled);
@@ -1083,7 +1083,7 @@ public static partial class Qpdf
                         ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryMarkRef.ObjectNumber, sizeof(int));
                     }
 
-                    primaryExisting = PreserveExistingAttachments(copier, document.Engine, settings.Edits, limits, governor, diagnostics, selectionMemory, cancellationToken);
+                    primaryExisting = PreserveExistingAttachments(copier, document.Engine, settings.Edits, settings.PreserveAttachments, limits, governor, diagnostics, selectionMemory, cancellationToken);
                     primaryPageMode = ReadInputPageMode(document.Engine);
                 }
 
@@ -3515,6 +3515,7 @@ public static partial class Qpdf
         GraphCopier copier,
         DocumentEngine engine,
         AttachmentEdits edits,
+        bool preserve,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
@@ -3524,7 +3525,7 @@ public static partial class Qpdf
         ownership.CheckOwner(governor);
         ownership.Reserve(96L);
         SortedDictionary<string, PdfReference> kept = new(StringComparer.Ordinal);
-        if (edits.HasEdits)
+        if (edits.HasEdits || preserve)
         {
             List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(engine, limits, governor, diagnostics, ownership, cancellationToken);
             foreach (EmbeddedAttachment attachment in found)
@@ -3593,7 +3594,7 @@ public static partial class Qpdf
         }
 
         HashSet<int> ids = ParserContainers.CreateSet<int>(ownership);
-        if (!edits.HasEdits)
+        if (!edits.HasEdits && existing.Count == 0)
         {
             return new AttachmentAssembly(null, inputPageMode, ids, 0);
         }
@@ -3938,18 +3939,8 @@ public static partial class Qpdf
             throw new ArgumentNullException(nameof(plan));
         }
 
-        await using QpdfDocument document = await OpenPlanInputAsync(host, plan.Input, plan.EmptyDocument, limits, governor, diagnostics, plan.Recovery, cancellationToken, plan.EmptyDocument).ConfigureAwait(false);
+        await using QpdfDocument document = await OpenPlanInputAsync(host, plan.Input, plan.EmptyDocument, limits, governor, diagnostics, plan.Recovery, cancellationToken, false).ConfigureAwait(false);
         int total = document.PageReferences.Count;
-        if (total <= 0)
-        {
-            if (!plan.EmptyDocument)
-            {
-                throw new QpdfParseException("The input document has no pages.", 0L, null);
-            }
-
-            return await PublishEmptyModelAsync(host, document, plan, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-        }
-
         if ((long)total > limits.MaxContainerSize)
         {
             throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), total, limits.MaxContainerSize);
@@ -3972,7 +3963,7 @@ public static partial class Qpdf
             pruneUnreachableFields: false,
             limits: limits,
             recovery: plan.Recovery,
-            settings: SelectionSettings.FromPlan(plan, pruneEnabled: plan.SplitPages.HasValue),
+            settings: SelectionSettings.FromPlan(plan, pruneEnabled: plan.SplitPages.HasValue) with { PreserveAttachments = true },
             collation: null,
             verbatimLabels: verbatimTree,
             splitPages: plan.SplitPages,
@@ -3982,64 +3973,6 @@ public static partial class Qpdf
             emptyPrimary: false,
             preparedSource: document,
             cancellationToken: cancellationToken).ConfigureAwait(false);
-    }
-
-    private static async ValueTask<(MultiPageSelectionOutcome Result, int AttachmentCount)> PublishEmptyModelAsync(
-        IQpdfHost host,
-        QpdfDocument document,
-        WholeFilePlan plan,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
-        CancellationToken cancellationToken)
-    {
-        using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
-        if (host is null)
-        {
-            throw new ArgumentNullException(nameof(host));
-        }
-
-        if (document is null)
-        {
-            throw new ArgumentNullException(nameof(document));
-        }
-
-        if (plan is null)
-        {
-            throw new ArgumentNullException(nameof(plan));
-        }
-
-        if (limits is null)
-        {
-            throw new ArgumentNullException(nameof(limits));
-        }
-
-        if (governor is null)
-        {
-            throw new ArgumentNullException(nameof(governor));
-        }
-
-        if (diagnostics is null)
-        {
-            throw new ArgumentNullException(nameof(diagnostics));
-        }
-
-        limits.Validate();
-        (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(document.Version, plan.MinVersion, plan.ForceVersion, governor);
-        (bool emptyCompress, string _, int? emptyLevel) = ResolveCompression(plan.Compression(), plan.Qdf);
-        PdfVersion effective = negotiated;
-        int extensionLevel = negotiatedExtension;
-        PdfDictionary catalog = NewCatalog(BuildPageLabels(plan.Labels, 0, governor), effective, extensionLevel, null, null, null, null, null, null, null, null, governor, cancellationToken);
-        using ParserMemoryScope modelMemory = ParserMemoryScope.Create(governor);
-        List<NumberedObject> model = new()
-        {
-            new NumberedObject(1, catalog),
-            new NumberedObject(2, PagesNode(Array.Empty<PdfReference>(), modelMemory, governor, cancellationToken)),
-        };
-        byte[]? originalId = TryGetOriginalId(document.Engine);
-        await PublishModelAsync(host, effective, extensionLevel, model, null, emptyCompress, emptyLevel, null, originalId, plan.StaticId, plan.NewlineBeforeEndstream, new Writing.QdfOptions(plan.Qdf, plan.NoOriginalObjectIds), new Dictionary<int, int>(), plan.Linearize, plan.LinearizePass1, plan.Output, limits, governor, cancellationToken).ConfigureAwait(false);
-        MultiPageSelectionOutcome result = new(0, [], [0], [plan.Output], ResultWarningSnapshot.Read(resultWarnings, diagnostics));
-        return (result, 0);
     }
 
     private static bool IsNewerVersion(PdfVersion candidate, PdfVersion current)

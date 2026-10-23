@@ -78,6 +78,17 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Whole-file rewriting and typed attachment edits accept valid zero-page inputs
+while preserving their catalog metadata and embedded files. Synthetic empty
+jobs use the same governed preparation, so accepted job-JSON attachment edits
+now run, and missing sources fail before publication. Zero-page split jobs create
+no output instead of overwriting the literal template with an empty PDF. Public
+signatures are unchanged; physical bytes and memory estimates for synthetic empty
+output can change. Explicit invalid page selections still reject.
+Whole-file attachment preservation also applies to ordinary inputs without an edit
+request; those jobs previously omitted the embedded files. Explicit selection and
+merge catalog policies retain their existing behavior.
+
 JSON sidecars must differ from the main JSON output, and an active linearization
 first-pass capture must differ from every main PDF output, including later split
 groups. Equal ordinal logical paths now fail before any output transaction is

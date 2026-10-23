@@ -29,6 +29,8 @@ feature requests. Typed defaults and command-plan projection are defined once;
 source documents, selective-read retries and publication owners stay explicit.
 Whole-file rewrites select all pages through the existing governed range resolver
 without constructing and cloning a separate page-number vector.
+Zero-page whole-file jobs use the same graph, catalog and attachment preparation;
+zero split groups create no output transaction. Explicit page bounds still apply.
 
 Every graph copier uses an explicit construction owner and the same admitted
 map and name-table storage. Tests use this production path; there is no unowned

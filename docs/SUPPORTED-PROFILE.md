@@ -160,7 +160,11 @@ echoing values.
 - Ordinary rotation (`Set`/`Add`/`Subtract` multiples of 90 over output positions)
   folds over the inherited base; untouched pages keep their bytes. `--flatten-rotation`
   bakes rotation into content (see below).
-- `--empty` stands in for the input file so merges start from a zero-page base (catalog extras never carry over); `.` groups, overlays, replacement, and bare use fail explicitly.
+- Bare `--empty` writes a zero-page PDF; it can also start a merge from a zero-page
+  base whose catalog extras never carry over. Selecting from `.`, overlays and
+  replacement with the synthetic base reject. Whole-file rewriting and typed
+  attachment edits accept real zero-page inputs and preserve their catalog data.
+  Empty split jobs have zero groups and create no output or first-pass capture.
 - Merge options interleave per-source groups (collation), rotate, and emit explicit
   page labels or merge source label trees with page-index offsets (unlabeled pages
   fabricate continuations, runs compress); an optional split group size partitions
