@@ -43,7 +43,7 @@ public enum QpdfDiagnosticCode
     /// <summary>Valid input needs an unimplemented feature.</summary>
     UnsupportedFeature = 7,
 
-    /// <summary>A declared check did not run; its prerequisite is unimplemented.</summary>
+    /// <summary>A declared check did not run because it was disabled or a required capability was unavailable.</summary>
     CheckSkipped = 8,
 
     /// <summary>A declared check ran and found a defect.</summary>
