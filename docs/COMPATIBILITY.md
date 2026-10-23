@@ -92,7 +92,8 @@ Plain integer tokens must fit signed 64-bit, real magnitudes must convert to a
 finite binary64 value, and exponents must fit signed 32-bit. Underflow preserves
 the exact decimal text even when the numeric approximation is zero. Expansion
 receives memory admission before allocation; unsupported values or refused storage
-fail before publication. Previously these cases could report success while
+fail before publication. Real conversion reuses the reader's admitted bounded
+scratch allowance, so tight budgets can refuse earlier. Previously these cases could report success while
 publishing invalid numeric tokens. Native also mishandles some extreme magnitudes;
 managed rejection deliberately preserves readable output. No public signatures change.
 
