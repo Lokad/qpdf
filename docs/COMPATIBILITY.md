@@ -78,6 +78,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Attachment editing emits one flat name array under memory admission and managed
+array bounds. The former split above 64 entries produced direct child dictionaries
+that native listing and extraction had to repair with warnings. Key order, text
+encoding, payloads and file-spec sharing are preserved; physical output and memory
+estimates can change. Public signatures are unchanged.
+
 Command arguments and JSON key/object selectors expose read-only views of their
 defensive copies. Casts to mutable collection interfaces now reject mutation,
 so reusing an invocation or options value preserves its original settings.
@@ -180,7 +186,7 @@ admission refusal can precede an invalid-entry error. Public signatures are stab
 Attachment metadata receives admission before encoding and checks cancellation
 while scanning/copying. Headers and name-tree arrays adopt admitted storage;
 large metadata can now refuse before materialization. Existing ASCII/UTF-16
-encoding choices and attachment name-tree grouping remain unchanged.
+encoding choices remain unchanged; rebuilt name trees use one flat name array.
 
 Attachment assembly adopts the owned read/compression payload instead of making
 another defensive copy. Cancellation at attachment-input close is checked before
@@ -477,7 +483,7 @@ failure behavior; the tables below highlight differences important to callers.
 | Forms | Combined forms can be direct dictionaries, with direct children remaining embedded rather than promoted to indirect objects. Merge default resources are first-source wins. Malformed parent back-links remain on copying paths where native may repair and warn; checking warns on both. General parent-field/default-resource parity is not claimed. |
 | Overlay/widgets | Inherited `/UserUnit` is not inverted. Direct-dictionary field parents may remain plain clones where native fails; cyclic parents warn with a valid imported structure. Appearance-local resources preserve rendering while broader remapping remains limited. |
 | Appearances/content | Parent-held radios may skip; signature fields skip and pushbuttons warn. Wider/conflicting resource lookup is limited. Damaged content, boxes, appearances or indirect annotations warn and preserve originals or skip transformations rather than emitting native's partial result. |
-| Labels/attachments | Malformed label trees fail instead of warning. Attachment dates are omitted unless supplied; names use ASCII/UTF-16 encoding and trees use flat leaves chunked after 64 entries. Empty attachment-copy prefixes reject instead of copying unchanged. |
+| Labels/attachments | Malformed label trees fail instead of warning. Attachment dates are omitted unless supplied; names use ASCII/UTF-16 encoding and rebuilt trees use one flat name array. Empty attachment-copy prefixes reject instead of copying unchanged. |
 | PDF JSON | Import/update accepts generation 0 only, rejects pushed inherited attributes, and excludes stream/metadata writer combinations. Version 1 ignores stream payloads; `--json-output=1` rejects. Creation/update renumbers output to classic files. |
 | Unreferenced objects | Copy order and container handling can differ; object/xref-stream members are preserved through rebuilt containers. Unloadable objects skip under one aggregated warning instead of failing the job. |
 | Companions | `FixQdfAsync` rejects carriage returns, empty/truncated structures and nonsequential numbering. `RunZlibFlateAsync` rejects truncation instead of returning partial output, and accepts compression levels 1–9 only. |

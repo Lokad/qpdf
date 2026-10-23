@@ -703,6 +703,37 @@ $oraKeys = Get-AttachmentKeys "$case/ora-stdout.txt"
 if ($libKeys -ne '' -or $oraKeys -ne '') { Write-Output "[attachments-remove] FAIL: keys remain lib=[$libKeys] ora=[$oraKeys]"; $script:failures++ }
 else { Write-Output "[attachments-remove] key sets empty on both sides" }
 
+# --- case: attachment name-array boundaries (native listing must not repair output) ---
+$case = New-Case 'attachments-boundaries'
+Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
+[IO.File]::WriteAllBytes("$case/inputs/note.bin", [Text.Encoding]::ASCII.GetBytes('boundary attachment payload'))
+$payloadHash = (Get-FileHash "$case/inputs/note.bin" -Algorithm SHA256).Hash
+foreach ($count in @(64, 65, 129)) {
+  $emitArgs = [Collections.Generic.List[string]]::new()
+  $emitArgs.AddRange([string[]]@('emit', '--workdir', $case, '--out', "outputs/boundary.pdf=$case/lib-$count.pdf", '--', 'inputs/a.pdf'))
+  $expectedKeys = [Collections.Generic.List[string]]::new()
+  for ($index = 0; $index -lt $count; $index++) {
+    $key = 'key-' + $index.ToString('D3', [Globalization.CultureInfo]::InvariantCulture)
+    $expectedKeys.Add($key)
+    $emitArgs.AddRange([string[]]@('--add-attachment', 'inputs/note.bin', "--key=$key", '--'))
+  }
+  $emitArgs.AddRange([string[]]@('--', 'outputs/boundary.pdf'))
+  $code = Invoke-Emit $case ($emitArgs.ToArray())
+  if ($code -ne 0) { throw "attachments-boundaries/$count emit failed ($code)" }
+  $code = Invoke-Oracle $case @('--list-attachments', "$case/lib-$count.pdf")
+  if ($code -ne 0) { throw "attachments-boundaries/$count native listing required repair or failed ($code)" }
+  $actualKeys = Get-AttachmentKeys "$case/ora-stdout.txt"
+  if ($actualKeys -ne ($expectedKeys -join ',')) { throw "attachments-boundaries/$count key set mismatch" }
+  foreach ($key in @($expectedKeys[0], $expectedKeys[$count - 1])) {
+    $code = Invoke-Oracle $case @("--show-attachment=$key", "$case/lib-$count.pdf")
+    if ($code -ne 0) { throw "attachments-boundaries/$count native extraction required repair or failed ($code)" }
+    if ((Get-FileHash "$case/ora-stdout.txt" -Algorithm SHA256).Hash -ne $payloadHash) {
+      throw "attachments-boundaries/$count extracted payload mismatch"
+    }
+  }
+  Write-Output "[attachments-boundaries/$count] native listing and extraction pass without repair"
+}
+
 # --- case: metadata (managed vs oracle info/metadata removal) ---
 $case = New-Case 'metadata'
 Copy-Item "$fixtureDir/meta-1page.pdf" "$case/inputs/a.pdf"

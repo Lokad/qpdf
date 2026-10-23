@@ -373,7 +373,7 @@ echoing values.
   recorded. `--remove-attachment=key` (repeatable) drops entries; unknown keys
   fail without echoing bytes, and removals precede additions so re-adding wins
   ties. Collisions without `--replace` fail; existing attachments merge into
-  the rebuilt tree (flat leaf, chunked past 64 entries) with `/PageMode
+  the rebuilt tree (one admitted flat name array) with `/PageMode
   /UseAttachments` on insertions. `--copy-attachments-from FILE
   [--prefix=] --` (repeatable) copies entries from other files after
   removals and additions; prefixed keys collide as a group per source file

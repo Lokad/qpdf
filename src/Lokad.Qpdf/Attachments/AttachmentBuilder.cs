@@ -116,31 +116,19 @@ internal static class AttachmentBuilder
         memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         ArgumentNullException.ThrowIfNull(pairs);
         if (pairs.Count == 0) { throw new QpdfException("Attachment name tree needs at least one entry."); }
-        int leafCount = (pairs.Count - 1) / 64 + 1;
-        QpdfObject[] leaves = Array.Empty<QpdfObject>();
-        if (leafCount > 1) { memory.Reserve(64L + IntPtr.Size * (long)leafCount); leaves = new QpdfObject[leafCount]; }
-        PdfByteString? first = null, last = null;
-        for (int leaf = 0; leaf < leafCount; leaf++)
+        if (pairs.Count > Array.MaxLength / 2)
+        { throw new QpdfParseException("Attachment name tree exceeds supported array capacity.", null, null); }
+        int count = pairs.Count * 2;
+        memory.Reserve(64L + IntPtr.Size * (long)count);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        QpdfObject[] items = new QpdfObject[count];
+        for (int index = 0; index < pairs.Count; index++)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            int start = checked(leaf * 64), take = Math.Min(64, pairs.Count - start);
-            memory.Reserve(64L + 2L * IntPtr.Size * take);
-            QpdfObject[] items = new QpdfObject[2 * take];
-            for (int index = 0; index < take; index++)
-            {
-                PdfByteString key = EncodeText(pairs[start + index].Key, governor, memory, token);
-                first ??= key; last = key;
-                items[2 * index] = key; items[2 * index + 1] = pairs[start + index].Value;
-            }
-            PdfDictionary node = Dictionary(governor, memory, token, [("Names", PdfArray.FromOwnedItems(items))]);
-            if (leafCount == 1) { return node; }
-            leaves[leaf] = node;
+            items[2 * index] = EncodeText(pairs[index].Key, governor, memory, token);
+            items[2 * index + 1] = pairs[index].Value;
         }
-        memory.Reserve(64L + 2L * IntPtr.Size);
-        QpdfObject[] limits = [first ?? throw new InvalidOperationException("Missing first attachment key."),
-            last ?? throw new InvalidOperationException("Missing last attachment key.")];
-        return Dictionary(governor, memory, token,
-            [("Kids", PdfArray.FromOwnedItems(leaves)), ("Limits", PdfArray.FromOwnedItems(limits))]);
+        return Dictionary(governor, memory, token, [("Names", PdfArray.FromOwnedItems(items))]);
     }
 
     internal static byte[] Checksum(byte[] data)

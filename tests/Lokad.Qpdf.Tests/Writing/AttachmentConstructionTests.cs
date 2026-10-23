@@ -187,7 +187,93 @@ public sealed class AttachmentConstructionTests
             Assert.Equal(specs[index].Description, listing[index].Description);
             Assert.Equal("D:20240101000000Z", listing[index].CreationDate);
         }
+        foreach (int index in new[] { 0, count - 1 }.Distinct())
+        {
+            QpdfAttachmentExtraction extracted = await Qpdf.ExtractAttachmentAsync(host, QpdfPath.From("reread"),
+                specs[index].Key ?? throw new InvalidOperationException("Missing fixture key."), QpdfPath.From("payload"), CancellationToken.None);
+            Assert.Equal(7L, extracted.ByteCount);
+            Assert.True(host.TryGetOutput(QpdfPath.From("payload"), out byte[] payload));
+            Assert.Equal("payload"u8.ToArray(), payload);
+        }
+        QpdfAttachmentEditResult copied = await Qpdf.CopyAttachmentsAsync(host, QpdfPath.From("input"),
+            QpdfPath.From("copied"), [new(QpdfPath.From("reread"), "copy-")], CancellationToken.None);
+        Assert.Equal(count, copied.AttachmentCount);
+        Assert.True(host.TryGetOutput(QpdfPath.From("copied"), out byte[] copiedPdf));
+        host.AddInput(QpdfPath.From("copy-read"), copiedPdf, QpdfInputOwnership.Transfer);
+        string removedKey = "copy-" + specs[0].Key;
+        QpdfAttachmentEditResult removed = await Qpdf.RemoveAttachmentsAsync(host, QpdfPath.From("copy-read"),
+            QpdfPath.From("removed"), [removedKey], CancellationToken.None);
+        Assert.Equal(count - 1, removed.AttachmentCount);
+        Assert.True(host.TryGetOutput(QpdfPath.From("removed"), out byte[] removedPdf));
+        host.AddInput(QpdfPath.From("removed-read"), removedPdf, QpdfInputOwnership.Transfer);
+        IReadOnlyList<QpdfAttachmentInfo> remaining = await Qpdf.ListAttachmentsAsync(host, QpdfPath.From("removed-read"),
+            QpdfLimits.Default with { MaxDiagnostics = 4096 }, CancellationToken.None);
+        Assert.Equal(count - 1, remaining.Count);
+        Assert.DoesNotContain(remaining, item => item.Key == removedKey);
+        Assert.Equal(specs.Skip(1).Select(spec => "copy-" + spec.Key), remaining.Select(item => item.Key));
         Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public void NameArrayCapacityRejectsBeforeAccessingEntries()
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
+        {
+            Assert.Throws<QpdfParseException>(() => AttachmentBuilder.BuildNameTree(new ExcessivePairs(), governor, memory, CancellationToken.None));
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    private sealed class ExcessivePairs : IReadOnlyList<KeyValuePair<string, PdfReference>>
+    {
+        public int Count => Array.MaxLength / 2 + 1;
+        public KeyValuePair<string, PdfReference> this[int index] => throw new InvalidOperationException("Capacity must reject before entry access.");
+        public IEnumerator<KeyValuePair<string, PdfReference>> GetEnumerator() => throw new InvalidOperationException("Capacity must reject before enumeration.");
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NameArrayRefusalPreservesEarlierStorage(bool shared)
+    {
+        RecordingMemoryBudget root = new(4096L); using IMemoryScope caller = root.CreateScope();
+        Host host = new([], null, shared ? caller : null);
+        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = shared ? 1048576L : 4096L }, CancellationToken.None, host);
+        KeyValuePair<string, PdfReference>[] pairs = Enumerable.Range(0, 1024).Select(i => new KeyValuePair<string, PdfReference>("key", new(i + 1, 0))).ToArray();
+        using (ParserMemoryScope prior = ParserMemoryScope.Create(governor))
+        {
+            prior.Reserve(17L); long baseline = governor.Snapshot().LiveMemoryBytes;
+            using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
+            {
+                if (shared) { Assert.Throws<QpdfMemoryAdmissionException>(() => AttachmentBuilder.BuildNameTree(pairs, governor, memory, CancellationToken.None)); }
+                else { Assert.Throws<QpdfLimitException>(() => AttachmentBuilder.BuildNameTree(pairs, governor, memory, CancellationToken.None)); }
+            }
+            Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes); Assert.Equal(17L, prior.ReservedBytes);
+        }
+        Assert.Equal(0L, root.ReservedBytes); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CancellationAfterNameArrayAdmissionPrecedesAllocation(bool governorToken)
+    {
+        RecordingMemoryBudget root = new(1048576L); using IMemoryScope caller = root.CreateScope();
+        using CancellationTokenSource cancellation = new();
+        Host host = new([], null, new CancelingGrowth(caller, cancellation));
+        ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None, host);
+        KeyValuePair<string, PdfReference>[] pairs = Enumerable.Range(0, 8192).Select(i => new KeyValuePair<string, PdfReference>("key", new(i + 1, 0))).ToArray();
+        using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
+        {
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            Assert.ThrowsAny<OperationCanceledException>(() => AttachmentBuilder.BuildNameTree(pairs, governor, memory,
+                governorToken ? CancellationToken.None : cancellation.Token));
+            Assert.True(GC.GetAllocatedBytesForCurrentThread() - before < 65536L);
+        }
+        Assert.True(cancellation.IsCancellationRequested); Assert.Equal(0L, root.ReservedBytes);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]

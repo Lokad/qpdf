@@ -2165,10 +2165,12 @@
         "positive": [
           "AttachmentEditTests.AddSingleAttachment",
           "AttachmentEditTests.AddExplicitMetadata",
+          "AttachmentConstructionTests.NameTreeBoundariesAndUnicodeRoundTripThroughThePublicPipeline",
           "AttachmentEditTests.AddWithPagesSelectsAndAttaches"
         ],
         "negative": [
           "AttachmentEditTests.AddMissingFileFails",
+          "AttachmentConstructionTests.NameArrayCapacityRejectsBeforeAccessingEntries",
           "AttachmentEditTests.MalformedEditsFail",
           "AttachmentEditTests.JobMalformedEditsFail",
           "AttachmentEditTests.NestedUnknownFlagFails",
@@ -2180,10 +2182,13 @@
           "AttachmentEditTests.NestedMetadataJobParityHolds"
         ],
         "resource": [
-          "AttachmentEditTests.AttachmentsYieldToExhaustedBudget"
+          "AttachmentEditTests.AttachmentsYieldToExhaustedBudget",
+          "AttachmentConstructionTests.NameArrayRefusalPreservesEarlierStorage",
+          "AttachmentConstructionTests.CancellationAfterNameArrayAdmissionPrecedesAllocation"
         ],
         "oracle": [
-          "diff:attachments-add"
+          "diff:attachments-add",
+          "diff:attachments-boundaries"
         ]
       }
     },
