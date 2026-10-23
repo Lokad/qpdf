@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 
@@ -378,25 +379,50 @@ public sealed class WriterControlsTests
         Assert.Equal(expected, id2a);
     }
 
-    [Fact]
-    public async Task DeterministicFlagMatchesDefaultForSameContent()
+    [Theory]
+    [InlineData("argv", false)]
+    [InlineData("argv", true)]
+    [InlineData("job", false)]
+    [InlineData("job", true)]
+    [InlineData("mixed", false)]
+    [InlineData("mixed", true)]
+    public async Task DeterministicFlagMatchesDefaultForSameContent(string route, bool staticId)
     {
-        InMemoryQpdfHost plainHost = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        QpdfExecutionResult plain = await Qpdf.ExecuteAsync(
-            plainHost,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--", "outputs/a.pdf"]),
-            CancellationToken.None);
-        Assert.Equal(QpdfExitCode.Success, plain.ExitCode);
-        Assert.True(plainHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] a));
+        byte[]? baseline = null;
+        foreach (bool flagged in new[] { false, true })
+        {
+            using InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+            List<string> argv = ["inputs/a.pdf"];
+            Dictionary<string, string> job = new() { ["inputFile"] = "inputs/a.pdf", ["outputFile"] = "outputs/a.pdf" };
+            if (flagged) { argv.Add("--deterministic-id"); job["deterministicId"] = ""; }
+            if (staticId) { argv.Add("--static-id"); job["staticId"] = ""; }
+            argv.Add("outputs/a.pdf");
+            string json = JsonSerializer.Serialize(job);
+            host.AddInput(QpdfPath.From("config.json"), Encoding.UTF8.GetBytes(json), QpdfInputOwnership.Copy);
+            QpdfExecutionResult result = route == "job" ? await Qpdf.ExecuteJobAsync(host, json, CancellationToken.None)
+                : await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(route == "mixed" ? ["--job-json-file=config.json"] : argv), CancellationToken.None);
+            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+            Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] output));
+            baseline ??= output; Assert.Equal(baseline, output);
+            Assert.Equal(0L, host.OpenLeaseCount);
+        }
+    }
 
-        InMemoryQpdfHost flagHost = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        QpdfExecutionResult flagged = await Qpdf.ExecuteAsync(
-            flagHost,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--deterministic-id", "--pages", ".", "1", "--", "outputs/a.pdf"]),
-            CancellationToken.None);
-        Assert.Equal(QpdfExitCode.Success, flagged.ExitCode);
-        Assert.True(flagHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] b));
-        Assert.Equal(a, b);
+    [Theory]
+    [InlineData("\"\"", true)]
+    [InlineData("true", true)]
+    [InlineData("false", true)]
+    [InlineData("\"yes\"", false)]
+    [InlineData("null", false)]
+    [InlineData("42", false)]
+    public async Task JobDeterministicFlagRetainsItsValueValidation(string value, bool accepted)
+    {
+        using InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        string job = "{\"inputFile\":\"inputs/a.pdf\",\"outputFile\":\"outputs/a.pdf\",\"deterministicId\":" + value + "}";
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, job, CancellationToken.None);
+        Assert.Equal(accepted ? QpdfExitCode.Success : QpdfExitCode.Error, result.ExitCode);
+        Assert.Equal(accepted, host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out _));
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     private static async Task AssertEncodedBoundary(byte[] pdf, byte[] expected, bool newline)

@@ -133,7 +133,6 @@ internal static class JobJsonParser
             bool seenMin = false;
             string? forceVersion = null;
             bool seenForce = false;
-            bool deterministicId = false;
             bool seenDeterministic = false;
             bool staticId = false;
             bool seenStatic = false;
@@ -422,7 +421,7 @@ internal static class JobJsonParser
                         }
 
                         seenDeterministic = true;
-                        deterministicId = RequireBareFlag(property.Value, "deterministicId", textStorage);
+                        RequireBareFlag(property.Value, "deterministicId", textStorage);
                         break;
                     case "staticId":
                         if (seenStatic && !configurationLayers)
@@ -1270,7 +1269,6 @@ internal static class JobJsonParser
                     IgnoreXrefStreams = ignoreXrefStreams,
                     MinVersion = minVersion,
                     ForceVersion = forceVersion,
-                    DeterministicId = deterministicId,
                     StaticId = staticId,
                     NewlineBeforeEndstream = newlineBeforeEndstream,
                     ObjectStreams = objectStreams,
@@ -1452,7 +1450,6 @@ internal static class JobJsonParser
                     NoWarn = noWarn,
                     MinVersion = minVersion,
                     ForceVersion = forceVersion,
-                    DeterministicId = deterministicId,
                     StaticId = staticId,
                     NewlineBeforeEndstream = newlineBeforeEndstream,
                 };
@@ -1497,7 +1494,6 @@ internal static class JobJsonParser
                     NoWarn = noWarn,
                     MinVersion = minVersion,
                     ForceVersion = forceVersion,
-                    DeterministicId = deterministicId,
                     StaticId = staticId,
                     NewlineBeforeEndstream = newlineBeforeEndstream,
                 };
@@ -1597,7 +1593,6 @@ internal static class JobJsonParser
                     NoWarn = noWarn,
                     MinVersion = minVersion,
                     ForceVersion = forceVersion,
-                    DeterministicId = deterministicId,
                     StaticId = staticId,
                     NewlineBeforeEndstream = newlineBeforeEndstream,
                     ObjectStreams = objectStreams,
@@ -1691,7 +1686,6 @@ internal static class JobJsonParser
                     NoWarn = noWarn,
                     MinVersion = minVersion,
                     ForceVersion = forceVersion,
-                    DeterministicId = deterministicId,
                     StaticId = staticId,
                     NewlineBeforeEndstream = newlineBeforeEndstream,
                     ObjectStreams = objectStreams,
@@ -1755,7 +1749,6 @@ internal static class JobJsonParser
                 SplitPages = splitPages,
                 MinVersion = minVersion,
                 ForceVersion = forceVersion,
-                DeterministicId = deterministicId,
                 StaticId = staticId,
                 NewlineBeforeEndstream = newlineBeforeEndstream,
                     ObjectStreams = objectStreams,

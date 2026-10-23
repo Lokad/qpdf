@@ -964,7 +964,6 @@ internal static class ArgvParser
             SplitPages = globals.SplitPages,
             MinVersion = globals.MinVersion,
             ForceVersion = globals.ForceVersion,
-            DeterministicId = globals.DeterministicId,
             StaticId = globals.StaticId,
             NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
             ObjectStreams = globals.ObjectStreams,
@@ -1196,7 +1195,6 @@ internal static class ArgvParser
         internal required bool ReplaceInput { get; init; }
         internal required string? MinVersion { get; init; }
         internal required string? ForceVersion { get; init; }
-        internal required bool DeterministicId { get; init; }
         internal required bool StaticId { get; init; }
         internal required bool NewlineBeforeEndstream { get; init; }
         internal required string? ObjectStreams { get; init; }
@@ -1441,7 +1439,6 @@ internal static class ArgvParser
         bool rawStreamData = false;
         bool seenFilteredStreamData = false;
         bool filteredStreamData = false;
-        bool deterministicId = false;
         bool staticId = false;
         bool newlineBeforeEndstream = false;
         int mainPagesAt = FindFlag(argv, "--pages");
@@ -1600,7 +1597,6 @@ internal static class ArgvParser
                 }
 
                 seenDeterministic = true;
-                deterministicId = true;
                 continue;
             }
 
@@ -2283,7 +2279,6 @@ internal static class ArgvParser
             ReplaceInput = replaceInput,
             MinVersion = minVersion,
             ForceVersion = forceVersion,
-            DeterministicId = deterministicId,
             StaticId = staticId,
             NewlineBeforeEndstream = newlineBeforeEndstream,
             ObjectStreams = objectStreams,
@@ -2919,7 +2914,6 @@ internal static class ArgvParser
             NoWarn = globals.NoWarn,
             MinVersion = globals.MinVersion,
             ForceVersion = globals.ForceVersion,
-            DeterministicId = globals.DeterministicId,
             StaticId = globals.StaticId,
             NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
             ObjectStreams = globals.ObjectStreams,
@@ -3269,7 +3263,6 @@ internal static class ArgvParser
                 NoWarn = globals.NoWarn,
                 MinVersion = globals.MinVersion,
                 ForceVersion = globals.ForceVersion,
-                DeterministicId = globals.DeterministicId,
                 StaticId = globals.StaticId,
                 NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
             };
@@ -3298,7 +3291,6 @@ internal static class ArgvParser
             NoWarn = globals.NoWarn,
             MinVersion = globals.MinVersion,
             ForceVersion = globals.ForceVersion,
-            DeterministicId = globals.DeterministicId,
             StaticId = globals.StaticId,
             NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
         };
@@ -3955,7 +3947,6 @@ internal static class ArgvParser
             ReplaceInput = true,
             MinVersion = globals.MinVersion,
             ForceVersion = globals.ForceVersion,
-            DeterministicId = globals.DeterministicId,
             StaticId = globals.StaticId,
             NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
             ObjectStreams = globals.ObjectStreams,
@@ -4039,7 +4030,6 @@ internal static class ArgvParser
             SplitPages = globals.SplitPages,
             MinVersion = globals.MinVersion,
             ForceVersion = globals.ForceVersion,
-            DeterministicId = globals.DeterministicId,
             StaticId = globals.StaticId,
             NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
             ObjectStreams = globals.ObjectStreams,
@@ -4156,7 +4146,6 @@ internal static class ArgvParser
                 SplitPages = globals.SplitPages,
                 MinVersion = globals.MinVersion,
                 ForceVersion = globals.ForceVersion,
-                DeterministicId = globals.DeterministicId,
                 StaticId = globals.StaticId,
                 NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
                 ObjectStreams = globals.ObjectStreams,

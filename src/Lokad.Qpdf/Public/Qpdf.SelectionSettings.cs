@@ -15,7 +15,6 @@ public static partial class Qpdf
         internal bool RemoveLabels { get; init; }
         internal string? MinVersion { get; init; }
         internal string? ForceVersion { get; init; }
-        internal bool DeterministicId { get; init; }
         internal bool StaticId { get; init; }
         internal bool NewlineBeforeEndstream { get; init; }
         internal string? ObjectStreams { get; init; }
@@ -66,7 +65,6 @@ public static partial class Qpdf
             RemoveLabels = plan.RemoveLabels,
             MinVersion = plan.MinVersion,
             ForceVersion = plan.ForceVersion,
-            DeterministicId = plan.DeterministicId,
             StaticId = plan.StaticId,
             NewlineBeforeEndstream = plan.NewlineBeforeEndstream,
             ObjectStreams = plan.ObjectStreams,

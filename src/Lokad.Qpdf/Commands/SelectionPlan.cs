@@ -27,8 +27,6 @@ internal abstract record JobPlan(QpdfPath Input)
 
     public string? ForceVersion { get; init; }
 
-    public bool DeterministicId { get; init; }
-
     public bool StaticId { get; init; }
 
     public bool NewlineBeforeEndstream { get; init; }
