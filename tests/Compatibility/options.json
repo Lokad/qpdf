@@ -3775,7 +3775,8 @@
           "JsonModesTests.VersionOneIgnoresStreamData"
         ],
         "negative": [
-          "JsonModesTests.BadStreamOptionsFail"
+          "JsonModesTests.BadStreamOptionsFail",
+          "PublicationAdmissionTests.JsonSidecarCannotOverwriteMainOutput"
         ],
         "interaction": [
           "JsonModesTests.JobStreamModesRoundTrip",
@@ -3818,7 +3819,8 @@
         ],
         "negative": [
           "JsonModesTests.BadStreamOptionsFail",
-          "JsonModesTests.StrayStreamOptionsFail"
+          "JsonModesTests.StrayStreamOptionsFail",
+          "PublicationAdmissionTests.JsonSidecarCannotOverwriteMainOutput"
         ],
         "interaction": [
           "JsonModesTests.JobStreamModesRoundTrip"
@@ -4041,7 +4043,8 @@
         "negative": [
           "LinearizedWriterTests.Pass1MalformedFormsFail",
           "LinearizedWriterTests.Pass1DuplicateFails",
-          "LinearizedWriterTests.Pass1MalformedJobKeysFail"
+          "LinearizedWriterTests.Pass1MalformedJobKeysFail",
+          "PublicationAdmissionTests.ActiveFirstPassCannotOverwriteAnyMainOutput"
         ],
         "interaction": [],
         "resource": [
@@ -6001,7 +6004,8 @@
         "negative": [
           "SplitReplaceTests.SplitOutputAliasingInputFailsCleanly",
           "SplitReplaceTests.JobSplitMalformedFails",
-          "SplitReplaceTests.TypedSplitNonPositiveFailsCleanly"
+          "SplitReplaceTests.TypedSplitNonPositiveFailsCleanly",
+          "PublicationAdmissionTests.ActiveFirstPassCannotOverwriteAnyMainOutput"
         ],
         "interaction": [
           "SplitReplaceTests.SplitSingleGroupMatchesDirectBytes",

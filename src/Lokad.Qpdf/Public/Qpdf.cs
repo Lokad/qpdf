@@ -1448,6 +1448,7 @@ public static partial class Qpdf
         HashSet<string> seenNames = new(StringComparer.Ordinal);
         foreach (string name in names)
         {
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (name.Length > QpdfPath.MaxLength)
             {
                 throw new QpdfParseException("A split output name exceeds the path budget.", null, null);
@@ -1461,6 +1462,11 @@ public static partial class Qpdf
             if (!seenNames.Add(name))
             {
                 throw new QpdfParseException($"Split outputs collide on '{name}'.", null, null);
+            }
+
+            if (settings.Linearize && string.Equals(settings.LinearizePass1?.Value, name, StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("The first-pass output must differ from every main PDF output.", null, null);
             }
         }
 
@@ -2620,6 +2626,11 @@ public static partial class Qpdf
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
+        if (linearizePass1 == path)
+        {
+            throw new QpdfParseException("The first-pass output must differ from every main PDF output.", null, null);
+        }
+
         Writing.LinearizedWriter writer = new(limits, governor);
         byte[] id1;
         byte[] id2;
@@ -4758,6 +4769,8 @@ public static partial class Qpdf
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (string.Equals(sidecar.Name, inputPath.Value, StringComparison.Ordinal))
             { throw new QpdfParseException("A JSON stream file must differ from the input file.", 0L, null); }
+            if (string.Equals(sidecar.Name, outputPath?.Value, StringComparison.Ordinal))
+            { throw new QpdfParseException("A JSON stream file must differ from the main JSON output.", 0L, null); }
             _ = QpdfPath.From(sidecar.Name);
             anticipatedBytes = checked(anticipatedBytes + sidecar.Data.Length);
             publicationOperations = checked(publicationOperations + 1L + (sidecar.Data.Length + 32767L) / 32768L);

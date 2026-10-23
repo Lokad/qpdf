@@ -248,7 +248,8 @@ echoing values.
   raw fallback; version 1 ignores stream payloads. `--json-output[=2|latest]`
   implies JSON with inline payloads, no decode, only the qpdf key by default,
   and no version or parameters keys. `--json-help[=1|2|latest]` (default 2) describes the matching version with same-keys/descriptive-values JSON and wins over `--json` combinations. The typed `GetDocumentJsonAsync` shares
-  the engine.
+  the engine. Sidecar paths must differ from the main JSON output; equal ordinal
+  logical names reject before any output is created.
 - `input.json --json-input -- output.pdf` builds a PDF from qpdf JSON version
   2 (only the top-level qpdf array is read): strict object keys, canonical
   value encodings with resolved names, inline base64 or host sidecar stream
@@ -389,6 +390,8 @@ echoing values.
   Both companions close their input before creating output staging; read or input-close failures publish nothing.
 - `--linearize` emits web-optimized output through a two-pass writer with generated page-offset, shared-object, and outline hint tables (hints Flate-encode under stream compression) and optional generated object streams;
   `--linearize-pass1` captures the counting pass while `--check-linearization` and `--show-linearization` inspect through the shared engine. QDF stays disabled over linearization.
+  An active first-pass target must differ from every main PDF target, including
+  later split groups; equal ordinal logical names reject before output creation.
 
 ## Governance
 
@@ -438,7 +441,9 @@ fresh admitted buffer; public construction and returned copies still clone.
 JSON uses an exclusive reader through serialization and closes it before output
 creation. Input-close faults preserve prior main/sidecar targets on all three
 routes; raw/decoded sidecar copies survive cleanup and fit one open handle.
-These cases do not establish every collision or group-publication contract.
+Main/sidecar and active first-pass/main target collisions reject before any output
+creation. Different logical names can still alias according to the host; multiple
+outputs retain sequential commits rather than a group transaction.
 Diagnostic records/text/list growth and failure-history export use the shared
 governed machinery. Returned diagnostics form a coarse caller-owned batch, with no message memo.
 Count/UTF-8 overflow fails explicitly while retaining the accepted prefix and a

@@ -411,6 +411,133 @@ public sealed class PublicationAdmissionTests
         Assert.True(lateFailures > 0, "The fixed public memory controls must include a failure after serialized output is staged.");
     }
 
+    [Theory]
+    [InlineData("typed", true)]
+    [InlineData("argv", true)]
+    [InlineData("job", true)]
+    [InlineData("typed", false)]
+    [InlineData("argv", false)]
+    [InlineData("job", false)]
+    public async Task JsonSidecarCannotOverwriteMainOutput(string route, bool collision)
+    {
+        ObservedHost host = await Observed("json-sidecar", false, false);
+        QpdfPath output = QpdfPath.From(collision ? "side-4" : "output.pdf");
+        if (route == "typed")
+        {
+            QpdfJsonOptions options = new(2, ["qpdf"], "file", "side", ["4"], false);
+            if (collision)
+            {
+                QpdfParseException error = await Assert.ThrowsAsync<QpdfParseException>(() =>
+                    Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("input.pdf"), output, options, CancellationToken.None).AsTask());
+                Assert.Contains("differ", error.Message, StringComparison.Ordinal);
+            }
+            else
+            {
+                QpdfJsonResult result = await Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("input.pdf"), output, options, CancellationToken.None);
+                Assert.Equal(0L, result.Counters.OpenHandles);
+                using JsonDocument returned = JsonDocument.Parse(result.Json);
+                Assert.True(returned.RootElement.TryGetProperty("qpdf", out _));
+            }
+        }
+        else
+        {
+            QpdfExecutionResult result = route == "argv"
+                ? await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["input.pdf", "--json=2", "--json-key=qpdf",
+                    "--json-stream-data=file", "--json-stream-prefix=side", "--json-object=4", "--", output.Value]), CancellationToken.None)
+                : await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new
+                {
+                    inputFile = "input.pdf", outputFile = output.Value, json = "2", jsonKey = new[] { "qpdf" },
+                    jsonStreamData = "file", jsonStreamPrefix = "side", jsonObject = new[] { "4" },
+                }), CancellationToken.None);
+            Assert.Equal(collision ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed, result.Status);
+            Assert.Equal(collision ? QpdfExitCode.Error : QpdfExitCode.Success, result.ExitCode);
+            Assert.Equal(0L, result.Counters.OpenHandles);
+            if (collision) { Assert.Contains(result.Diagnostics, item => item.Message.Contains("differ", StringComparison.Ordinal)); }
+        }
+
+        Assert.Equal(0L, host.Inner.OpenLeaseCount);
+        if (collision)
+        {
+            Assert.Equal(0, host.Creates); Assert.Empty(host.Committed);
+            foreach (string target in Targets)
+            {
+                Assert.True(host.Inner.TryGetOutput(QpdfPath.From(target), out byte[] prior));
+                Assert.Equal(new byte[] { 17, 23, 41 }, prior);
+            }
+        }
+        else
+        {
+            Assert.Equal(new[] { "output.pdf", "side-4" }, host.Committed);
+            Assert.True(host.Inner.TryGetOutput(output, out byte[] report));
+            using JsonDocument published = JsonDocument.Parse(report);
+            Assert.Equal("side-4", published.RootElement.GetProperty("qpdf")[1].GetProperty("obj:4 0 R")
+                .GetProperty("stream").GetProperty("datafile").GetString());
+            Assert.True(host.Inner.TryGetOutput(QpdfPath.From("side-4"), out byte[] payload));
+            Assert.Equal("q Q\n"u8.ToArray(), payload);
+        }
+    }
+
+    public static IEnumerable<object[]> FirstPassTargets()
+    {
+        foreach (string route in new[] { "argv", "job" })
+        foreach (bool streamed in new[] { false, true })
+        foreach (string shape in new[] { "whole", "split-first", "split-later", "whole-safe", "split-safe" })
+        { yield return [route, streamed, shape]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(FirstPassTargets))]
+    public async Task ActiveFirstPassCannotOverwriteAnyMainOutput(string route, bool streamed, string shape)
+    {
+        ObservedHost host = await Observed("split-pass1", false, false);
+        bool split = shape.StartsWith("split-", StringComparison.Ordinal);
+        bool collision = !shape.EndsWith("-safe", StringComparison.Ordinal);
+        string pass1 = shape switch { "whole" => "output.pdf", "split-first" => "output-1.pdf",
+            "split-later" => "output-2.pdf", _ => "pass1.pdf" };
+        List<string> argv = ["input.pdf", "--linearize", "--linearize-pass1=" + pass1];
+        Dictionary<string, object> job = new(StringComparer.Ordinal)
+        { ["inputFile"] = "input.pdf", ["outputFile"] = "output.pdf", ["linearize"] = "", ["linearizePass1"] = pass1 };
+        if (split)
+        {
+            argv.AddRange(["--split-pages=1", "--pages", ".", "1", ".", "1", "--"]);
+            job.Add("splitPages", "1"); job.Add("pages", new[] { new { file = ".", range = "1" }, new { file = ".", range = "1" } });
+        }
+        if (streamed) { argv.Add("--object-streams=generate"); job.Add("objectStreams", "generate"); }
+        argv.Add("output.pdf");
+        QpdfExecutionResult result = route == "argv"
+            ? await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None)
+            : await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(job), CancellationToken.None);
+        Assert.Equal(collision ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(collision ? QpdfExitCode.Error : QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, host.Inner.OpenLeaseCount);
+        if (collision)
+        {
+            Assert.Contains(result.Diagnostics, item => item.Message.Contains("differ", StringComparison.Ordinal));
+            Assert.Equal(0, host.Creates); Assert.Empty(host.Committed);
+            foreach (string target in Targets)
+            {
+                Assert.True(host.Inner.TryGetOutput(QpdfPath.From(target), out byte[] prior));
+                Assert.Equal(new byte[] { 17, 23, 41 }, prior);
+            }
+        }
+        else
+        {
+            Assert.Equal(split ? new[] { "output-1.pdf", pass1, "output-2.pdf", pass1 } : new[] { "output.pdf", pass1 }, host.Committed);
+            foreach (string target in split ? new[] { "output-1.pdf", "output-2.pdf" } : new[] { "output.pdf" })
+            {
+                Assert.True(host.Inner.TryGetOutput(QpdfPath.From(target), out byte[] bytes));
+                host.Inner.AddInput(QpdfPath.From("readback.pdf"), bytes, QpdfInputOwnership.Copy);
+                await using (QpdfDocument document = await QpdfDocument.OpenAsync(host.Inner, QpdfPath.From("readback.pdf"), CancellationToken.None))
+                { Assert.Equal(1, document.PageCount); }
+                QpdfCheckResult check = await Qpdf.CheckAsync(host.Inner, QpdfPath.From("readback.pdf"), CancellationToken.None);
+                Assert.Equal(QpdfCheckStatus.Passed, Assert.Single(check.Checks, item => item.Name == "linearization").Status);
+            }
+            Assert.True(host.Inner.TryGetOutput(QpdfPath.From(pass1), out byte[] capture));
+            Assert.True(capture.Length > 3);
+            Assert.Equal(0L, host.Inner.OpenLeaseCount);
+        }
+    }
+
     private sealed class ObservedHost(InMemoryQpdfHost inner) : IQpdfHost
     {
         internal InMemoryQpdfHost Inner => inner;

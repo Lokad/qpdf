@@ -78,6 +78,13 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+JSON sidecars must differ from the main JSON output, and an active linearization
+first-pass capture must differ from every main PDF output, including later split
+groups. Equal ordinal logical paths now fail before any output transaction is
+created; previously the auxiliary bytes could overwrite the completed main file
+while reporting success. Hosts remain responsible for aliases between different
+logical names. Public signatures and sequential commit semantics are unchanged.
+
 Typed attachment listing returns metadata without constructing discarded listing
 messages. Clean metadata calls no longer spend diagnostic record/message quotas;
 real warnings and all memory/I/O limits remain binding. Argv/job listing still
