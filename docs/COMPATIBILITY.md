@@ -78,6 +78,16 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Appearance generation and stamping share the existing bounded geometry formatter.
+Large integral real coordinates retain a decimal point, so generated BBox/Matrix
+values remain readable under the managed integer bounds. The former private
+formatters could report success while writing oversized integer tokens; native
+qpdf shares these extreme-coordinate defects. Non-finite fresh widget bounds and
+stamp matrices now fail before publication. Existing malformed-appearance skipping
+and ordinary rounding remain unchanged. Numeric strings receive admission before
+creation, and content operands write bounded scratch directly into governed
+buffers. Public signatures are unchanged.
+
 Appearance generation resolves indirect named font encodings through the existing
 bounded field resolver. WinAnsi and MacRoman characters now agree with direct
 encoding declarations instead of silently becoming `?`. Local-font precedence,

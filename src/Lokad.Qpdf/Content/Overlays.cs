@@ -734,7 +734,11 @@ internal static class Overlays
     {
         AppendAscii(output, "q");
         output.WriteByte((byte)10);
-        AppendAscii(output, FormatMatrix(cm));
+        for (int index = 0; index < cm.Length; index++)
+        {
+            if (index > 0) { output.WriteByte((byte)' '); }
+            WriterNumber.AppendGeometry(output, cm[index]);
+        }
         AppendAscii(output, " cm");
         output.WriteByte((byte)10);
         output.WriteByte((byte)47);
@@ -991,40 +995,15 @@ internal static class Overlays
     {
         ownership.Reserve(checked(56L + IntPtr.Size * (long)values.Length));
         QpdfObject[] items = new QpdfObject[values.Length];
+        Span<char> text = stackalloc char[384];
         for (int i = 0; i < values.Length; i++)
         {
-            governor.CheckCancellation(); string text = FormatDouble(values[i]);
-            ownership.Reserve(32L + GovernedText.StringBytes(text.Length));
-            items[i] = new PdfReal(text, values[i]);
+            governor.CheckCancellation();
+            int length = WriterNumber.FormatGeometry(values[i], text);
+            ownership.Reserve(32L + GovernedText.StringBytes(length));
+            items[i] = new PdfReal(new string(text[..length]), values[i]);
         }
         return PdfArray.FromOwnedItems(items);
-    }
-
-    private static string FormatMatrix(double[] values)
-    {
-        StringBuilder builder = new();
-        for (int i = 0; i < values.Length; i++)
-        {
-            if (i > 0)
-            {
-                builder.Append((char)32);
-            }
-
-            builder.Append(FormatDouble(values[i]));
-        }
-
-        return builder.ToString();
-    }
-
-    private static string FormatDouble(double value)
-    {
-        if (value > -0.00001 && value < 0.00001)
-        {
-            value = 0.0;
-        }
-
-        double rounded = Math.Round(value, 5, MidpointRounding.AwayFromZero);
-        return rounded.ToString("0.#####", CultureInfo.InvariantCulture);
     }
 
     private static double[]? ReadPageBox(PdfDictionary page, string key, IIndirectResolver resolver)

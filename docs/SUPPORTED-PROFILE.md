@@ -215,6 +215,12 @@ echoing values.
   preserve appearances. Structural, decompression, memory and cancellation limits
   remain binding.
 
+Stamp rotation/unit scalars and named appearance font encodings accept indirect
+values with the same bounded resolution and interpretation as direct values.
+Generated BBox/Matrix values keep large integral reals readable under the integer
+bounds. Non-finite fresh widget bounds or stamp matrices fail before publication;
+existing malformed-appearance skipping and ordinary numeric rounding remain.
+
 ## Inspection profile
 
 - `--show-pages` lists content references from direct or indirect arrays, retaining

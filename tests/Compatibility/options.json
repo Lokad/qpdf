@@ -3171,6 +3171,7 @@
         "positive": [
           "GenerateAppearancesTests.TextFieldAppearanceRegeneratesValue",
           "GenerateAppearancesTests.MissingAppearanceIsCreated",
+          "GeneratedGeometryTests.GeneratedCoordinatesRemainReadableAfterDocumentsAndHostClose",
           "GenerateAppearancesTests.CheckboxSynchronizesState",
           "GenerateAppearancesTests.FontEncodingKeepsAccentsWithEquivalentNameSpellings",
           "AppearanceEncodingReferenceTests.IndirectEncodingNamesKeepGlyphsAndLocalFontPrecedence",
@@ -4583,6 +4584,7 @@
         "positive": [
           "OverlayTests.OverlayStacksStampOnTop",
           "OverlayScalarTests.IndirectStampScalarsMatchDirectTransforms",
+          "GeneratedGeometryTests.GeneratedCoordinatesRemainReadableAfterDocumentsAndHostClose",
           "OverlayTests.MultipleOverlaysStackInOrder",
           "OverlayTests.PagesSelectionThenOverlay",
           "OverlayTests.MergeThenOverlayAppliesToFinalPages",
@@ -6309,6 +6311,7 @@
         "positive": [
           "OverlayTests.UnderlayGoesBelowOriginal",
           "OverlayScalarTests.IndirectStampScalarsMatchDirectTransforms",
+          "GeneratedGeometryTests.GeneratedCoordinatesRemainReadableAfterDocumentsAndHostClose",
           "OverlayTests.UnderlayAndOverlayCombineAroundOriginal",
           "OverlayTests.EmptyFromWithRepeatCoversAllPages",
           "OverlayTests.UnderlayRangesShareGrammar",

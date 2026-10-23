@@ -1,5 +1,6 @@
 using System.Buffers.Text;
 using System.Globalization;
+using System.Text;
 using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Writing;
@@ -43,5 +44,14 @@ internal static class WriterNumber
             target[written++] = '.'; target[written++] = '0';
         }
         return written;
+    }
+
+    internal static void AppendGeometry(GovernedBufferStream output, double value)
+    {
+        Span<char> text = stackalloc char[384];
+        int length = FormatGeometry(value, text);
+        Span<byte> bytes = stackalloc byte[384];
+        int written = Encoding.ASCII.GetBytes(text[..length], bytes);
+        output.Write(bytes[..written]);
     }
 }

@@ -687,13 +687,14 @@ internal static class GenerateAppearances
         long bytes = checked(56L + IntPtr.Size * (long)values.Length);
         graph.Memory.Reserve(bytes); graph.Add(bytes);
         QpdfObject[] items = new QpdfObject[values.Length];
+        Span<char> text = stackalloc char[384];
         for (int i = 0; i < values.Length; i++)
         {
             graph.Token.ThrowIfCancellationRequested(); graph.Governor.CheckCancellation();
-            string text = FormatDouble(values[i]);
-            long itemBytes = checked(32L + GovernedText.StringBytes(text.Length));
+            int length = WriterNumber.FormatGeometry(values[i], text);
+            long itemBytes = checked(32L + GovernedText.StringBytes(length));
             graph.Memory.Reserve(itemBytes); graph.Add(itemBytes);
-            items[i] = new PdfReal(text, values[i]);
+            items[i] = new PdfReal(new string(text[..length]), values[i]);
         }
         return PdfArray.FromOwnedItems(items);
     }
@@ -790,13 +791,14 @@ internal static class GenerateAppearances
             ReadOnlyMemory<byte> rebuilt = appearance;
             if (sizeOffset >= 0 && Math.Abs(stored - size) > 0.001)
             {
-                string replacement = FormatDouble(size); // A bounded font-size scalar.
-                int length = checked(appearance.Length - sizeLength + replacement.Length);
+                Span<char> replacement = stackalloc char[384];
+                int replacementLength = WriterNumber.FormatGeometry(size, replacement);
+                int length = checked(appearance.Length - sizeLength + replacementLength);
                 memory.Reserve(32L + length);
                 byte[] bytes = new byte[length];
                 GovernedBufferStream.CopyBytes(appearance.Span[..sizeOffset], bytes.AsSpan(0, sizeOffset), governor, cancellationToken, CancellationToken.None);
-                Encoding.ASCII.GetBytes(replacement, bytes.AsSpan(sizeOffset, replacement.Length));
-                GovernedBufferStream.CopyBytes(appearance.Span[(sizeOffset + sizeLength)..], bytes.AsSpan(sizeOffset + replacement.Length), governor, cancellationToken, CancellationToken.None);
+                Encoding.ASCII.GetBytes(replacement[..replacementLength], bytes.AsSpan(sizeOffset, replacementLength));
+                GovernedBufferStream.CopyBytes(appearance.Span[(sizeOffset + sizeLength)..], bytes.AsSpan(sizeOffset + replacementLength), governor, cancellationToken, CancellationToken.None);
                 rebuilt = bytes;
             }
             PdfNameBytes decoded = PdfNameBytes.Decode(font.Span, governor, cancellationToken);
@@ -1166,13 +1168,13 @@ internal static class GenerateAppearances
         if (highlight)
         {
             AppendAscii(built, "q\n0.85 0.85 0.85 rg\n");
-            AppendAscii(built, FormatDouble(box[0]));
+            WriterNumber.AppendGeometry(built, box[0]);
             AppendAscii(built, " ");
-            AppendAscii(built, FormatDouble(box[1] + top - (lineHeight * (highlightIndex + 1L))));
+            WriterNumber.AppendGeometry(built, box[1] + top - (lineHeight * (highlightIndex + 1L)));
             AppendAscii(built, " ");
-            AppendAscii(built, FormatDouble(box[2] - box[0]));
+            WriterNumber.AppendGeometry(built, box[2] - box[0]);
             AppendAscii(built, " ");
-            AppendAscii(built, FormatDouble(lineHeight));
+            WriterNumber.AppendGeometry(built, lineHeight);
             AppendAscii(built, " re f\nQ\n");
         }
 
@@ -1184,15 +1186,15 @@ internal static class GenerateAppearances
         {
             if (i == 0)
             {
-                AppendAscii(built, FormatDouble(box[0] + step));
+                WriterNumber.AppendGeometry(built, box[0] + step);
                 AppendAscii(built, " ");
-                AppendAscii(built, FormatDouble(box[1] + top));
+                WriterNumber.AppendGeometry(built, box[1] + top);
                 AppendAscii(built, " Td\n");
             }
             else
             {
                 AppendAscii(built, "0 ");
-                AppendAscii(built, FormatDouble(-lineHeight));
+                WriterNumber.AppendGeometry(built, -lineHeight);
                 AppendAscii(built, " Td\n");
             }
 
@@ -1246,17 +1248,6 @@ internal static class GenerateAppearances
         }
         output.WriteByte((byte)')');
     }
-    private static string FormatDouble(double value)
-    {
-        if (value > -0.00001 && value < 0.00001)
-        {
-            value = 0.0;
-        }
-
-        double rounded = Math.Round(value, 5, MidpointRounding.AwayFromZero);
-        return rounded.ToString("0.#####", CultureInfo.InvariantCulture);
-    }
-
     private static QpdfObject? ResolveOrNull(PoolResolver resolver, PdfReference reference)
     {
         if (((IIndirectResolver)resolver).TryResolve(reference, out QpdfObject? found) && found is not null && found is not PdfNull)
