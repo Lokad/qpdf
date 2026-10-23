@@ -70,7 +70,7 @@ public sealed class QpdfDocument : IAsyncDisposable
     /// <summary>Gets the effective budgets.</summary>
     public QpdfLimits Limits { get; }
 
-    /// <summary>Gets the effective version: catalog /Version overrides the header.</summary>
+    /// <summary>Gets the higher of the header version and catalog /Version.</summary>
     public PdfVersion Version => _version ?? throw new InvalidOperationException("Exclusive JSON reader has no public version carrier.");
 
     /// <summary>Gets the version from the file header.</summary>
@@ -387,15 +387,18 @@ public sealed class QpdfDocument : IAsyncDisposable
             reservedInput = 0L;
             cancellationToken.ThrowIfCancellationRequested();
             RejectEncrypted(path, engine);
-            VersionParts? effectiveParts = ResolveEffectiveVersion(engine);
+            VersionParts? catalogParts = ReadCatalogVersion(engine);
+            VersionParts effectiveParts = catalogParts is { } catalog
+                && (catalog.Major > headerParts.Major || catalog.Major == headerParts.Major && catalog.Minor > headerParts.Minor)
+                ? catalog : headerParts;
             pageStorage = ParserMemoryScope.Create(governor);
             pages = ListPages(engine, diagnostics, governor, limits, pageStorage, cancellationToken);
             // Exclusive JSON emits components as text and never exports this
             // document or a version alias. Public/shared readers own carriers.
             PdfVersion? headerVersion = valuesEscape ? governor.OwnVersion(headerParts.Major, headerParts.Minor) : null;
-            PdfVersion? version = valuesEscape && effectiveParts.HasValue
-                ? governor.OwnVersion(effectiveParts.Value.Major, effectiveParts.Value.Minor) : headerVersion;
-            QpdfDocument document = new(input, engine, governor, diagnostics, pages, pageStorage, path, limits, version, headerVersion, headerParts, effectiveParts ?? headerParts);
+            PdfVersion? version = valuesEscape && effectiveParts != headerParts
+                ? governor.OwnVersion(effectiveParts.Major, effectiveParts.Minor) : headerVersion;
+            QpdfDocument document = new(input, engine, governor, diagnostics, pages, pageStorage, path, limits, version, headerVersion, headerParts, effectiveParts);
             document._leaveInputOpen = leaveInputOpen;
             pageStorage = null;
             return document;
@@ -499,7 +502,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         return b >= (byte)'0' && b <= (byte)'9';
     }
 
-    private static VersionParts? ResolveEffectiveVersion(DocumentEngine engine)
+    private static VersionParts? ReadCatalogVersion(DocumentEngine engine)
     {
         PdfName rootKey = new([(byte)'R', (byte)'o', (byte)'o', (byte)'t']);
         if (!engine.Trailer.TryGet(rootKey, out QpdfObject rootRaw))

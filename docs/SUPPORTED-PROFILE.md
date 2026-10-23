@@ -100,7 +100,8 @@ echoing values.
   reference reader. Writer controls can preserve or generate object streams;
   ordinary selection output normalizes to classic xrefs. Bounded CLI recovery
   and strict typed opening remain separate policies.
-- `%PDF-` header at offset 0; versions 1.0-1.7 and 2.0 with catalog `/Version` override.
+- `%PDF-` header at offset 0; versions 1.0-1.7 and 2.0. The effective version
+  is the higher of the header and catalog `/Version`.
 - Unencrypted inputs; any effective `/Encrypt` declaration rejects
   structurally, including empty-password forms.
 - Strict parsing: damaged inputs fail as parse errors. The CLI repairs boundedly by
@@ -299,7 +300,7 @@ echoing values.
 - Classic xref tables with 20-byte entries, generation 0 throughout, and a
   trailer with `/Size`, `/Root`, `/ID`, `startxref`, and `%%EOF`.
 - Version label negotiates the effective version: the greatest input version
-  (header with catalog `/Version` override), raised by `--min-version` and
+  (the higher of each header and catalog `/Version`), raised by `--min-version` and
   overridden by `--force-version` (`major.minor[.extension]`; supported
   headers are 1.0-1.7 and 2.0). A positive extension level adds a direct
   catalog `/Extensions << /ADBE << /BaseVersion /M.m /ExtensionLevel N >> >>`.

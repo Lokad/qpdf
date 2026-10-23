@@ -141,6 +141,73 @@ public sealed class VersionLengthTests
         Assert.Equal("1.5", document.Version.ToString());
     }
 
+    [Theory]
+    [InlineData("1.7", "1.4", "1.7", false)]
+    [InlineData("1.7", "1.4", "1.7", true)]
+    [InlineData("2.0", "1.7", "2.0", false)]
+    [InlineData("2.0", "1.7", "2.0", true)]
+    [InlineData("1.4", "1.7", "1.7", false)]
+    [InlineData("1.4", "1.7", "1.7", true)]
+    [InlineData("1.7", "1.7", "1.7", false)]
+    [InlineData("1.7", "1.7", "1.7", true)]
+    public async Task EffectiveVersionKeepsTheHigherDeclarationAfterDisposal(string header, string catalog, string expected, bool indirect)
+    {
+        byte[] bytes = BuildPdf(header, " /Version " + (indirect ? "6 0 R" : "/" + catalog), HelloData.Length.ToString(),
+            HelloData, indirect ? ["/" + catalog] : []);
+        using InMemoryQpdfHost host = HostWith("input.pdf", bytes);
+        QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input.pdf"), CancellationToken.None);
+        PdfVersion effective = document.Version;
+        PdfVersion originalHeader = document.HeaderVersion;
+        await document.DisposeAsync();
+        Assert.Equal(expected, effective.ToString());
+        Assert.Equal(header, originalHeader.ToString());
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData("typed", false)]
+    [InlineData("typed", true)]
+    [InlineData("argv", false)]
+    [InlineData("argv", true)]
+    [InlineData("job", false)]
+    [InlineData("job", true)]
+    public async Task RewriteDoesNotDowngradeToALowerCatalogVersion(string route, bool indirect)
+    {
+        byte[] bytes = BuildPdf("1.7", " /Version " + (indirect ? "6 0 R" : "/1.4"), HelloData.Length.ToString(),
+            HelloData, indirect ? ["/1.4"] : []);
+        using InMemoryQpdfHost host = HostWith("input.pdf", bytes);
+        if (route == "typed")
+        {
+            await Qpdf.SelectPageAsync(host, QpdfPath.From("input.pdf"), QpdfPath.From("output.pdf"),
+                new PdfPageSelectionOptions(1), CancellationToken.None);
+        }
+        else
+        {
+            QpdfExecutionResult result = route == "argv"
+                ? await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["input.pdf", "output.pdf"]), CancellationToken.None)
+                : await Qpdf.ExecuteJobAsync(host, """{"inputFile":"input.pdf","outputFile":"output.pdf"}""", CancellationToken.None);
+            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        }
+        Assert.True(host.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] output));
+        Assert.Equal("%PDF-1.7", Encoding.ASCII.GetString(output, 0, 8));
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData("argv")]
+    [InlineData("job")]
+    public async Task ExplicitForceVersionStillAllowsDowngrading(string route)
+    {
+        using InMemoryQpdfHost host = HostWith("input.pdf", Basic("1.7", " /Version /1.4", HelloData.Length.ToString(), HelloData));
+        QpdfExecutionResult result = route == "argv"
+            ? await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["input.pdf", "--force-version=1.3", "output.pdf"]), CancellationToken.None)
+            : await Qpdf.ExecuteJobAsync(host, """{"inputFile":"input.pdf","outputFile":"output.pdf","forceVersion":"1.3"}""", CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] output));
+        Assert.Equal("%PDF-1.3", Encoding.ASCII.GetString(output, 0, 8));
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
     [Fact]
     public async Task SelectionOutputEchoesEffectiveVersion()
     {

@@ -78,6 +78,11 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+The reader uses the higher of the header and catalog `/Version`, including
+indirect catalog values. A lower catalog declaration no longer silently lowers
+the version of a rewritten PDF. Explicit `--force-version` downgrades still apply;
+malformed or unsupported declarations still fail. Public signatures are unchanged.
+
 `--show-pages` resolves an indirect contents array and lists its stream references
 in order, like page JSON. Empty arrays list no content; object generations and
 duplicates are preserved. The former helper listed the array object itself.
