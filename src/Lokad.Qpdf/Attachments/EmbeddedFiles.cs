@@ -14,12 +14,13 @@ internal sealed record EmbeddedAttachment(
     string CreationDate,
     string ModDate,
     string Checksum,
-    int StreamObjectNumber,
     long Size,
     PdfStream Stream,
     QpdfObject Spec,
-    string? SpecReference,
-    string? StreamReference);
+    PdfReference? StreamReference)
+{
+    internal int StreamObjectNumber => StreamReference?.ObjectNumber ?? -1;
+}
 
 internal static class EmbeddedFiles
 {
@@ -232,8 +233,7 @@ internal static class EmbeddedFiles
             throw new QpdfParseException("Embedded file specification has no embedded stream.", null, null);
         }
 
-        int streamNumber = -1;
-        string? streamReference = null;
+        PdfReference? streamReference = null;
         PdfStream? data = null;
         foreach (string name in NameKeys)
         {
@@ -242,17 +242,11 @@ internal static class EmbeddedFiles
                 continue;
             }
 
-            int candidateNumber = candidate is PdfReference candidateReference ? candidateReference.ObjectNumber : -1;
             QpdfObject resolved = candidate is PdfReference resolvedReference ? ResolveRequired(engine, resolvedReference, "embedded stream") : candidate;
             if (resolved is PdfStream stream)
             {
                 data = stream;
-                streamNumber = candidateNumber;
-                if (candidate is PdfReference streamLink)
-                {
-                    memory.Reserve(72L);
-                    streamReference = streamLink.ObjectNumber.ToString(System.Globalization.CultureInfo.InvariantCulture) + " " + streamLink.Generation.ToString(System.Globalization.CultureInfo.InvariantCulture) + " R";
-                }
+                streamReference = candidate as PdfReference;
 
                 break;
             }
@@ -272,13 +266,9 @@ internal static class EmbeddedFiles
         EmbeddedStreamMetadata metadata = ReadStreamMetadata(data, parameters, memory, governor, cancellationToken);
 
         governor.NoteOperation();
-        if (value is PdfReference) { memory.Reserve(72L); }
-        string? specReference = value is PdfReference specLink
-            ? specLink.ObjectNumber.ToString(System.Globalization.CultureInfo.InvariantCulture) + " " + specLink.Generation.ToString(System.Globalization.CultureInfo.InvariantCulture) + " R"
-            : null;
-        memory.Reserve(160L);
+        memory.Reserve(144L);
         return new EmbeddedAttachment(key, fileName, description, metadata.MimeType, metadata.CreationDate, metadata.ModDate,
-            metadata.Checksum, streamNumber, metadata.Size, data, value, specReference, streamReference);
+            metadata.Checksum, metadata.Size, data, value, streamReference);
     }
 
     internal readonly record struct EmbeddedStreamMetadata(string MimeType, string CreationDate, string ModDate, string Checksum, long Size);

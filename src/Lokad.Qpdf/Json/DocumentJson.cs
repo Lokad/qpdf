@@ -1030,28 +1030,28 @@ internal static class DocumentJson
             firstAttachment = false;
             PdfJsonWriter.AppendJsonString(builder, attachment.Key);
             builder.Append(": {\"filespec\": ");
-            if (attachment.SpecReference is null)
+            if (attachment.Spec is not PdfReference specReference)
             {
                 builder.Append("null");
             }
             else
             {
                 builder.Append((char)34);
-                builder.Append(attachment.SpecReference);
+                PdfJsonWriter.AppendReference(builder, specReference.ObjectNumber, specReference.Generation);
                 builder.Append((char)34);
             }
 
             builder.Append(",\"preferredname\": ");
             PdfJsonWriter.AppendJsonString(builder, attachment.FileName);
             builder.Append(",\"preferredcontents\": ");
-            if (attachment.StreamReference is null)
+            if (attachment.StreamReference is not { } streamReference)
             {
                 builder.Append("null");
             }
             else
             {
                 builder.Append((char)34);
-                builder.Append(attachment.StreamReference);
+                PdfJsonWriter.AppendReference(builder, streamReference.ObjectNumber, streamReference.Generation);
                 builder.Append((char)34);
             }
 

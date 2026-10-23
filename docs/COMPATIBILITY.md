@@ -78,6 +78,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Attachment reading keeps existing reference identities and formats their text
+only when JSON presentation requests it. Typed listing, extraction and rewrites
+no longer allocate or reserve the unused reference labels. JSON reference numbers,
+generations and direct-value nulls, listing metadata, escaped lifetimes and public
+signatures are unchanged; attachment memory estimates are lower.
+
 Attachment name-tree keys sort by emitted bytes, including mixed ASCII and
 UTF-16 keys. Previously decoded ordinal order could publish an unsorted tree
 whose existing entries a byte-order search missed; native qpdf shares this

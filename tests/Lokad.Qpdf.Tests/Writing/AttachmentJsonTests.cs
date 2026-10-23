@@ -8,6 +8,50 @@ namespace Lokad.Qpdf.Tests.Writing;
 public sealed class AttachmentJsonTests
 {
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task ReferencePresentationPreservesGenerationsAndDirectSpecNull(bool directSpec, bool nonzeroGeneration)
+    {
+        int specGeneration = nonzeroGeneration ? 7 : 0, streamGeneration = nonzeroGeneration ? 9 : 0;
+        string spec = "<< /Type /Filespec /UF (preferred) /EF << /UF 6 " + streamGeneration + " R >> >>";
+        byte[] input = CheckTests.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 4 0 R >> >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] >>", null),
+            (4, "<< /Names [(K) " + (directSpec ? spec : "5 " + specGeneration + " R") + "] >>", null),
+            (5, spec, null), (6, "<< /Type /EmbeddedFile /Length 1 /Params << /Size 1 >> >>", "U"u8.ToArray())], 1,
+            new Dictionary<int, int> { [5] = specGeneration, [6] = streamGeneration });
+        foreach (string route in new[] { "typed", "argv", "job" })
+        {
+            byte[] output; IReadOnlyList<QpdfAttachmentInfo> listing;
+            using (InMemoryQpdfHost host = new())
+            {
+                host.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Copy);
+                if (route == "typed")
+                { await Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("input"), QpdfPath.From("output"), new QpdfJsonOptions(2, ["attachments"]), CancellationToken.None); }
+                else
+                {
+                    QpdfExecutionResult result = route == "argv"
+                        ? await Qpdf.ExecuteAsync(host, new(["input", "--json=2", "--json-key=attachments", "--", "output"]), CancellationToken.None)
+                        : await Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","json":"2","jsonKey":["attachments"]}""", CancellationToken.None);
+                    Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+                }
+                listing = await Qpdf.ListAttachmentsAsync(host, QpdfPath.From("input"), CancellationToken.None);
+                await Qpdf.ExtractAttachmentAsync(host, QpdfPath.From("input"), "K", QpdfPath.From("payload"), CancellationToken.None);
+                Assert.True(host.TryGetOutput(QpdfPath.From("payload"), out byte[] payload)); Assert.Equal("U"u8.ToArray(), payload);
+                Assert.True(host.TryGetOutput(QpdfPath.From("output"), out output)); Assert.Equal(0L, host.OpenLeaseCount);
+            }
+            Assert.Equal(6, Assert.Single(listing).StreamObjectNumber); Assert.Equal("preferred", listing[0].FileName);
+            using JsonDocument parsed = JsonDocument.Parse(output);
+            JsonElement attachment = parsed.RootElement.GetProperty("attachments").GetProperty("K");
+            Assert.Equal(directSpec ? null : "5 " + specGeneration + " R", attachment.GetProperty("filespec").GetString());
+            Assert.Equal("6 " + streamGeneration + " R", attachment.GetProperty("preferredcontents").GetString());
+        }
+    }
+
+    [Theory]
     [InlineData("/CreationDate (D:20240102030405Z) /ModDate (D:20250607080910Z)", "2024-01-02T03:04:05Z", "2025-06-07T08:09:10Z")]
     [InlineData("/CreationDate (D:20240102030405Z)", "2024-01-02T03:04:05Z", null)]
     [InlineData("/ModDate (D:20250607080910Z)", null, "2025-06-07T08:09:10Z")]
