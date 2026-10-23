@@ -8,6 +8,31 @@ namespace Lokad.Qpdf.Content;
 
 internal static class CatalogCopy
 {
+    internal static int ReadExtensionLevel(DocumentEngine engine, ResourceGovernor governor, CancellationToken token)
+        => ReadExtensionLevel(TryGetCatalog(engine), engine, governor, token);
+
+    internal static int ReadExtensionLevel(PdfDictionary? catalog, IIndirectResolver resolver, ResourceGovernor governor, CancellationToken token)
+    {
+        if (catalog is null || !PdfDictionaryLookup.TryGet(catalog, "Extensions"u8, governor, token, out QpdfObject raw)) { return 0; }
+        PdfDictionary? extensions = ResolveDictionary(raw, resolver, governor, token);
+        if (extensions is null || !PdfDictionaryLookup.TryGet(extensions, "ADBE"u8, governor, token, out raw)) { return 0; }
+        PdfDictionary? adbe = ResolveDictionary(raw, resolver, governor, token);
+        if (adbe is null || !PdfDictionaryLookup.TryGet(adbe, "ExtensionLevel"u8, governor, token, out raw)) { return 0; }
+        raw = ResolveValue(raw, resolver, governor, token) ?? PdfNull.Instance;
+        return raw is PdfInteger level && level.Value > 0 && level.Value <= int.MaxValue ? (int)level.Value : 0;
+    }
+
+    internal static PdfDictionary? ResolveDictionary(QpdfObject? raw, IIndirectResolver resolver, ResourceGovernor governor, CancellationToken token)
+        => ResolveValue(raw, resolver, governor, token) as PdfDictionary;
+
+    internal static QpdfObject? ResolveValue(QpdfObject? raw, IIndirectResolver resolver, ResourceGovernor governor, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        if (raw is PdfReference reference)
+        { PdfObjectLookup.TryResolve(reference, resolver, governor, token, out raw); }
+        return raw;
+    }
+
     internal static PdfReference? TryCopyOutlines(
         DocumentEngine engine,
         GraphCopier copier,
@@ -219,8 +244,7 @@ internal static class CatalogCopy
             || name.SequenceEqual("MarkInfo"u8)
             || name.SequenceEqual("Metadata"u8)
             || name.SequenceEqual("Names"u8)
-            || name.SequenceEqual("Version"u8)
-            || name.SequenceEqual("Extensions"u8);
+            || name.SequenceEqual("Version"u8);
     }
 
     private static PdfDictionary? TryGetCatalog(DocumentEngine engine)

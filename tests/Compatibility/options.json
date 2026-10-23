@@ -3129,13 +3129,15 @@
       "evidence": {
         "positive": [
           "WriterControlsTests.ForceVersionOverridesBothDirections",
-          "WriterControlsTests.ForceVersionWithExtensionAddsCatalogExtensions"
+          "WriterControlsTests.ForceVersionWithExtensionAddsCatalogExtensions",
+          "ExtensionVersionTests.WriterPreservesVendorsAndNegotiatesAdobeLevels"
         ],
         "negative": [
           "WriterControlsTests.InvalidVersionsFail"
         ],
         "interaction": [
-          "WriterControlsTests.ForceVersionWinsOverMinVersion"
+          "WriterControlsTests.ForceVersionWinsOverMinVersion",
+          "ExtensionVersionTests.JsonImportAndUpdateApplyTheSameExtensionRules"
         ],
         "resource": [
           "WriterControlsTests.WriterControlsYieldToExhaustedBudget"
@@ -4142,14 +4144,16 @@
       "evidence": {
         "positive": [
           "WriterControlsTests.MinVersionRaisesLowerInput",
-          "WriterControlsTests.MinVersionKeepsHigherInput"
+          "WriterControlsTests.MinVersionKeepsHigherInput",
+          "ExtensionVersionTests.WriterPreservesVendorsAndNegotiatesAdobeLevels"
         ],
         "negative": [
           "WriterControlsTests.InvalidVersionsFail"
         ],
         "interaction": [
           "WriterControlsTests.ForceVersionWinsOverMinVersion",
-          "WriterControlsTests.JobJsonWriterControlsParityHolds"
+          "WriterControlsTests.JobJsonWriterControlsParityHolds",
+          "ExtensionVersionTests.JsonImportAndUpdateApplyTheSameExtensionRules"
         ],
         "resource": [
           "WriterControlsTests.WriterControlsYieldToExhaustedBudget"

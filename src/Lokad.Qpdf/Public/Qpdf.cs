@@ -446,7 +446,8 @@ public static partial class Qpdf
                     }
                     copier.AdvanceNextId(flattenAllocator);
 
-                    (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(document.OwnVersion(), settings.MinVersion, settings.ForceVersion, governor);
+                    int inputExtension = Content.CatalogCopy.ReadExtensionLevel(document.Engine, governor, cancellationToken);
+                    (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(document.OwnVersion(), inputExtension, settings.MinVersion, settings.ForceVersion, governor);
                     string streamMode = ResolveObjectStreamMode(settings.ObjectStreams);
                     if (settings.ForceVersion is not null && CompareVersions(negotiated.Major, negotiated.Minor, 1, 5) < 0)
                     {
@@ -527,7 +528,7 @@ public static partial class Qpdf
                         extensionLevel = 0;
                     }
 
-                    PdfDictionary catalog = NewCatalog(singleLabels, effective, extensionLevel, singleMetadata, singleAttached.NamesRef, singleAttached.PageMode, singleOutlines, singleAcroForm, singleStructTree, singleMarkInfo, singleExtras, governor, cancellationToken);
+                    PdfDictionary catalog = NewCatalog(singleLabels, effective, extensionLevel, singleMetadata, singleAttached.NamesRef, singleAttached.PageMode, singleOutlines, singleAcroForm, singleStructTree, singleMarkInfo, singleExtras, singlePool, governor, cancellationToken);
                     PdfDictionary pages = PagesNode(kids, copyMemory, governor, cancellationToken);
                     int modelCount = checked(singlePool.Count + 2);
                     copyMemory.Reserve(checked(64L + 16L * modelCount));
@@ -563,7 +564,7 @@ public static partial class Qpdf
                     // immutable prepared graph, so fallback cannot follow publication.
                     document.Engine.AcceptSelectiveInput();
                     retryParse = false;
-                    await PublishModelAsync(host, effective, extensionLevel, model, singleStreams, singleCompress, singleLevel, singleInfo?.ObjectNumber, originalId, settings.StaticId, settings.NewlineBeforeEndstream, settings.Qdf, singleOriginalIds, settings.Linearize, settings.LinearizePass1, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
+                    await PublishModelAsync(host, effective, model, singleStreams, singleCompress, singleLevel, singleInfo?.ObjectNumber, originalId, settings.StaticId, settings.NewlineBeforeEndstream, settings.Qdf, singleOriginalIds, settings.Linearize, settings.LinearizePass1, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
                     return new PageSelectionOutcome(total, sourcePages, kids.Count, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
                 }
                 catch (CompleteInputRequiredException) when (attempt == 0 && stableInput is not null) { }
@@ -918,6 +919,7 @@ public static partial class Qpdf
         bool needAppearances = false;
         List<GraphCopier> copiers = ParserContainers.CreateList<GraphCopier>(selectionMemory, sources.Count, IntPtr.Size);
         PdfVersion? version = null;
+        int inputExtension = 0;
         byte[]? originalId1 = null;
         List<HashSet<int>> sourceCompressed = ParserContainers.CreateList<HashSet<int>>(selectionMemory, sources.Count, IntPtr.Size);
         HashSet<int> allPreserved = ParserContainers.CreateSet<int>(selectionMemory);
@@ -968,7 +970,10 @@ public static partial class Qpdf
                 if (version is null || IsNewerVersion(sourceVersion, version))
                 {
                     version = sourceVersion;
+                    inputExtension = Content.CatalogCopy.ReadExtensionLevel(document.Engine, governor, cancellationToken);
                 }
+                else if (sourceVersion == version)
+                { inputExtension = Math.Max(inputExtension, Content.CatalogCopy.ReadExtensionLevel(document.Engine, governor, cancellationToken)); }
 
                 if (s == 0)
                 {
@@ -1333,7 +1338,7 @@ public static partial class Qpdf
             }
         }
         PdfVersion inputMax = version ?? governor.OwnVersion(1, 4);
-        (PdfVersion negotiatedMulti, int negotiatedMultiExtension) = NegotiateVersion(inputMax, settings.MinVersion, settings.ForceVersion, governor);
+        (PdfVersion negotiatedMulti, int negotiatedMultiExtension) = NegotiateVersion(inputMax, inputExtension, settings.MinVersion, settings.ForceVersion, governor);
         string multiStreamMode = ResolveObjectStreamMode(settings.ObjectStreams);
         if (settings.ForceVersion is not null && CompareVersions(negotiatedMulti.Major, negotiatedMulti.Minor, 1, 5) < 0)
         {
@@ -1422,7 +1427,7 @@ public static partial class Qpdf
             selectionMemory.Reserve(checked(64L + 16L * modelCount));
             List<NumberedObject> model = new(modelCount)
             {
-                new NumberedObject(1, NewCatalog(catalogLabels, effective, extensionLevel, primaryMetadata, multiAttached.NamesRef, multiAttached.PageMode, primaryOutlines, multiAcroForm, primaryStructTree, primaryMarkInfo, primaryExtras, governor, cancellationToken)),
+                new NumberedObject(1, NewCatalog(catalogLabels, effective, extensionLevel, primaryMetadata, multiAttached.NamesRef, multiAttached.PageMode, primaryOutlines, multiAcroForm, primaryStructTree, primaryMarkInfo, primaryExtras, pool, governor, cancellationToken)),
                 new NumberedObject(2, PagesNode(kids, selectionMemory, governor, cancellationToken)),
             };
             foreach (KeyValuePair<int, QpdfObject> entry in pool)
@@ -1434,7 +1439,7 @@ public static partial class Qpdf
             IReadOnlyList<PdfPageSelectionMapping> resultMapping = ResultCollectionStorage.Copy(selectionMemory, mapping, IntPtr.Size, governor, cancellationToken);
             IReadOnlyList<int> resultCounts = ResultCollectionStorage.Copy(selectionMemory, sourceCounts, sizeof(int), governor, cancellationToken);
             IReadOnlyList<QpdfPath> resultPaths = ResultCollectionStorage.Single(selectionMemory, target, IntPtr.Size, governor, cancellationToken);
-            await PublishModelAsync(host, effective, extensionLevel, model, multiStreams, multiCompress, multiLevel, primaryInfo?.ObjectNumber, originalId1, settings.StaticId, settings.NewlineBeforeEndstream, settings.Qdf, multiOriginalIds, settings.Linearize, settings.LinearizePass1, target, limits, governor, cancellationToken).ConfigureAwait(false);
+            await PublishModelAsync(host, effective, model, multiStreams, multiCompress, multiLevel, primaryInfo?.ObjectNumber, originalId1, settings.StaticId, settings.NewlineBeforeEndstream, settings.Qdf, multiOriginalIds, settings.Linearize, settings.LinearizePass1, target, limits, governor, cancellationToken).ConfigureAwait(false);
             return (new MultiPageSelectionOutcome(kids.Count, resultMapping, resultCounts, resultPaths, ResultWarningSnapshot.Read(resultWarnings, diagnostics)), multiAttached.FinalCount);
         }
 
@@ -1636,7 +1641,7 @@ public static partial class Qpdf
                 remappedLabels = remappedLabelsDictionary;
             }
             List<NumberedObject> sub = ParserContainers.CreateList<NumberedObject>(groupMemory);
-            NumberedObject groupCatalog = new(1, NewCatalog(remappedLabels, effective, extensionLevel, groupMetadata, groupNames, multiAttached.PageMode, groupOutlines, remappedAcroForm, groupStructTree, groupMarkInfo, null, governor, cancellationToken));
+            NumberedObject groupCatalog = new(1, NewCatalog(remappedLabels, effective, extensionLevel, groupMetadata, groupNames, multiAttached.PageMode, groupOutlines, remappedAcroForm, groupStructTree, groupMarkInfo, null, pool, governor, cancellationToken));
             NumberedObject groupPages = new(2, PagesNode(renumberedKids, groupMemory, governor, cancellationToken));
             ParserContainers.AddItem(groupMemory, sub, groupCatalog, 16L);
             ParserContainers.AddItem(groupMemory, sub, groupPages, 16L);
@@ -1842,7 +1847,7 @@ public static partial class Qpdf
 
     private static readonly byte[] PlaceholderIdBytes = new byte[16];
 
-    private static PdfDictionary NewCatalog(QpdfObject? pageLabels, PdfVersion finalVersion, int extensionLevel, PdfReference? metadataRef, PdfReference? namesRef, string? pageMode, PdfReference? outlinesRef, PdfDictionary? acroForm, PdfReference? structTreeRef, QpdfObject? markInfo, IReadOnlyDictionary<PdfName, QpdfObject>? extras, ResourceGovernor governor, CancellationToken token)
+    private static PdfDictionary NewCatalog(QpdfObject? pageLabels, PdfVersion finalVersion, int extensionLevel, PdfReference? metadataRef, PdfReference? namesRef, string? pageMode, PdfReference? outlinesRef, PdfDictionary? acroForm, PdfReference? structTreeRef, QpdfObject? markInfo, IReadOnlyDictionary<PdfName, QpdfObject>? extras, IReadOnlyDictionary<int, QpdfObject> pool, ResourceGovernor governor, CancellationToken token)
     {
         if (finalVersion is null)
         {
@@ -1899,23 +1904,7 @@ public static partial class Qpdf
             Set("MarkInfo"u8, markInfo);
         }
 
-        if (extensionLevel > 0)
-        {
-            // Int32 version components and the level have bounded decimal text.
-            graph.Memory.Reserve(512L);
-            string baseVersion = finalVersion.Major.ToString(System.Globalization.CultureInfo.InvariantCulture) + "." + finalVersion.Minor.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            string levelText = extensionLevel.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            PdfName baseName = PdfName.FromOwnedBytes(System.Text.Encoding.ASCII.GetBytes(baseVersion));
-            PdfInteger level = new(levelText, extensionLevel);
-            graph.Add(checked(96L + baseVersion.Length + GovernedText.StringBytes(levelText.Length)));
-            PdfNameTable<QpdfObject> adbe = PdfDictionaryRebuild.CreateEntries(graph, out long adbeAllocation);
-            adbe.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "BaseVersion"u8), baseName, token);
-            adbe.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "ExtensionLevel"u8), level, token);
-            PdfDictionary extension = PdfDictionaryRebuild.Complete(graph, adbe, adbeAllocation);
-            PdfNameTable<QpdfObject> extensions = PdfDictionaryRebuild.CreateEntries(graph, out long extensionsAllocation);
-            extensions.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "ADBE"u8), extension, token);
-            Set("Extensions"u8, PdfDictionaryRebuild.Complete(graph, extensions, extensionsAllocation));
-        }
+        QpdfObject? originalExtensions = null;
         if (extras is not null)
         {
             foreach (KeyValuePair<PdfName, QpdfObject> extra in extras)
@@ -1924,12 +1913,60 @@ public static partial class Qpdf
                 // Imported fields replace an opaque primary form, as they do
                 // in the reference; the preserved array must not overwrite it.
                 if (acroForm is not null && extra.Key.RawSpan.SequenceEqual("AcroForm"u8)) { continue; }
+                if (extra.Key.RawSpan.SequenceEqual("Extensions"u8)) { originalExtensions = extra.Value; continue; }
                 entries.Assign(graph.Memory, governor, extra.Key, extra.Value, token);
             }
         }
 
+        if (originalExtensions is not null || extensionLevel > 0)
+        {
+            IIndirectResolver resolver = Content.PoolResolver.Create(graph.Memory, pool);
+            QpdfObject? extensions = PrepareExtensions(originalExtensions, resolver, finalVersion, extensionLevel, graph);
+            if (extensions is not null) { Set("Extensions"u8, extensions); }
+        }
+
         PdfDictionary catalog = PdfDictionaryRebuild.Complete(graph, entries, allocation);
         graph.Retain(); return catalog;
+    }
+
+    private static QpdfObject? PrepareExtensions(QpdfObject? original, IIndirectResolver resolver, PdfVersion version, int extensionLevel, OwnedAllocationBatch graph)
+    {
+        ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
+        PdfDictionary? extensions = Content.CatalogCopy.ResolveDictionary(original, resolver, governor, token);
+        QpdfObject raw = PdfNull.Instance;
+        bool hasAdobe = extensions is not null && PdfDictionaryLookup.TryGet(extensions, "ADBE"u8, governor, token, out raw);
+        if (extensionLevel == 0)
+        {
+            if (!hasAdobe) { return original; }
+            PdfDictionary remaining = PdfDictionaryRebuild.RemoveEntry(graph, extensions ?? throw new InvalidOperationException(), "ADBE"u8);
+            return remaining.Count == 0 ? null : remaining;
+        }
+
+        // Keep an unchanged declaration, including private fields and aliases.
+        PdfDictionary? adbe = Content.CatalogCopy.ResolveDictionary(raw, resolver, governor, token);
+        if (adbe is not null
+            && PdfDictionaryLookup.TryGet(adbe, "BaseVersion"u8, governor, token, out QpdfObject baseRaw)
+            && Content.CatalogCopy.ResolveValue(baseRaw, resolver, governor, token) is PdfName baseName
+            && baseName.RawSpan.Length == 3 && baseName.RawSpan[0] == (byte)('0' + version.Major)
+            && baseName.RawSpan[1] == (byte)'.' && baseName.RawSpan[2] == (byte)('0' + version.Minor)
+            && PdfDictionaryLookup.TryGet(adbe, "ExtensionLevel"u8, governor, token, out QpdfObject levelRaw)
+            && Content.CatalogCopy.ResolveValue(levelRaw, resolver, governor, token) is PdfInteger oldLevel && oldLevel.Value == extensionLevel)
+        { return original; }
+
+        graph.Memory.Reserve(512L);
+        string baseVersion = version.Major.ToString(System.Globalization.CultureInfo.InvariantCulture) + "." + version.Minor.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        string levelText = extensionLevel.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        PdfName name = PdfName.FromOwnedBytes(System.Text.Encoding.ASCII.GetBytes(baseVersion));
+        PdfInteger level = new(levelText, extensionLevel);
+        graph.Add(checked(96L + baseVersion.Length + GovernedText.StringBytes(levelText.Length)));
+        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
+        entries.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "BaseVersion"u8), name, token);
+        entries.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "ExtensionLevel"u8), level, token);
+        PdfDictionary replacement = PdfDictionaryRebuild.Complete(graph, entries, allocation);
+        if (extensions is not null) { return PdfDictionaryRebuild.ReplaceEntry(graph, extensions, "ADBE"u8, replacement); }
+        entries = PdfDictionaryRebuild.CreateEntries(graph, out allocation);
+        entries.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "ADBE"u8), replacement, token);
+        return PdfDictionaryRebuild.Complete(graph, entries, allocation);
     }
 
     private static PdfDictionary? BuildPageLabels(
@@ -2502,7 +2539,6 @@ public static partial class Qpdf
     private static async ValueTask PublishModelAsync(
         IQpdfHost host,
         PdfVersion version,
-        int extensionLevel,
         List<NumberedObject> model,
         IReadOnlyList<IReadOnlyList<int>>? objectStreamGroups,
         bool compressStreams,
@@ -2832,7 +2868,7 @@ public static partial class Qpdf
         return (int)value;
     }
 
-    private static (PdfVersion Version, int Extension) NegotiateVersion(PdfVersion inputMax, string? minText, string? forceText, ResourceGovernor governor)
+    private static (PdfVersion Version, int Extension) NegotiateVersion(PdfVersion inputMax, int inputExtension, string? minText, string? forceText, ResourceGovernor governor)
     {
         if (inputMax is null)
         {
@@ -2847,14 +2883,14 @@ public static partial class Qpdf
 
         if (minText is null)
         {
-            return (inputMax, 0);
+            return (inputMax, inputExtension);
         }
 
         (int minMajor, int minMinor, int minExt) = ParseWriterVersion(minText, "--min-version");
         int order = CompareVersions(inputMax.Major, inputMax.Minor, minMajor, minMinor);
         if (order > 0)
         {
-            return (inputMax, 0);
+            return (inputMax, inputExtension);
         }
 
         if (order < 0)
@@ -2862,7 +2898,7 @@ public static partial class Qpdf
             return (governor.OwnVersion(minMajor, minMinor), minExt);
         }
 
-        return (governor.OwnVersion(minMajor, minMinor), minExt);
+        return (inputMax, Math.Max(inputExtension, minExt));
     }
 
     private static int CompareVersions(int major1, int minor1, int major2, int minor2)
@@ -4718,9 +4754,9 @@ public static partial class Qpdf
         using (parsed)
         {
             Json.ImportedModel model = await Json.JsonImport.BuildCreateModelAsync(host, parsed, limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
+            (model, PdfVersion effective) = PrepareImportedVersion(model, minVersion, forceVersion, governor, cancellationToken);
             Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, importMemory, cancellationToken);
-            (PdfVersion effective, int extensionLevel) = NegotiateVersion(model.HeaderVersion, minVersion, forceVersion, governor);
-            await PublishModelAsync(host, effective, extensionLevel, renumbered.Model, null, false, null, renumbered.InfoNumber, null, staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, false, null, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
+            await PublishModelAsync(host, effective, renumbered.Model, null, false, null, renumbered.InfoNumber, null, staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, false, null, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
             return new JsonImportOutcome(renumbered.PageCount, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
         }
     }
@@ -4757,12 +4793,41 @@ public static partial class Qpdf
         using (parsed)
         {
             Json.ImportedModel model = await Json.JsonImport.BuildUpdateModelAsync(host, parsed, document, limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
+            (model, PdfVersion effective) = PrepareImportedVersion(model, minVersion, forceVersion, governor, cancellationToken);
             Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, importMemory, cancellationToken);
             byte[]? originalId1 = TryGetOriginalId(document.Engine);
-            (PdfVersion effective, int extensionLevel) = NegotiateVersion(model.HeaderVersion, minVersion, forceVersion, governor);
-            await PublishModelAsync(host, effective, extensionLevel, renumbered.Model, null, false, null, renumbered.InfoNumber, originalId1, staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, false, null, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
+            await PublishModelAsync(host, effective, renumbered.Model, null, false, null, renumbered.InfoNumber, originalId1, staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, false, null, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
             return new JsonImportOutcome(renumbered.PageCount, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
         }
+    }
+
+    private static (Json.ImportedModel Model, PdfVersion Version) PrepareImportedVersion(Json.ImportedModel model,
+        string? minVersion, string? forceVersion, ResourceGovernor governor, CancellationToken token)
+    {
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
+        IIndirectResolver resolver = Content.PoolResolver.Create(graph.Memory, model.Objects);
+        model.Trailer.TryGet(PdfName.FromAscii("Root"), out QpdfObject root);
+        PdfDictionary? catalog = Content.CatalogCopy.ResolveDictionary(root, resolver, governor, token);
+        int level = Content.CatalogCopy.ReadExtensionLevel(catalog, resolver, governor, token);
+        (PdfVersion version, int extensionLevel) = NegotiateVersion(model.HeaderVersion, level, minVersion, forceVersion, governor);
+        if (catalog is not null)
+        {
+            PdfDictionaryLookup.TryGet(catalog, "Extensions"u8, governor, token, out QpdfObject original);
+            QpdfObject? extensions = PrepareExtensions(original, resolver, version, extensionLevel, graph);
+            if (!ReferenceEquals(extensions, original))
+            {
+                PdfDictionary replacement = extensions is null ? PdfDictionaryRebuild.RemoveEntry(graph, catalog, "Extensions"u8)
+                    : PdfDictionaryRebuild.ReplaceEntry(graph, catalog, "Extensions"u8, extensions);
+                if (root is PdfReference reference) { model.Objects[reference.ObjectNumber] = replacement; }
+                else
+                {
+                    PdfDictionary trailer = PdfDictionaryRebuild.ReplaceEntry(graph, model.Trailer, "Root"u8, replacement);
+                    graph.Memory.Reserve(48L); graph.Add(48L);
+                    model = new(model.HeaderVersion, model.Objects, trailer);
+                }
+            }
+        }
+        graph.Retain(); return (model, version);
     }
 
     private static async ValueTask<TypedCheckOutcome> CheckCoreAsync(

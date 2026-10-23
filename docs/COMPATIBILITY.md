@@ -83,6 +83,17 @@ indirect catalog values. A lower catalog declaration no longer silently lowers
 the version of a rewritten PDF. Explicit `--force-version` downgrades still apply;
 malformed or unsupported declarations still fail. Public signatures are unchanged.
 
+Rewrites preserve existing extension vendors and negotiate Adobe extension levels
+with minimum and forced versions. Previously ordinary rewrites erased declarations
+and a minimum request could lower an existing level. Merge takes the greatest
+level at the greatest input base version; a higher base resets the level. Explicit
+force requests change only Adobe's declaration. Unchanged declarations retain
+private fields; changed Adobe declarations rebuild their base/level. JSON creation
+and update apply the same rules. Split and typed preview keep their existing
+omission of other catalog extras. Corrected bytes and metadata admission estimates
+can change; refusal, cancellation and failed publication still preserve prior output.
+Public signatures and dependencies are unchanged.
+
 `--show-pages` resolves an indirect contents array and lists its stream references
 in order, like page JSON. Empty arrays list no content; object generations and
 duplicates are preserved. The former helper listed the array object itself.

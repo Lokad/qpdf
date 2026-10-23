@@ -302,8 +302,17 @@ echoing values.
 - Version label negotiates the effective version: the greatest input version
   (the higher of each header and catalog `/Version`), raised by `--min-version` and
   overridden by `--force-version` (`major.minor[.extension]`; supported
-  headers are 1.0-1.7 and 2.0). A positive extension level adds a direct
-  catalog `/Extensions << /ADBE << /BaseVersion /M.m /ExtensionLevel N >> >>`.
+  headers are 1.0-1.7 and 2.0). Existing positive 32-bit Adobe extension levels
+  participate in minimum-version negotiation; merging uses the greatest level
+  among inputs at the greatest base version. A higher base version resets the
+  level. Forced versions set the exact base/level, removing `/ADBE` at level zero.
+  Unchanged Adobe declarations retain their private fields; changed declarations
+  use `/ADBE << /BaseVersion /M.m /ExtensionLevel N >>`.
+  Ordinary catalog preservation retains other extension vendors, including
+  through QDF, linearization, typed attachment edits and JSON import/update.
+  Split and typed preview retain the negotiated Adobe level and omit other
+  catalog extras under their existing policies. Invalid Adobe levels do not
+  contribute to negotiation; indirect resolution remains bounded.
 - Identifiers always emit `/ID [<id1><id2>]`: the first word preserves the
   source trailer identifier when present, otherwise it repeats the second.
   The default second word is a deterministic content hash (stable across runs
