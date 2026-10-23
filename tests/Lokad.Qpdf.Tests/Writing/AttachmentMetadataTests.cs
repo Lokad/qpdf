@@ -30,16 +30,21 @@ public sealed class AttachmentMetadataTests
     }
 
     [Theory]
-    [InlineData("key")]
-    [InlineData("UF")]
-    [InlineData("Desc")]
-    [InlineData("CreationDate")]
-    [InlineData("ModDate")]
-    [InlineData("CheckSum")]
-    [InlineData("Subtype")]
-    public void LargeMetadataRefusesBeforePayloadMaterialization(string field)
+    [InlineData("key", false)]
+    [InlineData("UF", false)]
+    [InlineData("Desc", false)]
+    [InlineData("CreationDate", false)]
+    [InlineData("ModDate", false)]
+    [InlineData("CheckSum", false)]
+    [InlineData("Subtype", false)]
+    [InlineData("key", true)]
+    [InlineData("UF", true)]
+    [InlineData("Desc", true)]
+    [InlineData("ModDate", true)]
+    public void LargeMetadataRefusesBeforePayloadMaterialization(string field, bool utf8)
     {
-        using DocumentEngine engine = Prepared(field, Encoding.ASCII.GetBytes(new string('A', 1048576)));
+        byte[] text = Encoding.ASCII.GetBytes(new string('A', 1048576));
+        using DocumentEngine engine = Prepared(field, utf8 ? [0xef, 0xbb, 0xbf, .. text] : text);
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096 }, CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(71L);
         long baseline = governor.Snapshot().LiveMemoryBytes;
@@ -54,11 +59,14 @@ public sealed class AttachmentMetadataTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void DecodedMetadataStaysFundedUntilItsOwnerCloses(bool canceled)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void DecodedMetadataStaysFundedUntilItsOwnerCloses(bool canceled, bool utf8)
     {
-        byte[] raw = [0xfe, 0xff, ..Encoding.BigEndianUnicode.GetBytes("Euro\u20ac\ud83d\ude00")];
+        byte[] raw = utf8 ? [0xef, 0xbb, 0xbf, .. Encoding.UTF8.GetBytes("Euro\u20ac\ud83d\ude00")]
+            : [0xfe, 0xff, .. Encoding.BigEndianUnicode.GetBytes("Euro\u20ac\ud83d\ude00")];
         using DocumentEngine engine = Prepared("UF", raw);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))

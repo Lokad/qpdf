@@ -1,10 +1,12 @@
+using System.Buffers;
+using System.Text;
 using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Attachments;
 
 /// <summary>
-/// PDF text-string decoding for attachment keys and file names: UTF-16 with
-/// a byte-order mark, otherwise PDFDocEncoding. Mirrors the reference
+/// Shared PDF text-string decoding: UTF-8 or UTF-16 with a byte-order mark,
+/// otherwise PDFDocEncoding. Mirrors the reference
 /// mapping (low range, high range with undefined slots, lonely 0xAD).
 /// </summary>
 internal static class PdfText
@@ -111,8 +113,23 @@ internal static class PdfText
         ResourceGovernor? governor, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); governor?.CheckCancellation();
-        bool utf16 = value.Length >= 2 && ((value[0] == 0xFE && value[1] == 0xFF) || (value[0] == 0xFF && value[1] == 0xFE));
         int length = 0;
+        if (value.Length >= 3 && value[0] == 0xef && value[1] == 0xbb && value[2] == 0xbf)
+        {
+            value = value[3..];
+            while (!value.IsEmpty)
+            {
+                token.ThrowIfCancellationRequested(); governor?.CheckCancellation();
+                OperationStatus status = Rune.DecodeFromUtf8(value, out Rune rune, out int consumed);
+                if (status == OperationStatus.NeedMoreData) { consumed = value.Length; }
+                if (status != OperationStatus.Done) { rune = Rune.ReplacementChar; }
+                if (!target.IsEmpty) { rune.EncodeToUtf16(target[length..]); }
+                length = checked(length + rune.Utf16SequenceLength);
+                value = value[consumed..];
+            }
+            return length;
+        }
+        bool utf16 = value.Length >= 2 && ((value[0] == 0xFE && value[1] == 0xFF) || (value[0] == 0xFF && value[1] == 0xFE));
         if (!utf16)
         {
             for (int at = 0; at < value.Length; at++)

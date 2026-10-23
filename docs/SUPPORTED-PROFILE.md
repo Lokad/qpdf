@@ -354,7 +354,7 @@ echoing values.
 
 - Embedded files live in the catalog `/Names` `/EmbeddedFiles` name tree
   (`/Names` pairs plus `/Kids` branches, within nesting/container bounds and cancellation).
-  Keys decode as PDF text (UTF-16 with a byte-order mark, otherwise
+  Keys decode as PDF text (UTF-8 or UTF-16 with a byte-order mark, otherwise
   PDFDocEncoding) and match request keys by exact ordinal text.
 - `Qpdf.ListAttachmentsAsync` reports key, preferred file name, description,
   MIME type, PDF-syntax dates, stored checksum, stream number, and declared

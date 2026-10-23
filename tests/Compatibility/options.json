@@ -4096,7 +4096,8 @@
           "AttachmentTests.ListEmptyReportsNone",
           "AttachmentTests.KidsTreeListsAllAttachments",
           "AttachmentTests.UnicodeKeysMatchAndList",
-          "AttachmentTests.TypedListReturnsAttachments"
+          "AttachmentTests.TypedListReturnsAttachments",
+          "PdfTextIntegrationTests.MetadataAndAttachmentLookupUseTheSameTextDecoding"
         ],
         "negative": [
           "AttachmentTests.BrokenTreeFails"
@@ -4110,7 +4111,8 @@
           "AttachmentTests.ListYieldsToExhaustedInputBudget",
           "AttachmentMetadataTests.TypedListingDoesNotSpendPresentationQuotas",
           "AttachmentMetadataTests.GenuineWarningsRemainBoundedDuringTypedListing",
-          "AttachmentMetadataTests.CommandListingStillEnforcesPresentationQuota"
+          "AttachmentMetadataTests.CommandListingStillEnforcesPresentationQuota",
+          "PdfTextIntegrationTests.Utf8DecodeRefusalAndCancellationPreserveEarlierOwnership"
         ],
         "oracle": [
           "diff:attachments-list"
@@ -5689,7 +5691,8 @@
           "AttachmentTests.ShowDecodesStreams",
           "AttachmentTests.ShowDecodesDctStream",
           "AttachmentTests.ShowLastKeyWins",
-          "AttachmentTests.TypedExtractReturnsRawAndDecodedBytes"
+          "AttachmentTests.TypedExtractReturnsRawAndDecodedBytes",
+          "PdfTextIntegrationTests.MetadataAndAttachmentLookupUseTheSameTextDecoding"
         ],
         "negative": [
           "AttachmentTests.ShowUnknownKeyFails",

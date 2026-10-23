@@ -366,7 +366,7 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
 /// <summary>
 /// PDF byte string from literal or hexadecimal syntax. Raw bytes are preserved;
 /// <see cref="Hex" /> records which syntax produced them for writer fidelity.
-/// Text decoding (PDFDocEncoding, UTF-16) is a separate later operation.
+/// Text decoding (PDFDocEncoding, BOM-marked UTF-8/UTF-16) is a separate later operation.
 /// </summary>
 public sealed class PdfByteString : QpdfObject, IEquatable<PdfByteString>
 {

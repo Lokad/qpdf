@@ -78,6 +78,14 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+PDF text metadata shares one decoder for UTF-8 and UTF-16 with a byte-order mark,
+and PDFDocEncoding otherwise. UTF-8 BOM attachment keys, names and descriptions,
+outline titles and form text now agree across typed, argv and job entry points;
+attachment lookup uses the corrected Unicode key. Previously only selected JSON
+form fields used the UTF-8 path. Malformed UTF-8 retains replacement decoding;
+existing UTF-16/PDFDocEncoding, raw binary values, quotas and cancellation remain.
+No public signatures change; metadata text and key matching intentionally change.
+
 Whole-file rewriting and typed attachment edits accept valid zero-page inputs
 while preserving their catalog metadata and embedded files. Synthetic empty
 jobs use the same governed preparation, so accepted job-JSON attachment edits

@@ -1,7 +1,5 @@
-using System.Buffers;
 using System.Globalization;
 using System.Runtime.InteropServices;
-using System.Text;
 using Lokad.Qpdf.Writing;
 using Lokad.Qpdf.Attachments;
 using Lokad.Qpdf.Filters;
@@ -1505,35 +1503,6 @@ internal static class DocumentJson
 
         return value;
     }
-    private static string DecodeText(PdfByteString text, ParserMemoryScope memory,
-        ResourceGovernor governor, CancellationToken token)
-    {
-        ReadOnlyMemory<byte> value = text.ValueMemory;
-        if (value.Length < 3 || value.Span[0] != 0xef || value.Span[1] != 0xbb || value.Span[2] != 0xbf) { return PdfText.Decode(value, memory, governor, token); }
-        value = value[3..];
-        int length = CopyUtf8Text(value.Span, Span<char>.Empty, governor, token);
-        memory.Reserve(GovernedText.StringBytes(length));
-        return string.Create(length, (value, governor, token), static (target, state) =>
-            CopyUtf8Text(state.value.Span, target, state.governor, state.token));
-    }
-
-    private static int CopyUtf8Text(ReadOnlySpan<byte> value, Span<char> target,
-        ResourceGovernor governor, CancellationToken token)
-    {
-        int length = 0;
-        while (!value.IsEmpty)
-        {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            OperationStatus status = Rune.DecodeFromUtf8(value, out Rune rune, out int consumed);
-            if (status == OperationStatus.NeedMoreData) { consumed = value.Length; }
-            if (status != OperationStatus.Done) { rune = Rune.ReplacementChar; }
-            if (!target.IsEmpty) { rune.EncodeToUtf16(target[length..]); }
-            length = checked(length + rune.Utf16SequenceLength);
-            value = value[consumed..];
-        }
-        return length;
-    }
-
     private static void AppendDisplayName(DisplayBuffer builder, PdfName? name)
     {
         builder.Append('"');
@@ -1701,7 +1670,7 @@ internal static class DocumentJson
             if (chain[i].Node.TryGet(PdfName.FromAscii("T"), out QpdfObject? tRaw)
                 && tRaw is not null && TryResolve(engine, tRaw) is PdfByteString text)
             {
-                string part = DecodeText(text, memory, governor, token);
+                string part = PdfText.Decode(text.ValueMemory, memory, governor, token);
                 length = checked(length + part.Length + (parts.Count == 0 ? 0 : 1));
                 ParserContainers.AddItem(memory, parts, part, IntPtr.Size);
                 if (i == fieldIndex) { partial = part; }
@@ -1784,7 +1753,7 @@ internal static class DocumentJson
         QpdfObject? tu = InheritedValue(engine, field.Ancestors, "TU");
         if (tu is PdfByteString tuText)
         {
-            alternative = DecodeText(tuText, memory, governor, token);
+            alternative = PdfText.Decode(tuText.ValueMemory, memory, governor, token);
         }
 
         builder.Append(",\"alternativename\": ");
@@ -1793,7 +1762,7 @@ internal static class DocumentJson
         QpdfObject? tm = InheritedValue(engine, field.Ancestors, "TM");
         if (tm is PdfByteString tmText)
         {
-            mapping = DecodeText(tmText, memory, governor, token);
+            mapping = PdfText.Decode(tmText.ValueMemory, memory, governor, token);
         }
 
         builder.Append(",\"mappingname\": ");
@@ -1870,14 +1839,14 @@ internal static class DocumentJson
                     string? choice = null;
                     if (entry is PdfByteString entryText)
                     {
-                        choice = DecodeText(entryText, memory, governor, token);
+                        choice = PdfText.Decode(entryText.ValueMemory, memory, governor, token);
                     }
                     else if (entry is PdfArray pair && pair.Count == 2)
                     {
                         QpdfObject display = pair[1] is PdfReference displayReference ? TryResolve(engine, displayReference) ?? pair[1] : pair[1];
                         if (display is PdfByteString displayText)
                         {
-                            choice = DecodeText(displayText, memory, governor, token);
+                            choice = PdfText.Decode(displayText.ValueMemory, memory, governor, token);
                         }
                     }
 
