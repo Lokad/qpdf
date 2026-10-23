@@ -538,6 +538,61 @@ public sealed class PublicationAdmissionTests
         }
     }
 
+    [Theory]
+    [InlineData("argv", false, false)]
+    [InlineData("job", false, false)]
+    [InlineData("argv", true, false)]
+    [InlineData("job", true, false)]
+    [InlineData("argv", false, true)]
+    [InlineData("job", false, true)]
+    [InlineData("argv", true, true)]
+    [InlineData("job", true, true)]
+    public async Task InactiveFirstPassDoesNotCreateOrOverwriteCapture(string route, bool split, bool aliasesMain)
+    {
+        string capture = aliasesMain ? split ? "output-2.pdf" : "output.pdf" : "pass1.pdf";
+        async Task<QpdfExecutionResult> RunCapture(ObservedHost host, bool includeCapture, QpdfLimits limits)
+        {
+            List<string> argv = ["input.pdf"];
+            Dictionary<string, object> job = new(StringComparer.Ordinal)
+            { ["inputFile"] = "input.pdf", ["outputFile"] = "output.pdf" };
+            if (includeCapture) { argv.Add("--linearize-pass1=" + capture); job.Add("linearizePass1", capture); }
+            if (split)
+            {
+                argv.AddRange(["--split-pages=1", "--pages", ".", "1", ".", "1", "--"]);
+                job.Add("splitPages", "1"); job.Add("pages", new[] { new { file = ".", range = "1" }, new { file = ".", range = "1" } });
+            }
+            argv.Add("output.pdf");
+            return route == "argv"
+                ? await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), new QpdfExecutionOptions(limits), CancellationToken.None)
+                : await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(job), new QpdfExecutionOptions(limits), CancellationToken.None);
+        }
+
+        ObservedHost baseline = await Observed("split", false, false);
+        QpdfExecutionResult control = await RunCapture(baseline, false, QpdfLimits.Default);
+        Assert.Equal(QpdfExitCode.Success, control.ExitCode);
+        ObservedHost host = await Observed("split", false, false);
+        QpdfExecutionResult result = await RunCapture(host, true, QpdfLimits.Default with { MaxHostOperations = baseline.Operations });
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status); Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal(baseline.Creates, host.Creates); Assert.Equal(baseline.Committed, host.Committed);
+        Assert.Equal(baseline.Operations, host.Operations); Assert.Equal(control.Counters.TotalOutputBytes, result.Counters.TotalOutputBytes);
+        Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, host.Inner.OpenLeaseCount);
+        foreach (string path in host.Committed)
+        {
+            Assert.True(baseline.Inner.TryGetOutput(QpdfPath.From(path), out byte[] expected));
+            Assert.True(host.Inner.TryGetOutput(QpdfPath.From(path), out byte[] actual));
+            Assert.Equal(expected, actual);
+            host.Inner.AddInput(QpdfPath.From("readback.pdf"), actual, QpdfInputOwnership.Copy);
+            await using (QpdfDocument document = await QpdfDocument.OpenAsync(host.Inner, QpdfPath.From("readback.pdf"), CancellationToken.None))
+            { Assert.Equal(1, document.PageCount); }
+        }
+        if (!aliasesMain)
+        {
+            Assert.True(host.Inner.TryGetOutput(QpdfPath.From(capture), out byte[] prior));
+            Assert.Equal(new byte[] { 17, 23, 41 }, prior);
+        }
+        Assert.Equal(0L, baseline.Inner.OpenLeaseCount); Assert.Equal(0L, host.Inner.OpenLeaseCount);
+    }
+
     private sealed class ObservedHost(InMemoryQpdfHost inner) : IQpdfHost
     {
         internal InMemoryQpdfHost Inner => inner;

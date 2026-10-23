@@ -392,6 +392,8 @@ echoing values.
   `--linearize-pass1` captures the counting pass while `--check-linearization` and `--show-linearization` inspect through the shared engine. QDF stays disabled over linearization.
   An active first-pass target must differ from every main PDF target, including
   later split groups; equal ordinal logical names reject before output creation.
+  Without `--linearize`, the capture option creates no output, including in split
+  jobs. Active split capture retains the last group's first pass at its target.
 
 ## Governance
 

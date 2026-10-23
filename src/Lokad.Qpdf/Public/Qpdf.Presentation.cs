@@ -96,7 +96,7 @@ public static partial class Qpdf
         QdfOptions qdf, IReadOnlyDictionary<int, int>? originalIds, bool linearize, QpdfPath? pass1, QpdfPath path,
         QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
     {
-        PreparedSplitPublication publication = PreparedSplitPublication.Create(limits, governor, path, pass1, cancellationToken);
+        PreparedSplitPublication publication = PreparedSplitPublication.Create(limits, governor, path, linearize ? pass1 : null, cancellationToken);
         try
         {
             using ParserMemoryScope ids = ParserMemoryScope.Create(governor);

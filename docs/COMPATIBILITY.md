@@ -85,6 +85,11 @@ created; previously the auxiliary bytes could overwrite the completed main file
 while reporting success. Hosts remain responsible for aliases between different
 logical names. Public signatures and sequential commit semantics are unchanged.
 
+Without `--linearize`, `--linearize-pass1` is ignored for split output as well as
+ordinary output. Split preparation no longer allocates or publishes an empty
+capture that could overwrite an existing target. Host-operation reservations and
+memory estimates omit that unused capture; active capture behavior is unchanged.
+
 Typed attachment listing returns metadata without constructing discarded listing
 messages. Clean metadata calls no longer spend diagnostic record/message quotas;
 real warnings and all memory/I/O limits remain binding. Argv/job listing still

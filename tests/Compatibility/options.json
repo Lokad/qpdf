@@ -4038,7 +4038,8 @@
           "LinearizedWriterTests.Pass1CapturedAlongsideFinalOutput",
           "LinearizedWriterTests.Pass1WithoutLinearizeIsIgnored",
           "LinearizedWriterTests.Pass1SpaceFormCaptures",
-          "LinearizedWriterTests.Pass1JobParityMatchesArgvBytes"
+          "LinearizedWriterTests.Pass1JobParityMatchesArgvBytes",
+          "PublicationAdmissionTests.InactiveFirstPassDoesNotCreateOrOverwriteCapture"
         ],
         "negative": [
           "LinearizedWriterTests.Pass1MalformedFormsFail",
@@ -5999,7 +6000,8 @@
           "SplitReplaceTests.TypedSplitWritesNamedGroups",
           "SplitReplaceTests.TypedSplitMergesSourcesBeforeGrouping",
           "SplitReplaceTests.TypedSplitMatchesArgv",
-          "SplitReplaceTests.TypedSplitMatchesJob"
+          "SplitReplaceTests.TypedSplitMatchesJob",
+          "PublicationAdmissionTests.InactiveFirstPassDoesNotCreateOrOverwriteCapture"
         ],
         "negative": [
           "SplitReplaceTests.SplitOutputAliasingInputFailsCleanly",
