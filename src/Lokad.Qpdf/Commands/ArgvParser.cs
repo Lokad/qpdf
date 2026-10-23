@@ -794,23 +794,15 @@ internal static class ArgvParser
             return WithCheckGlobals(ParseCheck(argv, checkAt, recovery), globals);
         }
 
-        if (pagesAt < 0 && argv.Count == 3 && argv[0] == JobPlan.EmptyDocumentInput && argv[1] == "--")
-        {
-            string bareOutput = ParseOutputArea(argv, 1);
-            return NewWholeFilePlan(JobPlan.EmptyDocumentInput, bareOutput, recovery, globals, new List<OutputRotation>(), new List<PageLabelSpec>(), AttachmentEdits.Empty, new List<OverlaySpec>(), new List<OverlaySpec>()) with
-            {
-                EmptyDocument = true,
-            };
-        }
-
         if (pagesAt < 0 && !globals.ReplaceInput && !HasAttachmentEdit(argv, 0, argv.Count) && firstOverlayAt < 0)
         {
             int terminator = FindFlag(argv, "--");
             int inputEnd = terminator >= 0 ? terminator : Math.Min(1, argv.Count);
-            string wholeInput = ParseInputArea(argv, inputEnd, "whole-file rewriting");
+            bool empty = IsEmptyDocumentInput(argv, inputEnd);
+            string wholeInput = empty ? JobPlan.EmptyDocumentInput : ParseInputArea(argv, inputEnd, "whole-file rewriting");
             string wholeOutput = ParseOutputArea(argv, terminator >= 0 ? terminator : 0);
             return NewWholeFilePlan(wholeInput, wholeOutput, recovery, globals, new List<OutputRotation>(),
-                new List<PageLabelSpec>(), AttachmentEdits.Empty, new List<OverlaySpec>(), new List<OverlaySpec>());
+                new List<PageLabelSpec>(), AttachmentEdits.Empty, new List<OverlaySpec>(), new List<OverlaySpec>()) with { EmptyDocument = empty };
         }
 
         string input;
@@ -901,7 +893,8 @@ internal static class ArgvParser
             {
                 blockOrOverlay = overlayAt;
             }
-            input = ParseInputArea(argv, blockOrOverlay, "attachment editing");
+            emptyInput = IsEmptyDocumentInput(argv, blockOrOverlay);
+            input = emptyInput ? JobPlan.EmptyDocumentInput : ParseInputArea(argv, blockOrOverlay, "attachment editing");
             cursor = blockOrOverlay;
         }
 
@@ -937,6 +930,11 @@ internal static class ArgvParser
             throw new QpdfParseException("Options --overlay and --underlay cannot be combined with --empty.", pagesAt, null);
         }
 
+        if (groups.Count == 0)
+        {
+            return NewWholeFilePlan(input, output, recovery, globals, rotations, labels, edits, overlays, underlays) with { EmptyDocument = emptyInput };
+        }
+
         if (emptyInput || groups.Count > 1 || collate.Count > 0 || globals.Collate.Count > 0 || (groups.Count == 1 && !SelectionPlan.IsPlainPageNumber(groups[0].Range)))
         {
             return ParseMerge(input, output, groups, rotations, labels, removeLabels, collate, recovery, globals, emptyInput) with
@@ -947,11 +945,6 @@ internal static class ArgvParser
                 Overlays = overlays,
                 Underlays = underlays,
             };
-        }
-
-        if (groups.Count == 0)
-        {
-            return NewWholeFilePlan(input, output, recovery, globals, rotations, labels, edits, overlays, underlays);
         }
 
         string file = groups[0].File;

@@ -88,6 +88,9 @@ output can change. Explicit invalid page selections still reject.
 Whole-file attachment preservation also applies to ordinary inputs without an edit
 request; those jobs previously omitted the embedded files. Explicit selection and
 merge catalog policies retain their existing behavior.
+Argv accepts synthetic-empty attachment edits like job JSON, and bare `--empty`
+accepts the output with or without `--`. Synthetic-empty overlays/underlays and
+replacement still reject, including job requests without a pages block.
 
 JSON sidecars must differ from the main JSON output, and an active linearization
 first-pass capture must differ from every main PDF output, including later split

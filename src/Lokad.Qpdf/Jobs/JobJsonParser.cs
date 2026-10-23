@@ -1567,6 +1567,11 @@ internal static class JobJsonParser
                 throw new QpdfParseException("Job \"jsonKey\" requires \"json\".", 0L, null);
             }
 
+            if (empty && (overlays.Count > 0 || underlays.Count > 0))
+            {
+                throw new QpdfParseException("Overlay and underlay blocks cannot be combined with empty input.", 0L, null);
+            }
+
             if (!hasPages)
             {
                 if (output is null)
@@ -1666,10 +1671,6 @@ internal static class JobJsonParser
                     }
                 }
 
-                if (overlays.Count > 0 || underlays.Count > 0)
-                {
-                    throw new QpdfParseException("Overlay and underlay blocks cannot be combined with empty input.", 0L, null);
-                }
             }
 
             if (entries.Count == 1 && !empty && collation is null && splitPages is null && SelectionPlan.IsPlainPageNumber(entries[0].Range))

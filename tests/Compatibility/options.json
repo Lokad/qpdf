@@ -2808,6 +2808,7 @@
       "evidence": {
         "positive": [
           "EmptyInputTests.BareEmptyWritesZeroPageDocument",
+          "ZeroPageRewriteTests.BareEmptyOutputCanBeRewritten",
           "ZeroPageRewriteTests.ZeroPageEditsApplyThroughSharedAttachmentPipeline",
           "ZeroPageRewriteTests.ZeroSplitGroupsPreserveEveryTarget",
           "EmptyInputTests.MergesFromEmptyBase",

@@ -122,6 +122,8 @@ public sealed class ZeroPageRewriteTests
     [Theory]
     [InlineData("job", true, "add")]
     [InlineData("job", true, "copy")]
+    [InlineData("argv", true, "add")]
+    [InlineData("argv", true, "copy")]
     [InlineData("argv", false, "add")]
     [InlineData("job", false, "add")]
     [InlineData("argv", false, "copy")]
@@ -171,12 +173,14 @@ public sealed class ZeroPageRewriteTests
     }
 
     [Theory]
-    [InlineData("missing-add")]
-    [InlineData("missing-copy")]
-    public async Task EmptyJobMissingAttachmentSourcePreservesPriorOutput(string operation)
+    [InlineData("job", "missing-add")]
+    [InlineData("job", "missing-copy")]
+    [InlineData("argv", "missing-add")]
+    [InlineData("argv", "missing-copy")]
+    public async Task EmptyJobMissingAttachmentSourcePreservesPriorOutput(string route, string operation)
     {
         using ObservedHost host = await Prepare();
-        QpdfExecutionResult result = await Run(host, "job", true, operation, "plain", false, QpdfLimits.Default, CancellationToken.None);
+        QpdfExecutionResult result = await Run(host, route, true, operation, "plain", false, QpdfLimits.Default, CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status); Assert.Empty(host.Created);
         Assert.True(host.Inner.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] bytes)); Assert.Equal(Prior, bytes);
         Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, host.Inner.OpenLeaseCount);
@@ -201,6 +205,52 @@ public sealed class ZeroPageRewriteTests
         { Assert.True(host.Inner.TryGetOutput(QpdfPath.From(target), out byte[] bytes)); Assert.Equal(Prior, bytes); }
         Assert.Equal(0L, result.Counters.TotalOutputBytes); Assert.Equal(0L, result.Counters.OpenHandles);
         Assert.Equal(0L, host.Inner.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData("argv", "pages")]
+    [InlineData("job", "pages")]
+    [InlineData("argv", "overlay")]
+    [InlineData("job", "overlay")]
+    [InlineData("argv", "replace")]
+    [InlineData("job", "replace")]
+    public async Task InvalidPageSelectionAndEmptyBaseRestrictionsPreservePriorOutput(string route, string operation)
+    {
+        using ObservedHost host = await Prepare();
+        string[] argv = operation switch
+        {
+            "pages" => ["input.pdf", "--pages", ".", "1", "--", "output.pdf"],
+            "overlay" => ["--empty", "--overlay", "source.pdf", "--", "--", "output.pdf"],
+            _ => ["--empty", "--replace-input"],
+        };
+        string job = operation switch
+        {
+            "pages" => """{"inputFile":"input.pdf","outputFile":"output.pdf","pages":[{"file":".","range":"1"}]}""",
+            "overlay" => """{"empty":"","outputFile":"output.pdf","overlay":{"file":"source.pdf"}}""",
+            _ => """{"empty":"","replaceInput":""}""",
+        };
+        QpdfExecutionResult result = route == "argv"
+            ? await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None)
+            : await Qpdf.ExecuteJobAsync(host, job, CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status); Assert.Empty(host.Created);
+        Assert.True(host.Inner.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] bytes)); Assert.Equal(Prior, bytes);
+        Assert.Equal(0L, host.Inner.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task BareEmptyOutputCanBeRewritten(bool separator)
+    {
+        using ObservedHost host = await Prepare();
+        string[] argv = separator ? ["--empty", "--", "output.pdf"] : ["--empty", "output.pdf"];
+        QpdfExecutionResult created = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, created.ExitCode);
+        Assert.True(host.Inner.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] bytes));
+        host.Inner.AddInput(QpdfPath.From("input.pdf"), bytes, QpdfInputOwnership.Copy);
+        QpdfExecutionResult rewritten = await Run(host, "job", false, "rewrite", "plain", false, QpdfLimits.Default, CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, rewritten.ExitCode);
+        await CheckOutput(host, false, [], 0);
     }
 
     private sealed class ObservedHost : IQpdfHost, IDisposable

@@ -165,6 +165,8 @@ echoing values.
   replacement with the synthetic base reject. Whole-file rewriting and typed
   attachment edits accept real zero-page inputs and preserve their catalog data.
   Empty split jobs have zero groups and create no output or first-pass capture.
+  Argv and job JSON can add/copy attachments to the synthetic empty document.
+  The bare argv output separator is optional.
 - Merge options interleave per-source groups (collation), rotate, and emit explicit
   page labels or merge source label trees with page-index offsets (unlabeled pages
   fabricate continuations, runs compress); an optional split group size partitions
