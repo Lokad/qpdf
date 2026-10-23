@@ -174,18 +174,17 @@ internal static class PdfJsonWriter
     {
         if (text.Length == 0) { builder.Append('0'); return; }
         ReadOnlySpan<char> value = text;
-        if (value[0] == '.') { builder.Append('0'); }
-        else if (value.Length >= 2 && value[0] == '-' && value[1] == '.')
-        { builder.Append("-0"); value = value[1..]; }
-        else if (value[0] == '0')
+        if (value[0] is '+' or '-')
         {
-            int index = 0;
-            while (index < value.Length && value[index] == '0')
-            { CheckChunkCancellation(builder.Governor, index); index++; }
-            if (index == value.Length) { builder.Append('0'); return; }
-            value = value[index..];
-            if (value[0] == '.') { builder.Append('0'); }
+            if (value[0] == '-') { builder.Append('-'); }
+            value = value[1..];
         }
+        int index = 0;
+        while (index < value.Length && value[index] == '0')
+        { CheckChunkCancellation(builder.Governor, index); index++; }
+        value = value[index..];
+        if (value.IsEmpty) { builder.Append('0'); return; }
+        if (value[0] == '.') { builder.Append('0'); }
         builder.AppendSpan(value);
         if (value[^1] == '.') { builder.Append('0'); }
     }

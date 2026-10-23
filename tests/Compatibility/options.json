@@ -3516,6 +3516,7 @@
         "positive": [
           "JsonInspectionTests.DefaultVersionIsTwo",
           "JsonInspectionTests.JsonWithoutFileReturnsText",
+          "JsonRealExportTests.SignedAndZeroPaddedRealsExportValidExactJson",
           "JsonInspectionTests.ExplicitVersionOne",
           "JsonInspectionTests.NamesAndStringsEncode",
           "JsonInspectionTests.PageImagesListDirectImages",

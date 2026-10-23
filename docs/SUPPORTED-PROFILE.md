@@ -285,6 +285,10 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
   Unsupported values fail before output publication. Decimal underflow retains
   its text; integral exponent results outside Int64 retain a decimal point.
 
+JSON real output removes a PDF-only leading plus and redundant integer zeros,
+while retaining significant digits, fractional spelling and negative zero.
+Numbers are normalized lexically under the existing cancellation/output bounds.
+
 ## Page content profile
 
 - `--coalesce-contents` joins each page content array into one stream with

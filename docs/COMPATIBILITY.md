@@ -78,6 +78,13 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+JSON export normalizes a PDF real's leading plus sign and integer zeros, while
+preserving significant digits, fractional spelling and negative zero. Legal PDF
+tokens such as `+.5` and `-00.5` now publish valid JSON through every entry point;
+previously success could return invalid JSON, a defect also present in native
+qpdf. Normalization uses bounded lexical scanning with cancellation and does not
+round through floating point. Public signatures are unchanged.
+
 Appearance generation and stamping share the existing bounded geometry formatter.
 Large integral real coordinates retain a decimal point, so generated BBox/Matrix
 values remain readable under the managed integer bounds. The former private
