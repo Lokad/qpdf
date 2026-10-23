@@ -33,7 +33,7 @@ public sealed record QpdfJsonOptions
         }
 
         Version = version;
-        Keys = frozen;
+        Keys = frozen.AsReadOnly();
     }
 
     /// <summary>Gets the JSON format version.</summary>
@@ -80,11 +80,11 @@ public sealed record QpdfJsonOptions
 
         StreamData = streamData;
         StreamPrefix = streamPrefix;
-        Objects = frozenObjects;
+        Objects = frozenObjects.AsReadOnly();
         MinimalOutput = minimalOutput;
     }
 
-    /// <summary>Gets the selected top-level keys; empty means all supported keys.</summary>
+    /// <summary>Gets a read-only snapshot of selected top-level keys; empty means all supported keys.</summary>
     public IReadOnlyList<string> Keys { get; }
 
     /// <summary>Gets how stream payloads are represented: none, inline, or file.</summary>
@@ -93,7 +93,7 @@ public sealed record QpdfJsonOptions
     /// <summary>Gets the stream sidecar prefix for file mode; null means the output path.</summary>
     public string? StreamPrefix { get; }
 
-    /// <summary>Gets the selected objects in trailer or obj[,gen] form; empty means all.</summary>
+    /// <summary>Gets a read-only snapshot of selected objects in trailer or obj[,gen] form; empty means all.</summary>
     public IReadOnlyList<string> Objects { get; } = [];
 
     /// <summary>Gets whether minimal serialization output applies.</summary>

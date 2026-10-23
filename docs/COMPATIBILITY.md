@@ -78,6 +78,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Command arguments and JSON key/object selectors expose read-only views of their
+defensive copies. Casts to mutable collection interfaces now reject mutation,
+so reusing an invocation or options value preserves its original settings.
+Public signatures, ordering, duplicate behavior and caller-input independence
+are unchanged.
+
 JSON creation and update expand exponent notation into PDF decimal syntax without
 rounding its significant digits through binary floating point. Ordinary integer
 and decimal spellings remain unchanged. Exponent results within Int64 can become
