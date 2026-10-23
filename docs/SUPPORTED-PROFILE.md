@@ -351,7 +351,8 @@ echoing values.
   PDFDocEncoding) and match request keys by exact ordinal text.
 - `Qpdf.ListAttachmentsAsync` reports key, preferred file name, description,
   MIME type, PDF-syntax dates, stored checksum, stream number, and declared
-  size; `Qpdf.ExtractAttachmentAsync` stages fully decoded bytes to an
+  size without formatting listing diagnostics; genuine warnings still consume
+  their quotas. `Qpdf.ExtractAttachmentAsync` stages fully decoded bytes to an
   explicit output path (raw bytes plus a warning where decoding is
   unavailable). The same engine backs
   `--list-attachments` (info diagnostics, no output file) and

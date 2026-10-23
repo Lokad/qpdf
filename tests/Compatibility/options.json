@@ -4089,7 +4089,10 @@
           "AttachmentTests.MalformedAttachmentsFail"
         ],
         "resource": [
-          "AttachmentTests.ListYieldsToExhaustedInputBudget"
+          "AttachmentTests.ListYieldsToExhaustedInputBudget",
+          "AttachmentMetadataTests.TypedListingDoesNotSpendPresentationQuotas",
+          "AttachmentMetadataTests.GenuineWarningsRemainBoundedDuringTypedListing",
+          "AttachmentMetadataTests.CommandListingStillEnforcesPresentationQuota"
         ],
         "oracle": [
           "diff:attachments-list"

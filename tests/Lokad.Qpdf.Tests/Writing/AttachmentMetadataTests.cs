@@ -94,6 +94,72 @@ public sealed class AttachmentMetadataTests
         public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token) => storage.CreateOutputAsync(path, token);
     }
 
+    private static byte[] ListingFixture(int count, int malformed)
+    {
+        string names = string.Join(' ', Enumerable.Range(0, count).Select(index => $"(K-{index:D3}) 5 0 R")
+            .Concat(Enumerable.Range(0, malformed).Select(index => $"(zbad-{index:D3}) 7 0 R")));
+        return CheckTests.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 4 0 R >> >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] >>", null),
+            (4, "<< /Names [" + names + "] >>", null),
+            (5, "<< /Type /Filespec /UF (name) /Desc (description) /EF << /UF 6 0 R >> >>", null),
+            (6, "<< /Type /EmbeddedFile /Length 1 /Params << /Size 1 >> >>", "X"u8.ToArray()),
+            (7, "42", null)
+        ], 1);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(65)]
+    [InlineData(129)]
+    public async Task TypedListingDoesNotSpendPresentationQuotas(int count)
+    {
+        using InMemoryQpdfHost storage = new();
+        storage.AddInput(QpdfPath.From("input"), ListingFixture(count, 0), QpdfInputOwnership.Transfer);
+        IReadOnlyList<QpdfAttachmentInfo> listing = await Qpdf.ListAttachmentsAsync(storage, QpdfPath.From("input"),
+            QpdfLimits.Default with { MaxDiagnostics = 1L, MaxDiagnosticBytes = 1L }, CancellationToken.None);
+        Assert.Equal(count, listing.Count); Assert.Equal(0L, storage.OpenLeaseCount);
+        storage.Dispose();
+        foreach (QpdfAttachmentInfo info in listing)
+        {
+            Assert.Equal("name", info.FileName); Assert.Equal("description", info.Description);
+            Assert.Equal(6, info.StreamObjectNumber); Assert.Equal(1L, info.Size);
+        }
+    }
+
+    [Fact]
+    public async Task GenuineWarningsRemainBoundedDuringTypedListing()
+    {
+        using InMemoryQpdfHost storage = new();
+        storage.AddInput(QpdfPath.From("one"), ListingFixture(1, 1), QpdfInputOwnership.Transfer);
+        storage.AddInput(QpdfPath.From("two"), ListingFixture(1, 2), QpdfInputOwnership.Transfer);
+        QpdfLimits limits = QpdfLimits.Default with { MaxDiagnostics = 1L };
+        Assert.Single(await Qpdf.ListAttachmentsAsync(storage, QpdfPath.From("one"), limits, CancellationToken.None));
+        QpdfLimitException failure = await Assert.ThrowsAsync<QpdfLimitException>(() =>
+            Qpdf.ListAttachmentsAsync(storage, QpdfPath.From("two"), limits, CancellationToken.None).AsTask());
+        Assert.Equal(nameof(QpdfLimits.MaxDiagnostics), failure.LimitName);
+        Assert.Equal(0L, storage.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CommandListingStillEnforcesPresentationQuota(bool job)
+    {
+        using InMemoryQpdfHost storage = new();
+        storage.AddInput(QpdfPath.From("input"), ListingFixture(1, 0), QpdfInputOwnership.Transfer);
+        QpdfExecutionOptions options = new(QpdfLimits.Default with { MaxDiagnostics = 1L });
+        QpdfExecutionResult result = job
+            ? await Qpdf.ExecuteJobAsync(storage, """{"inputFile":"input","listAttachments":true}""", options, CancellationToken.None)
+            : await Qpdf.ExecuteAsync(storage, new QpdfCommandInvocation(["input", "--list-attachments"]), options, CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, Assert.Single(result.Diagnostics).Code);
+        Assert.Equal(1L, result.Counters.DiagnosticCount);
+        Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, storage.OpenLeaseCount);
+    }
+
     [Fact]
     public async Task TypedListingAliasesSurviveInputAndHostClosureWithOnlyResultStorageRetained()
     {

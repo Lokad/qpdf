@@ -179,7 +179,7 @@ public sealed class AttachmentConstructionTests
         Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] pdf));
         host.AddInput(QpdfPath.From("reread"), pdf, QpdfInputOwnership.Copy);
         IReadOnlyList<QpdfAttachmentInfo> listing = await Qpdf.ListAttachmentsAsync(host, QpdfPath.From("reread"),
-            QpdfLimits.Default with { MaxDiagnostics = 4096 }, CancellationToken.None);
+            CancellationToken.None);
         Assert.Equal(count, listing.Count);
         for (int index = 0; index < count; index++)
         {
@@ -207,7 +207,7 @@ public sealed class AttachmentConstructionTests
         Assert.True(host.TryGetOutput(QpdfPath.From("removed"), out byte[] removedPdf));
         host.AddInput(QpdfPath.From("removed-read"), removedPdf, QpdfInputOwnership.Transfer);
         IReadOnlyList<QpdfAttachmentInfo> remaining = await Qpdf.ListAttachmentsAsync(host, QpdfPath.From("removed-read"),
-            QpdfLimits.Default with { MaxDiagnostics = 4096 }, CancellationToken.None);
+            CancellationToken.None);
         Assert.Equal(count - 1, remaining.Count);
         Assert.DoesNotContain(remaining, item => item.Key == removedKey);
         Assert.Equal(specs.Skip(1).Select(spec => "copy-" + spec.Key), remaining.Select(item => item.Key));

@@ -78,6 +78,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Typed attachment listing returns metadata without constructing discarded listing
+messages. Clean metadata calls no longer spend diagnostic record/message quotas;
+real warnings and all memory/I/O limits remain binding. Argv/job listing still
+formats its existing diagnostic output under those quotas. The shared decoder,
+returned metadata lifetimes and public signatures are unchanged.
+
 Attachment editing emits one flat name array under memory admission and managed
 array bounds. The former split above 64 entries produced direct child dictionaries
 that native listing and extraction had to repair with warnings. Key order, text

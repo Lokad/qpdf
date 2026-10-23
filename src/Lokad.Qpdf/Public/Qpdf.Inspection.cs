@@ -26,58 +26,61 @@ public static partial class Qpdf
         List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(document.Engine, limits, governor, diagnostics, memory, cancellationToken);
         if (found.Count == 0)
         {
-            diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, [inputPath.Value, " has no embedded files"]);
+            if (results is null) { diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, [inputPath.Value, " has no embedded files"]); }
             return Array.Empty<QpdfAttachmentInfo>();
         }
 
-        foreach (EmbeddedAttachment info in found)
+        if (results is null)
         {
-            int generation = 0;
-            if (info.StreamObjectNumber >= 0
-                && document.Engine.XRefEntries.TryGetValue(info.StreamObjectNumber, out XrefEntry entry)
-                && entry.Kind == XrefEntryKind.Uncompressed)
+            foreach (EmbeddedAttachment info in found)
             {
-                generation = entry.Second;
-            }
+                int generation = 0;
+                if (info.StreamObjectNumber >= 0
+                    && document.Engine.XRefEntries.TryGetValue(info.StreamObjectNumber, out XrefEntry entry)
+                    && entry.Kind == XrefEntryKind.Uncompressed)
+                {
+                    generation = entry.Second;
+                }
 
-            diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, [info.Key, " -> ", info.StreamObjectNumber, ",", generation]);
-            if (info.FileName.Length > 0)
-            {
-                diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, ["  filename: ", info.FileName]);
-            }
+                diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, [info.Key, " -> ", info.StreamObjectNumber, ",", generation]);
+                if (info.FileName.Length > 0)
+                {
+                    diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, ["  filename: ", info.FileName]);
+                }
 
-            if (info.Description.Length > 0)
-            {
-                diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, ["  description: ", info.Description]);
-            }
+                if (info.Description.Length > 0)
+                {
+                    diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, ["  description: ", info.Description]);
+                }
 
-            if (info.MimeType.Length > 0)
-            {
-                diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, ["  mime type: ", info.MimeType]);
-            }
+                if (info.MimeType.Length > 0)
+                {
+                    diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, ["  mime type: ", info.MimeType]);
+                }
 
-            if (info.CreationDate.Length > 0)
-            {
-                diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, ["  creation date: ", info.CreationDate]);
-            }
+                if (info.CreationDate.Length > 0)
+                {
+                    diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, ["  creation date: ", info.CreationDate]);
+                }
 
-            if (info.ModDate.Length > 0)
-            {
-                diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, ["  modification date: ", info.ModDate]);
-            }
+                if (info.ModDate.Length > 0)
+                {
+                    diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, ["  modification date: ", info.ModDate]);
+                }
 
-            if (info.Checksum.Length > 0)
-            {
-                diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, ["  checksum: ", info.Checksum]);
-            }
+                if (info.Checksum.Length > 0)
+                {
+                    diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, ["  checksum: ", info.Checksum]);
+                }
 
-            if (info.Size >= 0L)
-            {
-                diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, ["  size: ", info.Size]);
+                if (info.Size >= 0L)
+                {
+                    diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, ["  size: ", info.Size]);
+                }
             }
+            return Array.Empty<QpdfAttachmentInfo>();
         }
 
-        if (results is null) { return Array.Empty<QpdfAttachmentInfo>(); }
         results.Reserve(checked(48L + IntPtr.Size * (long)found.Count));
         QpdfAttachmentInfo[] infos = new QpdfAttachmentInfo[found.Count];
         long textBytes = 0L;
