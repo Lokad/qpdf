@@ -2178,13 +2178,17 @@
         ],
         "interaction": [
           "AttachmentEditTests.AddPreservesExisting",
+          "ZeroPageRewriteTests.TypedAttachmentEditsAcceptRealZeroPageInput",
+          "ZeroPageRewriteTests.WholeFileRewritePreservesZeroPageCatalogAndPayloads",
           "AttachmentEditTests.JobAddRemoveRoundTrip",
           "AttachmentEditTests.NestedMetadataJobParityHolds"
         ],
         "resource": [
           "AttachmentEditTests.AttachmentsYieldToExhaustedBudget",
           "AttachmentConstructionTests.NameArrayRefusalPreservesEarlierStorage",
-          "AttachmentConstructionTests.CancellationAfterNameArrayAdmissionPrecedesAllocation"
+          "AttachmentConstructionTests.CancellationAfterNameArrayAdmissionPrecedesAllocation",
+          "ZeroPageRewriteTests.EmptyEditsCleanUpAtHostFailureAndCancellationBoundaries",
+          "ZeroPageRewriteTests.EmptyEditsRefundEverySharedAdmissionRefusal"
         ],
         "oracle": [
           "diff:attachments-add",
@@ -2592,10 +2596,13 @@
         ],
         "interaction": [
           "AttachmentCopyTests.JobCopyRoundTrip",
+          "ZeroPageRewriteTests.ZeroPageEditsApplyThroughSharedAttachmentPipeline",
           "AttachmentCopyTests.CopyAddCollisionFails"
         ],
         "resource": [
-          "AttachmentCopyTests.CopyYieldsToExhaustedBudget"
+          "AttachmentCopyTests.CopyYieldsToExhaustedBudget",
+          "ZeroPageRewriteTests.EmptyCopyRejectsMalformedSourceWithoutPublishing",
+          "ZeroPageRewriteTests.EmptyEditsRefundEverySharedAdmissionRefusal"
         ],
         "oracle": [
           "diff:attachments-copy"
@@ -2837,7 +2844,10 @@
           "EmptyInputTests.BadEmptyJobsFail"
         ],
         "resource": [
-          "EmptyInputTests.EmptyMergeYieldsToExhaustedBudget"
+          "EmptyInputTests.EmptyMergeYieldsToExhaustedBudget",
+          "ZeroPageRewriteTests.EmptyEditsCleanUpAtHostFailureAndCancellationBoundaries",
+          "ZeroPageRewriteTests.EmptyAddHonorsLocalMemoryRefusalBeforePublication",
+          "ZeroPageRewriteTests.RewrittenZeroPageMetadataSurvivesDocumentAndHostCleanup"
         ],
         "oracle": [
           "diff:empty"
@@ -6020,7 +6030,8 @@
           "SplitReplaceTests.TypedSplitMatchesJob"
         ],
         "resource": [
-          "ResourceEnforcementTests.SplitYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.SplitYieldsToExhaustedBudget",
+          "ZeroPageRewriteTests.ZeroSplitGroupsPreserveEveryTarget"
         ],
         "oracle": [
           "diff:split"

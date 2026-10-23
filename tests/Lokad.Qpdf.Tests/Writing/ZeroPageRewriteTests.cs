@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.TestSupport;
 using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
@@ -41,7 +42,7 @@ public sealed class ZeroPageRewriteTests
         return host;
     }
 
-    private static async Task<QpdfExecutionResult> Run(ObservedHost host, string route, bool synthetic,
+    private static async Task<QpdfExecutionResult> Run(IQpdfHost host, string route, bool synthetic,
         string operation, string mode, bool split, QpdfLimits limits, CancellationToken token)
     {
         string target = split ? "out-%d.pdf" : "output.pdf";
@@ -253,13 +254,166 @@ public sealed class ZeroPageRewriteTests
         await CheckOutput(host, false, [], 0);
     }
 
+    public static IEnumerable<object[]> Faults()
+    {
+        foreach (string route in new[] { "argv", "job" })
+        foreach (string operation in new[] { "add", "copy" })
+        foreach (string phase in new[] { "read", "input-close", "write", "commit", "output-close" })
+        foreach (bool cancel in new[] { false, true })
+        { yield return [route, operation, phase, cancel]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(Faults))]
+    public async Task EmptyEditsCleanUpAtHostFailureAndCancellationBoundaries(string route, string operation, string phase, bool cancel)
+    {
+        using ObservedHost host = await Prepare();
+        using CancellationTokenSource cancellation = new();
+        bool triggered = false;
+        host.Boundary = (actual, path) =>
+        {
+            if (triggered || actual != phase) { return; }
+            triggered = true;
+            if (cancel) { cancellation.Cancel(); throw new OperationCanceledException(cancellation.Token); }
+            throw new QpdfHostException(path, QpdfHostFailureReason.ReadFailed);
+        };
+        QpdfExecutionResult result = await Run(host, route, true, operation, "plain", false, QpdfLimits.Default, cancellation.Token);
+        Assert.True(triggered); Assert.Equal(cancel ? QpdfExecutionStatus.Canceled : QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, host.Inner.OpenLeaseCount);
+        if (phase == "output-close")
+        {
+            Assert.Equal(new[] { "output.pdf" }, host.Committed);
+            await CheckOutput(host, false, [operation == "add" ? "added" : "copy-proof"], 0);
+        }
+        else
+        {
+            Assert.Empty(host.Committed);
+            Assert.True(host.Inner.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] bytes)); Assert.Equal(Prior, bytes);
+        }
+    }
+
+    [Theory]
+    [InlineData("argv")]
+    [InlineData("job")]
+    public async Task EmptyCopyRejectsMalformedSourceWithoutPublishing(string route)
+    {
+        using ObservedHost host = await Prepare();
+        host.Inner.AddInput(QpdfPath.From("source.pdf"), "not a PDF"u8.ToArray(), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Run(host, route, true, "copy", "plain", false, QpdfLimits.Default, CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status); Assert.Empty(host.Created);
+        Assert.True(host.Inner.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] bytes)); Assert.Equal(Prior, bytes);
+        Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, host.Inner.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData("argv")]
+    [InlineData("job")]
+    public async Task EmptyAddHonorsLocalMemoryRefusalBeforePublication(string route)
+    {
+        using ObservedHost host = await Prepare();
+        host.Inner.AddInput(QpdfPath.From("payload.bin"), new byte[131072], QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Run(host, route, true, "add", "plain", false,
+            QpdfLimits.Default with { MaxMemoryBytes = 65536 }, CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status); Assert.Empty(host.Created);
+        Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.BudgetExceeded);
+        Assert.True(host.Inner.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] bytes)); Assert.Equal(Prior, bytes);
+        Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, host.Inner.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData("argv", "add")]
+    [InlineData("job", "add")]
+    [InlineData("argv", "copy")]
+    [InlineData("job", "copy")]
+    public async Task EmptyEditsRefundEverySharedAdmissionRefusal(string route, string operation)
+    {
+        RecordingMemoryBudget baseline = new(8388608L, false);
+        using (IMemoryScope caller = baseline.CreateScope())
+        using (ObservedHost host = await Prepare())
+        {
+            QpdfExecutionResult result = await Run(new MemoryHost(host, caller), route, true, operation, "plain", false, QpdfLimits.Default, CancellationToken.None);
+            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        }
+        Assert.Equal(0L, baseline.ReservedBytes); Assert.True(baseline.GrowthCalls > 0);
+        for (int growth = 1; growth <= baseline.GrowthCalls; growth++)
+        {
+            RecordingMemoryBudget root = new(8388608L, false) { RefuseOnGrowth = growth };
+            using (IMemoryScope caller = root.CreateScope())
+            using (ObservedHost host = await Prepare())
+            {
+                QpdfExecutionResult result = await Run(new MemoryHost(host, caller), route, true, operation, "plain", false, QpdfLimits.Default, CancellationToken.None);
+                Assert.Equal(QpdfExecutionStatus.Failed, result.Status); Assert.Empty(host.Committed);
+                Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.BudgetExceeded);
+                Assert.True(host.Inner.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] bytes)); Assert.Equal(Prior, bytes);
+                Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, host.Inner.OpenLeaseCount);
+            }
+            Assert.Equal(0L, root.ReservedBytes);
+        }
+    }
+
+    [Fact]
+    public async Task RewrittenZeroPageMetadataSurvivesDocumentAndHostCleanup()
+    {
+        RecordingMemoryBudget root = new(8388608L, false);
+        using (IMemoryScope caller = root.CreateScope())
+        using (ObservedHost host = await Prepare())
+        {
+            MemoryHost governed = new(host, caller);
+            QpdfExecutionResult result = await Run(governed, "job", false, "rewrite", "plain", false, QpdfLimits.Default, CancellationToken.None);
+            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+            Assert.True(host.Inner.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] bytes));
+            host.Inner.AddInput(QpdfPath.From("readback.pdf"), bytes, QpdfInputOwnership.Copy);
+            QpdfAttachmentInfo info = Assert.Single(await Qpdf.ListAttachmentsAsync(governed, QpdfPath.From("readback.pdf"), CancellationToken.None));
+            PdfDictionary catalog;
+            await using (QpdfDocument document = await QpdfDocument.OpenAsync(governed, QpdfPath.From("readback.pdf"), CancellationToken.None))
+            { catalog = Assert.IsType<PdfDictionary>(document.GetObject(1)); }
+            Assert.Equal(0L, host.Inner.OpenLeaseCount); host.Dispose();
+            Assert.Equal("proof", info.Key); Assert.Equal("zero-page attachment", info.Description);
+            Assert.True(catalog.TryGet(PdfName.FromAscii("Lang"), out QpdfObject lang));
+            Assert.Equal("fr-FR", Encoding.ASCII.GetString(Assert.IsType<PdfByteString>(lang).Value));
+            Assert.True(root.ReservedBytes > 0);
+        }
+        Assert.Equal(0L, root.ReservedBytes);
+    }
+
+    private sealed class MemoryHost(IQpdfHost inner, IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
+    {
+        public IMemoryBudget MemoryBudget => budget;
+        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => inner.OpenInputAsync(path, token);
+        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token) => inner.CreateOutputAsync(path, token);
+    }
+
     private sealed class ObservedHost : IQpdfHost, IDisposable
     {
         internal InMemoryQpdfHost Inner { get; } = new();
         internal List<string> Created { get; } = [];
-        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => Inner.OpenInputAsync(path, token);
-        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token)
-        { Created.Add(path.Value); return Inner.CreateOutputAsync(path, token); }
+        internal List<string> Committed { get; } = [];
+        internal Action<string, QpdfPath>? Boundary;
+        public async ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token)
+            => new Input(this, await Inner.OpenInputAsync(path, token));
+        public async ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token)
+        { Created.Add(path.Value); return new Output(this, await Inner.CreateOutputAsync(path, token)); }
         public void Dispose() => Inner.Dispose();
+
+        private sealed class Input(ObservedHost host, IQpdfInput inner) : IQpdfInput
+        {
+            public QpdfPath Path => inner.Path;
+            public string Identity => inner.Identity;
+            public long Length => inner.Length;
+            public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken token)
+            { host.Boundary?.Invoke("read", Path); return inner.ReadAsync(offset, count, token); }
+            public async ValueTask DisposeAsync() { await inner.DisposeAsync(); host.Boundary?.Invoke("input-close", Path); }
+        }
+
+        private sealed class Output(ObservedHost host, IQpdfOutputTransaction inner) : IQpdfOutputTransaction
+        {
+            public QpdfPath Path => inner.Path;
+            public ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken token)
+            { host.Boundary?.Invoke("write", Path); return inner.WriteAsync(bytes, token); }
+            public async ValueTask CommitAsync(CancellationToken token)
+            { host.Boundary?.Invoke("commit", Path); await inner.CommitAsync(token); host.Committed.Add(Path.Value); }
+            public ValueTask DiscardAsync(CancellationToken token) => inner.DiscardAsync(token);
+            public async ValueTask DisposeAsync() { await inner.DisposeAsync(); host.Boundary?.Invoke("output-close", Path); }
+        }
     }
 }
