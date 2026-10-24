@@ -8,13 +8,10 @@ using Lokad.Qpdf.Writing;
 namespace Lokad.Qpdf.Content;
 
 /// <summary>
-/// One source number-tree entry with resolved values. Indirect style and
-/// prefix references keep their source identity for the redundancy comparison
-/// but embed pool copies, so merged trees never dangle into source numbering.
+/// One source number-tree entry with copied values. References use the shared
+/// output pool's identities for both emission and run comparison.
 /// </summary>
 internal sealed record SourceLabelEntry(
-    PdfReference? StyleReference,
-    PdfReference? PrefixReference,
     QpdfObject? Style,
     QpdfObject? Prefix,
     long Start);
@@ -114,7 +111,7 @@ internal static class PageLabelMerge
         foreach (KeyValuePair<int, QpdfObject> pair in raw)
         {
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            metadata.Reserve(64L);
+            metadata.Reserve(48L);
             entries[position++] = (pair.Key, ResolveEntry(resolver, copier, pair.Value, governor, cancellationToken));
         }
 
@@ -152,12 +149,12 @@ internal static class PageLabelMerge
             governor.NoteOperation();
             (SourceLabels source, int page) = occurrences[k];
             int index = page - 1;
-            (long start, QpdfObject? styleIdentity, QpdfObject? prefixIdentity, QpdfObject? style, QpdfObject? prefix) = Peek(source.Entries, index, k, governor, cancellationToken);
+            (long start, QpdfObject? style, QpdfObject? prefix) = Peek(source.Entries, index, k, governor, cancellationToken);
             if (merged.Count > 0)
             {
                 (int lastIndex, PdfDictionary lastLabel) = merged[merged.Count - 1];
-                if (SameValue(LabelValue(lastLabel, "S"u8, governor, cancellationToken), styleIdentity, governor, cancellationToken)
-                    && SameValue(LabelValue(lastLabel, "P"u8, governor, cancellationToken), prefixIdentity, governor, cancellationToken)
+                if (SameValue(LabelValue(lastLabel, "S"u8, governor, cancellationToken), style, governor, cancellationToken)
+                    && SameValue(LabelValue(lastLabel, "P"u8, governor, cancellationToken), prefix, governor, cancellationToken)
                     && PdfDictionaryLookup.TryGet(lastLabel, "St"u8, governor, cancellationToken, out QpdfObject lastRaw) && lastRaw is PdfInteger lastStart)
                 {
                     bool redundant;
@@ -187,7 +184,7 @@ internal static class PageLabelMerge
         return merged;
     }
 
-    private static (long Start, QpdfObject? StyleIdentity, QpdfObject? PrefixIdentity, QpdfObject? Style, QpdfObject? Prefix) Peek(
+    private static (long Start, QpdfObject? Style, QpdfObject? Prefix) Peek(
         (int Index, SourceLabelEntry Entry)[] entries,
         int pageIndex,
         int outputIndex,
@@ -220,7 +217,7 @@ internal static class PageLabelMerge
                 throw new QpdfParseException("Page-label start overflows its output position.", null, null, ex);
             }
 
-            return (fabricated, null, null, null, null);
+            return (fabricated, null, null);
         }
 
         long start;
@@ -236,7 +233,7 @@ internal static class PageLabelMerge
             throw new QpdfParseException("Page-label start overflows its output position.", null, null, ex);
         }
 
-        return (start, (QpdfObject?)covering.StyleReference ?? covering.Style, (QpdfObject?)covering.PrefixReference ?? covering.Prefix, covering.Style, covering.Prefix);
+        return (start, covering.Style, covering.Prefix);
     }
 
     private static SourceLabelEntry ResolveEntry(
@@ -257,21 +254,23 @@ internal static class PageLabelMerge
 
         if (dictionary is null)
         {
-            return new SourceLabelEntry(null, null, null, null, 1L);
+            return new SourceLabelEntry(null, null, 1L);
         }
 
-        (PdfReference? styleReference, QpdfObject? style) = SplitLink(resolver, copier, dictionary, "S", governor, cancellationToken);
-        (PdfReference? prefixReference, QpdfObject? prefix) = SplitLink(resolver, copier, dictionary, "P", governor, cancellationToken);
+        QpdfObject? style = CopyLabelValue(resolver, copier, dictionary, "S", governor, cancellationToken);
+        QpdfObject? prefix = CopyLabelValue(resolver, copier, dictionary, "P", governor, cancellationToken);
         long start = 1L;
-        if (dictionary.TryGet(PdfName.FromAscii("St"), out QpdfObject? rawStart) && rawStart is PdfInteger startInteger)
+        if (dictionary.TryGet(PdfName.FromAscii("St"), out QpdfObject? rawStart))
         {
-            start = startInteger.Value;
+            if (rawStart is PdfReference startReference)
+            { PdfObjectLookup.TryResolve(startReference, resolver, governor, cancellationToken, out rawStart); }
+            if (rawStart is PdfInteger startInteger) { start = startInteger.Value; }
         }
 
-        return new SourceLabelEntry(styleReference, prefixReference, style, prefix, start);
+        return new SourceLabelEntry(style, prefix, start);
     }
 
-    private static (PdfReference? Reference, QpdfObject? Value) SplitLink(
+    private static QpdfObject? CopyLabelValue(
         IIndirectResolver resolver,
         GraphCopier copier,
         PdfDictionary dictionary,
@@ -282,31 +281,31 @@ internal static class PageLabelMerge
         cancellationToken.ThrowIfCancellationRequested();
         if (!dictionary.TryGet(PdfName.FromAscii(key), out QpdfObject? raw) || raw is null || raw is PdfNull)
         {
-            return (null, null);
+            return null;
         }
 
         if (raw is not PdfReference reference)
         {
             if (raw is PdfDictionary direct && IsPageTreeNode(direct))
             {
-                return (null, null);
+                return null;
             }
 
-            return (null, raw);
+            return raw;
         }
 
         if (!resolver.TryResolve(reference, out QpdfObject? resolved) || resolved is null || resolved is PdfNull)
         {
-            return (reference, null);
+            return null;
         }
 
         if (resolved is PdfDictionary target && IsPageTreeNode(target))
         {
-            return (reference, null);
+            return null;
         }
 
         governor.NoteOperation();
-        return (reference, copier.CopyValue(raw, 0));
+        return copier.CopyValue(raw, 0);
     }
 
     private static bool IsPageTreeNode(PdfDictionary dictionary)

@@ -78,6 +78,14 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Merged page-label runs compare copied style/prefix references in the output pool.
+Previously source object-number collisions could discard a later input's prefix,
+a defect also present in native qpdf; renumbering could instead expand one run
+into an entry per page. Both cases now preserve labels with compact runs.
+Redundant source-reference carriers are removed. Indirect `/St` integers now
+preserve selection/merge numbering instead of silently using the default start.
+Physical output and memory estimates can change; public signatures are unchanged.
+
 Attachment reading keeps existing reference identities and formats their text
 only when JSON presentation requests it. Typed listing, extraction and rewrites
 no longer allocate or reserve the unused reference labels. JSON reference numbers,

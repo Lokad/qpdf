@@ -32,7 +32,7 @@ public sealed class LabelComparisonStorageTests
     [InlineData(true)]
     public void LookupCancellationPreservesPriorAdmission(bool caller)
     {
-        SourceLabels source = new(true, [(0, new(null, null, PdfName.FromAscii("D"), null, 1))]);
+        SourceLabels source = new(true, [(0, new(PdfName.FromAscii("D"), null, 1))]);
         using CancellationTokenSource cancellation = new();
         ResourceGovernor governor = new(QpdfLimits.Default, caller ? CancellationToken.None : cancellation.Token);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor); long baseline = governor.Snapshot().LiveMemoryBytes;
@@ -47,7 +47,7 @@ public sealed class LabelComparisonStorageTests
     {
         PdfName style = PdfName.FromAscii("D");
         SourceLabels source = new(true, Enumerable.Range(0, 16384)
-            .Select(index => (index, new SourceLabelEntry(null, null, style, null, index + 1L))).ToArray());
+            .Select(index => (index, new SourceLabelEntry(style, null, index + 1L))).ToArray());
         var occurrences = Enumerable.Range(1, source.Entries.Length).Select(page => (source, page)).ToArray();
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 8192 }, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
@@ -62,7 +62,7 @@ public sealed class LabelComparisonStorageTests
     {
         PdfName style = PdfName.FromAscii("D");
         PdfByteString a = new("A"u8.ToArray(), false), b = new("B"u8.ToArray(), false), c = new("C"u8.ToArray(), false);
-        SourceLabels source = new(true, [(0, new(null, null, style, a, 10)), (2, new(null, null, style, b, 20)), (4, new(null, null, style, c, 7))]);
+        SourceLabels source = new(true, [(0, new(style, a, 10)), (2, new(style, b, 20)), (4, new(style, c, 7))]);
         var occurrences = new[] { 1, 5, 3, 4, 2, 1 }.Select(page => (source, page)).ToArray();
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
@@ -83,8 +83,8 @@ public sealed class LabelComparisonStorageTests
     {
         PdfByteString first = new(new byte[262144], false), second = new(new byte[262144], true);
         PdfName style = PdfName.FromAscii("D");
-        SourceLabels a = new(true, [(0, new(null, null, style, first, 1L))]);
-        SourceLabels b = new(true, [(0, new(null, null, style, second, 1L))]);
+        SourceLabels a = new(true, [(0, new(style, first, 1L))]);
+        SourceLabels b = new(true, [(0, new(style, second, 1L))]);
         var occurrences = Enumerable.Range(1, 8).Select(i => (i % 2 == 0 ? b : a, i)).ToArray();
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 8192L }, CancellationToken.None) { OwnsDocumentCounters = true };
         PdfDictionary result;
@@ -119,7 +119,7 @@ public sealed class LabelComparisonStorageTests
     [Fact]
     public void RefusedLabelConstructionPreservesPriorAdmission()
     {
-        SourceLabels source = new(true, [(0, new(null, null, PdfName.FromAscii("D"), new PdfByteString(new byte[262144], false), 1L))]);
+        SourceLabels source = new(true, [(0, new(PdfName.FromAscii("D"), new PdfByteString(new byte[262144], false), 1L))]);
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 512L }, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor); long baseline = governor.Snapshot().LiveMemoryBytes;
         Assert.Throws<QpdfLimitException>(() => PageLabelMerge.Merge([(source, 1)], QpdfLimits.Default, governor, CancellationToken.None, memory));
