@@ -78,6 +78,13 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+LZW keeps bounded prefix/suffix tables and one expansion buffer instead of copied
+dictionary strings. One admitted batch holds about 16 KiB plus array overhead;
+empty/single-literal streams avoid it. Tiny multi-code jobs can therefore refuse
+earlier, while long dictionary chains need substantially less memory. Clear
+resets the active entry boundary and EOD stops reading immediately. Output,
+EarlyChange, malformed/full-table policies and public signatures are unchanged.
+
 ASCIIHex and ASCII85 share the tokenizer's PDF whitespace rules. NUL, HT, LF,
 FF, CR and space are ignored before EOD; vertical tab and other invalid bytes
 reject. The former duplicate C-style predicates rejected NUL and accepted VT,

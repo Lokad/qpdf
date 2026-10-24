@@ -4,7 +4,7 @@ using Lokad.Qpdf.Syntax;
 namespace Lokad.Qpdf.Filters;
 
 /// <summary>
-/// Governed ASCIIHexDecode mirroring the reference state machine: ASCII
+/// Governed ASCIIHexDecode: ASCII
 /// PDF whitespace ignored, `&gt;` ends input with a trailing zero pad, missing
 /// end markers are tolerated at finish, and later bytes are ignored.
 /// </summary>
@@ -99,7 +99,7 @@ internal static class AsciiHexFilter
 }
 
 /// <summary>
-/// Governed ASCII85Decode mirroring the reference state machine: ASCII
+/// Governed ASCII85Decode: ASCII
 /// PDF whitespace ignored, `z` only as a full group, `~&gt;` ends input, partial
 /// final groups pad with `u`, and later bytes are ignored. Group overflow
 /// wraps like the reference without error.

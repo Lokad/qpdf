@@ -3,7 +3,7 @@ using Lokad.Qpdf.Runtime;
 namespace Lokad.Qpdf.Filters;
 
 /// <summary>
-/// Governed RunLengthDecode mirroring the reference state machine: length
+/// Governed PDF RunLengthDecode: length
 /// bytes below 128 copy, above repeat, and 128 ends decoding.
 /// Truncated tails before EOD are dropped like upstream instead of
 /// failing; output stays budget-bounded.

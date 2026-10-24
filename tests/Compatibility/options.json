@@ -3001,7 +3001,8 @@
           "ShowObjectTests.JobStreamDataRejectsCombinations"
         ],
         "resource": [
-          "ShowObjectTests.StreamDataYieldsToExhaustedBudget"
+          "ShowObjectTests.StreamDataYieldsToExhaustedBudget",
+          "LzwDictionaryTests.PublicInspectionFitsTwentyMiBAndRetainsOutput"
         ],
         "oracle": [
           "diff:show-object-stream-data"

@@ -399,7 +399,7 @@ public sealed class LzwTests
         Assert.Equal(raw, decoded);
     }
 
-    private static byte[] PackCodes(IEnumerable<(int Code, int Width)> codes)
+    internal static byte[] PackCodes(IEnumerable<(int Code, int Width)> codes)
     {
         List<byte> output = new();
         int buffer = 0;
