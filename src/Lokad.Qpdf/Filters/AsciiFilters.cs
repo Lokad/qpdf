@@ -1,10 +1,11 @@
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Filters;
 
 /// <summary>
 /// Governed ASCIIHexDecode mirroring the reference state machine: ASCII
-/// whitespace ignored, `&gt;` ends input with a trailing zero pad, missing
+/// PDF whitespace ignored, `&gt;` ends input with a trailing zero pad, missing
 /// end markers are tolerated at finish, and later bytes are ignored.
 /// </summary>
 internal static class AsciiHexFilter
@@ -39,7 +40,7 @@ internal static class AsciiHexFilter
         foreach (byte b in input)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            if (IsWhitespace(b))
+            if (PdfTokenizer.IsWhitespace(b))
             {
                 continue;
             }
@@ -79,11 +80,6 @@ internal static class AsciiHexFilter
         return output.ToArray();
     }
 
-    private static bool IsWhitespace(byte b)
-    {
-        return b == (byte)' ' || b == (byte)'\f' || b == 0x0B || b == (byte)'\t' || b == (byte)'\r' || b == (byte)'\n';
-    }
-
     private static int HexValue(byte b)
     {
         byte upper = b >= (byte)'a' && b <= (byte)'z' ? (byte)(b - 32) : b;
@@ -104,7 +100,7 @@ internal static class AsciiHexFilter
 
 /// <summary>
 /// Governed ASCII85Decode mirroring the reference state machine: ASCII
-/// whitespace ignored, `z` only as a full group, `~&gt;` ends input, partial
+/// PDF whitespace ignored, `z` only as a full group, `~&gt;` ends input, partial
 /// final groups pad with `u`, and later bytes are ignored. Group overflow
 /// wraps like the reference without error.
 /// </summary>
@@ -149,7 +145,7 @@ internal static class Ascii85Filter
                 break;
             }
 
-            if (IsWhitespace(b))
+            if (PdfTokenizer.IsWhitespace(b))
             {
                 continue;
             }
@@ -230,11 +226,6 @@ internal static class Ascii85Filter
         {
             output.WriteByte((byte)((value >> (8 * (3 - i))) & 0xFFUL));
         }
-    }
-
-    private static bool IsWhitespace(byte b)
-    {
-        return b == (byte)' ' || b == (byte)'\f' || b == 0x0B || b == (byte)'\t' || b == (byte)'\r' || b == (byte)'\n';
     }
 
 }

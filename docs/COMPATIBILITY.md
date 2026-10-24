@@ -78,6 +78,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+ASCIIHex and ASCII85 share the tokenizer's PDF whitespace rules. NUL, HT, LF,
+FF, CR and space are ignored before EOD; vertical tab and other invalid bytes
+reject. The former duplicate C-style predicates rejected NUL and accepted VT,
+also defects in native qpdf. Public signatures, partial-group/odd-nibble handling
+and marker policies are unchanged; affected inputs and diagnostics change.
+
 RunLength decoding stops at the first 128 end marker. Previously trailing bytes
 could become content or exhaust decoded-byte limits, a defect also present in
 native qpdf. Post-marker bytes now neither emit nor consume decoded-byte budget.

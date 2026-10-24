@@ -2984,6 +2984,7 @@
         "positive": [
           "ShowObjectTests.PublishesFilteredStreamBytes",
           "FilterBoundaryTests.RunLengthIgnoresEverythingAfterEndOfData",
+          "FilterBoundaryTests.AsciiFiltersUsePdfWhitespace",
           "ShowObjectTests.FilteredBeatsRaw",
           "ShowObjectTests.JobStreamDataMatchesArgv"
         ],
@@ -2992,6 +2993,7 @@
           "ShowObjectTests.RejectsMalformedStreamForms",
           "ShowObjectTests.UnusedStreamFlagsWithoutAnOperationRequireOutput",
           "ShowObjectTests.FailsOnUndecodableFiltered",
+          "FilterBoundaryTests.InvalidAsciiWhitespacePreservesPriorOutput",
           "ShowObjectTests.JobStreamDataRejectsCombinations"
         ],
         "interaction": [
