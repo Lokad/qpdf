@@ -149,17 +149,14 @@ public sealed class ArgumentFilteringOwnershipTests(ITestOutputHelper log)
         return method.Invoke(value, arguments) ?? value;
     }
 
-    private static long Minimum(object owner)
+    private static long Minimum(object owner, params object[] lists)
     {
         long minimum = Physical(owner);
-        foreach (string name in new[] { "_markers", "_stripped", "_kept" })
+        foreach (object list in lists)
         {
-            if (owner.GetType().GetField(name, Fields)?.GetValue(owner) is object list)
-            {
-                minimum += Physical(list);
-                if (list.GetType().GetField("_items", Fields)?.GetValue(list) is Array backing && backing.Length > 0)
-                { minimum += Physical(backing); }
-            }
+            minimum += Physical(list);
+            if (list.GetType().GetField("_items", Fields)?.GetValue(list) is Array backing && backing.Length > 0)
+            { minimum += Physical(backing); }
         }
         return minimum;
     }
@@ -170,19 +167,20 @@ public sealed class ArgumentFilteringOwnershipTests(ITestOutputHelper log)
         Type type = Assert.IsAssignableFrom<Type>(typeof(Qpdf).Assembly.GetType("Lokad.Qpdf.Commands.ArgumentFiltering"));
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         object owner = Assert.IsAssignableFrom<object>(type.GetMethod("Create", Fields)?.Invoke(null, [governor]));
+        object markers, stripped, kept;
         using (Assert.IsAssignableFrom<IDisposable>(owner))
         {
-            object markers = Call(owner, "CreateMarkers", []), stripped = Call(owner, "CreateStripped", []), kept = Call(owner, "CreateKept", []);
+            markers = Call(owner, "CreateMarkers", []); stripped = Call(owner, "CreateStripped", []); kept = Call(owner, "CreateKept", []);
             foreach (var vector in new[] { (Name: "markers", Value: markers), (Name: "stripped", Value: stripped), (Name: "kept", Value: kept) })
             for (int i = 0; i < 129; i++)
             {
                 Array before = Assert.IsAssignableFrom<Array>(vector.Value.GetType().GetField("_items", Fields)?.GetValue(vector.Value));
-                long previous = Minimum(owner);
+                long previous = Minimum(owner, markers, stripped, kept);
                 Call(owner, "Add", [vector.Value, vector.Name == "markers" ? i : "borrowed"]);
                 Array after = Assert.IsAssignableFrom<Array>(vector.Value.GetType().GetField("_items", Fields)?.GetValue(vector.Value));
                 if (ReferenceEquals(before, after)) { continue; }
                 ParserMemoryScope memory = Assert.IsType<ParserMemoryScope>(type.GetField("_memory", Fields)?.GetValue(owner));
-                long minimum = Minimum(owner), overlap = previous + Physical(after);
+                long minimum = Minimum(owner, markers, stripped, kept), overlap = previous + Physical(after);
                 Assert.True(memory.ReservedBytes >= minimum);
                 Assert.True(governor.Snapshot().PeakMemoryBytes >= overlap);
                 log.WriteLine("FILTER PHYSICAL {0}|{1} minimum={2} admission={3} overlap={4} peak={5}",
@@ -190,7 +188,10 @@ public sealed class ArgumentFilteringOwnershipTests(ITestOutputHelper log)
             }
         }
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        foreach (string field in new[] { "_governor", "_memory", "_markers", "_stripped", "_kept" })
+        Assert.Equal(Enumerable.Range(0, 129), Assert.IsType<List<int>>(markers));
+        Assert.All(Assert.IsType<List<string>>(stripped), value => Assert.Equal("borrowed", value));
+        Assert.Equal(129, Assert.IsType<List<string>>(kept).Count);
+        foreach (string field in new[] { "_governor", "_memory" })
         { Assert.Null(type.GetField(field, Fields)?.GetValue(owner)); }
     }
 

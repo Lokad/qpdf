@@ -78,6 +78,13 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Argument filtering and collation retain admission scopes without privately rooting
+every returned scratch collection. Callers and final plans hold the values they
+use; accounting, growth overlap, cancellation and cleanup remain enforced.
+Collection-root fields are removed; job JSON retires empty collation scopes using
+their existing admission total. Estimates are lower; returned values, policy
+snapshots and public signatures are unchanged.
+
 Page-label number trees resolve indirect `/Nums`, `/Kids` and integer keys before
 type checks. Equivalent direct/indirect trees now work in selection, merge and
 inspection; malformed structures and cycles still fail before publication.

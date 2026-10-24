@@ -113,21 +113,31 @@ public sealed class CollationOwnershipTests(ITestOutputHelper log)
         if (owner is not null)
         {
             minimum += PdfVersionOwnershipTests.MeasurePhysicalSize(owner.GetType());
-            if (owner.GetType().GetField("_vectors", Fields)?.GetValue(owner) is System.Collections.IList vectors)
-            {
-                minimum += PdfVersionOwnershipTests.MeasurePhysicalSize(vectors.GetType());
-                if (vectors.GetType().GetField("_items", Fields)?.GetValue(vectors) is Array roots) { minimum += ArraySize(roots); }
-                foreach (object item in vectors)
-                {
-                    minimum += PdfVersionOwnershipTests.MeasurePhysicalSize(item.GetType());
-                    if (item.GetType().GetField("_items", Fields)?.GetValue(item) is Array backing && backing.Length > 0)
-                    { minimum += ArraySize(backing); }
-                }
-            }
         }
         long admission = owner?.GetType().GetField("_memory", Fields)?.GetValue(owner) is ParserMemoryScope memory
             ? memory.ReservedBytes : -1L;
         return (governor, minimum, admission);
+    }
+
+    [Fact]
+    public void CallerRetainedVectorsAndPolicySurviveAdmissionOwnerDisposal()
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        List<int> vector; PdfPageCollation policy;
+        using (CollationPreparation owner = CollationPreparation.Create(governor))
+        {
+            Assert.False(owner.HasStorage);
+            vector = owner.CreateVector();
+            Assert.True(owner.HasStorage);
+            for (int i = 1; i <= 129; i++) { owner.Add(vector, i); }
+            policy = owner.CreatePolicy(vector);
+            Assert.True(governor.Snapshot().LiveMemoryBytes >= PdfVersionOwnershipTests.MeasurePhysicalSize(owner.GetType())
+                + PdfVersionOwnershipTests.MeasurePhysicalSize(vector.GetType()) + ArraySize(vector.ToArray())
+                + PdfVersionOwnershipTests.MeasurePhysicalSize(policy.GetType()) + ArraySize(policy.GroupSizes.ToArray()));
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(Enumerable.Range(1, 129), vector); Assert.Equal(vector, policy.GroupSizes);
+        vector[0] = 999; Assert.Equal(1, policy.GroupSizes[0]);
     }
 
     private sealed class Completed(string id, ResourceGovernor governor, QpdfExecutionResult result, byte[]? output)
