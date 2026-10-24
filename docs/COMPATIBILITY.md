@@ -78,6 +78,13 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Page-label number trees resolve indirect `/Nums`, `/Kids` and integer keys before
+type checks. Equivalent direct/indirect trees now work in selection, merge and
+inspection; malformed structures and cycles still fail before publication.
+Both JSON label views resolve immediate label dictionaries and integer `/St`
+values, retaining other value/reference presentation. The shared dictionary writer
+uses its existing admitted sort scratch without cloning label graphs.
+
 Merged page-label runs compare copied style/prefix references in the output pool.
 Previously source object-number collisions could discard a later input's prefix,
 a defect also present in native qpdf; renumbering could instead expand one run

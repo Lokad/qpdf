@@ -34,7 +34,7 @@ public sealed class LabelIndirectionTests
         return Assert.IsType<PdfArray>(Resolve(document, numbers));
     }
 
-    private static async Task Select(InMemoryQpdfHost host, string route, bool merge)
+    internal static async Task Select(InMemoryQpdfHost host, string route, bool merge)
     {
         if (route == "typed")
         {

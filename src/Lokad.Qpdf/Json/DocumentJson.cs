@@ -83,7 +83,7 @@ internal static class DocumentJson
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 AppendKey(builder, ref firstKey, "pagelabels");
-                AppendPageLabels(builder, request, labels, governor, limits);
+                AppendPageLabels(builder, engine, request, labels, governor, limits);
             }
 
             if (request.Wants("attachments"))
@@ -241,6 +241,8 @@ internal static class DocumentJson
         governor.NoteOperation();
         if (node.TryGet(PdfName.FromAscii("Nums"), out QpdfObject? numsRaw) && numsRaw is not null && numsRaw is not PdfNull)
         {
+            if (numsRaw is PdfReference numbersReference)
+            { PdfObjectLookup.TryResolve(numbersReference, (IIndirectResolver)engine, governor, cancellationToken, out numsRaw); }
             if (numsRaw is not PdfArray nums || nums.Count % 2 != 0)
             {
                 throw new QpdfParseException("Page-label number array must hold index/value pairs.", null, null);
@@ -250,7 +252,10 @@ internal static class DocumentJson
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 governor.NoteOperation();
-                if (nums[i] is not PdfInteger key)
+                QpdfObject? keyRaw = nums[i];
+                if (keyRaw is PdfReference keyReference)
+                { PdfObjectLookup.TryResolve(keyReference, (IIndirectResolver)engine, governor, cancellationToken, out keyRaw); }
+                if (keyRaw is not PdfInteger key)
                 {
                     throw new QpdfParseException("Page-label number-tree keys must be integers.", null, null);
                 }
@@ -268,6 +273,8 @@ internal static class DocumentJson
 
         if (node.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw) && kidsRaw is not null && kidsRaw is not PdfNull)
         {
+            if (kidsRaw is PdfReference childrenReference)
+            { PdfObjectLookup.TryResolve(childrenReference, (IIndirectResolver)engine, governor, cancellationToken, out kidsRaw); }
             if (kidsRaw is not PdfArray kids)
             {
                 throw new QpdfParseException("Page-label kids must be an array.", null, null);
@@ -282,7 +289,7 @@ internal static class DocumentJson
                 QpdfObject target = item;
                 if (item is PdfReference reference)
                 {
-                    if (!((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? resolved) || resolved is null || resolved is PdfNull)
+                    if (!PdfObjectLookup.TryResolve(reference, (IIndirectResolver)engine, governor, cancellationToken, out QpdfObject? resolved) || resolved is null || resolved is PdfNull)
                     {
                         throw new QpdfParseException("Unresolvable page-label kid reference.", null, reference.ObjectNumber);
                     }
@@ -318,6 +325,7 @@ internal static class DocumentJson
 
     private static void AppendPageLabels(
         DisplayBuffer builder,
+        DocumentEngine engine,
         JsonRequest request,
         SortedDictionary<int, QpdfObject> labels,
         ResourceGovernor governor,
@@ -337,11 +345,22 @@ internal static class DocumentJson
             builder.Append("{\"index\": ");
             builder.AppendInteger(entry.Key);
             builder.Append(",\"label\": ");
-            PdfJsonWriter.AppendValue(builder, entry.Value, request.Version, governor, 0, limits);
+            AppendLabelValue(builder, engine, entry.Value, request, governor, limits);
             builder.Append((char)125);
         }
 
         builder.Append((char)93);
+    }
+
+    private static void AppendLabelValue(DisplayBuffer builder, DocumentEngine engine, QpdfObject value,
+        JsonRequest request, ResourceGovernor governor, QpdfLimits limits)
+    {
+        if (value is PdfReference reference
+            && PdfObjectLookup.TryResolve(reference, (IIndirectResolver)engine, governor, CancellationToken.None, out QpdfObject? resolved)
+            && resolved is not null) { value = resolved; }
+        if (value is PdfDictionary dictionary)
+        { PdfJsonWriter.AppendLabelDictionary(builder, dictionary, request.Version, governor, limits, (IIndirectResolver)engine); }
+        else { PdfJsonWriter.AppendValue(builder, value, request.Version, governor, 0, limits); }
     }
 
     private sealed record OutlineEntry(
@@ -608,7 +627,7 @@ internal static class DocumentJson
             }
             else
             {
-                PdfJsonWriter.AppendValue(builder, label, request.Version, governor, 0, limits);
+                AppendLabelValue(builder, document.Engine, label, request, governor, limits);
             }
 
             builder.Append(",\"outlines\": ");

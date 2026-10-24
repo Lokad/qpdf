@@ -170,7 +170,8 @@ echoing values.
   The bare argv output separator is optional.
 - Merge options interleave per-source groups (collation), rotate, and emit explicit
   page labels or merge source label trees with page-index offsets (unlabeled pages
-  fabricate continuations, runs compress); an optional split group size partitions
+  fabricate continuations, runs compress using copied identities). Indirect tree
+  arrays, keys and starts retain their direct-value semantics. An optional split group size partitions
   output through the same engine.
 - Output carries a fresh catalog with the copied pages only; each occurrence is an
   independent page object sharing immutable resources. Shared non-page objects
