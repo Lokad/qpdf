@@ -184,11 +184,11 @@ public sealed class TextFilterTests
     }
 
     [Fact]
-    public void RunLengthContinuesPastEndMarkers()
+    public void RunLengthStopsAtFirstEndMarker()
     {
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
         byte[] decoded = RunLengthFilter.Decode([0, 65, 128, 0, 66], limits, governor);
-        Assert.Equal([65, 66], decoded);
+        Assert.Equal([65], decoded);
     }
 
     [Fact]

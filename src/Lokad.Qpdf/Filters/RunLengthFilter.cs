@@ -4,8 +4,8 @@ namespace Lokad.Qpdf.Filters;
 
 /// <summary>
 /// Governed RunLengthDecode mirroring the reference state machine: length
-/// bytes below 128 copy, above repeat, and 128 continues decoding rather
-/// than stopping. Truncated tails are dropped like upstream instead of
+/// bytes below 128 copy, above repeat, and 128 ends decoding.
+/// Truncated tails before EOD are dropped like upstream instead of
 /// failing; output stays budget-bounded.
 /// </summary>
 internal static class RunLengthFilter
@@ -42,6 +42,7 @@ internal static class RunLengthFilter
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             byte length = input[position];
             position += 1;
+            if (length == 128) { break; }
             if (length < 128)
             {
                 int count = length + 1;

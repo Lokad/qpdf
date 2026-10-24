@@ -78,6 +78,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+RunLength decoding stops at the first 128 end marker. Previously trailing bytes
+could become content or exhaust decoded-byte limits, a defect also present in
+native qpdf. Post-marker bytes now neither emit nor consume decoded-byte budget.
+Missing-marker and truncated-tail handling before EOD are unchanged. Public
+signatures are unchanged; decoded content and its byte/memory counters can change.
+
 Argument filtering and collation retain admission scopes without privately rooting
 every returned scratch collection. Callers and final plans hold the values they
 use; accounting, growth overlap, cancellation and cleanup remain enforced.

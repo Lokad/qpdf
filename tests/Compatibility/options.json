@@ -2983,6 +2983,7 @@
       "evidence": {
         "positive": [
           "ShowObjectTests.PublishesFilteredStreamBytes",
+          "FilterBoundaryTests.RunLengthIgnoresEverythingAfterEndOfData",
           "ShowObjectTests.FilteredBeatsRaw",
           "ShowObjectTests.JobStreamDataMatchesArgv"
         ],
