@@ -21,6 +21,8 @@ listings retain numeric dimension lookup. Image lists now use native unsigned
 raw-name byte order, rather than escaped display-name order. These are intentional
 output changes in both JSON versions and all entry points; public signatures are
 unchanged.
+Text image listings retain their existing PDF display-name byte escapes (for
+example `#20` for a space), while JSON names follow the policy below.
 
 Page-image JSON preserves UTF-8 resource names in both versions, including
 literal delimiters; it no longer replaces non-ASCII bytes with question marks.
