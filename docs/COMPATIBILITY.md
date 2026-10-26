@@ -1,5 +1,12 @@
 # Compatibility
 
+Overlay and underlay widget imports now follow field parents up to the configured
+`MaxNestingDepth`, counting parent edges from the widget. The former silent
+32-parent cutoff could truncate qualified names and lose inherited field types.
+Exceeding the configured limit now fails explicitly and preserves existing output;
+cycle detection and malformed-parent fallbacks remain. Other graph/container
+nesting checks still apply independently. Public signatures are unchanged.
+
 Lokad.qpdf targets qpdf **12.4.2** for non-cryptographic PDF structural operations
 through typed, argv and job-JSON entry points. Completion means delivering the
 agreed [supported profile](SUPPORTED-PROFILE.md), including the limitations below.

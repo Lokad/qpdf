@@ -1342,7 +1342,7 @@ internal static class Overlays
             return false;
         }
 
-        AcroFormCopy.OverlayTopMatch? top = AcroFormCopy.FindOverlayTopField(annot, annotId, true, (IIndirectResolver)sourceEngine);
+        AcroFormCopy.OverlayTopMatch? top = AcroFormCopy.FindOverlayTopField(annot, annotId, true, sourceEngine, governor, cancellationToken);
         if (top is null)
         {
             return false;

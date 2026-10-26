@@ -604,13 +604,13 @@ internal static class AcroFormCopy
         int? SourceQuadding);
 
     /// <summary>
-    /// The resolved import top for an overlay source widget: the node and its
-    /// source object number plus the walk outcome. A null number with
+    /// The resolved import top for an overlay source widget: its source object
+    /// number plus the walk outcome. A null number with
     /// <c>DirectTop</c> means the walk ended at a direct dictionary, which the
     /// reference refuses to import; <c>Cycled</c> marks a repeated parent link,
     /// which the reference still imports with a warning.
     /// </summary>
-    internal sealed record OverlayTopMatch(PdfDictionary Node, int? Id, bool Cycled, bool DirectTop);
+    internal sealed record OverlayTopMatch(int? Id, bool Cycled, bool DirectTop);
 
     /// <summary>
     /// Carries one overlay source document's form-level defaults for widget
@@ -637,23 +637,22 @@ internal static class AcroFormCopy
     /// field identity all fall back to plain annotation clones. Cyclic walks
     /// keep the last indirect node so the import stays valid; direct-dictionary
     /// tops report <c>DirectTop</c> instead so callers can note the refusal.
+    /// Parent edges count from zero at the widget; exceeding the governor's
+    /// nesting limit fails instead of returning an intermediate field.
     /// </summary>
     internal static OverlayTopMatch? FindOverlayTopField(
         PdfDictionary annot,
         int? annotId,
         bool sourceHasFields,
-        IIndirectResolver source)
+        IIndirectResolver source,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
     {
-        if (annot is null)
-        {
-            throw new ArgumentNullException(nameof(annot));
-        }
-
-        if (source is null)
-        {
-            throw new ArgumentNullException(nameof(source));
-        }
-
+        ArgumentNullException.ThrowIfNull(annot);
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(governor);
+        cancellationToken.ThrowIfCancellationRequested();
+        governor.CheckCancellation();
         if (!annotId.HasValue || !sourceHasFields)
         {
             return null;
@@ -661,21 +660,24 @@ internal static class AcroFormCopy
 
         PdfDictionary cursor = annot;
         int? cursorId = annotId;
-        HashSet<int> seen = new() { annotId.Value };
+        using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
+        GovernedIntSet seen = GovernedIntSet.Create(traversal, governor, cancellationToken);
+        seen.Add(traversal, annotId.Value);
         bool cycled = false;
         bool first = true;
         int depth = 0;
-        while (depth < 32)
+        while (true)
         {
-            depth += 1;
-            if (!cursor.TryGet(PdfName.FromAscii("Parent"), out QpdfObject? parentRaw) || parentRaw is null || parentRaw is PdfNull)
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.CheckCancellation();
+            if (!PdfDictionaryLookup.TryGet(cursor, "Parent"u8, governor, cancellationToken, out QpdfObject parentRaw) || parentRaw is PdfNull)
             {
                 break;
             }
 
             if (parentRaw is PdfReference parentReference)
             {
-                if (!seen.Add(parentReference.ObjectNumber))
+                if (seen.Contains(parentReference.ObjectNumber))
                 {
                     if (!first || parentReference.ObjectNumber != annotId.Value)
                     {
@@ -691,6 +693,8 @@ internal static class AcroFormCopy
                     break;
                 }
 
+                CheckParentDepth();
+                seen.Add(traversal, parentReference.ObjectNumber);
                 cursor = parentDict;
                 cursorId = parentReference.ObjectNumber;
                 continue;
@@ -698,6 +702,7 @@ internal static class AcroFormCopy
 
             if (parentRaw is PdfDictionary parentDirect)
             {
+                CheckParentDepth();
                 first = false;
                 cursor = parentDirect;
                 cursorId = null;
@@ -707,39 +712,46 @@ internal static class AcroFormCopy
             break;
         }
 
-        if (!HasFieldIdentity(cursor))
+        cancellationToken.ThrowIfCancellationRequested();
+        governor.CheckCancellation();
+        if (!HasFieldIdentity(cursor, governor, cancellationToken))
         {
             return null;
         }
 
         if (!cursorId.HasValue)
         {
-            return new OverlayTopMatch(cursor, null, cycled, true);
+            return new OverlayTopMatch(null, cycled, true);
         }
 
-        return new OverlayTopMatch(cursor, cursorId, cycled, false);
+        return new OverlayTopMatch(cursorId, cycled, false);
+
+        void CheckParentDepth()
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.CheckCancellation();
+            depth++;
+            if (depth > governor.MaxNestingDepth)
+            {
+                throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, governor.MaxNestingDepth);
+            }
+        }
     }
 
     /// <summary>
     /// Reports whether a dictionary carries field identity: a partial name,
     /// a kid array, or a field type, mirroring the reference field check.
     /// </summary>
-    internal static bool HasFieldIdentity(PdfDictionary node)
+    private static bool HasFieldIdentity(PdfDictionary node, ResourceGovernor governor, CancellationToken token)
     {
         if (node is null)
         {
             throw new ArgumentNullException(nameof(node));
         }
 
-        foreach (string key in new[] { "T", "Kids", "FT" })
-        {
-            if (node.TryGet(PdfName.FromAscii(key), out QpdfObject? found) && found is not null && found is not PdfNull)
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return (PdfDictionaryLookup.TryGet(node, "T"u8, governor, token, out QpdfObject title) && title is not PdfNull)
+            || (PdfDictionaryLookup.TryGet(node, "Kids"u8, governor, token, out QpdfObject kids) && kids is not PdfNull)
+            || (PdfDictionaryLookup.TryGet(node, "FT"u8, governor, token, out QpdfObject type) && type is not PdfNull);
     }
 
     /// <summary>
