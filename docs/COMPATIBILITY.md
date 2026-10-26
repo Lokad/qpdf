@@ -78,6 +78,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Optional predictor parameters use their defaults when their resolved PDF value
+is null, just as when the dictionary key is absent. This applies to Predictor,
+Columns, Colors and BitsPerComponent for Flate and LZW. Previously these valid
+direct/indirect nulls failed decoding and checking. Non-null type/range validation,
+cancellation and public signatures are unchanged.
+
 Compressed xref decoding borrows a complete owned encoded payload while its
 parsed-stream owner stays live. Sliced backing still materializes under the
 existing scratch scope. The redundant full-payload copy and its admission are

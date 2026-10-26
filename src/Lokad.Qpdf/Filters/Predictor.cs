@@ -55,6 +55,11 @@ internal sealed record PredictorParameters(int Predictor, int Columns, int Color
             }
 
             raw = DerefValue(raw, resolver, filterName, name, governor, token);
+            if (raw is PdfNull)
+            {
+                Observe(ref visited, observe);
+                continue;
+            }
             if (raw is not PdfInteger integer)
             {
                 throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"DecodeParms /{name} must be an integer.");

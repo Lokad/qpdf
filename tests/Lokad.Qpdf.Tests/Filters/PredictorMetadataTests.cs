@@ -162,7 +162,7 @@ Assert.Equal(0L, memory.ReservedBytes);
     {
         Dictionary<PdfName, QpdfObject> entries = new();
         string first = reverse ? "Columns" : "Colors", second = reverse ? "Colors" : "Columns";
-        entries.Add(PdfName.FromAscii(first), PdfNull.Instance); entries.Add(PdfName.FromAscii(second), PdfNull.Instance);
+        entries.Add(PdfName.FromAscii(first), PdfName.FromAscii("invalid")); entries.Add(PdfName.FromAscii(second), PdfName.FromAscii("invalid"));
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         QpdfFilterException failure = Assert.Throws<QpdfFilterException>(() => PredictorParameters.FromDictionary(new PdfDictionary(entries), FlateFilter.FilterName, null, memory, governor, CancellationToken.None));
         Assert.Contains("/" + first + " must be an integer", failure.Message, StringComparison.Ordinal); Assert.Equal(0L, memory.ReservedBytes);
