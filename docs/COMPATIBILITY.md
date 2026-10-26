@@ -97,6 +97,12 @@ Unused member-number storage, line counters and the copy helper are removed;
 sequential IDs, comment offsets and byte-offset failures remain. Working memory
 estimates are lower; output bytes and public signatures are unchanged.
 
+Binary QDF xref repair emits each row as one immutable packet using the shared
+byte formatter. Previously three field writes per row exhausted the default host
+operation ceiling on a 20,000-member fixture. The ceiling remains binding; byte
+output is identical, with fewer allocations and host operations. Fixed formatting
+storage stays inside the repair's coarse working allowance.
+
 Optional predictor parameters use their defaults when their resolved PDF value
 is null, just as when the dictionary key is absent. This applies to Predictor,
 Columns, Colors and BitsPerComponent for Flate and LZW. Previously these valid

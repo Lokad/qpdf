@@ -91,7 +91,8 @@ internal sealed class QdfRepair
     internal static QdfRepair Create(ResourceGovernor governor, IByteSink sink, ParserMemoryScope memory)
     {
         memory.CheckOwner(governor);
-        memory.Reserve(256L);
+        // Wrapper/list owners and one bounded numeric-text or binary packet.
+        memory.Reserve(384L);
         return new QdfRepair(governor, sink, memory);
     }
 
@@ -471,24 +472,11 @@ internal sealed class QdfRepair
 
     private async ValueTask EmitXrefBinaryAsync(CancellationToken cancellationToken)
     {
-        await AppendBinaryAsync(0L, 1, cancellationToken).ConfigureAwait(false);
-        await AppendBinaryAsync(0L, _xrefField1, cancellationToken).ConfigureAwait(false);
-        await AppendBinaryAsync(0L, _xrefField2, cancellationToken).ConfigureAwait(false);
+        await AppendXrefEntryAsync(0, 0L, 0L, cancellationToken).ConfigureAwait(false);
         foreach (XrefEntry entry in _entries)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (entry.Type == 1)
-            {
-                await AppendBinaryAsync(1L, 1, cancellationToken).ConfigureAwait(false);
-                await AppendBinaryAsync(entry.Field1, _xrefField1, cancellationToken).ConfigureAwait(false);
-                await AppendBinaryAsync(0L, _xrefField2, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                await AppendBinaryAsync(2L, 1, cancellationToken).ConfigureAwait(false);
-                await AppendBinaryAsync(entry.Field1, _xrefField1, cancellationToken).ConfigureAwait(false);
-                await AppendBinaryAsync(entry.Field2, _xrefField2, cancellationToken).ConfigureAwait(false);
-            }
+            await AppendXrefEntryAsync(entry.Type, entry.Field1, entry.Type == 1 ? 0L : entry.Field2, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -620,21 +608,14 @@ internal sealed class QdfRepair
         CheckCancellation(cancellationToken);
     }
 
-    private async ValueTask AppendBinaryAsync(long value, int bytes, CancellationToken cancellationToken)
+    private async ValueTask AppendXrefEntryAsync(int type, long first, long second, CancellationToken cancellationToken)
     {
-        if (bytes < 0 || bytes > 8)
-        {
-            throw new QpdfParseException("QDF repair cannot address cross-reference widths.", _outputLength, null);
-        }
-
-        byte[] encoded = new byte[bytes];
-        long rest = value;
-        for (int i = bytes - 1; i >= 0; i--)
-        {
-            encoded[i] = (byte)(rest & 255L);
-            rest >>= 8;
-        }
-
+        // Widths are bounded to eight bytes above. One immutable row avoids
+        // three tiny allocations/host calls without reusing retained packets.
+        byte[] encoded = new byte[1 + _xrefField1 + _xrefField2];
+        encoded[0] = (byte)type;
+        WriterNumber.WriteUInt(encoded.AsSpan(1, _xrefField1), first);
+        WriterNumber.WriteUInt(encoded.AsSpan(1 + _xrefField1, _xrefField2), second);
         await AppendBytesAsync(encoded, cancellationToken).ConfigureAwait(false);
     }
 

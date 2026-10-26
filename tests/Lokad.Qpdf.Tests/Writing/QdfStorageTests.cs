@@ -10,6 +10,23 @@ namespace Lokad.Qpdf.Tests.Writing;
 public sealed class QdfStorageTests
 {
     [Fact]
+    public async Task LargeXrefRepairsTwiceWithinTheDefaultHostOperationBudget()
+    {
+        byte[] input = QdfRepairFixtures.ObjectStream(20000, 0);
+        byte[]? first = null;
+        for (int pass = 0; pass < 2; pass++)
+        {
+            using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Transfer);
+            QpdfExecutionResult result = await Qpdf.FixQdfAsync(host, QpdfPath.From("input"), QpdfPath.From("output"), CancellationToken.None);
+            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+            Assert.True(result.Counters.HostOperations < QpdfLimits.Default.MaxHostOperations);
+            Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output)); Assert.Equal(0L, host.OpenLeaseCount);
+            if (first is not null) { Assert.Equal(first, output); }
+            first = output; input = output;
+        }
+    }
+
+    [Fact]
     public async Task LargeMemberDoesNotDuplicateTheOwnedInput()
     {
         byte[] input = QdfRepairFixtures.ObjectStream(3, 1024 * 1024);
