@@ -236,12 +236,18 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
   passes when absent and validates dictionaries, hint streams, and
   bit-level hint tables when present; unavailable
   filters skip streams with a warning at level `all`. Form-tree validation warns without failing on page widgets no field registration reaches, kids whose /Parent back-link does not name the traversed node, and field-like direct objects met while traversing.
+  Malformed content collections and decode errors fail page-content checking;
+  unavailable/partially inspected content reports a skipped stage. Form traversal
+  uses the configured nesting ceiling and fails explicitly when it is exceeded.
 - `input --check` publishes no files and maps diagnostics to exit 0/2/3.
   Inspection never claims conformance, safe content, or rendering correctness.
   Checking can share its opened document with count, linearization, xref,
   object, page/image and attachment listings in native order. Failed checking
   stops them. QDF/linearize flags do not serialize an inspection-only job.
-  Binary extraction and selection/transformation combinations remain required work.
+  Checking accepts selection/transformation inspections and attachment extraction.
+  Combined stream/attachment payloads retain stream-then-attachment order.
+  Standalone raw/filtered stream output after checking or other informational
+  output rejects under the existing ordering rules.
   Object selectors use bounded native signed-integer prefixes; nonpositive
   numbers disable object listing, while unmatched/negative generations report null.
   Generations persist across setters that omit one; overwritten JSON keys do not
