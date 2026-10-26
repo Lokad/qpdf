@@ -122,13 +122,27 @@ internal static class ArgvConfigurationReader
                     cursor++;
                     continue;
                 case "collate":
-                case "split-pages":
                     setting(Key(name), Value(argv, ref cursor, "1"));
                     cursor++;
                     continue;
+                case "split-pages":
+                    setting("splitPages", ArgvParser.ParseSplitPages(argv, ref cursor).ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    cursor++;
+                    continue;
                 case "json":
+                    setting("json", ArgvParser.ParseOptionalChoice(argv, ref cursor, "--json", ["1", "2", "latest"], "latest"));
+                    cursor++;
+                    continue;
                 case "json-output":
-                    setting(Key(name), Value(argv, ref cursor, "latest"));
+                    setting("jsonOutput", ArgvParser.ParseOptionalChoice(argv, ref cursor, "--json-output", ["2", "latest"], "latest"));
+                    cursor++;
+                    continue;
+                case "compress-streams":
+                    setting("compressStreams", ArgvParser.ParseOptionalChoice(argv, ref cursor, "--compress-streams", ["y", "n"], "y"));
+                    cursor++;
+                    continue;
+                case "keep-files-open":
+                    setting("keepFilesOpen", ArgvParser.ParseKeepFilesOpen(argv, ref cursor));
                     cursor++;
                     continue;
             }
@@ -214,8 +228,8 @@ internal static class ArgvConfigurationReader
         => name is "compression-level" or "jpeg-quality" or "force-version" or "ii-min-bytes"
             or "keep-files-open-threshold" or "min-version" or "oi-min-area" or "oi-min-height" or "oi-min-width"
             or "show-attachment" or "show-object" or "linearize-pass1" or "update-from-json" or "json-stream-prefix"
-            or "compress-streams" or "decode-level" or "flatten-annotations" or "json-stream-data"
-            or "keep-files-open" or "normalize-content" or "object-streams" or "remove-unreferenced-resources" or "stream-data";
+            or "decode-level" or "flatten-annotations" or "json-stream-data"
+            or "normalize-content" or "object-streams" or "remove-unreferenced-resources" or "stream-data";
 
     private static bool IsBare(string name)
         => name is "check" or "check-linearization" or "coalesce-contents" or "deterministic-id"

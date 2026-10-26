@@ -2218,7 +2218,7 @@ internal static class ArgvParser
                 }
 
                 seenKeepFilesOpen = true;
-                ValidateKeepFilesOpen(argv, ref i);
+                _ = ParseKeepFilesOpen(argv, ref i);
                 continue;
             }
 
@@ -2447,7 +2447,7 @@ internal static class ArgvParser
         return depth;
     }
 
-    private static void ValidateKeepFilesOpen(IReadOnlyList<string> argv, ref int i)
+    internal static string ParseKeepFilesOpen(IReadOnlyList<string> argv, ref int i)
     {
         string token = argv[i];
         int equals = token.IndexOf((char)61);
@@ -2456,6 +2456,7 @@ internal static class ArgvParser
         {
             throw new QpdfParseException("Option --keep-files-open must be --keep-files-open=y or --keep-files-open=n.", i, null);
         }
+        return value;
     }
 
     private static long ParseContainerSize(IReadOnlyList<string> argv, ref int i, string option, string unit)
@@ -2614,7 +2615,7 @@ internal static class ArgvParser
 
         return (int)quality;
     }
-    private static int ParseSplitPages(IReadOnlyList<string> argv, ref int i)
+    internal static int ParseSplitPages(IReadOnlyList<string> argv, ref int i)
     {
         string token = argv[i];
         int equals = token.IndexOf('=');
@@ -2749,7 +2750,7 @@ internal static class ArgvParser
         throw new QpdfParseException(option + " must be one of: " + string.Join(", ", choices) + ".", i, null);
     }
 
-    private static string ParseOptionalChoice(IReadOnlyList<string> argv, ref int i, string option, string[] choices, string bareDefault)
+    internal static string ParseOptionalChoice(IReadOnlyList<string> argv, ref int i, string option, string[] choices, string bareDefault)
     {
         if (choices is null)
         {

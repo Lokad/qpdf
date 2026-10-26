@@ -7,7 +7,7 @@ namespace Lokad.Qpdf.Tests.Commands;
 
 public sealed class MixedJobArgvTests
 {
-    public static IEnumerable<object?[]> NativeCases()
+    public static IEnumerable<object?[]> ConfigurationCases()
     {
         yield return Case("partial-before", ["--job-json-file=settings.json", "inputs/a.pdf", "outputs/a.pdf"], 0, "1.5");
         yield return Case("partial-between", ["inputs/a.pdf", "--job-json-file=settings.json", "outputs/a.pdf"], 0, "1.5");
@@ -41,7 +41,8 @@ public sealed class MixedJobArgvTests
         yield return Case("whole-replace", ["--job-json-file=input.json", "--replace-input"], 0, "1.4");
         yield return Case("bad-force-overwritten", ["inputs/a.pdf", "outputs/a.pdf", "--force-version=bogus", "--job-json-file=settings.json"], 0, "1.5");
         yield return Case("json-objects", ["inputs/a.pdf", "--job-json-file=settings.json", "--json=2", "--json-object=trailer", "--json-object=1"], 0, null);
-        yield return Case("bare-compress", ["inputs/a.pdf", "outputs/a.pdf", "--job-json-file=settings.json", "--compress-streams"], 2, null);
+        // The managed bare-compression extension also applies after job files.
+        yield return Case("bare-compress", ["inputs/a.pdf", "outputs/a.pdf", "--job-json-file=settings.json", "--compress-streams"], 0, "1.5");
         yield return Case("separate-form", ["inputs/a.pdf", "--job-json-file", "settings.json", "outputs/a.pdf"], 0, "1.5");
         yield return Case("nested-scalar", ["inputs/a.pdf", "outputs/a.pdf", "--force-version=1.7", "--job-json-file=nested.json"], 0, "1.5");
         yield return Case("pages", ["inputs/a.pdf", "--job-json-file=settings.json", "--pages", "inputs/b.pdf", "2,1", "--", "outputs/a.pdf"], 0, "1.5");
@@ -56,8 +57,8 @@ public sealed class MixedJobArgvTests
     private static object?[] Case(string name, string[] argv, int exit, string? version) => [name, argv, exit, version];
 
     [Theory]
-    [MemberData(nameof(NativeCases))]
-    public async Task NativeConfigurationOrderAndPositionalState(string name, string[] argv, int expectedExit, string? version)
+    [MemberData(nameof(ConfigurationCases))]
+    public async Task ConfigurationOrderAndPositionalState(string name, string[] argv, int expectedExit, string? version)
     {
         InMemoryQpdfHost host = Host();
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);

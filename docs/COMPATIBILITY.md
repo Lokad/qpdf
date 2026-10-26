@@ -14,6 +14,15 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Mixed argv with `--job-json-file` now shares ordinary managed parameter parsing
+for JSON versions, split sizes, compression choices and keep-files-open hints.
+Separate JSON/split values and bare compression retain their managed grammar;
+explicitly empty JSON choices and separated keep-files-open values reject before
+publication. Adding an empty configuration file no longer changes these forms.
+Ordered file setters, collation/positional handling and layer rules remain.
+The existing managed syntax extensions are not claims of native support. Public
+signatures are unchanged; affected mixed invocations change acceptance/output.
+
 Page-image JSON preserves raw `/Width`, `/Height` and `/BitsPerComponent` values,
 including references and malformed values, instead of dereferencing integers or
 replacing other types with null. Missing/null values remain null. Text image
