@@ -131,8 +131,8 @@ internal static class FlateFilter
                 {
                     token.ThrowIfCancellationRequested();
                     governor.CheckCancellation();
-                    // Admit each bounded codec output unit before CPU work;
-                    // input refills also charge when no output is produced.
+                    // Check cancellation between bounded codec reads; input
+                    // refills also check it when no output is produced.
                     governor.NoteOperation();
                     int read = decompressor.Read(buffer, 0, buffer.Length);
                     if (read == 0)
