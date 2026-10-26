@@ -7,16 +7,15 @@ namespace Lokad.Qpdf.Tests.Foundation;
 public sealed class GovernedCollectionTests
 {
     [Fact]
-    public void NameComparisonMatchesOrdinalDisplayForEverySingleByte()
+    public void NameComparisonMatchesUnsignedOrderForEverySingleByte()
     {
         PdfName[] names = Enumerable.Range(0, 256).Select(value => new PdfName([(byte)value])).ToArray();
-        string[] displays = names.Select(name => name.DisplayText).ToArray();
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         for (int left = 0; left < names.Length; left++)
         {
             for (int right = 0; right < names.Length; right++)
             {
-                Assert.Equal(Math.Sign(string.CompareOrdinal(displays[left], displays[right])),
+                Assert.Equal(Math.Sign(left - right),
                     Math.Sign(GovernedCollections.CompareNames(governor, names[left], names[right])));
             }
         }
@@ -24,11 +23,11 @@ public sealed class GovernedCollectionTests
     }
 
     [Fact]
-    public void MixedEscapedPrefixesSortWithoutDisplayAllocation()
+    public void MixedNamesAndPrefixesUseRawOrder()
     {
         PdfName[] names = [new([]), new([35]), new([35, 50, 51]), new([0]), new([255]), new([65, 0]),
             new([65]), new([65, 32]), new([126]), new([127]), new([35, 0])];
-        PdfName[] expected = names.OrderBy(name => name.DisplayText, StringComparer.Ordinal).ToArray();
+        PdfName[] expected = [names[0], names[3], names[1], names[10], names[2], names[6], names[5], names[7], names[8], names[9], names[4]];
         List<PdfName> actual = new(names);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);

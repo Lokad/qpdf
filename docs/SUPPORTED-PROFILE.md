@@ -261,8 +261,10 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
   (version plus parameters, then pages, pagelabels, acroform, attachments,
   encrypt, outlines, and objects/objectinfo for version 1 or qpdf for
   version 2). Pages carry object, contents, label, outlines,
-  pageposfrom1, and direct image descriptors with dimensions, colorspace, and
-  filter data; outlines
+  pageposfrom1, and direct image descriptors with raw dimension/colorspace values
+  and filter data. Image resources use unsigned raw-name byte order; their names
+  preserve UTF-8 in both versions, with `n:/…` byte escapes for invalid UTF-8.
+  Outlines
   resolve explicit destinations, including local GoTo actions; named destinations
   remain unresolved. Acroform reports fields with inherited
   types, names, values, and annotations. `--json-object={trailer|obj[,gen]}`

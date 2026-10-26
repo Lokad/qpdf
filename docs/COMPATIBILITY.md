@@ -14,6 +14,14 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Page-image JSON preserves raw `/Width`, `/Height` and `/BitsPerComponent` values,
+including references and malformed values, instead of dereferencing integers or
+replacing other types with null. Missing/null values remain null. Text image
+listings retain numeric dimension lookup. Image lists now use native unsigned
+raw-name byte order, rather than escaped display-name order. These are intentional
+output changes in both JSON versions and all entry points; public signatures are
+unchanged.
+
 Page-image JSON preserves UTF-8 resource names in both versions, including
 literal delimiters; it no longer replaces non-ASCII bytes with question marks.
 Invalid UTF-8 names use the existing `n:/…` escaped byte spelling in both
@@ -143,8 +151,8 @@ inherited values and bounded lenient handling of broken parents remain visible.
 Page JSON expands an indirect `/Contents` array into its entries, preserving
 stream references and order like a direct array. Non-array and malformed entries
 remain visible for inspection. Contents iteration borrows array storage. Image
-inspection admits descriptor capacity and compares borrowed name bytes using the
-existing ordinal display order, without creating strings for each comparison.
+inspection admits descriptor capacity and compares borrowed raw name bytes in
+native order, without creating strings for each comparison.
 Invalid image-resource overrides retain their existing inheritance policy.
 
 | Boundary | Current behavior |

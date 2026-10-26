@@ -75,13 +75,13 @@ public sealed class PageJsonStorageTests
     }
 
     [Fact]
-    public async Task ImagesKeepOrdinalDisplayNameOrderWithoutComparisonStrings()
+    public async Task ImagesKeepRawNameOrderWithoutComparisonStrings()
     {
         using InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("input"), Fixture("[]", "[]", "/Resources << /XObject << /Z 4 0 R /A#23B 5 0 R /#FF 4 0 R /Skip 42 >> >>"), QpdfInputOwnership.Transfer);
         QpdfJsonResult result = await Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("input"), QpdfPath.From("output"), new QpdfJsonOptions(2, ["pages"]), CancellationToken.None);
         host.Dispose(); using JsonDocument json = JsonDocument.Parse(result.Json);
-        Assert.Equal(new[] { "n:/#ff", "/A#B", "/Z" }, json.RootElement.GetProperty("pages")[0].GetProperty("images").EnumerateArray().Select(e => e.GetProperty("name").GetString()));
+        Assert.Equal(new[] { "/A#B", "/Z", "n:/#ff" }, json.RootElement.GetProperty("pages")[0].GetProperty("images").EnumerateArray().Select(e => e.GetProperty("name").GetString()));
     }
 
     [Theory]

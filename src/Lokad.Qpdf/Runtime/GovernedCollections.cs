@@ -102,8 +102,20 @@ internal static class GovernedCollections
         }
     }
 
-    // Match ordinal DisplayText ordering using the shared escape rule, without
-    // constructing either display string or any per-byte temporary strings.
+    // Resource dictionaries use unsigned raw-byte order, independent of display escaping.
     internal static int CompareNames(ResourceGovernor governor, PdfName left, PdfName right)
-        => PdfNameDisplay.Compare(left, right, governor, CancellationToken.None);
+    {
+        ReadOnlySpan<byte> first = left.RawSpan, second = right.RawSpan;
+        int width = Math.Min(first.Length, second.Length);
+        for (int offset = 0; offset < width;)
+        {
+            governor.CheckCancellation();
+            int count = Math.Min(256, width - offset);
+            int order = first.Slice(offset, count).SequenceCompareTo(second.Slice(offset, count));
+            if (order != 0) { return order; }
+            offset += count;
+        }
+        governor.CheckCancellation();
+        return first.Length.CompareTo(second.Length);
+    }
 }

@@ -693,16 +693,9 @@ internal static class DocumentJson
     {
         using FilterPlan stages = FilterChain.Resolve(detail.Stream.Dictionary, (IIndirectResolver)engine, governor, cancellationToken);
         builder.Append("{\"bitspercomponent\": ");
-        AppendOptionalInteger(builder, ImageInteger(detail.Stream.Dictionary, "BitsPerComponent", engine));
+        AppendImageValue(builder, detail.Stream.Dictionary, "BitsPerComponent"u8, request, limits, governor, cancellationToken);
         builder.Append(",\"colorspace\": ");
-        if (!detail.Stream.Dictionary.TryGet(PdfName.FromAscii("ColorSpace"), out QpdfObject colorspace) || colorspace is null || colorspace is PdfNull)
-        {
-            builder.Append("null");
-        }
-        else
-        {
-            PdfJsonWriter.AppendValue(builder, colorspace, request.Version, governor, 0, limits);
-        }
+        AppendImageValue(builder, detail.Stream.Dictionary, "ColorSpace"u8, request, limits, governor, cancellationToken);
 
         builder.Append(",\"decodeparms\": [");
         if (stages.Count == 0)
@@ -750,48 +743,21 @@ internal static class DocumentJson
         builder.Append("],\"filterable\": ");
         builder.Append(FilterChain.AllStagesInLevel(stages, request.DecodeLevel) ? "true" : "false");
         builder.Append(",\"height\": ");
-        AppendOptionalInteger(builder, ImageInteger(detail.Stream.Dictionary, "Height", engine));
+        AppendImageValue(builder, detail.Stream.Dictionary, "Height"u8, request, limits, governor, cancellationToken);
         builder.Append(",\"name\": ");
         PdfJsonWriter.AppendResourceName(builder, detail.Name);
         builder.Append(",\"object\": \"");
         PdfJsonWriter.AppendReference(builder, detail.Reference.ObjectNumber, detail.Reference.Generation);
         builder.Append("\",\"width\": ");
-        AppendOptionalInteger(builder, ImageInteger(detail.Stream.Dictionary, "Width", engine));
+        AppendImageValue(builder, detail.Stream.Dictionary, "Width"u8, request, limits, governor, cancellationToken);
         builder.Append((char)125);
     }
 
-    private static void AppendOptionalInteger(DisplayBuffer builder, long? value)
+    private static void AppendImageValue(DisplayBuffer builder, PdfDictionary dictionary, ReadOnlySpan<byte> key,
+        JsonRequest request, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
-        if (value.HasValue)
-        {
-            builder.AppendInteger(value.Value);
-        }
-        else
-        {
-            builder.Append("null");
-        }
-    }
-
-    private static long? ImageInteger(PdfDictionary dictionary, string key, DocumentEngine engine)
-    {
-        if (!dictionary.TryGet(PdfName.FromAscii(key), out QpdfObject raw) || raw is PdfNull)
-        {
-            return null;
-        }
-
-        if (raw is PdfInteger direct)
-        {
-            return direct.Value;
-        }
-
-        if (raw is PdfReference reference
-            && ((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? resolved)
-            && resolved is PdfInteger target)
-        {
-            return target.Value;
-        }
-
-        return null;
+        PdfDictionaryLookup.TryGet(dictionary, key, governor, token, out QpdfObject raw);
+        PdfJsonWriter.AppendValue(builder, raw, request.Version, governor, 0, limits);
     }
 
     private static List<PageImageDetail> ListImages(

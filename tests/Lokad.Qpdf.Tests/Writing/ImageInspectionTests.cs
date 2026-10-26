@@ -152,4 +152,85 @@ public sealed class ImageInspectionTests
         Assert.Equal(2, images.GetArrayLength());
         Assert.Equal(new HashSet<string?> { "/Imé", "/Imè" }, images.EnumerateArray().Select(item => item.GetProperty("name").GetString()).ToHashSet());
     }
+
+    public static IEnumerable<object[]> Descriptors()
+    {
+        foreach (string kind in new[] { "direct", "reference", "unresolved", "malformed", "null", "missing" })
+        foreach (int version in new[] { 1, 2 })
+        foreach (string route in new[] { "typed", "argv", "job" }) { yield return [kind, version, route]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(Descriptors))]
+    public async Task JsonPreservesRawDescriptorValues(string kind, int version, string route)
+    {
+        string descriptors = kind switch
+        {
+            "direct" => Dimensions,
+            "reference" => "/Width 6 0 R /Height 6 0 R /BitsPerComponent 6 0 R /ColorSpace 6 0 R",
+            "unresolved" => "/Width 42 0 R /Height 6 1 R /BitsPerComponent 42 0 R /ColorSpace 42 0 R",
+            "malformed" => "/Width 2.5 /Height /Wrong /BitsPerComponent false /ColorSpace [/Unknown 6 0 R]",
+            "null" => "/Width null /Height null /BitsPerComponent null /ColorSpace null",
+            _ => ""
+        };
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), Fixture("/Image", "2", "/Im0 5 0 R", descriptors), QpdfInputOwnership.Transfer);
+        using JsonDocument json = JsonDocument.Parse(await Inspect(host, version, route));
+        JsonElement image = json.RootElement.GetProperty("pages")[0].GetProperty("images")[0];
+        if (kind == "direct")
+        {
+            Assert.Equal(2, image.GetProperty("width").GetInt32()); Assert.Equal(2, image.GetProperty("height").GetInt32());
+            Assert.Equal(8, image.GetProperty("bitspercomponent").GetInt32()); Assert.Equal("/DeviceRGB", image.GetProperty("colorspace").GetString());
+        }
+        else if (kind is "reference" or "unresolved")
+        {
+            Assert.Equal(kind == "reference" ? "6 0 R" : "42 0 R", image.GetProperty("width").GetString());
+            Assert.Equal(kind == "reference" ? "6 0 R" : "6 1 R", image.GetProperty("height").GetString());
+            Assert.Equal(kind == "reference" ? "6 0 R" : "42 0 R", image.GetProperty("bitspercomponent").GetString());
+            Assert.Equal(kind == "reference" ? "6 0 R" : "42 0 R", image.GetProperty("colorspace").GetString());
+        }
+        else if (kind == "malformed")
+        {
+            Assert.Equal(2.5, image.GetProperty("width").GetDouble()); Assert.Equal("/Wrong", image.GetProperty("height").GetString());
+            Assert.False(image.GetProperty("bitspercomponent").GetBoolean()); Assert.Equal("6 0 R", image.GetProperty("colorspace")[1].GetString());
+        }
+        else
+        {
+            foreach (string key in new[] { "width", "height", "bitspercomponent", "colorspace" })
+            { Assert.Equal(JsonValueKind.Null, image.GetProperty(key).ValueKind); }
+        }
+    }
+
+    [Theory]
+    [InlineData(1, "typed")]
+    [InlineData(1, "argv")]
+    [InlineData(1, "job")]
+    [InlineData(2, "typed")]
+    [InlineData(2, "argv")]
+    [InlineData(2, "job")]
+    public async Task JsonUsesRawNameOrderAcrossEscapesAndPrefixes(int version, string route)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), Fixture("/Image", "null",
+            "/Im#c3#a9 5 0 R /ImA 5 0 R /Im! 5 0 R /Im#20 5 0 R /Im 5 0 R /Im#23 5 0 R", Dimensions), QpdfInputOwnership.Transfer);
+        using JsonDocument json = JsonDocument.Parse(await Inspect(host, version, route));
+        Assert.Equal(new[] { "/Im", "/Im ", "/Im!", "/Im#", "/ImA", "/Imé" },
+            json.RootElement.GetProperty("pages")[0].GetProperty("images").EnumerateArray().Select(item => item.GetProperty("name").GetString()));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task TextListingsUseRawNameOrderAndNumericDimensions(bool job)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), Fixture("/Image", "2", "/Im! 5 0 R /Im#20 5 0 R /Im 5 0 R", "/Width 6 0 R /Height 6 0 R"), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = job
+            ? await Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","showPages":true,"withImages":true}""", CancellationToken.None)
+            : await Qpdf.ExecuteAsync(host, new(["input", "--show-pages", "--with-images"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal(new[] { "    /Im: 5 0 R, 2 x 2", "    /Im#20: 5 0 R, 2 x 2", "    /Im!: 5 0 R, 2 x 2" },
+            result.Diagnostics.Where(item => item.Message.StartsWith("    /", StringComparison.Ordinal)).Select(item => item.Message));
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
 }
