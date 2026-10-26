@@ -229,7 +229,7 @@ public sealed class FixQdfTests
     }
 
     [Fact]
-    public async Task CarriageReturnsFailExplicitly()
+    public async Task CrLfOuterSyntaxFailsExplicitly()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--qdf", "--pages", ".", "1");

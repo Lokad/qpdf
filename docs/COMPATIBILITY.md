@@ -78,6 +78,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+QDF repair accepts carriage-return bytes in stream payloads and binary cross
+references, preserving them through length/offset repair and repeated repair.
+Previously a blanket scan rejected valid binary QDF, including the writer's own
+image output. Outer QDF syntax still requires LF endings; unsupported CRLF syntax
+rejects before publication. Public signatures and transactional guarantees remain.
+
 Optional predictor parameters use their defaults when their resolved PDF value
 is null, just as when the dictionary key is absent. This applies to Predictor,
 Columns, Colors and BitsPerComponent for Flate and LZW. Previously these valid

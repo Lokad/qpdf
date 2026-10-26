@@ -110,14 +110,6 @@ internal sealed class QdfRepair
         }
 
         _governor.CheckCancellation();
-        for (int i = 0; i < input.Length; i++)
-        {
-            if (input[i] == CarriageReturn)
-            {
-                throw new QpdfParseException("QDF repair rejects carriage returns; QDF uses line-feed endings.", i, null);
-            }
-        }
-
         _input = input;
         _cursor = 0;
         _lineNumber = 0;
@@ -137,8 +129,14 @@ internal sealed class QdfRepair
             _lineNumber = checked(_lineNumber + 1);
             int start = _cursor;
             int end = start;
+            bool streamData = _state is RepairState.InStream or RepairState.InObjectStreamOffsets
+                or RepairState.InObjectStreamOuter or RepairState.InObjectStreamObject;
             while (end < _input.Length && _input[end] != LineFeed)
             {
+                if (!streamData && _input[end] == CarriageReturn)
+                {
+                    throw new QpdfParseException("QDF syntax requires line-feed endings outside stream data.", end, null);
+                }
                 end = checked(end + 1);
             }
 
