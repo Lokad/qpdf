@@ -263,7 +263,7 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
   version 2). Pages carry object, contents, label, outlines,
   pageposfrom1, and direct image descriptors with raw dimension/colorspace values
   and filter data. Image resources use unsigned raw-name byte order; their names
-  preserve UTF-8 in both versions, with `n:/…` byte escapes for invalid UTF-8.
+  preserve UTF-8 in both versions, with the `n:` escaped-name form for invalid UTF-8.
   Outlines
   resolve explicit destinations, including local GoTo actions; named destinations
   remain unresolved. Acroform reports fields with inherited

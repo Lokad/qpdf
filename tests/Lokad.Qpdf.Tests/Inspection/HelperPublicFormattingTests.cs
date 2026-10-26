@@ -83,7 +83,7 @@ public sealed class HelperPublicFormattingTests
     }
 
     [Fact]
-    public async Task ImageListingPreservesEscapedNameOrderAndDimensions()
+    public async Task ImageListingUsesRawOrderWithEscapedDisplayNamesAndDimensions()
     {
         List<(int Number, string Dict, byte[]? StreamData)> objects = CheckTests.SinglePage("<< /Length 0 >>", []);
         objects[2] = (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R /Resources << /XObject << /A 6 0 R /#FF 7 0 R /#23 8 0 R >> >> >>", null);
@@ -96,7 +96,7 @@ public sealed class HelperPublicFormattingTests
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
             new QpdfCommandInvocation(["images.pdf", "--show-pages", "--with-images"]), CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
-        Assert.Equal(new[] { "    /#23: 8 0 R, 2 x 3", "    /#FF: 7 0 R, 2 x 3", "    /A: 6 0 R, 2 x 3" },
+        Assert.Equal(new[] { "    /#23: 8 0 R, 2 x 3", "    /A: 6 0 R, 2 x 3", "    /#FF: 7 0 R, 2 x 3" },
             result.Diagnostics.Where(diagnostic => diagnostic.Message.StartsWith("    /", StringComparison.Ordinal)).Select(diagnostic => diagnostic.Message));
         Assert.Equal(0L, host.OpenLeaseCount);
     }
