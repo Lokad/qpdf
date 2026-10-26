@@ -1117,7 +1117,8 @@ internal static class DocumentJson
         {
             foreach (string name in NameKeys)
             {
-                if (spec.TryGet(PdfName.FromAscii(name), out QpdfObject raw) && raw is PdfByteString text)
+                if (spec.TryGet(PdfName.FromAscii(name), out QpdfObject raw)
+                    && EmbeddedFiles.ResolveOptionalValue(engine, raw, governor, token) is PdfByteString text)
                 {
                     if (!first)
                     {
@@ -1160,7 +1161,7 @@ internal static class DocumentJson
                 {
                     PdfDictionary? parameters = stream.Dictionary.TryGet(PdfName.FromAscii("Params"), out QpdfObject parametersRaw)
                         ? TryResolve(engine, parametersRaw) as PdfDictionary : null;
-                    metadata = EmbeddedFiles.ReadStreamMetadata(stream, parameters, textMemory, governor, token);
+                    metadata = EmbeddedFiles.ReadStreamMetadata(engine, stream, parameters, textMemory, governor, token);
                 }
                 AppendEmbeddedStream(builder, metadata);
                 textMemory.Discard();

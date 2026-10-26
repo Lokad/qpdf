@@ -7,6 +7,14 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Attachment metadata resolves indirect scalar values before checking their types,
+including filename maps and alternate embedded streams in JSON. Previously valid
+references silently lost filenames, descriptions, MIME types, dates, checksums and
+declared sizes. Missing/null/wrong-type optional values remain omitted; resolver
+failures retain existing attachment/inspection policies. Refusal and cancellation
+propagate, and returned metadata keeps its caller ownership. Public signatures
+and the existing date-format policy are unchanged.
+
 Rotation flattening resolves indirect appearance-state dictionaries, matrices
 and their numeric entries before transformation. Equivalent direct and indirect
 values now produce the same appearance; public signatures are unchanged.

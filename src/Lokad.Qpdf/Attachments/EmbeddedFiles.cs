@@ -209,7 +209,8 @@ internal static class EmbeddedFiles
         string fileName = string.Empty;
         foreach (string name in NameKeys)
         {
-            if (spec.TryGet(PdfName.FromAscii(name), out QpdfObject? raw) && raw is PdfByteString text)
+            if (spec.TryGet(PdfName.FromAscii(name), out QpdfObject? raw)
+                && ResolveOptionalValue(engine, raw, governor, cancellationToken) is PdfByteString text)
             {
                 fileName = PdfText.Decode(text.ValueMemory, memory, governor, cancellationToken);
                 break;
@@ -217,7 +218,8 @@ internal static class EmbeddedFiles
         }
 
         string description = string.Empty;
-        if (spec.TryGet(PdfName.FromAscii("Desc"), out QpdfObject? descRaw) && descRaw is PdfByteString descText)
+        if (spec.TryGet(PdfName.FromAscii("Desc"), out QpdfObject? descRaw)
+            && ResolveOptionalValue(engine, descRaw, governor, cancellationToken) is PdfByteString descText)
         {
             description = PdfText.Decode(descText.ValueMemory, memory, governor, cancellationToken);
         }
@@ -263,7 +265,7 @@ internal static class EmbeddedFiles
             parameters = (parametersRaw is PdfReference parametersReference
                 ? ResolveRequired(engine, parametersReference, "embedded stream parameters") : parametersRaw) as PdfDictionary;
         }
-        EmbeddedStreamMetadata metadata = ReadStreamMetadata(data, parameters, memory, governor, cancellationToken);
+        EmbeddedStreamMetadata metadata = ReadStreamMetadata(engine, data, parameters, memory, governor, cancellationToken);
 
         governor.NoteOperation();
         memory.Reserve(144L);
@@ -273,12 +275,19 @@ internal static class EmbeddedFiles
 
     internal readonly record struct EmbeddedStreamMetadata(string MimeType, string CreationDate, string ModDate, string Checksum, long Size);
 
-    internal static EmbeddedStreamMetadata ReadStreamMetadata(PdfStream data, PdfDictionary? parms, ParserMemoryScope memory,
+    internal static QpdfObject? ResolveOptionalValue(IIndirectResolver resolver, QpdfObject raw,
+        ResourceGovernor governor, CancellationToken token)
+        => raw is PdfReference reference
+            ? PdfObjectLookup.TryResolve(reference, resolver, governor, token, out QpdfObject? value) ? value : null
+            : raw;
+
+    internal static EmbeddedStreamMetadata ReadStreamMetadata(IIndirectResolver resolver, PdfStream data, PdfDictionary? parms, ParserMemoryScope memory,
         ResourceGovernor governor, CancellationToken cancellationToken)
     {
         memory.CheckOwner(governor); cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         string mimeType = string.Empty;
-        if (data.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject? subtypeRaw) && subtypeRaw is PdfName subtype)
+        if (data.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject? subtypeRaw)
+            && ResolveOptionalValue(resolver, subtypeRaw, governor, cancellationToken) is PdfName subtype)
         {
             mimeType = PdfNameDisplay.Decode(subtype, memory, governor, cancellationToken);
         }
@@ -289,22 +298,26 @@ internal static class EmbeddedFiles
         long size = -1L;
         if (parms is not null)
         {
-            if (parms.TryGet(PdfName.FromAscii("CreationDate"), out QpdfObject? creationRaw) && creationRaw is PdfByteString creationText)
+            if (parms.TryGet(PdfName.FromAscii("CreationDate"), out QpdfObject? creationRaw)
+                && ResolveOptionalValue(resolver, creationRaw, governor, cancellationToken) is PdfByteString creationText)
             {
                 creationDate = PdfText.Decode(creationText.ValueMemory, memory, governor, cancellationToken);
             }
 
-            if (parms.TryGet(PdfName.FromAscii("ModDate"), out QpdfObject? modRaw) && modRaw is PdfByteString modText)
+            if (parms.TryGet(PdfName.FromAscii("ModDate"), out QpdfObject? modRaw)
+                && ResolveOptionalValue(resolver, modRaw, governor, cancellationToken) is PdfByteString modText)
             {
                 modDate = PdfText.Decode(modText.ValueMemory, memory, governor, cancellationToken);
             }
 
-            if (parms.TryGet(PdfName.FromAscii("CheckSum"), out QpdfObject? checksumRaw) && checksumRaw is PdfByteString checksumBytes)
+            if (parms.TryGet(PdfName.FromAscii("CheckSum"), out QpdfObject? checksumRaw)
+                && ResolveOptionalValue(resolver, checksumRaw, governor, cancellationToken) is PdfByteString checksumBytes)
             {
                 checksum = DecodeChecksum(checksumBytes.ValueMemory, memory, governor, cancellationToken);
             }
 
-            if (parms.TryGet(PdfName.FromAscii("Size"), out QpdfObject? sizeRaw) && sizeRaw is PdfInteger sizeInteger && sizeInteger.Value >= 0L)
+            if (parms.TryGet(PdfName.FromAscii("Size"), out QpdfObject? sizeRaw)
+                && ResolveOptionalValue(resolver, sizeRaw, governor, cancellationToken) is PdfInteger sizeInteger && sizeInteger.Value >= 0L)
             {
                 size = sizeInteger.Value;
             }

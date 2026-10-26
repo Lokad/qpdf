@@ -11,6 +11,7 @@ public sealed class InspectionFailureTests
 
     private static byte[] Fixture(string mode) => mode switch {
         "attachments" => AttachmentMetadataTests.Fixture(new string('N', 32768), "/ModDate (D:20250607080910Z) /CheckSum <0102>"),
+        "indirect-attachments" => AttachmentIndirectMetadataTests.Fixture(true, null),
         "pages" => OutlineInspectionTests.Fixture("<< /Title (" + new string('T', 32768) + ") /First 6 0 R /Dest [3 0 R /Fit] >>", "<< /Title (Child) /Dest [3 0 R /Fit] >>"),
         "acroform" => AcroFormJsonTests.Fixture("/Parent 6 0 R", "/T (" + new string('N', 32768) + ")", "/FT /Ch /TU (label) /Opt [(one) [(export) (two)]]"),
         "contents" => PageJsonStorageTests.Fixture("6 0 R", "[" + string.Join(' ', Enumerable.Repeat("4 0 R", 256)) + "]", "/Resources << >>"),
@@ -54,14 +55,14 @@ public sealed class InspectionFailureTests
             return job ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","flattenRotation":true,"pages":[{"file":".","range":"1"}]}""", CancellationToken.None)
                 : Qpdf.ExecuteAsync(host, new(["input", "--flatten-rotation", "--pages", ".", "1", "--", "output"]), CancellationToken.None);
         }
-        string key = mode is "labels" or "contents" or "images" or "stream" ? "pages" : mode;
+        string key = mode == "indirect-attachments" ? "attachments" : mode is "labels" or "contents" or "images" or "stream" ? "pages" : mode;
         return job ? Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new { inputFile = "input", outputFile = "output", json = "2", jsonKey = new[] { key } }), CancellationToken.None)
             : Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["input", "--json=2", "--json-key=" + key, "--", "output"]), CancellationToken.None);
     }
 
     public static IEnumerable<object[]> Faults()
     {
-        foreach (string mode in new[] { "attachments", "pages", "labels", "acroform", "contents", "images", "stream", "rotation" })
+        foreach (string mode in new[] { "attachments", "indirect-attachments", "pages", "labels", "acroform", "contents", "images", "stream", "rotation" })
         foreach (string phase in new[] { "read", "input-close", "create", "write", "commit", "close" })
         foreach (string kind in new[] { "host", "cancel", "oom" }) { yield return [mode, phase, kind]; }
     }
@@ -106,6 +107,8 @@ public sealed class InspectionFailureTests
     [Theory]
     [InlineData("attachments", false)]
     [InlineData("attachments", true)]
+    [InlineData("indirect-attachments", false)]
+    [InlineData("indirect-attachments", true)]
     [InlineData("pages", false)]
     [InlineData("pages", true)]
     [InlineData("labels", false)]
