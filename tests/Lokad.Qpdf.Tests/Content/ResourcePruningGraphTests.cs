@@ -16,9 +16,9 @@ public sealed class ResourcePruningGraphTests
     private static readonly Func<GraphCopier, int, PdfDictionary, QpdfLimits, ResourceGovernor, DiagnosticBag, CancellationToken, PdfDictionary> Prune =
         (typeof(ContentTransforms).GetMethod("PrunePage", BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException("Missing pruning."))
         .CreateDelegate<Func<GraphCopier, int, PdfDictionary, QpdfLimits, ResourceGovernor, DiagnosticBag, CancellationToken, PdfDictionary>>();
-    private static readonly Action<GraphCopier, int?, PdfDictionary?, ReadOnlyMemory<byte>, PdfDictionary?, bool, ResourceNameSet, QpdfLimits, ResourceGovernor, DiagnosticBag, CancellationToken> Scan =
+    private static readonly Action<GraphCopier, int?, PdfDictionary?, ReadOnlyMemory<byte>, PdfDictionary?, bool, ResourceNameSet, ResourceGovernor, DiagnosticBag, CancellationToken> Scan =
         (typeof(ContentTransforms).GetMethod("ScanAndPrune", BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException("Missing scan."))
-        .CreateDelegate<Action<GraphCopier, int?, PdfDictionary?, ReadOnlyMemory<byte>, PdfDictionary?, bool, ResourceNameSet, QpdfLimits, ResourceGovernor, DiagnosticBag, CancellationToken>>();
+        .CreateDelegate<Action<GraphCopier, int?, PdfDictionary?, ReadOnlyMemory<byte>, PdfDictionary?, bool, ResourceNameSet, ResourceGovernor, DiagnosticBag, CancellationToken>>();
 
     private static PdfDictionary Dictionary(params (string Key, QpdfObject Value)[] entries)
         => new(entries.ToDictionary(entry => PdfName.FromAscii(entry.Key), entry => entry.Value));
@@ -113,7 +113,7 @@ public sealed class ResourcePruningGraphTests
         PdfStream form = new(header, "/F 12 Tf"u8.ToArray());
         ((IDictionary<int, QpdfObject>)source.Copier.CopiedObjects).Add(1, form);
         using ResourceNameSet unresolved = ResourceNameSet.Create(governor, CancellationToken.None);
-        Scan(source.Copier, 1, null, form.RawMemory, source.Resources, false, unresolved, QpdfLimits.Default, governor, new DiagnosticBag(governor), CancellationToken.None);
+        Scan(source.Copier, 1, null, form.RawMemory, source.Resources, false, unresolved, governor, new DiagnosticBag(governor), CancellationToken.None);
         PdfStream replacement = Assert.IsType<PdfStream>(source.Copier.CopiedObjects[1]); Assert.NotSame(form, replacement);
         Assert.Same(form.AllocationCarrier, replacement.AllocationCarrier); Assert.Equal(form.RawMemory.ToArray(), replacement.RawMemory.ToArray());
         PdfDictionary resources = ResourcesOf(replacement.Dictionary);
@@ -143,7 +143,7 @@ public sealed class ResourcePruningGraphTests
         PdfInteger stored = new("1", 1L); ((IDictionary<int, QpdfObject>)source.Copier.CopiedObjects).Add(1, stored);
         using ResourceNameSet unresolved = ResourceNameSet.Create(governor, CancellationToken.None);
         long live = governor.Snapshot().LiveMemoryBytes;
-        Scan(source.Copier, 1, null, source.Content.RawMemory, source.Resources, false, unresolved, QpdfLimits.Default, governor, new DiagnosticBag(governor), CancellationToken.None);
+        Scan(source.Copier, 1, null, source.Content.RawMemory, source.Resources, false, unresolved, governor, new DiagnosticBag(governor), CancellationToken.None);
         Assert.Same(stored, source.Copier.CopiedObjects[1]); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
     }
 
