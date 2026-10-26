@@ -48,24 +48,21 @@ internal readonly struct ContentToken
 internal sealed class ContentTokenizer
 {
     private readonly ReadOnlyMemory<byte> _data;
-    private readonly QpdfLimits _limits;
     private readonly ResourceGovernor _governor;
     private readonly CancellationToken _token;
     private int _position;
 
-    internal ContentTokenizer(ReadOnlyMemory<byte> data, QpdfLimits limits, ResourceGovernor governor)
-        : this(data, limits, governor, governor?.CancellationToken ?? CancellationToken.None)
+    internal ContentTokenizer(ReadOnlyMemory<byte> data, ResourceGovernor governor)
+        : this(data, governor, governor?.CancellationToken ?? CancellationToken.None)
     {
     }
 
-    internal ContentTokenizer(ReadOnlyMemory<byte> data, QpdfLimits limits, ResourceGovernor governor,
+    internal ContentTokenizer(ReadOnlyMemory<byte> data, ResourceGovernor governor,
         CancellationToken token)
     {
         _data = data;
-        _limits = limits ?? throw new ArgumentNullException(nameof(limits));
         _governor = governor ?? throw new ArgumentNullException(nameof(governor));
         _token = token;
-        limits.Validate();
     }
 
     private void Check() { _token.ThrowIfCancellationRequested(); _governor.CheckCancellation(); }

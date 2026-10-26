@@ -14,7 +14,7 @@ public sealed class AppearanceAnalysisTests
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 1024L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        GenerateAppearances.TfResult result = GenerateAppearances.AnalyzeDa(input, limits, governor, memory, CancellationToken.None);
+        GenerateAppearances.TfResult result = GenerateAppearances.AnalyzeDa(input, governor, memory, CancellationToken.None);
         Assert.Equal(input.AsMemory(), result.Appearance);
         Assert.Equal("F1"u8.ToArray(), result.FontName);
         Assert.Equal(12.0, result.Size);
@@ -32,7 +32,7 @@ public sealed class AppearanceAnalysisTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         GenerateAppearances.TfResult result = GenerateAppearances.AnalyzeDa(Encoding.ASCII.GetBytes(text),
-            QpdfLimits.Default, governor, memory, CancellationToken.None);
+            governor, memory, CancellationToken.None);
         Assert.Equal(expected, Encoding.ASCII.GetString(result.Appearance.Span));
         Assert.Equal(font, Encoding.ASCII.GetString(result.FontName));
         Assert.Equal(size, result.Size);
@@ -48,7 +48,7 @@ public sealed class AppearanceAnalysisTests
         long baseline = governor.Snapshot().LiveMemoryBytes;
         using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
         {
-            Assert.Throws<QpdfLimitException>(() => GenerateAppearances.AnalyzeDa(input, limits, governor, memory, CancellationToken.None));
+            Assert.Throws<QpdfLimitException>(() => GenerateAppearances.AnalyzeDa(input, governor, memory, CancellationToken.None));
         }
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
@@ -64,7 +64,7 @@ public sealed class AppearanceAnalysisTests
         long baseline = governor.Snapshot().LiveMemoryBytes;
         using MemoryManager<byte> input = new CancelingMemory(Encoding.ASCII.GetBytes(new string(' ', 20000) + "/F1 12 Tf"), source);
         Assert.ThrowsAny<OperationCanceledException>(() => GenerateAppearances.AnalyzeDa(input.Memory,
-            QpdfLimits.Default, governor, memory, governorToken ? CancellationToken.None : source.Token));
+            governor, memory, governorToken ? CancellationToken.None : source.Token));
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 

@@ -235,7 +235,7 @@ public static partial class Qpdf
                 }
                 if (showObject.NormalizeContent)
                 {
-                    payload = Content.ContentTransforms.NormalizeContentBytesOwned(decoded ?? dataStream.ArrayData(memory, governor, cancellationToken), limits, governor,
+                    payload = Content.ContentTransforms.NormalizeContentBytesOwned(decoded ?? dataStream.ArrayData(memory, governor, cancellationToken), governor,
                         cancellationToken, limits.MaxOutputBytes, nameof(QpdfLimits.MaxOutputBytes), memory);
                 }
             }

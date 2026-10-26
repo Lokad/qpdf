@@ -1178,7 +1178,7 @@ internal static class AcroFormCopy
         GovernedBufferStream? output = null;
         try
         {
-            ContentTokenizer tokenizer = new(appearance.ValueMemory, limits, governor, token);
+            ContentTokenizer tokenizer = new(appearance.ValueMemory, governor, token);
             ReadOnlyMemory<byte> lastName = ReadOnlyMemory<byte>.Empty;
             int nameOffset = -1, written = 0;
             while (tokenizer.TryReadToken(out ContentToken current))

@@ -252,22 +252,6 @@ internal sealed class WriterEncoding : IDisposable
             CheckCancellation(governor, cancellationToken);
             int count = Math.Min(VisitBytes, size - offset);
             governor.NoteOperation();
-            int outputBytes = kind switch
-            {
-                Kind.Ascii => count,
-                Kind.Hex => 2 * count,
-                _ => 0,
-            };
-            if (kind is Kind.Name or Kind.Literal)
-            {
-                for (int index = offset; index < offset + count; index++)
-                {
-                    outputBytes += kind == Kind.Name ? NameWidth(input[index]) : LiteralWidth(input[index]);
-                }
-                // Admit encoding visits separately from the preceding width visits.
-                governor.NoteOperation();
-            }
-            governor.NoteOperation();
             for (int index = offset; index < offset + count; index++)
             {
                 if (kind == Kind.Ascii)

@@ -18,7 +18,7 @@ public sealed class ContentBufferTests
         return (bytes, decoded);
     }
     private static byte[] Normalize(byte[] data, ResourceGovernor governor, ParserMemoryScope memory, long maximum)
-        => ContentTransforms.NormalizeContentBytesOwned(data, QpdfLimits.Default, governor,
+        => ContentTransforms.NormalizeContentBytesOwned(data, governor,
             CancellationToken.None, maximum, nameof(QpdfLimits.MaxDecodedBytes), memory);
     private static PdfStream Stream(string filter, byte[] data)
         => new(filter == "" ? DecoderOwnershipFixtures.Dictionary() : DecoderOwnershipFixtures.Dictionary(("Filter", filter == "bad-plan" ? new PdfInteger("1", 1L) : PdfName.FromAscii(filter))),

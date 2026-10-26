@@ -15,7 +15,7 @@ public sealed class ContentTokenizerTests
     {
         QpdfLimits limits = QpdfLimits.Default;
         ResourceGovernor governor = new(limits, CancellationToken.None);
-        ContentTokenizer tokenizer = new(bytes, limits, governor);
+        ContentTokenizer tokenizer = new(bytes, governor);
         List<ContentToken> tokens = new();
         while (tokenizer.TryReadToken(out ContentToken token))
         {
@@ -104,7 +104,7 @@ public sealed class ContentTokenizerTests
     {
         QpdfLimits limits = QpdfLimits.Default;
         ResourceGovernor governor = new(limits, CancellationToken.None);
-        ContentTokenizer tokenizer = new(bytes, limits, governor);
+        ContentTokenizer tokenizer = new(bytes, governor);
         List<ContentToken> prefix = new();
         while (tokenizer.TryReadToken(out ContentToken token))
         {
@@ -218,7 +218,7 @@ public sealed class ContentTokenizerTests
         byte[] bytes = Encoding.ASCII.GetBytes("BI /W 1 ID ABC");
         QpdfLimits limits = QpdfLimits.Default;
         ResourceGovernor governor = new(limits, CancellationToken.None);
-        ContentTokenizer tokenizer = new(bytes, limits, governor);
+        ContentTokenizer tokenizer = new(bytes, governor);
         while (tokenizer.TryReadToken(out ContentToken token))
         {
             if (token.Kind == ContentTokenKind.Operator && Text(token) == "ID")
@@ -237,7 +237,7 @@ public sealed class ContentTokenizerTests
         source.Cancel();
         QpdfLimits limits = QpdfLimits.Default with { CancellationCheckInterval = 1L };
         ResourceGovernor governor = new(limits, source.Token);
-        ContentTokenizer tokenizer = new(Encoding.ASCII.GetBytes("BT ET"), limits, governor);
+        ContentTokenizer tokenizer = new(Encoding.ASCII.GetBytes("BT ET"), governor);
         Assert.Throws<OperationCanceledException>(() => tokenizer.TryReadToken(out ContentToken _));
     }
 }

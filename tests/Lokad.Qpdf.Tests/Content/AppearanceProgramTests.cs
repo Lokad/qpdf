@@ -42,7 +42,7 @@ public sealed class AppearanceProgramTests
             string text = Encoding.ASCII.GetString(appearance.RawMemory.Span);
             Assert.StartsWith(prefix, text); Assert.EndsWith(suffix, text); Assert.Contains("(Hello) Tj", text); Assert.DoesNotContain("(Old)", text);
             ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-            ContentTokenizer tokenizer = new(appearance.RawMemory, QpdfLimits.Default, governor);
+            ContentTokenizer tokenizer = new(appearance.RawMemory, governor);
             int starts = 0, ends = 0;
             while (tokenizer.TryReadToken(out ContentToken token))
             {

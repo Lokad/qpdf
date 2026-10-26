@@ -106,6 +106,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Token encoding fills the already-measured result without recalculating unused
+byte widths. The content tokenizer borrows its validated governor policy instead
+of retaining a second limits reference or revalidating it at construction. Forwarded
+limits arguments used only by that constructor are removed. Exact output sizing,
+coarse owner allowances, cancellation and public signatures remain unchanged.
+
 Page ranges append inclusions into one admitted list, remove excluded intervals
 by testing selected members, and compact odd/even positions in place. Full-span
 scratch lists, exclusion hash sets and a second filtered result are removed.

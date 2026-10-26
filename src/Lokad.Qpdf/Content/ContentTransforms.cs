@@ -439,7 +439,7 @@ internal static class ContentTransforms
                 byte[]? normalized = null;
                 try
                 {
-                    try { normalized = NormalizeContentBytesOwned(data, limits, governor, token, limits.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes), graph.Memory); }
+                    try { normalized = NormalizeContentBytesOwned(data, governor, token, limits.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes), graph.Memory); }
                     catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException)) { contentError = true; }
                     if (normalized is not null)
                     {
@@ -512,13 +512,13 @@ internal static class ContentTransforms
 
         return page;
     }
-    internal static byte[] NormalizeContentBytesOwned(byte[] data, QpdfLimits limits, ResourceGovernor governor,
+    internal static byte[] NormalizeContentBytesOwned(byte[] data, ResourceGovernor governor,
         CancellationToken cancellationToken, long maximumBytes, string limitName, ParserMemoryScope memory)
     {
         memory.CheckOwner(governor);
         cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor); scratch.Reserve(192L);
-        ContentTokenizer tokenizer = new(data, limits, governor, cancellationToken)
+        ContentTokenizer tokenizer = new(data, governor, cancellationToken)
         {
             IncludeComments = true,
             IncludeWhitespace = true,
@@ -892,7 +892,7 @@ internal static class ContentTransforms
 
         using JoinedContent content = JoinContentBytes(pageChunks.Parts, governor, cancellationToken);
         pageChunks.Dispose();
-        ScanAndPrune(copier, pageId, page, content.Bytes, resources, true, unresolved, limits, governor, diagnostics, cancellationToken);
+        ScanAndPrune(copier, pageId, page, content.Bytes, resources, true, unresolved, governor, diagnostics, cancellationToken);
         if (copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? refreshed) && refreshed is PdfDictionary refreshedPage)
         {
             return refreshedPage;
@@ -987,7 +987,7 @@ internal static class ContentTransforms
 
         using JoinedContent content = JoinContentBytes(chunks.Parts, governor, cancellationToken);
         chunks.Dispose();
-        ScanAndPrune(copier, formId, null, content.Bytes, resources, false, unresolved, limits, governor, diagnostics, cancellationToken);
+        ScanAndPrune(copier, formId, null, content.Bytes, resources, false, unresolved, governor, diagnostics, cancellationToken);
     }
 
     private static void ScanAndPrune(
@@ -998,7 +998,6 @@ internal static class ContentTransforms
         PdfDictionary? resources,
         bool isPage,
         ResourceNameSet unresolved,
-        QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
@@ -1007,7 +1006,7 @@ internal static class ContentTransforms
         PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
         using ResourceNameSet names = ResourceNameSet.Create(governor, cancellationToken);
         using ResourceNameSet scoped = ResourceNameSet.Create(governor, cancellationToken);
-        if (!ScanNames(content, names, scoped, limits, governor, cancellationToken))
+        if (!ScanNames(content, names, scoped, governor, cancellationToken))
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped resource pruning for content that could not be parsed.");
             return;
@@ -1284,13 +1283,12 @@ internal static class ContentTransforms
         ReadOnlyMemory<byte> content,
         ResourceNameSet names,
         ResourceNameSet scoped,
-        QpdfLimits limits,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
         using ParserMemoryScope tokenizerMemory = ParserMemoryScope.Create(governor);
         tokenizerMemory.Reserve(192L);
-        ContentTokenizer tokenizer = new(content, limits, governor, cancellationToken);
+        ContentTokenizer tokenizer = new(content, governor, cancellationToken);
         ReadOnlyMemory<byte> lastName = default;
         bool hasName = false;
         try

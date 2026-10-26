@@ -526,7 +526,7 @@ internal static class GenerateAppearances
             valueText = PdfText.Decode(valueString.ValueMemory, scratch, governor, cancellationToken);
         }
 
-        TfResult font = AnalyzeDa(field.DefaultAppearance ?? defaultAppearance?.ValueMemory ?? ReadOnlyMemory<byte>.Empty, limits, governor, scratch, cancellationToken);
+        TfResult font = AnalyzeDa(field.DefaultAppearance ?? defaultAppearance?.ValueMemory ?? ReadOnlyMemory<byte>.Empty, governor, scratch, cancellationToken);
         if (font.FontName.Length == 0)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot generate text without a usable default appearance; keeping the field as is.");
@@ -754,14 +754,14 @@ internal static class GenerateAppearances
 
     internal readonly record struct TfResult(double Size, byte[] FontName, ReadOnlyMemory<byte> Appearance);
 
-    internal static TfResult AnalyzeDa(ReadOnlyMemory<byte> appearance, QpdfLimits limits, ResourceGovernor governor,
+    internal static TfResult AnalyzeDa(ReadOnlyMemory<byte> appearance, ResourceGovernor governor,
         ParserMemoryScope memory, CancellationToken cancellationToken)
     {
         memory.CheckOwner(governor);
         cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         try
         {
-            ContentTokenizer tokenizer = new(appearance, limits, governor, cancellationToken);
+            ContentTokenizer tokenizer = new(appearance, governor, cancellationToken);
             double size = 11.0, lastNumber = 0.0, stored = 0.0;
             int numberOffset = -1, numberLength = 0, sizeOffset = -1, sizeLength = 0;
             ReadOnlyMemory<byte> lastName = ReadOnlyMemory<byte>.Empty, font = ReadOnlyMemory<byte>.Empty;
@@ -1028,7 +1028,7 @@ internal static class GenerateAppearances
         // Locate one complete text block before constructing output. All other
         // bytes are borrowed unchanged, including comments and inline images.
         memory.Reserve(192L);
-        ContentTokenizer tokenizer = new(data, limits, governor, cancellationToken);
+        ContentTokenizer tokenizer = new(data, governor, cancellationToken);
         List<ContentTokenKind> containers = ParserContainers.CreateList<ContentTokenKind>(memory);
         int depth = 0, selectedDepth = 0, start = -1, end = -1, operands = 0;
         bool textTag = false, namedTag = false, properties = false;

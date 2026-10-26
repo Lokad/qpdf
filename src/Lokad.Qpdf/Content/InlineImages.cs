@@ -147,7 +147,7 @@ internal static class InlineImages
         bool canAttach = resources is PdfDictionary prepared &&
             PdfDictionaryLookup.TryGet(prepared, "XObject"u8, governor, cancellationToken, out QpdfObject objects) && objects is PdfDictionary;
         scratch.Reserve(160L);
-        ContentTokenizer tokenizer = new(joined, limits, governor, cancellationToken) { IncludeComments = true, IncludeWhitespace = true };
+        ContentTokenizer tokenizer = new(joined, governor, cancellationToken) { IncludeComments = true, IncludeWhitespace = true };
         using InlineImageBuffer output = InlineImageBuffer.Create(governor, limits, cancellationToken);
         bool inImage = false; long imageStart = 0, dictStart = 0; int suffix = 1;
         try

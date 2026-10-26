@@ -417,7 +417,7 @@ internal static class DocumentCheck
                         if (outsideLevel) { aboveLevel += 1; }
                         continue;
                     }
-                    TokenizeCheckStream(bytes, limits, governor, cancellationToken);
+                    TokenizeCheckStream(bytes, governor, cancellationToken);
                     examined += 1;
                 }
                 catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
@@ -849,11 +849,10 @@ internal static class DocumentCheck
 
     private static void TokenizeCheckStream(
         byte[] bytes,
-        QpdfLimits limits,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
-        ContentTokenizer tokenizer = new(bytes, limits, governor, cancellationToken);
+        ContentTokenizer tokenizer = new(bytes, governor, cancellationToken);
         byte[] idMarker = [(byte)73, (byte)68];
         while (tokenizer.TryReadToken(out ContentToken token))
         {
