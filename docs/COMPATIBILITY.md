@@ -78,6 +78,13 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Compressed xref decoding borrows a complete owned encoded payload while its
+parsed-stream owner stays live. Sliced backing still materializes under the
+existing scratch scope. The redundant full-payload copy and its admission are
+removed; decoded results keep their independent owner. Public copy APIs,
+interpretation and failure/cleanup policies are unchanged. Tight readers may fit
+with less working storage.
+
 Unknown xref-stream entry types resolve to null and mask older entries for the
 same slot. Their undefined fields are ignored, including unsigned-wide values.
 Previously strict opening rejected these rows and recovery could restore stale

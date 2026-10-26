@@ -616,8 +616,8 @@ internal sealed class XRefTable : IDisposable
         using FilterPlan stageOwner = stages;
 
         if (stages.Count == 0) { return stream.RawMemory; }
-        scratch.Reserve(checked((long)stream.RawMemory.Length + 32L));
-        return FilterChain.Decode(stream.Data, stages, limits, governor, scratch);
+        byte[] encoded = stream.ArrayData(scratch, governor, governor.CancellationToken);
+        return FilterChain.Decode(encoded, stages, limits, governor, scratch);
     }
 
     private static Dictionary<int, XrefEntry> ReadStreamEntries(

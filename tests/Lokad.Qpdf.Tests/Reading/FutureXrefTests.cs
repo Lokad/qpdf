@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Globalization;
+using System.IO.Compression;
 using System.Text;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
@@ -8,7 +9,7 @@ namespace Lokad.Qpdf.Tests.Reading;
 
 public sealed class FutureXrefTests
 {
-    internal static byte[] Fixture(ulong kind, bool incremental, bool invalidFields)
+    internal static byte[] Fixture(ulong kind, bool incremental, bool invalidFields, bool compressed)
     {
         using MemoryStream data = new(); List<long> offsets = [0];
         void Text(string value) => data.Write(Encoding.ASCII.GetBytes(value));
@@ -36,9 +37,17 @@ public sealed class FutureXrefTests
             BinaryPrimitives.WriteUInt32BigEndian(row[8..], target);
             BinaryPrimitives.WriteUInt16BigEndian(row[12..], number == 0 || number == 5 && kind > 2 ? ushort.MaxValue : (ushort)0);
         }
-        Text("6 0 obj\n<< /Type /XRef /Size 7 /Root 1 0 R /W [8 4 2] /Length " + rows.Length
+        byte[] payload = rows;
+        if (compressed)
+        {
+            using MemoryStream buffer = new();
+            using (ZLibStream encoder = new(buffer, CompressionLevel.SmallestSize, true)) { encoder.Write(rows); }
+            payload = buffer.ToArray();
+        }
+        Text("6 0 obj\n<< /Type /XRef /Size 7 /Root 1 0 R /W [8 4 2] /Length " + payload.Length
+            + (compressed ? " /Filter /FlateDecode" : "")
             + (incremental ? " /Index [5 2] /Prev " + previous : "") + " >>\nstream\n");
-        data.Write(rows); Text("\nendstream\nendobj\nstartxref\n" + current + "\n%%EOF\n");
+        data.Write(payload); Text("\nendstream\nendobj\nstartxref\n" + current + "\n%%EOF\n");
         return data.ToArray();
     }
 
@@ -55,7 +64,7 @@ public sealed class FutureXrefTests
     [MemberData(nameof(Cases))]
     public async Task FutureRowsResolveToNullAndMaskOlderEntries(ulong kind, bool incremental, string operation, string route)
     {
-        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), Fixture(kind, incremental, false), QpdfInputOwnership.Transfer);
+        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), Fixture(kind, incremental, false, false), QpdfInputOwnership.Transfer);
         QpdfObject? retained = null; string display = "";
         if (route == "typed")
         {
@@ -100,7 +109,7 @@ public sealed class FutureXrefTests
     [InlineData(2UL)]
     public async Task KnownTypesStillValidateTheirFields(ulong kind)
     {
-        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), Fixture(kind, false, true), QpdfInputOwnership.Transfer);
+        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), Fixture(kind, false, true, false), QpdfInputOwnership.Transfer);
         await Assert.ThrowsAsync<QpdfParseException>(() => QpdfDocument.OpenAsync(host, QpdfPath.From("input"), CancellationToken.None).AsTask());
         Assert.Equal(0L, host.OpenLeaseCount);
     }
@@ -110,7 +119,7 @@ public sealed class FutureXrefTests
     [InlineData("job")]
     public async Task InvalidKnownRowPreservesPriorOutput(string route)
     {
-        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), Fixture(1, false, true), QpdfInputOwnership.Transfer);
+        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), Fixture(1, false, true, false), QpdfInputOwnership.Transfer);
         await using (IQpdfOutputTransaction seed = await host.CreateOutputAsync(QpdfPath.From("output"), CancellationToken.None))
         { await seed.WriteAsync(new byte[] { 17, 23 }, CancellationToken.None); await seed.CommitAsync(CancellationToken.None); }
         QpdfExecutionResult result = route == "argv"
