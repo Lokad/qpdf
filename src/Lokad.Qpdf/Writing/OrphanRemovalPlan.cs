@@ -13,8 +13,6 @@ internal sealed class OrphanRemovalPlan : IDisposable
     private Dictionary<int, QpdfObject>? _pool;
     private Dictionary<int, int>? _mapping;
     private GovernedIntSet? _wanted;
-    private GovernedIntSet? _referenced;
-    private List<QpdfObject?>? _stack;
     private List<Drop>? _drops;
     private List<KeyValuePair<int, int>>? _sources;
     private CancellationToken _token;
@@ -73,8 +71,8 @@ internal sealed class OrphanRemovalPlan : IDisposable
         }
         if (wanted.Count == 0) { return; }
 
-        GovernedIntSet referenced = GovernedIntSet.Create(Memory, Governor, _token); _referenced = referenced;
-        List<QpdfObject?>? stack = ParserContainers.CreateList<QpdfObject?>(Memory); _stack = stack;
+        GovernedIntSet referenced = GovernedIntSet.Create(Memory, Governor, _token);
+        List<QpdfObject?>? stack = ParserContainers.CreateList<QpdfObject?>(Memory);
         foreach (KeyValuePair<int, QpdfObject> entry in Pool)
         {
             Add(stack, entry.Value, IntPtr.Size);
@@ -101,7 +99,7 @@ internal sealed class OrphanRemovalPlan : IDisposable
         }
 
         long stackBytes = checked(32L + (stack.Capacity == 0 ? 0L : 32L + stack.Capacity * (long)IntPtr.Size));
-        _stack = null; stack = null; Memory.Release(stackBytes);
+        stack = null; Memory.Release(stackBytes);
         List<Drop> drops = ParserContainers.CreateList<Drop>(Memory); _drops = drops;
         foreach (int number in wanted)
         {
@@ -122,8 +120,8 @@ internal sealed class OrphanRemovalPlan : IDisposable
         Check();
         List<Drop>? drops = _drops; List<KeyValuePair<int, int>>? sources = _sources;
         if (drops is null || sources is null || drops.Count == 0) { return; }
-        // Admit the forward mutations and their possible rollback before either
-        // dictionary changes. Remove/Add reuse the existing dictionary slots.
+        // Removal and rollback metadata was admitted during Build.
+        // Remove/Add reuse the existing dictionary slots.
         Governor.NoteOperation(); Check();
         int removedObjects = 0, removedSources = 0;
         try
@@ -157,7 +155,7 @@ internal sealed class OrphanRemovalPlan : IDisposable
     public void Dispose()
     {
         ParserMemoryScope? memory = _memory;
-        _stack = null; _drops = null; _sources = null; _wanted = null; _referenced = null;
+        _drops = null; _sources = null; _wanted = null;
         _pool = null; _mapping = null; _memory = null; _governor = null; _token = default;
         memory?.Dispose();
     }

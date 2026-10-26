@@ -17,7 +17,7 @@ public sealed class LinearizationReportFormattingTests
     private static ClassifiedGraph Graph()
         => new([1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22], [],
             [new[] { 40, 41 }, Array.Empty<int>(), new[] { 42, 44 }],
-            [int.MaxValue, 4], [], [], [], [], false);
+            [int.MaxValue, 4], [], [], [], []);
 
     [Fact]
     public void ReportPreservesAdjustedOffsetsRangeGroupsAndRunBoundaryAdjacency()

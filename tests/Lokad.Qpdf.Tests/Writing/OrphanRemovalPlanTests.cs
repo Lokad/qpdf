@@ -70,7 +70,6 @@ public sealed class OrphanRemovalPlanTests
         Dictionary<int, int> mapping = new() { [11] = 1 };
         using (OrphanRemovalPlan plan = OrphanRemovalPlan.Create([1], pool, mapping, governor, CancellationToken.None))
         {
-            Assert.Null(typeof(OrphanRemovalPlan).GetField("_stack", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(plan));
             Assert.True(governor.Snapshot().PeakMemoryBytes > governor.Snapshot().LiveMemoryBytes + 4096L);
             plan.Apply(); Assert.False(pool.ContainsKey(1)); Assert.Empty(mapping);
         }
@@ -95,7 +94,7 @@ public sealed class OrphanRemovalPlanTests
         Dictionary<int, int> mapping = new() { [11] = 1 };
         OrphanRemovalPlan plan = OrphanRemovalPlan.Create([1], pool, mapping, governor, cancellation.Token);
         List<WeakReference> witnesses = [new(governor), new(cancellation), new(pool), new(mapping)];
-        foreach (string field in new[] { "_memory", "_wanted", "_referenced", "_drops", "_sources" })
+        foreach (string field in new[] { "_memory", "_wanted", "_drops", "_sources" })
         {
             object value = typeof(OrphanRemovalPlan).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(plan) ?? throw new InvalidOperationException();
             witnesses.Add(new(value));

@@ -18,11 +18,10 @@ internal sealed class ClassifiedGraph : IDisposable
 {
     internal ClassifiedGraph(IReadOnlyList<int> part4, IReadOnlyList<int> part6,
         IReadOnlyList<IReadOnlyList<int>> part7, IReadOnlyList<int> part8, IReadOnlyList<int> part9,
-        IReadOnlyList<int> pages, IReadOnlyList<IReadOnlyCollection<int>> pageUsers, IReadOnlyList<int> outlines,
-        bool outlinesInFirstPage)
+        IReadOnlyList<int> pages, IReadOnlyList<IReadOnlyCollection<int>> pageUsers, IReadOnlyList<int> outlines)
     {
         Part4 = part4; Part6 = part6; Part7 = part7; Part8 = part8; Part9 = part9;
-        Pages = pages; PageUsers = pageUsers; Outlines = outlines; OutlinesInFirstPage = outlinesInFirstPage;
+        Pages = pages; PageUsers = pageUsers; Outlines = outlines;
     }
 
     internal IReadOnlyList<int> Part4 { get; private set; }
@@ -33,7 +32,6 @@ internal sealed class ClassifiedGraph : IDisposable
     internal IReadOnlyList<int> Pages { get; private set; }
     internal IReadOnlyList<IReadOnlyCollection<int>> PageUsers { get; private set; }
     internal IReadOnlyList<int> Outlines { get; private set; }
-    internal bool OutlinesInFirstPage { get; }
 
     public void Dispose()
     {
@@ -66,7 +64,6 @@ internal sealed class StreamedParts : IDisposable
         IReadOnlyList<int> pages,
         IReadOnlyList<IReadOnlyCollection<int>> pageUsers,
         IReadOnlyList<int> outlines,
-        bool outlinesInFirstPage,
         bool outlinesDirect,
         GovernedIntDictionary<int> renumber,
         GovernedIntDictionary<(int Container, int Index)> members,
@@ -90,7 +87,6 @@ internal sealed class StreamedParts : IDisposable
         Pages = pages;
         PageUsers = pageUsers;
         Outlines = outlines;
-        OutlinesInFirstPage = outlinesInFirstPage;
         OutlinesDirect = outlinesDirect;
         _renumber = renumber;
         _members = members;
@@ -123,7 +119,6 @@ internal sealed class StreamedParts : IDisposable
 
     internal IReadOnlyList<int> Outlines { get; private set; }
 
-    internal bool OutlinesInFirstPage { get; }
 
     internal bool OutlinesDirect { get; }
 
@@ -184,7 +179,6 @@ internal sealed class LinearizedParts : IDisposable
         IReadOnlyList<int> pages,
         IReadOnlyList<IReadOnlyCollection<int>> pageUsers,
         IReadOnlyList<int> outlines,
-        bool outlinesInFirstPage,
         GovernedIntDictionary<int> renumber,
         int lindictNumber,
         int hintNumber,
@@ -198,7 +192,6 @@ internal sealed class LinearizedParts : IDisposable
         Pages = pages;
         PageUsers = pageUsers;
         Outlines = outlines;
-        OutlinesInFirstPage = outlinesInFirstPage;
         _renumber = renumber;
         LindictNumber = lindictNumber;
         HintNumber = hintNumber;
@@ -221,7 +214,6 @@ internal sealed class LinearizedParts : IDisposable
 
     internal IReadOnlyList<int> Outlines { get; private set; }
 
-    internal bool OutlinesInFirstPage { get; }
 
     internal GovernedIntDictionary<int> Renumber => _renumber ?? throw new ObjectDisposedException(nameof(LinearizedParts));
 
@@ -257,7 +249,7 @@ internal sealed class LinearizedParts : IDisposable
         }
         retained.Reserve(128L);
         LinearizedParts result = new(graph.Part4, graph.Part6, graph.Part7, graph.Part8, graph.Part9,
-            graph.Pages, graph.PageUsers, graph.Outlines, graph.OutlinesInFirstPage, renumber, lindictNumber, hintNumber, lookup);
+            graph.Pages, graph.PageUsers, graph.Outlines, renumber, lindictNumber, hintNumber, lookup);
         retained.TransferTo(memory);
         return result;
     }
@@ -307,7 +299,7 @@ internal sealed class LinearizedParts : IDisposable
         }
         retained.Reserve(168L);
         StreamedParts result = new(graph.Part4, graph.Part6, graph.Part7, graph.Part8, graph.Part9,
-            graph.Pages, graph.PageUsers, graph.Outlines, graph.OutlinesInFirstPage, outlinesDirect, renumber,
+            graph.Pages, graph.PageUsers, graph.Outlines, outlinesDirect, renumber,
             members, readonlyMembers, containerSet, lindictNumber, hintNumber, xrefFirstNumber, xrefMainNumber,
             firstSize, mainSize, maxNumber, maxMemberIndex, lookup);
         retained.TransferTo(memory);
@@ -597,7 +589,7 @@ internal sealed class LinearizedParts : IDisposable
         }
 
         retained.Reserve(96L);
-        ClassifiedGraph result = new(part4, part6, part7, part8, part9, pages, closures, outlineOrder, outlinesInFirstPage);
+        ClassifiedGraph result = new(part4, part6, part7, part8, part9, pages, closures, outlineOrder);
         retained.TransferTo(memory);
         return result;
     }

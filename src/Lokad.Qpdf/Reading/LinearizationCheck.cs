@@ -240,7 +240,6 @@ internal static class LinearizationCheck
         long[] Spans,
         long FirstPageObject,
         long FirstPageEnd,
-        long DeclaredPages,
         long XrefZero,
         long FirstPage);
 
@@ -310,7 +309,7 @@ internal static class LinearizationCheck
             firstPage = firstNumber.Value;
         }
 
-        return new LindictData(spans, firstPageObject, firstPageEnd, declaredPages, xrefZero, firstPage);
+        return new LindictData(spans, firstPageObject, firstPageEnd, xrefZero, firstPage);
     }
 
     internal static LinearizationDataOwner? TryReadOwnedData(
