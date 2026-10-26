@@ -15,7 +15,7 @@ internal static class AttachmentBuilder
         for (int index = 0; index < text.Length; index++)
         {
             if ((index & 255) == 0) { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); }
-            if (text[index] > 127) { ascii = false; break; }
+            if (!PdfText.IsAsciiTextCharacter(text[index])) { ascii = false; break; }
         }
         long length = ascii ? text.Length : 2L + 2L * text.Length;
         if (length > Array.MaxLength) { throw new QpdfParseException("Attachment text exceeds supported capacity.", null, null); }

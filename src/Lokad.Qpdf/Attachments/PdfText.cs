@@ -27,6 +27,10 @@ internal static class PdfText
     internal static bool TryEncodePdfDocByte(char value, out byte encoded)
         => EncodeMap.TryGetValue(value, out encoded);
 
+    // ASCII characters whose code points are unchanged in PDFDocEncoding.
+    internal static bool IsAsciiTextCharacter(char value)
+        => value is < '\u0018' or >= ' ' and < '\u007f';
+
     // Allocation belongs to the caller: JSON import prepays its model, while
     // graph edits admit the final array through their parser scope.
     internal static int GetEncodedLength(ReadOnlySpan<char> value, ResourceGovernor governor, CancellationToken token)

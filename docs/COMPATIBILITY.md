@@ -8,10 +8,18 @@ Other required compatibility mismatches need a correction or an explicit scope d
 ## Limitations that affect callers
 
 PDF text construction uses UTF-16 when a PDFDocEncoding prefix would resemble
-a Unicode byte-order mark. JSON imports and colliding form-field renames now
-preserve leading `þÿ`, `ÿþ` and `ï»¿` text instead of losing or reinterpreting it.
+a Unicode byte-order mark. JSON imports, page-label prefixes and colliding
+form-field renames now preserve leading `þÿ`, `ÿþ` and `ï»¿` text instead of
+losing or reinterpreting it.
 Other encodings and public signatures are unchanged; affected PDF bytes and
 memory estimates change, with admission before allocation.
+
+Page-label prefixes and attachment keys, filenames and descriptions preserve
+Unicode controls whose ASCII byte positions are repurposed or undefined in
+PDFDocEncoding. These values now use UTF-16 instead of becoming accents or
+replacement characters. Ordinary ASCII, label PDFDocEncoding, attachment
+non-ASCII UTF-16 and malformed-surrogate handling retain their encoding choices.
+Affected bytes and memory estimates change; public signatures are unchanged.
 
 Form checking uses the configured nesting ceiling instead of silently stopping
 at depth 32. Deeper supported hierarchies now receive the same parent-link checks;

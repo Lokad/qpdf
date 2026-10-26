@@ -76,27 +76,18 @@ internal static class PageLabelStorage
 
     private static PdfByteString Prefix(OwnedAllocationBatch graph, string prefix)
     {
-        bool ascii = true, pdfDoc = true;
+        bool ascii = true;
         for (int offset = 0; offset < prefix.Length;)
         {
             int count = Math.Min(256, prefix.Length - offset); Step(graph);
             for (int i = offset; i < offset + count; i++)
             {
-                ascii &= prefix[i] < 128;
+                ascii &= Attachments.PdfText.IsAsciiTextCharacter(prefix[i]);
             }
             offset += count;
         }
-        if (!ascii)
-        {
-            for (int offset = 0; offset < prefix.Length && pdfDoc;)
-            {
-                int count = Math.Min(256, prefix.Length - offset); Step(graph);
-                for (int i = offset; i < offset + count; i++)
-                { if (!Attachments.PdfText.TryEncodePdfDocByte(prefix[i], out _)) { pdfDoc = false; break; } }
-                offset += count;
-            }
-        }
-        int length = ascii || pdfDoc ? prefix.Length : checked(2 + prefix.Length * 2);
+        int length = ascii ? prefix.Length : Attachments.PdfText.GetEncodedLength(prefix, graph.Governor, graph.Token);
+        bool pdfDoc = length == prefix.Length;
         long bytes = checked(32L + length); graph.Memory.Reserve(bytes);
         byte[] encoded = new byte[length]; graph.Add(bytes);
         if (!ascii && !pdfDoc) { encoded[0] = 0xfe; encoded[1] = 0xff; }
