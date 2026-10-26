@@ -17,7 +17,6 @@ internal static class DocumentCheck
     private const int MaxObjectFailures = 16;
     private const int MaxStreamFailures = 8;
     private const int MaxFormWarnings = 8;
-    private const int MaxFormDepth = 32;
 
     internal static List<QpdfCheckOutcome> Run(
         QpdfDocument document,
@@ -588,9 +587,11 @@ internal static class DocumentCheck
         FormCheckState state,
         CancellationToken cancellationToken)
     {
-        if (depth > MaxFormDepth)
+        cancellationToken.ThrowIfCancellationRequested();
+        governor.CheckCancellation();
+        if (depth > governor.MaxNestingDepth)
         {
-            return;
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, governor.MaxNestingDepth);
         }
 
         if (nodeId.HasValue && !state.Visit(nodeId.Value, cancellationToken))
@@ -598,8 +599,6 @@ internal static class DocumentCheck
             return;
         }
 
-        cancellationToken.ThrowIfCancellationRequested();
-        governor.CheckCancellation();
         state.Nodes += 1;
         if (nodeId.HasValue && IsCheckWidget(node, governor, cancellationToken))
         {

@@ -47,7 +47,7 @@ public sealed record QpdfLimits
     /// <summary>Managed nesting ceiling for public budgets and invocation overrides.</summary>
     internal const long ParserNestingCeiling = 499L;
 
-    /// <summary>Maximum nesting depth for arrays, dictionaries, and page-tree recursion, within 1..499.</summary>
+    /// <summary>Maximum nesting depth for arrays, dictionaries, page trees and form checking, within 1..499.</summary>
     public long MaxNestingDepth { get; init; } = 256L;
 
     /// <summary>Maximum stream filters decoded per stream; over-limit streams stay opaque.</summary>

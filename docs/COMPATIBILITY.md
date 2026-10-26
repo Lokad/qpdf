@@ -7,6 +7,12 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Form checking uses the configured nesting ceiling instead of silently stopping
+at depth 32. Deeper supported hierarchies now receive the same parent-link checks;
+exceeding the ceiling produces an explicit failed budget outcome and stops later
+inspections. Existing warn-only structural findings, cycle/alias guards and
+unresolvable-branch handling remain. Public signatures are unchanged.
+
 Page-content checking now fails malformed content collections and actual decode
 errors instead of marking unexamined content passed. Unavailable or partially
 inspected content reports a skipped stage; intentional decode-level exclusions
