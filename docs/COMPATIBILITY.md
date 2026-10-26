@@ -7,6 +7,12 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Overlay and underlay placement normalize accepted signed 64-bit rotations before
+inverting them. Large negative values equivalent to a cardinal angle now produce
+the same transform as that angle instead of silently overflowing to identity.
+This follows managed rotation normalization; native qpdf warns and clamps large
+destination integers to its 32-bit range. Public signatures are unchanged.
+
 PDF text construction uses UTF-16 when a PDFDocEncoding prefix would resemble
 a Unicode byte-order mark. JSON imports, page-label prefixes and colliding
 form-field renames now preserve leading `þÿ`, `ÿþ` and `ï»¿` text instead of

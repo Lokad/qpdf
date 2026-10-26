@@ -881,7 +881,7 @@ internal static class Overlays
         double width = box[2] - box[0];
         double height = box[3] - box[1];
         double scale = unit;
-        long angle = rotate;
+        long angle = rotate % 360L;
         if (invert)
         {
             if (scale == 0.0)
@@ -890,10 +890,9 @@ internal static class Overlays
             }
 
             scale = 1.0 / scale;
-            angle = 360L - angle;
+            angle = -angle;
         }
 
-        angle %= 360L;
         if (angle < 0L)
         {
             angle += 360L;

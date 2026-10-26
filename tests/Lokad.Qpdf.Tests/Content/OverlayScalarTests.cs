@@ -95,4 +95,28 @@ public sealed class OverlayScalarTests
         var indirect = await Run("argv", "overlay", source, property, scalar, false, true);
         Assert.Equal(direct.Base, indirect.Base); Assert.Equal(direct.Stamp, indirect.Stamp); Assert.Equal(direct.Program, indirect.Program);
     }
+
+    public static IEnumerable<object[]> RotationCases()
+    {
+        foreach (string route in new[] { "argv", "job" })
+        foreach (string mode in new[] { "overlay", "underlay" })
+        foreach (bool source in new[] { false, true })
+        foreach (bool inherited in new[] { false, true })
+        foreach ((string angle, string equivalent) in new[]
+        {
+            ("-9223372036854775800", "0"), ("-9223372036854775710", "90"),
+            ("-9223372036854775620", "180"), ("-9223372036854775530", "270"),
+            ("9223372036854775620", "180"), ("-90", "270"), ("-360", "0"),
+        }) { yield return [route, mode, source, inherited, angle, equivalent]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(RotationCases))]
+    public async Task EquivalentRotationsKeepPlacementAcrossSigned64BitValues(
+        string route, string mode, bool source, bool inherited, string angle, string equivalent)
+    {
+        var control = await Run(route, mode, source, "Rotate", equivalent, inherited, inherited);
+        var actual = await Run(route, mode, source, "Rotate", angle, inherited, inherited);
+        Assert.Equal(control.Base, actual.Base); Assert.Equal(control.Stamp, actual.Stamp); Assert.Equal(control.Program, actual.Program);
+    }
 }
