@@ -1,10 +1,21 @@
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Runtime;
 
 /// <summary>Borrowed name lookup with explicit cancellation and no execution state in PDF values.</summary>
 internal static class PdfDictionaryLookup
 {
+    internal static bool HasName(PdfDictionary dictionary, ReadOnlySpan<byte> key, ReadOnlySpan<byte> expected,
+        IIndirectResolver resolver, ResourceGovernor governor, CancellationToken token)
+    {
+        if (!TryGet(dictionary, key, governor, token, out QpdfObject raw)) { return false; }
+        QpdfObject? value = raw;
+        if (raw is PdfReference reference && !PdfObjectLookup.TryResolve(reference, resolver, governor, token, out value))
+        { return false; }
+        return value is PdfName name && NameEquals(name, expected, governor, token);
+    }
+
     internal static bool TryGet(PdfDictionary dictionary, ReadOnlySpan<byte> key,
         ResourceGovernor governor, CancellationToken token, out QpdfObject value)
         => Lookup(dictionary, key, governor, token, null, out value);

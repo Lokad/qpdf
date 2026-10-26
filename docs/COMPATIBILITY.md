@@ -14,6 +14,12 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Page-image JSON and `--show-pages --with-images` resolve indirect `/Subtype`
+names before identifying images. Valid indirect `/Image` names now appear in
+both reports; missing, stale or unusable subtype values remain excluded. Lookup
+uses the reader's resolution bounds and independent cancellation checks. Public
+signatures are unchanged.
+
 Outline JSON validates the effective generation of destination page references.
 Missing, freed or stale references now produce a null first destination element
 and no page association instead of targeting a live page with the same number.

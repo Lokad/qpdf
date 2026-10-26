@@ -2324,7 +2324,7 @@ public static partial class Qpdf
                 continue;
             }
 
-            if (!stream.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject subtype) || subtype is not PdfName subtypeName || !subtypeName.RawSpan.SequenceEqual("Image"u8))
+            if (!PdfDictionaryLookup.HasName(stream.Dictionary, "Subtype"u8, "Image"u8, engine, governor, cancellationToken))
             {
                 continue;
             }
