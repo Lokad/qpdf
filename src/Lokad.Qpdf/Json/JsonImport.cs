@@ -139,17 +139,15 @@ internal static partial class JsonImport
 
         memory.CheckOwner(governor);
         JsonImportMemory.AdmitModel(memory, qpdf, governor, cancellationToken);
-        PdfVersion header = ReadHeaderVersion(qpdf[0], true, governor);
+        PdfVersion header = ReadHeaderVersion(qpdf[0], governor);
         Dictionary<int, QpdfObject> objects = new(qpdf[1].GetPropertyCount());
         PdfDictionary? trailer = null;
-        bool sawTrailer = false;
         foreach (JsonProperty property in qpdf[1].EnumerateObject())
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
             if (property.Name == "trailer")
             {
-                sawTrailer = true;
                 trailer = ReadTrailer(property.Value, governor, memory, cancellationToken);
                 continue;
             }
@@ -160,15 +158,15 @@ internal static partial class JsonImport
                 throw new QpdfParseException("qpdf JSON object must be a dictionary.", 0L, null);
             }
 
-            objects[number] = await ReadObjectAsync(host, property.Value, true, false, null, limits, governor, memory, cancellationToken).ConfigureAwait(false);
+            objects[number] = await ReadObjectAsync(host, property.Value, null, limits, governor, memory, cancellationToken).ConfigureAwait(false);
         }
 
-        if (!sawTrailer)
+        if (trailer is null)
         {
             throw new QpdfParseException("qpdf JSON trailer was not seen.", 0L, null);
         }
 
-        return new ImportedModel(header, objects, trailer ?? new PdfDictionary(new Dictionary<PdfName, QpdfObject>()));
+        return new ImportedModel(header, objects, trailer);
     }
 
     internal static async ValueTask<ImportedModel> BuildUpdateModelAsync(
@@ -267,9 +265,8 @@ internal static partial class JsonImport
                 throw new QpdfParseException("qpdf JSON object must be a dictionary.", 0L, null);
             }
 
-            bool existingIsStream = merged.TryGetValue(number, out QpdfObject? existing) && existing is PdfStream;
-            PdfStream? existingStream = existing as PdfStream;
-            merged[number] = await ReadObjectAsync(host, property.Value, false, existingIsStream, existingStream, limits, governor, memory, cancellationToken).ConfigureAwait(false);
+            merged.TryGetValue(number, out QpdfObject? existing);
+            merged[number] = await ReadObjectAsync(host, property.Value, existing as PdfStream, limits, governor, memory, cancellationToken).ConfigureAwait(false);
         }
 
         return new ImportedModel(updateVersion ?? pdf.HeaderVersion, merged, trailer);
@@ -338,7 +335,7 @@ internal static partial class JsonImport
         return version;
     }
 
-    internal static PdfVersion ReadHeaderVersion(JsonElement meta, bool required, ResourceGovernor governor)
+    private static PdfVersion ReadHeaderVersion(JsonElement meta, ResourceGovernor governor)
     {
         if (meta.ValueKind != JsonValueKind.Object)
         {
@@ -346,7 +343,6 @@ internal static partial class JsonImport
         }
 
         bool sawJsonVersion = false;
-        bool sawPdfVersion = false;
         PdfVersion? header = null;
         foreach (JsonProperty property in meta.EnumerateObject())
         {
@@ -364,7 +360,6 @@ internal static partial class JsonImport
 
             if (property.Name == "pdfversion")
             {
-                sawPdfVersion = true;
                 if (property.Value.ValueKind != JsonValueKind.String || property.Value.GetString() is not string text)
                 {
                     throw new QpdfParseException("qpdf JSON pdfversion must be a string.", 0L, null);
@@ -390,12 +385,12 @@ internal static partial class JsonImport
             throw new QpdfParseException("qpdf JSON jsonversion was not seen.", 0L, null);
         }
 
-        if (required && !sawPdfVersion)
+        if (header is null)
         {
             throw new QpdfParseException("qpdf JSON pdfversion was not seen.", 0L, null);
         }
 
-        return header ?? governor.OwnVersion(1, 4);
+        return header;
     }
 
     internal static PdfVersion ParsePdfVersion(string text, ResourceGovernor governor)
@@ -467,15 +462,12 @@ internal static partial class JsonImport
             throw new QpdfParseException("qpdf JSON object must be a dictionary.", 0L, null);
         }
 
-        bool sawValue = false;
-        bool sawStream = false;
-        PdfDictionary trailer = new(new Dictionary<PdfName, QpdfObject>());
+        PdfDictionary? trailer = null;
         foreach (JsonProperty property in value.EnumerateObject())
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (property.Name == "value")
             {
-                sawValue = true;
                 QpdfObject decoded = DecodeValue(property.Value, 0, governor, memory, token);
                 if (decoded is not PdfDictionary dictionary)
                 {
@@ -488,12 +480,11 @@ internal static partial class JsonImport
 
             if (property.Name == "stream")
             {
-                sawStream = true;
                 throw new QpdfParseException("qpdf JSON trailer may not be a stream.", 0L, null);
             }
         }
 
-        if (!sawValue || sawStream)
+        if (trailer is null)
         {
             throw new QpdfParseException("qpdf JSON trailer is missing value.", 0L, null);
         }
@@ -504,8 +495,6 @@ internal static partial class JsonImport
     private static async ValueTask<QpdfObject> ReadObjectAsync(
         IQpdfHost host,
         JsonElement value,
-        bool requireComplete,
-        bool existingIsStream,
         PdfStream? existingStream,
         QpdfLimits limits,
         ResourceGovernor governor,
@@ -515,9 +504,7 @@ internal static partial class JsonImport
         bool sawValue = false;
         bool sawStream = false;
         QpdfObject? result = null;
-        QpdfObject? streamDict = null;
-        bool sawData = false;
-        bool sawDatafile = false;
+        PdfDictionary? streamDict = null;
         string? datafile = null;
         byte[]? inlineData = null;
         foreach (JsonProperty property in value.EnumerateObject())
@@ -563,7 +550,6 @@ internal static partial class JsonImport
 
                     if (inner.Name == "data")
                     {
-                        sawData = true;
                         if (inner.Value.ValueKind != JsonValueKind.String || inner.Value.GetString() is not string text)
                         {
                             throw new QpdfParseException("qpdf JSON stream data must be a string.", 0L, null);
@@ -578,7 +564,6 @@ internal static partial class JsonImport
 
                     if (inner.Name == "datafile")
                     {
-                        sawDatafile = true;
                         if (inner.Value.ValueKind != JsonValueKind.String || inner.Value.GetString() is not string name)
                         {
                             throw new QpdfParseException("qpdf JSON stream datafile must be a string containing a file name.", 0L, null);
@@ -605,34 +590,27 @@ internal static partial class JsonImport
                 throw new QpdfParseException("qpdf JSON stream is missing dict.", 0L, null);
             }
 
-            bool needsData = requireComplete || !existingIsStream;
-            if ((sawData && sawDatafile) || (needsData && sawData == sawDatafile))
+            if (inlineData is not null && datafile is not null)
             {
-                if (needsData)
-                {
-                    throw new QpdfParseException("qpdf JSON new stream must have exactly one of data or datafile.", 0L, null);
-                }
-
-                throw new QpdfParseException("qpdf JSON stream may have at most one of data or datafile.", 0L, null);
+                throw new QpdfParseException(existingStream is null
+                    ? "qpdf JSON new stream must have exactly one of data or datafile."
+                    : "qpdf JSON stream may have at most one of data or datafile.", 0L, null);
             }
 
-            byte[] data;
-            if (sawData)
+            if (inlineData is not null)
             {
-                data = inlineData ?? [];
+                return PdfStream.FromOwnedData(streamDict, inlineData);
             }
-            else if (sawDatafile)
+            if (datafile is not null)
             {
-                data = await ReadSidecarAsync(host, datafile ?? throw new QpdfParseException("qpdf JSON stream datafile must be a string containing a file name.", 0L, null), limits, governor, memory, cancellationToken).ConfigureAwait(false);
+                byte[] data = await ReadSidecarAsync(host, datafile, limits, governor, memory, cancellationToken).ConfigureAwait(false);
+                return PdfStream.FromOwnedData(streamDict, data);
             }
-            else
+            if (existingStream is not null)
             {
-                return existingStream is null
-                    ? PdfStream.FromOwnedData((PdfDictionary)streamDict, [])
-                    : existingStream.WithDictionary((PdfDictionary)streamDict);
+                return existingStream.WithDictionary(streamDict);
             }
-
-            return PdfStream.FromOwnedData((PdfDictionary)streamDict, data);
+            throw new QpdfParseException("qpdf JSON new stream must have exactly one of data or datafile.", 0L, null);
         }
 
         return result ?? PdfNull.Instance;
