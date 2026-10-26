@@ -2,7 +2,9 @@
 
 Page selection admits known page/source list capacities once under existing
 construction owners, with coarse shared-budget growth. Expanded ranges and
-previews receive admission and cancellation checks. Each source reuses one
+previews receive admission and cancellation checks. Included ranges grow one
+result list; exclusions test intervals and position filters compact that list
+without materialized spans, exclusion sets or a second result. Each source reuses one
 kept-page snapshot; multisource range/snapshot scratch refunds when that source
 finishes. Preservation reuses its cycle set instead of allocating one per page.
 Copied graph pool tables and page-child backing stay funded through publication.

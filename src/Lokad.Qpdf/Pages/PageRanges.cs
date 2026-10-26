@@ -61,9 +61,9 @@ internal static class PageRanges
             }
 
             List<int> all = ParserContainers.CreateList<int>(memory);
-            for (int page = 1; page <= total; page++)
+            for (int index = 0; index < total; index++)
             {
-                AddMember(all, page, governor, memory);
+                AddMember(all, index + 1, governor, memory);
             }
 
             return all;
@@ -82,33 +82,27 @@ internal static class PageRanges
         List<int> selected = ParserContainers.CreateList<int>(memory);
         foreach (Group group in groups)
         {
-            List<int> members = ExpandGroup(group, range, total, maxEntries, selected.Count, governor, memory);
+            int first = ResolveEndpoint(group.First, range, total);
+            int last = group.Last is null ? first : ResolveEndpoint(group.Last, range, total);
             if (!group.Exclude)
             {
-                foreach (int page in members)
+                long span = Math.Abs((long)last - first) + 1L;
+                if (span > maxEntries - selected.Count)
                 {
-                    if ((long)selected.Count >= maxEntries)
-                    {
-                        throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), (long)selected.Count + 1L, maxEntries);
-                    }
-
-                    AddMember(selected, page, governor, memory);
+                    throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), span, maxEntries);
                 }
-
+                int direction = first <= last ? 1 : -1;
+                for (int index = 0; index < span; index++)
+                { AddMember(selected, first + direction * index, governor, memory); }
                 continue;
             }
 
-            HashSet<int> excluded = ParserContainers.CreateSet<int>(memory);
-            foreach (int member in members)
-            {
-                governor.NoteOperation();
-                ParserContainers.AddSetItem(memory, excluded, member, sizeof(int));
-            }
+            int lower = Math.Min(first, last), upper = Math.Max(first, last);
             int kept = 0;
             for (int i = 0; i < selected.Count; i++)
             {
                 governor.NoteOperation();
-                if (excluded.Contains(selected[i]))
+                if (selected[i] >= lower && selected[i] <= upper)
                 {
                     continue;
                 }
@@ -125,18 +119,19 @@ internal static class PageRanges
             return selected;
         }
 
-        List<int> filtered = ParserContainers.CreateList<int>(memory);
+        int filtered = 0;
         for (int i = 0; i < selected.Count; i++)
         {
             governor.NoteOperation();
             bool oddPosition = (i % 2) == 0;
             if (oddPosition == oddOnly)
             {
-                AddMember(filtered, selected[i], governor, memory);
+                selected[filtered++] = selected[i];
             }
         }
 
-        return filtered;
+        selected.RemoveRange(filtered, selected.Count - filtered);
+        return selected;
     }
 
     private static (List<Group> Groups, bool OddOnly, bool EvenOnly) Parse(string range)
@@ -272,55 +267,6 @@ internal static class PageRanges
     {
         governor.NoteOperation();
         ParserContainers.AddItem(memory, items, value, sizeof(int));
-    }
-
-    private static List<int> ExpandGroup(Group group, string range, int total, long maxEntries, int selectedCount,
-        ResourceGovernor governor, ParserMemoryScope memory)
-    {
-        int first = ResolveEndpoint(group.First, range, total);
-        if (group.Last is null)
-        {
-            List<int> single = ParserContainers.CreateList<int>(memory);
-            AddMember(single, first, governor, memory);
-            return single;
-        }
-
-        int last = ResolveEndpoint(group.Last, range, total);
-        long span = first <= last ? (long)last - first + 1L : (long)first - last + 1L;
-        // Admit before allocating: an included span cannot exceed the remaining entry budget,
-        // and an exclusion span cannot exceed the total selectable budget without materializing
-        // an unbounded intermediate.
-        long admission;
-        if (group.Exclude)
-        {
-            admission = maxEntries >= (9223372036854775807L - selectedCount) ? 9223372036854775807L : maxEntries + selectedCount;
-        }
-        else
-        {
-            admission = maxEntries < selectedCount ? 0L : maxEntries - selectedCount;
-        }
-        if (span > admission)
-        {
-            throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), span, maxEntries);
-        }
-
-        List<int> members = ParserContainers.CreateList<int>(memory);
-        if (first <= last)
-        {
-            for (int page = first; page <= last; page++)
-            {
-                AddMember(members, page, governor, memory);
-            }
-        }
-        else
-        {
-            for (int page = first; page >= last; page--)
-            {
-                AddMember(members, page, governor, memory);
-            }
-        }
-
-        return members;
     }
 
     private static int ResolveEndpoint(Endpoint endpoint, string range, int total)

@@ -92,6 +92,14 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Page ranges append inclusions into one admitted list, remove excluded intervals
+by testing selected members, and compact odd/even positions in place. Full-span
+scratch lists, exclusion hash sets and a second filtered result are removed.
+Excluded endpoints still validate, but exclusion width no longer consumes the
+selected-entry ceiling; intermediate included selections remain bounded. Tight
+jobs can now fit with less memory. Grammar, ordering/duplicates, cancellation,
+public signatures and output bytes are unchanged.
+
 QDF repair accepts carriage-return bytes in stream payloads and binary cross
 references, preserving them through length/offset repair and repeated repair.
 Previously a blanket scan rejected valid binary QDF, including the writer's own
