@@ -32,6 +32,9 @@ internal static class PdfText
     internal static int GetEncodedLength(ReadOnlySpan<char> value, ResourceGovernor governor, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        // These PDFDocEncoding bytes would be read as a Unicode encoding marker.
+        if (value.StartsWith("þÿ") || value.StartsWith("ÿþ") || value.StartsWith("ï»¿"))
+        { return checked(2 + value.Length * 2); }
         for (int i = 0; i < value.Length; i++)
         {
             if ((i & 255) == 0) { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); }

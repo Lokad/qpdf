@@ -81,6 +81,9 @@ public sealed class FormMergeStorageTests
     [InlineData("ASCII")]
     [InlineData("Euro\u20ac")]
     [InlineData("Unicode\u2000\ud83d\ude00")]
+    [InlineData("þÿA")]
+    [InlineData("ÿþA")]
+    [InlineData("ï»¿A")]
     [InlineData("")]
     public void RenamedTextKeepsEncodingSemanticsAndEscapesThePhase(string name)
     {

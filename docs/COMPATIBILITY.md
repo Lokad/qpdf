@@ -7,6 +7,12 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+PDF text construction uses UTF-16 when a PDFDocEncoding prefix would resemble
+a Unicode byte-order mark. JSON imports and colliding form-field renames now
+preserve leading `þÿ`, `ÿþ` and `ï»¿` text instead of losing or reinterpreting it.
+Other encodings and public signatures are unchanged; affected PDF bytes and
+memory estimates change, with admission before allocation.
+
 Form checking uses the configured nesting ceiling instead of silently stopping
 at depth 32. Deeper supported hierarchies now receive the same parent-link checks;
 exceeding the ceiling produces an explicit failed budget outcome and stops later
