@@ -56,11 +56,6 @@ internal sealed class PoolResolver : IIndirectResolver
 /// </summary>
 internal static class ContentTransforms
 {
-    private static readonly string[] ResourceOperators =
-    [
-        "CS", "cs", "gs", "Tf", "SCN", "scn", "BDC", "DP", "sh", "Do",
-    ];
-
     internal static void ApplyPageTransforms(
         GraphCopier copier,
         IReadOnlyList<int> pageIds,
