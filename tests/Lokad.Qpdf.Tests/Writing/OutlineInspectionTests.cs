@@ -108,23 +108,32 @@ public sealed class OutlineInspectionTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task RefusalAndCancellationRefundInspectionScratch(bool canceled)
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, false)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, true)]
+    public async Task RefusalAndCancellationRefundInspectionScratch(bool canceled, bool indirect, bool governorToken)
     {
-        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), Fixture("<< /Title (" + new string('A', 1048576) + ") >>"), QpdfInputOwnership.Transfer);
+        string title = "(" + new string('A', 1048576) + ")";
+        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"),
+            Fixture("<< /Title " + (indirect ? "6 0 R" : title) + " >>", indirect ? title : "null"), QpdfInputOwnership.Transfer);
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input"), CancellationToken.None);
         document.GetObject(4); document.GetObject(5);
+        if (indirect) { document.GetObject(6); }
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 4096 };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        using CancellationTokenSource cancellation = new();
+        ResourceGovernor governor = new(limits, governorToken ? cancellation.Token : CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(71L);
         long baseline = governor.Snapshot().LiveMemoryBytes;
+        if (canceled) { cancellation.Cancel(); }
         JsonRequest request = new(2, ["outlines"], "none", "none", null, null, false);
         void Inspect()
         {
             using PreparedJsonOutput output = PreparedJsonOutput.Create(governor);
             using DisplayBuffer text = DocumentJson.WriteDocument(document, request, output, limits, governor, new(governor),
-                canceled ? new CancellationToken(true) : CancellationToken.None);
+                canceled && !governorToken ? cancellation.Token : CancellationToken.None);
         }
         long allocated = GC.GetAllocatedBytesForCurrentThread();
         if (canceled) { Assert.ThrowsAny<OperationCanceledException>(Inspect); }

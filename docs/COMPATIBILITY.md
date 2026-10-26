@@ -7,6 +7,11 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Outline JSON resolves indirect `/Title` and `/Count` values before interpreting
+them. Titles and closed-branch state now match direct values in both JSON versions
+and all entry points. Missing or unusable optional values retain their defaults;
+decoding admission and cancellation remain binding. Public signatures are unchanged.
+
 Overlay and underlay placement normalize accepted signed 64-bit rotations before
 inverting them. Large negative values equivalent to a cardinal angle now produce
 the same transform as that angle instead of silently overflowing to identity.

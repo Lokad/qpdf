@@ -436,7 +436,8 @@ internal static class DocumentJson
 
         governor.NoteOperation();
         string title = string.Empty;
-        if (outline.TryGet(PdfName.FromAscii("Title"), out QpdfObject? titleRaw) && titleRaw is PdfByteString titleText)
+        if (outline.TryGet(PdfName.FromAscii("Title"), out QpdfObject? titleRaw)
+            && EmbeddedFiles.ResolveOptionalValue(engine, titleRaw, governor, cancellationToken) is PdfByteString titleText)
         {
             title = PdfText.Decode(titleText.ValueMemory, memory, governor, cancellationToken);
         }
@@ -459,7 +460,8 @@ internal static class DocumentJson
         }
 
         bool open = true;
-        if (outline.TryGet(PdfName.FromAscii("Count"), out QpdfObject? countRaw) && countRaw is PdfInteger count && count.Value < 0L)
+        if (outline.TryGet(PdfName.FromAscii("Count"), out QpdfObject? countRaw)
+            && EmbeddedFiles.ResolveOptionalValue(engine, countRaw, governor, cancellationToken) is PdfInteger count && count.Value < 0L)
         {
             open = false;
         }
