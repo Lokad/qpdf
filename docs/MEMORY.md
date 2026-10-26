@@ -161,7 +161,7 @@ They preserve charges belonging to earlier caller-owned results.
 
 QDF and zlib companions keep their input and codec buffers under one working
 owner through awaited publication and cleanup. QDF repair admits collection
-capacity, buffered member lines and numeric-table formatting overlap before
+capacity, member-line offset/length indexes and numeric-table formatting overlap before
 allocation. Private working charges end before returning the command result.
 An output write borrows library storage through completion; a host retaining
 that backing afterward must keep it immutable and fund its retained capacity

@@ -90,6 +90,13 @@ at the supported width. Cancellation at numeric-table admission now stops before
 materialization; previously it could allocate the complete table before noticing.
 There is no fuel accounting or extra per-byte memory admission.
 
+QDF repair indexes object-stream lines by admitted offsets and lengths into its
+owned immutable input instead of copying each line. Input ownership lasts through
+awaited output and cleanup; hosts retaining backing after a write own its funding.
+Unused member-number storage, line counters and the copy helper are removed;
+sequential IDs, comment offsets and byte-offset failures remain. Working memory
+estimates are lower; output bytes and public signatures are unchanged.
+
 Optional predictor parameters use their defaults when their resolved PDF value
 is null, just as when the dictionary key is absent. This applies to Predictor,
 Columns, Colors and BitsPerComponent for Flate and LZW. Previously these valid

@@ -114,6 +114,11 @@ after commit does not undo publication. The host defines its transaction semanti
 
 ## Limits and cancellation
 
+QDF repair keeps one immutable input and indexes object-stream lines by offsets
+and lengths. Descriptor growth and numeric formatting receive coarse admission;
+byte/record scans and output awaits check both cancellation routes. Outer syntax
+requires LF endings while binary payloads and cross-reference bytes stay opaque.
+
 [QpdfLimits](src/Lokad.Qpdf/Public/QpdfLimits.cs) bounds input/output bytes, decoded
 data, estimated memory, host operations, handles, diagnostics and nesting. Invocation options
 can tighten host policy but cannot raise explicit host ceilings. Nesting budgets,

@@ -71,7 +71,6 @@ internal sealed class QdfRepair
 
     private byte[] _input = [];
     private int _cursor;
-    private int _lineNumber;
     private long _outputLength;
     private RepairState _state;
     private int _lastObject;
@@ -83,9 +82,8 @@ internal sealed class QdfRepair
     private int _xrefField2;
     private int _containerId;
     private int _memberIndex;
-    private readonly List<byte[]> _memberLines = new();
+    private readonly List<(int Start, int Length)> _memberLines = new();
     private readonly List<int> _commentAt = new();
-    private readonly List<int> _memberNumbers = new();
     private byte[]? _extendsReference;
 
     private readonly ParserMemoryScope _memory;
@@ -93,7 +91,7 @@ internal sealed class QdfRepair
     internal static QdfRepair Create(ResourceGovernor governor, IByteSink sink, ParserMemoryScope memory)
     {
         memory.CheckOwner(governor);
-        memory.Reserve(384L);
+        memory.Reserve(256L);
         return new QdfRepair(governor, sink, memory);
     }
 
@@ -114,21 +112,18 @@ internal sealed class QdfRepair
         CheckCancellation(cancellationToken);
         _input = input;
         _cursor = 0;
-        _lineNumber = 0;
         _outputLength = 0L;
         _state = RepairState.Top;
         _lastObject = 0;
         _entries.Clear();
         _memberLines.Clear();
         _commentAt.Clear();
-        _memberNumbers.Clear();
         _extendsReference = null;
 
         while (_cursor < _input.Length && _state != RepairState.Done)
         {
             CheckCancellation(cancellationToken);
             _governor.NoteOperation();
-            _lineNumber = checked(_lineNumber + 1);
             int start = _cursor;
             int end = start;
             bool streamData = _state is RepairState.InStream or RepairState.InObjectStreamOffsets
@@ -221,7 +216,6 @@ internal sealed class QdfRepair
                 if (terminated && MatchesMember(start, length, cancellationToken, out int member))
                 {
                     CheckObjectId(member, start, _outputLength);
-                    GovernedCollections.AddItem(_memory, _governor, _memberNumbers, member, sizeof(int));
                     GovernedCollections.AddItem(_memory, _governor, _commentAt, _memberLines.Count, sizeof(int));
                     BufferMemberLine(start, length);
                     _state = RepairState.InObjectStreamOuter;
@@ -246,7 +240,6 @@ internal sealed class QdfRepair
                     if (terminated && MatchesMember(start, length, cancellationToken, out int next))
                     {
                         CheckObjectId(next, start, _outputLength);
-                        GovernedCollections.AddItem(_memory, _governor, _memberNumbers, next, sizeof(int));
                         GovernedCollections.AddItem(_memory, _governor, _commentAt, _memberLines.Count - 1, sizeof(int));
                         _state = RepairState.InObjectStreamOuter;
                     }
@@ -313,7 +306,6 @@ internal sealed class QdfRepair
             _memberIndex = 0;
             _memberLines.Clear();
             _commentAt.Clear();
-            _memberNumbers.Clear();
             _extendsReference = null;
         }
         else if (ContainsToken(start, length, XrefMarker, cancellationToken))
@@ -376,14 +368,10 @@ internal sealed class QdfRepair
         await AppendTextAsync(">>\n", cancellationToken).ConfigureAwait(false);
         await AppendTextAsync("stream\n", cancellationToken).ConfigureAwait(false);
         await AppendBytesAsync(tableBytes, cancellationToken).ConfigureAwait(false);
-        long buffered = 0L;
-        foreach (byte[] line in _memberLines)
+        foreach ((int Start, int Length) line in _memberLines)
         {
-            buffered = checked(buffered + line.Length + 32L);
-            await AppendBytesAsync(line, cancellationToken).ConfigureAwait(false);
+            await AppendRawAsync(line.Start, line.Length, cancellationToken).ConfigureAwait(false);
         }
-
-        _memory.Release(buffered);
         if (_extendsReference is not null)
         {
             _memory.Release(checked(32L + _extendsReference.Length));
@@ -392,7 +380,6 @@ internal sealed class QdfRepair
 
         _memberLines.Clear();
         _commentAt.Clear();
-        _memberNumbers.Clear();
     }
 
     private int BlockEnd(int member)
@@ -602,16 +589,9 @@ internal sealed class QdfRepair
 
     private void BufferMemberLine(int start, int length)
     {
-        _memory.Reserve(checked(32L + length));
-        byte[] copy = Slice(start, length);
-        GovernedCollections.AddItem(_memory, _governor, _memberLines, copy, IntPtr.Size);
-    }
-
-    private byte[] Slice(int start, int length)
-    {
-        byte[] copy = new byte[length];
-        Buffer.BlockCopy(_input, start, copy, 0, length);
-        return copy;
+        // The complete immutable input remains owned through awaited output.
+        // Only the offset/length index needs separate capacity admission.
+        GovernedCollections.AddItem(_memory, _governor, _memberLines, (start, length), 2L * sizeof(int));
     }
 
     private async ValueTask AppendRawAsync(int start, int length, CancellationToken cancellationToken)
