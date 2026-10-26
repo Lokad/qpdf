@@ -3408,7 +3408,7 @@
           "NestedJobTests.NestedFilesShareTheChecker",
           "NestedJobTests.OuterJobCompletesPartialChildAndRepeatsEmptyFlag",
           "NestedJobTests.PlainJobUsesTheWholeFileWriter",
-          "MixedJobArgvTests.NativeConfigurationOrderAndPositionalState",
+          "MixedJobArgvTests.ConfigurationOrderAndPositionalState",
           "MixedJobArgvTests.RepeatedCompletedIncludesAreNotIdentityCycles"
         ],
         "negative": [
@@ -3426,7 +3426,7 @@
           "NestedJobTests.ScalarPrecedenceUsesNativeKeyOrder",
           "NestedJobTests.RepeatedRotationRangesReplaceAndLabelsReset",
           "NestedJobTests.DuplicateKeysWithinOneLayerUseTheLastValue",
-          "MixedJobArgvTests.NativeConfigurationOrderAndPositionalState"
+          "MixedJobArgvTests.ConfigurationOrderAndPositionalState"
         ],
         "resource": [
           "InvocationTests.JobFileYieldsToExhaustedBudget",
