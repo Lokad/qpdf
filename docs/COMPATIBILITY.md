@@ -14,6 +14,13 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+The built-in memory host observes cancellation after publication admission,
+including empty outputs. If a memory-budget callback cancels the token before
+returning an accepted receipt, commit now throws instead of replacing the prior
+target. Attachment extraction shares this behavior through typed, argv and job
+entry points. The uncommitted transaction remains available for retry or discard;
+public signatures and successful empty-output publication are unchanged.
+
 Mixed argv with `--job-json-file` now shares ordinary managed parameter parsing
 for JSON versions, split sizes, compression choices and keep-files-open hints.
 Separate JSON/split values and bare compression retain their managed grammar;

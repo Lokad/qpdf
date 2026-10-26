@@ -4,6 +4,7 @@ using Lokad.Qpdf.TestSupport;
 using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Objects;
 using System.Runtime.InteropServices;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
@@ -309,6 +310,135 @@ public sealed class CooperativeHostMemoryTests
             Assert.True(governor.Snapshot().LiveMemoryBytes < 1024L);
         }
         Assert.Equal(0L, root.ReservedBytes);
+    }
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(0, true)]
+    [InlineData(1, false)]
+    [InlineData(1, true)]
+    public async Task CancellationDuringCommitAdmissionPreservesPriorOutputAndAllowsRetry(int length, bool retry)
+    {
+        RecordingMemoryBudget root = new(1048576L);
+        using IMemoryScope storage = root.CreateScope();
+        using CancellationTokenSource cancellation = new();
+        CancelingBudget budget = new(storage, cancellation);
+        using InMemoryQpdfHost host = new(QpdfLimits.Default, null, budget);
+        await using (IQpdfOutputTransaction prior = await host.CreateOutputAsync(OutputPath, CancellationToken.None))
+        {
+            await prior.WriteAsync(new byte[] { 17, 23, 41 }, CancellationToken.None);
+            await prior.CommitAsync(CancellationToken.None);
+        }
+        long retained = root.ReservedBytes;
+        await using IQpdfOutputTransaction replacement = await host.CreateOutputAsync(OutputPath, CancellationToken.None);
+        await replacement.WriteAsync(new byte[length], CancellationToken.None);
+        long withStaging = root.ReservedBytes;
+        budget.Arm(InMemoryQpdfHost.StorageOverheadBytes + length);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => replacement.CommitAsync(cancellation.Token).AsTask());
+        Assert.True(cancellation.IsCancellationRequested);
+        Assert.Equal(withStaging, root.ReservedBytes);
+        Assert.Equal(1L, host.OpenLeaseCount);
+        using (IMemoryScope export = root.CreateScope())
+        {
+            Assert.True(host.TryGetOutput(OutputPath, export, out byte[] previous));
+            Assert.Equal(new byte[] { 17, 23, 41 }, previous);
+        }
+        if (retry)
+        {
+            await replacement.CommitAsync(CancellationToken.None);
+            using IMemoryScope export = root.CreateScope();
+            Assert.True(host.TryGetOutput(OutputPath, export, out byte[] bytes));
+            Assert.Equal(new byte[length], bytes);
+        }
+        else
+        {
+            await replacement.DiscardAsync(CancellationToken.None);
+            Assert.Equal(retained, root.ReservedBytes);
+        }
+        Assert.Equal(0L, host.OpenLeaseCount);
+        host.Dispose();
+        Assert.Equal(0L, root.ReservedBytes);
+    }
+
+    [Theory]
+    [InlineData("typed", 0, false)]
+    [InlineData("typed", 0, true)]
+    [InlineData("typed", 1, false)]
+    [InlineData("typed", 1, true)]
+    [InlineData("argv", 0, false)]
+    [InlineData("argv", 0, true)]
+    [InlineData("argv", 1, false)]
+    [InlineData("argv", 1, true)]
+    [InlineData("job", 0, false)]
+    [InlineData("job", 0, true)]
+    [InlineData("job", 1, false)]
+    [InlineData("job", 1, true)]
+    public async Task ExtractionObservesCommitAdmissionCancellation(string route, int length, bool cancel)
+    {
+        byte[] payload = new byte[length];
+        byte[] pdf = CheckTests.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 6 0 R >> >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 80 40] /Resources << >> >>", null),
+            (4, $"<< /Type /EmbeddedFile /Length {length} >>", payload),
+            (5, "<< /Type /Filespec /F (empty.bin) /EF << /F 4 0 R >> >>", null),
+            (6, "<< /Names [(empty) 5 0 R] >>", null)
+        ], 1);
+        RecordingMemoryBudget root = new(16777216L);
+        using IMemoryScope storage = root.CreateScope();
+        using IMemoryScope caller = root.CreateScope();
+        using CancellationTokenSource cancellation = new();
+        CancelingBudget budget = new(storage, cancellation);
+        using InMemoryQpdfHost host = new(QpdfLimits.Default, null, budget);
+        host.AddInput(InputPath, pdf, QpdfInputOwnership.Transfer);
+        await using (IQpdfOutputTransaction prior = await host.CreateOutputAsync(OutputPath, CancellationToken.None))
+        {
+            await prior.WriteAsync(new byte[] { 17, 23, 41 }, CancellationToken.None);
+            await prior.CommitAsync(CancellationToken.None);
+        }
+        long retained = root.ReservedBytes;
+        if (cancel) { budget.Arm(InMemoryQpdfHost.StorageOverheadBytes + length); }
+        HostView view = new(host, caller);
+        if (route == "typed")
+        {
+            if (cancel)
+            {
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Qpdf.ExtractAttachmentAsync(
+                    view, InputPath, "empty", OutputPath, cancellation.Token).AsTask());
+            }
+            else { await Qpdf.ExtractAttachmentAsync(view, InputPath, "empty", OutputPath, cancellation.Token); }
+        }
+        else
+        {
+            QpdfExecutionResult result = route == "argv"
+                ? await Qpdf.ExecuteAsync(view, new(["input", "--show-attachment=empty", "--", "output"]), cancellation.Token)
+                : await Qpdf.ExecuteJobAsync(view, """{"inputFile":"input","outputFile":"output","showAttachment":"empty"}""", cancellation.Token);
+            Assert.Equal(cancel ? QpdfExecutionStatus.Canceled : QpdfExecutionStatus.Completed, result.Status);
+        }
+        Assert.Equal(cancel, cancellation.IsCancellationRequested);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        caller.Dispose();
+        if (cancel) { Assert.Equal(retained, root.ReservedBytes); }
+        using (IMemoryScope export = root.CreateScope())
+        {
+            Assert.True(host.TryGetOutput(OutputPath, export, out byte[] bytes));
+            Assert.Equal(cancel ? new byte[] { 17, 23, 41 } : payload, bytes);
+        }
+        host.Dispose();
+        Assert.Equal(0L, root.ReservedBytes);
+    }
+
+    private sealed class CancelingBudget(IMemoryBudget inner, CancellationTokenSource cancellation) : IMemoryBudget
+    {
+        private long _bytes = -1L;
+        internal void Arm(long bytes) => Interlocked.Exchange(ref _bytes, bytes);
+        public IMemoryScope CreateScope() => inner.CreateScope();
+        public bool TryReserve(long bytes, [NotNullWhen(true)] out IMemoryReservation? reservation)
+        {
+            bool accepted = inner.TryReserve(bytes, out reservation);
+            if (accepted && Interlocked.CompareExchange(ref _bytes, -1L, bytes) == bytes) { cancellation.Cancel(); }
+            return accepted;
+        }
     }
 
     private sealed class HostView(IQpdfHost host, IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost

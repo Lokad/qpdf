@@ -89,6 +89,7 @@ public sealed partial class InMemoryQpdfHost
             IMemoryReservation? admission = borrowedAdmission ? _admission : host.ReserveStorage(length, Path);
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 byte[] bytes;
                 if (reuse) { bytes = Staging.GetBuffer(); }
                 else
