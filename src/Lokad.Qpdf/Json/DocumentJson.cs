@@ -752,7 +752,7 @@ internal static class DocumentJson
         builder.Append(",\"height\": ");
         AppendOptionalInteger(builder, ImageInteger(detail.Stream.Dictionary, "Height", engine));
         builder.Append(",\"name\": ");
-        PdfJsonWriter.AppendAsciiName(builder, detail.Name);
+        PdfJsonWriter.AppendResourceName(builder, detail.Name);
         builder.Append(",\"object\": \"");
         PdfJsonWriter.AppendReference(builder, detail.Reference.ObjectNumber, detail.Reference.Generation);
         builder.Append("\",\"width\": ");

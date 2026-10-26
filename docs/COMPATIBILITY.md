@@ -14,6 +14,13 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Page-image JSON preserves UTF-8 resource names in both versions, including
+literal delimiters; it no longer replaces non-ASCII bytes with question marks.
+Invalid UTF-8 names use the existing `n:/…` escaped byte spelling in both
+versions. This intentionally differs from native's invalid-UTF-8 JSON for those
+bytes and keeps managed JSON valid. Resource-name output changes; public
+signatures are unchanged.
+
 Page-image JSON and `--show-pages --with-images` resolve indirect `/Subtype`
 names before identifying images. Valid indirect `/Image` names now appear in
 both reports; missing, stale or unusable subtype values remain excluded. Lookup

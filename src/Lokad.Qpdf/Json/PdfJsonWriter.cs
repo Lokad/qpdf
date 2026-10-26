@@ -79,16 +79,14 @@ internal static class PdfJsonWriter
         builder.Append('"');
     }
 
-    internal static void AppendAsciiName(DisplayBuffer builder, PdfName name)
+    internal static void AppendResourceName(DisplayBuffer builder, PdfName name)
     {
-        builder.Append('"'); builder.Append('/');
         ReadOnlySpan<byte> raw = name.RawSpan;
-        for (int index = 0; index < raw.Length; index++)
-        {
-            CheckChunkCancellation(builder.Governor, index);
-            AppendEscapedChar(builder, raw[index] < 128 ? (char)raw[index] : '?');
-        }
-        builder.Append('"');
+        // This descriptor is a literal resource name in both JSON versions.
+        // Preserve the existing reversible spelling for non-UTF-8 names while
+        // keeping the JSON itself valid UTF-8.
+        if (!IsUtf8Name(raw, builder.Governor)) { AppendName(builder, name, 2); return; }
+        builder.Append('"'); builder.Append('/'); AppendUtf8(builder, raw); builder.Append('"');
     }
 
     private static void AppendUtf8(DisplayBuffer builder, ReadOnlySpan<byte> value)

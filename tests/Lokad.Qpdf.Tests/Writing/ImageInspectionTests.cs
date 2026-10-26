@@ -107,4 +107,49 @@ public sealed class ImageInspectionTests
             resolver, governor, caller ? cancellation.Token : CancellationToken.None));
         Assert.Equal(1, resolver.Calls); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
+
+    public static IEnumerable<object[]> ResourceNames()
+    {
+        foreach (var item in new[] {
+            ("Im0", "/Im0"), ("Im#c3#a9", "/Imé"), ("Im#f0#9f#98#80", "/Im😀"),
+            ("Im#20#2f#23#22#5c", "/Im /#\"\\"), ("Im#ff", "n:/Im#ff"),
+            ("Im#c0#80", "n:/Im#c0#80"), ("Im#e2#82", "n:/Im#e2#82"),
+            ("Im#ed#a0#80", "n:/Im#ed#a0#80"), ("Im#ff#20#2f#23", "n:/Im#ff#20#2f#23") })
+        foreach (int version in new[] { 1, 2 })
+        foreach (string route in new[] { "typed", "argv", "job" })
+        { yield return [item.Item1, item.Item2, version, route]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(ResourceNames))]
+    public async Task ResourceNamesRetainIdentityAndValidJson(string raw, string expected, int version, string route)
+    {
+        byte[] output;
+        using (InMemoryQpdfHost host = new())
+        {
+            host.AddInput(QpdfPath.From("input"), Fixture("/Image", "null", "/" + raw + " 5 0 R", Dimensions), QpdfInputOwnership.Transfer);
+            output = await Inspect(host, version, route);
+        }
+        // The strict UTF-8 decoder also covers invalid PDF-name byte sequences.
+        string text = new System.Text.UTF8Encoding(false, true).GetString(output);
+        using JsonDocument json = JsonDocument.Parse(text);
+        Assert.Equal(expected, json.RootElement.GetProperty("pages")[0].GetProperty("images")[0].GetProperty("name").GetString());
+    }
+
+    [Theory]
+    [InlineData(1, "typed")]
+    [InlineData(1, "argv")]
+    [InlineData(1, "job")]
+    [InlineData(2, "typed")]
+    [InlineData(2, "argv")]
+    [InlineData(2, "job")]
+    public async Task DifferentUtf8ResourceNamesDoNotCollide(int version, string route)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), Fixture("/Image", "null", "/Im#c3#a9 5 0 R /Im#c3#a8 5 0 R", Dimensions), QpdfInputOwnership.Transfer);
+        using JsonDocument json = JsonDocument.Parse(await Inspect(host, version, route));
+        JsonElement images = json.RootElement.GetProperty("pages")[0].GetProperty("images");
+        Assert.Equal(2, images.GetArrayLength());
+        Assert.Equal(new HashSet<string?> { "/Imé", "/Imè" }, images.EnumerateArray().Select(item => item.GetProperty("name").GetString()).ToHashSet());
+    }
 }
