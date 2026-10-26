@@ -192,7 +192,9 @@ internal static class FilterChain
             { parms = PredictorParameters.FromDictionary(stage.Parms, stage.Name, stage.Resolver, memory, governor, token); }
             // Direct hint/companion decoding shares the same codec implementation.
             if (stage.Name == FlateFilter.FilterName) { return FlateFilter.Decode(input, parms, limits, governor, token); }
-            byte[] inflated = LzwFilter.Decode(input, earlyChange, limits, governor, token);
+            long selectorStride = parms is not null && parms.Predictor >= 10
+                ? PredictorStages.RowLength(parms, LzwFilter.FilterName) + 1L : 0L;
+            byte[] inflated = LzwFilter.Decode(input, earlyChange, limits, governor, token, selectorStride);
             if (parms is null || parms.Predictor == 1) { return DecodeChecked(inflated, limits, governor); }
             try { return DecodeChecked(PredictorStages.Apply(inflated, parms, LzwFilter.FilterName, governor, token), limits, governor); }
             finally { long bytes = ArrayBytes(inflated); inflated = Array.Empty<byte>(); governor.ReleaseMemory(bytes); }

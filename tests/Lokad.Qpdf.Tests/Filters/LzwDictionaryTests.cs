@@ -32,7 +32,7 @@ public sealed class LzwDictionaryTests
     public void KwKwKMatchesAcrossWidthBoundaries(bool early, int count)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        byte[] output = LzwFilter.Decode(LzwTests.PackCodes(RepeatedCodes(count, early)), early, QpdfLimits.Default, governor);
+        byte[] output = LzwFilter.Decode(LzwTests.PackCodes(RepeatedCodes(count, early)), early, QpdfLimits.Default, governor, CancellationToken.None, 0L);
         Assert.Equal(count * (count + 1) / 2, output.Length);
         Assert.True(output.AsSpan().IndexOfAnyExcept((byte)65) < 0);
         Assert.Equal(output.LongLength + 32, governor.Snapshot().LiveMemoryBytes);
@@ -46,7 +46,7 @@ public sealed class LzwDictionaryTests
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 20 * 1024 * 1024 };
         ResourceGovernor governor = new(limits, CancellationToken.None);
-        byte[] output = LzwFilter.Decode(LzwTests.PackCodes(RepeatedCodes(3839, early)), early, limits, governor);
+        byte[] output = LzwFilter.Decode(LzwTests.PackCodes(RepeatedCodes(3839, early)), early, limits, governor, CancellationToken.None, 0L);
         Assert.Equal(7_370_880, output.Length); Assert.True(output.AsSpan().IndexOfAnyExcept((byte)65) < 0);
         Assert.True(governor.Snapshot().PeakMemoryBytes <= output.LongLength + 8 * 1024 * 1024 + 65536);
         governor.ReleaseMemory(output.LongLength + 32); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
@@ -68,12 +68,12 @@ public sealed class LzwDictionaryTests
         byte[] encoded = LzwTests.PackCodes(codes);
         if (stale)
         {
-            Assert.Throws<QpdfFilterException>(() => LzwFilter.Decode(encoded, early, QpdfLimits.Default, governor));
+            Assert.Throws<QpdfFilterException>(() => LzwFilter.Decode(encoded, early, QpdfLimits.Default, governor, CancellationToken.None, 0L));
             Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         }
         else
         {
-            byte[] output = LzwFilter.Decode(encoded, early, QpdfLimits.Default, governor);
+            byte[] output = LzwFilter.Decode(encoded, early, QpdfLimits.Default, governor, CancellationToken.None, 0L);
             Assert.Equal(64 * 65 / 2 + 3, output.Length); Assert.True(output.AsSpan().IndexOfAnyExcept((byte)65) < 0);
         }
     }
@@ -90,10 +90,10 @@ public sealed class LzwDictionaryTests
         codes.Add((65, clear ? 9 : 12)); codes.Add((257, clear ? 9 : 12));
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         byte[] encoded = LzwTests.PackCodes(codes);
-        if (clear) { Assert.Equal(7_370_881, LzwFilter.Decode(encoded, early, QpdfLimits.Default, governor).Length); }
+        if (clear) { Assert.Equal(7_370_881, LzwFilter.Decode(encoded, early, QpdfLimits.Default, governor, CancellationToken.None, 0L).Length); }
         else
         {
-            QpdfFilterException error = Assert.Throws<QpdfFilterException>(() => LzwFilter.Decode(encoded, early, QpdfLimits.Default, governor));
+            QpdfFilterException error = Assert.Throws<QpdfFilterException>(() => LzwFilter.Decode(encoded, early, QpdfLimits.Default, governor, CancellationToken.None, 0L));
             Assert.Contains("Table is full", error.Message, StringComparison.Ordinal); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         }
     }
@@ -107,7 +107,7 @@ public sealed class LzwDictionaryTests
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97);
         long live = governor.Snapshot().LiveMemoryBytes;
         byte[] encoded = DecoderOwnershipFixtures.Pack([256, 65, 66, 400]);
-        Assert.Throws<QpdfFilterException>(() => LzwFilter.Decode(encoded, early, QpdfLimits.Default, governor));
+        Assert.Throws<QpdfFilterException>(() => LzwFilter.Decode(encoded, early, QpdfLimits.Default, governor, CancellationToken.None, 0L));
         Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(97, prior.ReservedBytes);
     }
 
@@ -119,7 +119,7 @@ public sealed class LzwDictionaryTests
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 1024 };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         byte[] encoded = DecoderOwnershipFixtures.Pack(literal ? [256, 65, 257] : [256, 257]);
-        Assert.Equal(literal ? new byte[] { 65 } : [], LzwFilter.Decode(encoded, true, limits, governor));
+        Assert.Equal(literal ? new byte[] { 65 } : [], LzwFilter.Decode(encoded, true, limits, governor, CancellationToken.None, 0L));
     }
 
     private sealed class Host(InMemoryQpdfHost inner, IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
@@ -159,7 +159,7 @@ public sealed class LzwDictionaryTests
         using InMemoryQpdfHost storage = new(); Host host = new(storage, new CancelOnGrowth(root, canceled));
         ResourceGovernor governor = new(QpdfLimits.Default, caller ? CancellationToken.None : canceled.Token, host);
         byte[] encoded = LzwTests.PackCodes(RepeatedCodes(512, true));
-        Assert.ThrowsAny<OperationCanceledException>(() => LzwFilter.Decode(encoded, true, QpdfLimits.Default, governor, caller ? canceled.Token : CancellationToken.None));
+        Assert.ThrowsAny<OperationCanceledException>(() => LzwFilter.Decode(encoded, true, QpdfLimits.Default, governor, caller ? canceled.Token : CancellationToken.None, 0L));
         Assert.True(canceled.IsCancellationRequested); Assert.True(root.PeakBytes >= 65536);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, root.ReservedBytes);
     }
@@ -173,7 +173,7 @@ public sealed class LzwDictionaryTests
         RecordingMemoryBudget root = new(1024 * 1024) { RefuseOnGrowth = growth };
         using InMemoryQpdfHost storage = new(); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None, new Host(storage, root));
         byte[] encoded = LzwTests.PackCodes(RepeatedCodes(512, true));
-        Assert.Throws<QpdfMemoryAdmissionException>(() => LzwFilter.Decode(encoded, true, QpdfLimits.Default, governor));
+        Assert.Throws<QpdfMemoryAdmissionException>(() => LzwFilter.Decode(encoded, true, QpdfLimits.Default, governor, CancellationToken.None, 0L));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, root.ReservedBytes);
     }
 
@@ -184,7 +184,7 @@ public sealed class LzwDictionaryTests
         ResourceGovernor governor = new(limits, CancellationToken.None);
         byte[] encoded = DecoderOwnershipFixtures.Pack([256, 65, 66, 257]);
         long before = GC.GetAllocatedBytesForCurrentThread();
-        Assert.Throws<QpdfLimitException>(() => LzwFilter.Decode(encoded, true, limits, governor));
+        Assert.Throws<QpdfLimitException>(() => LzwFilter.Decode(encoded, true, limits, governor, CancellationToken.None, 0L));
         Assert.True(GC.GetAllocatedBytesForCurrentThread() - before < 8192);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }

@@ -84,6 +84,18 @@ Columns, Colors and BitsPerComponent for Flate and LZW. Previously these valid
 direct/indirect nulls failed decoding and checking. Non-null type/range validation,
 cancellation and public signatures are unchanged.
 
+LZW PNG predictors exclude row selectors from decoded-sample ceilings, matching
+Flate. Selectors remain part of admitted raw intermediate storage; incomplete
+rows and invalid selectors still reject. Tight jobs that previously refused only
+because selectors counted as samples can now succeed.
+
+LZW, ASCIIHex, ASCII85 and RunLength preflight remaining aggregate decoded bytes
+before growing their output. Previously they could decode and allocate a complete
+stage before refusing its final charge. Refusal now happens earlier and may take
+precedence over malformed data later in that stage. A cached raw-byte ceiling
+avoids per-byte governor calls or predictor divisions. Memory admission remains
+coarse; final sample charges, cancellation, rollback and public signatures remain.
+
 Compressed xref decoding borrows a complete owned encoded payload while its
 parsed-stream owner stays live. Sliced backing still materializes under the
 existing scratch scope. The redundant full-payload copy and its admission are

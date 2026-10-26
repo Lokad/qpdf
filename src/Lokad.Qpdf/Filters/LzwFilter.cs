@@ -18,10 +18,8 @@ internal static class LzwFilter
     private const int FirstCode = 258;
     private const int LastCode = 4095;
 
-    internal static byte[] Decode(byte[] input, bool earlyChange, QpdfLimits limits, ResourceGovernor governor)
-        => Decode(input, earlyChange, limits, governor, CancellationToken.None);
-
-    internal static byte[] Decode(byte[] input, bool earlyChange, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
+    internal static byte[] Decode(byte[] input, bool earlyChange, QpdfLimits limits, ResourceGovernor governor,
+        CancellationToken token, long selectorStride)
     {
         if (input is null)
         {
@@ -48,7 +46,7 @@ internal static class LzwFilter
         int delta = earlyChange ? 1 : 0;
         int codeSize = 9;
         int lastCode = ClearCode;
-        using FilterOutput output = FilterOutput.Create(governor, limits, token);
+        using FilterOutput output = FilterOutput.Create(governor, limits, token, selectorStride);
         LzwBitReader reader = new(input, governor, token);
         while (reader.TryReadCode(codeSize, out int code))
         {

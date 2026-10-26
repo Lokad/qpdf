@@ -139,7 +139,7 @@ public sealed class LzwTests
         bool passed;
         try
         {
-            byte[] actual = LzwFilter.Decode(PackCodes(codes), true, limits, governor);
+            byte[] actual = LzwFilter.Decode(PackCodes(codes), true, limits, governor, CancellationToken.None, 0L);
             byte[] expected = new byte[adds + 2];
             for (int i = 0; i <= adds; i++)
             {
@@ -180,7 +180,7 @@ public sealed class LzwTests
         bool widened;
         try
         {
-            byte[] actual = LzwFilter.Decode(PackCodes(codes), true, limits, governor);
+            byte[] actual = LzwFilter.Decode(PackCodes(codes), true, limits, governor, CancellationToken.None, 0L);
             widened = !actual.AsSpan().SequenceEqual(expected);
         }
         catch (QpdfFilterException)
@@ -231,7 +231,7 @@ public sealed class LzwTests
         codes.Add((257, 10));
         codes.Add((257, 10));
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
-        byte[] decoded = LzwFilter.Decode(PackCodes(codes), true, limits, governor);
+        byte[] decoded = LzwFilter.Decode(PackCodes(codes), true, limits, governor, CancellationToken.None, 0L);
         byte[] expected = new byte[257];
         for (int i = 0; i < 254; i++)
         {
@@ -251,15 +251,15 @@ public sealed class LzwTests
         byte[] encoded = LzwEncode(raw, true);
         Assert.Equal([0x80, 0x10, 0x48, 0x50, 0x28, 0x14, 0x04], encoded);
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
-        Assert.Equal(raw, LzwFilter.Decode(encoded, true, limits, governor));
+        Assert.Equal(raw, LzwFilter.Decode(encoded, true, limits, governor, CancellationToken.None, 0L));
     }
 
     [Fact]
     public void DecodesHandVectors()
     {
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
-        Assert.Empty(LzwFilter.Decode([0x80, 0x40, 0x40], true, limits, governor));
-        Assert.Equal([0x41], LzwFilter.Decode(PackCodes([256, 65, 257], 9), true, limits, governor));
+        Assert.Empty(LzwFilter.Decode([0x80, 0x40, 0x40], true, limits, governor, CancellationToken.None, 0L));
+        Assert.Equal([0x41], LzwFilter.Decode(PackCodes([256, 65, 257], 9), true, limits, governor, CancellationToken.None, 0L));
     }
 
     [Theory]
@@ -349,7 +349,7 @@ public sealed class LzwTests
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
         byte[] bad = PackCodes([256, 400, 257], 9);
         QpdfFilterException ex = Assert.Throws<QpdfFilterException>(
-            () => LzwFilter.Decode(bad, true, limits, governor));
+            () => LzwFilter.Decode(bad, true, limits, governor, CancellationToken.None, 0L));
         Assert.Equal(QpdfFilterFailureReason.InvalidData, ex.Reason);
         Assert.Equal("LZWDecode", ex.FilterName);
     }
@@ -358,9 +358,9 @@ public sealed class LzwTests
     public void IgnoresTrailingPartialCodesAndPostEodData()
     {
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
-        Assert.Empty(LzwFilter.Decode([0x80], true, limits, governor));
+        Assert.Empty(LzwFilter.Decode([0x80], true, limits, governor, CancellationToken.None, 0L));
         byte[] withGarbage = [.. LzwEncode([0x41], true), 0xFF, 0xFF];
-        Assert.Equal([0x41], LzwFilter.Decode(withGarbage, true, limits, governor));
+        Assert.Equal([0x41], LzwFilter.Decode(withGarbage, true, limits, governor, CancellationToken.None, 0L));
     }
 
     [Fact]
@@ -372,7 +372,7 @@ public sealed class LzwTests
         QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = 65536L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         QpdfLimitException ex = Assert.Throws<QpdfLimitException>(
-            () => LzwFilter.Decode(encoded, true, limits, governor));
+            () => LzwFilter.Decode(encoded, true, limits, governor, CancellationToken.None, 0L));
         Assert.Equal(nameof(QpdfLimits.MaxDecodedBytes), ex.LimitName);
     }
 

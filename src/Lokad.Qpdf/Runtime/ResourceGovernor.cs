@@ -82,6 +82,7 @@ internal sealed class ResourceGovernor
     }
 
     internal long RemainingMemoryBytes => Math.Max(0L, _limits.MaxMemoryBytes - LiveMemoryBytes);
+    internal long RemainingDecodedBytes => _limits.MaxDecodedBytes - _totalDecodedBytes;
 
     internal void ReserveMemory(long bytes)
     {

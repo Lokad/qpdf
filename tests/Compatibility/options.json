@@ -3003,6 +3003,7 @@
         ],
         "resource": [
           "ShowObjectTests.StreamDataYieldsToExhaustedBudget",
+          "CodecDecodedBudgetTests.PublicPngExtractionChargesSamplesAndPreservesPriorOutputOnRefusal",
           "LzwDictionaryTests.PublicInspectionFitsTwentyMiBAndRetainsOutput"
         ],
         "oracle": [
