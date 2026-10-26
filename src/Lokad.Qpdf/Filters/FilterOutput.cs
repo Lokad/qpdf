@@ -40,18 +40,21 @@ internal sealed class FilterOutput : IDisposable
     internal void WriteByte(byte value)
     {
         GovernedBufferStream buffer = Buffer;
-        CheckLength(buffer.Length + 1L); buffer.WriteByte(value);
+        long rawBytes = buffer.Length + 1L;
+        if (rawBytes > _maximumRawBytes) { ThrowLimit(rawBytes); }
+        buffer.WriteByte(value);
     }
     internal void Write(ReadOnlySpan<byte> bytes)
     {
         GovernedBufferStream buffer = Buffer;
-        CheckLength(buffer.Length + bytes.Length); buffer.Write(bytes);
+        long rawBytes = buffer.Length + bytes.Length;
+        if (rawBytes > _maximumRawBytes) { ThrowLimit(rawBytes); }
+        buffer.Write(bytes);
     }
     internal byte[] ToArray() => Buffer.ToArray();
 
-    private void CheckLength(long rawBytes)
+    private void ThrowLimit(long rawBytes)
     {
-        if (rawBytes <= _maximumRawBytes) { return; }
         long samples = _selectorStride == 0L ? rawBytes : rawBytes - (rawBytes + _selectorStride - 1L) / _selectorStride;
         ResourceGovernor governor = _governor ?? throw new ObjectDisposedException(nameof(FilterOutput));
         governor.CheckDecodedBytes(samples);

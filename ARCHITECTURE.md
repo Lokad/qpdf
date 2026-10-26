@@ -51,6 +51,8 @@ Codec fixtures call the live cancellation-aware implementations; tokenless LZW
 and predictor forwarding overloads are removed. Non-Flate codec output caches
 the remaining raw ceiling per stage, accounting for PNG selectors separately
 from decoded samples while retaining coarse memory admission.
+Hot output writes compare the cached ceiling; sample conversion and failure
+construction run only when that ceiling is exceeded.
 
 One resource governor spans configuration loading, reading, transformation,
 serialization and publication. Results capture diagnostics and counters after
