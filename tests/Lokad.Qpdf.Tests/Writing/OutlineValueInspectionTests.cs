@@ -58,4 +58,42 @@ public sealed class OutlineValueInspectionTests
         Assert.Equal(1, parent.GetProperty("destpageposfrom1").GetInt32()); Assert.Single(parent.GetProperty("kids").EnumerateArray());
         Assert.Equal(new[] { expected, "Child" }, report.RootElement.GetProperty("pages")[0].GetProperty("outlines").EnumerateArray().Select(entry => entry.GetProperty("title").GetString()));
     }
+
+    public static IEnumerable<object[]> ActionCases()
+    {
+        const string local = "/A << /S /GoTo /D [3 0 R /Fit] >>";
+        const string fit = "[\"3 0 R\",\"/Fit\"]";
+        foreach (string route in new[] { "typed", "argv", "job" })
+        foreach (int version in new[] { 1, 2 })
+        foreach ((string specification, string expected, int page) in new[]
+        {
+            (local, fit, 1), ("/A 9 0 R", fit, 1), ("/A << /S 11 0 R /D 10 0 R >>", fit, 1),
+            ("/A << /S /GoTo /D 10 0 R >>", fit, 1), ("/A << /S /GoTo /D 99 0 R >>", "null", 0),
+            ("/A 99 0 R", "null", 0), ("/A null", "null", 0), ("/A 42", "null", 0),
+            ("/A << /S /URI /D [3 0 R /Fit] /URI (https://example.invalid/) >>", "null", 0),
+            ("/A << /S /GoToR /F (other.pdf) /D [3 0 R /Fit] >>", "null", 0),
+            ("/A << /S 99 0 R /D [3 0 R /Fit] >>", "null", 0),
+            ("/Dest null " + local, fit, 1), ("/Dest 99 0 R " + local, fit, 1),
+            ("/Dest 12 1 R " + local, fit, 1), ("/Dest 42 " + local, "42", 0), ("/Dest [] " + local, "[]", 0),
+            ("/Dest [3 0 R /XYZ 0 0 1] " + local, "[\"3 0 R\",\"/XYZ\",0,0,1]", 1),
+            ("/Dest /Chapter " + local, "\"/Chapter\"", 0), ("/A << /S /GoTo /D /Chapter >>", "\"/Chapter\"", 0),
+            ("/A << /S /GoTo /D 42 >>", "42", 0), ("/A << /S /GoTo /D null >>", "null", 0),
+            ("/A << /S /GoTo >>", "null", 0),
+        }) { yield return [route, version, specification, expected, page]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(ActionCases))]
+    public async Task LocalActionsKeepExplicitDestinationAndPrecedence(string route, int version, string specification, string expected, int page)
+    {
+        using InMemoryQpdfHost storage = new(); storage.AddInput(QpdfPath.From("input"), Fixture("(Parent)", "-1", specification), QpdfInputOwnership.Transfer);
+        using JsonDocument report = await Inspect(storage, storage, route, version);
+        JsonElement parent = report.RootElement.GetProperty("outlines")[0]; using JsonDocument destination = JsonDocument.Parse(expected);
+        Assert.True(JsonElement.DeepEquals(destination.RootElement, parent.GetProperty("dest")));
+        Assert.False(parent.GetProperty("open").GetBoolean()); Assert.Equal("Parent", parent.GetProperty("title").GetString());
+        if (page == 0) { Assert.Equal(JsonValueKind.Null, parent.GetProperty("destpageposfrom1").ValueKind); }
+        else { Assert.Equal(page, parent.GetProperty("destpageposfrom1").GetInt32()); }
+        Assert.Equal(page == 0 ? new[] { "Child" } : ["Parent", "Child"],
+            report.RootElement.GetProperty("pages")[0].GetProperty("outlines").EnumerateArray().Select(entry => entry.GetProperty("title").GetString()));
+    }
 }

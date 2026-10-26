@@ -7,6 +7,13 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Outline JSON includes explicit local `/GoTo` destinations from `/A`, including
+indirect action dictionaries, kinds and destination arrays. Non-null `/Dest`
+values retain precedence; absent, null or unresolved `/Dest` can fall back to the
+action. Destination positions and per-page bookmark lists now include these
+links. URI and remote actions remain unchanged; named destinations remain
+unresolved. Both JSON versions share this behavior; public signatures are unchanged.
+
 Outline JSON resolves indirect `/Title` and `/Count` values before interpreting
 them. Titles and closed-branch state now match direct values in both JSON versions
 and all entry points. Missing or unusable optional values retain their defaults;

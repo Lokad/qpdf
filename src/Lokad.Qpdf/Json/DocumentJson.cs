@@ -442,22 +442,19 @@ internal static class DocumentJson
             title = PdfText.Decode(titleText.ValueMemory, memory, governor, cancellationToken);
         }
 
-        QpdfObject? destination = null;
-        if (outline.TryGet(PdfName.FromAscii("Dest"), out QpdfObject? destRaw) && destRaw is not null && destRaw is not PdfNull)
+        QpdfObject? destination = PdfDictionaryLookup.TryGet(outline, "Dest"u8, governor, cancellationToken, out QpdfObject destRaw)
+            ? EmbeddedFiles.ResolveOptionalValue(engine, destRaw, governor, cancellationToken) : null;
+        if (destination is null or PdfNull
+            && PdfDictionaryLookup.TryGet(outline, "A"u8, governor, cancellationToken, out QpdfObject actionRaw)
+            && EmbeddedFiles.ResolveOptionalValue(engine, actionRaw, governor, cancellationToken) is PdfDictionary action
+            && PdfDictionaryLookup.TryGet(action, "S"u8, governor, cancellationToken, out QpdfObject kindRaw)
+            && EmbeddedFiles.ResolveOptionalValue(engine, kindRaw, governor, cancellationToken) is PdfName kind
+            && PdfDictionaryLookup.NameEquals(kind, "GoTo"u8, governor, cancellationToken)
+            && PdfDictionaryLookup.TryGet(action, "D"u8, governor, cancellationToken, out QpdfObject actionDestination))
         {
-            destination = destRaw;
-            if (destRaw is PdfReference destReference)
-            {
-                if (!((IIndirectResolver)engine).TryResolve(destReference, out QpdfObject? resolved) || resolved is null || resolved is PdfNull)
-                {
-                    destination = null;
-                }
-                else
-                {
-                    destination = resolved;
-                }
-            }
+            destination = EmbeddedFiles.ResolveOptionalValue(engine, actionDestination, governor, cancellationToken);
         }
+        if (destination is PdfNull) { destination = null; }
 
         bool open = true;
         if (outline.TryGet(PdfName.FromAscii("Count"), out QpdfObject? countRaw)

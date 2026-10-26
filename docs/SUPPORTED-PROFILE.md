@@ -263,7 +263,8 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
   version 2). Pages carry object, contents, label, outlines,
   pageposfrom1, and direct image descriptors with dimensions, colorspace, and
   filter data; outlines
-  resolve explicit destinations only; acroform reports fields with inherited
+  resolve explicit destinations, including local GoTo actions; named destinations
+  remain unresolved. Acroform reports fields with inherited
   types, names, values, and annotations. `--json-object={trailer|obj[,gen]}`
   limits the objects dictionaries. `--json-stream-data={none|inline|file}`
   adds base64 payloads inline or writes sidecar files (`--json-stream-prefix`
