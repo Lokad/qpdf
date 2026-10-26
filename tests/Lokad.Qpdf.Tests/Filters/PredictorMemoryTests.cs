@@ -16,7 +16,7 @@ public sealed class PredictorMemoryTests
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 1L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         long before = GC.GetAllocatedBytesForCurrentThread();
-        Assert.Throws<QpdfLimitException>(() => PredictorStages.Apply(input, parameters, FlateFilter.FilterName, governor));
+        Assert.Throws<QpdfLimitException>(() => PredictorStages.Apply(input, parameters, FlateFilter.FilterName, governor, CancellationToken.None));
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         Assert.True(allocated < 65536L, $"Rejected predictor allocated {allocated} bytes.");
         Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);
@@ -29,7 +29,7 @@ public sealed class PredictorMemoryTests
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 1L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         long before = GC.GetAllocatedBytesForCurrentThread();
-        byte[] output = PredictorStages.Apply([], parameters, FlateFilter.FilterName, governor);
+        byte[] output = PredictorStages.Apply([], parameters, FlateFilter.FilterName, governor, CancellationToken.None);
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         Assert.Empty(output);
         Assert.True(allocated < 65536L, $"Empty predictor allocated {allocated} bytes.");
@@ -46,7 +46,7 @@ public sealed class PredictorMemoryTests
         using CancellationTokenSource cancellation = new();
         ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token);
         cancellation.Cancel();
-        Assert.Throws<OperationCanceledException>(() => PredictorStages.Apply(input, parameters, FlateFilter.FilterName, governor));
+        Assert.Throws<OperationCanceledException>(() => PredictorStages.Apply(input, parameters, FlateFilter.FilterName, governor, CancellationToken.None));
         Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);
     }
 
@@ -81,7 +81,7 @@ public sealed class PredictorMemoryTests
     {
         byte[] predicted = [0xA1, 0x11, 0x10, 0x51, 0x11, 0x10];
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        byte[] result = PredictorStages.Apply(predicted, new PredictorParameters(2, 5, 1, 4), FlateFilter.FilterName, governor);
+        byte[] result = PredictorStages.Apply(predicted, new PredictorParameters(2, 5, 1, 4), FlateFilter.FilterName, governor, CancellationToken.None);
         Assert.Equal(new byte[] { 0xAB, 0xCD, 0xE0, 0x56, 0x78, 0x90 }, result);
     }
 
@@ -90,7 +90,7 @@ public sealed class PredictorMemoryTests
     {
         byte[] predicted = [0x12, 0x00, 0x11, 0x00, 0x45, 0x00, 0x22, 0x00];
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        byte[] result = PredictorStages.Apply(predicted, new PredictorParameters(2, 2, 1, 16), FlateFilter.FilterName, governor);
+        byte[] result = PredictorStages.Apply(predicted, new PredictorParameters(2, 2, 1, 16), FlateFilter.FilterName, governor, CancellationToken.None);
         Assert.Equal(new byte[] { 0x12, 0x00, 0x23, 0x00, 0x45, 0x00, 0x67, 0x00 }, result);
     }
 }

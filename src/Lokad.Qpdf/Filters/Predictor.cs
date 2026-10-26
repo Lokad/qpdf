@@ -165,9 +165,6 @@ internal static class PredictorStages
 {
     private const int CheckInterval = 1024;
 
-    internal static byte[] Apply(byte[] inflated, PredictorParameters parms, string filterName, ResourceGovernor governor)
-        => Apply(inflated, parms, filterName, governor, CancellationToken.None);
-
     internal static byte[] Apply(byte[] inflated, PredictorParameters parms, string filterName, ResourceGovernor governor, CancellationToken token)
     {
         if (inflated is null)

@@ -112,7 +112,7 @@ public sealed class FlateDecodedBudgetTests
         ResourceGovernor governor = new(limits, CancellationToken.None);
         governor.ChargeDecodedBytes(limits.MaxDecodedBytes);
         QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => PredictorStages.Apply(input,
-            new PredictorParameters(predictor, 100000, 1, 8), FlateFilter.FilterName, governor));
+            new PredictorParameters(predictor, 100000, 1, 8), FlateFilter.FilterName, governor, CancellationToken.None));
         Assert.Equal(nameof(QpdfLimits.MaxDecodedBytes), error.LimitName);
         Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);
         Assert.Equal(limits.MaxDecodedBytes, governor.Snapshot().TotalDecodedBytes);

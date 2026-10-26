@@ -47,6 +47,10 @@ and allocation batches as production; no unowned parser or dictionary adapters
 provide alternate execution modes. Filter decoders require an owned stage plan
 and result scope; plans expose indexed access and struct iteration without boxed
 enumeration owners.
+Codec fixtures call the live cancellation-aware implementations; tokenless LZW
+and predictor forwarding overloads are removed. Non-Flate codec output caches
+the remaining raw ceiling per stage, accounting for PNG selectors separately
+from decoded samples while retaining coarse memory admission.
 
 One resource governor spans configuration loading, reading, transformation,
 serialization and publication. Results capture diagnostics and counters after
