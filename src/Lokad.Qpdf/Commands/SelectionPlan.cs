@@ -318,7 +318,7 @@ internal sealed record JsonInspection(
     bool MinimalOutput);
 
 /// <summary>Validated JSON import: a qpdf JSON file converted to PDF.</summary>
-internal sealed record JsonInputPlan(QpdfPath Input, QpdfPath Output, QpdfRecoveryMode Recovery) : JobPlan(Input);
+internal sealed record JsonInputPlan(QpdfPath Input, QpdfPath Output) : JobPlan(Input);
 
 /// <summary>Validated PDF update from qpdf JSON.</summary>
 internal sealed record JsonUpdatePlan(QpdfPath Input, QpdfPath JsonPath, QpdfPath Output, QpdfRecoveryMode Recovery) : JobPlan(Input);

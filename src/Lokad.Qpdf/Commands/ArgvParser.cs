@@ -1233,8 +1233,6 @@ internal static class ArgvParser
         internal required bool ReportMemoryUsage { get; init; }
         internal required bool TestJsonSchema { get; init; }
         internal required bool Verbose { get; init; }
-        internal required string? KeepFilesOpen { get; init; }
-        internal required long KeepFilesOpenThreshold { get; init; }
         internal required bool RawStreamData { get; init; }
         internal required bool FilteredStreamData { get; init; }
         internal required bool Progress { get; init; }
@@ -1429,9 +1427,7 @@ internal static class ArgvParser
         bool seenProgress = false;
         bool progress = false;
         bool seenKeepFilesOpen = false;
-        string? keepFilesOpen = null;
         bool seenKeepFilesOpenThreshold = false;
-        long keepFilesOpenThreshold = 200L;
         bool testJsonSchema = false;
         bool ignoreXrefStreams = false;
         bool withImages = false;
@@ -2222,7 +2218,7 @@ internal static class ArgvParser
                 }
 
                 seenKeepFilesOpen = true;
-                keepFilesOpen = ParseKeepFilesOpen(argv, ref i);
+                ValidateKeepFilesOpen(argv, ref i);
                 continue;
             }
 
@@ -2234,7 +2230,7 @@ internal static class ArgvParser
                 }
 
                 seenKeepFilesOpenThreshold = true;
-                keepFilesOpenThreshold = ParseContainerSize(argv, ref i, "--keep-files-open-threshold", "file count");
+                _ = ParseContainerSize(argv, ref i, "--keep-files-open-threshold", "file count");
                 continue;
             }
 
@@ -2317,8 +2313,6 @@ internal static class ArgvParser
             ReportMemoryUsage = reportMemoryUsage,
             TestJsonSchema = testJsonSchema,
             Verbose = verbose,
-            KeepFilesOpen = keepFilesOpen,
-            KeepFilesOpenThreshold = keepFilesOpenThreshold,
             RawStreamData = rawStreamData,
             FilteredStreamData = filteredStreamData,
             Progress = progress,
@@ -2453,7 +2447,7 @@ internal static class ArgvParser
         return depth;
     }
 
-    private static string ParseKeepFilesOpen(IReadOnlyList<string> argv, ref int i)
+    private static void ValidateKeepFilesOpen(IReadOnlyList<string> argv, ref int i)
     {
         string token = argv[i];
         int equals = token.IndexOf((char)61);
@@ -2462,8 +2456,6 @@ internal static class ArgvParser
         {
             throw new QpdfParseException("Option --keep-files-open must be --keep-files-open=y or --keep-files-open=n.", i, null);
         }
-
-        return value;
     }
 
     private static long ParseContainerSize(IReadOnlyList<string> argv, ref int i, string option, string unit)
@@ -3281,7 +3273,7 @@ internal static class ArgvParser
         }
 
         string output = ParseOutputArea(argv, cursor);
-        return new JsonInputPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), recovery) with
+        return new JsonInputPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output)) with
         {
             WarningExitZero = globals.WarningExitZero,
             Verbose = globals.Verbose,

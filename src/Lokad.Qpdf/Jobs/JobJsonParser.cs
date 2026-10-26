@@ -163,9 +163,7 @@ internal static class JobJsonParser
             bool seenRawStreamData = false;
             bool filteredStreamData = false;
             bool seenFilteredStreamData = false;
-            string? keepFilesOpen = null;
             bool seenKeepFilesOpen = false;
-            long keepFilesOpenThreshold = 200L;
             bool seenKeepFilesOpenThreshold = false;
             bool testJsonSchema = false;
             bool seenTestJsonSchema = false;
@@ -962,7 +960,7 @@ internal static class JobJsonParser
                         }
 
                         seenKeepFilesOpen = true;
-                        keepFilesOpen = RequireKeepFilesOpen(property.Value, textStorage);
+                        ValidateKeepFilesOpen(property.Value, textStorage);
                         break;
                     case "keepFilesOpenThreshold":
                         if (seenKeepFilesOpenThreshold && !configurationLayers)
@@ -971,7 +969,7 @@ internal static class JobJsonParser
                         }
 
                         seenKeepFilesOpenThreshold = true;
-                        keepFilesOpenThreshold = RequireKeepFilesOpenThreshold(property.Value, textStorage);
+                        ValidateKeepFilesOpenThreshold(property.Value, textStorage);
                         break;
                     case "rawStreamData":
                         if (seenRawStreamData && !configurationLayers)
@@ -1438,7 +1436,7 @@ internal static class JobJsonParser
                     throw new QpdfParseException("Stream and metadata keys cannot be combined with \"jsonInput\".", 0L, null);
                 }
 
-                return new JsonInputPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output), recovery) with
+                return new JsonInputPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output)) with
                 {
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
@@ -2388,17 +2386,17 @@ internal static class JobJsonParser
 
         return depth;
     }
-    private static string RequireKeepFilesOpen(JsonElement element, ConfigurationText textStorage)
+    private static void ValidateKeepFilesOpen(JsonElement element, ConfigurationText textStorage)
     {
         if (element.ValueKind == JsonValueKind.String && textStorage.ReadJsonString(element) is string text && (text == "y" || text == "n"))
         {
-            return text;
+            return;
         }
 
         throw new QpdfParseException("Job " + (char)34 + "keepFilesOpen" + (char)34 + " must be \"y\" or \"n\".", 0L, null);
     }
 
-    private static long RequireKeepFilesOpenThreshold(JsonElement element, ConfigurationText textStorage)
+    private static void ValidateKeepFilesOpenThreshold(JsonElement element, ConfigurationText textStorage)
     {
         string? text = null;
         if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out long number))
@@ -2408,7 +2406,7 @@ internal static class JobJsonParser
                 throw new QpdfParseException("Job " + (char)34 + "keepFilesOpenThreshold" + (char)34 + " must be a non-negative file count.", 0L, null);
             }
 
-            return number;
+            return;
         }
 
         if (element.ValueKind == JsonValueKind.String)
@@ -2421,18 +2419,13 @@ internal static class JobJsonParser
             throw new QpdfParseException("Job " + (char)34 + "keepFilesOpenThreshold" + (char)34 + " must be a non-negative file count.", 0L, null);
         }
 
-        long count = 0L;
         foreach (char digit in text)
         {
             if (digit < (char)48 || digit > (char)57)
             {
                 throw new QpdfParseException("Job " + (char)34 + "keepFilesOpenThreshold" + (char)34 + " must be a non-negative file count.", 0L, null);
             }
-
-            count = checked(count * 10L + (digit - (char)48));
         }
-
-        return count;
     }
     private static long RequireMaxStreamFilters(JsonElement element, ConfigurationText textStorage)
     {
