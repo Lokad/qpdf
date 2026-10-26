@@ -112,12 +112,20 @@ public sealed class XRefStreamTests
     }
 
     [Fact]
-    public async Task RejectsUnknownEntryTypes()
+    public async Task UnknownEntryTypeHasNullSemantics()
     {
-        (InMemoryQpdfHost host, byte[] _) = await LoadFixture("xstream-badtype.pdf");
-        QpdfParseException ex = await Assert.ThrowsAsync<QpdfParseException>(() => QpdfDocument.OpenAsync(
-            host, QpdfPath.From("inputs/xstream-badtype.pdf"), CancellationToken.None).AsTask());
-        Assert.Contains("type 5", ex.Message, StringComparison.Ordinal);
+        (InMemoryQpdfHost host, byte[] data) = await LoadFixture("xstream-badtype.pdf");
+        using (host)
+        {
+            ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+            using (XRefTable table = XRefTable.Parse(data, QpdfLimits.Default, governor, new(governor), QpdfRecoveryMode.Strict, false))
+            {
+                // This fixture marks the catalog itself as future type 5.
+                Assert.Equal(XrefEntryKind.Free, table.Entries[1].Kind);
+                Assert.Equal(0L, table.Entries[1].First); Assert.Equal(0, table.Entries[1].Second);
+            }
+            Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        }
     }
 
     [Fact]

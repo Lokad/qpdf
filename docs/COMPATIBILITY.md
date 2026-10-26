@@ -78,6 +78,14 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Unknown xref-stream entry types resolve to null and mask older entries for the
+same slot. Their undefined fields are ignored, including unsigned-wide values.
+Previously strict opening rejected these rows and recovery could restore stale
+physical objects. The reader no longer repairs solely for an unknown row type;
+affected results can change from warning to success and rewrites retain null
+semantics. Native qpdf handles standalone future types but shares the incremental
+and wide-type defects. Known-type validation, bounds and public signatures remain.
+
 LZW keeps bounded prefix/suffix tables and one expansion buffer instead of copied
 dictionary strings. One admitted batch holds about 16 KiB plus array overhead;
 empty/single-literal streams avoid it. Tiny multi-code jobs can therefore refuse

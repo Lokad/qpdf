@@ -742,7 +742,10 @@ internal sealed class XRefTable : IDisposable
             return XrefEntry.Compressed((int)fields[1], (int)fields[2]);
         }
 
-        throw new QpdfParseException($"Unknown xref entry type {fields[0]} for object {number}.", xrefOffset, number);
+        // Future entry types denote null. Keep the slot in the union so an
+        // older revision cannot restore a superseded object. Other fields have
+        // no defined meaning for these types, including unsigned-wide values.
+        return XrefEntry.Free(0L, 0);
     }
 
 

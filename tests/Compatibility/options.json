@@ -5903,6 +5903,7 @@
           "ShowObjectTests.ReportsStreamDictionary",
           "ShowObjectTests.ReportsTrailer",
           "ShowObjectTests.ReportsNullForMissingObject",
+          "FutureXrefTests.FutureRowsResolveToNullAndMaskOlderEntries",
           "ShowObjectTests.ReportsCompressedMember",
           "ShowObjectTests.JobShowObjectMatchesArgv"
         ],
