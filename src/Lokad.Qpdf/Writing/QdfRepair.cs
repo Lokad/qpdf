@@ -46,6 +46,8 @@ internal sealed class QdfRepair
 
     private const byte LineFeed = 10;
     private const byte CarriageReturn = 13;
+    private const int ByteCheckInterval = 4096;
+    private const int RecordCheckInterval = 1024;
 
     private static readonly byte[] ObjToken = Encoding.ASCII.GetBytes(" 0 obj\n");
     private static readonly byte[] StreamToken = Encoding.ASCII.GetBytes("stream\n");
@@ -109,7 +111,7 @@ internal sealed class QdfRepair
             throw new ArgumentNullException(nameof(input));
         }
 
-        _governor.CheckCancellation();
+        CheckCancellation(cancellationToken);
         _input = input;
         _cursor = 0;
         _lineNumber = 0;
@@ -124,7 +126,7 @@ internal sealed class QdfRepair
 
         while (_cursor < _input.Length && _state != RepairState.Done)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            CheckCancellation(cancellationToken);
             _governor.NoteOperation();
             _lineNumber = checked(_lineNumber + 1);
             int start = _cursor;
@@ -133,6 +135,7 @@ internal sealed class QdfRepair
                 or RepairState.InObjectStreamOuter or RepairState.InObjectStreamObject;
             while (end < _input.Length && _input[end] != LineFeed)
             {
+                if ((end & (ByteCheckInterval - 1)) == 0) { CheckCancellation(cancellationToken); }
                 if (!streamData && _input[end] == CarriageReturn)
                 {
                     throw new QpdfParseException("QDF syntax requires line-feed endings outside stream data.", end, null);
@@ -187,7 +190,7 @@ internal sealed class QdfRepair
                         _streamLength = checked(_streamLength - 1L);
                     }
                 }
-                else if (terminated && TryParseObjectHeader(start, length, out int number))
+                else if (terminated && TryParseObjectHeader(start, length, cancellationToken, out int number))
                 {
                     CheckObjectId(number, start, headerStart);
                     _state = RepairState.InLength;
@@ -210,12 +213,12 @@ internal sealed class QdfRepair
                 }
                 else
                 {
-                    CaptureExtends(start, length);
+                    CaptureExtends(start, length, cancellationToken);
                 }
 
                 break;
             case RepairState.InObjectStreamOffsets:
-                if (terminated && MatchesMember(start, length, out int member))
+                if (terminated && MatchesMember(start, length, cancellationToken, out int member))
                 {
                     CheckObjectId(member, start, _outputLength);
                     GovernedCollections.AddItem(_memory, _governor, _memberNumbers, member, sizeof(int));
@@ -240,7 +243,7 @@ internal sealed class QdfRepair
                 else
                 {
                     BufferMemberLine(start, length);
-                    if (terminated && MatchesMember(start, length, out int next))
+                    if (terminated && MatchesMember(start, length, cancellationToken, out int next))
                     {
                         CheckObjectId(next, start, _outputLength);
                         GovernedCollections.AddItem(_memory, _governor, _memberNumbers, next, sizeof(int));
@@ -277,7 +280,7 @@ internal sealed class QdfRepair
 
     private async ValueTask ProcessTopAsync(int start, int length, bool terminated, CancellationToken cancellationToken)
     {
-        if (terminated && TryParseObjectHeader(start, length, out int number))
+        if (terminated && TryParseObjectHeader(start, length, cancellationToken, out int number))
         {
             CheckObjectId(number, start, _outputLength);
             _state = RepairState.InObject;
@@ -303,7 +306,7 @@ internal sealed class QdfRepair
         {
             _state = RepairState.Top;
         }
-        else if (ContainsToken(start, length, ObjStmMarker))
+        else if (ContainsToken(start, length, ObjStmMarker, cancellationToken))
         {
             _state = RepairState.InObjectStreamDictionary;
             _containerId = _lastObject;
@@ -313,7 +316,7 @@ internal sealed class QdfRepair
             _memberNumbers.Clear();
             _extendsReference = null;
         }
-        else if (ContainsToken(start, length, XrefMarker))
+        else if (ContainsToken(start, length, XrefMarker, cancellationToken))
         {
             await BeginXrefStreamAsync(start, cancellationToken).ConfigureAwait(false);
         }
@@ -321,6 +324,7 @@ internal sealed class QdfRepair
 
     private async ValueTask FlushContainerAsync(CancellationToken cancellationToken)
     {
+        CheckCancellation(cancellationToken);
         if (_commentAt.Count == 0)
         {
             throw new QpdfParseException("QDF repair found an object stream without members.", _outputLength, _lastObject);
@@ -330,15 +334,18 @@ internal sealed class QdfRepair
         // Numeric table formatting keeps offsets, builder capacity, a final
         // string and encoded bytes live together. Admit that overlap once.
         temporary.Reserve(checked(256L + 192L * _commentAt.Count));
+        CheckCancellation(cancellationToken);
         long headerFirst = _memberLines[_commentAt[0]].Length;
         List<long> offsets = new(_commentAt.Count);
         long prefix = 0L;
         for (int m = 0; m < _commentAt.Count; m++)
         {
+            if ((m & (RecordCheckInterval - 1)) == 0) { CheckCancellation(cancellationToken); }
             int headerLength = _memberLines[_commentAt[m]].Length;
             offsets.Add(checked(prefix + headerLength - headerFirst));
             for (int k = _commentAt[m]; k < BlockEnd(m); k++)
             {
+                if ((k & (RecordCheckInterval - 1)) == 0) { CheckCancellation(cancellationToken); }
                 prefix = checked(prefix + _memberLines[k].Length);
             }
         }
@@ -346,13 +353,16 @@ internal sealed class QdfRepair
         System.Text.StringBuilder table = new(checked(32 * _commentAt.Count));
         for (int m = 0; m < _commentAt.Count; m++)
         {
+            if ((m & (RecordCheckInterval - 1)) == 0) { CheckCancellation(cancellationToken); }
             table.Append(FormatLong(checked((long)_containerId + 1L + m)));
             table.Append(' ');
             table.Append(FormatLong(offsets[m]));
             table.Append('\n');
         }
 
+        CheckCancellation(cancellationToken);
         byte[] tableBytes = Encoding.ASCII.GetBytes(table.ToString());
+        CheckCancellation(cancellationToken);
         long first = checked((long)tableBytes.Length + headerFirst);
         long payloadLength = checked((long)tableBytes.Length + prefix);
         await AppendTextAsync("  /Length " + FormatLong(payloadLength) + "\n", cancellationToken).ConfigureAwait(false);
@@ -417,8 +427,10 @@ internal sealed class QdfRepair
         }
 
         long widest = 1L;
-        foreach (XrefEntry entry in _entries)
+        for (int i = 0; i < _entries.Count; i++)
         {
+            if ((i & (RecordCheckInterval - 1)) == 0) { CheckCancellation(cancellationToken); }
+            XrefEntry entry = _entries[i];
             if (entry.Type == 2 && entry.Field2 > widest)
             {
                 widest = entry.Field2;
@@ -447,12 +459,12 @@ internal sealed class QdfRepair
 
     private async ValueTask ProcessXrefDictionaryAsync(int start, int length, bool terminated, CancellationToken cancellationToken)
     {
-        if (ContainsToken(start, length, LengthMarker) || ContainsToken(start, length, WidthSlashMarker))
+        if (ContainsToken(start, length, LengthMarker, cancellationToken) || ContainsToken(start, length, WidthSlashMarker, cancellationToken))
         {
             return;
         }
 
-        if (ContainsToken(start, length, SizeMarker))
+        if (ContainsToken(start, length, SizeMarker, cancellationToken))
         {
             await AppendTextAsync("  /Size " + FormatLong(checked((long)_entries.Count + 1L)) + "\n", cancellationToken).ConfigureAwait(false);
         }
@@ -511,7 +523,7 @@ internal sealed class QdfRepair
 
     private async ValueTask ProcessTrailerAsync(int start, int length, bool terminated, CancellationToken cancellationToken)
     {
-        if (terminated && MatchesSizeLine(start, length))
+        if (terminated && MatchesSizeLine(start, length, cancellationToken))
         {
             await AppendTextAsync("  /Size " + FormatLong(checked((long)_entries.Count + 1L)) + "\n", cancellationToken).ConfigureAwait(false);
         }
@@ -550,9 +562,9 @@ internal sealed class QdfRepair
         _memberIndex = checked(_memberIndex + 1);
     }
 
-    private void CaptureExtends(int start, int length)
+    private void CaptureExtends(int start, int length, CancellationToken cancellationToken)
     {
-        int at = IndexOfToken(start, length, ExtendsMarker);
+        int at = IndexOfToken(start, length, ExtendsMarker, cancellationToken);
         if (at < 0)
         {
             return;
@@ -562,6 +574,7 @@ internal sealed class QdfRepair
         int count = 0;
         while (digits + count < start + length && IsDigit(_input[digits + count]))
         {
+            if (count == 10) { return; }
             count = checked(count + 1);
         }
 
@@ -618,11 +631,13 @@ internal sealed class QdfRepair
 
     private async ValueTask AppendBytesAsync(ReadOnlyMemory<byte> chunk, CancellationToken cancellationToken)
     {
+        CheckCancellation(cancellationToken);
         await _sink.AppendAsync(chunk, cancellationToken).ConfigureAwait(false);
         checked
         {
             _outputLength += chunk.Length;
         }
+        CheckCancellation(cancellationToken);
     }
 
     private async ValueTask AppendBinaryAsync(long value, int bytes, CancellationToken cancellationToken)
@@ -684,36 +699,12 @@ internal sealed class QdfRepair
         return true;
     }
 
-    private bool ContainsToken(int start, int length, byte[] token)
+    private bool ContainsToken(int start, int length, byte[] token, CancellationToken cancellationToken)
+        => IndexOfToken(start, length, token, cancellationToken) >= 0;
+
+    private int IndexOfToken(int start, int length, byte[] token, CancellationToken cancellationToken)
     {
-        if (token.Length == 0 || token.Length > length)
-        {
-            return false;
-        }
-
-        for (int i = start; i + token.Length <= start + length; i++)
-        {
-            bool match = true;
-            for (int k = 0; k < token.Length; k++)
-            {
-                if (_input[i + k] != token[k])
-                {
-                    match = false;
-                    break;
-                }
-            }
-
-            if (match)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private int IndexOfToken(int start, int length, byte[] token)
-    {
+        CheckCancellation(cancellationToken);
         if (token.Length == 0 || token.Length > length)
         {
             return -1;
@@ -721,6 +712,7 @@ internal sealed class QdfRepair
 
         for (int i = start; i + token.Length <= start + length; i++)
         {
+            if ((i & (ByteCheckInterval - 1)) == 0) { CheckCancellation(cancellationToken); }
             bool match = true;
             for (int k = 0; k < token.Length; k++)
             {
@@ -745,12 +737,14 @@ internal sealed class QdfRepair
         return value >= 48 && value <= 57;
     }
 
-    private bool TryParseObjectHeader(int start, int length, out int number)
+    private bool TryParseObjectHeader(int start, int length, CancellationToken cancellationToken, out int number)
     {
+        CheckCancellation(cancellationToken);
         number = 0;
         int digits = 0;
         while (digits < length && IsDigit(_input[start + digits]))
         {
+            if (digits == 10) { return false; }
             digits = checked(digits + 1);
         }
 
@@ -784,8 +778,9 @@ internal sealed class QdfRepair
         return true;
     }
 
-    private bool MatchesMember(int start, int length, out int number)
+    private bool MatchesMember(int start, int length, CancellationToken cancellationToken, out int number)
     {
+        CheckCancellation(cancellationToken);
         number = 0;
         if (length <= MemberPrefix.Length + 1)
         {
@@ -803,6 +798,7 @@ internal sealed class QdfRepair
         int digits = 0;
         while (MemberPrefix.Length + digits < length && IsDigit(_input[start + MemberPrefix.Length + digits]))
         {
+            if (digits == 10) { return false; }
             digits = checked(digits + 1);
         }
 
@@ -853,8 +849,9 @@ internal sealed class QdfRepair
         return parsed <= int.MaxValue;
     }
 
-    private bool MatchesSizeLine(int start, int length)
+    private bool MatchesSizeLine(int start, int length, CancellationToken cancellationToken)
     {
+        CheckCancellation(cancellationToken);
         if (length <= SizePrefix.Length + 1)
         {
             return false;
@@ -871,6 +868,7 @@ internal sealed class QdfRepair
         int digits = 0;
         while (SizePrefix.Length + digits < length - 1 && IsDigit(_input[start + SizePrefix.Length + digits]))
         {
+            if (digits == 10) { return false; }
             digits = checked(digits + 1);
         }
 
@@ -880,5 +878,11 @@ internal sealed class QdfRepair
         }
 
         return start + SizePrefix.Length + digits + 1 == start + length && _input[start + length - 1] == LineFeed;
+    }
+
+    private void CheckCancellation(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        _governor.CheckCancellation();
     }
 }

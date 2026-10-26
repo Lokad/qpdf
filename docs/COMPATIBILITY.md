@@ -84,6 +84,12 @@ Previously a blanket scan rejected valid binary QDF, including the writer's own
 image output. Outer QDF syntax still requires LF endings; unsupported CRLF syntax
 rejects before publication. Public signatures and transactional guarantees remain.
 
+QDF scans and table preparation check both cancellation tokens at bounded byte
+and record intervals and around awaited writes. Oversized numeric headers stop
+at the supported width. Cancellation at numeric-table admission now stops before
+materialization; previously it could allocate the complete table before noticing.
+There is no fuel accounting or extra per-byte memory admission.
+
 Optional predictor parameters use their defaults when their resolved PDF value
 is null, just as when the dictionary key is absent. This applies to Predictor,
 Columns, Colors and BitsPerComponent for Flate and LZW. Previously these valid
