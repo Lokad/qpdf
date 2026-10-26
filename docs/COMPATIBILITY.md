@@ -713,7 +713,7 @@ failure behavior; the tables below highlight differences important to callers.
 | Labels/attachments | Malformed label trees fail instead of warning. Attachment dates are omitted unless supplied; names use ASCII/UTF-16 encoding and rebuilt trees use one flat name array. Empty attachment-copy prefixes reject instead of copying unchanged. |
 | PDF JSON | Import/update accepts generation 0 only, rejects pushed inherited attributes, and excludes stream/metadata writer combinations. Version 1 ignores stream payloads; `--json-output=1` rejects. Creation/update renumbers output to classic files. |
 | Unreferenced objects | Copy order and container handling can differ; object/xref-stream members are preserved through rebuilt containers. Unloadable objects skip under one aggregated warning instead of failing the job. |
-| Companions | `FixQdfAsync` rejects carriage returns, empty/truncated structures and nonsequential numbering. `RunZlibFlateAsync` rejects truncation instead of returning partial output, and accepts compression levels 1–9 only. |
+| Companions | `FixQdfAsync` requires LF outer syntax and rejects empty/truncated structures and nonsequential numbering; binary stream/xref carriage returns are preserved. `RunZlibFlateAsync` rejects truncation instead of returning partial output, and accepts compression levels 1–9 only. |
 | Linearization checking | Physical defects fail with exit 2 where native may warn with exit 3. Show-linearization retains parsed raw fields on physical failure. |
 
 Physical output can also differ while preserving PDF meaning:

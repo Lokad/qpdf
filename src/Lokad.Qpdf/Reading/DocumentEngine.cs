@@ -460,7 +460,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
         {
             if (entry.Kind == XrefEntryKind.Compressed)
             {
-                return LoadCompressed(number, (int)entry.First, entry.Second);
+                return LoadCompressed(number, (int)entry.First);
             }
 
             _governor.NoteOperation();
@@ -537,7 +537,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
         }
     }
 
-    private QpdfObject LoadCompressed(int number, int streamNumber, int index)
+    private QpdfObject LoadCompressed(int number, int streamNumber)
     {
         if (TryGetCached(number, out QpdfObject cached))
         {

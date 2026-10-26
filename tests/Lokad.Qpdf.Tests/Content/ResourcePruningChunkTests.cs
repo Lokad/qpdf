@@ -14,9 +14,9 @@ public sealed class ResourcePruningChunkTests
     private static readonly Func<GraphCopier, int, PdfDictionary, QpdfLimits, ResourceGovernor, DiagnosticBag, CancellationToken, PdfDictionary> Prune =
         (typeof(ContentTransforms).GetMethod("PrunePage", BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException("Missing pruning."))
         .CreateDelegate<Func<GraphCopier, int, PdfDictionary, QpdfLimits, ResourceGovernor, DiagnosticBag, CancellationToken, PdfDictionary>>();
-    private static readonly Func<GraphCopier, PdfDictionary, PoolResolver, QpdfLimits, ResourceGovernor, CancellationToken, object?> Collect =
+    private static readonly Func<PdfDictionary, PoolResolver, QpdfLimits, ResourceGovernor, CancellationToken, object?> Collect =
         (typeof(ContentTransforms).GetMethod("CollectPageChunks", BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException("Missing collection."))
-        .CreateDelegate<Func<GraphCopier, PdfDictionary, PoolResolver, QpdfLimits, ResourceGovernor, CancellationToken, object?>>();
+        .CreateDelegate<Func<PdfDictionary, PoolResolver, QpdfLimits, ResourceGovernor, CancellationToken, object?>>();
     private sealed class Prepared : IDisposable
     {
         private readonly DocumentEngine _engine;
@@ -97,7 +97,7 @@ public sealed class ResourcePruningChunkTests
         using Prepared prepared = new(governor); long live = governor.Snapshot().LiveMemoryBytes; PdfStream first = Stream("FlateDecode", "q"u8.ToArray(), false); byte[] original = first.Data;
         PdfStream bad = new(DecoderOwnershipFixtures.Dictionary(("Filter", PdfName.FromAscii(unsupported ? "DCTDecode" : "ASCIIHexDecode"))), "ABCG>"u8.ToArray());
         PdfDictionary page = DecoderOwnershipFixtures.Dictionary(("Contents", new PdfArray([first, bad])));
-        Assert.Null(Collect(prepared.Copier, page, new PoolResolver((IReadOnlyDictionary<int, QpdfObject>)prepared.Copier.CopiedObjects), QpdfLimits.Default, governor, CancellationToken.None));
+        Assert.Null(Collect(page, new PoolResolver((IReadOnlyDictionary<int, QpdfObject>)prepared.Copier.CopiedObjects), QpdfLimits.Default, governor, CancellationToken.None));
         Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(61L, prior.ReservedBytes); Assert.Equal(original, first.Data);
     }
 }

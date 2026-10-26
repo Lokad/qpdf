@@ -1512,7 +1512,7 @@ internal static class Overlays
                 string? kind = OverlayNodeKind(dictionary, resolver);
                 if (kind == "Page")
                 {
-                    return OverlayNullRef(destCopier, ref allocator, ref nullId, governor, ownership);
+                    return OverlayNullRef(destCopier, ref allocator, ref nullId, ownership);
                 }
 
                 if (kind == "Pages" || kind == "Catalog")
@@ -1638,7 +1638,7 @@ internal static class Overlays
         return null;
     }
 
-    private static PdfReference OverlayNullRef(GraphCopier destCopier, ref int allocator, ref int nullId, ResourceGovernor governor, ParserMemoryScope ownership)
+    private static PdfReference OverlayNullRef(GraphCopier destCopier, ref int allocator, ref int nullId, ParserMemoryScope ownership)
     {
         if (nullId < 0)
         {

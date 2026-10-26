@@ -883,7 +883,7 @@ internal static class ContentTransforms
             }
         }
 
-        using AnalysisChunks? pageChunks = CollectPageChunks(copier, page, resolver, limits, governor, cancellationToken);
+        using AnalysisChunks? pageChunks = CollectPageChunks(page, resolver, limits, governor, cancellationToken);
         if (pageChunks is null)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped resource pruning for content that could not be read.");
@@ -1007,7 +1007,7 @@ internal static class ContentTransforms
         PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
         using ResourceNameSet names = ResourceNameSet.Create(governor, cancellationToken);
         using ResourceNameSet scoped = ResourceNameSet.Create(governor, cancellationToken);
-        if (!ScanNames(content, names, scoped, limits, governor, diagnostics, cancellationToken))
+        if (!ScanNames(content, names, scoped, limits, governor, cancellationToken))
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped resource pruning for content that could not be parsed.");
             return;
@@ -1194,7 +1194,6 @@ internal static class ContentTransforms
         => JoinedContent.Create(parts, governor, token);
 
     private static AnalysisChunks? CollectPageChunks(
-        GraphCopier copier,
         PdfDictionary page,
         PoolResolver resolver,
         QpdfLimits limits,
@@ -1287,7 +1286,6 @@ internal static class ContentTransforms
         ResourceNameSet scoped,
         QpdfLimits limits,
         ResourceGovernor governor,
-        DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
         using ParserMemoryScope tokenizerMemory = ParserMemoryScope.Create(governor);

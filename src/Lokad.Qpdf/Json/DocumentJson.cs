@@ -117,14 +117,14 @@ internal static class DocumentJson
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 AppendKey(builder, ref firstKey, request.Version == 1 ? "objects" : "qpdf");
-                AppendObjects(builder, document, request, touchesPages, output, limits, governor, diagnostics, cancellationToken);
+                AppendObjects(builder, document, request, touchesPages, output, limits, governor, cancellationToken);
             }
 
             if (request.Version == 1 && request.Wants("objectinfo"))
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 AppendKey(builder, ref firstKey, "objectinfo");
-                AppendObjectInfo(builder, document, request, output, limits, governor, diagnostics, cancellationToken);
+                AppendObjectInfo(builder, document, request, output, limits, governor, cancellationToken);
             }
 
             builder.Append((char)125);
@@ -1251,7 +1251,6 @@ internal static class DocumentJson
         PreparedJsonOutput output,
         QpdfLimits limits,
         ResourceGovernor governor,
-        DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
         DocumentEngine engine = document.Engine;
@@ -1435,7 +1434,6 @@ internal static class DocumentJson
         PreparedJsonOutput output,
         QpdfLimits limits,
         ResourceGovernor governor,
-        DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
         DocumentEngine engine = document.Engine;

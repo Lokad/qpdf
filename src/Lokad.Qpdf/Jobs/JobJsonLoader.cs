@@ -332,7 +332,7 @@ internal static class JobJsonLoader
         {
             ConfigurationText textStorage = TextStorage;
             JobPlan plan = JobJsonParser.ParseProperties(_fields ?? throw new ObjectDisposedException(nameof(Session)),
-                configurationLayers || Documents.Count > 1, _limits, _governor, textStorage);
+                configurationLayers || Documents.Count > 1, _governor, textStorage);
             textStorage.CompleteJsonCopies();
             // LoadedJob owns this session through plan consumption. Its copied
             // text follows that boundary, alongside the retained JSON documents.

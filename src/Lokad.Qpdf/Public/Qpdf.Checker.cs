@@ -31,7 +31,7 @@ public static partial class Qpdf
                     if (plan.ShowNpages) { AddPageCountDiagnostic(document, plan.Input, diagnostics); }
                     if (plan.CheckLinearization) { InspectLinearization(document, plan.Input, limits, governor, diagnostics, cancellationToken); }
                     if (plan.ShowLinearization) { ShowLinearization(document, plan.Input, limits, governor, diagnostics, cancellationToken); }
-                    if (plan.ShowXref) { ShowXref(document, plan, limits, governor, diagnostics, cancellationToken); }
+                    if (plan.ShowXref) { ShowXref(document, governor, diagnostics, cancellationToken); }
                     if (plan.ObjectSelector is not null)
                     {
                         bool priorInfo = plan.RunCheck || plan.ShowNpages || plan.CheckLinearization || plan.ShowLinearization || plan.ShowXref;

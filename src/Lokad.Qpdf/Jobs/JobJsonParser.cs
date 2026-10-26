@@ -70,7 +70,7 @@ internal static class JobJsonParser
                     throw new QpdfParseException("Job JSON must be an object.", 0L, null);
                 }
 
-                JobPlan plan = ParseProperties(EffectiveProperties(document.RootElement), false, limits, governor, textStorage);
+                JobPlan plan = ParseProperties(EffectiveProperties(document.RootElement), false, governor, textStorage);
                 textStorage.RetainForExecution();
                 return plan;
             }
@@ -86,14 +86,13 @@ internal static class JobJsonParser
     internal static JobPlan ParseProperties(
         IEnumerable<JsonProperty> properties,
         bool configurationLayers,
-        QpdfLimits limits,
         ResourceGovernor governor, ConfigurationText textStorage)
     {
         CollationPreparation storage = CollationPreparation.Create(governor);
         textStorage.Collation = storage;
         try
         {
-            JobPlan plan = ParsePropertiesCore(properties, configurationLayers, limits, governor, textStorage);
+            JobPlan plan = ParsePropertiesCore(properties, configurationLayers, governor, textStorage);
             if (!storage.HasStorage) { storage.Dispose(); return plan; }
             return plan with { CollationStorage = storage };
         }
@@ -104,7 +103,6 @@ internal static class JobJsonParser
     private static JobPlan ParsePropertiesCore(
         IEnumerable<JsonProperty> properties,
         bool configurationLayers,
-        QpdfLimits limits,
         ResourceGovernor governor, ConfigurationText textStorage)
     {
             string? input = null;

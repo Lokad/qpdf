@@ -275,7 +275,7 @@ public static partial class Qpdf
         return null;
     }
 
-    private static void ShowXref(QpdfDocument document, JobPlan plan, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
+    private static void ShowXref(QpdfDocument document, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         List<int> numbers = ParserContainers.CreateList<int>(memory);

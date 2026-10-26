@@ -282,7 +282,7 @@ internal sealed class XRefTable : IDisposable
         if (!tokenizer.TryReadToken(out PdfToken keyword) || keyword.Kind != PdfTokenKind.XRef)
         { throw new CompleteInputRequiredException(); }
         (Dictionary<int, XrefEntry> entries, PdfDictionary trailer) = ParseClassicSection(
-            window, limits, governor, diagnostics, tokenizer, 0L, values, section);
+            window, limits, governor, diagnostics, tokenizer, values, section);
         if ((PdfDictionaryLookup.TryGet(trailer, "Prev"u8, governor, governor.CancellationToken, out QpdfObject previous) && previous is not PdfNull)
             || (PdfDictionaryLookup.TryGet(trailer, "XRefStm"u8, governor, governor.CancellationToken, out QpdfObject hybrid) && hybrid is not PdfNull))
         { throw new CompleteInputRequiredException(); }
@@ -318,7 +318,7 @@ internal sealed class XRefTable : IDisposable
         // Classic sections continue after the consumed keyword; streams rewind to re-read their header.
         if (head.Kind == PdfTokenKind.XRef)
         {
-            (Dictionary<int, XrefEntry> entries, PdfDictionary trailer) = ParseClassicSection(data, limits, governor, diagnostics, tokenizer, current, values, section);
+            (Dictionary<int, XrefEntry> entries, PdfDictionary trailer) = ParseClassicSection(data, limits, governor, diagnostics, tokenizer, values, section);
             if (effectiveSize is null)
             {
                 effectiveSize = ReadSize(trailer, governor);
@@ -444,7 +444,6 @@ internal sealed class XRefTable : IDisposable
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         PdfTokenizer tokenizer,
-        long xrefOffset,
         ParserMemoryScope memory,
         ParserMemoryScope entriesMemory)
     {
@@ -517,7 +516,7 @@ internal sealed class XRefTable : IDisposable
         int[] widths = ReadWidths(dictionary, governor);
         List<(int First, int Count)> index = ReadIndex(dictionary, size, governor, scratch);
         ReadOnlyMemory<byte> decoded = DecodeXRefData(stream, governor, limits, xrefOffset, streamNumber, scratch);
-        Dictionary<int, XrefEntry> entries = ReadStreamEntries(decoded, widths, index, size, data.Length, governor, xrefOffset, entriesMemory);
+        Dictionary<int, XrefEntry> entries = ReadStreamEntries(decoded, widths, index, data.Length, governor, xrefOffset, entriesMemory);
         if (retainDictionary)
         {
             // ParseStream retains length + 64 for its wrapper/raw array. The
@@ -619,7 +618,6 @@ internal sealed class XRefTable : IDisposable
         ReadOnlyMemory<byte> decoded,
         int[] widths,
         List<(int First, int Count)> index,
-        int size,
         int dataLength,
         ResourceGovernor governor,
         long xrefOffset,

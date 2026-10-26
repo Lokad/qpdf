@@ -5379,7 +5379,7 @@ public static partial class Qpdf
             try
             {
                 await using QpdfDocument document = await OpenPlanInputAsync(host, showXref.Input, showXref.EmptyDocument, limits, governor, diagnostics, showXref.Recovery, cancellationToken).ConfigureAwait(false);
-                ShowXref(document, plan, limits, governor, diagnostics, cancellationToken);
+                ShowXref(document, governor, diagnostics, cancellationToken);
 
                 return CompleteWithPresentation(diagnostics.Entries, plan, governor);
             }
