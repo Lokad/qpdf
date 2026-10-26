@@ -466,7 +466,20 @@ internal static class DocumentJson
         int? destinationPage = null;
         if (destination is PdfArray destArray && destArray.Count > 0 && destArray[0] is PdfReference pageReference)
         {
-            if (pageIndex.TryGetValue(pageReference.ObjectNumber, out int position))
+            QpdfObject? target = EmbeddedFiles.ResolveOptionalValue(engine, pageReference, governor, cancellationToken);
+            if (target is null or PdfNull)
+            {
+                memory.Reserve(checked(56L + IntPtr.Size * (long)destArray.Count));
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                QpdfObject[] items = new QpdfObject[destArray.Count]; items[0] = PdfNull.Instance;
+                for (int i = 1; i < items.Length; i++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    items[i] = destArray[i];
+                }
+                destination = PdfArray.FromOwnedItems(items);
+            }
+            else if (target is PdfDictionary && pageIndex.TryGetValue(pageReference.ObjectNumber, out int position))
             {
                 destinationPage = position;
             }

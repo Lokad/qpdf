@@ -7,6 +7,13 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Outline JSON validates the effective generation of destination page references.
+Missing, freed or stale references now produce a null first destination element
+and no page association instead of targeting a live page with the same number.
+Valid nonzero generations remain supported; live non-page targets retain their
+reference without acquiring a page position. Normalization uses admitted temporary
+storage and leaves source arrays unchanged. Public signatures are unchanged.
+
 Outline JSON includes explicit local `/GoTo` destinations from `/A`, including
 indirect action dictionaries, kinds and destination arrays. Non-null `/Dest`
 values retain precedence; absent, null or unresolved `/Dest` can fall back to the
