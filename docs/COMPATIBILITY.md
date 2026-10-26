@@ -7,6 +7,14 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Page-content checking now fails malformed content collections and actual decode
+errors instead of marking unexamined content passed. Unavailable or partially
+inspected content reports a skipped stage; intentional decode-level exclusions
+are informational, while unavailable decoding warns. Empty/null pages and undefined
+outer `/Contents` references remain passing controls. These status/diagnostic and
+exit changes can stop following inspections and withhold their binary payloads.
+Memory refusal and cancellation still propagate; public signatures are unchanged.
+
 Attachment JSON filename/stream maps now use PDF name keys (`/F`, `/UF`, `/Unix`,
 `/DOS`, `/Mac`) in both versions and all entry points, matching qpdf. Previously
 the leading slash was omitted. This intentionally changes the JSON shape; clients

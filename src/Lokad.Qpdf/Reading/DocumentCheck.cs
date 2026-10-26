@@ -375,6 +375,7 @@ internal static class DocumentCheck
         IIndirectResolver resolver = (IIndirectResolver)engine;
         int examined = 0;
         int skipped = 0;
+        int aboveLevel = 0;
         using DisplayBuffer failures = DisplayBuffer.Create(governor, false);
         int failureCount = 0;
         int pageNumber = 0;
@@ -388,11 +389,18 @@ internal static class DocumentCheck
             {
                 continue;
             }
+            if (contents is PdfReference reference)
+            {
+                if (!PdfObjectLookup.TryResolve(reference, resolver, governor, cancellationToken, out QpdfObject? resolved)
+                    || resolved is null || resolved is PdfNull) { continue; }
+                contents = resolved;
+            }
 
             using ContentEntries? streams = ContentEntries.TryRead(contents, resolver, governor, cancellationToken);
             if (streams is null)
             {
-                skipped += 1;
+                AddFailure(failures, ref failureCount, ["Page ", pageNumber, " content: expected a stream or array of streams."]);
+                if (failureCount >= MaxStreamFailures) { break; }
                 continue;
             }
 
@@ -401,15 +409,15 @@ internal static class DocumentCheck
                 PdfStream stream = streams.Get(streamIndex).Stream;
                 cancellationToken.ThrowIfCancellationRequested();
                 using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
-                byte[]? bytes = DecodeCheckStream(stream, resolver, options.DecodeLevel, limits, governor, decodedMemory, cancellationToken);
-                if (bytes is null)
-                {
-                    skipped += 1;
-                    continue;
-                }
-
                 try
                 {
+                    byte[]? bytes = DecodeCheckStream(stream, resolver, options.DecodeLevel, limits, governor, decodedMemory, cancellationToken, out bool outsideLevel);
+                    if (bytes is null)
+                    {
+                        skipped += 1;
+                        if (outsideLevel) { aboveLevel += 1; }
+                        continue;
+                    }
                     TokenizeCheckStream(bytes, limits, governor, cancellationToken);
                     examined += 1;
                 }
@@ -432,6 +440,14 @@ internal static class DocumentCheck
         if (failureCount > 0)
         {
             return FinishOutcome(governor, "page-content", QpdfCheckStatus.Failed, failures);
+        }
+        if (skipped > 0)
+        {
+            QpdfCheckOutcome outcome = CheckOutcome.Create(governor, "page-content", QpdfCheckStatus.Skipped,
+                [examined, " content streams tokenized, ", skipped, " skipped (", aboveLevel, " above decode level, ", skipped - aboveLevel, " unavailable)."]);
+            diagnostics.AddParts(QpdfDiagnosticCode.CheckSkipped, skipped > aboveLevel ? QpdfDiagnosticSeverity.Warning : QpdfDiagnosticSeverity.Info,
+                ["Skipped check 'page-content': ", outcome.Detail]);
+            return outcome;
         }
 
         return CheckOutcome.Create(governor, "page-content", QpdfCheckStatus.Passed,
@@ -802,18 +818,11 @@ internal static class DocumentCheck
         QpdfLimits limits,
         ResourceGovernor governor,
         ParserMemoryScope memory,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        out bool aboveLevel)
     {
-        FilterPlan stages;
-        try
-        {
-            stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, cancellationToken);
-        }
-        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
-        {
-            return null;
-        }
-        using FilterPlan stageOwner = stages;
+        aboveLevel = false;
+        using FilterPlan stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, cancellationToken);
 
         if (stages.Count == 0)
         {
@@ -824,6 +833,7 @@ internal static class DocumentCheck
         {
             if (!InLevel(stage.Name, level))
             {
+                aboveLevel = true;
                 return null;
             }
         }
@@ -832,7 +842,7 @@ internal static class DocumentCheck
         {
             return FilterChain.Decode(stream.ArrayData(memory, governor, cancellationToken), stages, limits, governor, memory, cancellationToken);
         }
-        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
+        catch (QpdfFilterException ex) when (ex.Reason == QpdfFilterFailureReason.UnsupportedFilter)
         {
             return null;
         }
@@ -844,7 +854,7 @@ internal static class DocumentCheck
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
-        ContentTokenizer tokenizer = new(bytes, limits, governor);
+        ContentTokenizer tokenizer = new(bytes, limits, governor, cancellationToken);
         byte[] idMarker = [(byte)73, (byte)68];
         while (tokenizer.TryReadToken(out ContentToken token))
         {
