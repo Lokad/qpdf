@@ -2,6 +2,7 @@ using System.Text;
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Objects;
 
@@ -212,14 +213,26 @@ public sealed class XRefStreamTests
         byte[] data = Encoding.ASCII.GetBytes("5 0 obj\n<< /Type /ObjStm /N 1000000 /First 4 /Length 8 >>\nstream\n6 0 null\nendstream\nendobj\n");
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 65536L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
-        var entries = new System.Collections.Generic.Dictionary<int, XrefEntry>
-        {
-            [5] = XrefEntry.Uncompressed(0L, 0),
-            [6] = XrefEntry.Compressed(5, 0),
-        };
+        using ParserMemoryScope fixtureStorage = ParserMemoryScope.Create(governor);
+        Dictionary<int, XrefEntry> entries = ParserContainers.CreateDictionary<int, XrefEntry>(fixtureStorage);
+        GovernedCollections.Assign(fixtureStorage, governor, entries, 5, XrefEntry.Uncompressed(0L, 0), 24L);
+        GovernedCollections.Assign(fixtureStorage, governor, entries, 6, XrefEntry.Compressed(5, 0), 24L);
         PdfDictionary trailer = new(new System.Collections.Generic.Dictionary<PdfName, QpdfObject>());
-        var table = new XRefTable(0L, entries, trailer, [trailer]);
-        var engine = new DocumentEngine(data, table, limits, governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict);
+        using ParserMemoryScope fixtureValues = ParserMemoryScope.Create(governor);
+        List<PdfDictionary> fixtureTrailers = ParserContainers.CreateList<PdfDictionary>(fixtureStorage, 1, IntPtr.Size);
+        fixtureTrailers.Add(trailer);
+        XRefTable fixtureTable = XRefTable.CreateOwned(0L, entries, trailer, fixtureTrailers,
+            governor, fixtureStorage, fixtureValues, false);
+        DocumentEngine fixtureEngine;
+        try
+        {
+            fixtureStorage.Reserve(data.Length + 32L);
+            fixtureEngine = DocumentEngine.CreateOwned(data, fixtureTable, limits,
+                governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict, data.Length + 32L);
+            fixtureStorage.Retain();
+        }
+        catch { fixtureTable.Dispose(); throw; }
+        using DocumentEngine engine = fixtureEngine;
         long before = GC.GetAllocatedBytesForCurrentThread();
         try { engine.Load(6); } catch (QpdfException) { }
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;

@@ -167,15 +167,30 @@ public sealed class TolerantParserTests
         byte[] data = Encoding.ASCII.GetBytes($"5 0 obj << /Type /ObjStm /N 6 /First {header.Length} /Length {decoded.Length} >>\nstream\n{decoded}\nendstream\nendobj");
         QpdfLimits limits = QpdfLimits.Default with { MaxParserErrors = 2L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
-        Dictionary<int, XrefEntry> entries = new() { [5] = XrefEntry.Uncompressed(0L, 0) };
+        using ParserMemoryScope fixtureStorage = ParserMemoryScope.Create(governor);
+        Dictionary<int, XrefEntry> entries = ParserContainers.CreateDictionary<int, XrefEntry>(fixtureStorage);
+        GovernedCollections.Assign(fixtureStorage, governor, entries, 5, XrefEntry.Uncompressed(0L, 0), 24L);
         for (int i = 0; i < members.Length; i++)
         {
-            entries[i + 6] = XrefEntry.Compressed(5, i);
+            GovernedCollections.Assign(fixtureStorage, governor, entries, i + 6, XrefEntry.Compressed(5, i), 24L);
         }
 
         PdfDictionary trailer = new(new Dictionary<PdfName, QpdfObject>());
-        XRefTable table = new(0L, entries, trailer, [trailer]);
-        DocumentEngine engine = new(data, table, limits, governor, new DiagnosticBag(governor), QpdfRecoveryMode.BoundedRepair);
+        using ParserMemoryScope fixtureValues = ParserMemoryScope.Create(governor);
+        List<PdfDictionary> fixtureTrailers = ParserContainers.CreateList<PdfDictionary>(fixtureStorage, 1, IntPtr.Size);
+        fixtureTrailers.Add(trailer);
+        XRefTable fixtureTable = XRefTable.CreateOwned(0L, entries, trailer, fixtureTrailers,
+            governor, fixtureStorage, fixtureValues, false);
+        DocumentEngine fixtureEngine;
+        try
+        {
+            fixtureStorage.Reserve(data.Length + 32L);
+            fixtureEngine = DocumentEngine.CreateOwned(data, fixtureTable, limits,
+                governor, new DiagnosticBag(governor), QpdfRecoveryMode.BoundedRepair, data.Length + 32L);
+            fixtureStorage.Retain();
+        }
+        catch { fixtureTable.Dispose(); throw; }
+        using DocumentEngine engine = fixtureEngine;
         for (int i = 0; i < members.Length; i++)
         {
             PdfArray value = Assert.IsType<PdfArray>(engine.Load(i + 6));

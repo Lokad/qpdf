@@ -2,6 +2,7 @@ using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Tests.Filters;
 using Lokad.Qpdf.Writing;
 
@@ -30,8 +31,23 @@ public sealed class InlineContentInputTests
         internal Prepared(PdfStream stream)
         {
             PdfDictionary trailer = Dictionary();
-            _engine = new(ReadOnlyMemory<byte>.Empty, new XRefTable(0L, new Dictionary<int, XrefEntry>(), trailer, [trailer]), QpdfLimits.Default,
-                Construction, new DiagnosticBag(Construction), QpdfRecoveryMode.Strict);
+            using ParserMemoryScope fixtureStorage = ParserMemoryScope.Create(Construction);
+            Dictionary<int, XrefEntry> fixtureEntries = ParserContainers.CreateDictionary<int, XrefEntry>(fixtureStorage);
+            using ParserMemoryScope fixtureValues = ParserMemoryScope.Create(Construction);
+            List<PdfDictionary> fixtureTrailers = ParserContainers.CreateList<PdfDictionary>(fixtureStorage, 1, IntPtr.Size);
+            fixtureTrailers.Add(trailer);
+            XRefTable fixtureTable = XRefTable.CreateOwned(0L, fixtureEntries, trailer, fixtureTrailers,
+                Construction, fixtureStorage, fixtureValues, false);
+            DocumentEngine fixtureEngine;
+            try
+            {
+                fixtureStorage.Reserve(32L);
+                fixtureEngine = DocumentEngine.CreateOwned(ReadOnlyMemory<byte>.Empty, fixtureTable, QpdfLimits.Default,
+                    Construction, new DiagnosticBag(Construction), QpdfRecoveryMode.Strict, 32L);
+                fixtureStorage.Retain();
+            }
+            catch { fixtureTable.Dispose(); throw; }
+            _engine = fixtureEngine;
             _memory = ParserMemoryScope.Create(Construction);
             Copier = GraphCopier.CreateOwned(_engine, Construction, QpdfLimits.Default, 1, _memory);
             var pool = (IDictionary<int, QpdfObject>)Copier.CopiedObjects;

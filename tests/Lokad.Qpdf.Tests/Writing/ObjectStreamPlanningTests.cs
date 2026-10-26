@@ -3,6 +3,7 @@ using System.Reflection;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
@@ -37,10 +38,28 @@ public sealed class ObjectStreamPlanningTests
     {
         PdfDictionary trailer = new(new Dictionary<PdfName, QpdfObject>());
         ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
-        Dictionary<int, XrefEntry> entries = Enumerable.Range(3, count).ToDictionary(i => i,
-            i => i % 2 == 0 ? XrefEntry.Compressed(2, i) : XrefEntry.Uncompressed(i, 0));
-        return new(ReadOnlyMemory<byte>.Empty, new XRefTable(0L, entries, trailer, [trailer]),
-            QpdfLimits.Default, construction, new(construction), QpdfRecoveryMode.Strict);
+        using ParserMemoryScope fixtureStorage = ParserMemoryScope.Create(construction);
+        Dictionary<int, XrefEntry> entries = ParserContainers.CreateDictionary<int, XrefEntry>(fixtureStorage);
+        for (int i = 3; i < count + 3; i++)
+        {
+            GovernedCollections.Assign(fixtureStorage, construction, entries, i,
+                i % 2 == 0 ? XrefEntry.Compressed(2, i) : XrefEntry.Uncompressed(i, 0), 24L);
+        }
+        using ParserMemoryScope fixtureValues = ParserMemoryScope.Create(construction);
+        List<PdfDictionary> fixtureTrailers = ParserContainers.CreateList<PdfDictionary>(fixtureStorage, 1, IntPtr.Size);
+        fixtureTrailers.Add(trailer);
+        XRefTable fixtureTable = XRefTable.CreateOwned(0L, entries, trailer, fixtureTrailers,
+            construction, fixtureStorage, fixtureValues, false);
+        DocumentEngine fixtureEngine;
+        try
+        {
+            fixtureStorage.Reserve(32L);
+            fixtureEngine = DocumentEngine.CreateOwned(ReadOnlyMemory<byte>.Empty, fixtureTable, QpdfLimits.Default,
+                construction, new(construction), QpdfRecoveryMode.Strict, 32L);
+            fixtureStorage.Retain();
+        }
+        catch { fixtureTable.Dispose(); throw; }
+        return fixtureEngine;
     }
 
     [Theory]

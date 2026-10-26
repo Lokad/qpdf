@@ -4,6 +4,7 @@ using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.TestSupport;
 using Lokad.Qpdf.Tests.Inspection;
 
@@ -25,8 +26,23 @@ public sealed class AttachmentMetadataTests
         PdfDictionary tree = Dictionary(("Names", new PdfArray([field == "key" ? large : small, spec])));
         PdfDictionary trailer = Dictionary(("Root", Dictionary(("Names", Dictionary(("EmbeddedFiles", tree))))));
         ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
-        return new(ReadOnlyMemory<byte>.Empty, new XRefTable(0L, new Dictionary<int, XrefEntry>(), trailer, [trailer]),
-            QpdfLimits.Default, construction, new(construction), QpdfRecoveryMode.Strict);
+        using ParserMemoryScope fixtureStorage = ParserMemoryScope.Create(construction);
+        Dictionary<int, XrefEntry> fixtureEntries = ParserContainers.CreateDictionary<int, XrefEntry>(fixtureStorage);
+        using ParserMemoryScope fixtureValues = ParserMemoryScope.Create(construction);
+        List<PdfDictionary> fixtureTrailers = ParserContainers.CreateList<PdfDictionary>(fixtureStorage, 1, IntPtr.Size);
+        fixtureTrailers.Add(trailer);
+        XRefTable fixtureTable = XRefTable.CreateOwned(0L, fixtureEntries, trailer, fixtureTrailers,
+            construction, fixtureStorage, fixtureValues, false);
+        DocumentEngine fixtureEngine;
+        try
+        {
+            fixtureStorage.Reserve(32L);
+            fixtureEngine = DocumentEngine.CreateOwned(ReadOnlyMemory<byte>.Empty, fixtureTable, QpdfLimits.Default,
+                construction, new(construction), QpdfRecoveryMode.Strict, 32L);
+            fixtureStorage.Retain();
+        }
+        catch { fixtureTable.Dispose(); throw; }
+        return fixtureEngine;
     }
 
     [Theory]

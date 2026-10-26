@@ -11,8 +11,23 @@ public sealed class ReaderNameLookupTests
     private static DocumentEngine Engine(QpdfLimits limits, ResourceGovernor governor)
     {
         PdfDictionary empty = new(new Dictionary<PdfName, QpdfObject>());
-        XRefTable table = new(0L, new Dictionary<int, XrefEntry>(), empty, new List<PdfDictionary> { empty });
-        return new DocumentEngine(ReadOnlyMemory<byte>.Empty, table, limits, governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict);
+        using ParserMemoryScope fixtureStorage = ParserMemoryScope.Create(governor);
+        Dictionary<int, XrefEntry> fixtureEntries = ParserContainers.CreateDictionary<int, XrefEntry>(fixtureStorage);
+        using ParserMemoryScope fixtureValues = ParserMemoryScope.Create(governor);
+        List<PdfDictionary> fixtureTrailers = ParserContainers.CreateList<PdfDictionary>(fixtureStorage, 1, IntPtr.Size);
+        fixtureTrailers.Add(empty);
+        XRefTable fixtureTable = XRefTable.CreateOwned(0L, fixtureEntries, empty, fixtureTrailers,
+            governor, fixtureStorage, fixtureValues, false);
+        DocumentEngine fixtureEngine;
+        try
+        {
+            fixtureStorage.Reserve(32L);
+            fixtureEngine = DocumentEngine.CreateOwned(ReadOnlyMemory<byte>.Empty, fixtureTable, limits,
+                governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict, 32L);
+            fixtureStorage.Retain();
+        }
+        catch { fixtureTable.Dispose(); throw; }
+        return fixtureEngine;
     }
 
     private static PdfDictionary ManyEntries()

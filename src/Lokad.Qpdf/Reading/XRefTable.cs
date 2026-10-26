@@ -68,17 +68,12 @@ internal sealed class XRefTable : IDisposable
     private Dictionary<int, XrefEntry>? _entries;
     private PdfDictionary? _trailer;
     private List<PdfDictionary>? _trailers;
-    private readonly ResourceGovernor? _governor;
+    private readonly ResourceGovernor _governor;
     private long _containerBytes;
     private long _ownedValuesBytes;
 
-    internal XRefTable(long xrefOffset, Dictionary<int, XrefEntry> entries, PdfDictionary trailer, List<PdfDictionary> trailers)
-        : this(xrefOffset, entries, trailer, trailers, null, 0L)
-    {
-    }
-
     private XRefTable(long xrefOffset, Dictionary<int, XrefEntry> entries, PdfDictionary trailer,
-        List<PdfDictionary> trailers, ResourceGovernor? governor, long containerBytes)
+        List<PdfDictionary> trailers, ResourceGovernor governor, long containerBytes)
     {
         XrefOffset = xrefOffset;
         _entries = entries;
@@ -121,7 +116,7 @@ internal sealed class XRefTable : IDisposable
 
     internal void TransferExclusiveValuesTo(ParserMemoryScope target)
     {
-        target.CheckOwner(_governor ?? throw new InvalidOperationException("Table storage has no owner."));
+        target.CheckOwner(_governor);
         _ = Entries;
         target.AdoptReserved(_ownedValuesBytes);
         _ownedValuesBytes = 0L;
@@ -133,8 +128,8 @@ internal sealed class XRefTable : IDisposable
         _entries = null;
         _trailer = null;
         _trailers = null;
-        _governor?.ReleaseMemory(_containerBytes);
-        _governor?.ReleaseMemory(_ownedValuesBytes);
+        _governor.ReleaseMemory(_containerBytes);
+        _governor.ReleaseMemory(_ownedValuesBytes);
         _containerBytes = 0L;
         _ownedValuesBytes = 0L;
     }
