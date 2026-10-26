@@ -1094,6 +1094,7 @@ internal static class DocumentJson
         builder.Append((char)125);
     }
 
+    // Fixed ASCII PDF names; JSON map keys retain their leading slash.
     private static readonly string[] NameKeys = ["F", "UF", "Unix", "DOS", "Mac"];
 
     private static PdfDictionary? AttachmentSpec(DocumentEngine engine, EmbeddedAttachment attachment)
@@ -1126,8 +1127,7 @@ internal static class DocumentJson
                     }
 
                     first = false;
-                    PdfJsonWriter.AppendJsonString(builder, name);
-                    builder.Append(": ");
+                    builder.Append("\"/"); builder.Append(name); builder.Append("\": ");
                     PdfJsonWriter.AppendJsonString(builder, PdfText.Decode(text.ValueMemory, textMemory, governor, token));
                     textMemory.Discard();
                 }
@@ -1153,7 +1153,7 @@ internal static class DocumentJson
                 if (!streams.TryGet(PdfName.FromAscii(name), out QpdfObject candidate)
                     || TryResolve(engine, candidate) is not PdfStream stream) { continue; }
                 if (!first) { builder.Append(','); } first = false;
-                PdfJsonWriter.AppendJsonString(builder, name); builder.Append(": ");
+                builder.Append("\"/"); builder.Append(name); builder.Append("\": ");
                 EmbeddedFiles.EmbeddedStreamMetadata metadata;
                 if (ReferenceEquals(stream, attachment.Stream))
                 { metadata = new(attachment.MimeType, attachment.CreationDate, attachment.ModDate, attachment.Checksum, attachment.Size); }

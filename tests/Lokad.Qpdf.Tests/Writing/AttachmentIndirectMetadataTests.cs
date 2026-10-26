@@ -57,8 +57,9 @@ public sealed class AttachmentIndirectMetadataTests
             using JsonDocument json = JsonDocument.Parse(output);
             JsonElement attachment = json.RootElement.GetProperty("attachments").GetProperty("K");
             Assert.Equal("preferred.txt", attachment.GetProperty("preferredname").GetString()); Assert.Equal("description", attachment.GetProperty("description").GetString());
-            Assert.Equal("preferred.txt", Assert.Single(attachment.GetProperty("names").EnumerateObject()).Value.GetString());
+            Assert.Equal("preferred.txt", attachment.GetProperty("names").GetProperty("/UF").GetString());
             JsonProperty[] streams = attachment.GetProperty("streams").EnumerateObject().ToArray(); Assert.Equal(2, streams.Length);
+            Assert.Equal(new[] { "/F", "/UF" }, streams.Select(stream => stream.Name).Order());
             foreach (JsonProperty stream in streams)
             {
                 Assert.Equal("text/plain", stream.Value.GetProperty("mimetype").GetString()); Assert.Equal("0102", stream.Value.GetProperty("checksum").GetString());

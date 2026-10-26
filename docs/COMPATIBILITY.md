@@ -7,6 +7,12 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Attachment JSON filename/stream maps now use PDF name keys (`/F`, `/UF`, `/Unix`,
+`/DOS`, `/Mac`) in both versions and all entry points, matching qpdf. Previously
+the leading slash was omitted. This intentionally changes the JSON shape; clients
+must use the corrected keys. No duplicate aliases or public signatures are added.
+Creation and modification dates remain independent.
+
 Attachment metadata resolves indirect scalar values before checking their types,
 including filename maps and alternate embedded streams in JSON. Previously valid
 references silently lost filenames, descriptions, MIME types, dates, checksums and

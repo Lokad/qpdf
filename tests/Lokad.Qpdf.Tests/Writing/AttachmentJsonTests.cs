@@ -71,7 +71,7 @@ public sealed class AttachmentJsonTests
                 Assert.Equal(QpdfExitCode.Success, result.ExitCode);
             }
             Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output)); Assert.Equal(0L, host.OpenLeaseCount);
-            using JsonDocument json = JsonDocument.Parse(output); JsonElement stream = json.RootElement.GetProperty("attachments").GetProperty("K").GetProperty("streams").GetProperty("UF");
+            using JsonDocument json = JsonDocument.Parse(output); JsonElement stream = json.RootElement.GetProperty("attachments").GetProperty("K").GetProperty("streams").GetProperty("/UF");
             Assert.Equal(creation, stream.GetProperty("creationdate").GetString()); Assert.Equal(modification, stream.GetProperty("modificationdate").GetString());
         }
     }
@@ -93,7 +93,7 @@ public sealed class AttachmentJsonTests
         host.Dispose(); using JsonDocument json = JsonDocument.Parse(result.Json);
         JsonElement attachment = json.RootElement.GetProperty("attachments").GetProperty("K");
         Assert.Equal("preferred", attachment.GetProperty("preferredname").GetString()); Assert.Equal("7 0 R", attachment.GetProperty("preferredcontents").GetString());
-        JsonElement legacy = attachment.GetProperty("streams").GetProperty("F"), preferred = attachment.GetProperty("streams").GetProperty("UF");
+        JsonElement legacy = attachment.GetProperty("streams").GetProperty("/F"), preferred = attachment.GetProperty("streams").GetProperty("/UF");
         Assert.Equal("2024-01-02T03:04:05Z", legacy.GetProperty("creationdate").GetString()); Assert.Null(legacy.GetProperty("modificationdate").GetString());
         Assert.Equal("ab", legacy.GetProperty("checksum").GetString()); Assert.Equal("text/plain", legacy.GetProperty("mimetype").GetString());
         Assert.Null(preferred.GetProperty("creationdate").GetString()); Assert.Equal("2025-06-07T08:09:10Z", preferred.GetProperty("modificationdate").GetString());
@@ -131,7 +131,7 @@ public sealed class AttachmentJsonTests
         if (preferred)
         { Assert.Empty(attachments.EnumerateObject()); Assert.Contains(result.Warnings, d => d.Message.Contains("Skipped unlistable attachment", StringComparison.Ordinal)); }
         else
-        { Assert.Equal(JsonValueKind.Null, attachments.GetProperty("K").GetProperty("streams").GetProperty("F").GetProperty("modificationdate").ValueKind); }
+        { Assert.Equal(JsonValueKind.Null, attachments.GetProperty("K").GetProperty("streams").GetProperty("/F").GetProperty("modificationdate").ValueKind); }
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 

@@ -433,9 +433,9 @@ public sealed class JsonInspectionTests
         Assert.Equal("note.txt", file.GetProperty("preferredname").GetString());
         Assert.Equal("8 0 R", file.GetProperty("preferredcontents").GetString());
         Assert.Equal("A note", file.GetProperty("description").GetString());
-        Assert.Equal("note.txt", file.GetProperty("names").GetProperty("UF").GetString());
+        Assert.Equal("note.txt", file.GetProperty("names").GetProperty("/UF").GetString());
         JsonElement streams = file.GetProperty("streams");
-        Assert.True(streams.TryGetProperty("F", out JsonElement stream));
+        Assert.True(streams.TryGetProperty("/F", out JsonElement stream));
         Assert.Equal("2024-01-02T15:04:06Z", stream.GetProperty("creationdate").GetString());
         Assert.Equal(JsonValueKind.Null, stream.GetProperty("modificationdate").ValueKind);
         Assert.Equal("text/plain", stream.GetProperty("mimetype").GetString());

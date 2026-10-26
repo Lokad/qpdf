@@ -383,6 +383,9 @@ keys; listing order and request matching use decoded ordinal text.
   (`/Names` pairs plus `/Kids` branches, within nesting/container bounds and cancellation).
   Keys decode as PDF text (UTF-8 or UTF-16 with a byte-order mark, otherwise
   PDFDocEncoding) and match request keys by exact ordinal text.
+- Attachment JSON versions 1 and 2 retain PDF name keys (`/F`, `/UF`, `/Unix`,
+  `/DOS`, `/Mac`) in filename and stream maps. Optional metadata scalars resolve
+  through the shared reader, including alternate embedded streams.
 - `Qpdf.ListAttachmentsAsync` reports key, preferred file name, description,
   MIME type, PDF-syntax dates, stored checksum, stream number, and declared
   size without formatting listing diagnostics; genuine warnings still consume
