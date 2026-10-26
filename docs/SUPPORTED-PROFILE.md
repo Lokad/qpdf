@@ -81,6 +81,8 @@ do not advance the positional input/output cursor. Active nested identities
 form cycles; a completed independent file may be included again. A later input
 supersedes an earlier empty configuration; empty after an input rejects.
 Setter/duplicate/cycle/default behavior has bounded public/native qualification.
+Mixed invocations retain managed separate JSON/split values and bare compression;
+explicitly empty JSON choices reject, and keep-files-open requires equals syntax.
 Practical resource checks use the approximate accounting target.
 
 All routes return explicit outcomes (`PdfPageSelectionResult` or

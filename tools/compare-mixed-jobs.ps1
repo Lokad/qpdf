@@ -54,7 +54,11 @@ $cases = @(
   @{ Name='whole-replace'; Args=@('--job-json-file=inputs/input.json','--replace-input'); Version='1.4'; Replace=$true },
   @{ Name='bad-force-overwritten'; Args=@('inputs/a.pdf','outputs/a.pdf','--force-version=bogus','--job-json-file=inputs/settings.json'); Version='1.5' },
   @{ Name='json-objects'; Args=@('inputs/a.pdf','--job-json-file=inputs/settings.json','--json=2','--json-object=trailer','--json-object=1'); Json=$true },
-  @{ Name='bare-compress'; Args=@('inputs/a.pdf','outputs/a.pdf','--job-json-file=inputs/settings.json','--compress-streams'); Exit=2 },
+  # Managed bare compression is qualified against native's explicit equivalent.
+  @{ Name='bare-compress'; Args=@('inputs/a.pdf','outputs/a.pdf','--job-json-file=inputs/settings.json','--compress-streams'); NativeArgs=@('inputs/a.pdf','outputs/a.pdf','--job-json-file=inputs/settings.json','--compress-streams=y'); Version='1.5' },
+  @{ Name='empty-json-choice'; Args=@('inputs/a.pdf','--job-json-file=inputs/settings.json','--json='); Exit=2 },
+  @{ Name='empty-json-output-choice'; Args=@('inputs/a.pdf','--job-json-file=inputs/settings.json','--json-output='); Exit=2 },
+  @{ Name='separated-keep-open'; Args=@('inputs/a.pdf','outputs/a.pdf','--job-json-file=inputs/settings.json','--keep-files-open','y'); Exit=2 },
   # Separate argv parameters are an existing managed extension; the oracle
   # comparison uses its documented joined form for the same configuration.
   @{ Name='separate-form'; Args=@('inputs/a.pdf','--job-json-file','inputs/settings.json','outputs/a.pdf'); NativeArgs=@('inputs/a.pdf','--job-json-file=inputs/settings.json','outputs/a.pdf'); Version='1.5' },
