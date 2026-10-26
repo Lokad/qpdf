@@ -1,5 +1,6 @@
 using Lokad.Qpdf.TestSupport;
 using Lokad.Qpdf.Runtime;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
@@ -168,6 +169,85 @@ public sealed class CooperativeInputMemoryTests
         Assert.Empty(empty);
         Assert.Equal(0, input.Reads);
         Assert.Equal(0, root.ReserveCalls);
+    }
+
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(1, 1)]
+    [InlineData(2, 3)]
+    public async Task AdmissionCancellationRefundsTheReadWithoutClosingCallerInput(int phase, int reads)
+    {
+        RecordingMemoryBudget root = new(4096L);
+        using IMemoryScope caller = root.CreateScope();
+        Assert.True(caller.TryReserve(128L, out IMemoryReservation? held));
+        using (held)
+        {
+            using CancellationTokenSource cancellation = new();
+            CancelingBudget budget = new(caller, cancellation, phase);
+            Input input = new(new byte[] { 1, 2, 3, 4, 5 }, 2);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => QpdfInputReader.ReadExactlyAsync(
+                input, 0L, 5, budget, cancellation.Token).AsTask());
+            Assert.True(cancellation.IsCancellationRequested);
+            Assert.Equal(reads, input.Reads);
+            Assert.Equal(128L, root.ReservedBytes);
+            Assert.False(input.Disposed);
+            byte[] next = await QpdfInputReader.ReadExactlyAsync(input, 0L, 5, caller, CancellationToken.None);
+            Assert.Equal(new byte[] { 1, 2, 3, 4, 5 }, next);
+            Assert.Equal(165L, root.ReservedBytes);
+            caller.Dispose();
+            Assert.Equal(new byte[] { 1, 2, 3, 4, 5 }, next);
+            Assert.Equal(0L, root.ReservedBytes);
+        }
+    }
+
+    [Theory]
+    [InlineData(false, 1, 20000)]
+    [InlineData(true, 1, 20000)]
+    [InlineData(false, 2, 65536)]
+    [InlineData(true, 2, 65536)]
+    public async Task EngineAssemblyAdmissionChecksBothCancellationTokens(bool cancelGovernor, int phase, int count)
+    {
+        RecordingMemoryBudget root = new(262144L);
+        using IMemoryScope caller = root.CreateScope();
+        using CancellationTokenSource cancellation = new();
+        CancelingBudget budget = new(caller, cancellation, phase);
+        ResourceGovernor governor = new(QpdfLimits.Default,
+            cancelGovernor ? cancellation.Token : CancellationToken.None, new BudgetHost(budget));
+        governor.ReserveMemory(count + 32L);
+        Input input = new(new byte[count], 17000);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => QpdfInputReader.ReadAdmittedAsync(
+            input, 0L, count, governor, cancelGovernor ? CancellationToken.None : cancellation.Token).AsTask());
+        Assert.True(cancellation.IsCancellationRequested);
+        Assert.Equal(phase == 1 ? 1 : 4, input.Reads);
+        Assert.False(input.Disposed);
+        Assert.Equal(count + 32L, governor.Snapshot().LiveMemoryBytes);
+        governor.ReleaseMemory(count + 32L);
+        Assert.Equal(0L, root.ReservedBytes);
+    }
+
+    private sealed class CancelingBudget(IMemoryBudget inner, CancellationTokenSource cancellation, int phase) : IMemoryBudget
+    {
+        public IMemoryScope CreateScope() => inner.CreateScope();
+        public bool TryReserve(long bytes, [NotNullWhen(true)] out IMemoryReservation? reservation)
+        {
+            if (!inner.TryReserve(bytes, out IMemoryReservation? admitted)) { reservation = null; return false; }
+            reservation = new Reservation(admitted, cancellation, phase);
+            if (phase == 0) { cancellation.Cancel(); }
+            return true;
+        }
+
+        private sealed class Reservation(IMemoryReservation inner, CancellationTokenSource cancellation, int phase) : IMemoryReservation
+        {
+            public long Bytes => inner.Bytes;
+            public bool TryResize(long bytes)
+            {
+                long previous = inner.Bytes;
+                bool accepted = inner.TryResize(bytes);
+                if (accepted && (phase == 1 && bytes > previous || phase == 2 && bytes < previous)) { cancellation.Cancel(); }
+                return accepted;
+            }
+            public void Dispose() => inner.Dispose();
+        }
     }
 
     private sealed class BudgetHost(IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost

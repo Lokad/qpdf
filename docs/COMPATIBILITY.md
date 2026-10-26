@@ -21,6 +21,14 @@ target. Attachment extraction shares this behavior through typed, argv and job
 entry points. The uncommitted transaction remains available for retry or discard;
 public signatures and successful empty-output publication are unchanged.
 
+Budgeted ranged reads observe cancellation after assembly admission and the final
+reservation shrink, before returning caller-owned bytes. A callback that cancels
+during the shrink now causes cancellation and refunds the read reservation instead
+of returning a charged result. Assembly also checks the engine's independent
+cancellation token before allocating its destination and after refunding overlap.
+Input leases stay caller-owned; public signatures and successful result ownership
+are unchanged.
+
 Mixed argv with `--job-json-file` now shares ordinary managed parameter parsing
 for JSON versions, split sizes, compression choices and keep-files-open hints.
 Separate JSON/split values and bare compression retain their managed grammar;

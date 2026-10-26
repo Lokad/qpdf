@@ -129,6 +129,8 @@ public static class QpdfInputReader
                         governor.ReserveMemory(bytes);
                         overlap = bytes;
                     }
+                    cancellationToken.ThrowIfCancellationRequested();
+                    governor?.CheckCancellation();
                     result = new byte[count];
                     assembled = true;
                 }
@@ -146,6 +148,15 @@ public static class QpdfInputReader
 
             if (storage is not null && assembled)
             { MemoryAdmission.Resize(storage, count + GovernedBufferStream.ArrayOverheadBytes); }
+            // Refund overlap before the final cancellation check: shrinking
+            // the shared reservation can call the host's budget again.
+            if (overlap != 0L)
+            {
+                long bytes = overlap; overlap = 0L;
+                governor?.ReleaseMemory(bytes);
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            governor?.CheckCancellation();
             // Successful storage belongs to the supplied caller scope. Failure
             // before escape instead disposes this reservation in the finally.
             storage = null;
