@@ -14,6 +14,14 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+`QpdfJpegCodecContext.ResizeMemory` lets caller-supplied codecs grow or shrink
+their existing per-call reservations. Growth is admitted before allocation and
+checks cancellation after budget callbacks; refusal or cancellation preserves the
+prior estimate. Initial reservations also check cancellation after admission.
+Shrink and disposal can finish after cancellation. Reservations still expire
+with the codec call, and codecs remain responsible for actual storage cleanup.
+Existing codec signatures and the dependency-free runtime contract are unchanged.
+
 PDF JSON admission and DOM parsing share a finite syntax ceiling that covers the
 supported PDF nesting ceiling plus the JSON envelopes. The former fixed 128
 syntax cap rejected valid exports with 124 nested arrays in a catalog value.

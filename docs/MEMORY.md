@@ -20,6 +20,12 @@ Parser collection growth makes one admission attempt for its chosen capacity;
 refusal preserves existing entries and does not trigger a smaller retry. JPEG
 codec boundaries preserve actual `OutOfMemoryException` failures while releasing
 their workspace, rather than translating them into invalid image data.
+Caller-supplied codecs can resize their own `QpdfJpegCodecContext` reservations.
+Growth admits only the increase and checks cancellation after admission; failure
+preserves the previous estimate. Shrink and disposal remain available during
+canceled cleanup. A replacement buffer needs admission for both buffers until
+the old storage is released. Late disposal after the codec call cannot refund
+another owner's storage; the closed context has already retired its charges.
 Filter errors show at most 256 name characters plus an ellipsis; the exception
 keeps the full, already admitted name alias without duplicating it in the message.
 Xref growth uses validated section/merge counts to cap geometric overshoot.

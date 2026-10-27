@@ -44,6 +44,8 @@ internal static class Program
         public void Decode(Stream encoded, QpdfJpegFrame frame, Memory<byte> samples, QpdfJpegCodecContext context)
         {
             using IDisposable working = context.ReserveMemory(4096L);
+            context.ResizeMemory(working, 8192L);
+            context.ResizeMemory(working, 2048L);
             context.CheckCancellation();
             Check(frame.Width == 1 && frame.Height == 1 && frame.Components == 1, "public JPEG descriptor");
             Check(encoded.ReadByte() == 255 && encoded.ReadByte() == 216, "borrowed JPEG source");

@@ -164,7 +164,9 @@ The core has no runtime NuGet dependencies. Hosts optionally implement
 `IQpdfJpegCodecHost` to supply an `IQpdfJpegCodec` for grayscale/RGB processing.
 The core validates frame sizes and owns sample/output buffers; codecs borrow them
 for one synchronous call. `QpdfJpegCodecContext` provides cancellation
-and memory reservations for private codec storage. Codecs must release their actual
+and memory reservations for private codec storage. `ResizeMemory` admits growth
+on an existing reservation and refunds shrink without a second allowance; buffer
+replacement must include old/new overlap. Codecs must release their actual
 storage before returning; outstanding accounting charges retire with the call.
 Without a codec, JPEG pass-through works, decoding checks report skipped, and
 eligible image optimization fails explicitly. CMYK/YCCK remains opaque.
