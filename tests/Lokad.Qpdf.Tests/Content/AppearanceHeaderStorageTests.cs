@@ -105,13 +105,12 @@ public sealed class AppearanceHeaderStorageTests
         PdfReference? link = indirect ? copier.AddIndirectObjectWithId(source, 1) : null;
         int allocator = 2;
         long allocated = GC.GetAllocatedBytesForCurrentThread();
-        var result = FlattenAnnotations.EnsureAppearanceObject(copier, source, link, governor, CancellationToken.None, ref allocator);
+        PdfReference result = FlattenAnnotations.EnsureAppearanceObject(copier, source, link, governor, CancellationToken.None, ref allocator);
         Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < payload.Length);
-        PdfStream replacement = Assert.IsType<PdfStream>(copier.CopiedObjects[result.Link.ObjectNumber]);
+        PdfStream replacement = Assert.IsType<PdfStream>(copier.CopiedObjects[result.ObjectNumber]);
         Assert.Same(source.AllocationCarrier, replacement.AllocationCarrier);
         Assert.Equal(91, replacement.RawMemory.Span[17]);
-        Assert.Same(replacement.Dictionary, result.Dictionary);
-        Assert.True(result.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject subtype));
+        Assert.True(replacement.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject subtype));
         Assert.Equal("Form", Assert.IsType<PdfName>(subtype).DisplayText);
         Assert.Equal(indirect ? 2 : 3, allocator);
         governor.AcceptDocument(); governor.CompletePrivateStorage();

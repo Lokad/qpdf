@@ -192,7 +192,7 @@ internal static class FlattenAnnotations
                 string name = UniqueFxoName(xobjects, ref suffix, governor, cancellationToken);
                 changed = true;
                 if (!AppendAppearance(name, annot, appearance.Dictionary, (int)rotate, required, forbidden, resolver, stamped)) { continue; }
-                (PdfReference appearanceLink, _) = EnsureAppearanceObject(copier, appearance, appearanceRaw, governor, cancellationToken, ref allocator);
+                PdfReference appearanceLink = EnsureAppearanceObject(copier, appearance, appearanceRaw, governor, cancellationToken, ref allocator);
                 int length = Encoding.ASCII.GetBytes(name.AsSpan(), nameBytes);
                 PdfName key = PdfDictionaryRebuild.CreateName(graph, nameBytes[..length]);
                 xobjects.Assign(graph.Memory, governor, key, appearanceLink, cancellationToken);
@@ -315,7 +315,7 @@ internal static class FlattenAnnotations
         link = found as PdfReference; return stream;
     }
 
-    internal static (PdfReference Link, PdfDictionary Dictionary) EnsureAppearanceObject(
+    internal static PdfReference EnsureAppearanceObject(
         GraphCopier copier,
         PdfStream stream,
         PdfReference? link,
@@ -327,7 +327,7 @@ internal static class FlattenAnnotations
         bool isForm = stream.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject? subtype)
             && subtype is PdfName subtypeName
             && subtypeName.DisplayText == "Form";
-        if (isForm && link is not null) { return (link, stream.Dictionary); }
+        if (isForm && link is not null) { return link; }
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
         PdfDictionary header = isForm ? stream.Dictionary
             : PdfDictionaryRebuild.ReplaceEntry(graph, stream.Dictionary, "Subtype"u8, PdfName.FromAscii("Form"));
@@ -337,7 +337,7 @@ internal static class FlattenAnnotations
         if (link is null)
         { link = copier.AddIndirectObjectWithId(result, allocator); allocator = checked(allocator + 1); }
         else { copier.ReplaceCopiedObject(link.ObjectNumber, result); }
-        graph.Retain(); return (link, header);
+        graph.Retain(); return link;
     }
 
     private static bool AppendAppearance(
