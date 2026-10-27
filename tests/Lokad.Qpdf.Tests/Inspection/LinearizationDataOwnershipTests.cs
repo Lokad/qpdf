@@ -33,30 +33,8 @@ public sealed class LinearizationDataOwnershipTests
         return host;
     }
 
-    private static object ReadOwned(QpdfDocument document, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
-    {
-        MethodInfo read = typeof(LinearizationCheck).GetMethod("TryReadOwnedData", BindingFlags.Static | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("The hint reader has no complete scoped owner.");
-        try { return read.Invoke(null, new object[] { document.Engine, document.PageCount, limits, governor, token }) ?? throw new InvalidOperationException(); }
-        catch (TargetInvocationException failure) when (failure.InnerException is QpdfException error) { throw error; }
-        catch (TargetInvocationException failure) when (failure.InnerException is OperationCanceledException error) { throw error; }
-    }
-
-    private static LinearizationData Data(object owner)
-        => owner.GetType().GetProperty("Data", Fields)?.GetValue(owner) as LinearizationData ?? throw new InvalidOperationException();
-
-    private static object ReadObserved(QpdfDocument document, QpdfLimits limits, ResourceGovernor governor,
-        CancellationToken token, Action<ReadOnlyMemory<byte>> observe)
-    {
-        MethodInfo read = typeof(LinearizationCheck).GetMethod("TryReadOwnedDataObserved", BindingFlags.Static | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("Expected a bounded hint-backing observation.");
-        try { return read.Invoke(null, new object[] { document.Engine, document.PageCount, limits, governor, token, observe }) ?? throw new InvalidOperationException(); }
-        catch (TargetInvocationException failure) when (failure.InnerException is QpdfException error) { throw error; }
-        catch (TargetInvocationException failure) when (failure.InnerException is OperationCanceledException error) { throw error; }
-    }
-
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static (object Owner, (WeakReference Backing, bool Borrowed)[] Buffers) CaptureBuffers(
+    private static (LinearizationDataOwner Owner, (WeakReference Backing, bool Borrowed)[] Buffers) CaptureBuffers(
         QpdfDocument document, ResourceGovernor governor)
     {
         HashSet<object> borrowed = new(ReferenceEqualityComparer.Instance);
@@ -65,12 +43,13 @@ public sealed class LinearizationDataOwnershipTests
             if (document.GetObject(number) is PdfStream stream) { borrowed.Add(stream.AllocationCarrier); }
         }
         List<(WeakReference, bool)> buffers = new();
-        object owner = ReadObserved(document, QpdfLimits.Default, governor, CancellationToken.None, memory =>
+        LinearizationDataOwner owner = Assert.IsType<LinearizationDataOwner>(LinearizationCheck.TryReadOwnedDataObserved(
+            document.Engine, document.PageCount, QpdfLimits.Default, governor, CancellationToken.None, memory =>
         {
             Assert.True(MemoryMarshal.TryGetArray(memory, out ArraySegment<byte> segment));
             byte[] bytes = segment.Array ?? throw new InvalidOperationException();
             buffers.Add((new WeakReference(bytes), borrowed.Contains(bytes)));
-        });
+        }));
         return (owner, buffers.ToArray());
     }
 
@@ -83,17 +62,17 @@ public sealed class LinearizationDataOwnershipTests
         InMemoryQpdfHost host = Host(id);
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input.pdf"), CancellationToken.None);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        (object owner, (WeakReference Backing, bool Borrowed)[] buffers) = CaptureBuffers(document, governor);
+        (LinearizationDataOwner owner, (WeakReference Backing, bool Borrowed)[] buffers) = CaptureBuffers(document, governor);
         try
         {
             Assert.Contains(buffers, value => !value.Borrowed);
             Collect();
             Assert.All(buffers, value => Assert.Equal(value.Borrowed, value.Backing.IsAlive));
-            Assert.True(Data(owner).PageCount > 0);
+            Assert.True(owner.Data.PageCount > 0);
             Assert.True(governor.Snapshot().LiveMemoryBytes >= 128L);
             GC.KeepAlive(document); GC.KeepAlive(owner);
         }
-        finally { ((IDisposable)owner).Dispose(); }
+        finally { owner.Dispose(); }
         governor.CompletePrivateStorage();
         Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
     }
@@ -110,7 +89,7 @@ public sealed class LinearizationDataOwnershipTests
         using CancellationTokenSource cancellation = new();
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
         bool observed = false;
-        Assert.ThrowsAny<OperationCanceledException>(() => ReadObserved(document, QpdfLimits.Default, governor,
+        Assert.ThrowsAny<OperationCanceledException>(() => LinearizationCheck.TryReadOwnedDataObserved(document.Engine, document.PageCount, QpdfLimits.Default, governor,
             governorToken ? CancellationToken.None : cancellation.Token, memory =>
             {
                 Assert.True(memory.Length > 0);
@@ -124,13 +103,13 @@ public sealed class LinearizationDataOwnershipTests
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static (object Owner, ParserMemoryScope Scope, WeakReference[] Arrays) Capture(QpdfDocument document,
+    private static (LinearizationDataOwner Owner, ParserMemoryScope Scope, WeakReference[] Arrays) Capture(QpdfDocument document,
         QpdfLimits limits, ResourceGovernor governor)
     {
-        object owner = ReadOwned(document, limits, governor, CancellationToken.None);
+        LinearizationDataOwner owner = Assert.IsType<LinearizationDataOwner>(LinearizationCheck.TryReadOwnedData(document.Engine, document.PageCount, limits, governor, CancellationToken.None));
         OwnedAllocationBatch allocations = owner.GetType().GetField("_allocations", Fields)?.GetValue(owner) as OwnedAllocationBatch
             ?? throw new InvalidOperationException();
-        LinearizationData data = Data(owner);
+        LinearizationData data = owner.Data;
         List<WeakReference> arrays = new() { new(data.PageTable.Entries), new(data.SharedTable.Entries) };
         foreach (PageOffsetEntry entry in data.PageTable.Entries)
         {
@@ -159,10 +138,10 @@ public sealed class LinearizationDataOwnershipTests
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input.pdf"), CancellationToken.None);
         QpdfLimits limits = id == "compressed" ? QpdfLimits.Default : QpdfLimits.Default with { MaxMemoryBytes = 32L * 1024L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
-        (object owner, ParserMemoryScope scope, WeakReference[] arrays) = Capture(document, limits, governor);
+        (LinearizationDataOwner owner, ParserMemoryScope scope, WeakReference[] arrays) = Capture(document, limits, governor);
         Collect();
         Assert.All(arrays, value => Assert.True(value.IsAlive));
-        ((IDisposable)owner).Dispose();
+        owner.Dispose();
         Assert.Equal(0L, scope.ReservedBytes);
         Assert.Null(owner.GetType().GetField("_data", Fields)?.GetValue(owner));
         Assert.Null(owner.GetType().GetField("_allocations", Fields)?.GetValue(owner));
@@ -207,7 +186,7 @@ public sealed class LinearizationDataOwnershipTests
         using CancellationTokenSource cancellation = new();
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
         cancellation.Cancel();
-        Assert.ThrowsAny<OperationCanceledException>(() => ReadOwned(document, QpdfLimits.Default, governor,
+        Assert.ThrowsAny<OperationCanceledException>(() => LinearizationCheck.TryReadOwnedData(document.Engine, document.PageCount, QpdfLimits.Default, governor,
             governorToken ? CancellationToken.None : cancellation.Token));
         governor.CompletePrivateStorage();
         Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);

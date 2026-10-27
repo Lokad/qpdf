@@ -49,6 +49,8 @@ and allocation batches as production; no unowned parser or dictionary adapters
 provide alternate execution modes. Filter decoders require an owned stage plan
 and result scope; plans expose indexed access and struct iteration without boxed
 enumeration owners.
+Hint lifetime tests use typed readers and owners, with private-field inspection
+for backing-storage and detachment proofs.
 Codec fixtures call the live cancellation-aware implementations directly.
 PDF text decoding likewise requires its construction owner, governor and token;
 the encoding map uses the single-byte mapping directly during initialization.
