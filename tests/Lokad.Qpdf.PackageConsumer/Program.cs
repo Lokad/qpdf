@@ -23,10 +23,13 @@ internal static class Program
         return new RetainedText(number.Text, new WeakReference(number), new WeakReference(array[1]));
     }
 
-    private static int Main()
+    private static int Main(string[] args)
     {
         try
         {
+            if (args.Length == 2 && args[0] == "--lease-allocation")
+            { return HostLeaseAllocationChecks.RunAsync(TwoPagePdf(), args[1]).GetAwaiter().GetResult(); }
+            if (args.Length != 0) { throw new ArgumentException("Unexpected consumer arguments."); }
             RunAsync().GetAwaiter().GetResult();
             Console.WriteLine("CONSUMER SMOKE PASSED");
             return 0;

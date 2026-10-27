@@ -80,6 +80,7 @@ $project = Join-Path $projectDirectory 'Consumer.csproj'
 Copy-Item -LiteralPath (Join-Path $consumerSource 'Lokad.Qpdf.PackageConsumer.csproj') -Destination $project
 Copy-Item -LiteralPath (Join-Path $consumerSource 'Program.cs') -Destination $projectDirectory
 Copy-Item -LiteralPath (Join-Path $consumerSource 'RecordingMemoryBudget.cs') -Destination $projectDirectory
+Copy-Item -LiteralPath (Join-Path $consumerSource 'HostLeaseAllocationChecks.cs') -Destination $projectDirectory
 
 $configPath = Join-Path $runRoot 'nuget.config'
 $escapedFeed = [System.Security.SecurityElement]::Escape($feedDirectory)
@@ -112,6 +113,35 @@ Write-Output "Artifact SHA-512: $artifactHash"
 Write-Output "Consumer library SHA-256: $expectedLibraryHash"
 & dotnet run --project $project -c Release --no-build --no-restore
 if ($LASTEXITCODE -ne 0) { throw "Fresh consumer smoke failed ($LASTEXITCODE)." }
+$consumerDll = Join-Path $projectDirectory 'bin/Release/net10.0/Lokad.Qpdf.PackageConsumer.dll'
+foreach ($mode in @('quiet-input', 'raw-input', 'engine-input', 'quiet-output', 'raw-output', 'engine-output')) {
+    $start = [System.Diagnostics.ProcessStartInfo]::new('dotnet')
+    $start.UseShellExecute = $false
+    $start.CreateNoWindow = $true
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    $start.Environment['DOTNET_GCHeapHardLimit'] = '0x2000000'
+    $start.ArgumentList.Add($consumerDll)
+    $start.ArgumentList.Add('--lease-allocation')
+    $start.ArgumentList.Add($mode)
+    $child = [System.Diagnostics.Process]::Start($start)
+    try {
+        $stdout = $child.StandardOutput.ReadToEndAsync()
+        $stderr = $child.StandardError.ReadToEndAsync()
+        if (-not $child.WaitForExit(30000)) {
+            $child.Kill($true)
+            $child.WaitForExit()
+            throw "Capped lease check timed out: $mode."
+        }
+        Write-Output $stdout.GetAwaiter().GetResult()
+        $errorText = $stderr.GetAwaiter().GetResult()
+        if ($child.ExitCode -ne 0) { throw "Capped lease check failed: $mode. $errorText" }
+    }
+    finally {
+        if (-not $child.HasExited) { $child.Kill($true); $child.WaitForExit() }
+        $child.Dispose()
+    }
+}
 if ((Get-FileHash -LiteralPath $seedPath -Algorithm SHA256).Hash -cne $seedHash) {
     throw 'The tracked consumer lock changed during verification.'
 }

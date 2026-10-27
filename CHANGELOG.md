@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Prevent input/output host lease leaks when allocation fails during acquisition,
+  including the first completed call; retain actual OOM propagation and cleanup.
 - Reject undefined typed inspection decode levels before host access rather than
   treating corrupt filtered streams as outside the requested decode level.
 - Reuse admitted diagnostics for ordinary command results, removing the legacy

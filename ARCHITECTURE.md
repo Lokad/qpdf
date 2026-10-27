@@ -114,6 +114,9 @@ inputs transfer payload/backing admission to the job before earlier documents
 close; rewritten headers borrow those immutable bytes through publication.
 
 Failed or canceled operations discard uncommitted staging and close their leases.
+Host lease wrappers are allocated before acquisition. Completed host operations
+return directly, so neither wrapper nor async completion metadata is allocated
+after the host returns a raw lease. Pending operations retain the same cleanup.
 A single-target failed commit preserves the prior output. Multiple outputs commit
 sequentially, so a later failure can leave earlier outputs published; a close fault
 after commit does not undo publication. The host defines its transaction semantics.

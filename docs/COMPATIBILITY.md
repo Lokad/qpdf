@@ -14,6 +14,12 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Host input/output acquisition creates its wrapper before calling the host and
+returns completed host operations directly. This closes an allocation-failure
+window that could leave a returned raw lease undisposed, including on first use.
+Actual `OutOfMemoryException` propagation, publication/rollback, resource limits
+and public signatures are unchanged.
+
 Typed `Qpdf.CheckAsync` rejects undefined `QpdfCheckOptions.DecodeLevel` values
 with `ArgumentOutOfRangeException` before accessing the host or its memory budget.
 Previously those values could skip decoding corrupt streams and return a passing
