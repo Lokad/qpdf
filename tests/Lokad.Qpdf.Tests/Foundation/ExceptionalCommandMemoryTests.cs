@@ -1,6 +1,6 @@
 using System.IO.Compression;
 using System.Text;
-using Lokad.Qpdf.ImageSharp;
+using Lokad.Qpdf.Image;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
@@ -16,7 +16,7 @@ public sealed class ExceptionalCommandMemoryTests
     private sealed class Host(InMemoryQpdfHost storage, IMemoryBudget budget, string phase, Exception failure) : IQpdfHost, IQpdfMemoryHost, IQpdfJpegCodecHost
     {
         public IMemoryBudget MemoryBudget => budget;
-        public IQpdfJpegCodec JpegCodec => ImageSharpJpegCodec.Instance;
+        public IQpdfJpegCodec JpegCodec => LokadImageJpegCodec.Instance;
         public async ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token)
         {
             IQpdfInput input = await storage.OpenInputAsync(path, token);

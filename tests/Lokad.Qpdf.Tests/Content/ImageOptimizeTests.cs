@@ -1,4 +1,4 @@
-using Lokad.Qpdf.ImageSharp;
+using Lokad.Qpdf.Image;
 using System.IO.Compression;
 using System.Text.Json;
 using System.Text;
@@ -6,9 +6,7 @@ using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.PixelFormats;
+using Lokad.Qpdf.Tests.Filters;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -16,7 +14,7 @@ public sealed class ImageOptimizeTests
 {
     private static InMemoryQpdfHost HostWith(string name, byte[] bytes)
     {
-        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
+        InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
         host.AddInput(QpdfPath.From(name), bytes, QpdfInputOwnership.Copy);
         return host;
     }
@@ -49,20 +47,8 @@ public sealed class ImageOptimizeTests
     }
 
     private static byte[] EncodePhotoJpeg(int width, int height)
-    {
-        using Image<Rgb24> image = new(width, height);
-        for (int y = 0; y < height; y++)
-        {
-            for (int x = 0; x < width; x++)
-            {
-                image[x, y] = new Rgb24((byte)((x * 2 + y) & 0xFF), (byte)((x + y * 3) & 0xFF), (byte)((x * y) & 0xFF));
-            }
-        }
-
-        using MemoryStream buffer = new();
-        image.Save(buffer, new JpegEncoder { Quality = 75 });
-        return buffer.ToArray();
-    }
+        => JpegFixtures.Encode(width, height, 3, 75, (x, y, c) =>
+            (byte)((c == 0 ? x * 2 + y : c == 1 ? x + y * 3 : x * y) & 255));
 
     internal static byte[] BuildImagePage(int width, int height, string colorspace, int bits, string filter, byte[] data)
     {
@@ -524,7 +510,7 @@ public sealed class ImageOptimizeTests
     {
         byte[] raw = NoiseRgb(64, 64);
         QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = 1000L };
-        ResourceGovernor governor = new(limits, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
+        ResourceGovernor governor = new(limits, CancellationToken.None) { JpegCodec = LokadImageJpegCodec.Instance };
         QpdfLimitException ex = Assert.Throws<QpdfLimitException>(
             () => JpegCodec.EncodeRgb(raw, 64, 64, 75, limits, governor));
         Assert.Equal(nameof(QpdfLimits.MaxDecodedBytes), ex.LimitName);
@@ -677,11 +663,11 @@ public sealed class ImageOptimizeTests
     [Fact]
     public void QualityMappingMatchesReference()
     {
-        Assert.Equal(1, ImageSharpJpegCodec.MapQuality(0));
-        Assert.Equal(75, ImageSharpJpegCodec.MapQuality(75));
-        Assert.Equal(100, ImageSharpJpegCodec.MapQuality(100));
-        Assert.Throws<ArgumentOutOfRangeException>(() => ImageSharpJpegCodec.MapQuality(-1));
-        Assert.Throws<ArgumentOutOfRangeException>(() => ImageSharpJpegCodec.MapQuality(101));
+        Assert.Equal(1, LokadImageJpegCodec.MapQuality(0));
+        Assert.Equal(75, LokadImageJpegCodec.MapQuality(75));
+        Assert.Equal(100, LokadImageJpegCodec.MapQuality(100));
+        Assert.Throws<ArgumentOutOfRangeException>(() => LokadImageJpegCodec.MapQuality(-1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => LokadImageJpegCodec.MapQuality(101));
     }
     private static byte[] InlineContent(string dict, byte[] image)
     {
@@ -773,7 +759,7 @@ public sealed class ImageOptimizeTests
 
     private static async Task<byte[]> PageContentAsync(byte[] pdf)
     {
-        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
+        InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
         host.AddInput(QpdfPath.From("inputs/r.pdf"), pdf, QpdfInputOwnership.Copy);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/r.pdf", "--json", "--json-stream-data=inline", "--", "outputs/r.json"]), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
@@ -796,7 +782,7 @@ public sealed class ImageOptimizeTests
 
     private static async Task<bool> HasImageXObjectAsync(byte[] pdf)
     {
-        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
+        InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
         host.AddInput(QpdfPath.From("inputs/r.pdf"), pdf, QpdfInputOwnership.Copy);
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/r.pdf"), CancellationToken.None);
         for (int number = 1; number <= 60; number++)

@@ -1,4 +1,4 @@
-using Lokad.Qpdf.ImageSharp;
+using Lokad.Qpdf.Image;
 using BenchmarkDotNet.Attributes;
 using Lokad.Qpdf;
 using Lokad.Qpdf.Hosting;
@@ -22,7 +22,7 @@ public class SelectBenchmarks
     [Benchmark(Description = "Select 3 of 50 pages")]
     public async Task SelectThreeOfFifty()
     {
-        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
+        InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
         host.AddInput(QpdfPath.From("inputs/a.pdf"), _fiftyPages, QpdfInputOwnership.Copy);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1-3", "--", "outputs/a.pdf"]), CancellationToken.None);
         if (result.Status != QpdfExecutionStatus.Completed)
@@ -34,7 +34,7 @@ public class SelectBenchmarks
     [Benchmark(Description = "Decode 30-filter chain")]
     public async Task DecodeChain()
     {
-        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
+        InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
         host.AddInput(QpdfPath.From("inputs/a.pdf"), _chain, QpdfInputOwnership.Copy);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--stream-data=uncompress", "--no-default-limits", "--pages", ".", "1", "--", "outputs/a.pdf"]), CancellationToken.None);
         if (result.Status != QpdfExecutionStatus.Completed)
@@ -46,7 +46,7 @@ public class SelectBenchmarks
     [Benchmark(Description = "Show page count of 50 pages")]
     public async Task ShowNpages()
     {
-        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
+        InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
         host.AddInput(QpdfPath.From("inputs/a.pdf"), _fiftyPages, QpdfInputOwnership.Copy);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-npages"]), CancellationToken.None);
         if (result.Status != QpdfExecutionStatus.Completed)

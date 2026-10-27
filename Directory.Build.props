@@ -23,26 +23,4 @@
     <EnableSourceLink Condition="'$(RepositoryUrl)' == ''">false</EnableSourceLink>
     <EnableSourceControlManagerQueries Condition="'$(RepositoryUrl)' == ''">false</EnableSourceControlManagerQueries>
   </PropertyGroup>
-  <ItemGroup Label="TemporaryImageSharpAuditSuppressions">
-    <!-- Initial exclusions accepted on 2026-10-08; later reviews are dated below.
-         ImageSharp remains pinned to 3.1.12. Remove these temporary exclusions when the codec pin is revised.
-         This is development-only. NuGet audit and all other advisory warnings
-         remain enabled. These source reachability decisions do not fix the
-         vulnerabilities or establish package-wide safety. Review on changes to
-         codec registration, metadata, pixel types or processing operations. -->
-    <!-- Lazy ICC entries: SkipMetadata=true, no ICC entry access. -->
-    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-gwg2-r3hj-4w44" />
-    <!-- TIFF floating-point histogram: no histogram processing; L8/Rgb24 only. -->
-    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-j3p4-wp97-rph4" />
-    <!-- TIFF CCITT T4 encoding: only JpegEncoder is constructed. -->
-    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-j9gm-c75j-xc9q" />
-    <!-- TIFF CCITT T6 encoding: only JpegEncoder is constructed. -->
-    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-jjfr-hcj7-qf5w" />
-    <!-- BigTIFF decoding: JPEG-only configuration plus core DCT frame check. -->
-    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-wmxv-xphr-5c9g" />
-    <!-- Reviewed 2026-10-27: tiled fax TIFF decoding is unreachable through the
-         adapter's JPEG-only configuration. TIFF-signature rejection is tested.
-         Keep the 3.1.12 pin; remove with the other temporary codec exclusions. -->
-    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-v76p-62qx-wwq2" />
-  </ItemGroup>
 </Project>

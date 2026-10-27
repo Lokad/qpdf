@@ -1,6 +1,6 @@
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.ImageSharp;
+using Lokad.Qpdf.Image;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Tests.Content;
 
@@ -11,13 +11,13 @@ public sealed class JpegCodecBoundaryTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void ImageSharpAdapterRejectsTiffSignaturesBeforeDecoding(bool bigEndian)
+    public void ImageAdapterRejectsTiffSignaturesBeforeDecoding(bool bigEndian)
     {
         byte[] signature = bigEndian ? "MM\0*\0\0\0\x08"u8.ToArray() : "II*\0\x08\0\0\0"u8.ToArray();
         using MemoryStream encoded = new(signature);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         QpdfJpegCodecContext context = new(governor);
-        Assert.Throws<SixLabors.ImageSharp.UnknownImageFormatException>(() => ImageSharpJpegCodec.Instance.Decode(
+        Assert.Throws<Lokad.Image.UnsupportedImageException>(() => LokadImageJpegCodec.Instance.Decode(
             encoded, new QpdfJpegFrame(1, 1, 1), new byte[1], context));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
@@ -40,7 +40,7 @@ public sealed class JpegCodecBoundaryTests
         Assert.Contains(check.Diagnostics, d => d.Message.Contains("requires a host codec", StringComparison.Ordinal));
         Assert.DoesNotContain(check.Diagnostics, d => d.Message.Contains("milestone", StringComparison.Ordinal));
         Assert.Equal(0L, host.OpenLeaseCount);
-        using InMemoryQpdfHost supplied = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
+        using InMemoryQpdfHost supplied = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
         supplied.AddInput(source, DctDecodeTests.BuildDctPage(jpeg), QpdfInputOwnership.Copy);
         QpdfCheckResult decoded = await Qpdf.CheckAsync(supplied, source, CancellationToken.None);
         Assert.Equal(QpdfCheckStatus.Passed, Assert.Single(decoded.Checks, c => c.Name == "streams").Status);

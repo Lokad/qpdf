@@ -1,4 +1,4 @@
-using Lokad.Qpdf.ImageSharp;
+using Lokad.Qpdf.Image;
 using Lokad.Qpdf;
 using Lokad.Qpdf.Hosting;
 
@@ -26,7 +26,7 @@ internal static class FixQdfCommand
             throw new ProbeException($"Inputs directory not found: {inputsDir}.", 1);
         }
 
-        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
+        InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
         foreach (string file in Directory.EnumerateFiles(inputsDir, "*", SearchOption.AllDirectories))
         {
             string logical = "inputs/" + Path.GetRelativePath(inputsDir, file).Replace(Path.DirectorySeparatorChar, '/');

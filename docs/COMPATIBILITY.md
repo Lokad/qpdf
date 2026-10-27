@@ -892,7 +892,7 @@ Physical output can also differ while preserving PDF meaning:
   time-based IDs; `--static-id` uses the native test constant. Unspecified
   attachment timestamps are omitted because runtime code has no ambient clock.
 - BCL Flate levels map `1` to fastest, `2–8` to optimal and `9` to smallest size.
-  JPEG providers receive quality `0–100`; the development ImageSharp adapter maps
+  JPEG providers receive quality `0–100`; the development Lokad.Image adapter maps
   `0` to `1`. Compressed bytes and lossy samples need their appropriate comparisons.
 - Object numbering/grouping follows managed packing rules. Rebuilt catalogs and
   page-tree roots stay direct; QDF/linearized exclusions remain explicit. Ordinary
@@ -964,11 +964,17 @@ component counts are checked before sample allocation; the codec context admits
 private memory and provides cancellation. Providers must observe the
 [borrowed-buffer and cleanup contract](../src/Lokad.Qpdf/Public/IQpdfJpegCodec.cs).
 
-The development-only [ImageSharp 3.1.12 adapter](../tools/Lokad.Qpdf.ImageSharp)
-preserves the existing grayscale/RGB behavior. Its pixel API does not preserve raw
-CMYK/YCCK components, so RGB conversion is not substituted for PDF sample fidelity.
-The six temporary advisory exclusions and reachability assessment remain beside
-their declarations in [Directory.Build.props](../Directory.Build.props).
+The development-only [Lokad.Image 0.2.0 adapter](../tools/Lokad.Qpdf.Image)
+uses packed Gray/RGB samples, disables orientation changes and forwards private
+allocations to the active qpdf governor. Encoded input is borrowed when publicly
+accessible or copied under admission. The ImageSharp adapter, dependency and six
+temporary advisory exclusions are removed; ordinary NuGet auditing stays enabled.
+CMYK/YCCK and parameterized-DCT images retain their PDF opacity policy, independent
+of upstream codec capabilities. The explicit default quality remains 75, with
+zero mapped to one; RGB encoding selects YCbCr 4:2:0. JPEG bytes, compression ratios
+and decoded lossy samples can change between providers. Equal numeric quality
+does not imply identical distortion, and optimization still requires a smaller
+encoded packet. Caller codec signatures and the dependency-free core are retained.
 
 Flate validates zlib framing and Adler-32 because BCL inflate can return short
 output for truncated data. Codec calls/refills are bounded in 8 KiB chunks. The

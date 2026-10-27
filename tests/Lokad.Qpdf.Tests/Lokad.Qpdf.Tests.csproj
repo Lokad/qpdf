@@ -3,6 +3,7 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="../Fixtures/cmyk-8x8.jpg" Link="Fixtures/cmyk-8x8.jpg" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="../Lokad.Qpdf.PackageConsumer/RecordingMemoryBudget.cs" Link="Support/RecordingMemoryBudget.cs" />
     <EmbeddedResource Include="Content/InlineImageNativeCases.json" />
     <EmbeddedResource Include="Writing/LinearizedHintNativeCases.json" />
@@ -12,7 +13,7 @@
     <PackageReference Include="xunit" PrivateAssets="All" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="All" />
     <PackageReference Include="PdfPig" />
-    <PackageReference Include="SixLabors.ImageSharp" />
+    <PackageReference Include="Lokad.Image" />
     <ProjectReference Include="../../src/Lokad.Qpdf/Lokad.Qpdf.csproj" />
     <Using Include="Xunit" />
     <None Include="../Compatibility/options.json" Link="Compatibility/options.json" CopyToOutputDirectory="PreserveNewest" />
@@ -83,6 +84,6 @@
     <None Include="../Fixtures/overlay-widget-1page.pdf" Link="Fixtures/overlay-widget-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/overlay-widget-dest-1page.pdf" Link="Fixtures/overlay-widget-dest-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/overlay-widget-dr-1page.pdf" Link="Fixtures/overlay-widget-dr-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
-    <ProjectReference Include="../../tools/Lokad.Qpdf.ImageSharp/Lokad.Qpdf.ImageSharp.csproj" />
+    <ProjectReference Include="../../tools/Lokad.Qpdf.Image/Lokad.Qpdf.Image.csproj" />
   </ItemGroup>
 </Project>

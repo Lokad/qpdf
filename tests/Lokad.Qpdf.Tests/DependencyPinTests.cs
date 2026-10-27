@@ -26,10 +26,12 @@ public sealed class DependencyPinTests
     {
         XDocument versions = XDocument.Load(Path.Combine(RepoRoot(), "Directory.Packages.props"));
         string? codec = versions.Descendants("PackageVersion")
-            .Where(element => string.Equals(element.Attribute("Include")?.Value, "SixLabors.ImageSharp", StringComparison.Ordinal))
+            .Where(element => string.Equals(element.Attribute("Include")?.Value, "Lokad.Image", StringComparison.Ordinal))
             .Select(element => element.Attribute("Version")?.Value)
             .SingleOrDefault();
-        Assert.Equal("[3.1.12]", codec);
+        Assert.Equal("[0.2.0]", codec);
+        Assert.DoesNotContain(versions.Descendants("PackageVersion"), element =>
+            string.Equals(element.Attribute("Include")?.Value, "SixLabors.ImageSharp", StringComparison.Ordinal));
         string? reader = versions.Descendants("PackageVersion")
             .Where(element => string.Equals(element.Attribute("Include")?.Value, "PdfPig", StringComparison.Ordinal))
             .Select(element => element.Attribute("Version")?.Value)

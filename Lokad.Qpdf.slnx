@@ -8,7 +8,7 @@
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/QpdfProbe/QpdfProbe.csproj" />
-    <Project Path="tools/Lokad.Qpdf.ImageSharp/Lokad.Qpdf.ImageSharp.csproj" />
+    <Project Path="tools/Lokad.Qpdf.Image/Lokad.Qpdf.Image.csproj" />
     <Project Path="benchmarks/Lokad.Qpdf.Benchmarks/Lokad.Qpdf.Benchmarks.csproj" />
   </Folder>
 </Solution>

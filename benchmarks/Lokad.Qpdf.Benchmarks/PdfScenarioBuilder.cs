@@ -1,8 +1,5 @@
 using System.IO.Compression;
 using System.Text;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.PixelFormats;
 
 namespace Lokad.Qpdf.Benchmarks;
 
@@ -138,17 +135,17 @@ internal static class PdfScenarioBuilder
 
     private static byte[] RenderJpeg(int width, int height)
     {
-        using Image<Rgb24> image = new(width, height);
-        for (int y = 0; y < height; y++)
+        byte[] samples = new byte[checked(width * height * 3)];
+        for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)
         {
-            for (int x = 0; x < width; x++)
-            {
-                image[x, y] = new Rgb24((byte)((x * 255) / width), (byte)((y * 255) / height), 128);
-            }
+            int offset = (y * width + x) * 3;
+            samples[offset] = (byte)(x * 255 / width);
+            samples[offset + 1] = (byte)(y * 255 / height);
+            samples[offset + 2] = 128;
         }
-
         using MemoryStream output = new();
-        image.Save(output, new JpegEncoder { Quality = 90 });
+        Lokad.Image.ImageCodec.EncodeJpeg(samples, width, height, Lokad.Image.JpegSampleFormat.Rgb, output,
+            options: new Lokad.Image.JpegEncodeOptions { Quality = 90, Sampling = Lokad.Image.JpegSampling.YCbCr420 });
         return output.ToArray();
     }
 

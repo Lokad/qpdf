@@ -1,4 +1,4 @@
-using Lokad.Qpdf.ImageSharp;
+using Lokad.Qpdf.Image;
 using BenchmarkDotNet.Attributes;
 using Lokad.Qpdf.Hosting;
 
@@ -39,7 +39,7 @@ public class ComparisonBenchmarks
     [Benchmark]
     public async Task ExecutePublicJob()
     {
-        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
+        InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
         foreach ((string name, byte[] content) in _inputs)
         {
             // Prepared inputs remain immutable for the entire benchmark, so

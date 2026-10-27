@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.ImageSharp;
+using Lokad.Qpdf.Image;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
@@ -144,7 +144,7 @@ public sealed class ImageTraversalMemoryTests
             (7, "<< /XObject 8 0 R >>", null),
             (8, "<< /First 4 0 R /Shared 4 0 R /Second 5 0 R /Invalid null >>", null),
         ], 1);
-        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
+        InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
         host.AddInput(QpdfPath.From("input.pdf"), pdf, QpdfInputOwnership.Copy);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
             new QpdfCommandInvocation(["input.pdf", "--optimize-images", "--oi-min-width=0", "--oi-min-height=0", "--oi-min-area=0",

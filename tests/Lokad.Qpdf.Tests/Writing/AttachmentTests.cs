@@ -1,13 +1,10 @@
-using Lokad.Qpdf.ImageSharp;
+using Lokad.Qpdf.Image;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Runtime;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.PixelFormats;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -21,7 +18,7 @@ public sealed class AttachmentTests
 
     private static InMemoryQpdfHost HostWith(string name, byte[] bytes)
     {
-        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
+        InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
         host.AddInput(QpdfPath.From(name), bytes, QpdfInputOwnership.Copy);
         return host;
     }
@@ -367,23 +364,9 @@ public sealed class AttachmentTests
     [Fact]
     public async Task ShowDecodesDctStream()
     {
-        byte[] jpeg;
-        using (Image<Rgb24> image = new(8, 6))
-        {
-            for (int y = 0; y < 6; y++)
-            {
-                for (int x = 0; x < 8; x++)
-                {
-                    image[x, y] = new Rgb24((byte)((x * 32) & 0xFF), (byte)((y * 32) & 0xFF), 128);
-                }
-            }
+        byte[] jpeg = Lokad.Qpdf.Tests.Filters.JpegFixtures.Encode(8, 6, 3, 75, (x, y, c) => c == 0 ? (byte)(x * 32) : c == 1 ? (byte)(y * 32) : (byte)128);
 
-            using MemoryStream buffer = new();
-            image.Save(buffer, new JpegEncoder { Quality = 75 });
-            jpeg = buffer.ToArray();
-        }
-
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None) { JpegCodec = LokadImageJpegCodec.Instance };
         byte[] expected = DctFilter.Decode(jpeg, QpdfLimits.Default, governor);
         Assert.Equal(144, expected.Length);
         byte[] fixture = BuildPdf(

@@ -1,4 +1,4 @@
-using Lokad.Qpdf.ImageSharp;
+using Lokad.Qpdf.Image;
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Runtime.CompilerServices;
@@ -21,7 +21,7 @@ public sealed class PracticalMemoryTests(ITestOutputHelper output)
 
     private static InMemoryQpdfHost Host(byte[] input)
     {
-        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
+        InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
         host.AddInput(Input, input, QpdfInputOwnership.Copy);
         return host;
     }
@@ -229,7 +229,7 @@ public sealed class PracticalMemoryTests(ITestOutputHelper output)
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static (IQpdfInput Lease, WeakReference Host, WeakReference Payload) ClosedLargeInput()
     {
-        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
+        InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
         byte[] payload = new byte[2 * 1024 * 1024];
         host.AddInput(Input, payload, QpdfInputOwnership.Transfer);
         IQpdfInput lease = host.OpenInputAsync(Input, CancellationToken.None).GetAwaiter().GetResult();

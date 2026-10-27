@@ -1,6 +1,6 @@
 <Project>
   <ItemGroup>
-    <AllowedPackageReference Include="SixLabors.ImageSharp" Condition="'$(IsTestProject)' == 'true' or '$(IsQpdfProbeTool)' == 'true' or '$(IsQpdfBenchmarkTool)' == 'true' or '$(IsQpdfCodecTool)' == 'true'" />
+    <AllowedPackageReference Include="Lokad.Image" Condition="'$(IsTestProject)' == 'true' or '$(IsQpdfProbeTool)' == 'true' or '$(IsQpdfBenchmarkTool)' == 'true' or '$(IsQpdfCodecTool)' == 'true'" />
     <AllowedPackageReference Include="Microsoft.SourceLink.GitHub" />
     <AllowedPackageReference Include="Microsoft.NET.Test.Sdk;xunit;xunit.runner.visualstudio"
                              Condition="'$(IsTestProject)' == 'true'" />

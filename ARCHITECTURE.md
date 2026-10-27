@@ -173,6 +173,6 @@ eligible image optimization fails explicitly. CMYK/YCCK remains opaque.
 
 Native qpdf, PdfPig and renderers serve development tests, probes and benchmarks;
 they are not shipped with the library. The nonpackable
-[ImageSharp adapter](tools/Lokad.Qpdf.ImageSharp) exercises the public codec contract
+[Lokad.Image 0.2.0 adapter](tools/Lokad.Qpdf.Image) exercises the public codec contract
 in tests, probes and benchmarks. See [AGENTS.md](AGENTS.md) for checks and
 [benchmarks](docs/BENCHMARKS.md) for performance measurements.

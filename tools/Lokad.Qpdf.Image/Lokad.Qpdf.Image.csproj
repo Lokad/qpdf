@@ -2,10 +2,10 @@
   <PropertyGroup>
     <IsPackable>false</IsPackable>
     <IsQpdfCodecTool>true</IsQpdfCodecTool>
-    <Description>Development-only ImageSharp JPEG adapter for tests, probes and benchmarks.</Description>
+    <Description>Development-only Lokad.Image JPEG adapter for tests, probes and benchmarks.</Description>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="SixLabors.ImageSharp" />
+    <PackageReference Include="Lokad.Image" />
     <ProjectReference Include="../../src/Lokad.Qpdf/Lokad.Qpdf.csproj" />
     <InternalsVisibleTo Include="Lokad.Qpdf.Tests" />
   </ItemGroup>

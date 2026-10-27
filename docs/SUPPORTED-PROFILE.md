@@ -19,7 +19,7 @@ require an `IQpdfJpegCodec` supplied through the host's `IQpdfJpegCodecHost`
 capability. This applies to every entry path. Without a provider, structural
 operations and opaque JPEG copying work; decoding checks report skipped, and
 eligible image optimization fails explicitly before publication. Tests and reference
-tools opt into the development-only ImageSharp adapter. Other profile requirements
+tools opt into the development-only Lokad.Image 0.2.0 adapter. Other profile requirements
 remain unchanged.
 
 Three routes converge on one selection plan executed by the shared engine:
@@ -155,7 +155,7 @@ echoing values.
   order, including mixed/file-chain layers. QDF fills unset defaults. Catalog XML
   metadata is uncompressed, and empty streams retain zero-length payloads. Broader
   transformation/default/grammar differences remain in the compatibility audit.
-- --optimize-images uses the supplied codec to recompress eligible image XObjects (8-bit DeviceGray/DeviceRGB above the oi-min thresholds) as JPEG only when strictly smaller. Providers receive --jpeg-quality in 0–100 (the development ImageSharp adapter maps 0 to 1). Already-DCT images recompress only under an explicit quality; large inline images externalize first unless --keep-inline-images. Ineligible images skip silently; an eligible operation without a codec fails explicitly.
+- --optimize-images uses the supplied codec to recompress eligible image XObjects (8-bit DeviceGray/DeviceRGB above the oi-min thresholds) as JPEG only when strictly smaller. Providers receive --jpeg-quality in 0–100 (the development Lokad.Image adapter maps 0 to 1). Already-DCT images recompress only under an explicit quality; large inline images externalize first unless --keep-inline-images. Ineligible images skip silently; an eligible operation without a codec fails explicitly.
 - One input file per selection job, several per merge, through host-mediated ranged reads.
 
 ## Selection semantics

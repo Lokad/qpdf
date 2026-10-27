@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Replace the development JPEG adapter and fixture dependency with Lokad.Image
+  0.2.0; remove ImageSharp and its temporary audit exclusions. The core remains
+  dependency-free. JPEG output and lossy samples can change between providers.
+- Add resizable per-call codec memory reservations, retaining atomic refusal,
+  cooperative cancellation and cleanup. Correct PDF JSON Unicode error handling
+  and bounded round trips through the supported PDF nesting ceiling.
+
 ## 0.1.0-alpha.1 - qualified non-cryptographic supported profile
 
 - Make JPEG processing pluggable through the host; remove ImageSharp from the core

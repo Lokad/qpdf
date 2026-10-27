@@ -1,4 +1,4 @@
-using Lokad.Qpdf.ImageSharp;
+using Lokad.Qpdf.Image;
 using Lokad.Qpdf.Hosting;
 using Microsoft.Win32.SafeHandles;
 
@@ -11,7 +11,7 @@ internal static class FileSelectionCommand
     internal static int Run(string[] args)
     {
         if (args.Length != 2) { throw new ProbeException("select-file needs input and output file paths.", 1); }
-        InMemoryQpdfHost outputs = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
+        InMemoryQpdfHost outputs = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
         FileHost host = new(outputs, new Dictionary<string, string>(StringComparer.Ordinal)
             { ["input.pdf"] = Path.GetFullPath(args[0]) });
         QpdfPath output = QpdfPath.From("output.pdf");

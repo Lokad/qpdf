@@ -1,101 +1,63 @@
 using System.Diagnostics;
 using System.Text;
 using Lokad.Qpdf.Filters;
-using Lokad.Qpdf.ImageSharp;
+using Lokad.Qpdf.Image;
 using Lokad.Qpdf.Runtime;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.PixelFormats;
+using Lokad.Qpdf.Tests.Filters;
 
 namespace Lokad.Qpdf.Tests;
 
 public sealed class CodecProbeTests
 {
-    [Fact]
-    public void JpegGrayscaleRoundTripPreservesDimensions()
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    public void JpegSampleRoundTripPreservesDimensions(int components)
     {
-        using Image<L8> image = new(8, 8);
-        JpegEncoder encoder = new()
-        {
-            Quality = 75,
-        };
-        using MemoryStream buffer = new();
-        image.Save(buffer, encoder);
-        byte[] bytes = buffer.ToArray();
-        Assert.NotEmpty(bytes);
-        using Image<L8> decoded = Image.Load<L8>(bytes);
-        Assert.Equal(8, decoded.Width);
-        Assert.Equal(8, decoded.Height);
+        byte[] jpeg = JpegFixtures.Encode(8, 8, components, 75, (_, _, _) => 128);
+        byte[] samples = new byte[8 * 8 * components];
+        Lokad.Image.ImageInfo info = Lokad.Image.ImageCodec.DecodeJpeg(jpeg, samples,
+            (Lokad.Image.JpegSampleFormat)components);
+        Assert.Equal(8, info.Width); Assert.Equal(8, info.Height);
+        Assert.Equal(components, info.SourceComponentCount);
+        Assert.Equal(-1, samples.AsSpan().IndexOfAnyExcept((byte)128));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(101)]
+    public void PinnedEncoderRejectsOutOfRangeQuality(int quality)
+    {
+        using MemoryStream output = new();
+        Assert.Throws<ArgumentOutOfRangeException>(() => Lokad.Image.ImageCodec.EncodeJpeg(
+            new byte[64], 8, 8, Lokad.Image.JpegSampleFormat.Grayscale, output,
+            options: new Lokad.Image.JpegEncodeOptions { Quality = quality }));
     }
 
     [Fact]
-    public void JpegRgbRoundTripPreservesDimensions()
+    public void UpstreamCmykSamplesDoNotExpandThePdfPolicy()
     {
-        using Image<Rgb24> image = new(8, 8);
-        JpegEncoder encoder = new()
-        {
-            Quality = 75,
-        };
-        using MemoryStream buffer = new();
-        image.Save(buffer, encoder);
-        byte[] bytes = buffer.ToArray();
-        Assert.NotEmpty(bytes);
-        using Image<Rgb24> decoded = Image.Load<Rgb24>(bytes);
-        Assert.Equal(8, decoded.Width);
-        Assert.Equal(8, decoded.Height);
-    }
-
-    [Fact]
-    public void PinnedEncoderRejectsOutOfRangeQuality()
-    {
-        Assert.Throws<ArgumentException>(() =>
-        {
-            JpegEncoder encoder = new()
-            {
-                Quality = 0,
-            };
-            _ = encoder.Quality;
-        });
-        Assert.Throws<ArgumentException>(() =>
-        {
-            JpegEncoder encoder = new()
-            {
-                Quality = 101,
-            };
-            _ = encoder.Quality;
-        });
-    }
-
-    [Fact]
-    public void PinnedCodecCanReadCmykLabeledJpegAsRgb()
-    {
-        using Image<Rgb24> image = new(8, 8);
-        JpegEncoder encoder = new()
-        {
-            Quality = 75,
-            ColorType = JpegEncodingColor.Cmyk,
-        };
-        using MemoryStream buffer = new();
-        image.Save(buffer, encoder);
-        byte[] bytes = buffer.ToArray();
-        using Image<Rgb24> decoded = Image.Load<Rgb24>(bytes);
-        Assert.Equal(8, decoded.Width);
-        Assert.Equal(8, decoded.Height);
+        byte[] jpeg = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "cmyk-8x8.jpg"));
+        byte[] samples = new byte[8 * 8 * 4];
+        Lokad.Image.ImageInfo info = Lokad.Image.ImageCodec.DecodeJpeg(jpeg, samples, Lokad.Image.JpegSampleFormat.Cmyk);
+        Assert.Equal(8, info.Width); Assert.Equal(8, info.Height);
+        Assert.Equal(4, info.SourceComponentCount);
+        QpdfFilterException failure = Assert.Throws<QpdfFilterException>(() => DctFilter.Decode(jpeg, QpdfLimits.Default,
+            new ResourceGovernor(QpdfLimits.Default, CancellationToken.None) { JpegCodec = LokadImageJpegCodec.Instance }));
+        Assert.Equal(QpdfFilterFailureReason.UnsupportedFilter, failure.Reason);
     }
 
     [Fact]
     public void JpegDecodeReservesCodecWorkingSet()
     {
-        using Image<Rgb24> image = new(8, 8);
-        using MemoryStream buffer = new();
-        image.Save(buffer, new JpegEncoder { Quality = 75 });
-        byte[] bytes = buffer.ToArray();
+        byte[] jpeg = DctDecodeTests.EncodeRgbJpeg(8, 8);
         long frame = 8L * 8L * 3L;
         QpdfLimits tight = QpdfLimits.Default with { MaxMemoryBytes = frame };
-        Assert.Throws<QpdfLimitException>(
-            () => DctFilter.Decode(bytes, tight, new ResourceGovernor(tight, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance }));
+        Assert.Throws<QpdfLimitException>(() => DctFilter.Decode(jpeg, tight,
+            new ResourceGovernor(tight, CancellationToken.None) { JpegCodec = LokadImageJpegCodec.Instance }));
         QpdfLimits roomy = QpdfLimits.Default with { MaxMemoryBytes = 256L * 1024L };
-        byte[] decoded = DctFilter.Decode(bytes, roomy, new ResourceGovernor(roomy, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance });
+        byte[] decoded = DctFilter.Decode(jpeg, roomy,
+            new ResourceGovernor(roomy, CancellationToken.None) { JpegCodec = LokadImageJpegCodec.Instance });
         Assert.Equal(frame, decoded.Length);
     }
 
@@ -103,44 +65,30 @@ public sealed class CodecProbeTests
     public void JpegEncodeReservesCodecWorkingSet()
     {
         byte[] raw = new byte[8 * 8 * 3];
-        long frame = 8L * 8L * 3L;
-        QpdfLimits tight = QpdfLimits.Default with { MaxMemoryBytes = frame };
-        Assert.Throws<QpdfLimitException>(
-            () => JpegCodec.EncodeRgb(raw, 8, 8, 75, tight, new ResourceGovernor(tight, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance }));
+        QpdfLimits tight = QpdfLimits.Default with { MaxMemoryBytes = raw.Length };
+        Assert.Throws<QpdfLimitException>(() => JpegCodec.EncodeRgb(raw, 8, 8, 75, tight,
+            new ResourceGovernor(tight, CancellationToken.None) { JpegCodec = LokadImageJpegCodec.Instance }));
         QpdfLimits roomy = QpdfLimits.Default with { MaxMemoryBytes = 256L * 1024L };
-        byte[] encoded = JpegCodec.EncodeRgb(raw, 8, 8, 75, roomy, new ResourceGovernor(roomy, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance });
-        Assert.True(encoded.Length > 0);
+        byte[] encoded = JpegCodec.EncodeRgb(raw, 8, 8, 75, roomy,
+            new ResourceGovernor(roomy, CancellationToken.None) { JpegCodec = LokadImageJpegCodec.Instance });
+        Assert.NotEmpty(encoded);
     }
 
     [Fact]
     public void CancelledEncodeFailsFast()
     {
-        byte[] raw = new byte[8 * 8 * 3];
-        using CancellationTokenSource source = new();
-        source.Cancel();
+        using CancellationTokenSource source = new(); source.Cancel();
         ResourceGovernor governor = new(QpdfLimits.Default, source.Token);
-        Assert.Throws<OperationCanceledException>(() => JpegCodec.EncodeRgb(raw, 8, 8, 75, QpdfLimits.Default, governor));
+        Assert.Throws<OperationCanceledException>(() => JpegCodec.EncodeRgb(new byte[8 * 8 * 3], 8, 8, 75, QpdfLimits.Default, governor));
     }
 
     [Fact]
-    public async Task JpegCancelledDecodeHonorsCancellation()
+    public void JpegCancelledDecodeHonorsCancellation()
     {
-        using Image<Rgb24> image = new(8, 8);
-        JpegEncoder encoder = new()
-        {
-            Quality = 75,
-        };
-        using MemoryStream buffer = new();
-        image.Save(buffer, encoder);
-        byte[] bytes = buffer.ToArray();
-
-        using CancellationTokenSource cts = new();
-        cts.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
-        {
-            using MemoryStream input = new(bytes);
-            using Image<Rgb24> decoded = await Image.LoadAsync<Rgb24>(input, cts.Token);
-        });
+        byte[] jpeg = DctDecodeTests.EncodeRgbJpeg(8, 8);
+        using CancellationTokenSource cancellation = new(); cancellation.Cancel();
+        Assert.ThrowsAny<OperationCanceledException>(() => Lokad.Image.ImageCodec.DecodeJpeg(
+            jpeg, new byte[8 * 8 * 3], Lokad.Image.JpegSampleFormat.Rgb, cancellationToken: cancellation.Token));
     }
 
     private static string FindProbeDll()

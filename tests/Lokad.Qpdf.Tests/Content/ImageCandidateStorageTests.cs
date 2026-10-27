@@ -1,7 +1,7 @@
 using System.Text;
 using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Content;
-using Lokad.Qpdf.ImageSharp;
+using Lokad.Qpdf.Image;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 
@@ -12,11 +12,11 @@ public sealed class ImageCandidateStorageTests
     private sealed class ObservedCodec(Action<ReadOnlyMemory<byte>> observe) : IQpdfJpegCodec
     {
         public void Decode(Stream encoded, QpdfJpegFrame frame, Memory<byte> samples, QpdfJpegCodecContext context)
-            => ImageSharpJpegCodec.Instance.Decode(encoded, frame, samples, context);
+            => LokadImageJpegCodec.Instance.Decode(encoded, frame, samples, context);
         public void Encode(ReadOnlyMemory<byte> samples, QpdfJpegFrame frame, int quality, Stream encoded, QpdfJpegCodecContext context)
         {
             observe(samples);
-            ImageSharpJpegCodec.Instance.Encode(samples, frame, quality, encoded, context);
+            LokadImageJpegCodec.Instance.Encode(samples, frame, quality, encoded, context);
         }
     }
 
@@ -73,7 +73,7 @@ public sealed class ImageCandidateStorageTests
     public void LargerCandidateReturnsItsEntireTemporaryAdmission()
     {
         PdfStream image = Image(8, new byte[64], false);
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None) { JpegCodec = LokadImageJpegCodec.Instance };
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(71L);
         long baseline = governor.Snapshot().LiveMemoryBytes;
         Assert.Null(Optimize(image, governor, QpdfLimits.Default));
@@ -109,7 +109,7 @@ public sealed class ImageCandidateStorageTests
     {
         byte[] samples = new byte[128 * 128]; new Random(42).NextBytes(samples);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None)
-            { JpegCodec = ImageSharpJpegCodec.Instance, OwnsDocumentCounters = true };
+            { JpegCodec = LokadImageJpegCodec.Instance, OwnsDocumentCounters = true };
         PdfStream image = Image(128, Encoding.ASCII.GetBytes(Convert.ToHexString(samples) + ">"), true);
         PdfStream result = Assert.IsType<PdfStream>(Optimize(image, governor, QpdfLimits.Default));
         byte[] payload = Assert.IsType<byte[]>(result.AllocationCarrier);

@@ -1,13 +1,10 @@
-using Lokad.Qpdf.ImageSharp;
+using Lokad.Qpdf.Image;
 using System.IO.Compression;
 using System.Text;
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.PixelFormats;
 
 namespace Lokad.Qpdf.Tests.Filters;
 
@@ -15,58 +12,19 @@ public sealed class DctDecodeTests
 {
     private static InMemoryQpdfHost HostWith(string name, byte[] bytes)
     {
-        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
+        InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
         host.AddInput(QpdfPath.From(name), bytes, QpdfInputOwnership.Copy);
         return host;
     }
 
     internal static byte[] EncodeGrayJpeg(int width, int height)
-    {
-        using Image<L8> image = new(width, height);
-        for (int y = 0; y < height; y++)
-        {
-            for (int x = 0; x < width; x++)
-            {
-                image[x, y] = new L8((byte)((x * 32 + y * 4) & 0xFF));
-            }
-        }
+        => JpegFixtures.Encode(width, height, 1, 75, (x, y, _) => (byte)((x * 32 + y * 4) & 255));
 
-        using MemoryStream buffer = new();
-        image.Save(buffer, new JpegEncoder { Quality = 75, ColorType = JpegEncodingColor.Luminance });
-        return buffer.ToArray();
-    }
+    internal static byte[] EncodeRgbJpeg(int width, int height)
+        => JpegFixtures.Encode(width, height, 3, 75, (x, y, c) => c == 0 ? (byte)(x * 32) : c == 1 ? (byte)(y * 32) : (byte)128);
 
-    private static byte[] EncodeRgbJpeg(int width, int height)
-    {
-        using Image<Rgb24> image = new(width, height);
-        for (int y = 0; y < height; y++)
-        {
-            for (int x = 0; x < width; x++)
-            {
-                image[x, y] = new Rgb24((byte)((x * 32) & 0xFF), (byte)((y * 32) & 0xFF), 128);
-            }
-        }
-
-        using MemoryStream buffer = new();
-        image.Save(buffer, new JpegEncoder { Quality = 75 });
-        return buffer.ToArray();
-    }
-
-    private static byte[] EncodeCmykLabeledJpeg(int width, int height)
-    {
-        using Image<Rgb24> image = new(width, height);
-        for (int y = 0; y < height; y++)
-        {
-            for (int x = 0; x < width; x++)
-            {
-                image[x, y] = new Rgb24((byte)((x * 32) & 0xFF), (byte)((y * 32) & 0xFF), 128);
-            }
-        }
-
-        using MemoryStream buffer = new();
-        image.Save(buffer, new JpegEncoder { Quality = 75, ColorType = JpegEncodingColor.Cmyk });
-        return buffer.ToArray();
-    }
+    private static byte[] CmykJpeg()
+        => File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "cmyk-8x8.jpg"));
 
     private static int FindFrameHeightOffset(byte[] jpeg)
     {
@@ -262,7 +220,7 @@ public sealed class DctDecodeTests
     [Fact]
     public async Task CmykLabeledJpegStaysOpaque()
     {
-        byte[] jpeg = EncodeCmykLabeledJpeg(8, 8);
+        byte[] jpeg = CmykJpeg();
         Assert.True(DctFilter.TryParseFrame(jpeg, new ResourceGovernor(QpdfLimits.Default, CancellationToken.None), out int width, out int height, out int components));
         Assert.Equal(4, components);
         Assert.Equal(8, width);
@@ -359,7 +317,7 @@ public sealed class DctDecodeTests
         byte[] jpeg = EncodeGrayJpeg(8, 8);
         using CancellationTokenSource source = new();
         source.Cancel();
-        ResourceGovernor governor = new(QpdfLimits.Default, source.Token) { JpegCodec = ImageSharpJpegCodec.Instance };
+        ResourceGovernor governor = new(QpdfLimits.Default, source.Token) { JpegCodec = LokadImageJpegCodec.Instance };
         Assert.Throws<OperationCanceledException>(() => DctFilter.Decode(jpeg, QpdfLimits.Default, governor));
     }
     [Fact]
@@ -368,9 +326,9 @@ public sealed class DctDecodeTests
         byte[] jpeg = EncodeGrayJpeg(1024, 1024);
         long frame = 1024L * 1024L;
         QpdfLimits tight = QpdfLimits.Default with { MaxMemoryBytes = frame };
-        Assert.Throws<QpdfLimitException>(() => DctFilter.Decode(jpeg, tight, new ResourceGovernor(tight, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance }));
+        Assert.Throws<QpdfLimitException>(() => DctFilter.Decode(jpeg, tight, new ResourceGovernor(tight, CancellationToken.None) { JpegCodec = LokadImageJpegCodec.Instance }));
         QpdfLimits roomy = QpdfLimits.Default with { MaxMemoryBytes = 8L * frame };
-        ResourceGovernor governor = new(roomy, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
+        ResourceGovernor governor = new(roomy, CancellationToken.None) { JpegCodec = LokadImageJpegCodec.Instance };
         byte[] decoded = DctFilter.Decode(jpeg, roomy, governor);
         Assert.Equal(frame, decoded.Length);
         Assert.True(governor.Snapshot().PeakMemoryBytes >= 2L * frame);
@@ -383,7 +341,7 @@ public sealed class DctDecodeTests
     {
         byte[] jpeg = EncodeGrayJpeg(1024, 1024);
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 1536L * 1024L };
-        ResourceGovernor governor = new(limits, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
+        ResourceGovernor governor = new(limits, CancellationToken.None) { JpegCodec = LokadImageJpegCodec.Instance };
         Assert.Throws<QpdfLimitException>(() => DctFilter.Decode(jpeg, limits, governor));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.True(governor.Snapshot().PeakMemoryBytes <= limits.MaxMemoryBytes);
@@ -454,15 +412,18 @@ public sealed class DctDecodeTests
         Assert.Equal(30000, width);
         Assert.Equal(30000, height);
         Assert.Equal(1, components);
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None) { JpegCodec = LokadImageJpegCodec.Instance };
         Assert.Throws<QpdfLimitException>(() => DctFilter.Decode(patched, QpdfLimits.Default, governor));
     }
     [Fact]
     public async Task TruncatedJpegAtAllWarnsAndStaysOpaque()
     {
         byte[] jpeg = EncodeRgbJpeg(32, 32);
-        byte[] cut = new byte[200];
-        Buffer.BlockCopy(jpeg, 0, cut, 0, 200);
+        int frameStart = FindFrameHeightOffset(jpeg) - 3;
+        int frameLength = (jpeg[frameStart] << 8) | jpeg[frameStart + 1];
+        // Keep the complete SOF but omit the scan, independently of encoder
+        // marker ordering and header sizes.
+        byte[] cut = jpeg.AsSpan(0, frameStart + frameLength).ToArray();
         Assert.True(DctFilter.TryParseFrame(cut, new ResourceGovernor(QpdfLimits.Default, CancellationToken.None), out int width, out int height, out int components));
         Assert.Equal(32, width);
         Assert.Equal(32, height);
@@ -521,7 +482,7 @@ public sealed class DctDecodeTests
 
     private static byte[] DecodeFully(byte[] data, PdfDictionary dictionary)
     {
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None) { JpegCodec = LokadImageJpegCodec.Instance };
         using FilterPlan stages = FilterChain.Resolve(dictionary, null, governor, governor.CancellationToken);
         using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
         return FilterChain.Decode(data, stages, QpdfLimits.Default, governor, decodedMemory);
@@ -542,7 +503,7 @@ public sealed class DctDecodeTests
     {
         byte[] jpeg = EncodeGrayJpeg(8, 8);
         QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = 96L };
-        ResourceGovernor governor = new(limits, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
+        ResourceGovernor governor = new(limits, CancellationToken.None) { JpegCodec = LokadImageJpegCodec.Instance };
         using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
         using FilterPlan stages = FilterPlan.Create(governor, CancellationToken.None);
         stages.Allocate(1);
@@ -557,7 +518,7 @@ public sealed class DctDecodeTests
     {
         byte[] jpeg = EncodeGrayJpeg(1024, 1024);
         QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = 1024L * 1024L + 1L };
-        ResourceGovernor governor = new(limits, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
+        ResourceGovernor governor = new(limits, CancellationToken.None) { JpegCodec = LokadImageJpegCodec.Instance };
         byte[] first = DctFilter.Decode(jpeg, limits, governor);
         long peak = governor.Snapshot().PeakMemoryBytes;
         long before = GC.GetAllocatedBytesForCurrentThread();

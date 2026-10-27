@@ -77,6 +77,7 @@ internal static class Program
         QpdfCheckResult checkedWithoutCodec = await Qpdf.CheckAsync(plain, QpdfPath.From("codec.pdf"), CancellationToken.None);
         Check(checkedWithoutCodec.Checks.Any(c => c.Name == "streams" && c.Status == QpdfCheckStatus.Skipped), "missing codec is an explicit skipped check");
         Check(!typeof(Qpdf).Assembly.GetReferencedAssemblies().Any(a => (a.Name ?? "").Contains("ImageSharp", StringComparison.Ordinal)), "core assembly has no ImageSharp reference");
+        Check(!typeof(Qpdf).Assembly.GetReferencedAssemblies().Any(a => string.Equals(a.Name, "Lokad.Image", StringComparison.Ordinal)), "core assembly has no Lokad.Image reference");
         Console.WriteLine("PASS dependency-free consumer with caller-supplied JPEG codec and explicit codec-free checks");
     }
 

@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.ImageSharp;
+using Lokad.Qpdf.Image;
 #if !QPDF_MEMORY_BASELINE
 using Lokad.Qpdf.TestSupport;
 #endif
@@ -115,9 +115,9 @@ internal static class MemoryReport
         RecordingMemoryBudget? root = (RecordingMemoryBudget?)budget;
         root?.ResetMetrics();
         using IMemoryScope? owner = root?.CreateScope();
-        using InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance, owner);
+        using InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance, owner);
 #else
-        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
+        InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
 #endif
         for (int index = 0; index < scenario.Inputs.Length; index++)
         { host.AddInput(QpdfPath.From("input" + index), scenario.Inputs[index], QpdfInputOwnership.Copy); }
@@ -151,7 +151,7 @@ internal static class MemoryReport
     private sealed class MemoryHost(InMemoryQpdfHost storage, IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost, IQpdfJpegCodecHost
     {
         public IMemoryBudget MemoryBudget => budget;
-        public IQpdfJpegCodec? JpegCodec => ImageSharpJpegCodec.Instance;
+        public IQpdfJpegCodec? JpegCodec => LokadImageJpegCodec.Instance;
         public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => storage.OpenInputAsync(path, token);
         public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token) => storage.CreateOutputAsync(path, token);
     }

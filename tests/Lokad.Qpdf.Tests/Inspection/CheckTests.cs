@@ -1,8 +1,5 @@
-using Lokad.Qpdf.ImageSharp;
+using Lokad.Qpdf.Image;
 using System.Text;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.PixelFormats;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 
@@ -18,14 +15,14 @@ public sealed class CheckTests
     private static async Task<InMemoryQpdfHost> HostWithFixture(string logical, string fixture)
     {
         byte[] bytes = await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), fixture));
-        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
+        InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
         host.AddInput(QpdfPath.From(logical), bytes, QpdfInputOwnership.Copy);
         return host;
     }
 
     private static InMemoryQpdfHost HostWith(string name, byte[] bytes)
     {
-        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
+        InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
         host.AddInput(QpdfPath.From(name), bytes, QpdfInputOwnership.Copy);
         return host;
     }
@@ -137,20 +134,7 @@ public sealed class CheckTests
     }
 
     private static byte[] CmykJpeg()
-    {
-        using Image<Rgb24> image = new(8, 8);
-        for (int y = 0; y < 8; y++)
-        {
-            for (int x = 0; x < 8; x++)
-            {
-                image[x, y] = new Rgb24((byte)((x * 32) & 0xFF), (byte)((y * 32) & 0xFF), 128);
-            }
-        }
-
-        using MemoryStream buffer = new();
-        image.Save(buffer, new JpegEncoder { Quality = 75, ColorType = JpegEncodingColor.Cmyk });
-        return buffer.ToArray();
-    }
+        => File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "cmyk-8x8.jpg"));
 
     private static QpdfCheckOutcome SingleOutcome(QpdfCheckResult result, string name)
     {
@@ -290,21 +274,7 @@ public sealed class CheckTests
     [Fact]
     public async Task ValidDctPassesStreamsCheck()
     {
-        byte[] jpeg;
-        using (Image<Rgb24> image = new(8, 8))
-        {
-            for (int y = 0; y < 8; y++)
-            {
-                for (int x = 0; x < 8; x++)
-                {
-                    image[x, y] = new Rgb24((byte)((x * 32) & 0xFF), (byte)((y * 32) & 0xFF), 128);
-                }
-            }
-
-            using MemoryStream buffer = new();
-            image.Save(buffer, new JpegEncoder { Quality = 75 });
-            jpeg = buffer.ToArray();
-        }
+        byte[] jpeg = Lokad.Qpdf.Tests.Filters.JpegFixtures.Encode(8, 8, 3, 75, (x, y, c) => c == 0 ? (byte)(x * 32) : c == 1 ? (byte)(y * 32) : (byte)128);
 
         List<(int, string, byte[]?)> objects = SinglePage("<< /Length 37 >>", HelloContents());
         objects.Add((6, "<< /Filter /DCTDecode /Length " + jpeg.Length.ToString() + " >>", jpeg));

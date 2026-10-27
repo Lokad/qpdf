@@ -1,12 +1,9 @@
 using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.ImageSharp;
+using Lokad.Qpdf.Image;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Tests.Inspection;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.PixelFormats;
 
 namespace Lokad.Qpdf.Tests.Filters;
 
@@ -232,18 +229,14 @@ public sealed class DctParameterTests
         => value is PdfReference reference ? document.GetObject(reference.ObjectNumber) : value;
 
     private static byte[] EncodeJpeg()
-    {
-        using Image<Rgb24> image = new(32, 32);
-        for (int y = 0; y < 32; y++) for (int x = 0; x < 32; x++) { image[x, y] = new Rgb24((byte)(x * 7), (byte)(y * 7), (byte)((x * y) % 256)); }
-        using MemoryStream stream = new(); image.Save(stream, new JpegEncoder { Quality = 100 }); return stream.ToArray();
-    }
+        => JpegFixtures.Encode(32, 32, 3, 100, (x, y, c) => (byte)(c == 0 ? x * 7 : c == 1 ? y * 7 : x * y % 256));
 
     private sealed class RecordingCodec : IQpdfJpegCodec
     {
         internal int Decodes; internal int Encodes;
         public void Decode(Stream encoded, QpdfJpegFrame frame, Memory<byte> samples, QpdfJpegCodecContext context)
-        { Decodes++; ImageSharpJpegCodec.Instance.Decode(encoded, frame, samples, context); }
+        { Decodes++; LokadImageJpegCodec.Instance.Decode(encoded, frame, samples, context); }
         public void Encode(ReadOnlyMemory<byte> samples, QpdfJpegFrame frame, int quality, Stream encoded, QpdfJpegCodecContext context)
-        { Encodes++; ImageSharpJpegCodec.Instance.Encode(samples, frame, quality, encoded, context); }
+        { Encodes++; LokadImageJpegCodec.Instance.Encode(samples, frame, quality, encoded, context); }
     }
 }

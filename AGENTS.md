@@ -43,8 +43,8 @@ version-specific package commands when changing the project version.
 - No vendored code, qpdf-related dependencies, native PDF engines, interop or
   runtime subprocess bridges. Public upstream code is reference material only.
 - The core package has no runtime NuGet dependencies. JPEG codecs are supplied
-  by callers through the host capability. SixLabors.ImageSharp **3.1.12** is
-  development-only; preserve its pin and reviewed temporary advisory exceptions.
+  by callers through the host capability. Lokad.Image **0.2.0** is pinned for
+  development-only codecs and fixtures; never add it to the core package.
 - Runtime storage, descriptors, environment and publication must be host-mediated.
   Physical filesystem/process adapters belong in development tools or hosts.
 - Passwords and crypto are excluded, including empty-password encrypted inputs.

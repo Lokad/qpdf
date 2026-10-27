@@ -84,7 +84,7 @@ internal static class Program
         Console.WriteLine("compare requires oracle npages, independent npages and --expected-npages to agree; mismatch exits 2.");
         Console.WriteLine("emit runs the managed library over <dir>/inputs through the public API and writes mapped outputs to disk.");
         Console.WriteLine("validate --allow-empty explicitly accepts an independently observed zero-page document.");
-    Console.WriteLine("probe-jpeg exercises the pinned ImageSharp 3.1.12 JPEG codec (grayscale/RGB round-trips, quality endpoints, CMYK/YCCK gap, bounds, cancellation).");
+    Console.WriteLine("probe-jpeg exercises the pinned Lokad.Image 0.2.0 JPEG codec (grayscale/RGB round-trips, quality endpoints, CMYK/YCCK PDF policy, bounds, cancellation).");
         Console.WriteLine("Missing executables or inputs are explicit failures, never silent skips.");
     }
 

@@ -1,4 +1,4 @@
-using Lokad.Qpdf.ImageSharp;
+using Lokad.Qpdf.Image;
 using Lokad.Qpdf;
 using Lokad.Qpdf.Hosting;
 using Microsoft.Win32.SafeHandles;
@@ -66,7 +66,7 @@ internal static class EmitCommand
             throw new ProbeException($"Inputs directory not found: {inputsDir}.", 1);
         }
 
-        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
+        InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
         Dictionary<string, string> available = new(StringComparer.Ordinal);
         foreach (string file in Directory.EnumerateFiles(inputsDir, "*", SearchOption.AllDirectories))
         {
