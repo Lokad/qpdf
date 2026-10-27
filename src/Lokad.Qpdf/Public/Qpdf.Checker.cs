@@ -71,7 +71,7 @@ public static partial class Qpdf
                 bytes = new ReadOnlyMemory<byte>(output.ToArray());
             }
             output.Dispose();
-            ExecutionOutcome result = CompleteWithPresentation(diagnostics.Entries, plan, governor);
+            ExecutionOutcome result = CompleteWithPresentation(governor);
             if (result.Status != QpdfExecutionStatus.Completed) { bytes = null; }
             return result.WithOutputBytes(bytes);
         }

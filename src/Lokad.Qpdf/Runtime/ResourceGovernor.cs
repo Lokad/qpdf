@@ -526,10 +526,10 @@ internal sealed class ResourceGovernor
         _sharedMemory?.Complete(Math.Max(0L, LiveMemoryBytes - _hostMemoryBytes));
     }
 
-    internal PresentedDiagnostics? CompleteExecutionPresentation()
+    internal PresentedDiagnostics CompleteExecutionPresentation()
     {
         PrepareExecutionResult();
-        return ExecutionPresentation?.Complete();
+        return (ExecutionPresentation ?? throw new InvalidOperationException("Missing execution presentation.")).Complete();
     }
 
     internal void AttachPublication(PublicationReservation reservation)

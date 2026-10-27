@@ -90,21 +90,44 @@ public sealed class SimplifiedExecutionTests
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
-    [Fact]
-    public async Task CancellationAfterCommitReusesThePreparedSummariesAndKeepsPublicationSuccessful()
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    [InlineData(true, true, true)]
+    public async Task CancellationAfterCommitKeepsDiagnosticsAndPublicationSuccessful(bool job, bool summaries, bool warning)
     {
         using InMemoryQpdfHost storage = CleanHost(); await Seed(storage);
+        if (warning)
+        {
+            storage.AddInput(Input, CheckTests.Assemble(CheckTests.SinglePage(
+                "<< /Length 4 /Length 4 >>", "q Q\n"u8.ToArray()), 1), QpdfInputOwnership.Transfer);
+        }
         using CancellationTokenSource cancellation = new();
         IQpdfHost host = new CancelAfterCommitHost(storage, cancellation);
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
-            new QpdfCommandInvocation(["input", "--verbose", "--progress", "--report-memory-usage", "output"]),
-            cancellation.Token);
+        QpdfExecutionResult result;
+        if (job)
+        {
+            result = await Qpdf.ExecuteJobAsync(host,
+                "{\"inputFile\":\"input\",\"outputFile\":\"output\""
+                + (summaries ? ",\"verbose\":\"\",\"progress\":\"\",\"reportMemoryUsage\":\"\"" : "") + "}", cancellation.Token);
+        }
+        else
+        {
+            string[] argv = summaries ? ["input", "--verbose", "--progress", "--report-memory-usage", "output"] : ["input", "output"];
+            result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), cancellation.Token);
+        }
         Assert.True(cancellation.IsCancellationRequested);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
-        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
-        Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.VerboseSummary);
-        Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.ProgressReport);
-        Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.MemoryUsage);
+        Assert.Equal(warning ? QpdfExitCode.Warning : QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal(warning ? 1 : 0, result.Diagnostics.Count(item => item.Code == QpdfDiagnosticCode.DuplicateKey));
+        Assert.Equal(summaries, result.Diagnostics.Any(item => item.Code == QpdfDiagnosticCode.VerboseSummary));
+        Assert.Equal(summaries, result.Diagnostics.Any(item => item.Code == QpdfDiagnosticCode.ProgressReport));
+        Assert.Equal(summaries, result.Diagnostics.Any(item => item.Code == QpdfDiagnosticCode.MemoryUsage));
         Assert.True(storage.TryGetOutput(Output, out byte[] bytes));
         Assert.True(bytes.AsSpan().StartsWith("%PDF-"u8));
         Assert.Equal(0L, storage.OpenLeaseCount);

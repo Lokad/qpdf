@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Reuse admitted diagnostics for ordinary command results, removing the legacy
+  presentation fallback and its extra allocation after publication. Preserve
+  warning policies and terminal-failure accounting; clarify result documentation.
 - Accept indirect attachment name-tree arrays and string keys across listing,
   extraction, JSON inspection, attachment copying and whole-file rewriting.
 

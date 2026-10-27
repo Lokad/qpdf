@@ -136,9 +136,9 @@ public sealed record QpdfExecutionResult
     /// <summary>Gets the command-adapter exit code.</summary>
     public QpdfExitCode ExitCode => _exitCode;
 
-    /// <summary>Gets cumulative accepted diagnostic records, including prepared summaries.</summary>
-    /// <remarks>Suppressed warnings and the bounded terminal failure are excluded.
-    /// Summaries abandoned on a later failure remain counted.</remarks>
+    /// <summary>Gets the diagnostics returned for this outcome, including any terminal failure.</summary>
+    /// <remarks>Suppressed warnings and abandoned success summaries are omitted.
+    /// The cumulative accepted-record count is available through <see cref="QpdfExecutionCounters.DiagnosticCount" />.</remarks>
     public IReadOnlyList<QpdfDiagnostic> Diagnostics => _diagnostics;
 
     /// <summary>Gets the final resource counters.</summary>

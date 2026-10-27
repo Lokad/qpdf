@@ -157,6 +157,8 @@ Cleanup can finish bounded retirement after cancellation. Diagnostics use bounde
 stored records and actual UTF-8 message lengths. Overflow fails the job before
 publication; accepted messages and a bounded terminal failure remain available.
 Requested summaries are built once before publication and reused after commit.
+Ordinary command results borrow the admitted diagnostic list without copying it
+after publication; that list retains no execution owner.
 
 ## Dependencies and development tools
 

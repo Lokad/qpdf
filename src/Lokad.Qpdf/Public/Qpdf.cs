@@ -5390,7 +5390,7 @@ public static partial class Qpdf
                 await using QpdfDocument document = await OpenPlanInputAsync(host, showXref.Input, showXref.EmptyDocument, limits, governor, diagnostics, showXref.Recovery, cancellationToken).ConfigureAwait(false);
                 ShowXref(document, governor, diagnostics, cancellationToken);
 
-                return CompleteWithPresentation(diagnostics.Entries, plan, governor);
+                return CompleteWithPresentation(governor);
             }
             catch (QpdfException ex)
             {
@@ -5407,7 +5407,7 @@ public static partial class Qpdf
             try
             {
                 await ShowObjectCoreAsync(host, showObject, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-                return CompleteWithPresentation(diagnostics.Entries, plan, governor);
+                return CompleteWithPresentation(governor);
             }
             catch (QpdfException ex)
             {
@@ -5427,7 +5427,7 @@ public static partial class Qpdf
                 await using QpdfDocument document = await OpenPlanInputAsync(host, showPages.Input, showPages.EmptyDocument, limits, governor, diagnostics, showPages.Recovery, cancellationToken).ConfigureAwait(false);
                 ShowPages(document, plan, limits, governor, diagnostics, cancellationToken);
 
-                return CompleteWithPresentation(diagnostics.Entries, plan, governor);
+                return CompleteWithPresentation(governor);
             }
             catch (QpdfException ex)
             {
@@ -5448,7 +5448,7 @@ public static partial class Qpdf
                 {
                     AddPageCountDiagnostic(document, npages.Input, diagnostics);
                 }
-                return CompleteWithPresentation(diagnostics.Entries, plan, governor);
+                return CompleteWithPresentation(governor);
             }
             catch (QpdfException ex)
             {
@@ -5475,7 +5475,7 @@ public static partial class Qpdf
                     await ShowLinearizationAsync(host, linearization.Input, limits, linearization.Recovery, linearization.EmptyDocument, governor, diagnostics, cancellationToken).ConfigureAwait(false);
                 }
 
-                return CompleteWithPresentation(diagnostics.Entries, plan, governor);
+                return CompleteWithPresentation(governor);
             }
             catch (QpdfException ex)
             {
@@ -5502,7 +5502,7 @@ public static partial class Qpdf
                     await ExtractAttachmentCoreAsync(host, attachments.Input, attachments.Key, output, limits, attachments.Recovery, attachments.EmptyDocument, governor, diagnostics, cancellationToken).ConfigureAwait(false);
                 }
 
-                return CompleteWithPresentation(diagnostics.Entries, plan, governor);
+                return CompleteWithPresentation(governor);
             }
             catch (QpdfException ex)
             {
@@ -5532,7 +5532,7 @@ public static partial class Qpdf
                     json.TestJsonSchema,
                     !json.Output.HasValue,
                     cancellationToken).ConfigureAwait(false);
-                return CompleteWithPresentation(inspected.Warnings, plan, governor).WithOutputText(json.Output.HasValue ? null : inspected.Json);
+                return CompleteWithPresentation(governor).WithOutputText(json.Output.HasValue ? null : inspected.Json);
             }
             catch (QpdfException ex)
             {
@@ -5548,7 +5548,7 @@ public static partial class Qpdf
         {
             try
             {
-                JsonImportOutcome imported = await ImportCreateCoreAsync(
+                await ImportCreateCoreAsync(
                     host,
                     jsonInput.Input,
                     jsonInput.Output,
@@ -5560,7 +5560,7 @@ public static partial class Qpdf
                     governor,
                     diagnostics,
                     cancellationToken).ConfigureAwait(false);
-                return CompleteWithPresentation(imported.Warnings, plan, governor);
+                return CompleteWithPresentation(governor);
             }
             catch (QpdfException ex)
             {
@@ -5576,7 +5576,7 @@ public static partial class Qpdf
         {
             try
             {
-                JsonImportOutcome updated = await ImportUpdateCoreAsync(
+                await ImportUpdateCoreAsync(
                     host,
                     jsonUpdate.Input,
                     jsonUpdate.JsonPath,
@@ -5590,7 +5590,7 @@ public static partial class Qpdf
                     governor,
                     diagnostics,
                     cancellationToken).ConfigureAwait(false);
-                return CompleteWithPresentation(updated.Warnings, plan, governor);
+                return CompleteWithPresentation(governor);
             }
             catch (QpdfException ex)
             {
@@ -5606,8 +5606,8 @@ public static partial class Qpdf
         {
             try
             {
-                MultiPageSelectionOutcome result = (await WholeFileCoreAsync(host, whole, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false)).Result;
-                return CompleteWithPresentation(result.Warnings, plan, governor);
+                await WholeFileCoreAsync(host, whole, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                return CompleteWithPresentation(governor);
             }
             catch (QpdfException ex)
             {
@@ -5637,7 +5637,7 @@ public static partial class Qpdf
                         resolved.Add(new PdfPageSource(path, source.Selection));
                     }
 
-                    MultiPageSelectionOutcome merged = (await SelectPagesCoreAsync(
+                    await SelectPagesCoreAsync(
                         host: host,
                         sources: resolved,
                         outputPath: merge.Output,
@@ -5654,8 +5654,8 @@ public static partial class Qpdf
                         diagnostics: diagnostics,
                         emptyPrimary: merge.EmptyInput,
                         preparedSource: null,
-                        cancellationToken: cancellationToken).ConfigureAwait(false)).Result;
-                    return CompleteWithPresentation(merged.Warnings, plan, governor);
+                        cancellationToken: cancellationToken).ConfigureAwait(false);
+                    return CompleteWithPresentation(governor);
                 }
                 catch (QpdfException ex)
                 {
@@ -5682,7 +5682,7 @@ public static partial class Qpdf
                         new PdfPageSource(selection.Input, new PdfPageSelectionOptions(selection.Page)),
                     };
                     QpdfPath target = selection.ReplaceInput ? selection.Input : selection.Output;
-                    MultiPageSelectionOutcome merged = (await SelectPagesCoreAsync(
+                    await SelectPagesCoreAsync(
                         host: host,
                         sources: solo,
                         outputPath: target,
@@ -5699,8 +5699,8 @@ public static partial class Qpdf
                         diagnostics: diagnostics,
                         emptyPrimary: false,
                         preparedSource: null,
-                        cancellationToken: cancellationToken).ConfigureAwait(false)).Result;
-                    return CompleteWithPresentation(merged.Warnings, plan, governor);
+                        cancellationToken: cancellationToken).ConfigureAwait(false);
+                    return CompleteWithPresentation(governor);
                 }
                 catch (QpdfException ex)
                 {
@@ -5717,7 +5717,7 @@ public static partial class Qpdf
                 }
             }
 
-            PageSelectionOutcome selected = await SelectPageCoreAsync(
+            await SelectPageCoreAsync(
                 host: host,
                 inputPath: selection.Input,
                 outputPath: selection.Output,
@@ -5728,7 +5728,7 @@ public static partial class Qpdf
                 governor: governor,
                 diagnostics: diagnostics,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
-            return CompleteWithPresentation(selected.Warnings, plan, governor);
+            return CompleteWithPresentation(governor);
         }
         catch (QpdfException ex)
         {
@@ -5745,77 +5745,11 @@ public static partial class Qpdf
         }
     }
 
-    private static ExecutionOutcome CompleteWithPresentation(
-        IReadOnlyList<QpdfDiagnostic> diagnostics,
-        JobPlan plan,
-        ResourceGovernor governor)
+    private static ExecutionOutcome CompleteWithPresentation(ResourceGovernor governor)
     {
-        if (governor.CompleteExecutionPresentation() is PresentedDiagnostics owned)
-        {
-            return new ExecutionOutcome(owned.ExitCode == QpdfExitCode.Error ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed,
-                owned.ExitCode, owned.Diagnostics);
-        }
-        ExecutionCounterValues counters = governor.CounterValues;
-        List<QpdfDiagnostic> effective = new();
-        foreach (QpdfDiagnostic diagnostic in diagnostics)
-        {
-            if (plan.NoWarn && diagnostic.Severity == QpdfDiagnosticSeverity.Warning)
-            {
-                continue;
-            }
-
-            effective.Add(diagnostic);
-        }
-
-        if (plan.Verbose)
-        {
-            effective.Add(new QpdfDiagnostic(QpdfDiagnosticCode.VerboseSummary, QpdfDiagnosticSeverity.Info, $"Verbose summary: {counters.TotalOutputBytes} output bytes, {counters.TotalDecodedBytes} decoded bytes, peak {counters.PeakMemoryBytes} bytes (estimated)."));
-        }
-
-        if (plan.ReportMemoryUsage)
-        {
-            effective.Add(new QpdfDiagnostic(QpdfDiagnosticCode.MemoryUsage, QpdfDiagnosticSeverity.Info, $"Peak memory usage: {counters.PeakMemoryBytes} bytes (estimated)."));
-        }
-
-        if (plan.Progress && counters.TotalOutputBytes > 0L)
-        {
-            effective.Add(new QpdfDiagnostic(QpdfDiagnosticCode.ProgressReport, QpdfDiagnosticSeverity.Info, $"Write progress: 25% of {counters.TotalOutputBytes} bytes."));
-            effective.Add(new QpdfDiagnostic(QpdfDiagnosticCode.ProgressReport, QpdfDiagnosticSeverity.Info, $"Write progress: 50% of {counters.TotalOutputBytes} bytes."));
-            effective.Add(new QpdfDiagnostic(QpdfDiagnosticCode.ProgressReport, QpdfDiagnosticSeverity.Info, $"Write progress: 75% of {counters.TotalOutputBytes} bytes."));
-            effective.Add(new QpdfDiagnostic(QpdfDiagnosticCode.ProgressReport, QpdfDiagnosticSeverity.Info, $"Write progress: 100% of {counters.TotalOutputBytes} bytes."));
-        }
-
-        bool error = false;
-        foreach (QpdfDiagnostic diagnostic in effective)
-        {
-            if (diagnostic.Severity == QpdfDiagnosticSeverity.Error)
-            {
-                error = true;
-                break;
-            }
-        }
-
-        if (error)
-        {
-            return ExecutionOutcome.Failed(effective);
-        }
-
-        if (plan.WarningExitZero)
-        {
-            return new ExecutionOutcome(QpdfExecutionStatus.Completed, QpdfExitCode.Success, effective);
-        }
-
-        bool warning = false;
-        foreach (QpdfDiagnostic diagnostic in diagnostics)
-        {
-            if (diagnostic.Severity == QpdfDiagnosticSeverity.Warning)
-            {
-                warning = true;
-                break;
-            }
-        }
-
-        return new ExecutionOutcome(QpdfExecutionStatus.Completed, warning ? QpdfExitCode.Warning : QpdfExitCode.Success, effective);
+        PresentedDiagnostics result = governor.CompleteExecutionPresentation();
+        return new ExecutionOutcome(result.ExitCode == QpdfExitCode.Error ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed,
+            result.ExitCode, result.Diagnostics);
     }
 
     private static ExecutionOutcome CryptoFailed(string option)

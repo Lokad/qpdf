@@ -119,9 +119,17 @@ internal sealed class ExecutionPresentation : ExecutionPreparation, IDisposable
             governor.PresentationOutputBytes, governor.PresentationDecodedBytes, governor.PresentationPeakBytes);
     }
 
-    internal PresentedDiagnostics? Complete()
+    internal PresentedDiagnostics Complete()
     {
-        if ((_flags & 15) == 0) { return null; }
+        if ((_flags & 15) == 0)
+        {
+            IReadOnlyList<QpdfDiagnostic> entries = Bag.Entries;
+            bool error = false;
+            for (int index = 0; index < entries.Count; index++)
+            { error |= entries[index].Severity == QpdfDiagnosticSeverity.Error; }
+            return new(entries, error ? QpdfExitCode.Error
+                : Bag.HasAcceptedWarnings && (_flags & 16) == 0 ? QpdfExitCode.Warning : QpdfExitCode.Success);
+        }
         Prepare();
         DiagnosticProjection prepared = _prepared ?? throw new InvalidOperationException("Missing prepared diagnostics.");
         QpdfExitCode exit = prepared.HasError ? QpdfExitCode.Error
