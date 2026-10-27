@@ -378,6 +378,8 @@ internal static class FlattenAnnotations
         {
             return false;
         }
+        if (rect[0] > rect[2]) { (rect[0], rect[2]) = (rect[2], rect[0]); }
+        if (rect[1] > rect[3]) { (rect[1], rect[3]) = (rect[3], rect[1]); }
 
         double[] matrix = IdentityMatrix();
         if (appearance.TryGet(PdfName.FromAscii("Matrix"), out QpdfObject? matrixRaw) && matrixRaw is not null && matrixRaw is not PdfNull)

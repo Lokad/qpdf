@@ -41,6 +41,27 @@ public sealed class AnnotationPlacementTests
         Assert.Contains("2 0 0 2 20 30 cm", content, StringComparison.Ordinal);
     }
 
+    public static IEnumerable<object[]> ReversedRectangleCases()
+    {
+        foreach (string rect in new[] { "180 30 20 110", "20 110 180 30", "180 110 20 30" })
+        {
+            foreach (int angle in new[] { 0, 90, 180, 270 })
+            {
+                foreach (bool job in new[] { false, true }) { yield return [rect, angle, job]; }
+            }
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(ReversedRectangleCases))]
+    public async Task ReversedRectanglesPreservePlacementAndNoRotate(string rect, int angle, bool job)
+    {
+        const string matrix = "0 1 -1 0 100 0";
+        string canonical = await FlattenedContent(Fixture(matrix, "20 30 180 110", "null", angle), job);
+        string reversed = await FlattenedContent(Fixture(matrix, rect, "null", angle), job);
+        Assert.Equal(canonical, reversed);
+    }
+
     private static async Task<string> FlattenedContent(byte[] input, bool job)
     {
         using InMemoryQpdfHost host = new();

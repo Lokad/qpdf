@@ -20,6 +20,11 @@ silent identity fallback and incorrect placement. Malformed-matrix fallback and
 non-finite rejection remain; argv and job JSON share the corrected output. Public
 signatures are unchanged.
 
+Annotation rectangles are normalized before flattening placement and `NoRotate`
+arithmetic. Reversing either or both pairs of corners no longer mirrors or rotates
+the appearance relative to the canonical rectangle. This intentionally changes
+affected argv/job output; zero-extent and non-finite policies are unchanged.
+
 The built-in memory host observes cancellation after publication admission,
 including empty outputs. If a memory-budget callback cancels the token before
 returning an accepted receipt, commit now throws instead of replacing the prior
