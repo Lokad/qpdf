@@ -146,13 +146,13 @@ internal static partial class JsonImport
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
-            if (property.Name == "trailer")
+            if (ReadPropertyName(property) == "trailer")
             {
                 trailer = ReadTrailer(property.Value, governor, memory, cancellationToken);
                 continue;
             }
 
-            int number = ParseObjectKey(property.Name);
+            int number = ParseObjectKey(ReadPropertyName(property));
             if (property.Value.ValueKind != JsonValueKind.Object)
             {
                 throw new QpdfParseException("qpdf JSON object must be a dictionary.", 0L, null);
@@ -253,13 +253,13 @@ internal static partial class JsonImport
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
-            if (property.Name == "trailer")
+            if (ReadPropertyName(property) == "trailer")
             {
                 trailer = ReadTrailer(property.Value, governor, memory, cancellationToken);
                 continue;
             }
 
-            int number = ParseObjectKey(property.Name);
+            int number = ParseObjectKey(ReadPropertyName(property));
             if (property.Value.ValueKind != JsonValueKind.Object)
             {
                 throw new QpdfParseException("qpdf JSON object must be a dictionary.", 0L, null);
@@ -279,7 +279,7 @@ internal static partial class JsonImport
         foreach (JsonProperty property in meta.EnumerateObject())
         {
             governor.CheckCancellation();
-            if (property.Name == "jsonversion")
+            if (ReadPropertyName(property) == "jsonversion")
             {
                 sawJsonVersion = true;
                 if (property.Value.ValueKind != JsonValueKind.Number || !property.Value.TryGetInt32(out int number) || number != 2)
@@ -290,9 +290,9 @@ internal static partial class JsonImport
                 continue;
             }
 
-            if (property.Name == "pdfversion")
+            if (ReadPropertyName(property) == "pdfversion")
             {
-                if (property.Value.ValueKind != JsonValueKind.String || property.Value.GetString() is not string text)
+                if (property.Value.ValueKind != JsonValueKind.String || ReadString(property.Value) is not string text)
                 {
                     throw new QpdfParseException("qpdf JSON pdfversion must be a string.", 0L, null);
                 }
@@ -301,7 +301,7 @@ internal static partial class JsonImport
                 continue;
             }
 
-            if (property.Name == "pushedinheritedpageresources")
+            if (ReadPropertyName(property) == "pushedinheritedpageresources")
             {
                 if (property.Value.ValueKind != JsonValueKind.True && property.Value.ValueKind != JsonValueKind.False)
                 {
@@ -316,7 +316,7 @@ internal static partial class JsonImport
                 continue;
             }
 
-            if (property.Name == "calledgetallpages")
+            if (ReadPropertyName(property) == "calledgetallpages")
             {
                 if (property.Value.ValueKind != JsonValueKind.True && property.Value.ValueKind != JsonValueKind.False)
                 {
@@ -347,7 +347,7 @@ internal static partial class JsonImport
         foreach (JsonProperty property in meta.EnumerateObject())
         {
             governor.CheckCancellation();
-            if (property.Name == "jsonversion")
+            if (ReadPropertyName(property) == "jsonversion")
             {
                 sawJsonVersion = true;
                 if (property.Value.ValueKind != JsonValueKind.Number || !property.Value.TryGetInt32(out int version) || version != 2)
@@ -358,9 +358,9 @@ internal static partial class JsonImport
                 continue;
             }
 
-            if (property.Name == "pdfversion")
+            if (ReadPropertyName(property) == "pdfversion")
             {
-                if (property.Value.ValueKind != JsonValueKind.String || property.Value.GetString() is not string text)
+                if (property.Value.ValueKind != JsonValueKind.String || ReadString(property.Value) is not string text)
                 {
                     throw new QpdfParseException("qpdf JSON pdfversion must be a string.", 0L, null);
                 }
@@ -369,11 +369,11 @@ internal static partial class JsonImport
                 continue;
             }
 
-            if (property.Name == "pushedinheritedpageresources" || property.Name == "calledgetallpages")
+            if (ReadPropertyName(property) == "pushedinheritedpageresources" || ReadPropertyName(property) == "calledgetallpages")
             {
                 if (property.Value.ValueKind != JsonValueKind.True && property.Value.ValueKind != JsonValueKind.False)
                 {
-                    throw new QpdfParseException("qpdf JSON " + property.Name + " must be a boolean.", 0L, null);
+                    throw new QpdfParseException("qpdf JSON " + ReadPropertyName(property) + " must be a boolean.", 0L, null);
                 }
 
                 continue;
@@ -466,7 +466,7 @@ internal static partial class JsonImport
         foreach (JsonProperty property in value.EnumerateObject())
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            if (property.Name == "value")
+            if (ReadPropertyName(property) == "value")
             {
                 QpdfObject decoded = DecodeValue(property.Value, 0, governor, memory, token);
                 if (decoded is not PdfDictionary dictionary)
@@ -478,7 +478,7 @@ internal static partial class JsonImport
                 continue;
             }
 
-            if (property.Name == "stream")
+            if (ReadPropertyName(property) == "stream")
             {
                 throw new QpdfParseException("qpdf JSON trailer may not be a stream.", 0L, null);
             }
@@ -511,7 +511,7 @@ internal static partial class JsonImport
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
-            if (property.Name == "value")
+            if (ReadPropertyName(property) == "value")
             {
                 sawValue = true;
                 QpdfObject decoded = DecodeValue(property.Value, 0, governor, memory, cancellationToken);
@@ -524,7 +524,7 @@ internal static partial class JsonImport
                 continue;
             }
 
-            if (property.Name == "stream")
+            if (ReadPropertyName(property) == "stream")
             {
                 sawStream = true;
                 if (property.Value.ValueKind != JsonValueKind.Object)
@@ -536,7 +536,7 @@ internal static partial class JsonImport
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     governor.NoteOperation();
-                    if (inner.Name == "dict")
+                    if (ReadPropertyName(inner) == "dict")
                     {
                         QpdfObject decoded = DecodeValue(inner.Value, 0, governor, memory, cancellationToken);
                         if (decoded is not PdfDictionary dictionary)
@@ -548,9 +548,9 @@ internal static partial class JsonImport
                         continue;
                     }
 
-                    if (inner.Name == "data")
+                    if (ReadPropertyName(inner) == "data")
                     {
-                        if (inner.Value.ValueKind != JsonValueKind.String || inner.Value.GetString() is not string text)
+                        if (inner.Value.ValueKind != JsonValueKind.String || ReadString(inner.Value) is not string text)
                         {
                             throw new QpdfParseException("qpdf JSON stream data must be a string.", 0L, null);
                         }
@@ -562,9 +562,9 @@ internal static partial class JsonImport
                         continue;
                     }
 
-                    if (inner.Name == "datafile")
+                    if (ReadPropertyName(inner) == "datafile")
                     {
-                        if (inner.Value.ValueKind != JsonValueKind.String || inner.Value.GetString() is not string name)
+                        if (inner.Value.ValueKind != JsonValueKind.String || ReadString(inner.Value) is not string name)
                         {
                             throw new QpdfParseException("qpdf JSON stream datafile must be a string containing a file name.", 0L, null);
                         }
@@ -652,6 +652,20 @@ internal static partial class JsonImport
             await input.DisposeAsync().ConfigureAwait(false);
         }
     }
+    private static string? ReadString(JsonElement value)
+    {
+        try { return value.GetString(); }
+        catch (InvalidOperationException ex) when (value.ValueKind == JsonValueKind.String)
+        { throw new QpdfParseException("Invalid string encoding in qpdf JSON.", 0L, null, ex); }
+    }
+
+    private static string ReadPropertyName(JsonProperty property)
+    {
+        try { return property.Name; }
+        catch (InvalidOperationException ex)
+        { throw new QpdfParseException("Invalid string encoding in qpdf JSON.", 0L, null, ex); }
+    }
+
     private static QpdfObject DecodeValue(JsonElement value, int depth, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -670,7 +684,7 @@ internal static partial class JsonImport
             case JsonValueKind.Number:
                 return DecodeNumber(value, governor, memory, token);
             case JsonValueKind.String:
-                return DecodeString(value.GetString() ?? string.Empty, governor, token);
+                return DecodeString(ReadString(value) ?? string.Empty, governor, token);
             case JsonValueKind.Array:
             {
                 QpdfObject[] items = new QpdfObject[value.GetArrayLength()];
@@ -684,7 +698,7 @@ internal static partial class JsonImport
             {
                 Dictionary<PdfName, QpdfObject> entries = new(value.GetPropertyCount());
                 foreach (JsonProperty property in value.EnumerateObject())
-                { entries[DecodeName(property.Name, governor, token)] = DecodeValue(property.Value, depth + 1, governor, memory, token); }
+                { entries[DecodeName(ReadPropertyName(property), governor, token)] = DecodeValue(property.Value, depth + 1, governor, memory, token); }
                 return PdfDictionary.FromOwnedEntries(entries);
             }
 
