@@ -350,13 +350,16 @@ internal static class JobJsonLoader
 
         private void AddFields(JsonDocument document, bool prefix, List<JsonProperty> fields)
         {
-            List<JsonProperty> sorted = new();
-            foreach (JsonProperty property in JobJsonParser.EffectiveProperties(document.RootElement))
+            List<JsonProperty> sorted = new(JobJsonParser.EffectiveProperties(document.RootElement));
+            int kept = 0;
+            for (int index = 0; index < sorted.Count; index++)
             {
                 _governor.NoteOperation();
+                JsonProperty property = sorted[index];
                 int order = string.CompareOrdinal(property.Name, FileKey);
-                if (order != 0 && (prefix ? order < 0 : order > 0)) { sorted.Add(property); }
+                if (order != 0 && (prefix ? order < 0 : order > 0)) { sorted[kept++] = property; }
             }
+            sorted.RemoveRange(kept, sorted.Count - kept);
             try
             {
                 sorted.Sort((left, right) =>
