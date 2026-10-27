@@ -385,7 +385,7 @@ internal static class FlattenAnnotations
             QpdfObject matrixTarget = matrixRaw is PdfReference matrixReference
                 ? ResolveOrNull(resolver, matrixReference) ?? matrixRaw
                 : matrixRaw;
-            double[]? parsed = ReadMatrix(matrixTarget);
+            double[]? parsed = ReadMatrix(matrixTarget, resolver);
             if (parsed is not null)
             {
                 matrix = parsed;
@@ -519,7 +519,7 @@ internal static class FlattenAnnotations
         return [llx, lly, urx, ury];
     }
 
-    private static double[]? ReadMatrix(QpdfObject value)
+    private static double[]? ReadMatrix(QpdfObject value, PoolResolver resolver)
     {
         if (value is not PdfArray array || array.Count != 6)
         {
@@ -529,11 +529,12 @@ internal static class FlattenAnnotations
         double[] numbers = new double[6];
         for (int i = 0; i < 6; i++)
         {
-            if (array[i] is PdfInteger integer)
+            QpdfObject? item = array[i] is PdfReference reference ? ResolveOrNull(resolver, reference) : array[i];
+            if (item is PdfInteger integer)
             {
                 numbers[i] = (double)integer.Value;
             }
-            else if (array[i] is PdfReal real)
+            else if (item is PdfReal real)
             {
                 numbers[i] = real.Value;
             }

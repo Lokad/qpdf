@@ -14,6 +14,12 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Annotation flattening resolves indirect numeric appearance-matrix coefficients
+before fitting the Form into its rectangle. These values no longer trigger a
+silent identity fallback and incorrect placement. Malformed-matrix fallback and
+non-finite rejection remain; argv and job JSON share the corrected output. Public
+signatures are unchanged.
+
 The built-in memory host observes cancellation after publication admission,
 including empty outputs. If a memory-budget callback cancels the token before
 returning an accepted receipt, commit now throws instead of replacing the prior
