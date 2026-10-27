@@ -2586,6 +2586,7 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
+          "AttachmentTreeReferenceTests.EquivalentTreesWorkAcrossPublicOperations",
           "AttachmentCopyTests.CopyBasic",
           "AttachmentNameOrderTests.MixedEncodingTreesSupportByteSearchWithoutChangingListingOrPayloads",
           "AttachmentCopyTests.CopyPrefix"
@@ -3523,6 +3524,7 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
+          "AttachmentTreeReferenceTests.EquivalentTreesWorkAcrossPublicOperations",
           "JsonInspectionTests.DefaultVersionIsTwo",
           "JsonInspectionTests.JsonWithoutFileReturnsText",
           "JsonRealExportTests.SignedAndZeroPaddedRealsExportValidExactJson",
@@ -4107,6 +4109,7 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
+          "AttachmentTreeReferenceTests.EquivalentTreesWorkAcrossPublicOperations",
           "AttachmentTests.ListShowsKeysAndStreams",
           "AttachmentTests.ListEmptyReportsNone",
           "AttachmentTests.KidsTreeListsAllAttachments",
@@ -4115,6 +4118,7 @@
           "PdfTextIntegrationTests.MetadataAndAttachmentLookupUseTheSameTextDecoding"
         ],
         "negative": [
+          "AttachmentTreeReferenceTests.InvalidTreesKeepFailureClassificationAndPriorOutput",
           "AttachmentTests.BrokenTreeFails"
         ],
         "interaction": [
@@ -4123,6 +4127,7 @@
           "AttachmentTests.MalformedAttachmentsFail"
         ],
         "resource": [
+          "AttachmentTreeResourceTests.IndirectKeyAdmissionPreservesRefusalCancellationAndCleanup",
           "AttachmentTests.ListYieldsToExhaustedInputBudget",
           "AttachmentMetadataTests.TypedListingDoesNotSpendPresentationQuotas",
           "AttachmentMetadataTests.GenuineWarningsRemainBoundedDuringTypedListing",
@@ -5711,6 +5716,7 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
+          "AttachmentTreeReferenceTests.EquivalentTreesWorkAcrossPublicOperations",
           "AttachmentTests.ShowExtractsToOutputFile",
           "AttachmentTests.ShowDecodesStreams",
           "AttachmentTests.ShowDecodesDctStream",
@@ -5719,6 +5725,7 @@
           "PdfTextIntegrationTests.MetadataAndAttachmentLookupUseTheSameTextDecoding"
         ],
         "negative": [
+          "AttachmentTreeReferenceTests.InvalidTreesKeepFailureClassificationAndPriorOutput",
           "AttachmentTests.ShowUnknownKeyFails",
           "AttachmentTests.TypedExtractUnknownKeyThrows",
           "AttachmentTests.JobMalformedAttachmentsFail"
@@ -5728,6 +5735,7 @@
           "AttachmentTests.ShowOutputAliasingInputFails"
         ],
         "resource": [
+          "AttachmentTreeResourceTests.OutputFailureAfterIndirectTraversalPreservesTheTarget",
           "AttachmentTests.ShowYieldsToExhaustedBudget"
         ],
         "oracle": [

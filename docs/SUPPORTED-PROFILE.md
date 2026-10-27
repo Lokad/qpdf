@@ -399,6 +399,8 @@ keys; listing order and request matching use decoded ordinal text.
 
 - Embedded files live in the catalog `/Names` `/EmbeddedFiles` name tree
   (`/Names` pairs plus `/Kids` branches, within nesting/container bounds and cancellation).
+  Pair/branch arrays and string keys can be direct or indirect objects; references
+  resolve before type checks, with effective generations respected.
   Keys decode as PDF text (UTF-8 or UTF-16 with a byte-order mark, otherwise
   PDFDocEncoding) and match request keys by exact ordinal text.
 - Attachment JSON versions 1 and 2 retain PDF name keys (`/F`, `/UF`, `/Unix`,

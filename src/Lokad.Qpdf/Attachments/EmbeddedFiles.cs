@@ -152,12 +152,12 @@ internal static class EmbeddedFiles
         { throw new QpdfParseException("Embedded-files name tree exceeds nesting budget.", null, null); }
         if (node.TryGet(PdfName.FromAscii("Names"), out QpdfObject? namesRaw) && namesRaw is not null && namesRaw is not PdfNull)
         {
-            if (namesRaw is not PdfArray names || names.Count % 2 != 0)
+            if (ResolveOptionalValue(engine, namesRaw, governor, token) is not PdfArray names || names.Count % 2 != 0)
             { throw new QpdfParseException("Embedded-files name array must hold key/value pairs.", null, null); }
             for (int i = 0; i < names.Count; i += 2)
             {
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                if (names[i] is not PdfByteString keyBytes)
+                if (ResolveOptionalValue(engine, names[i], governor, token) is not PdfByteString keyBytes)
                 { throw new QpdfParseException("Embedded-files name-tree keys must be strings.", null, null); }
                 long before = memory.ReservedBytes;
                 string key = PdfText.Decode(keyBytes.ValueMemory, memory, governor, token);
@@ -174,7 +174,7 @@ internal static class EmbeddedFiles
         }
         if (node.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw) && kidsRaw is not null && kidsRaw is not PdfNull)
         {
-            if (kidsRaw is not PdfArray kids)
+            if (ResolveOptionalValue(engine, kidsRaw, governor, token) is not PdfArray kids)
             { throw new QpdfParseException("Embedded-files kids must be an array.", null, null); }
             for (int i = 0; i < kids.Count; i++)
             {

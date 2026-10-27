@@ -14,6 +14,13 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Attachment name-tree traversal resolves indirect `/Names` and `/Kids` arrays
+and string keys before checking their types. Equivalent direct and indirect
+trees now work in listing, extraction, both attachment JSON versions, copying
+and whole-file rewriting. Previously the indirect forms failed as malformed
+input. Missing references, malformed values, cycles, nesting and resource limits
+still fail before publication. Public signatures and output rollback are unchanged.
+
 `QpdfJpegCodecContext.ResizeMemory` lets caller-supplied codecs grow or shrink
 their existing per-call reservations. Growth is admitted before allocation and
 checks cancellation after budget callbacks; refusal or cancellation preserves the

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Accept indirect attachment name-tree arrays and string keys across listing,
+  extraction, JSON inspection, attachment copying and whole-file rewriting.
+
 - Replace the development JPEG adapter and fixture dependency with Lokad.Image
   0.2.0; remove ImageSharp and its temporary audit exclusions. The core remains
   dependency-free. JPEG output and lossy samples can change between providers.
