@@ -182,14 +182,52 @@ public sealed class CheckTests
         Assert.True(result.HasSkipped);
     }
 
-    [Fact]
-    public async Task CorruptStreamDecodeFailsTheCheck()
+    private sealed class InaccessibleHost : IQpdfHost, IQpdfMemoryHost
+    {
+        public IMemoryBudget? MemoryBudget => throw new InvalidOperationException("Unexpected memory host access.");
+        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token)
+            => throw new InvalidOperationException("Unexpected input access.");
+        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token)
+            => throw new InvalidOperationException("Unexpected output access.");
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(4)]
+    [InlineData(999)]
+    [InlineData(int.MinValue)]
+    [InlineData(int.MaxValue)]
+    public async Task InvalidDecodeLevelsFailBeforeHostAccess(int level)
+    {
+        ArgumentOutOfRangeException failure = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => Qpdf.CheckAsync(new InaccessibleHost(), QpdfPath.From("unopened.pdf"),
+                new QpdfCheckOptions { DecodeLevel = (QpdfStreamDecodeLevel)level }, QpdfLimits.Default, CancellationToken.None).AsTask());
+        Assert.Equal("options", failure.ParamName);
+        Assert.Equal((QpdfStreamDecodeLevel)level, failure.ActualValue);
+    }
+
+    [Theory]
+    [InlineData(QpdfStreamDecodeLevel.None)]
+    [InlineData(QpdfStreamDecodeLevel.Generalized)]
+    [InlineData(QpdfStreamDecodeLevel.Specialized)]
+    [InlineData(QpdfStreamDecodeLevel.All)]
+    public async Task SupportedDecodeLevelsKeepTheirCorruptStreamCoverage(QpdfStreamDecodeLevel level)
     {
         byte[] bytes = Assemble(SinglePage("<< /Filter /FlateDecode /Length 14 >>", Encoding.ASCII.GetBytes("not-deflate!!!")), 1);
-        InMemoryQpdfHost host = HostWith("inputs/bad.pdf", bytes);
-        QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/bad.pdf"), CancellationToken.None);
+        using InMemoryQpdfHost host = HostWith("inputs/bad.pdf", bytes);
+        QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/bad.pdf"),
+            new QpdfCheckOptions { DecodeLevel = level }, QpdfLimits.Default, CancellationToken.None);
         Assert.Equal(QpdfCheckStatus.Passed, SingleOutcome(result, "object-graph").Status);
         QpdfCheckOutcome streams = SingleOutcome(result, "streams");
+        Assert.Equal(0L, host.OpenLeaseCount);
+        if (level == QpdfStreamDecodeLevel.None)
+        {
+            Assert.Equal(QpdfCheckStatus.Skipped, streams.Status);
+            Assert.True(result.Passed);
+            Assert.True(result.HasSkipped);
+            Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.CheckFailed);
+            return;
+        }
         Assert.Equal(QpdfCheckStatus.Failed, streams.Status);
         Assert.Contains("stream 4", streams.Detail, StringComparison.Ordinal);
         Assert.False(result.Passed);

@@ -4010,6 +4010,7 @@ public static partial class Qpdf
     /// Inspects a document with explicit options and budgets.
     /// </summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A budget or the decode level is outside its supported range.</exception>
     public static async ValueTask<QpdfCheckResult> CheckAsync(
         IQpdfHost host,
         QpdfPath inputPath,
@@ -4033,6 +4034,11 @@ public static partial class Qpdf
         }
 
         limits.Validate();
+        if (options.DecodeLevel is not (QpdfStreamDecodeLevel.None or QpdfStreamDecodeLevel.Generalized
+            or QpdfStreamDecodeLevel.Specialized or QpdfStreamDecodeLevel.All))
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), options.DecodeLevel, "Unknown stream decode level.");
+        }
         ResourceGovernor governor = new(limits, cancellationToken, host);
         governor.PrepareTypedResult(QpdfCheckResult.StorageBytes);
         try

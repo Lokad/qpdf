@@ -57,6 +57,7 @@ public sealed record QpdfCheckOutcome
 public sealed record QpdfCheckOptions
 {
     /// <summary>Gets the stream decode depth.</summary>
+    /// <remarks>CheckAsync rejects undefined values before accessing the host.</remarks>
     public QpdfStreamDecodeLevel DecodeLevel { get; init; } = QpdfStreamDecodeLevel.All;
 }
 

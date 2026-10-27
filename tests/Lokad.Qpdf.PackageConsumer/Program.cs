@@ -134,6 +134,16 @@ internal static class Program
         Console.WriteLine("PASS job selection with typed/job parity");
 
         InMemoryQpdfHost checkHost = NewHost("inputs/in.pdf", input);
+        try
+        {
+            await Qpdf.CheckAsync(checkHost, QpdfPath.From("inputs/in.pdf"),
+                new QpdfCheckOptions { DecodeLevel = (QpdfStreamDecodeLevel)999 }, QpdfLimits.Default, CancellationToken.None);
+            throw new InvalidOperationException("Undefined inspection decode level was accepted.");
+        }
+        catch (ArgumentOutOfRangeException failure)
+        {
+            Check(failure.ParamName == "options", "typed inspection rejects undefined decode levels");
+        }
         QpdfExecutionResult check = await Qpdf.ExecuteAsync(
             checkHost,
             new QpdfCommandInvocation(["inputs/in.pdf", "--check"]),

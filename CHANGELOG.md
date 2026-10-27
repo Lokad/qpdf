@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reject undefined typed inspection decode levels before host access rather than
+  treating corrupt filtered streams as outside the requested decode level.
 - Reuse admitted diagnostics for ordinary command results, removing the legacy
   presentation fallback and its extra allocation after publication. Preserve
   warning policies and terminal-failure accounting; clarify result documentation.

@@ -14,6 +14,12 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Typed `Qpdf.CheckAsync` rejects undefined `QpdfCheckOptions.DecodeLevel` values
+with `ArgumentOutOfRangeException` before accessing the host or its memory budget.
+Previously those values could skip decoding corrupt streams and return a passing
+partial check. The supported `None`, `Generalized`, `Specialized` and `All` levels,
+partial-check reporting and public signatures are unchanged.
+
 Attachment name-tree traversal resolves indirect `/Names` and `/Kids` arrays
 and string keys before checking their types. Equivalent direct and indirect
 trees now work in listing, extraction, both attachment JSON versions, copying

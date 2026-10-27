@@ -235,6 +235,8 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
 - `Qpdf.CheckAsync` reports nine declared checks: header, cross-reference,
   trailer, page tree, object-graph traversal, decode-level-gated stream
   decoding, page content, form-tree validation, and linearization.
+  Undefined typed decode levels throw `ArgumentOutOfRangeException` before host
+  access; `None` intentionally disables stream decoding and reports skipped stages.
 - Skipped stages stay visible with reasons and never pass silently; failures
   carry capped per-object detail. Page content tokenizes content streams
   (decode-level gated) instead of skipping; linearization
