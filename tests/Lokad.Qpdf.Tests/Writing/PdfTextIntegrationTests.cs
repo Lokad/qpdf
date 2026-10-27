@@ -12,6 +12,21 @@ public sealed class PdfTextIntegrationTests
 {
     private const string Title = "Résumé € 😀";
 
+    [Fact]
+    public void EveryPdfDocByteKeepsItsEncodingInverseOrRemainsUndefined()
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        Dictionary<char, byte> first = new();
+        for (int unit = 0; unit <= 255; unit++)
+        {
+            char decoded = Assert.Single(PdfText.Decode(new byte[] { (byte)unit }, memory, governor, CancellationToken.None));
+            if (decoded == '\uFFFD') { Assert.False(PdfText.TryEncodePdfDocByte(decoded, out _)); continue; }
+            first.TryAdd(decoded, (byte)unit);
+            Assert.True(PdfText.TryEncodePdfDocByte(decoded, out byte encoded)); Assert.Equal(first[decoded], encoded);
+        }
+    }
+
     private static (byte[] Bytes, string Expected) Text(string encoding) => encoding switch
     {
         "utf8" => ([0xef, 0xbb, 0xbf, .. Encoding.UTF8.GetBytes(Title)], Title),

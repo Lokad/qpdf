@@ -50,6 +50,8 @@ provide alternate execution modes. Filter decoders require an owned stage plan
 and result scope; plans expose indexed access and struct iteration without boxed
 enumeration owners.
 Codec fixtures call the live cancellation-aware implementations directly.
+PDF text decoding likewise requires its construction owner, governor and token;
+the encoding map uses the single-byte mapping directly during initialization.
 Non-Flate codec output caches
 the remaining raw ceiling per stage, accounting for PNG selectors separately
 from decoded samples while retaining coarse memory admission.

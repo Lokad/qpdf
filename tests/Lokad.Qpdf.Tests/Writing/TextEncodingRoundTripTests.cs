@@ -2,6 +2,7 @@ using System.Text.Json;
 using Lokad.Qpdf.Attachments;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -56,6 +57,8 @@ public sealed class TextEncodingRoundTripTests
             escaped = Assert.IsType<PdfByteString>(value);
         }
         Assert.Equal(0L, host.OpenLeaseCount); host.Dispose();
-        Assert.Equal(text, PdfText.Decode(escaped.Value)); Assert.Equal(hex, Convert.ToHexString(escaped.Value));
+        ResourceGovernor decoding = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope decoded = ParserMemoryScope.Create(decoding);
+        Assert.Equal(text, PdfText.Decode(escaped.ValueMemory, decoded, decoding, CancellationToken.None)); Assert.Equal(hex, Convert.ToHexString(escaped.Value));
     }
 }

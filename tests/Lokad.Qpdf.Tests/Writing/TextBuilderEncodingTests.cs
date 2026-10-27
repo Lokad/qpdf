@@ -88,7 +88,9 @@ public sealed class TextBuilderEncodingTests
             Assert.True(storage.TryGetOutput(QpdfPath.From("extracted"), out byte[] payload)); Assert.Equal("X"u8.ToArray(), payload);
         }
         Assert.Equal(0L, storage.OpenLeaseCount); storage.Dispose();
-        Assert.Equal(text, PdfText.Decode(escaped.Value)); Assert.Equal(bytes, Convert.ToHexString(escaped.Value)); Assert.Equal(hex, escaped.Hex);
+        ResourceGovernor decoding = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope decoded = ParserMemoryScope.Create(decoding);
+        Assert.Equal(text, PdfText.Decode(escaped.ValueMemory, decoded, decoding, CancellationToken.None)); Assert.Equal(bytes, Convert.ToHexString(escaped.Value)); Assert.Equal(hex, escaped.Hex);
     }
 
     private sealed class Host(InMemoryQpdfHost storage, IMemoryBudget budget, string? fault) : IQpdfHost, IQpdfMemoryHost
@@ -119,7 +121,9 @@ public sealed class TextBuilderEncodingTests
     {
         using InMemoryQpdfHost storage = Storage(); await Build(storage, "typed", kind, "A\ud800B", CancellationToken.None);
         PdfByteString text = await ReadText(storage, storage, kind);
-        Assert.Equal("FEFF0041FFFD0042", Convert.ToHexString(text.Value)); Assert.Equal("A�B", PdfText.Decode(text.Value));
+        ResourceGovernor decoding = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope decoded = ParserMemoryScope.Create(decoding);
+        Assert.Equal("FEFF0041FFFD0042", Convert.ToHexString(text.Value)); Assert.Equal("A�B", PdfText.Decode(text.ValueMemory, decoded, decoding, CancellationToken.None));
         Assert.Equal(0L, storage.OpenLeaseCount);
     }
 
@@ -142,7 +146,9 @@ public sealed class TextBuilderEncodingTests
             await Build(host, "typed", kind, text, CancellationToken.None); growths = root.GrowthCalls;
             PdfByteString escaped = await ReadText(storage, host, kind);
             Assert.Equal(0L, storage.OpenLeaseCount); storage.Dispose(); Assert.True(root.ReservedBytes > 0L);
-            Assert.Equal(text, PdfText.Decode(escaped.Value));
+            ResourceGovernor decoding = new(QpdfLimits.Default, CancellationToken.None);
+            using ParserMemoryScope decoded = ParserMemoryScope.Create(decoding);
+            Assert.Equal(text, PdfText.Decode(escaped.ValueMemory, decoded, decoding, CancellationToken.None));
         }
         Assert.Equal(0L, root.ReservedBytes); Assert.True(growths > 0);
         for (int point = 1; point <= growths; point++)

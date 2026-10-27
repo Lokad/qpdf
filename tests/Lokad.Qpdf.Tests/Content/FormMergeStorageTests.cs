@@ -96,7 +96,9 @@ public sealed class FormMergeStorageTests
             Assert.True(renamed.TryGet(PdfName.FromAscii("T"), out QpdfObject text)); escaped = Assert.IsType<PdfByteString>(text);
         }
         governor.AcceptDocument(); governor.CompletePrivateStorage(); Assert.True(governor.CallerStorageBytes > 0L);
-        Assert.Equal(name + "+1", Attachments.PdfText.Decode(escaped.Value));
+        ResourceGovernor decoding = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope decoded = ParserMemoryScope.Create(decoding);
+        Assert.Equal(name + "+1", Attachments.PdfText.Decode(escaped.ValueMemory, decoded, decoding, CancellationToken.None));
     }
 
     [Theory]
@@ -163,6 +165,8 @@ public sealed class FormMergeStorageTests
     {
         PdfDictionary node = Assert.IsType<PdfDictionary>(copier.CopiedObjects[id]);
         Assert.True(node.TryGet(PdfName.FromAscii("T"), out QpdfObject raw));
-        return Attachments.PdfText.Decode(Assert.IsType<PdfByteString>(raw).Value);
+        ResourceGovernor decoding = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope decoded = ParserMemoryScope.Create(decoding);
+        return Attachments.PdfText.Decode(Assert.IsType<PdfByteString>(raw).ValueMemory, decoded, decoding, CancellationToken.None);
     }
 }

@@ -73,42 +73,30 @@ internal static class PdfText
         for (int unit = 0; unit <= 255; unit++)
         {
             byte b = (byte)unit;
-            string decoded = Decode([b]);
-            if (decoded.Length == 1 && decoded[0] != '\uFFFD')
+            char decoded = DecodePdfDocByte(b);
+            if (decoded != '\uFFFD')
             {
-                map.TryAdd(decoded[0], b);
+                map.TryAdd(decoded, b);
             }
         }
 
         return map;
     }
 
-    internal static string Decode(byte[] value)
-    {
-        ArgumentNullException.ThrowIfNull(value);
-        return DecodeCore(value, null, null, CancellationToken.None);
-    }
-
     internal static string Decode(ReadOnlyMemory<byte> value, ParserMemoryScope memory,
         ResourceGovernor governor, CancellationToken token)
     {
         memory.CheckOwner(governor);
-        return DecodeCore(value, memory, governor, token);
-    }
-
-    private static string DecodeCore(ReadOnlyMemory<byte> value, ParserMemoryScope? memory,
-        ResourceGovernor? governor, CancellationToken token)
-    {
         int length = CopyDecoded(value.Span, Span<char>.Empty, governor, token);
         if (length == 0) { return string.Empty; }
-        long bytes = GovernedText.StringBytes(length); memory?.Reserve(bytes);
+        long bytes = GovernedText.StringBytes(length); memory.Reserve(bytes);
         try
         {
-            token.ThrowIfCancellationRequested(); governor?.CheckCancellation();
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             return string.Create(length, (value, governor, token), static (target, state) =>
                 CopyDecoded(state.value.Span, target, state.governor, state.token));
         }
-        catch { memory?.Release(bytes); throw; }
+        catch { memory.Release(bytes); throw; }
     }
 
     internal static char DecodePdfDocByte(byte value)
@@ -117,16 +105,16 @@ internal static class PdfText
             : value == 173 ? 0xFFFD : value);
 
     private static int CopyDecoded(ReadOnlySpan<byte> value, Span<char> target,
-        ResourceGovernor? governor, CancellationToken token)
+        ResourceGovernor governor, CancellationToken token)
     {
-        token.ThrowIfCancellationRequested(); governor?.CheckCancellation();
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         int length = 0;
         if (value.Length >= 3 && value[0] == 0xef && value[1] == 0xbb && value[2] == 0xbf)
         {
             value = value[3..];
             while (!value.IsEmpty)
             {
-                token.ThrowIfCancellationRequested(); governor?.CheckCancellation();
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 OperationStatus status = Rune.DecodeFromUtf8(value, out Rune rune, out int consumed);
                 if (status == OperationStatus.NeedMoreData) { consumed = value.Length; }
                 if (status != OperationStatus.Done) { rune = Rune.ReplacementChar; }
@@ -141,7 +129,7 @@ internal static class PdfText
         {
             for (int at = 0; at < value.Length; at++)
             {
-                token.ThrowIfCancellationRequested(); governor?.CheckCancellation();
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 if (!target.IsEmpty) { target[length] = DecodePdfDocByte(value[at]); }
                 length++;
             }
@@ -151,7 +139,7 @@ internal static class PdfText
         int i = 2;
         while (i + 1 < value.Length)
         {
-            token.ThrowIfCancellationRequested(); governor?.CheckCancellation();
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             int unit = little ? (value[i] | (value[i + 1] << 8)) : ((value[i] << 8) | value[i + 1]);
             i += 2;
             if ((unit & 0xFC00) == 0xD800)
