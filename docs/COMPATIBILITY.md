@@ -14,6 +14,13 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+PDF JSON admission and DOM parsing share a finite syntax ceiling that covers the
+supported PDF nesting ceiling plus the JSON envelopes. The former fixed 128
+syntax cap rejected valid exports with 124 nested arrays in a catalog value.
+Create/update now accept those round trips while the configured PDF model depth,
+memory, byte and cancellation limits remain binding. Stream and trailer envelopes
+are included; job-configuration depth and public signatures are unchanged.
+
 PDF JSON creation and update reject invalid Unicode strings and property names
 with parser diagnostics. Previously unpaired surrogate escapes in values, names
 or metadata could escape as `InvalidOperationException` from typed and execution

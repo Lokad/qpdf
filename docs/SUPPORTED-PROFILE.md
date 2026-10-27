@@ -300,6 +300,9 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
   have a finite binary64 approximation, and exponents fit signed 32-bit.
   Unsupported values fail before output publication. Decimal underflow retains
   its text; integral exponent results outside Int64 retain a decimal point.
+  A shared finite JSON syntax ceiling covers the supported PDF depth plus its
+  envelopes; the configured PDF model nesting budget remains binding. Invalid
+  Unicode text uses normal parser failures for creation and update.
 
 JSON real output removes a PDF-only leading plus and redundant integer zeros,
 while retaining significant digits, fractional spelling and negative zero.

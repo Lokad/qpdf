@@ -61,7 +61,7 @@ internal static partial class JsonImport
             byte[] bytes = await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, governor, cancellationToken).ConfigureAwait(false);
             JsonDocumentOptions options = new()
             {
-                MaxDepth = 128,
+                MaxDepth = JsonImportMemory.SyntaxMaxDepth,
                 AllowTrailingCommas = false,
                 CommentHandling = JsonCommentHandling.Disallow,
             };

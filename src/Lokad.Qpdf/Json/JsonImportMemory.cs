@@ -7,6 +7,10 @@ namespace Lokad.Qpdf.Json;
 /// <summary>Admits JSON phases from backing bytes and token density, without value receipts.</summary>
 internal static class JsonImportMemory
 {
+    // The deepest envelope is root/qpdf/objects/object/stream/dict. Model
+    // depth starts at zero inside dict; the configured model limit stays binding.
+    internal const int SyntaxMaxDepth = (int)QpdfLimits.ParserNestingCeiling + 6;
+
     internal static void AdmitDocument(ParserMemoryScope memory, ReadOnlySpan<byte> json,
         ResourceGovernor governor, CancellationToken token)
         => memory.Reserve(Estimate(json, governor, token).Document);
@@ -19,7 +23,7 @@ internal static class JsonImportMemory
         ResourceGovernor governor, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        Utf8JsonReader reader = new(json, new JsonReaderOptions { MaxDepth = 128 });
+        Utf8JsonReader reader = new(json, new JsonReaderOptions { MaxDepth = SyntaxMaxDepth });
         long document = 1024L, model = 512L;
         while (reader.Read())
         {
