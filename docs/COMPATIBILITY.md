@@ -14,6 +14,15 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+DCT decoding supports absent or null `DecodeParms` only. Dictionaries, including
+empty and indirect dictionaries, are unsupported. Rewriting and image optimization
+preserve their encoded bytes and parameters; explicit filtered-data requests fail
+without invoking the JPEG codec. Previously these parameters were silently ignored
+and discarded, which could change image colors. Decode-all rewriting warns and
+checking reports unavailable decoding as skipped. This intentionally changes
+acceptance, diagnostics and affected output. JSON filterability and inline stream
+data use the same boundary. Public codec signatures are unchanged.
+
 Annotation flattening resolves indirect numeric appearance-matrix coefficients
 before fitting the Form into its rectangle. These values no longer trigger a
 silent identity fallback and incorrect placement. Malformed-matrix fallback and

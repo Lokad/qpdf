@@ -146,7 +146,10 @@ echoing values.
   `/Length` resolve with a load-cycle guard, unknown filter encodings pass through untouched, and
   copying a page needs no image support. Structural streams decode through Flate,
   LZW, ASCIIHex, ASCII85, and RunLength (direct or indirect filter specs), with
-  shared predictors, plus DCTDecode with a supplied codec at `--decode-level=all` for 1- and 3-component JPEGs (four-component stays opaque); anything else fails explicitly as unsupported.
+  shared predictors, plus DCTDecode with a supplied codec at `--decode-level=all` for
+  1- and 3-component JPEGs with absent/null `DecodeParms`. DCT parameter dictionaries
+  and four-component samples stay opaque in transformations; explicit filtered-data
+  requests fail as unsupported.
 - Argv/job rewriting defaults to compression with generalized decoding. Stream-data,
   compression and decode setters apply in configuration order; job keys use lexical
   order, including mixed/file-chain layers. QDF fills unset defaults. Catalog XML

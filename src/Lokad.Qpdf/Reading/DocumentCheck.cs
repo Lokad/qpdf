@@ -318,6 +318,7 @@ internal static class DocumentCheck
                 detail.AppendText(governor.JpegCodec is null
                     ? " JPEG decoding requires a host codec and supports grayscale/RGB samples only."
                     : " JPEG decoding supports grayscale/RGB samples only.");
+                detail.AppendText(" DCTDecode DecodeParms are unsupported.");
             }
             QpdfCheckOutcome outcome = FinishOutcome(governor, "streams", QpdfCheckStatus.Skipped, detail);
             diagnostics.AddParts(

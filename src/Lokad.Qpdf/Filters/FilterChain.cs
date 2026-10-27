@@ -55,7 +55,7 @@ internal static class FilterChain
 
         for (int index = 0; index < stages.Count; index++)
         {
-            if (!NameInLevel(stages[index].Name, decode))
+            if (!StageInLevel(stages[index], decode))
             {
                 return false;
             }
@@ -64,8 +64,10 @@ internal static class FilterChain
         return true;
     }
 
-    internal static bool NameInLevel(string name, string decode)
+    internal static bool StageInLevel(FilterStage stage, string decode)
     {
+        string name = stage.Name;
+        if (name == DctFilter.FilterName && stage.Parms is not null) { return false; }
         bool generalized = name == FlateFilter.FilterName || name == LzwFilter.FilterName
             || name == AsciiHexFilter.FilterName || name == Ascii85Filter.FilterName;
         return decode switch
@@ -163,6 +165,8 @@ internal static class FilterChain
 
         if (stage.Name == DctFilter.FilterName)
         {
+            if (stage.Parms is not null)
+            { throw new QpdfFilterException(QpdfFilterFailureReason.UnsupportedFilter, stage.Name, "DCTDecode DecodeParms are not supported."); }
             // DctFilter owns decoded-byte accounting for its frame; DecodeChecked would charge twice.
             return DctFilter.Decode(input, limits, governor);
         }

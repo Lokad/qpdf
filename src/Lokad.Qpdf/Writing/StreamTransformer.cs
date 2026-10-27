@@ -33,7 +33,7 @@ internal static class StreamTransformer
         if (compress && decode == "none") { decode = "generalized"; }
         foreach (FilterStage stage in stages)
         {
-            if (FilterChain.NameInLevel(stage.Name, decode)) { continue; }
+            if (FilterChain.StageInLevel(stage, decode)) { continue; }
             if (decode == "all") { Warn(governor, diagnostics, number, " kept opaque: unsupported filter."); }
             return null;
         }
