@@ -299,7 +299,7 @@ internal static class LinearizationCheck
         }
 
         long firstPage = 0L;
-        if (lindict.TryGet(PdfName.FromAscii("P"), out QpdfObject first))
+        if (lindict.TryGet(PdfName.FromAscii("P"), out QpdfObject first) && first is not PdfNull)
         {
             if (first is not PdfInteger firstNumber)
             {

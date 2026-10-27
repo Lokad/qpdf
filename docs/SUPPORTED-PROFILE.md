@@ -239,7 +239,8 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
   carry capped per-object detail. Page content tokenizes content streams
   (decode-level gated) instead of skipping; linearization
   passes when absent and validates dictionaries, hint streams, and
-  bit-level hint tables when present; unavailable
+  bit-level hint tables when present. An absent or null optional `/P` uses its
+  zero default; unavailable
   filters skip streams with a warning at level `all`. Form-tree validation warns without failing on page widgets no field registration reaches, kids whose /Parent back-link does not name the traversed node, and field-like direct objects met while traversing.
   Malformed content collections and decode errors fail page-content checking;
   unavailable/partially inspected content reports a skipped stage. Form traversal

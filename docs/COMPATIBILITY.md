@@ -14,6 +14,12 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Linearization checking and reporting treat `/P null` as the absent optional
+first-page field, using its zero default. Previously typed checking and argv/job
+check/report requests rejected these valid files. Non-null type checks and
+structural/hint validation remain; public signatures and integer handling are
+unchanged. This intentionally corrects input acceptance and diagnostics.
+
 Catalog-preserving rewrites and selections retain nonattachment `/Names`
 categories, including named destinations, alongside rebuilt embedded-file names.
 Previously the name root was dropped or replaced by `/EmbeddedFiles`, breaking

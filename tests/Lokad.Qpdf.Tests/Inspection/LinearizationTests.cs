@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Objects;
@@ -29,6 +30,66 @@ public sealed class LinearizationTests
     private static QpdfCheckOutcome LinearizationOutcome(QpdfCheckResult result)
     {
         return Assert.Single(result.Checks, check => check.Name == "linearization");
+    }
+
+    public static IEnumerable<object[]> FirstPageCases()
+    {
+        foreach (string value in new[] { "absent", "null", "0", "/Bad", "1.0", "true" })
+        foreach (string operation in new[] { "typed", "check", "check-linearization", "show-linearization" })
+        foreach (string route in operation == "typed" ? new[] { "typed" } : new[] { "argv", "job" })
+        { yield return [value, operation, route]; }
+    }
+
+    private static async Task<byte[]> WithFirstPage(string value)
+    {
+        byte[] bytes = await FixtureBytes("linearized-2page.pdf");
+        if (value == "absent") { return bytes; }
+        string end = ">>\nendobj\n";
+        string replacement = "/P " + value + " " + end;
+        return ReplaceUnique(bytes, end + new string(' ', replacement.Length - end.Length), replacement);
+    }
+
+    [Theory]
+    [MemberData(nameof(FirstPageCases))]
+    public async Task OptionalFirstPageDefaultsAndInvalidTypesAgreeAcrossEntryPoints(string value, string operation, string route)
+    {
+        bool valid = value is "absent" or "null" or "0";
+        using InMemoryQpdfHost host = HostWith("input", await WithFirstPage(value));
+        if (route == "typed")
+        {
+            QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("input"), CancellationToken.None);
+            Assert.Equal(valid, result.Passed);
+            QpdfCheckOutcome outcome = LinearizationOutcome(result);
+            Assert.Equal(valid ? QpdfCheckStatus.Passed : QpdfCheckStatus.Failed, outcome.Status);
+            if (!valid) { Assert.Contains("/P must be an integer", outcome.Detail, StringComparison.Ordinal); }
+        }
+        else
+        {
+            string key = operation switch { "check-linearization" => "checkLinearization", "show-linearization" => "showLinearization", _ => "check" };
+            QpdfExecutionResult result = route == "argv"
+                ? await Qpdf.ExecuteAsync(host, new(["input", "--" + operation]), CancellationToken.None)
+                : await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new Dictionary<string, string> { ["inputFile"] = "input", [key] = "" }), CancellationToken.None);
+            Assert.Equal(valid ? QpdfExitCode.Success : QpdfExitCode.Error, result.ExitCode);
+            Assert.Equal(valid ? QpdfExecutionStatus.Completed : QpdfExecutionStatus.Failed, result.Status);
+            if (!valid) { Assert.Contains(result.Diagnostics, d => d.Message.Contains("/P must be an integer", StringComparison.Ordinal)); }
+            else if (operation == "show-linearization") { Assert.Contains(result.Diagnostics, d => d.Message == "first_page: 0"); }
+            Assert.Null(result.OutputBytes);
+        }
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData("absent")]
+    [InlineData("null")]
+    public async Task DefaultFirstPageDoesNotBypassStructuralValidation(string value)
+    {
+        byte[] bytes = ReplaceUnique(await WithFirstPage(value), "/N 2", "/N 3");
+        using InMemoryQpdfHost host = HostWith("input", bytes);
+        QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("input"), CancellationToken.None);
+        Assert.False(result.Passed);
+        Assert.Equal(QpdfCheckStatus.Failed, LinearizationOutcome(result).Status);
+        Assert.Contains("/N", LinearizationOutcome(result).Detail, StringComparison.Ordinal);
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     private static byte[] ReplaceUnique(byte[] input, string needle, string replacement)
