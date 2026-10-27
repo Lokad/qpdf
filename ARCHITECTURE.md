@@ -23,6 +23,8 @@ Argv and job JSON resolve into shared operation plans; they do not implement a
 separate reader or writer. Typed operations call the same cores directly. Defaults
 can differ by entry point, including recovery and stream decoding; those differences
 are part of the compatibility contract.
+Job-file loading selects each property partition before sorting it, preserving
+forward-prefix/reverse-suffix setter order around nested includes.
 
 Selection cores borrow one immutable settings value containing the existing
 feature requests. Typed defaults and command-plan projection are defined once;
