@@ -122,6 +122,41 @@ public sealed class JpegMemoryBridgeTests
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.True(input.CanRead);
     }
 
+    [Fact]
+    public void ExifOrientationDoesNotRotatePdfSamples()
+    {
+        byte[] jpeg = JpegFixtures.Encode(17, 11, 3, 75, (x, y, c) => (byte)(x * 11 + y * 3 + c));
+        // Little-endian TIFF IFD0: one SHORT orientation tag, value 6 (rotate 90).
+        byte[] metadata = Convert.FromHexString("45786966000049492A0008000000010012010300010000000600000000000000");
+        byte[] tagged = new byte[jpeg.Length + metadata.Length + 4];
+        jpeg.AsSpan(0, 2).CopyTo(tagged); tagged[2] = 255; tagged[3] = 225;
+        tagged[4] = 0; tagged[5] = checked((byte)(metadata.Length + 2));
+        metadata.CopyTo(tagged, 6); jpeg.AsSpan(2).CopyTo(tagged.AsSpan(6 + metadata.Length));
+        Assert.Equal(Lokad.Image.ImageOrientation.Rotate90, Lokad.Image.ImageCodec.Identify(tagged).Orientation);
+        byte[] expected = new byte[17 * 11 * 3], actual = new byte[expected.Length];
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using MemoryStream plain = new(jpeg), oriented = new(tagged);
+        LokadImageJpegCodec.Instance.Decode(plain, new(17, 11, 3), expected, new(governor));
+        LokadImageJpegCodec.Instance.Decode(oriented, new(17, 11, 3), actual, new(governor));
+        Assert.Equal(expected, actual); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Fact]
+    public void FrameAboveImageDefaultDimensionUsesTheAdmittedPdfBounds()
+    {
+        const int width = 32769;
+        byte[] samples = Enumerable.Repeat((byte)128, width).ToArray();
+        using MemoryStream encoded = new();
+        Lokad.Image.ImageCodec.EncodeJpeg(samples, width, 1, Lokad.Image.JpegSampleFormat.Grayscale, encoded,
+            options: new Lokad.Image.JpegEncodeOptions { Quality = 75, Sampling = Lokad.Image.JpegSampling.Grayscale,
+                Limits = new Lokad.Image.ImageLimits { MaxDimension = 65535 } });
+        encoded.Position = 0L;
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        byte[] actual = new byte[width];
+        LokadImageJpegCodec.Instance.Decode(encoded, new(width, 1, 1), actual, new(governor));
+        Assert.Equal(samples, actual); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
     private sealed class FaultBudget(Exception failure) : IMemoryBudget
     {
         public IMemoryScope CreateScope() => throw failure;
