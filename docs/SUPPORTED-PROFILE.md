@@ -417,7 +417,9 @@ keys; listing order and request matching use decoded ordinal text.
   prefix emitted before a later error is an explicit publication difference.
   Counters charge staged output even when it is subsequently discarded.
   Explicit output paths use the host's staged transaction instead of stdout.
-- Page selection still drops `/Names` unless attachment edits apply.
+- Catalog-preserving rewriting and selection retain nonattachment `/Names`
+  categories through the graph copier. Embedded files use the attachment-edit
+  path; ordinary page selection omits them unless attachment edits apply.
   `--add-attachment FILE [--key=] [--filename=] [--creationdate=] [--moddate=]
   [--mimetype=] [--description=] [--replace] --` (repeatable) embeds host
   files with key/filename defaulting to the path basename; unspecified dates

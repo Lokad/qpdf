@@ -14,6 +14,15 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Catalog-preserving rewrites and selections retain nonattachment `/Names`
+categories, including named destinations, alongside rebuilt embedded-file names.
+Previously the name root was dropped or replaced by `/EmbeddedFiles`, breaking
+named links, bookmarks and open actions without a warning. Attachment edits now
+keep unrelated name categories as well. Primary-source, omitted-page pruning,
+contained-preview and split policies remain; ordinary page selection still omits
+attachments unless edits request them. Output changes intentionally; public
+signatures and named-destination JSON inspection limitations are unchanged.
+
 DCT decoding supports absent or null `DecodeParms` only. Dictionaries, including
 empty and indirect dictionaries, are unsupported. Rewriting and image optimization
 preserve their encoded bytes and parameters; explicit filtered-data requests fail

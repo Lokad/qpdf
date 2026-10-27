@@ -159,7 +159,8 @@ internal static class CatalogCopy
     /// `/NeedsRendering`, `/PageLayout`, `/ViewerPreferences`, or `/OpenAction`)
     /// through the owning copier so ordinary selection and rewrite paths preserve
     /// them while merge keeps the primary source copy and split groups drop them.
-    /// Keys with explicit writer handling stay out; values that fail to resolve
+    /// Names retain the categories other than rebuilt embedded files. Fully
+    /// rebuilt keys stay out; values that fail to resolve
     /// or reach structural nodes are skipped silently like the reference, while
     /// budget exhaustion and cancellation still fail loudly.
     /// </summary>
@@ -223,7 +224,10 @@ internal static class CatalogCopy
 
             try
             {
-                extras.Assign(result, governor, key, copier.CopyValue(raw, 0), cancellationToken);
+                QpdfObject? copied = key.RawSpan.SequenceEqual("Names"u8)
+                    ? TryCopyNames(raw, engine, copier, governor, result, cancellationToken)
+                    : copier.CopyValue(raw, 0);
+                if (copied is not null) { extras.Assign(result, governor, key, copied, cancellationToken); }
             }
             catch (QpdfParseException)
             {
@@ -232,6 +236,31 @@ internal static class CatalogCopy
         }
         extras.Freeze(result, governor, cancellationToken);
         result.TransferTo(ownership); return extras;
+    }
+
+    private static PdfDictionary? TryCopyNames(QpdfObject raw, DocumentEngine engine, GraphCopier copier,
+        ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
+    {
+        PdfDictionary? names = ResolveDictionary(raw, engine, governor, token);
+        if (names is null) { return null; }
+        PdfNameTable<QpdfObject>? kept = null;
+        using PdfDictionary.EntryEnumerator entries = names.GetEntryEnumerator();
+        while (entries.MoveNext(governor, token))
+        {
+            PdfName key = entries.Current.Key;
+            if (key.RawSpan.SequenceEqual("EmbeddedFiles"u8)) { continue; }
+            try
+            {
+                QpdfObject copied = copier.CopyValue(entries.Current.Value, 1);
+                kept ??= PdfNameTable<QpdfObject>.Create(memory, governor, IntPtr.Size, token);
+                kept.Assign(memory, governor, key, copied, token);
+            }
+            catch (QpdfParseException) { continue; }
+        }
+        if (kept is null) { return null; }
+        kept.Freeze(memory, governor, token);
+        memory.Reserve(24L);
+        return PdfDictionary.FromOwnedEntries(kept);
     }
 
     private static bool IsHandledCatalogKey(ReadOnlySpan<byte> name)
@@ -243,7 +272,6 @@ internal static class CatalogCopy
             || name.SequenceEqual("StructTreeRoot"u8)
             || name.SequenceEqual("MarkInfo"u8)
             || name.SequenceEqual("Metadata"u8)
-            || name.SequenceEqual("Names"u8)
             || name.SequenceEqual("Version"u8);
     }
 

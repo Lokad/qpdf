@@ -1,11 +1,13 @@
 using System.Collections;
 using System.Reflection;
 using Lokad.Qpdf.Content;
+using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Tests.Inspection;
+using Lokad.Qpdf.TestSupport;
 using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Content;
@@ -130,6 +132,102 @@ public sealed class CatalogStorageTests
             bool found = TryGetValue(key, out QpdfObject? item);
             value = item ?? PdfNull.Instance; cancel(); return found;
         }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CancellationDuringNamesResolutionRefundsConstruction(bool caller)
+    {
+        using CancellationTokenSource cancellation = new();
+        using DocumentEngine engine = Engine(Dict(("Names", new PdfReference(10, 0))));
+        engine.SetInspectionObjects(new CancelingObjects(cancellation.Cancel) { [10] = Dict(("PrivateTree", new PdfInteger("1", 1))) });
+        ResourceGovernor governor = new(QpdfLimits.Default, caller ? CancellationToken.None : cancellation.Token);
+        using ParserMemoryScope owner = ParserMemoryScope.Create(governor); owner.Reserve(31L);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, governor, QpdfLimits.Default, 3, owner);
+        long before = governor.Snapshot().LiveMemoryBytes, owned = owner.ReservedBytes;
+        Assert.ThrowsAny<OperationCanceledException>(() => CatalogCopy.TryCopyExtras(engine, copier, true, false, governor, owner,
+            caller ? cancellation.Token : CancellationToken.None));
+        Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); Assert.Equal(owned, owner.ReservedBytes);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NameCategoryCapacityRefusesBeforeAllocationAndRefunds(bool copying)
+    {
+        PdfDictionary names = new(Enumerable.Range(0, 262144).ToDictionary(i => PdfName.FromAscii("K" + i), _ => (QpdfObject)new PdfInteger("1", 1)));
+        PdfDictionary catalog = Dict(("Names", names));
+        using DocumentEngine engine = Engine(catalog);
+        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096 }, CancellationToken.None);
+        using ParserMemoryScope owner = ParserMemoryScope.Create(governor); owner.Reserve(31L);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, governor, QpdfLimits.Default, 3, owner);
+        Dictionary<int, QpdfObject> pool = new() { [7] = Dict(("EmbeddedFiles", Dict())) };
+        long before = governor.Snapshot().LiveMemoryBytes, allocated = GC.GetAllocatedBytesForCurrentThread();
+        Assert.Throws<QpdfLimitException>(() =>
+        {
+            if (copying) { CatalogCopy.TryCopyExtras(engine, copier, true, false, governor, owner, CancellationToken.None); }
+            else { Build(null, new(1, 7), 0, null, new(7, 0), null, null, null, null, null,
+                new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("Names")] = names }, pool, governor, CancellationToken.None); }
+        });
+        Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 65536L);
+        Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Fact]
+    public void BrokenNameCategoryDoesNotEraseOtherCategories()
+    {
+        using DocumentEngine engine = Engine(Dict(("Names", Dict(("Broken", new PdfReference(10, 0)), ("PrivateTree", new PdfInteger("1", 1))))));
+        engine.SetInspectionObjects(new Dictionary<int, QpdfObject> { [10] = Dict(("Type", PdfName.FromAscii("Pages"))) });
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope owner = ParserMemoryScope.Create(governor);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, governor, QpdfLimits.Default, 3, owner);
+        IReadOnlyDictionary<PdfName, QpdfObject> extras = CatalogCopy.TryCopyExtras(engine, copier, true, false, governor, owner, CancellationToken.None);
+        PdfDictionary kept = Assert.IsType<PdfDictionary>(extras[PdfName.FromAscii("Names")]);
+        Assert.False(kept.TryGet(PdfName.FromAscii("Broken"), out _));
+        Assert.True(kept.TryGet(PdfName.FromAscii("PrivateTree"), out QpdfObject value));
+        Assert.Equal(1L, Assert.IsType<PdfInteger>(value).Value);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NameCategorySharedAdmissionRefusalCleansEarlierOwnership(bool copying)
+    {
+        PdfDictionary names = new(Enumerable.Range(0, 8192).ToDictionary(i => PdfName.FromAscii("K" + i), _ => (QpdfObject)new PdfInteger("1", 1)));
+        using DocumentEngine engine = Engine(Dict(("Names", names)));
+        RecordingMemoryBudget root = new(16L << 20) { RefuseOnGrowth = 2 };
+        using IMemoryScope caller = root.CreateScope();
+        using InMemoryQpdfHost host = new(QpdfLimits.Default, null, caller);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None, host);
+        using (ParserMemoryScope owner = ParserMemoryScope.Create(governor))
+        {
+            owner.Reserve(31L);
+            GraphCopier copier = GraphCopier.CreateOwned(engine, governor, QpdfLimits.Default, 3, owner);
+            long before = governor.Snapshot().LiveMemoryBytes;
+            Dictionary<int, QpdfObject> pool = new() { [7] = Dict(("EmbeddedFiles", Dict())) };
+            Assert.Throws<QpdfMemoryAdmissionException>(() =>
+            {
+                if (copying) { CatalogCopy.TryCopyExtras(engine, copier, true, false, governor, owner, CancellationToken.None); }
+                else { Build(null, new(1, 7), 0, null, new(7, 0), null, null, null, null, null,
+                    new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("Names")] = names }, pool, governor, CancellationToken.None); }
+            });
+            Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
+        }
+        governor.CompletePrivateStorage(); Assert.Equal(0L, root.ReservedBytes); Assert.Equal(0, root.LiveReservations);
+    }
+
+    [Fact]
+    public void AttachmentOnlyNamesDoNotCopyPayloadsOrCreateEmptyRoots()
+    {
+        using DocumentEngine engine = Engine(Dict(("Names", Dict(("EmbeddedFiles", new PdfByteString(new byte[2 * 1024 * 1024], false))))));
+        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096 }, CancellationToken.None);
+        using ParserMemoryScope owner = ParserMemoryScope.Create(governor);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, governor, QpdfLimits.Default, 3, owner);
+        IReadOnlyDictionary<PdfName, QpdfObject> extras = CatalogCopy.TryCopyExtras(engine, copier, true, false, governor, owner, CancellationToken.None);
+        Assert.Empty(extras); Assert.Empty(copier.CopiedObjects);
+        PdfDictionary catalog = Build(null, new(1, 7), 0, null, null, null, null, null, null, null, extras, copier.CopiedObjects, governor, CancellationToken.None);
+        Assert.False(catalog.TryGet(PdfName.FromAscii("Names"), out _));
     }
 
     [Theory]

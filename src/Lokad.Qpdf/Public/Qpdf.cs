@@ -1914,6 +1914,15 @@ public static partial class Qpdf
                 // in the reference; the preserved array must not overwrite it.
                 if (acroForm is not null && extra.Key.RawSpan.SequenceEqual("AcroForm"u8)) { continue; }
                 if (extra.Key.RawSpan.SequenceEqual("Extensions"u8)) { originalExtensions = extra.Value; continue; }
+                if (namesRef is not null && extra.Key.RawSpan.SequenceEqual("Names"u8))
+                {
+                    PdfDictionary names = extra.Value as PdfDictionary ?? throw new InvalidOperationException("Copied name categories must be a dictionary.");
+                    PdfDictionary attachments = pool[namesRef.ObjectNumber] as PdfDictionary ?? throw new InvalidOperationException("Attachment names must be a dictionary.");
+                    if (!PdfDictionaryLookup.TryGet(attachments, "EmbeddedFiles"u8, governor, token, out QpdfObject files))
+                    { throw new InvalidOperationException("Attachment names must contain EmbeddedFiles."); }
+                    Set("Names"u8, PdfDictionaryRebuild.ReplaceEntry(graph, names, "EmbeddedFiles"u8, files));
+                    continue;
+                }
                 entries.Assign(graph.Memory, governor, extra.Key, extra.Value, token);
             }
         }
