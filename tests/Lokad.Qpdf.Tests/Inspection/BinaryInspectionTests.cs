@@ -63,22 +63,6 @@ public sealed class BinaryInspectionTests
         return Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["a.pdf", .. flags]), options, CancellationToken.None);
     }
 
-    // Reflection lets the same compiled regressions exercise the preceding DLL
-    // without turning a missing public getter into a loader/JIT failure.
-    private static ReadOnlyMemory<byte> OutputBytes(QpdfExecutionResult result)
-    {
-        var property = typeof(QpdfExecutionResult).GetProperty("OutputBytes");
-        Assert.NotNull(property);
-        return Assert.IsType<ReadOnlyMemory<byte>>(property.GetValue(result));
-    }
-
-    private static void AssertNoOutputBytes(QpdfExecutionResult result)
-    {
-        var property = typeof(QpdfExecutionResult).GetProperty("OutputBytes");
-        Assert.NotNull(property);
-        Assert.Null(property.GetValue(result));
-    }
-
     public static IEnumerable<object[]> PayloadCases()
     {
         foreach (string route in new[] { "job", "argv", "mixed" })
@@ -106,7 +90,7 @@ public sealed class BinaryInspectionTests
             "empty" => [],
             _ => StreamBytes,
         };
-        ReadOnlyMemory<byte> payload = OutputBytes(result);
+        ReadOnlyMemory<byte> payload = Assert.IsType<ReadOnlyMemory<byte>>(result.OutputBytes);
         Assert.Equal(expected, payload.ToArray());
         Assert.Null(result.OutputText);
         Assert.Equal(expected.Length, result.Counters.TotalOutputBytes);
@@ -142,7 +126,7 @@ public sealed class BinaryInspectionTests
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
             new QpdfCommandInvocation(["a.pdf", "--show-object=5", flag, flag]), CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
-        Assert.Equal(StreamBytes, OutputBytes(result).ToArray());
+        Assert.Equal(StreamBytes, Assert.IsType<ReadOnlyMemory<byte>>(result.OutputBytes).ToArray());
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
@@ -198,7 +182,7 @@ public sealed class BinaryInspectionTests
         (string properties, string[] flags) = Settings(mode);
         QpdfExecutionResult control = await Execute(host, route, properties, flags, QpdfLimits.Default);
         Assert.Equal(QpdfExecutionStatus.Completed, control.Status);
-        Assert.Equal(mode == "raw" ? 9 : 13, OutputBytes(control).Length);
+        Assert.Equal(mode == "raw" ? 9 : 13, Assert.IsType<ReadOnlyMemory<byte>>(control.OutputBytes).Length);
         long ceiling = mode == "raw" ? 8L : 12L;
         QpdfExecutionResult result = await Execute(host, route, properties, flags, QpdfLimits.Default with { MaxOutputBytes = ceiling });
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
@@ -250,7 +234,7 @@ public sealed class BinaryInspectionTests
         Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.CheckFailed);
         Assert.Equal(0L, result.Counters.TotalOutputBytes);
         Assert.Equal(0L, host.OpenLeaseCount);
-        AssertNoOutputBytes(result);
+        Assert.Null(result.OutputBytes);
     }
 
     public static IEnumerable<object[]> DefaultCases()
@@ -285,8 +269,8 @@ public sealed class BinaryInspectionTests
         Assert.Equal(failed ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed, result.Status);
         Assert.Equal(failed ? QpdfExitCode.Error : QpdfExitCode.Success, result.ExitCode);
         if (failed) { Assert.Equal(QpdfDiagnosticCode.InvalidArguments, Assert.Single(result.Diagnostics).Code); }
-        if (mode == "raw-attachment") { Assert.Equal(AttachmentBytes, OutputBytes(result).ToArray()); }
-        else { AssertNoOutputBytes(result); }
+        if (mode == "raw-attachment") { Assert.Equal(AttachmentBytes, Assert.IsType<ReadOnlyMemory<byte>>(result.OutputBytes).ToArray()); }
+        else { Assert.Null(result.OutputBytes); }
         if (mode is "filtered-count" or "disabled-count")
         {
             Assert.EndsWith(": 1", Assert.Single(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageCount).Message, StringComparison.Ordinal);
@@ -327,7 +311,7 @@ public sealed class BinaryInspectionTests
         Assert.Contains(result.Diagnostics, d => d.Message.Contains("requested attachment was not found", StringComparison.Ordinal));
         Assert.True(result.Counters.TotalDecodedBytes >= StreamBytes.Length + AttachmentBytes.Length);
         Assert.Equal(StreamBytes.Length, result.Counters.TotalOutputBytes);
-        AssertNoOutputBytes(result);
+        Assert.Null(result.OutputBytes);
         Assert.Equal(0L, result.Counters.OpenHandles);
         Assert.Equal(0L, host.OpenLeaseCount);
         Assert.False(host.TryGetOutput(QpdfPath.From("p.bin"), out _));
@@ -375,7 +359,7 @@ public sealed class BinaryInspectionTests
             // awaiting natural collection; exact retirement is observed later.
             Assert.InRange(result.Counters.LiveMemoryBytes, ExecutionResultAdmission.MemoryBytes, result.Counters.PeakMemoryBytes);
             Assert.Equal(0L, result.Counters.OpenHandles);
-            AssertNoOutputBytes(result);
+            Assert.Null(result.OutputBytes);
             Assert.Null(result.OutputText);
             Assert.Equal(0, host.OutputCreates);
             Assert.Equal(0L, source.OpenLeaseCount);
@@ -453,7 +437,7 @@ public sealed class BinaryInspectionTests
         byte[] normalized = "q\nQ  \n  "u8.ToArray();
         byte[] expected = mode is "yes" or "qdf" or "checked" ? normalized : original;
         if (mode == "checked") { expected = [.. expected, .. AttachmentBytes]; }
-        Assert.Equal(expected, OutputBytes(result).ToArray());
+        Assert.Equal(expected, Assert.IsType<ReadOnlyMemory<byte>>(result.OutputBytes).ToArray());
         Assert.Equal(expected.Length, result.Counters.TotalOutputBytes);
         Assert.Equal(0L, result.Counters.OpenHandles);
         Assert.Equal(0L, host.OpenLeaseCount);
@@ -479,12 +463,12 @@ public sealed class BinaryInspectionTests
         const string properties = "\"showObject\":\"5\",\"filteredStreamData\":\"\",\"normalizeContent\":\"y\"";
         string[] flags = ["--show-object=5", "--filtered-stream-data", "--normalize-content=y"];
         QpdfExecutionResult control = await Execute(host, route, properties, flags, QpdfLimits.Default);
-        Assert.Equal("q\nQ  \n  "u8.ToArray(), OutputBytes(control).ToArray());
+        Assert.Equal("q\nQ  \n  "u8.ToArray(), Assert.IsType<ReadOnlyMemory<byte>>(control.OutputBytes).ToArray());
         QpdfExecutionResult result = await Execute(host, route, properties, flags, QpdfLimits.Default with { MaxOutputBytes = 7L });
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded
             && d.Message.Contains(nameof(QpdfLimits.MaxOutputBytes), StringComparison.Ordinal));
-        AssertNoOutputBytes(result);
+        Assert.Null(result.OutputBytes);
         Assert.Equal(0L, result.Counters.TotalOutputBytes);
         Assert.Equal(0L, result.Counters.OpenHandles);
         Assert.Equal(0L, host.OpenLeaseCount);
@@ -506,7 +490,7 @@ public sealed class BinaryInspectionTests
             "\"showObject\":\"5\",\"filteredStreamData\":\"\",\"normalizeContent\":\"y\"",
             ["--show-object=5", "--filtered-stream-data", "--normalize-content=y"], QpdfLimits.Default);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
-        Assert.Equal("() () () "u8.ToArray(), OutputBytes(result).ToArray());
+        Assert.Equal("() () () "u8.ToArray(), Assert.IsType<ReadOnlyMemory<byte>>(result.OutputBytes).ToArray());
         Assert.Equal(0L, result.Counters.OpenHandles);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
@@ -529,7 +513,7 @@ public sealed class BinaryInspectionTests
         QpdfExecutionResult result = await Execute(host, route, "\"check\":\"\",\"showAttachment\":\"payload\"",
             ["--check", "--show-attachment=payload"], QpdfLimits.Default);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
-        Assert.Equal(AttachmentBytes, OutputBytes(result).ToArray());
+        Assert.Equal(AttachmentBytes, Assert.IsType<ReadOnlyMemory<byte>>(result.OutputBytes).ToArray());
         Assert.DoesNotContain(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.CheckFailed);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
