@@ -12,11 +12,6 @@ internal static class AsciiHexFilter
 {
     internal const string FilterName = "ASCIIHexDecode";
 
-    internal static byte[] Decode(byte[] input, QpdfLimits limits, ResourceGovernor governor)
-    {
-        return Decode(input, limits, governor, CancellationToken.None);
-    }
-
     internal static byte[] Decode(byte[] input, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
         if (input is null)
@@ -107,11 +102,6 @@ internal static class AsciiHexFilter
 internal static class Ascii85Filter
 {
     internal const string FilterName = "ASCII85Decode";
-
-    internal static byte[] Decode(byte[] input, QpdfLimits limits, ResourceGovernor governor)
-    {
-        return Decode(input, limits, governor, CancellationToken.None);
-    }
 
     internal static byte[] Decode(byte[] input, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {

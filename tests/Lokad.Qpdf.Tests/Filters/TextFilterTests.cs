@@ -126,9 +126,9 @@ public sealed class TextFilterTests
     public void AsciiHexHandlesOddDigitsAndMissingEnd()
     {
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
-        Assert.Equal([0xAB, 0xC0], AsciiHexFilter.Decode(Encoding.ASCII.GetBytes("AB C"), limits, governor));
-        Assert.Equal([0xAB, 0xC0], AsciiHexFilter.Decode(Encoding.ASCII.GetBytes("ab c>garbage"), limits, governor));
-        Assert.Equal(Array.Empty<byte>(), AsciiHexFilter.Decode(Encoding.ASCII.GetBytes("  >"), limits, governor));
+        Assert.Equal([0xAB, 0xC0], AsciiHexFilter.Decode(Encoding.ASCII.GetBytes("AB C"), limits, governor, CancellationToken.None));
+        Assert.Equal([0xAB, 0xC0], AsciiHexFilter.Decode(Encoding.ASCII.GetBytes("ab c>garbage"), limits, governor, CancellationToken.None));
+        Assert.Equal(Array.Empty<byte>(), AsciiHexFilter.Decode(Encoding.ASCII.GetBytes("  >"), limits, governor, CancellationToken.None));
     }
 
     [Fact]
@@ -136,7 +136,7 @@ public sealed class TextFilterTests
     {
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
         QpdfFilterException ex = Assert.Throws<QpdfFilterException>(
-            () => AsciiHexFilter.Decode(Encoding.ASCII.GetBytes("AB CG>"), limits, governor));
+            () => AsciiHexFilter.Decode(Encoding.ASCII.GetBytes("AB CG>"), limits, governor, CancellationToken.None));
         Assert.Equal(QpdfFilterFailureReason.InvalidData, ex.Reason);
         Assert.Equal("ASCIIHexDecode", ex.FilterName);
     }
@@ -156,11 +156,11 @@ public sealed class TextFilterTests
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
         Assert.Equal(
             Encoding.ASCII.GetBytes("Hi"),
-            Ascii85Filter.Decode(Encoding.ASCII.GetBytes(Ascii85Encode(Encoding.ASCII.GetBytes("Hi"))), limits, governor));
+            Ascii85Filter.Decode(Encoding.ASCII.GetBytes(Ascii85Encode(Encoding.ASCII.GetBytes("Hi"))), limits, governor, CancellationToken.None));
         Assert.Equal(
             Encoding.ASCII.GetBytes("Hey"),
             Ascii85Filter.Decode(Encoding.ASCII.GetBytes(Ascii85Encode(Encoding.ASCII.GetBytes("Hey")) + "~ "),
-                limits, governor));
+                limits, governor, CancellationToken.None));
     }
 
     [Fact]
@@ -168,11 +168,11 @@ public sealed class TextFilterTests
     {
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
         Assert.Throws<QpdfFilterException>(
-            () => Ascii85Filter.Decode(Encoding.ASCII.GetBytes("abzcd~>"), limits, governor));
+            () => Ascii85Filter.Decode(Encoding.ASCII.GetBytes("abzcd~>"), limits, governor, CancellationToken.None));
         Assert.Throws<QpdfFilterException>(
-            () => Ascii85Filter.Decode(Encoding.ASCII.GetBytes("abc~x"), limits, governor));
+            () => Ascii85Filter.Decode(Encoding.ASCII.GetBytes("abc~x"), limits, governor, CancellationToken.None));
         Assert.Throws<QpdfFilterException>(
-            () => Ascii85Filter.Decode(Encoding.ASCII.GetBytes("ab\u007Fcd~>"), limits, governor));
+            () => Ascii85Filter.Decode(Encoding.ASCII.GetBytes("ab\u007Fcd~>"), limits, governor, CancellationToken.None));
     }
 
     [Fact]
@@ -187,7 +187,7 @@ public sealed class TextFilterTests
     public void RunLengthStopsAtFirstEndMarker()
     {
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
-        byte[] decoded = RunLengthFilter.Decode([0, 65, 128, 0, 66], limits, governor);
+        byte[] decoded = RunLengthFilter.Decode([0, 65, 128, 0, 66], limits, governor, CancellationToken.None);
         Assert.Equal([65], decoded);
     }
 
@@ -195,8 +195,8 @@ public sealed class TextFilterTests
     public void RunLengthDropsTruncatedTails()
     {
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
-        Assert.Equal([65], RunLengthFilter.Decode([0, 65, 2, 66], limits, governor));
-        Assert.Empty(RunLengthFilter.Decode([254], limits, governor));
+        Assert.Equal([65], RunLengthFilter.Decode([0, 65, 2, 66], limits, governor, CancellationToken.None));
+        Assert.Empty(RunLengthFilter.Decode([254], limits, governor, CancellationToken.None));
     }
 
     [Fact]
@@ -226,6 +226,6 @@ public sealed class TextFilterTests
         QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = 4L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         Assert.Throws<QpdfLimitException>(
-            () => AsciiHexFilter.Decode(Encoding.ASCII.GetBytes("AABBCCDDEE>"), limits, governor));
+            () => AsciiHexFilter.Decode(Encoding.ASCII.GetBytes("AABBCCDDEE>"), limits, governor, CancellationToken.None));
     }
 }

@@ -12,11 +12,6 @@ internal static class RunLengthFilter
 {
     internal const string FilterName = "RunLengthDecode";
 
-    internal static byte[] Decode(byte[] input, QpdfLimits limits, ResourceGovernor governor)
-    {
-        return Decode(input, limits, governor, CancellationToken.None);
-    }
-
     internal static byte[] Decode(byte[] input, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
         if (input is null)
