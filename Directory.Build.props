@@ -24,8 +24,8 @@
     <EnableSourceControlManagerQueries Condition="'$(RepositoryUrl)' == ''">false</EnableSourceControlManagerQueries>
   </PropertyGroup>
   <ItemGroup Label="TemporaryImageSharpAuditSuppressions">
-    <!-- Intentionally accepted on 2026-10-08 while ImageSharp remains pinned to
-         3.1.12. Remove these temporary exclusions when the codec pin is revised.
+    <!-- Initial exclusions accepted on 2026-10-08; later reviews are dated below.
+         ImageSharp remains pinned to 3.1.12. Remove these temporary exclusions when the codec pin is revised.
          This is development-only. NuGet audit and all other advisory warnings
          remain enabled. These source reachability decisions do not fix the
          vulnerabilities or establish package-wide safety. Review on changes to
@@ -40,5 +40,9 @@
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-jjfr-hcj7-qf5w" />
     <!-- BigTIFF decoding: JPEG-only configuration plus core DCT frame check. -->
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-wmxv-xphr-5c9g" />
+    <!-- Reviewed 2026-10-27: tiled fax TIFF decoding is unreachable through the
+         adapter's JPEG-only configuration. TIFF-signature rejection is tested.
+         Keep the 3.1.12 pin; remove with the other temporary codec exclusions. -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-v76p-62qx-wwq2" />
   </ItemGroup>
 </Project>

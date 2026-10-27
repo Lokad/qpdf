@@ -8,6 +8,20 @@ namespace Lokad.Qpdf.Tests.Filters;
 
 public sealed class JpegCodecBoundaryTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ImageSharpAdapterRejectsTiffSignaturesBeforeDecoding(bool bigEndian)
+    {
+        byte[] signature = bigEndian ? "MM\0*\0\0\0\x08"u8.ToArray() : "II*\0\x08\0\0\0"u8.ToArray();
+        using MemoryStream encoded = new(signature);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        QpdfJpegCodecContext context = new(governor);
+        Assert.Throws<SixLabors.ImageSharp.UnknownImageFormatException>(() => ImageSharpJpegCodec.Instance.Decode(
+            encoded, new QpdfJpegFrame(1, 1, 1), new byte[1], context));
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
     [Fact]
     public async Task CodecFreeSelectionPreservesJpegAndCheckingReportsSkippedDecode()
     {

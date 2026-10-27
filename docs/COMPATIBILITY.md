@@ -921,7 +921,7 @@ private memory and provides cancellation. Providers must observe the
 The development-only [ImageSharp 3.1.12 adapter](../tools/Lokad.Qpdf.ImageSharp)
 preserves the existing grayscale/RGB behavior. Its pixel API does not preserve raw
 CMYK/YCCK components, so RGB conversion is not substituted for PDF sample fidelity.
-The five temporary advisory exclusions and reachability assessment remain beside
+The six temporary advisory exclusions and reachability assessment remain beside
 their declarations in [Directory.Build.props](../Directory.Build.props).
 
 Flate validates zlib framing and Adler-32 because BCL inflate can return short
