@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Refresh job JSON help for check/stream inspections and parser error/default-limit
+  controls already supported by the shared pipeline.
 - Avoid input-sized argv option-name copies and bound echoed command error text
   before formatting, retaining useful terminal failures under tight allowances.
 - Prevent input/output host lease leaks when allocation fails during acquisition,

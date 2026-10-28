@@ -174,16 +174,22 @@ internal static class HelpText
           removeMetadata, coalesceContents, normalizeContent, externalizeInlineImages,
           iiMinBytes, removeUnreferencedResources, preserveUnreferencedResources, overlay, underlay, flattenRotation,
           flattenAnnotations, generateAppearances, qdf, linearize, linearizePass1,
-          checkLinearization, showLinearization, showNpages, showPages, withImages, showObject,
+          check, checkLinearization, showLinearization, showNpages, showPages, withImages, showObject,
+          rawStreamData, filteredStreamData,
           showXref, removeAcroform, removeStructure, noOriginalObjectIds, optimizeImages,
           oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality,
           listAttachments, showAttachment, addAttachment, removeAttachment,
           copyAttachmentsFrom, empty, json, jsonKey, jsonObject, jsonStreamData,
           jsonStreamPrefix, jsonOutput, jsonInput, updateFromJson, warningExit0, noWarn,
           suppressRecovery, ignoreXrefStreams, reportMemoryUsage, testJsonSchema, verbose, progress, keepFilesOpen, keepFilesOpenThreshold
+        Inspection flags check, rawStreamData and filteredStreamData use "" as their value.
+        rawStreamData and filteredStreamData require showObject; without outputFile they return result bytes.
         Nested "global" object: maxStreamFilters (non-negative filter count, default 25),
         parserMaxNesting (within 499), parserMaxContainerSize and parserMaxContainerSizeDamaged
-        (non-negative object counts, defaults 4294967295 and 5000). Other global keys fail.
+        (non-negative object counts, defaults 4294967295 and 5000), parserMaxErrors
+        (non-negative error count, default 15; "0" removes the threshold), and noDefaultLimits
+        ("" lifts unspecified parser defaults; explicit invocation and host limits remain binding).
+        Other global keys fail.
         Crypto keys (encrypt, decrypt, password and related options) are rejected with UnsupportedCryptoOperation. See --help for the argv surface.
         """;
 
