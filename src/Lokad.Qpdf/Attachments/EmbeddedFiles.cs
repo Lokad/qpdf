@@ -289,7 +289,7 @@ internal static class EmbeddedFiles
         if (data.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject? subtypeRaw)
             && ResolveOptionalValue(resolver, subtypeRaw, governor, cancellationToken) is PdfName subtype)
         {
-            mimeType = PdfNameDisplay.Decode(subtype, memory, governor, cancellationToken);
+            mimeType = PdfText.DecodeUtf8(subtype.RawMemory, memory, governor, cancellationToken);
         }
 
         string creationDate = string.Empty;

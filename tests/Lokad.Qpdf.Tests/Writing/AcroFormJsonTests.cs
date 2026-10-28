@@ -84,7 +84,7 @@ public sealed class AcroFormJsonTests
         Assert.Equal("group." + expected, field.GetProperty("fullname").GetString());
         foreach (string property in new[] { "partialname", "alternativename", "mappingname" }) { Assert.Equal(expected, field.GetProperty(property).GetString()); }
         Assert.Equal(new[] { expected, expected }, field.GetProperty("choices").EnumerateArray().Select(e => e.GetString()));
-        Assert.Equal("/A#23B", field.GetProperty("annotation").GetProperty("appearancestate").GetString());
+        Assert.Equal("/A#B", field.GetProperty("annotation").GetProperty("appearancestate").GetString());
     }
 
     [Theory]
@@ -93,12 +93,17 @@ public sealed class AcroFormJsonTests
     [InlineData("TM", false)]
     [InlineData("Opt", false)]
     [InlineData("T", true)]
+    [InlineData("AS", false)]
+    [InlineData("AS", true)]
+    [InlineData("FT", false)]
+    [InlineData("FT", true)]
     public async Task RefusalAndCancellationPrecedeLargeMetadataCopies(string key, bool canceled)
     {
-        string text = "(" + new string('N', 1048576) + ")";
+        string text = key is "AS" or "FT" ? "/" + new string('N', 1048576) : "(" + new string('N', 1048576) + ")";
         string entry = "/" + key + " " + (key == "Opt" ? "[" + text + "]" : text);
         using InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("input"), Fixture("/Parent 6 0 R", entry, "/FT /Ch"), QpdfInputOwnership.Transfer);
+        host.AddInput(QpdfPath.From("input"), Fixture("/Parent 6 0 R" + (key == "AS" ? " " + entry : ""),
+            key == "AS" ? "" : entry, "/FT /Ch"), QpdfInputOwnership.Transfer);
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input"), CancellationToken.None);
         for (int number = 1; number <= 7; number++) { document.GetObject(number); }
         _ = document.PageReferences;

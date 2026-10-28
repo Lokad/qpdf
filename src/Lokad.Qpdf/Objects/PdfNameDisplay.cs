@@ -5,26 +5,6 @@ namespace Lokad.Qpdf.Objects;
 /// <summary>Shared display escaping and ordinal comparison over borrowed name bytes.</summary>
 internal static class PdfNameDisplay
 {
-    internal static string Decode(PdfName name, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
-    {
-        memory.CheckOwner(governor); int length = 0;
-        foreach (byte value in name.RawSpan)
-        {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            length = checked(length + (value >= 0x21 && value <= 0x7e && value != '#' ? 1 : 3));
-        }
-        memory.Reserve(GovernedText.StringBytes(length));
-        return string.Create(length, (name, governor, token), static (target, state) =>
-        {
-            int position = 0;
-            foreach (byte value in state.name.RawSpan)
-            {
-                state.token.ThrowIfCancellationRequested(); state.governor.CheckCancellation();
-                position += WriteByte(value, target[position..]);
-            }
-        });
-    }
-
     internal static int WriteByte(byte value, Span<char> target)
     {
         if (value >= 0x21 && value <= 0x7E && value != (byte)'#')

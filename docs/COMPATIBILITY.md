@@ -14,6 +14,18 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Attachment listings and JSON now report semantic MIME subtype text: a literal
+`#` remains `#`, so adding an attachment from listed metadata preserves its MIME
+type. Names are decoded as UTF-8 without text-string BOM handling; malformed
+sequences use replacement characters. MIME creation still requires ASCII.
+AcroForm JSON field types and appearance states now use the same descriptor-name
+writer as page-image resources, preserving hashes, spaces, delimiters and UTF-8
+in both JSON versions. Missing or non-name descriptors remain empty strings.
+Invalid UTF-8 descriptor names use the existing reversible escaped-name spelling
+with an `n:` prefix, intentionally differing from native's invalid-UTF-8 JSON.
+These are public value corrections; signatures and diagnostic display escaping
+are unchanged.
+
 Unreferenced-object preservation reuses objects already copied through an earlier
 root, retaining shared references and cycles without duplicate stream payloads.
 Failed candidates retire their new mappings and copied descendants before

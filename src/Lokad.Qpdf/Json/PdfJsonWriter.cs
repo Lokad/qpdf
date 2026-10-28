@@ -79,10 +79,11 @@ internal static class PdfJsonWriter
         builder.Append('"');
     }
 
-    internal static void AppendResourceName(DisplayBuffer builder, PdfName name)
+    internal static void AppendDescriptorName(DisplayBuffer builder, PdfName? name)
     {
+        if (name is null) { builder.Append("\"\""); return; }
         ReadOnlySpan<byte> raw = name.RawSpan;
-        // This descriptor is a literal resource name in both JSON versions.
+        // Descriptor names are literal semantic names in both JSON versions.
         // Preserve the existing reversible spelling for non-UTF-8 names while
         // keeping the JSON itself valid UTF-8.
         if (!IsUtf8Name(raw, builder.Governor)) { AppendName(builder, name, 2); return; }

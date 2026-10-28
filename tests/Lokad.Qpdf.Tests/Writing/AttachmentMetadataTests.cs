@@ -213,4 +213,20 @@ public sealed class AttachmentMetadataTests
             Assert.Equal(0L, storage.OpenLeaseCount); Assert.Equal(0L, root.ReservedBytes);
         }
     }
+
+    [Theory]
+    [InlineData("application#2Fx#23hash", "application/x#hash")]
+    [InlineData("Caf#C3#A9#F0#9F#98#80", "Café😀")]
+    public async Task SemanticMimeAliasesKeepTheirReceiptsAfterHostClosure(string encoded, string expected)
+    {
+        RecordingMemoryBudget root = new(4194304L); using IMemoryScope caller = root.CreateScope();
+        using InMemoryQpdfHost storage = new();
+        storage.AddInput(QpdfPath.From("input"), NameProjectionTests.Attachment("/" + encoded), QpdfInputOwnership.Transfer);
+        QpdfAttachmentInfo info = Assert.Single(await Qpdf.ListAttachmentsAsync(new Host(storage, caller), QpdfPath.From("input"), CancellationToken.None));
+        QpdfAttachmentInfo clone = info with { };
+        Assert.Equal(0L, storage.OpenLeaseCount); storage.Dispose();
+        Assert.Equal(expected, info.MimeType); Assert.Equal(expected, clone.MimeType);
+        Assert.InRange(root.ReservedBytes, GovernedText.StringBytes(expected.Length), 4096L);
+        caller.Dispose(); Assert.Equal(0L, root.ReservedBytes); GC.KeepAlive(info); GC.KeepAlive(clone);
+    }
 }

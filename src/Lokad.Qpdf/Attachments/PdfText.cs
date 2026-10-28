@@ -85,16 +85,30 @@ internal static class PdfText
 
     internal static string Decode(ReadOnlyMemory<byte> value, ParserMemoryScope memory,
         ResourceGovernor governor, CancellationToken token)
+        => Decode(value, memory, governor, token, false);
+
+    // Names contain UTF-8 bytes without a text-string encoding marker. Never
+    // reinterpret their leading bytes as a BOM or apply PDFDocEncoding.
+    internal static string DecodeUtf8(ReadOnlyMemory<byte> value, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken token)
+        => Decode(value, memory, governor, token, true);
+
+    private static string Decode(ReadOnlyMemory<byte> value, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken token, bool utf8)
     {
         memory.CheckOwner(governor);
-        int length = CopyDecoded(value.Span, Span<char>.Empty, governor, token);
+        int length = utf8 ? CopyUtf8(value.Span, Span<char>.Empty, governor, token)
+            : CopyDecoded(value.Span, Span<char>.Empty, governor, token);
         if (length == 0) { return string.Empty; }
         long bytes = GovernedText.StringBytes(length); memory.Reserve(bytes);
         try
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            return string.Create(length, (value, governor, token), static (target, state) =>
-                CopyDecoded(state.value.Span, target, state.governor, state.token));
+            return string.Create(length, (value, governor, token, utf8), static (target, state) =>
+            {
+                if (state.utf8) { CopyUtf8(state.value.Span, target, state.governor, state.token); }
+                else { CopyDecoded(state.value.Span, target, state.governor, state.token); }
+            });
         }
         catch { memory.Release(bytes); throw; }
     }
@@ -104,26 +118,31 @@ internal static class PdfText
             : value is >= 127 and <= 160 ? HighTable[value - 127]
             : value == 173 ? 0xFFFD : value);
 
-    private static int CopyDecoded(ReadOnlySpan<byte> value, Span<char> target,
+    private static int CopyUtf8(ReadOnlySpan<byte> value, Span<char> target,
         ResourceGovernor governor, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         int length = 0;
-        if (value.Length >= 3 && value[0] == 0xef && value[1] == 0xbb && value[2] == 0xbf)
+        while (!value.IsEmpty)
         {
-            value = value[3..];
-            while (!value.IsEmpty)
-            {
-                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                OperationStatus status = Rune.DecodeFromUtf8(value, out Rune rune, out int consumed);
-                if (status == OperationStatus.NeedMoreData) { consumed = value.Length; }
-                if (status != OperationStatus.Done) { rune = Rune.ReplacementChar; }
-                if (!target.IsEmpty) { rune.EncodeToUtf16(target[length..]); }
-                length = checked(length + rune.Utf16SequenceLength);
-                value = value[consumed..];
-            }
-            return length;
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            OperationStatus status = Rune.DecodeFromUtf8(value, out Rune rune, out int consumed);
+            if (status == OperationStatus.NeedMoreData) { consumed = value.Length; }
+            if (status != OperationStatus.Done) { rune = Rune.ReplacementChar; }
+            if (!target.IsEmpty) { rune.EncodeToUtf16(target[length..]); }
+            length = checked(length + rune.Utf16SequenceLength);
+            value = value[consumed..];
         }
+        return length;
+    }
+
+    private static int CopyDecoded(ReadOnlySpan<byte> value, Span<char> target,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        if (value.Length >= 3 && value[0] == 0xef && value[1] == 0xbb && value[2] == 0xbf)
+        { return CopyUtf8(value[3..], target, governor, token); }
+        int length = 0;
         bool utf16 = value.Length >= 2 && ((value[0] == 0xFE && value[1] == 0xFF) || (value[0] == 0xFF && value[1] == 0xFE));
         if (!utf16)
         {

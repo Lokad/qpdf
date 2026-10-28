@@ -745,7 +745,7 @@ internal static class DocumentJson
         builder.Append(",\"height\": ");
         AppendImageValue(builder, detail.Stream.Dictionary, "Height"u8, request, limits, governor, cancellationToken);
         builder.Append(",\"name\": ");
-        PdfJsonWriter.AppendResourceName(builder, detail.Name);
+        PdfJsonWriter.AppendDescriptorName(builder, detail.Name);
         builder.Append(",\"object\": \"");
         PdfJsonWriter.AppendReference(builder, detail.Reference.ObjectNumber, detail.Reference.Generation);
         builder.Append("\",\"width\": ");
@@ -1499,22 +1499,6 @@ internal static class DocumentJson
 
         return value;
     }
-    private static void AppendDisplayName(DisplayBuffer builder, PdfName? name)
-    {
-        builder.Append('"');
-        if (name is not null)
-        {
-            builder.Append('/');
-            Span<char> escaped = stackalloc char[3];
-            foreach (byte value in name.RawSpan)
-            {
-                builder.Governor.CheckCancellation();
-                PdfJsonWriter.AppendEscaped(builder, escaped[..PdfNameDisplay.WriteByte(value, escaped)]);
-            }
-        }
-        builder.Append('"');
-    }
-
     private static void AppendAcroform(
         DisplayBuffer builder,
         QpdfDocument document,
@@ -1737,7 +1721,7 @@ internal static class DocumentJson
         builder.Append(",\"pageposfrom1\": ");
         builder.AppendInteger(pageposfrom1);
         builder.Append(",\"fieldtype\": ");
-        AppendDisplayName(builder, field.FieldType);
+        PdfJsonWriter.AppendDescriptorName(builder, field.FieldType);
         int flags = InheritedInt(engine, field.Ancestors, "Ff");
         builder.Append(",\"fieldflags\": ");
         builder.AppendInteger(flags);
@@ -1884,7 +1868,7 @@ internal static class DocumentJson
         }
 
         builder.Append(",\"appearancestate\": ");
-        AppendDisplayName(builder, appearance);
+        PdfJsonWriter.AppendDescriptorName(builder, appearance);
         int annotFlags = 0;
         if (annot.TryGet(PdfName.FromAscii("F"), out QpdfObject? fRaw) && fRaw is not null && fRaw is not PdfNull)
         {
