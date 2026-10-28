@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Cache failure diagnostic counts and prefix overlap, removing repeated quadratic
+  searches and per-record enumeration allocations while preserving failure history.
 - Resolve indirect page rotation in ordinary rotation and both flattening paths,
   including inherited values; correct skipped flattening and NoRotate placement.
 - Refresh job JSON help for check/stream inspections and parser error/default-limit

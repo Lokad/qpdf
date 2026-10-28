@@ -19,58 +19,76 @@ internal sealed class ExecutionPresentation : ExecutionPreparation, IDisposable
         private IReadOnlyList<QpdfDiagnostic> _accepted = Array.Empty<QpdfDiagnostic>();
         private IReadOnlyList<QpdfDiagnostic> _terminal = Array.Empty<QpdfDiagnostic>();
         private bool _noWarn, _frozen, _warningHistoryOnly;
+        private int _acceptedCount, _prefixCount, _terminalStart, _count;
 
-        internal bool Freeze(IReadOnlyList<QpdfDiagnostic> accepted, IReadOnlyList<QpdfDiagnostic> terminal, bool noWarn, bool hasNonWarning, bool warningHistoryOnly)
+        internal bool Freeze(IReadOnlyList<QpdfDiagnostic> accepted, IReadOnlyList<QpdfDiagnostic> terminal, bool noWarn, bool warningHistoryOnly)
         {
             if (_frozen) { throw new InvalidOperationException("Failure diagnostics were already frozen."); }
-            _accepted = noWarn && !hasNonWarning ? Array.Empty<QpdfDiagnostic>() : accepted;
-            if (warningHistoryOnly)
+            _noWarn = noWarn; _warningHistoryOnly = warningHistoryOnly;
+            for (int index = 0; index < accepted.Count; index++)
+            { if (AcceptedVisible(accepted[index])) { _acceptedCount++; } }
+            _accepted = _acceptedCount == 0 ? Array.Empty<QpdfDiagnostic>() : accepted;
+
+            // Producers return fresh terminal records or an accepted prefix
+            // followed by fresh records. Presentation may omit hidden warnings,
+            // and accepted history may have grown since that prefix was captured.
+            for (int index = 0; index < accepted.Count; index++)
             {
-                bool hasWarning = false;
-                foreach (QpdfDiagnostic item in accepted) { if (item.Severity == QpdfDiagnosticSeverity.Warning) { hasWarning = true; break; } }
-                if (!hasWarning) { _accepted = Array.Empty<QpdfDiagnostic>(); }
+                QpdfDiagnostic item = accepted[index];
+                if (_terminalStart < terminal.Count && ReferenceEquals(item, terminal[_terminalStart])) { _terminalStart++; }
+                else if (Visible(item)) { break; }
             }
-            _terminal = terminal; _noWarn = noWarn; _warningHistoryOnly = warningHistoryOnly; _frozen = true;
-            return _accepted.Count > 0;
+            for (int index = 0; index < _terminalStart; index++)
+            { if (Visible(terminal[index]) && !AcceptedVisible(terminal[index])) { _prefixCount++; } }
+            _count = _acceptedCount + _prefixCount;
+            for (int index = _terminalStart; index < terminal.Count; index++)
+            { if (Visible(terminal[index])) { _count++; } }
+            _terminal = terminal; _frozen = true;
+            return _acceptedCount > 0;
         }
 
         private bool Visible(QpdfDiagnostic item) => !_noWarn || item.Severity != QpdfDiagnosticSeverity.Warning;
         private bool AcceptedVisible(QpdfDiagnostic item) => Visible(item) && (!_warningHistoryOnly || item.Severity == QpdfDiagnosticSeverity.Warning);
-        private bool Prior(QpdfDiagnostic item)
-        {
-            foreach (QpdfDiagnostic accepted in _accepted)
-            { if (AcceptedVisible(accepted) && ReferenceEquals(item, accepted)) { return true; } }
-            return false;
-        }
-
         // Returned DTO traversal belongs to its caller. The immutable view
         // borrows already accepted storage, avoiding a failure-time allocation.
-        public int Count
-        {
-            get
-            {
-                int count = 0;
-                foreach (QpdfDiagnostic item in _accepted) { if (AcceptedVisible(item)) { count++; } }
-                foreach (QpdfDiagnostic item in _terminal) { if (Visible(item) && !Prior(item)) { count++; } }
-                return count;
-            }
-        }
+        public int Count => _count;
 
         public QpdfDiagnostic this[int index]
         {
             get
             {
                 ArgumentOutOfRangeException.ThrowIfNegative(index);
-                foreach (QpdfDiagnostic item in _accepted) { if (AcceptedVisible(item) && index-- == 0) { return item; } }
-                foreach (QpdfDiagnostic item in _terminal) { if (Visible(item) && !Prior(item) && index-- == 0) { return item; } }
+                if (index >= _count) { throw new ArgumentOutOfRangeException(nameof(index)); }
+                if (index < _acceptedCount)
+                {
+                    if (_acceptedCount == _accepted.Count) { return _accepted[index]; }
+                    for (int at = 0; at < _accepted.Count; at++)
+                    { if (AcceptedVisible(_accepted[at]) && index-- == 0) { return _accepted[at]; } }
+                }
+                index -= _acceptedCount;
+                if (index < _prefixCount)
+                {
+                    for (int at = 0; at < _terminalStart; at++)
+                    { if (Visible(_terminal[at]) && !AcceptedVisible(_terminal[at]) && index-- == 0) { return _terminal[at]; } }
+                }
+                index -= _prefixCount;
+                if (_count - _acceptedCount - _prefixCount == _terminal.Count - _terminalStart)
+                { return _terminal[_terminalStart + index]; }
+                for (int at = _terminalStart; at < _terminal.Count; at++)
+                { if (Visible(_terminal[at]) && index-- == 0) { return _terminal[at]; } }
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
         }
 
         public IEnumerator<QpdfDiagnostic> GetEnumerator()
         {
-            foreach (QpdfDiagnostic item in _accepted) { if (AcceptedVisible(item)) { yield return item; } }
-            foreach (QpdfDiagnostic item in _terminal) { if (Visible(item) && !Prior(item)) { yield return item; } }
+            for (int index = 0; index < _accepted.Count; index++)
+            { QpdfDiagnostic item = _accepted[index]; if (AcceptedVisible(item)) { yield return item; } }
+            for (int index = _prefixCount == 0 ? _terminalStart : 0; index < _terminal.Count; index++)
+            {
+                QpdfDiagnostic item = _terminal[index];
+                if (Visible(item) && (index >= _terminalStart || !AcceptedVisible(item))) { yield return item; }
+            }
         }
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
@@ -89,7 +107,7 @@ internal sealed class ExecutionPresentation : ExecutionPreparation, IDisposable
             // Precreate failure metadata under the operation allowance. Its
             // referenced diagnostic arrays/text retain their existing owners;
             // the small view needs no independently retiring receipt.
-            memory.Reserve(72L + 40L);
+            memory.Reserve(72L + 56L);
             FailureProjection failure = new();
             byte flags = (byte)((verbose ? 1 : 0) | (memoryUsage ? 2 : 0) | (progress ? 4 : 0)
                 | (noWarn ? 8 : 0) | (warningExitZero ? 16 : 0));
@@ -148,7 +166,7 @@ internal sealed class ExecutionPresentation : ExecutionPreparation, IDisposable
     {
         FailureProjection failure = _failure ?? throw new InvalidOperationException("Missing failure diagnostics.");
         IReadOnlyList<QpdfDiagnostic> accepted = Bag.Entries;
-        bool hasAccepted = failure.Freeze(accepted, diagnostics, (_flags & 8) != 0, Bag.HasNonWarningEntries, (_flags & 15) == 0);
+        bool hasAccepted = failure.Freeze(accepted, diagnostics, (_flags & 8) != 0, (_flags & 15) == 0);
         if ((_flags & 15) == 0 && !hasAccepted) { return null; }
         _failure = null;
         return failure;

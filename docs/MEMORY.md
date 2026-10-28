@@ -1,5 +1,11 @@
 # Cooperative memory admission
 
+Failure diagnostic views borrow admitted history and terminal storage. Four cached
+integers record visible counts and prefix overlap; their fixed allowance is
+56 bytes. Freezing scans the existing lists linearly without a new collection,
+including during canceled or refused cleanup. Counts and terminal lookup avoid
+history searches, and enumeration uses indexed passes without per-record boxes.
+
 Page selection admits known page/source list capacities once under existing
 construction owners, with coarse shared-budget growth. Expanded ranges and
 previews receive admission and cancellation checks. Included ranges grow one

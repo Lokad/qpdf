@@ -12,7 +12,6 @@ internal sealed class DiagnosticBag
     { _governor = governor ?? throw new ArgumentNullException(nameof(governor)); }
 
     internal bool ReportPageCountMismatch { get; set; } = true;
-    internal bool HasNonWarningEntries { get; private set; }
     internal bool HasAcceptedWarnings { get; private set; }
     internal bool ReadingPartialInput { get; set; }
     internal bool SuppressWarningStorage
@@ -119,7 +118,6 @@ internal sealed class DiagnosticBag
             // AddOwned may receive a string whose Value was already borrowed.
             if (exposed) { _governor.PromoteAllocation(Storage); }
             message.TransferToRetainedStorage(_governor); reserved = false;
-            HasNonWarningEntries |= severity != QpdfDiagnosticSeverity.Warning;
             HasAcceptedWarnings |= severity == QpdfDiagnosticSeverity.Warning;
         }
         catch

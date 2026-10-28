@@ -891,6 +891,14 @@ when the returned failure omits those success summaries. `--no-warn` avoids
 storing or charging suppressed warnings, while their warning exit status remains
 unless `--warning-exit-0` applies. Equal message strings have no identity guarantee.
 
+Failure diagnostic views cache their visible counts and shared-prefix overlap.
+Previously reading `Count`, enumerating the list or accessing its terminal record
+could repeatedly search a duplicated history with quadratic cost. Counts now
+require no traversal, and complete enumeration is linear. Diagnostic wording,
+identity/order, warning policies, counter semantics and publication guarantees
+are unchanged. The fixed failure-view memory estimate increases by 16 bytes;
+no per-record index or failure-time set is allocated. Public signatures are unchanged.
+
 Verbose/memory summaries capture the processing peak before presentation storage
 is allocated. The final `PeakMemoryBytes` counter also includes that storage and
 can therefore be higher. Summaries are formatted and admitted before output
