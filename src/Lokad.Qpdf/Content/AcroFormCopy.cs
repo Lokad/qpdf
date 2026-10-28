@@ -153,7 +153,8 @@ internal static class AcroFormCopy
                 continue;
             }
 
-            if (text.SequenceEqual("NeedAppearances"u8) && raw is PdfBoolean flag)
+            if (text.SequenceEqual("NeedAppearances"u8)
+                && CatalogCopy.ResolveValue(raw, engine, governor, cancellationToken) is PdfBoolean flag)
             {
                 hasNeed = true;
                 need = flag.Value;

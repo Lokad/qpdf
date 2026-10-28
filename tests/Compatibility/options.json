@@ -3043,14 +3043,17 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
-          "FlattenAnnotationsTests.StampTextAnnotationOnTop",
+            "FormNeedAppearancesTests.DirectAndIndirectTrueKeepCurrentValues",
+            "FlattenAnnotationsTests.StampTextAnnotationOnTop",
           "FlattenAnnotationsTests.PrintModeFiltersOnFlag",
           "FlattenAnnotationsTests.UncheckedCheckboxIsDropped",
           "FlattenAnnotationsTests.MergeThenFlattenAppliesToFinalPages",
           "FlattenAnnotationsTests.WidgetAppearanceWithDrFontStampsVerbatim"
         ],
         "negative": [
-          "FlattenAnnotationsTests.MalformedFlattenFlagsFail"
+            "FlattenAnnotationsTests.MalformedFlattenFlagsFail",
+            "FormNeedAppearancesTests.UnusableOrFalseFlagsKeepTheExistingFlattenFallback",
+            "FormNeedAppearancesTests.MissingFlagObjectStillFailsBeforePublication"
         ],
         "interaction": [
           "FlattenAnnotationsTests.JobRoundTripMatchesArgv"
@@ -3179,7 +3182,8 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
-          "GenerateAppearancesTests.TextFieldAppearanceRegeneratesValue",
+            "FormNeedAppearancesTests.DirectAndIndirectTrueKeepCurrentValues",
+            "GenerateAppearancesTests.TextFieldAppearanceRegeneratesValue",
           "GenerateAppearancesTests.MissingAppearanceIsCreated",
           "GeneratedGeometryTests.GeneratedCoordinatesRemainReadableAfterDocumentsAndHostClose",
           "GenerateAppearancesTests.CheckboxSynchronizesState",

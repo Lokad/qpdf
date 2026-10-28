@@ -14,6 +14,15 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Appearance generation and annotation flattening resolve indirect AcroForm
+`/NeedAppearances` booleans before choosing their behavior. Indirect true now
+refreshes appearances when requested and otherwise keeps widgets with the same
+warning as direct true. Previously generation could silently skip, and flattening
+could discard current field values while retaining stale appearances. Merged
+forms also include indirect flags in their existing OR rule. Missing, null and
+mistyped flags keep their fallback; reference bounds, cancellation, admission and
+transactional output remain binding. Public signatures are unchanged.
+
 Overlay and underlay copying validates source object-generation pairs before
 reusing placement copies and retains the original field reference through parent
 walks. Previously a live reference copied first could cause a later stale pair to

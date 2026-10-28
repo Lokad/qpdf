@@ -34,7 +34,8 @@ public sealed class AnnotationPublicationTests
     private static async Task<InMemoryQpdfHost> Storage(string mode)
     {
         InMemoryQpdfHost host = new();
-        byte[] input = mode.StartsWith("attachment", StringComparison.Ordinal) ? File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "minimal-1page.pdf"))
+        byte[] input = mode.StartsWith("form-indirect", StringComparison.Ordinal) ? FormNeedAppearancesTests.Fixture("9 3 R", "true", 3)
+            : mode.StartsWith("attachment", StringComparison.Ordinal) ? File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "minimal-1page.pdf"))
             : mode.StartsWith("rotation", StringComparison.Ordinal) ? RotationAppearanceTests.SharedFixture(270)
             : mode.StartsWith("os-", StringComparison.Ordinal) ? ObjectStreamPlanningTests.Fixture(mode.Contains("qdf", StringComparison.Ordinal) ? 16 : 201)
             : mode.StartsWith("generate-text", StringComparison.Ordinal)
@@ -72,7 +73,10 @@ public sealed class AnnotationPublicationTests
     }
 
     private static ValueTask<QpdfExecutionResult> Run(Host host, string mode, CancellationToken token)
-        => mode.StartsWith("rotation", StringComparison.Ordinal) ? RotationAppearanceTests.Run(host, mode == "rotation-job" ? "job" : "argv", token)
+        => mode.StartsWith("form-indirect", StringComparison.Ordinal) ? Qpdf.ExecuteJobAsync(host, mode == "form-indirect-both"
+            ? """{"inputFile":"input","outputFile":"output","generateAppearances":true,"flattenAnnotations":"all"}"""
+            : """{"inputFile":"input","outputFile":"output","generateAppearances":true}""", token)
+            : mode.StartsWith("rotation", StringComparison.Ordinal) ? RotationAppearanceTests.Run(host, mode == "rotation-job" ? "job" : "argv", token)
             : mode == "attachment-copy-job" ? Qpdf.ExecuteJobAsync(host,
             """{"inputFile":"input","outputFile":"output","copyAttachmentsFrom":[{"file":"source","prefix":"copy-"}]}""", token)
             : mode == "attachment-copy" ? Qpdf.ExecuteAsync(host, new(["input", "--copy-attachments-from", "source", "--prefix=copy-", "--", "output"]), token)
@@ -154,6 +158,8 @@ public sealed class AnnotationPublicationTests
     [InlineData("normalize")]
     [InlineData("externalize")]
     [InlineData("merge")]
+    [InlineData("form-indirect-generate")]
+    [InlineData("form-indirect-both")]
     [InlineData("generate")]
     [InlineData("generate-job")]
     [InlineData("generate-text")]
@@ -197,6 +203,16 @@ public sealed class AnnotationPublicationTests
     }
 
     [Theory]
+    [InlineData("create", "form-indirect-generate")]
+    [InlineData("write", "form-indirect-generate")]
+    [InlineData("commit", "form-indirect-generate")]
+    [InlineData("cancel", "form-indirect-generate")]
+    [InlineData("close", "form-indirect-generate")]
+    [InlineData("create", "form-indirect-both")]
+    [InlineData("write", "form-indirect-both")]
+    [InlineData("commit", "form-indirect-both")]
+    [InlineData("cancel", "form-indirect-both")]
+    [InlineData("close", "form-indirect-both")]
     [InlineData("create", "os-qdf")]
     [InlineData("write", "os-qdf")]
     [InlineData("commit", "os-qdf")]

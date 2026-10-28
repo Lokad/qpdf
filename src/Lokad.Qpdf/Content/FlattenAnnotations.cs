@@ -17,7 +17,7 @@ internal static class FlattenAnnotations
 
     private const int FlagNoView = 32;
 
-    internal static bool NeedsAppearances(DocumentEngine engine)
+    internal static bool NeedsAppearances(DocumentEngine engine, ResourceGovernor governor, CancellationToken token)
     {
         if (engine is null)
         {
@@ -29,12 +29,7 @@ internal static class FlattenAnnotations
             return false;
         }
 
-        QpdfObject catalogTarget = root is PdfReference rootReference
-            && ((IIndirectResolver)engine).TryResolve(rootReference, out QpdfObject? resolved)
-            && resolved is not null
-            ? resolved
-            : root;
-        if (catalogTarget is not PdfDictionary catalog)
+        if (CatalogCopy.ResolveDictionary(root, engine, governor, token) is not PdfDictionary catalog)
         {
             return false;
         }
@@ -44,17 +39,13 @@ internal static class FlattenAnnotations
             return false;
         }
 
-        QpdfObject formTarget = form is PdfReference formReference
-            && ((IIndirectResolver)engine).TryResolve(formReference, out QpdfObject? formResolved)
-            && formResolved is not null
-            ? formResolved
-            : form;
-        if (formTarget is not PdfDictionary formDict)
+        if (CatalogCopy.ResolveDictionary(form, engine, governor, token) is not PdfDictionary formDict)
         {
             return false;
         }
 
-        return formDict.TryGet(PdfName.FromAscii("NeedAppearances"), out QpdfObject? need) && need is PdfBoolean flag && flag.Value;
+        return PdfDictionaryLookup.TryGet(formDict, "NeedAppearances"u8, governor, token, out QpdfObject need)
+            && CatalogCopy.ResolveValue(need, engine, governor, token) is PdfBoolean flag && flag.Value;
     }
 
     internal static int Apply(

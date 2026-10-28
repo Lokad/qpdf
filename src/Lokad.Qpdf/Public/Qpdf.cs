@@ -410,7 +410,7 @@ public static partial class Qpdf
                     copier.AdvanceNextId(overlayApplied.NextId);
 
                     int flattenAllocator = overlayApplied.NextId;
-                    bool needAppearances = (settings.FlattenAnnotations is not null || settings.GenerateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine);
+                    bool needAppearances = (settings.FlattenAnnotations is not null || settings.GenerateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine, governor, cancellationToken);
                     bool singleGenerated = settings.GenerateAppearances && needAppearances;
                     if (singleGenerated)
                     {
@@ -1109,7 +1109,7 @@ public static partial class Qpdf
                     Content.ContentTransforms.ApplyPageTransforms(copier, takenIds, sourceTransforms, sourcePrune, limits, governor, diagnostics, cancellationToken);
                 }
 
-                if ((settings.FlattenAnnotations is not null || settings.GenerateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine))
+                if ((settings.FlattenAnnotations is not null || settings.GenerateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine, governor, cancellationToken))
                 {
                     needAppearances = true;
                 }
