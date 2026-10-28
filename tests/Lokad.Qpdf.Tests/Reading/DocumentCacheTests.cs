@@ -15,7 +15,7 @@ public sealed class DocumentCacheTests
         => TolerantObjectLoadingTests.Pdf(Enumerable.Repeat(body, count).ToArray(), false);
 
     // The source/xref fixture is funded separately to isolate engine ownership.
-    private static DocumentEngine Engine(byte[] input, QpdfLimits limits, ResourceGovernor governor)
+    private static DocumentEngine Engine(ReadOnlyMemory<byte> input, QpdfLimits limits, ResourceGovernor governor)
     {
         ResourceGovernor fixture = new(QpdfLimits.Default, CancellationToken.None);
         XRefTable table = XRefTable.Parse(input, QpdfLimits.Default, fixture, new DiagnosticBag(fixture), QpdfRecoveryMode.Strict);
@@ -266,26 +266,31 @@ public sealed class DocumentCacheTests
         Assert.Equal(Encoding.ASCII.GetBytes(new string('A', 32)), kept.Value);
     }
 
-    [Fact]
-    public async Task CancellationKeepsAcceptedCacheUntilOwnerDisposal()
+    [Theory]
+    [InlineData(1)]
+    [InlineData(128)]
+    [InlineData(2000)]
+    public void CancellationKeepsAcceptedCacheUntilOwnerDisposal(int accepted)
     {
         byte[] input = Input(20000, "null");
         using CancellationTokenSource cancellation = new();
         QpdfLimits limits = QpdfLimits.Default with { CancellationCheckInterval = 1L };
         ResourceGovernor governor = new(limits, cancellation.Token);
-        DocumentEngine engine = Engine(input, limits, governor);
-        engine.Load(5);
-        Task loading = Task.Factory.StartNew(() => { for (int number = 6; number < 20005; number++) { engine.Load(number); } },
-            CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-        long started = System.Diagnostics.Stopwatch.GetTimestamp();
-        while (governor.Snapshot().LiveMemoryBytes < 50000L && !loading.IsCompleted
-            && System.Diagnostics.Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(10)) { Thread.SpinWait(16); }
-        Assert.True(governor.Snapshot().LiveMemoryBytes >= 50000L);
-        Assert.False(loading.IsCompleted);
-        cancellation.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await loading.WaitAsync(TimeSpan.FromSeconds(10)));
+        bool armed = false, observed = false;
+        using ObservedInput storage = new(input, () =>
+        {
+            if (armed) { observed = true; cancellation.Cancel(); }
+        });
+        using DocumentEngine engine = Engine(storage.Memory, limits, governor);
+        for (int number = 5; number < accepted + 5; number++) { engine.Load(number); }
+        long retained = governor.Snapshot().LiveMemoryBytes;
+        Assert.True(retained > 0L);
+        // Cancel during the next read, after a known accepted prefix; growth overlap is not a progress signal.
+        armed = true;
+        Assert.Throws<OperationCanceledException>(() => engine.Load(accepted + 5));
+        Assert.True(observed);
         Assert.Same(PdfNull.Instance, engine.Load(5));
-        Assert.True(governor.Snapshot().LiveMemoryBytes > 0L);
+        Assert.Equal(retained, governor.Snapshot().LiveMemoryBytes);
         DisposeEngine(engine);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
