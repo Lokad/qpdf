@@ -64,20 +64,31 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static async Task<Aliases> Complete(bool compressed)
+    private static Aliases Complete(bool compressed)
     {
-        BoundaryHost host = new("read", Input, "success");
+        BoundaryHost host = new("read", Input, "success", false);
         host.Inner.AddInput(Input, Fixture(compressed), QpdfInputOwnership.Copy);
-        Task<object> running = Start(host, "typed-page", QpdfLimits.Default, CancellationToken.None);
+        SynchronizationContext? context = SynchronizationContext.Current;
         try
         {
-            await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
-            ResourceGovernor governor = RunningGovernor(running);
-            host.Resume();
-            PdfPageSelectionResult result = Assert.IsType<PdfPageSelectionResult>(await running);
-            return Keep(host.Inner, result, governor);
+            SynchronizationContext.SetSynchronizationContext(null);
+            Task<object> running = Start(host, "typed-page", QpdfLimits.Default, CancellationToken.None);
+            try
+            {
+                host.Entered.WaitAsync(TimeSpan.FromSeconds(10)).GetAwaiter().GetResult();
+                ResourceGovernor governor = RunningGovernor(running);
+                Task<int> completedOn = running.ContinueWith(static _ => Environment.CurrentManagedThreadId,
+                    CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                host.Resume();
+                // The memory host completes on this stack. Resume must unwind
+                // every producer frame before the caller tests collectability.
+                Assert.True(completedOn.IsCompletedSuccessfully);
+                Assert.Equal(Environment.CurrentManagedThreadId, completedOn.GetAwaiter().GetResult());
+                return Keep(host.Inner, Assert.IsType<PdfPageSelectionResult>(running.GetAwaiter().GetResult()), governor);
+            }
+            finally { host.Resume(); running.GetAwaiter().GetResult(); }
         }
-        finally { host.Resume(); await running; }
+        finally { SynchronizationContext.SetSynchronizationContext(context); }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -241,7 +252,7 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static async Task<CompletedAliases> CompleteAffected(string route, bool compressed)
     {
-        BoundaryHost host = new("read", Input, "success");
+        BoundaryHost host = new("read", Input, "success", true);
         AddInputs(host.Inner, route, compressed);
         Task<object> running = Start(host, route, QpdfLimits.Default, CancellationToken.None);
         try
@@ -258,12 +269,12 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
     public static IEnumerable<object[]> CompleteJobs()
     { foreach (string route in Routes) foreach (bool compressed in new[] { false, true }) { yield return [route, compressed]; } }
 
-    private sealed class BoundaryHost(string boundary, QpdfPath boundaryPath, string outcome) : IQpdfHost
+    private sealed class BoundaryHost(string boundary, QpdfPath boundaryPath, string outcome, bool asyncResume) : IQpdfHost
     {
         internal readonly InMemoryQpdfHost Inner = new();
         internal readonly HashSet<QpdfPath> Committed = [];
         private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private readonly TaskCompletionSource _resume = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _resume = new(asyncResume ? TaskCreationOptions.RunContinuationsAsynchronously : TaskCreationOptions.None);
         private bool _paused;
         internal Task Entered => _entered.Task;
         internal void Resume() => _resume.TrySetResult();
@@ -345,7 +356,7 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
             ? secondary ? QpdfPath.From(route.EndsWith("copy", StringComparison.Ordinal) ? "second.pdf"
                 : route.EndsWith("add", StringComparison.Ordinal) ? "attachment.bin" : "overlay.pdf") : Input
             : paths[0];
-        BoundaryHost host = new(boundary, pausePath, outcome);
+        BoundaryHost host = new(boundary, pausePath, outcome, true);
         AddInputs(host.Inner, route, compressed); await Seed(host.Inner, route);
         using CancellationTokenSource cancellation = new();
         Task<object> task = Start(host, route, QpdfLimits.Default, cancellation.Token);
@@ -408,7 +419,7 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static async Task<CompletedAliases> CompleteAdmission(string route, bool compressed, string budget)
     {
-        BoundaryHost host = new("read", Input, "success");
+        BoundaryHost host = new("read", Input, "success", true);
         AddInputs(host.Inner, route, compressed); await Seed(host.Inner, route);
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 16384L };
         Task<object> task = Start(host, route, limits, CancellationToken.None);
@@ -513,8 +524,7 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
     [InlineData(true)]
     public async Task OriginalDefaultLimitJobsRetireAfterDroppingEveryWarningAlias(bool compressed)
     {
-        Aliases aliases = await Complete(compressed);
-        await Task.Yield();
+        Aliases aliases = Complete(compressed);
         Collect(aliases.Governor);
         Assert.All(aliases.Metadata, reference => Assert.False(reference.IsAlive));
         ValidateBacking(aliases);
