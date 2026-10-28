@@ -20,7 +20,7 @@ internal sealed record PageLabelSpec(string FirstPage, PdfPageLabelStyle? Style,
         int colon = specification.IndexOf(':');
         if (colon < 0)
         {
-            throw new QpdfParseException($"Invalid page label '{specification}': expected first-page:[type][/start[/prefix]].", offset, null);
+            throw new QpdfParseException($"Invalid page label '{ArgvParser.ErrorPreview(specification)}': expected first-page:[type][/start[/prefix]].", offset, null);
         }
 
         CheckFirstPageSyntax(specification.AsSpan(0, colon), specification, offset);
@@ -40,7 +40,7 @@ internal sealed record PageLabelSpec(string FirstPage, PdfPageLabelStyle? Style,
                 "r" => PdfPageLabelStyle.LowerRoman,
                 "A" => PdfPageLabelStyle.UpperAlpha,
                 "a" => PdfPageLabelStyle.LowerAlpha,
-                _ => throw new QpdfParseException($"Invalid page label '{specification}': unknown numbering type.", offset, null),
+                _ => throw new QpdfParseException($"Invalid page label '{ArgvParser.ErrorPreview(specification)}': unknown numbering type.", offset, null),
             };
         }
 
@@ -114,7 +114,7 @@ internal sealed record PageLabelSpec(string FirstPage, PdfPageLabelStyle? Style,
     {
         if (firstPage.Length == 0)
         {
-            throw new QpdfParseException($"Invalid page label '{specification}': the first page is missing.", offset, null);
+            throw new QpdfParseException($"Invalid page label '{ArgvParser.ErrorPreview(specification)}': the first page is missing.", offset, null);
         }
 
         if (firstPage.SequenceEqual("z"))
@@ -130,20 +130,20 @@ internal sealed record PageLabelSpec(string FirstPage, PdfPageLabelStyle? Style,
 
         if (digits.Length == 0 || digits.Length > 10)
         {
-            throw new QpdfParseException($"Invalid page label '{specification}': first pages are n, rN, or z.", offset, null);
+            throw new QpdfParseException($"Invalid page label '{ArgvParser.ErrorPreview(specification)}': first pages are n, rN, or z.", offset, null);
         }
 
         foreach (char digit in digits)
         {
             if (digit < '0' || digit > '9')
             {
-                throw new QpdfParseException($"Invalid page label '{specification}': first pages are n, rN, or z.", offset, null);
+                throw new QpdfParseException($"Invalid page label '{ArgvParser.ErrorPreview(specification)}': first pages are n, rN, or z.", offset, null);
             }
         }
 
         if (ParseDigits(digits) < 1L)
         {
-            throw new QpdfParseException($"Invalid page label '{specification}': the first page must be positive.", offset, null);
+            throw new QpdfParseException($"Invalid page label '{ArgvParser.ErrorPreview(specification)}': the first page must be positive.", offset, null);
         }
     }
 
@@ -151,20 +151,20 @@ internal sealed record PageLabelSpec(string FirstPage, PdfPageLabelStyle? Style,
     {
         if (text.Length == 0 || text.Length > 10)
         {
-            throw new QpdfParseException($"Invalid page label '{specification}': the start must be a positive number.", offset, null);
+            throw new QpdfParseException($"Invalid page label '{ArgvParser.ErrorPreview(specification)}': the start must be a positive number.", offset, null);
         }
 
         long value = ParseDigits(text);
         if (value < 1L || value > int.MaxValue)
         {
-            throw new QpdfParseException($"Invalid page label '{specification}': the start must be a positive number.", offset, null);
+            throw new QpdfParseException($"Invalid page label '{ArgvParser.ErrorPreview(specification)}': the start must be a positive number.", offset, null);
         }
 
         foreach (char digit in text)
         {
             if (digit < '0' || digit > '9')
             {
-                throw new QpdfParseException($"Invalid page label '{specification}': the start must be a positive number.", offset, null);
+                throw new QpdfParseException($"Invalid page label '{ArgvParser.ErrorPreview(specification)}': the start must be a positive number.", offset, null);
             }
         }
 

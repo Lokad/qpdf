@@ -52,10 +52,10 @@ internal static class PagesArgumentBlock
         if (!token.StartsWith("--", StringComparison.Ordinal)
             || token.StartsWith("--file=", StringComparison.Ordinal)
             || token.StartsWith("--range=", StringComparison.Ordinal)) { return; }
-        string name = ArgvParser.OptionName(token);
-        if (ArgvParser.IsCryptoOption(name)) { throw new QpdfCryptoException("--" + name); }
+        ReadOnlySpan<char> name = ArgvParser.OptionName(token);
+        if (ArgvParser.IsCryptoOption(name)) { throw new QpdfCryptoException($"--{name}"); }
         throw new QpdfParseException(
-            $"Unrecognized argument {token} (pages options must be terminated with --).", index, null);
+            $"Unrecognized argument {ArgvParser.ErrorPreview(token)} (pages options must be terminated with --).", index, null);
     }
 
     private static void Visit(ResourceGovernor governor)

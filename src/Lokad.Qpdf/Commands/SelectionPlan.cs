@@ -169,14 +169,14 @@ internal sealed record SelectionPlan(QpdfPath Input, QpdfPath Output, int Page, 
     {
         if (range is null || range.Length == 0 || range.Length > 10)
         {
-            throw new QpdfParseException($"Invalid page range '{range}'.", 0L, null);
+            throw new QpdfParseException($"Invalid page range '{ArgvParser.ErrorPreview(range)}'.", 0L, null);
         }
 
         foreach (char c in range)
         {
             if (c < '0' || c > '9')
             {
-                throw new QpdfParseException($"Invalid page range '{range}'. Only a single page number is supported.", 0L, null);
+                throw new QpdfParseException($"Invalid page range '{ArgvParser.ErrorPreview(range)}'. Only a single page number is supported.", 0L, null);
             }
         }
 
@@ -188,7 +188,7 @@ internal sealed record SelectionPlan(QpdfPath Input, QpdfPath Output, int Page, 
 
         if (value < 1L || value > int.MaxValue)
         {
-            throw new QpdfParseException($"Invalid page range '{range}'.", 0L, null);
+            throw new QpdfParseException($"Invalid page range '{ArgvParser.ErrorPreview(range)}'.", 0L, null);
         }
 
         return (int)value;

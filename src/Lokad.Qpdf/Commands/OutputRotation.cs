@@ -32,7 +32,7 @@ internal sealed record OutputRotation(PdfRotationMode Mode, int Angle, string? R
 
         if (angleText.Length == 0)
         {
-            throw new QpdfParseException($"Invalid rotation '{specification}': the angle is missing.", offset, null);
+            throw new QpdfParseException($"Invalid rotation '{ArgvParser.ErrorPreview(specification)}': the angle is missing.", offset, null);
         }
 
         PdfRotationMode mode = PdfRotationMode.Set;
@@ -49,7 +49,7 @@ internal sealed record OutputRotation(PdfRotationMode Mode, int Angle, string? R
 
         if (angleText.Length == 0 || angleText.Length > 10)
         {
-            throw new QpdfParseException($"Invalid rotation '{specification}'.", offset, null);
+            throw new QpdfParseException($"Invalid rotation '{ArgvParser.ErrorPreview(specification)}'.", offset, null);
         }
 
         long angle = 0L;
@@ -57,7 +57,7 @@ internal sealed record OutputRotation(PdfRotationMode Mode, int Angle, string? R
         {
             if (digit < '0' || digit > '9')
             {
-                throw new QpdfParseException($"Invalid rotation '{specification}'.", offset, null);
+                throw new QpdfParseException($"Invalid rotation '{ArgvParser.ErrorPreview(specification)}'.", offset, null);
             }
 
             angle = checked(angle * 10L + (digit - '0'));
@@ -66,7 +66,7 @@ internal sealed record OutputRotation(PdfRotationMode Mode, int Angle, string? R
         int normalized = (int)(angle % 360L);
         if (normalized % 90 != 0)
         {
-            throw new QpdfParseException($"Invalid rotation '{specification}': the angle must be a multiple of 90.", offset, null);
+            throw new QpdfParseException($"Invalid rotation '{ArgvParser.ErrorPreview(specification)}': the angle must be a multiple of 90.", offset, null);
         }
 
         if (colon >= 0 && colon + 1 < specification.Length)
@@ -78,7 +78,7 @@ internal sealed record OutputRotation(PdfRotationMode Mode, int Angle, string? R
             }
             catch (QpdfParseException ex)
             {
-                throw new QpdfParseException($"Invalid rotation '{specification}'.", offset, null, ex);
+                throw new QpdfParseException($"Invalid rotation '{ArgvParser.ErrorPreview(specification)}'.", offset, null, ex);
             }
         }
 

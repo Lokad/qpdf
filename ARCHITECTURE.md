@@ -162,6 +162,8 @@ publication; accepted messages and a bounded terminal failure remain available.
 Requested summaries are built once before publication and reused after commit.
 Ordinary command results borrow the admitted diagnostic list without copying it
 after publication; that list retains no execution owner.
+Argv option recognition borrows spans. Command errors bound echoed argument text
+before interpolation, including terminal parse failures outside ordinary quotas.
 
 ## Dependencies and development tools
 

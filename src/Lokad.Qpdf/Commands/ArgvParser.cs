@@ -12,17 +12,15 @@ namespace Lokad.Qpdf.Commands;
 /// </summary>
 internal static class ArgvParser
 {
-    private static readonly HashSet<string> CryptoOptions = new(StringComparer.Ordinal)
-    {
-        "password", "password-file", "password-mode", "password-is-hex-key",
-        "suppress-password-recovery", "encryption-file-password", "user-password",
-        "owner-password", "bits", "allow-weak-crypto", "allow-insecure", "use-aes",
-        "force-V4", "force-R5", "cleartext-metadata", "static-aes-iv",
-        "accessibility", "annotate", "assemble", "extract", "form", "modify-other",
-        "modify", "print", "show-crypto", "show-encryption", "show-encryption-key",
-        "is-encrypted", "requires-password", "remove-restrictions", "encrypt",
-        "decrypt", "copy-encryption",
-    };
+    internal static bool IsCryptoOption(ReadOnlySpan<char> name)
+        => name is "password" or "password-file" or "password-mode" or "password-is-hex-key"
+            or "suppress-password-recovery" or "encryption-file-password" or "user-password"
+            or "owner-password" or "bits" or "allow-weak-crypto" or "allow-insecure" or "use-aes"
+            or "force-V4" or "force-R5" or "cleartext-metadata" or "static-aes-iv"
+            or "accessibility" or "annotate" or "assemble" or "extract" or "form" or "modify-other"
+            or "modify" or "print" or "show-crypto" or "show-encryption" or "show-encryption-key"
+            or "is-encrypted" or "requires-password" or "remove-restrictions" or "encrypt"
+            or "decrypt" or "copy-encryption";
 
     internal static JobPlan Parse(IReadOnlyList<string> argv, Runtime.ResourceGovernor governor)
     {
@@ -73,7 +71,7 @@ internal static class ArgvParser
             if (token is not null && token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2
                 && IsCryptoOption(OptionName(token)))
             {
-                throw new QpdfCryptoException("--" + OptionName(token));
+                throw new QpdfCryptoException($"--{OptionName(token)}");
             }
         }
     }
@@ -299,7 +297,7 @@ internal static class ArgvParser
                     }
                     else
                     {
-                        throw new QpdfParseException($"Unexpected argument \u0027{argv[i]}\u0027 after --show-object; stream-data inspection takes an output file.", i, null);
+                        throw new QpdfParseException($"Unexpected argument \u0027{ErrorPreview(argv[i])}\u0027 after --show-object; stream-data inspection takes an output file.", i, null);
                     }
                 }
 
@@ -1009,23 +1007,31 @@ internal static class ArgvParser
         };
     }
 
-    internal static string OptionName(string token)
+    internal static ReadOnlySpan<char> OptionName(string token)
     {
         int equals = token.IndexOf('=');
-        return equals < 0 ? token.Substring(2) : token.Substring(2, equals - 2);
+        return equals < 0 ? token.AsSpan(2) : token.AsSpan(2, equals - 2);
     }
 
-    internal static bool IsCryptoOption(string name) => CryptoOptions.Contains(name);
+    // Bound caller text before interpolation, including terminal failures that
+    // remain available after ordinary diagnostic storage has been exhausted.
+    internal static string ErrorPreview(ReadOnlySpan<char> value)
+    {
+        const int maximum = 128;
+        if (value.Length <= maximum) { return value.ToString(); }
+        int length = char.IsHighSurrogate(value[maximum - 1]) ? maximum - 1 : maximum;
+        return string.Concat(value[..length], "...");
+    }
 
     internal static void CheckOptionToken(string token, long index)
     {
-        string name = OptionName(token);
-        if (CryptoOptions.Contains(name))
+        ReadOnlySpan<char> name = OptionName(token);
+        if (IsCryptoOption(name))
         {
-            throw new QpdfCryptoException("--" + name);
+            throw new QpdfCryptoException($"--{name}");
         }
 
-        throw new QpdfParseException($"Unsupported option '--{name}' in the narrow selection profile.", index, null);
+        throw new QpdfParseException($"Unsupported option '--{ErrorPreview(name)}' in the narrow selection profile.", index, null);
     }
 
     private static (int FirstAt, int At, string? Key) FindShowAttachment(IReadOnlyList<string> argv)
@@ -1162,7 +1168,7 @@ internal static class ArgvParser
             }
             else
             {
-                throw new QpdfParseException($"Unexpected argument '{token}' in the attachment options.", i, null);
+                throw new QpdfParseException($"Unexpected argument '{ErrorPreview(token)}' in the attachment options.", i, null);
             }
         }
     }
@@ -2349,7 +2355,7 @@ internal static class ArgvParser
 
         if (value is null || value.Length == 0 || value.Length > 10)
         {
-            throw new QpdfParseException($"Invalid --ii-min-bytes value '{value}' : expected a non-negative byte count.", i, null);
+            throw new QpdfParseException($"Invalid --ii-min-bytes value '{ErrorPreview(value)}' : expected a non-negative byte count.", i, null);
         }
 
         long size = 0L;
@@ -2357,7 +2363,7 @@ internal static class ArgvParser
         {
             if (digit < (char)48 || digit > (char)57)
             {
-                throw new QpdfParseException($"Invalid --ii-min-bytes value '{value}' : expected a non-negative byte count.", i, null);
+                throw new QpdfParseException($"Invalid --ii-min-bytes value '{ErrorPreview(value)}' : expected a non-negative byte count.", i, null);
             }
 
             size = checked(size * 10L + (digit - (char)48));
@@ -2387,7 +2393,7 @@ internal static class ArgvParser
 
         if (value is null || value.Length == 0 || value.Length > 10)
         {
-            throw new QpdfParseException($"Invalid {option} value '{value}' : expected a non-negative pixel count.", i, null);
+            throw new QpdfParseException($"Invalid {option} value '{ErrorPreview(value)}' : expected a non-negative pixel count.", i, null);
         }
 
         long size = 0L;
@@ -2395,7 +2401,7 @@ internal static class ArgvParser
         {
             if (digit < (char)48 || digit > (char)57)
             {
-                throw new QpdfParseException($"Invalid {option} value '{value}' : expected a non-negative pixel count.", i, null);
+                throw new QpdfParseException($"Invalid {option} value '{ErrorPreview(value)}' : expected a non-negative pixel count.", i, null);
             }
 
             size = checked(size * 10L + (digit - (char)48));
@@ -2425,7 +2431,7 @@ internal static class ArgvParser
 
         if (value is null || value.Length == 0 || value.Length > 10)
         {
-            throw new QpdfParseException($"Invalid --parser-max-nesting value \u0027{value}\u0027: expected a nesting depth within 1..{QpdfLimits.ParserNestingCeiling}.", i, null);
+            throw new QpdfParseException($"Invalid --parser-max-nesting value \u0027{ErrorPreview(value)}\u0027: expected a nesting depth within 1..{QpdfLimits.ParserNestingCeiling}.", i, null);
         }
 
         long depth = 0L;
@@ -2433,7 +2439,7 @@ internal static class ArgvParser
         {
             if (digit < (char)48 || digit > (char)57)
             {
-                throw new QpdfParseException($"Invalid --parser-max-nesting value \u0027{value}\u0027: expected a nesting depth within 1..{QpdfLimits.ParserNestingCeiling}.", i, null);
+                throw new QpdfParseException($"Invalid --parser-max-nesting value \u0027{ErrorPreview(value)}\u0027: expected a nesting depth within 1..{QpdfLimits.ParserNestingCeiling}.", i, null);
             }
 
             depth = checked(depth * 10L + (digit - (char)48));
@@ -2441,7 +2447,7 @@ internal static class ArgvParser
 
         if (depth < 1L || depth > QpdfLimits.ParserNestingCeiling)
         {
-            throw new QpdfParseException($"Invalid --parser-max-nesting value \u0027{value}\u0027: expected a nesting depth within 1..{QpdfLimits.ParserNestingCeiling}.", i, null);
+            throw new QpdfParseException($"Invalid --parser-max-nesting value \u0027{ErrorPreview(value)}\u0027: expected a nesting depth within 1..{QpdfLimits.ParserNestingCeiling}.", i, null);
         }
 
         return depth;
@@ -2480,7 +2486,7 @@ internal static class ArgvParser
 
         if (value is null || value.Length == 0 || value.Length > 10)
         {
-            throw new QpdfParseException($"Invalid {option} value \u0027{value}\u0027: expected a non-negative {unit}.", i, null);
+            throw new QpdfParseException($"Invalid {option} value \u0027{ErrorPreview(value)}\u0027: expected a non-negative {unit}.", i, null);
         }
 
         long count = 0L;
@@ -2488,7 +2494,7 @@ internal static class ArgvParser
         {
             if (digit < (char)48 || digit > (char)57)
             {
-                throw new QpdfParseException($"Invalid {option} value \u0027{value}\u0027: expected a non-negative {unit}.", i, null);
+                throw new QpdfParseException($"Invalid {option} value \u0027{ErrorPreview(value)}\u0027: expected a non-negative {unit}.", i, null);
             }
 
             count = checked(count * 10L + (digit - (char)48));
@@ -2518,7 +2524,7 @@ internal static class ArgvParser
 
         if (value is null || value.Length == 0 || value.Length > 10)
         {
-            throw new QpdfParseException($"Invalid --max-stream-filters value \u0027{value}\u0027: expected a non-negative filter count.", i, null);
+            throw new QpdfParseException($"Invalid --max-stream-filters value \u0027{ErrorPreview(value)}\u0027: expected a non-negative filter count.", i, null);
         }
 
         long count = 0L;
@@ -2526,7 +2532,7 @@ internal static class ArgvParser
         {
             if (digit < (char)48 || digit > (char)57)
             {
-                throw new QpdfParseException($"Invalid --max-stream-filters value \u0027{value}\u0027: expected a non-negative filter count.", i, null);
+                throw new QpdfParseException($"Invalid --max-stream-filters value \u0027{ErrorPreview(value)}\u0027: expected a non-negative filter count.", i, null);
             }
 
             count = checked(count * 10L + (digit - (char)48));
@@ -2556,7 +2562,7 @@ internal static class ArgvParser
 
         if (value is null || value.Length == 0 || value.Length > 10)
         {
-            throw new QpdfParseException($"Invalid --parser-max-errors value \u0027{value}\u0027: expected a non-negative error count (0 removes the threshold).", i, null);
+            throw new QpdfParseException($"Invalid --parser-max-errors value \u0027{ErrorPreview(value)}\u0027: expected a non-negative error count (0 removes the threshold).", i, null);
         }
 
         long count = 0L;
@@ -2564,7 +2570,7 @@ internal static class ArgvParser
         {
             if (digit < (char)48 || digit > (char)57)
             {
-                throw new QpdfParseException($"Invalid --parser-max-errors value \u0027{value}\u0027: expected a non-negative error count (0 removes the threshold).", i, null);
+                throw new QpdfParseException($"Invalid --parser-max-errors value \u0027{ErrorPreview(value)}\u0027: expected a non-negative error count (0 removes the threshold).", i, null);
             }
 
             count = checked(count * 10L + (digit - (char)48));
@@ -2594,7 +2600,7 @@ internal static class ArgvParser
 
         if (value is null || value.Length == 0 || value.Length > 3)
         {
-            throw new QpdfParseException($"Invalid --jpeg-quality value '{value}' : expected an integer 0..100.", i, null);
+            throw new QpdfParseException($"Invalid --jpeg-quality value '{ErrorPreview(value)}' : expected an integer 0..100.", i, null);
         }
 
         long quality = 0L;
@@ -2602,7 +2608,7 @@ internal static class ArgvParser
         {
             if (digit < (char)48 || digit > (char)57)
             {
-                throw new QpdfParseException($"Invalid --jpeg-quality value '{value}' : expected an integer 0..100.", i, null);
+                throw new QpdfParseException($"Invalid --jpeg-quality value '{ErrorPreview(value)}' : expected an integer 0..100.", i, null);
             }
 
             quality = checked(quality * 10L + (digit - (char)48));
@@ -2610,7 +2616,7 @@ internal static class ArgvParser
 
         if (quality > 100L)
         {
-            throw new QpdfParseException($"Invalid --jpeg-quality value '{value}' : expected an integer 0..100.", i, null);
+            throw new QpdfParseException($"Invalid --jpeg-quality value '{ErrorPreview(value)}' : expected an integer 0..100.", i, null);
         }
 
         return (int)quality;
@@ -2646,7 +2652,7 @@ internal static class ArgvParser
 
         if (value.Length > 10)
         {
-            throw new QpdfParseException($"Invalid --split-pages value '{value}' : expected a positive group size.", offset, null);
+            throw new QpdfParseException($"Invalid --split-pages value '{ErrorPreview(value)}' : expected a positive group size.", offset, null);
         }
 
         long size = 0L;
@@ -2654,7 +2660,7 @@ internal static class ArgvParser
         {
             if (digit < '0' || digit > '9')
             {
-                throw new QpdfParseException($"Invalid --split-pages value '{value}' : expected a positive group size.", offset, null);
+                throw new QpdfParseException($"Invalid --split-pages value '{ErrorPreview(value)}' : expected a positive group size.", offset, null);
             }
 
             size = checked(size * 10L + (digit - '0'));
@@ -2662,7 +2668,7 @@ internal static class ArgvParser
 
         if (size < 1L || size > int.MaxValue)
         {
-            throw new QpdfParseException($"Invalid --split-pages value '{value}' : expected a positive group size.", offset, null);
+            throw new QpdfParseException($"Invalid --split-pages value '{ErrorPreview(value)}' : expected a positive group size.", offset, null);
         }
 
         return (int)size;
@@ -2874,7 +2880,7 @@ internal static class ArgvParser
                 throw new QpdfParseException("Null argument.", i, null);
             }
 
-            throw new QpdfParseException($"Unexpected argument '{token}' after {operation}; inspection takes no output file.", i, null);
+            throw new QpdfParseException($"Unexpected argument '{ErrorPreview(token)}' after {operation}; inspection takes no output file.", i, null);
         }
 
         if (argv.Count > 0 && argv[0] == JobPlan.EmptyDocumentInput)
@@ -2951,7 +2957,7 @@ internal static class ArgvParser
             throw new QpdfParseException("Null argument.", checkAt + 1, null);
         }
 
-        throw new QpdfParseException($"Unexpected argument '{token}' after --check; inspection takes no output file.", checkAt + 1, null);
+        throw new QpdfParseException($"Unexpected argument '{ErrorPreview(token)}' after --check; inspection takes no output file.", checkAt + 1, null);
     }
 
     private static bool HasAttachmentEdit(IReadOnlyList<string> argv, int start, int end)
@@ -3416,7 +3422,7 @@ internal static class ArgvParser
             if ((token.StartsWith("--overlay=", StringComparison.Ordinal) || token.StartsWith("--underlay=", StringComparison.Ordinal))
                 && token.Length > 2)
             {
-                throw new QpdfParseException("Option " + OptionName(token) + " takes no value.", cursor, null);
+                throw new QpdfParseException($"Option {ErrorPreview(OptionName(token))} takes no value.", cursor, null);
             }
 
             if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2)
@@ -3526,10 +3532,10 @@ internal static class ArgvParser
 
             if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2)
             {
-                string name = OptionName(token);
-                if (CryptoOptions.Contains(name))
+                ReadOnlySpan<char> name = OptionName(token);
+                if (IsCryptoOption(name))
                 {
-                    throw new QpdfCryptoException("--" + name);
+                    throw new QpdfCryptoException($"--{name}");
                 }
 
                 throw new QpdfParseException("Unsupported option in " + role + " block.", cursor, null);
@@ -3604,16 +3610,16 @@ internal static class ArgvParser
 
             if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2)
             {
-                string name = OptionName(token);
-                if (CryptoOptions.Contains(name))
+                ReadOnlySpan<char> name = OptionName(token);
+                if (IsCryptoOption(name))
                 {
-                    throw new QpdfCryptoException("--" + name);
+                    throw new QpdfCryptoException($"--{name}");
                 }
 
-                throw new QpdfParseException($"Unsupported option '--{name}' in the narrow selection profile.", cursor, null);
+                throw new QpdfParseException($"Unsupported option '--{ErrorPreview(name)}' in the narrow selection profile.", cursor, null);
             }
 
-            throw new QpdfParseException($"Unexpected argument '{token}' inside --copy-attachments-from.", cursor, null);
+            throw new QpdfParseException($"Unexpected argument '{ErrorPreview(token)}' inside --copy-attachments-from.", cursor, null);
         }
 
         if (cursor >= argv.Count)
@@ -3662,25 +3668,25 @@ internal static class ArgvParser
                 || token == "--mimetype" || token.StartsWith("--mimetype=", StringComparison.Ordinal)
                 || token == "--description" || token.StartsWith("--description=", StringComparison.Ordinal))
             {
-                string name = OptionName(token);
-                string value = TakeParameter(argv, argv.Count, ref cursor, "--" + name);
-                if (name == "key")
+                ReadOnlySpan<char> name = OptionName(token);
+                string value = TakeParameter(argv, argv.Count, ref cursor, $"--{name}");
+                if (name is "key")
                 {
                     key = value;
                 }
-                else if (name == "filename")
+                else if (name is "filename")
                 {
                     fileName = value;
                 }
-                else if (name == "creationdate")
+                else if (name is "creationdate")
                 {
                     creationDate = value;
                 }
-                else if (name == "moddate")
+                else if (name is "moddate")
                 {
                     modDate = value;
                 }
-                else if (name == "mimetype")
+                else if (name is "mimetype")
                 {
                     mimeType = value;
                 }
@@ -3701,23 +3707,23 @@ internal static class ArgvParser
 
             if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2)
             {
-                string name = OptionName(token);
-                if (CryptoOptions.Contains(name))
+                ReadOnlySpan<char> name = OptionName(token);
+                if (IsCryptoOption(name))
                 {
-                    throw new QpdfCryptoException("--" + name);
+                    throw new QpdfCryptoException($"--{name}");
                 }
 
-                if (name == "pages" || name == "check" || name == "add-attachment" || name == "copy-attachments-from"
-                    || name == "remove-attachment" || name == "list-attachments" || name == "prefix"
+                if (name is "pages" || name is "check" || name is "add-attachment" || name is "copy-attachments-from"
+                    || name is "remove-attachment" || name is "list-attachments" || name is "prefix"
                     || name.StartsWith("show-attachment", StringComparison.Ordinal))
                 {
-                    throw new QpdfParseException($"Option '--{name}' cannot appear inside --add-attachment.", cursor, null);
+                    throw new QpdfParseException($"Option '--{ErrorPreview(name)}' cannot appear inside --add-attachment.", cursor, null);
                 }
 
-                throw new QpdfParseException($"Unsupported option '--{name}' in the narrow selection profile.", cursor, null);
+                throw new QpdfParseException($"Unsupported option '--{ErrorPreview(name)}' in the narrow selection profile.", cursor, null);
             }
 
-            throw new QpdfParseException($"Unexpected argument '{token}' inside --add-attachment.", cursor, null);
+            throw new QpdfParseException($"Unexpected argument '{ErrorPreview(token)}' inside --add-attachment.", cursor, null);
         }
 
         if (cursor >= argv.Count)
@@ -3837,13 +3843,13 @@ internal static class ArgvParser
 
             if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2)
             {
-                string name = OptionName(token);
-                if (CryptoOptions.Contains(name))
+                ReadOnlySpan<char> name = OptionName(token);
+                if (IsCryptoOption(name))
                 {
-                    throw new QpdfCryptoException("--" + name);
+                    throw new QpdfCryptoException($"--{name}");
                 }
 
-                if (name == "file")
+                if (name is "file")
                 {
                     if (file is not null)
                     {
@@ -3855,7 +3861,7 @@ internal static class ArgvParser
                     continue;
                 }
 
-                if (name == "range")
+                if (name is "range")
                 {
                     if (file is null)
                     {
@@ -3868,7 +3874,7 @@ internal static class ArgvParser
                     continue;
                 }
 
-                throw new QpdfParseException($"Unsupported option '--{name}' in the narrow selection profile.", i, null);
+                throw new QpdfParseException($"Unsupported option '--{ErrorPreview(name)}' in the narrow selection profile.", i, null);
             }
 
             if (file is null)
@@ -4084,7 +4090,7 @@ internal static class ArgvParser
             ReadOnlySpan<char> item = value.Slice(start, end - start);
             if (item.Length == 0 || item.Length > 10)
             {
-                throw new QpdfParseException($"Invalid --collate value '{value}': expected n[,m,...].", offset, null);
+                throw new QpdfParseException($"Invalid --collate value '{ErrorPreview(value)}': expected n[,m,...].", offset, null);
             }
 
             long size = 0L;
@@ -4092,7 +4098,7 @@ internal static class ArgvParser
             {
                 if (digit < '0' || digit > '9')
                 {
-                    throw new QpdfParseException($"Invalid --collate value '{value}': expected n[,m,...].", offset, null);
+                    throw new QpdfParseException($"Invalid --collate value '{ErrorPreview(value)}': expected n[,m,...].", offset, null);
                 }
 
                 size = checked(size * 10L + (digit - '0'));
@@ -4100,7 +4106,7 @@ internal static class ArgvParser
 
             if (size > int.MaxValue)
             {
-                throw new QpdfParseException($"Invalid --collate value '{value}': group size is too large.", offset, null);
+                throw new QpdfParseException($"Invalid --collate value '{ErrorPreview(value)}': group size is too large.", offset, null);
             }
 
             owner.Add(sizes, (int)size);

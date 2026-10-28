@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Avoid input-sized argv option-name copies and bound echoed command error text
+  before formatting, retaining useful terminal failures under tight allowances.
 - Prevent input/output host lease leaks when allocation fails during acquisition,
   including the first completed call; retain actual OOM propagation and cleanup.
 - Reject undefined typed inspection decode levels before host access rather than

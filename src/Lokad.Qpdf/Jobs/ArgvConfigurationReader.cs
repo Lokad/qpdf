@@ -32,15 +32,16 @@ internal static class ArgvConfigurationReader
                 cursor++;
                 continue;
             }
-            string name = ArgvParser.OptionName(token);
+            ReadOnlySpan<char> name = ArgvParser.OptionName(token);
             if (global && !IsGlobal(name)) { throw Invalid("Only global options may appear in --global.", cursor); }
             if (IsGlobal(name))
             {
                 // The existing main-context extension accepts each global
                 // setting once. Native --global blocks retain setter semantics.
-                if (!global && !mainGlobals.Add(name)) { throw Invalid("Duplicate global option outside --global.", cursor); }
-                object value = name == "no-default-limits" ? Bare(token, cursor) : Value(argv, ref cursor, null);
-                setting("global", new Dictionary<string, object> { [Key(name)] = value });
+                string key = Key(name);
+                if (!global && !mainGlobals.Add(key)) { throw Invalid("Duplicate global option outside --global.", cursor); }
+                object value = name is "no-default-limits" ? Bare(token, cursor) : Value(argv, ref cursor, null);
+                setting("global", new Dictionary<string, object> { [key] = value });
                 cursor++;
                 continue;
             }
@@ -72,12 +73,12 @@ internal static class ArgvConfigurationReader
                 case "overlay":
                 case "underlay":
                     _ = Bare(token, cursor);
-                    OverlaySpec overlay = ArgvParser.ParseOverlayBlock(argv, ref cursor, name == "underlay");
+                    OverlaySpec overlay = ArgvParser.ParseOverlayBlock(argv, ref cursor, name is "underlay");
                     Dictionary<string, object> overlayFields = new() { ["file"] = overlay.File };
                     Optional(overlayFields, "to", overlay.To);
                     Optional(overlayFields, "from", overlay.From);
                     Optional(overlayFields, "repeat", overlay.Repeat);
-                    setting(name, new[] { overlayFields });
+                    setting(name is "underlay" ? "underlay" : "overlay", new[] { overlayFields });
                     continue;
                 case "add-attachment":
                     _ = Bare(token, cursor);
@@ -149,7 +150,7 @@ internal static class ArgvConfigurationReader
             if (IsBare(name))
             {
                 object value = Bare(token, cursor);
-                if (name == "remove-page-labels") { value = true; }
+                if (name is "remove-page-labels") { value = true; }
                 setting(Key(name), value);
                 cursor++;
                 continue;
@@ -206,7 +207,7 @@ internal static class ArgvConfigurationReader
         return argv[cursor];
     }
 
-    private static string Key(string name)
+    private static string Key(ReadOnlySpan<char> name)
     {
         char[] key = new char[name.Length];
         int count = 0;
@@ -220,18 +221,18 @@ internal static class ArgvConfigurationReader
         return new string(key, 0, count);
     }
 
-    private static bool IsGlobal(string name)
+    private static bool IsGlobal(ReadOnlySpan<char> name)
         => name is "max-stream-filters" or "parser-max-nesting" or "parser-max-errors"
             or "parser-max-container-size" or "parser-max-container-size-damaged" or "no-default-limits";
 
-    private static bool HasValue(string name)
+    private static bool HasValue(ReadOnlySpan<char> name)
         => name is "compression-level" or "jpeg-quality" or "force-version" or "ii-min-bytes"
             or "keep-files-open-threshold" or "min-version" or "oi-min-area" or "oi-min-height" or "oi-min-width"
             or "show-attachment" or "show-object" or "linearize-pass1" or "update-from-json" or "json-stream-prefix"
             or "decode-level" or "flatten-annotations" or "json-stream-data"
             or "normalize-content" or "object-streams" or "remove-unreferenced-resources" or "stream-data";
 
-    private static bool IsBare(string name)
+    private static bool IsBare(ReadOnlySpan<char> name)
         => name is "check" or "check-linearization" or "coalesce-contents" or "deterministic-id"
             or "externalize-inline-images" or "filtered-stream-data" or "flatten-rotation" or "generate-appearances"
             or "ignore-xref-streams" or "json-input" or "keep-inline-images" or "linearize" or "list-attachments"

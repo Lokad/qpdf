@@ -14,6 +14,14 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Argv option recognition borrows names instead of copying arbitrary caller text.
+Command parse errors clip echoed argument values and option names to at most 128
+UTF-16 units plus `...`, without splitting a surrogate pair. This intentionally
+shortens large error messages before formatting; short errors, argument positions,
+crypto rejection and error codes are unchanged. A useful terminal failure remains
+available outside ordinary diagnostic quotas, including after memory refusal.
+Public signatures and output publication guarantees are unchanged.
+
 Host input/output acquisition creates its wrapper before calling the host and
 returns completed host operations directly. This closes an allocation-failure
 window that could leave a returned raw lease undisposed, including on first use.
