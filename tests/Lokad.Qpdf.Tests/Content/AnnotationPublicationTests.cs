@@ -65,7 +65,9 @@ public sealed class AnnotationPublicationTests
         }
         host.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Transfer);
         host.AddInput(QpdfPath.From("payload"), "abc"u8.ToArray(), QpdfInputOwnership.Transfer);
-        host.AddInput(QpdfPath.From("overlay"), mode == "merge" ? FormMergeStorageTests.Fixture(new string('F', 32768), true) : mode.StartsWith("overlay-form", StringComparison.Ordinal) ? OverlayFormStorageTests.Fixture() : FlattenResourceStorageTests.Fixture(4, false), QpdfInputOwnership.Transfer);
+        host.AddInput(QpdfPath.From("overlay"), mode == "overlay-form-indirect"
+            ? OverlayDefaultTests.Fixture("/DA 9 0 R /Q 10 0 R /NeedAppearances 11 0 R", "(/F1 18 Tf 0.5 g)", "2", "true", false, "LIVE")
+            : mode == "merge" ? FormMergeStorageTests.Fixture(new string('F', 32768), true) : mode.StartsWith("overlay-form", StringComparison.Ordinal) ? OverlayFormStorageTests.Fixture() : FlattenResourceStorageTests.Fixture(4, false), QpdfInputOwnership.Transfer);
         QpdfPath initialPath = mode.StartsWith("split-max", StringComparison.Ordinal) || mode.StartsWith("os-split", StringComparison.Ordinal) ? QpdfPath.From("output-1") : Output;
         await using IQpdfOutputTransaction initial = await host.CreateOutputAsync(initialPath, CancellationToken.None);
         await initial.WriteAsync(new byte[] { 17, 23, 41 }, CancellationToken.None); await initial.CommitAsync(CancellationToken.None);
@@ -107,7 +109,7 @@ public sealed class AnnotationPublicationTests
             : mode == "catalog-extras" ? Qpdf.ExecuteAsync(host, new(["input", "--pages", ".", "1,1", "--", "--rotate=+90:2", "output"]), token)
             : mode == "catalog-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","pages":[{"file":".","range":"1"}],"addAttachment":[{"file":"payload"}]}""", token)
             : mode == "catalog" ? Qpdf.ExecuteAsync(host, new(["input", "--pages", ".", "1", "--", "--add-attachment", "payload", "--", "output"]), token)
-            : mode == "overlay-form-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","overlay":{"file":"overlay"}}""", token)
+            : mode is "overlay-form-job" or "overlay-form-indirect" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","overlay":{"file":"overlay"}}""", token)
             : mode is "generate-job" or "generate-text-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","generateAppearances":true}""", token)
             : Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(mode == "merge" ? ["input", "--pages", ".", "1", "overlay", "1", "--", "output"] : mode is "overlay" or "overlay-form"
             ? ["input", "--overlay", "overlay", "--", "output"]
@@ -154,6 +156,7 @@ public sealed class AnnotationPublicationTests
     [InlineData("overlay")]
     [InlineData("overlay-form")]
     [InlineData("overlay-form-job")]
+    [InlineData("overlay-form-indirect")]
     [InlineData("coalesce")]
     [InlineData("normalize")]
     [InlineData("externalize")]
@@ -203,6 +206,11 @@ public sealed class AnnotationPublicationTests
     }
 
     [Theory]
+    [InlineData("create", "overlay-form-indirect")]
+    [InlineData("write", "overlay-form-indirect")]
+    [InlineData("commit", "overlay-form-indirect")]
+    [InlineData("cancel", "overlay-form-indirect")]
+    [InlineData("close", "overlay-form-indirect")]
     [InlineData("create", "form-indirect-generate")]
     [InlineData("write", "form-indirect-generate")]
     [InlineData("commit", "form-indirect-generate")]

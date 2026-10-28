@@ -14,6 +14,15 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Overlay and underlay widget imports resolve indirect form `/DA`, `/Q` and
+`/NeedAppearances` defaults, and compare imported defaults against resolved
+destination values. Equivalent direct and indirect defaults now preserve the
+same effective appearance, alignment and refresh flag. Field-local overrides
+retain precedence. Previously indirect source defaults silently fell back to
+empty appearance, left alignment and false. Malformed-value fallbacks, resource
+renaming, independent placements and output rollback remain; public signatures
+are unchanged. These corrected semantics agree with native qpdf.
+
 Appearance generation and annotation flattening resolve indirect AcroForm
 `/NeedAppearances` booleans before choosing their behavior. Indirect true now
 refreshes appearances when requested and otherwise keeps widgets with the same

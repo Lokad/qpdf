@@ -1375,7 +1375,7 @@ public static partial class Qpdf
             : Content.AcroFormCopy.Combine(renameForms, governor, selectionMemory, cancellationToken);
         if (multiCombined is not null && overlayApplied.FieldImports.Count > 0)
         {
-            (PdfByteString? multiDestAppearance, int? multiDestQuadding) = Content.AcroFormCopy.ReadMergedDefaults(multiCombined);
+            (PdfByteString? multiDestAppearance, int? multiDestQuadding) = Content.AcroFormCopy.ReadMergedDefaults(multiCombined, pool, governor, cancellationToken);
             int importAllocator = 1;
             foreach (int id in pool.Keys)
             {

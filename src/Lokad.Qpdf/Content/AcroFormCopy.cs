@@ -308,7 +308,7 @@ internal static class AcroFormCopy
 
         if (overlayImports.Count > 0)
         {
-            (PdfByteString? destAppearance, int? destQuadding) = ReadMergedDefaults(combined);
+            (PdfByteString? destAppearance, int? destQuadding) = ReadMergedDefaults(combined, pool, governor, cancellationToken);
             int allocator = 1;
             foreach (int id in pool.Keys)
             {
@@ -781,11 +781,12 @@ internal static class AcroFormCopy
         bool hasFields = PdfDictionaryLookup.TryGet(source, "Fields"u8, governor, cancellationToken, out QpdfObject fieldsRaw)
             && fieldsRaw is not PdfNull;
         PdfByteString appearance = PdfDictionaryLookup.TryGet(source, "DA"u8, governor, cancellationToken, out QpdfObject daRaw)
-            && daRaw is PdfByteString da ? da : EmptyAppearance;
+            && CatalogCopy.ResolveValue(daRaw, engine, governor, cancellationToken) is PdfByteString da ? da : EmptyAppearance;
         int quadding = PdfDictionaryLookup.TryGet(source, "Q"u8, governor, cancellationToken, out QpdfObject qRaw)
-            && qRaw is PdfInteger q && q.Value is >= int.MinValue and <= int.MaxValue ? (int)q.Value : 0;
+            && CatalogCopy.ResolveValue(qRaw, engine, governor, cancellationToken) is PdfInteger q
+            && q.Value is >= int.MinValue and <= int.MaxValue ? (int)q.Value : 0;
         bool need = PdfDictionaryLookup.TryGet(source, "NeedAppearances"u8, governor, cancellationToken, out QpdfObject needRaw)
-            && needRaw is PdfBoolean flag && flag.Value;
+            && CatalogCopy.ResolveValue(needRaw, engine, governor, cancellationToken) is PdfBoolean flag && flag.Value;
         QpdfObject? resources = PdfDictionaryLookup.TryGet(source, "DR"u8, governor, cancellationToken, out QpdfObject drRaw)
             && drRaw is not PdfNull ? drRaw : null;
         (HashSet<int> reached, bool fieldsNotArray, bool hasDirectNodes) = CollectReachedFieldObjects(
@@ -848,21 +849,29 @@ internal static class AcroFormCopy
     /// form extras, so overlay imports compare against the destination values
     /// the reference would inherit. Absent or mistyped entries yield null.
     /// </summary>
-    internal static (PdfByteString? Appearance, int? Quadding) ReadMergedDefaults(CopiedForm combined)
+    internal static (PdfByteString? Appearance, int? Quadding) ReadMergedDefaults(CopiedForm combined,
+        IReadOnlyDictionary<int, QpdfObject> pool, ResourceGovernor governor, CancellationToken token)
     {
         if (combined is null)
         {
             throw new ArgumentNullException(nameof(combined));
         }
 
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         PdfByteString? appearance = null;
         int? quadding = null;
-        if (combined.Extras.TryGetValue(PdfName.FromAscii("DA"), out QpdfObject? appearanceRaw) && appearanceRaw is PdfByteString appearanceBytes)
+        combined.Extras.TryGetValue(PdfName.FromAscii("DA"), out QpdfObject? appearanceRaw);
+        if (appearanceRaw is PdfReference appearanceReference)
+        { PdfObjectLookup.TryResolve(appearanceReference, pool, governor, token, out appearanceRaw); }
+        combined.Extras.TryGetValue(PdfName.FromAscii("Q"), out QpdfObject? quaddingRaw);
+        if (quaddingRaw is PdfReference quaddingReference)
+        { PdfObjectLookup.TryResolve(quaddingReference, pool, governor, token, out quaddingRaw); }
+        if (appearanceRaw is PdfByteString appearanceBytes)
         {
             appearance = appearanceBytes;
         }
 
-        if (combined.Extras.TryGetValue(PdfName.FromAscii("Q"), out QpdfObject? quaddingRaw) && quaddingRaw is PdfInteger quaddingInteger
+        if (quaddingRaw is PdfInteger quaddingInteger
             && quaddingInteger.Value >= int.MinValue && quaddingInteger.Value <= int.MaxValue)
         {
             quadding = (int)quaddingInteger.Value;

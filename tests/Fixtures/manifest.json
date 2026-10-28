@@ -531,6 +531,78 @@
       "headerVersion": "1.4",
       "valid": true,
       "description": "Merged text widget at generation 2; overlay/underlay copying must register Field=kept."
+    },
+    {
+      "file": "form-defaults-direct.pdf",
+      "sha256": "3a0ea4829ecbd1eb9e5d553e618b8ee5c07ce652fbcca7319a2c91f223cae0a5",
+      "bytes": 1156,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Direct form appearance, right alignment and refresh defaults."
+    },
+    {
+      "file": "form-defaults-indirect-da.pdf",
+      "sha256": "7021789c9b0d24f38f0432ca6adeea2998ccd0cd4b7bc3ac9146204a84dc8257",
+      "bytes": 1144,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Indirect form default appearance, otherwise direct defaults."
+    },
+    {
+      "file": "form-defaults-indirect-q.pdf",
+      "sha256": "60c8f7097c2aacbc50850530da6e8af1efe48843c00b9c90674ac1f3b39aa527",
+      "bytes": 1161,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Indirect form right alignment, otherwise direct defaults."
+    },
+    {
+      "file": "form-defaults-indirect-need.pdf",
+      "sha256": "822565dadf3dc2a187ffa3f6f9319ddea81a777fdc0312eceab0096d05217fcd",
+      "bytes": 1158,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Indirect true form appearance-refresh flag, otherwise direct defaults."
+    },
+    {
+      "file": "form-defaults-all-indirect.pdf",
+      "sha256": "8ddd22aec1f9f1c3a26cc3b4cabbc1c132ea48ab6df6a9d71ff2a0ee1da1dcf1",
+      "bytes": 1151,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Indirect appearance, right alignment and refresh defaults."
+    },
+    {
+      "file": "form-defaults-field-overrides.pdf",
+      "sha256": "6a6399f7247dbafa7e3a3394af3af0141600498275a4b5b4352de5dfbcc99d02",
+      "bytes": 1174,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Field-local appearance and alignment override indirect form defaults."
+    },
+    {
+      "file": "form-defaults-stale-direct.pdf",
+      "sha256": "21c993c692432c9539b993ec6d004865aef2142972f37f75ea187af5a7187724",
+      "bytes": 1156,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Current field value LIVE, stale kept appearance, direct true refresh flag."
+    },
+    {
+      "file": "form-defaults-stale-indirect.pdf",
+      "sha256": "1c92843c93c7a9cab18d3d5cb91625bdd4e10c28527b0155d94ac7a162058ec4",
+      "bytes": 1158,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Current field value LIVE, stale kept appearance, indirect true refresh flag."
     }
   ]
 }

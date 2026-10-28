@@ -3043,17 +3043,17 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
-            "FormNeedAppearancesTests.DirectAndIndirectTrueKeepCurrentValues",
-            "FlattenAnnotationsTests.StampTextAnnotationOnTop",
+          "FormNeedAppearancesTests.DirectAndIndirectTrueKeepCurrentValues",
+          "FlattenAnnotationsTests.StampTextAnnotationOnTop",
           "FlattenAnnotationsTests.PrintModeFiltersOnFlag",
           "FlattenAnnotationsTests.UncheckedCheckboxIsDropped",
           "FlattenAnnotationsTests.MergeThenFlattenAppliesToFinalPages",
           "FlattenAnnotationsTests.WidgetAppearanceWithDrFontStampsVerbatim"
         ],
         "negative": [
-            "FlattenAnnotationsTests.MalformedFlattenFlagsFail",
-            "FormNeedAppearancesTests.UnusableOrFalseFlagsKeepTheExistingFlattenFallback",
-            "FormNeedAppearancesTests.MissingFlagObjectStillFailsBeforePublication"
+          "FlattenAnnotationsTests.MalformedFlattenFlagsFail",
+          "FormNeedAppearancesTests.UnusableOrFalseFlagsKeepTheExistingFlattenFallback",
+          "FormNeedAppearancesTests.MissingFlagObjectStillFailsBeforePublication"
         ],
         "interaction": [
           "FlattenAnnotationsTests.JobRoundTripMatchesArgv"
@@ -3064,7 +3064,8 @@
         "oracle": [
           "diff:forms",
           "diff:forms-preserve",
-          "diff:flatten-dr"
+          "diff:flatten-dr",
+          "diff:form-defaults"
         ]
       }
     },
@@ -3182,8 +3183,8 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
-            "FormNeedAppearancesTests.DirectAndIndirectTrueKeepCurrentValues",
-            "GenerateAppearancesTests.TextFieldAppearanceRegeneratesValue",
+          "FormNeedAppearancesTests.DirectAndIndirectTrueKeepCurrentValues",
+          "GenerateAppearancesTests.TextFieldAppearanceRegeneratesValue",
           "GenerateAppearancesTests.MissingAppearanceIsCreated",
           "GeneratedGeometryTests.GeneratedCoordinatesRemainReadableAfterDocumentsAndHostClose",
           "GenerateAppearancesTests.CheckboxSynchronizesState",
@@ -3227,7 +3228,8 @@
           "diff:dr-merge",
           "diff:parent-held",
           "diff:generate-radio",
-          "diff:generate-unreachable"
+          "diff:generate-unreachable",
+          "diff:form-defaults"
         ]
       }
     },
@@ -4644,11 +4646,15 @@
           "OverlayTests.OverlayWidgetCycleWarnsAndStaysValid",
           "OverlayTests.OverlayWidgetMissingKidParentCorrectedWithWarning",
           "OverlayGenerationTests.StalePairsStayNullAndLiveSharingStaysWithinItsPlacement",
-          "OverlayGenerationTests.FieldRegistrationRetainsSourceIdentityAcrossParentsAndPlacements"
+          "OverlayGenerationTests.FieldRegistrationRetainsSourceIdentityAcrossParentsAndPlacements",
+          "OverlayDefaultTests.ImportedDefaultsRetainEffectiveValues",
+          "OverlayDefaultTests.IndirectDestinationDefaultsDoNotOverrideImportedValues",
+          "OverlayDefaultTests.EqualIndirectDestinationDefaultsAvoidRedundantFieldOverrides"
         ],
         "negative": [
           "OverlayTests.MalformedOverlayFlagsFail",
-          "OverlayTests.RangedOverlayFlagsFail"
+          "OverlayTests.RangedOverlayFlagsFail",
+          "OverlayDefaultTests.UnusableDefaultsKeepFallbacksAndLocalOverrides"
         ],
         "interaction": [
           "OverlayTests.JobRoundTripMatchesArgv",
@@ -4666,7 +4672,8 @@
           "diff:overlay-widgets",
           "diff:overlay-widgets-dr",
           "diff:overlay-widgets-repeat",
-          "diff:overlay-generations"
+          "diff:overlay-generations",
+          "diff:form-defaults"
         ]
       }
     },
@@ -6366,10 +6373,14 @@
           "ResourceEnforcementTests.OverlayAnnotationsYieldToExhaustedBudget",
           "OverlayTests.UnderlayWidgetImportsField",
           "OverlayGenerationTests.StalePairsStayNullAndLiveSharingStaysWithinItsPlacement",
-          "OverlayGenerationTests.FieldRegistrationRetainsSourceIdentityAcrossParentsAndPlacements"
+          "OverlayGenerationTests.FieldRegistrationRetainsSourceIdentityAcrossParentsAndPlacements",
+          "OverlayDefaultTests.ImportedDefaultsRetainEffectiveValues",
+          "OverlayDefaultTests.IndirectDestinationDefaultsDoNotOverrideImportedValues",
+          "OverlayDefaultTests.EqualIndirectDestinationDefaultsAvoidRedundantFieldOverrides"
         ],
         "negative": [
-          "OverlayTests.OverlayPasswordIsCrypto"
+          "OverlayTests.OverlayPasswordIsCrypto",
+          "OverlayDefaultTests.UnusableDefaultsKeepFallbacksAndLocalOverrides"
         ],
         "interaction": [
           "OverlayTests.WholeFileJobOverlay"
@@ -6385,7 +6396,8 @@
           "diff:overlay-widgets",
           "diff:overlay-widgets-dr",
           "diff:overlay-widgets-repeat",
-          "diff:overlay-generations"
+          "diff:overlay-generations",
+          "diff:form-defaults"
         ]
       }
     },

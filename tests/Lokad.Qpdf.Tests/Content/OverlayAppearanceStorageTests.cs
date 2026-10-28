@@ -8,17 +8,22 @@ namespace Lokad.Qpdf.Tests.Content;
 
 public sealed class OverlayAppearanceStorageTests
 {
-    [Fact]
-    public async Task CatalogDefaultsBorrowFundedBytesAndHonorCancellation()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CatalogDefaultsBorrowFundedBytesAndHonorCancellation(bool indirect)
     {
         byte[] raw = new byte[2 * 1024 * 1024]; Array.Fill(raw, (byte)' ');
         var objects = Inspection.CheckTests.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray());
-        objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [] /DA <" + Convert.ToHexString(raw) + "> >> >>", null);
+        string program = "<" + Convert.ToHexString(raw) + ">";
+        objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [] /DA " + (indirect ? "6 0 R" : program) + " >> >>", null);
+        if (indirect) { objects.Add((6, program, null)); }
         using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), Inspection.CheckTests.Assemble(objects, 1), QpdfInputOwnership.Transfer);
         PdfByteString borrowed;
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input"), CancellationToken.None))
         {
             _ = document.GetObject(1);
+            if (indirect) { _ = document.GetObject(6); }
             QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 1024L };
             ResourceGovernor governor = new(limits, CancellationToken.None);
             using ParserMemoryScope planning = ParserMemoryScope.Create(governor);
@@ -27,10 +32,13 @@ public sealed class OverlayAppearanceStorageTests
             Assert.NotNull(source); borrowed = Assert.IsType<PdfByteString>(source.DefaultAppearance);
             Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 65536L);
             Assert.True(governor.Snapshot().LiveMemoryBytes > 0L);
-            CopiedForm combined = new([], false, false, false, null, false, [], new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("DA")] = borrowed });
-            Assert.Same(borrowed, AcroFormCopy.ReadMergedDefaults(combined).Appearance);
+            Dictionary<int, QpdfObject> pool = new() { [6] = borrowed };
+            CopiedForm combined = new([], false, false, false, null, false, [], new Dictionary<PdfName, QpdfObject>
+                { [PdfName.FromAscii("DA")] = indirect ? new PdfReference(6, 0) : borrowed });
+            Assert.Same(borrowed, AcroFormCopy.ReadMergedDefaults(combined, pool, governor, CancellationToken.None).Appearance);
             using CancellationTokenSource cancellation = new(); cancellation.Cancel();
             Assert.ThrowsAny<OperationCanceledException>(() => AcroFormCopy.TryReadOverlaySourceForm(document.Engine, limits, governor, planning, cancellation.Token));
+            Assert.ThrowsAny<OperationCanceledException>(() => AcroFormCopy.ReadMergedDefaults(combined, pool, governor, cancellation.Token));
         }
         Assert.Equal(raw, borrowed.ValueSpan.ToArray());
     }
