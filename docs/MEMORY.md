@@ -16,6 +16,13 @@ finishes. Preservation reuses its cycle set instead of allocating one per page.
 Copied graph pool tables and page-child backing stay funded through publication.
 Returned immutable selection metadata keeps its separate caller ownership.
 
+Unreferenced preservation admits its candidate list and uses the same copy-table
+growth as ordinary copying. One reusable list records new source identities for
+the current candidate, allowing linear rollback without scanning earlier copies.
+Both lists refund after preservation. Split retention IDs use the existing group
+owner; ordinary output builds no discarded return set. Failed graph estimates
+remain within the copy phase's coarse owner until that phase closes.
+
 `IMemoryBudget`, `IMemoryScope` and `IMemoryReservation` let a host expose its
 shared memory allowance without adding a runtime package dependency. A library
 adapter forwards to the host's allowance; scopes introduce owners, not separate

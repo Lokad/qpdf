@@ -14,6 +14,18 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Unreferenced-object preservation reuses objects already copied through an earlier
+root, retaining shared references and cycles without duplicate stream payloads.
+Failed candidates retire their new mappings and copied descendants before
+continuing, so skipped objects no longer leave split output with unresolved IDs.
+Candidate storage and copy-table growth receive coarse memory admission; tight
+jobs can now refuse earlier. Ordinary output omits the unused preservation-ID
+set; split output keeps its existing retained roots. Managed split preservation
+intentionally keeps unreferenced objects in every group, while native qpdf drops
+them. Contained-copy exclusions, aggregate warnings, cancellation and publication
+rollback remain; public signatures are unchanged. Strict loading errors remain
+fatal; repair mode and recoverable contained-copy failures keep their policies.
+
 Overlay and underlay widget imports resolve indirect form `/DA`, `/Q` and
 `/NeedAppearances` defaults, and compare imported defaults against resolved
 destination values. Equivalent direct and indirect defaults now preserve the
@@ -953,7 +965,7 @@ failure behavior; the tables below highlight differences important to callers.
 | Appearances/content | Parent-held radios may skip; signature fields skip and pushbuttons warn. Wider/conflicting resource lookup is limited. Damaged content, boxes, appearances or indirect annotations warn and preserve originals or skip transformations rather than emitting native's partial result. |
 | Labels/attachments | Malformed label trees fail instead of warning. Attachment dates are omitted unless supplied; names use ASCII/UTF-16 encoding and rebuilt trees use one flat name array. Empty attachment-copy prefixes reject instead of copying unchanged. |
 | PDF JSON | Import/update accepts generation 0 only, rejects pushed inherited attributes, and excludes stream/metadata writer combinations. Version 1 ignores stream payloads; `--json-output=1` rejects. Creation/update renumbers output to classic files. Unlike native qpdf 12.4.2, malformed, mistyped and unsupported catalog `/Version` values reject before output opens, including indirect values; this avoids publishing PDFs the managed reader cannot open. Dangling imported references still normalize to null. Valid catalog overrides remain intact even when `--force-version` lowers the JSON output header. |
-| Unreferenced objects | Copy order and container handling can differ; object/xref-stream members are preserved through rebuilt containers. Unloadable objects skip under one aggregated warning instead of failing the job. |
+| Unreferenced objects | Copy order and container handling can differ; object/xref-stream members are preserved through rebuilt containers. Unresolvable roots and contained-copy failures skip under one aggregated warning; strict load errors remain fatal. Managed split output retains preserved roots that native split omits. |
 | Companions | `FixQdfAsync` requires LF outer syntax and rejects empty/truncated structures and nonsequential numbering; binary stream/xref carriage returns are preserved. `RunZlibFlateAsync` rejects truncation instead of returning partial output, and accepts compression levels 1–9 only. |
 | Linearization checking | Physical defects fail with exit 2 where native may warn with exit 3. Show-linearization retains parsed raw fields on physical failure. |
 

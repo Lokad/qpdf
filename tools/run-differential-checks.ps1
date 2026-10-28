@@ -1369,6 +1369,9 @@ Assert-Trio 'job-file' "$case/lib.pdf" "$case/ora.pdf" 1
 # --- case: direct/indirect form defaults and stale-appearance protection ---
 & (Join-Path $PSScriptRoot 'compare-form-defaults.ps1') -QpdfExe $QpdfExe -ProbeDll $probeDll -WorkRoot (Join-Path $diffRoot 'form-defaults') -FixtureDirectory $fixtureDir
 
+# --- case: preserved object sharing, cycles and recoverable copy failures ---
+& (Join-Path $PSScriptRoot 'compare-preservation.ps1') -QpdfExe $QpdfExe -ProbeDll $probeDll -WorkRoot (Join-Path $diffRoot 'preservation') -FixtureDirectory $fixtureDir
+
 # --- case: binary-inspection (actual bytes, channels, defaults and staged failures) ---
 & (Join-Path $PSScriptRoot 'compare-binary-inspections.ps1') -QpdfExe $QpdfExe -ProbeDll $probeDll -WorkRoot (Join-Path $diffRoot 'binary-inspections')
 

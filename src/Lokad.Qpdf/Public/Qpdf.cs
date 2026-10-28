@@ -378,7 +378,7 @@ public static partial class Qpdf
                     {
                         using ParserMemoryScope preservation = ParserMemoryScope.Create(governor);
                         HashSet<int> excluded = PreservationExclusions(document.Engine, kept, limits, governor, preservation, cancellationToken);
-                        copier.PreserveUnreferencedObjects(document.Engine, excluded, diagnostics, cancellationToken);
+                        copier.PreserveUnreferencedObjects(document.Engine, excluded, diagnostics, null, cancellationToken);
                     }
 
                     (PdfReference? singleInfo, PdfReference? singleMetadata) = CopyCatalogExtras(copier, document.Engine, settings.RemoveInfo, settings.RemoveMetadata, diagnostics);
@@ -922,7 +922,8 @@ public static partial class Qpdf
         int inputExtension = 0;
         byte[]? originalId1 = null;
         List<HashSet<int>> sourceCompressed = ParserContainers.CreateList<HashSet<int>>(selectionMemory, sources.Count, IntPtr.Size);
-        HashSet<int> allPreserved = ParserContainers.CreateSet<int>(selectionMemory);
+        HashSet<int>? allPreserved = settings.PreserveUnreferenced && splitPages.HasValue
+            ? ParserContainers.CreateSet<int>(selectionMemory) : null;
         List<Content.CopiedForm?> multiForms = ParserContainers.CreateList<Content.CopiedForm?>(selectionMemory, sources.Count, IntPtr.Size);
         List<Content.CopiedForm?> gateForms = ParserContainers.CreateList<Content.CopiedForm?>(selectionMemory, sources.Count, IntPtr.Size);
         List<Content.SourceLabels?> multiLabels = ParserContainers.CreateList<Content.SourceLabels?>(selectionMemory, sources.Count, IntPtr.Size);
@@ -1023,10 +1024,7 @@ public static partial class Qpdf
                 {
                     using ParserMemoryScope preservation = ParserMemoryScope.Create(governor);
                     HashSet<int> excluded = PreservationExclusions(document.Engine, kept, limits, governor, preservation, cancellationToken);
-                    foreach (int preserved in copier.PreserveUnreferencedObjects(document.Engine, excluded, diagnostics, cancellationToken))
-                    {
-                        ParserContainers.AddSetItem(selectionMemory, allPreserved, preserved, sizeof(int));
-                    }
+                    copier.PreserveUnreferencedObjects(document.Engine, excluded, diagnostics, allPreserved, cancellationToken);
                 }
 
                 Content.CopiedForm? sourceForm = settings.RemoveAcroform
@@ -1528,10 +1526,13 @@ public static partial class Qpdf
                 }
             }
 
-            foreach (int id in allPreserved)
+            if (allPreserved is not null)
             {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                ParserContainers.AddItem(groupMemory, roots, id, sizeof(int));
+                foreach (int id in allPreserved)
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    ParserContainers.AddItem(groupMemory, roots, id, sizeof(int));
+                }
             }
             foreach (int id in catalogExtraIds)
             {

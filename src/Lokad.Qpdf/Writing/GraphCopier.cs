@@ -35,12 +35,13 @@ internal sealed class GraphCopier
     private readonly ParserMemoryScope _ownership;
     private int _nextId;
     private int _rootPageNumber = -1;
+    private List<int>? _preservationSources;
 
     internal static GraphCopier CreateOwned(DocumentEngine engine, ResourceGovernor governor,
         QpdfLimits limits, int firstId, ParserMemoryScope ownership)
     {
         ownership.CheckOwner(governor);
-        ownership.Reserve(80L);
+        ownership.Reserve(88L);
         return new GraphCopier(engine, governor, limits, firstId, ownership);
     }
 
@@ -97,6 +98,8 @@ internal sealed class GraphCopier
             // Keys identify source objects. Duplicate destination pages do not
             // increase this cardinality; their separate map keeps normal growth.
             ParserContainers.EnsureEntryCapacity(_ownership, _mapping, sizeof(int), _sourceObjectCount);
+            if (_preservationSources is not null)
+            { ParserContainers.AddItem(_ownership, _preservationSources, source, sizeof(int)); }
         }
         _mapping[source] = destination;
     }
@@ -258,21 +261,24 @@ internal sealed class GraphCopier
 
     /// <summary>
     /// Copies every input object that page selection did not reach, in
-    /// ascending original object-number order, returning the new destination
-    /// numbers. Shares the memoized copier so references into the selected
+    /// ascending original object-number order. Optionally collects new roots
+    /// for split output in a set funded by the copier's owner. Shares the
+    /// memoized copier so references into the selected
     /// graph remap and omitted pages still prune to null. Rebuilt roots
     /// (the input catalog plus the selected page-tree chain, supplied as
     /// excluded identities) are skipped, and object/xref-stream containers
     /// are skipped while their members travel through decoded values, so
     /// detached pages, detached trees, orphan dictionaries and orphan
-    /// streams all survive as loose objects. Objects that fail to load or
-    /// copy are skipped under one aggregated warning. Call only when the
+    /// streams all survive as loose objects. Unresolvable roots and objects
+    /// rejected during contained copying are skipped under one aggregated
+    /// warning; strict load failures remain errors. Call only when the
     /// validated plan requests preservation.
     /// </summary>
-    internal HashSet<int> PreserveUnreferencedObjects(
+    internal void PreserveUnreferencedObjects(
         DocumentEngine engine,
         IReadOnlySet<int> excluded,
         DiagnosticBag diagnostics,
+        HashSet<int>? preserved,
         CancellationToken cancellationToken)
     {
         if (engine is null)
@@ -290,7 +296,9 @@ internal sealed class GraphCopier
             throw new ArgumentNullException(nameof(diagnostics));
         }
 
-        List<int> unmapped = new();
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(_governor);
+        scratch.Reserve(32L); // One temporary source reference at a time.
+        List<int> unmapped = ParserContainers.CreateList<int>(scratch);
         foreach (KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -305,49 +313,61 @@ internal sealed class GraphCopier
                 continue;
             }
 
-            unmapped.Add(entry.Key);
+            ParserContainers.AddItem(scratch, unmapped, entry.Key, sizeof(int));
         }
 
         unmapped.Sort();
-        HashSet<int> preserved = new();
         int skipped = 0;
         IIndirectResolver resolver = (IIndirectResolver)engine;
-        foreach (int number in unmapped)
+        List<int> candidateSources = ParserContainers.CreateList<int>(_ownership);
+        _preservationSources = candidateSources;
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            _governor.NoteOperation();
-            XrefEntry entry = engine.XRefEntries[number];
-            int generation = entry.Kind == XrefEntryKind.Uncompressed ? entry.Second : 0;
-            PdfReference reference = new(number, generation);
-            if (!resolver.TryResolve(reference, out QpdfObject? resolved) || resolved is null)
+            foreach (int number in unmapped)
             {
-                skipped += 1;
-                continue;
-            }
-
-            if (IsSkippedStructure(resolved, number, excluded))
-            {
-                continue;
-            }
-
-            try
-            {
-                int id = _nextId;
-                checked
+                cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+                if (_mapping.TryGetValue(number, out int existing))
                 {
-                    _nextId += 1;
+                    if (preserved is not null) { ParserContainers.AddSetItem(_ownership, preserved, existing, sizeof(int)); }
+                    continue;
                 }
-
-                _mapping[number] = id;
-                QpdfObject copied = CopyValue(resolved, 0);
-                _copied[id] = copied;
-                preserved.Add(id);
+                candidateSources.Clear();
+                XrefEntry entry = engine.XRefEntries[number];
+                int generation = entry.Kind == XrefEntryKind.Uncompressed ? entry.Second : 0;
+                PdfReference reference = new(number, generation);
+                if (!PdfObjectLookup.TryResolve(reference, resolver, _governor, cancellationToken, out QpdfObject? resolved) || resolved is null)
+                { skipped += 1; continue; }
+                if (IsSkippedStructure(resolved, number, excluded)) { continue; }
+                int firstId = _nextId;
+                try
+                {
+                    int id = _nextId;
+                    checked { _nextId += 1; }
+                    Map(number, id);
+                    QpdfObject copied = CopyValue(resolved, 0);
+                    cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+                    Store(id, copied);
+                    if (preserved is not null) { ParserContainers.AddSetItem(_ownership, preserved, id, sizeof(int)); }
+                }
+                catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException))
+                {
+                    // Complete descendants can refer back to this failed root.
+                    // Retire this whole attempt, keeping earlier shared copies.
+                    foreach (int source in candidateSources)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+                        if (_mapping.Remove(source, out int destination)) { _copied.Remove(destination); }
+                    }
+                    _nextId = firstId;
+                    skipped += 1;
+                }
             }
-            catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException))
-            {
-                _mapping.Remove(number);
-                skipped += 1;
-            }
+        }
+        finally
+        {
+            _preservationSources = null;
+            long listBytes = checked(32L + (candidateSources.Capacity == 0 ? 0L : 32L + sizeof(int) * (long)candidateSources.Capacity));
+            _ownership.Release(listBytes);
         }
 
         if (skipped == 1)
@@ -359,7 +379,6 @@ internal sealed class GraphCopier
             diagnostics.AddParts(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, ["Skipped ", skipped, " unpreservable objects."]);
         }
 
-        return preserved;
     }
 
     private static bool IsSkippedStructure(QpdfObject value, int number, IReadOnlySet<int> excluded)

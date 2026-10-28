@@ -4907,11 +4907,17 @@
           "PreserveUnreferencedTests.PreserveAcrossMergeKeepsPrimaryOrphans",
           "PreserveUnreferencedTests.PreserveEmptyMergeDropsOrphans",
           "PreserveUnreferencedTests.PreserveAcrossSplitKeepsOrphansPerGroup",
-          "PreserveUnreferencedTests.PreserveWithGenerateCompressesOrphans"
+          "PreserveUnreferencedTests.PreserveWithGenerateCompressesOrphans",
+          "PreservationGraphTests.PreservationKeepsOneCopyAndRetiresFailedCandidates",
+          "PreservationGraphTests.NonzeroAndStaleGenerationsKeepTheirIdentityPolicy",
+          "PreservationGraphTests.RollbackKeepsEarlierCopiesAndRetriesIndependentDescendants",
+          "PreservationGraphTests.StreamRewritingKeepsPreservedParametersAfterDisconnectingThem"
         ],
         "negative": [
           "PreserveUnreferencedTests.DefaultDropsUnreferencedObjects",
-          "PreserveUnreferencedTests.JobJsonInvalidValueFails"
+          "PreserveUnreferencedTests.JobJsonInvalidValueFails",
+          "PreservationAdmissionTests.CopyCollectionsRefuseBeforeLargeUnadmittedGrowth",
+          "PreservationAdmissionTests.EitherCancellationTokenStopsAfterResolvingTheLastCandidate"
         ],
         "interaction": [
           "PreserveUnreferencedTests.PreserveSkipsRebuiltRoots",
@@ -4919,10 +4925,14 @@
           "PreserveUnreferencedTests.JobJsonParityHolds"
         ],
         "resource": [
-          "PreserveUnreferencedTests.PreserveFailsOnExhaustedWorkBudget"
+          "PreserveUnreferencedTests.PreserveFailsOnExhaustedWorkBudget",
+          "PreservationAdmissionTests.SuccessfulScalarCopiesKeepTheirTableCapacityAdmitted",
+          "AnnotationPublicationTests.EverySharedGrowthCanRefuseWithoutPublishing",
+          "AnnotationPublicationTests.OutputFaultsRefundOwnersAndRespectCommit"
         ],
         "oracle": [
-          "diff:preserve-unreferenced"
+          "diff:preserve-unreferenced",
+          "diff:preservation"
         ]
       }
     },

@@ -603,6 +603,78 @@
       "headerVersion": "1.4",
       "valid": true,
       "description": "Current field value LIVE, stale kept appearance, indirect true refresh flag."
+    },
+    {
+      "file": "preservation-forward-sharing.pdf",
+      "sha256": "8c99126ade1580541424ba20faf4a735955120cf31ecda451f51808123937274",
+      "bytes": 608,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Unreferenced roots A and C share a later dictionary B."
+    },
+    {
+      "file": "preservation-backward-sharing.pdf",
+      "sha256": "7f6bc448d68ed2c67fe1fdeec14d050cf94d4d443b1f7f79dee9877c96dc47e9",
+      "bytes": 608,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Unreferenced roots A and C share an earlier dictionary B."
+    },
+    {
+      "file": "preservation-cycle.pdf",
+      "sha256": "11d2257c38e65547912649933c305df8ef03ca0a21a3029af8c92afe41b47949",
+      "bytes": 620,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Unreferenced A/B cycle with another root sharing B."
+    },
+    {
+      "file": "preservation-self-cycle.pdf",
+      "sha256": "9a5218068385e2a012e71eb950540cf8a4f95f0f5e17c8dc35084038c1b18cc4",
+      "bytes": 620,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Unreferenced self-cyclic B shared by two roots."
+    },
+    {
+      "file": "preservation-shared-stream.pdf",
+      "sha256": "c41693a51baefd64ff0be18da58f16319658b319ea345556c889b4243f1a94f2",
+      "bytes": 21121,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Two unreferenced roots share one 20 KiB stream."
+    },
+    {
+      "file": "preservation-nested-unpreservable.pdf",
+      "sha256": "2e2c3873711c65023f15058cafb7ca15f3d6279af42133e0e6677998cc180766",
+      "bytes": 682,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Nested loose graph reaches the catalog, testing contained-copy recovery."
+    },
+    {
+      "file": "preservation-simple-unpreservable.pdf",
+      "sha256": "f9243f916fca1c5b32c3716e768e8bfdc91ca17016a776f3f4f0b7fd436d2a09",
+      "bytes": 496,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One loose dictionary reaches the catalog, a contained-copy skip control."
+    },
+    {
+      "file": "preservation-unloadable.pdf",
+      "sha256": "6d9be68e1ab19b4aa84e2d5a20bd022c693debeb5cf563751e729e56a985db42",
+      "bytes": 486,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": false,
+      "description": "Malformed loose dictionary with an unterminated array, repaired with a warning."
     }
   ]
 }

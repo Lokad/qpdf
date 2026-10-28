@@ -399,13 +399,17 @@ Numbers are normalized lexically under the existing cancellation/output bounds.
   specs are kept opaque under a warning; streams with more than `--max-stream-filters=n` filters (default 25, 0 keeps every filtered stream opaque) stay opaque under a warning on every decode path; `/Crypt` is never decoded. The
   typed default keeps preview stream bytes stable without flags.
 - `--preserve-unreferenced` keeps every input object the selection did not
-  reach, appended in ascending original object-number order per source after
+  reach, considering roots in ascending original object-number order per source after
   the reachable graph (fresh catalog/pages stay 1/2). The input catalog,
   page-tree, page, and object/xref-stream containers are excluded by
   contained-preview policy (structure is rebuilt; stream payloads travel
-  through their members), and unloadable objects are skipped under one
-  aggregated warning. Preserved objects join object-stream packing and every
-  split group under the same rules. Without the flag, unreferenced objects
+  through their members). Unresolvable roots and objects rejected by contained
+  copying are skipped under one aggregated warning; strict load failures remain
+  errors. Preserved objects join object-stream packing and every
+  split group under the same rules. Transitive copies retain sharing and cycles;
+  a failed candidate drops its fresh copies before later roots continue. Native
+  qpdf omits unreferenced objects from split output; managed split retention is
+  intentional. Without the flag, unreferenced objects
   are discarded.
 
 ## Attachments profile
