@@ -26,6 +26,35 @@ public sealed class OverlayParentTests
         }
     }
 
+    private sealed class Generations(IReadOnlyDictionary<int, (int Generation, PdfDictionary Value)> nodes) : IIndirectResolver
+    {
+        public bool TryResolve(PdfReference reference, out QpdfObject? value)
+        {
+            value = nodes.TryGetValue(reference.ObjectNumber, out var node) && node.Generation == reference.Generation
+                ? node.Value : PdfNull.Instance;
+            return true;
+        }
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void SourceGenerationIsPreservedAndDeadBackLinksAreNotCycles(bool parented, bool liveBackLink)
+    {
+        PdfReference widget = new(1, 2), parent = new(2, 3);
+        PdfDictionary annotation = Dict(("FT", PdfName.FromAscii("Tx")),
+            ("Parent", parented ? parent : new PdfReference(1, liveBackLink ? 2 : 0)));
+        PdfDictionary field = Dict(("FT", PdfName.FromAscii("Tx")), ("Parent", new PdfReference(1, liveBackLink ? 2 : 0)));
+        Generations resolver = new(new Dictionary<int, (int, PdfDictionary)> { [1] = (2, annotation), [2] = (3, field) });
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        var top = AcroFormCopy.FindOverlayTopField(annotation, widget, true, resolver, governor, CancellationToken.None);
+        Assert.NotNull(top); Assert.Same(parented ? parent : widget, top.Reference);
+        Assert.Equal(parented && liveBackLink, top.Cycled); Assert.False(top.DirectTop);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(32)]
@@ -35,11 +64,11 @@ public sealed class OverlayParentTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxNestingDepth = maximum }, CancellationToken.None);
         PdfDictionary annotation = Dict(("Parent", new PdfReference(2, 0)));
-        var top = AcroFormCopy.FindOverlayTopField(annotation, 1, true, new Parents(maximum, _ => { }), governor, CancellationToken.None);
-        Assert.NotNull(top); Assert.Equal(maximum + 1, top.Id); Assert.False(top.Cycled); Assert.False(top.DirectTop);
+        var top = AcroFormCopy.FindOverlayTopField(annotation, new PdfReference(1, 0), true, new Parents(maximum, _ => { }), governor, CancellationToken.None);
+        Assert.NotNull(top); Assert.Equal(maximum + 1, top.Reference?.ObjectNumber); Assert.False(top.Cycled); Assert.False(top.DirectTop);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => AcroFormCopy.FindOverlayTopField(
-            annotation, 1, true, new Parents(maximum + 1, _ => { }), governor, CancellationToken.None));
+            annotation, new PdfReference(1, 0), true, new Parents(maximum + 1, _ => { }), governor, CancellationToken.None));
         Assert.Equal(nameof(QpdfLimits.MaxNestingDepth), failure.LimitName);
         Assert.Equal(maximum + 1L, failure.Requested); Assert.Equal(maximum, failure.Allowed);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
@@ -75,13 +104,13 @@ public sealed class OverlayParentTests
         };
         PdfDictionary annotation = Dict(("T", new PdfByteString("Widget"u8.ToArray(), false)), ("Parent", parent));
         Objects resolver = new(new() { [1] = annotation, [2] = kind == "cycle" ? Dict(("FT", PdfName.FromAscii("Tx")), ("Parent", new PdfReference(1, 0))) : Dict() });
-        var top = AcroFormCopy.FindOverlayTopField(annotation, kind == "direct-annotation" ? null : 1,
+        var top = AcroFormCopy.FindOverlayTopField(annotation, kind == "direct-annotation" ? null : new PdfReference(1, 0),
             kind != "no-form", resolver, governor, CancellationToken.None);
         if (kind is "no-identity" or "no-form" or "direct-annotation") { Assert.Null(top); }
         else
         {
             Assert.NotNull(top); Assert.Equal(kind == "direct", top.DirectTop); Assert.Equal(kind == "cycle", top.Cycled);
-            Assert.Equal(kind == "direct" ? null : kind == "cycle" ? 2 : 1, top.Id);
+            Assert.Equal(kind == "direct" ? null : kind == "cycle" ? 2 : 1, top.Reference?.ObjectNumber);
         }
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
@@ -99,7 +128,7 @@ public sealed class OverlayParentTests
         long baseline = governor.Snapshot().LiveMemoryBytes;
         Parents resolver = new(64, number => { if (number == cancelAt) { cancellation.Cancel(); } });
         Assert.ThrowsAny<OperationCanceledException>(() => AcroFormCopy.FindOverlayTopField(
-            Dict(("Parent", new PdfReference(2, 0))), 1, true, resolver, governor, caller ? cancellation.Token : CancellationToken.None));
+            Dict(("Parent", new PdfReference(2, 0))), new PdfReference(1, 0), true, resolver, governor, caller ? cancellation.Token : CancellationToken.None));
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes); Assert.Equal(17L, prior.ReservedBytes);
     }
 
@@ -110,7 +139,7 @@ public sealed class OverlayParentTests
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(17L);
         long baseline = governor.Snapshot().LiveMemoryBytes;
         Assert.Throws<QpdfLimitException>(() => AcroFormCopy.FindOverlayTopField(Dict(("Parent", new PdfReference(2, 0))),
-            1, true, new Parents(256, _ => { }), governor, CancellationToken.None));
+            new PdfReference(1, 0), true, new Parents(256, _ => { }), governor, CancellationToken.None));
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes); Assert.Equal(17L, prior.ReservedBytes);
     }
 

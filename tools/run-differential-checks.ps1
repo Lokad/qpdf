@@ -1363,6 +1363,9 @@ Assert-Trio 'job-file' "$case/lib.pdf" "$case/ora.pdf" 1
 # --- case: transformed inspection (selection/rotation identities and physical xrefs) ---
 & (Join-Path $PSScriptRoot 'compare-check-transformations.ps1') -QpdfExe $QpdfExe -ProbeDll $probeDll -WorkRoot (Join-Path $diffRoot 'check-transformations') -FixtureDirectory $fixtureDir
 
+# --- case: overlay generations (dead pairs, live sharing and source field identity) ---
+& (Join-Path $PSScriptRoot 'compare-overlay-generations.ps1') -QpdfExe $QpdfExe -ProbeDll $probeDll -WorkRoot (Join-Path $diffRoot 'overlay-generations') -FixtureDirectory $fixtureDir
+
 # --- case: binary-inspection (actual bytes, channels, defaults and staged failures) ---
 & (Join-Path $PSScriptRoot 'compare-binary-inspections.ps1') -QpdfExe $QpdfExe -ProbeDll $probeDll -WorkRoot (Join-Path $diffRoot 'binary-inspections')
 

@@ -459,6 +459,78 @@
       "imageComponents": 3,
       "decodedSamplesBytes": 786432,
       "decodedSamplesSha256": "fd92de53403dba9b673df2cba7ee3de7c7c4ca5ef4b8e1f7f2e8c0d72ed1e193"
+    },
+    {
+      "file": "overlay-generations-live-first.pdf",
+      "sha256": "fd4a23bfb8e0983eb26a6707c9c07d4df34d270ce6e4f185cc6a5ebc49874259",
+      "bytes": 654,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Link action Next references (6 2 R 6 0 R) with object 6 at generation 2; preserve live sharing and dead generations independently of encounter order."
+    },
+    {
+      "file": "overlay-generations-stale-first.pdf",
+      "sha256": "4d117dbd732c088da0a4f9eee84cd909e7f8d22bdc5556129f79da028b710035",
+      "bytes": 654,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Link action Next references (6 0 R 6 2 R) with object 6 at generation 2; preserve live sharing and dead generations independently of encounter order."
+    },
+    {
+      "file": "overlay-generations-two-live.pdf",
+      "sha256": "9e963c04e7678256431dd39834abe8a850e5277cfbec3418d545464dde4c7ac6",
+      "bytes": 654,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Link action Next references (6 2 R 6 2 R) with object 6 at generation 2; preserve live sharing and dead generations independently of encounter order."
+    },
+    {
+      "file": "overlay-generations-explicit-null.pdf",
+      "sha256": "4da4c1a8a72d14986e42486be591ee2c64edc34776d61f8100963e37ccb08a9a",
+      "bytes": 653,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Link action Next references (6 2 R null) with object 6 at generation 2; preserve live sharing and dead generations independently of encounter order."
+    },
+    {
+      "file": "overlay-generations-newer-stale.pdf",
+      "sha256": "52fedb5a03da27a2c28caeb6b2802af03728164921bebf3e0fd569494d2dcb0d",
+      "bytes": 654,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Link action Next references (6 0 R 6 2 R) with object 6 at generation 0; preserve live sharing and dead generations independently of encounter order."
+    },
+    {
+      "file": "overlay-generations-old-generation.pdf",
+      "sha256": "200df2316ac277bc90d0fe8a32476bad8ff91807e679190ea7bb3d1b2716ea64",
+      "bytes": 654,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Link action Next references (6 2 R 6 1 R) with object 6 at generation 2; preserve live sharing and dead generations independently of encounter order."
+    },
+    {
+      "file": "overlay-generations-form-0.pdf",
+      "sha256": "40d253438a1715c19c1bcce46f2b2578f7da12db0804d7a72e14f7e84f746679",
+      "bytes": 1011,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Merged text widget at generation 0; overlay/underlay copying must register Field=kept."
+    },
+    {
+      "file": "overlay-generations-form-2.pdf",
+      "sha256": "a415bc185f4204dc578bf6a16e5b848a004056a4ee0da3731ba3443096037c89",
+      "bytes": 1011,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Merged text widget at generation 2; overlay/underlay copying must register Field=kept."
     }
   ]
 }

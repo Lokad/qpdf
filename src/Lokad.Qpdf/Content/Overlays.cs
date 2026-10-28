@@ -1208,8 +1208,7 @@ internal static class Overlays
 
             if (IsWidgetAnnotation(annot, resolver))
             {
-                int? widgetId = item is PdfReference widgetReference ? widgetReference.ObjectNumber : (int?)null;
-                if (TryImportOverlayWidget(destCopier, engine, annot, widgetId, item, fromPage, annotIndex, source, sourceForm, memo, scratch, imports, ref placementDr, limits, governor, ownership, diagnostics, cancellationToken, ref allocator, ref nullId, fresh))
+                if (TryImportOverlayWidget(destCopier, engine, annot, item, fromPage, annotIndex, source, sourceForm, memo, scratch, imports, ref placementDr, limits, governor, ownership, diagnostics, cancellationToken, ref allocator, ref nullId, fresh))
                 {
                     annotIndex += 1;
                     continue;
@@ -1305,7 +1304,6 @@ internal static class Overlays
         GraphCopier destCopier,
         DocumentEngine sourceEngine,
         PdfDictionary annot,
-        int? annotId,
         QpdfObject item,
         int fromPage,
         int annotIndex,
@@ -1331,7 +1329,7 @@ internal static class Overlays
             return false;
         }
 
-        if (!annotId.HasValue)
+        if (item is not PdfReference annotationReference)
         {
             if (source.ImportNotes.Add("d:" + fromPage.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":" + annotIndex.ToString(System.Globalization.CultureInfo.InvariantCulture)))
             {
@@ -1342,15 +1340,15 @@ internal static class Overlays
             return false;
         }
 
-        AcroFormCopy.OverlayTopMatch? top = AcroFormCopy.FindOverlayTopField(annot, annotId, true, sourceEngine, governor, cancellationToken);
+        AcroFormCopy.OverlayTopMatch? top = AcroFormCopy.FindOverlayTopField(annot, annotationReference, true, sourceEngine, governor, cancellationToken);
         if (top is null)
         {
             return false;
         }
 
-        if (!sourceForm.ReachedObjects.Contains(annotId.Value))
+        if (!sourceForm.ReachedObjects.Contains(annotationReference.ObjectNumber))
         {
-            if (source.ImportNotes.Add("r:" + annotId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)))
+            if (source.ImportNotes.Add("r:" + annotationReference.ObjectNumber.ToString(System.Globalization.CultureInfo.InvariantCulture)))
             {
                 diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Info, "Ignoring an overlay widget annotation that the source form does not reference; cloning it without a field.");
             }
@@ -1366,10 +1364,10 @@ internal static class Overlays
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Detected a cycle in overlay form-field parents; importing the top field as encountered.");
         }
 
-        int topId = top.Id ?? annotId.Value;
-        if (!memo.ContainsKey(topId))
+        PdfReference topReference = top.Reference ?? annotationReference;
+        if (!memo.ContainsKey(topReference.ObjectNumber))
         {
-            QpdfObject fieldCopy = CopyOverlayNode(new PdfReference(topId, 0), sourceEngine, destCopier, memo, scratch, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, 0);
+            QpdfObject fieldCopy = CopyOverlayNode(topReference, sourceEngine, destCopier, memo, scratch, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, 0);
             if (fieldCopy is not PdfReference fieldRef)
             {
                 return false;
@@ -1498,13 +1496,14 @@ internal static class Overlays
 
         if (node is PdfReference reference)
         {
-            if (memo.TryGetValue(reference.ObjectNumber, out PdfReference? mapped)) { return mapped; }
-
             IIndirectResolver resolver = (IIndirectResolver)sourceEngine;
-            if (!resolver.TryResolve(reference, out QpdfObject? resolved) || resolved is null || resolved is PdfNull)
+            if (!PdfObjectLookup.TryResolve(reference, resolver, governor, cancellationToken, out QpdfObject? resolved) || resolved is null || resolved is PdfNull)
             {
                 return PdfNull.Instance;
             }
+
+            // A number-only memo is safe after the source generation has been validated.
+            if (memo.TryGetValue(reference.ObjectNumber, out PdfReference? mapped)) { return mapped; }
 
             if (resolved is PdfDictionary dictionary)
             {

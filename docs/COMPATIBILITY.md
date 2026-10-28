@@ -14,6 +14,14 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Overlay and underlay copying validates source object-generation pairs before
+reusing placement copies and retains the original field reference through parent
+walks. Previously a live reference copied first could cause a later stale pair to
+become live, and synthesizing a generation-zero field reference could lose valid
+nonzero-generation AcroForm registration. These corrected outputs agree with
+native qpdf. Sharing within a placement, separate placement identities, parent
+bounds, cycle handling and output rollback remain; public signatures are unchanged.
+
 Ordinary rotation, rotation flattening and annotation flattening resolve indirect
 `/Rotate` integers, including inherited values, from the copied object pool.
 Previously ordinary rotation rejected these valid inputs, rotation flattening

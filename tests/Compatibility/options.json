@@ -4638,7 +4638,9 @@
           "OverlayTests.OverlayWidgetBareTopClonesWithoutField",
           "OverlayTests.OverlayWidgetJobMatchesArgv",
           "OverlayTests.OverlayWidgetCycleWarnsAndStaysValid",
-          "OverlayTests.OverlayWidgetMissingKidParentCorrectedWithWarning"
+          "OverlayTests.OverlayWidgetMissingKidParentCorrectedWithWarning",
+          "OverlayGenerationTests.StalePairsStayNullAndLiveSharingStaysWithinItsPlacement",
+          "OverlayGenerationTests.FieldRegistrationRetainsSourceIdentityAcrossParentsAndPlacements"
         ],
         "negative": [
           "OverlayTests.MalformedOverlayFlagsFail",
@@ -4649,7 +4651,9 @@
           "OverlayTests.JobFromRangeMatchesArgv"
         ],
         "resource": [
-          "ResourceEnforcementTests.OverlayYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.OverlayYieldsToExhaustedBudget",
+          "OverlayGenerationTests.EveryAdmissionRefusalPreservesPriorOutputAndRefundsPrivateStorage",
+          "OverlayGenerationTests.GenerationAwareCopyKeepsRollbackAndCancellation"
         ],
         "oracle": [
           "diff:overlay",
@@ -4657,7 +4661,8 @@
           "diff:overlay-annots",
           "diff:overlay-widgets",
           "diff:overlay-widgets-dr",
-          "diff:overlay-widgets-repeat"
+          "diff:overlay-widgets-repeat",
+          "diff:overlay-generations"
         ]
       }
     },
@@ -6355,7 +6360,9 @@
           "OverlayTests.EmptyOverlayAnnotsKeepDestinationWithoutAnArray",
           "OverlayTests.ExistingAnnotationsAppended",
           "ResourceEnforcementTests.OverlayAnnotationsYieldToExhaustedBudget",
-          "OverlayTests.UnderlayWidgetImportsField"
+          "OverlayTests.UnderlayWidgetImportsField",
+          "OverlayGenerationTests.StalePairsStayNullAndLiveSharingStaysWithinItsPlacement",
+          "OverlayGenerationTests.FieldRegistrationRetainsSourceIdentityAcrossParentsAndPlacements"
         ],
         "negative": [
           "OverlayTests.OverlayPasswordIsCrypto"
@@ -6364,14 +6371,17 @@
           "OverlayTests.WholeFileJobOverlay"
         ],
         "resource": [
-          "ResourceEnforcementTests.UnderlayYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.UnderlayYieldsToExhaustedBudget",
+          "OverlayGenerationTests.EveryAdmissionRefusalPreservesPriorOutputAndRefundsPrivateStorage",
+          "OverlayGenerationTests.GenerationAwareCopyKeepsRollbackAndCancellation"
         ],
         "oracle": [
           "diff:overlay-ranges",
           "diff:overlay-annots",
           "diff:overlay-widgets",
           "diff:overlay-widgets-dr",
-          "diff:overlay-widgets-repeat"
+          "diff:overlay-widgets-repeat",
+          "diff:overlay-generations"
         ]
       }
     },

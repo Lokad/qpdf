@@ -605,12 +605,12 @@ internal static class AcroFormCopy
 
     /// <summary>
     /// The resolved import top for an overlay source widget: its source object
-    /// number plus the walk outcome. A null number with
+    /// reference plus the walk outcome. A null reference with
     /// <c>DirectTop</c> means the walk ended at a direct dictionary, which the
     /// reference refuses to import; <c>Cycled</c> marks a repeated parent link,
     /// which the reference still imports with a warning.
     /// </summary>
-    internal sealed record OverlayTopMatch(int? Id, bool Cycled, bool DirectTop);
+    internal sealed record OverlayTopMatch(PdfReference? Reference, bool Cycled, bool DirectTop);
 
     /// <summary>
     /// Carries one overlay source document's form-level defaults for widget
@@ -642,7 +642,7 @@ internal static class AcroFormCopy
     /// </summary>
     internal static OverlayTopMatch? FindOverlayTopField(
         PdfDictionary annot,
-        int? annotId,
+        PdfReference? annotationReference,
         bool sourceHasFields,
         IIndirectResolver source,
         ResourceGovernor governor,
@@ -653,16 +653,16 @@ internal static class AcroFormCopy
         ArgumentNullException.ThrowIfNull(governor);
         cancellationToken.ThrowIfCancellationRequested();
         governor.CheckCancellation();
-        if (!annotId.HasValue || !sourceHasFields)
+        if (annotationReference is null || !sourceHasFields)
         {
             return null;
         }
 
         PdfDictionary cursor = annot;
-        int? cursorId = annotId;
+        PdfReference? cursorReference = annotationReference;
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
         GovernedIntSet seen = GovernedIntSet.Create(traversal, governor, cancellationToken);
-        seen.Add(traversal, annotId.Value);
+        seen.Add(traversal, annotationReference.ObjectNumber);
         bool cycled = false;
         bool first = true;
         int depth = 0;
@@ -677,9 +677,15 @@ internal static class AcroFormCopy
 
             if (parentRaw is PdfReference parentReference)
             {
+                if (!PdfObjectLookup.TryResolve(parentReference, source, governor, cancellationToken, out QpdfObject? resolved)
+                    || resolved is not PdfDictionary parentDict)
+                {
+                    break;
+                }
+
                 if (seen.Contains(parentReference.ObjectNumber))
                 {
-                    if (!first || parentReference.ObjectNumber != annotId.Value)
+                    if (!first || parentReference.ObjectNumber != annotationReference.ObjectNumber)
                     {
                         cycled = true;
                     }
@@ -688,15 +694,10 @@ internal static class AcroFormCopy
                 }
 
                 first = false;
-                if (!source.TryResolve(parentReference, out QpdfObject? resolved) || resolved is not PdfDictionary parentDict)
-                {
-                    break;
-                }
-
                 CheckParentDepth();
                 seen.Add(traversal, parentReference.ObjectNumber);
                 cursor = parentDict;
-                cursorId = parentReference.ObjectNumber;
+                cursorReference = parentReference;
                 continue;
             }
 
@@ -705,7 +706,7 @@ internal static class AcroFormCopy
                 CheckParentDepth();
                 first = false;
                 cursor = parentDirect;
-                cursorId = null;
+                cursorReference = null;
                 continue;
             }
 
@@ -719,12 +720,12 @@ internal static class AcroFormCopy
             return null;
         }
 
-        if (!cursorId.HasValue)
+        if (cursorReference is null)
         {
             return new OverlayTopMatch(null, cycled, true);
         }
 
-        return new OverlayTopMatch(cursorId, cycled, false);
+        return new OverlayTopMatch(cursorReference, cycled, false);
 
         void CheckParentDepth()
         {

@@ -18,6 +18,7 @@
     <Using Include="Xunit" />
     <None Include="../Compatibility/options.json" Link="Compatibility/options.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/manifest.json" Link="Fixtures/manifest.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/overlay-generations-*.pdf" Link="Fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/minimal-1page.pdf" Link="Fixtures/minimal-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/minimal-2page.pdf" Link="Fixtures/minimal-2page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/rotated-1page.pdf" Link="Fixtures/rotated-1page.pdf" CopyToOutputDirectory="PreserveNewest" />

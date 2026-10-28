@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Preserve source object generations in overlay/underlay annotation and widget
+  imports. Stale references stay null regardless of traversal order, and valid
+  nonzero-generation fields retain their AcroForm registration.
 - Replace handwritten reference-lane stream scans with pinned native structural
   inspection. Exact content comparisons now retain logical page order and check
   independent page text, closing changed-payload and page-swap false passes.
