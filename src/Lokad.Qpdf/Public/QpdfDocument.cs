@@ -555,28 +555,25 @@ public sealed class QpdfDocument : IAsyncDisposable
             }
         }
 
+        return ParseCatalogVersion(raw);
+    }
+
+    internal static VersionParts ParseCatalogVersion(QpdfObject raw)
+    {
         if (raw is not PdfName versionName)
         {
             throw new QpdfParseException("Catalog /Version must be a name.", null, null);
         }
 
-        return ParseVersionName(versionName.DisplayText);
-    }
-
-    private static VersionParts ParseVersionName(string text)
-    {
-        if (text is null || text.Length != 3 || text[1] != (char)46)
+        ReadOnlySpan<byte> text = versionName.RawSpan;
+        if (text.Length != 3 || text[1] != (byte)'.' || !IsDigit(text[0]) || !IsDigit(text[2]))
         {
-            throw new QpdfParseException($"Malformed catalog /Version /{text}.", null, null);
+            string label = text.Length <= 64 ? versionName.DisplayText : "<name exceeds 64 bytes>";
+            throw new QpdfParseException($"Malformed catalog /Version /{label}.", null, null);
         }
 
-        if (text[0] < (char)48 || text[0] > (char)57 || text[2] < (char)48 || text[2] > (char)57)
-        {
-            throw new QpdfParseException($"Malformed catalog /Version /{text}.", null, null);
-        }
-
-        int major = text[0] - (char)48;
-        int minor = text[2] - (char)48;
+        int major = text[0] - (byte)'0';
+        int minor = text[2] - (byte)'0';
         if ((major == 1 && minor > 7) || (major == 2 && minor != 0) || (major != 1 && major != 2))
         {
             throw new QpdfParseException($"Unsupported PDF version {major}.{minor}.", null, null);

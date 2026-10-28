@@ -962,6 +962,14 @@ internal static partial class JsonImport
             mapped[renumber[entry.Key]] = Writing.ObjectRemap.RemapImported(entry.Value, renumber, memory, governor, cancellationToken);
         }
 
+        if (rootOld == -1)
+        {
+            mapped[1] = Writing.ObjectRemap.RemapImported(root, renumber, memory, governor, cancellationToken);
+        }
+
+        // Validate the published graph, where dangling imported references have become null.
+        ValidateCatalogVersion((PdfDictionary)mapped[1], mapped, governor, cancellationToken);
+
         if (infoDirect && infoDict is not null)
         {
             mapped[renumber[-2]] = Writing.ObjectRemap.RemapImported(infoDict, renumber, memory, governor, cancellationToken);
@@ -988,6 +996,25 @@ internal static partial class JsonImport
 
         int pages = CountPages(mapped, governor, limits, cancellationToken);
         return new RenumberedModel(ordered, infoNew, pages);
+    }
+
+    private static void ValidateCatalogVersion(PdfDictionary root, Dictionary<int, QpdfObject> pool,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        if (PdfDictionaryLookup.TryGet(root, "Type"u8, governor, token, out QpdfObject type)
+            && type is PdfName name && !name.RawSpan.IsEmpty && !name.RawSpan.SequenceEqual("Catalog"u8))
+        { return; }
+        if (!PdfDictionaryLookup.TryGet(root, "Version"u8, governor, token, out QpdfObject raw) || raw is PdfNull)
+        { return; }
+        if (raw is PdfReference reference)
+        {
+            if (!PdfObjectLookup.TryResolve(reference, pool, governor, token, out QpdfObject? resolved) || resolved is null)
+            { throw new QpdfParseException("Unresolvable catalog /Version reference.", null, reference.ObjectNumber); }
+            raw = resolved;
+            if (raw is PdfNull) { return; }
+        }
+
+        QpdfDocument.ParseCatalogVersion(raw);
     }
 
     private static int CountPages(

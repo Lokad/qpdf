@@ -297,6 +297,17 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
   JSON pdfversion overrides the output version when present. Pushed inherited
   attributes stay explicitly unsupported. The typed
   `UpdatePdfFromJsonAsync` shares the engine.
+  After reference normalization, the root catalog `/Version` must be a supported
+  PDF version name (1.0 through 1.7 or 2.0), directly or through one reference.
+  Wrong types, malformed names, unsupported versions and reference cycles fail
+  before output opens. This intentionally differs from native qpdf 12.4.2's
+  pass-through behavior. Absent/null values and dangling references normalized
+  to null keep the header version. Direct trailer `/Root` dictionaries are
+  promoted to the first output object. Validation preserves JSON header
+  negotiation: a forced header can remain below a valid catalog override, which
+  the reader still uses for the effective version. The shared reader/import
+  diagnostic echoes malformed names only up to 64 raw bytes; longer names use
+  a fixed description.
   Numeric exponent notation expands to exact decimal PDF text under memory
   admission. Plain integers require signed 64-bit values; real magnitudes must
   have a finite binary64 approximation, and exponents fit signed 32-bit.

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Reject malformed, mistyped and unsupported catalog `/Version` values before
+  JSON creation/update opens output, intentionally stricter than native qpdf.
+  Publish direct JSON trailer `/Root` dictionaries as the first output object.
+  Bound malformed version-name diagnostics in the shared reader/import guard.
 - Cache failure diagnostic counts and prefix overlap, removing repeated quadratic
   searches and per-record enumeration allocations while preserving failure history.
 - Resolve indirect page rotation in ordinary rotation and both flattening paths,
