@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Replace handwritten reference-lane stream scans with pinned native structural
+  inspection. Exact content comparisons now retain logical page order and check
+  independent page text, closing changed-payload and page-swap false passes.
 - Reject malformed, mistyped and unsupported catalog `/Version` values before
   JSON creation/update opens output, intentionally stricter than native qpdf.
   Publish direct JSON trailer `/Root` dictionaries as the first output object.

@@ -38,6 +38,7 @@ $script:failures = 0
 $referenceTemp = Join-Path $diffRoot 'temp'
 New-Item -ItemType Directory -Path $referenceTemp | Out-Null
 . (Join-Path $repoRoot 'tools/ReferenceProbe.ps1')
+. (Join-Path $repoRoot 'tools/ReferenceContent.ps1')
 Initialize-ReferenceProbe -ProbeDll $probeDll -WorkRoot $diffRoot
 try {
 
@@ -84,78 +85,6 @@ function Assert-Trio {
     return
   }
   Write-Output "[$Case] trio ok (check 0, npages=$ExpectedNpages oracle+pig)"
-}
-
-function Get-StreamPayloads {
-  param([string]$File)
-  $bytes = [IO.File]::ReadAllBytes($File)
-  $text = [Text.Encoding]::Latin1.GetString($bytes)
-  $payloads = @()
-  $pos = 0
-  while (($pos = $text.IndexOf("endstream", $pos, [StringComparison]::Ordinal)) -ge 0) {
-    $spos = $text.LastIndexOf("stream", $pos - 1, [StringComparison]::Ordinal)
-    $ds = $spos + 6
-    if ($ds -lt $bytes.Length -and $bytes[$ds] -eq 13) { $ds++; if ($ds -lt $bytes.Length -and $bytes[$ds] -eq 10) { $ds++ } }
-    elseif ($ds -lt $bytes.Length -and $bytes[$ds] -eq 10) { $ds++ }
-    $de = $pos
-    while ($de -gt $ds -and ($bytes[$de - 1] -eq 13 -or $bytes[$de - 1] -eq 10)) { $de-- }
-    if ($de -le $ds) { $pos += 9; continue }
-    $dpos = $text.LastIndexOf("<<", $spos, [StringComparison]::Ordinal)
-    $dict = $text.Substring($dpos, $spos - $dpos)
-    [byte[]] $raw = $null
-    $lm = [regex]::Match($dict, '/Length\s+(\d+)')
-    $indirect = [regex]::IsMatch($dict, '/Length\s+\d+\s+\d+\s+R')
-    if ($lm.Success -and (-not $indirect)) {
-      $len = [int]$lm.Groups[1].Value
-      if ($len -gt 0 -and ($ds + $len) -le $bytes.Length) { $raw = $bytes[$ds..($ds + $len - 1)] }
-      elseif ($len -eq 0) { $raw = @() }
-    }
-    if ($null -eq $raw) {
-      $de = $pos
-      while ($de -gt $ds -and ($bytes[$de - 1] -eq 13 -or $bytes[$de - 1] -eq 10)) { $de-- }
-      if ($de -le $ds) { $pos += 9; continue }
-      $raw = $bytes[$ds..($de - 1)]
-    }
-    if ($dict.Contains("/FlateDecode")) {
-      $ms = [IO.MemoryStream]::new($raw)
-      $zs = [IO.Compression.ZLibStream]::new($ms, [IO.Compression.CompressionMode]::Decompress)
-      $out = [IO.MemoryStream]::new()
-      $zs.CopyTo($out); $zs.Dispose(); $ms.Dispose()
-      $raw = $out.ToArray()
-    }
-    $payloads += [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($raw))
-    $pos += 9
-  }
-  return ($payloads | Sort-Object) -join ","
-}
-
-function Get-DecodedText {
-  param([string]$File)
-  $bytes = [IO.File]::ReadAllBytes($File)
-  $text = [Text.Encoding]::Latin1.GetString($bytes)
-  $out = @()
-  $pos = 0
-  while (($pos = $text.IndexOf("endstream", $pos, [StringComparison]::Ordinal)) -ge 0) {
-    $spos = $text.LastIndexOf("stream", $pos - 1, [StringComparison]::Ordinal)
-    $ds = $spos + 6
-    if ($ds -lt $bytes.Length -and $bytes[$ds] -eq 13) { $ds++; if ($ds -lt $bytes.Length -and $bytes[$ds] -eq 10) { $ds++ } }
-    elseif ($ds -lt $bytes.Length -and $bytes[$ds] -eq 10) { $ds++ }
-    $de = $pos
-    while ($de -gt $ds -and ($bytes[$de - 1] -eq 13 -or $bytes[$de - 1] -eq 10)) { $de-- }
-    if ($de -le $ds) { $pos += 9; continue }
-    $dpos = $text.LastIndexOf("<<", $spos, [StringComparison]::Ordinal)
-    $dict = $text.Substring($dpos, $spos - $dpos)
-    [byte[]] $raw = $bytes[$ds..($de - 1)]
-    if ($dict.Contains("/FlateDecode")) {
-      $ms = [IO.MemoryStream]::new($raw)
-      $zs = [IO.Compression.ZLibStream]::new($ms, [IO.Compression.CompressionMode]::Decompress)
-      $buf = [IO.MemoryStream]::new(); $zs.CopyTo($buf); $zs.Dispose(); $ms.Dispose()
-      $raw = $buf.ToArray()
-    }
-    $out += [Text.Encoding]::Latin1.GetString($raw)
-    $pos += 9
-  }
-  return ($out -join "`n")
 }
 
 function New-Case {
@@ -240,7 +169,7 @@ if ($code -ne 0) { throw "split: oracle failed ($code)" }
 Assert-Trio 'split-1' "$case/lib-s-1.pdf" "$case/ora-s-1.pdf" 1
 Assert-Trio 'split-2' "$case/lib-s-2.pdf" "$case/ora-s-2.pdf" 1
 foreach ($pair in @(('lib-s-1', "$case/lib-s-1.pdf", '(First)', '(Second)'), ('ora-s-1', "$case/ora-s-1.pdf", '(First)', '(Second)'), ('lib-s-2', "$case/lib-s-2.pdf", '(Second)', '(First)'), ('ora-s-2', "$case/ora-s-2.pdf", '(Second)', '(First)'))) {
-  $decoded = Get-DecodedText $pair[1]
+  $decoded = (Read-ReferenceContent $QpdfExe $pair[1]).AllText
   if (-not $decoded.Contains($pair[2])) { Write-Output "[split] FAIL: '$($pair[2])' missing from decoded $($pair[0]) output"; $script:failures++ }
   if ($decoded.Contains($pair[3])) { Write-Output "[split] FAIL: '$($pair[3])' remains in decoded $($pair[0]) output"; $script:failures++ }
 }
@@ -259,7 +188,7 @@ if ($code -ne 0) { throw "collate/ranges: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--collate', 'inputs/a.pdf', '--pages', 'inputs/a.pdf', '1-2', 'inputs/a.pdf', '2-1', '--', "$case/ora-r.pdf")
 if ($code -ne 0) { throw "collate/ranges: oracle failed ($code)" }
 Assert-Trio 'collate-ranges' "$case/lib-r.pdf" "$case/ora-r.pdf" 4
-$libText = Get-DecodedText "$case/lib-r.pdf"
+$libText = (Read-ReferenceContent $QpdfExe "$case/lib-r.pdf").PageText
 $libMarks = @()
 foreach ($m in [regex]::Matches($libText, '\((First|Second)\)')) { $libMarks += $m.Groups[1].Value }
 if (($libMarks -join ',') -ne 'First,Second,Second,First') { Write-Output "[collate-ranges] FAIL: lib order [$($libMarks -join ',')]"; $script:failures++ }
@@ -327,7 +256,8 @@ if ($code -ne 0) { throw "uncompress: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--stream-data=uncompress', 'inputs/c.pdf', '--pages', '.', '1', '.', '2', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "uncompress: oracle failed ($code)" }
 Assert-Trio 'uncompress' "$case/lib.pdf" "$case/ora.pdf" 2
-if ((Get-StreamPayloads "$case/lib.pdf") -ne (Get-StreamPayloads "$case/ora.pdf")) { Write-Output "[uncompress] FAIL: decoded stream payloads differ"; $script:failures++ } else { Write-Output "[uncompress] payloads match" }
+Assert-ReferenceContent $QpdfExe $probeDll "$case/lib.pdf" "$case/ora.pdf"
+Write-Output "[uncompress] payloads match"
 
 # --- case: normalize (exact decoded-content comparison) ---
 $case = New-Case 'normalize'
@@ -337,7 +267,8 @@ if ($code -ne 0) { throw "normalize: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--normalize-content=y', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "normalize: oracle failed ($code)" }
 Assert-Trio 'normalize' "$case/lib.pdf" "$case/ora.pdf" 2
-if ((Get-StreamPayloads "$case/lib.pdf") -ne (Get-StreamPayloads "$case/ora.pdf")) { Write-Output "[normalize] FAIL: normalized content payloads differ"; $script:failures++ } else { Write-Output "[normalize] payloads match" }
+Assert-ReferenceContent $QpdfExe $probeDll "$case/lib.pdf" "$case/ora.pdf"
+Write-Output "[normalize] payloads match"
 
 # --- case: coalesce (decoded-content comparison) ---
 $case = New-Case 'coalesce'
@@ -347,7 +278,8 @@ if ($code -ne 0) { throw "coalesce: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--coalesce-contents', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "coalesce: oracle failed ($code)" }
 Assert-Trio 'coalesce' "$case/lib.pdf" "$case/ora.pdf" 2
-if ((Get-StreamPayloads "$case/lib.pdf") -ne (Get-StreamPayloads "$case/ora.pdf")) { Write-Output "[coalesce] FAIL: coalesced content payloads differ"; $script:failures++ } else { Write-Output "[coalesce] payloads match" }
+Assert-ReferenceContent $QpdfExe $probeDll "$case/lib.pdf" "$case/ora.pdf"
+Write-Output "[coalesce] payloads match"
 
 # --- case: compress (recompressed payloads identical) ---
 $case = New-Case 'compress'
@@ -359,7 +291,8 @@ if ($code -ne 0) { throw "compress: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--stream-data=compress', '--recompress-flate', '--compression-level=9', 'inputs/c.pdf', '--pages', '.', '1', '.', '2', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "compress: oracle failed ($code)" }
 Assert-Trio 'compress' "$case/lib.pdf" "$case/ora.pdf" 2
-if ((Get-StreamPayloads "$case/lib.pdf") -ne (Get-StreamPayloads "$case/ora.pdf")) { Write-Output "[compress] FAIL: recompressed content payloads differ"; $script:failures++ } else { Write-Output "[compress] payloads match" }
+Assert-ReferenceContent $QpdfExe $probeDll "$case/lib.pdf" "$case/ora.pdf"
+Write-Output "[compress] payloads match"
 
 # --- case: flatten-rotation (baked boxes and counter-transform) ---
 $case = New-Case 'flatten-rotation'
@@ -373,10 +306,11 @@ foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
   $rawText = [IO.File]::ReadAllText($pair[1])
   if ($rawText.Contains('/Rotate')) { Write-Output "[flatten-rotation] FAIL: /Rotate remains in $($pair[0]) output"; $script:failures++ }
   if (-not $rawText.Contains('792 612')) { Write-Output "[flatten-rotation] FAIL: swapped MediaBox missing from $($pair[0]) output"; $script:failures++ }
-  $decoded = Get-DecodedText $pair[1]
+  $decoded = (Read-ReferenceContent $QpdfExe $pair[1]).AllText
   if (-not $decoded.Contains('0 -1 1 0 0 612 cm')) { Write-Output "[flatten-rotation] FAIL: counter-transform missing from decoded $($pair[0]) output"; $script:failures++ }
 }
-if ((Get-StreamPayloads "$case/lib.pdf") -ne (Get-StreamPayloads "$case/ora.pdf")) { Write-Output "[flatten-rotation] FAIL: flattened content payloads differ"; $script:failures++ } else { Write-Output "[flatten-rotation] payloads match" }
+Assert-ReferenceContent $QpdfExe $probeDll "$case/lib.pdf" "$case/ora.pdf"
+Write-Output "[flatten-rotation] payloads match"
 Write-Output "[flatten-rotation] box and matrix assertions done"
 
 Copy-Item "$fixtureDir/rotated-ap-1page.pdf" "$case/inputs/ap.pdf"
@@ -445,7 +379,8 @@ foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
   if ($rawText.Contains('/F2')) { Write-Output "[prune] FAIL: unreferenced /F2 remains in $($pair[0]) output"; $script:failures++ }
   if (-not $rawText.Contains('/F1')) { Write-Output "[prune] FAIL: referenced /F1 missing from $($pair[0]) output"; $script:failures++ }
 }
-if ((Get-StreamPayloads "$case/lib.pdf") -ne (Get-StreamPayloads "$case/ora.pdf")) { Write-Output "[prune] FAIL: pruned content payloads differ"; $script:failures++ } else { Write-Output "[prune] payloads match" }
+Assert-ReferenceContent $QpdfExe $probeDll "$case/lib.pdf" "$case/ora.pdf"
+Write-Output "[prune] payloads match"
 Write-Output "[prune] resource assertions done"
 
 # --- case: preserve (managed vs oracle resource preservation) ---
@@ -538,7 +473,8 @@ if ($code -ne 0) { throw "json-import: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--json-input', 'inputs/base.json', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "json-import: oracle failed ($code)" }
 Assert-Trio 'json-import' "$case/lib.pdf" "$case/ora.pdf" 2
-if ((Get-StreamPayloads "$case/lib.pdf") -ne (Get-StreamPayloads "$case/ora.pdf")) { Write-Output "[json-import] FAIL: decoded stream payloads differ"; $script:failures++ } else { Write-Output "[json-import] payloads match" }
+Assert-ReferenceContent $QpdfExe $probeDll "$case/lib.pdf" "$case/ora.pdf"
+Write-Output "[json-import] payloads match"
 
 # --- case: json-update (managed vs oracle PDF update from mutated qpdf JSON) ---
 $case = New-Case 'json-update'
@@ -929,7 +865,7 @@ Assert-Trio 'forms' "$case/lib.pdf" "$case/ora.pdf" 1
 foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
   $rawText = [IO.File]::ReadAllText($pair[1])
   if ($rawText.Contains('/Annots')) { Write-Output "[forms] FAIL: /Annots remains in $($pair[0]) output"; $script:failures++ }
-  $decoded = Get-DecodedText $pair[1]
+  $decoded = (Read-ReferenceContent $QpdfExe $pair[1]).AllText
   foreach ($needle in @('(Hello)', '(Stale)', '/Tx BMC', '1 5.2 Td', '/Fxo1 Do')) {
     if (-not $decoded.Contains($needle)) { Write-Output "[forms] FAIL: '$needle' missing from decoded $($pair[0]) output"; $script:failures++ }
   }
@@ -948,7 +884,7 @@ foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
   $rawText = [IO.File]::ReadAllText($pair[1])
   if ($rawText.Contains('/Annots')) { Write-Output "[flatten-dr] FAIL: /Annots remains in $($pair[0]) output"; $script:failures++ }
   if (-not $rawText.Contains('/BaseFont /Helvetica')) { Write-Output "[flatten-dr] FAIL: DR font missing from $($pair[0]) output"; $script:failures++ }
-  $decoded = Get-DecodedText $pair[1]
+  $decoded = (Read-ReferenceContent $QpdfExe $pair[1]).AllText
   foreach ($needle in @('(Hello)', '/Fxo')) {
     if (-not $decoded.Contains($needle)) { Write-Output "[flatten-dr] FAIL: '$needle' missing from decoded $($pair[0]) output"; $script:failures++ }
   }
@@ -982,7 +918,7 @@ foreach ($sub in @(
   if ($code -ne 0) { throw "overlay-ranges/$name`: oracle failed ($code)" }
   Assert-Trio "overlay-ranges-$name" "$case/lib-$name.pdf" "$case/ora-$name.pdf" 1
   foreach ($pair in @(('lib', "$case/lib-$name.pdf"), ('ora', "$case/ora-$name.pdf"))) {
-    $decoded = Get-DecodedText $pair[1]
+    $decoded = (Read-ReferenceContent $QpdfExe $pair[1]).AllText
     if (-not $decoded.Contains($sub[2])) { Write-Output "[overlay-ranges/$name] FAIL: '$($sub[2])' missing from decoded $($pair[0]) output"; $script:failures++ }
     if ($decoded.Contains($sub[3])) { Write-Output "[overlay-ranges/$name] FAIL: '$($sub[3])' remains in decoded $($pair[0]) output"; $script:failures++ }
   }
@@ -994,7 +930,7 @@ $code = Invoke-Oracle $case @('inputs/a.pdf', '--underlay', 'inputs/b.pdf', '--f
 if ($code -ne 0) { throw "overlay-ranges/und: oracle failed ($code)" }
 Assert-Trio 'overlay-ranges-und' "$case/lib-und.pdf" "$case/ora-und.pdf" 1
 foreach ($pair in @(('lib', "$case/lib-und.pdf"), ('ora', "$case/ora-und.pdf"))) {
-  $decoded = Get-DecodedText $pair[1]
+  $decoded = (Read-ReferenceContent $QpdfExe $pair[1]).AllText
   if (-not $decoded.Contains('(Second)')) { Write-Output "[overlay-ranges/und] FAIL: '(Second)' missing from decoded $($pair[0]) output"; $script:failures++ }
   if ($decoded.Contains('(First)')) { Write-Output "[overlay-ranges/und] FAIL: '(First)' remains in decoded $($pair[0]) output"; $script:failures++ }
 }
@@ -1005,7 +941,7 @@ $code = Invoke-Oracle $case @('inputs/b.pdf', '--overlay', 'inputs/a.pdf', '--to
 if ($code -ne 0) { throw "overlay-ranges/toodd: oracle failed ($code)" }
 Assert-Trio 'overlay-ranges-toodd' "$case/lib-toodd.pdf" "$case/ora-toodd.pdf" 2
 foreach ($pair in @(('lib', "$case/lib-toodd.pdf"), ('ora', "$case/ora-toodd.pdf"))) {
-  $decoded = Get-DecodedText $pair[1]
+  $decoded = (Read-ReferenceContent $QpdfExe $pair[1]).AllText
   if (-not $decoded.Contains('(Hello)')) { Write-Output "[overlay-ranges/toodd] FAIL: '(Hello)' missing from decoded $($pair[0]) output"; $script:failures++ }
 }
 Write-Output "[overlay-ranges/toodd] stamp assertions done"
@@ -1805,8 +1741,9 @@ $chainDict = "<< /Length $($payload.Length) /Filter [ $filters ] >>"
 $chainObjs = @(
   "<< /Type /Catalog /Pages 2 0 R >>",
   "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-  "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << >> >>",
-  $chainDict
+  "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+  $chainDict,
+  "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
 )
 $enc = [Text.Encoding]::ASCII
 $chainParts = New-Object "System.Collections.Generic.List[byte[]]"
@@ -1833,12 +1770,12 @@ for ($n = 1; $n -le $chainObjs.Count; $n++) {
     $chainPos += 7
   }
 }
-$chainXref = "xref`n0 5`n0000000000 65535 f `n"
+$chainXref = "xref`n0 $($chainObjs.Count + 1)`n0000000000 65535 f `n"
 foreach ($o in $chainOffsets) { $chainXref += $o.ToString("D10") + " 00000 n `n" }
 $chainXrefAt = $chainPos
 $chainParts.Add($enc.GetBytes($chainXref))
 $chainPos += ($enc.GetBytes($chainXref)).Length
-$chainParts.Add($enc.GetBytes("trailer`n<< /Size 5 /Root 1 0 R >>`nstartxref`n$chainXrefAt`n%%EOF`n"))
+$chainParts.Add($enc.GetBytes("trailer`n<< /Size $($chainObjs.Count + 1) /Root 1 0 R >>`nstartxref`n$chainXrefAt`n%%EOF`n"))
 $chainOut = [IO.MemoryStream]::new()
 foreach ($p in $chainParts) { $chainOut.Write($p, 0, $p.Length) }
 [IO.File]::WriteAllBytes("$case/inputs/chain.pdf", $chainOut.ToArray())
@@ -1847,7 +1784,8 @@ $ocode = Invoke-Oracle $case @('--stream-data=uncompress', '--global', '--no-def
 if ($mcode -ne 0 -or $ocode -ne 0) { Write-Output "[global-ndl] FAIL: exits managed=$mcode oracle=$ocode, expected 0/0"; $script:failures++ }
 else {
   Assert-Trio 'global-ndl' "$case/lib-ndl.pdf" "$case/ora-ndl.pdf" 1
-  if ((Get-StreamPayloads "$case/lib-ndl.pdf") -ne (Get-StreamPayloads "$case/ora-ndl.pdf")) { Write-Output "[global-ndl] FAIL: decoded stream payloads differ"; $script:failures++ } else { Write-Output "[global-ndl] payloads match" }
+  Assert-ReferenceContent $QpdfExe $probeDll "$case/lib-ndl.pdf" "$case/ora-ndl.pdf"
+  Write-Output "[global-ndl] payloads match"
 }
 
 # --- case: warnings (warning exit-code parity) ---
@@ -1882,7 +1820,7 @@ $code = Invoke-Oracle $case @('--externalize-inline-images', 'inputs/a.pdf', '--
 if ($code -ne 0) { throw "inline: oracle failed ($code)" }
 Assert-Trio 'inline' "$case/lib.pdf" "$case/ora.pdf" 1
 foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
-  $decoded = Get-DecodedText $pair[1]
+  $decoded = (Read-ReferenceContent $QpdfExe $pair[1]).AllText
   if (-not $decoded.Contains('/IIm1 Do')) { Write-Output "[inline] FAIL: '/IIm1 Do' missing from decoded $($pair[0]) output"; $script:failures++ }
   if ($decoded.Contains(' BI ')) { Write-Output "[inline] FAIL: inline image remains in decoded $($pair[0]) output"; $script:failures++ }
 }
@@ -1893,7 +1831,7 @@ $code = Invoke-Oracle $case @('--externalize-inline-images', '--ii-min-bytes=100
 if ($code -ne 0) { throw "inline/keep: oracle failed ($code)" }
 Assert-Trio 'inline-keep' "$case/lib-keep.pdf" "$case/ora-keep.pdf" 1
 foreach ($pair in @(('lib-keep', "$case/lib-keep.pdf"), ('ora-keep', "$case/ora-keep.pdf"))) {
-  $decoded = Get-DecodedText $pair[1]
+  $decoded = (Read-ReferenceContent $QpdfExe $pair[1]).AllText
   if (-not $decoded.Contains(' BI ')) { Write-Output "[inline/keep] FAIL: inline image missing from decoded $($pair[0]) output"; $script:failures++ }
   if ($decoded.Contains('/IIm1 Do')) { Write-Output "[inline/keep] FAIL: unexpected '/IIm1 Do' in decoded $($pair[0]) output"; $script:failures++ }
 }
@@ -1920,15 +1858,15 @@ if ($code -ne 0) { throw "optimize/skip: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--optimize-images', '--oi-min-width=100000', '--oi-min-height=100000', '--oi-min-area=100000000', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-skip.pdf")
 if ($code -ne 0) { throw "optimize/skip: oracle failed ($code)" }
 Assert-Trio 'optimize-skip' "$case/lib-skip.pdf" "$case/ora-skip.pdf" 1
-if ((Get-StreamPayloads "$case/lib-skip.pdf") -ne (Get-StreamPayloads "$case/ora-skip.pdf")) { Write-Output "[optimize/skip] FAIL: kept image payloads differ"; $script:failures++ }
-else { Write-Output "[optimize/skip] threshold payloads match" }
+Assert-ReferenceContent $QpdfExe $probeDll "$case/lib-skip.pdf" "$case/ora-skip.pdf"
+Write-Output "[optimize/skip] threshold payloads match"
 $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/k.pdf=$case/lib-keep.pdf", '--', 'inputs/b.pdf', '--optimize-images', '--keep-inline-images', '--pages', '.', '1', '--', 'outputs/k.pdf')
 if ($code -ne 0) { throw "optimize/keep: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--optimize-images', '--keep-inline-images', 'inputs/b.pdf', '--pages', '.', '1', '--', "$case/ora-keep.pdf")
 if ($code -ne 0) { throw "optimize/keep: oracle failed ($code)" }
 Assert-Trio 'optimize-keep' "$case/lib-keep.pdf" "$case/ora-keep.pdf" 1
 foreach ($pair in @(('lib-keep', "$case/lib-keep.pdf"), ('ora-keep', "$case/ora-keep.pdf"))) {
-  $decoded = Get-DecodedText $pair[1]
+  $decoded = (Read-ReferenceContent $QpdfExe $pair[1]).AllText
   if (-not $decoded.Contains(' BI ')) { Write-Output "[optimize/keep] FAIL: inline image missing from decoded $($pair[0]) output"; $script:failures++ }
 }
 Write-Output "[optimize/keep] keep-inline assertions done"
@@ -2322,39 +2260,13 @@ else { Write-Output "[forms-collision] renamed field semantics agree ([$($libFie
 # --- case: dr-encoding (managed vs oracle default-resource font encoding) ---
 $case = New-Case 'dr-encoding'
 Copy-Item "$fixtureDir/dr-encoding-1page.pdf" "$case/inputs/a.pdf"
-function Get-AllStreamBytes {
-  param([string]$File)
-  $bytes = [IO.File]::ReadAllBytes($File)
-  $text = [Text.Encoding]::Latin1.GetString($bytes)
-  $found = New-Object Collections.Generic.List[byte]
-  $pos = 0
-  while (($pos = $text.IndexOf("endstream", $pos)) -ge 0) {
-    $spos = $text.LastIndexOf("stream", $pos - 1)
-    $ds = $spos + 6
-    while ($ds -lt $bytes.Length -and ($bytes[$ds] -eq 13 -or $bytes[$ds] -eq 10)) { $ds++ }
-    $de = $pos
-    while ($de -gt $ds -and ($bytes[$de - 1] -eq 13 -or $bytes[$de - 1] -eq 10)) { $de-- }
-    if ($de -gt $ds) {
-      $raw = $bytes[$ds..($de - 1)]
-      try {
-        $ms = [IO.MemoryStream]::new($raw)
-        $zs = [IO.Compression.ZLibStream]::new($ms, [IO.Compression.CompressionMode]::Decompress)
-        $out = [IO.MemoryStream]::new()
-        $zs.CopyTo($out); $zs.Dispose(); $ms.Dispose()
-        $found.AddRange([byte[]]$out.ToArray())
-      } catch { $found.AddRange([byte[]]$raw) }
-    }
-    $pos += 9
-  }
-  return $found.ToArray()
-}
 $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--generate-appearances', '--pages', '.', '1', '--', 'outputs/a.pdf')
 if ($code -ne 0) { throw "dr-encoding: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--generate-appearances','inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "dr-encoding: oracle failed ($code)" }
 Assert-Trio 'dr-encoding' "$case/lib.pdf" "$case/ora.pdf" 1
-$libBytes = Get-AllStreamBytes "$case/lib.pdf"
-$oraBytes = Get-AllStreamBytes "$case/ora.pdf"
+$libBytes = (Read-ReferenceContent $QpdfExe "$case/lib.pdf").AllBytes
+$oraBytes = (Read-ReferenceContent $QpdfExe "$case/ora.pdf").AllBytes
 if (-not ($libBytes -contains 140)) { Write-Output "[dr-encoding] FAIL: managed appearance lacks WinAnsi-encoded value"; $script:failures++ }
 elseif (([Text.Encoding]::Latin1.GetString($oraBytes) -notmatch '(?i)<8c>')) { Write-Output "[dr-encoding] FAIL: oracle appearance lacks WinAnsi-encoded value"; $script:failures++ }
 else { Write-Output "[dr-encoding] both sides encode the value as WinAnsi" }
@@ -2367,8 +2279,8 @@ if ($code -ne 0) { throw "dr-merge: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--generate-appearances','inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "dr-merge: oracle failed ($code)" }
 Assert-Trio 'dr-merge' "$case/lib.pdf" "$case/ora.pdf" 1
-$libBytes = Get-AllStreamBytes "$case/lib.pdf"
-$oraBytes = Get-AllStreamBytes "$case/ora.pdf"
+$libBytes = (Read-ReferenceContent $QpdfExe "$case/lib.pdf").AllBytes
+$oraBytes = (Read-ReferenceContent $QpdfExe "$case/ora.pdf").AllBytes
 if (-not ($libBytes -contains 140)) { Write-Output "[dr-merge] FAIL: managed appearance lacks WinAnsi-encoded value"; $script:failures++ }
 elseif (([Text.Encoding]::Latin1.GetString($oraBytes) -notmatch '(?i)<8c>')) { Write-Output "[dr-merge] FAIL: oracle appearance lacks WinAnsi-encoded value"; $script:failures++ }
 else { Write-Output "[dr-merge] both sides encode the value as WinAnsi" }
@@ -2389,8 +2301,8 @@ if ($code -ne 3) { Write-Output "[parent-held] FAIL: oracle generate exit $code,
 else { Write-Output "[parent-held] exit parity (3/3, both sides warn unreachable)" }
 if ((Get-OracleNpages "$case/lib.pdf") -ne 1 -or (Get-OracleNpages "$case/ora.pdf") -ne 1 -or (Get-PigNpages "$case/lib.pdf") -ne 1 -or (Get-PigNpages "$case/ora.pdf") -ne 1) { Write-Output "[parent-held] FAIL: page counts differ from 1"; $script:failures++ }
 else { Write-Output "[parent-held] page counts agree (1 everywhere)" }
-$libText = [Text.Encoding]::Latin1.GetString((Get-AllStreamBytes "$case/lib.pdf"))
-$oraText = [Text.Encoding]::Latin1.GetString((Get-AllStreamBytes "$case/ora.pdf"))
+$libText = [Text.Encoding]::Latin1.GetString(((Read-ReferenceContent $QpdfExe "$case/lib.pdf").AllBytes))
+$oraText = [Text.Encoding]::Latin1.GetString(((Read-ReferenceContent $QpdfExe "$case/ora.pdf").AllBytes))
 foreach ($side in @(('managed', $libText), ('oracle', $oraText))) {
   if ($side[1] -notmatch '\(Hello\) Tj') { Write-Output "[parent-held] FAIL: $($side[0]) appearance lacks parent value"; $script:failures++ }
   elseif ($side[1] -notmatch '1 5\.2 Td') { Write-Output "[parent-held] FAIL: $($side[0]) appearance lacks generated placement"; $script:failures++ }
@@ -2440,7 +2352,7 @@ Assert-Trio 'generate-unreachable-selgen' "$case/lib-selgen.pdf" "$case/ora-selg
 foreach ($pair in @(('lib', "$case/lib-selgen.pdf"), ('ora', "$case/ora-selgen.pdf"))) {
   $rawText = [IO.File]::ReadAllText($pair[1])
   if ($rawText.Contains('/AcroForm')) { Write-Output "[generate-unreachable/selgen] FAIL: /AcroForm remains in $($pair[0]) output"; $script:failures++ }
-  $decoded = Get-DecodedText $pair[1]
+  $decoded = (Read-ReferenceContent $QpdfExe $pair[1]).AllText
   if ($decoded.Contains('(Hello)')) { Write-Output "[generate-unreachable/selgen] FAIL: stale appearance regenerated in $($pair[0]) output"; $script:failures++ }
 }
 Write-Output "[generate-unreachable/selgen] skip assertions done"
@@ -2455,7 +2367,7 @@ foreach ($pair in @(('lib', "$case/lib-whole.pdf"), ('ora', "$case/ora-whole.pdf
   $rawText = [IO.File]::ReadAllText($pair[1])
   if (-not $rawText.Contains('/AcroForm')) { Write-Output "[generate-unreachable/whole] FAIL: /AcroForm missing from $($pair[0]) output"; $script:failures++ }
   if (-not $rawText.Contains('/NeedAppearances')) { Write-Output "[generate-unreachable/whole] FAIL: /NeedAppearances missing from $($pair[0]) output"; $script:failures++ }
-  $decoded = Get-DecodedText $pair[1]
+  $decoded = (Read-ReferenceContent $QpdfExe $pair[1]).AllText
   if ($decoded.Contains('(Hello)')) { Write-Output "[generate-unreachable/whole] FAIL: unexpected generation in $($pair[0]) output"; $script:failures++ }
 }
 Write-Output "[generate-unreachable/whole] preserve assertions done"
@@ -2473,7 +2385,7 @@ foreach ($pair in @(('lib', "$case/lib-wholegen.pdf"), ('ora', "$case/ora-wholeg
   $rawText = [IO.File]::ReadAllText($pair[1])
   if (-not $rawText.Contains('/AcroForm')) { Write-Output "[generate-unreachable/wholegen] FAIL: /AcroForm missing from $($pair[0]) output"; $script:failures++ }
   if ($rawText.Contains('/NeedAppearances')) { Write-Output "[generate-unreachable/wholegen] FAIL: /NeedAppearances remains in $($pair[0]) output"; $script:failures++ }
-  $decoded = Get-DecodedText $pair[1]
+  $decoded = (Read-ReferenceContent $QpdfExe $pair[1]).AllText
   if (-not $decoded.Contains('(Hello)')) { Write-Output "[generate-unreachable/wholegen] FAIL: $($pair[0]) appearance lacks generated value"; $script:failures++ }
 }
 Write-Output "[generate-unreachable/wholegen] warn-and-generate assertions done"
@@ -2508,7 +2420,7 @@ foreach ($fixture in $progressiveFixtures) {
   if ($code -ne 0) { throw "$label`: oracle decode failed ($code)" }
   Assert-Trio $label "$case/lib.pdf" "$case/ora.pdf" 1
   foreach ($file in @("$case/lib.pdf", "$case/ora.pdf")) {
-    $payloads = (Get-StreamPayloads $file) -split ','
+    $payloads = (Read-ReferenceContent $QpdfExe $file).StreamHashes
     if (-not ($payloads -contains $fixture.decodedSamplesSha256.ToUpperInvariant())) {
       throw "$label`: output samples differ from the authored exact sample hash."
     }
@@ -2543,7 +2455,7 @@ foreach ($sub in @(('plain', 'inputs/a.pdf', $expectedPlainHash), ('ycck', 'inpu
   if ($code -ne 0) { throw "cmyk/$($sub[0]): oracle failed ($code)" }
   if ($managedDecExit -ne 3) { Write-Output "[cmyk/$($sub[0])] FAIL: managed decode exit $managedDecExit, expected 3 (opaque with warning)"; $script:failures++ }
   else { Write-Output "[cmyk/$($sub[0])] exit parity (0/3, oracle decodes while managed stays opaque)" }
-  $oraPayloads = (Get-StreamPayloads "$case/ora-$($sub[0]).pdf") -split ','
+  $oraPayloads = (Read-ReferenceContent $QpdfExe "$case/ora-$($sub[0]).pdf").StreamHashes
   if (-not ($oraPayloads -contains $sub[2])) { Write-Output "[cmyk/$($sub[0])] FAIL: oracle decoded samples differ from recorded values"; $script:failures++ }
   else { Write-Output "[cmyk/$($sub[0])] oracle samples match recorded values" }
   $libRaw = [IO.File]::ReadAllText("$case/lib-$($sub[0]).pdf")
@@ -2561,7 +2473,7 @@ $code = Invoke-Oracle $case @('inputs/a.pdf', '--pages', '.', '1', '--', "$case/
 if ($code -ne 0) { throw "incr: oracle failed ($code)" }
 Assert-Trio 'incr' "$case/lib.pdf" "$case/ora.pdf" 1
 foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
-  $decoded = Get-DecodedText $pair[1]
+  $decoded = (Read-ReferenceContent $QpdfExe $pair[1]).AllText
   if ($decoded.Contains('(V2)')) { Write-Output "[incr] FAIL: freed contents resurrected in $($pair[0]) output"; $script:failures++ }
 }
 Write-Output "[incr] freed-pair assertions done"
@@ -2626,7 +2538,7 @@ if ($code -ne 0) { throw "preserve-unreferenced: oracle failed ($code)" }
 Assert-Trio 'preserve-unreferenced' "$case/lib.pdf" "$case/ora.pdf" 1
 foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
   $rawText = [IO.File]::ReadAllText($pair[1])
-  $decoded = Get-DecodedText $pair[1]
+  $decoded = (Read-ReferenceContent $QpdfExe $pair[1]).AllText
   foreach ($needle in @('(OrphanOne)', 'HELLO-ORPHAN', '/Metadata', '<x>meta</x>')) {
     if (-not $rawText.Contains($needle) -and -not $decoded.Contains($needle)) { Write-Output "[preserve-unreferenced] FAIL: '$needle' missing from $($pair[0]) output"; $script:failures++ }
   }

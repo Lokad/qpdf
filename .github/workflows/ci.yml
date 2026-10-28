@@ -148,6 +148,7 @@ jobs:
             external/parser-checks/**/*.txt
             external/parser-checks/**/*.log
             external/diff/**/results.json
+            external/diff/**/*.reference.json
             external/diff/**/*.txt
             external/diff/**/*.log
           retention-days: 14

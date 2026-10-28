@@ -47,6 +47,11 @@ function Invoke-Probe {
 Write-Output "--- bootstrap oracle ---"
 & (Join-Path $repoRoot 'tools/bootstrap-qpdf.ps1') -QpdfExe $QpdfExe
 
+$contentControls = if ([string]::IsNullOrWhiteSpace($WorkRoot)) {
+  Join-Path $repoRoot ('external/diff/content-controls-' + [Guid]::NewGuid().ToString('N'))
+} else { [IO.Path]::GetFullPath($WorkRoot) + '-content-controls' }
+& (Join-Path $repoRoot 'tools/test-reference-content.ps1') -QpdfExe $QpdfExe -ProbeDll $probeDll -WorkRoot $contentControls
+
 Write-Output "--- positive: minimal-1page (expected 1) ---"
 $code = Invoke-Probe @('compare', '--qpdf-exe', $QpdfExe, '--input', (Join-Path $fixtureDir 'minimal-1page.pdf'), '--expected-npages', '1')
 if ($code -ne 0) {

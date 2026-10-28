@@ -979,9 +979,16 @@ feasibility implementation and smoke-only command test are no longer maintained.
 Reference checks compare fresh managed/native outputs under the original input
 and budget controls. Stable inspection text, decoded bytes, page order, sharing,
 field relationships, error/warning exits and output integrity have mechanism-
-appropriate assertions. Native syntax/linearization checks and the independent
-PdfPig reader supplement exact parser and payload comparisons. Skipped checker
-stages remain explicit; an unavailable check is not a pass.
+appropriate assertions. Exact stream comparisons use pinned qpdf's structural
+JSON and generalized decoding, retaining encoded bytes for opaque filters.
+Signatures include each logical page's ordered content streams as well as the
+stream-byte multiset; physical object order and numbering can differ. Matching
+signatures also require matching ordered PdfPig page text. All-stream byte/text
+views support separate image, font and appearance assertions without claiming
+rendering equivalence. Negative controls cover payload words `stream`/`endstream`,
+page/content-array swaps and changed font encoding with identical stream bytes.
+Native syntax/linearization checks and visual checks supplement this evidence.
+Skipped checker stages remain explicit; an unavailable check is not a pass.
 
 The original 64 differing hint-payload pairs remain recorded. Their layouts are
 validated semantically and against physical object boundaries; differing bytes
