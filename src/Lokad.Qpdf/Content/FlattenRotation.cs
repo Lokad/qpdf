@@ -59,20 +59,15 @@ internal static class FlattenRotation
                 continue;
             }
 
-            long rotate = 0L;
-            bool hasRotate = false;
-            if (page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject? rotateRaw) && rotateRaw is PdfInteger rotateInteger)
-            {
-                rotate = rotateInteger.Value;
-                hasRotate = true;
-            }
-
-            if (!hasRotate)
+            page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject? rotateRaw);
+            if (rotateRaw is PdfReference rotateReference)
+            { PdfObjectLookup.TryResolve(rotateReference, copier.CopiedObjects, governor, cancellationToken, out rotateRaw); }
+            if (rotateRaw is not PdfInteger rotateInteger)
             {
                 continue;
             }
 
-            long angle = rotate % 360L;
+            long angle = rotateInteger.Value % 360L;
             if (angle < 0L)
             {
                 angle += 360L;

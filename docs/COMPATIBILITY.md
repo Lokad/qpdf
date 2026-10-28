@@ -14,6 +14,15 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Ordinary rotation, rotation flattening and annotation flattening resolve indirect
+`/Rotate` integers, including inherited values, from the copied object pool.
+Previously ordinary rotation rejected these valid inputs, rotation flattening
+silently skipped them, and `NoRotate` annotations could be misplaced. Equivalent
+direct and indirect values now use the same normalization and transforms. Null
+and malformed-value policies, reference bounds, cancellation and publication
+rollback remain; public signatures are unchanged. This intentionally corrects
+input acceptance and affected output.
+
 Argv option recognition borrows names instead of copying arbitrary caller text.
 Unknown-option, numeric-value, rotation, page-label and unexpected-argument
 syntax errors clip echoed text to at most 128 UTF-16 units plus `...`, without

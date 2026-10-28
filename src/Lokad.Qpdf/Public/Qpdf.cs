@@ -1764,6 +1764,9 @@ public static partial class Qpdf
         int current = 0;
         if (page.TryGet(rotateKey, out QpdfObject raw))
         {
+            if (raw is PdfReference reference && PdfObjectLookup.TryResolve(reference, copier.CopiedObjects,
+                governor, governor.CancellationToken, out QpdfObject? resolved))
+            { raw = resolved ?? raw; }
             if (raw is PdfNull)
             {
                 current = 0;

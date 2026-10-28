@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Resolve indirect page rotation in ordinary rotation and both flattening paths,
+  including inherited values; correct skipped flattening and NoRotate placement.
 - Refresh job JSON help for check/stream inspections and parser error/default-limit
   controls already supported by the shared pipeline.
 - Avoid input-sized argv option-name copies and bound echoed command error text

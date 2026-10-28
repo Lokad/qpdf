@@ -135,7 +135,10 @@ internal static class FlattenAnnotations
             }
 
             long rotate = 0L;
-            if (page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject? rotateRaw) && rotateRaw is PdfInteger rotateInteger)
+            page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject? rotateRaw);
+            if (rotateRaw is PdfReference rotateReference)
+            { PdfObjectLookup.TryResolve(rotateReference, copier.CopiedObjects, governor, cancellationToken, out rotateRaw); }
+            if (rotateRaw is PdfInteger rotateInteger)
             {
                 rotate = ((rotateInteger.Value % 360L) + 360L) % 360L;
             }

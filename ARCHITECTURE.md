@@ -31,6 +31,8 @@ feature requests. Typed defaults and command-plan projection are defined once;
 source documents, selective-read retries and publication owners stay explicit.
 Whole-file rewrites select all pages through the existing governed range resolver
 without constructing and cloning a separate page-number vector.
+Rotation and both flattening consumers resolve indirect rotation scalars through
+the copied object pool before normalization; the existing reference bounds apply.
 The accepted deterministic-ID flag validates at parsing; plans carry no unused
 flag value because deterministic identifiers are already the default.
 Zero-page whole-file jobs use the same graph, catalog and attachment preparation;
