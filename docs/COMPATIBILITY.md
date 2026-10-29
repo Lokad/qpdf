@@ -488,8 +488,12 @@ and marker policies are unchanged; affected inputs and diagnostics change.
 RunLength decoding stops at the first 128 end marker. Previously trailing bytes
 could become content or exhaust decoded-byte limits, a defect also present in
 native qpdf. Post-marker bytes now neither emit nor consume decoded-byte budget.
-Missing-marker and truncated-tail handling before EOD are unchanged. Public
-signatures are unchanged; decoded content and its byte/memory counters can change.
+Before EOD, truncated literal records now emit their available bytes, matching
+native qpdf: encoded `00 41 02 42` yields AB rather than silently dropping B.
+Missing repeat bytes still emit nothing, and missing EOD remains tolerated.
+Recovered bytes receive ordinary cumulative decoded-byte and memory admission;
+tight jobs can now refuse instead of returning an incomplete payload. Public
+signatures are unchanged. The intentional post-EOD difference remains.
 
 Argument filtering and collation retain admission scopes without privately rooting
 every returned scratch collection. Callers and final plans hold the values they

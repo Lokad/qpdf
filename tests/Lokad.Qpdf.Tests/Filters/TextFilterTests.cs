@@ -192,10 +192,10 @@ public sealed class TextFilterTests
     }
 
     [Fact]
-    public void RunLengthDropsTruncatedTails()
+    public void RunLengthPreservesAvailableLiteralBytesAndDropsMissingRepeats()
     {
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
-        Assert.Equal([65], RunLengthFilter.Decode([0, 65, 2, 66], limits, governor, CancellationToken.None));
+        Assert.Equal([65, 66], RunLengthFilter.Decode([0, 65, 2, 66], limits, governor, CancellationToken.None));
         Assert.Empty(RunLengthFilter.Decode([254], limits, governor, CancellationToken.None));
     }
 

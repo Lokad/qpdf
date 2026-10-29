@@ -5,8 +5,8 @@ namespace Lokad.Qpdf.Filters;
 /// <summary>
 /// Governed PDF RunLengthDecode: length
 /// bytes below 128 copy, above repeat, and 128 ends decoding.
-/// Truncated tails before EOD are dropped like upstream instead of
-/// failing; output stays budget-bounded.
+/// Truncated literals emit their available prefix; a missing repeat byte
+/// emits nothing. Missing EOD is tolerated; output stays budget-bounded.
 /// </summary>
 internal static class RunLengthFilter
 {
@@ -40,12 +40,7 @@ internal static class RunLengthFilter
             if (length == 128) { break; }
             if (length < 128)
             {
-                int count = length + 1;
-                if (position + count > input.Length)
-                {
-                    break;
-                }
-
+                int count = Math.Min(length + 1, input.Length - position);
                 for (int i = 0; i < count; i++)
                 {
                     output.WriteByte(input[position + i]);
@@ -53,7 +48,7 @@ internal static class RunLengthFilter
 
                 position += count;
             }
-            else if (length > 128)
+            else
             {
                 if (position >= input.Length)
                 {
