@@ -3809,11 +3809,13 @@
           "JsonModesTests.InlineDecodesStreams",
           "JsonModesTests.InlineFallsBackToRaw",
           "JsonModesTests.DecodeNoneKeepsRaw",
-          "JsonModesTests.VersionOneIgnoresStreamData"
+          "JsonModesTests.VersionOneIgnoresStreamData",
+          "JsonSidecarNameTests.SidecarNamesStayExactOrFailBeforeAnyPublication"
         ],
         "negative": [
           "JsonModesTests.BadStreamOptionsFail",
-          "PublicationAdmissionTests.JsonSidecarCannotOverwriteMainOutput"
+          "PublicationAdmissionTests.JsonSidecarCannotOverwriteMainOutput",
+          "JsonSidecarNameTests.SidecarNamesStayExactOrFailBeforeAnyPublication"
         ],
         "interaction": [
           "JsonModesTests.JobStreamModesRoundTrip",
@@ -3822,7 +3824,8 @@
         "resource": [
           "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
           "JsonValueOwnershipTests.SidecarsPreserveRawAndDecodedBytesAfterReaderCloses",
-          "JsonValueOwnershipTests.InputCloseFaultPreservesMainAndSidecarTargets"
+          "JsonValueOwnershipTests.InputCloseFaultPreservesMainAndSidecarTargets",
+          "JsonSidecarNameTests.NameChecksAndAdmissionPrecedeLargePayloadCopies"
         ],
         "oracle": [
           "diff:json-stream-data"
@@ -3852,12 +3855,14 @@
       "evidence": {
         "positive": [
           "JsonModesTests.FileModeWritesSidecars",
-          "JsonModesTests.FileModeHonorsPrefix"
+          "JsonModesTests.FileModeHonorsPrefix",
+          "JsonSidecarNameTests.SidecarNamesStayExactOrFailBeforeAnyPublication"
         ],
         "negative": [
           "JsonModesTests.BadStreamOptionsFail",
           "JsonModesTests.StrayStreamOptionsFail",
-          "PublicationAdmissionTests.JsonSidecarCannotOverwriteMainOutput"
+          "PublicationAdmissionTests.JsonSidecarCannotOverwriteMainOutput",
+          "JsonSidecarNameTests.SidecarNamesStayExactOrFailBeforeAnyPublication"
         ],
         "interaction": [
           "JsonModesTests.JobStreamModesRoundTrip"
@@ -3865,7 +3870,8 @@
         "resource": [
           "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
           "JsonValueOwnershipTests.SidecarsPreserveRawAndDecodedBytesAfterReaderCloses",
-          "JsonValueOwnershipTests.InputCloseFaultPreservesMainAndSidecarTargets"
+          "JsonValueOwnershipTests.InputCloseFaultPreservesMainAndSidecarTargets",
+          "JsonSidecarNameTests.NameChecksAndAdmissionPrecedeLargePayloadCopies"
         ],
         "oracle": [
           "diff:json-prefix"

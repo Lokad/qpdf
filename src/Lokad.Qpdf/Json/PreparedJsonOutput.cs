@@ -83,10 +83,17 @@ internal sealed class PreparedJsonOutput : IDisposable
 
     internal JsonPayload AddSidecar(string prefix, int number, ReadOnlySpan<byte> bytes, QpdfLimits limits)
     {
+        _governor.CheckCancellation();
+        Span<byte> digits = stackalloc byte[20];
+        int length = WriterNumber.Format(number, digits, _governor);
+        if (prefix.Length > QpdfPath.MaxLength - 1 - length || prefix.Contains('\0')
+            || !GovernedText.IsValidUtf16(prefix, _governor))
+        { throw new QpdfParseException("JSON stream file name is not a valid logical path.", null, null); }
         if (bytes.Length > limits.MaxOutputBytes)
         { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), bytes.Length, limits.MaxOutputBytes); }
         using DisplayBuffer nameBuffer = DisplayBuffer.Create(_governor, false);
-        nameBuffer.Append(prefix); nameBuffer.Append('-'); nameBuffer.AppendInteger(number);
+        nameBuffer.Append(prefix); nameBuffer.Append('-');
+        foreach (byte digit in digits[..length]) { nameBuffer.Append((char)digit); }
         using GovernedText name = nameBuffer.Finish();
         long reserved = ArrayBytes(bytes.Length);
         Memory.Reserve(reserved);

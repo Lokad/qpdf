@@ -35,6 +35,20 @@ internal sealed class GovernedText : IDisposable
         return checked((2L * alignment + 6L + 2L * length + alignment - 1L) & ~(alignment - 1L));
     }
 
+    internal static bool IsValidUtf16(ReadOnlySpan<char> value, ResourceGovernor governor)
+    {
+        for (int index = 0; index < value.Length; index++)
+        {
+            if ((index & 255) == 0) { governor.CheckCancellation(); }
+            if (!char.IsSurrogate(value[index])) { continue; }
+            if (char.IsHighSurrogate(value[index])
+                ? index + 1 == value.Length || !char.IsLowSurrogate(value[index + 1])
+                : index == 0 || !char.IsHighSurrogate(value[index - 1]))
+            { return false; }
+        }
+        return true;
+    }
+
     internal static string CopySubstring(ResourceGovernor governor, ParserMemoryScope memory, string source, int start, int length)
     {
         governor.CheckCancellation();

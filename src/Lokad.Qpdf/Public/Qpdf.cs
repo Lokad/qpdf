@@ -4741,7 +4741,6 @@ public static partial class Qpdf
             { throw new QpdfParseException("A JSON stream file must differ from the input file.", 0L, null); }
             if (string.Equals(sidecar.Name, outputPath?.Value, StringComparison.Ordinal))
             { throw new QpdfParseException("A JSON stream file must differ from the main JSON output.", 0L, null); }
-            _ = QpdfPath.From(sidecar.Name);
             anticipatedBytes = checked(anticipatedBytes + sidecar.Data.Length);
             publicationOperations = checked(publicationOperations + 1L + (sidecar.Data.Length + 32767L) / 32768L);
         }

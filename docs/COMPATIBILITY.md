@@ -14,6 +14,16 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+JSON stream sidecar names now reject malformed UTF-16, NUL and paths longer
+than the logical path limit, including the generated object-number suffix,
+before copying the payload or creating output transactions. Valid Unicode names
+retain their exact host identity. Previously typed/argv export could succeed
+with a JSON filename that differed from the published sidecar, and overlong
+generated names could escape command execution as `ArgumentException`.
+Invalid generated names now raise `QpdfParseException` in typed export and yield
+a structured failed command result. Mixed job-file argv also rejects malformed
+UTF-16 before JSON serialization can replace it. Public signatures are unchanged.
+
 Split outputs now advance the carried page-label start when a group begins
 inside a numbering run. For example, a six-page run starting at 5, split in
 pairs, starts at 5, 7 and 9 rather than restarting at 5 in every file. This

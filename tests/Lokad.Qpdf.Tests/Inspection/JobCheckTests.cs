@@ -133,7 +133,10 @@ public sealed class JobCheckTests
     private static WeakReference VerifyReaderAndPresentationOptions(ResourceGovernor governor)
     {
         const string json = """{"inputFile":"inputs/a.pdf","check":"","verbose":"","reportMemoryUsage":"","ignoreXrefStreams":"","suppressRecovery":"","global":{"maxStreamFilters":5,"parserMaxNesting":13,"parserMaxContainerSize":21,"parserMaxContainerSizeDamaged":8,"parserMaxErrors":0,"noDefaultLimits":""}}""";
-        CheckPlan plan = Assert.IsType<CheckPlan>(JobJsonParser.Parse(json, QpdfLimits.Default, governor));
+        using InMemoryQpdfHost host = new();
+        using JobJsonLoader.LoadedJob loaded = JobJsonLoader.ParseAsync(host, json, QpdfLimits.Default, governor,
+            CancellationToken.None).GetAwaiter().GetResult();
+        CheckPlan plan = Assert.IsType<CheckPlan>(loaded.Plan);
         Assert.Equal(QpdfRecoveryMode.Strict, plan.Recovery);
         Assert.Equal(5L, plan.MaxStreamFilters);
         Assert.Equal(13L, plan.ParserMaxNesting);

@@ -107,6 +107,8 @@ internal static class JobJsonLoader
             foreach (string token in argv)
             {
                 _governor.CheckCancellation();
+                if (!GovernedText.IsValidUtf16(token, _governor))
+                { throw new QpdfParseException("Job arguments contain malformed UTF-16.", null, null); }
                 bytes = checked(bytes + Encoding.UTF8.GetByteCount(token));
                 if (bytes > Math.Min(_limits.MaxInputBytes, int.MaxValue))
                 {
