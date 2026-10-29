@@ -93,6 +93,37 @@ foreach ($layout in @('grouped', 'ungrouped')) {
         $verifier $artifact
 }
 
+foreach ($case in @(
+    @{ Name='packaged-link'; Readme='[license](LICENSE.txt)'; Reject=$false },
+    @{ Name='packaged-fragment'; Readme='[license](./LICENSE.txt#text)'; Reject=$false },
+    @{ Name='packaged-reference'; Readme="[license][text]`n[text]: LICENSE.txt"; Reject=$false },
+    @{ Name='external-link'; Readme='[docs](https://example.invalid/not-fetched)'; Reject=$false },
+    @{ Name='local-anchor'; Readme='[section](#section)'; Reject=$false },
+    @{ Name='missing-inline-link'; Readme='[docs](docs/missing.md)'; Reject=$true },
+    @{ Name='missing-reference-link'; Readme="[docs][text]`n[text]: docs/missing.md"; Reject=$true }
+)) {
+    $directory = Join-Path $testRoot $case.Name
+    New-Item -ItemType Directory -Path $directory | Out-Null
+    $artifact = Join-Path $directory ([IO.Path]::GetFileName($resolvedPackage))
+    Copy-Item -LiteralPath $resolvedPackage -Destination $artifact
+    Copy-Item -LiteralPath ([IO.Path]::ChangeExtension($resolvedPackage, '.snupkg')) `
+        -Destination ([IO.Path]::ChangeExtension($artifact, '.snupkg'))
+    $archive = [IO.Compression.ZipFile]::Open($artifact, [IO.Compression.ZipArchiveMode]::Update)
+    try {
+        $archive.GetEntry('README.md').Delete()
+        $writer = [IO.StreamWriter]::new($archive.CreateEntry('README.md').Open())
+        try { $writer.WriteLine($case.Readme) } finally { $writer.Dispose() }
+    } finally { $archive.Dispose() }
+    if ($case.Reject) {
+        Assert-Rejection $case.Name 'README link target is missing from package' (Join-Path $PSScriptRoot 'verify-package.ps1') $artifact
+    } else {
+        $output = & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'verify-package.ps1') -PackagePath $artifact 2>&1 | Out-String
+        [IO.File]::WriteAllText((Join-Path $testRoot ($case.Name + '.log')), $output)
+        if ($LASTEXITCODE -ne 0) { throw "$($case.Name) rejected a valid package link. See $testRoot." }
+        Write-Output "PASS $($case.Name)"
+    }
+}
+
 if ((Get-FileHash -LiteralPath $seedPath -Algorithm SHA256).Hash -cne $seedHash) {
     throw 'Negative verification changed the tracked consumer lock.'
 }

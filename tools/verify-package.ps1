@@ -16,6 +16,19 @@ try {
         if ($required -notin $names) { throw "Missing package member: $required" }
     }
 
+    $reader = [IO.StreamReader]::new($package.GetEntry('README.md').Open())
+    try { $readme = $reader.ReadToEnd() } finally { $reader.Dispose() }
+    # Check inline and reference-style destinations without fetching external URLs.
+    $links = @([regex]::Matches($readme, '\]\(\s*(?:<(?<target>[^>\r\n]+)>|(?<target>[^\s)]+))')) +
+        @([regex]::Matches($readme, '(?m)^\s{0,3}\[[^\]]+\]:\s*(?:<(?<target>[^>\r\n]+)>|(?<target>[^\s]+))'))
+    foreach ($link in $links) {
+        $target = $link.Groups['target'].Value
+        if ($target -match '^(?:[a-z][a-z0-9+.-]*:|//|#)') { continue }
+        $relative = [Uri]::UnescapeDataString(($target -split '[?#]', 2)[0]).Replace('\', '/')
+        if ($relative.StartsWith('./', [StringComparison]::Ordinal)) { $relative = $relative.Substring(2) }
+        if ($relative -cnotin $names) { throw "README link target is missing from package: $target" }
+    }
+
     $nuspec = $package.GetEntry('Lokad.qpdf.nuspec')
     if ($null -eq $nuspec) { throw 'Missing package manifest.' }
     $reader = [System.IO.StreamReader]::new($nuspec.Open())
@@ -43,4 +56,4 @@ try {
 }
 finally { $symbols.Dispose() }
 
-Write-Output 'Package and symbols contain only approved files; the core package has no runtime package dependencies.'
+Write-Output 'Package and symbols contain only approved files, README file links resolve, and the core package has no runtime package dependencies.'

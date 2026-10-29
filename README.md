@@ -7,7 +7,7 @@ The core package has no runtime NuGet dependencies.
 
 Use typed C# methods, qpdf-style arguments or job JSON from your application.
 The library is currently prerelease and targets compatibility with qpdf 12.4.2;
-see [compatibility](docs/COMPATIBILITY.md) for supported behavior and differences.
+see [compatibility](https://github.com/Lokad/qpdf/blob/master/docs/COMPATIBILITY.md) for supported behavior and differences.
 
 ## What you can do
 
@@ -52,7 +52,7 @@ and decoded bytes. Results include warnings and resource counters.
 
 Hosts can expose a shared memory budget through `IQpdfMemoryHost`; the standalone
 owned-read helper also accepts that budget directly. See
-[cooperative memory admission](docs/MEMORY.md) for caller-scope ownership and the
+[cooperative memory admission](https://github.com/Lokad/qpdf/blob/master/docs/MEMORY.md) for caller-scope ownership and the
 current boundary between engine estimates and host-private storage.
 
 For existing qpdf workflows, `Qpdf.ExecuteAsync` accepts a `QpdfCommandInvocation`,
@@ -61,7 +61,7 @@ and `Qpdf.ExecuteJobAsync` accepts job JSON.
 JPEG decoding and recompression use the optional `IQpdfJpegCodec` interface.
 Supply your implementation with `new InMemoryQpdfHost(QpdfLimits.Default, codec)`;
 custom hosts expose it through `IQpdfJpegCodecHost`. Existing JPEGs can pass through
-unchanged without a codec. See the [codec contract](src/Lokad.Qpdf/Public/IQpdfJpegCodec.cs)
+unchanged without a codec. See the [codec contract](https://github.com/Lokad/qpdf/blob/master/src/Lokad.Qpdf/Public/IQpdfJpegCodec.cs)
 for buffer ownership, cancellation and resource admission.
 
 ## Limitations
@@ -69,7 +69,7 @@ for buffer ownership, cancellation and resource admission.
 Encrypted PDFs, passwords, encryption/decryption and signature processing are
 unsupported. Rendering, OCR and text extraction are outside the library's scope.
 CMYK/YCCK JPEG images remain opaque when decoding is requested; Zopfli compression
-is unavailable. See the [supported profile](docs/SUPPORTED-PROFILE.md) for details.
+is unavailable. See the [supported profile](https://github.com/Lokad/qpdf/blob/master/docs/SUPPORTED-PROFILE.md) for details.
 
 ## Build from source
 
@@ -84,14 +84,14 @@ dotnet pack src/Lokad.Qpdf/Lokad.Qpdf.csproj -c Release --no-build --no-restore
 
 The package is written to `artifacts/nuget`. Ordinary builds and tests require no
 native qpdf or other external PDF tools. Contributor checks are listed in
-[AGENTS.md](AGENTS.md); reference checks use [the pinned-tool verifier](tools/bootstrap-qpdf.ps1).
+[AGENTS.md](https://github.com/Lokad/qpdf/blob/master/AGENTS.md); reference checks use [the pinned-tool verifier](https://github.com/Lokad/qpdf/blob/master/tools/bootstrap-qpdf.ps1).
 CI also runs cold/batch probe, protocol and raster self-tests, oracle version and
 timeout cleanup controls, deterministic warmup-readiness tests and benchmark worker
 cleanup tests. These use small controlled executables and Python children,
 require no native PDF tools and measure no performance.
 
-- [Compatibility](docs/COMPATIBILITY.md): supported operations and caller-facing differences.
-- [Benchmarks](docs/BENCHMARKS.md): dated measurements, methodology and allocation/admission tools.
-- [Architecture](ARCHITECTURE.md): components, storage boundaries and resource ownership.
+- [Compatibility](https://github.com/Lokad/qpdf/blob/master/docs/COMPATIBILITY.md): supported operations and caller-facing differences.
+- [Benchmarks](https://github.com/Lokad/qpdf/blob/master/docs/BENCHMARKS.md): dated measurements, methodology and allocation/admission tools.
+- [Architecture](https://github.com/Lokad/qpdf/blob/master/ARCHITECTURE.md): components, storage boundaries and resource ownership.
 
-Licensed under the [MIT license](LICENSE.txt).
+Licensed under the [MIT license](https://github.com/Lokad/qpdf/blob/master/LICENSE.txt).

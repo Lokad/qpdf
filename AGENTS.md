@@ -32,6 +32,9 @@ the local package hash to the supplied artifact, and restores in locked mode
 with a fresh cache/feed. External hashes and the tracked lock remain unchanged.
 Both package guards reject grouped and ungrouped dependencies. Negative checks
 mutate copied locks and package manifests and require rejection before restore.
+The package guard also checks README file-link destinations against package
+members; external documentation URLs are not fetched. Copied-package controls
+cover valid links and absent inline/reference-style targets.
 
 After an intentional dependency change, restore without locked mode once,
 review and commit the new lock files, then verify locked mode again. Update
