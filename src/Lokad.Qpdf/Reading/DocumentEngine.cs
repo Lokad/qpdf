@@ -7,8 +7,8 @@ using Lokad.Qpdf.Syntax;
 namespace Lokad.Qpdf.Reading;
 
 /// <summary>
-/// Strict single-section document engine: on-demand object loading over a
-/// unified xref table with a parse cache. Reference chains never recurse:
+/// On-demand object loading over a unified xref table with a parse cache and
+/// an explicit recovery policy. Reference chains never recurse:
 /// nested references stay references until explicitly resolved, and the page
 /// walk carries its own visited set and depth budget. Compressed objects
 /// decode their object stream once and cache every contained object whose
