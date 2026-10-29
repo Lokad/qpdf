@@ -67,18 +67,6 @@ internal sealed class ParserMemoryScope : IDisposable
         _reservedBytes = 0L;
     }
 
-    // Transfer an allocation that outlives this construction scope into the
-    // enclosing graph owner, preserving the scope's remaining storage.
-    internal void RetainAllocation(long bytes)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        if (bytes < 0L || bytes > _reservedBytes - _hostBytes)
-        { throw new InvalidOperationException("Retained allocation exceeds its scope's ownership."); }
-        long retained = _governor.RetainGraph(bytes);
-        _reservedBytes -= bytes;
-        _governor.ReleaseMemory(bytes - retained);
-    }
-
     // An exclusive prepared owner can abandon its candidate without releasing
     // any other storage accepted by the same execution.
     internal RetainedStorage.Receipt RetainAllocationReceipt(long bytes)

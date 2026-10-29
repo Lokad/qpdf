@@ -25,14 +25,6 @@ internal static class XRefRecovery
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
-        string strictReason)
-        => Recover(data, limits, governor, diagnostics, strictReason, true);
-
-    internal static XRefTable Recover(
-        ReadOnlyMemory<byte> data,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
         string strictReason,
         bool valuesEscape)
     {

@@ -85,11 +85,6 @@ internal sealed class XRefTable : IDisposable
 
     internal static XRefTable CreateOwned(long xrefOffset, Dictionary<int, XrefEntry> entries,
         PdfDictionary trailer, List<PdfDictionary> trailers, ResourceGovernor governor,
-        ParserMemoryScope containers, ParserMemoryScope values)
-        => CreateOwned(xrefOffset, entries, trailer, trailers, governor, containers, values, true);
-
-    internal static XRefTable CreateOwned(long xrefOffset, Dictionary<int, XrefEntry> entries,
-        PdfDictionary trailer, List<PdfDictionary> trailers, ResourceGovernor governor,
         ParserMemoryScope containers, ParserMemoryScope values, bool valuesEscape)
     {
         containers.CheckOwner(governor);
@@ -141,14 +136,6 @@ internal sealed class XRefTable : IDisposable
     internal PdfDictionary Trailer => _trailer ?? throw new ObjectDisposedException(nameof(XRefTable));
 
     internal IReadOnlyList<PdfDictionary> Trailers => _trailers ?? throw new ObjectDisposedException(nameof(XRefTable));
-
-    internal static XRefTable Parse(
-        ReadOnlyMemory<byte> data,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
-        QpdfRecoveryMode recovery)
-        => Parse(data, limits, governor, diagnostics, recovery, true);
 
     internal static XRefTable Parse(
         ReadOnlyMemory<byte> data,

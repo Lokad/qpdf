@@ -12,40 +12,12 @@ namespace Lokad.Qpdf.Writing;
 /// </summary>
 internal static class CanonicalDisplay
 {
-    internal static GovernedText Render(
-        QpdfObject value,
-        QpdfLimits limits,
-        ResourceGovernor governor)
-    {
-        return Render(value, limits, governor, null);
-    }
-
-    internal static GovernedText Render(
-        QpdfObject value,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        IIndirectResolver? resolver)
-    {
-        return RenderCore(value, limits, governor, resolver, false);
-    }
-
     internal static void AddDiagnostic(
         QpdfObject value,
         QpdfLimits limits,
         ResourceGovernor governor,
         IIndirectResolver? resolver,
         DiagnosticBag diagnostics)
-    {
-        using GovernedText text = RenderCore(value, limits, governor, resolver, true);
-        diagnostics.AddOwned(QpdfDiagnosticCode.ObjectListing, QpdfDiagnosticSeverity.Info, text);
-    }
-
-    private static GovernedText RenderCore(
-        QpdfObject value,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        IIndirectResolver? resolver,
-        bool diagnostic)
     {
         if (value is null)
         {
@@ -63,9 +35,13 @@ internal static class CanonicalDisplay
         }
 
         limits.Validate();
-        using DisplayBuffer builder = DisplayBuffer.Create(governor, diagnostic);
-        AppendValue(value, builder, 0, limits, governor, resolver);
-        return builder.Finish();
+        GovernedText text;
+        using (DisplayBuffer builder = DisplayBuffer.Create(governor, true))
+        {
+            AppendValue(value, builder, 0, limits, governor, resolver);
+            text = builder.Finish();
+        }
+        using (text) { diagnostics.AddOwned(QpdfDiagnosticCode.ObjectListing, QpdfDiagnosticSeverity.Info, text); }
     }
 
     private static void AppendValue(

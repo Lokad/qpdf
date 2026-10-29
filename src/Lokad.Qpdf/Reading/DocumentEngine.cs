@@ -78,27 +78,6 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
     }
 
     internal static DocumentEngine CreateOwned(
-        ReadOnlyMemory<byte> data,
-        XRefTable table,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
-        QpdfRecoveryMode recovery,
-        long reservedInput)
-        => CreateOwned(data, table, limits, governor, diagnostics, recovery, reservedInput, true);
-
-    internal static DocumentEngine CreateOwned(
-        ReadOnlyMemory<byte> data,
-        XRefTable table,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
-        QpdfRecoveryMode recovery,
-        long reservedInput,
-        bool valuesEscape)
-        => CreateOwned(data, table, limits, governor, diagnostics, recovery, reservedInput, valuesEscape, false, null);
-
-    internal static DocumentEngine CreateOwned(
         ReadOnlyMemory<byte> data, XRefTable table, QpdfLimits limits, ResourceGovernor governor,
         DiagnosticBag diagnostics, QpdfRecoveryMode recovery, long reservedInput, bool valuesEscape,
         bool hostInput, IDisposable? snapshotBorrow)

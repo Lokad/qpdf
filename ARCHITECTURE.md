@@ -48,7 +48,10 @@ copier mode. Form-resource traversal tracks graph identities, with indirect
 form guards independent of resource-scope visits.
 Cross-reference tables likewise require an explicit owner. Synthetic fixtures
 admit their entry maps, trailer lists and input receipts and transfer them through
-the same owned table/engine factories as production; no unowned table mode remains.
+the same owned table/engine factories as production, with explicit escape and input
+flags. Value scopes use the production whole-graph handoff. Object-display tests
+consume the same diagnostic path as inspection; text-transfer tests use live
+owned-text producers.
 Argv parsing and range expansion require their execution governor and construction
 owners. Linearization and inline-image tests exercise the same governed indexes
 and allocation batches as production; no unowned parser or dictionary adapters
