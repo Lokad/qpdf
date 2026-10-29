@@ -3570,6 +3570,7 @@ public static partial class Qpdf
             foreach (EmbeddedAttachment attachment in found)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                int firstId = copier.BeginCopyAttempt();
                 try
                 {
                     PdfReference? link = copier.AddIndirectObject(attachment.Spec);
@@ -3581,8 +3582,10 @@ public static partial class Qpdf
                 }
                 catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException))
                 {
+                    copier.RollbackCopyAttempt(firstId, cancellationToken);
                     diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unpreservable attachment.");
                 }
+                finally { copier.EndCopyAttempt(); }
             }
         }
 
@@ -3749,15 +3752,18 @@ public static partial class Qpdf
                 }
 
                 PdfReference? link;
+                int firstId = copyCopier.BeginCopyAttempt();
                 try
                 {
                     link = copyCopier.AddIndirectObject(attachment.Spec);
                 }
                 catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException))
                 {
+                    copyCopier.RollbackCopyAttempt(firstId, cancellationToken);
                     diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unpreservable attachment.");
                     continue;
                 }
+                finally { copyCopier.EndCopyAttempt(); }
 
                 if (link is null)
                 {

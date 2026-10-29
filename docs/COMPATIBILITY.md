@@ -24,6 +24,14 @@ selected malformed specs now reporting their cause directly. Listing and JSON
 metadata behavior, decode fallback, budgets and publication guarantees remain.
 Public signatures are unchanged.
 
+Attachment preservation and foreign copying roll back mappings, descendants and
+allocator slots when an attachment is skipped. Earlier shared streams remain
+available to later attachments. Previously a later alias could reuse an unfinished
+mapping, publish a dangling name-tree reference and inflate the returned count;
+linearization could fail on the missing object. Unsupported structural references
+still skip the attachment with a warning, where native qpdf may preserve it.
+This retains the contained-copy policy while correcting cleanup and counts.
+
 JSON stream sidecar names now reject malformed UTF-16, NUL and paths longer
 than the logical path limit, including the generated object-number suffix,
 before copying the payload or creating output transactions. Valid Unicode names

@@ -39,7 +39,7 @@ Zero-page whole-file jobs use the same graph, catalog and attachment preparation
 zero split groups create no output transaction. Explicit page bounds still apply.
 
 Every graph copier uses an explicit construction owner and the same admitted
-map and name-table storage. Recoverable catalog and unreferenced-root copies
+map and name-table storage. Recoverable catalog, attachment and unreferenced-root copies
 share a reusable, admitted source-number list: rollback removes only new mappings,
 copied descendants and allocator slots, preserving earlier shared objects.
 Nested name-category attempts keep their enclosing attempt's bookkeeping.

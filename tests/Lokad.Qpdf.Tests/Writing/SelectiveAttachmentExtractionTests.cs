@@ -204,7 +204,7 @@ public sealed class SelectiveAttachmentExtractionTests
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
-    private sealed class FaultHost(InMemoryQpdfHost inner, string fault, CancellationTokenSource cancellation) : IQpdfHost
+    internal sealed class FaultHost(InMemoryQpdfHost inner, string fault, CancellationTokenSource cancellation) : IQpdfHost
     {
         internal int Created { get; private set; }
         public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => inner.OpenInputAsync(path, token);
