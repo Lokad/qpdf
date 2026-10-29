@@ -61,6 +61,8 @@ enumeration owners.
 Hint lifetime tests use typed readers and owners, with private-field inspection
 for backing-storage and detachment proofs.
 Codec fixtures call the live cancellation-aware implementations directly.
+Canonical display, PDF JSON and resource dictionaries share governed unsigned
+raw-name comparisons. QDF retains its separate escaped-name ordering.
 PDF text decoding likewise requires its construction owner, governor and token;
 the encoding map uses the single-byte mapping directly during initialization.
 Non-Flate codec output caches

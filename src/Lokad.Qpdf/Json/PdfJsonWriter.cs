@@ -289,16 +289,7 @@ internal static class PdfJsonWriter
     private readonly struct RawKeyComparer(ResourceGovernor governor) : IComparer<KeyValuePair<PdfName, QpdfObject>>
     {
         public int Compare(KeyValuePair<PdfName, QpdfObject> left, KeyValuePair<PdfName, QpdfObject> right)
-        {
-            ReadOnlySpan<byte> a = left.Key.RawSpan, b = right.Key.RawSpan;
-            int width = Math.Min(a.Length, b.Length);
-            for (int index = 0; index < width; index++)
-            {
-                CheckChunkCancellation(governor, index);
-                if (a[index] != b[index]) { return a[index] - b[index]; }
-            }
-            return a.Length - b.Length;
-        }
+            => GovernedCollections.CompareNames(governor, left.Key, right.Key);
     }
     private static bool IsUtf8Name(ReadOnlySpan<byte> value, ResourceGovernor governor)
     {

@@ -133,7 +133,7 @@ internal static class CanonicalDisplay
                     governor.CheckCancellation();
                     keys[index++] = entries.Current;
                 }
-                SortKeys(keys, governor);
+                GovernedSort.Sort<KeyValuePair<PdfName, QpdfObject>, RawKeyComparer>(keys, new(governor), governor, CancellationToken.None);
                 builder.Append("<<");
                 foreach (KeyValuePair<PdfName, QpdfObject> entry in keys)
                 {
@@ -291,28 +291,9 @@ internal static class CanonicalDisplay
         return (char)(value < 10 ? '0' + value : 'a' + value - 10);
     }
 
-    // In-place heapsort has bounded stack and scratch. Compare immutable raw
-    // spans instead of private key copies; even long common prefixes charge
-    // work and check cancellation without Array.Sort exception wrapping.
-    private static void SortKeys(KeyValuePair<PdfName, QpdfObject>[] keys, ResourceGovernor governor)
-        => GovernedSort.Sort<KeyValuePair<PdfName, QpdfObject>, RawKeyComparer>(keys, new RawKeyComparer(governor), governor, CancellationToken.None);
-
     private readonly struct RawKeyComparer(ResourceGovernor governor) : IComparer<KeyValuePair<PdfName, QpdfObject>>
     {
         public int Compare(KeyValuePair<PdfName, QpdfObject> left, KeyValuePair<PdfName, QpdfObject> right)
-            => CompareKeys(left.Key, right.Key, governor);
-    }
-
-    private static int CompareKeys(PdfName left, PdfName right, ResourceGovernor governor)
-    {
-        ReadOnlySpan<byte> a = left.RawSpan;
-        ReadOnlySpan<byte> b = right.RawSpan;
-        int shared = Math.Min(a.Length, b.Length);
-        for (int i = 0; i < shared; i++)
-        {
-            CheckChunkCancellation(i, governor);
-            if (a[i] != b[i]) { return a[i].CompareTo(b[i]); }
-        }
-        return a.Length.CompareTo(b.Length);
+            => GovernedCollections.CompareNames(governor, left.Key, right.Key);
     }
 }
