@@ -66,10 +66,14 @@ internal static class EmbeddedFiles
         PdfDictionary? catalog = ResolveDictionary(engine, engine.Trailer, "Root", governor, token);
         PdfDictionary? names = catalog is null ? null : ResolveDictionary(engine, catalog, "Names", governor, token);
         PdfDictionary? tree = names is null ? null : ResolveDictionary(engine, names, "EmbeddedFiles", governor, token);
-        using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
-        QpdfObject? raw = tree is null ? null : WalkNode(engine, tree, 0,
-            GovernedIntSet.Create(traversal, governor, token), null,
-            limits, governor, diagnostics, memory, traversal, token, key);
+        QpdfObject? raw;
+        // The document owns the selected spec; tree scratch need not span decoding.
+        using (ParserMemoryScope traversal = ParserMemoryScope.Create(governor))
+        {
+            raw = tree is null ? null : WalkNode(engine, tree, 0,
+                GovernedIntSet.Create(traversal, governor, token), null,
+                limits, governor, diagnostics, memory, traversal, token, key);
+        }
         if (raw is null) { throw new QpdfParseException("The requested attachment was not found.", 0L, null); }
         (PdfStream stream, PdfReference? reference) = ReadEmbeddedStream(engine, ReadFileSpec(engine, raw, governor, token), governor, token);
         return ExtractData(stream, reference?.ObjectNumber ?? -1, engine, limits, governor, diagnostics, memory, token);

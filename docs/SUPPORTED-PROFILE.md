@@ -429,11 +429,10 @@ keys; listing order and request matching use decoded ordinal text.
 - `Qpdf.ListAttachmentsAsync` reports key, preferred file name, description,
   MIME type, PDF-syntax dates, stored checksum, stream number, and declared
   size without formatting listing diagnostics; genuine warnings still consume
-  their quotas. `Qpdf.ExtractAttachmentAsync` stages fully decoded bytes to an
-  explicit output path, locating only the requested key and embedded stream;
-  unrelated entries and presentation metadata do not contribute listing warnings
-  or decoded metadata storage (raw bytes plus a warning where decoding is
-  unavailable). The same engine backs
+  their quotas. `Qpdf.ExtractAttachmentAsync` finds the requested key and stages
+  its decoded embedded stream to an explicit output path, using raw bytes plus
+  a warning where decoding is unavailable. It does not build listing metadata
+  for selected or unrelated entries. The same engine backs
   `--list-attachments` (info diagnostics, no output file) and
   `--show-attachment=key` (last key wins). Without a host output path, argv and
   job inspection return caller-owned `QpdfExecutionResult.OutputBytes`; empty
