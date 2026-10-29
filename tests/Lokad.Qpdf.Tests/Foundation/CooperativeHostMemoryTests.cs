@@ -13,6 +13,45 @@ public sealed class CooperativeHostMemoryTests
     private static QpdfPath InputPath => QpdfPath.From("input");
     private static QpdfPath OutputPath => QpdfPath.From("output");
 
+    [Theory]
+    [InlineData(-1, false)]
+    [InlineData(42, false)]
+    [InlineData(-1, true)]
+    [InlineData(42, true)]
+    public async Task InvalidOwnershipPreservesInputsAndCallerFunding(int ownership, bool refuse)
+    {
+        RecordingMemoryBudget root = new(1L << 20) { RefuseOnGrowth = refuse ? 3 : 0 };
+        using IMemoryScope owner = root.CreateScope();
+        using IMemoryScope caller = root.CreateScope();
+        using InMemoryQpdfHost host = new(QpdfLimits.Default, null, owner);
+        host.AddInput(InputPath, [1, 2, 3], QpdfInputOwnership.Transfer);
+        byte[] candidate = [7, 8, 9];
+        Assert.True(caller.TryReserve(candidate.Length + 256L, out IMemoryReservation? funding));
+        using (funding)
+        {
+            long before = root.ReservedBytes, funded = funding.Bytes;
+            int calls = root.ReserveCalls;
+            await using (IQpdfInput prior = await host.OpenInputAsync(InputPath, CancellationToken.None))
+            {
+                ArgumentOutOfRangeException error = Assert.Throws<ArgumentOutOfRangeException>(
+                    () => host.AddInput(InputPath, candidate, (QpdfInputOwnership)ownership));
+                Assert.Equal("ownership", error.ParamName);
+                Assert.Equal(calls, root.ReserveCalls);
+                Assert.Equal(before, root.ReservedBytes);
+                Assert.Equal(funded, funding.Bytes);
+                Assert.Equal(new byte[] { 7, 8, 9 }, candidate);
+                await using IQpdfInput current = await host.OpenInputAsync(InputPath, CancellationToken.None);
+                Assert.Equal(new byte[] { 1, 2, 3 }, (await prior.ReadAsync(0, 3, CancellationToken.None)).ToArray());
+                Assert.Equal(new byte[] { 1, 2, 3 }, (await current.ReadAsync(0, 3, CancellationToken.None)).ToArray());
+            }
+            Assert.Equal(0L, host.OpenLeaseCount);
+            host.Dispose();
+            Assert.Equal(funded, root.ReservedBytes);
+            Assert.Equal(funded, funding.Bytes);
+        }
+        Assert.Equal(0L, root.ReservedBytes);
+    }
+
     [Fact]
     public void LongResourceNamesAreIncludedInDurableHostAdmission()
     {

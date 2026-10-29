@@ -64,9 +64,12 @@ public sealed partial class InMemoryQpdfHost : IQpdfHost, IQpdfJpegCodecHost, IQ
     /// without a second charge. Public reads return fresh owned bytes; their
     /// caller admits those copies, for example with the budget-aware read helper.
     /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The ownership policy is undefined.</exception>
     public void AddInput(QpdfPath path, byte[] content, QpdfInputOwnership ownership)
     {
         ValidateInput(content);
+        if (ownership != QpdfInputOwnership.Copy && ownership != QpdfInputOwnership.Transfer)
+        { throw new ArgumentOutOfRangeException(nameof(ownership)); }
         IMemoryReservation? admission = ReserveStorage(content.Length, path);
         try
         {

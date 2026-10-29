@@ -407,6 +407,11 @@ the argument error behind `BudgetExceeded`; otherwise admitted argument errors
 could retain nonzero counters. Valid-option behavior and public signatures are
 unchanged.
 
+`InMemoryQpdfHost.AddInput` rejects undefined `QpdfInputOwnership` values with
+`ArgumentOutOfRangeException` before admission or replacing an input. Previously
+every value other than `Copy` silently transferred the array. Valid `Copy` and
+`Transfer` behavior, existing leases and caller-owned reservations are unchanged.
+
 Token encoding fills the already-measured result without recalculating unused
 byte widths. The content tokenizer borrows its validated governor policy instead
 of retaining a second limits reference or revalidating it at construction. Forwarded
