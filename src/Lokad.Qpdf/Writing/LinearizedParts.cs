@@ -473,7 +473,7 @@ internal sealed class LinearizedParts : IDisposable
         GovernedIntSet treeSet = CopySet(tree, temporary, governor, cancellationToken);
         List<int> outlineOrder = CollectOutlines(lookup, catalog, catalogNumber, closures, openDocuments, treeSet, owners, retained, governor, cancellationToken);
         GovernedIntSet outlinePlaced = CopySet(outlineOrder, temporary, governor, cancellationToken);
-        bool outlinesInFirstPage = outlineOrder.Count > 0 && IsUseOutlines(catalog, governor, cancellationToken);
+        bool outlinesInFirstPage = outlineOrder.Count > 0 && IsUseOutlines(catalog, lookup, governor, cancellationToken);
         List<List<int>> thumbRuns = CollectThumbs(lookup, thumbImages, users, openDocuments, treeSet, outlinePlaced, owners, temporary, governor, cancellationToken);
         GovernedIntSet thumbPlaced = GovernedIntSet.Create(temporary, governor, cancellationToken);
         foreach (List<int> run in thumbRuns)
@@ -800,10 +800,12 @@ internal sealed class LinearizedParts : IDisposable
         return ordered;
     }
 
-    private static bool IsUseOutlines(PdfDictionary catalog, ResourceGovernor governor, CancellationToken cancellationToken)
+    private static bool IsUseOutlines(PdfDictionary catalog, GovernedIntDictionary<QpdfObject> lookup,
+        ResourceGovernor governor, CancellationToken cancellationToken)
     {
-        return GovernedCollections.TryGet(catalog, "PageMode"u8, governor, cancellationToken, out QpdfObject? mode)
-            && mode is PdfName modeName
+        if (!GovernedCollections.TryGet(catalog, "PageMode"u8, governor, cancellationToken, out QpdfObject? mode)) { return false; }
+        if (mode is PdfReference reference) { lookup.TryGetValue(reference.ObjectNumber, out mode); }
+        return mode is PdfName modeName
             && modeName.RawSpan.SequenceEqual("UseOutlines"u8);
     }
 

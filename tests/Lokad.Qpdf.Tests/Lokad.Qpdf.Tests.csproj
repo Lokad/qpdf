@@ -7,6 +7,7 @@
     <Compile Include="../Lokad.Qpdf.PackageConsumer/RecordingMemoryBudget.cs" Link="Support/RecordingMemoryBudget.cs" />
     <EmbeddedResource Include="Content/InlineImageNativeCases.json" />
     <EmbeddedResource Include="Writing/LinearizedHintNativeCases.json" />
+    <EmbeddedResource Include="Writing/LinearizedPageModeCases.json" />
     <EmbeddedResource Include="Writing/DocumentOpenHintCases.json" />
     <EmbeddedResource Include="Inspection/LinearizationCheckCases.json" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" PrivateAssets="All" />

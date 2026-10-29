@@ -149,6 +149,12 @@ entry points. Valid surrogate pairs, host faults, cancellation, admission/OOM
 failures and output rollback retain their existing behavior. Public signatures
 are unchanged; malformed text now follows ordinary input-error outcomes.
 
+Linearization resolves an indirect `/PageMode /UseOutlines` before placing
+outlines in the first-page section. Previously writing could report success with
+incorrect section boundaries and hints; the shared checker accepted those files
+and rejected valid native output. Checking now distinguishes those layouts.
+Direct names, unrelated or malformed modes and public signatures are unchanged.
+
 Linearization checking and reporting treat `/P null` as the absent optional
 first-page field, using its zero default. Previously typed checking and argv/job
 check/report requests rejected these valid files. Non-null type checks and
