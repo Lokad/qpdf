@@ -4546,7 +4546,7 @@ public static partial class Qpdf
 
         await using QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
         using ParserMemoryScope attachmentMemory = ParserMemoryScope.Create(governor);
-        ReadOnlyMemory<byte> data = ReadAttachmentData(document, key, limits, governor, diagnostics, attachmentMemory, cancellationToken);
+        ReadOnlyMemory<byte> data = EmbeddedFiles.ExtractAttachment(document.Engine, key, limits, governor, diagnostics, attachmentMemory, cancellationToken);
         if (data.Length > limits.MaxOutputBytes)
         {
             throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), data.Length, limits.MaxOutputBytes);

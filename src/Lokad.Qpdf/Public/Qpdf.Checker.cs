@@ -1,3 +1,4 @@
+using Lokad.Qpdf.Attachments;
 using Lokad.Qpdf.Commands;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
@@ -59,7 +60,7 @@ public static partial class Qpdf
                     if (plan.AttachmentKey is not null)
                     {
                         using ParserMemoryScope attachmentMemory = ParserMemoryScope.Create(governor);
-                        ReadOnlyMemory<byte> payload = ReadAttachmentData(document, plan.AttachmentKey, limits, governor, diagnostics, attachmentMemory, cancellationToken);
+                        ReadOnlyMemory<byte> payload = EmbeddedFiles.ExtractAttachment(document.Engine, plan.AttachmentKey, limits, governor, diagnostics, attachmentMemory, cancellationToken);
                         AppendInspectionBytes(output, payload, governor);
                         hasPayload = true;
                     }

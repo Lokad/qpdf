@@ -33,14 +33,14 @@ internal static class EmbeddedFiles
         ArgumentNullException.ThrowIfNull(governor); ArgumentNullException.ThrowIfNull(diagnostics);
         memory.CheckOwner(governor); limits.Validate(); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         List<EmbeddedAttachment> result = ParserContainers.CreateList<EmbeddedAttachment>(memory);
-        PdfDictionary? catalog = ResolveDictionary(engine, engine.Trailer, "Root");
-        PdfDictionary? names = catalog is null ? null : ResolveDictionary(engine, catalog, "Names");
-        PdfDictionary? tree = names is null ? null : ResolveDictionary(engine, names, "EmbeddedFiles");
+        PdfDictionary? catalog = ResolveDictionary(engine, engine.Trailer, "Root", governor, token);
+        PdfDictionary? names = catalog is null ? null : ResolveDictionary(engine, catalog, "Names", governor, token);
+        PdfDictionary? tree = names is null ? null : ResolveDictionary(engine, names, "EmbeddedFiles", governor, token);
         if (tree is null) { return result; }
 
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
         WalkNode(engine, tree, 0, GovernedIntSet.Create(traversal, governor, token), result,
-            limits, governor, diagnostics, memory, traversal, token);
+            limits, governor, diagnostics, memory, traversal, token, null);
         // Comparisons can examine large names even when there are few attachments.
         try { result.Sort((left, right) => CompareKeys(left.Key, right.Key, governor, token)); }
         catch (InvalidOperationException ex) when (ex.InnerException is OperationCanceledException or QpdfException)
@@ -56,6 +56,23 @@ internal static class EmbeddedFiles
             int order = left[i] - right[i]; if (order != 0) { return order; }
         }
         return left.Length.CompareTo(right.Length);
+    }
+
+    internal static ReadOnlyMemory<byte> ExtractAttachment(DocumentEngine engine, string key,
+        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
+        ParserMemoryScope memory, CancellationToken token)
+    {
+        memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        PdfDictionary? catalog = ResolveDictionary(engine, engine.Trailer, "Root", governor, token);
+        PdfDictionary? names = catalog is null ? null : ResolveDictionary(engine, catalog, "Names", governor, token);
+        PdfDictionary? tree = names is null ? null : ResolveDictionary(engine, names, "EmbeddedFiles", governor, token);
+        using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
+        QpdfObject? raw = tree is null ? null : WalkNode(engine, tree, 0,
+            GovernedIntSet.Create(traversal, governor, token), null,
+            limits, governor, diagnostics, memory, traversal, token, key);
+        if (raw is null) { throw new QpdfParseException("The requested attachment was not found.", 0L, null); }
+        (PdfStream stream, PdfReference? reference) = ReadEmbeddedStream(engine, ReadFileSpec(engine, raw, governor, token), governor, token);
+        return ExtractData(stream, reference?.ObjectNumber ?? -1, engine, limits, governor, diagnostics, memory, token);
     }
 
     internal static ReadOnlyMemory<byte> ExtractData(
@@ -112,14 +129,15 @@ internal static class EmbeddedFiles
         }
     }
 
-    private static PdfDictionary? ResolveDictionary(DocumentEngine engine, PdfDictionary parent, string key)
+    private static PdfDictionary? ResolveDictionary(DocumentEngine engine, PdfDictionary parent, string key,
+        ResourceGovernor governor, CancellationToken token)
     {
         if (!parent.TryGet(PdfName.FromAscii(key), out QpdfObject? raw) || raw is null || raw is PdfNull)
         {
             return null;
         }
 
-        QpdfObject target = raw is PdfReference reference ? ResolveRequired(engine, reference, key) : raw;
+        QpdfObject target = raw is PdfReference reference ? ResolveRequired(engine, reference, key, governor, token) : raw;
         if (target is PdfNull)
         {
             return null;
@@ -133,9 +151,10 @@ internal static class EmbeddedFiles
         return dictionary;
     }
 
-    private static QpdfObject ResolveRequired(DocumentEngine engine, PdfReference reference, string role)
+    private static QpdfObject ResolveRequired(DocumentEngine engine, PdfReference reference, string role,
+        ResourceGovernor governor, CancellationToken token)
     {
-        if (!((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? resolved) || resolved is null || resolved is PdfNull)
+        if (!PdfObjectLookup.TryResolve(reference, engine, governor, token, out QpdfObject? resolved) || resolved is null || resolved is PdfNull)
         {
             throw new QpdfParseException($"Unresolvable embedded-files {role} reference.", null, reference.ObjectNumber);
         }
@@ -143,9 +162,9 @@ internal static class EmbeddedFiles
         return resolved;
     }
 
-    private static void WalkNode(DocumentEngine engine, PdfDictionary node, int depth, GovernedIntSet visited,
-        List<EmbeddedAttachment> result, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
-        ParserMemoryScope memory, ParserMemoryScope traversal, CancellationToken token)
+    private static QpdfObject? WalkNode(DocumentEngine engine, PdfDictionary node, int depth, GovernedIntSet visited,
+        List<EmbeddedAttachment>? result, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
+        ParserMemoryScope memory, ParserMemoryScope traversal, CancellationToken token, string? requestedKey)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (depth > limits.MaxNestingDepth)
@@ -161,6 +180,13 @@ internal static class EmbeddedFiles
                 { throw new QpdfParseException("Embedded-files name-tree keys must be strings.", null, null); }
                 long before = memory.ReservedBytes;
                 string key = PdfText.Decode(keyBytes.ValueMemory, memory, governor, token);
+                if (requestedKey is not null)
+                {
+                    bool matches = CompareKeys(key, requestedKey, governor, token) == 0;
+                    memory.Release(memory.ReservedBytes - before);
+                    if (matches) { return names[i + 1]; }
+                    continue;
+                }
                 EmbeddedAttachment attachment;
                 try { attachment = ParseAttachment(engine, key, names[i + 1], governor, memory, token); }
                 catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
@@ -169,7 +195,7 @@ internal static class EmbeddedFiles
                     diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unlistable attachment.");
                     continue;
                 }
-                ParserContainers.AddItem(memory, result, attachment, IntPtr.Size);
+                if (result is not null) { ParserContainers.AddItem(memory, result, attachment, IntPtr.Size); }
             }
         }
         if (node.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw) && kidsRaw is not null && kidsRaw is not PdfNull)
@@ -180,15 +206,18 @@ internal static class EmbeddedFiles
             {
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 QpdfObject item = kids[i];
-                QpdfObject target = item is PdfReference reference ? ResolveRequired(engine, reference, "name-tree kid") : item;
+                QpdfObject target = item is PdfReference reference ? ResolveRequired(engine, reference, "name-tree kid", governor, token) : item;
                 if (target is not PdfDictionary kid)
                 { throw new QpdfParseException("Embedded-files kid must be a dictionary.", null, null); }
                 if (item is PdfReference link && !visited.Add(traversal, link.ObjectNumber))
                 { throw new QpdfParseException("Embedded-files name tree contains a cycle.", null, link.ObjectNumber); }
-                WalkNode(engine, kid, depth + 1, visited, result, limits, governor, diagnostics, memory, traversal, token);
+                QpdfObject? found = WalkNode(engine, kid, depth + 1, visited, result,
+                    limits, governor, diagnostics, memory, traversal, token, requestedKey);
                 if (item is PdfReference completed) { visited.Remove(completed.ObjectNumber); }
+                if (found is not null) { return found; }
             }
         }
+        return null;
     }
 
     private static EmbeddedAttachment ParseAttachment(
@@ -200,11 +229,7 @@ internal static class EmbeddedFiles
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        QpdfObject target = value is PdfReference reference ? ResolveRequired(engine, reference, "file specification") : value;
-        if (target is not PdfDictionary spec)
-        {
-            throw new QpdfParseException("Embedded file specification must be a dictionary.", null, null);
-        }
+        PdfDictionary spec = ReadFileSpec(engine, value, governor, cancellationToken);
 
         string fileName = string.Empty;
         foreach (string name in NameKeys)
@@ -224,12 +249,36 @@ internal static class EmbeddedFiles
             description = PdfText.Decode(descText.ValueMemory, memory, governor, cancellationToken);
         }
 
+        (PdfStream data, PdfReference? streamReference) = ReadEmbeddedStream(engine, spec, governor, cancellationToken);
+        PdfDictionary? parameters = null;
+        if (data.Dictionary.TryGet(PdfName.FromAscii("Params"), out QpdfObject parametersRaw) && parametersRaw is not PdfNull)
+        {
+            parameters = (parametersRaw is PdfReference parametersReference
+                ? ResolveRequired(engine, parametersReference, "embedded stream parameters", governor, cancellationToken) : parametersRaw) as PdfDictionary;
+        }
+        EmbeddedStreamMetadata metadata = ReadStreamMetadata(engine, data, parameters, memory, governor, cancellationToken);
+
+        governor.NoteOperation();
+        memory.Reserve(144L);
+        return new EmbeddedAttachment(key, fileName, description, metadata.MimeType, metadata.CreationDate, metadata.ModDate,
+            metadata.Checksum, metadata.Size, data, value, streamReference);
+    }
+
+    private static PdfDictionary ReadFileSpec(DocumentEngine engine, QpdfObject value, ResourceGovernor governor, CancellationToken token)
+    {
+        QpdfObject target = value is PdfReference reference ? ResolveRequired(engine, reference, "file specification", governor, token) : value;
+        return target as PdfDictionary ?? throw new QpdfParseException("Embedded file specification must be a dictionary.", null, null);
+    }
+
+    private static (PdfStream Stream, PdfReference? Reference) ReadEmbeddedStream(DocumentEngine engine, PdfDictionary spec,
+        ResourceGovernor governor, CancellationToken token)
+    {
         if (!spec.TryGet(PdfName.FromAscii("EF"), out QpdfObject? efRaw) || efRaw is null || efRaw is PdfNull)
         {
             throw new QpdfParseException("Embedded file specification has no embedded stream.", null, null);
         }
 
-        QpdfObject efTarget = efRaw is PdfReference efReference ? ResolveRequired(engine, efReference, "embedded stream set") : efRaw;
+        QpdfObject efTarget = efRaw is PdfReference efReference ? ResolveRequired(engine, efReference, "embedded stream set", governor, token) : efRaw;
         if (efTarget is not PdfDictionary ef)
         {
             throw new QpdfParseException("Embedded file specification has no embedded stream.", null, null);
@@ -244,7 +293,7 @@ internal static class EmbeddedFiles
                 continue;
             }
 
-            QpdfObject resolved = candidate is PdfReference resolvedReference ? ResolveRequired(engine, resolvedReference, "embedded stream") : candidate;
+            QpdfObject resolved = candidate is PdfReference resolvedReference ? ResolveRequired(engine, resolvedReference, "embedded stream", governor, token) : candidate;
             if (resolved is PdfStream stream)
             {
                 data = stream;
@@ -259,18 +308,7 @@ internal static class EmbeddedFiles
             throw new QpdfParseException("Embedded file specification has no embedded stream.", null, null);
         }
 
-        PdfDictionary? parameters = null;
-        if (data.Dictionary.TryGet(PdfName.FromAscii("Params"), out QpdfObject parametersRaw) && parametersRaw is not PdfNull)
-        {
-            parameters = (parametersRaw is PdfReference parametersReference
-                ? ResolveRequired(engine, parametersReference, "embedded stream parameters") : parametersRaw) as PdfDictionary;
-        }
-        EmbeddedStreamMetadata metadata = ReadStreamMetadata(engine, data, parameters, memory, governor, cancellationToken);
-
-        governor.NoteOperation();
-        memory.Reserve(144L);
-        return new EmbeddedAttachment(key, fileName, description, metadata.MimeType, metadata.CreationDate, metadata.ModDate,
-            metadata.Checksum, metadata.Size, data, value, streamReference);
+        return (data, streamReference);
     }
 
     internal readonly record struct EmbeddedStreamMetadata(string MimeType, string CreationDate, string ModDate, string Checksum, long Size);

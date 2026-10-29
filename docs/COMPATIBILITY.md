@@ -14,6 +14,16 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Attachment extraction searches for the requested key without building a full
+listing or decoding presentation metadata. Unrelated damaged file specs no longer
+consume diagnostic quotas, and shared descriptions no longer multiply extraction
+memory. Selected descriptions, MIME/date/checksum parameters and filenames are
+not needed to extract the embedded stream; malformed optional metadata does not
+hide that payload. Relevant tree, file-spec and stream errors still fail, with
+selected malformed specs now reporting their cause directly. Listing and JSON
+metadata behavior, decode fallback, budgets and publication guarantees remain.
+Public signatures are unchanged.
+
 JSON stream sidecar names now reject malformed UTF-16, NUL and paths longer
 than the logical path limit, including the generated object-number suffix,
 before copying the payload or creating output transactions. Valid Unicode names
