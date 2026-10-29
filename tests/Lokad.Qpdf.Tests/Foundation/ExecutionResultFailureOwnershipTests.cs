@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.TestSupport;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
@@ -58,7 +59,7 @@ public sealed class ExecutionResultFailureOwnershipTests
     public static IEnumerable<object[]> CompanionValidation()
     {
         foreach (string invalid in new[] { "mode", "level-low", "level-high", "uncompress-level" })
-        foreach (string budget in new[] { "memory", "default", "edge-memory" })
+        foreach (string budget in new[] { "memory", "default", "edge-memory", "shared" })
         foreach (bool canceled in new[] { false, true }) { yield return [invalid, budget, canceled]; }
     }
 
@@ -236,10 +237,13 @@ public sealed class ExecutionResultFailureOwnershipTests
         GC.KeepAlive(alias);
     }
 
-    private sealed class CountingHost : IQpdfHost
+    private sealed class CountingHost : IQpdfHost, IQpdfMemoryHost
     {
         internal readonly InMemoryQpdfHost Inner = new();
         internal int Calls;
+        internal IMemoryBudget? Budget;
+        internal int BudgetReads;
+        public IMemoryBudget? MemoryBudget { get { BudgetReads++; return Budget; } }
         public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token)
         { Calls++; return Inner.OpenInputAsync(path, token); }
         public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token)
@@ -382,6 +386,9 @@ Assert.Equal(0L, result.Counters.OpenHandles);
     public async Task InvalidCompanionOptionsKeepTheirExistingPrecedence(string invalid, string budget, bool canceled)
     {
         CountingHost host = await Host("zlib-compress");
+        RecordingMemoryBudget root = new(0L);
+        using IMemoryScope owner = root.CreateScope();
+        host.Budget = budget == "shared" ? owner : null;
         QpdfLimits limits = budget switch
         {
             "memory" => QpdfLimits.Default with { MaxMemoryBytes = 1L },
@@ -402,6 +409,33 @@ Assert.Equal(0L, result.Counters.OpenHandles);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, error.Code);
         Assert.Equal(invalid == "mode" ? "The zlib-flate mode is not supported."
             : "The zlib-flate compression level must be 1..9 while compressing.", error.Message);
+        Assert.Equal(0, host.Calls); Prior(host);
+        Assert.Equal(0, host.BudgetReads);
+        Assert.Equal(0, root.ReserveCalls);
+        Assert.Equal(0L, root.ReservedBytes);
+        Assert.Equal(0L, result.Counters.LiveMemoryBytes);
+        Assert.Equal(0L, result.Counters.DiagnosticCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ValidCompanionOptionsKeepSharedRefusalAndCancellation(bool canceled)
+    {
+        CountingHost host = await Host("zlib-compress");
+        RecordingMemoryBudget root = new(0L);
+        using IMemoryScope owner = root.CreateScope();
+        host.Budget = owner;
+        using CancellationTokenSource cancellation = new();
+        if (canceled) { cancellation.Cancel(); }
+        QpdfExecutionResult result = await Qpdf.RunZlibFlateAsync(host, Input, Output,
+            new(QpdfZlibFlateMode.Compress, null), cancellation.Token);
+        Assert.Equal(canceled ? QpdfExecutionStatus.Canceled : QpdfExecutionStatus.Failed, result.Status);
+        if (canceled) { Assert.Empty(result.Diagnostics); }
+        else { Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, Assert.Single(result.Diagnostics).Code); }
+        Assert.Equal(canceled ? 0 : 1, host.BudgetReads);
+        Assert.Equal(canceled ? 0 : 1, root.ReserveCalls);
+        Assert.Equal(0L, root.ReservedBytes);
         Assert.Equal(0, host.Calls); Prior(host);
     }
 }

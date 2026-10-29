@@ -400,6 +400,13 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Zlib-flate mode and compression-level validation precedes cancellation and local
+or shared memory admission. Invalid options return `InvalidArguments` with zero
+counters and no host or budget callbacks. Shared refusal previously could hide
+the argument error behind `BudgetExceeded`; otherwise admitted argument errors
+could retain nonzero counters. Valid-option behavior and public signatures are
+unchanged.
+
 Token encoding fills the already-measured result without recalculating unused
 byte widths. The content tokenizer borrows its validated governor policy instead
 of retaining a second limits reference or revalidating it at construction. Forwarded

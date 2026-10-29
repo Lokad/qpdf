@@ -5972,30 +5972,16 @@ public static partial class Qpdf
         }
 
         limits.Validate();
+        if (options.Mode != QpdfZlibFlateMode.Uncompress && options.Mode != QpdfZlibFlateMode.Compress)
+        { return ExecutionResultAdmission.InvalidZlibMode; }
+        if (options.CompressionLevel.HasValue && (options.Mode != QpdfZlibFlateMode.Compress || options.CompressionLevel.Value < 1 || options.CompressionLevel.Value > 9))
+        { return ExecutionResultAdmission.InvalidZlibLevel; }
         if (ExecutionResultAdmission.Reject(limits, cancellationToken) is QpdfExecutionResult rejection)
-        {
-            // Companion validation precedes cancellation/budget rejection, as
-            // it does for admitted jobs. These messages contain no job data.
-            if (options.Mode != QpdfZlibFlateMode.Uncompress && options.Mode != QpdfZlibFlateMode.Compress)
-            { return ExecutionResultAdmission.InvalidZlibMode; }
-            if (options.CompressionLevel.HasValue && (options.Mode != QpdfZlibFlateMode.Compress || options.CompressionLevel.Value < 1 || options.CompressionLevel.Value > 9))
-            { return ExecutionResultAdmission.InvalidZlibLevel; }
-            return rejection;
-        }
+        { return rejection; }
         ResourceGovernor governor = new(limits, cancellationToken, host);
         if (!governor.TryExpectExecutionResult()) { return ExecutionResultAdmission.SharedMemoryFailure; }
         try
         {
-            if (options.Mode != QpdfZlibFlateMode.Uncompress && options.Mode != QpdfZlibFlateMode.Compress)
-            {
-                return governor.FinishExecutionResult(ToFailedResult(new QpdfParseException(ExecutionResultAdmission.InvalidZlibModeMessage, null, null)));
-            }
-
-            if (options.CompressionLevel.HasValue && (options.Mode != QpdfZlibFlateMode.Compress || options.CompressionLevel.Value < 1 || options.CompressionLevel.Value > 9))
-            {
-                return governor.FinishExecutionResult(ToFailedResult(new QpdfParseException(ExecutionResultAdmission.InvalidZlibLevelMessage, null, null)));
-            }
-
             ExecutionOutcome result;
             try
             {
