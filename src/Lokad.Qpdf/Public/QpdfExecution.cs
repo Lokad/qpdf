@@ -61,28 +61,6 @@ public sealed record QpdfExecutionCounters
         _diagnosticCount = diagnosticCount;
     }
 
-    private QpdfExecutionCounters(QpdfExecutionCounters source)
-    {
-        _liveMemoryBytes = source._liveMemoryBytes;
-        _peakMemoryBytes = source._peakMemoryBytes;
-        _totalDecodedBytes = source._totalDecodedBytes;
-        _totalOutputBytes = source._totalOutputBytes;
-        _hostOperations = source._hostOperations;
-        _openHandles = source._openHandles;
-        _diagnosticCount = source._diagnosticCount;
-    }
-
-    /// <summary>Compares the seven observed counter values.</summary>
-    public bool Equals(QpdfExecutionCounters? other) => other is not null
-        && LiveMemoryBytes == other.LiveMemoryBytes && PeakMemoryBytes == other.PeakMemoryBytes
-        && TotalDecodedBytes == other.TotalDecodedBytes
-        && TotalOutputBytes == other.TotalOutputBytes && HostOperations == other.HostOperations
-        && OpenHandles == other.OpenHandles && DiagnosticCount == other.DiagnosticCount;
-
-    /// <summary>Hashes the seven observed counter values.</summary>
-    public override int GetHashCode() => HashCode.Combine(LiveMemoryBytes, PeakMemoryBytes,
-        TotalDecodedBytes, TotalOutputBytes, HostOperations, OpenHandles, DiagnosticCount);
-
     /// <summary>Gets the estimated job-memory charge at snapshot time.</summary>
     /// <remarks>This immutable accounting value is not a live heap measurement.</remarks>
     public long LiveMemoryBytes => _liveMemoryBytes;
@@ -181,26 +159,6 @@ public sealed record QpdfExecutionResult
             : adoptDiagnostics ? diagnostics : [.. diagnostics];
         Counters = counters ?? throw new ArgumentNullException(nameof(counters));
     }
-
-    private QpdfExecutionResult(QpdfExecutionResult source)
-    {
-        _status = source._status;
-        _exitCode = source._exitCode;
-        _diagnostics = source._diagnostics;
-        _outputText = source._outputText;
-        _outputBytes = source._outputBytes;
-        Counters = source.Counters;
-    }
-
-    /// <summary>Compares the exposed outcome values and aliases.</summary>
-    public bool Equals(QpdfExecutionResult? other) => other is not null
-        && Status == other.Status && ExitCode == other.ExitCode
-        && EqualityComparer<IReadOnlyList<QpdfDiagnostic>>.Default.Equals(Diagnostics, other.Diagnostics)
-        && Counters.Equals(other.Counters) && OutputText == other.OutputText
-        && Nullable.Equals(OutputBytes, other.OutputBytes);
-
-    /// <summary>Hashes the exposed outcome values and aliases.</summary>
-    public override int GetHashCode() => HashCode.Combine(Status, ExitCode, Diagnostics, Counters, OutputText, OutputBytes);
 
     internal void CompleteBeforeReturn(ExecutionOutcome outcome)
     {

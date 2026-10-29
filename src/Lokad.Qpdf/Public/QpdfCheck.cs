@@ -144,25 +144,4 @@ public sealed record QpdfCheckResult
             return false;
         }
     }
-
-    private QpdfCheckResult(QpdfCheckResult source)
-    {
-        PageCount = source.PageCount;
-        Version = source.Version;
-        Checks = source.Checks;
-        Diagnostics = source.Diagnostics;
-        Counters = source.Counters;
-    }
-
-    /// <summary>Compares exposed values and aliases.</summary>
-    public bool Equals(QpdfCheckResult? other) => other is not null
-        && PageCount == other.PageCount
-        && EqualityComparer<PdfVersion>.Default.Equals(Version, other.Version)
-        && EqualityComparer<IReadOnlyList<QpdfCheckOutcome>>.Default.Equals(Checks, other.Checks)
-        && EqualityComparer<IReadOnlyList<QpdfDiagnostic>>.Default.Equals(Diagnostics, other.Diagnostics)
-        && EqualityComparer<QpdfExecutionCounters>.Default.Equals(Counters, other.Counters);
-
-    /// <summary>Hashes exposed values and aliases.</summary>
-    public override int GetHashCode() => HashCode.Combine(EqualityContract, PageCount, Version, Checks, Diagnostics, Counters);
-
 }

@@ -23,15 +23,6 @@ public sealed record PdfVersion
         Minor = minor;
     }
 
-    private PdfVersion(PdfVersion other)
-    { Major = other.Major; Minor = other.Minor; }
-
-    /// <summary>Compares the version components.</summary>
-    public bool Equals(PdfVersion? other) => other is not null && Major == other.Major && Minor == other.Minor;
-
-    /// <summary>Returns a hash of the version components.</summary>
-    public override int GetHashCode() => HashCode.Combine(Major, Minor);
-
     /// <summary>Gets the major component.</summary>
     public int Major { get; }
 

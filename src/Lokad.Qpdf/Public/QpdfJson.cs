@@ -133,23 +133,6 @@ public sealed record QpdfJsonResult
 
     /// <summary>Gets the final job counters.</summary>
     public QpdfExecutionCounters Counters { get; }
-
-    private QpdfJsonResult(QpdfJsonResult source)
-    {
-        Json = source.Json;
-        Warnings = source.Warnings;
-        Counters = source.Counters;
-    }
-
-    /// <summary>Compares exposed values and aliases.</summary>
-    public bool Equals(QpdfJsonResult? other) => other is not null
-        && Json == other.Json
-        && EqualityComparer<IReadOnlyList<QpdfDiagnostic>>.Default.Equals(Warnings, other.Warnings)
-        && EqualityComparer<QpdfExecutionCounters>.Default.Equals(Counters, other.Counters);
-
-    /// <summary>Hashes exposed values and aliases.</summary>
-    public override int GetHashCode() => HashCode.Combine(EqualityContract, Json, Warnings, Counters);
-
 }
 /// <summary>Outcome of a JSON import.</summary>
 public sealed record QpdfJsonImportResult
@@ -184,21 +167,4 @@ public sealed record QpdfJsonImportResult
 
     /// <summary>Gets the final job counters.</summary>
     public QpdfExecutionCounters Counters { get; }
-
-    private QpdfJsonImportResult(QpdfJsonImportResult source)
-    {
-        PageCount = source.PageCount;
-        Warnings = source.Warnings;
-        Counters = source.Counters;
-    }
-
-    /// <summary>Compares exposed values and aliases.</summary>
-    public bool Equals(QpdfJsonImportResult? other) => other is not null
-        && PageCount == other.PageCount
-        && EqualityComparer<IReadOnlyList<QpdfDiagnostic>>.Default.Equals(Warnings, other.Warnings)
-        && EqualityComparer<QpdfExecutionCounters>.Default.Equals(Counters, other.Counters);
-
-    /// <summary>Hashes exposed values and aliases.</summary>
-    public override int GetHashCode() => HashCode.Combine(EqualityContract, PageCount, Warnings, Counters);
-
 }

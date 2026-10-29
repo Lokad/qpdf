@@ -117,6 +117,50 @@ public sealed class BinaryInspectionTests
     };
 
     [Theory]
+    [InlineData("argv", "json")]
+    [InlineData("job", "json")]
+    [InlineData("argv", "raw")]
+    [InlineData("job", "raw")]
+    [InlineData("argv", "empty")]
+    [InlineData("job", "empty")]
+    [InlineData("argv", "none")]
+    [InlineData("job", "none")]
+    public async Task ExecutionResultClonesPreservePayloadAliasesAfterHostDisposal(string route, string mode)
+    {
+        using InMemoryQpdfHost host = Host(false, mode == "empty");
+        (string properties, string[] flags) = mode switch
+        {
+            "json" => ("\"json\":\"2\"", ["--json=2"]),
+            "none" => ("\"showNpages\":\"\"", ["--show-npages"]),
+            _ => Settings(mode),
+        };
+        QpdfExecutionResult original = await Execute(host, route, properties, flags, QpdfLimits.Default);
+        Assert.Equal(QpdfExecutionStatus.Completed, original.Status);
+        Assert.Equal(QpdfExitCode.Success, original.ExitCode);
+        QpdfExecutionResult clone = original with { };
+        host.Dispose();
+        Assert.NotSame(original, clone);
+        Assert.Equal(original, clone);
+        Assert.Equal(original.GetHashCode(), clone.GetHashCode());
+        Assert.Same(original.Counters, clone.Counters);
+        Assert.Same(original.Diagnostics, clone.Diagnostics);
+        Assert.Same(original.OutputText, clone.OutputText);
+        Assert.Equal(original.OutputBytes, clone.OutputBytes);
+        if (mode == "json")
+        {
+            using System.Text.Json.JsonDocument json = System.Text.Json.JsonDocument.Parse(Assert.IsType<string>(clone.OutputText));
+            Assert.Equal(2, json.RootElement.GetProperty("version").GetInt32());
+            Assert.Null(clone.OutputBytes);
+        }
+        else
+        {
+            Assert.Null(clone.OutputText);
+            if (mode == "none") { Assert.Null(clone.OutputBytes); }
+            else { Assert.Equal(mode == "empty" ? [] : StreamBytes, Assert.IsType<ReadOnlyMemory<byte>>(clone.OutputBytes).ToArray()); }
+        }
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task RepeatedBinaryFlagsPreserveActualPayload(bool filtered)

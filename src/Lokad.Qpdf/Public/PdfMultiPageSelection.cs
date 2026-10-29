@@ -89,27 +89,4 @@ public sealed record PdfMultiPageSelectionResult
 
     /// <summary>Gets the final job counters.</summary>
     public QpdfExecutionCounters Counters { get; }
-
-    private PdfMultiPageSelectionResult(PdfMultiPageSelectionResult source)
-    {
-        PageCount = source.PageCount;
-        Mapping = source.Mapping;
-        SourcePageCounts = source.SourcePageCounts;
-        OutputPaths = source.OutputPaths;
-        Warnings = source.Warnings;
-        Counters = source.Counters;
-    }
-
-    /// <summary>Compares exposed values and aliases.</summary>
-    public bool Equals(PdfMultiPageSelectionResult? other) => other is not null
-        && PageCount == other.PageCount
-        && EqualityComparer<IReadOnlyList<PdfPageSelectionMapping>>.Default.Equals(Mapping, other.Mapping)
-        && EqualityComparer<IReadOnlyList<int>>.Default.Equals(SourcePageCounts, other.SourcePageCounts)
-        && EqualityComparer<IReadOnlyList<QpdfPath>>.Default.Equals(OutputPaths, other.OutputPaths)
-        && EqualityComparer<IReadOnlyList<QpdfDiagnostic>>.Default.Equals(Warnings, other.Warnings)
-        && EqualityComparer<QpdfExecutionCounters>.Default.Equals(Counters, other.Counters);
-
-    /// <summary>Hashes exposed values and aliases.</summary>
-    public override int GetHashCode() => HashCode.Combine(EqualityContract, PageCount, Mapping, SourcePageCounts, OutputPaths, Warnings, Counters);
-
 }

@@ -400,6 +400,11 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Public result, counter and version records use compiler-generated copying,
+equality and hashing. Shallow aliases, constructor validation and admission are
+unchanged. Numeric `GetHashCode` results may change; equal records still hash
+equally. Public signatures and PDF output behavior are unchanged.
+
 Zlib-flate mode and compression-level validation precedes cancellation and local
 or shared memory admission. Invalid options return `InvalidArguments` with zero
 counters and no host or budget callbacks. Shared refusal previously could hide

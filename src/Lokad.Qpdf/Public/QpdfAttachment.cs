@@ -96,25 +96,6 @@ public sealed record QpdfAttachmentExtraction
 
     /// <summary>Gets the final job counters.</summary>
     public QpdfExecutionCounters Counters { get; }
-
-    private QpdfAttachmentExtraction(QpdfAttachmentExtraction source)
-    {
-        Key = source.Key;
-        ByteCount = source.ByteCount;
-        Warnings = source.Warnings;
-        Counters = source.Counters;
-    }
-
-    /// <summary>Compares exposed values and aliases.</summary>
-    public bool Equals(QpdfAttachmentExtraction? other) => other is not null
-        && Key == other.Key
-        && ByteCount == other.ByteCount
-        && EqualityComparer<IReadOnlyList<QpdfDiagnostic>>.Default.Equals(Warnings, other.Warnings)
-        && EqualityComparer<QpdfExecutionCounters>.Default.Equals(Counters, other.Counters);
-
-    /// <summary>Hashes exposed values and aliases.</summary>
-    public override int GetHashCode() => HashCode.Combine(EqualityContract, Key, ByteCount, Warnings, Counters);
-
 }
 
 /// <summary>An attachment to embed from a host file.</summary>
@@ -218,21 +199,4 @@ public sealed record QpdfAttachmentEditResult
 
     /// <summary>Gets the final job counters.</summary>
     public QpdfExecutionCounters Counters { get; }
-
-    private QpdfAttachmentEditResult(QpdfAttachmentEditResult source)
-    {
-        AttachmentCount = source.AttachmentCount;
-        Warnings = source.Warnings;
-        Counters = source.Counters;
-    }
-
-    /// <summary>Compares exposed values and aliases.</summary>
-    public bool Equals(QpdfAttachmentEditResult? other) => other is not null
-        && AttachmentCount == other.AttachmentCount
-        && EqualityComparer<IReadOnlyList<QpdfDiagnostic>>.Default.Equals(Warnings, other.Warnings)
-        && EqualityComparer<QpdfExecutionCounters>.Default.Equals(Counters, other.Counters);
-
-    /// <summary>Hashes exposed values and aliases.</summary>
-    public override int GetHashCode() => HashCode.Combine(EqualityContract, AttachmentCount, Warnings, Counters);
-
 }
