@@ -40,7 +40,7 @@ public sealed class RetainedLedgerLifetimeTests
             minimum = kind == "string" ? GovernedText.StringBytes(1024) : 40L;
             memory.Reserve(minimum);
             value = kind == "string" ? new string('W', 1024) : (object)new FilterStage(FlateFilter.FilterName, null, null);
-            memory.RetainAllocation(minimum);
+            memory.RetainGraph();
         }
         else if (kind == "table")
         {
@@ -125,7 +125,7 @@ public sealed class RetainedLedgerLifetimeTests
         long bytes = GovernedText.StringBytes(1024); memory.Reserve(bytes); string value = new('W', 1024);
         using ParserMemoryScope filler = ParserMemoryScope.Create(governor);
         filler.Reserve(limits.MaxMemoryBytes - governor.Snapshot().LiveMemoryBytes - 1L); long before = governor.Snapshot().LiveMemoryBytes;
-        memory.RetainAllocation(bytes);
+        memory.RetainGraph();
         Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(0L, memory.ReservedBytes); Assert.Equal(97L, prior.ReservedBytes);
         filler.Dispose();
@@ -141,7 +141,7 @@ public sealed class RetainedLedgerLifetimeTests
         long bytes = GovernedText.StringBytes(1024); memory.Reserve(bytes); string value = new('V', 1024);
         using ParserMemoryScope filler = ParserMemoryScope.Create(governor);
         filler.Reserve(limits.MaxMemoryBytes - governor.Snapshot().LiveMemoryBytes - 1L); long before = governor.Snapshot().LiveMemoryBytes;
-        memory.RetainAllocation(bytes);
+        memory.RetainGraph();
         Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, memory.ReservedBytes); Verify(first, "string");
         filler.Dispose(); memory.Dispose(); Collect();
         Assert.True(governor.Snapshot().LiveMemoryBytes >= first.MinimumBytes + bytes); Verify(first, "string"); GC.KeepAlive(value); GC.KeepAlive(first);
@@ -162,7 +162,7 @@ public sealed class RetainedLedgerLifetimeTests
         for (int index = 0; index < 16; index++)
         {
             using ParserMemoryScope memory = ParserMemoryScope.Create(governor); long bytes = GovernedText.StringBytes(32);
-            memory.Reserve(bytes); string value = new('V', 32); memory.RetainAllocation(bytes);
+            memory.Reserve(bytes); string value = new('V', 32); memory.RetainGraph();
         }
     }
 

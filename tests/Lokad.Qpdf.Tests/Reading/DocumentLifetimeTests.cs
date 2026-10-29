@@ -219,7 +219,7 @@ public sealed class DocumentLifetimeTests
         byte[] input = Input(65536, false, "", false);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         if (fundInput) { governor.ReserveMemory(input.Length + 32L); }
-        XRefTable table = XRefTable.Parse(input, QpdfLimits.Default, governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict);
+        XRefTable table = XRefTable.Parse(input, QpdfLimits.Default, governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict, valuesEscape: true);
         long callerOwned = governor.Snapshot().LiveMemoryBytes;
         DocumentEngine engine = new(input, table, QpdfLimits.Default, governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict);
         engine.Dispose();
@@ -440,7 +440,7 @@ public sealed class DocumentLifetimeTests
         // growth rather than using an execution-fuel counter.
         ResourceGovernor expected = new(limits, CancellationToken.None);
         expected.ReserveMemory(input.Length + 32L);
-        XRefTable table = XRefTable.Parse(input, limits, expected, new DiagnosticBag(expected), QpdfRecoveryMode.Strict);
+        XRefTable table = XRefTable.Parse(input, limits, expected, new DiagnosticBag(expected), QpdfRecoveryMode.Strict, valuesEscape: true);
         DocumentEngine engine = new(input, table, limits, expected, new DiagnosticBag(expected), QpdfRecoveryMode.Strict);
         engine.Load(1); engine.Load(2); engine.Load(3);
         long pageThreshold = expected.Snapshot().PeakMemoryBytes + 32768L;

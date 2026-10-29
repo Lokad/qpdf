@@ -59,7 +59,7 @@ public sealed class OwnedAllocationBatchTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 8192L }, CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor);
-        prior.Reserve(24L); object borrowed = new(); prior.RetainAllocation(24L);
+        prior.Reserve(24L); object borrowed = new(); prior.RetainGraph();
         using OwnedAllocationBatch batch = OwnedAllocationBatch.Create(governor, CancellationToken.None);
         batch.Memory.Reserve(48L); object fresh = new(); batch.Add(24L); batch.Add(24L);
         long live = governor.Snapshot().LiveMemoryBytes, reserved = batch.Memory.ReservedBytes;
@@ -80,7 +80,7 @@ public sealed class OwnedAllocationBatchTests
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 8192L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor);
-        prior.Reserve(96L); byte[] borrowed = new byte[64]; borrowed[17] = 91; prior.RetainAllocation(96L);
+        prior.Reserve(96L); byte[] borrowed = new byte[64]; borrowed[17] = 91; prior.RetainGraph();
         using OwnedAllocationBatch batch = OwnedAllocationBatch.Create(governor, CancellationToken.None);
         byte[][] values = Populate(batch, 4);
         using ParserMemoryScope pressure = ParserMemoryScope.Create(governor);

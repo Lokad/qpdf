@@ -81,7 +81,7 @@ public sealed class DiagnosticOwnershipTests
     private static TextAlias CaptureBeforeTransfer(ResourceGovernor governor)
     {
         DiagnosticBag bag = new(governor);
-        using GovernedText text = CanonicalDisplay.Render(new PdfByteString(new byte[4096], false), QpdfLimits.Default, governor);
+        using GovernedText text = GovernedText.DecodeUtf8(governor, System.Text.Encoding.UTF8.GetBytes("<" + new string('0', 8192) + ">"));
         string message = text.Value;
         bag.AddOwned(QpdfDiagnosticCode.ObjectListing, QpdfDiagnosticSeverity.Info, text);
         List<QpdfDiagnostic> stored = Stored(bag) ?? throw new InvalidOperationException("Expected diagnostic storage.");

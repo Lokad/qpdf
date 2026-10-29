@@ -316,7 +316,9 @@ public sealed class TolerantObjectLoadingTests
             {
                 if (value is PdfReference reference) { value = output.GetObject(reference.ObjectNumber); }
                 ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-                using (var rendered = CanonicalDisplay.Render(value, QpdfLimits.Default, governor)) { Assert.Equal(display, rendered.Value); }
+                DiagnosticBag displayDiagnostics = new(governor);
+                CanonicalDisplay.AddDiagnostic(value, QpdfLimits.Default, governor, null, displayDiagnostics);
+                Assert.Equal(display, Assert.Single(displayDiagnostics.Entries).Message);
             }
         }
         if (malformedObject is int objectNumber)

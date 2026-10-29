@@ -28,8 +28,8 @@ public sealed class RecoveryOwnershipTests
     }
 
     private static XRefTable Recover(byte[] input, ResourceGovernor governor, DiagnosticBag diagnostics, QpdfLimits limits, bool strictFirst)
-        => strictFirst ? XRefTable.Parse(input, limits, governor, diagnostics, QpdfRecoveryMode.BoundedRepair)
-            : XRefRecovery.Recover(input, limits, governor, diagnostics, "authored damage");
+        => strictFirst ? XRefTable.Parse(input, limits, governor, diagnostics, QpdfRecoveryMode.BoundedRepair, valuesEscape: true)
+            : XRefRecovery.Recover(input, limits, governor, diagnostics, "authored damage", valuesEscape: true);
 
     public static IEnumerable<object[]> TrialValues()
     {
@@ -97,8 +97,8 @@ public sealed class RecoveryOwnershipTests
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 100000L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         ResourceGovernor controlGovernor = new(limits, CancellationToken.None);
-        XRefTable table = XRefRecovery.Recover(input, limits, governor, new DiagnosticBag(governor), "authored damage");
-        XRefTable expected = XRefRecovery.Recover(control, limits, controlGovernor, new DiagnosticBag(controlGovernor), "authored damage");
+        XRefTable table = XRefRecovery.Recover(input, limits, governor, new DiagnosticBag(governor), "authored damage", valuesEscape: true);
+        XRefTable expected = XRefRecovery.Recover(control, limits, controlGovernor, new DiagnosticBag(controlGovernor), "authored damage", valuesEscape: true);
         Assert.Equal(Assert.IsType<PdfReference>(Member(expected.Trailer, "Root")).ObjectNumber,
             Assert.IsType<PdfReference>(Member(table.Trailer, "Root")).ObjectNumber);
         Assert.Equal(controlGovernor.Snapshot().LiveMemoryBytes, governor.Snapshot().LiveMemoryBytes);
@@ -111,7 +111,7 @@ public sealed class RecoveryOwnershipTests
             + " >> /ID [ (first) (second) ] /Unused " + Literal(4096) + " >>");
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 100000L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
-        XRefTable table = XRefRecovery.Recover(input, limits, governor, new DiagnosticBag(governor), "authored damage");
+        XRefTable table = XRefRecovery.Recover(input, limits, governor, new DiagnosticBag(governor), "authored damage", valuesEscape: true);
         PdfDictionary root = Assert.IsType<PdfDictionary>(Member(table.Trailer, "Root"));
         PdfDictionary info = Assert.IsType<PdfDictionary>(Member(table.Trailer, "Info"));
         PdfByteString title = Assert.IsType<PdfByteString>(Member(info, "Title"));
@@ -131,7 +131,7 @@ public sealed class RecoveryOwnershipTests
     {
         byte[] input = Input(["<< /Type /Catalog /Pages 2 0 R /Unused " + Literal(4096) + " >>"], trailer);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        XRefTable table = XRefRecovery.Recover(input, QpdfLimits.Default, governor, new DiagnosticBag(governor), "authored damage");
+        XRefTable table = XRefRecovery.Recover(input, QpdfLimits.Default, governor, new DiagnosticBag(governor), "authored damage", valuesEscape: true);
         Assert.Equal(expectedRoot, Assert.IsType<PdfReference>(Member(table.Trailer, "Root")).ObjectNumber);
     }
 
@@ -149,7 +149,7 @@ public sealed class RecoveryOwnershipTests
         DiagnosticBag diagnostics = new(governor);
         if (diagnostic) { diagnostics.Add(QpdfDiagnosticCode.RecoveryEngaged, QpdfDiagnosticSeverity.Warning, "prior"); }
         long baseline = governor.Snapshot().LiveMemoryBytes;
-        Assert.Throws<QpdfLimitException>(() => XRefRecovery.Recover(input, limits, governor, diagnostics, "authored damage"));
+        Assert.Throws<QpdfLimitException>(() => XRefRecovery.Recover(input, limits, governor, diagnostics, "authored damage", valuesEscape: true));
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 
@@ -177,7 +177,7 @@ public sealed class RecoveryOwnershipTests
             }
         });
         Assert.ThrowsAny<OperationCanceledException>(() => XRefRecovery.Recover(
-            storage.Memory, limits, governor, new DiagnosticBag(governor), "authored damage"));
+            storage.Memory, limits, governor, new DiagnosticBag(governor), "authored damage", valuesEscape: true));
         Assert.True(observed);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
@@ -194,7 +194,7 @@ public sealed class RecoveryOwnershipTests
         string section = classic ? "xref\n0 1\n0000000000 65535 f \ntrailer\n" + trailer : "1 0 obj\n" + body + "\nendobj";
         byte[] input = Encoding.ASCII.GetBytes("%PDF-1.4\n" + section + "\nstartxref\n9\n%%EOF\n");
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        Assert.Throws<QpdfParseException>(() => XRefTable.Parse(input, QpdfLimits.Default, governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict));
+        Assert.Throws<QpdfParseException>(() => XRefTable.Parse(input, QpdfLimits.Default, governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict, valuesEscape: true));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
@@ -210,7 +210,7 @@ public sealed class RecoveryOwnershipTests
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 100000L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        XRefTable table = XRefTable.Parse(input, limits, governor, diagnostics, QpdfRecoveryMode.Strict);
+        XRefTable table = XRefTable.Parse(input, limits, governor, diagnostics, QpdfRecoveryMode.Strict, valuesEscape: true);
         DocumentEngine engine = new(input, table, limits, governor, diagnostics, QpdfRecoveryMode.Strict);
         QpdfObject cached = engine.Load(1);
         long baseline = governor.Snapshot().LiveMemoryBytes;
@@ -247,8 +247,8 @@ public sealed class RecoveryOwnershipTests
     {
         ResourceGovernor rawGovernor = new(QpdfLimits.Default, CancellationToken.None);
         ResourceGovernor flateGovernor = new(QpdfLimits.Default, CancellationToken.None);
-        XRefTable raw = XRefTable.Parse(XrefFragment(false, ""), QpdfLimits.Default, rawGovernor, new DiagnosticBag(rawGovernor), QpdfRecoveryMode.Strict);
-        XRefTable flate = XRefTable.Parse(XrefFragment(true, ""), QpdfLimits.Default, flateGovernor, new DiagnosticBag(flateGovernor), QpdfRecoveryMode.Strict);
+        XRefTable raw = XRefTable.Parse(XrefFragment(false, ""), QpdfLimits.Default, rawGovernor, new DiagnosticBag(rawGovernor), QpdfRecoveryMode.Strict, valuesEscape: true);
+        XRefTable flate = XRefTable.Parse(XrefFragment(true, ""), QpdfLimits.Default, flateGovernor, new DiagnosticBag(flateGovernor), QpdfRecoveryMode.Strict, valuesEscape: true);
         Assert.Equal(raw.Entries[1].First, flate.Entries[1].First);
         // Both fragments retain the same dictionary shape. Only the newly
         // parsed FlateDecode name differs; encoded and decoded buffers retire
@@ -268,7 +268,7 @@ public sealed class RecoveryOwnershipTests
         byte[] input = XrefFragment(flate, " /Index [1 9223372036854775807]");
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         Assert.Contains("outside /Size", Assert.Throws<QpdfParseException>(() => XRefTable.Parse(input, QpdfLimits.Default,
-            governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict)).Message, StringComparison.Ordinal);
+            governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict, valuesEscape: true)).Message, StringComparison.Ordinal);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
@@ -286,8 +286,8 @@ public sealed class RecoveryOwnershipTests
         }
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         ResourceGovernor controlGovernor = new(QpdfLimits.Default, CancellationToken.None);
-        XRefTable actual = XRefTable.Parse(Hybrid(large), QpdfLimits.Default, governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict);
-        XRefTable control = XRefTable.Parse(Hybrid(NullControl(large)), QpdfLimits.Default, controlGovernor, new DiagnosticBag(controlGovernor), QpdfRecoveryMode.Strict);
+        XRefTable actual = XRefTable.Parse(Hybrid(large), QpdfLimits.Default, governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict, valuesEscape: true);
+        XRefTable control = XRefTable.Parse(Hybrid(NullControl(large)), QpdfLimits.Default, controlGovernor, new DiagnosticBag(controlGovernor), QpdfRecoveryMode.Strict, valuesEscape: true);
         Assert.Equal(control.Entries.Count, actual.Entries.Count);
         Assert.Equal(controlGovernor.Snapshot().LiveMemoryBytes, governor.Snapshot().LiveMemoryBytes);
     }

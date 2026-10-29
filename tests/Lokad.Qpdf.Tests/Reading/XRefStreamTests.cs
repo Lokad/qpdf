@@ -228,7 +228,7 @@ public sealed class XRefStreamTests
         {
             fixtureStorage.Reserve(data.Length + 32L);
             fixtureEngine = DocumentEngine.CreateOwned(data, fixtureTable, limits,
-                governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict, data.Length + 32L);
+                governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict, data.Length + 32L, valuesEscape: true, hostInput: false, snapshotBorrow: null);
             fixtureStorage.Retain();
         }
         catch { fixtureTable.Dispose(); throw; }

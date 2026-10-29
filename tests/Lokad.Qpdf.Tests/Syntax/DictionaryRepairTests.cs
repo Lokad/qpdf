@@ -351,7 +351,9 @@ public sealed class DictionaryRepairTests
         using ParserMemoryScope parsedMemory0 = ParserMemoryScope.Create(governor);
         (_, _, QpdfObject value) = parser.ParseIndirectObject(new PdfTokenizer(Encoding.ASCII.GetBytes("5 0 obj " + body + " endobj")), 0, parsedMemory0);
         parsedMemory0.RetainGraph(); parsedMemory0.Dispose();
-        using (var display = CanonicalDisplay.Render(value, limits, governor, new FixtureResolver())) { Assert.Equal(expected, display.Value); }
+        DiagnosticBag displayDiagnostics = new(governor);
+        CanonicalDisplay.AddDiagnostic(value, limits, governor, new FixtureResolver(), displayDiagnostics);
+        Assert.Equal(expected, Assert.Single(displayDiagnostics.Entries).Message);
         Assert.NotEmpty(diagnostics.Entries);
     }
 
@@ -370,7 +372,9 @@ public sealed class DictionaryRepairTests
         parsedMemory2.RetainGraph(); parsedMemory2.Dispose();
         Assert.False(parser.ObjectAborted);
         Assert.Equal(1L, parser.ToleratedErrors);
-        using (var display = CanonicalDisplay.Render(next, limits, governor)) { Assert.Equal("[ (@) ]", display.Value); }
+        DiagnosticBag displayDiagnostics = new(governor);
+        CanonicalDisplay.AddDiagnostic(next, limits, governor, null, displayDiagnostics);
+        Assert.Equal("[ (@) ]", Assert.Single(displayDiagnostics.Entries).Message);
     }
 
     [Theory]

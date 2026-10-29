@@ -64,7 +64,9 @@ public sealed class NumericParserTests
         using ParserMemoryScope parsedMemory0 = ParserMemoryScope.Create(governor);
         (_, _, QpdfObject value) = parser.ParseIndirectObject(new PdfTokenizer(Encoding.ASCII.GetBytes("5 0 obj " + body + " endobj")), 0, parsedMemory0);
         parsedMemory0.RetainGraph(); parsedMemory0.Dispose();
-        using (var display = CanonicalDisplay.Render(value, limits, governor)) { Assert.Equal(expected, display.Value); }
+        DiagnosticBag displayDiagnostics = new(governor);
+        CanonicalDisplay.AddDiagnostic(value, limits, governor, null, displayDiagnostics);
+        Assert.Equal(expected, Assert.Single(displayDiagnostics.Entries).Message);
         Assert.Equal(warning, bag.Entries.Any());
         Assert.All(bag.Entries, d => Assert.Equal(QpdfDiagnosticCode.RepairedObject, d.Code));
     }

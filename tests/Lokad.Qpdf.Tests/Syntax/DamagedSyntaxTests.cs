@@ -301,7 +301,9 @@ public sealed class DamagedSyntaxTests
         using ParserMemoryScope parsedMemory0 = ParserMemoryScope.Create(governor);
         (_, _, QpdfObject value) = parser.ParseIndirectObject(new PdfTokenizer(Encoding.Latin1.GetBytes("5 0 obj\n" + body + "\nendobj\n")), 0, parsedMemory0);
         parsedMemory0.RetainGraph(); parsedMemory0.Dispose();
-        using (var display = CanonicalDisplay.Render(value, limits, governor)) { Assert.Equal(expected, display.Value); }
+        DiagnosticBag displayDiagnostics = new(governor);
+        CanonicalDisplay.AddDiagnostic(value, limits, governor, null, displayDiagnostics);
+        Assert.Equal(expected, Assert.Single(displayDiagnostics.Entries).Message);
         Assert.Equal(warns, diagnostics.Entries.Count != 0);
     }
 

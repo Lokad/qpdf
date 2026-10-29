@@ -40,7 +40,7 @@ public sealed class CatalogStorageTests
         {
             fixtureStorage.Reserve(32L);
             fixtureEngine = DocumentEngine.CreateOwned(ReadOnlyMemory<byte>.Empty, fixtureTable, QpdfLimits.Default,
-                construction, new(construction), QpdfRecoveryMode.Strict, 32L);
+                construction, new(construction), QpdfRecoveryMode.Strict, 32L, valuesEscape: true, hostInput: false, snapshotBorrow: null);
             fixtureStorage.Retain();
         }
         catch { fixtureTable.Dispose(); throw; }

@@ -29,7 +29,7 @@ public sealed class RecoveryHeaderTests
     {
         byte[] pdf = TolerantObjectLoadingTests.Pdf(Enumerable.Repeat("null", 50).ToArray(), true);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        XRefTable table = XRefTable.Parse(pdf, QpdfLimits.Default, governor, new DiagnosticBag(governor), QpdfRecoveryMode.BoundedRepair);
+        XRefTable table = XRefTable.Parse(pdf, QpdfLimits.Default, governor, new DiagnosticBag(governor), QpdfRecoveryMode.BoundedRepair, valuesEscape: true);
         for (int number = 1; number < 55; number++)
         {
             byte[] header = Encoding.ASCII.GetBytes($"\n{number} 0 obj\n");

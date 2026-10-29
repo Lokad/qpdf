@@ -62,7 +62,9 @@ public sealed class TolerantParserTests
         parsedMemory0.RetainGraph(); parsedMemory0.Dispose();
         Assert.Equal(5, number);
         Assert.Equal(0, generation);
-        using (var display = CanonicalDisplay.Render(value, limits, governor)) { Assert.Equal(expected, display.Value); }
+        DiagnosticBag displayDiagnostics = new(governor);
+        CanonicalDisplay.AddDiagnostic(value, limits, governor, null, displayDiagnostics);
+        Assert.Equal(expected, Assert.Single(displayDiagnostics.Entries).Message);
         Assert.NotEmpty(bag.Entries);
         Assert.All(bag.Entries, d => Assert.Equal(QpdfDiagnosticSeverity.Warning, d.Severity));
     }
@@ -186,7 +188,7 @@ public sealed class TolerantParserTests
         {
             fixtureStorage.Reserve(data.Length + 32L);
             fixtureEngine = DocumentEngine.CreateOwned(data, fixtureTable, limits,
-                governor, new DiagnosticBag(governor), QpdfRecoveryMode.BoundedRepair, data.Length + 32L);
+                governor, new DiagnosticBag(governor), QpdfRecoveryMode.BoundedRepair, data.Length + 32L, valuesEscape: true, hostInput: false, snapshotBorrow: null);
             fixtureStorage.Retain();
         }
         catch { fixtureTable.Dispose(); throw; }

@@ -395,7 +395,7 @@ public sealed class ReaderAcceptanceTests
         DiagnosticBag diagnostics = new(governor);
         XRefTable table = XRefTable.Parse(input, limits, governor, diagnostics, QpdfRecoveryMode.Strict, false);
         return DocumentEngine.CreateOwned(input, table, limits, governor, diagnostics, QpdfRecoveryMode.Strict,
-            reservation, false);
+            reservation, false, hostInput: false, snapshotBorrow: null);
     }
 
     [Fact]

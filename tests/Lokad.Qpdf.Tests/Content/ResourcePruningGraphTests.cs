@@ -48,7 +48,7 @@ public sealed class ResourcePruningGraphTests
             {
                 fixtureStorage.Reserve(32L);
                 fixtureEngine = DocumentEngine.CreateOwned(ReadOnlyMemory<byte>.Empty, fixtureTable, QpdfLimits.Default,
-                    construction, new DiagnosticBag(construction), QpdfRecoveryMode.Strict, 32L);
+                    construction, new DiagnosticBag(construction), QpdfRecoveryMode.Strict, 32L, valuesEscape: true, hostInput: false, snapshotBorrow: null);
                 fixtureStorage.Retain();
             }
             catch { fixtureTable.Dispose(); throw; }

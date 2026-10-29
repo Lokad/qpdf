@@ -27,10 +27,11 @@ public sealed class CanonicalDisplayMemoryTests
             value = kind == "name" ? new PdfName(raw) : new PdfByteString(raw, false);
         }
 
-        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 64L * 1024L };
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 64L * 1024L, MaxDiagnosticBytes = 16L << 20 };
         ResourceGovernor governor = new(limits, CancellationToken.None);
+        DiagnosticBag bag = new(governor);
         long before = GC.GetAllocatedBytesForCurrentThread();
-        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => CanonicalDisplay.Render(value, limits, governor));
+        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => CanonicalDisplay.AddDiagnostic(value, limits, governor, null, bag));
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), error.LimitName);
         Assert.InRange(allocated, 0L, 256L * 1024L);
@@ -53,10 +54,11 @@ public sealed class CanonicalDisplayMemoryTests
         PdfDictionary value = new(entries);
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 64L * 1024L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
+        DiagnosticBag bag = new(governor);
         long before = GC.GetAllocatedBytesForCurrentThread();
-        using GovernedText display = CanonicalDisplay.Render(value, limits, governor);
+        CanonicalDisplay.AddDiagnostic(value, limits, governor, null, bag);
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-        Assert.Equal("<< >>", display.Value);
+        Assert.Equal("<< >>", Assert.Single(bag.Entries).Message);
         Assert.InRange(allocated, 0L, 32L * 1024L);
     }
 
@@ -67,8 +69,9 @@ public sealed class CanonicalDisplayMemoryTests
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = memory };
         ResourceGovernor governor = new(limits, CancellationToken.None);
+        DiagnosticBag bag = new(governor);
         QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
-            CanonicalDisplay.Render(new PdfByteString(new byte[500], false), limits, governor));
+            CanonicalDisplay.AddDiagnostic(new PdfByteString(new byte[500], false), limits, governor, null, bag));
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), error.LimitName);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.InRange(governor.Snapshot().PeakMemoryBytes, 1L, memory);
@@ -78,7 +81,12 @@ public sealed class CanonicalDisplayMemoryTests
     public void DisposingTextReleasesItsReservationOnce()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        GovernedText text = CanonicalDisplay.Render(new PdfByteString([0, 1, 2], false), QpdfLimits.Default, governor);
+        GovernedText text;
+        using (DisplayBuffer buffer = DisplayBuffer.Create(governor, false))
+        {
+            buffer.Append("<000102>");
+            text = buffer.Finish();
+        }
         Assert.Equal("<000102>", text.Value);
         Assert.True(governor.Snapshot().PeakMemoryBytes > governor.Snapshot().LiveMemoryBytes);
         Assert.True(governor.Snapshot().LiveMemoryBytes >= 2L * text.Value.Length);
@@ -94,7 +102,7 @@ public sealed class CanonicalDisplayMemoryTests
         QpdfLimits limits = QpdfLimits.Default with { MaxDiagnostics = 1L, MaxDiagnosticBytes = 8L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag bag = new(governor);
-        using GovernedText text = CanonicalDisplay.Render(new PdfByteString([65, 65, 65, 65, 255], false), limits, governor);
+        using GovernedText text = GovernedText.DecodeUtf8(governor, "(AAAAÿ)"u8);
         string alias = text.Value;
         bag.AddOwned(QpdfDiagnosticCode.ObjectListing, QpdfDiagnosticSeverity.Info, text);
         text.Dispose();
@@ -184,7 +192,7 @@ public sealed class CanonicalDisplayMemoryTests
     {
         ResourceGovernor owner = new(QpdfLimits.Default, CancellationToken.None);
         ResourceGovernor other = new(QpdfLimits.Default, CancellationToken.None);
-        using GovernedText text = CanonicalDisplay.Render(PdfBoolean.True, QpdfLimits.Default, owner);
+        using GovernedText text = GovernedText.DecodeUtf8(owner, "true"u8);
         DiagnosticBag otherBag = new(other);
         Assert.Throws<InvalidOperationException>(() => otherBag.AddOwned(QpdfDiagnosticCode.ObjectListing, QpdfDiagnosticSeverity.Info, text));
         Assert.Equal("true", text.Value);
@@ -198,7 +206,7 @@ public sealed class CanonicalDisplayMemoryTests
         QpdfLimits limits = QpdfLimits.Default with { MaxDiagnosticBytes = 3L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag bag = new(governor);
-        GovernedText text = CanonicalDisplay.Render(new PdfByteString([0, 1, 2], false), limits, governor);
+        GovernedText text = GovernedText.DecodeUtf8(governor, "<000102>"u8);
         try
         {
             QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
@@ -227,7 +235,8 @@ public sealed class CanonicalDisplayMemoryTests
         PdfDictionary value = new(entries);
         using CancellationTokenSource cancellation = new();
         ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token);
-        Task<GovernedText> sorting = Task.Factory.StartNew(() => CanonicalDisplay.Render(value, QpdfLimits.Default, governor),
+        DiagnosticBag bag = new(governor);
+        Task sorting = Task.Factory.StartNew(() => CanonicalDisplay.AddDiagnostic(value, QpdfLimits.Default, governor, null, bag),
             CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         bool observed = SpinWait.SpinUntil(() => governor.Snapshot().LiveMemoryBytes > 0L || sorting.IsCompleted, TimeSpan.FromSeconds(10));
         cancellation.Cancel();
@@ -235,5 +244,6 @@ public sealed class CanonicalDisplayMemoryTests
         await Assert.ThrowsAsync<OperationCanceledException>(async () => await sorting.WaitAsync(TimeSpan.FromSeconds(10)));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.InRange(governor.Snapshot().PeakMemoryBytes, 1L, 8192L);
+        Assert.Empty(bag.Entries);
     }
 }

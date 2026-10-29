@@ -18,7 +18,7 @@ public sealed class DocumentCacheTests
     private static DocumentEngine Engine(ReadOnlyMemory<byte> input, QpdfLimits limits, ResourceGovernor governor)
     {
         ResourceGovernor fixture = new(QpdfLimits.Default, CancellationToken.None);
-        XRefTable table = XRefTable.Parse(input, QpdfLimits.Default, fixture, new DiagnosticBag(fixture), QpdfRecoveryMode.Strict);
+        XRefTable table = XRefTable.Parse(input, QpdfLimits.Default, fixture, new DiagnosticBag(fixture), QpdfRecoveryMode.Strict, valuesEscape: true);
         return new DocumentEngine(input, table, limits, governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict);
     }
 

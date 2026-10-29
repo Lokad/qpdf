@@ -20,7 +20,7 @@ public sealed class XrefTableOwnershipTests
             try
             {
                 engine = DocumentEngine.CreateOwned(data, table, QpdfLimits.Default, governor,
-                    diagnostics, QpdfRecoveryMode.Strict, input.ReservedBytes, false);
+                    diagnostics, QpdfRecoveryMode.Strict, input.ReservedBytes, false, hostInput: false, snapshotBorrow: null);
                 input.Retain();
             }
             catch { table.Dispose(); throw; }
@@ -87,7 +87,7 @@ public sealed class XrefTableOwnershipTests
                 long before = owner.Snapshot().LiveMemoryBytes;
                 DocumentEngine Construct() => DocumentEngine.CreateOwned(data, table, QpdfLimits.Default,
                     failure == "owner" ? foreign : owner, diagnostics, QpdfRecoveryMode.Strict,
-                    input.ReservedBytes + (failure == "receipt" ? 1L : 0L), false);
+                    input.ReservedBytes + (failure == "receipt" ? 1L : 0L), false, hostInput: false, snapshotBorrow: null);
                 if (failure == "refusal") { Assert.Throws<QpdfLimitException>(Construct); }
                 else if (failure == "cancellation") { Assert.ThrowsAny<OperationCanceledException>(Construct); }
                 else { Assert.Throws<InvalidOperationException>(Construct); }

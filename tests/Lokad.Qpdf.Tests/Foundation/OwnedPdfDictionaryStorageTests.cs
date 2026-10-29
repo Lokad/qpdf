@@ -153,10 +153,9 @@ public sealed class OwnedPdfDictionaryStorageTests
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         PdfNameTable<QpdfObject> table = Populate(memory, governor, count); table.Freeze(memory, governor, CancellationToken.None);
         memory.Reserve(24L); PdfDictionary dictionary = PdfDictionary.FromOwnedEntries(table);
-        // Borrowed key/value graphs stay caller-funded; these exclusive receipts
-        // belong only to the wrapper and table, including its cached key view.
-        memory.RetainAllocation(table.StorageBytes);
-        memory.RetainAllocation(24L);
+        // Borrowed key/value graphs stay caller-funded; this scope transfers
+        // the table and wrapper through the production graph handoff.
+        memory.RetainGraph();
         return new(dictionary.Keys, new(dictionary), new(table), new(memory), new(governor), table.StorageBytes);
     }
 

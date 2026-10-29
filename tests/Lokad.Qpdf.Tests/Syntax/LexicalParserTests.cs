@@ -93,7 +93,9 @@ public sealed class LexicalParserTests
         using ParserMemoryScope parsedMemory2 = ParserMemoryScope.Create(governor);
         (_, _, QpdfObject value) = parser.ParseIndirectObject(new PdfTokenizer(Encoding.ASCII.GetBytes("5 0 obj " + body + " endobj")), 0, parsedMemory2);
         parsedMemory2.RetainGraph(); parsedMemory2.Dispose();
-        using (var display = CanonicalDisplay.Render(value, limits, governor)) { Assert.Equal(expected, display.Value); }
+        DiagnosticBag displayDiagnostics = new(governor);
+        CanonicalDisplay.AddDiagnostic(value, limits, governor, null, displayDiagnostics);
+        Assert.Equal(expected, Assert.Single(displayDiagnostics.Entries).Message);
         Assert.Equal(warns, diagnostics.Entries.Count != 0);
     }
 
@@ -163,7 +165,9 @@ public sealed class LexicalParserTests
         parsedMemory7.RetainGraph(); parsedMemory7.Dispose();
         Assert.Equal(new byte[] { 0xAB, 0xCD }, Assert.IsType<PdfByteString>(value[0]).Value);
         Assert.Equal(new byte[] { 0xFF, 0x00 }, Assert.IsType<PdfByteString>(value[1]).Value);
-        using (var display = CanonicalDisplay.Render(value, QpdfLimits.Default, governor)) { Assert.Equal("[ <abcd> <ff00> ]", display.Value); }
+        DiagnosticBag displayDiagnostics = new(governor);
+        CanonicalDisplay.AddDiagnostic(value, QpdfLimits.Default, governor, null, displayDiagnostics);
+        Assert.Equal("[ <abcd> <ff00> ]", Assert.Single(displayDiagnostics.Entries).Message);
     }
 
     [Fact]

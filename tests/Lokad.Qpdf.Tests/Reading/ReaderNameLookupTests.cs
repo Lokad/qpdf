@@ -23,7 +23,7 @@ public sealed class ReaderNameLookupTests
         {
             fixtureStorage.Reserve(32L);
             fixtureEngine = DocumentEngine.CreateOwned(ReadOnlyMemory<byte>.Empty, fixtureTable, limits,
-                governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict, 32L);
+                governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict, 32L, valuesEscape: true, hostInput: false, snapshotBorrow: null);
             fixtureStorage.Retain();
         }
         catch { fixtureTable.Dispose(); throw; }

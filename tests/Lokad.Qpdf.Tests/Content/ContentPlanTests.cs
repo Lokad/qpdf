@@ -47,7 +47,7 @@ public sealed class ContentPlanTests
             {
                 fixtureStorage.Reserve(32L);
                 fixtureEngine = DocumentEngine.CreateOwned(ReadOnlyMemory<byte>.Empty, fixtureTable, QpdfLimits.Default,
-                    Construction, new DiagnosticBag(Construction), QpdfRecoveryMode.Strict, 32L);
+                    Construction, new DiagnosticBag(Construction), QpdfRecoveryMode.Strict, 32L, valuesEscape: true, hostInput: false, snapshotBorrow: null);
                 fixtureStorage.Retain();
             }
             catch { fixtureTable.Dispose(); throw; }
