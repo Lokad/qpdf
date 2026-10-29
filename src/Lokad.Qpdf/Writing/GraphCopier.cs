@@ -35,13 +35,14 @@ internal sealed class GraphCopier
     private readonly ParserMemoryScope _ownership;
     private int _nextId;
     private int _rootPageNumber = -1;
-    private List<int>? _preservationSources;
+    private List<int>? _attemptSources;
+    private int _copyAttempts;
 
     internal static GraphCopier CreateOwned(DocumentEngine engine, ResourceGovernor governor,
         QpdfLimits limits, int firstId, ParserMemoryScope ownership)
     {
         ownership.CheckOwner(governor);
-        ownership.Reserve(88L);
+        ownership.Reserve(96L);
         return new GraphCopier(engine, governor, limits, firstId, ownership);
     }
 
@@ -98,10 +99,49 @@ internal sealed class GraphCopier
             // Keys identify source objects. Duplicate destination pages do not
             // increase this cardinality; their separate map keeps normal growth.
             ParserContainers.EnsureEntryCapacity(_ownership, _mapping, sizeof(int), _sourceObjectCount);
-            if (_preservationSources is not null)
-            { ParserContainers.AddItem(_ownership, _preservationSources, source, sizeof(int)); }
+            if (_copyAttempts > 0)
+            {
+                _attemptSources ??= ParserContainers.CreateList<int>(_ownership);
+                ParserContainers.AddItem(_ownership, _attemptSources, source, sizeof(int));
+            }
         }
         _mapping[source] = destination;
+    }
+
+    // Only recovery boundaries track new source mappings. Nested name-category
+    // attempts share this admitted scratch; successful ordinary copies do not.
+    internal int BeginCopyAttempt()
+    {
+        _copyAttempts += 1;
+        return _nextId;
+    }
+
+    internal void RollbackCopyAttempt(int firstId, CancellationToken token)
+    {
+        if (_attemptSources is not null)
+        {
+            for (int index = _attemptSources.Count - 1; index >= 0; index--)
+            {
+                token.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+                int source = _attemptSources[index];
+                if (_mapping[source] < firstId) { break; }
+                _mapping.Remove(source);
+                _attemptSources.RemoveAt(index);
+            }
+        }
+        // Include direct roots, which consume IDs without a source mapping.
+        for (int id = firstId; id < _nextId; id++)
+        {
+            token.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+            _copied.Remove(id);
+        }
+        _nextId = firstId;
+    }
+
+    internal void EndCopyAttempt()
+    {
+        _copyAttempts -= 1;
+        if (_copyAttempts == 0) { _attemptSources?.Clear(); }
     }
 
     private PdfNameTable<QpdfObject> CreateEntries(int count)
@@ -319,55 +359,39 @@ internal sealed class GraphCopier
         unmapped.Sort();
         int skipped = 0;
         IIndirectResolver resolver = (IIndirectResolver)engine;
-        List<int> candidateSources = ParserContainers.CreateList<int>(_ownership);
-        _preservationSources = candidateSources;
-        try
+        foreach (int number in unmapped)
         {
-            foreach (int number in unmapped)
+            cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+            if (_mapping.TryGetValue(number, out int existing))
             {
-                cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
-                if (_mapping.TryGetValue(number, out int existing))
-                {
-                    if (preserved is not null) { ParserContainers.AddSetItem(_ownership, preserved, existing, sizeof(int)); }
-                    continue;
-                }
-                candidateSources.Clear();
-                XrefEntry entry = engine.XRefEntries[number];
-                int generation = entry.Kind == XrefEntryKind.Uncompressed ? entry.Second : 0;
-                PdfReference reference = new(number, generation);
-                if (!PdfObjectLookup.TryResolve(reference, resolver, _governor, cancellationToken, out QpdfObject? resolved) || resolved is null)
-                { skipped += 1; continue; }
-                if (IsSkippedStructure(resolved, number, excluded)) { continue; }
-                int firstId = _nextId;
-                try
-                {
-                    int id = _nextId;
-                    checked { _nextId += 1; }
-                    Map(number, id);
-                    QpdfObject copied = CopyValue(resolved, 0);
-                    cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
-                    Store(id, copied);
-                    if (preserved is not null) { ParserContainers.AddSetItem(_ownership, preserved, id, sizeof(int)); }
-                }
-                catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException))
-                {
-                    // Complete descendants can refer back to this failed root.
-                    // Retire this whole attempt, keeping earlier shared copies.
-                    foreach (int source in candidateSources)
-                    {
-                        cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
-                        if (_mapping.Remove(source, out int destination)) { _copied.Remove(destination); }
-                    }
-                    _nextId = firstId;
-                    skipped += 1;
-                }
+                if (preserved is not null) { ParserContainers.AddSetItem(_ownership, preserved, existing, sizeof(int)); }
+                continue;
             }
-        }
-        finally
-        {
-            _preservationSources = null;
-            long listBytes = checked(32L + (candidateSources.Capacity == 0 ? 0L : 32L + sizeof(int) * (long)candidateSources.Capacity));
-            _ownership.Release(listBytes);
+            XrefEntry entry = engine.XRefEntries[number];
+            int generation = entry.Kind == XrefEntryKind.Uncompressed ? entry.Second : 0;
+            PdfReference reference = new(number, generation);
+            if (!PdfObjectLookup.TryResolve(reference, resolver, _governor, cancellationToken, out QpdfObject? resolved) || resolved is null)
+            { skipped += 1; continue; }
+            if (IsSkippedStructure(resolved, number, excluded)) { continue; }
+            int firstId = BeginCopyAttempt();
+            try
+            {
+                int id = _nextId;
+                checked { _nextId += 1; }
+                Map(number, id);
+                QpdfObject copied = CopyValue(resolved, 0);
+                cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+                Store(id, copied);
+                if (preserved is not null) { ParserContainers.AddSetItem(_ownership, preserved, id, sizeof(int)); }
+            }
+            catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException))
+            {
+                // Complete descendants can refer back to this failed root.
+                // Retire this whole attempt, keeping earlier shared copies.
+                RollbackCopyAttempt(firstId, cancellationToken);
+                skipped += 1;
+            }
+            finally { EndCopyAttempt(); }
         }
 
         if (skipped == 1)

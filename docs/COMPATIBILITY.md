@@ -161,6 +161,13 @@ check/report requests rejected these valid files. Non-null type checks and
 structural/hint validation remain; public signatures and integer handling are
 unchanged. This intentionally corrects input acceptance and diagnostics.
 
+Recoverably skipped catalog graphs discard new mappings, descendants and
+allocator slots from the failed attempt. Earlier shared copies remain intact.
+Previously skipped outlines, structure, extras or name categories could leave
+references to missing objects and make later linearization fail. The documented
+policy of dropping unsupported catalog graphs remains; cancellation, admission
+refusal and host failures still propagate. Public signatures are unchanged.
+
 Catalog-preserving rewrites and selections retain nonattachment `/Names`
 categories, including named destinations, alongside rebuilt embedded-file names.
 Previously the name root was dropped or replaced by `/EmbeddedFiles`, breaking

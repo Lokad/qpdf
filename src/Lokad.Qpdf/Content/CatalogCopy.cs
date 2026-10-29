@@ -81,6 +81,7 @@ internal static class CatalogCopy
 
         cancellationToken.ThrowIfCancellationRequested();
         governor.NoteOperation();
+        int firstId = copier.BeginCopyAttempt();
         try
         {
             PdfReference? link = copier.AddIndirectObject(raw);
@@ -88,8 +89,10 @@ internal static class CatalogCopy
         }
         catch (QpdfParseException)
         {
+            copier.RollbackCopyAttempt(firstId, cancellationToken);
             return null;
         }
+        finally { copier.EndCopyAttempt(); }
     }
 
     internal static (PdfReference? StructTree, QpdfObject? MarkInfo) TryCopyStructure(
@@ -130,6 +133,7 @@ internal static class CatalogCopy
 
         PdfReference? tree = null;
         QpdfObject? mark = null;
+        int firstId = copier.BeginCopyAttempt();
         try
         {
             if (catalog.TryGet(PdfName.FromAscii("StructTreeRoot"), out QpdfObject? rawTree) && rawTree is not null && rawTree is not PdfNull)
@@ -148,8 +152,10 @@ internal static class CatalogCopy
         }
         catch (QpdfParseException)
         {
+            copier.RollbackCopyAttempt(firstId, cancellationToken);
             return (null, null);
         }
+        finally { copier.EndCopyAttempt(); }
 
         return (tree, mark);
     }
@@ -222,6 +228,7 @@ internal static class CatalogCopy
                 continue;
             }
 
+            int firstId = copier.BeginCopyAttempt();
             try
             {
                 QpdfObject? copied = key.RawSpan.SequenceEqual("Names"u8)
@@ -231,8 +238,10 @@ internal static class CatalogCopy
             }
             catch (QpdfParseException)
             {
+                copier.RollbackCopyAttempt(firstId, cancellationToken);
                 continue;
             }
+            finally { copier.EndCopyAttempt(); }
         }
         extras.Freeze(result, governor, cancellationToken);
         result.TransferTo(ownership); return extras;
@@ -249,13 +258,15 @@ internal static class CatalogCopy
         {
             PdfName key = entries.Current.Key;
             if (key.RawSpan.SequenceEqual("EmbeddedFiles"u8)) { continue; }
+            int firstId = copier.BeginCopyAttempt();
             try
             {
                 QpdfObject copied = copier.CopyValue(entries.Current.Value, 1);
                 kept ??= PdfNameTable<QpdfObject>.Create(memory, governor, IntPtr.Size, token);
                 kept.Assign(memory, governor, key, copied, token);
             }
-            catch (QpdfParseException) { continue; }
+            catch (QpdfParseException) { copier.RollbackCopyAttempt(firstId, token); continue; }
+            finally { copier.EndCopyAttempt(); }
         }
         if (kept is null) { return null; }
         kept.Freeze(memory, governor, token);
