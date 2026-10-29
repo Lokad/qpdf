@@ -105,11 +105,13 @@ def main():
 
     visit_json(job["json"], "")
     previous = {}
+    supplemental_requirements = ["--json-key=encrypt is excluded", "fix-qdf companion", "zlib-flate companion"]
     if args.output.exists():
         old = json.loads(args.output.read_text(encoding="utf-8"))
         if old["reference"]["commit"] != COMMIT:
             parser.error("A reference-version migration requires explicit review")
         previous = {(row["context"], row["flag"]): row for row in old["options"]}
+        supplemental_requirements = old.get("supplementalRequirements", supplemental_requirements)
 
     for row in rows:
         name = row["flag"][2:]
@@ -140,7 +142,7 @@ def main():
         },
         "contexts": contexts,
         "parserForms": ["input/output operands", "@file", "@-", "--", "page-range syntax"],
-        "supplementalRequirements": ["--json-key=encrypt is excluded", "fix-qdf companion", "zlib-flate companion"],
+        "supplementalRequirements": supplemental_requirements,
         "options": sorted(rows, key=lambda row: (row["context"], row["flag"])),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

@@ -44,6 +44,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Test development tool contracts
         run: |
+          python -m pip install --disable-pip-version-check -r tools/compatibility-requirements.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/test-compatibility-update.py 2>&1 | Tee-Object artifacts/ci/logs/compatibility-update.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/test-warm-readiness.py 2>&1 | Tee-Object artifacts/ci/logs/warm-readiness.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/test-warm-workers.py 2>&1 | Tee-Object artifacts/ci/logs/warm-workers.log

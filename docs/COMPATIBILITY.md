@@ -1090,7 +1090,10 @@ The fix-qdf/zlib-flate companions are additional contracts outside the flag coun
 [CompatibilityInventoryTests](../tests/Lokad.Qpdf.Tests/CompatibilityInventoryTests.cs)
 checks inventory identity, scope, evidence and visible partial-entry gaps.
 `tools/update-compatibility.py` reads pinned `job.yml` and `manual/cli.rst` metadata
-while preserving reviewed status/evidence. Metadata does not prove defaults,
+while preserving reviewed status/evidence and supplemental requirements. Its
+offline regeneration tests use synthetic metadata and a mocked Git identity;
+they preserve review annotations and exercise reference-version guards without
+requiring an upstream checkout. Metadata does not prove defaults,
 precedence, grammar or interactions; those require behavior fixtures.
 
 ## How compatibility is verified
