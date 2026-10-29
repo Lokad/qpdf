@@ -32,6 +32,40 @@ function Invoke-ColdProbe {
     } finally { $process.Dispose() }
 }
 
+# Vary only the header terminator; calculate xref offsets for each actual layout.
+foreach ($ending in @(@{Name='lf'; Text="`n"}, @{Name='crlf'; Text="`r`n"}, @{Name='cr'; Text="`r"})) {
+    $pdf = [Text.StringBuilder]::new('%PDF-1.4' + $ending.Text)
+    $offsets = [Collections.Generic.List[int]]::new()
+    foreach ($body in @('<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Count 1 /Kids [3 0 R] >>',
+        '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>')) {
+        $offsets.Add($pdf.Length)
+        $null = $pdf.Append(($offsets.Count.ToString([Globalization.CultureInfo]::InvariantCulture)) + " 0 obj`n" + $body + "`nendobj`n")
+    }
+    $xref = $pdf.Length
+    $null = $pdf.Append("xref`n0 4`n0000000000 65535 f `n")
+    foreach ($offset in $offsets) { $null = $pdf.Append($offset.ToString('D10', [Globalization.CultureInfo]::InvariantCulture) + " 00000 n `n") }
+    $null = $pdf.Append("trailer`n<< /Size 4 /Root 1 0 R >>`nstartxref`n" + $xref.ToString([Globalization.CultureInfo]::InvariantCulture) + "`n%%EOF`n")
+    $file = Join-Path $WorkRoot ('header-' + $ending.Name + '.pdf')
+    [IO.File]::WriteAllBytes($file, [Text.Encoding]::ASCII.GetBytes($pdf.ToString()))
+    foreach ($arguments in @(@('validate','--input',$file), @('compare','--qpdf-exe',$OracleFixture,'--input',$file,'--expected-npages','1'))) {
+        $headerResult = Invoke-ColdProbe -Arguments $arguments -InputText ''
+        if ($headerResult.ExitCode -ne 0) { throw "Header $($ending.Name) failed $($arguments[0]): $($headerResult.Error)" }
+        if ($arguments[0] -eq 'validate' -and $headerResult.Output -notmatch 'independent: header-version=1\.4\r?\n') { throw 'Header version reporting changed.' }
+    }
+}
+foreach ($invalid in @(
+    @{Name='short'; Text='%PDF'; Message='too short'},
+    @{Name='marker'; Text="not-a-pdf`n"; Message='does not start with %PDF-'},
+    @{Name='version'; Text="%PDF-`r1 0 obj`n"; Message='Unrecognized PDF header version'},
+    @{Name='truncated'; Text="%PDF-1.4`r"; Message='Independent reader'}
+)) {
+    $file = Join-Path $WorkRoot ('header-' + $invalid.Name + '.pdf')
+    [IO.File]::WriteAllBytes($file, [Text.Encoding]::ASCII.GetBytes($invalid.Text))
+    $headerResult = Invoke-ColdProbe -Arguments @('validate','--input',$file) -InputText ''
+    if ($headerResult.ExitCode -ne 1 -or $headerResult.Error -notmatch [regex]::Escape($invalid.Message)) { throw "Malformed header control failed: $($invalid.Name)" }
+}
+Write-Output 'Header controls passed: LF/CRLF/CR validate and compare, plus four malformed/truncated inputs.'
+
 . (Join-Path $PSScriptRoot 'ReferenceProbe.ps1')
 Initialize-ReferenceProbe -ProbeDll $ProbeDll -WorkRoot $WorkRoot
 try {

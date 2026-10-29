@@ -56,7 +56,7 @@ internal static class IndependentReader
             throw new ProbeException($"Input does not start with %PDF-: {path}.", 1);
         }
 
-        int end = text.IndexOf('\n');
+        int end = text.AsSpan().IndexOfAny('\r', '\n');
         if (end < 0)
         {
             end = text.Length;

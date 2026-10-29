@@ -1098,6 +1098,10 @@ precedence, grammar or interactions; those require behavior fixtures.
 
 ## How compatibility is verified
 
+The development validator accepts LF, CRLF and CR header endings. Its bounded
+header inspection previously rejected CR-only headers before PdfPig opened the
+input. Malformed/truncated rejection and the core input policy are unchanged.
+
 The obsolete development-only `probe-flate` command has been removed. Codec and
 companion tests exercise the shared production pipeline; the standalone BCL
 feasibility implementation and smoke-only command test are no longer maintained.
