@@ -154,9 +154,15 @@ function Start-ReferenceProcess {
             $feedFailure = $null
             if ($inputFile) {
                 $feed = $inputFile.CopyToAsync($process.StandardInput.BaseStream, $cancellation.Token)
+                # Keep the IOException chain: its innermost Unix error may be a socket exception.
                 try { $feed.GetAwaiter().GetResult() }
-                catch [IO.IOException] { $feedFailure = $_.Exception.GetBaseException() }
-                finally { $process.StandardInput.Close() }
+                catch [IO.IOException] { $feedFailure = $_.Exception }
+                finally {
+                    try { $process.StandardInput.Close() }
+                    catch [IO.IOException] {
+                        if ($null -eq $feedFailure) { $feedFailure = $_.Exception }
+                    }
+                }
             }
             $transfers.Add($process.WaitForExitAsync($cancellation.Token))
             [Threading.Tasks.Task]::WhenAll($transfers.ToArray()).GetAwaiter().GetResult()
