@@ -166,6 +166,17 @@ $process = Start-ReferenceProcess -FilePath $nativeFixture -ArgumentList @('--co
     -Wait -PassThru -NoNewWindow -RedirectStandardInput $nativeInput -RedirectStandardOutput $nativeOut -RedirectStandardError $nativeErr
 if ($process.ExitCode -ne 7 -or [Convert]::ToHexString([IO.File]::ReadAllBytes($nativeOut)) -cne [Convert]::ToHexString($payload) -or
     [Convert]::ToHexString([IO.File]::ReadAllBytes($nativeErr)) -cne '0080FEFF0A') { throw 'Native stdin/EOF, binary capture or exit status changed.' }
+$process = Start-ReferenceProcess -FilePath $nativeFixture -ArgumentList @('--close-stdin', '9') -Wait -PassThru -NoNewWindow `
+    -RedirectStandardInput $nativeInput -RedirectStandardOutput $nativeOut -RedirectStandardError $nativeErr
+if ($process.ExitCode -ne 9 -or [IO.File]::ReadAllText($nativeErr).Trim() -cne 'input rejected') {
+    throw 'Early native rejection lost its exit status or diagnostic.'
+}
+$inputFailed = $false
+try {
+    $null = Start-ReferenceProcess -FilePath $nativeFixture -ArgumentList @('--close-stdin', '0') -Wait -PassThru -NoNewWindow `
+        -RedirectStandardInput $nativeInput -RedirectStandardOutput $nativeOut -RedirectStandardError $nativeErr
+} catch [IO.IOException] { $inputFailed = $true }
+if (-not $inputFailed) { throw 'Native success hid an incomplete stdin transfer.' }
 try {
     $null = Start-ReferenceProcess -FilePath (Join-Path $nativeBin 'missing-executable') -ArgumentList @() -Wait -PassThru -NoNewWindow `
         -RedirectStandardInput $nativeInput -RedirectStandardOutput $nativeOut -RedirectStandardError $nativeErr

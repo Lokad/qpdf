@@ -151,15 +151,17 @@ function Start-ReferenceProcess {
             if (-not $started) { throw 'Native reference process did not start.' }
             if ($outputFile) { $transfers.Add($process.StandardOutput.BaseStream.CopyToAsync($outputFile, $cancellation.Token)) }
             if ($errorFile) { $transfers.Add($process.StandardError.BaseStream.CopyToAsync($errorFile, $cancellation.Token)) }
+            $feedFailure = $null
             if ($inputFile) {
                 $feed = $inputFile.CopyToAsync($process.StandardInput.BaseStream, $cancellation.Token)
-                $transfers.Add($feed)
-                $feed.GetAwaiter().GetResult()
-                $process.StandardInput.Close()
+                try { $feed.GetAwaiter().GetResult() }
+                catch [IO.IOException] { $feedFailure = $_.Exception.GetBaseException() }
+                finally { $process.StandardInput.Close() }
             }
             $transfers.Add($process.WaitForExitAsync($cancellation.Token))
             [Threading.Tasks.Task]::WhenAll($transfers.ToArray()).GetAwaiter().GetResult()
             $exitCode = $process.ExitCode
+            if ($null -ne $feedFailure -and $exitCode -eq 0) { throw $feedFailure }
         } catch [OperationCanceledException] {
             throw "Native reference process exceeded 30 seconds: $FilePath"
         } finally {

@@ -200,3 +200,5 @@ deadline, preserving working directories and binary stdin/stdout/stderr. It clos
 stdin after copying, terminates and awaits failed children, and settles transfers
 before closing files. Both launch routes return only an exit-code record after
 cleanup; no native Process escapes to reference callers.
+Early input rejection retains the native nonzero exit and diagnostics; incomplete
+stdin delivery to an otherwise successful command fails explicitly.

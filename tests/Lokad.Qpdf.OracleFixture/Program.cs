@@ -22,6 +22,9 @@ switch (args.Length == 0 ? string.Empty : args[0])
         Console.OpenStandardInput().CopyTo(Console.OpenStandardOutput());
         Console.OpenStandardError().Write(new byte[] { 0, 128, 254, 255, 10 });
         return 7;
+    case "--close-stdin":
+        Console.Error.WriteLine("input rejected");
+        return int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture);
     case "--version":
         Console.WriteLine(Environment.GetEnvironmentVariable("QPDF_TEST_ORACLE_VERSION")
             ?? "qpdf version 12.4.2\nRun qpdf --copyright to see copyright and license information.");
