@@ -21,6 +21,7 @@
     <None Include="../Fixtures/overlay-generations-*.pdf" Link="Fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/form-defaults-*.pdf" Link="Fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/preservation-*.pdf" Link="Fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/labels-split-*.pdf" Link="Fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/minimal-1page.pdf" Link="Fixtures/minimal-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/minimal-2page.pdf" Link="Fixtures/minimal-2page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/rotated-1page.pdf" Link="Fixtures/rotated-1page.pdf" CopyToOutputDirectory="PreserveNewest" />

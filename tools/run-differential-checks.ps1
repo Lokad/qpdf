@@ -801,7 +801,7 @@ $p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-object=1'
 $oraSp1 = (Get-Content "$case/show-ora-sp1.txt" -Raw).Trim()
 if ($libSp1 -ne $oraSp1) { Write-Output "[labels-merge-split] FAIL: split catalogs differ"; $script:failures++ }
 elseif (-not $libSp1.Contains('/PageLabels')) { Write-Output "[labels-merge-split] FAIL: labels missing"; $script:failures++ }
-else { Write-Output "[labels-merge-split] split catalogs agree" }
+else { Write-Output "[labels-merge-split] first split catalog agrees" }
 
 # --- case: catalog-extras (managed vs oracle unknown-catalog-key preservation) ---
 $case = New-Case 'catalog-extras'
@@ -1371,6 +1371,9 @@ Assert-Trio 'job-file' "$case/lib.pdf" "$case/ora.pdf" 1
 
 # --- case: preserved object sharing, cycles and recoverable copy failures ---
 & (Join-Path $PSScriptRoot 'compare-preservation.ps1') -QpdfExe $QpdfExe -ProbeDll $probeDll -WorkRoot (Join-Path $diffRoot 'preservation') -FixtureDirectory $fixtureDir
+
+# --- case: every split's label continuation, boundaries and selected order ---
+& (Join-Path $PSScriptRoot 'compare-split-labels.ps1') -QpdfExe $QpdfExe -ProbeDll $probeDll -WorkRoot (Join-Path $diffRoot 'split-labels') -FixtureDirectory $fixtureDir
 
 # --- case: binary-inspection (actual bytes, channels, defaults and staged failures) ---
 & (Join-Path $PSScriptRoot 'compare-binary-inspections.ps1') -QpdfExe $QpdfExe -ProbeDll $probeDll -WorkRoot (Join-Path $diffRoot 'binary-inspections')

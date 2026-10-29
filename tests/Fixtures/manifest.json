@@ -675,6 +675,69 @@
       "headerVersion": "1.4",
       "valid": false,
       "description": "Malformed loose dictionary with an unterminated array, repaired with a warning."
+    },
+    {
+      "file": "labels-split-default.pdf",
+      "sha256": "7a946c22c20c09dee3c676fcd879ffa78042da21ba1f89cad73f54b96e4cef3f",
+      "bytes": 1028,
+      "expectedNpages": 6,
+      "headerVersion": "1.7",
+      "valid": true,
+      "description": "Six pages sharing one decimal label run with its default start, covering split continuation. Page markers identify selected order."
+    },
+    {
+      "file": "labels-split-start.pdf",
+      "sha256": "13a4ab9ed0b272867a92ef10a6bcd5152c9d486c9960ad02e01819afefb99f9d",
+      "bytes": 1042,
+      "expectedNpages": 6,
+      "headerVersion": "1.7",
+      "valid": true,
+      "description": "Six pages sharing a P- prefixed decimal run starting at 5, covering split and subset continuation. Page markers identify selected order."
+    },
+    {
+      "file": "labels-split-transition.pdf",
+      "sha256": "cc3cc501dae24e5319cce5395cde42f7c8747db7229e54515c615603b0b29e0f",
+      "bytes": 1070,
+      "expectedNpages": 6,
+      "headerVersion": "1.7",
+      "valid": true,
+      "description": "Six pages with decimal and Roman label runs that cross two-page split boundaries. Page markers identify selected order."
+    },
+    {
+      "file": "labels-split-boundary.pdf",
+      "sha256": "499fa8e7dac3afad8c38240c9f0ba30f2da7644f1978cf9800517b6fced7f2b7",
+      "bytes": 1074,
+      "expectedNpages": 6,
+      "headerVersion": "1.7",
+      "valid": true,
+      "description": "Six pages with decimal, Roman and alphabetic label runs aligned to two-page split boundaries. Page markers identify selected order."
+    },
+    {
+      "file": "labels-split-prefix.pdf",
+      "sha256": "58b6a4e50449f3a6dbce1af27d3a903c1b5417d38eca56bc3949422d0bdec9a9",
+      "bytes": 1035,
+      "expectedNpages": 6,
+      "headerVersion": "1.7",
+      "valid": true,
+      "description": "Six pages with a prefix-only page-label run, preserving prefix text and carried start metadata. Page markers identify selected order."
+    },
+    {
+      "file": "labels-split-indirect.pdf",
+      "sha256": "c0deecfef6fbd9aa27e528ab68d0f85048037e938efa0e12edfeb3dd575e9293",
+      "bytes": 1171,
+      "expectedNpages": 6,
+      "headerVersion": "1.7",
+      "valid": true,
+      "description": "Six pages with indirect decimal style, P- prefix and start 5; the direct start fixture is the native split control. Page markers identify selected order."
+    },
+    {
+      "file": "labels-split-unlabelled.pdf",
+      "sha256": "44c9f0f2e4ff32c0f6554648c1dff33efddd900373b80bf6411fbcd7c7ff04b7",
+      "bytes": 988,
+      "expectedNpages": 6,
+      "headerVersion": "1.7",
+      "valid": true,
+      "description": "Six pages without a page-label tree, a split-label absence control. Page markers identify selected order."
     }
   ]
 }

@@ -5700,13 +5700,15 @@
           "LabelTests.SplitSlicesMergedLabels",
           "LabelTests.SetWinsOverMerge",
           "LabelTests.SetDroppedUnderSplit",
-          "LabelTests.IndirectLabelValuesResolve"
+          "LabelTests.IndirectLabelValuesResolve",
+          "SplitLabelContinuationTests.EverySplitKeepsTheSelectedPagesEffectiveLabels"
         ],
         "negative": [
           "LabelTests.LabelOrderRulesFailCleanly",
           "LabelTests.ArgvLabelFormsFailExplicitly",
           "LabelTests.MalformedLabelTreeFailsExplicitly",
-          "LabelTests.LabelMergeYieldsToExhaustedBudget"
+          "LabelTests.LabelMergeYieldsToExhaustedBudget",
+          "SplitLabelContinuationTests.RealOverflowAndCyclicTreesFailBeforeAnySplitIsPublished"
         ],
         "interaction": [
           "LabelTests.PrefixAndStartRoundTrip"
@@ -5716,7 +5718,8 @@
         ],
         "oracle": [
           "diff:labels",
-          "diff:labels-merge"
+          "diff:labels-merge",
+          "diff:split-labels"
         ]
       }
     },
@@ -6081,13 +6084,15 @@
           "SplitReplaceTests.TypedSplitMergesSourcesBeforeGrouping",
           "SplitReplaceTests.TypedSplitMatchesArgv",
           "SplitReplaceTests.TypedSplitMatchesJob",
-          "PublicationAdmissionTests.InactiveFirstPassDoesNotCreateOrOverwriteCapture"
+          "PublicationAdmissionTests.InactiveFirstPassDoesNotCreateOrOverwriteCapture",
+          "SplitLabelContinuationTests.EverySplitKeepsTheSelectedPagesEffectiveLabels"
         ],
         "negative": [
           "SplitReplaceTests.SplitOutputAliasingInputFailsCleanly",
           "SplitReplaceTests.JobSplitMalformedFails",
           "SplitReplaceTests.TypedSplitNonPositiveFailsCleanly",
-          "PublicationAdmissionTests.ActiveFirstPassCannotOverwriteAnyMainOutput"
+          "PublicationAdmissionTests.ActiveFirstPassCannotOverwriteAnyMainOutput",
+          "SplitLabelContinuationTests.RealOverflowAndCyclicTreesFailBeforeAnySplitIsPublished"
         ],
         "interaction": [
           "SplitReplaceTests.SplitSingleGroupMatchesDirectBytes",
@@ -6100,7 +6105,8 @@
           "ZeroPageRewriteTests.ZeroSplitGroupsPreserveEveryTarget"
         ],
         "oracle": [
-          "diff:split"
+          "diff:split",
+          "diff:split-labels"
         ]
       }
     },

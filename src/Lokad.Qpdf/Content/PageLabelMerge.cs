@@ -204,20 +204,7 @@ internal static class PageLabelMerge
 
         if (covering is null)
         {
-            long fabricated;
-            try
-            {
-                checked
-                {
-                    fabricated = 1L + (long)outputIndex;
-                }
-            }
-            catch (OverflowException ex)
-            {
-                throw new QpdfParseException("Page-label start overflows its output position.", null, null, ex);
-            }
-
-            return (fabricated, null, null);
+            return (1L + outputIndex, null, null);
         }
 
         long start;

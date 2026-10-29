@@ -2047,20 +2047,38 @@ public static partial class Qpdf
         ResourceGovernor governor)
     {
         if (items.Count == 0) { return null; }
-        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        (int Index, PdfDictionary Label) carry = items[0];
-        List<(int Index, PdfDictionary Label)> sliced = ParserContainers.CreateList<(int Index, PdfDictionary Label)>(memory);
-        // Admit the carry slot before construction; update it without shifting a second list.
-        GovernedCollections.AddItem(memory, governor, sliced, (0, carry.Label), 16L);
-        foreach ((int index, PdfDictionary label) in items)
+        int firstIndex = first - 1, low = 0, high = items.Count;
+        while (low < high)
         {
             governor.CheckCancellation();
-            if (index + 1 <= first) { carry = (index, label); }
-            else if (index + 1 <= last)
-            { GovernedCollections.AddItem(memory, governor, sliced, (index - (first - 1), label), 16L); }
-            else { break; }
+            int middle = low + (high - low) / 2;
+            if (items[middle].Index <= firstIndex) { low = middle + 1; }
+            else { high = middle; }
         }
-        sliced[0] = (0, carry.Label);
+        (int Index, PdfDictionary Label) carry = items[Math.Max(0, low - 1)];
+        PdfDictionary firstLabel = carry.Label;
+        if (carry.Index < firstIndex)
+        {
+            long start = PdfDictionaryLookup.TryGet(carry.Label, "St"u8, governor, governor.CancellationToken, out QpdfObject rawStart)
+                && rawStart is PdfInteger number ? number.Value : 1L;
+            try { start = checked(start + ((long)firstIndex - carry.Index)); }
+            catch (OverflowException ex)
+            { throw new QpdfParseException("Page-label start overflows its output position.", null, null, ex); }
+            firstLabel = Content.PageLabelStorage.Merged(
+                PdfDictionaryLookup.TryGet(carry.Label, "S"u8, governor, governor.CancellationToken, out QpdfObject style) ? style : null,
+                PdfDictionaryLookup.TryGet(carry.Label, "P"u8, governor, governor.CancellationToken, out QpdfObject prefix) ? prefix : null,
+                start, governor, governor.CancellationToken);
+        }
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        List<(int Index, PdfDictionary Label)> sliced = ParserContainers.CreateList<(int Index, PdfDictionary Label)>(memory);
+        GovernedCollections.AddItem(memory, governor, sliced, (0, firstLabel), 16L);
+        for (int i = low; i < items.Count; i++)
+        {
+            governor.CheckCancellation();
+            (int index, PdfDictionary label) = items[i];
+            if (index >= last) { break; }
+            GovernedCollections.AddItem(memory, governor, sliced, (index - firstIndex, label), 16L);
+        }
         return NumbersDictionary(sliced, governor);
     }
 

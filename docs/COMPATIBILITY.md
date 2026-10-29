@@ -14,6 +14,22 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Split outputs now advance the carried page-label start when a group begins
+inside a numbering run. For example, a six-page run starting at 5, split in
+pairs, starts at 5, 7 and 9 rather than restarting at 5 in every file. This
+corrects typed, argv and job JSON output to agree with native qpdf splitting a
+whole document. Selected and reordered pages retain their source labels; this
+intentionally differs from native 12.4.2's combined selection-and-split command,
+which applies the original label positions. Selecting and then splitting with
+native qpdf supplies the reference control for these cases. Label styles,
+prefixes and boundary-aligned entries retain their values; signatures are
+unchanged. Split label lookup now searches the sorted breakpoints instead of
+rescanning every preceding entry for every output group.
+Continued labels receive memory admission before construction; tight jobs can
+refuse earlier than when the incorrect original dictionary was reused.
+Indirect label values retain their direct-equivalent semantics. The reference
+lane uses a direct control where native 12.4.2 fails copying indirect labels.
+
 Attachment listings and JSON now report semantic MIME subtype text: a literal
 `#` remains `#`, so adding an attachment from listed metadata preserves its MIME
 type. Names are decoded as UTF-8 without text-string BOM handling; malformed
