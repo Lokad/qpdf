@@ -130,7 +130,64 @@ function Start-ReferenceProcess {
         [switch] $NoNewWindow, [switch] $Wait, [switch] $PassThru,
         [string] $RedirectStandardInput, [string] $RedirectStandardOutput, [string] $RedirectStandardError
     )
-    if ($FilePath -ne 'dotnet') { return Microsoft.PowerShell.Management\Start-Process @PSBoundParameters }
+    if ($FilePath -ne 'dotnet') {
+        if (-not $Wait -or -not $PassThru) { throw 'Unsupported native reference process invocation.' }
+        $start = [Diagnostics.ProcessStartInfo]::new($FilePath)
+        $start.UseShellExecute = $false
+        $start.CreateNoWindow = $true
+        if ($WorkingDirectory) { $start.WorkingDirectory = [IO.Path]::GetFullPath($WorkingDirectory) }
+        foreach ($argument in $ArgumentList) { $start.ArgumentList.Add($argument) }
+        $process = [Diagnostics.Process]::new()
+        $process.StartInfo = $start
+        $cancellation = [Threading.CancellationTokenSource]::new(30000)
+        $transfers = [Collections.Generic.List[Threading.Tasks.Task]]::new()
+        $inputFile = $null; $outputFile = $null; $errorFile = $null
+        $started = $false
+        try {
+            if ($RedirectStandardInput) { $inputFile = [IO.File]::OpenRead($RedirectStandardInput); $start.RedirectStandardInput = $true }
+            if ($RedirectStandardOutput) { $outputFile = [IO.File]::Create($RedirectStandardOutput); $start.RedirectStandardOutput = $true }
+            if ($RedirectStandardError) { $errorFile = [IO.File]::Create($RedirectStandardError); $start.RedirectStandardError = $true }
+            $started = $process.Start()
+            if (-not $started) { throw 'Native reference process did not start.' }
+            if ($outputFile) { $transfers.Add($process.StandardOutput.BaseStream.CopyToAsync($outputFile, $cancellation.Token)) }
+            if ($errorFile) { $transfers.Add($process.StandardError.BaseStream.CopyToAsync($errorFile, $cancellation.Token)) }
+            if ($inputFile) {
+                $feed = $inputFile.CopyToAsync($process.StandardInput.BaseStream, $cancellation.Token)
+                $transfers.Add($feed)
+                $feed.GetAwaiter().GetResult()
+                $process.StandardInput.Close()
+            }
+            $transfers.Add($process.WaitForExitAsync($cancellation.Token))
+            [Threading.Tasks.Task]::WhenAll($transfers.ToArray()).GetAwaiter().GetResult()
+            $exitCode = $process.ExitCode
+        } catch [OperationCanceledException] {
+            throw "Native reference process exceeded 30 seconds: $FilePath"
+        } finally {
+            try {
+                if ($started -and -not $process.HasExited) {
+                    $process.Kill($true)
+                    if (-not $process.WaitForExit(5000)) { throw 'Native reference process did not stop after termination.' }
+                }
+            } finally {
+                $cancellation.Cancel()
+                try {
+                    # Observe every transfer before closing its backing file,
+                    # including captures still completing during failed cleanup.
+                    if ($transfers.Count) {
+                        try {
+                            if (-not [Threading.Tasks.Task]::WhenAll($transfers.ToArray()).Wait(5000)) {
+                                throw 'Native reference transfers did not stop.'
+                            }
+                        } catch [AggregateException] { }
+                    }
+                } finally {
+                    foreach ($file in @($inputFile, $outputFile, $errorFile)) { if ($null -ne $file) { $file.Dispose() } }
+                    $process.Dispose(); $cancellation.Dispose()
+                }
+            }
+        }
+        return [pscustomobject]@{ ExitCode = $exitCode }
+    }
     if (-not $Wait -or -not $PassThru -or $RedirectStandardInput) { throw 'Unsupported managed probe process invocation.' }
     if ([IO.Path]::GetFullPath($ArgumentList[0]) -cne $script:referenceProbeState.Probe) { throw 'Unexpected managed probe assembly.' }
     $directory = if ($WorkingDirectory) { [IO.Path]::GetFullPath($WorkingDirectory) } else { (Get-Location).ProviderPath }

@@ -145,41 +145,87 @@ try {
 } finally { $env:QPDF_TEST_ORACLE_VERSION = $previousVersion }
 Write-Output 'Oracle version controls passed: pinned LF/CRLF banners accepted; prefix, patch, other, qualified, wrong-line and missing versions reject in both guards.'
 
-# Run the actual parser CLI, including its managed worker and native process
-# boundary. A timeout must retire the child and preserve its partial output.
-$pidFile = Join-Path $WorkRoot 'oracle.pid'
-$parserRoot = Join-Path $WorkRoot 'parser-timeout'
-$previousPidFile = $env:QPDF_TEST_ORACLE_PID_FILE
+$nativeRoot = Join-Path $WorkRoot "native paths $([char]0xC9)$([char]0x65E5)$([char]0x672C)"
+$nativeBin = Join-Path $nativeRoot 'executable files'
+New-Item -ItemType Directory -Path $nativeBin | Out-Null
+Get-ChildItem -LiteralPath (Split-Path $OracleFixture) -File | Copy-Item -Destination $nativeBin
+$nativeFixture = Join-Path $nativeBin ([IO.Path]::GetFileName($OracleFixture))
+$nativeOut = Join-Path $nativeRoot 'stdout.bin'; $nativeErr = Join-Path $nativeRoot 'stderr.bin'
+$nativeArguments = @('one value', '', 'quote"inside', 'trailing\', $unicodeInput, '--looks-like-option')
+$process = Start-ReferenceProcess -FilePath $nativeFixture -ArgumentList (@('--describe-arguments') + $nativeArguments) `
+    -WorkingDirectory $nativeRoot -Wait -PassThru -NoNewWindow -RedirectStandardOutput $nativeOut -RedirectStandardError $nativeErr
+$description = [IO.File]::ReadAllText($nativeOut) | ConvertFrom-Json
+if ($process.ExitCode -ne 0 -or $description.WorkingDirectory -cne $nativeRoot -or
+    (ConvertTo-Json -InputObject @($description.Arguments) -Compress) -cne (ConvertTo-Json -InputObject $nativeArguments -Compress)) {
+    throw 'Native launch changed argument boundaries or working directory.'
+}
+$nativeInput = Join-Path $nativeRoot 'input bytes.bin'
+[byte[]] $payload = @(0..255) * 512
+[IO.File]::WriteAllBytes($nativeInput, $payload)
+$process = Start-ReferenceProcess -FilePath $nativeFixture -ArgumentList @('--copy-stdin') -WorkingDirectory $nativeRoot `
+    -Wait -PassThru -NoNewWindow -RedirectStandardInput $nativeInput -RedirectStandardOutput $nativeOut -RedirectStandardError $nativeErr
+if ($process.ExitCode -ne 7 -or [Convert]::ToHexString([IO.File]::ReadAllBytes($nativeOut)) -cne [Convert]::ToHexString($payload) -or
+    [Convert]::ToHexString([IO.File]::ReadAllBytes($nativeErr)) -cne '0080FEFF0A') { throw 'Native stdin/EOF, binary capture or exit status changed.' }
 try {
-    $env:QPDF_TEST_ORACLE_PID_FILE = $pidFile
-    $timeoutOutput = & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'run-parser-checks.ps1') `
-        -QpdfExe $OracleFixture -ProbeDll $ProbeDll -StreamRecoveryOnly -WorkRoot $parserRoot 2>&1 | Out-String
-    $timeoutExit = $LASTEXITCODE
-    [IO.File]::WriteAllText((Join-Path $WorkRoot 'parser-timeout.log'), $timeoutOutput)
-    if ($timeoutExit -eq 0 -or $timeoutOutput -notmatch 'Oracle process exceeded 30 seconds') { throw 'Parser timeout control did not reach its oracle deadline.' }
-    $child = Get-Process -Id ([int][IO.File]::ReadAllText($pidFile)) -ErrorAction SilentlyContinue
-    if ($null -ne $child) {
-        try {
-            if (-not $child.HasExited -and $child.Path -ceq $OracleFixture) { throw 'Timed-out oracle is still running.' }
-        } finally { $child.Dispose() }
-    }
-    foreach ($channel in @('stdout', 'stderr')) {
-        $capture = @(Get-ChildItem -LiteralPath $parserRoot -Filter "*-$channel.bin")
-        if ($capture.Count -ne 1 -or [IO.File]::ReadAllText($capture[0].FullName).Trim() -cne "oracle $channel before timeout") { throw "Parser timeout lost $channel diagnostics." }
-    }
-} finally {
-    $env:QPDF_TEST_ORACLE_PID_FILE = $previousPidFile
-    if (Test-Path -LiteralPath $pidFile) {
+    $null = Start-ReferenceProcess -FilePath (Join-Path $nativeBin 'missing-executable') -ArgumentList @() -Wait -PassThru -NoNewWindow `
+        -RedirectStandardInput $nativeInput -RedirectStandardOutput $nativeOut -RedirectStandardError $nativeErr
+    throw 'Missing native executable unexpectedly started.'
+} catch { if ($_.Exception.Message -eq 'Missing native executable unexpectedly started.') { throw } }
+foreach ($path in @($nativeInput, $nativeOut, $nativeErr)) {
+    $exclusive = [IO.File]::Open($path, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+    $exclusive.Dispose()
+}
+Write-Output 'Native launch controls passed: argument boundaries, spaced/Unicode executable paths, working directory, binary stdin/EOF, both output streams, nonzero exit and start-failure cleanup.'
+
+foreach ($timeoutRoute in @('parser', 'native')) {
+    # Both launch routes must retire their child and preserve partial output.
+    $pidFile = Join-Path $WorkRoot "$timeoutRoute-oracle.pid"
+    $parserRoot = Join-Path $WorkRoot "$timeoutRoute-timeout"
+    $timeoutFixture = if ($timeoutRoute -eq 'parser') { $OracleFixture } else { $nativeFixture }
+    $previousPidFile = $env:QPDF_TEST_ORACLE_PID_FILE
+    try {
+        $env:QPDF_TEST_ORACLE_PID_FILE = $pidFile
+        if ($timeoutRoute -eq 'parser') {
+            $timeoutOutput = & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'run-parser-checks.ps1') `
+                -QpdfExe $OracleFixture -ProbeDll $ProbeDll -StreamRecoveryOnly -WorkRoot $parserRoot 2>&1 | Out-String
+            $timeoutExit = $LASTEXITCODE
+            [IO.File]::WriteAllText((Join-Path $WorkRoot 'parser-timeout.log'), $timeoutOutput)
+            if ($timeoutExit -eq 0 -or $timeoutOutput -notmatch 'Oracle process exceeded 30 seconds') { throw 'Parser timeout control did not reach its oracle deadline.' }
+        } else {
+            New-Item -ItemType Directory -Path $parserRoot | Out-Null
+            try {
+                $null = Start-ReferenceProcess -FilePath $nativeFixture -ArgumentList @('--version') -Wait -PassThru -NoNewWindow `
+                    -RedirectStandardOutput (Join-Path $parserRoot 'native-stdout.bin') -RedirectStandardError (Join-Path $parserRoot 'native-stderr.bin')
+                throw 'Native timeout control did not reach its oracle deadline.'
+            } catch {
+                if ($_.Exception.Message -notmatch 'Native reference process exceeded 30 seconds') { throw }
+                [IO.File]::WriteAllText((Join-Path $WorkRoot 'native-timeout.log'), $_.Exception.ToString())
+            }
+        }
         $child = Get-Process -Id ([int][IO.File]::ReadAllText($pidFile)) -ErrorAction SilentlyContinue
         if ($null -ne $child) {
             try {
-                if (-not $child.HasExited -and $child.Path -ceq $OracleFixture) {
-                    $child.Kill($true)
-                    if (-not $child.WaitForExit(5000)) { throw 'Oracle fixture did not stop during test cleanup.' }
-                }
+                if (-not $child.HasExited -and $child.Path -ceq $timeoutFixture) { throw 'Timed-out oracle is still running.' }
             } finally { $child.Dispose() }
         }
+        foreach ($channel in @('stdout', 'stderr')) {
+            $capture = @(Get-ChildItem -LiteralPath $parserRoot -Filter "*-$channel.bin")
+            if ($capture.Count -ne 1 -or [IO.File]::ReadAllText($capture[0].FullName).Trim() -cne "oracle $channel before timeout") { throw "Parser timeout lost $channel diagnostics." }
+        }
+    } finally {
+        $env:QPDF_TEST_ORACLE_PID_FILE = $previousPidFile
+        if (Test-Path -LiteralPath $pidFile) {
+            $child = Get-Process -Id ([int][IO.File]::ReadAllText($pidFile)) -ErrorAction SilentlyContinue
+            if ($null -ne $child) {
+                try {
+                    if (-not $child.HasExited -and $child.Path -ceq $timeoutFixture) {
+                        $child.Kill($true)
+                        if (-not $child.WaitForExit(5000)) { throw 'Oracle fixture did not stop during test cleanup.' }
+                    }
+                } finally { $child.Dispose() }
+            }
+        }
     }
+    Write-Output "$timeoutRoute timeout control passed: owned oracle exited and both partial output streams survived."
 }
-Write-Output 'Parser timeout control passed: owned oracle exited and both partial output streams survived.'
 exit 0

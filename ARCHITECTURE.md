@@ -194,3 +194,9 @@ they are not shipped with the library. The nonpackable
 [Lokad.Image 0.2.0 adapter](tools/Lokad.Qpdf.Image) exercises the public codec contract
 in tests, probes and benchmarks. See [AGENTS.md](AGENTS.md) for checks and
 [benchmarks](docs/BENCHMARKS.md) for performance measurements.
+
+The reference helper launches native tools with argument vectors and a 30-second
+deadline, preserving working directories and binary stdin/stdout/stderr. It closes
+stdin after copying, terminates and awaits failed children, and settles transfers
+before closing files. Both launch routes return only an exit-code record after
+cleanup; no native Process escapes to reference callers.
