@@ -28,7 +28,7 @@ internal sealed class SelectiveInputData : IDisposable
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
         if (input.Length < 8L * 1048576L || governor.RemainingMemoryBytes < MaximumMetadata * 4L
-            || limits.MaxHostOperations - governor.Snapshot().HostOperations < 32L)
+            || limits.MaxHostOperations - governor.CounterValues.HostOperations < 32L)
         { return null; }
         if (diagnostics.ReadingPartialInput) { throw new InvalidOperationException("Input prefetch cannot be nested."); }
         diagnostics.ReadingPartialInput = true;
@@ -82,7 +82,7 @@ internal sealed class SelectiveInputData : IDisposable
                 else { ParserContainers.AddItem(scratch, plans, new Plan(start, length), 8L); }
             }
             if (!omitted || plans.Count == 0
-                || limits.MaxHostOperations - governor.Snapshot().HostOperations < plans.Count + 16L)
+                || limits.MaxHostOperations - governor.CounterValues.HostOperations < plans.Count + 16L)
             { return null; }
             memory = ParserMemoryScope.Create(governor);
             memory.Reserve(checked(64L + 32L + plans.Count * 16L + total + plans.Count * 32L));

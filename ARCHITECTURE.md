@@ -116,6 +116,8 @@ Eligible page selections read bounded ranges from classic-xref inputs. If the
 selected ranges cannot support the operation, the reader retries the complete
 input on the same lease with the same recovery policy, before publishing output.
 Other layouts and operations retain complete reads.
+Eligibility reads the governor's existing counter values without allocating
+public counter snapshots.
 
 Documents own their input, resolution tables and object caches. Disposal drops
 private references while public immutable values remain usable. Private copies can borrow immutable
