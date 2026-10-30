@@ -284,6 +284,10 @@ page batch; traversal sets have a phase owner. Content collection borrows origin
 stream references and admits its known metadata capacity once. Checking and
 rotation share that collector. Temporary matrices and formatting storage refund
 after consumption, while rewritten stream headers borrow existing payloads.
+Content analysis moves a single materialized/decoded buffer under its existing
+admission into the joined owner. A successful join closes the chunk owner;
+escaping bytes transfer again before that joined owner closes. Raw buffers
+borrowed from another owner still copy, and multiple parts concatenate exactly.
 Rotated appearance headers use a page-local admitted identity memo. Copies share
 the original payload bytes, and annotations on the same page share the copied
 stream. Other pages keep their original appearance headers. AP/state dictionaries

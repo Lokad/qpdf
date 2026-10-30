@@ -302,8 +302,7 @@ internal static class ContentTransforms
         using AnalysisChunks chunks = AnalysisChunks.Create(governor, token);
         for (int index = 0; index < entries.Count; index++)
         { if (!chunks.TryAdd(entries.Get(index).Stream, resolver, limits)) { return null; } }
-        using JoinedContent joined = JoinedContent.Create(chunks.Parts, governor, token);
-        chunks.Dispose();
+        using JoinedContent joined = chunks.Join();
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         bool compress = request.Compress && joined.RawBytes.Length > 0;
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -885,8 +884,7 @@ internal static class ContentTransforms
             return page;
         }
 
-        using JoinedContent content = JoinContentBytes(pageChunks.Parts, governor, cancellationToken);
-        pageChunks.Dispose();
+        using JoinedContent content = pageChunks.Join();
         ScanAndPrune(copier, pageId, page, content.Bytes, resources, true, unresolved, governor, diagnostics, cancellationToken);
         if (copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? refreshed) && refreshed is PdfDictionary refreshedPage)
         {
@@ -980,8 +978,7 @@ internal static class ContentTransforms
             return;
         }
 
-        using JoinedContent content = JoinContentBytes(chunks.Parts, governor, cancellationToken);
-        chunks.Dispose();
+        using JoinedContent content = chunks.Join();
         ScanAndPrune(copier, formId, null, content.Bytes, resources, false, unresolved, governor, diagnostics, cancellationToken);
     }
 
@@ -1184,9 +1181,6 @@ internal static class ContentTransforms
             copier.ReplaceCopiedObject(nodeId.Value, replacement);
         }
     }
-    private static JoinedContent JoinContentBytes(IReadOnlyList<byte[]> parts, ResourceGovernor governor, CancellationToken token)
-        => JoinedContent.Create(parts, governor, token);
-
     private static AnalysisChunks? CollectPageChunks(
         PdfDictionary page,
         PoolResolver resolver,

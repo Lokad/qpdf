@@ -2418,7 +2418,8 @@
           "ContentTransformsTests.PruneAppliesOnMerge"
         ],
         "resource": [
-          "ResourceEnforcementTests.CoalesceYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.CoalesceYieldsToExhaustedBudget",
+          "SinglePartContentOwnershipTests.EmptyAndMultiplePartsKeepTheirExactJoiningRules"
         ],
         "oracle": [
           "diff:coalesce-payloads"
@@ -2958,7 +2959,9 @@
           "InlineImagesTests.JobRoundTripMatchesArgv"
         ],
         "resource": [
-          "ResourceEnforcementTests.ExternalizeInlineImagesYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.ExternalizeInlineImagesYieldsToExhaustedBudget",
+          "SinglePartContentOwnershipTests.OwnedPartMovesWithoutASecondPayloadAllocation",
+          "SinglePartContentOwnershipTests.CancellationAfterJoinAdmissionLeavesThePartFunded"
         ],
         "oracle": [
           "diff:inline"
@@ -5515,7 +5518,9 @@
           "ContentTransformsTests.PruneAppliesOnMerge"
         ],
         "resource": [
-          "ResourceEnforcementTests.PruneYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.PruneYieldsToExhaustedBudget",
+          "SinglePartContentOwnershipTests.JoinAdmissionRefusalPreservesTheSourceAndCanRetry",
+          "SinglePartContentOwnershipTests.EscapedBytesDropTheLargerSourceAndCompletedExecution"
         ],
         "oracle": [
           "diff:prune-resources"

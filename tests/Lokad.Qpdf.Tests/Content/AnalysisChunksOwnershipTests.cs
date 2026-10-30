@@ -37,8 +37,8 @@ public sealed class AnalysisChunksOwnershipTests
             PdfStream stream = Stream(filter, raw); Assert.True(chunks.TryAdd(stream, resolver, QpdfLimits.Default));
             Assert.NotSame(stream.AllocationCarrier, chunks.Parts[^1]); Assert.Equal(raw, chunks.Parts[^1]);
         }
-        Assert.Equal(240L + 5L * (raw.Length + 32L), governor.Snapshot().LiveMemoryBytes);
-        using JoinedContent joined = JoinedContent.Create(chunks.Parts, governor, CancellationToken.None);
+        Assert.Equal(248L + 5L * (raw.Length + 32L), governor.Snapshot().LiveMemoryBytes);
+        using JoinedContent joined = chunks.Join();
         chunks.Dispose(); Assert.Equal(joined.Bytes.Length + 128L, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(string.Join('\n', Enumerable.Repeat("/Used 12 Tf", 6)), System.Text.Encoding.ASCII.GetString(joined.Bytes.Span));
         joined.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(raw, unfiltered.Data);
@@ -61,7 +61,7 @@ public sealed class AnalysisChunksOwnershipTests
     [Fact]
     public void FailedListGrowthPreservesPriorChunksAndCanRetry()
     {
-        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 469L }; ResourceGovernor governor = new(limits, CancellationToken.None);
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 477L }; ResourceGovernor governor = new(limits, CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(17L);
         using AnalysisChunks chunks = AnalysisChunks.Create(governor, CancellationToken.None); PoolResolver resolver = Resolver();
         PdfStream stream = Stream("", "borrowed"u8.ToArray());

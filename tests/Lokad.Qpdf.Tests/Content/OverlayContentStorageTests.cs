@@ -59,7 +59,7 @@ public sealed class OverlayContentStorageTests
         using (AnalysisChunks chunks = AnalysisChunks.Create(governor, CancellationToken.None))
         {
             Assert.True(chunks.TryAdd(stream, new PoolResolver(new Dictionary<int, QpdfObject>()), QpdfLimits.Default));
-            using JoinedContent joined = JoinedContent.Create(chunks.Parts, governor, CancellationToken.None);
+            using JoinedContent joined = chunks.Join();
             result = joined.TakeBytes(resultMemory);
         }
         Assert.Equal(1024 * 1024, result.Length);

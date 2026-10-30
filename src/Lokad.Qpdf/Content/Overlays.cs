@@ -421,7 +421,7 @@ internal static class Overlays
         using AnalysisChunks chunks = AnalysisChunks.Create(governor, token);
         for (int i = 0; i < entries.Count; i++)
         { if (!chunks.TryAdd(entries.Get(i).Stream, resolver, limits)) { return null; } }
-        using JoinedContent joined = JoinedContent.Create(chunks.Parts, governor, token);
+        using JoinedContent joined = chunks.Join();
         return joined.TakeBytes(ownership);
     }
 

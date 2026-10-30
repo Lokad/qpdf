@@ -22,6 +22,21 @@ internal sealed class JoinedContent : IDisposable
         _bytes = null; _memory = null; memory.Dispose(); return bytes;
     }
 
+    internal static JoinedContent TakeOwned(byte[] part, ParserMemoryScope source, ResourceGovernor governor, CancellationToken token)
+    {
+        source.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        try
+        {
+            memory.Reserve(32L);
+            JoinedContent joined = new(memory, part);
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            source.TransferTo(memory, checked(part.LongLength + GovernedBufferStream.ArrayOverheadBytes));
+            return joined;
+        }
+        catch { memory.Dispose(); throw; }
+    }
+
     internal static JoinedContent Create(IReadOnlyList<byte[]> parts, ResourceGovernor governor, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(parts);

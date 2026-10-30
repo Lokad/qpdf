@@ -27,8 +27,7 @@ internal static class InlineImages
             return page;
         }
 
-        using JoinedContent joined = JoinedContent.Create(chunks.Parts, governor, cancellationToken);
-        chunks.Dispose();
+        using JoinedContent joined = chunks.Join();
         RewriteResult rewritten = RewriteContentCore(copier, page, joined.RawBytes, minBytes, compress, level, limits, governor, diagnostics, cancellationToken, false, preserveUnreferenced, filterOptions);
         CompleteResourceWalk(page, rewritten.Resources, pageId, governor, diagnostics, cancellationToken);
         PdfDictionary replaced = page;

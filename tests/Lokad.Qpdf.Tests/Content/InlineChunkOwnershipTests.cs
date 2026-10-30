@@ -32,7 +32,7 @@ public sealed class InlineChunkOwnershipTests
         PdfStream stream = new(header, "ABCG>"u8.ToArray()); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using AnalysisChunks chunks = AnalysisChunks.Create(governor, CancellationToken.None);
         Assert.False(chunks.TryAdd(stream, new PoolResolver(new Dictionary<int, QpdfObject>()), QpdfLimits.Default));
-        Assert.Empty(chunks.Parts); Assert.Equal(144L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Empty(chunks.Parts); Assert.Equal(152L, governor.Snapshot().LiveMemoryBytes);
         chunks.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal("ABCG>"u8.ToArray(), stream.Data);
     }
 

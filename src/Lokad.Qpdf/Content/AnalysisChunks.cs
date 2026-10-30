@@ -6,13 +6,14 @@ using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Content;
 
-/// <summary>Owns decoded chunks and list storage; raw stream payloads remain borrowed.</summary>
+/// <summary>Owns decoded/materialized chunks and list storage; complete raw arrays stay borrowed.</summary>
 internal sealed class AnalysisChunks : IDisposable
 {
     private ParserMemoryScope? _memory;
     private ResourceGovernor? _governor;
     private List<byte[]>? _parts;
     private CancellationToken _token;
+    private bool _ownsSinglePart;
 
     private AnalysisChunks(ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     { _memory = memory; _governor = governor; _token = token; _parts = ParserContainers.CreateList<byte[]>(memory); }
@@ -20,7 +21,7 @@ internal sealed class AnalysisChunks : IDisposable
     internal static AnalysisChunks Create(ResourceGovernor governor, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        try { memory.Reserve(48L); return new(memory, governor, token); }
+        try { memory.Reserve(56L); return new(memory, governor, token); }
         catch { memory.Dispose(); throw; }
     }
     // Borrowed only while this owner is alive; joining uses indexed reads.
@@ -29,9 +30,25 @@ internal sealed class AnalysisChunks : IDisposable
     {
         ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
         ResourceGovernor governor = _governor ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
+        long before = memory.ReservedBytes; // A raw slice may also materialize under this owner.
         if (!TryDecode(stream, resolver, limits, governor, memory, _token, out byte[] bytes, out bool decoded))
         { return false; }
-        Append(bytes, decoded); return true;
+        Append(bytes, decoded || memory.ReservedBytes > before); return true;
+    }
+
+    // Joining consumes this owner only on success. Move a sole owned payload;
+    // borrowed arrays still need an independent copy before their source closes.
+    internal JoinedContent Join()
+    {
+        ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
+        ResourceGovernor governor = _governor ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
+        List<byte[]> parts = _parts ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
+        _token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        JoinedContent joined = _ownsSinglePart
+            ? JoinedContent.TakeOwned(parts[0], memory, governor, _token)
+            : JoinedContent.Create(parts, governor, _token);
+        try { Dispose(); return joined; }
+        catch { joined.Dispose(); throw; }
     }
 
     internal static bool TryDecode(PdfStream stream, IIndirectResolver resolver, QpdfLimits limits,
@@ -66,6 +83,7 @@ internal sealed class AnalysisChunks : IDisposable
                 _token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             }
             ParserContainers.AddItem(memory, parts, decoded, IntPtr.Size);
+            _ownsSinglePart = parts.Count == 1 && owned && decoded.Length != 0;
         }
         catch
         {
@@ -80,7 +98,7 @@ internal sealed class AnalysisChunks : IDisposable
     public void Dispose()
     {
         ParserMemoryScope? memory = _memory;
-        _parts = null; _memory = null; _governor = null; _token = default;
+        _parts = null; _memory = null; _governor = null; _token = default; _ownsSinglePart = false;
         memory?.Dispose();
     }
 }

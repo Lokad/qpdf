@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Transfer a sole materialized or decoded content chunk into its joined owner,
+  avoiding a second full-size buffer in content analysis and overlays. Borrowed
+  buffers still copy and multiple streams retain their exact concatenation rules;
+  admission, cancellation and output ownership remain explicit.
+
 - Read overlay rectangle coordinates through the existing array indexer, avoiding
   four defensive array copies per rectangle without changing geometry handling.
 

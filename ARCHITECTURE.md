@@ -101,6 +101,10 @@ Canonical display, PDF JSON and resource dictionaries share governed unsigned
 raw-name comparisons. QDF retains its separate escaped-name ordering.
 PDF text decoding likewise requires its construction owner, governor and token;
 the encoding map uses the single-byte mapping directly during initialization.
+Content analysis transfers a sole materialized/decoded chunk into its joined
+owner. Borrowed arrays still copy; multiple parts retain exact newline joining.
+A successful join retires the chunk owner, while escaping overlay/coalesced bytes
+transfer into the existing output owner before the joined owner closes.
 Non-Flate codec output caches
 the remaining raw ceiling per stage, accounting for PNG selectors separately
 from decoded samples while retaining coarse memory admission.
