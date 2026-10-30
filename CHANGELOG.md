@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Honor image filter ceilings before decoded-sample admission or codec checks.
+  Preserve over-limit images opaquely with a warning, including codec-free hosts;
+  diagnostic limits and output-commit guarantees remain binding.
+
 - Resolve indirect image and Form subtype names during image optimization.
   Valid indirect forms now expose their images to the same bounded traversal;
   stale or malformed subtype values remain opaque.

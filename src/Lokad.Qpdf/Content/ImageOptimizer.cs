@@ -23,8 +23,9 @@ internal sealed record ImageOptimizeRequest(
 /// component, DeviceGray/DeviceRGB, above the size thresholds) are
 /// JPEG-compressed and replaced only when the result is strictly smaller.
 /// Mirrors the upstream size and colorspace rules: already-DCT images are
-/// left alone unless a quality forces recompression, and every skip is
-/// silent. Inline images are never touched here; four-component CMYK has no
+/// left alone unless a quality forces recompression. Eligibility skips are
+/// silent; filter-ceiling refusals warn and preserve opaque data. Inline images
+/// are never touched here; four-component CMYK has no
 /// raw-sample encode path and stays as is. Recursion follows form XObjects
 /// with a cycle guard; shared images optimize once and stay consistent.
 /// </summary>
@@ -35,6 +36,7 @@ internal static class ImageOptimizer
         ImageOptimizeRequest request,
         QpdfLimits limits,
         ResourceGovernor governor,
+        DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
         if (occurrences is null)
@@ -58,6 +60,7 @@ internal static class ImageOptimizer
         }
 
         limits.Validate();
+        ArgumentNullException.ThrowIfNull(diagnostics);
         if (!request.Optimize)
         {
             return;
@@ -72,7 +75,7 @@ internal static class ImageOptimizer
             if (copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? raw) && raw is PdfDictionary page)
             {
                 ProcessResources(copier, new PoolResolver(copier.CopiedObjects), page, request,
-                    limits, governor, traversal, visitedObjects, 0, cancellationToken);
+                    limits, governor, diagnostics, traversal, visitedObjects, 0, cancellationToken);
             }
         }
     }
@@ -84,6 +87,7 @@ internal static class ImageOptimizer
         ImageOptimizeRequest request,
         QpdfLimits limits,
         ResourceGovernor governor,
+        DiagnosticBag diagnostics,
         ParserMemoryScope traversal,
         HashSet<int> visitedObjects,
         int depth,
@@ -114,13 +118,13 @@ internal static class ImageOptimizer
                 if (ParserContainers.AddSetItem(traversal, visitedObjects, link.ObjectNumber, sizeof(int)))
                 {
                     ProcessResources(copier, resolver, stream.Dictionary, request, limits, governor,
-                        traversal, visitedObjects, checked(depth + 1), token);
+                        diagnostics, traversal, visitedObjects, checked(depth + 1), token);
                 }
             }
             else if (PdfDictionaryLookup.NameEquals(subtype, "Image"u8, governor, token)
                 && ParserContainers.AddSetItem(traversal, visitedObjects, link.ObjectNumber, sizeof(int)))
             {
-                PdfStream? optimized = TryOptimize(stream, request, resolver, limits, governor, token);
+                PdfStream? optimized = TryOptimize(stream, request, resolver, limits, governor, diagnostics, token);
                 if (optimized is not null) { copier.ReplaceCopiedObject(link.ObjectNumber, optimized); }
             }
         }
@@ -132,6 +136,7 @@ internal static class ImageOptimizer
         PoolResolver resolver,
         QpdfLimits limits,
         ResourceGovernor governor,
+        DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -170,6 +175,12 @@ internal static class ImageOptimizer
             return null;
         }
         using FilterPlan stageOwner = stages;
+        if (stages.Count > limits.MaxStreamFilters)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning,
+                "Image stream kept opaque: filter count exceeds MaxStreamFilters.");
+            return null;
+        }
 
         bool isDct = false;
         foreach (FilterStage stage in stages)

@@ -4589,6 +4589,8 @@
         ],
         "resource": [
           "ImageOptimizationGraphTests.EachImageIdentityIsAttemptedOnceIncludingSkippedCandidates",
+          "ImageOptimizationGraphTests.FilterCeilingsPreserveOpaqueBytesBeforeSampleAndCodecAdmission",
+          "ImageOptimizationGraphTests.ZeroFilterCeilingStillAllowsUnfilteredImages",
           "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget"
         ],
         "oracle": [

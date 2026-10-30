@@ -423,7 +423,7 @@ public static partial class Qpdf
                     }
                     if (settings.Optimize.Optimize)
                     {
-                        Content.ImageOptimizer.Apply(occurrences, settings.Optimize, limits, governor, cancellationToken);
+                        Content.ImageOptimizer.Apply(occurrences, settings.Optimize, limits, governor, diagnostics, cancellationToken);
                     }
                     copier.AdvanceNextId(flattenAllocator);
 
@@ -1169,7 +1169,7 @@ public static partial class Qpdf
         }
         if (settings.Optimize.Optimize)
         {
-            Content.ImageOptimizer.Apply(occurrences, settings.Optimize, limits, governor, cancellationToken);
+            Content.ImageOptimizer.Apply(occurrences, settings.Optimize, limits, governor, diagnostics, cancellationToken);
         }
 
         if (replaceInput && splitPages.HasValue)

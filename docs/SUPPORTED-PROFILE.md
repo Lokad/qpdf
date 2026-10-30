@@ -157,7 +157,19 @@ echoing values.
   order, including mixed/file-chain layers. QDF fills unset defaults. Catalog XML
   metadata is uncompressed, and empty streams retain zero-length payloads. Broader
   transformation/default/grammar differences remain in the compatibility audit.
-- --optimize-images uses the supplied codec to recompress eligible image XObjects (8-bit DeviceGray/DeviceRGB above the oi-min thresholds) as JPEG only when strictly smaller. Each image identity is attempted once across aliases, forms and repeated pages, including skipped candidates. Providers receive --jpeg-quality in 0–100 (the development Lokad.Image adapter maps 0 to 1). Already-DCT images recompress only under an explicit quality; large inline images externalize first unless --keep-inline-images. Ineligible images skip silently; an eligible operation without a codec fails explicitly.
+- --optimize-images uses the supplied codec to recompress eligible image XObjects
+  (8-bit DeviceGray/DeviceRGB above the oi-min thresholds) as JPEG only when strictly
+  smaller. Each image identity is attempted once across aliases, forms and repeated
+  pages, including skipped candidates. Indirect Image/Form subtype names resolve
+  through the copied object pool; stale or malformed values remain opaque.
+  Providers receive --jpeg-quality in 0–100 (the development Lokad.Image adapter
+  maps 0 to 1). Already-DCT images recompress only under an explicit quality; large
+  inline images externalize first unless --keep-inline-images. Images exceeding
+  MaxStreamFilters stay opaque with a warning before sample admission or codec
+  checks. Unfiltered images remain eligible at a zero filter ceiling. Other
+  ineligible images skip silently; an eligible operation without a codec fails
+  explicitly. Warning suppression/exit policy applies as usual; diagnostic limits
+  can still fail the operation before publication.
 - One input file per selection job, several per merge, through host-mediated ranged reads.
 
 ## Selection semantics

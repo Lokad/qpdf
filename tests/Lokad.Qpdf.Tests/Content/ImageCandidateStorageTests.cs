@@ -35,7 +35,7 @@ public sealed class ImageCandidateStorageTests
 
     private static PdfStream? Optimize(PdfStream image, ResourceGovernor governor, QpdfLimits limits)
         => ImageOptimizer.TryOptimize(image, new(true, 0, 0, 0, false, 75),
-            new(new Dictionary<int, QpdfObject>()), limits, governor, governor.CancellationToken);
+            new(new Dictionary<int, QpdfObject>()), limits, governor, new(governor), governor.CancellationToken);
 
     [Theory]
     [InlineData(false)]

@@ -85,7 +85,7 @@ public sealed class ImageTraversalMemoryTests
     }
 
     private static void Apply(GraphCopier copier, ResourceGovernor governor, CancellationToken token)
-        => ImageOptimizer.Apply([(copier, 1)], new(true, 0, 0, 0, false, null), QpdfLimits.Default, governor, token);
+        => ImageOptimizer.Apply([(copier, 1)], new(true, 0, 0, 0, false, null), QpdfLimits.Default, governor, new(governor), token);
 
     [Theory]
     [InlineData(false)]
