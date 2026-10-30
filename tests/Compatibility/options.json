@@ -4610,6 +4610,7 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
+          "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
           "OverlayTests.OverlayStacksStampOnTop",
           "OverlayScalarTests.IndirectStampScalarsMatchDirectTransforms",
           "GeneratedGeometryTests.GeneratedCoordinatesRemainReadableAfterDocumentsAndHostClose",
@@ -4658,6 +4659,7 @@
           "OverlayDefaultTests.EqualIndirectDestinationDefaultsAvoidRedundantFieldOverrides"
         ],
         "negative": [
+          "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
           "OverlayTests.MalformedOverlayFlagsFail",
           "OverlayTests.RangedOverlayFlagsFail",
           "OverlayDefaultTests.UnusableDefaultsKeepFallbacksAndLocalOverrides"
@@ -6378,6 +6380,7 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
+          "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
           "OverlayTests.UnderlayGoesBelowOriginal",
           "OverlayScalarTests.IndirectStampScalarsMatchDirectTransforms",
           "GeneratedGeometryTests.GeneratedCoordinatesRemainReadableAfterDocumentsAndHostClose",
@@ -6407,6 +6410,7 @@
           "OverlayDefaultTests.EqualIndirectDestinationDefaultsAvoidRedundantFieldOverrides"
         ],
         "negative": [
+          "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
           "OverlayTests.OverlayPasswordIsCrypto",
           "OverlayDefaultTests.UnusableDefaultsKeepFallbacksAndLocalOverrides"
         ],

@@ -219,7 +219,8 @@ echoing values.
   matching `/Tx` block and preserves unrelated content. Parent-held fields retain
   their terminal identity; checkboxes synchronize raw state names. Radios and
   pushbuttons warn and keep their state, and empty signature fields skip.
-  Copying populated signature values is excluded; typed calls reject `/Sig` and
+  Copying populated signature values, including overlay and underlay field
+  imports, is excluded; typed calls reject `/Sig` and
   argv/job JSON report `UnsupportedCryptoOperation`. An absent or null `/V`
   remains copyable; inspection does not verify signatures. Local
   appearance fonts win over AcroForm default resources; field default resources

@@ -1212,6 +1212,49 @@ internal static class Program
             else { await CheckOutputAsync(host, "output.pdf", "First"); }
         }
         Console.WriteLine("PASS explicit signature-copy exclusion and blank fields through typed/argv/job APIs");
+        foreach (bool populated in new[] { false, true })
+        foreach (string route in new[] { "argv", "job" })
+        foreach (string side in new[] { "overlay", "underlay" })
+        {
+            using InMemoryQpdfHost host = NewHost("input.pdf", TwoPagePdf());
+            host.AddInput(QpdfPath.From("source.pdf"), SignatureOverlayPdf(populated), QpdfInputOwnership.Transfer);
+            QpdfPath output = QpdfPath.From("output.pdf");
+            await using (IQpdfOutputTransaction prior = await host.CreateOutputAsync(output, CancellationToken.None))
+            { await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None); await prior.CommitAsync(CancellationToken.None); }
+            QpdfExecutionResult result = route == "argv"
+                ? await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["input.pdf", "--" + side, "source.pdf", "--", "output.pdf"]), CancellationToken.None)
+                : await Qpdf.ExecuteJobAsync(host, System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object>
+                { ["inputFile"] = "input.pdf", ["outputFile"] = "output.pdf", [side] = new { file = "source.pdf" } }), CancellationToken.None);
+            Check(result.Status == (populated ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed), "signature policy for " + side + " through " + route);
+            Check(host.OpenLeaseCount == 0L, "overlay signature policy closes source leases");
+            if (populated)
+            {
+                Check(result.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.UnsupportedCryptoOperation), "overlay signature failure category");
+                Check(Published(host, "output.pdf").AsSpan().SequenceEqual("prior"u8), "overlay signature rejection preserves prior output");
+            }
+            else { await CheckOutputAsync(host, "output.pdf", "First", 2); }
+        }
+        Console.WriteLine("PASS inherited typeless signatures and blank fields through overlay/underlay package APIs");
+    }
+
+    private static byte[] SignatureOverlayPdf(bool populated)
+    {
+        string[] objects = [
+            "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] >> >>",
+            "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [5 0 R] >>",
+            "<< /FT /Sig /T (Signature) /Kids [5 0 R] >>",
+            "<< /Type /Annot /Subtype /Widget /Parent 4 0 R /P 3 0 R /Rect [0 0 50 20]" + (populated ? " /V 6 0 R" : "") + " >>",
+            "<< /Contents <00> /ByteRange [0 0 0 0] >>"];
+        StringBuilder pdf = new("%PDF-1.4\n");
+        List<int> offsets = [0];
+        for (int i = 0; i < objects.Length; i++)
+        { offsets.Add(pdf.Length); pdf.Append(i + 1).Append(" 0 obj\n").Append(objects[i]).Append("\nendobj\n"); }
+        int xref = pdf.Length;
+        pdf.Append("xref\n0 ").Append(objects.Length + 1).Append("\n0000000000 65535 f \n");
+        foreach (int offset in offsets.Skip(1)) { pdf.Append(offset.ToString("D10")).Append(" 00000 n \n"); }
+        pdf.Append("trailer\n<< /Size ").Append(objects.Length + 1).Append(" /Root 1 0 R >>\nstartxref\n").Append(xref).Append("\n%%EOF\n");
+        return Encoding.ASCII.GetBytes(pdf.ToString());
     }
 
     private sealed class MemoryHostView(IQpdfHost inner, IMemoryBudget memoryBudget) : IQpdfHost, IQpdfMemoryHost, IQpdfJpegCodecHost
