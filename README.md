@@ -70,6 +70,9 @@ for buffer ownership, cancellation and resource admission.
 
 Encrypted PDFs, passwords, encryption/decryption and signature processing are
 unsupported. Rendering, OCR and text extraction are outside the library's scope.
+Page copying rejects populated signature values with `QpdfCryptoException`
+(`/Sig`); argv/job JSON report `UnsupportedCryptoOperation`. Empty signature
+fields and read-only inspection remain available; signatures are never verified.
 CMYK/YCCK JPEG images remain opaque when decoding is requested; Zopfli compression
 is unavailable. See the [supported profile](https://github.com/Lokad/qpdf/blob/master/docs/SUPPORTED-PROFILE.md) for details.
 

@@ -218,7 +218,10 @@ echoing values.
   the condition so later flattening can stamp the result. It replaces a bounded,
   matching `/Tx` block and preserves unrelated content. Parent-held fields retain
   their terminal identity; checkboxes synchronize raw state names. Radios and
-  pushbuttons warn and keep their state, and signature fields skip. Local
+  pushbuttons warn and keep their state, and empty signature fields skip.
+  Copying populated signature values is excluded; typed calls reject `/Sig` and
+  argv/job JSON report `UnsupportedCryptoOperation`. An absent or null `/V`
+  remains copyable; inspection does not verify signatures. Local
   appearance fonts win over AcroForm default resources; field default resources
   are not merged. Unusable defaults/resources and malformed programs warn and
   preserve appearances. Structural, decompression, memory and cancellation limits

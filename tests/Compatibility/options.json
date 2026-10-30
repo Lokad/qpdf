@@ -4727,19 +4727,25 @@
           "AcroFormPreservationTests.JobMergeRenamesCollision",
           "AcroFormPreservationTests.UnnamedContainerKidRenames",
           "AcroFormPreservationTests.ReverseOrderRenamesFlatCounterpart",
-          "AcroFormPreservationTests.ThreeLevelTopAncestorRenames"
+          "AcroFormPreservationTests.ThreeLevelTopAncestorRenames",
+          "SignatureSelectionTests.EmptySignatureFieldsRemainCopyable"
         ],
         "negative": [
           "AdapterTests.ArgvRangeErrorsFail",
-          "MergeCommandTests.ArgvMergeErrorsAreExplicit"
+          "MergeCommandTests.ArgvMergeErrorsAreExplicit",
+          "SignatureSelectionTests.PopulatedSignatureIsExplicitlyUnsupportedAndPreservesPriorOutput",
+          "SignatureSelectionTests.StructuralAndCyclicReferencesStillFailWithoutPublishing"
         ],
         "interaction": [
           "MergeCommandTests.ArgvMultiFileMergesInOrder",
-          "MergeCommandTests.JobMultiEntryMergesInOrder"
+          "MergeCommandTests.JobMultiEntryMergesInOrder",
+          "SignatureSelectionTests.SelectingAnUnsignedPageDoesNotResurrectTheUnselectedSignedPage",
+          "SignatureSelectionTests.SignatureMetadataCanStillBeInspectedWithoutRewriting"
         ],
         "resource": [
           "MergeCommandTests.CollateYieldsToStructuralCardinalityBound",
-          "SimplifiedExecutionTests.ExpandedSelectionsKeepTheirStructuralCardinalityBound"
+          "SimplifiedExecutionTests.ExpandedSelectionsKeepTheirStructuralCardinalityBound",
+          "SignatureSelectionTests.FailedCopyRefundsStorageAndPreservesPriorOutput"
         ],
         "oracle": [
           "diff:select",

@@ -26,6 +26,9 @@ internal sealed class GraphCopier
     private static readonly PdfName PageType = PdfName.FromAscii("Page");
     private static readonly PdfName PagesType = PdfName.FromAscii("Pages");
     private static readonly PdfName CatalogType = PdfName.FromAscii("Catalog");
+    private static readonly PdfName FieldTypeKey = PdfName.FromAscii("FT");
+    private static readonly PdfName ValueKey = PdfName.FromAscii("V");
+    private static readonly PdfName SignatureType = PdfName.FromAscii("Sig");
     private readonly IIndirectResolver _resolver;
     private readonly ResourceGovernor _governor;
     private readonly QpdfLimits _limits;
@@ -636,6 +639,7 @@ internal sealed class GraphCopier
 
     private PdfDictionary CopyDictionary(PdfDictionary dictionary, int depth, PdfInteger? streamLength)
     {
+        RejectSignatureCopy(dictionary);
         bool addLength = streamLength is not null && !dictionary.TryGet(LengthKey, out _);
         PdfNameTable<QpdfObject>? entries = null;
         int processed = 0;
@@ -673,6 +677,67 @@ internal sealed class GraphCopier
         }
 
         return entries is null ? dictionary : CompleteDictionary(entries);
+    }
+
+    // Rewriting bytes cannot preserve a source signature. Reject its value before
+    // following auxiliary references into the source catalog. Empty signature
+    // fields remain ordinary form structure; read-only retention never calls here.
+    private void RejectSignatureCopy(PdfDictionary dictionary)
+    {
+        _governor.CheckCancellation();
+        if (dictionary.TryGet(TypeKey, out QpdfObject type)
+            && ResolveFieldAttribute(type) is PdfName name && name.Equals(SignatureType))
+        { throw new QpdfCryptoException("/Sig"); }
+        if (!dictionary.TryGet(ValueKey, out QpdfObject value) || value is PdfNull) { return; }
+        if (IsSignatureField(dictionary) && ResolveFieldAttribute(value) is not PdfNull)
+        { throw new QpdfCryptoException("/Sig"); }
+    }
+
+    private bool IsSignatureField(PdfDictionary dictionary)
+    {
+        if (dictionary.TryGet(FieldTypeKey, out QpdfObject fieldType))
+        {
+            QpdfObject resolvedType = ResolveFieldAttribute(fieldType);
+            if (resolvedType is not PdfNull)
+            { return resolvedType is PdfName name && name.Equals(SignatureType); }
+        }
+        if (!dictionary.TryGet(ParentKey, out _)) { return false; }
+
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(_governor);
+        scratch.Reserve(96L);
+        HashSet<PdfDictionary> seen = new(ReferenceEqualityComparer.Instance);
+        PdfDictionary? current = dictionary;
+        for (int depth = 0; current is not null; depth++)
+        {
+            _governor.CheckCancellation(); _governor.NoteOperation();
+            if (!ParserContainers.AddSetItem(scratch, seen, current, IntPtr.Size))
+            { throw new QpdfParseException("Field parent cycle during page copy.", null, null); }
+            if (current.TryGet(FieldTypeKey, out fieldType))
+            {
+                QpdfObject inherited = ResolveFieldAttribute(fieldType);
+                if (inherited is not PdfNull)
+                { return inherited is PdfName name && name.Equals(SignatureType); }
+            }
+            if (!current.TryGet(ParentKey, out QpdfObject parent)) { return false; }
+            if (depth >= _limits.MaxNestingDepth)
+            { throw new QpdfParseException("Field parent chain exceeds the copy nesting limit.", null, null); }
+            current = ResolveFieldAttribute(parent) as PdfDictionary;
+            if (current is not null && IsPageTreeNode(current)) { return false; }
+        }
+        return false;
+    }
+
+    private QpdfObject ResolveFieldAttribute(QpdfObject value)
+    {
+        for (int depth = 0; value is PdfReference reference; depth++)
+        {
+            _governor.CheckCancellation(); _governor.NoteOperation();
+            if (depth >= _limits.MaxNestingDepth)
+            { throw new QpdfParseException("Field attribute reference chain exceeds the copy nesting limit.", null, reference.ObjectNumber); }
+            if (!_resolver.TryResolve(reference, out QpdfObject? resolved) || resolved is null) { return PdfNull.Instance; }
+            value = resolved;
+        }
+        return value;
     }
 
     private PdfNameTable<QpdfObject> CopyDictionaryPrefix(PdfDictionary dictionary, int count, bool addLength)

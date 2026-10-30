@@ -19,6 +19,13 @@ preserve admission failures through nested codec exceptions. All codec users
 finish before the call owner closes. Host publication establishes surviving
 storage ownership before commit and finishes pending writes before cleanup.
 
+The graph copier rejects signature dictionaries and populated signature fields
+before following signature metadata into the source catalog. Field types may
+be inherited or indirect; their lookup uses bounded, admitted traversal.
+Blank signature fields remain copyable. Read-only inspection retains original
+values and performs no signature creation or verification. Catalog/page-tree
+containment remains independent of this explicit excluded-feature outcome.
+
 ## Execution flow
 
 ```mermaid

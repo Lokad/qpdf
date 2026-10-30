@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Reject populated signature values during page copying with an explicit
+  excluded-signature outcome instead of copying stale metadata or failing later
+  at a signature's source-catalog reference. Preserve blank signature fields,
+  read-only inspection and transactional failure behavior.
+
 - Refuse oversized memory estimates without arithmetic overflow, preserving the
   memory-failure category through nested codecs. Unrepresentable combined
   estimates saturate the reported requested amount at Int64.MaxValue.

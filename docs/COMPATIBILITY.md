@@ -21,6 +21,18 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Page-copy operations reject reachable signature dictionaries (`/Type /Sig`) and
+populated signature fields, including inherited field types and dictionaries
+without a type tag. Typed operations throw `QpdfCryptoException` with `/Sig`;
+argv and job JSON report `UnsupportedCryptoOperation` and preserve prior output.
+Empty signature fields and inspection remain supported; no signature is verified.
+This deliberately differs from native qpdf 12.4.2, which accepts the reduced
+signature-widget/catalog-reference fixture and retains its signature metadata.
+The former managed catalog-containment error is now an explicit excluded-feature
+outcome; the no-reference signed control also rejects rather than publishing
+stale signature metadata. References to the source catalog remain forbidden in
+ordinary copied graphs, and unselected pages are never imported through them.
+
 Attachment extraction searches for the requested key without building a full
 listing or decoding presentation metadata. Unrelated damaged file specs no longer
 consume diagnostic quotas, and shared descriptions no longer multiply extraction
