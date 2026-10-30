@@ -28,6 +28,33 @@ internal static class EmbeddedFiles
 
     internal static List<EmbeddedAttachment> ReadAttachments(DocumentEngine engine, QpdfLimits limits,
         ResourceGovernor governor, DiagnosticBag diagnostics, ParserMemoryScope memory, CancellationToken token)
+        => ReadAttachmentsCore(engine, limits, governor, diagnostics, memory, token, null);
+
+    internal static List<EmbeddedAttachment> ReadAttachmentsForEdit(DocumentEngine engine, IReadOnlyList<string> removes,
+        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, ParserMemoryScope memory, CancellationToken token)
+    {
+        if (removes.Count == 0) { return ReadAttachments(engine, limits, governor, diagnostics, memory, token); }
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        Dictionary<string, bool> removed = ParserContainers.CreateDictionary<string, bool>(scratch);
+        foreach (string key in removes)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (removed.ContainsKey(key)) { throw new QpdfParseException("The requested attachment was not found.", 0L, null); }
+            ParserContainers.EnsureEntryCapacity(scratch, removed, sizeof(int));
+            removed.Add(key, false);
+        }
+        List<EmbeddedAttachment> result = ReadAttachmentsCore(engine, limits, governor, diagnostics, memory, token, removed);
+        foreach (bool found in removed.Values)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (!found) { throw new QpdfParseException("The requested attachment was not found.", 0L, null); }
+        }
+        return result;
+    }
+
+    private static List<EmbeddedAttachment> ReadAttachmentsCore(DocumentEngine engine, QpdfLimits limits,
+        ResourceGovernor governor, DiagnosticBag diagnostics, ParserMemoryScope memory, CancellationToken token,
+        Dictionary<string, bool>? removed)
     {
         ArgumentNullException.ThrowIfNull(engine); ArgumentNullException.ThrowIfNull(limits);
         ArgumentNullException.ThrowIfNull(governor); ArgumentNullException.ThrowIfNull(diagnostics);
@@ -40,7 +67,7 @@ internal static class EmbeddedFiles
 
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
         WalkNode(engine, tree, 0, GovernedIntSet.Create(traversal, governor, token), result,
-            limits, governor, diagnostics, memory, traversal, token, null);
+            limits, governor, diagnostics, memory, traversal, token, null, removed);
         // Comparisons can examine large names even when there are few attachments.
         try { result.Sort((left, right) => CompareKeys(left.Key, right.Key, governor, token)); }
         catch (InvalidOperationException ex) when (ex.InnerException is OperationCanceledException or QpdfException)
@@ -72,7 +99,7 @@ internal static class EmbeddedFiles
         {
             raw = tree is null ? null : WalkNode(engine, tree, 0,
                 GovernedIntSet.Create(traversal, governor, token), null,
-                limits, governor, diagnostics, memory, traversal, token, key);
+                limits, governor, diagnostics, memory, traversal, token, key, null);
         }
         if (raw is null) { throw new QpdfParseException("The requested attachment was not found.", 0L, null); }
         (PdfStream stream, PdfReference? reference) = ReadEmbeddedStream(engine, ReadFileSpec(engine, raw, governor, token), governor, token);
@@ -168,7 +195,8 @@ internal static class EmbeddedFiles
 
     private static QpdfObject? WalkNode(DocumentEngine engine, PdfDictionary node, int depth, GovernedIntSet visited,
         List<EmbeddedAttachment>? result, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
-        ParserMemoryScope memory, ParserMemoryScope traversal, CancellationToken token, string? requestedKey)
+        ParserMemoryScope memory, ParserMemoryScope traversal, CancellationToken token, string? requestedKey,
+        Dictionary<string, bool>? removed)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (depth > limits.MaxNestingDepth)
@@ -184,6 +212,12 @@ internal static class EmbeddedFiles
                 { throw new QpdfParseException("Embedded-files name-tree keys must be strings.", null, null); }
                 long before = memory.ReservedBytes;
                 string key = PdfText.Decode(keyBytes.ValueMemory, memory, governor, token);
+                if (removed is not null && removed.ContainsKey(key))
+                {
+                    removed[key] = true;
+                    memory.Release(memory.ReservedBytes - before);
+                    continue;
+                }
                 if (requestedKey is not null)
                 {
                     bool matches = CompareKeys(key, requestedKey, governor, token) == 0;
@@ -216,7 +250,7 @@ internal static class EmbeddedFiles
                 if (item is PdfReference link && !visited.Add(traversal, link.ObjectNumber))
                 { throw new QpdfParseException("Embedded-files name tree contains a cycle.", null, link.ObjectNumber); }
                 QpdfObject? found = WalkNode(engine, kid, depth + 1, visited, result,
-                    limits, governor, diagnostics, memory, traversal, token, requestedKey);
+                    limits, governor, diagnostics, memory, traversal, token, requestedKey, removed);
                 if (item is PdfReference completed) { visited.Remove(completed.ObjectNumber); }
                 if (found is not null) { return found; }
             }

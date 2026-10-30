@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Match attachment removals by name-tree key before interpreting or copying their
+  values. Entries with missing embedded streams or null values can now be removed;
+  missing and duplicate removal requests still fail before publication.
+
 - Honor image filter ceilings before decoded-sample admission or codec checks.
   Preserve over-limit images opaquely with a warning, including codec-free hosts;
   diagnostic limits and output-commit guarantees remain binding.

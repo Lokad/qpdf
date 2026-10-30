@@ -3562,7 +3562,7 @@ public static partial class Qpdf
         SortedDictionary<string, PdfReference> kept = new(StringComparer.Ordinal);
         if (edits.HasEdits || preserve)
         {
-            List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(engine, limits, governor, diagnostics, ownership, cancellationToken);
+            List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachmentsForEdit(engine, edits.Removes, limits, governor, diagnostics, ownership, cancellationToken);
             foreach (EmbeddedAttachment attachment in found)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -3635,15 +3635,6 @@ public static partial class Qpdf
         if (!edits.HasEdits && existing.Count == 0)
         {
             return new AttachmentAssembly(null, inputPageMode, ids, 0);
-        }
-
-        foreach (string key in edits.Removes)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (!existing.Remove(key))
-            {
-                throw new QpdfParseException("The requested attachment was not found.", 0L, null);
-            }
         }
 
         int nextId = 3;
