@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Attempt each shared image identity once during optimization, including skipped
+  candidates. Preserve shared references while avoiding repeated JPEG generations,
+  codec work and decoded-byte charges through resource aliases and repeated pages.
+
 - Map missing and failed file-backed probe inputs to host outcomes, aligning
   structured command failures with the memory-backed probe. Preserve cancellation,
   unexpected exceptions, acquired-handle cleanup and existing output files.

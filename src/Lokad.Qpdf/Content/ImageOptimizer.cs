@@ -64,7 +64,7 @@ internal static class ImageOptimizer
         }
 
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
-        HashSet<int> visitedForms = ParserContainers.CreateSet<int>(traversal);
+        HashSet<int> visitedObjects = ParserContainers.CreateSet<int>(traversal);
         traversal.Reserve(32L); // One short-lived pool resolver at a time.
         foreach ((GraphCopier copier, int pageId) in occurrences)
         {
@@ -72,7 +72,7 @@ internal static class ImageOptimizer
             if (copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? raw) && raw is PdfDictionary page)
             {
                 ProcessResources(copier, new PoolResolver(copier.CopiedObjects), page, request,
-                    limits, governor, traversal, visitedForms, 0, cancellationToken);
+                    limits, governor, traversal, visitedObjects, 0, cancellationToken);
             }
         }
     }
@@ -85,7 +85,7 @@ internal static class ImageOptimizer
         QpdfLimits limits,
         ResourceGovernor governor,
         ParserMemoryScope traversal,
-        HashSet<int> visitedForms,
+        HashSet<int> visitedObjects,
         int depth,
         CancellationToken token)
     {
@@ -109,13 +109,14 @@ internal static class ImageOptimizer
                 ResolveOrNull(resolver, link) is not PdfStream stream) { continue; }
             if (IsSubtype(stream.Dictionary, "Form"u8, governor, token))
             {
-                if (ParserContainers.AddSetItem(traversal, visitedForms, link.ObjectNumber, sizeof(int)))
+                if (ParserContainers.AddSetItem(traversal, visitedObjects, link.ObjectNumber, sizeof(int)))
                 {
                     ProcessResources(copier, resolver, stream.Dictionary, request, limits, governor,
-                        traversal, visitedForms, checked(depth + 1), token);
+                        traversal, visitedObjects, checked(depth + 1), token);
                 }
             }
-            else if (IsSubtype(stream.Dictionary, "Image"u8, governor, token))
+            else if (IsSubtype(stream.Dictionary, "Image"u8, governor, token)
+                && ParserContainers.AddSetItem(traversal, visitedObjects, link.ObjectNumber, sizeof(int)))
             {
                 PdfStream? optimized = TryOptimize(stream, request, resolver, limits, governor, token);
                 if (optimized is not null) { copier.ReplaceCopiedObject(link.ObjectNumber, optimized); }

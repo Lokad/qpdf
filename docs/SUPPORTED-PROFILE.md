@@ -157,7 +157,7 @@ echoing values.
   order, including mixed/file-chain layers. QDF fills unset defaults. Catalog XML
   metadata is uncompressed, and empty streams retain zero-length payloads. Broader
   transformation/default/grammar differences remain in the compatibility audit.
-- --optimize-images uses the supplied codec to recompress eligible image XObjects (8-bit DeviceGray/DeviceRGB above the oi-min thresholds) as JPEG only when strictly smaller. Providers receive --jpeg-quality in 0–100 (the development Lokad.Image adapter maps 0 to 1). Already-DCT images recompress only under an explicit quality; large inline images externalize first unless --keep-inline-images. Ineligible images skip silently; an eligible operation without a codec fails explicitly.
+- --optimize-images uses the supplied codec to recompress eligible image XObjects (8-bit DeviceGray/DeviceRGB above the oi-min thresholds) as JPEG only when strictly smaller. Each image identity is attempted once across aliases, forms and repeated pages, including skipped candidates. Providers receive --jpeg-quality in 0–100 (the development Lokad.Image adapter maps 0 to 1). Already-DCT images recompress only under an explicit quality; large inline images externalize first unless --keep-inline-images. Ineligible images skip silently; an eligible operation without a codec fails explicitly.
 - One input file per selection job, several per merge, through host-mediated ranged reads.
 
 ## Selection semantics

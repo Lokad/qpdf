@@ -4587,6 +4587,7 @@
           "ImageOptimizeTests.JobParityHolds"
         ],
         "resource": [
+          "ImageOptimizationGraphTests.EachImageIdentityIsAttemptedOnceIncludingSkippedCandidates",
           "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget"
         ],
         "oracle": [
