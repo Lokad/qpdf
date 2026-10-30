@@ -122,6 +122,7 @@ internal static class Program
         await VerifyCodecContractAsync();
         await VerifyImageOptimizationAsync();
         await VerifyAttachmentEditsAsync();
+        await VerifyContentStorageAsync();
         await VerifyJsonCapacityAsync();
         await VerifyInlineJobEncodingAsync();
         await VerifyJobFileReadsAsync();
@@ -1389,6 +1390,80 @@ internal static class Program
         return copy;
     }
 
+    private static async Task VerifyContentStorageAsync()
+    {
+        foreach (string route in new[] { "argv", "job" })
+        foreach (string operation in new[] { "prune", "coalesce", "inline", "overlay" })
+        {
+            PdfStream escaped;
+            byte[] expected = operation == "coalesce" ? "q\nQ\n"u8.ToArray()
+                : operation == "inline" ? Enumerable.Repeat((byte)128, 8192).Append((byte)'\n').ToArray()
+                : Encoding.ASCII.GetBytes(new string(' ', 8192) + "q\nQ\n");
+            using (InMemoryQpdfHost host = new())
+            {
+                host.AddInput(QpdfPath.From("input"), ContentStoragePdf(operation), QpdfInputOwnership.Transfer);
+                host.AddInput(QpdfPath.From("stamp"), ContentStoragePdf("prune"), QpdfInputOwnership.Transfer);
+                List<string> argv = ["input", "--compress-streams=n", "--decode-level=none", "--object-streams=disable"];
+                Dictionary<string, object> job = new() { ["inputFile"] = "input", ["outputFile"] = "output",
+                    ["compressStreams"] = "n", ["decodeLevel"] = "none", ["objectStreams"] = "disable" };
+                switch (operation)
+                {
+                    case "prune":
+                        argv.AddRange(["--remove-unreferenced-resources=yes", "--pages", ".", "1", "--"]);
+                        job["removeUnreferencedResources"] = "yes"; job["pages"] = new[] { new { file = ".", range = "1" } }; break;
+                    case "coalesce": argv.Add("--coalesce-contents"); job["coalesceContents"] = ""; break;
+                    case "inline": argv.AddRange(["--externalize-inline-images", "--ii-min-bytes=0"]); job["externalizeInlineImages"] = true; job["iiMinBytes"] = 0; break;
+                    case "overlay": argv.AddRange(["--overlay", "stamp", "--"]); job["overlay"] = new { file = "stamp" }; break;
+                }
+                argv.Add("output");
+                QpdfExecutionResult result = route == "argv"
+                    ? await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None)
+                    : await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(job), CancellationToken.None);
+                Check(result.Status == QpdfExecutionStatus.Completed && result.ExitCode == QpdfExitCode.Success, "content owner transfer through " + route + ": " + operation);
+                host.AddInput(QpdfPath.From("inspect"), Published(host, "output"), QpdfInputOwnership.Transfer);
+                await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inspect"), CancellationToken.None))
+                {
+                    Check(document.PageCount == 1, "content operation page count");
+                    PdfDictionary page = (PdfDictionary)document.GetObject(3);
+                    PdfDictionary resources = ReadDictionary(document, page, "Resources");
+                    if (operation == "prune") { Check(ReadDictionary(document, resources, "Font").Count == 0, "unused font is pruned"); }
+                    QpdfObject value;
+                    if (operation is "inline" or "overlay")
+                    {
+                        PdfDictionary objects = ReadDictionary(document, resources, "XObject");
+                        PdfName key = operation == "overlay" ? new PdfName("Fx0"u8.ToArray()) : objects.Keys.Single();
+                        Check(objects.TryGet(key, out value), "published content object");
+                    }
+                    else { Check(page.TryGet(new PdfName("Contents"u8.ToArray()), out value), "published page contents"); }
+                    escaped = (PdfStream)(value is PdfReference reference ? document.GetObject(reference.ObjectNumber) : value);
+                    Check(escaped.Data.AsSpan().SequenceEqual(expected), "content bytes survive transfer and publication: "
+                        + route + "/" + operation + " (actual " + escaped.Data.Length + ", expected " + expected.Length + ")");
+                }
+                Check(host.OpenLeaseCount == 0, "content transformations close their inputs");
+            }
+            Check(escaped.Data.AsSpan().SequenceEqual(expected), "escaped content stays usable after document and host disposal");
+        }
+    }
+
+    private static byte[] ContentStoragePdf(string operation)
+    {
+        bool inline = operation == "inline", multiple = operation == "coalesce";
+        string content = inline ? "q\nBI /W 128 /H 64 /BPC 8 /CS /G ID " + new string((char)128, 8192) + "\nEI\nQ\n"
+            : multiple ? "q\n" : new string(' ', 8192) + "q\nQ\n";
+        string[] bodies = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << /Font << /F1 6 0 R >> >> /Contents "
+                + (multiple ? "[4 0 R 5 0 R]" : "4 0 R") + " >>",
+            "<< /Length " + content.Length + " >>\nstream\n" + content + "\nendstream",
+            multiple ? "<< /Length 2 >>\nstream\nQ\n\nendstream" : "null", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"];
+        StringBuilder pdf = new("%PDF-1.4\n"); List<int> offsets = [0];
+        for (int index = 0; index < bodies.Length; index++)
+        { offsets.Add(pdf.Length); pdf.Append(index + 1).Append(" 0 obj\n").Append(bodies[index]).Append("\nendobj\n"); }
+        int xref = pdf.Length; pdf.Append("xref\n0 7\n0000000000 65535 f \n");
+        foreach (int offset in offsets.Skip(1)) { pdf.Append(offset.ToString("D10")).Append(" 00000 n \n"); }
+        pdf.Append("trailer\n<< /Size 7 /Root 1 0 R >>\nstartxref\n").Append(xref).Append("\n%%EOF\n");
+        return Encoding.Latin1.GetBytes(pdf.ToString());
+    }
+
     private static async Task VerifyAttachmentEditsAsync()
     {
         foreach (string route in new[] { "typed", "argv", "job" })
@@ -1506,13 +1581,13 @@ internal static class Program
             Check(host.TryGetOutput(QpdfPath.From("output"), out byte[] output), "image optimization commits output");
             host.AddInput(QpdfPath.From("inspect"), output, QpdfInputOwnership.Transfer);
             await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inspect"), CancellationToken.None);
-            PdfDictionary resources = ImageDictionary(document, (PdfDictionary)document.GetObject(3), "Resources");
-            PdfDictionary objects = ImageDictionary(document, resources, "XObject");
+            PdfDictionary resources = ReadDictionary(document, (PdfDictionary)document.GetObject(3), "Resources");
+            PdfDictionary objects = ReadDictionary(document, resources, "XObject");
             if (kind == "indirect-form")
             {
                 Check(objects.TryGet(new PdfName(Encoding.ASCII.GetBytes("Fm")), out QpdfObject rawForm) && rawForm is PdfReference, "indirect form reference");
                 PdfStream form = (PdfStream)document.GetObject(((PdfReference)rawForm).ObjectNumber);
-                objects = ImageDictionary(document, ImageDictionary(document, form.Dictionary, "Resources"), "XObject");
+                objects = ReadDictionary(document, ReadDictionary(document, form.Dictionary, "Resources"), "XObject");
             }
             Check(objects.TryGet(new PdfName(Encoding.ASCII.GetBytes("Im0")), out QpdfObject first)
                 && objects.TryGet(new PdfName(Encoding.ASCII.GetBytes("Im1")), out QpdfObject second) && first.Equals(second), "shared image references survive publication");
@@ -1522,7 +1597,7 @@ internal static class Program
         }
     }
 
-    private static PdfDictionary ImageDictionary(QpdfDocument document, PdfDictionary dictionary, string name)
+    private static PdfDictionary ReadDictionary(QpdfDocument document, PdfDictionary dictionary, string name)
     {
         Check(dictionary.TryGet(new PdfName(Encoding.ASCII.GetBytes(name)), out QpdfObject value), "image dictionary member " + name);
         return (PdfDictionary)(value is PdfReference reference ? document.GetObject(reference.ObjectNumber) : value);

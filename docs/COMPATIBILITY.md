@@ -192,6 +192,12 @@ precedence, grammar or interactions; those require behavior fixtures.
 
 ## How compatibility is verified
 
+The packed-package consumer exercises content storage through argv/job page
+selection with pruning, coalescing, inline-image externalization and overlays.
+Typed inspection checks exact published bytes and their lifetime after document
+and host disposal. Pruning qualification uses explicit page selection; the
+whole-file rewrite path does not activate that policy.
+
 The packed-package consumer also qualifies attachment removal, removal of an
 unlistable filespec, and repeated replacement through typed, argv and job APIs.
 Each edit must fit a 4096-byte output ceiling despite a discarded 64 KiB payload;

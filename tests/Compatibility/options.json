@@ -4685,6 +4685,8 @@
         ],
         "resource": [
           "ResourceEnforcementTests.OverlayYieldsToExhaustedBudget",
+          "SinglePartContentOwnershipTests.OwnedPartMovesWithoutASecondPayloadAllocation",
+          "SinglePartContentOwnershipTests.JoinAdmissionRefusalPreservesTheSourceAndCanRetry",
           "OverlayGenerationTests.EveryAdmissionRefusalPreservesPriorOutputAndRefundsPrivateStorage",
           "OverlayGenerationTests.GenerationAwareCopyKeepsRollbackAndCancellation"
         ],
