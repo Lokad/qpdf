@@ -2,8 +2,6 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Runtime;
-using Lokad.Qpdf.Tests.Inspection;
-using Xunit.Abstractions;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
@@ -17,19 +15,13 @@ public sealed class TypedResultOwnershipTests
         long Calls, long Handles, long Diagnostics);
     private static Values State(QpdfExecutionCounters c) => new(c.LiveMemoryBytes, c.PeakMemoryBytes,         c.TotalDecodedBytes, c.TotalOutputBytes, c.HostOperations, c.OpenHandles, c.DiagnosticCount);
 
-    private sealed class Alias(ResourceGovernor governor, object? value, WeakReference host, WeakReference result,
-        WeakReference counters, Values? snapshot)
+    private sealed class Alias(object? value, Values? snapshot)
     {
-        internal readonly ResourceGovernor Governor = governor;
-        internal object? Value = value;
-        internal readonly WeakReference Host = host;
-        internal readonly WeakReference Result = result;
-        internal readonly WeakReference Counters = counters;
+        internal readonly object? Value = value;
         internal readonly Values? Snapshot = snapshot;
     }
 
     public static IEnumerable<object[]> PublicJobs() => TypedCounterOwnershipTests.PublicJobs();
-    public static IEnumerable<object[]> BudgetJobs() => TypedCounterOwnershipTests.BudgetJobs();
     public static IEnumerable<object[]> MetadataJobs() => TypedCounterOwnershipTests.MetadataJobs();
     public static IEnumerable<object[]> SuccessAliases()
     {
@@ -126,7 +118,7 @@ public sealed class TypedResultOwnershipTests
                 { Assert.False(property.CanWrite); }
                 Assert.Same(counters, Read(value, "Counters"));
             }
-            return new(governor, value, new(host), new(result), new(counters), counters is null ? null : State(counters));
+            return new(value, counters is null ? null : State(counters));
         }
         finally
         {
@@ -136,12 +128,11 @@ public sealed class TypedResultOwnershipTests
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void CheckSurvivor(Alias alias, string kind)
+    private static void CheckSurvivor(Alias alias)
     {
         object value = alias.Value ?? throw new InvalidOperationException();
         QpdfExecutionCounters counters = value is QpdfExecutionCounters c ? c : (QpdfExecutionCounters)Read(value, "Counters");
         Assert.Equal(alias.Snapshot, State(counters));
-
     }
 
     [Theory]
@@ -150,7 +141,7 @@ public sealed class TypedResultOwnershipTests
     public async Task PublicTypedOutcomesPreserveCountersAndTargets(string route, bool compressed, string boundary, string outcome)
     {
         Alias alias = await Complete(route, compressed, boundary, outcome, "counters", QpdfLimits.Default);
-        if (outcome == "success") { CheckSurvivor(alias, "counters"); }
+        if (outcome == "success") { CheckSurvivor(alias); }
     }
 
     [Theory]
@@ -159,7 +150,7 @@ public sealed class TypedResultOwnershipTests
     public async Task ResultCounterAndCallerCopiesPreserveImmutableValues(string route, bool compressed, string kind)
     {
         Alias alias = await Complete(route, compressed, "read", "success", kind, QpdfLimits.Default);
-        CheckSurvivor(alias, kind);
+        CheckSurvivor(alias);
     }
 
     [Theory]
