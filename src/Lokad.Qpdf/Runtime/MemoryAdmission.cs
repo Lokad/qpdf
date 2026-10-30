@@ -9,8 +9,4 @@ internal static class MemoryAdmission
         return reservation;
     }
 
-    internal static void Resize(IMemoryReservation reservation, long bytes)
-    {
-        if (!reservation.TryResize(bytes)) { throw new QpdfMemoryAdmissionException(bytes); }
-    }
 }

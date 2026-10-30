@@ -18,6 +18,10 @@ The development Lokad.Image adapter only forwards interfaces; PDF boundaries
 preserve admission failures through nested codec exceptions. All codec users
 finish before the call owner closes. Host publication establishes surviving
 storage ownership before commit and finishes pending writes before cleanup.
+JPEG decode streams expose their already admitted input segment for immutable
+borrowing during the call. Prepared PDF and JSON publications pass known lengths
+through the existing optional host capacity hint, avoiding growth copies in the
+memory host while preserving its durable storage admission.
 
 The graph copier and overlay annotation imports share a source-specific signature
 policy. It rejects signature dictionaries and populated widget/AcroForm fields
