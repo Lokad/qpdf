@@ -48,6 +48,7 @@ public sealed class QpdfLimitException : QpdfException
     public string LimitName { get; }
 
     /// <summary>Gets the requested amount.</summary>
+    /// <remarks>A combined memory estimate that cannot be represented saturates at <see cref="long.MaxValue" />.</remarks>
     public long Requested { get; }
 
     /// <summary>Gets the applicable budget.</summary>

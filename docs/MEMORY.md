@@ -32,6 +32,11 @@ from cancellation, a local `QpdfLimitException` and an actual allocation failure
 Each engine acquisition makes one admission attempt. A codec's boolean probe
 may refuse and then admit an affordable fallback; refusal does not invalidate
 the shared owner or prevent use of its existing reserved capacity.
+Memory admission compares against remaining capacity before adding estimates.
+An oversized nonnegative request remains a memory refusal, including codec
+growth; it cannot become an arithmetic or malformed-JPEG error. If a combined
+requested amount exceeds Int64.MaxValue, QpdfLimitException.Requested saturates
+there while the current reservation and configured limit remain unchanged.
 Parser collection growth makes one admission attempt for its chosen capacity;
 refusal preserves existing entries and does not trigger a smaller retry. JPEG
 codec boundaries preserve actual `OutOfMemoryException` failures while releasing

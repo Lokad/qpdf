@@ -49,9 +49,14 @@ internal static class Program
         {
             using IMemoryScope owner = context.MemoryBudget.CreateScope();
             if (ProbeRefusal)
-            { Check(!owner.TryReserve(2L * 1024L * 1024L, out _), "codec budget refusal is a recoverable probe"); }
+            {
+                Check(!owner.TryReserve(2L * 1024L * 1024L, out _), "codec budget refusal is a recoverable probe");
+                Check(!owner.TryReserve(long.MaxValue, out _), "oversized codec estimate refuses without overflowing");
+            }
             Check(owner.TryReserve(4096L, out IMemoryReservation? admitted), "public JPEG scratch admission");
             using IMemoryReservation working = admitted ?? throw new InvalidOperationException("Missing codec admission.");
+            if (ProbeRefusal)
+            { Check(!working.TryResize(long.MaxValue) && working.Bytes == 4096L, "oversized codec growth preserves its receipt"); }
             Check(working.TryResize(8192L), "public JPEG scratch growth");
             Check(working.TryResize(2048L), "public JPEG scratch shrink");
             context.CheckCancellation();

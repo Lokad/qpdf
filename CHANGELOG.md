@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Refuse oversized memory estimates without arithmetic overflow, preserving the
+  memory-failure category through nested codecs. Unrepresentable combined
+  estimates saturate the reported requested amount at Int64.MaxValue.
+
 - Keep shared memory owners usable after a refused codec probe. Affordable
   fallback reservations can proceed without changing the failed request's
   accounting or automatically retrying that request.

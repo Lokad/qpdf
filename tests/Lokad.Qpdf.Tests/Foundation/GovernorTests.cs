@@ -51,6 +51,26 @@ public sealed class GovernorTests
         Assert.Equal(0L, governor.Snapshot().OpenHandles);
     }
 
+    [Theory]
+    [InlineData(134217728L)]
+    [InlineData(long.MaxValue)]
+    public void OversizedMemoryRequestsPreserveStateAndReportTheLocalLimit(long ceiling)
+    {
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = ceiling };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        governor.ReserveMemory(1L);
+        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => governor.ReserveMemory(long.MaxValue));
+        Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
+        Assert.Equal(long.MaxValue, failure.Requested); Assert.Equal(ceiling, failure.Allowed);
+        Assert.Equal(1L, governor.Snapshot().LiveMemoryBytes);
+        governor.ReserveMemory(ceiling - 1L);
+        Assert.Equal(ceiling, governor.Snapshot().LiveMemoryBytes);
+        failure = Assert.Throws<QpdfLimitException>(() => governor.ReserveMemory(1L));
+        Assert.Equal(ceiling == long.MaxValue ? long.MaxValue : ceiling + 1L, failure.Requested);
+        governor.ReleaseMemory(ceiling);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
     [Fact]
     public void HandleBudgetIsEnforced()
     {

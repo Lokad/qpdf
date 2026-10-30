@@ -127,15 +127,20 @@ public sealed class JpegContextMemoryTests
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
-    [Fact]
-    public void AggregateOverflowPreservesExistingReceipts()
+    [Theory]
+    [InlineData(134217728L)]
+    [InlineData(long.MaxValue)]
+    public void OversizedEstimatesRefuseWithoutChangingExistingReceipts(long ceiling)
     {
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = long.MaxValue }, CancellationToken.None);
+        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = ceiling }, CancellationToken.None);
         QpdfJpegCodecContext context = new(governor);
         Assert.True(context.MemoryBudget.TryReserve(1L, out IMemoryReservation? first));
         Assert.True(context.MemoryBudget.TryReserve(1L, out IMemoryReservation? second));
-        Assert.Throws<OverflowException>(() => first.TryResize(long.MaxValue));
+        Assert.False(first.TryResize(long.MaxValue));
+        Assert.False(context.MemoryBudget.TryReserve(long.MaxValue, out IMemoryReservation? refused));
+        Assert.Null(refused);
         Assert.Equal(1L, first.Bytes); Assert.Equal(1L, second.Bytes);
+        Assert.True(first.TryResize(0L)); Assert.True(first.TryResize(1L));
         context.Close(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 

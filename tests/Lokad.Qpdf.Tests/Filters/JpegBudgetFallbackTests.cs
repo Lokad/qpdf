@@ -33,6 +33,42 @@ public sealed class JpegBudgetFallbackTests
         Assert.Equal(0L, root.ReservedBytes); Assert.Equal(0, root.LiveReservations);
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void OversizedCodecEstimatesRemainMemoryFailures(bool decode, bool growth)
+    {
+        byte[] jpeg = DctDecodeTests.EncodeGrayJpeg(8, 8);
+        RecordingMemoryBudget root = new(1048576L);
+        using IMemoryScope invocation = root.CreateScope();
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None, new Host(invocation))
+        { JpegCodec = new OversizedCodec(growth) };
+        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => decode
+            ? DctFilter.Decode(jpeg, QpdfLimits.Default, governor)
+            : JpegCodec.EncodeGray(new byte[64], 8, 8, 75, QpdfLimits.Default, governor));
+        Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
+        Assert.Equal(long.MaxValue, failure.Requested);
+        Assert.Equal(QpdfLimits.Default.MaxMemoryBytes, failure.Allowed);
+        Assert.Equal(0, root.ResizeCalls);
+        Assert.Equal(0L, root.ReservedBytes); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    private sealed class OversizedCodec(bool growth) : IQpdfJpegCodec
+    {
+        public void Decode(Stream encoded, QpdfJpegFrame frame, Memory<byte> samples, QpdfJpegCodecContext context) => Fail(context);
+        public void Encode(ReadOnlyMemory<byte> samples, QpdfJpegFrame frame, int quality, Stream encoded, QpdfJpegCodecContext context) => Fail(context);
+        private void Fail(QpdfJpegCodecContext context)
+        {
+            using IMemoryScope owner = context.MemoryBudget.CreateScope();
+            Assert.True(owner.TryReserve(1L, out IMemoryReservation? receipt));
+            if (growth) { Assert.False(receipt.TryResize(long.MaxValue)); }
+            else { Assert.False(owner.TryReserve(long.MaxValue, out _)); }
+            throw new InvalidDataException("Nested codec refused its estimate.");
+        }
+    }
+
     private sealed class Host(IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
     {
         public IMemoryBudget MemoryBudget => budget;

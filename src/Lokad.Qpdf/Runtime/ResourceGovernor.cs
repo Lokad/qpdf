@@ -128,16 +128,17 @@ internal sealed class ResourceGovernor
     {
         checked
         {
-            long next = LiveMemoryBytes + bytes;
-            if (next > _limits.MaxMemoryBytes)
+            long live = LiveMemoryBytes;
+            if (bytes > _limits.MaxMemoryBytes - live)
             {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxMemoryBytes), next, _limits.MaxMemoryBytes);
+                long requested = bytes > long.MaxValue - live ? long.MaxValue : live + bytes;
+                throw new QpdfLimitException(nameof(QpdfLimits.MaxMemoryBytes), requested, _limits.MaxMemoryBytes);
             }
 
-            long rawNext = _liveMemoryBytes + bytes;
+            long next = live + bytes;
             long hostNext = hostStorage ? _hostMemoryBytes + bytes : _hostMemoryBytes;
             _sharedMemory?.Ensure(Math.Max(0L, next - hostNext));
-            _liveMemoryBytes = rawNext;
+            _liveMemoryBytes = next;
             _hostMemoryBytes = hostNext;
             if (next > _peakMemoryBytes)
             {
