@@ -35,6 +35,15 @@ public sealed class SignatureSelectionTests
             signature = signature.Replace("/Type /Sig ", "/Type 7 0 R ", StringComparison.Ordinal);
             extra.Add((6, "null", null)); extra.Add((7, "/Sig", null));
         }
+        if (kind == "metadata" || kind == "metadata-indirect")
+        {
+            field = "/FT /Tx /V (text) /Private 5 0 R";
+            if (kind == "metadata-indirect")
+            {
+                signature = signature.Replace("/Type /Sig ", "/Type 7 0 R ", StringComparison.Ordinal);
+                extra.Add((6, "null", null)); extra.Add((7, "/Sig", null));
+            }
+        }
         if (kind == "catalog-only") { field = "/FT /Tx /V (text) /Related 1 0 R"; }
         if (kind == "parent-cycle")
         {
@@ -66,7 +75,7 @@ public sealed class SignatureSelectionTests
     public static IEnumerable<object[]> RejectionCases()
     {
         foreach (string route in new[] { "typed", "argv", "job" })
-        foreach (string kind in new[] { "reference", "bare", "typeless", "inherited", "indirect", "direct" })
+        foreach (string kind in new[] { "reference", "bare", "typeless", "inherited", "indirect", "direct", "metadata", "metadata-indirect" })
         { yield return [route, kind]; }
     }
 
