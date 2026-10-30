@@ -33,19 +33,25 @@ public sealed class ObjectStreamCountingTests
     private static ValueTask<long> Write(NumberedObject[] objects, QpdfLimits limits, ResourceGovernor governor,
         IByteSink sink, bool newline, CancellationToken token)
     {
-        IReadOnlyList<IReadOnlyList<int>> groups = [Enumerable.Range(3, objects.Length - 2).ToArray()];
+        IReadOnlyList<IReadOnlyList<int>> groups = [objects.Skip(2).Select(value => value.Number).ToArray()];
         return new PdfSerializer(limits, governor).SerializeStreamedAsync(new PdfVersion(1, 5), objects,
             groups, false, null, null, new byte[16], new byte[16], newline, sink, token);
     }
 
     [Theory]
-    [InlineData(1, false)]
-    [InlineData(1, true)]
-    [InlineData(100, false)]
-    [InlineData(100, true)]
-    public async Task CountMatchesEmittedOffsetsAcrossMemberAndDecimalBoundaries(int count, bool newline)
+    [InlineData(1, false, false)]
+    [InlineData(1, true, false)]
+    [InlineData(100, false, false)]
+    [InlineData(100, true, false)]
+    [InlineData(1, false, true)]
+    [InlineData(1, true, true)]
+    [InlineData(100, false, true)]
+    [InlineData(100, true, true)]
+    public async Task CountMatchesEmittedOffsetsAcrossMemberAndDecimalBoundaries(int count, bool newline, bool sparse)
     {
         NumberedObject[] objects = Model(count, 128);
+        if (sparse)
+        { for (int index = 2; index < objects.Length; index++) { objects[index] = new(objects[index].Number + 1, objects[index].Value); } }
         ResourceGovernor countGovernor = new(QpdfLimits.Default, CancellationToken.None);
         CountingSink counter = new();
         long counted = await Write(objects, QpdfLimits.Default, countGovernor, counter, newline, CancellationToken.None);
@@ -55,6 +61,18 @@ public sealed class ObjectStreamCountingTests
         Assert.Equal(emitted, counted);
         Assert.Equal(output.Length, counter.Length);
         Assert.Equal(0L, countGovernor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(int.MaxValue)]
+    public async Task InvalidNumbersAndContainerOverflowRejectAndRefund(int number)
+    {
+        NumberedObject[] objects = Model(1, 8); objects[2] = new(number, objects[2].Value);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        await Assert.ThrowsAsync<QpdfException>(() => Write(objects, QpdfLimits.Default, governor, new CountingSink(), false, CancellationToken.None).AsTask());
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]

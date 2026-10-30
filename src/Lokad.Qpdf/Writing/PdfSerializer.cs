@@ -354,6 +354,10 @@ internal sealed partial class PdfSerializer
         int maxNumber = 0;
         foreach (NumberedObject numbered in objects)
         {
+            if (numbered.Number <= 0)
+            {
+                throw new QpdfException($"Publication reached invalid object number {numbered.Number}.");
+            }
             if (lookup.ContainsKey(numbered.Number))
             {
                 throw new QpdfException($"Duplicate object number {numbered.Number} during serialization.");
@@ -366,9 +370,11 @@ internal sealed partial class PdfSerializer
             }
         }
 
-        if (maxNumber != objects.Count)
+        // Attachment pruning can leave holes. The xref builder already emits
+        // free entries for those numbers; reserve only room for new containers.
+        if ((long)maxNumber + groups.Count + 2L > int.MaxValue)
         {
-            throw new QpdfException("Streamed output requires dense object numbering from 1.");
+            throw new QpdfException("Streamed output exceeds supported object capacity.");
         }
 
         using WriterIndex<(int Container, int Index)> compressed = WriterIndex<(int Container, int Index)>.Create(2L * sizeof(int), _governor, cancellationToken);

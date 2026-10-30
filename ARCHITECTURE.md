@@ -73,6 +73,12 @@ map and name-table storage. Recoverable catalog, attachment and unreferenced-roo
 share a reusable, admitted source-number list: rollback removes only new mappings,
 copied descendants and allocator slots, preserving earlier shared objects.
 Nested name-category attempts keep their enclosing attempt's bookkeeping.
+Attachment removals match keys in the same bounded name-tree walk before reading
+metadata or preserving values. After replacements, whole-file models use existing
+graph reachability from the final catalog, page tree and trailer Info; ordinary
+adds and removals need no extra graph scan. Split attachment
+roots come only from the final name tree. Shared references and explicit
+unreferenced-object preservation retain their existing ownership and policy.
 Tests use this production path; there is no unowned
 copier mode. Form-resource traversal tracks graph identities, with indirect
 form guards independent of resource-scope visits.

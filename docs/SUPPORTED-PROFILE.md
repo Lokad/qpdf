@@ -438,6 +438,15 @@ Numbers are normalized lexically under the existing cancellation/output bounds.
 Removal matches name-tree keys before listing metadata or copying file
 specifications, so malformed/null values can be removed without being listed.
 Missing keys and duplicate removal requests fail before publication.
+Removed/replaced attachment-only graphs are excluded from output by default.
+References from retained pages, catalog data or other attachments keep shared
+objects alive. Explicit --preserve-unreferenced retains unreachable objects,
+including removed or superseded attachments. Add requests still read their inputs
+in order, even when a later request replaces the same key.
+
+Managed split outputs retain the final document attachments; native qpdf split
+outputs omit document-level attachments. Superseded additions do not become split
+roots merely because they were allocated earlier in the job.
 
 Emitted name-tree keys sort by their encoded bytes, including mixed ASCII/UTF-16
 keys; listing order and request matching use decoded ordinal text.

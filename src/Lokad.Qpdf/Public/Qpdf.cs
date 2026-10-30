@@ -522,6 +522,10 @@ public static partial class Qpdf
                     {
                         model.Add(new NumberedObject(entry.Key, entry.Value));
                     }
+                    if (singleAttached.Replaced && !settings.PreserveUnreferenced)
+                    {
+                        PruneAttachmentModel(model, singlePool, singleCompressed, singleInfo, governor, cancellationToken);
+                    }
                     GovernedSort.Sort(CollectionsMarshal.AsSpan(model)[2..], new WriterObjectOrder(), governor, cancellationToken);
 
                     List<List<int>> singleGroups = PlanObjectStreamGroups(singleCompressed, copyMemory, governor, cancellationToken);
@@ -1400,8 +1404,6 @@ public static partial class Qpdf
         if (governor.HasTypedResult) { selectionMemory.PrepareResultStorage(checked(24L * mapping.Count)); }
         if (!splitPages.HasValue)
         {
-            List<List<int>> multiGroups = PlanObjectStreamGroups(multiCompressed, selectionMemory, governor, cancellationToken);
-            IReadOnlyList<IReadOnlyList<int>>? multiStreams = multiGroups.Count == 0 ? null : multiGroups;
             int modelCount = checked(pool.Count + 2);
             selectionMemory.Reserve(checked(64L + 16L * modelCount));
             List<NumberedObject> model = new(modelCount)
@@ -1413,7 +1415,13 @@ public static partial class Qpdf
             {
                 model.Add(new NumberedObject(entry.Key, entry.Value));
             }
+            if (multiAttached.Replaced && !settings.PreserveUnreferenced)
+            {
+                PruneAttachmentModel(model, pool, multiCompressed, primaryInfo, governor, cancellationToken);
+            }
             GovernedSort.Sort(CollectionsMarshal.AsSpan(model)[2..], new WriterObjectOrder(), governor, cancellationToken);
+            List<List<int>> multiGroups = PlanObjectStreamGroups(multiCompressed, selectionMemory, governor, cancellationToken);
+            IReadOnlyList<IReadOnlyList<int>>? multiStreams = multiGroups.Count == 0 ? null : multiGroups;
 
             IReadOnlyList<PdfPageSelectionMapping> resultMapping = ResultCollectionStorage.Copy(selectionMemory, mapping, IntPtr.Size, governor, cancellationToken);
             IReadOnlyList<int> resultCounts = ResultCollectionStorage.Copy(selectionMemory, sourceCounts, sizeof(int), governor, cancellationToken);
@@ -1520,10 +1528,10 @@ public static partial class Qpdf
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 ParserContainers.AddItem(groupMemory, roots, id, sizeof(int));
             }
-            foreach (int id in multiAttached.ObjectIds)
+            if (multiAttached.NamesRef is PdfReference attachmentNames)
             {
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                ParserContainers.AddItem(groupMemory, roots, id, sizeof(int));
+                ParserContainers.AddItem(groupMemory, roots, attachmentNames.ObjectNumber, sizeof(int));
             }
             using ParserMemoryScope reachabilityMemory = ParserMemoryScope.Create(governor);
             HashSet<int> reachable = ReachableIds(pool, roots, reachabilityMemory, governor);
@@ -3526,7 +3534,27 @@ public static partial class Qpdf
         return (infoRef, metadataRef);
     }
 
-    private sealed record AttachmentAssembly(PdfReference? NamesRef, string? PageMode, HashSet<int> ObjectIds, int FinalCount);
+    private sealed record AttachmentAssembly(PdfReference? NamesRef, string? PageMode, int FinalCount, bool Replaced);
+
+    private static void PruneAttachmentModel(List<NumberedObject> model, Dictionary<int, QpdfObject> pool,
+        HashSet<int> compressed, PdfReference? info, ResourceGovernor governor, CancellationToken token)
+    {
+        // Catalog, page tree and trailer Info are the actual output roots. Keep
+        // shared page/catalog references; attachment-only leftovers have no root.
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        scratch.Reserve(96L);
+        PdfArray roots = PdfArray.FromOwnedItems([model[0].Value, model[1].Value, info is null ? PdfNull.Instance : info]);
+        HashSet<int> reachable = GraphReachability.Find(new Content.PoolResolver(pool), roots, scratch, governor);
+        int kept = 2;
+        for (int index = 2; index < model.Count; index++)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            NumberedObject entry = model[index];
+            if (reachable.Contains(entry.Number)) { model[kept++] = entry; }
+            else { compressed.Remove(entry.Number); }
+        }
+        model.RemoveRange(kept, model.Count - kept);
+    }
 
     private static string? ReadInputPageMode(DocumentEngine engine)
     {
@@ -3631,10 +3659,9 @@ public static partial class Qpdf
             throw new ArgumentNullException(nameof(compressibleSources));
         }
 
-        HashSet<int> ids = ParserContainers.CreateSet<int>(ownership);
         if (!edits.HasEdits && existing.Count == 0)
         {
-            return new AttachmentAssembly(null, inputPageMode, ids, 0);
+            return new AttachmentAssembly(null, inputPageMode, 0, false);
         }
 
         int nextId = 3;
@@ -3647,6 +3674,7 @@ public static partial class Qpdf
         }
 
         bool duplicateKeys = false;
+        bool replaced = false;
         foreach (AttachmentAdd add in edits.Adds)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -3694,7 +3722,6 @@ public static partial class Qpdf
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             ParserContainers.EnsureEntryCapacity(ownership, pool, IntPtr.Size);
             pool[streamId] = PdfStream.FromOwnedData(streamDict, stored);
-            ParserContainers.AddSetItem(ownership, ids, streamId, sizeof(int));
             PdfDictionary spec = AttachmentBuilder.BuildFilespecDictionary(fileName, add.Description, streamId, governor, ownership, cancellationToken);
             int specId = nextId;
             checked
@@ -3705,8 +3732,8 @@ public static partial class Qpdf
             ownership.Reserve(128L);
             ParserContainers.EnsureEntryCapacity(ownership, pool, IntPtr.Size);
             pool[specId] = spec;
-            ParserContainers.AddSetItem(ownership, ids, specId, sizeof(int));
             if (!existing.ContainsKey(key)) { ownership.Reserve(64L); }
+            else { replaced = true; }
             existing[key] = new PdfReference(specId, 0);
         }
 
@@ -3784,7 +3811,7 @@ public static partial class Qpdf
 
         if (existing.Count == 0)
         {
-            return new AttachmentAssembly(null, inputPageMode, ids, 0);
+            return new AttachmentAssembly(null, inputPageMode, 0, false);
         }
 
         PdfDictionary tree = AttachmentBuilder.BuildNameTree(existing, governor, ownership, cancellationToken);
@@ -3802,9 +3829,8 @@ public static partial class Qpdf
         ownership.Reserve(128L);
         ParserContainers.EnsureEntryCapacity(ownership, pool, IntPtr.Size);
         pool[rootId] = wrapper;
-        ParserContainers.AddSetItem(ownership, ids, rootId, sizeof(int));
         string? pageMode = edits.Adds.Count > 0 || copiedAny ? inputPageMode ?? "UseAttachments" : inputPageMode;
-        return new AttachmentAssembly(new PdfReference(rootId, 0), pageMode, ids, existing.Count);
+        return new AttachmentAssembly(new PdfReference(rootId, 0), pageMode, existing.Count, replaced);
     }
 
     private static string AttachmentCopyKey(string? prefix, string key, ResourceGovernor governor,

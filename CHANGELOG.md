@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Exclude unreachable attachment graphs after removal or replacement, including
+  superseded additions in split outputs. Shared page/catalog references remain
+  intact; explicit unreferenced-object preservation still retains such objects.
+
 - Match attachment removals by name-tree key before interpreting or copying their
   values. Entries with missing embedded streams or null values can now be removed;
   missing and duplicate removal requests still fail before publication.

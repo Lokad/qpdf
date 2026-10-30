@@ -2187,6 +2187,8 @@
         "resource": [
           "AttachmentEditTests.AttachmentsYieldToExhaustedBudget",
           "AttachmentConstructionTests.NameArrayRefusalPreservesEarlierStorage",
+          "AttachmentEditReachabilityTests.OutputRetainsOnlyLiveAttachmentsUnlessUnreferencedObjectsAreRequested",
+          "AttachmentEditReachabilityTests.SupersededAddsStillReadTheirInputsInOrder",
           "AttachmentConstructionTests.CancellationAfterNameArrayAdmissionPrecedesAllocation",
           "ZeroPageRewriteTests.EmptyEditsCleanUpAtHostFailureAndCancellationBoundaries",
           "ZeroPageRewriteTests.EmptyEditsRefundEverySharedAdmissionRefusal"
@@ -5252,10 +5254,14 @@
         ],
         "interaction": [
           "AttachmentEditTests.RemoveThenReaddWins",
+          "AttachmentEditReachabilityTests.PruningKeepsCompressedQdfAndLinearizedModelsCoherent",
           "AttachmentEditTests.JobAddRemoveRoundTrip"
         ],
         "resource": [
-          "AttachmentEditTests.AttachmentsYieldToExhaustedBudget"
+          "AttachmentEditTests.AttachmentsYieldToExhaustedBudget",
+          "AttachmentEditReachabilityTests.OutputRetainsOnlyLiveAttachmentsUnlessUnreferencedObjectsAreRequested",
+          "AttachmentEditReachabilityTests.SharedPayloadSurvivesRemovalAndOwnerDisposal",
+          "AttachmentEditReachabilityTests.RemovalPublicationFailuresPreservePriorOutput"
         ],
         "oracle": [
           "diff:attachments-remove"
