@@ -121,6 +121,7 @@ internal static class Program
         await VerifyPublicCopyMemoryAsync();
         await VerifyCodecContractAsync();
         await VerifyImageOptimizationAsync();
+        await VerifyAttachmentEditsAsync();
         await VerifyJsonCapacityAsync();
         await VerifyInlineJobEncodingAsync();
         await VerifyJobFileReadsAsync();
@@ -1386,6 +1387,77 @@ internal static class Program
         }
 
         return copy;
+    }
+
+    private static async Task VerifyAttachmentEditsAsync()
+    {
+        foreach (string route in new[] { "typed", "argv", "job" })
+        foreach (string operation in new[] { "remove", "replace", "malformed" })
+        {
+            using InMemoryQpdfHost host = new();
+            host.AddInput(QpdfPath.From("input"), operation == "malformed" ? MalformedAttachmentPdf() : TwoPagePdf(), QpdfInputOwnership.Transfer);
+            host.AddInput(QpdfPath.From("old"), Enumerable.Repeat((byte)'X', 65536).ToArray(), QpdfInputOwnership.Transfer);
+            host.AddInput(QpdfPath.From("new"), "NEW"u8.ToArray(), QpdfInputOwnership.Copy);
+            if (operation == "remove")
+            {
+                await Qpdf.AddAttachmentsAsync(host, QpdfPath.From("input"), QpdfPath.From("seeded"),
+                    [new("old", "seed", null, null, null, null, null, false)], CancellationToken.None);
+                host.AddInput(QpdfPath.From("input"), Published(host, "seeded"), QpdfInputOwnership.Transfer);
+            }
+            QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 4096L };
+            QpdfAttachmentSpec[] adds = [new("old", "seed", null, null, null, null, null, false), new("new", "seed", null, null, null, null, null, true)];
+            if (route == "typed")
+            {
+                QpdfAttachmentEditResult result = operation == "replace"
+                    ? await Qpdf.AddAttachmentsAsync(host, QpdfPath.From("input"), QpdfPath.From("output"), adds, limits, CancellationToken.None)
+                    : await Qpdf.RemoveAttachmentsAsync(host, QpdfPath.From("input"), QpdfPath.From("output"), ["seed"], limits, CancellationToken.None);
+                Check(result.Warnings.Count == 0, "typed attachment edits avoid interpreting removed values");
+            }
+            else
+            {
+                List<string> argv = ["input", "--compress-streams=n", "--decode-level=none", "--object-streams=disable"];
+                Dictionary<string, object> job = new() { ["inputFile"] = "input", ["outputFile"] = "output",
+                    ["compressStreams"] = "n", ["decodeLevel"] = "none", ["objectStreams"] = "disable" };
+                if (operation == "replace")
+                {
+                    argv.AddRange(["--add-attachment", "old", "--key=seed", "--", "--add-attachment", "new", "--key=seed", "--replace", "--"]);
+                    job["addAttachment"] = adds.Select(add => new { file = add.File, key = add.Key, replace = add.Replace }).ToArray();
+                }
+                else { argv.Add("--remove-attachment=seed"); job["removeAttachment"] = new[] { "seed" }; }
+                argv.Add("output");
+                QpdfExecutionResult result = route == "argv"
+                    ? await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), new QpdfExecutionOptions(limits), CancellationToken.None)
+                    : await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(job), new QpdfExecutionOptions(limits), CancellationToken.None);
+                Check(result.Status == QpdfExecutionStatus.Completed && result.ExitCode == QpdfExitCode.Success,
+                    "argv/job attachment removal and replacement fit the surviving output");
+            }
+            byte[] output = Published(host, "output");
+            Check(output.Length < 4096, "discarded attachment bytes do not consume output capacity");
+            host.AddInput(QpdfPath.From("inspect"), output, QpdfInputOwnership.Transfer);
+            IReadOnlyList<QpdfAttachmentInfo> listed = await Qpdf.ListAttachmentsAsync(host, QpdfPath.From("inspect"), CancellationToken.None);
+            Check(listed.Count == (operation == "replace" ? 1 : 0), "published attachment keys follow the final edit set");
+            if (operation == "replace")
+            {
+                await Qpdf.ExtractAttachmentAsync(host, QpdfPath.From("inspect"), "seed", QpdfPath.From("payload"), CancellationToken.None);
+                Check(Published(host, "payload").AsSpan().SequenceEqual("NEW"u8), "replacement retains the latest payload");
+            }
+            Check(host.OpenLeaseCount == 0, "attachment edits close all leases");
+        }
+    }
+
+    private static byte[] MalformedAttachmentPdf()
+    {
+        string[] bodies = ["<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(seed) 5 0 R] >> >> >>",
+            "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R >>",
+            "<< /Length 0 >>\nstream\n\nendstream", "<< /Type /Filespec /F (seed) >>"];
+        StringBuilder pdf = new("%PDF-1.4\n"); List<int> offsets = [0];
+        for (int index = 0; index < bodies.Length; index++)
+        { offsets.Add(pdf.Length); pdf.Append(index + 1).Append(" 0 obj\n").Append(bodies[index]).Append("\nendobj\n"); }
+        int xref = pdf.Length; pdf.Append("xref\n0 6\n0000000000 65535 f \n");
+        foreach (int offset in offsets.Skip(1)) { pdf.Append(offset.ToString("D10")).Append(" 00000 n \n"); }
+        pdf.Append("trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n").Append(xref).Append("\n%%EOF\n");
+        return Encoding.ASCII.GetBytes(pdf.ToString());
     }
 
     private sealed class ImageOptimizationCodec : IQpdfJpegCodec

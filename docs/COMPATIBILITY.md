@@ -120,6 +120,7 @@ failure behavior; the tables below highlight differences important to callers.
 | Parser limits | Managed nesting settings accept 1..499 (default 256), within host ceilings. Native defaults to 499 and accepts zero as a depth cap; managed zero overrides reject as `InvalidArguments`. Tight container limits fail with exit 2 where native recovery may warn and skip an object. |
 | Filters | Partial predictor rows, unknown PNG row selectors, mismatched decode-parameter arrays and preset zlib dictionaries reject instead of using native's lenient handling. Unknown/above-level encodings remain opaque according to the operation's decode policy. |
 | Image identities | Managed optimization preserves shared image references and attempts each image once. Native qpdf may replace resource aliases with separate image copies. JPEG generations, work and byte charges therefore follow managed object identities. |
+| Split attachments | Managed split outputs retain the final document attachments; native qpdf split output omits document-level attachments. Shared objects and explicit unreferenced-object retention follow the managed output policy. |
 | Page graphs | Duplicate pages are independent page objects; content-stream sharing can differ. Only the four PDF inheritable page attributes materialize. Omitted-page references become null; page-tree/catalog references are rejected by contained copying. Typed preview drops outlines/structure; ordinary copies preserve them. |
 | Catalog/structure | Unresolvable extras drop; extras referring to rebuilt catalog/page-tree nodes may drop instead of remapping. Damaged structure drops leniently. Dangling outline destinations become null; named destinations do not resolve in JSON inspection. |
 | Forms | Combined forms can be direct dictionaries, with direct children remaining embedded rather than promoted to indirect objects. Merge default resources are first-source wins. Malformed parent back-links remain on copying paths where native may repair and warn; checking warns on both. General parent-field/default-resource parity is not claimed. |
@@ -190,6 +191,11 @@ requiring an upstream checkout. Metadata does not prove defaults,
 precedence, grammar or interactions; those require behavior fixtures.
 
 ## How compatibility is verified
+
+The packed-package consumer also qualifies attachment removal, removal of an
+unlistable filespec, and repeated replacement through typed, argv and job APIs.
+Each edit must fit a 4096-byte output ceiling despite a discarded 64 KiB payload;
+published keys and replacement bytes are inspected through the public API.
 
 The packed-package consumer exercises argv/job image optimization with shared
 aliases, indirect Image/Form subtype names and codec-free filter refusals. A fixed
