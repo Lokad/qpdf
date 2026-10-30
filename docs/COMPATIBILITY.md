@@ -152,13 +152,14 @@ and whole-file rewriting. Previously the indirect forms failed as malformed
 input. Missing references, malformed values, cycles, nesting and resource limits
 still fail before publication. Public signatures and output rollback are unchanged.
 
-`QpdfJpegCodecContext.ResizeMemory` lets caller-supplied codecs grow or shrink
-their existing per-call reservations. Growth is admitted before allocation and
-checks cancellation after budget callbacks; refusal or cancellation preserves the
+Caller-supplied codecs borrow `QpdfJpegCodecContext.MemoryBudget`, create child
+scopes and grow or shrink reservations with `TryResize`. Growth is admitted before
+allocation and checks cancellation after budget callbacks; refusal or cancellation preserves the
 prior estimate. Initial reservations also check cancellation after admission.
 Shrink and disposal can finish after cancellation. Reservations still expire
 with the codec call, and codecs remain responsible for actual storage cleanup.
-Existing codec signatures and the dependency-free runtime contract are unchanged.
+The frame/sample/stream codec shape and dependency-free runtime remain; the
+alpha.2 context-budget API migration described above applies.
 
 PDF JSON admission and DOM parsing share a finite syntax ceiling that covers the
 supported PDF nesting ceiling plus the JSON envelopes. The former fixed 128
