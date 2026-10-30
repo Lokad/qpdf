@@ -400,6 +400,11 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Writer-version parsing bounds the complete scalar before splitting it into
+components. Oversized malformed job-JSON values no longer allocate token arrays
+and strings proportional to their input length. Accepted leading zeros, extension
+levels, existing argv checks and argument diagnostics are unchanged.
+
 Appearance generation clears `/NeedAppearances` through the shared owned
 dictionary rebuild, with admitted growth and both cancellation checks. It no
 longer makes two unowned table copies under a flat 64-byte charge. Large form

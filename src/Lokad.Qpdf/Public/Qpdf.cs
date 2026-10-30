@@ -2821,6 +2821,12 @@ public static partial class Qpdf
             throw new ArgumentNullException(nameof(text));
         }
 
+        // The component bounds below allow at most 4 + 1 + 4 + 1 + 6 characters.
+        if (text.Length > 4 + 1 + 4 + 1 + 6)
+        {
+            throw new QpdfParseException(option + " requires a version such as 1.5.", 0L, null);
+        }
+
         string[] parts = text.Split((char)46);
         if (parts.Length < 2 || parts.Length > 3)
         {
