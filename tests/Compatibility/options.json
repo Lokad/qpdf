@@ -4562,6 +4562,7 @@
       ],
       "evidence": {
         "positive": [
+          "ImageOptimizationGraphTests.IndirectSubtypeNamesOptimizeWhileStaleAndMalformedNamesStayOpaque",
           "ImageOptimizeTests.NoisyPhotoOptimizesToSmallerDct",
           "ImageOptimizeTests.GrayPhotoOptimizesToSingleComponentDct",
           "ImageOptimizeTests.ZeroThresholdsOptimizeSmallImages",

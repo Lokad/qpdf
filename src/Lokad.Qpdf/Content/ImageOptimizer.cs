@@ -107,7 +107,9 @@ internal static class ImageOptimizer
         {
             if (entries.Current.Value is not PdfReference link ||
                 ResolveOrNull(resolver, link) is not PdfStream stream) { continue; }
-            if (IsSubtype(stream.Dictionary, "Form"u8, governor, token))
+            PdfName? subtype = ReadSubtype(stream.Dictionary, resolver, governor, token);
+            if (subtype is null) { continue; }
+            if (PdfDictionaryLookup.NameEquals(subtype, "Form"u8, governor, token))
             {
                 if (ParserContainers.AddSetItem(traversal, visitedObjects, link.ObjectNumber, sizeof(int)))
                 {
@@ -115,7 +117,7 @@ internal static class ImageOptimizer
                         traversal, visitedObjects, checked(depth + 1), token);
                 }
             }
-            else if (IsSubtype(stream.Dictionary, "Image"u8, governor, token)
+            else if (PdfDictionaryLookup.NameEquals(subtype, "Image"u8, governor, token)
                 && ParserContainers.AddSetItem(traversal, visitedObjects, link.ObjectNumber, sizeof(int)))
             {
                 PdfStream? optimized = TryOptimize(stream, request, resolver, limits, governor, token);
@@ -312,10 +314,12 @@ internal static class ImageOptimizer
         return value == 0 || value == 9 || value == 10 || value == 12 || value == 13 || value == 32;
     }
 
-    private static bool IsSubtype(PdfDictionary dictionary, ReadOnlySpan<byte> subtype,
+    private static PdfName? ReadSubtype(PdfDictionary dictionary, PoolResolver resolver,
         ResourceGovernor governor, CancellationToken token)
-        => PdfDictionaryLookup.TryGet(dictionary, "Subtype"u8, governor, token, out QpdfObject raw)
-            && raw is PdfName name && PdfDictionaryLookup.NameEquals(name, subtype, governor, token);
+    {
+        if (!PdfDictionaryLookup.TryGet(dictionary, "Subtype"u8, governor, token, out QpdfObject raw)) { return null; }
+        return (raw is PdfReference reference ? ResolveOrNull(resolver, reference) : raw) as PdfName;
+    }
 
     private static bool ReadDimensions(PdfDictionary dictionary, PoolResolver resolver,
         ResourceGovernor governor, CancellationToken token, out long width, out long height)

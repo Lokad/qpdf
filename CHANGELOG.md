@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Resolve indirect image and Form subtype names during image optimization.
+  Valid indirect forms now expose their images to the same bounded traversal;
+  stale or malformed subtype values remain opaque.
+
 - Attempt each shared image identity once during optimization, including skipped
   candidates. Preserve shared references while avoiding repeated JPEG generations,
   codec work and decoded-byte charges through resource aliases and repeated pages.

@@ -26,9 +26,11 @@ public sealed class ImageOptimizationGraphTests
 
     private static byte[] Fixture(string kind)
     {
-        const string image = "<< /Type /XObject /Subtype /Image /Width 200 /Height 200 /BitsPerComponent 8 /ColorSpace /DeviceGray /Length 40000 >>";
+        string subtype = kind switch { "image-indirect" => "7 0 R", "image-stale" => "7 1 R", "image-invalid" => "17", _ => "/Image" };
+        string image = "<< /Type /XObject /Subtype " + subtype + " /Width 200 /Height 200 /BitsPerComponent 8 /ColorSpace /DeviceGray /Length 40000 >>";
         byte[] data = Enumerable.Repeat((byte)128, 40000).ToArray();
-        bool form = kind == "form";
+        bool form = kind.StartsWith("form", StringComparison.Ordinal);
+        string formSubtype = kind switch { "form-indirect" => "8 0 R", "form-stale" => "8 1 R", "form-invalid" => "null", _ => "/Form" };
         string resources = form ? "/Fm0 6 0 R" : "/Im0 5 0 R /Im1 " + (kind == "distinct" ? "6" : "5") + " 0 R";
         byte[] content = Encoding.ASCII.GetBytes("q 200 0 0 200 0 0 cm /" + (form ? "Fm0" : "Im0") + " Do Q\n");
         return CheckTests.Assemble([
@@ -37,8 +39,9 @@ public sealed class ImageOptimizationGraphTests
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /XObject << " + resources + " >> >> /Contents 4 0 R >>", null),
             (4, "<< /Length " + content.Length + " >>", content),
             (5, image, data),
-            (6, form ? "<< /Type /XObject /Subtype /Form /BBox [0 0 1 1] /Resources << /XObject << /Im0 5 0 R /Im1 5 0 R /Self 6 0 R >> >> /Length 7 >>"
-                : kind == "distinct" ? image : "null", form ? "/Im0 Do"u8.ToArray() : kind == "distinct" ? data : null)], 1);
+            (6, form ? "<< /Type /XObject /Subtype " + formSubtype + " /BBox [0 0 1 1] /Resources << /XObject << /Im0 5 0 R /Im1 5 0 R /Self 6 0 R >> >> /Length 7 >>"
+                : kind == "distinct" ? image : "null", form ? "/Im0 Do"u8.ToArray() : kind == "distinct" ? data : null),
+            (7, "/Image", null), (8, "/Form", null)], 1);
     }
 
     private static ValueTask<QpdfExecutionResult> Run(IQpdfHost host, string route, string kind, QpdfLimits limits)
@@ -98,5 +101,28 @@ public sealed class ImageOptimizationGraphTests
     {
         Assert.True(dictionary.TryGet(PdfName.FromAscii(key), out QpdfObject raw));
         return Assert.IsType<PdfDictionary>(raw is PdfReference reference ? document.GetObject(reference.ObjectNumber) : raw);
+    }
+
+    public static IEnumerable<object[]> SubtypeCases()
+    {
+        foreach (string route in new[] { "argv", "job" })
+        foreach (string kind in new[] { "image-indirect", "form-indirect", "image-stale", "form-stale", "image-invalid", "form-invalid" })
+        { yield return [route, kind]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(SubtypeCases))]
+    public async Task IndirectSubtypeNamesOptimizeWhileStaleAndMalformedNamesStayOpaque(string route, string kind)
+    {
+        CountingCodec codec = new("success");
+        using InMemoryQpdfHost host = new(QpdfLimits.Default, codec);
+        host.AddInput(QpdfPath.From("input"), Fixture(kind), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = await Run(host, route, kind, QpdfLimits.Default);
+        bool eligible = kind.EndsWith("-indirect", StringComparison.Ordinal);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(eligible ? 1 : 0, codec.Encodes); Assert.Equal(0, codec.Decodes);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] bytes));
+        Assert.Equal(eligible, bytes.AsSpan().IndexOf("/DCTDecode"u8) >= 0);
     }
 }

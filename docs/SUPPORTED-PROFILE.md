@@ -230,6 +230,9 @@ echoing values.
   preserve appearances. Structural, decompression, memory and cancellation limits
   remain binding.
 
+Image optimization resolves indirect Image/Form subtype names before choosing
+traversal or sample processing; stale and malformed subtype values stay opaque.
+
 Stamp rotation/unit scalars and named appearance font encodings accept indirect
 values with the same bounded resolution and interpretation as direct values.
 Generated BBox/Matrix values keep large integral reals readable under the integer
