@@ -1,7 +1,7 @@
 namespace Lokad.Qpdf;
 
 /// <summary>
-/// Strict syntactic failure. Carries only bounded positions, never input content.
+/// Syntactic failure with a message and optional byte/object positions.
 /// </summary>
 public sealed class QpdfParseException : QpdfException
 {

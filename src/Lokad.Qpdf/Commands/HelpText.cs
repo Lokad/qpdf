@@ -68,7 +68,7 @@ internal static class HelpText
           --keep-inline-images              exclude inline images from optimization
           --jpeg-quality=n                  JPEG quality 0..100 for optimized images
           --list-attachments          list embedded files
-          --show-attachment=key         write one attachment to the output file
+          --show-attachment=key         extract attachment bytes (optional output path)
           --add-attachment file [options] --  embed host files
           --remove-attachment=key       drop an embedded file
           --copy-attachments-from file [--prefix=] --  copy embedded files
@@ -91,8 +91,8 @@ internal static class HelpText
           --show-pages                  show page dictionaries and contents
           --with-images                 include image details with --show-pages
           --show-object={trailer|obj[,gen]}  show one object definition
-          --raw-stream-data               write raw stream bytes to the output file
-          --filtered-stream-data          write decoded stream bytes to the output file
+          --raw-stream-data               extract raw stream bytes (optional output path)
+          --filtered-stream-data          extract decoded stream bytes (optional output path)
           --show-xref                   show cross-reference entries
           --show-linearization          display linearization hint tables
           --remove-page-labels      drop merged page labels
@@ -102,6 +102,8 @@ internal static class HelpText
           --job-json-help       show job JSON format
           --completion-bash     output a bash completion command
           --completion-zsh      output a zsh completion command
+        Binary inspection without an output path returns QpdfExecutionResult.OutputBytes.
+        Explicit output paths use the host's staged transactions.
         """;
 
     internal const string Copyright = """

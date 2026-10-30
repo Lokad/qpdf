@@ -25,7 +25,7 @@ public enum QpdfHostFailureReason
     NonProgressingRead = 6,
 }
 
-/// <summary>Base class for library failures. Messages never embed input content.</summary>
+/// <summary>Base class for library failures with an explanatory message.</summary>
 public class QpdfException : Exception
 {
     /// <summary>Creates a library failure.</summary>
