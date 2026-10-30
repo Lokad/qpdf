@@ -120,6 +120,7 @@ internal static class Program
         await VerifyHostMemoryContractAsync();
         await VerifyPublicCopyMemoryAsync();
         await VerifyCodecContractAsync();
+        await VerifyImageOptimizationAsync();
         await VerifyJsonCapacityAsync();
         await VerifyInlineJobEncodingAsync();
         await VerifyJobFileReadsAsync();
@@ -1385,6 +1386,107 @@ internal static class Program
         }
 
         return copy;
+    }
+
+    private sealed class ImageOptimizationCodec : IQpdfJpegCodec
+    {
+        // Lokad.Image 0.2.0, quality 75: 200x200 uniform gray samples (128).
+        // A fixed valid result proves provider injection without a consumer dependency.
+        private static readonly byte[] Jpeg = Convert.FromBase64String(
+            "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAECAgMDAwQFBQQFBgcGBQYICQkIBgcJCwsLCQcICw0ODg0LCAwPEBEQDwwRExQUExEVFxcXFRobGxoeHx4jIyf/wAALCADIAMgBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAAAP/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//Z");
+        internal int Encodes { get; private set; }
+        public void Decode(Stream encoded, QpdfJpegFrame frame, Memory<byte> samples, QpdfJpegCodecContext context)
+            => throw new InvalidOperationException("Shared images must not decode the just-encoded candidate again.");
+        public void Encode(ReadOnlyMemory<byte> samples, QpdfJpegFrame frame, int quality, Stream encoded, QpdfJpegCodecContext context)
+        {
+            context.CheckCancellation();
+            Check(frame.Width == 200 && frame.Height == 200 && frame.Components == 1 && quality == 75,
+                "image optimization passes the public frame and quality");
+            Check(samples.Length == 40000 && samples.Span.IndexOfAnyExcept((byte)128) < 0,
+                "image optimization passes the original samples");
+            encoded.Write(Jpeg); Encodes++;
+        }
+    }
+
+    private static async Task VerifyImageOptimizationAsync()
+    {
+        foreach (bool job in new[] { false, true })
+        foreach (string kind in new[] { "shared", "indirect-image", "indirect-form", "filtered" })
+        {
+            bool opaque = kind == "filtered";
+            QpdfLimits limits = QpdfLimits.Default with
+            { MaxDecodedBytes = opaque ? 1000L : 65536L, MaxStreamFilters = opaque ? 0L : 25L };
+            ImageOptimizationCodec codec = new();
+            using InMemoryQpdfHost host = new(limits, opaque ? null : codec);
+            host.AddInput(QpdfPath.From("input"), ImageOptimizationPdf(kind), QpdfInputOwnership.Transfer);
+            QpdfExecutionOptions options = new(limits);
+            QpdfExecutionResult result = job
+                ? await Qpdf.ExecuteJobAsync(host, "{\"inputFile\":\"input\",\"outputFile\":\"output\",\"optimizeImages\":\"\",\"jpegQuality\":75,\"decodeLevel\":\"none\",\"compressStreams\":\"n\",\"objectStreams\":\"disable\"}", options, CancellationToken.None)
+                : await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["input", "--optimize-images", "--jpeg-quality=75",
+                    "--decode-level=none", "--compress-streams=n", "--object-streams=disable", "output"]), options, CancellationToken.None);
+            Check(result.Status == QpdfExecutionStatus.Completed && codec.Encodes == (opaque ? 0 : 1),
+                "argv/job image identities and indirect subtype names");
+            Check(result.ExitCode == (opaque ? QpdfExitCode.Warning : QpdfExitCode.Success), "image warning exit policy");
+            Check(result.Counters.TotalDecodedBytes == (opaque ? 0L : 40000L), "one sample admission per eligible image");
+            Check(!opaque || result.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.UnsupportedFeature
+                && d.Message.Contains("MaxStreamFilters", StringComparison.Ordinal)), "opaque filter ceiling warns without a codec");
+            Check(host.OpenLeaseCount == 0, "image optimization closes source leases");
+            Check(host.TryGetOutput(QpdfPath.From("output"), out byte[] output), "image optimization commits output");
+            host.AddInput(QpdfPath.From("inspect"), output, QpdfInputOwnership.Transfer);
+            await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inspect"), CancellationToken.None);
+            PdfDictionary resources = ImageDictionary(document, (PdfDictionary)document.GetObject(3), "Resources");
+            PdfDictionary objects = ImageDictionary(document, resources, "XObject");
+            if (kind == "indirect-form")
+            {
+                Check(objects.TryGet(new PdfName(Encoding.ASCII.GetBytes("Fm")), out QpdfObject rawForm) && rawForm is PdfReference, "indirect form reference");
+                PdfStream form = (PdfStream)document.GetObject(((PdfReference)rawForm).ObjectNumber);
+                objects = ImageDictionary(document, ImageDictionary(document, form.Dictionary, "Resources"), "XObject");
+            }
+            Check(objects.TryGet(new PdfName(Encoding.ASCII.GetBytes("Im0")), out QpdfObject first)
+                && objects.TryGet(new PdfName(Encoding.ASCII.GetBytes("Im1")), out QpdfObject second) && first.Equals(second), "shared image references survive publication");
+            PdfStream image = (PdfStream)document.GetObject(((PdfReference)first).ObjectNumber);
+            Check(image.Dictionary.TryGet(new PdfName(Encoding.ASCII.GetBytes("Filter")), out QpdfObject filter)
+                && filter.Equals(new PdfName(Encoding.ASCII.GetBytes(opaque ? "FlateDecode" : "DCTDecode"))), "typed inspection sees the expected image filter");
+        }
+    }
+
+    private static PdfDictionary ImageDictionary(QpdfDocument document, PdfDictionary dictionary, string name)
+    {
+        Check(dictionary.TryGet(new PdfName(Encoding.ASCII.GetBytes(name)), out QpdfObject value), "image dictionary member " + name);
+        return (PdfDictionary)(value is PdfReference reference ? document.GetObject(reference.ObjectNumber) : value);
+    }
+
+    private static byte[] ImageOptimizationPdf(string kind)
+    {
+        byte[] samples = Enumerable.Repeat((byte)128, 40000).ToArray();
+        if (kind == "filtered")
+        {
+            using MemoryStream compressed = new();
+            using (ZLibStream deflate = new(compressed, CompressionLevel.Optimal, true)) { deflate.Write(samples); }
+            samples = compressed.ToArray();
+        }
+        string aliases = "/Im0 5 0 R /Im1 5 0 R";
+        bool form = kind == "indirect-form";
+        string content = form ? "/Fm Do" : "/Im0 Do";
+        string[] bodies = [
+            "<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /XObject << "
+                + (form ? "/Fm 7 0 R" : aliases) + " >> >> /Contents 4 0 R >>",
+            "<< /Length " + content.Length + " >>\nstream\n" + content + "\nendstream",
+            "<< /Type /XObject /Subtype " + (kind == "indirect-image" ? "6 0 R" : "/Image")
+                + " /Width 200 /Height 200 /BitsPerComponent 8 /ColorSpace /DeviceGray /Length " + samples.Length
+                + (kind == "filtered" ? " /Filter /FlateDecode" : "") + " >>\nstream\n" + Encoding.Latin1.GetString(samples) + "\nendstream",
+            "/Image", "<< /Type /XObject /Subtype 8 0 R /BBox [0 0 200 200] /Resources << /XObject << "
+                + aliases + " >> >> /Length 7 >>\nstream\n/Im0 Do\nendstream", "/Form"];
+        StringBuilder pdf = new("%PDF-1.4\n");
+        List<int> offsets = [0];
+        for (int i = 0; i < bodies.Length; i++)
+        { offsets.Add(pdf.Length); pdf.Append(i + 1).Append(" 0 obj\n").Append(bodies[i]).Append("\nendobj\n"); }
+        int xref = pdf.Length;
+        pdf.Append("xref\n0 9\n0000000000 65535 f \n");
+        foreach (int offset in offsets.Skip(1)) { pdf.Append(offset.ToString("D10")).Append(" 00000 n \n"); }
+        pdf.Append("trailer\n<< /Size 9 /Root 1 0 R >>\nstartxref\n").Append(xref).Append("\n%%EOF\n");
+        return Encoding.Latin1.GetBytes(pdf.ToString());
     }
 
     private static byte[] TwoPagePdf()

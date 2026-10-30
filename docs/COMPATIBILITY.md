@@ -191,6 +191,12 @@ precedence, grammar or interactions; those require behavior fixtures.
 
 ## How compatibility is verified
 
+The packed-package consumer exercises argv/job image optimization with shared
+aliases, indirect Image/Form subtype names and codec-free filter refusals. A fixed
+valid JPEG provider checks samples and call counts; typed inspection verifies the
+published sharing and filters. Codec fidelity remains covered by development
+adapter tests.
+
 The development validator accepts LF, CRLF and CR header endings. Its bounded
 header inspection previously rejected CR-only headers before PdfPig opened the
 input. Malformed/truncated rejection and the core input policy are unchanged.
