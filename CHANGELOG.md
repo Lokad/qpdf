@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Return `InvalidArguments` for literal unpaired UTF-16 in inline job JSON,
+  matching malformed surrogate escapes instead of leaking a transcoding exception.
+  Preserve prior output, cancellation, admission and cleanup.
+
 - Expose read-only JPEG input backing for immutable borrowing during codec calls,
   removing the development adapter's redundant encoded-input copy. Supply known
   JSON publication lengths through the existing host capacity hint, avoiding

@@ -160,7 +160,12 @@ internal static class JobJsonLoader
                 _bytes = total;
                 _governor.NoteOperation();
             }
-            AddDocument(() => JsonDocument.Parse(text, Options()));
+            AddDocument(() =>
+            {
+                try { return JsonDocument.Parse(text, Options()); }
+                catch (ArgumentException ex)
+                { throw new QpdfParseException("Invalid string encoding in job JSON.", 0L, null, ex); }
+            });
         }
 
         internal async ValueTask AddFileAsync(QpdfPath path, int depth, CancellationToken cancellationToken)

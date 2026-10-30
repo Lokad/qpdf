@@ -3421,6 +3421,7 @@
           "MixedJobArgvTests.RepeatedCompletedIncludesAreNotIdentityCycles"
         ],
         "negative": [
+          "InlineJobEncodingTests.InvalidLiteralUtf16ReturnsFailureAndPreservesOtherOwners",
           "InvocationTests.JobJsonFileErrorsAreExplicit",
           "NestedJobTests.InvalidFileValuesRejectBeforeHostAccess",
           "NestedJobTests.BadChildDoesNotAccessPdfOrPublish",

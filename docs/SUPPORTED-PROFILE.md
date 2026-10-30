@@ -72,6 +72,8 @@ serialization controls and leave fileless inspection resources intact.
 `jobJsonFile` names a partial configuration in the invoking host's path context,
 and nested files share native sorted-key setter order. JSON objects retain the
 last value per key; repeated input/output/page declarations across files reject.
+Malformed literal UTF-16 in inline job JSON returns `InvalidArguments`, as do
+malformed surrogate escapes; transcoding failures do not escape execution results.
 Configuration files together fit `MaxInputBytes`; host memory/nesting and
 operation/handle ceilings apply during loading. File identity cycles reject,
 crypto declarations reject before PDF/password access, and cancellation closes

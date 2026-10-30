@@ -121,6 +121,7 @@ internal static class Program
         await VerifyPublicCopyMemoryAsync();
         await VerifyCodecContractAsync();
         await VerifyJsonCapacityAsync();
+        await VerifyInlineJobEncodingAsync();
         await VerifySignatureCopyPolicyAsync();
         byte[] input = TwoPagePdf();
         InMemoryQpdfHost typedHost = NewHost("inputs/in.pdf", input);
@@ -1296,6 +1297,25 @@ internal static class Program
             Check(root.ReservedBytes == 0L, "JSON capacity owners refund without GC");
         }
         Console.WriteLine("PASS exact-capacity JSON sidecar publication under a 4 MiB shared allowance through typed/argv/job APIs");
+    }
+
+    private static async Task VerifyInlineJobEncodingAsync()
+    {
+        foreach (int padding in new[] { 0, 20000 })
+        foreach (char surrogate in new[] { '\ud800', '\udc00' })
+        {
+            using InMemoryQpdfHost host = new();
+            QpdfPath output = QpdfPath.From("output.pdf");
+            await using (IQpdfOutputTransaction prior = await host.CreateOutputAsync(output, CancellationToken.None))
+            { await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None); await prior.CommitAsync(CancellationToken.None); }
+            QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host,
+                "{\"empty\":\"\",\"outputFile\":\"output.pdf\",\"minVersion\":\"" + surrogate + "\"}" + new string(' ', padding), CancellationToken.None);
+            Check(result.Status == QpdfExecutionStatus.Failed && result.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.InvalidArguments),
+                "literal malformed UTF-16 returns a structured job failure");
+            Check(result.Counters.HostOperations == 0L && host.OpenLeaseCount == 0L, "malformed inline text does not access inputs or publication");
+            Check(Published(host, "output.pdf").AsSpan().SequenceEqual("prior"u8), "malformed inline text preserves prior publication");
+        }
+        Console.WriteLine("PASS literal malformed UTF-16 in small and large inline job JSON");
     }
 
     private sealed class MemoryHostView(IQpdfHost inner, IMemoryBudget memoryBudget) : IQpdfHost, IQpdfMemoryHost, IQpdfJpegCodecHost
