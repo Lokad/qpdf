@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Serialize JPEG worker admission with encoded-output buffer accounting so
+  concurrent codec work cannot lose charges or strand shared reservations.
+
 - Version 0.1.0-alpha.2 deliberately breaks the alpha host input contract:
   `IQpdfInput.ReadAsync` now accepts `Memory<byte>` and returns a byte count.
   Replace allocating `ReadExactlyAsync` calls with explicitly governed

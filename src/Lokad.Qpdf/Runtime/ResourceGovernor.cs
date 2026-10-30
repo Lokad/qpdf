@@ -4,13 +4,15 @@ namespace Lokad.Qpdf.Runtime;
 /// <summary>
 /// Single per-job resource governor. Every subsystem reserves budget before
 /// allocating and checks cooperative cancellation; breaches fail explicitly without
-/// allocating. Not safe for concurrent use by design: one governor per job.
+/// allocating. One owner per job; codec workers share synchronization for memory
+/// admission and output-buffer accounting. Other job state remains single-owner.
 /// </summary>
 internal sealed class ResourceGovernor
 {
     private readonly QpdfLimits _limits;
     private readonly CancellationToken _cancellationToken;
     private readonly SharedMemoryOwner? _sharedMemory;
+    private object? _codecMemoryGate;
     private long _liveMemoryBytes;
     private long _hostMemoryBytes;
     private long _callerMetadataBytes;
@@ -58,6 +60,10 @@ internal sealed class ResourceGovernor
 
     internal CancellationToken CancellationToken => _cancellationToken;
 
+    // Installed by the job owner before a codec call can publish work to threads.
+    // Jobs without a codec keep the existing path without a lock or gate object.
+    internal object CodecMemoryGate => _codecMemoryGate ??= new();
+
     internal long MaxNestingDepth => _limits.MaxNestingDepth;
 
     private long LiveMemoryBytes => _liveMemoryBytes;
@@ -81,7 +87,15 @@ internal sealed class ResourceGovernor
         ReleaseMemory(bytes);
     }
 
-    internal long RemainingMemoryBytes => Math.Max(0L, _limits.MaxMemoryBytes - LiveMemoryBytes);
+    internal long RemainingMemoryBytes
+    {
+        get
+        {
+            if (_codecMemoryGate is object gate)
+            { lock (gate) { return Math.Max(0L, _limits.MaxMemoryBytes - LiveMemoryBytes); } }
+            return Math.Max(0L, _limits.MaxMemoryBytes - LiveMemoryBytes);
+        }
+    }
     internal long RemainingDecodedBytes => _limits.MaxDecodedBytes - _totalDecodedBytes;
 
     internal void ReserveMemory(long bytes)
@@ -104,6 +118,13 @@ internal sealed class ResourceGovernor
     }
 
     private void ReserveReconciledMemory(long bytes, bool hostStorage)
+    {
+        if (_codecMemoryGate is object gate)
+        { lock (gate) { ReserveMemoryCore(bytes, hostStorage); } }
+        else { ReserveMemoryCore(bytes, hostStorage); }
+    }
+
+    private void ReserveMemoryCore(long bytes, bool hostStorage)
     {
         checked
         {
@@ -132,16 +153,30 @@ internal sealed class ResourceGovernor
             throw new ArgumentOutOfRangeException(nameof(bytes), "Release must not be negative.");
         }
 
+        if (_codecMemoryGate is object gate)
+        { lock (gate) { ReleaseMemoryCore(bytes); } }
+        else { ReleaseMemoryCore(bytes); }
+    }
+
+    private void ReleaseMemoryCore(long bytes)
+    {
         _liveMemoryBytes = Math.Max(0L, _liveMemoryBytes - bytes);
         _sharedMemory?.ReleaseTo(Math.Max(0L, LiveMemoryBytes - _hostMemoryBytes));
     }
 
     internal void ReleaseHostMemory(long bytes)
     {
+        if (_codecMemoryGate is object gate)
+        { lock (gate) { ReleaseHostMemoryCore(bytes); } }
+        else { ReleaseHostMemoryCore(bytes); }
+    }
+
+    private void ReleaseHostMemoryCore(long bytes)
+    {
         if (bytes < 0L || bytes > _hostMemoryBytes)
         { throw new InvalidOperationException("Host storage release exceeds its local policy estimate."); }
         _hostMemoryBytes -= bytes;
-        ReleaseMemory(bytes);
+        ReleaseMemoryCore(bytes);
     }
 
     internal void CompletePrivateStorage()

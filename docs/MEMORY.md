@@ -44,6 +44,9 @@ buffer needs admission for both buffers until old storage is released; samples
 and supplied input/output are already funded. Budget operations are thread-safe;
 finish all workers before owner disposal or return. Streams and samples have one
 caller. Calls have independent owners, and their borrowed contexts cannot escape.
+Codec scope operations and encoded-output capacity changes share the job's
+memory-accounting lock, including shared-budget callbacks and refunds. Jobs
+that never invoke a codec keep their existing allocation path without this lock.
 Late receipt disposal cannot refund another owner's storage. The development
 Lokad.Image adapter forwards interfaces without a private owner tree or blanket
 workspace charge. The core has no runtime codec dependency.

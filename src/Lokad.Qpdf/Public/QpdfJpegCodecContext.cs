@@ -15,13 +15,13 @@ namespace Lokad.Qpdf;
 /// </remarks>
 public sealed class QpdfJpegCodecContext
 {
-    private readonly object _gate = new();
+    private readonly object _gate;
     private readonly Scope _budget;
     private ResourceGovernor? _governor;
     private ExceptionDispatchInfo? _refusal;
 
     internal QpdfJpegCodecContext(ResourceGovernor governor)
-    { _governor = governor; _budget = new(this, null); }
+    { _governor = governor; _gate = governor.CodecMemoryGate; _budget = new(this, null); }
 
     private ResourceGovernor Governor => _governor ?? throw new ObjectDisposedException(nameof(QpdfJpegCodecContext));
 
