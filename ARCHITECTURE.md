@@ -212,6 +212,10 @@ before interpolation, including terminal parse failures outside ordinary quotas.
 
 ## Dependencies and development tools
 
+The development file-backed probe maps missing inputs and physical I/O failures
+to host outcomes. Cancellation and unexpected failures retain their own meaning;
+failed acquisition closes any handle it obtained before returning an error.
+
 The core has no runtime NuGet dependencies. Hosts optionally implement
 `IQpdfJpegCodecHost` to supply an `IQpdfJpegCodec` for grayscale/RGB processing.
 The core validates frame sizes and owns sample/output buffers; codecs borrow them

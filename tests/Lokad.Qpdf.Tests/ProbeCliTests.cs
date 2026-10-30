@@ -15,7 +15,7 @@ public sealed class ProbeCliTests
         return Path.Combine(AppContext.BaseDirectory, "Fixtures");
     }
 
-    private static string FindProbeDll()
+    internal static string FindProbeDll()
     {
         string baseDir = AppContext.BaseDirectory;
         DirectoryInfo? current = new DirectoryInfo(baseDir);
@@ -42,6 +42,52 @@ public sealed class ProbeCliTests
 
     private static (int ExitCode, string Stdout, string Stderr) RunProbe(params string[] probeArgs)
         => RunProbeInput(null, probeArgs);
+
+    [Theory]
+    [InlineData("input")]
+    [InlineData("response")]
+    [InlineData("job")]
+    [InlineData("syntax")]
+    public void FileAndMemoryEmitModesReturnTheSameStructuredFailure(string kind)
+    {
+        DirectoryInfo directory = Directory.CreateTempSubdirectory("qpdfprobe-configuration-");
+        string tempRoot = Path.GetFullPath(Path.GetTempPath());
+        try
+        {
+            string inputs = Directory.CreateDirectory(Path.Combine(directory.FullName, "inputs")).FullName;
+            File.WriteAllText(Path.Combine(inputs, "bad.json"), "{");
+            string target = Path.Combine(directory.FullName, "out.pdf");
+            File.WriteAllBytes(target, "prior"u8.ToArray());
+            string[] arguments = kind switch
+            {
+                "input" => ["inputs/missing.pdf", "out.pdf"],
+                "response" => ["--empty", "@missing.rsp", "--show-npages"],
+                "job" => ["--job-json-file=inputs/missing.json"],
+                _ => ["--job-json-file=inputs/bad.json"],
+            };
+            string[]? expected = null;
+            foreach (bool fileInput in new[] { false, true })
+            {
+                List<string> command = ["emit", "--workdir", directory.FullName, "--out", "out.pdf=" + target];
+                if (fileInput) { command.Add("--file-input"); }
+                command.Add("--"); command.AddRange(arguments);
+                (int exit, string stdout, string stderr) = RunProbe(command.ToArray());
+                Assert.Equal(2, exit);
+                Assert.Contains("emit: status=Failed exit=2", stdout, StringComparison.Ordinal);
+                Assert.DoesNotContain("unexpected failure", stderr, StringComparison.Ordinal);
+                string[] diagnostics = stdout.Split('\n').Where(line => line.StartsWith("emit: diagnostic ", StringComparison.Ordinal)).ToArray();
+                Assert.NotEmpty(diagnostics);
+                if (expected is null) { expected = diagnostics; }
+                else { Assert.Equal(expected, diagnostics); }
+                Assert.Equal("prior"u8.ToArray(), File.ReadAllBytes(target));
+            }
+        }
+        finally
+        {
+            Assert.StartsWith(tempRoot, Path.GetFullPath(directory.FullName), StringComparison.OrdinalIgnoreCase);
+            directory.Delete(true);
+        }
+    }
 
     private static (int ExitCode, string Stdout, string Stderr) RunProbeInput(string? input, params string[] probeArgs)
     {

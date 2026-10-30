@@ -32,11 +32,25 @@ internal static class FileSelectionCommand
             token.ThrowIfCancellationRequested();
             string name = path.Value;
             while (name.StartsWith("./", StringComparison.Ordinal)) { name = name[2..]; }
-            if (!inputs.TryGetValue(name, out string? input)) { throw new FileNotFoundException("Input is unavailable.", name); }
-            SafeFileHandle handle = File.OpenHandle(input, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete,
-                FileOptions.Asynchronous | FileOptions.RandomAccess);
-            try { return new(new FileInput(path, input, handle, RandomAccess.GetLength(handle))); }
-            catch { handle.Dispose(); throw; }
+            if (!inputs.TryGetValue(name, out string? input)) { throw new QpdfHostException(path, QpdfHostFailureReason.NotFound); }
+            SafeFileHandle? handle = null;
+            try
+            {
+                handle = File.OpenHandle(input, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete,
+                    FileOptions.Asynchronous | FileOptions.RandomAccess);
+                return new(new FileInput(path, input, handle, RandomAccess.GetLength(handle)));
+            }
+            catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+            {
+                handle?.Dispose();
+                throw new QpdfHostException(path, QpdfHostFailureReason.NotFound, ex);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                handle?.Dispose();
+                throw new QpdfHostException(path, QpdfHostFailureReason.ReadFailed, ex);
+            }
+            catch { handle?.Dispose(); throw; }
         }
         public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token)
             => outputs.CreateOutputAsync(path, token);
@@ -47,12 +61,15 @@ internal static class FileSelectionCommand
         public QpdfPath Path => path;
         public string Identity => identity;
         public long Length => length;
-        public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
+        public async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
             if (offset < 0 || offset > Length) { throw new ArgumentOutOfRangeException(nameof(offset)); }
-            if (destination.IsEmpty) { return new(0); }
-            return RandomAccess.ReadAsync(handle, destination[..(int)Math.Min(destination.Length, Length - offset)], offset, token);
+            if (destination.IsEmpty) { return 0; }
+            try
+            { return await RandomAccess.ReadAsync(handle, destination[..(int)Math.Min(destination.Length, Length - offset)], offset, token).ConfigureAwait(false); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            { throw new QpdfHostException(Path, QpdfHostFailureReason.ReadFailed, ex); }
         }
         public ValueTask DisposeAsync() { handle.Dispose(); return ValueTask.CompletedTask; }
     }

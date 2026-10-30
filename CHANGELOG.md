@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Map missing and failed file-backed probe inputs to host outcomes, aligning
+  structured command failures with the memory-backed probe. Preserve cancellation,
+  unexpected exceptions, acquired-handle cleanup and existing output files.
+
 - Fill admitted job-file buffers directly through bounded reads, removing
   temporary chunk arrays and copies while preserving short-read and cancellation
   behavior, host-operation counts and cleanup.
