@@ -187,6 +187,7 @@ public static partial class Qpdf
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, path, governor, token).ConfigureAwait(false);
         ReadOnlyMemory<byte> bytes = payload.Data;
+        GovernedHost.PrepareOutputCapacity(transaction, bytes.Length, token);
         for (int offset = 0; offset < bytes.Length;)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();

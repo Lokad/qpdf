@@ -120,6 +120,7 @@ internal static class Program
         await VerifyHostMemoryContractAsync();
         await VerifyPublicCopyMemoryAsync();
         await VerifyCodecContractAsync();
+        await VerifyJsonCapacityAsync();
         await VerifySignatureCopyPolicyAsync();
         byte[] input = TwoPagePdf();
         InMemoryQpdfHost typedHost = NewHost("inputs/in.pdf", input);
@@ -1257,6 +1258,44 @@ internal static class Program
         foreach (int offset in offsets.Skip(1)) { pdf.Append(offset.ToString("D10")).Append(" 00000 n \n"); }
         pdf.Append("trailer\n<< /Size ").Append(objects.Length + 1).Append(" /Root 1 0 R >>\nstartxref\n").Append(xref).Append("\n%%EOF\n");
         return Encoding.ASCII.GetBytes(pdf.ToString());
+    }
+
+    private static async Task VerifyJsonCapacityAsync()
+    {
+        foreach (string route in new[] { "typed", "argv", "job" })
+        {
+            const int length = 1048577;
+            RecordingMemoryBudget root = new(4L * 1024L * 1024L);
+            using IMemoryScope durable = root.CreateScope();
+            using IMemoryScope caller = root.CreateScope();
+            using InMemoryQpdfHost storage = new(QpdfLimits.Default, null, durable);
+            storage.AddInput(QpdfPath.From("input.pdf"), TwoPagePdfWithAuditObjects([
+                "<< /Length 1048577 >>\nstream\n" + new string('A', length) + "\nendstream"]), QpdfInputOwnership.Transfer);
+            MemoryHostView host = new(storage, caller);
+            if (route == "typed")
+            {
+                QpdfJsonResult result = await Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("input.pdf"), QpdfPath.From("output.json"),
+                    new QpdfJsonOptions(2, [], "file", "side", [], false), CancellationToken.None);
+                using JsonDocument json = JsonDocument.Parse(result.Json);
+                Check(json.RootElement.GetProperty("version").GetInt32() == 2, "typed JSON capacity result");
+            }
+            else
+            {
+                QpdfExecutionResult result = route == "argv"
+                    ? await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["input.pdf", "--json=2", "--json-stream-data=file", "--json-stream-prefix=side", "--", "output.json"]), CancellationToken.None)
+                    : await Qpdf.ExecuteJobAsync(host, """{"inputFile":"input.pdf","outputFile":"output.json","json":"2","jsonStreamData":"file","jsonStreamPrefix":"side"}""", CancellationToken.None);
+                Check(result.Status == QpdfExecutionStatus.Completed, "known JSON capacity fits shared allowance through " + route);
+            }
+            Check(storage.OpenLeaseCount == 0L, "JSON capacity publication closes leases");
+            using (IMemoryScope export = root.CreateScope())
+            {
+                Check(storage.TryGetOutput(QpdfPath.From("side-8"), export, out byte[] bytes)
+                    && bytes.Length == length && bytes.All(value => value == (byte)'A'), "JSON sidecar bytes survive exact-capacity publication");
+            }
+            storage.Dispose(); caller.Dispose(); durable.Dispose();
+            Check(root.ReservedBytes == 0L, "JSON capacity owners refund without GC");
+        }
+        Console.WriteLine("PASS exact-capacity JSON sidecar publication under a 4 MiB shared allowance through typed/argv/job APIs");
     }
 
     private sealed class MemoryHostView(IQpdfHost inner, IMemoryBudget memoryBudget) : IQpdfHost, IQpdfMemoryHost, IQpdfJpegCodecHost

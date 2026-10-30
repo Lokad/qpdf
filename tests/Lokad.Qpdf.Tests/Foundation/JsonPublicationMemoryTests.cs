@@ -11,6 +11,53 @@ public sealed class JsonPublicationMemoryTests
 {
     private static readonly QpdfPath Input = QpdfPath.From("input"), Output = QpdfPath.From("output");
 
+    private sealed class DirectHost(InMemoryQpdfHost storage, IMemoryBudget caller) : IQpdfHost, IQpdfMemoryHost
+    {
+        public IMemoryBudget MemoryBudget => caller;
+        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => storage.OpenInputAsync(path, token);
+        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token) => storage.CreateOutputAsync(path, token);
+    }
+
+    [Theory]
+    [InlineData("typed")]
+    [InlineData("argv")]
+    [InlineData("job")]
+    public async Task KnownSidecarLengthFitsSharedAllowanceWithoutGrowthCopies(string route)
+    {
+        const int length = 1048577;
+        byte[] data = new byte[length]; data.AsSpan().Fill((byte)'A');
+        RecordingMemoryBudget root = new(4L * 1024L * 1024L);
+        using IMemoryScope durable = root.CreateScope();
+        using IMemoryScope caller = root.CreateScope();
+        using InMemoryQpdfHost storage = new(QpdfLimits.Default, null, durable);
+        storage.AddInput(Input, CheckTests.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
+            (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Private 4 0 R >>", null),
+            (4, "<< /Length 1048577 >>", data)], 1), QpdfInputOwnership.Transfer);
+        DirectHost host = new(storage, caller);
+        if (route == "typed")
+        {
+            QpdfJsonResult result = await Qpdf.GetDocumentJsonAsync(host, Input, Output,
+                new QpdfJsonOptions(2, [], "file", "side", [], false), CancellationToken.None);
+            using JsonDocument json = JsonDocument.Parse(result.Json);
+            Assert.Equal(2, json.RootElement.GetProperty("version").GetInt32());
+        }
+        else
+        {
+            QpdfExecutionResult result = await Run(host, route, "file", CancellationToken.None);
+            Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        }
+        Assert.Equal(0L, storage.OpenLeaseCount);
+        using (IMemoryScope export = root.CreateScope())
+        {
+            Assert.True(storage.TryGetOutput(QpdfPath.From("side-4"), export, out byte[] sidecar));
+            Assert.Equal(data, sidecar);
+        }
+        storage.Dispose(); caller.Dispose(); durable.Dispose();
+        Assert.Equal(0L, root.ReservedBytes);
+    }
+
     private sealed class Fixture : IDisposable
     {
         internal readonly RecordingMemoryBudget Root;

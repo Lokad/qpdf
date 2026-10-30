@@ -3560,6 +3560,7 @@
           "JsonModesTests.JobModesRoundTrip"
         ],
         "resource": [
+          "JsonPublicationMemoryTests.KnownSidecarLengthFitsSharedAllowanceWithoutGrowthCopies",
           "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
           "MixedJobArgvTests.DirectJsonTextObeysOutputLimitsAndPreservesTargets",
           "JsonValueOwnershipTests.BulkJsonDiscardsFitConsumerMemoryAllowance",
@@ -3823,6 +3824,7 @@
           "JsonModesTests.TypedModesRoundTrip"
         ],
         "resource": [
+          "JsonPublicationMemoryTests.KnownSidecarLengthFitsSharedAllowanceWithoutGrowthCopies",
           "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
           "JsonValueOwnershipTests.SidecarsPreserveRawAndDecodedBytesAfterReaderCloses",
           "JsonValueOwnershipTests.InputCloseFaultPreservesMainAndSidecarTargets",
