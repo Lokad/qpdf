@@ -19,9 +19,13 @@ preserve admission failures through nested codec exceptions. All codec users
 finish before the call owner closes. Host publication establishes surviving
 storage ownership before commit and finishes pending writes before cleanup.
 
-The graph copier rejects signature dictionaries and populated signature fields
-before following signature metadata into the source catalog. Field types may
-be inherited or indirect; their lookup uses bounded, admitted traversal.
+The graph copier and overlay annotation imports share a source-specific signature
+policy. It rejects signature dictionaries and populated widget/AcroForm fields
+before following signature metadata into the source catalog. Private V/Parent
+dictionaries do not establish field context. Inherited types are memoized by
+source dictionary identity, including parent distance for cached-depth checks.
+Reusable traversal lists and the cache use the copier's existing memory owner;
+the source graph stays owned through output construction and publication.
 Blank signature fields remain copyable. Read-only inspection retains original
 values and performs no signature creation or verification. Catalog/page-tree
 containment remains independent of this explicit excluded-feature outcome.

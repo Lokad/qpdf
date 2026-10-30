@@ -26,8 +26,9 @@ and source mappings before recovery continues. Earlier shared objects remain
 available, and later roots can copy those descendants afresh. Skipped roots no
 longer leave unreachable streams in published output; warning policy is unchanged.
 
-Page-copy operations reject reachable signature dictionaries (`/Type /Sig`) and
-populated signature fields, including inherited field types and dictionaries
+Page-copy operations, including overlay and underlay imports, reject reachable
+signature dictionaries (`/Type /Sig`) and populated signature fields in widget
+or retained AcroForm field contexts, including inherited field types and values
 without a type tag. Typed operations throw `QpdfCryptoException` with `/Sig`;
 argv and job JSON report `UnsupportedCryptoOperation` and preserve prior output.
 Empty signature fields and inspection remain supported; no signature is verified.
@@ -37,6 +38,9 @@ The former managed catalog-containment error is now an explicit excluded-feature
 outcome; the no-reference signed control also rejects rather than publishing
 stale signature metadata. References to the source catalog remain forbidden in
 ordinary copied graphs, and unselected pages are never imported through them.
+Private dictionaries using `V` and `Parent` do not establish a form context.
+Field-type ancestry is cached per source with the same depth and cycle checks;
+cached ancestors do not bypass the configured nesting limit. No public API changes.
 
 Attachment extraction searches for the requested key without building a full
 listing or decoding presentation metadata. Unrelated damaged file specs no longer

@@ -1218,7 +1218,7 @@ internal static class Overlays
             annotIndex += 1;
             // Root and nested references share one placement memo, including
             // Popup/Parent and reply links between ordinary annotations.
-            QpdfObject built = CopyOverlayNode(item, engine, destCopier, memo, scratch, ref allocator, ref nullId,
+            QpdfObject built = CopyOverlayNode(item, engine, source.Copier, destCopier, memo, scratch, ref allocator, ref nullId,
                 limits, governor, ownership, cancellationToken, 0);
             PdfReference clone;
             if (built is PdfReference mapped) { clone = mapped; }
@@ -1365,15 +1365,16 @@ internal static class Overlays
         }
 
         PdfReference topReference = top.Reference ?? annotationReference;
+        source.Copier.ValidateFieldCopy(topReference);
         if (!memo.ContainsKey(topReference.ObjectNumber))
         {
-            QpdfObject fieldCopy = CopyOverlayNode(topReference, sourceEngine, destCopier, memo, scratch, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, 0);
+            QpdfObject fieldCopy = CopyOverlayNode(topReference, sourceEngine, source.Copier, destCopier, memo, scratch, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, 0);
             if (fieldCopy is not PdfReference fieldRef)
             {
                 return false;
             }
 
-            placementDr ??= CopyOverlayImportDR(sourceForm, sourceEngine, destCopier, memo, scratch, limits, governor, ownership, cancellationToken, ref allocator, ref nullId);
+            placementDr ??= CopyOverlayImportDR(sourceForm, sourceEngine, source.Copier, destCopier, memo, scratch, limits, governor, ownership, cancellationToken, ref allocator, ref nullId);
             Dictionary<PdfName, QpdfObject> extras = new();
             CopiedForm part = new([fieldRef], true, sourceForm.NeedAppearances, sourceForm.NeedAppearances, placementDr, false, [], extras);
             ownership.Reserve(48L);
@@ -1381,7 +1382,7 @@ internal static class Overlays
                 new AcroFormCopy.OverlayFieldImport(destCopier, part, sourceForm.DefaultAppearance, sourceForm.Quadding), IntPtr.Size);
         }
 
-        QpdfObject cloned = CopyOverlayNode(item, sourceEngine, destCopier, memo, scratch, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, 0);
+        QpdfObject cloned = CopyOverlayNode(item, sourceEngine, source.Copier, destCopier, memo, scratch, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, 0);
         if (cloned is not PdfReference cloneRef)
         {
             return false;
@@ -1394,6 +1395,7 @@ internal static class Overlays
     private static PdfReference? CopyOverlayImportDR(
         AcroFormCopy.OverlaySourceForm sourceForm,
         DocumentEngine sourceEngine,
+        GraphCopier sourceCopier,
         GraphCopier destCopier,
         Dictionary<int, PdfReference> memo,
         ParserMemoryScope scratch,
@@ -1409,7 +1411,7 @@ internal static class Overlays
             return null;
         }
 
-        QpdfObject copied = CopyOverlayNode(sourceForm.DefaultResources, sourceEngine, destCopier, memo, scratch, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, 0);
+        QpdfObject copied = CopyOverlayNode(sourceForm.DefaultResources, sourceEngine, sourceCopier, destCopier, memo, scratch, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, 0);
         if (copied is PdfReference link)
         {
             return link;
@@ -1476,6 +1478,7 @@ internal static class Overlays
     private static QpdfObject CopyOverlayNode(
         QpdfObject node,
         DocumentEngine sourceEngine,
+        GraphCopier sourceCopier,
         GraphCopier destCopier,
         Dictionary<int, PdfReference> memo,
         ParserMemoryScope scratch,
@@ -1523,14 +1526,14 @@ internal static class Overlays
             checked { allocator += 1; }
             ownership.Reserve(32L); PdfReference copiedReference = new(id, 0);
             ParserContainers.EnsureEntryCapacity(scratch, memo, IntPtr.Size); memo.Add(reference.ObjectNumber, copiedReference);
-            QpdfObject built = BuildOverlayContainer(resolved, sourceEngine, destCopier, memo, scratch, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, depth + 1);
+            QpdfObject built = BuildOverlayContainer(resolved, sourceEngine, sourceCopier, destCopier, memo, scratch, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, depth + 1);
             destCopier.AddIndirectObjectWithId(built, id);
             return copiedReference;
         }
 
         if (node is PdfDictionary || node is PdfArray || node is PdfStream)
         {
-            return BuildOverlayContainer(node, sourceEngine, destCopier, memo, scratch, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, depth + 1);
+            return BuildOverlayContainer(node, sourceEngine, sourceCopier, destCopier, memo, scratch, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, depth + 1);
         }
 
         return node;
@@ -1539,6 +1542,7 @@ internal static class Overlays
     internal static QpdfObject BuildOverlayContainer(
         QpdfObject node,
         DocumentEngine sourceEngine,
+        GraphCopier sourceCopier,
         GraphCopier destCopier,
         Dictionary<int, PdfReference> memo,
         ParserMemoryScope scratch,
@@ -1553,6 +1557,7 @@ internal static class Overlays
         cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (node is PdfDictionary dictionary)
         {
+            sourceCopier.RejectSignatureCopy(dictionary);
             PdfNameTable<QpdfObject> entries = PdfNameTable<QpdfObject>.Create(ownership, governor, IntPtr.Size, cancellationToken);
             using PdfDictionary.EntryEnumerator source = dictionary.GetEntryEnumerator();
             while (source.MoveNext(governor, cancellationToken))
@@ -1563,7 +1568,7 @@ internal static class Overlays
                     continue;
                 }
 
-                QpdfObject child = CopyOverlayNode(found, sourceEngine, destCopier, memo, scratch, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, depth);
+                QpdfObject child = CopyOverlayNode(found, sourceEngine, sourceCopier, destCopier, memo, scratch, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, depth);
                 if (child is PdfNull)
                 {
                     continue;
@@ -1588,7 +1593,7 @@ internal static class Overlays
             for (int i = 0; i < array.Count; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                QpdfObject copied = CopyOverlayNode(array[i], sourceEngine, destCopier, memo, scratch, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, depth);
+                QpdfObject copied = CopyOverlayNode(array[i], sourceEngine, sourceCopier, destCopier, memo, scratch, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, depth);
                 ParserContainers.AddItem(ownership, items, copied, IntPtr.Size);
             }
 
@@ -1597,7 +1602,7 @@ internal static class Overlays
 
         if (node is PdfStream stream)
         {
-            QpdfObject rebuiltDictionary = BuildOverlayContainer(stream.Dictionary, sourceEngine, destCopier, memo, scratch, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, depth);
+            QpdfObject rebuiltDictionary = BuildOverlayContainer(stream.Dictionary, sourceEngine, sourceCopier, destCopier, memo, scratch, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, depth);
             PdfDictionary dictionaryValue = rebuiltDictionary as PdfDictionary ?? stream.Dictionary;
             // Exclusive values and backing input transfer before the overlay
             // document closes (ApplyAsync's finally).

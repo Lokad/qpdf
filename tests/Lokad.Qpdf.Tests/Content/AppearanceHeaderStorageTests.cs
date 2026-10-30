@@ -27,7 +27,7 @@ public sealed class AppearanceHeaderStorageTests
             if (clone)
             {
                 int allocator = 2, nullId = -1;
-                result = Assert.IsType<PdfStream>(Overlays.BuildOverlayContainer(source, engine, copier, new(), memory,
+                result = Assert.IsType<PdfStream>(Overlays.BuildOverlayContainer(source, engine, copier, copier, new(), memory,
                     ref allocator, ref nullId, limits, governor, memory, CancellationToken.None, 0));
                 memory.RetainGraph();
             }

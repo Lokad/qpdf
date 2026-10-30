@@ -29,6 +29,11 @@ internal sealed class GraphCopier
     private static readonly PdfName FieldTypeKey = PdfName.FromAscii("FT");
     private static readonly PdfName ValueKey = PdfName.FromAscii("V");
     private static readonly PdfName SignatureType = PdfName.FromAscii("Sig");
+    private static readonly PdfName SubtypeKey = PdfName.FromAscii("Subtype");
+    private static readonly PdfName WidgetType = PdfName.FromAscii("Widget");
+    private static readonly PdfName KidsKey = PdfName.FromAscii("Kids");
+    private const int UnresolvedFieldType = -2;
+    private const int ResolvingFieldType = -1;
     private readonly IIndirectResolver _resolver;
     private readonly ResourceGovernor _governor;
     private readonly QpdfLimits _limits;
@@ -40,12 +45,15 @@ internal sealed class GraphCopier
     private int _rootPageNumber = -1;
     private List<int>? _attemptSources;
     private int _copyAttempts;
+    private Dictionary<PdfDictionary, (bool Signature, int Distance, bool Validated)>? _fieldTypes;
+    private List<PdfDictionary>? _fieldPath;
+    private List<PdfDictionary>? _fieldPending;
 
     internal static GraphCopier CreateOwned(DocumentEngine engine, ResourceGovernor governor,
         QpdfLimits limits, int firstId, ParserMemoryScope ownership)
     {
         ownership.CheckOwner(governor);
-        ownership.Reserve(96L);
+        ownership.Reserve(128L);
         return new GraphCopier(engine, governor, limits, firstId, ownership);
     }
 
@@ -682,49 +690,122 @@ internal sealed class GraphCopier
     // Rewriting bytes cannot preserve a source signature. Reject its value before
     // following auxiliary references into the source catalog. Empty signature
     // fields remain ordinary form structure; read-only retention never calls here.
-    private void RejectSignatureCopy(PdfDictionary dictionary)
+    internal void RejectSignatureCopy(PdfDictionary dictionary)
     {
         _governor.CheckCancellation();
         if (dictionary.TryGet(TypeKey, out QpdfObject type)
             && ResolveFieldAttribute(type) is PdfName name && name.Equals(SignatureType))
         { throw new QpdfCryptoException("/Sig"); }
-        if (!dictionary.TryGet(ValueKey, out QpdfObject value) || value is PdfNull) { return; }
-        if (IsSignatureField(dictionary) && ResolveFieldAttribute(value) is not PdfNull)
-        { throw new QpdfCryptoException("/Sig"); }
+        if (dictionary.TryGet(SubtypeKey, out QpdfObject subtype)
+            && ResolveFieldAttribute(subtype) is PdfName widget && widget.Equals(WidgetType))
+        { ValidateFieldCopy(dictionary); }
     }
 
-    private bool IsSignatureField(PdfDictionary dictionary)
+    // Only widgets and roots from AcroForm.Fields establish field context. Private
+    // dictionaries may use V/Parent for unrelated purposes, including cycles.
+    internal void ValidateFieldCopy(QpdfObject root)
     {
-        if (dictionary.TryGet(FieldTypeKey, out QpdfObject fieldType))
+        _governor.CheckCancellation();
+        if (ResolveFieldAttribute(root) is not PdfDictionary first) { return; }
+        if (_fieldTypes is null)
         {
-            QpdfObject resolvedType = ResolveFieldAttribute(fieldType);
-            if (resolvedType is not PdfNull)
-            { return resolvedType is PdfName name && name.Equals(SignatureType); }
+            _ownership.Reserve(96L);
+            _fieldPath = ParserContainers.CreateList<PdfDictionary>(_ownership);
+            _fieldPending = ParserContainers.CreateList<PdfDictionary>(_ownership);
+            _fieldTypes = new(ReferenceEqualityComparer.Instance);
         }
-        if (!dictionary.TryGet(ParentKey, out _)) { return false; }
-
-        using ParserMemoryScope scratch = ParserMemoryScope.Create(_governor);
-        scratch.Reserve(96L);
-        HashSet<PdfDictionary> seen = new(ReferenceEqualityComparer.Instance);
-        PdfDictionary? current = dictionary;
-        for (int depth = 0; current is not null; depth++)
+        List<PdfDictionary> pending = _fieldPending ?? throw new InvalidOperationException("Missing field traversal storage.");
+        ParserContainers.AddItem(_ownership, pending, first, IntPtr.Size);
+        try
         {
-            _governor.CheckCancellation(); _governor.NoteOperation();
-            if (!ParserContainers.AddSetItem(scratch, seen, current, IntPtr.Size))
-            { throw new QpdfParseException("Field parent cycle during page copy.", null, null); }
-            if (current.TryGet(FieldTypeKey, out fieldType))
+            while (pending.Count != 0)
             {
-                QpdfObject inherited = ResolveFieldAttribute(fieldType);
-                if (inherited is not PdfNull)
-                { return inherited is PdfName name && name.Equals(SignatureType); }
+                _governor.CheckCancellation(); _governor.NoteOperation();
+                PdfDictionary current = pending[^1]; pending.RemoveAt(pending.Count - 1);
+                if (IsPageTreeNode(current)) { continue; }
+                if (_fieldTypes.TryGetValue(current, out var known) && known.Validated) { continue; }
+                if (current.TryGet(ValueKey, out QpdfObject value) && value is not PdfNull)
+                {
+                    var fieldType = ResolveFieldType(current);
+                    if (fieldType.Signature && ResolveFieldAttribute(value) is not PdfNull)
+                    { throw new QpdfCryptoException("/Sig"); }
+                }
+                if (_fieldTypes.TryGetValue(current, out known))
+                { _fieldTypes[current] = (known.Signature, known.Distance, true); }
+                else
+                {
+                    ParserContainers.EnsureEntryCapacity(_ownership, _fieldTypes, 16);
+                    _fieldTypes.Add(current, (false, UnresolvedFieldType, true));
+                }
+                if (current.TryGet(ParentKey, out QpdfObject parent)
+                    && ResolveFieldAttribute(parent) is PdfDictionary parentDictionary)
+                { ParserContainers.AddItem(_ownership, pending, parentDictionary, IntPtr.Size); }
+                if (current.TryGet(KidsKey, out QpdfObject kids)
+                    && ResolveFieldAttribute(kids) is PdfArray children)
+                {
+                    for (int i = 0; i < children.Count; i++)
+                    {
+                        _governor.CheckCancellation();
+                        if (ResolveFieldAttribute(children[i]) is PdfDictionary child)
+                        { ParserContainers.AddItem(_ownership, pending, child, IntPtr.Size); }
+                    }
+                }
             }
-            if (!current.TryGet(ParentKey, out QpdfObject parent)) { return false; }
-            if (depth >= _limits.MaxNestingDepth)
-            { throw new QpdfParseException("Field parent chain exceeds the copy nesting limit.", null, null); }
-            current = ResolveFieldAttribute(parent) as PdfDictionary;
-            if (current is not null && IsPageTreeNode(current)) { return false; }
         }
-        return false;
+        finally { pending.Clear(); }
+    }
+
+    private (bool Signature, int Distance) ResolveFieldType(PdfDictionary dictionary)
+    {
+        Dictionary<PdfDictionary, (bool Signature, int Distance, bool Validated)> types =
+            _fieldTypes ?? throw new InvalidOperationException("Missing field type storage.");
+        List<PdfDictionary> path = _fieldPath ?? throw new InvalidOperationException("Missing field path storage.");
+        PdfDictionary? current = dictionary;
+        bool signature = false;
+        int distance = -1;
+        try
+        {
+            while (current is not null)
+            {
+                _governor.CheckCancellation(); _governor.NoteOperation();
+                bool found = types.TryGetValue(current, out var cached);
+                if (found && cached.Distance != UnresolvedFieldType)
+                {
+                    if (cached.Distance == ResolvingFieldType)
+                    { throw new QpdfParseException("Field parent cycle during page copy.", null, null); }
+                    signature = cached.Signature; distance = cached.Distance;
+                    break;
+                }
+                if (path.Count > _limits.MaxNestingDepth)
+                { throw new QpdfParseException("Field parent chain exceeds the copy nesting limit.", null, null); }
+                ParserContainers.AddItem(_ownership, path, current, IntPtr.Size);
+                if (!found) { ParserContainers.EnsureEntryCapacity(_ownership, types, 16); }
+                types[current] = (false, ResolvingFieldType, cached.Validated);
+                if (current.TryGet(FieldTypeKey, out QpdfObject fieldType)
+                    && ResolveFieldAttribute(fieldType) is QpdfObject resolvedType && resolvedType is not PdfNull)
+                { signature = resolvedType is PdfName name && name.Equals(SignatureType); break; }
+                if (!current.TryGet(ParentKey, out QpdfObject parent)) { break; }
+                current = ResolveFieldAttribute(parent) as PdfDictionary;
+                if (current is not null && IsPageTreeNode(current)) { break; }
+            }
+            for (int i = path.Count - 1; i >= 0; i--)
+            {
+                _governor.CheckCancellation();
+                if (++distance > _limits.MaxNestingDepth)
+                { throw new QpdfParseException("Field parent chain exceeds the copy nesting limit.", null, null); }
+                types[path[i]] = (signature, distance, types[path[i]].Validated);
+            }
+            var result = types[dictionary];
+            return (result.Signature, result.Distance);
+        }
+        finally
+        {
+            foreach (PdfDictionary visited in path)
+            {
+                if (types.TryGetValue(visited, out var cached) && cached.Distance == ResolvingFieldType) { types.Remove(visited); }
+            }
+            path.Clear();
+        }
     }
 
     private QpdfObject ResolveFieldAttribute(QpdfObject value)

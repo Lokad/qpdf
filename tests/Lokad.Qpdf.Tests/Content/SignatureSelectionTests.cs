@@ -69,13 +69,19 @@ public sealed class SignatureSelectionTests
             objects[1] = (2, "<< /Type /Pages /Kids [3 0 R 6 0 R] /Count 2 >>", null);
             objects.Add((6, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> >>", null));
         }
+        if (kind == "nonwidget")
+        {
+            objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [<< /T (Hidden) /FT /Sig /V << /Contents <00> /ByteRange [0 0 0 0] >> >>] >> >>", null);
+            objects[2] = (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> /Audit 4 0 R >>", null);
+            objects[3] = (4, "<< /T (Hidden) /FT /Sig /V << /Contents <00> /ByteRange [0 0 0 0] >> >>", null);
+        }
         return CheckTests.Assemble(objects, 1);
     }
 
     public static IEnumerable<object[]> RejectionCases()
     {
         foreach (string route in new[] { "typed", "argv", "job" })
-        foreach (string kind in new[] { "reference", "bare", "typeless", "inherited", "indirect", "direct", "metadata", "metadata-indirect" })
+        foreach (string kind in new[] { "reference", "bare", "typeless", "inherited", "indirect", "direct", "metadata", "metadata-indirect", "nonwidget" })
         { yield return [route, kind]; }
     }
 
@@ -120,6 +126,73 @@ public sealed class SignatureSelectionTests
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("reread.pdf"), CancellationToken.None);
         Assert.Equal(1, document.PageCount);
         Assert.True(bytes.AsSpan().IndexOf("/ByteRange"u8) < 0);
+    }
+
+    public static IEnumerable<object[]> OverlayCases()
+    {
+        foreach (string route in new[] { "argv", "job" })
+        foreach (string side in new[] { "overlay", "underlay" })
+        foreach (string kind in new[] { "reference", "typeless", "inherited", "indirect", "unsigned", "null", "indirect-null" })
+        { yield return [route, side, kind]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(OverlayCases))]
+    public async Task OverlayImportsUseTheSourceSignaturePolicy(string route, string side, string kind)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(Input, Fixture("unsigned", false), QpdfInputOwnership.Transfer);
+        host.AddInput(QpdfPath.From("source.pdf"), Fixture(kind, true), QpdfInputOwnership.Transfer);
+        await using (IQpdfOutputTransaction prior = await host.CreateOutputAsync(Output, CancellationToken.None))
+        { await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None); await prior.CommitAsync(CancellationToken.None); }
+        QpdfExecutionResult result = route == "argv"
+            ? await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["input.pdf", "--" + side, "source.pdf", "--", "output.pdf"]), CancellationToken.None)
+            : await Qpdf.ExecuteJobAsync(host, System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object>
+            { ["inputFile"] = "input.pdf", ["outputFile"] = "output.pdf", [side] = new { file = "source.pdf" } }), CancellationToken.None);
+        bool populated = kind is not ("unsigned" or "null" or "indirect-null");
+        Assert.Equal(populated ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.True(host.TryGetOutput(Output, out byte[] bytes));
+        if (populated)
+        {
+            Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.UnsupportedCryptoOperation);
+            Assert.Equal("prior"u8.ToArray(), bytes);
+        }
+        else
+        {
+            Assert.True(bytes.AsSpan().IndexOf("/ByteRange"u8) < 0);
+            host.AddInput(QpdfPath.From("reread.pdf"), bytes, QpdfInputOwnership.Transfer);
+            QpdfCheckResult check = await Qpdf.CheckAsync(host, QpdfPath.From("reread.pdf"), CancellationToken.None);
+            Assert.All(check.Checks, x => Assert.NotEqual(QpdfCheckStatus.Failed, x.Status));
+        }
+    }
+
+    [Theory]
+    [InlineData("typed")]
+    [InlineData("argv")]
+    [InlineData("job")]
+    public async Task PrivateValueAndParentCyclesAreNotFields(string route)
+    {
+        byte[] input = CheckTests.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Private 4 0 R >>", null),
+            (4, "<< /V (version 1) /Parent 4 0 R >>", null)], 1);
+        using InMemoryQpdfHost host = new();
+        host.AddInput(Input, input, QpdfInputOwnership.Transfer);
+        if (route == "typed")
+        { await Qpdf.SelectPageAsync(host, Input, Output, PdfPageSelectionOptions.FromPages([1]), CancellationToken.None); }
+        else { Assert.Equal(QpdfExecutionStatus.Completed, (await Execute(host, route, CancellationToken.None)).Status); }
+        Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.True(host.TryGetOutput(Output, out byte[] bytes));
+        host.AddInput(QpdfPath.From("reread.pdf"), bytes, QpdfInputOwnership.Transfer);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("reread.pdf"), CancellationToken.None);
+        PdfDictionary page = document.PageReferences[0].Page;
+        Assert.True(page.TryGet(PdfName.FromAscii("Private"), out QpdfObject raw));
+        PdfReference link = Assert.IsType<PdfReference>(raw);
+        PdfDictionary metadata = Assert.IsType<PdfDictionary>(document.GetObject(link.ObjectNumber));
+        Assert.True(metadata.TryGet(PdfName.FromAscii("Parent"), out QpdfObject parent));
+        Assert.Equal(link, parent);
     }
 
     [Fact]
