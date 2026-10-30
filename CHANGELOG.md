@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Read overlay rectangle coordinates through the existing array indexer, avoiding
+  four defensive array copies per rectangle without changing geometry handling.
+
 - Exclude unreachable attachment graphs after removal or replacement, including
   superseded additions in split outputs. Shared page/catalog references remain
   intact; explicit unreferenced-object preservation still retains such objects.

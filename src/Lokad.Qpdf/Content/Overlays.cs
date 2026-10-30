@@ -446,7 +446,7 @@ internal static class Overlays
         double[] numbers = new double[4];
         for (int i = 0; i < 4; i++)
         {
-            QpdfObject item = array.Items[i];
+            QpdfObject item = array[i];
             if (item is PdfReference itemReference)
             {
                 if (!resolver.TryResolve(itemReference, out QpdfObject? resolvedItem) || resolvedItem is null)
