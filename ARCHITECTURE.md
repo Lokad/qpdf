@@ -53,6 +53,8 @@ can differ by entry point, including recovery and stream decoding; those differe
 are part of the compatibility contract.
 Job-file loading selects each property partition before sorting it, preserving
 forward-prefix/reverse-suffix setter order around nested includes.
+File reads fill one admitted buffer in bounded slices, including short reads;
+both cancellation routes are checked before parsing the completed input.
 
 Selection cores borrow one immutable settings value containing the existing
 feature requests. Typed defaults and command-plan projection are defined once;

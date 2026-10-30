@@ -122,6 +122,7 @@ internal static class Program
         await VerifyCodecContractAsync();
         await VerifyJsonCapacityAsync();
         await VerifyInlineJobEncodingAsync();
+        await VerifyJobFileReadsAsync();
         await VerifySignatureCopyPolicyAsync();
         byte[] input = TwoPagePdf();
         InMemoryQpdfHost typedHost = NewHost("inputs/in.pdf", input);
@@ -1316,6 +1317,20 @@ internal static class Program
             Check(Published(host, "output.pdf").AsSpan().SequenceEqual("prior"u8), "malformed inline text preserves prior publication");
         }
         Console.WriteLine("PASS literal malformed UTF-16 in small and large inline job JSON");
+    }
+
+    private static async Task VerifyJobFileReadsAsync()
+    {
+        using InMemoryQpdfHost host = new();
+        string json = "{\"empty\":\"\",\"showNpages\":\"\"}" + new string(' ', 1048576);
+        host.AddInput(QpdfPath.From("settings"), Encoding.UTF8.GetBytes(json), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["--job-json-file=settings"]), CancellationToken.None);
+        Check(result.Status == QpdfExecutionStatus.Completed && result.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.PageCount),
+            "large file configuration reaches the shared operation parser");
+        Check(result.Counters.HostOperations == 18L && host.OpenLeaseCount == 0L,
+            "large job file retains its bounded read count and closes its lease");
+        Console.WriteLine("PASS large job-file loading through the actual package with bounded reads");
     }
 
     private sealed class MemoryHostView(IQpdfHost inner, IMemoryBudget memoryBudget) : IQpdfHost, IQpdfMemoryHost, IQpdfJpegCodecHost

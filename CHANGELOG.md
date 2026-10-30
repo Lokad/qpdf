@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Fill admitted job-file buffers directly through bounded reads, removing
+  temporary chunk arrays and copies while preserving short-read and cancellation
+  behavior, host-operation counts and cleanup.
+
 - Return `InvalidArguments` for literal unpaired UTF-16 in inline job JSON,
   matching malformed surrogate escapes instead of leaking a transcoding exception.
   Preserve prior output, cancellation, admission and cleanup.

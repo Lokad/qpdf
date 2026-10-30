@@ -3439,6 +3439,8 @@
           "MixedJobArgvTests.ConfigurationOrderAndPositionalState"
         ],
         "resource": [
+          "JobFileReadTests.ShortAndCompleteReadsFillOneAdmittedDestination",
+          "JobFileReadTests.FinalReadCancellationAndTransportErrorsCloseTheInput",
           "InvocationTests.JobFileYieldsToExhaustedBudget",
           "NestedJobTests.CumulativeConfigurationBytesAreBounded",
           "NestedJobTests.NestingLimitRejectsBeforeOpeningAnotherFile",

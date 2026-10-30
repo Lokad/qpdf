@@ -196,17 +196,13 @@ internal static class JobJsonLoader
             }
             identities.Add(input.Identity);
             byte[] bytes = new byte[(int)input.Length];
+            for (int offset = 0; offset < bytes.Length;)
             {
-                using ParserMemoryScope? read = detailed ? ParserMemoryScope.Create(_governor) : null;
-                read?.Reserve(Math.Min(65536L, input.Length) + GovernedBufferStream.ArrayOverheadBytes);
-                for (int offset = 0; offset < bytes.Length;)
-                {
-                    _governor.CheckCancellation();
-                    int count = Math.Min(65536, bytes.Length - offset);
-                    byte[] chunk = await QpdfInputReader.ReadAdmittedAsync(input, offset, count, _governor, cancellationToken).ConfigureAwait(false);
-                    chunk.CopyTo(bytes, offset);
-                    offset += count;
-                }
+                _governor.CheckCancellation();
+                int count = Math.Min(65536, bytes.Length - offset);
+                await QpdfInputReader.ReadExactlyAsync(input, offset, bytes.AsMemory(offset, count), cancellationToken).ConfigureAwait(false);
+                _governor.CheckCancellation();
+                offset += count;
             }
             if (detailed)
             {
