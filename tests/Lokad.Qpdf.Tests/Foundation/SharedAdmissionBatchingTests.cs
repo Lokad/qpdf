@@ -62,7 +62,7 @@ public sealed class SharedAdmissionBatchingTests
     }
 
     [Fact]
-    public void HysteresisDoesNotRaiseLocalLimitsOrRetryRefusedSharedGrowth()
+    public void HysteresisPreservesLocalLimitsAndEachProbeMakesOneAttempt()
     {
         RecordingMemoryBudget root = new(32767);
         using IMemoryScope scope = root.CreateScope();
@@ -71,7 +71,7 @@ public sealed class SharedAdmissionBatchingTests
         Assert.Throws<QpdfMemoryAdmissionException>(() => governor.ReserveMemory(32));
         int calls = root.ReserveCalls + root.ResizeCalls;
         Assert.Throws<QpdfMemoryAdmissionException>(() => governor.ReserveMemory(1));
-        Assert.Equal(calls, root.ReserveCalls + root.ResizeCalls);
+        Assert.Equal(calls + 1, root.ReserveCalls + root.ResizeCalls);
         Assert.Equal(16384L, governor.Snapshot().LiveMemoryBytes); governor.ReleaseMemory(16384);
         ResourceGovernor limited = new(QpdfLimits.Default with { MaxMemoryBytes = 16384 }, CancellationToken.None, new Host(scope));
         limited.ReserveMemory(16384); calls = root.ReserveCalls + root.ResizeCalls;
