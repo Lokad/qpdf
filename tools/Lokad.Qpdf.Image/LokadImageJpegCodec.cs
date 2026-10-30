@@ -7,9 +7,6 @@ public sealed class LokadImageJpegCodec : IQpdfJpegCodec
 {
     /// <summary>Gets a stateless implementation with independent per-call storage.</summary>
     public static LokadImageJpegCodec Instance { get; } = new();
-    // Bounded metadata, bridge nodes and stack scratch. Large buffers have their
-    // own admission; Image disables cross-call pools when a budget is supplied.
-    private const long WorkingSetBytes = 65536L;
 
     internal static int MapQuality(int quality)
     {
@@ -21,25 +18,20 @@ public sealed class LokadImageJpegCodec : IQpdfJpegCodec
     public void Decode(Stream encoded, QpdfJpegFrame frame, Memory<byte> samples, QpdfJpegCodecContext context)
     {
         ValidateSamples(frame, samples.Length);
-        using IDisposable state = context.ReserveMemory(WorkingSetBytes);
         using JpegInput input = JpegInput.Read(encoded, context);
         if (input.Memory.Length < 2 || input.Memory.Span[0] != 255 || input.Memory.Span[1] != 216)
         { throw new UnsupportedImageException(UnsupportedImageFeature.Format, "Expected a JPEG image."); }
-        using JpegMemoryBudget budget = new(context);
+        JpegMemoryBudget budget = new(context.MemoryBudget);
         ImageLimits limits = Limits(frame, budget);
-        try
-        {
-            ImageInfo header = ImageCodec.Identify(input.Memory.Span, limits, context.CancellationToken);
-            if (header.Width != frame.Width || header.Height != frame.Height || header.SourceComponentCount != frame.Components)
-            { throw new InvalidDataException("Encoded JPEG does not match the admitted frame."); }
-            ImageInfo decoded = ImageCodec.DecodeJpeg(input.Memory.Span, samples.Span, (JpegSampleFormat)frame.Components,
-                options: new JpegDecodeOptions { Limits = limits, ApplyOrientation = false },
-                cancellationToken: context.CancellationToken);
-            if (decoded.Width != frame.Width || decoded.Height != frame.Height || decoded.SourceComponentCount != frame.Components)
-            { throw new InvalidDataException("Decoded JPEG does not match the admitted frame."); }
-            context.CheckCancellation();
-        }
-        catch (ImageLimitException) { budget.RethrowRefusal(); throw; }
+        ImageInfo header = ImageCodec.Identify(input.Memory.Span, limits, context.CancellationToken);
+        if (header.Width != frame.Width || header.Height != frame.Height || header.SourceComponentCount != frame.Components)
+        { throw new InvalidDataException("Encoded JPEG does not match the admitted frame."); }
+        ImageInfo decoded = ImageCodec.DecodeJpeg(input.Memory.Span, samples.Span, (JpegSampleFormat)frame.Components,
+            options: new JpegDecodeOptions { Limits = limits, ApplyOrientation = false },
+            cancellationToken: context.CancellationToken);
+        if (decoded.Width != frame.Width || decoded.Height != frame.Height || decoded.SourceComponentCount != frame.Components)
+        { throw new InvalidDataException("Decoded JPEG does not match the admitted frame."); }
+        context.CheckCancellation();
     }
 
     /// <inheritdoc />
@@ -47,17 +39,12 @@ public sealed class LokadImageJpegCodec : IQpdfJpegCodec
     {
         ValidateSamples(frame, samples.Length);
         int mapped = MapQuality(quality);
-        using IDisposable state = context.ReserveMemory(WorkingSetBytes);
-        using JpegMemoryBudget budget = new(context);
-        try
-        {
-            ImageCodec.EncodeJpeg(samples.Span, frame.Width, frame.Height, (JpegSampleFormat)frame.Components, encoded,
-                options: new JpegEncodeOptions { Limits = Limits(frame, budget), Quality = mapped,
-                    Sampling = frame.Components == 1 ? JpegSampling.Grayscale : JpegSampling.YCbCr420 },
-                cancellationToken: context.CancellationToken);
-            context.CheckCancellation();
-        }
-        catch (ImageLimitException) { budget.RethrowRefusal(); throw; }
+        JpegMemoryBudget budget = new(context.MemoryBudget);
+        ImageCodec.EncodeJpeg(samples.Span, frame.Width, frame.Height, (JpegSampleFormat)frame.Components, encoded,
+            options: new JpegEncodeOptions { Limits = Limits(frame, budget), Quality = mapped,
+                Sampling = frame.Components == 1 ? JpegSampling.Grayscale : JpegSampling.YCbCr420 },
+            cancellationToken: context.CancellationToken);
+        context.CheckCancellation();
     }
 
     private static void ValidateSamples(QpdfJpegFrame frame, int length)

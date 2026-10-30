@@ -8,141 +8,134 @@ namespace Lokad.Qpdf.Tests.Filters;
 public sealed class JpegContextMemoryTests
 {
     [Fact]
-    public void ResizeTracksLiveCapacityAndRefundsTheResizedAmountOnce()
+    public void NestedOwnersRefundTheirSubtreesAndPreserveSiblingStorage()
     {
         RecordingMemoryBudget root = new(100000L);
         using InMemoryQpdfHost host = new(QpdfLimits.Default, null, root);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None, host);
         QpdfJpegCodecContext context = new(governor);
-        using IDisposable first = context.ReserveMemory(1000L);
-        using IDisposable second = context.ReserveMemory(2000L);
-        context.ResizeMemory(first, 64000L);
-        Assert.Equal(66000L, governor.Snapshot().LiveMemoryBytes);
-        Assert.InRange(root.ReservedBytes, 66000L, 66000L + 16383L);
-        context.ResizeMemory(first, 0L);
-        Assert.Equal(2000L, governor.Snapshot().LiveMemoryBytes);
-        context.ResizeMemory(first, 0L);
-        context.ResizeMemory(first, 1000L);
+        using IMemoryScope first = context.MemoryBudget.CreateScope(), second = context.MemoryBudget.CreateScope();
+        using IMemoryScope nested = first.CreateScope();
+        Assert.Equal(0, root.ReserveCalls);
+        Assert.True(first.TryReserve(1000L, out IMemoryReservation? a));
+        Assert.True(nested.TryReserve(2000L, out IMemoryReservation? b));
+        Assert.True(second.TryReserve(3000L, out IMemoryReservation? c));
+        Assert.True(a.TryResize(60000L)); Assert.True(b.TryResize(0L)); Assert.True(b.TryResize(4000L));
+        Assert.Equal(67000L, governor.Snapshot().LiveMemoryBytes);
         first.Dispose(); first.Dispose();
-        Assert.Equal(2000L, governor.Snapshot().LiveMemoryBytes);
-        second.Dispose();
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(0L, root.ReservedBytes);
-        Assert.Equal(0, root.LiveReservations);
+        Assert.Equal(0L, a.Bytes); Assert.Equal(0L, b.Bytes); Assert.Equal(3000L, c.Bytes);
+        Assert.Throws<ObjectDisposedException>(() => nested.TryReserve(1L, out _));
+        Assert.Throws<ObjectDisposedException>(() => b.TryResize(1L));
+        a.Dispose(); b.Dispose(); c.Dispose(); context.Close();
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, root.ReservedBytes);
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void LocalAndSharedRefusalLeaveTheOriginalReservationIntact(bool shared)
+    public void LocalAndSharedRefusalLeaveExistingReservationsUnchanged(bool shared)
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = shared ? 100000L : 16000L };
         RecordingMemoryBudget root = new(shared ? 16000L : 100000L);
         using InMemoryQpdfHost host = new(limits, null, root);
         ResourceGovernor governor = new(limits, CancellationToken.None, host);
         QpdfJpegCodecContext context = new(governor);
-        using IDisposable reservation = context.ReserveMemory(1000L);
-        long previous = root.ReservedBytes;
-        Exception? failure = Record.Exception(() => context.ResizeMemory(reservation, 32000L));
-        if (shared) { Assert.IsType<QpdfMemoryAdmissionException>(failure); }
-        else { Assert.IsType<QpdfLimitException>(failure); }
+        using IMemoryScope owner = context.MemoryBudget.CreateScope();
+        Assert.True(owner.TryReserve(1000L, out IMemoryReservation? receipt));
+        long before = root.ReservedBytes;
+        Assert.False(receipt.TryResize(32000L));
+        Assert.False(owner.TryReserve(32000L, out IMemoryReservation? refused)); Assert.Null(refused);
+        Assert.Equal(1000L, receipt.Bytes); Assert.Equal(before, root.ReservedBytes);
         Assert.Equal(1000L, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(previous, root.ReservedBytes);
-        context.ResizeMemory(reservation, 500L);
-        reservation.Dispose();
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(0L, root.ReservedBytes);
+        Assert.True(receipt.TryResize(500L)); receipt.Dispose(); context.Close();
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, root.ReservedBytes);
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void CancellationFromAdmissionRefundsTheIncreaseBeforeReturning(bool growth)
+    public void CancellationDuringAdmissionRefundsOnlyTheAttemptedIncrease(bool growth)
     {
         using CancellationTokenSource cancellation = new();
         RecordingMemoryBudget root = new(100000L);
-        CancelingBudget budget = new(root, cancellation, growth);
-        using InMemoryQpdfHost host = new(QpdfLimits.Default, null, budget);
+        using InMemoryQpdfHost host = new(QpdfLimits.Default, null, new CancelingBudget(root, cancellation, growth));
         ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token, host);
         QpdfJpegCodecContext context = new(governor);
         if (growth)
         {
-            using IDisposable reservation = context.ReserveMemory(1000L);
-            Assert.ThrowsAny<OperationCanceledException>(() => context.ResizeMemory(reservation, 64000L));
-            Assert.Equal(1000L, governor.Snapshot().LiveMemoryBytes);
-            Assert.Equal(1024L, root.ReservedBytes);
-            context.ResizeMemory(reservation, 0L);
+            Assert.True(context.MemoryBudget.TryReserve(1000L, out IMemoryReservation? receipt));
+            Assert.ThrowsAny<OperationCanceledException>(() => receipt.TryResize(64000L));
+            Assert.Equal(1000L, receipt.Bytes); Assert.Equal(1000L, governor.Snapshot().LiveMemoryBytes);
+            Assert.True(receipt.TryResize(0L)); receipt.Dispose();
         }
-        else { Assert.ThrowsAny<OperationCanceledException>(() => context.ReserveMemory(64000L)); }
+        else { Assert.ThrowsAny<OperationCanceledException>(() => context.MemoryBudget.TryReserve(64000L, out _)); }
         Assert.True(cancellation.IsCancellationRequested);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(0L, root.ReservedBytes);
+        context.Close(); Assert.Equal(0L, root.ReservedBytes);
     }
 
     [Fact]
-    public void CanceledGrowthRejectsButShrinkAndDisposalFinishCleanup()
+    public void CancellationStillAllowsShrinkAndCleanup()
     {
         using CancellationTokenSource cancellation = new();
         ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token);
         QpdfJpegCodecContext context = new(governor);
-        using IDisposable reservation = context.ReserveMemory(2000L);
+        Assert.True(context.MemoryBudget.TryReserve(2000L, out IMemoryReservation? receipt));
         cancellation.Cancel();
-        Assert.ThrowsAny<OperationCanceledException>(() => context.ResizeMemory(reservation, 3000L));
-        Assert.ThrowsAny<OperationCanceledException>(() => context.ReserveMemory(0L));
-        Assert.Equal(2000L, governor.Snapshot().LiveMemoryBytes);
-        context.ResizeMemory(reservation, 2000L);
-        context.ResizeMemory(reservation, 1000L);
+        Assert.ThrowsAny<OperationCanceledException>(() => receipt.TryResize(3000L));
+        Assert.ThrowsAny<OperationCanceledException>(() => context.MemoryBudget.TryReserve(0L, out _));
+        Assert.True(receipt.TryResize(2000L)); Assert.True(receipt.TryResize(1000L));
         Assert.Equal(1000L, governor.Snapshot().LiveMemoryBytes);
-        reservation.Dispose();
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        receipt.Dispose(); context.Close(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]
-    public void InvalidForeignAndClosedReservationsCannotAlterAccounting()
-    {
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        QpdfJpegCodecContext context = new(governor), other = new(governor);
-        using IDisposable reservation = context.ReserveMemory(1000L);
-        using IDisposable foreign = other.ReserveMemory(2000L);
-        using MemoryStream unrelated = new();
-        Assert.Throws<ArgumentOutOfRangeException>(() => context.ResizeMemory(reservation, -1L));
-        Assert.Throws<ArgumentException>(() => context.ResizeMemory(unrelated, 0L));
-        Assert.Throws<ArgumentException>(() => context.ResizeMemory(foreign, 0L));
-        Assert.Equal(3000L, governor.Snapshot().LiveMemoryBytes);
-        reservation.Dispose();
-        Assert.Throws<ObjectDisposedException>(() => context.ResizeMemory(reservation, 1000L));
-        context.Close(); context.Close();
-        Assert.Throws<ObjectDisposedException>(() => context.ResizeMemory(foreign, 0L));
-        Assert.Equal(2000L, governor.Snapshot().LiveMemoryBytes);
-    }
-
-    [Fact]
-    public void ContextClosureRetiresOutstandingResizedStorageWithoutTouchingOtherOwners()
+    public void ClosedOwnersInvalidateEscapedHandlesWithoutRefundingOtherStorage()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         QpdfJpegCodecContext context = new(governor);
-        IDisposable first = context.ReserveMemory(1000L), second = context.ReserveMemory(100L);
-        context.ResizeMemory(first, 6000L);
-        context.Close(); context.Close();
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        governor.ReserveMemory(777L);
-        first.Dispose(); second.Dispose();
-        Assert.Equal(777L, governor.Snapshot().LiveMemoryBytes);
-        Assert.Throws<ObjectDisposedException>(() => context.ResizeMemory(first, 1L));
-        governor.ReleaseMemory(777L);
+        IMemoryBudget borrowed = context.MemoryBudget;
+        IMemoryScope child = borrowed.CreateScope();
+        Assert.True(child.TryReserve(1000L, out IMemoryReservation? receipt));
+        Assert.Throws<ArgumentOutOfRangeException>(() => receipt.TryResize(-1L));
+        Assert.Throws<ArgumentOutOfRangeException>(() => child.TryReserve(-1L, out _));
+        Assert.True(receipt.TryResize(6000L));
+        context.Close(); context.Close(); governor.ReserveMemory(777L);
+        Assert.Equal(0L, receipt.Bytes);
+        Assert.Throws<ObjectDisposedException>(() => receipt.TryResize(1L));
+        Assert.Throws<ObjectDisposedException>(() => child.CreateScope());
+        Assert.Throws<ObjectDisposedException>(() => borrowed.TryReserve(1L, out _));
+        Assert.Throws<ObjectDisposedException>(() => context.MemoryBudget);
+        receipt.Dispose(); receipt.Dispose(); child.Dispose();
+        Assert.Equal(777L, governor.Snapshot().LiveMemoryBytes); governor.ReleaseMemory(777L);
     }
 
     [Fact]
-    public void AggregateOverflowPreservesAllExistingReceipts()
+    public void ConcurrentBudgetUsersFinishBeforeOwnerClosure()
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        QpdfJpegCodecContext context = new(governor);
+        IMemoryScope owner = context.MemoryBudget.CreateScope();
+        Parallel.For(0, 100, _ =>
+        {
+            using IMemoryScope child = owner.CreateScope();
+            Assert.True(child.TryReserve(1000L, out IMemoryReservation? receipt));
+            Assert.True(receipt.TryResize(2000L)); Assert.True(receipt.TryResize(100L));
+            Assert.Equal(100L, receipt.Bytes);
+        });
+        owner.Dispose(); context.Close();
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Fact]
+    public void AggregateOverflowPreservesExistingReceipts()
     {
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = long.MaxValue }, CancellationToken.None);
         QpdfJpegCodecContext context = new(governor);
-        using IDisposable first = context.ReserveMemory(1L), second = context.ReserveMemory(1L);
-        Assert.Throws<OverflowException>(() => context.ResizeMemory(first, long.MaxValue));
-        Assert.Equal(2L, governor.Snapshot().LiveMemoryBytes);
-        context.ResizeMemory(first, 0L);
-        second.Dispose();
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.True(context.MemoryBudget.TryReserve(1L, out IMemoryReservation? first));
+        Assert.True(context.MemoryBudget.TryReserve(1L, out IMemoryReservation? second));
+        Assert.Throws<OverflowException>(() => first.TryResize(long.MaxValue));
+        Assert.Equal(1L, first.Bytes); Assert.Equal(1L, second.Bytes);
+        context.Close(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     private sealed class CancelingBudget(IMemoryBudget inner, CancellationTokenSource cancellation, bool growth) : IMemoryBudget
@@ -160,8 +153,7 @@ public sealed class JpegContextMemoryTests
             public long Bytes => inner.Bytes;
             public bool TryResize(long bytes)
             {
-                long previous = inner.Bytes;
-                bool accepted = inner.TryResize(bytes);
+                long previous = inner.Bytes; bool accepted = inner.TryResize(bytes);
                 if (accepted && bytes > previous) { cancellation.Cancel(); }
                 return accepted;
             }

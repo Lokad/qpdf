@@ -3,6 +3,7 @@ using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Image;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Tests.Content;
+using Lokad.Qpdf.TestSupport;
 
 namespace Lokad.Qpdf.Tests.Filters;
 
@@ -101,7 +102,7 @@ public sealed class JpegCodecBoundaryTests
         else if (failure == "cancel") { Assert.IsAssignableFrom<OperationCanceledException>(error); }
         else { Assert.IsType<QpdfLimitException>(error); }
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        Assert.NotNull(codec.Context); Assert.Throws<ObjectDisposedException>(() => codec.Context.ReserveMemory(1L));
+        Assert.NotNull(codec.Context); Assert.Throws<ObjectDisposedException>(() => codec.Context.MemoryBudget.TryReserve(1L, out _));
         governor.ReserveMemory(4096L); codec.Reservation?.Dispose();
         Assert.Equal(4096L, governor.Snapshot().LiveMemoryBytes); governor.ReleaseMemory(4096L);
     }
@@ -133,7 +134,7 @@ public sealed class JpegCodecBoundaryTests
             : JpegCodec.EncodeGray(new byte[64], 8, 8, 75, QpdfLimits.Default, governor));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.NotNull(codec.Context);
-        Assert.Throws<ObjectDisposedException>(() => codec.Context.ReserveMemory(1L));
+        Assert.Throws<ObjectDisposedException>(() => codec.Context.MemoryBudget.TryReserve(1L, out _));
         governor.ReserveMemory(4096L); codec.Reservation?.Dispose();
         Assert.Equal(4096L, governor.Snapshot().LiveMemoryBytes);
         governor.ReleaseMemory(4096L);
@@ -160,6 +161,88 @@ public sealed class JpegCodecBoundaryTests
         Assert.False(codec.DecodeCalled); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    [InlineData(true, true, true)]
+    public void NestedCodecFailuresPreserveLocalAndSharedRefusal(bool decode, bool shared, bool growth)
+    {
+        byte[] jpeg = DctDecodeTests.EncodeGrayJpeg(8, 8);
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = shared ? 100000L : 16000L };
+        RecordingMemoryBudget root = new(shared ? 16000L : 100000L);
+        using InMemoryQpdfHost host = new(limits, new RefusingCodec(growth), root);
+        ResourceGovernor governor = new(limits, CancellationToken.None, host);
+        Exception? error = Record.Exception(() => decode ? DctFilter.Decode(jpeg, limits, governor)
+            : JpegCodec.EncodeGray(new byte[64], 8, 8, 75, limits, governor));
+        if (shared) { Assert.IsType<QpdfMemoryAdmissionException>(error); }
+        else { Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), Assert.IsType<QpdfLimitException>(error).LimitName); }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, root.ReservedBytes);
+    }
+
+    [Fact]
+    public async Task ConcurrentCodecCallsKeepIndependentOwnersUntilTheirWorkFinishes()
+    {
+        byte[] jpeg = DctDecodeTests.EncodeGrayJpeg(8, 8);
+        RecordingMemoryBudget root = new(1000000L);
+        RendezvousCodec codec = new();
+        async Task DecodeAsync()
+        {
+            using InMemoryQpdfHost host = new(QpdfLimits.Default, codec, root);
+            ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None, host);
+            byte[] decoded = await Task.Run(() => DctFilter.Decode(jpeg, QpdfLimits.Default, governor));
+            Assert.All(decoded, value => Assert.Equal((byte)123, value));
+            Assert.Equal(decoded.Length + JpegCodec.SampleArrayOverheadBytes, governor.Snapshot().LiveMemoryBytes);
+            governor.ReleaseMemory(decoded.Length + JpegCodec.SampleArrayOverheadBytes);
+        }
+        Task a = DecodeAsync(), b = DecodeAsync();
+        await codec.BothEntered.Task;
+        Assert.InRange(root.ReservedBytes, 2L * (64000L + 96L), 1000000L);
+        codec.Resume.SetResult(); await Task.WhenAll(a, b);
+        Assert.Equal(0L, root.ReservedBytes);
+    }
+
+    private sealed class RefusingCodec(bool growth) : IQpdfJpegCodec
+    {
+        public void Decode(Stream encoded, QpdfJpegFrame frame, Memory<byte> samples, QpdfJpegCodecContext context) => Fail(context);
+        public void Encode(ReadOnlyMemory<byte> samples, QpdfJpegFrame frame, int quality, Stream encoded, QpdfJpegCodecContext context) => Fail(context);
+        private void Fail(QpdfJpegCodecContext context)
+        {
+            using IMemoryScope owner = context.MemoryBudget.CreateScope();
+            JpegMemoryBudget bridge = new(owner);
+            using Lokad.Image.IMemoryScope nested = bridge.CreateScope();
+            if (growth)
+            {
+                Assert.True(nested.TryReserve(1000L, out Lokad.Image.IMemoryReservation? receipt));
+                Assert.False(receipt.TryResize(32000L));
+            }
+            else { Assert.False(nested.TryReserve(32000L, out _)); }
+            // Simulate a nested codec translating false into its own failure type.
+            throw new InvalidDataException("Nested codec allocation refused.");
+        }
+    }
+
+    private sealed class RendezvousCodec : IQpdfJpegCodec
+    {
+        private int _entered;
+        internal TaskCompletionSource BothEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal TaskCompletionSource Resume { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public void Decode(Stream encoded, QpdfJpegFrame frame, Memory<byte> samples, QpdfJpegCodecContext context)
+        {
+            using IMemoryScope owner = context.MemoryBudget.CreateScope();
+            Assert.True(owner.TryReserve(64000L, out _));
+            if (Interlocked.Increment(ref _entered) == 2) { BothEntered.SetResult(); }
+            Resume.Task.GetAwaiter().GetResult();
+            samples.Span.Fill(123);
+        }
+        public void Encode(ReadOnlyMemory<byte> samples, QpdfJpegFrame frame, int quality, Stream encoded, QpdfJpegCodecContext context)
+            => throw new NotSupportedException();
+    }
+
     private sealed class RecordingCodec(byte[] jpeg, byte sample, string failure, CancellationTokenSource? cancellation) : IQpdfJpegCodec
     {
         internal QpdfJpegCodecContext? Context { get; private set; }
@@ -179,7 +262,9 @@ public sealed class JpegCodecBoundaryTests
 
         private void Begin(QpdfJpegCodecContext context)
         {
-            Context = context; Reservation = context.ReserveMemory(65536L);
+            Context = context;
+            Assert.True(context.MemoryBudget.TryReserve(65536L, out IMemoryReservation? reservation));
+            Reservation = reservation;
             if (failure == "exception") { throw new InvalidOperationException("private codec detail"); }
             if (failure == "oom") { throw new OutOfMemoryException("injected allocation failure"); }
             if (failure == "cancel") { cancellation?.Cancel(); context.CheckCancellation(); }

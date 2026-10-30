@@ -33,12 +33,20 @@ Parser collection growth makes one admission attempt for its chosen capacity;
 refusal preserves existing entries and does not trigger a smaller retry. JPEG
 codec boundaries preserve actual `OutOfMemoryException` failures while releasing
 their workspace, rather than translating them into invalid image data.
-Caller-supplied codecs can resize their own `QpdfJpegCodecContext` reservations.
-Growth admits only the increase and checks cancellation after admission; failure
-preserves the previous estimate. Shrink and disposal remain available during
-canceled cleanup. A replacement buffer needs admission for both buffers until
-the old storage is released. Late disposal after the codec call cannot refund
-another owner's storage; the closed context has already retired its charges.
+Caller-supplied codecs borrow `QpdfJpegCodecContext.MemoryBudget` and its
+`CancellationToken` for one call. Create empty child scopes, then use
+`TryReserve`/`TryResize` before acquiring or growing significant scratch.
+These owners share the PDF job's local and host allowances. Refusal leaves the
+previous estimate unchanged; a codec failure after refusal preserves the original
+budget category at the PDF boundary. A successful fallback may still return.
+Shrink and disposal remain available during canceled cleanup. A replacement
+buffer needs admission for both buffers until old storage is released; samples
+and supplied input/output are already funded. Budget operations are thread-safe;
+finish all workers before owner disposal or return. Streams and samples have one
+caller. Calls have independent owners, and their borrowed contexts cannot escape.
+Late receipt disposal cannot refund another owner's storage. The development
+Lokad.Image adapter forwards interfaces without a private owner tree or blanket
+workspace charge. The core has no runtime codec dependency.
 Filter errors show at most 256 name characters plus an ellipsis; the exception
 keeps the full, already admitted name alias without duplicating it in the message.
 Xref growth uses validated section/merge counts to cap geometric overshoot.
@@ -53,6 +61,34 @@ the same destination; no host result array or assembly overlap is required.
 counts or premature zero as host failures. `ReadExactlyToArrayAsync` admits its
 one result array under a supplied owner. Failed or canceled reads refund only
 after outstanding input work finishes. The input lease remains caller-owned.
+
+## Host transaction flow
+
+`QpdfPath` is a logical key. An `IQpdfHost` implementation owns authorization,
+storage access and replacement policy; it does not grant ambient filesystem or
+network access to the engine. Acquire each `IQpdfInput` once and pin that content,
+identity and length through disposal. Await each offset read before the next
+read or disposal, even after cancellation. Complete pending I/O before returning
+from a read; do not keep a destination reference afterward.
+
+Expose an invocation owner through `IQpdfMemoryHost`. Keep host staging and
+durable publication under separate owners sharing the same root allowance.
+Write into unpublished staging, and finish each borrowed write before completing
+the call. If the host retains its backing, keep that capacity funded and immutable.
+Before `CommitAsync`, establish an owner that survives the invocation for the
+published bytes; transferring a receipt preserves its original scope lifetime.
+Do not publish bytes whose only owner is about to close.
+
+`CommitAsync` is the publication boundary: failure or cancellation before that
+boundary leaves the previous target intact. After successful replacement, return
+success even if cancellation arrives; do not report a canceled commit that already
+published. Writing or closing a stream alone does not implement this contract.
+On failure await discard/disposal and outstanding users before refunding staging
+or invocation storage. Keep returned bytes, values and diagnostics funded until
+their final consumers finish; then dispose their owners. The in-memory host and
+the package consumer exercise this ownership sequence and retained outputs.
+
+## Engine ownership details
 
 Attachment extraction borrows unfiltered or fallback bytes from the open document
 through output consumption. Filtered input slices are admitted before copying;

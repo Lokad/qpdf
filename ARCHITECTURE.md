@@ -12,6 +12,13 @@ borrow, including on cancellation. Stable identity, length and opened bytes do
 not change when a logical path is replaced. Short reads reuse destination slices;
 exact readers reject invalid counts and premature zero as transport failures.
 
+JPEG contexts lend the existing memory vocabulary to each codec call. Parent
+links and aggregate counts provide subtree refunds without child registries.
+The development Lokad.Image adapter only forwards interfaces; PDF boundaries
+preserve admission failures through nested codec exceptions. All codec users
+finish before the call owner closes. Host publication establishes surviving
+storage ownership before commit and finishes pending writes before cleanup.
+
 ## Execution flow
 
 ```mermaid

@@ -1,5 +1,12 @@
 # Compatibility
 
+The 0.1.0-alpha.2 host API deliberately replaces returned-memory input reads with
+caller-buffer/count reads. Allocating exact reads are explicitly named and
+governed. JPEG contexts expose `MemoryBudget`; the bespoke reserve/resize methods
+are removed. These are alpha integration changes, not PDF format differences.
+Hosts must migrate their input implementations and codec memory adapters; see
+[memory and host ownership](MEMORY.md).
+
 Overlay and underlay widget imports now follow field parents up to the configured
 `MaxNestingDepth`, counting parent edges from the widget. The former silent
 32-parent cutoff could truncate qualified names and lose inherited field types.

@@ -40,8 +40,12 @@ internal static class JpegCodec
                 codec.Encode(raw, new QpdfJpegFrame(width, height, components), quality, buffer, context);
                 context.CheckCancellation();
             }
-            catch (Exception ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException or OutOfMemoryException) && ex is not OperationCanceledException && ex is not QpdfFilterException)
-            { throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, FilterName, "Raw samples cannot be JPEG-encoded.", ex); }
+            catch (Exception ex) when (ex is not (OutOfMemoryException or OperationCanceledException))
+            {
+                context.RethrowMemoryRefusal();
+                if (ex is QpdfLimitException or QpdfMemoryAdmissionException or QpdfFilterException) { throw; }
+                throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, FilterName, "Raw samples cannot be JPEG-encoded.", ex);
+            }
             byte[] result = buffer.ToArray();
             bool accepted = false;
             try

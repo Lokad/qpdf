@@ -38,8 +38,12 @@ internal static class DctFilter
                 codec.Decode(source, new QpdfJpegFrame(width, height, components), decoded, context);
                 context.CheckCancellation();
             }
-            catch (Exception ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException or OutOfMemoryException) && ex is not OperationCanceledException && ex is not QpdfFilterException)
-            { throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, FilterName, "JPEG data cannot be decoded.", ex); }
+            catch (Exception ex) when (ex is not (OutOfMemoryException or OperationCanceledException))
+            {
+                context.RethrowMemoryRefusal();
+                if (ex is QpdfLimitException or QpdfMemoryAdmissionException or QpdfFilterException) { throw; }
+                throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, FilterName, "JPEG data cannot be decoded.", ex);
+            }
             governor.ChargeDecodedBytes(decoded.Length);
             success = true;
             return decoded;

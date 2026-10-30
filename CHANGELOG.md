@@ -7,6 +7,10 @@
   Replace allocating `ReadExactlyAsync` calls with explicitly governed
   `ReadExactlyToArrayAsync`, or fill an already admitted buffer with the
   nonallocating `ReadExactlyAsync`. Short reads need no assembly allocation.
+- Replace `QpdfJpegCodecContext.ReserveMemory`/`ResizeMemory` with borrowed
+  `MemoryBudget` and standard scopes/reservations in the same alpha.2 refresh.
+  Codec failures after admission refusal retain their budget category. Remove
+  the development Image adapter's owner registry and blanket workspace estimate.
 
 - Preserve source object generations in overlay/underlay annotation and widget
   imports. Stale references stay null regardless of traversal order, and valid

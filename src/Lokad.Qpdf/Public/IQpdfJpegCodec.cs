@@ -24,7 +24,8 @@ public sealed record QpdfJpegFrame
 /// <remarks>
 /// Do not retain or dispose the supplied streams, buffers or context. Complete all
 /// codec work before returning, observe cancellation and admit significant private
-/// allocations through the context. A shared implementation must support independent
+/// allocations through the context's borrowed MemoryBudget. Do not charge supplied
+/// samples or input/output twice. Join all workers before returning. A shared implementation must support independent
 /// concurrent calls without sharing job state. No PDF policy or storage access is required.
 /// </remarks>
 public interface IQpdfJpegCodec

@@ -21,7 +21,9 @@ internal sealed class JpegInput(ReadOnlyMemory<byte> memory, IDisposable? reserv
         }
         long hint = input.CanSeek ? Math.Max(0L, input.Length - input.Position) : 0L;
         if (hint > Array.MaxLength) { throw new InvalidDataException("Encoded JPEG exceeds the supported buffer size."); }
-        IDisposable reservation = context.ReserveMemory(hint == 0L ? 0L : hint + 32L);
+        long initial = hint == 0L ? 0L : hint + 32L;
+        if (!context.MemoryBudget.TryReserve(initial, out IMemoryReservation? reservation))
+        { throw new QpdfMemoryAdmissionException(initial); }
         byte[] buffer = [];
         try
         {
@@ -39,10 +41,11 @@ internal sealed class JpegInput(ReadOnlyMemory<byte> memory, IDisposable? reserv
                 {
                     long capacity = Math.Min(Array.MaxLength, Math.Max(needed, Math.Max(256L, buffer.LongLength * 2L)));
                     if (capacity < needed) { throw new InvalidDataException("Encoded JPEG exceeds the supported buffer size."); }
-                    context.ResizeMemory(reservation, buffer.LongLength + capacity + 64L);
+                    long overlap = buffer.LongLength + capacity + 64L;
+                    if (!reservation.TryResize(overlap)) { throw new QpdfMemoryAdmissionException(overlap); }
                     byte[] next = new byte[(int)capacity];
                     buffer.AsSpan(0, length).CopyTo(next); buffer = next;
-                    context.ResizeMemory(reservation, capacity + 32L);
+                    if (!reservation.TryResize(capacity + 32L)) { throw new InvalidOperationException("Shrinking an active reservation must succeed."); }
                     context.CheckCancellation();
                 }
                 scratch[..read].CopyTo(buffer.AsSpan(length)); length += read;

@@ -1,98 +1,152 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.ExceptionServices;
 using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf;
 
-/// <summary>Cooperative per-call resource admission for a caller-supplied JPEG codec.</summary>
-/// <remarks>Valid only during the codec call, on its executing thread. It must not escape the call.</remarks>
+/// <summary>Borrowed per-call resources for a caller-supplied JPEG codec.</summary>
+/// <remarks>
+/// The context and its budget cannot escape the call. The codec owns only scopes
+/// and reservations it creates. Budget operations are thread-safe; finish all
+/// workers and buffer users before disposing their owners or returning. Streams
+/// and samples retain their single-caller contract. Independent calls share no
+/// context state. Samples and supplied input/output are already funded; admit
+/// substantial private scratch and replacement overlap before acquisition.
+/// </remarks>
 public sealed class QpdfJpegCodecContext
 {
+    private readonly object _gate = new();
+    private readonly Scope _budget;
     private ResourceGovernor? _governor;
-    private long _reserved;
+    private ExceptionDispatchInfo? _refusal;
 
-    internal QpdfJpegCodecContext(ResourceGovernor governor) { _governor = governor; }
+    internal QpdfJpegCodecContext(ResourceGovernor governor)
+    { _governor = governor; _budget = new(this, null); }
+
     private ResourceGovernor Governor => _governor ?? throw new ObjectDisposedException(nameof(QpdfJpegCodecContext));
 
+    /// <summary>Gets the borrowed allowance shared with this PDF operation.</summary>
+    /// <remarks>
+    /// Empty scopes reserve nothing and introduce no private ceiling. Refusal
+    /// preserves existing charges. If the codec fails after a refusal, the PDF
+    /// boundary reports that original budget failure instead of corrupt JPEG data.
+    /// Successful fallbacks remain possible. Do not dispose the borrowed root.
+    /// Outstanding charges retire at call completion, after all codec users finish.
+    /// </remarks>
+    public IMemoryBudget MemoryBudget { get { lock (_gate) { _ = Governor; return _budget; } } }
+
     /// <summary>Gets the operation's cancellation token.</summary>
-    public CancellationToken CancellationToken => Governor.CancellationToken;
+    public CancellationToken CancellationToken { get { lock (_gate) { return Governor.CancellationToken; } } }
 
     /// <summary>Observes cancellation before continuing codec work.</summary>
-    public void CheckCancellation() => Governor.CheckCancellation();
+    public void CheckCancellation() { lock (_gate) { Governor.CheckCancellation(); } }
 
-    /// <summary>Admits private storage before allocation; dispose the returned lease when the storage is released.</summary>
-    /// <remarks>Outstanding charges retire when the codec call ends, including failure. The codec still owns actual storage cleanup.</remarks>
-    public IDisposable ReserveMemory(long bytes)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegative(bytes);
-        ResourceGovernor governor = Governor;
-        governor.CheckCancellation();
-        long next = checked(_reserved + bytes);
-        governor.ReserveMemory(bytes);
-        try
-        {
-            governor.CheckCancellation();
-            Reservation result = new(this, bytes);
-            _reserved = next;
-            return result;
-        }
-        catch { governor.ReleaseMemory(bytes); throw; }
-    }
-
-    /// <summary>Changes an active reservation from this context before growing or after releasing its storage.</summary>
-    /// <remarks>
-    /// Growth observes cancellation and admits the increase before changing the reservation.
-    /// Refusal or cancellation leaves its estimate unchanged. Shrink and no-op updates can
-    /// complete after cancellation. Account for old and new buffers together during replacement.
-    /// Disposing the reservation refunds its current estimate; the context must still be active.
-    /// </remarks>
-    /// <exception cref="ArgumentException">The reservation was not created by this context.</exception>
-    /// <exception cref="ObjectDisposedException">The context or reservation is closed.</exception>
-    public void ResizeMemory(IDisposable reservation, long bytes)
-    {
-        ArgumentNullException.ThrowIfNull(reservation);
-        ArgumentOutOfRangeException.ThrowIfNegative(bytes);
-        ResourceGovernor governor = Governor;
-        if (reservation is not Reservation receipt)
-        { throw new ArgumentException("Expected a reservation from this context.", nameof(reservation)); }
-        ObjectDisposedException.ThrowIf(receipt.Context is null, reservation);
-        if (!ReferenceEquals(receipt.Context, this))
-        { throw new ArgumentException("Expected a reservation from this context.", nameof(reservation)); }
-        long increase = bytes - receipt.Bytes;
-        long next = checked(_reserved + increase);
-        if (increase > 0L)
-        {
-            governor.CheckCancellation();
-            governor.ReserveMemory(increase);
-            try { governor.CheckCancellation(); }
-            catch { governor.ReleaseMemory(increase); throw; }
-        }
-        else if (increase < 0L) { governor.ReleaseMemory(-increase); }
-        receipt.Bytes = bytes;
-        _reserved = next;
-    }
-
-    private void Release(long bytes)
-    {
-        ResourceGovernor? governor = _governor;
-        if (governor is null) { return; }
-        governor.ReleaseMemory(bytes); _reserved -= bytes;
-    }
+    internal void RethrowMemoryRefusal() { lock (_gate) { _refusal?.Throw(); } }
 
     internal void Close()
     {
-        ResourceGovernor? governor = _governor;
-        _governor = null;
-        if (governor is not null) { governor.ReleaseMemory(_reserved); }
-        _reserved = 0L;
+        lock (_gate)
+        {
+            if (_governor is null) { return; }
+            _budget.Dispose(); _governor = null; _refusal = null;
+        }
     }
 
-    private sealed class Reservation(QpdfJpegCodecContext context, long bytes) : IDisposable
+    // Only parent links and aggregate totals are needed: descendants observe an
+    // ancestor's closure, without child registries or per-receipt collections.
+    private sealed class Scope(QpdfJpegCodecContext context, Scope? parent) : IMemoryScope
     {
-        internal QpdfJpegCodecContext? Context { get; private set; } = context;
-        internal long Bytes { get; set; } = bytes;
+        private bool _closed;
+        private long _bytes;
+
+        private bool Active
+        {
+            get
+            {
+                if (context._governor is null) { return false; }
+                for (Scope? current = this; current is not null; current = current.Parent)
+                { if (current._closed) { return false; } }
+                return true;
+            }
+        }
+
+        private Scope? Parent => parent;
+        private void CheckActive() => ObjectDisposedException.ThrowIf(!Active, this);
+
+        public IMemoryScope CreateScope()
+        {
+            lock (context._gate) { CheckActive(); return new Scope(context, this); }
+        }
+
+        private bool TryIncrease(long bytes)
+        {
+            ResourceGovernor governor = context.Governor;
+            governor.CheckCancellation();
+            try { governor.ReserveMemory(bytes); }
+            catch (Exception failure) when (failure is QpdfLimitException or QpdfMemoryAdmissionException)
+            { context._refusal ??= ExceptionDispatchInfo.Capture(failure); return false; }
+            try { governor.CheckCancellation(); }
+            catch { governor.ReleaseMemory(bytes); throw; }
+            return true;
+        }
+
+        private void Adjust(long bytes)
+        {
+            for (Scope? current = this; current is not null; current = current.Parent)
+            { current._bytes += bytes; }
+        }
+
+        public bool TryReserve(long bytes, [NotNullWhen(true)] out IMemoryReservation? reservation)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(bytes);
+            lock (context._gate)
+            {
+                CheckActive();
+                if (!TryIncrease(bytes)) { reservation = null; return false; }
+                try { reservation = new Reservation(context, this, bytes); }
+                catch { context.Governor.ReleaseMemory(bytes); throw; }
+                Adjust(bytes); return true;
+            }
+        }
+
         public void Dispose()
         {
-            QpdfJpegCodecContext? owner = Context; Context = null;
-            long released = Bytes; Bytes = 0L; owner?.Release(released);
+            lock (context._gate)
+            {
+                if (Active) { context.Governor.ReleaseMemory(_bytes); Adjust(-_bytes); }
+                _closed = true;
+            }
+        }
+
+        private sealed class Reservation(QpdfJpegCodecContext context, Scope owner, long bytes) : IMemoryReservation
+        {
+            private Scope? _owner = owner;
+            private long _bytes = bytes;
+            public long Bytes { get { lock (context._gate) { return _owner is { Active: true } ? _bytes : 0L; } } }
+
+            public bool TryResize(long bytes)
+            {
+                ArgumentOutOfRangeException.ThrowIfNegative(bytes);
+                lock (context._gate)
+                {
+                    Scope scope = _owner ?? throw new ObjectDisposedException(nameof(Reservation));
+                    scope.CheckActive();
+                    long increase = bytes - _bytes;
+                    if (increase > 0 && !scope.TryIncrease(increase)) { return false; }
+                    if (increase < 0) { context.Governor.ReleaseMemory(-increase); }
+                    scope.Adjust(increase); _bytes = bytes; return true;
+                }
+            }
+
+            public void Dispose()
+            {
+                lock (context._gate)
+                {
+                    if (_owner is { Active: true } scope)
+                    { context.Governor.ReleaseMemory(_bytes); scope.Adjust(-_bytes); }
+                    _owner = null; _bytes = 0;
+                }
+            }
         }
     }
 }

@@ -15,7 +15,8 @@ public sealed class JpegMemoryBridgeTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         QpdfJpegCodecContext context = new(governor);
-        using JpegMemoryBudget budget = new(context);
+        using IMemoryScope owner = context.MemoryBudget.CreateScope();
+        JpegMemoryBudget budget = new(owner);
         using ImageScope first = budget.CreateScope(), second = budget.CreateScope(), descendant = first.CreateScope();
         Assert.True(first.TryReserve(1000L, out ImageReceipt? a));
         Assert.True(descendant.TryReserve(2000L, out ImageReceipt? b));
@@ -27,7 +28,7 @@ public sealed class JpegMemoryBridgeTests
         Assert.Equal(3000L, c.Bytes); Assert.Equal(3000L, governor.Snapshot().LiveMemoryBytes);
         Assert.Throws<ObjectDisposedException>(() => descendant.TryReserve(1L, out _));
         Assert.Throws<ObjectDisposedException>(() => a.TryResize(1L));
-        a.Dispose(); b.Dispose(); budget.Dispose(); c.Dispose();
+        a.Dispose(); b.Dispose(); owner.Dispose(); c.Dispose();
         Assert.Equal(0L, c.Bytes); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.Throws<ObjectDisposedException>(() => budget.CreateScope());
     }
@@ -41,11 +42,13 @@ public sealed class JpegMemoryBridgeTests
         RecordingMemoryBudget root = new(shared ? 16000L : 100000L);
         using InMemoryQpdfHost host = new(limits, null, root);
         ResourceGovernor governor = new(limits, CancellationToken.None, host);
-        using JpegMemoryBudget budget = new(new(governor));
+        QpdfJpegCodecContext context = new(governor);
+        using IMemoryScope owner = context.MemoryBudget.CreateScope();
+        JpegMemoryBudget budget = new(owner);
         Assert.True(budget.TryReserve(1000L, out ImageReceipt? receipt));
         Assert.False(receipt.TryResize(32000L)); Assert.Equal(1000L, receipt.Bytes);
         Assert.Equal(1000L, governor.Snapshot().LiveMemoryBytes);
-        Exception? failure = Record.Exception(() => budget.RethrowRefusal());
+        Exception? failure = Record.Exception(() => context.RethrowMemoryRefusal());
         if (shared) { Assert.IsType<QpdfMemoryAdmissionException>(failure); }
         else { Assert.IsType<QpdfLimitException>(failure); }
         Assert.True(receipt.TryResize(0L)); receipt.Dispose();
@@ -60,9 +63,11 @@ public sealed class JpegMemoryBridgeTests
         Exception expected = oom ? new OutOfMemoryException("injected") : new InvalidOperationException("host invariant");
         using InMemoryQpdfHost host = new(QpdfLimits.Default, null, new FaultBudget(expected));
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None, host);
-        using JpegMemoryBudget budget = new(new(governor));
+        QpdfJpegCodecContext context = new(governor);
+        using IMemoryScope owner = context.MemoryBudget.CreateScope();
+        JpegMemoryBudget budget = new(owner);
         Assert.Same(expected, Record.Exception(() => budget.TryReserve(1000L, out _)));
-        budget.RethrowRefusal();
+        context.RethrowMemoryRefusal();
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
@@ -71,12 +76,14 @@ public sealed class JpegMemoryBridgeTests
     {
         using CancellationTokenSource cancellation = new();
         ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token);
-        using JpegMemoryBudget budget = new(new(governor));
+        QpdfJpegCodecContext context = new(governor);
+        using IMemoryScope owner = context.MemoryBudget.CreateScope();
+        JpegMemoryBudget budget = new(owner);
         Assert.True(budget.TryReserve(1000L, out ImageReceipt? receipt)); cancellation.Cancel();
         Assert.ThrowsAny<OperationCanceledException>(() => budget.TryReserve(1L, out _));
         Assert.ThrowsAny<OperationCanceledException>(() => receipt.TryResize(2000L));
         Assert.Equal(1000L, receipt.Bytes); Assert.True(receipt.TryResize(100L));
-        receipt.Dispose(); budget.RethrowRefusal();
+        receipt.Dispose(); context.RethrowMemoryRefusal();
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
@@ -103,7 +110,7 @@ public sealed class JpegMemoryBridgeTests
         using ChunkedInput source = new(new byte[30000], 8192);
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 20000L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
-        Assert.Throws<QpdfLimitException>(() => JpegInput.Read(source, new(governor)));
+        Assert.Throws<QpdfMemoryAdmissionException>(() => JpegInput.Read(source, new(governor)));
         Assert.InRange(governor.Snapshot().PeakMemoryBytes, 8192L, 20000L);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.True(source.CanRead);
     }

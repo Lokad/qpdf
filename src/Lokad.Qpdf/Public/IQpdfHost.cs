@@ -8,7 +8,7 @@ public enum QpdfInputOwnership
 
     /// <summary>
     /// Ownership transfers to the host; the caller must not mutate the array
-    /// afterwards. Public reads return independent copies.
+    /// afterwards. Public reads fill independent caller storage.
     /// </summary>
     Transfer = 1,
 }
@@ -40,6 +40,11 @@ public interface IQpdfOutputTransaction : IAsyncDisposable
     /// Publishes staged bytes to the target. On failure the existing target
     /// is left untouched.
     /// </summary>
+    /// <remarks>
+    /// Establish surviving ownership before the atomic publication boundary.
+    /// Honor cancellation before publication; once published, report success.
+    /// Ordinary stream writes or closure alone do not implement replacement.
+    /// </remarks>
     ValueTask CommitAsync(CancellationToken cancellationToken);
 
     /// <summary>Abandons staged bytes and releases their budget.</summary>
@@ -54,6 +59,7 @@ public interface IQpdfOutputTransaction : IAsyncDisposable
 public interface IQpdfHost
 {
     /// <summary>Opens a stable input lease for a logical path.</summary>
+    /// <remarks>Acquire the content once; replacement of the logical path cannot change opened bytes.</remarks>
     ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken cancellationToken);
 
     /// <summary>Creates a staged-output transaction for a logical path.</summary>

@@ -46,9 +46,11 @@ internal static class Program
         internal int Calls { get; private set; }
         public void Decode(Stream encoded, QpdfJpegFrame frame, Memory<byte> samples, QpdfJpegCodecContext context)
         {
-            using IDisposable working = context.ReserveMemory(4096L);
-            context.ResizeMemory(working, 8192L);
-            context.ResizeMemory(working, 2048L);
+            using IMemoryScope owner = context.MemoryBudget.CreateScope();
+            Check(owner.TryReserve(4096L, out IMemoryReservation? admitted), "public JPEG scratch admission");
+            using IMemoryReservation working = admitted ?? throw new InvalidOperationException("Missing codec admission.");
+            Check(working.TryResize(8192L), "public JPEG scratch growth");
+            Check(working.TryResize(2048L), "public JPEG scratch shrink");
             context.CheckCancellation();
             Check(frame.Width == 1 && frame.Height == 1 && frame.Components == 1, "public JPEG descriptor");
             Check(encoded.ReadByte() == 255 && encoded.ReadByte() == 216, "borrowed JPEG source");
@@ -1027,6 +1029,18 @@ internal static class Program
         await using IQpdfInput input = await host.OpenInputAsync(QpdfPath.From("budgeted.pdf"), CancellationToken.None);
         RecordingMemoryBudget root = new(expected.Length + 288L);
         using IMemoryScope parent = root.CreateScope();
+        Check(parent.TryReserve(64L, out IMemoryReservation? scratch), "caller buffer admitted before allocation");
+        using (scratch)
+        {
+            byte[] destination = new byte[32];
+            Check(await input.ReadAsync(expected.Length - 16L, destination, CancellationToken.None) == 16,
+                "destination read stops at stable EOF");
+            Check(destination.AsSpan(0, 16).SequenceEqual(expected.AsSpan(expected.Length - 16)), "tail read");
+            await QpdfInputReader.ReadExactlyAsync(input, 0, destination, CancellationToken.None);
+            Check(destination.AsSpan().SequenceEqual(expected.AsSpan(0, 32)), "reuse destination for earlier offset");
+            Check(await input.ReadAsync(input.Length, destination, CancellationToken.None) == 0, "stable EOF");
+            Check(await input.ReadAsync(0, Memory<byte>.Empty, CancellationToken.None) == 0, "empty read no-op");
+        }
         if (!parent.TryReserve(256L, out IMemoryReservation? held))
         { throw new InvalidOperationException("Parent reservation was refused."); }
         using (held)

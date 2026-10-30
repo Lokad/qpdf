@@ -33,7 +33,7 @@ internal static class FileSelectionCommand
             string name = path.Value;
             while (name.StartsWith("./", StringComparison.Ordinal)) { name = name[2..]; }
             if (!inputs.TryGetValue(name, out string? input)) { throw new FileNotFoundException("Input is unavailable.", name); }
-            SafeFileHandle handle = File.OpenHandle(input, FileMode.Open, FileAccess.Read, FileShare.Read,
+            SafeFileHandle handle = File.OpenHandle(input, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete,
                 FileOptions.Asynchronous | FileOptions.RandomAccess);
             try { return new(new FileInput(path, input, handle, RandomAccess.GetLength(handle))); }
             catch { handle.Dispose(); throw; }
