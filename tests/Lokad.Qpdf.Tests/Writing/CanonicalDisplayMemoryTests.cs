@@ -1,6 +1,8 @@
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Writing;
+using Lokad.Qpdf.TestSupport;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
 namespace Lokad.Qpdf.Tests.Writing;
@@ -222,7 +224,7 @@ public sealed class CanonicalDisplayMemoryTests
     }
 
     [Fact]
-    public async Task LongKeyRenderingCancelsAfterAdmissionAndReleasesScratch()
+    public void LongKeyRenderingCancelsAfterAdmissionAndReleasesScratch()
     {
         Dictionary<PdfName, QpdfObject> entries = new();
         for (int i = 0; i < 64; i++)
@@ -234,16 +236,43 @@ public sealed class CanonicalDisplayMemoryTests
         }
         PdfDictionary value = new(entries);
         using CancellationTokenSource cancellation = new();
-        ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token);
+        RecordingMemoryBudget root = new(65536L);
+        using IMemoryScope invocation = root.CreateScope();
+        ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token, new CancelingGrowthHost(invocation, cancellation));
         DiagnosticBag bag = new(governor);
-        Task sorting = Task.Factory.StartNew(() => CanonicalDisplay.AddDiagnostic(value, QpdfLimits.Default, governor, null, bag),
-            CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-        bool observed = SpinWait.SpinUntil(() => governor.Snapshot().LiveMemoryBytes > 0L || sorting.IsCompleted, TimeSpan.FromSeconds(10));
-        cancellation.Cancel();
-        Assert.True(observed);
-        await Assert.ThrowsAsync<OperationCanceledException>(async () => await sorting.WaitAsync(TimeSpan.FromSeconds(10)));
+        Assert.Throws<OperationCanceledException>(() => CanonicalDisplay.AddDiagnostic(value, QpdfLimits.Default, governor, null, bag));
+        Assert.True(cancellation.IsCancellationRequested);
+        Assert.Equal(1, root.ResizeCalls);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        Assert.InRange(governor.Snapshot().PeakMemoryBytes, 1L, 8192L);
+        Assert.InRange(governor.Snapshot().PeakMemoryBytes, 1056L, 8192L);
+        Assert.Equal(0L, root.ReservedBytes); Assert.Equal(0, root.LiveReservations);
         Assert.Empty(bag.Entries);
+    }
+
+    private sealed class CancelingGrowthHost(IMemoryBudget budget, CancellationTokenSource cancellation)
+        : IQpdfHost, IQpdfMemoryHost, IMemoryBudget
+    {
+        public IMemoryBudget MemoryBudget => this;
+        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => throw new NotSupportedException();
+        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token) => throw new NotSupportedException();
+        public IMemoryScope CreateScope() => budget.CreateScope();
+        public bool TryReserve(long bytes, [NotNullWhen(true)] out IMemoryReservation? reservation)
+        {
+            if (!budget.TryReserve(bytes, out IMemoryReservation? admitted)) { reservation = null; return false; }
+            try { reservation = new Receipt(admitted, cancellation); return true; }
+            catch { admitted.Dispose(); throw; }
+        }
+        private sealed class Receipt(IMemoryReservation inner, CancellationTokenSource cancellation) : IMemoryReservation
+        {
+            public long Bytes => inner.Bytes;
+            public bool TryResize(long bytes)
+            {
+                long previous = inner.Bytes;
+                bool accepted = inner.TryResize(bytes);
+                if (accepted && bytes > previous) { cancellation.Cancel(); }
+                return accepted;
+            }
+            public void Dispose() => inner.Dispose();
+        }
     }
 }
