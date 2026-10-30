@@ -29,6 +29,9 @@ adapter forwards to the host's allowance; scopes introduce owners, not separate
 limits. Admission is immediate and thread-safe. Refusal leaves accounting
 unchanged and fails the operation with `QpdfMemoryAdmissionException`, distinct
 from cancellation, a local `QpdfLimitException` and an actual allocation failure.
+Each engine acquisition makes one admission attempt. A codec's boolean probe
+may refuse and then admit an affordable fallback; refusal does not invalidate
+the shared owner or prevent use of its existing reserved capacity.
 Parser collection growth makes one admission attempt for its chosen capacity;
 refusal preserves existing entries and does not trigger a smaller retry. JPEG
 codec boundaries preserve actual `OutOfMemoryException` failures while releasing

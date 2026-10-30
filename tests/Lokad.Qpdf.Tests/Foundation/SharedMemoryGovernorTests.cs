@@ -37,19 +37,24 @@ public sealed class SharedMemoryGovernorTests
     }
 
     [Fact]
-    public void SharedRefusalPreservesLocalAndSharedStateAndDoesNotRetry()
+    public void SharedRefusalPreservesStateAndAllowsTheNextAffordableRequest()
     {
         RecordingMemoryBudget root = new(16384L);
         using IMemoryScope scope = root.CreateScope();
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None, new MemoryHost(scope));
         governor.ReserveMemory(256L);
+        int before = root.ReserveCalls + root.ResizeCalls;
         Assert.Throws<QpdfMemoryAdmissionException>(() => governor.ReserveMemory(65536L));
+        Assert.Equal(before + 1, root.ReserveCalls + root.ResizeCalls);
         Assert.Equal(256L, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(1024L, root.ReservedBytes);
         int calls = root.ReserveCalls + root.ResizeCalls;
-        Assert.Throws<QpdfMemoryAdmissionException>(() => governor.ReserveMemory(1L));
+        governor.ReserveMemory(1L);
         Assert.Equal(calls, root.ReserveCalls + root.ResizeCalls);
-        governor.ReleaseMemory(256L);
+        governor.ReserveMemory(2048L);
+        Assert.Equal(calls + 1, root.ReserveCalls + root.ResizeCalls);
+        Assert.Equal(2305L, governor.Snapshot().LiveMemoryBytes);
+        governor.ReleaseMemory(2305L);
         Assert.Equal(0L, root.ReservedBytes);
     }
 

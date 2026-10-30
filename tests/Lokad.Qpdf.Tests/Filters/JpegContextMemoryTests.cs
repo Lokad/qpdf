@@ -47,6 +47,7 @@ public sealed class JpegContextMemoryTests
         Assert.False(owner.TryReserve(32000L, out IMemoryReservation? refused)); Assert.Null(refused);
         Assert.Equal(1000L, receipt.Bytes); Assert.Equal(before, root.ReservedBytes);
         Assert.Equal(1000L, governor.Snapshot().LiveMemoryBytes);
+        Assert.True(owner.TryReserve(1L, out _));
         Assert.True(receipt.TryResize(500L)); receipt.Dispose(); context.Close();
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, root.ReservedBytes);
     }

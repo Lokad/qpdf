@@ -7,7 +7,6 @@ internal sealed class SharedMemoryOwner(IMemoryBudget budget, long localCeiling)
     private IMemoryBudget? _budget = budget;
     private IMemoryReservation? _reservation;
     private long _reserved;
-    private bool _refused;
     private bool _shrinkDeclined;
 
     internal long ReservedBytes => _reserved;
@@ -15,17 +14,16 @@ internal sealed class SharedMemoryOwner(IMemoryBudget budget, long localCeiling)
     internal void Ensure(long liveBytes)
     {
         if (_budget is null) { return; }
-        if (_refused) { throw new QpdfMemoryAdmissionException(liveBytes); }
         if (liveBytes <= _reserved) { return; }
         long target = Capacity(liveBytes);
         if (_reservation is null)
         {
             if (!_budget.TryReserve(target, out IMemoryReservation? reservation))
-            { _refused = true; throw new QpdfMemoryAdmissionException(target); }
+            { throw new QpdfMemoryAdmissionException(target); }
             _reservation = reservation;
         }
         else if (!_reservation.TryResize(target))
-        { _refused = true; throw new QpdfMemoryAdmissionException(target); }
+        { throw new QpdfMemoryAdmissionException(target); }
         _reserved = target;
     }
 

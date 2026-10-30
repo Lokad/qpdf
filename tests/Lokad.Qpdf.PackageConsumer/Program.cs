@@ -44,9 +44,12 @@ internal static class Program
     private sealed class SampleCodec : IQpdfJpegCodec
     {
         internal int Calls { get; private set; }
+        internal bool ProbeRefusal { get; init; }
         public void Decode(Stream encoded, QpdfJpegFrame frame, Memory<byte> samples, QpdfJpegCodecContext context)
         {
             using IMemoryScope owner = context.MemoryBudget.CreateScope();
+            if (ProbeRefusal)
+            { Check(!owner.TryReserve(2L * 1024L * 1024L, out _), "codec budget refusal is a recoverable probe"); }
             Check(owner.TryReserve(4096L, out IMemoryReservation? admitted), "public JPEG scratch admission");
             using IMemoryReservation working = admitted ?? throw new InvalidOperationException("Missing codec admission.");
             Check(working.TryResize(8192L), "public JPEG scratch growth");
@@ -83,6 +86,24 @@ internal static class Program
         Check(checkedWithoutCodec.Checks.Any(c => c.Name == "streams" && c.Status == QpdfCheckStatus.Skipped), "missing codec is an explicit skipped check");
         Check(!typeof(Qpdf).Assembly.GetReferencedAssemblies().Any(a => (a.Name ?? "").Contains("ImageSharp", StringComparison.Ordinal)), "core assembly has no ImageSharp reference");
         Check(!typeof(Qpdf).Assembly.GetReferencedAssemblies().Any(a => string.Equals(a.Name, "Lokad.Image", StringComparison.Ordinal)), "core assembly has no Lokad.Image reference");
+        foreach (bool shared in new[] { false, true })
+        {
+            RecordingMemoryBudget root = new(shared ? 1048576L : 4194304L);
+            QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = shared ? 4194304L : 1048576L };
+            using (IMemoryScope storage = root.CreateScope())
+            using (InMemoryQpdfHost fallbackHost = new(limits, new SampleCodec { ProbeRefusal = true }, storage))
+            {
+                fallbackHost.AddInput(QpdfPath.From("codec.pdf"), pdf, QpdfInputOwnership.Copy);
+                using IMemoryScope invocation = root.CreateScope();
+                QpdfExecutionResult fallback = await Qpdf.ExecuteAsync(new MemoryHostView(fallbackHost, invocation),
+                    new QpdfCommandInvocation(["codec.pdf", "--show-object=8", "--filtered-stream-data"]),
+                    new QpdfExecutionOptions(limits), CancellationToken.None);
+                Check(fallback.Status == QpdfExecutionStatus.Completed
+                    && fallback.OutputBytes.GetValueOrDefault().Span.SequenceEqual(new byte[] { 123 }),
+                    shared ? "shared codec refusal permits fallback and output" : "local codec refusal permits fallback and output");
+            }
+            Check(root.ReservedBytes == 0L, "codec fallback refunds invocation and durable host storage");
+        }
         Console.WriteLine("PASS dependency-free consumer with caller-supplied JPEG codec and explicit codec-free checks");
     }
 

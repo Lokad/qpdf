@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Keep shared memory owners usable after a refused codec probe. Affordable
+  fallback reservations can proceed without changing the failed request's
+  accounting or automatically retrying that request.
+
 - Serialize JPEG worker admission with encoded-output buffer accounting so
   concurrent codec work cannot lose charges or strand shared reservations.
 
