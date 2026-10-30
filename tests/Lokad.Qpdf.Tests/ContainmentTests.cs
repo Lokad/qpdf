@@ -16,6 +16,8 @@ public sealed class ContainmentTests
         "System.Security.Cryptography",
         "System.Text.Encoding.Extensions",
         "System.Text.Json",
+        // Monitor serializes the borrowed JPEG memory budget within each call.
+        "System.Threading",
     ];
 
     [Fact]

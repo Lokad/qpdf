@@ -29,7 +29,6 @@ public sealed class AttachmentConstructionTests
             public long Length => host.Data.Length;
             public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
             {
-
                 token.ThrowIfCancellationRequested();
                 if (offset < 0 || offset > Length) { throw new ArgumentOutOfRangeException(nameof(offset)); }
                 int count = Math.Min(destination.Length, host.Data.Length - (int)offset);
@@ -89,7 +88,13 @@ public sealed class AttachmentConstructionTests
         }
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         PdfStream stream = Assert.Single(pool.Values.OfType<PdfStream>());
-        if (!compress) { Assert.Same(bytes, stream.AllocationCarrier); Assert.Equal(bytes, stream.RawMemory.ToArray()); }
+        if (!compress)
+        {
+            Assert.NotSame(bytes, stream.AllocationCarrier);
+            Array.Fill(bytes, (byte)0); // Closing/reusing host storage cannot mutate the admitted destination.
+            byte[] expected = new byte[131072]; new Random(42).NextBytes(expected);
+            Assert.Equal(expected, stream.RawMemory.ToArray());
+        }
         else
         {
             using MemoryStream encoded = new(stream.RawMemory.ToArray()); using ZLibStream decoder = new(encoded, CompressionMode.Decompress);
