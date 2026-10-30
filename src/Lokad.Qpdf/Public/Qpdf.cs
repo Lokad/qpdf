@@ -229,40 +229,21 @@ public static partial class Qpdf
     /// Drops a generated /NeedAppearances flag from an assembled form, mirroring the reference
     /// clearing the condition once appearance generation has run.
     /// </summary>
-    private static PdfDictionary? ClearNeedAppearances(PdfDictionary? form, ResourceGovernor governor)
+    internal static PdfDictionary? ClearNeedAppearances(PdfDictionary? form, ResourceGovernor governor,
+        CancellationToken cancellationToken)
     {
-        if (governor is null)
-        {
-            throw new ArgumentNullException(nameof(governor));
-        }
-
-        if (form is null)
-        {
-            return null;
-        }
-
-        PdfName key = PdfName.FromAscii("NeedAppearances");
-        if (!form.TryGet(key, out QpdfObject? current) || current is null || current is PdfNull)
+        ArgumentNullException.ThrowIfNull(governor);
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        if (form is null) { return null; }
+        if (!PdfDictionaryLookup.TryGet(form, "NeedAppearances"u8, governor, cancellationToken, out QpdfObject current)
+            || current is PdfNull)
         {
             return form;
         }
 
-        Dictionary<PdfName, QpdfObject> entries = new();
-        foreach (PdfName name in form.Keys)
-        {
-            if (name.RawSpan.SequenceEqual("NeedAppearances"u8))
-            {
-                continue;
-            }
-
-            if (form.TryGet(name, out QpdfObject? value) && value is not null)
-            {
-                entries[name] = value;
-            }
-        }
-
-        governor.ReserveMemory(64L);
-        return new PdfDictionary(entries);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
+        PdfDictionary result = PdfDictionaryRebuild.RemoveEntry(graph, form, "NeedAppearances"u8);
+        graph.Retain(); return result;
     }
 
     private static Content.ContentTransformRequest? PrepareSourceContentTransforms(
@@ -509,7 +490,7 @@ public static partial class Qpdf
                             false);
                     if (singleGenerated)
                     {
-                        singleAcroForm = ClearNeedAppearances(singleAcroForm, governor);
+                        singleAcroForm = ClearNeedAppearances(singleAcroForm, governor, cancellationToken);
                     }
 
                     // Finish source copying before attachments allocate from the assembled pool.
@@ -1413,7 +1394,7 @@ public static partial class Qpdf
                 cancellationToken);
         if (multiGenerated)
         {
-            multiAcroForm = ClearNeedAppearances(multiAcroForm, governor);
+            multiAcroForm = ClearNeedAppearances(multiAcroForm, governor, cancellationToken);
         }
 
         if (governor.HasTypedResult) { selectionMemory.PrepareResultStorage(checked(24L * mapping.Count)); }
@@ -1503,7 +1484,7 @@ public static partial class Qpdf
                 groupAcroForm = Content.AcroFormCopy.BuildCatalogForm(multiCombined, pool, groupAnnots, pruneUnreachableFields, limits, governor, cancellationToken);
                 if (multiGenerated)
                 {
-                    groupAcroForm = ClearNeedAppearances(groupAcroForm, governor);
+                    groupAcroForm = ClearNeedAppearances(groupAcroForm, governor, cancellationToken);
                 }
             }
 

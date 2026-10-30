@@ -400,6 +400,12 @@ unset defaults. These distinctions are part of the supported contract.
 
 ## Resource API and behavior changes
 
+Appearance generation clears `/NeedAppearances` through the shared owned
+dictionary rebuild, with admitted growth and both cancellation checks. It no
+longer makes two unowned table copies under a flat 64-byte charge. Large form
+dictionaries can now refuse tight budgets earlier; missing/null flags, borrowed
+values and successful output semantics are unchanged. Public signatures are unchanged.
+
 Public result, counter and version records use compiler-generated copying,
 equality and hashing. Shallow aliases, constructor validation and admission are
 unchanged. Numeric `GetHashCode` results may change; equal records still hash
