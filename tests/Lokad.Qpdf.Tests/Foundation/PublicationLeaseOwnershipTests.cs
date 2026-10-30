@@ -57,7 +57,9 @@ public sealed class PublicationLeaseOwnershipTests
         else
         {
             IQpdfInput input = await GovernedHost.OpenInputAsync(host, QpdfPath.From("input"), governor, CancellationToken.None);
-            Assert.Equal(new byte[] { 1, 2, 3 }, (await input.ReadAsync(0L, 3, CancellationToken.None)).ToArray()); lease = input;
+            byte[] destination = new byte[3];
+            Assert.Equal(3, await input.ReadAsync(0L, destination, CancellationToken.None));
+            Assert.Equal(new byte[] { 1, 2, 3 }, destination); lease = input;
         }
         Assert.Equal(bytes, governor.Snapshot().LiveMemoryBytes); Assert.Equal(2L, governor.Snapshot().HostOperations);
         host.BeforeClose = () => { Assert.Equal(bytes, governor.Snapshot().LiveMemoryBytes); Assert.Equal(1L, governor.Snapshot().OpenHandles); };
@@ -153,7 +155,7 @@ await transaction.WriteAsync(new byte[] { 1, 2, 3 }, CancellationToken.None);
             public QpdfPath Path => inner.Path;
             public string Identity => inner.Identity;
             public long Length => inner.Length;
-            public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken token) => inner.ReadAsync(offset, count, token);
+            public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token) => inner.ReadAsync(offset, destination, token);
             public async ValueTask DisposeAsync()
             { QpdfPath path = Path; host.BeforeClose?.Invoke(); await inner.DisposeAsync(); host.Close(path); }
         }

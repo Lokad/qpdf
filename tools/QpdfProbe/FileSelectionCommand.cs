@@ -47,12 +47,12 @@ internal static class FileSelectionCommand
         public QpdfPath Path => path;
         public string Identity => identity;
         public long Length => length;
-        public async ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken token)
+        public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
         {
-            if (offset < 0L || count < 0 || count > Length - offset) { throw new ArgumentOutOfRangeException(nameof(count)); }
-            byte[] bytes = GC.AllocateUninitializedArray<byte>(count);
-            int read = await RandomAccess.ReadAsync(handle, bytes, offset, token).ConfigureAwait(false);
-            return bytes.AsMemory(0, read);
+            token.ThrowIfCancellationRequested();
+            if (offset < 0 || offset > Length) { throw new ArgumentOutOfRangeException(nameof(offset)); }
+            if (destination.IsEmpty) { return new(0); }
+            return RandomAccess.ReadAsync(handle, destination[..(int)Math.Min(destination.Length, Length - offset)], offset, token);
         }
         public ValueTask DisposeAsync() { handle.Dispose(); return ValueTask.CompletedTask; }
     }

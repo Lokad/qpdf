@@ -163,12 +163,12 @@ internal static class GovernedHost
             return true;
         }
 
-        public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken cancellationToken)
+        public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellationToken)
         {
             IQpdfInput inner = Inner;
             ResourceGovernor governor = _governor ?? throw new ObjectDisposedException(nameof(GovernedInput));
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.NoteHostOperation();
-            return inner.ReadAsync(offset, count, cancellationToken);
+            return inner.ReadAsync(offset, destination, cancellationToken);
         }
 
         public async ValueTask DisposeAsync()

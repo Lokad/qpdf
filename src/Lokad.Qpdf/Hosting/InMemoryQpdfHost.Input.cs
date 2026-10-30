@@ -50,16 +50,14 @@ public sealed partial class InMemoryQpdfHost
             return borrow;
         }
 
-        public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken cancellationToken)
+        public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellationToken)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             byte[] snapshot = Storage.Bytes;
-            if (offset < 0 || count < 0 || count > snapshot.Length - offset)
-            { throw new ArgumentOutOfRangeException(nameof(count), "Read range exceeds the stable input length."); }
-            if (count == 0) { return ValueTask.FromResult(ReadOnlyMemory<byte>.Empty); }
-            byte[] copy = GC.AllocateUninitializedArray<byte>(count);
-            Copy(snapshot.AsSpan((int)offset, count), copy, cancellationToken);
-            return ValueTask.FromResult<ReadOnlyMemory<byte>>(copy);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (offset < 0 || offset > Length) { throw new ArgumentOutOfRangeException(nameof(offset)); }
+            int count = Math.Min(destination.Length, snapshot.Length - (int)offset);
+            Copy(snapshot.AsSpan((int)offset, count), destination.Span, cancellationToken);
+            return new(count);
         }
 
         public ValueTask DisposeAsync()

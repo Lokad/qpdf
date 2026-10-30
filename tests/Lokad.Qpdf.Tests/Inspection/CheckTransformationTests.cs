@@ -200,10 +200,10 @@ public sealed class CheckTransformationTests
             public QpdfPath Path => input.Path;
             public string Identity => input.Identity;
             public long Length => input.Length;
-            public async ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken token)
+            public async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
             {
-                ReadOnlyMemory<byte> bytes = await input.ReadAsync(offset, count, token);
-                host.ForeignReadCompleted = !bytes.IsEmpty;
+                int bytes = await input.ReadAsync(offset, destination, token);
+                host.ForeignReadCompleted = bytes != 0;
                 cancellation.Cancel();
                 return bytes;
             }

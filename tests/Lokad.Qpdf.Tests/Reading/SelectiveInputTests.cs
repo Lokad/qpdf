@@ -73,17 +73,19 @@ public sealed class SelectiveInputTests
             public QpdfPath Path => path;
             public string Identity => "selective-input";
             public long Length => snapshot.Length;
-            public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken token)
+            public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
             {
                 ObjectDisposedException.ThrowIf(_disposed, this);
-                host.Reads.Add((offset, count));
+                host.Reads.Add((offset, destination.Length));
                 if (host.ReplaceFutureInput) { host._nextInput = "invalid future input"u8.ToArray(); }
-                if (host.Failure == "empty") { return new(ReadOnlyMemory<byte>.Empty); }
+                if (host.Failure == "empty") { return new(0); }
                 if (host.Reads.Count == 3) { host.Cancel?.Cancel(); }
                 token.ThrowIfCancellationRequested();
-                int take = Math.Min(count, host.Chunk);
-                host.ReadBytes += take;
-                return new(snapshot.AsSpan(checked((int)offset), take).ToArray());
+                if (offset < 0 || offset > Length) { throw new ArgumentOutOfRangeException(nameof(offset)); }
+                int count = Math.Min(Math.Min(destination.Length, snapshot.Length - (int)offset), host.Chunk);
+                snapshot.AsMemory((int)offset, count).CopyTo(destination);
+                host.ReadBytes += count;
+                return new(count);
             }
             public ValueTask DisposeAsync()
             {
@@ -116,7 +118,8 @@ public sealed class SelectiveInputTests
         {
             Dictionary<string, object> configuration = new()
             {
-                ["inputFile"] = Input.Value, ["outputFile"] = Output.Value,
+                ["inputFile"] = Input.Value,
+                ["outputFile"] = Output.Value,
                 ["pages"] = new[] { new { file = ".", range } },
             };
             if (strict) { configuration.Add("suppressRecovery", true); }

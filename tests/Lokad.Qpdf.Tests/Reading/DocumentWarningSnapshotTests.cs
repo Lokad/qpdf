@@ -279,8 +279,8 @@ public sealed class DocumentWarningSnapshotTests
             public QpdfPath Path => inner.Path;
             public string Identity => inner.Identity;
             public long Length => inner.Length;
-            public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken token)
-            { host.Reads++; return inner.ReadAsync(offset, count, token); }
+            public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
+            { host.Reads++; return inner.ReadAsync(offset, destination, token); }
             public async ValueTask DisposeAsync()
             {
                 host.Closes++;

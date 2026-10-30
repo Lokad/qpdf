@@ -63,11 +63,11 @@ public sealed class ResponseArgumentOwnershipTests(ITestOutputHelper log)
             public QpdfPath Path => inner.Path;
             public string Identity => inner.Identity;
             public long Length => inner.Length;
-            public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken token)
+            public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
             {
                 if (outcome == "read-fault") { throw new QpdfHostException(Path, QpdfHostFailureReason.ReadFailed); }
-                if (outcome == "no-progress") { return ValueTask.FromResult(ReadOnlyMemory<byte>.Empty); }
-                return inner.ReadAsync(offset, count, token);
+                if (outcome == "no-progress") { return ValueTask.FromResult(0); }
+                return inner.ReadAsync(offset, destination, token);
             }
             public async ValueTask DisposeAsync()
             {

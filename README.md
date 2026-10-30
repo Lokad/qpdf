@@ -51,7 +51,9 @@ cancellation tokens and configurable limits for input/output size, estimated mem
 and decoded bytes. Results include warnings and resource counters.
 
 Hosts can expose a shared memory budget through `IQpdfMemoryHost`; the standalone
-owned-read helper also accepts that budget directly. See
+`QpdfInputReader.ReadExactlyToArrayAsync` helper also accepts that budget directly.
+Custom inputs fill caller-owned `Memory<byte>` and return a count; see the
+breaking alpha.2 migration in the changelog. See
 [cooperative memory admission](https://github.com/Lokad/qpdf/blob/master/docs/MEMORY.md) for caller-scope ownership and the
 current boundary between engine estimates and host-private storage.
 

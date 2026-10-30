@@ -76,15 +76,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Inspect package boundary
         run: |
-          ./tools/verify-package.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.1.nupkg `
+          ./tools/verify-package.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.2.nupkg `
             2>&1 | Tee-Object artifacts/ci/logs/package.log
       - name: Verify fresh artifact consumer
         run: |
-          ./tools/verify-package-consumer.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.1.nupkg `
+          ./tools/verify-package-consumer.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.2.nupkg `
             2>&1 | Tee-Object artifacts/ci/logs/consumer.log
       - name: Test consumer verification rejections
         run: |
-          ./tools/test-package-consumer.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.1.nupkg `
+          ./tools/test-package-consumer.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.2.nupkg `
             2>&1 | Tee-Object artifacts/ci/logs/consumer-rejections.log
       - name: Capture failure process diagnostics
         if: failure()

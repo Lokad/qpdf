@@ -40,9 +40,9 @@ public sealed class PublicCpuCancellationTests(ITestOutputHelper output)
             public string Identity => inner.Identity;
             public long Length => inner.Length;
 
-            public async ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken token)
+            public async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
             {
-                ReadOnlyMemory<byte> bytes = await inner.ReadAsync(offset, count, token);
+                int bytes = await inner.ReadAsync(offset, destination, token);
                 host._entered.TrySetResult();
                 await host._resume.Task.WaitAsync(token);
                 return bytes;

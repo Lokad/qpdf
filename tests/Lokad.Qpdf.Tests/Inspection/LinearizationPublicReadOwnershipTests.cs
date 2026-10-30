@@ -137,8 +137,8 @@ public sealed class LinearizationPublicReadOwnershipTests
             public QpdfPath Path => inner.Path;
             public string Identity => inner.Identity;
             public long Length => inner.Length;
-            public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken cancellationToken)
-                => inner.ReadAsync(offset, count, cancellationToken);
+            public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellationToken)
+                => inner.ReadAsync(offset, destination, cancellationToken);
             public async ValueTask DisposeAsync()
             {
                 if (_closed) { return; }

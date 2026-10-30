@@ -298,8 +298,8 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
             public QpdfPath Path => inner.Path;
             public string Identity => inner.Identity;
             public long Length => inner.Length;
-            public async ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken cancellation)
-            { ReadOnlyMemory<byte> bytes = await inner.ReadAsync(offset, count, cancellation); await host.Pause("read", Path, cancellation); return bytes; }
+            public async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellation)
+            { int bytes = await inner.ReadAsync(offset, destination, cancellation); await host.Pause("read", Path, cancellation); return bytes; }
             public async ValueTask DisposeAsync()
             { try { await host.Pause("input-close", Path, token); } finally { await inner.DisposeAsync(); } }
         }

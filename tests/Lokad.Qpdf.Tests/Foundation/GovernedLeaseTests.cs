@@ -152,10 +152,10 @@ public sealed class GovernedLeaseTests
 
             public long Length => _input.Length;
 
-            public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken cancellationToken)
+            public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellationToken)
             {
                 _host.ReadCalls++;
-                return _input.ReadAsync(offset, _host.ShortReads ? Math.Min(1, count) : count, cancellationToken);
+                return _input.ReadAsync(offset, _host.ShortReads ? destination[..Math.Min(1, destination.Length)] : destination, cancellationToken);
             }
 
             public ValueTask DisposeAsync()

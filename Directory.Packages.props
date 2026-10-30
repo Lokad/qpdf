@@ -11,7 +11,7 @@
     <!-- Development-only benchmarking harness. Never a runtime dependency and never packed. -->
     <PackageVersion Include="BenchmarkDotNet" Version="[0.15.8]" />
     <!-- In-repo consumer pins the built package; bump together with src/Lokad.Qpdf releases. -->
-    <PackageVersion Include="Lokad.qpdf" Version="0.1.0-alpha.1" />
+    <PackageVersion Include="Lokad.qpdf" Version="0.1.0-alpha.2" />
   </ItemGroup>
 </Project>
 

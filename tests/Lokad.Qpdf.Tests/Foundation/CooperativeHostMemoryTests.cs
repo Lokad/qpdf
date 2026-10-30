@@ -41,8 +41,12 @@ public sealed class CooperativeHostMemoryTests
                 Assert.Equal(funded, funding.Bytes);
                 Assert.Equal(new byte[] { 7, 8, 9 }, candidate);
                 await using IQpdfInput current = await host.OpenInputAsync(InputPath, CancellationToken.None);
-                Assert.Equal(new byte[] { 1, 2, 3 }, (await prior.ReadAsync(0, 3, CancellationToken.None)).ToArray());
-                Assert.Equal(new byte[] { 1, 2, 3 }, (await current.ReadAsync(0, 3, CancellationToken.None)).ToArray());
+                byte[] priorBytes = new byte[3];
+                Assert.Equal(3, await prior.ReadAsync(0, priorBytes, CancellationToken.None));
+                Assert.Equal(new byte[] { 1, 2, 3 }, priorBytes);
+                byte[] currentBytes = new byte[3];
+                Assert.Equal(3, await current.ReadAsync(0, currentBytes, CancellationToken.None));
+                Assert.Equal(new byte[] { 1, 2, 3 }, currentBytes);
             }
             Assert.Equal(0L, host.OpenLeaseCount);
             host.Dispose();

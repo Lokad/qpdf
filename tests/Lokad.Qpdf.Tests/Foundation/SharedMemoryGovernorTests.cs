@@ -280,11 +280,11 @@ public sealed class SharedMemoryGovernorTests
             public string Identity => inner.Identity;
             public long Length => inner.Length;
 
-            public async ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken cancellationToken)
+            public async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellationToken)
             {
                 host.ReadStarted.TrySetResult();
                 await host.ContinueRead.Task;
-                return await inner.ReadAsync(offset, count, cancellationToken);
+                return await inner.ReadAsync(offset, destination, cancellationToken);
             }
 
             public ValueTask DisposeAsync() => inner.DisposeAsync();

@@ -1,6 +1,5 @@
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Runtime;
-using System.Runtime.InteropServices;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
@@ -21,7 +20,8 @@ public sealed class InMemoryHostTests
         {
             Assert.Equal(8L, input.Length);
             Assert.Equal(path, input.Path);
-            ReadOnlyMemory<byte> chunk = await input.ReadAsync(2L, 3, CancellationToken.None);
+            byte[] chunk = new byte[3];
+            Assert.Equal(chunk.Length, await input.ReadAsync(2L, chunk, CancellationToken.None));
             Assert.Equal([3, 4, 5], chunk.ToArray());
         }
 
@@ -37,12 +37,13 @@ public sealed class InMemoryHostTests
         host.AddInput(path, caller, QpdfInputOwnership.Copy);
         caller[0] = 99;
         await using IQpdfInput input = await host.OpenInputAsync(path, CancellationToken.None);
-        ReadOnlyMemory<byte> chunk = await input.ReadAsync(0L, 1, CancellationToken.None);
+        byte[] chunk = new byte[1];
+        Assert.Equal(chunk.Length, await input.ReadAsync(0L, chunk, CancellationToken.None));
         Assert.Equal([1], chunk.ToArray());
     }
 
     [Fact]
-    public async Task ReadsReturnFreshCopies()
+    public async Task ReadsFillCallerStorageWithoutExposingSnapshot()
     {
         InMemoryQpdfHost host = new();
         QpdfPath path = QpdfPath.From("inputs/doc.pdf");
@@ -50,10 +51,11 @@ public sealed class InMemoryHostTests
         host.AddInput(path, original, QpdfInputOwnership.Copy);
         await using (IQpdfInput input = await host.OpenInputAsync(path, CancellationToken.None))
         {
-            ReadOnlyMemory<byte> first = await input.ReadAsync(0L, original.Length, CancellationToken.None);
-            Assert.True(MemoryMarshal.TryGetArray(first, out ArraySegment<byte> backing));
-            backing.AsSpan().Fill(99);
-            byte[] second = await QpdfInputReader.ReadExactlyAsync(input, 0L, original.Length, CancellationToken.None);
+            byte[] first = new byte[original.Length];
+            Assert.Equal(first.Length, await input.ReadAsync(0L, first, CancellationToken.None));
+            first.AsSpan().Fill(99);
+            byte[] second = new byte[original.Length];
+            await QpdfInputReader.ReadExactlyAsync(input, 0L, second, CancellationToken.None);
             Assert.Equal(original, second);
         }
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
@@ -72,8 +74,9 @@ public sealed class InMemoryHostTests
         QpdfPath path = QpdfPath.From("inputs/doc.pdf");
         host.AddInput(path, SampleBytes(), QpdfInputOwnership.Copy);
         await using IQpdfInput input = await host.OpenInputAsync(path, CancellationToken.None);
-        ReadOnlyMemory<byte> chunk = await input.ReadAsync(8L, 0, CancellationToken.None);
-        Assert.Equal(0, chunk.Length);
+        byte[] chunk = new byte[0];
+        Assert.Equal(chunk.Length, await input.ReadAsync(8L, chunk, CancellationToken.None));
+        Assert.Empty(chunk);
     }
 
     [Fact]
@@ -83,9 +86,9 @@ public sealed class InMemoryHostTests
         QpdfPath path = QpdfPath.From("inputs/doc.pdf");
         host.AddInput(path, SampleBytes(), QpdfInputOwnership.Copy);
         await using IQpdfInput input = await host.OpenInputAsync(path, CancellationToken.None);
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => input.ReadAsync(9L, 1, CancellationToken.None).AsTask());
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => input.ReadAsync(-1L, 1, CancellationToken.None).AsTask());
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => input.ReadAsync(0L, -1, CancellationToken.None).AsTask());
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => input.ReadAsync(9L, new byte[1], CancellationToken.None).AsTask());
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => input.ReadAsync(-1L, new byte[1], CancellationToken.None).AsTask());
+        Assert.Equal(1, await input.ReadAsync(7L, new byte[4], CancellationToken.None));
     }
 
     [Fact]
@@ -104,7 +107,8 @@ public sealed class InMemoryHostTests
         QpdfPath path = QpdfPath.From("inputs/doc.pdf");
         host.Add(path, SampleBytes());
         await using IQpdfInput input = await host.OpenInputAsync(path, CancellationToken.None);
-        byte[] all = await QpdfInputReader.ReadExactlyAsync(input, 0L, 8, CancellationToken.None);
+        byte[] all = new byte[8];
+        await QpdfInputReader.ReadExactlyAsync(input, 0L, all, CancellationToken.None);
         Assert.Equal(SampleBytes(), all);
     }
 
@@ -121,11 +125,13 @@ public sealed class InMemoryHostTests
         byte[] surviving;
         await using (IQpdfInput input = await host.OpenInputAsync(path, CancellationToken.None))
         {
-            byte[] first = await QpdfInputReader.ReadExactlyAsync(input, offset, count, CancellationToken.None);
+            byte[] first = new byte[count];
+            await QpdfInputReader.ReadExactlyAsync(input, offset, first, CancellationToken.None);
             Assert.Equal(expected, first);
             Array.Fill(caller, (byte)99);
             Array.Fill(first, (byte)99);
-            surviving = await QpdfInputReader.ReadExactlyAsync(input, offset, count, CancellationToken.None);
+            surviving = new byte[count];
+            await QpdfInputReader.ReadExactlyAsync(input, offset, surviving, CancellationToken.None);
         }
         Assert.Equal(expected, surviving);
         Assert.Equal(0L, host.OpenLeaseCount);
@@ -138,7 +144,7 @@ public sealed class InMemoryHostTests
         NonProgressingHost host = new(QpdfPath.From("inputs/doc.pdf"), snapshot);
         await using IQpdfInput input = await host.OpenInputAsync(QpdfPath.From("inputs/doc.pdf"), CancellationToken.None);
         QpdfHostException ex = await Assert.ThrowsAsync<QpdfHostException>(
-            () => QpdfInputReader.ReadExactlyAsync(input, 0L, 8, CancellationToken.None).AsTask());
+            () => QpdfInputReader.ReadExactlyAsync(input, 0L, new byte[8], CancellationToken.None).AsTask());
         Assert.Equal(QpdfHostFailureReason.NonProgressingRead, ex.Reason);
     }
 
@@ -150,7 +156,7 @@ public sealed class InMemoryHostTests
         host.AddInput(path, SampleBytes(), QpdfInputOwnership.Copy);
         await using IQpdfInput input = await host.OpenInputAsync(path, CancellationToken.None);
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
-            () => QpdfInputReader.ReadExactlyAsync(input, 0L, 9, CancellationToken.None).AsTask());
+            () => QpdfInputReader.ReadExactlyAsync(input, 0L, new byte[9], CancellationToken.None).AsTask());
     }
 
     [Fact]
@@ -165,7 +171,7 @@ public sealed class InMemoryHostTests
             () => host.OpenInputAsync(path, source.Token).AsTask());
         await using IQpdfInput input = await host.OpenInputAsync(path, CancellationToken.None);
         await Assert.ThrowsAsync<OperationCanceledException>(
-            () => input.ReadAsync(0L, 1, source.Token).AsTask());
+            () => input.ReadAsync(0L, new byte[1], source.Token).AsTask());
     }
 
     [Fact]
@@ -192,7 +198,7 @@ public sealed class InMemoryHostTests
     [Fact]
     public void InvalidPathsAreRejected()
     {
-        #pragma warning disable CS8625 // Intentional null literal for a negative test.
+#pragma warning disable CS8625 // Intentional null literal for a negative test.
         Assert.Throws<ArgumentNullException>(() => QpdfPath.From(null));
 #pragma warning restore CS8625
         Assert.Throws<ArgumentException>(() => QpdfPath.From(string.Empty));

@@ -497,11 +497,11 @@ public sealed class DocumentLifetimeTests
             public QpdfPath Path => inner.Path;
             public string Identity => inner.Identity;
             public long Length => inner.Length;
-            public async ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken cancellationToken)
+            public async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellationToken)
             {
                 host.Reads++;
-                if (host.Mode == "stall" && host.Reads == 2) { return ReadOnlyMemory<byte>.Empty; }
-                ReadOnlyMemory<byte> read = await inner.ReadAsync(offset, host.Mode == "dispose" ? count : Math.Min(count, 97), cancellationToken);
+                if (host.Mode == "stall" && host.Reads == 2) { return 0; }
+                int read = await inner.ReadAsync(offset, host.Mode == "dispose" ? destination : destination[..Math.Min(destination.Length, 97)], cancellationToken);
                 if (host.Mode == "cancel") { host.Cancellation?.Cancel(); }
                 return read;
             }

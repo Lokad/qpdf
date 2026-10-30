@@ -4,9 +4,9 @@
     "net10.0": {
       "Lokad.qpdf": {
         "type": "Direct",
-        "requested": "[0.1.0-alpha.1, )",
-        "resolved": "0.1.0-alpha.1",
-        "contentHash": "KSy9o5sj8DHi3zmzASbbinwsQmkcYEsMgOKfPlaH66F/JHRBZumG5sVtTes3UQXVL52dAkVIL+7Nn/RWEBEWLQ=="
+        "requested": "[0.1.0-alpha.2, )",
+        "resolved": "0.1.0-alpha.2",
+        "contentHash": "1zrYV0kuym/EYE0vJxIzt9syR/Q0HX5Cxzwtk2Gac+Wzr7dp+2jgByBvSylDl5BPYl5rVhqsEyLBJ7tevHP8IA=="
       }
     }
   }

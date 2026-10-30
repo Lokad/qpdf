@@ -637,8 +637,8 @@ public sealed class PublicationAdmissionTests
             public QpdfPath Path => input.Path;
             public string Identity => input.Identity;
             public long Length => input.Length;
-            public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken token)
-            { host.Operations++; host.Check("read", Path, 0); return input.ReadAsync(offset, count, token); }
+            public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
+            { host.Operations++; host.Check("read", Path, 0); return input.ReadAsync(offset, destination, token); }
             public async ValueTask DisposeAsync()
             { QpdfPath path = Path; await input.DisposeAsync(); host.Check("input-close", path, 0); }
         }

@@ -315,8 +315,8 @@ public sealed class PresentationCountTests
             public QpdfPath Path => _inner.Path;
             public string Identity => _inner.Identity;
             public long Length => _inner.Length;
-            public async ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken token)
-            { ReadOnlyMemory<byte> bytes = await _inner.ReadAsync(offset, count, token); _host.Observe("read", Path, token); return bytes; }
+            public async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
+            { int bytes = await _inner.ReadAsync(offset, destination, token); _host.Observe("read", Path, token); return bytes; }
             public ValueTask DisposeAsync() => _inner.DisposeAsync();
         }
 

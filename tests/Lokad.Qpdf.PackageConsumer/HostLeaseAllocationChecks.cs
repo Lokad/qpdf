@@ -82,8 +82,15 @@ internal static class HostLeaseAllocationChecks
         public QpdfPath Path => QpdfPath.From("input");
         public string Identity => "input";
         public long Length => bytes.Length;
-        public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken token)
-            => ValueTask.FromResult<ReadOnlyMemory<byte>>(bytes.AsMemory((int)offset, count).ToArray());
+        public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
+        {
+
+            token.ThrowIfCancellationRequested();
+            if (offset < 0 || offset > Length) { throw new ArgumentOutOfRangeException(nameof(offset)); }
+            int count = Math.Min(destination.Length, bytes.Length - (int)offset);
+            bytes.AsMemory((int)offset, count).CopyTo(destination);
+            return new(count);
+        }
         public ValueTask DisposeAsync() { Disposes++; Host.ReleasePressure(); return ValueTask.CompletedTask; }
     }
 

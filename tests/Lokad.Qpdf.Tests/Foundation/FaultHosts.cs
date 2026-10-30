@@ -19,21 +19,14 @@ internal sealed class FakeInput : IQpdfInput
 
     public long Length => _snapshot.Length;
 
-    public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken cancellationToken)
+    public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellationToken)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         cancellationToken.ThrowIfCancellationRequested();
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(IQpdfInput));
-
-        if (offset < 0 || count < 0 || count > _snapshot.Length - offset)
-            throw new ArgumentOutOfRangeException(nameof(count), "Read range exceeds the stable input length.");
-
-        if (count == 0)
-            return ValueTask.FromResult(ReadOnlyMemory<byte>.Empty);
-
-        byte[] copy = new byte[count];
-        Buffer.BlockCopy(_snapshot, (int)offset, copy, 0, count);
-        return ValueTask.FromResult((ReadOnlyMemory<byte>)copy);
+        if (offset < 0 || offset > Length) { throw new ArgumentOutOfRangeException(nameof(offset)); }
+        int count = Math.Min(destination.Length, _snapshot.Length - (int)offset);
+        _snapshot.AsMemory((int)offset, count).CopyTo(destination);
+        return new(count);
     }
 
     public ValueTask DisposeAsync()
@@ -61,10 +54,10 @@ internal sealed class NonProgressingInput : IQpdfInput
 
     public long Length => _snapshot.Length;
 
-    public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken cancellationToken)
+    public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return ValueTask.FromResult(ReadOnlyMemory<byte>.Empty);
+        return ValueTask.FromResult(0);
     }
 
     public ValueTask DisposeAsync()

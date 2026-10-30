@@ -69,8 +69,8 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
             public QpdfPath Path => inner.Path;
             public string Identity => inner.Identity;
             public long Length => inner.Length;
-            public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken token)
-                => outcome == "read-fault" ? throw new QpdfHostException(Path, QpdfHostFailureReason.ReadFailed) : inner.ReadAsync(offset, count, token);
+            public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
+                => outcome == "read-fault" ? throw new QpdfHostException(Path, QpdfHostFailureReason.ReadFailed) : inner.ReadAsync(offset, destination, token);
             public async ValueTask DisposeAsync()
             {
                 try { if (outcome == "close-fault") { throw new QpdfHostException(Path, QpdfHostFailureReason.ReadFailed); } }

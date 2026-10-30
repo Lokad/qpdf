@@ -340,10 +340,10 @@ public sealed class ExecutionCounterTests
             public QpdfPath Path => inner.Path;
             public string Identity => inner.Identity;
             public long Length => inner.Length;
-            public async ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken cancellationToken)
+            public async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellationToken)
             {
-                ReadOnlyMemory<byte> bytes = await inner.ReadAsync(offset, host.ShortReads ? Math.Min(count, 1) : count, cancellationToken);
-                host.ReadBytes += bytes.Length;
+                int bytes = await inner.ReadAsync(offset, host.ShortReads ? destination[..Math.Min(destination.Length, 1)] : destination, cancellationToken);
+                host.ReadBytes += bytes;
                 await host.Pause("read", Path, cancellationToken);
                 return bytes;
             }

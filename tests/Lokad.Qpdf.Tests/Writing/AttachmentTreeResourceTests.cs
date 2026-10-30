@@ -160,8 +160,8 @@ public sealed class AttachmentTreeResourceTests
             public QpdfPath Path => inner.Path;
             public string Identity => inner.Identity;
             public long Length => inner.Length;
-            public async ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken token)
-            { ReadOnlyMemory<byte> bytes = await inner.ReadAsync(offset, count, token); budget.Armed = true; return bytes; }
+            public async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
+            { int bytes = await inner.ReadAsync(offset, destination, token); budget.Armed = true; return bytes; }
             public ValueTask DisposeAsync() => inner.DisposeAsync();
         }
         private sealed class Transaction(IQpdfOutputTransaction inner, string phase) : IQpdfOutputTransaction

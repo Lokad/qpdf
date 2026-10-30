@@ -60,10 +60,10 @@ public sealed class CheckCollectionOwnershipTests
             public QpdfPath Path => inner.Path;
             public string Identity => inner.Identity;
             public long Length => inner.Length;
-            public async ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken token)
+            public async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
             {
-                ReadOnlyMemory<byte> data = await inner.ReadAsync(offset, count, token);
-                host.ReadBytes += data.Length; await host.Pause("read", token); return data;
+                int data = await inner.ReadAsync(offset, destination, token);
+                host.ReadBytes += data; await host.Pause("read", token); return data;
             }
             public async ValueTask DisposeAsync()
             {

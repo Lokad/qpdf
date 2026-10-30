@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Version 0.1.0-alpha.2 deliberately breaks the alpha host input contract:
+  `IQpdfInput.ReadAsync` now accepts `Memory<byte>` and returns a byte count.
+  Replace allocating `ReadExactlyAsync` calls with explicitly governed
+  `ReadExactlyToArrayAsync`, or fill an already admitted buffer with the
+  nonallocating `ReadExactlyAsync`. Short reads need no assembly allocation.
+
 - Preserve source object generations in overlay/underlay annotation and widget
   imports. Stale references stay null regardless of traversal order, and valid
   nonzero-generation fields retain their AcroForm registration.

@@ -32,9 +32,9 @@ public sealed class ExceptionalCommandMemoryTests
             public QpdfPath Path => inner.Path;
             public string Identity => inner.Identity;
             public long Length => inner.Length;
-            public async ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken token)
+            public async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
             {
-                ReadOnlyMemory<byte> result = await inner.ReadAsync(offset, count, token);
+                int result = await inner.ReadAsync(offset, destination, token);
                 if (phase == "read") { throw failure; }
                 return result;
             }

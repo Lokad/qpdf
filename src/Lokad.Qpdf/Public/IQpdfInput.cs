@@ -1,12 +1,13 @@
-using System.Runtime.InteropServices;
 using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf;
 
-/// <summary>
-/// A stable, seekable input behind the host boundary. Each read returns a
-/// freshly owned copy; the library never retains caller-mutable arrays.
-/// </summary>
+/// <summary>A stable, offset-addressed input acquired once from the host.</summary>
+/// <remarks>
+/// Identity, length and opened content remain stable until disposal, including
+/// after logical replacement or rename. Reads do not share a cursor or reopen paths.
+/// A lease has one caller: await each read before another read or disposal.
+/// </remarks>
 public interface IQpdfInput : IAsyncDisposable
 {
     /// <summary>Gets the logical path the input was opened from.</summary>
@@ -18,155 +19,92 @@ public interface IQpdfInput : IAsyncDisposable
     /// <summary>Gets the stable length in bytes.</summary>
     long Length { get; }
 
-    /// <summary>
-    /// Reads up to <paramref name="count" /> bytes at <paramref name="offset" />.
-    /// Returns an empty buffer only at end of input. Throws
-    /// <see cref="ArgumentOutOfRangeException" /> for invalid ranges,
-    /// <see cref="QpdfHostException" /> for transport failures, and
-    /// <see cref="OperationCanceledException" /> on cancellation.
-    /// </summary>
-    ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken cancellationToken);
+    /// <summary>Reads up to the destination length at the given offset; short reads are allowed.</summary>
+    /// <remarks>
+    /// Offset must be between zero and Length inclusive. An empty destination is
+    /// a no-op; otherwise zero means stable EOF. The caller admits and owns the
+    /// destination before calling. The host borrows it through actual completion
+    /// only, funds any private scratch separately, and retains no buffer reference
+    /// afterward. Failure or cancellation may modify a prefix but returns no count.
+    /// Cancellation must finish pending I/O before completion; callers await it
+    /// before reusing the buffer or disposing the input.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The offset is invalid.</exception>
+    /// <exception cref="QpdfHostException">The transport failed.</exception>
+    /// <exception cref="OperationCanceledException">The read was canceled.</exception>
+    ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellationToken);
 }
 
 /// <summary>Ranged-read helpers shared by every engine subsystem.</summary>
 public static class QpdfInputReader
 {
-    /// <summary>
-    /// Reads exactly <paramref name="count" /> bytes, looping over short host
-    /// reads. Rejects non-progressing reads and premature end of input with
-    /// <see cref="QpdfHostException" /> instead of silently accepting short data.
-    /// </summary>
-    /// <exception cref="ArgumentNullException">The input is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">The range is invalid.</exception>
-    public static ValueTask<byte[]> ReadExactlyAsync(
-        IQpdfInput input,
-        long offset,
-        int count,
-        CancellationToken cancellationToken)
-        => ReadExactlyCoreAsync(input, offset, count, null, null, cancellationToken);
+    /// <summary>Fills an already admitted caller buffer, looping over short reads.</summary>
+    /// <remarks>The input and destination remain caller-owned. No storage is acquired.</remarks>
+    /// <exception cref="QpdfHostException">The host returns an invalid count or stops before stable EOF.</exception>
+    public static ValueTask ReadExactlyAsync(IQpdfInput input, long offset,
+        Memory<byte> destination, CancellationToken cancellationToken)
+        => ReadExactlyCoreAsync(input, offset, destination, null, cancellationToken);
 
-    /// <summary>Reads owned bytes after admitting their capacity against a caller's memory owner.</summary>
+    private static async ValueTask ReadExactlyCoreAsync(IQpdfInput input, long offset,
+        Memory<byte> destination, ResourceGovernor? governor, CancellationToken cancellationToken)
+    {
+        ValidateRange(input, offset, destination.Length);
+        cancellationToken.ThrowIfCancellationRequested();
+        int filled = 0;
+        while (filled < destination.Length)
+        {
+            cancellationToken.ThrowIfCancellationRequested(); governor?.CheckCancellation();
+            int read = await input.ReadAsync(offset + filled, destination[filled..], cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested(); governor?.CheckCancellation();
+            if (read <= 0 || read > destination.Length - filled)
+            { throw new QpdfHostException(input.Path, QpdfHostFailureReason.NonProgressingRead); }
+            filled += read;
+        }
+    }
+
+    /// <summary>Admits and reads an owned array under the caller's memory owner.</summary>
     /// <remarks>
-    /// The borrowed budget must outlive the returned bytes. Their charge remains
-    /// beneath that caller owner until its disposal; no collection is required.
-    /// Short or non-array reads admit assembly overlap before copying. Hosts
-    /// account separately for private buffers and excess returned backing capacity.
-    /// Refusal fails immediately without retrying. The input lease stays caller-owned.
+    /// The result charge remains beneath the borrowed budget until that owner is
+    /// disposed. Keep it alive until all users finish. Failure refunds admission
+    /// only after the host read has completed. Refusal precedes allocation and I/O.
     /// </remarks>
-    /// <exception cref="ArgumentNullException">The input or budget is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">The range is invalid.</exception>
-    /// <exception cref="QpdfMemoryAdmissionException">The shared allowance refused admission.</exception>
-    public static ValueTask<byte[]> ReadExactlyAsync(
-        IQpdfInput input,
-        long offset,
-        int count,
-        IMemoryBudget memoryBudget,
-        CancellationToken cancellationToken)
+    public static async ValueTask<byte[]> ReadExactlyToArrayAsync(IQpdfInput input,
+        long offset, int count, IMemoryBudget memoryBudget, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(memoryBudget);
-        return ReadExactlyCoreAsync(input, offset, count, memoryBudget, null, cancellationToken);
-    }
-
-    // The engine already admits the returned array under its destination owner.
-    // This path adds only a temporary assembly/read overlap, when actually needed.
-    internal static ValueTask<byte[]> ReadAdmittedAsync(IQpdfInput input, long offset, int count,
-        ResourceGovernor governor, CancellationToken cancellationToken)
-        => ReadExactlyCoreAsync(input, offset, count, null, governor, cancellationToken);
-
-    private static async ValueTask<byte[]> ReadExactlyCoreAsync(
-        IQpdfInput input, long offset, int count, IMemoryBudget? memoryBudget, ResourceGovernor? governor,
-        CancellationToken cancellationToken)
-    {
-        if (input is null)
-        {
-            throw new ArgumentNullException(nameof(input));
-        }
-
-        if (offset < 0 || count < 0 || count > input.Length - offset)
-        {
-            throw new ArgumentOutOfRangeException(nameof(count), "Read range exceeds the stable input length.");
-        }
-
+        ValidateRange(input, offset, count);
         cancellationToken.ThrowIfCancellationRequested();
         if (count == 0) { return Array.Empty<byte>(); }
-        IMemoryReservation? storage = memoryBudget is null ? null
-            : MemoryAdmission.Reserve(memoryBudget, count + GovernedBufferStream.ArrayOverheadBytes);
-        long overlap = 0L;
+        IMemoryReservation reservation = MemoryAdmission.Reserve(memoryBudget, count + 32L);
+        bool accepted = false;
         try
         {
-            byte[]? result = null;
-            bool assembled = false;
-            int filled = 0;
-            while (filled < count)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                ReadOnlyMemory<byte> chunk = await input.ReadAsync(offset + filled, count - filled, cancellationToken).ConfigureAwait(false);
-                cancellationToken.ThrowIfCancellationRequested();
-                if (chunk.Length == 0)
-                {
-                    throw new QpdfHostException(input.Path, QpdfHostFailureReason.NonProgressingRead);
-                }
-
-                // Reuse a complete freshly owned array. Other reads assemble
-                // without retaining slices of unrelated backing storage.
-                if (filled == 0 && chunk.Length == count
-                    && MemoryMarshal.TryGetArray(chunk, out ArraySegment<byte> backing)
-                    && backing.Offset == 0 && backing.Array is byte[] owned && owned.Length == count)
-                {
-                    result = owned;
-                    break;
-                }
-
-                if (result is null)
-                {
-                    // The first read and its assembly copy coexist. Later
-                    // short reads reuse the same admitted overlap allowance.
-                    if (storage is not null)
-                    { MemoryAdmission.Resize(storage, 2L * (count + GovernedBufferStream.ArrayOverheadBytes)); }
-                    if (governor is not null)
-                    {
-                        long bytes = count + GovernedBufferStream.ArrayOverheadBytes;
-                        governor.ReserveMemory(bytes);
-                        overlap = bytes;
-                    }
-                    cancellationToken.ThrowIfCancellationRequested();
-                    governor?.CheckCancellation();
-                    result = new byte[count];
-                    assembled = true;
-                }
-                int take = Math.Min(chunk.Length, count - filled);
-                for (int copied = 0; copied < take;)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    int batch = Math.Min(8192, take - copied);
-                    chunk.Slice(copied, batch).CopyTo(result.AsMemory(filled + copied, batch));
-                    copied += batch;
-                }
-                filled += take;
-                chunk = default;
-            }
-
-            if (storage is not null && assembled)
-            { MemoryAdmission.Resize(storage, count + GovernedBufferStream.ArrayOverheadBytes); }
-            // Refund overlap before the final cancellation check: shrinking
-            // the shared reservation can call the host's budget again.
-            if (overlap != 0L)
-            {
-                long bytes = overlap; overlap = 0L;
-                governor?.ReleaseMemory(bytes);
-            }
             cancellationToken.ThrowIfCancellationRequested();
-            governor?.CheckCancellation();
-            // Successful storage belongs to the supplied caller scope. Failure
-            // before escape instead disposes this reservation in the finally.
-            storage = null;
-            return result ?? Array.Empty<byte>();
+            byte[] result = GC.AllocateUninitializedArray<byte>(count);
+            await ReadExactlyAsync(input, offset, result, cancellationToken).ConfigureAwait(false);
+            accepted = true;
+            return result;
         }
-        finally
-        {
-            storage?.Dispose();
-            if (overlap != 0L) { governor?.ReleaseMemory(overlap); }
-        }
+        finally { if (!accepted) { reservation.Dispose(); } }
+    }
+
+    // The engine destination owner has already admitted this array.
+    internal static async ValueTask<byte[]> ReadAdmittedAsync(IQpdfInput input, long offset,
+        int count, ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        ValidateRange(input, offset, count);
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        if (count == 0) { return Array.Empty<byte>(); }
+        byte[] result = GC.AllocateUninitializedArray<byte>(count);
+        await ReadExactlyCoreAsync(input, offset, result, governor, cancellationToken).ConfigureAwait(false);
+        governor.CheckCancellation();
+        return result;
+    }
+
+    private static void ValidateRange(IQpdfInput input, long offset, int count)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        if (offset < 0 || offset > input.Length || count < 0 || count > input.Length - offset)
+        { throw new ArgumentOutOfRangeException(nameof(count), "Read range exceeds the stable input length."); }
     }
 }
-

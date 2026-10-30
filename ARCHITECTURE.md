@@ -6,6 +6,12 @@ storage and publication. The [supported profile](docs/SUPPORTED-PROFILE.md) defi
 the public contract, and [compatibility](docs/COMPATIBILITY.md) records differences
 from native qpdf.
 
+Input leases expose offset-based reads into admitted caller buffers. Each lease
+has one caller and one pending read at a time; completion ends the host's buffer
+borrow, including on cancellation. Stable identity, length and opened bytes do
+not change when a logical path is replaced. Short reads reuse destination slices;
+exact readers reject invalid counts and premature zero as transport failures.
+
 ## Execution flow
 
 ```mermaid

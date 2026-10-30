@@ -374,7 +374,7 @@ public sealed class TypedWarningOwnershipTests
             public QpdfPath Path => inner.Path;
             public string Identity => inner.Identity;
             public long Length => inner.Length;
-            public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken token) => inner.ReadAsync(offset, count, token);
+            public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token) => inner.ReadAsync(offset, destination, token);
             public async ValueTask DisposeAsync() { await inner.DisposeAsync(); if (host._onInputClose) { host.Add(); } }
         }
         private sealed class OutputLease(PreparationWarningHost host, IQpdfOutputTransaction inner) : IQpdfOutputTransaction

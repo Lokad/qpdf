@@ -182,16 +182,16 @@ public sealed class MixedJobGovernanceTests
             public QpdfPath Path => inner.Path;
             public string Identity => inner.Identity;
             public long Length => inner.Length;
-            public async ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken cancellationToken)
+            public async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellationToken)
             {
                 host.Reads++;
                 if (Path.Value == "second.json")
                 {
                     host.SecondReadStarted.TrySetResult();
                     if (mode == "blocking") { await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken); }
-                    if (mode == "no-progress") { return ReadOnlyMemory<byte>.Empty; }
+                    if (mode == "no-progress") { return 0; }
                 }
-                return await inner.ReadAsync(offset, mode == "short" ? Math.Min(count, 3) : count, cancellationToken);
+                return await inner.ReadAsync(offset, mode == "short" ? destination[..Math.Min(destination.Length, 3)] : destination, cancellationToken);
             }
             public ValueTask DisposeAsync() => inner.DisposeAsync();
         }

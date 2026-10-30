@@ -328,10 +328,10 @@ public sealed class CheckInspectionTests
         public QpdfPath Path => inner.Path;
         public string Identity => inner.Identity;
         public long Length => inner.Length;
-        public async ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int length, CancellationToken cancellationToken)
+        public async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellationToken)
         {
-            ReadOnlyMemory<byte> data = await inner.ReadAsync(offset, length, cancellationToken);
-            Assert.True(data.Length > 0);
+            int data = await inner.ReadAsync(offset, destination, cancellationToken);
+            Assert.True(data > 0);
             started.TrySetResult();
             await Task.Delay(Timeout.Infinite, cancellationToken);
             return data;

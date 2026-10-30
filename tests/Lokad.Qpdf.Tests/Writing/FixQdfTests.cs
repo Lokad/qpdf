@@ -314,7 +314,9 @@ public sealed class FixQdfTests
         Assert.Equal("BT /F1 24 Tf 100 700 Td (HelloHello) Tj ET", Encoding.ASCII.GetString(contents));
         await using (IQpdfInput original = await fixHost.OpenInputAsync(QpdfPath.From("inputs/a.pdf"), CancellationToken.None))
         {
-            Assert.Equal(edited, await QpdfInputReader.ReadExactlyAsync(original, 0L, edited.Length, CancellationToken.None));
+            byte[] read = new byte[edited.Length];
+            await QpdfInputReader.ReadExactlyAsync(original, 0L, read, CancellationToken.None);
+            Assert.Equal(edited, read);
         }
         Assert.Equal(0L, fixHost.OpenLeaseCount);
     }

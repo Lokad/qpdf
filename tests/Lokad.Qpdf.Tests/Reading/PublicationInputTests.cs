@@ -108,10 +108,10 @@ public sealed class PublicationInputTests
             public QpdfPath Path => input.Path;
             public string Identity => input.Identity;
             public long Length => input.Length;
-            public async ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken token)
+            public async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
             {
-                ReadOnlyMemory<byte> bytes = await input.ReadAsync(offset, count, token);
-                host.ReadBytes += bytes.Length; return bytes;
+                int bytes = await input.ReadAsync(offset, destination, token);
+                host.ReadBytes += bytes; return bytes;
             }
             public async ValueTask DisposeAsync() { await input.DisposeAsync(); host.Leases--; }
         }

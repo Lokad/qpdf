@@ -46,11 +46,13 @@ Large capacities within the pinned [.NET 10 preferred-prime table](https://githu
 use a conservative 2x prime-capacity allowance, replacing the unnecessarily broad
 3x estimate there; smaller and out-of-table requests keep the broader allowance.
 
-The budget-aware `QpdfInputReader.ReadExactlyAsync` overload admits fresh input
-storage before reading. A complete owned array is reused; short or sliced reads
-admit the additional assembly capacity before copying. Failed or canceled reads
-refund their admission after outstanding input work finishes. The input lease
-remains caller-owned.
+`IQpdfInput.ReadAsync(offset, destination, token)` fills caller-owned storage.
+The caller admits that storage before I/O. Short reads fill successive slices of
+the same destination; no host result array or assembly overlap is required.
+`QpdfInputReader.ReadExactlyAsync` fills an existing buffer and rejects invalid
+counts or premature zero as host failures. `ReadExactlyToArrayAsync` admits its
+one result array under a supplied owner. Failed or canceled reads refund only
+after outstanding input work finishes. The input lease remains caller-owned.
 
 Attachment extraction borrows unfiltered or fallback bytes from the open document
 through output consumption. Filtered input slices are admitted before copying;
@@ -217,8 +219,8 @@ The engine keeps host staging and already admitted private input snapshots in
 its local policy estimate, with shared charges owned by the host. Public document
 reads still make independently charged copies. Custom hosts must admit their
 private buffers themselves; the execution capability alone does not govern those
-buffers. Low-level input callers admit freshly returned bytes before reading;
-the budget-aware helper provides that boundary.
+buffers. Low-level input callers admit their destinations before reading;
+the allocating helper provides that boundary when an owned result is needed.
 
 AcroForm JSON borrows parsed bytes and arrays. A field scope funds ancestor
 storage, cycle detection and decoded/qualified names until their characters enter

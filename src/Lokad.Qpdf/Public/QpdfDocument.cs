@@ -199,15 +199,13 @@ public sealed class QpdfDocument : IAsyncDisposable
 
         public long Length => EmptyPdfBytes.Length;
 
-        public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken cancellationToken)
+        public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellationToken)
         {
-            if (offset < 0 || count < 0 || offset + count > EmptyPdfBytes.Length)
-            {
-                throw new ArgumentOutOfRangeException(nameof(count), "Read range exceeds the stable input length.");
-            }
-
             cancellationToken.ThrowIfCancellationRequested();
-            return new ValueTask<ReadOnlyMemory<byte>>(EmptyPdfBytes.AsMemory((int)offset, count));
+            if (offset < 0 || offset > Length) { throw new ArgumentOutOfRangeException(nameof(offset)); }
+            int count = Math.Min(destination.Length, EmptyPdfBytes.Length - (int)offset);
+            EmptyPdfBytes.AsMemory((int)offset, count).CopyTo(destination);
+            return new(count);
         }
 
         public ValueTask DisposeAsync()

@@ -1,6 +1,7 @@
 using Lokad.Qpdf.TestSupport;
 using Lokad.Qpdf.Runtime;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
@@ -9,39 +10,20 @@ public sealed class CooperativeInputMemoryTests
     [Theory]
     [InlineData(20000)]
     [InlineData(17)]
-    public async Task EngineReadsChargeOnlyActualAssemblyOverlap(int chunkSize)
-    {
-        RecordingMemoryBudget root = new(65536L);
-        using IMemoryScope caller = root.CreateScope();
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None, new BudgetHost(caller));
-        governor.ReserveMemory(20032L);
-        byte[] expected = Enumerable.Range(0, 20000).Select(value => (byte)value).ToArray();
-        byte[] read = await QpdfInputReader.ReadAdmittedAsync(new Input(expected, chunkSize), 0L,
-            expected.Length, governor, CancellationToken.None);
-        Assert.Equal(expected, read);
-        Assert.Equal(20032L, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(chunkSize == expected.Length ? 20032L : 40064L, governor.Snapshot().PeakMemoryBytes);
-        // An active execution may retain one spare block to avoid scratch churn.
-        Assert.InRange(root.ReservedBytes, 20032L, 20032L + 2L * SharedMemoryOwner.BlockBytes - 1L);
-        Assert.Equal(1, root.ReserveCalls);
-        Assert.InRange(root.ResizeCalls, 0, 2);
-        governor.ReleaseMemory(20032L);
-        Assert.Equal(0L, root.ReservedBytes);
-    }
-
-    [Fact]
-    public async Task EngineAssemblyRefusalPreservesThePreAdmittedDestination()
+    public async Task ShortReadsNeedOnlyOnePreAdmittedDestination(int chunkSize)
     {
         RecordingMemoryBudget root = new(32768L);
         using IMemoryScope caller = root.CreateScope();
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None, new BudgetHost(caller));
         governor.ReserveMemory(20032L);
-        Input input = new(new byte[20000], 17);
-        await Assert.ThrowsAsync<QpdfMemoryAdmissionException>(() => QpdfInputReader.ReadAdmittedAsync(
-            input, 0L, 20000, governor, CancellationToken.None).AsTask());
-        Assert.Equal(1, input.Reads);
-        Assert.Equal(20032L, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(32768L, root.ReservedBytes);
+        byte[] expected = Enumerable.Range(0, 20000).Select(value => (byte)value).ToArray();
+        Input input = new(expected, chunkSize);
+        byte[] read = await QpdfInputReader.ReadAdmittedAsync(input, 0L, expected.Length, governor, CancellationToken.None);
+        Assert.Equal(expected, read);
+        Assert.Same(read, input.LastArray);
+        Assert.Equal(20032L, governor.Snapshot().PeakMemoryBytes);
+        Assert.Equal(1, root.ReserveCalls);
+        Assert.Equal(0, root.ResizeCalls);
         governor.ReleaseMemory(20032L);
         Assert.Equal(0L, root.ReservedBytes);
     }
@@ -50,13 +32,13 @@ public sealed class CooperativeInputMemoryTests
     public async Task RefusalPrecedesTheFirstReadAndLeavesOtherChargesIntact()
     {
         RecordingMemoryBudget root = new(4096L);
-        using IMemoryScope parent = root.CreateScope();
-        Assert.True(parent.TryReserve(256L, out IMemoryReservation? held));
+        using IMemoryScope caller = root.CreateScope();
+        Assert.True(caller.TryReserve(256L, out IMemoryReservation? held));
         using (held)
         {
-            Input input = new(new byte[4096], 4096);
+            Input input = new(new byte[4096], 17);
             QpdfMemoryAdmissionException failure = await Assert.ThrowsAsync<QpdfMemoryAdmissionException>(
-                () => QpdfInputReader.ReadExactlyAsync(input, 0L, 4096, parent, CancellationToken.None).AsTask());
+                () => QpdfInputReader.ReadExactlyToArrayAsync(input, 0L, 4096, caller, CancellationToken.None).AsTask());
             Assert.Equal(4128L, failure.RequestedBytes);
             Assert.Equal(0, input.Reads);
             Assert.Equal(256L, root.ReservedBytes);
@@ -65,41 +47,25 @@ public sealed class CooperativeInputMemoryTests
     }
 
     [Theory]
-    [InlineData(4096, false)]
-    [InlineData(17, false)]
-    [InlineData(4096, true)]
-    public async Task SuccessfulReadRetainsOnlyTheResultAndBatchesAdmission(int chunkSize, bool sliced)
+    [InlineData(4096)]
+    [InlineData(17)]
+    public async Task AllocatingReadRetainsOneChargeUntilCallerOwnerCloses(int chunkSize)
     {
-        byte[] expected = Enumerable.Range(0, 4096).Select(index => (byte)index).ToArray();
-        RecordingMemoryBudget root = new(8256L);
+        RecordingMemoryBudget root = new(4128L);
         IMemoryScope caller = root.CreateScope();
-        Input input = new(expected, chunkSize) { Sliced = sliced };
-        byte[] result = await QpdfInputReader.ReadExactlyAsync(input, 0L, expected.Length, caller, CancellationToken.None);
+        byte[] expected = Enumerable.Range(0, 4096).Select(index => (byte)index).ToArray();
+        Input input = new(expected, chunkSize);
+        byte[] result = await QpdfInputReader.ReadExactlyToArrayAsync(input, 0L, expected.Length, caller, CancellationToken.None);
         Assert.Equal(expected, result);
         Assert.Equal(4128L, root.ReservedBytes);
         Assert.Equal(1, root.ReserveCalls);
-        Assert.Equal(chunkSize < expected.Length || sliced ? 2 : 0, root.ResizeCalls);
-        Assert.Equal(chunkSize < expected.Length || sliced ? 8256L : 4128L, root.PeakBytes);
+        Assert.Equal(0, root.ResizeCalls);
+        Assert.Equal(4128L, root.PeakBytes);
+        Assert.Same(result, input.LastArray);
         Assert.False(input.Disposed);
-        if (!sliced && chunkSize == expected.Length) { Assert.Same(input.LastArray, result); }
-        caller.Dispose();
+        caller.Dispose(); caller.Dispose();
         Assert.Equal(0L, root.ReservedBytes);
-        caller.Dispose();
-    }
-
-    [Fact]
-    public async Task AssemblyRefusalDoesNotRetryAndRefundsTheFirstRead()
-    {
-        RecordingMemoryBudget root = new(4128L);
-        using IMemoryScope caller = root.CreateScope();
-        Input input = new(new byte[4096], 17);
-        QpdfMemoryAdmissionException failure = await Assert.ThrowsAsync<QpdfMemoryAdmissionException>(
-            () => QpdfInputReader.ReadExactlyAsync(input, 0L, 4096, caller, CancellationToken.None).AsTask());
-        Assert.Equal(8256L, failure.RequestedBytes);
-        Assert.Equal(1, input.Reads);
-        Assert.Equal(new long[] { 4128L, 8256L }, root.Requests);
-        Assert.Equal(0L, root.ReservedBytes);
-        Assert.False(input.Disposed);
+        Assert.Equal(expected, result);
     }
 
     [Fact]
@@ -109,52 +75,47 @@ public sealed class CooperativeInputMemoryTests
         using IMemoryScope caller = root.CreateScope();
         using CancellationTokenSource cancellation = new();
         PendingInput input = new();
-        Task<byte[]> read = QpdfInputReader.ReadExactlyAsync(input, 0L, 4096, caller, cancellation.Token).AsTask();
+        Task<byte[]> read = QpdfInputReader.ReadExactlyToArrayAsync(input, 0L, 4096, caller, cancellation.Token).AsTask();
         await input.Started.Task;
         cancellation.Cancel();
         Assert.False(read.IsCompleted);
         Assert.Equal(4128L, root.ReservedBytes);
-        input.Completion.SetResult(new byte[4096]);
+        input.Completion.SetResult();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => read);
         Assert.Equal(0L, root.ReservedBytes);
+        await input.DisposeAsync();
+        Assert.True(input.Disposed);
     }
 
-    [Fact]
-    public async Task ReadFailureRefundsAdmissionAndAllowsTheNextCall()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(4097)]
+    public async Task InvalidHostCountsAreTransportFailuresAndRefundAdmission(int count)
     {
         RecordingMemoryBudget root = new(4128L);
         using IMemoryScope caller = root.CreateScope();
-        Input broken = new(new byte[4096], 0);
-        await Assert.ThrowsAsync<QpdfHostException>(
-            () => QpdfInputReader.ReadExactlyAsync(broken, 0L, 4096, caller, CancellationToken.None).AsTask());
+        Input broken = new(new byte[4096], count) { InvalidCount = true };
+        QpdfHostException error = await Assert.ThrowsAsync<QpdfHostException>(() =>
+            QpdfInputReader.ReadExactlyToArrayAsync(broken, 0L, 4096, caller, CancellationToken.None).AsTask());
+        Assert.Equal(QpdfHostFailureReason.NonProgressingRead, error.Reason);
         Assert.Equal(0L, root.ReservedBytes);
-        byte[] result = await QpdfInputReader.ReadExactlyAsync(new Input(new byte[4096], 4096),
+        byte[] result = await QpdfInputReader.ReadExactlyToArrayAsync(new Input(new byte[4096], 17),
             0L, 4096, caller, CancellationToken.None);
         Assert.Equal(4096, result.Length);
         Assert.Equal(4128L, root.ReservedBytes);
     }
 
     [Fact]
-    public async Task IndependentOwnersShareTheRootAndAncestorDisposalInvalidatesDescendants()
+    public async Task CallerBufferCanBeReusedForNonsequentialReads()
     {
-        RecordingMemoryBudget root = new(4128L);
-        IMemoryScope first = root.CreateScope();
-        using IMemoryScope second = root.CreateScope();
-        await QpdfInputReader.ReadExactlyAsync(new Input(new byte[4096], 4096),
-            0L, 4096, first, CancellationToken.None);
-        await Assert.ThrowsAsync<QpdfMemoryAdmissionException>(() => QpdfInputReader.ReadExactlyAsync(
-            new Input(new byte[4096], 4096), 0L, 4096, second, CancellationToken.None).AsTask());
-        IMemoryScope descendant = first.CreateScope();
-        Assert.True(descendant.TryReserve(0L, out IMemoryReservation? zero));
-        first.Dispose();
-        Assert.Equal(0L, root.ReservedBytes);
-        Assert.Equal(0L, zero.Bytes);
-        Assert.Throws<ObjectDisposedException>(() => zero.TryResize(1L));
-        Assert.Throws<ObjectDisposedException>(() => descendant.TryReserve(0L, out _));
-        zero.Dispose(); descendant.Dispose();
-        await QpdfInputReader.ReadExactlyAsync(new Input(new byte[4096], 4096),
-            0L, 4096, second, CancellationToken.None);
-        Assert.Equal(4128L, root.ReservedBytes);
+        Input input = new([1, 2, 3, 4, 5, 6], 1);
+        byte[] destination = new byte[2];
+        await QpdfInputReader.ReadExactlyAsync(input, 4, destination, CancellationToken.None);
+        Assert.Equal(new byte[] { 5, 6 }, destination);
+        await QpdfInputReader.ReadExactlyAsync(input, 1, destination, CancellationToken.None);
+        Assert.Equal(new byte[] { 2, 3 }, destination);
+        Assert.Same(destination, input.LastArray);
     }
 
     [Fact]
@@ -162,101 +123,40 @@ public sealed class CooperativeInputMemoryTests
     {
         RecordingMemoryBudget root = new(0L);
         using IMemoryScope caller = root.CreateScope();
-        Input input = new(new byte[1], 1);
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => QpdfInputReader.ReadExactlyAsync(
+        Input input = new([1], 1);
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => QpdfInputReader.ReadExactlyToArrayAsync(
             input, 0L, -1, caller, CancellationToken.None).AsTask());
-        byte[] empty = await QpdfInputReader.ReadExactlyAsync(input, 0L, 0, caller, CancellationToken.None);
-        Assert.Empty(empty);
+        Assert.Empty(await QpdfInputReader.ReadExactlyToArrayAsync(input, 1, 0, caller, CancellationToken.None));
+        await QpdfInputReader.ReadExactlyAsync(input, 0, Memory<byte>.Empty, CancellationToken.None);
         Assert.Equal(0, input.Reads);
         Assert.Equal(0, root.ReserveCalls);
     }
 
-    [Theory]
-    [InlineData(0, 0)]
-    [InlineData(1, 1)]
-    [InlineData(2, 3)]
-    public async Task AdmissionCancellationRefundsTheReadWithoutClosingCallerInput(int phase, int reads)
+    [Fact]
+    public async Task CancellationDuringAdmissionRefundsBeforeHostAcquisition()
     {
-        RecordingMemoryBudget root = new(4096L);
-        using IMemoryScope caller = root.CreateScope();
-        Assert.True(caller.TryReserve(128L, out IMemoryReservation? held));
-        using (held)
-        {
-            using CancellationTokenSource cancellation = new();
-            CancelingBudget budget = new(caller, cancellation, phase);
-            Input input = new(new byte[] { 1, 2, 3, 4, 5 }, 2);
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => QpdfInputReader.ReadExactlyAsync(
-                input, 0L, 5, budget, cancellation.Token).AsTask());
-            Assert.True(cancellation.IsCancellationRequested);
-            Assert.Equal(reads, input.Reads);
-            Assert.Equal(128L, root.ReservedBytes);
-            Assert.False(input.Disposed);
-            byte[] next = await QpdfInputReader.ReadExactlyAsync(input, 0L, 5, caller, CancellationToken.None);
-            Assert.Equal(new byte[] { 1, 2, 3, 4, 5 }, next);
-            Assert.Equal(165L, root.ReservedBytes);
-            caller.Dispose();
-            Assert.Equal(new byte[] { 1, 2, 3, 4, 5 }, next);
-            Assert.Equal(0L, root.ReservedBytes);
-        }
-    }
-
-    [Theory]
-    [InlineData(false, 1, 20000)]
-    [InlineData(true, 1, 20000)]
-    [InlineData(false, 2, 65536)]
-    [InlineData(true, 2, 65536)]
-    public async Task EngineAssemblyAdmissionChecksBothCancellationTokens(bool cancelGovernor, int phase, int count)
-    {
-        RecordingMemoryBudget root = new(262144L);
+        RecordingMemoryBudget root = new(4128L);
         using IMemoryScope caller = root.CreateScope();
         using CancellationTokenSource cancellation = new();
-        CancelingBudget budget = new(caller, cancellation, phase);
-        ResourceGovernor governor = new(QpdfLimits.Default,
-            cancelGovernor ? cancellation.Token : CancellationToken.None, new BudgetHost(budget));
-        governor.ReserveMemory(count + 32L);
-        Input input = new(new byte[count], 17000);
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => QpdfInputReader.ReadAdmittedAsync(
-            input, 0L, count, governor, cancelGovernor ? CancellationToken.None : cancellation.Token).AsTask());
-        Assert.True(cancellation.IsCancellationRequested);
-        Assert.Equal(phase == 1 ? 1 : 4, input.Reads);
-        Assert.False(input.Disposed);
-        Assert.Equal(count + 32L, governor.Snapshot().LiveMemoryBytes);
-        governor.ReleaseMemory(count + 32L);
+        Input input = new(new byte[4096], 17);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => QpdfInputReader.ReadExactlyToArrayAsync(
+            input, 0, 4096, new CancelingBudget(caller, cancellation), cancellation.Token).AsTask());
+        Assert.Equal(0, input.Reads);
         Assert.Equal(0L, root.ReservedBytes);
     }
 
-    private sealed class CancelingBudget(IMemoryBudget inner, CancellationTokenSource cancellation, int phase) : IMemoryBudget
+    private sealed class CancelingBudget(IMemoryBudget inner, CancellationTokenSource cancellation) : IMemoryBudget
     {
         public IMemoryScope CreateScope() => inner.CreateScope();
         public bool TryReserve(long bytes, [NotNullWhen(true)] out IMemoryReservation? reservation)
-        {
-            if (!inner.TryReserve(bytes, out IMemoryReservation? admitted)) { reservation = null; return false; }
-            reservation = new Reservation(admitted, cancellation, phase);
-            if (phase == 0) { cancellation.Cancel(); }
-            return true;
-        }
-
-        private sealed class Reservation(IMemoryReservation inner, CancellationTokenSource cancellation, int phase) : IMemoryReservation
-        {
-            public long Bytes => inner.Bytes;
-            public bool TryResize(long bytes)
-            {
-                long previous = inner.Bytes;
-                bool accepted = inner.TryResize(bytes);
-                if (accepted && (phase == 1 && bytes > previous || phase == 2 && bytes < previous)) { cancellation.Cancel(); }
-                return accepted;
-            }
-            public void Dispose() => inner.Dispose();
-        }
+        { bool accepted = inner.TryReserve(bytes, out reservation); cancellation.Cancel(); return accepted; }
     }
 
     private sealed class BudgetHost(IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
     {
         public IMemoryBudget MemoryBudget => budget;
-        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken cancellationToken)
-            => throw new NotSupportedException();
-        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken cancellationToken)
-            => throw new NotSupportedException();
+        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private sealed class Input(byte[] data, int chunkSize) : IQpdfInput
@@ -266,20 +166,19 @@ public sealed class CooperativeInputMemoryTests
         public long Length => data.Length;
         internal int Reads { get; private set; }
         internal byte[]? LastArray { get; private set; }
-        internal bool Sliced { get; init; }
+        internal bool InvalidCount { get; init; }
         internal bool Disposed { get; private set; }
-
-        public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken cancellationToken)
+        public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellationToken)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            Reads++;
-            int take = Math.Min(count, chunkSize);
-            byte[] result = new byte[take + (Sliced ? 8 : 0)];
-            data.AsSpan((int)offset, take).CopyTo(result.AsSpan(Sliced ? 8 : 0));
-            LastArray = result;
-            return ValueTask.FromResult<ReadOnlyMemory<byte>>(result.AsMemory(Sliced ? 8 : 0, take));
+            cancellationToken.ThrowIfCancellationRequested(); Reads++;
+            if (InvalidCount) { return new(chunkSize); }
+            int take = Math.Min(destination.Length, Math.Min(chunkSize, data.Length - (int)offset));
+            data.AsMemory((int)offset, take).CopyTo(destination);
+            Assert.True(MemoryMarshal.TryGetArray((ReadOnlyMemory<byte>)destination, out ArraySegment<byte> segment));
+            if (LastArray is not null) { Assert.Same(LastArray, segment.Array); }
+            LastArray = segment.Array;
+            return new(take);
         }
-
         public ValueTask DisposeAsync() { Disposed = true; return ValueTask.CompletedTask; }
     }
 
@@ -289,14 +188,16 @@ public sealed class CooperativeInputMemoryTests
         public string Identity => "pending";
         public long Length => 4096L;
         internal TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        internal TaskCompletionSource<ReadOnlyMemory<byte>> Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public async ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken cancellationToken)
+        internal TaskCompletionSource Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal bool Disposed { get; private set; }
+        public async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellationToken)
         {
             Started.SetResult();
-            return await Completion.Task;
+            await Completion.Task;
+            Assert.False(Disposed);
+            destination.Span.Fill(42); // The host still uses the buffer after cancellation was requested.
+            return destination.Length;
         }
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        public ValueTask DisposeAsync() { Assert.True(Completion.Task.IsCompleted); Disposed = true; return ValueTask.CompletedTask; }
     }
 }

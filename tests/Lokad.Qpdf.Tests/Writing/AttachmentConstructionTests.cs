@@ -27,8 +27,15 @@ public sealed class AttachmentConstructionTests
             public QpdfPath Path => path;
             public string Identity => "attachment";
             public long Length => host.Data.Length;
-            public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken token)
-                => ValueTask.FromResult<ReadOnlyMemory<byte>>(host.Data);
+            public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
+            {
+
+                token.ThrowIfCancellationRequested();
+                if (offset < 0 || offset > Length) { throw new ArgumentOutOfRangeException(nameof(offset)); }
+                int count = Math.Min(destination.Length, host.Data.Length - (int)offset);
+                host.Data.AsMemory((int)offset, count).CopyTo(destination);
+                return new(count);
+            }
             public ValueTask DisposeAsync() { host.Close(); return ValueTask.CompletedTask; }
         }
     }

@@ -252,7 +252,7 @@ public sealed class PracticalMemoryTests(ITestOutputHelper output)
         Assert.False(closed.Host.IsAlive);
         Assert.False(closed.Payload.IsAlive);
         Assert.Equal(2L * 1024L * 1024L, closed.Lease.Length);
-        await Assert.ThrowsAsync<ObjectDisposedException>(() => closed.Lease.ReadAsync(0L, 1, CancellationToken.None).AsTask());
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => closed.Lease.ReadAsync(0L, new byte[1], CancellationToken.None).AsTask());
         GC.KeepAlive(closed.Lease);
     }
 

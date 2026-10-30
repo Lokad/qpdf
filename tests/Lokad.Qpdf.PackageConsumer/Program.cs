@@ -1032,19 +1032,19 @@ internal static class Program
         using (held)
         {
             IMemoryScope resultOwner = parent.CreateScope();
-            byte[] read = await QpdfInputReader.ReadExactlyAsync(input, 0L, expected.Length, resultOwner, CancellationToken.None);
+            byte[] read = await QpdfInputReader.ReadExactlyToArrayAsync(input, 0L, expected.Length, resultOwner, CancellationToken.None);
             Check(read.SequenceEqual(expected), "budgeted public read");
             Check(root.ReservedBytes == root.LimitBytes, "parent and returned storage share allowance");
             Check(!held.TryResize(root.LimitBytes + 1L) && held.Bytes == 256L, "refused resize preserves estimate");
             bool refused = false;
             using IMemoryScope second = parent.CreateScope();
-            try { await QpdfInputReader.ReadExactlyAsync(input, 0L, expected.Length, second, CancellationToken.None); }
+            try { await QpdfInputReader.ReadExactlyToArrayAsync(input, 0L, expected.Length, second, CancellationToken.None); }
             catch (QpdfMemoryAdmissionException failure) { refused = failure.RequestedBytes == expected.Length + 32L; }
             Check(refused, "independent read cannot copy remaining allowance");
             read = [];
             resultOwner.Dispose();
             Check(root.ReservedBytes == 256L, "caller refunds returned storage without GC");
-            byte[] next = await QpdfInputReader.ReadExactlyAsync(input, 0L, expected.Length, second, CancellationToken.None);
+            byte[] next = await QpdfInputReader.ReadExactlyToArrayAsync(input, 0L, expected.Length, second, CancellationToken.None);
             Check(next.SequenceEqual(expected), "later read reuses released allowance");
         }
         Check(root.ReservedBytes == 0L, "read reservations have explicit owners");
@@ -1324,8 +1324,8 @@ internal static class Program
             public QpdfPath Path => inner.Path;
             public string Identity => inner.Identity;
             public long Length => inner.Length;
-            public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken cancellationToken)
-                => inner.ReadAsync(offset, count, cancellationToken);
+            public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellationToken)
+                => inner.ReadAsync(offset, destination, cancellationToken);
 
             public async ValueTask DisposeAsync()
             {

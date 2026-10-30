@@ -34,9 +34,9 @@ public sealed class JsonImportMemoryTests
             public QpdfPath Path => inner.Path;
             public string Identity => inner.Identity;
             public long Length => inner.Length;
-            public async ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken token)
+            public async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
             {
-                ReadOnlyMemory<byte> bytes = await inner.ReadAsync(offset, count, token);
+                int bytes = await inner.ReadAsync(offset, destination, token);
                 if (!closeFault)
                 { owner.Entered.TrySetResult(); await owner.Resume.Task; }
                 return bytes;

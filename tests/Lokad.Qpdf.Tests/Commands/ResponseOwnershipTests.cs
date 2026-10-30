@@ -52,9 +52,9 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
             public string Identity => inner.Identity;
             public long Length => inner.Length;
 
-            public async ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken token)
+            public async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
             {
-                ReadOnlyMemory<byte> bytes = await inner.ReadAsync(offset, count, token);
+                int bytes = await inner.ReadAsync(offset, destination, token);
                 if (Path == Response)
                 {
                     host.Reads++;
@@ -63,7 +63,7 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
                     host.ReadMemory = (host.Governor ?? throw new InvalidOperationException("Missing complete-job governor.")).Snapshot().LiveMemoryBytes;
                     if (host._outcome == "read-fault") { throw new QpdfHostException(Path, QpdfHostFailureReason.ReadFailed); }
                     if (host._outcome == "host-cancel") { throw new OperationCanceledException(new CancellationToken(true)); }
-                    if (host._outcome == "no-progress") { return ReadOnlyMemory<byte>.Empty; }
+                    if (host._outcome == "no-progress") { return 0; }
                 }
                 return bytes;
             }
