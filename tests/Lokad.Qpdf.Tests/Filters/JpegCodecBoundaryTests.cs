@@ -9,6 +9,52 @@ namespace Lokad.Qpdf.Tests.Filters;
 
 public sealed class JpegCodecBoundaryTests
 {
+    private sealed class BorrowCheckingCodec(byte[] expected) : IQpdfJpegCodec
+    {
+        public void Decode(Stream encoded, QpdfJpegFrame frame, Memory<byte> samples, QpdfJpegCodecContext context)
+        {
+            Assert.False(encoded.CanWrite);
+            MemoryStream source = Assert.IsType<MemoryStream>(encoded);
+            Assert.True(source.TryGetBuffer(out ArraySegment<byte> segment));
+            Assert.Same(expected, segment.Array);
+            Assert.Equal(0, segment.Offset); Assert.Equal(expected.Length, segment.Count);
+            Assert.Throws<NotSupportedException>(() => source.WriteByte(0));
+            LokadImageJpegCodec.Instance.Decode(encoded, frame, samples, context);
+        }
+        public void Encode(ReadOnlyMemory<byte> samples, QpdfJpegFrame frame, int quality, Stream encoded, QpdfJpegCodecContext context)
+            => throw new NotSupportedException();
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    public void CoreJpegInputBorrowsAdmittedBackingWithinTightAllowance(int components)
+    {
+        byte[] original = JpegFixtures.Encode(17, 11, components, 75, (_, _, _) => 128);
+        // Valid, ignored APP15 segments make encoded backing dominate this fixture.
+        byte[] jpeg = new byte[original.Length + 16 * 65537];
+        original.AsSpan(0, 2).CopyTo(jpeg);
+        int at = 2;
+        for (int i = 0; i < 16; i++)
+        {
+            jpeg[at] = 255; jpeg[at + 1] = 239; jpeg[at + 2] = 255; jpeg[at + 3] = 255;
+            at += 65537;
+        }
+        original.AsSpan(2).CopyTo(jpeg.AsSpan(at));
+        byte[] before = (byte[])jpeg.Clone();
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 1536L * 1024L };
+        using InMemoryQpdfHost host = new(limits, new BorrowCheckingCodec(jpeg));
+        ResourceGovernor governor = new(limits, CancellationToken.None, host);
+        using ParserMemoryScope inputOwner = ParserMemoryScope.Create(governor);
+        inputOwner.Reserve(jpeg.LongLength + 32L);
+        byte[] decoded = DctFilter.Decode(jpeg, limits, governor);
+        Assert.Equal(17 * 11 * components, decoded.Length);
+        Assert.All(decoded, sample => Assert.Equal((byte)128, sample));
+        Assert.Equal(before, jpeg);
+        governor.ReleaseMemory(decoded.LongLength + JpegCodec.SampleArrayOverheadBytes);
+        inputOwner.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

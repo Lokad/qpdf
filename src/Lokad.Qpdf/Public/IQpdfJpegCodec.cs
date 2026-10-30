@@ -27,6 +27,9 @@ public sealed record QpdfJpegFrame
 /// allocations through the context's borrowed MemoryBudget. Do not charge supplied
 /// samples or input/output twice. Join all workers before returning. A shared implementation must support independent
 /// concurrent calls without sharing job state. No PDF policy or storage access is required.
+/// The read-only decode stream may expose its already admitted backing through
+/// MemoryStream.TryGetBuffer. Borrow only the segment's offset/count, keep its
+/// bytes unchanged and release all aliases before returning.
 /// </remarks>
 public interface IQpdfJpegCodec
 {

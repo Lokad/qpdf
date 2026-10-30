@@ -32,7 +32,7 @@ internal static class DctFilter
         try
         {
             byte[] decoded = new byte[(int)expected];
-            using MemoryStream source = new(input, writable: false);
+            using MemoryStream source = new(input, 0, input.Length, writable: false, publiclyVisible: true);
             try
             {
                 codec.Decode(source, new QpdfJpegFrame(width, height, components), decoded, context);

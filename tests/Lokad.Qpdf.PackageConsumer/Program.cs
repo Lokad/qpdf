@@ -47,6 +47,8 @@ internal static class Program
         internal bool ProbeRefusal { get; init; }
         public void Decode(Stream encoded, QpdfJpegFrame frame, Memory<byte> samples, QpdfJpegCodecContext context)
         {
+            Check(!encoded.CanWrite && encoded is MemoryStream source && source.TryGetBuffer(out ArraySegment<byte> backing)
+                && backing.Offset == 0 && backing.Count == encoded.Length, "read-only JPEG input exposes borrowed backing through the codec call");
             using IMemoryScope owner = context.MemoryBudget.CreateScope();
             if (ProbeRefusal)
             {

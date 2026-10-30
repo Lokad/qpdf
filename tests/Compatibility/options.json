@@ -2697,6 +2697,7 @@
           "CheckTests.ValidDctPassesStreamsCheck"
         ],
         "resource": [
+          "JpegCodecBoundaryTests.CoreJpegInputBorrowsAdmittedBackingWithinTightAllowance",
           "DctDecodeTests.OversizedFrameFailsBeforeAllocation",
           "DctDecodeTests.LargeFrameChargesConcurrentCodecAndSampleOwners",
           "DctDecodeTests.ConcurrentFrameBudgetRejectsAndReleasesCodecOwners",
