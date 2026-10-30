@@ -3442,6 +3442,7 @@ public static partial class Qpdf
         // Upstream --remove-info also omits the catalog metadata stream.
         if (!removeMetadata && !removeInfo)
         {
+            int firstId = copier.BeginCopyAttempt();
             try
             {
                 PdfDictionary? catalog = TryGetInputCatalog(engine);
@@ -3454,13 +3455,16 @@ public static partial class Qpdf
             }
             catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException))
             {
+                copier.RollbackCopyAttempt(firstId, CancellationToken.None);
                 diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unpreservable document metadata.");
                 metadataRef = null;
             }
+            finally { copier.EndCopyAttempt(); }
         }
 
         if (!removeInfo)
         {
+            int firstId = copier.BeginCopyAttempt();
             try
             {
                 if (engine.Trailer.TryGet(PdfName.FromAscii("Info"), out QpdfObject? raw)
@@ -3471,12 +3475,15 @@ public static partial class Qpdf
             }
             catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException))
             {
+                copier.RollbackCopyAttempt(firstId, CancellationToken.None);
                 diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unpreservable document info.");
                 infoRef = null;
             }
+            finally { copier.EndCopyAttempt(); }
         }
         else
         {
+            int firstId = copier.BeginCopyAttempt();
             try
             {
                 PdfDictionary? infoDict = null;
@@ -3509,9 +3516,11 @@ public static partial class Qpdf
             }
             catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException))
             {
+                copier.RollbackCopyAttempt(firstId, CancellationToken.None);
                 diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unpreservable document info.");
                 infoRef = null;
             }
+            finally { copier.EndCopyAttempt(); }
         }
 
         return (infoRef, metadataRef);

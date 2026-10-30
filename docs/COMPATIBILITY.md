@@ -21,6 +21,11 @@ Other required compatibility mismatches need a correction or an explicit scope d
 
 ## Limitations that affect callers
 
+Failed document metadata and info copies discard their newly copied descendants
+and source mappings before recovery continues. Earlier shared objects remain
+available, and later roots can copy those descendants afresh. Skipped roots no
+longer leave unreachable streams in published output; warning policy is unchanged.
+
 Page-copy operations reject reachable signature dictionaries (`/Type /Sig`) and
 populated signature fields, including inherited field types and dictionaries
 without a type tag. Typed operations throw `QpdfCryptoException` with `/Sig`;

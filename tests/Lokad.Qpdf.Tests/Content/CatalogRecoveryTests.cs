@@ -13,6 +13,48 @@ namespace Lokad.Qpdf.Tests.Content;
 
 public sealed class CatalogRecoveryTests
 {
+    [Theory]
+    [InlineData("metadata")]
+    [InlineData("info")]
+    [InlineData("date")]
+    public async Task FailedDocumentExtraRetiresDescendantsBeforeLaterCopies(string kind)
+    {
+        byte[] input = CheckTests.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R /Metadata 5 0 R /Later 6 0 R >>", null),
+            (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Prior 8 0 R >>", null),
+            (4, "null", null),
+            (5, "<< /Type /Metadata /Subtype /XML /Private 7 0 R /Length 4 >>", "meta"u8.ToArray()),
+            (6, "<< /Tag (LATER) >>", null),
+            (7, "<< /A 9 0 R /B 6 0 R /Shared 8 0 R /Z 1 0 R >>", null),
+            (8, "<< /Tag (PRIOR) >>", null),
+            (9, "<< /Length 65536 >>", Enumerable.Repeat((byte)'X', 65536).ToArray()),
+            (10, kind == "date" ? "<< /ModDate 7 0 R >>" : "<< /Private 7 0 R >>", null)], 1);
+        // Trailer insertion leaves all object and xref offsets unchanged.
+        string text = Encoding.Latin1.GetString(input);
+        if (kind != "metadata")
+        { text = text.Replace("/Root 1 0 R", "/Info 10 0 R /Root 1 0 R", StringComparison.Ordinal); }
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), Encoding.Latin1.GetBytes(text), QpdfInputOwnership.Copy);
+        List<string> args = ["input", "--compress-streams=n"];
+        if (kind != "metadata") { args.Add("--remove-metadata"); }
+        if (kind == "date") { args.Add("--remove-info"); }
+        args.Add("output");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new(args), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Contains(result.Diagnostics, d => d.Message.Contains("Skipped unpreservable document", StringComparison.Ordinal));
+        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] pdf));
+        string output = Encoding.Latin1.GetString(pdf);
+        Assert.DoesNotContain(new string('X', 64), output, StringComparison.Ordinal);
+        Assert.Contains("LATER", output, StringComparison.Ordinal);
+        Assert.Contains("PRIOR", output, StringComparison.Ordinal);
+        Assert.True(pdf.Length < 4096);
+        host.AddInput(QpdfPath.From("reread"), pdf, QpdfInputOwnership.Copy);
+        QpdfCheckResult check = await Qpdf.CheckAsync(host, QpdfPath.From("reread"), CancellationToken.None);
+        Assert.All(check.Checks, x => Assert.NotEqual(QpdfCheckStatus.Failed, x.Status));
+        Assert.Equal(0, host.OpenLeaseCount);
+    }
+
     private static readonly string[] Kinds = ["extras", "outlines", "structure", "mark", "late", "names"];
 
     private static byte[] Input(string kind)
