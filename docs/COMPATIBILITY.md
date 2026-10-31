@@ -150,6 +150,10 @@ Additional intentional data differences are:
 
 Physical output can also differ while preserving PDF meaning:
 
+- Rebuilt page roots use a direct `/Type /Page`; native qpdf can retain indirect
+  type names. Managed writer planning uses this canonical page type, while
+  read-only inspection retains the source representation.
+
 - Default document IDs are deterministic content hashes, rather than native's
   time-based IDs; `--static-id` uses the native test constant. Unspecified
   attachment timestamps are omitted because runtime code has no ambient clock.

@@ -486,7 +486,11 @@ internal sealed class GraphCopier
                 if (!retainSourceObjects && key.Equals(ParentKey)) { continue; }
 
                 _ownership.Reserve(32L);
-                entries.Assign(_ownership, _governor, key, retainSourceObjects ? value : CopyValue(value, 0), _governor.CancellationToken);
+                // Rebuilt page roots have a canonical type for writer planning.
+                // Read-only inspection keeps the source's original reference.
+                QpdfObject copiedValue = retainSourceObjects ? value
+                    : key.Equals(TypeKey) && value is PdfReference && ReadType(page) == "Page" ? PageType : CopyValue(value, 0);
+                entries.Assign(_ownership, _governor, key, copiedValue, _governor.CancellationToken);
             }
         }
 
@@ -874,20 +878,24 @@ internal sealed class GraphCopier
         return CopyValue(value, depth + 1);
     }
 
-    private static bool IsPageTreeNode(PdfDictionary dictionary)
+    private bool IsPageTreeNode(PdfDictionary dictionary)
     {
         string type = ReadType(dictionary);
         return type == "Page" || type == "Pages" || type == "Catalog";
     }
 
-    private static string ReadType(PdfDictionary dictionary)
+    private string ReadType(PdfDictionary dictionary)
     {
-        if (!dictionary.TryGet(TypeKey, out QpdfObject raw) || raw is PdfNull)
+        if (!PdfDictionaryLookup.TryGet(dictionary, "Type"u8, _governor, _governor.CancellationToken, out QpdfObject raw) || raw is PdfNull)
         {
             return string.Empty;
         }
 
-        if (raw is not PdfName name) { return string.Empty; }
+        QpdfObject? resolved = raw;
+        if (raw is PdfReference reference
+            && !PdfObjectLookup.TryResolve(reference, _resolver, _governor, _governor.CancellationToken, out resolved))
+        { return string.Empty; }
+        if (resolved is not PdfName name) { return string.Empty; }
         return name.Equals(PageType) ? "Page" : name.Equals(PagesType) ? "Pages"
             : name.Equals(CatalogType) ? "Catalog" : string.Empty;
     }

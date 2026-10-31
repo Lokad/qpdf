@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Resolve indirect catalog and page-tree type names, page-tree children and page
+  counts. Equivalent indirect layouts now open, select and report counts through
+  the existing bounded reader; copying retains omitted-page and containment guards.
+  Rebuilt page roots use a direct type name for ordinary and linearized writing.
+
 - Keep the primary document distinct from selected page providers. Replacement
   targets the primary path, including selections from multiple files. Unselected
   primary inputs are validated and retain their catalog metadata and original ID;

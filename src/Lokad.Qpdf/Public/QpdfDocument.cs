@@ -13,9 +13,6 @@ namespace Lokad.Qpdf;
 /// </summary>
 public sealed class QpdfDocument : IAsyncDisposable
 {
-    private static readonly PdfName TypeKey = PdfName.FromAscii("Type");
-    private static readonly PdfName KidsKey = PdfName.FromAscii("Kids");
-    private static readonly PdfName CountKey = PdfName.FromAscii("Count");
     private static readonly PdfName RootKey = PdfName.FromAscii("Root");
     private static readonly PdfName PagesKey = PdfName.FromAscii("Pages");
     private IQpdfInput? _input;
@@ -385,7 +382,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             reservedInput = 0L;
             cancellationToken.ThrowIfCancellationRequested();
             RejectEncrypted(path, engine);
-            VersionParts? catalogParts = ReadCatalogVersion(engine);
+            VersionParts? catalogParts = ReadCatalogVersion(engine, governor, cancellationToken);
             VersionParts effectiveParts = catalogParts is { } catalog
                 && (catalog.Major > headerParts.Major || catalog.Major == headerParts.Major && catalog.Minor > headerParts.Minor)
                 ? catalog : headerParts;
@@ -500,7 +497,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         return b >= (byte)'0' && b <= (byte)'9';
     }
 
-    private static VersionParts? ReadCatalogVersion(DocumentEngine engine)
+    private static VersionParts? ReadCatalogVersion(DocumentEngine engine, ResourceGovernor governor, CancellationToken token)
     {
         PdfName rootKey = new([(byte)'R', (byte)'o', (byte)'o', (byte)'t']);
         if (!engine.Trailer.TryGet(rootKey, out QpdfObject rootRaw))
@@ -527,7 +524,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             return null;
         }
 
-        PdfName? rootType = ReadType(root);
+        PdfName? rootType = ReadType(engine, root, governor, token);
         if (rootType is not null && !rootType.RawSpan.IsEmpty && !rootType.RawSpan.SequenceEqual("Catalog"u8))
         {
             return null;
@@ -629,7 +626,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         ParserMemoryScope pageStorage,
         CancellationToken cancellationToken)
     {
-        PdfDictionary pages = ReadPageRoot(engine);
+        PdfDictionary pages = ReadPageRoot(engine, governor, cancellationToken);
         List<PageLocation> collector = ParserContainers.CreateList<PageLocation>(pageStorage);
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
         HashSet<int> path = ParserContainers.CreateSet<int>(traversal);
@@ -640,8 +637,8 @@ public sealed class QpdfDocument : IAsyncDisposable
     internal long ReadDeclaredPageCount()
     {
         _governor.CheckCancellation();
-        PdfDictionary pages = ReadPageRoot(Engine);
-        if (pages.TryGet(CountKey, out QpdfObject count) && count is PdfInteger integer)
+        PdfDictionary pages = ReadPageRoot(Engine, _governor, _governor.CancellationToken);
+        if (ReadCount(Engine, pages, _governor, _governor.CancellationToken) is PdfInteger integer)
         {
             return integer.Value;
         }
@@ -649,7 +646,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         return 0L;
     }
 
-    private static PdfDictionary ReadPageRoot(DocumentEngine engine)
+    private static PdfDictionary ReadPageRoot(DocumentEngine engine, ResourceGovernor governor, CancellationToken token)
     {
         if (!engine.Trailer.TryGet(RootKey, out QpdfObject rootRaw))
         {
@@ -657,7 +654,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         }
 
         PdfDictionary root = ResolveDictionary(engine, rootRaw, "catalog");
-        PdfName? rootType = ReadType(root);
+        PdfName? rootType = ReadType(engine, root, governor, token);
         PdfDictionary pages;
         if (rootType is not null && rootType.RawSpan.SequenceEqual("Pages"u8))
         {
@@ -712,19 +709,30 @@ public sealed class QpdfDocument : IAsyncDisposable
         throw new QpdfParseException($"The {role} must be a dictionary or a reference.", null, null);
     }
 
-    private static PdfName? ReadType(PdfDictionary dictionary)
+    private static PdfName? ReadType(DocumentEngine engine, PdfDictionary dictionary, ResourceGovernor governor, CancellationToken token)
     {
-        if (!dictionary.TryGet(TypeKey, out QpdfObject raw) || raw is PdfNull)
+        if (!PdfDictionaryLookup.TryGet(dictionary, "Type"u8, governor, token, out QpdfObject raw) || raw is PdfNull)
         {
             return null;
         }
 
-        if (raw is not PdfName name)
+        QpdfObject? resolved = raw;
+        if (raw is PdfReference reference && !PdfObjectLookup.TryResolve(reference, engine, governor, token, out resolved))
+        { throw new QpdfParseException("Unresolvable /Type reference.", null, reference.ObjectNumber); }
+        if (resolved is PdfNull) { return null; }
+        if (resolved is not PdfName name)
         {
             throw new QpdfParseException("The /Type entry must be a name.", null, null);
         }
 
         return name;
+    }
+
+    private static PdfInteger? ReadCount(DocumentEngine engine, PdfDictionary dictionary, ResourceGovernor governor, CancellationToken token)
+    {
+        if (!PdfDictionaryLookup.TryGet(dictionary, "Count"u8, governor, token, out QpdfObject raw)) { return null; }
+        if (raw is not PdfReference reference) { return raw as PdfInteger; }
+        return PdfObjectLookup.TryResolve(reference, engine, governor, token, out QpdfObject? resolved) ? resolved as PdfInteger : null;
     }
 
     private static void WalkPages(
@@ -748,7 +756,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         }
 
         governor.NoteOperation();
-        PdfName? type = ReadType(node);
+        PdfName? type = ReadType(engine, node, governor, cancellationToken);
         if (type is not null && type.RawSpan.SequenceEqual("Page"u8))
         {
             ParserContainers.AddItem(pageStorage, collector, new PageLocation(incoming, node), 2L * IntPtr.Size);
@@ -760,7 +768,14 @@ public sealed class QpdfDocument : IAsyncDisposable
             throw new QpdfParseException("Page tree nodes must have /Type /Page or /Pages.", null, null);
         }
 
-        if (!node.TryGet(KidsKey, out QpdfObject kidsRaw) || kidsRaw is not PdfArray kids)
+        PdfArray? kids = null;
+        if (PdfDictionaryLookup.TryGet(node, "Kids"u8, governor, cancellationToken, out QpdfObject kidsRaw))
+        {
+            if (kidsRaw is PdfReference reference)
+            { PdfObjectLookup.TryResolve(reference, engine, governor, cancellationToken, out QpdfObject? resolved); kids = resolved as PdfArray; }
+            else { kids = kidsRaw as PdfArray; }
+        }
+        if (kids is null)
         {
             throw new QpdfParseException("Pages node must declare a /Kids array.", null, null);
         }
@@ -795,8 +810,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             throw new QpdfParseException("Page /Kids elements must be dictionaries or references.", null, null);
         }
 
-        PdfName countKey = new([(byte)'C', (byte)'o', (byte)'u', (byte)'n', (byte)'t']);
-        if (node.TryGet(countKey, out QpdfObject countRaw) && countRaw is PdfInteger declared)
+        if (ReadCount(engine, node, governor, cancellationToken) is PdfInteger declared)
         {
             long total = collector.Count - before;
             if (declared.Value != total && diagnostics.ReportPageCountMismatch)

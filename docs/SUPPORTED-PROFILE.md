@@ -104,6 +104,11 @@ echoing values.
   reference reader. Writer controls can preserve or generate object streams;
   ordinary selection output normalizes to classic xrefs. Bounded CLI recovery
   and strict typed opening remain separate policies.
+- Catalog/page-tree `/Type` names and page-tree `/Kids` and `/Count` values may
+  be direct or indirect. Structural bounds, cycle detection, omitted-page pruning
+  and the copier's catalog/page-tree containment rules still apply.
+  Rebuilt page roots use a direct `/Type /Page`; read-only inspection retains
+  the source representation.
 - `%PDF-` header at offset 0; versions 1.0-1.7 and 2.0. The effective version
   is the higher of the header and catalog `/Version`.
 - Unencrypted inputs; any effective `/Encrypt` declaration rejects
