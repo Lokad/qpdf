@@ -155,8 +155,9 @@ echoing values.
 - Argv/job rewriting defaults to compression with generalized decoding. Stream-data,
   compression and decode setters apply in configuration order; job keys use lexical
   order, including mixed/file-chain layers. QDF fills unset defaults. Catalog XML
-  metadata is uncompressed, and empty streams retain zero-length payloads. Broader
-  transformation/default/grammar differences remain in the compatibility audit.
+  metadata is uncompressed, including indirect `/Type` and `/Subtype` names;
+  page metadata follows ordinary stream settings. Empty streams retain zero-length
+  payloads. Broader transformation/default/grammar differences remain in the compatibility audit.
 - --optimize-images uses the supplied codec to recompress eligible image XObjects
   (8-bit DeviceGray/DeviceRGB above the oi-min thresholds) as JPEG only when strictly
   smaller. Each image identity is attempted once across aliases, forms and repeated

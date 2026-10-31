@@ -3269,10 +3269,8 @@ public static partial class Qpdf
             }
 
             bool xmlMetadata = metadata?.ObjectNumber == id
-                && PdfDictionaryLookup.TryGet(stream.Dictionary, "Type"u8, governor, cancellationToken, out QpdfObject type)
-                && type is PdfName typeName && PdfDictionaryLookup.NameEquals(typeName, "Metadata"u8, governor, cancellationToken)
-                && PdfDictionaryLookup.TryGet(stream.Dictionary, "Subtype"u8, governor, cancellationToken, out QpdfObject subtype)
-                && subtype is PdfName subtypeName && PdfDictionaryLookup.NameEquals(subtypeName, "XML"u8, governor, cancellationToken);
+                && PdfDictionaryLookup.HasName(stream.Dictionary, "Type"u8, "Metadata"u8, resolver, governor, cancellationToken)
+                && PdfDictionaryLookup.HasName(stream.Dictionary, "Subtype"u8, "XML"u8, resolver, governor, cancellationToken);
             QpdfObject? replacement = StreamTransformer.Transform(stream, id, resolver, xmlMetadata ? false : compress,
                 xmlMetadata ? "all" : decode, recompressFlate, level, limits, governor, diagnostics, cancellationToken);
             if (replacement is not null)

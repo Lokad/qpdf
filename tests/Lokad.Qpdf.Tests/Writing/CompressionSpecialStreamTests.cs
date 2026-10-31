@@ -10,7 +10,7 @@ public sealed class CompressionSpecialStreamTests
 {
     private static readonly byte[] Xml = "<x:xmpmeta xmlns:x='adobe:ns:meta/'>test</x:xmpmeta>"u8.ToArray();
 
-    private static byte[] MetadataFixture()
+    private static byte[] MetadataFixture(string type, string subtype)
     {
         byte[] encoded = Encoding.ASCII.GetBytes(Convert.ToHexString(Xml) + ">");
         return CheckTests.Assemble(
@@ -19,8 +19,10 @@ public sealed class CompressionSpecialStreamTests
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Contents 4 0 R /Metadata 6 0 R /Resources << >> >>", null),
             (4, "<< /Length 4 >>", "q Q\n"u8.ToArray()),
-            (5, "<< /Length " + encoded.Length + " /Type /Metadata /Subtype /XML /Filter /ASCIIHexDecode >>", encoded),
-            (6, "<< /Length " + encoded.Length + " /Type /Metadata /Subtype /XML /Filter /ASCIIHexDecode >>", encoded),
+            (5, "<< /Length " + encoded.Length + " /Type " + type + " /Subtype " + subtype + " /Filter /ASCIIHexDecode >>", encoded),
+            (6, "<< /Length " + encoded.Length + " /Type " + type + " /Subtype " + subtype + " /Filter /ASCIIHexDecode >>", encoded),
+            (7, "/Metadata", null),
+            (8, "/XML", null),
         ], 1);
     }
 
@@ -73,18 +75,20 @@ public sealed class CompressionSpecialStreamTests
         return Assert.IsType<PdfStream>(document.GetObject(Assert.IsType<PdfReference>(metadata).ObjectNumber));
     }
 
-    [Theory]
-    [InlineData("argv", "default")]
-    [InlineData("job", "default")]
-    [InlineData("mixed", "default")]
-    [InlineData("chain", "default")]
-    [InlineData("argv", "preserve")]
-    [InlineData("job", "preserve")]
-    [InlineData("mixed", "preserve")]
-    [InlineData("chain", "preserve")]
-    public async Task CatalogXmlIsUncompressedWhilePageXmlFollowsSettings(string route, string mode)
+    public static IEnumerable<object[]> MetadataCases()
     {
-        await using QpdfDocument document = await Rewrite(MetadataFixture(), route, mode);
+        foreach (string route in new[] { "argv", "job", "mixed", "chain" })
+        foreach (string mode in new[] { "default", "preserve" })
+        foreach (string type in new[] { "/Metadata", "7 0 R" })
+        foreach (string subtype in new[] { "/XML", "8 0 R" })
+        { yield return [route, mode, type, subtype]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(MetadataCases))]
+    public async Task CatalogXmlIsUncompressedWhilePageXmlFollowsSettings(string route, string mode, string type, string subtype)
+    {
+        await using QpdfDocument document = await Rewrite(MetadataFixture(type, subtype), route, mode);
         PdfStream catalog = Metadata(document, Assert.IsType<PdfDictionary>(document.GetObject(1)));
         Assert.False(catalog.Dictionary.TryGet(PdfName.FromAscii("Filter"), out _));
         Assert.Equal(Xml, catalog.Data);
@@ -92,6 +96,52 @@ public sealed class CompressionSpecialStreamTests
         Assert.True(page.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject filter));
         Assert.Equal(mode == "preserve" ? "ASCIIHexDecode" : "FlateDecode", Assert.IsType<PdfName>(filter).DisplayText);
         Assert.Equal(Xml, StreamObservation.Decode(page));
+    }
+
+    public static IEnumerable<object[]> MalformedMetadataCases()
+    {
+        foreach (string route in new[] { "argv", "job" })
+        foreach (string type in new[] { "null", "(Metadata)", "8 0 R" })
+        { yield return [route, type, "/XML"]; }
+        foreach (string route in new[] { "argv", "job" })
+        foreach (string subtype in new[] { "null", "(XML)", "7 0 R" })
+        { yield return [route, "/Metadata", subtype]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(MalformedMetadataCases))]
+    public async Task MalformedMetadataNamesFollowOrdinaryCompression(string route, string type, string subtype)
+    {
+        await using QpdfDocument document = await Rewrite(MetadataFixture(type, subtype), route, "default");
+        PdfStream catalog = Metadata(document, Assert.IsType<PdfDictionary>(document.GetObject(1)));
+        Assert.True(catalog.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject filter));
+        Assert.Equal("FlateDecode", Assert.IsType<PdfName>(filter).DisplayText);
+        Assert.Equal(Xml, StreamObservation.Decode(catalog));
+    }
+
+    [Theory]
+    [InlineData("argv", true)]
+    [InlineData("argv", false)]
+    [InlineData("job", true)]
+    [InlineData("job", false)]
+    public async Task DanglingMetadataNamesPreservePriorOutput(string route, bool type)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), MetadataFixture(type ? "99 0 R" : "/Metadata", type ? "/XML" : "99 0 R"), QpdfInputOwnership.Copy);
+        await using (IQpdfOutputTransaction prior = await host.CreateOutputAsync(QpdfPath.From("output"), CancellationToken.None))
+        {
+            await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None);
+            await prior.CommitAsync(CancellationToken.None);
+        }
+        QpdfExecutionResult result = route == "argv"
+            ? await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["input", "output"]), CancellationToken.None)
+            : await Qpdf.ExecuteJobAsync(host, "{\"inputFile\":\"input\",\"outputFile\":\"output\"}", CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.NotEmpty(result.Diagnostics);
+        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output));
+        Assert.Equal("prior"u8.ToArray(), output);
+        Assert.Equal(0L, result.Counters.OpenHandles);
+        Assert.Equal(0, host.OpenLeaseCount);
     }
 
     [Theory]

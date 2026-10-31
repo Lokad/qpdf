@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Resolve indirect catalog XML metadata type and subtype names before stream
+  transformation, keeping metadata uncompressed as for direct names. Page
+  metadata continues to follow ordinary stream settings.
+
 - Transfer a sole materialized or decoded content chunk into its joined owner,
   avoiding a second full-size buffer in content analysis and overlays. Borrowed
   buffers still copy and multiple streams retain their exact concatenation rules;
