@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Keep the primary document distinct from selected page providers. Replacement
+  targets the primary path, including selections from multiple files. Unselected
+  primary inputs are validated and retain their catalog metadata and original ID;
+  external single-page ranges use the same selection path as equivalent ranges.
+
 - Resolve indirect catalog XML metadata type and subtype names before stream
   transformation, keeping metadata uncompressed as for direct names. Page
   metadata continues to follow ordinary stream settings.

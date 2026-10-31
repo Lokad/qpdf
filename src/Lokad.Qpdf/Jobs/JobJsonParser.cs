@@ -1594,9 +1594,9 @@ internal static class JobJsonParser
 
             }
 
-            if (entries.Count == 1 && !empty && collation is null && splitPages is null && SelectionPlan.IsPlainPageNumber(entries[0].Range))
+            if (entries.Count == 1 && !empty && collation is null && splitPages is null && SelectionPlan.IsPlainPageNumber(entries[0].Range)
+                && (entries[0].File == "." || entries[0].File == input))
             {
-                string resolved = ResolveFile(entries[0].File, input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null));
                 int page = SelectionPlan.ParsePageNumber(entries[0].Range);
                 return new SelectionPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output ?? input), page, recovery) with
                 {
@@ -2611,18 +2611,4 @@ internal static class JobJsonParser
         throw new QpdfParseException("Job \"" + role + "\" must be an empty string or a boolean.", 0L, null);
     }
 
-    private static string ResolveFile(string file, string input)
-    {
-        if (file == ".")
-        {
-            return input;
-        }
-
-        if (!string.Equals(file, input, StringComparison.Ordinal))
-        {
-            throw new QpdfParseException("Multiple page sources are outside the narrow selection profile.", 0L, null);
-        }
-
-        return file;
-    }
 }

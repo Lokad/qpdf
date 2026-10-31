@@ -217,8 +217,12 @@ echoing values.
   closes on success, failure, and cancellation.
 - `--split-pages` publishes one file per page group with pruned objects and
   sliced labels (typed callers use `PdfPageMergeOptions.SplitPages`); `--replace-input`
-  publishes at the single input's path with no backup. The host defines physical
-  replacement semantics. `InMemoryQpdfHost` keeps registered inputs and published
+  publishes at the primary input's path with no backup, including selections from
+  other files. The primary supplies document metadata and the original identifier
+  even when none of its pages are selected; page ranges `1` and `1-1` accept the
+  same external sources. Ordinary outputs must differ from primary and page-source
+  paths. The host defines physical replacement semantics. `InMemoryQpdfHost` keeps
+  registered inputs and published
   outputs separate: reopening that path reads the original registration until
   the caller exports the output with `TryGetOutput` and registers it with `AddInput`.
   Partial split outputs can remain if a later group fails.

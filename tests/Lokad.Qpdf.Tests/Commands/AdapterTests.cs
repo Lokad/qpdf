@@ -174,14 +174,19 @@ public sealed class AdapterTests
     }
 
     [Fact]
-    public async Task ArgvRejectsMultipleSources()
+    public async Task ArgvReportsMissingPageSource()
     {
-        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        using InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
             new QpdfCommandInvocation(["inputs/a.pdf", "--pages", "inputs/b.pdf", "1", "--", "outputs/a.pdf"]),
             CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        QpdfDiagnostic error = SingleError(result);
+        Assert.Equal(QpdfDiagnosticCode.HostOperationFailed, error.Code);
+        Assert.Contains("inputs/b.pdf", error.Message, StringComparison.Ordinal);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out _));
+        Assert.Equal(0L, result.Counters.OpenHandles);
+        Assert.Equal(0, host.OpenLeaseCount);
     }
 
     [Fact]

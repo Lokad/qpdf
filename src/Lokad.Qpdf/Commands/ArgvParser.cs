@@ -933,7 +933,9 @@ internal static class ArgvParser
             return NewWholeFilePlan(input, output, recovery, globals, rotations, labels, edits, overlays, underlays);
         }
 
-        if (emptyInput || groups.Count > 1 || collate.Count > 0 || globals.Collate.Count > 0 || (groups.Count == 1 && !SelectionPlan.IsPlainPageNumber(groups[0].Range)))
+        if (emptyInput || groups.Count > 1 || collate.Count > 0 || globals.Collate.Count > 0
+            || (groups.Count == 1 && (!SelectionPlan.IsPlainPageNumber(groups[0].Range)
+                || (groups[0].File != "." && groups[0].File != input))))
         {
             return ParseMerge(input, output, groups, rotations, labels, removeLabels, collate, recovery, globals, emptyInput) with
             {
@@ -945,8 +947,6 @@ internal static class ArgvParser
             };
         }
 
-        string file = groups[0].File;
-        string resolvedFile = ResolveFile(file, input);
         int page = SelectionPlan.ParsePageNumber(groups[0].Range);
         return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), page, recovery) with
         {
@@ -3920,7 +3920,9 @@ internal static class ArgvParser
         QpdfRecoveryMode recovery,
         GlobalOptions globals)
     {
-        if (groups.Count > 1 || collate.Count > 0 || globals.Collate.Count > 0 || (groups.Count == 1 && !SelectionPlan.IsPlainPageNumber(groups[0].Range)))
+        if (groups.Count > 1 || collate.Count > 0 || globals.Collate.Count > 0
+            || (groups.Count == 1 && (!SelectionPlan.IsPlainPageNumber(groups[0].Range)
+                || (groups[0].File != "." && groups[0].File != input))))
         {
             return ParseMerge(input, input, groups, rotations, labels, removeLabels, collate, recovery, globals, false) with
             {
@@ -3928,8 +3930,6 @@ internal static class ArgvParser
             };
         }
 
-        string file = groups[0].File;
-        string resolvedFile = ResolveFile(file, input);
         int page = SelectionPlan.ParsePageNumber(groups[0].Range);
         return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(input), page, recovery) with
         {
@@ -4267,18 +4267,4 @@ internal static class ArgvParser
         return output;
     }
 
-    private static string ResolveFile(string file, string input)
-    {
-        if (file == ".")
-        {
-            return input;
-        }
-
-        if (!string.Equals(file, input, StringComparison.Ordinal))
-        {
-            throw new QpdfParseException("Multiple page sources are outside the narrow selection profile.", 0L, null);
-        }
-
-        return file;
-    }
 }
