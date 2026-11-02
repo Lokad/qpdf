@@ -105,6 +105,12 @@ internal static class ContentTransforms
         using ParserMemoryScope phase = ParserMemoryScope.Create(governor);
         GovernedIntDictionary<PdfStream>? normalized = request.Normalize
             ? GovernedIntDictionary<PdfStream>.Create(phase, governor, IntPtr.Size, cancellationToken) : null;
+        Dictionary<PdfArray, PdfReference>? coalesced = null;
+        if (request.Coalesce)
+        {
+            phase.Reserve(96L);
+            coalesced = new(ReferenceEqualityComparer.Instance);
+        }
         foreach (int pageId in pageIds)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -120,9 +126,9 @@ internal static class ContentTransforms
                 page = ExternalizePageWithForms(copier, pageId, page, request, limits, governor, diagnostics, cancellationToken);
             }
 
-            if (request.Coalesce)
+            if (coalesced is not null)
             {
-                page = CoalescePage(copier, pageId, page, request, limits, governor, diagnostics, cancellationToken);
+                page = CoalescePage(copier, pageId, page, request, coalesced, phase, limits, governor, diagnostics, cancellationToken);
             }
 
             if (normalized is not null)
@@ -250,6 +256,8 @@ internal static class ContentTransforms
         int pageId,
         PdfDictionary page,
         ContentTransformRequest request,
+        Dictionary<PdfArray, PdfReference> coalescedArrays,
+        ParserMemoryScope phase,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
@@ -263,6 +271,17 @@ internal static class ContentTransforms
 
         using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
         PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
+        PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, cancellationToken, out QpdfObject contents);
+        QpdfObject? target = contents;
+        if (target is PdfReference originalReference)
+        { PdfObjectLookup.TryResolve(originalReference, copier.CopiedObjects, governor, cancellationToken, out target); }
+        PdfArray? original = target as PdfArray;
+        if (original is not null && coalescedArrays.TryGetValue(original, out PdfReference? existing))
+        {
+            PdfDictionary shared = ReplaceEntry(page, "Contents"u8, existing, governor, cancellationToken);
+            copier.ReplaceCopiedObject(pageId, shared);
+            return shared;
+        }
         PdfStream? coalesced = BuildCoalescedContent(entries, resolver, request, limits, governor, cancellationToken);
         if (coalesced is null)
         {
@@ -276,6 +295,11 @@ internal static class ContentTransforms
         // identities intact until final output reachability is known.
         PdfReference? link = copier.AddIndirectObject(coalesced);
         if (link is null) { return page; }
+        if (original is not null)
+        {
+            ParserContainers.EnsureEntryCapacity(phase, coalescedArrays, IntPtr.Size);
+            coalescedArrays.Add(original, link);
+        }
         PdfDictionary replaced = ReplaceEntry(page, "Contents"u8, link, governor, cancellationToken);
         copier.ReplaceCopiedObject(pageId, replaced);
         return replaced;

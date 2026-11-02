@@ -84,7 +84,9 @@ Attachment removals match keys in the same bounded name-tree walk before reading
 metadata or preserving values. After replacements, whole-file models use existing
 graph reachability from the final catalog, page tree and trailer Info. Coalescing
 uses that same final-root pass, preserving catalog aliases held outside the page
-pool and retiring only unreachable original content arrays and streams. Ordinary
+pool and retiring only unreachable original content arrays and streams. An
+operation-scoped identity cache shares the joined stream for repeated references
+to the same immutable array without changing that array. Ordinary
 adds and removals need no extra graph scan. Split attachment
 roots come only from the final name tree. Shared references and explicit
 unreferenced-object preservation retain their existing ownership and policy.

@@ -55,9 +55,12 @@ public sealed class CoalescedContentIdentityTests
         Assert.Equal(mode == "duplicate" ? 2 : 1, document.PageCount);
         QpdfObject Resolve(QpdfObject value) => value is PdfReference reference ? document.GetObject(reference.ObjectNumber) : value;
         PdfDictionary catalog = Assert.IsType<PdfDictionary>(Resolve(Get(document.Engine.Trailer, "Root")));
+        QpdfObject? firstContents = null;
         foreach (var location in document.PageReferences)
         {
             QpdfObject contents = Get(location.Page, "Contents");
+            if (mode == "duplicate" && firstContents is not null) { Assert.Equal(firstContents, contents); }
+            firstContents = contents;
             PdfStream joined = Assert.IsType<PdfStream>(Resolve(contents));
             Assert.Equal("q\nQ"u8.ToArray(), joined.Data);
             foreach (PdfDictionary owner in new[] { catalog, location.Page })
