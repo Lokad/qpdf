@@ -56,6 +56,11 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Fileless JSON now includes the returned text's UTF-8 bytes in cumulative
+`MaxOutputBytes` admission and `TotalOutputBytes`, alongside stream sidecars.
+The combined limit is checked before any target commits. Calls that previously
+omitted those bytes can now fail at that limit, preserving prior targets.
+
 Invocation nesting limits now govern later graph walks as well as PDF parsing,
 matching equivalent explicit host options. The validated effective limit is
 installed before PDF execution; explicit host ceilings still reject larger

@@ -4741,10 +4741,12 @@ public static partial class Qpdf
         await using QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
         Json.JsonRequest request = new(inspection.Version, inspection.Keys, decodeLevel, inspection.StreamData, prefix, wanted, inspection.MinimalOutput);
         using Json.PreparedJsonOutput output = Json.PreparedJsonOutput.Create(governor);
+        long mainBytes;
         using (DisplayBuffer builder = Json.DocumentJson.WriteDocument(document, request, output, limits, governor, diagnostics, cancellationToken))
         {
-            if (builder.Utf8Bytes > limits.MaxOutputBytes)
-            { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), builder.Utf8Bytes, limits.MaxOutputBytes); }
+            mainBytes = builder.Utf8Bytes;
+            if (mainBytes > limits.MaxOutputBytes)
+            { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), mainBytes, limits.MaxOutputBytes); }
             // The chunks no longer refer to PDF values. Close the reader
             // before allocating immutable text and publication copies.
             if (!testJsonSchema) { await document.DisposeAsync().ConfigureAwait(false); }
@@ -4758,7 +4760,6 @@ public static partial class Qpdf
             output.Prepare(text, outputPath.HasValue, escapeText, limits);
         }
         List<Json.JsonPayload> sidecars = output.Sidecars;
-        long mainBytes = output.Main?.Data.Length ?? 0L;
 
         long anticipatedBytes = mainBytes;
         long publicationOperations = outputPath.HasValue ? 1L + (mainBytes + 32767L) / 32768L : 0L;
