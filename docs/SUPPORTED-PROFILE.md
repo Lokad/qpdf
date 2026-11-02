@@ -482,6 +482,12 @@ Null preferred candidates allow the next existing stream key to supply the data.
 Required file specifications, embedded-stream dictionaries and name-tree children
 still reject unresolvable/null references; generation and cycle checks remain active.
 
+Authored keys, filenames, descriptions and copy prefixes require well-formed
+UTF-16; malformed caller strings fail before publication instead of substituting
+U+FFFD. Valid U+FFFD and surrogate pairs retain their identity. MIME names must be
+ASCII without NUL. This PDF-name restriction does not prohibit NUL in text strings.
+Existing PDF text keeps its separate lenient decoding policy.
+
 Named attachment extraction honors invocation parser controls and warning policy
 through argv, mixed job-file arguments and job JSON. Explicit host ceilings stay
 binding. Filter-limit refusals retain encoded bytes with a warning; `--no-warn`

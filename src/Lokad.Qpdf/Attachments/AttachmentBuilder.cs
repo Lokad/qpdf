@@ -13,6 +13,9 @@ internal static class AttachmentBuilder
         ParserMemoryScope memory, CancellationToken token)
     {
         memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        if (!GovernedText.IsValidUtf16(text, governor))
+        { throw new QpdfParseException("Attachment text contains invalid UTF-16.", null, null); }
+        token.ThrowIfCancellationRequested();
         bool ascii = true;
         for (int index = 0; index < text.Length; index++)
         {
@@ -41,6 +44,9 @@ internal static class AttachmentBuilder
 
     private static PdfName Name(string text, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        if (text.AsSpan().IndexOf('\0') >= 0)
+        { throw new QpdfParseException("PDF names must not contain NUL.", null, null); }
         memory.Reserve(64L + text.Length); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         byte[] bytes = new byte[text.Length];
         for (int index = 0; index < text.Length; index++)

@@ -56,6 +56,16 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Typed and argv attachment authoring now reject malformed UTF-16 request text
+instead of silently substituting U+FFFD, consistent with job JSON's rejection.
+Authored MIME names also reject NUL. These intentional alpha behavior changes
+preserve identifier identity and prior outputs on failure; valid Unicode and
+lenient decoding of existing PDF text are unchanged.
+Native qpdf 12.4.2 job parameters truncate authored attachment keys, filenames and
+descriptions at NUL; managed text strings preserve the complete value. Native's
+attachment-name lookup also truncates at NUL, while its object inspection reads
+the managed file's complete strings and referenced payload correctly.
+
 Ordinary page selection now retains the primary document's attachment collection
 even when no primary pages are selected. This intentional alpha behavior change
 replaces edit-dependent retention and aligns ordinary selection with native qpdf.

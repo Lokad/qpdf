@@ -126,16 +126,16 @@ public sealed record QpdfAttachmentSpec
     /// <summary>Gets the host file to embed.</summary>
     public string File { get; }
 
-    /// <summary>Gets the attachment key, defaulting to the file basename.</summary>
+    /// <summary>Gets the attachment key, defaulting to the file basename. Authored text must be well-formed UTF-16.</summary>
     public string? Key { get; }
 
-    /// <summary>Gets the displayed filename, defaulting to the file basename.</summary>
+    /// <summary>Gets the displayed filename, defaulting to the file basename. Authored text must be well-formed UTF-16.</summary>
     public string? FileName { get; }
 
-    /// <summary>Gets the description.</summary>
+    /// <summary>Gets the description, which must be well-formed UTF-16 when supplied.</summary>
     public string? Description { get; }
 
-    /// <summary>Gets the MIME type.</summary>
+    /// <summary>Gets the ASCII MIME type, which must not contain NUL.</summary>
     public string? MimeType { get; }
 
     /// <summary>Gets the creation date in PDF timestamp syntax.</summary>
@@ -162,7 +162,7 @@ public sealed record QpdfAttachmentCopy
     /// <summary>Gets the source document path.</summary>
     public QpdfPath Input { get; }
 
-    /// <summary>Gets the key prefix.</summary>
+    /// <summary>Gets the key prefix, which must be well-formed UTF-16 when supplied.</summary>
     public string? Prefix { get; }
 }
 

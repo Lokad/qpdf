@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Reject malformed UTF-16 in authored attachment keys, filenames, descriptions
+  and copy prefixes, and reject NUL in authored MIME names before publication.
+  Existing PDF text decoding stays lenient; valid replacement characters,
+  surrogate pairs and NUL in PDF text strings preserve their identity.
+
 - Treat direct and indirect null consistently for optional attachment containers,
   stream parameters and preferred stream candidates. A null preferred candidate
   permits the existing fallback; required file and stream references remain strict.

@@ -291,7 +291,7 @@ public sealed class AttachmentConstructionTests
     [Theory]
     [InlineData("ASCII")]
     [InlineData("Latin \u00e9")]
-    [InlineData("\ud800")]
+    [InlineData("\ufffd")]
     public void EncodedMetadataKeepsTheExistingAsciiAndUtf16Representation(string value)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
