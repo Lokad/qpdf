@@ -736,7 +736,7 @@ internal static partial class JsonImport
             return PdfByteString.FromOwnedBytes(bytes, true);
         }
         if (span.StartsWith("/", StringComparison.Ordinal))
-        { return PdfName.FromOwnedBytes(EncodeUtf8(span[1..], governor, token)); }
+        { return PdfName.FromOwnedBytes(EncodeNameUtf8(span[1..], governor, token)); }
         if (span.StartsWith("n:", StringComparison.Ordinal))
         {
             if (span.Length < 3 || span[2] != '/')
@@ -756,7 +756,7 @@ internal static partial class JsonImport
             return PdfName.FromOwnedBytes(ResolveNameSyntax(span[3..], governor, token));
         }
         if (span.StartsWith("/", StringComparison.Ordinal)) { span = span[1..]; }
-        return PdfName.FromOwnedBytes(EncodeUtf8(span, governor, token));
+        return PdfName.FromOwnedBytes(EncodeNameUtf8(span, governor, token));
     }
 
     internal static bool IsIndirectReference(string text, out int number, out int generation)
@@ -788,9 +788,14 @@ internal static partial class JsonImport
         value = (int)parsed; return true;
     }
 
-    private static byte[] EncodeUtf8(ReadOnlySpan<char> text, ResourceGovernor governor, CancellationToken token)
+    private static byte[] EncodeNameUtf8(ReadOnlySpan<char> text, ResourceGovernor governor, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        for (int index = 0; index < text.Length; index++)
+        {
+            CheckTextCancellation(index, governor, token);
+            if (text[index] == '\0') { throw new QpdfParseException("PDF names must not contain NUL.", 0L, null); }
+        }
         byte[] result = new byte[Encoding.UTF8.GetByteCount(text)];
         Encoding.UTF8.GetBytes(text, result);
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -799,7 +804,7 @@ internal static partial class JsonImport
 
     private static byte[] ResolveNameSyntax(ReadOnlySpan<char> body, ResourceGovernor governor, CancellationToken token)
     {
-        byte[] source = EncodeUtf8(body, governor, token);
+        byte[] source = EncodeNameUtf8(body, governor, token);
         int written = 0;
         for (int index = 0; index < source.Length; index++)
         {
@@ -812,6 +817,7 @@ internal static partial class JsonImport
                 value = (byte)((HexValue((char)source[index + 1]) << 4) | HexValue((char)source[index + 2]));
                 index += 2;
             }
+            if (value == 0) { throw new QpdfParseException("PDF names must not contain NUL.", 0L, null); }
             source[written++] = value;
         }
         return written == source.Length ? source : source.AsSpan(0, written).ToArray();

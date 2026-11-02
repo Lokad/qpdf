@@ -353,6 +353,9 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
   JSON pdfversion overrides the output version when present. Pushed inherited
   attributes stay explicitly unsupported. The typed
   `UpdatePdfFromJsonAsync` shares the engine.
+  Authored name keys and values reject NUL, including `#00` in `n:` name syntax.
+  Literal hashes (including the characters `#00`) and NUL text strings retain their
+  identity. The reader's damaged-hash repair marker remains a separate input policy.
   Creation/update validates the normalized page tree with the shared reader before
   publication. Direct/indirect types and child arrays have identical counting;
   repeated references count each occurrence, while cycles, excessive depth and

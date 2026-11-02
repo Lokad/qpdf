@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Reject NUL in PDF JSON name keys and values before publication, including
+  escaped name syntax. Preserve literal hashes, NUL text strings and the existing
+  damaged-name repair behavior.
+
 - Reject inconsistent QDF stream/object/length framing before publication,
   including marker lines inside binary streams and object-stream members.
   Preserve ordinary edited lengths and other marker-shaped payload bytes.

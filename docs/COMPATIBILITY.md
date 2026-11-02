@@ -56,6 +56,11 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+PDF JSON creation/update now reject NUL in authored names, including `#00` in
+`n:` name syntax. Native qpdf can publish a damaged name from literal NUL input.
+Literal hash names and NUL text strings remain valid. The reader's existing
+zero-byte marker for damaged hash escapes keeps its separate repair behavior.
+
 Full attachment collection operations now reject duplicate logical keys before
 publication, including collisions between different PDF text encodings. Native
 qpdf repairs this ambiguous input and typically selects the later entry. Managed
