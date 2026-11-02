@@ -222,8 +222,8 @@ internal static class JobJsonParser
                         }
 
                         seenEmpty = true;
-                        if (input is not null) { throw new QpdfParseException("Empty input cannot follow an input file.", 0L, null); }
                         empty = RequireBareFlag(property.Value, "empty", textStorage);
+                        if (empty && input is not null) { throw new QpdfParseException("Empty input cannot follow an input file.", 0L, null); }
                         break;
                     case "inputFile":
                         if (seenInput)

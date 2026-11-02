@@ -56,6 +56,10 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Managed job JSON treats `empty:false` as a disabled setting, including partial
+job files after an input. Enabled empty-input settings retain their ordering and
+conflict checks. Native qpdf's job schema does not accept `false` for this flag.
+
 Bounded xref recovery now preserves the generation of its fallback catalog,
 accepts direct or indirect catalog type names and sizes the rebuilt table from
 live scanned headers. A stale trailer `/Size` no longer discards the root or

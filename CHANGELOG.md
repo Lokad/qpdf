@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Treat `empty:false` consistently as disabled in partial job files before or
+  after an input, preserving enabled empty-input ordering and conflict checks.
+
 - Reconstruct live catalog generations and indirect type names during bounded
   recovery. Keep scanned objects beyond stale trailer sizes, and skip parsed
   payload bodies so embedded header text cannot replace the catalog. Retire
