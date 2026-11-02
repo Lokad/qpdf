@@ -56,6 +56,11 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Invalid JSON-key diagnostics now use a bounded prefix ending in `...` for long
+keys, including terminal failures after ordinary diagnostic storage is exhausted.
+Short messages and error categories are unchanged. A truncated preview preserves
+Unicode pairs at its boundary; it does not echo the entire request key.
+
 Fileless JSON now includes the returned text's UTF-8 bytes in cumulative
 `MaxOutputBytes` admission and `TotalOutputBytes`, alongside stream sidecars.
 The combined limit is checked before any target commits. Calls that previously

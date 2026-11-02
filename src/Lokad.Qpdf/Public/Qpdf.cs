@@ -4603,7 +4603,7 @@ public static partial class Qpdf
         {
             if (key is null || Array.IndexOf(JsonKeys, key) < 0)
             {
-                throw new QpdfParseException("Unknown JSON key '" + (key ?? string.Empty) + "'.", 0L, null);
+                throw new QpdfParseException("Unknown JSON key '" + ArgvParser.ErrorPreview(key ?? string.Empty) + "'.", 0L, null);
             }
 
             if (version == 1 && string.Equals(key, "qpdf", StringComparison.Ordinal))

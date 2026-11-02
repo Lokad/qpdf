@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Bound invalid JSON-key excerpts before exception formatting, reusing the
+  existing preview policy for typed selectors and root/global/pages job keys.
+  Preserve short messages, error categories and prior outputs.
+
 - Count returned JSON UTF-8 bytes together with stream sidecars under the
   cumulative output limit, before any publication. Fileless JSON now reports
   the same logical output count as equivalent named JSON.

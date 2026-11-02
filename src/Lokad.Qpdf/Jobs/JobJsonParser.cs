@@ -486,7 +486,7 @@ internal static class JobJsonParser
                                     parserMaxErrors = RequireParserMaxErrors(globalProperty.Value, textStorage);
                                     break;
                                 default:
-                                    throw new QpdfParseException("Unsupported job key \u0027global." + globalProperty.Name + "\u0027 in the narrow selection profile.", 0L, null);
+                                    throw new QpdfParseException("Unsupported job key \u0027global." + ArgvParser.ErrorPreview(globalProperty.Name) + "\u0027 in the narrow selection profile.", 0L, null);
                             }
                         }
 
@@ -1080,7 +1080,7 @@ internal static class JobJsonParser
                         recovery = suppressRecovery ? QpdfRecoveryMode.Strict : QpdfRecoveryMode.BoundedRepair;
                         break;
                     default:
-                        throw new QpdfParseException($"Unsupported job key '{property.Name}' in the narrow selection profile.", 0L, null);
+                        throw new QpdfParseException($"Unsupported job key '{ArgvParser.ErrorPreview(property.Name)}' in the narrow selection profile.", 0L, null);
                 }
             }
 
@@ -2537,7 +2537,7 @@ internal static class JobJsonParser
                 case "password":
                     throw new QpdfCryptoException("password");
                 default:
-                    throw new QpdfParseException($"Unsupported pages key '{property.Name}' in the narrow selection profile.", 0L, null);
+                    throw new QpdfParseException($"Unsupported pages key '{ArgvParser.ErrorPreview(property.Name)}' in the narrow selection profile.", 0L, null);
             }
         }
 
