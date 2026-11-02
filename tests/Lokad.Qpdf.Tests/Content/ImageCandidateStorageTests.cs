@@ -1,5 +1,6 @@
 using System.Text;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Image;
 using Lokad.Qpdf.Objects;
@@ -81,14 +82,27 @@ public sealed class ImageCandidateStorageTests
     }
 
     [Fact]
-    public void InputMaterializationRefusesBeforeCopyingAndBeforeCodecCall()
+    public void BorrowedSamplesReachCodecAndRefuseGrowthAtTheExistingLimit()
     {
         PdfStream source = Image(1024, new byte[1024 * 1024 + 1], false);
         PdfStream image = PdfStream.FromImmutableSlice(source.Dictionary, source.RawMemory[1..]);
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 4096L };
+        bool called = false, borrowed = false;
         ResourceGovernor governor = new(limits, CancellationToken.None)
-            { JpegCodec = new ObservedCodec(_ => Assert.Fail("Codec must not run after refusal.")) };
-        Assert.Throws<QpdfLimitException>(() => Optimize(image, governor, limits));
+        {
+            JpegCodec = new ObservedCodec(raw =>
+            {
+                called = true;
+                borrowed = MemoryMarshal.TryGetArray(raw, out ArraySegment<byte> segment)
+                    && ReferenceEquals(segment.Array, source.AllocationCarrier) && segment.Offset == 1
+                    && segment.Count == 1024 * 1024;
+            }),
+        };
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => Optimize(image, governor, limits));
+        Assert.InRange(GC.GetAllocatedBytesForCurrentThread() - before, 0L, 65536L);
+        Assert.True(called); Assert.True(borrowed);
+        Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
