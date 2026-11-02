@@ -237,6 +237,22 @@ failure behavior; the tables below highlight differences important to callers.
 
 Additional intentional data differences are:
 
+- AcroForm JSON identifies a separate widget by its terminal field; a merged
+  field/widget keeps its own identity. Inherited `V`/`DV` report resolved values,
+  rather than native's reference representation. Broken or over-depth ancestor
+  walks stop boundedly and may omit inherited information; they do not turn
+  read-only inspection into a strict form-tree validation pass.
+- Attachment creation and modification dates are read independently from
+  `CreationDate` and `ModDate`. Native qpdf 12.4.2 can repeat the creation date as
+  `modificationdate`, including when `ModDate` differs or is absent. Managed
+  inspection preserves the modification date or reports its absence.
+- Inspection-only jobs accept writer settings without applying every rewrite
+  operation. Managed form/structure removal flags leave inspected roots intact;
+  native applies those removals before inspection. Page selection/collation,
+  rotation and overlay/underlay inspection remain supported, and QDF can supply
+  the existing content-normalization default. Rewriting still applies requested
+  form/structure removals.
+
 - Resource pruning keeps the effective scope for used Type 3 fonts and soft-mask
   groups, including inherited uses through forms. Native
   qpdf 12.4.2 can remove these dependencies and blank the reduced fixtures; managed

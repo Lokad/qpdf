@@ -319,7 +319,10 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
   Checking can share its opened document with count, linearization, xref,
   object, page/image and attachment listings in native order. Failed checking
   stops them. QDF/linearize flags do not serialize an inspection-only job.
-  Checking accepts selection/transformation inspections and attachment extraction.
+  Checking accepts page selection/collation, rotation and overlay/underlay
+  inspections, plus attachment extraction. Other accepted writer settings do not
+  generally transform the inspected graph: form/structure removals are ignored
+  here, unlike native qpdf. QDF can supply the content-normalization default.
   Combined stream/attachment payloads retain stream-then-attachment order.
   Standalone raw/filtered stream output after checking or other informational
   output rejects under the existing ordering rules.
