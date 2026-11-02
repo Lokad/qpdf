@@ -122,6 +122,7 @@ internal static class Program
         await VerifyCodecContractAsync();
         await VerifyImageOptimizationAsync();
         await VerifyAttachmentEditsAsync();
+        await VerifyAttachmentRetentionAsync();
         await VerifyContentStorageAsync();
         await VerifyJsonCapacityAsync();
         await VerifyInlineJobEncodingAsync();
@@ -1518,6 +1519,42 @@ internal static class Program
             }
             Check(host.OpenLeaseCount == 0, "attachment edits close all leases");
         }
+    }
+
+    private static async Task VerifyAttachmentRetentionAsync()
+    {
+        foreach (string route in new[] { "typed-single", "typed-multi", "argv", "job" })
+        foreach (bool all in new[] { false, true })
+        {
+            using InMemoryQpdfHost host = new();
+            host.AddInput(QpdfPath.From("input"), TwoPagePdf(), QpdfInputOwnership.Transfer);
+            host.AddInput(QpdfPath.From("payload"), new byte[] { 0, 255, 127, 10 }, QpdfInputOwnership.Transfer);
+            await Qpdf.AddAttachmentsAsync(host, QpdfPath.From("input"), QpdfPath.From("seeded"),
+                [new("payload", "keep", "file.bin", "retained", null, null, null, false)], CancellationToken.None);
+            host.AddInput(QpdfPath.From("input"), Published(host, "seeded"), QpdfInputOwnership.Transfer);
+            PdfPageSelectionOptions selection = PdfPageSelectionOptions.FromPages(all ? [1, 2] : [2]);
+            if (route == "typed-single")
+            { await Qpdf.SelectPageAsync(host, QpdfPath.From("input"), QpdfPath.From("output"), selection, CancellationToken.None); }
+            else if (route == "typed-multi")
+            { await Qpdf.SelectPagesAsync(host, [new(QpdfPath.From("input"), selection)], QpdfPath.From("output"), CancellationToken.None); }
+            else
+            {
+                string range = all ? "1-z" : "2";
+                QpdfExecutionResult result = route == "argv"
+                    ? await Qpdf.ExecuteAsync(host, new(["input", "--pages", ".", range, "--", "output"]), CancellationToken.None)
+                    : await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new { inputFile = "input", outputFile = "output", pages = new[] { new { file = ".", range } } }), CancellationToken.None);
+                Check(result.Status == QpdfExecutionStatus.Completed && result.ExitCode == QpdfExitCode.Success,
+                    "ordinary page selection retains primary attachments without an edit");
+            }
+            host.AddInput(QpdfPath.From("again"), Published(host, "output"), QpdfInputOwnership.Transfer);
+            IReadOnlyList<QpdfAttachmentInfo> listing = await Qpdf.ListAttachmentsAsync(host, QpdfPath.From("again"), CancellationToken.None);
+            Check(listing.Count == 1 && listing[0].Key == "keep" && listing[0].FileName == "file.bin"
+                && listing[0].Description == "retained", "ordinary selection preserves the collection after reopening");
+            await Qpdf.ExtractAttachmentAsync(host, QpdfPath.From("again"), "keep", QpdfPath.From("extracted"), CancellationToken.None);
+            Check(Published(host, "extracted").AsSpan().SequenceEqual(new byte[] { 0, 255, 127, 10 }), "retained attachment bytes are exact");
+            Check(host.OpenLeaseCount == 0L, "ordinary attachment retention closes all input leases");
+        }
+        Console.WriteLine("PASS ordinary attachment retention through both typed cores, argv and job, for all/subset pages");
     }
 
     private static byte[] MalformedAttachmentPdf()
