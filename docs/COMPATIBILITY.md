@@ -170,6 +170,12 @@ failure behavior; the tables below highlight differences important to callers.
 
 Additional intentional data differences are:
 
+- Resource pruning keeps the effective scope for used Type 3 fonts and soft-mask
+  groups, including inherited uses through forms. Native
+  qpdf 12.4.2 can remove these dependencies and blank the reduced fixtures; managed
+  deliberately preserves their rendering. These programs can retain unused page
+  entries even with local resources; ordinary consumers still permit pruning.
+
 - PDF JSON creation/update validates page-tree structure before publication through
   the shared bounded reader. Cycles, nesting-limit violations and malformed tree
   links reject with prior output preserved; native JSON import can pass these

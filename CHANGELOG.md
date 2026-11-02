@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Preserve effective resources used by Type 3 glyphs and soft-mask groups during
+  pruning, including uses inherited through forms. Conservatively keep these
+  scopes while ordinary consumers still prune; native qpdf's destructive behavior
+  is not reproduced.
+
 - Resolve primary PageMode before applying attachment defaults, treating indirect
   null as absent and retaining name bytes without a text round trip. Keep opaque
   hints under ordinary catalog preservation and existing split policy.

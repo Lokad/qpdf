@@ -398,6 +398,10 @@ Numbers are normalized lexically under the existing cancellation/output bounds.
   keep everything. Undefined usage under an explicit local form Resources
   dictionary also preserves the page scope conservatively; absent form Resources
   keeps inherited-name protection, and declared form fonts still allow pruning.
+  Used Type 3 fonts and soft-mask groups keep the enclosing scope, including uses
+  inherited through forms. Their glyph/mask programs are outside this scanner;
+  a local dictionary alone does not establish dependency completeness. This can
+  retain unused entries. Ordinary consumers still permit pruning.
   Auto mode prunes only when resource dictionaries are
   shared. Pruning applies to page selection, merge, and split outputs.
 - --externalize-inline-images with --ii-min-bytes (default 1024) lifts inline images at or above the threshold into /IIm1, /IIm2 image XObjects referenced by Do. Abbreviated keys, filters, and device color names expand, other color names resolve through page resources with a warning on miss, taken names are skipped, and smaller images keep their bytes. Runs before coalescing and normalization on pages and indirect forms across selection, merge, split, and whole-file output, keeping damaged content with a warning.

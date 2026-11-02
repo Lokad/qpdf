@@ -1054,6 +1054,11 @@ internal static class ContentTransforms
 
         if (resources is null)
         {
+            // Inherited gs/font uses can hide further consumers in the parent
+            // scope, including soft-mask groups and Type 3 glyph programs.
+            using var inherited = names.GetEnumerator();
+            while (inherited.MoveNext(governor, cancellationToken))
+            { unresolved.AddDecoded(inherited.Current.Key.RawSpan); }
             return;
         }
 
@@ -1079,6 +1084,7 @@ internal static class ContentTransforms
         }
 
         if (isPage && unresolved.HasUnresolvedLocalScope) { return; }
+        if (HasUnscannedResourceConsumer(resources, names, unresolved, resolver, governor, cancellationToken)) { return; }
 
         // Two sections, resources and the node header each own a table/wrapper.
         // A form adds one stream wrapper; a synthetic header can add a name/buffer.
@@ -1280,6 +1286,42 @@ internal static class ContentTransforms
             return null;
         }
         catch { chunks.Dispose(); throw; }
+    }
+
+    // Glyph and mask programs are outside this scanner. A local resource
+    // dictionary does not prove that all of their dependencies are local.
+    private static bool HasUnscannedResourceConsumer(PdfDictionary resources, ResourceNameSet names,
+        ResourceNameSet inherited, PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
+    {
+        for (int section = 0; section < 2; section++)
+        {
+            ReadOnlySpan<byte> key = section == 0 ? "Font"u8 : "ExtGState"u8;
+            if (!PdfDictionaryLookup.TryGet(resources, key, governor, token, out QpdfObject raw)) { continue; }
+            PdfDictionary? category = CatalogCopy.ResolveDictionary(raw, resolver, governor, token);
+            if (category is null) { continue; }
+            using PdfDictionary.EntryEnumerator entries = category.GetEntryEnumerator();
+            while (entries.MoveNext(governor, token))
+            {
+                if (!names.ContainsDecoded(entries.Current.Key.RawSpan) && !inherited.ContainsDecoded(entries.Current.Key.RawSpan)) { continue; }
+                PdfDictionary? consumer = CatalogCopy.ResolveDictionary(entries.Current.Value, resolver, governor, token);
+                if (consumer is null) { continue; }
+                if (section == 0)
+                {
+                    if (!PdfDictionaryLookup.TryGet(consumer, "Subtype"u8, governor, token, out raw)
+                        || CatalogCopy.ResolveValue(raw, resolver, governor, token) is not PdfName type
+                        || !PdfDictionaryLookup.NameEquals(type, "Type3"u8, governor, token)) { continue; }
+                }
+                else
+                {
+                    if (!PdfDictionaryLookup.TryGet(consumer, "SMask"u8, governor, token, out raw)) { continue; }
+                    PdfDictionary? mask = CatalogCopy.ResolveDictionary(raw, resolver, governor, token);
+                    if (mask is null || !PdfDictionaryLookup.TryGet(mask, "G"u8, governor, token, out raw)
+                        || CatalogCopy.ResolveValue(raw, resolver, governor, token) is not PdfStream) { continue; }
+                }
+                return true;
+            }
+        }
+        return false;
     }
 
     private static bool ScanNames(
