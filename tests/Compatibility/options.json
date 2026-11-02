@@ -2168,7 +2168,9 @@
           "AttachmentNameOrderTests.MixedEncodingTreesSupportByteSearchWithoutChangingListingOrPayloads",
           "AttachmentEditTests.AddExplicitMetadata",
           "AttachmentConstructionTests.NameTreeBoundariesAndUnicodeRoundTripThroughThePublicPipeline",
-          "AttachmentEditTests.AddWithPagesSelectsAndAttaches"
+          "AttachmentEditTests.AddWithPagesSelectsAndAttaches",
+          "AttachmentBlockPlacementTests.AttachmentBlocksKeepTheirMeaningAtMainArgumentPositions",
+          "AttachmentBlockPlacementTests.EmptyPrimaryKeepsExplicitAddsWithoutImportingProviderCollection"
         ],
         "negative": [
           "AttachmentEditTests.AddMissingFileFails",
@@ -2176,7 +2178,8 @@
           "AttachmentEditTests.MalformedEditsFail",
           "AttachmentEditTests.JobMalformedEditsFail",
           "AttachmentEditTests.NestedUnknownFlagFails",
-          "AttachmentEditTests.AddBlockMissingTerminatorFails"
+          "AttachmentEditTests.AddBlockMissingTerminatorFails",
+          "AttachmentBlockPlacementTests.MalformedBlocksRejectBeforePdfAccessAndPreservePriorTarget"
         ],
         "interaction": [
           "AttachmentEditTests.AddPreservesExisting",
@@ -2190,6 +2193,7 @@
           "AttachmentConstructionTests.NameArrayRefusalPreservesEarlierStorage",
           "AttachmentEditReachabilityTests.OutputRetainsOnlyLiveAttachmentsUnlessUnreferencedObjectsAreRequested",
           "AttachmentEditReachabilityTests.SupersededAddsStillReadTheirInputsInOrder",
+          "AttachmentBlockPlacementTests.SupersededPrefixAddStillReadsBeforeLaterAddAndPreservesPriorOutputOnFailure",
           "AttachmentConstructionTests.CancellationAfterNameArrayAdmissionPrecedesAllocation",
           "ZeroPageRewriteTests.EmptyEditsCleanUpAtHostFailureAndCancellationBoundaries",
           "ZeroPageRewriteTests.EmptyEditsRefundEverySharedAdmissionRefusal"
@@ -2603,6 +2607,7 @@
         ],
         "interaction": [
           "AttachmentCopyTests.JobCopyRoundTrip",
+          "AttachmentBlockPlacementTests.AttachmentBlocksKeepTheirMeaningAtMainArgumentPositions",
           "ZeroPageRewriteTests.ZeroPageEditsApplyThroughSharedAttachmentPipeline",
           "AttachmentCopyTests.CopyAddCollisionFails"
         ],
@@ -5250,6 +5255,7 @@
       "evidence": {
         "positive": [
           "AttachmentEditTests.RemoveExisting",
+          "AttachmentBlockPlacementTests.AttachmentBlocksKeepTheirMeaningAtMainArgumentPositions",
           "AttachmentEditReachabilityTests.RemovalMatchesKeysBeforeInterpretingTheirValues",
           "AttachmentNameOrderTests.MixedEncodingTreesSupportByteSearchWithoutChangingListingOrPayloads"
         ],

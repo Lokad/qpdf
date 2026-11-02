@@ -222,46 +222,30 @@ internal static class ArgvParser
             int terminator = FindFlag(argv, "--");
             int inputEnd = terminator >= 0 ? terminator : Math.Min(1, argv.Count);
             bool empty = IsEmptyDocumentInput(argv, inputEnd);
-            string wholeInput = empty ? JobPlan.EmptyDocumentInput : ParseInputArea(argv, inputEnd, "whole-file rewriting");
-            string wholeOutput = ParseOutputArea(argv, terminator >= 0 ? terminator : 0);
+            string wholeInput = empty ? JobPlan.EmptyDocumentInput : ParseInputArea(argv, inputEnd, "whole-file rewriting", null);
+            string wholeOutput = ParseOutputArea(argv, terminator >= 0 ? terminator : 0, null);
             return NewWholeFilePlan(wholeInput, wholeOutput, recovery, globals,
                 AttachmentEdits.Empty, new List<OverlaySpec>(), new List<OverlaySpec>());
         }
 
         string input;
         List<PageGroup> groups = new();
+        OperationBlocks trailing = new(new(), new(), new(), new(), new());
         int cursor;
-        bool emptyInput = pagesAt > 0 && argv[0] == "--empty";
-        if (emptyInput)
+        bool emptyInput;
+        if (pagesAt >= 0)
         {
-            for (int i = 1; i < pagesAt; i++)
-            {
-                string token = argv[i];
-                if (token == "--empty")
-                {
-                    throw new QpdfParseException("Duplicate --empty is outside the narrow profile.", i, null);
-                }
-
-                if (token is not null && !token.StartsWith("--", StringComparison.Ordinal))
-                {
-                    throw new QpdfParseException("A single positional input must precede --pages.", i, null);
-                }
-            }
-
-            if (globals.ReplaceInput)
+            input = ParseInputArea(argv, pagesAt, "--pages", trailing);
+            emptyInput = input == JobPlan.EmptyDocumentInput;
+            if (emptyInput && globals.ReplaceInput)
             {
                 throw new QpdfParseException("No input file to replace.", 0, null);
             }
-        }
-
-        if (pagesAt >= 0)
-        {
             int blockAt = FirstAttachmentEdit(argv, pagesAt + 1, argv.Count);
             int overlayAt = FirstOverlayBlock(argv, pagesAt + 1, argv.Count);
             if (globals.ReplaceInput)
             {
                 int areaEnd = FindTerminator(argv, pagesAt);
-                input = ParseInputArea(argv, pagesAt, "--pages");
                 groups = ParsePagesArea(argv, pagesAt, areaEnd);
                 cursor = areaEnd + 1;
             }
@@ -290,11 +274,6 @@ internal static class ArgvParser
 
                     input = groups[0].File;
                 }
-                else
-                {
-                    input = ParseInputArea(argv, pagesAt, "--pages");
-                }
-
                 cursor = areaEnd;
             }
         }
@@ -305,20 +284,19 @@ internal static class ArgvParser
                 throw new QpdfParseException("No operation: the narrow profile requires --pages with one file and range, --check, --json, or attachment editing.", 0L, null);
             }
 
-            int blockAt = FirstAttachmentEdit(argv, 0, argv.Count);
-            int overlayAt = FirstOverlayBlock(argv, 0, argv.Count);
-            int blockOrOverlay = blockAt;
-            if (overlayAt >= 0 && (blockOrOverlay < 0 || overlayAt < blockOrOverlay))
+            cursor = 0;
+            while (cursor < argv.Count && TryParseOperationBlock(argv, ref cursor, trailing)) { }
+            if (cursor >= argv.Count)
             {
-                blockOrOverlay = overlayAt;
+                throw new QpdfParseException("A positional input file is required for attachment editing.", cursor, null);
             }
-            emptyInput = IsEmptyDocumentInput(argv, blockOrOverlay);
-            input = emptyInput ? JobPlan.EmptyDocumentInput : ParseInputArea(argv, blockOrOverlay, "attachment editing");
-            cursor = blockOrOverlay;
+            input = argv[cursor];
+            CheckInputToken(input, cursor, "attachment editing", true);
+            cursor++;
+            emptyInput = input == JobPlan.EmptyDocumentInput;
         }
 
-        TrailingBlocks trailing = ParseTrailingBlocks(argv, ref cursor);
-        AttachmentEdits edits = trailing.Edits;
+        ParseOperationBlocks(argv, ref cursor, trailing);
         List<OverlaySpec> overlays = trailing.Overlays;
         List<OverlaySpec> underlays = trailing.Underlays;
         if (globals.ReplaceInput)
@@ -330,9 +308,9 @@ internal static class ArgvParser
 
             return ParseReplace(input, groups, recovery, globals) with
             {
-                AttachmentsToAdd = edits.Adds,
-                AttachmentsToRemove = edits.Removes,
-                AttachmentsToCopy = edits.Copies,
+                AttachmentsToAdd = trailing.Adds,
+                AttachmentsToRemove = trailing.Removes,
+                AttachmentsToCopy = trailing.Copies,
                 Overlays = overlays,
                 Underlays = underlays,
             };
@@ -343,7 +321,8 @@ internal static class ArgvParser
             throw new QpdfParseException("An output file is required after --.", cursor, null);
         }
 
-        string output = ParseOutputArea(argv, argv[cursor] == "--" ? cursor : cursor - 1);
+        string output = ParseOutputArea(argv, argv[cursor] == "--" ? cursor : cursor - 1, trailing);
+        AttachmentEdits edits = new(trailing.Adds, trailing.Removes, trailing.Copies);
         if (emptyInput && (overlays.Count > 0 || underlays.Count > 0))
         {
             throw new QpdfParseException("Options --overlay and --underlay cannot be combined with --empty.", pagesAt, null);
@@ -2184,7 +2163,7 @@ internal static class ArgvParser
 
     private static JobPlan ParseJson(IReadOnlyList<string> argv, int entryAt, QpdfRecoveryMode recovery, GlobalOptions globals)
     {
-        string input = IsEmptyDocumentInput(argv, entryAt) ? JobPlan.EmptyDocumentInput : ParseInputArea(argv, entryAt, "--json");
+        string input = IsEmptyDocumentInput(argv, entryAt) ? JobPlan.EmptyDocumentInput : ParseInputArea(argv, entryAt, "--json", null);
         int cursor = entryAt;
         bool seenJsonVersion = false;
         int jsonVersion = 0;
@@ -2321,7 +2300,7 @@ internal static class ArgvParser
         }
 
         QpdfPath? output = cursor >= argv.Count || cursor == argv.Count - 1
-            ? null : SelectionPlan.CheckedPath(ParseOutputArea(argv, cursor));
+            ? null : SelectionPlan.CheckedPath(ParseOutputArea(argv, cursor, null));
         return new JsonPlan(SelectionPlan.CheckedPath(input), output, version, keys, recovery) with
         {
             EmptyDocument = string.Equals(input, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
@@ -2387,7 +2366,7 @@ internal static class ArgvParser
 
         if (updateAt >= 0)
         {
-            string pdfInput = ParseInputArea(argv, entryAt, "--update-from-json");
+            string pdfInput = ParseInputArea(argv, entryAt, "--update-from-json", null);
             int updateCursor = updateAt;
             string updateFile = TakeParameter(argv, argv.Count, ref updateCursor, "--update-from-json");
             if (updateCursor >= argv.Count || argv[updateCursor] != "--")
@@ -2400,7 +2379,7 @@ internal static class ArgvParser
                 throw new QpdfParseException("An output file is required after --.", updateCursor, null);
             }
 
-            string updateOutput = ParseOutputArea(argv, updateCursor);
+            string updateOutput = ParseOutputArea(argv, updateCursor, null);
             return new JsonUpdatePlan(SelectionPlan.CheckedPath(pdfInput), SelectionPlan.CheckedPath(updateFile), SelectionPlan.CheckedPath(updateOutput), recovery) with
             {
                 WarningExitZero = globals.WarningExitZero,
@@ -2416,7 +2395,7 @@ internal static class ArgvParser
             };
         }
 
-        string input = ParseInputArea(argv, entryAt, "--json-input");
+        string input = ParseInputArea(argv, entryAt, "--json-input", null);
         int cursor = entryAt + 1;
         if (cursor >= argv.Count || argv[cursor] != "--")
         {
@@ -2428,7 +2407,7 @@ internal static class ArgvParser
             throw new QpdfParseException("An output file is required after --.", cursor, null);
         }
 
-        string output = ParseOutputArea(argv, cursor);
+        string output = ParseOutputArea(argv, cursor, null);
         return new JsonInputPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output)) with
         {
             WarningExitZero = globals.WarningExitZero,
@@ -2489,23 +2468,15 @@ internal static class ArgvParser
         return -1;
     }
 
-    private sealed record TrailingBlocks(AttachmentEdits Edits, List<OverlaySpec> Overlays, List<OverlaySpec> Underlays);
+    private sealed record OperationBlocks(List<AttachmentAdd> Adds, List<string> Removes,
+        List<AttachmentCopy> Copies, List<OverlaySpec> Overlays, List<OverlaySpec> Underlays);
 
-    private static TrailingBlocks ParseTrailingBlocks(IReadOnlyList<string> argv, ref int cursor)
+    private static void ParseOperationBlocks(IReadOnlyList<string> argv, ref int cursor, OperationBlocks blocks)
     {
-        List<AttachmentAdd> adds = new();
-        List<string> removes = new();
-        List<AttachmentCopy> copies = new();
-        List<OverlaySpec> overlays = new();
-        List<OverlaySpec> underlays = new();
         while (cursor < argv.Count)
         {
+            if (TryParseOperationBlock(argv, ref cursor, blocks)) { continue; }
             string token = argv[cursor];
-            if (token is null)
-            {
-                throw new QpdfParseException("Null argument.", cursor, null);
-            }
-
             if (token == "--")
             {
                 if (cursor + 1 < argv.Count && IsTrailingBlockStart(argv[cursor + 1]))
@@ -2515,58 +2486,6 @@ internal static class ArgvParser
                 }
 
                 break;
-            }
-
-            if (token == "--overlay" || token == "--underlay")
-            {
-                bool underlay = token == "--underlay";
-                OverlaySpec spec = ParseOverlayBlock(argv, ref cursor, underlay);
-                if (underlay)
-                {
-                    underlays.Add(spec);
-                }
-                else
-                {
-                    overlays.Add(spec);
-                }
-
-                continue;
-            }
-
-            if (token == "--add-attachment")
-            {
-                adds.Add(ParseAddBlock(argv, ref cursor));
-                continue;
-            }
-
-            if (token.StartsWith("--remove-attachment=", StringComparison.Ordinal))
-            {
-                string key = ConfigurationText.Slice(argv, token, "--remove-attachment=".Length);
-                removes.Add(key);
-                cursor += 1;
-                continue;
-            }
-
-            if (token == "--remove-attachment")
-            {
-                throw new QpdfParseException("Option --remove-attachment requires =key.", cursor, null);
-            }
-
-            if (token == "--copy-attachments-from")
-            {
-                copies.Add(ParseCopyBlock(argv, ref cursor));
-                continue;
-            }
-
-            if (token.StartsWith("--copy-attachments-from=", StringComparison.Ordinal))
-            {
-                throw new QpdfParseException("Option --copy-attachments-from takes no value.", cursor, null);
-            }
-
-            if ((token.StartsWith("--overlay=", StringComparison.Ordinal) || token.StartsWith("--underlay=", StringComparison.Ordinal))
-                && token.Length > 2)
-            {
-                throw new QpdfParseException($"Option {ErrorPreview(OptionName(token))} takes no value.", cursor, null);
             }
 
             if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2)
@@ -2580,7 +2499,48 @@ internal static class ArgvParser
             break;
         }
 
-        return new TrailingBlocks(new AttachmentEdits(adds, removes, copies), overlays, underlays);
+    }
+
+    private static bool TryParseOperationBlock(IReadOnlyList<string> argv, ref int cursor, OperationBlocks blocks)
+    {
+        string token = argv[cursor];
+        if (token is null) { throw new QpdfParseException("Null argument.", cursor, null); }
+        if (token == "--overlay" || token == "--underlay")
+        {
+            bool underlay = token == "--underlay";
+            OverlaySpec spec = ParseOverlayBlock(argv, ref cursor, underlay);
+            (underlay ? blocks.Underlays : blocks.Overlays).Add(spec);
+            return true;
+        }
+        if (token == "--add-attachment")
+        {
+            blocks.Adds.Add(ParseAddBlock(argv, ref cursor));
+            return true;
+        }
+        if (token.StartsWith("--remove-attachment=", StringComparison.Ordinal))
+        {
+            blocks.Removes.Add(ConfigurationText.Slice(argv, token, "--remove-attachment=".Length));
+            cursor++;
+            return true;
+        }
+        if (token == "--remove-attachment")
+        {
+            throw new QpdfParseException("Option --remove-attachment requires =key.", cursor, null);
+        }
+        if (token == "--copy-attachments-from")
+        {
+            blocks.Copies.Add(ParseCopyBlock(argv, ref cursor));
+            return true;
+        }
+        if (token.StartsWith("--copy-attachments-from=", StringComparison.Ordinal))
+        {
+            throw new QpdfParseException("Option --copy-attachments-from takes no value.", cursor, null);
+        }
+        if (token.StartsWith("--overlay=", StringComparison.Ordinal) || token.StartsWith("--underlay=", StringComparison.Ordinal))
+        {
+            throw new QpdfParseException($"Option {ErrorPreview(OptionName(token))} takes no value.", cursor, null);
+        }
+        return false;
     }
 
     internal static OverlaySpec ParseOverlayBlock(IReadOnlyList<string> argv, ref int cursor, bool underlay)
@@ -2899,14 +2859,6 @@ internal static class ArgvParser
 
     private static int FindTerminator(IReadOnlyList<string> argv, int pagesAt)
     {
-        for (int i = 0; i < pagesAt; i++)
-        {
-            if (argv[i] == "--")
-            {
-                throw new QpdfParseException("Misplaced -- terminator before --pages.", i, null);
-            }
-        }
-
         for (int i = pagesAt + 1; i < argv.Count; i++)
         {
             if (argv[i] == "--")
@@ -2918,40 +2870,19 @@ internal static class ArgvParser
         throw new QpdfParseException("Missing -- terminator after the --pages selection.", pagesAt, null);
     }
 
-    private static string ParseInputArea(IReadOnlyList<string> argv, int boundaryAt, string operation)
+    private static string ParseInputArea(IReadOnlyList<string> argv, int boundaryAt, string operation, OperationBlocks? blocks)
     {
         string? input = null;
         for (int i = 0; i < boundaryAt; i++)
         {
+            if (blocks is not null && TryParseOperationBlock(argv, ref i, blocks)) { i--; continue; }
             string token = argv[i];
-            if (token is null)
-            {
-                throw new QpdfParseException("Null argument.", i, null);
-            }
-
-            if (token == "--empty")
-            {
-                throw new QpdfParseException("--empty is outside the narrow selection profile.", i, null);
-            }
-
-            if (token == "--replace-input")
-            {
-                throw new QpdfParseException("--replace-input is outside the narrow selection profile.", i, null);
-            }
-
-            if (token == "-")
-            {
-                throw new QpdfParseException("Standard input is not a seekable PDF input.", i, null);
-            }
-
-            if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2)
-            {
-                CheckOptionToken(token, i);
-            }
-
+            CheckInputToken(token, i, operation, blocks is not null);
             if (input is not null)
             {
-                throw new QpdfParseException($"A single positional input must precede {operation}.", i, null);
+                throw new QpdfParseException(token == "--empty" && input == JobPlan.EmptyDocumentInput
+                    ? "Duplicate --empty is outside the narrow profile."
+                    : $"A single positional input must precede {operation}.", i, null);
             }
 
             input = token;
@@ -2963,6 +2894,20 @@ internal static class ArgvParser
         }
 
         return input;
+    }
+
+    private static void CheckInputToken(string token, int index, string operation, bool allowEmpty)
+    {
+        if (token is null) { throw new QpdfParseException("Null argument.", index, null); }
+        if (token == "--") { throw new QpdfParseException($"Misplaced -- terminator before {operation}.", index, null); }
+        if (token == "--empty")
+        {
+            if (allowEmpty) { return; }
+            throw new QpdfParseException("--empty is outside the narrow selection profile.", index, null);
+        }
+        if (token == "--replace-input") { throw new QpdfParseException("--replace-input is outside the narrow selection profile.", index, null); }
+        if (token == "-") { throw new QpdfParseException("Standard input is not a seekable PDF input.", index, null); }
+        if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2) { CheckOptionToken(token, index); }
     }
 
     internal static List<PageGroup> ParsePagesArea(IReadOnlyList<string> argv, int pagesAt, int terminatorAt)
@@ -3344,11 +3289,12 @@ internal static class ArgvParser
         return next;
     }
 
-    private static string ParseOutputArea(IReadOnlyList<string> argv, int terminatorAt)
+    private static string ParseOutputArea(IReadOnlyList<string> argv, int terminatorAt, OperationBlocks? blocks)
     {
         string? output = null;
         for (int i = terminatorAt + 1; i < argv.Count; i++)
         {
+            if (blocks is not null && TryParseOperationBlock(argv, ref i, blocks)) { i--; continue; }
             string token = argv[i];
             if (token is null)
             {

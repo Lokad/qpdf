@@ -584,6 +584,10 @@ keys; listing order and request matching use decoded ordinal text.
 - Catalog-preserving rewriting and selection retain nonattachment `/Names`
   categories through the graph copier. Embedded files use the shared attachment
   path; ordinary selection retains the primary collection independently of edits.
+  Attachment blocks and removal flags belong to the main argument context:
+  they can precede the input or pages block and follow the output filename.
+  They remain invalid inside a pages block, and each add/copy block needs its
+  own -- terminator. Placement does not reorder attachment input reads.
   `--add-attachment FILE [--key=] [--filename=] [--creationdate=] [--moddate=]
   [--mimetype=] [--description=] [--replace] --` (repeatable) embeds host
   files with key/filename defaulting to the path basename; unspecified dates

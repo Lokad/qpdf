@@ -56,6 +56,10 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Attachment add/remove/copy arguments now work before input/page selection and
+after the output filename in pure argv, matching equivalent mixed-job calls.
+Existing block syntax, edit ordering and publication guarantees remain binding.
+
 Argv/job rotations now follow native range-key semantics. Repeating `+90:1`
 sets a single 90-degree addition; different textual keys compose in ordinal key
 order, even when they select the same pages. Omitted/empty ranges share `1-z`.

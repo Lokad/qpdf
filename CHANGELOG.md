@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Accept attachment add/remove/copy blocks throughout the main argv context,
+  including before page selection or input and after the output filename.
+  Reuse the existing block parsers and preserve input order and atomic failures.
+
 - Apply native exact-range-key replacement and ordering to argv/job rotations,
   retaining typed list order and repeated positions within a range. Allocate
   per-page rotation folds only for affected pages, including inspection.
