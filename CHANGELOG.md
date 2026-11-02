@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Reconstruct live catalog generations and indirect type names during bounded
+  recovery. Keep scanned objects beyond stale trailer sizes, and skip parsed
+  payload bodies so embedded header text cannot replace the catalog. Retire
+  superseded identity facts without retaining trial objects or header history.
+
 - Bound invalid JSON-key excerpts before exception formatting, reusing the
   existing preview policy for typed selectors and root/global/pages job keys.
   Preserve short messages, error categories and prior outputs.

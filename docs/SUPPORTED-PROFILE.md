@@ -116,6 +116,10 @@ echoing values.
 - Strict parsing: damaged inputs fail as parse errors. The CLI repairs boundedly by
   default (warning, exit 3); `--suppress-recovery` keeps strict failure. Typed
   selection and inspection stay strict.
+  Reconstructed xrefs retain live scanned generations and dependencies despite a
+  stale trailer size. The active root must match its scanned generation; otherwise
+  the last live catalog with a direct/indirect type name is used. Successfully
+  parsed payload bodies are skipped; malformed candidates retain bounded salvage.
   Malformed, mistyped, unresolvable, or unsupported catalog `/Version` fails;
   null or absent `/Version` keeps the header.
 - Integer scalars support the full signed 64-bit range and long leading-zero

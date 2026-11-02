@@ -56,6 +56,16 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Bounded xref recovery now preserves the generation of its fallback catalog,
+accepts direct or indirect catalog type names and sizes the rebuilt table from
+live scanned headers. A stale trailer `/Size` no longer discards the root or
+its dependencies. A trailer root must match the scanned generation; fallback
+chooses the last live catalog. Parsed string/stream payloads do not supply new
+top-level headers. Strict opening, structural limits and crypto exclusions remain.
+Native qpdf can retain an overwritten catalog or select header-looking stream
+data in these damaged-input cases. Its fallback rewrites can also omit `/Size`;
+managed rewrites require a complete, strictly readable output.
+
 Invalid JSON-key diagnostics now use a bounded prefix ending in `...` for long
 keys, including terminal failures after ordinary diagnostic storage is exhausted.
 Short messages and error categories are unchanged. A truncated preview preserves

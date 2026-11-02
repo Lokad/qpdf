@@ -328,21 +328,43 @@ public sealed class XrefCollectionTests
     }
 
     [Fact]
-    public void RepeatedRecoveryHeadersAndDroppedEntriesKeepOnlyFinalStorage()
+    public void RepeatedRecoveryHeadersKeepOnlyFinalStorage()
     {
         string original = Encoding.ASCII.GetString(Classic(0, true));
         string headers = string.Concat(Enumerable.Repeat("5 0 obj\nnull\nendobj\n", 2000));
         string marker = "xref\n";
+        byte[] single = Encoding.ASCII.GetBytes(original.Insert(original.IndexOf(marker, StringComparison.Ordinal), "5 0 obj\nnull\nendobj\n"));
         byte[] duplicate = Encoding.ASCII.GetBytes(original.Insert(original.IndexOf(marker, StringComparison.Ordinal), headers));
         ResourceGovernor control = new(QpdfLimits.Default, CancellationToken.None);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         DiagnosticBag controlDiagnostics = new(control);
         DiagnosticBag diagnostics = new(governor);
-        XRefTable expected = XRefTable.Parse(Encoding.ASCII.GetBytes(original), QpdfLimits.Default, control, controlDiagnostics, QpdfRecoveryMode.BoundedRepair, valuesEscape: true);
+        XRefTable expected = XRefTable.Parse(single, QpdfLimits.Default, control, controlDiagnostics, QpdfRecoveryMode.BoundedRepair, valuesEscape: true);
         XRefTable actual = XRefTable.Parse(duplicate, QpdfLimits.Default, governor, diagnostics, QpdfRecoveryMode.BoundedRepair, valuesEscape: true);
         Assert.Equal(expected.Entries.Count, actual.Entries.Count);
+        Assert.Equal(5, actual.Entries.Count);
+        Assert.Equal(XrefEntryKind.Uncompressed, actual.Entries[5].Kind);
         DiagnosticControl.Replay(controlDiagnostics, diagnostics.Entries);
         Assert.Equal(control.Snapshot().LiveMemoryBytes, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RepeatedCatalogHeadersKeepWorkingMetadataBounded(bool scalarName)
+    {
+        string original = Encoding.ASCII.GetString(Classic(0, true));
+        string body = scalarName ? "/Catalog" : "<< /Type /Catalog /Pages 2 0 R >>";
+        string headers = string.Concat(Enumerable.Repeat("5 0 obj\n" + body + "\nendobj\n", 2000));
+        byte[] input = Encoding.ASCII.GetBytes(original.Insert(original.IndexOf("xref\n", StringComparison.Ordinal), headers));
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 30000L };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        using (XRefTable table = XRefTable.Parse(input, limits, governor, new(governor), QpdfRecoveryMode.BoundedRepair, valuesEscape: false))
+        {
+            Assert.Equal(5, table.Entries.Count);
+            Assert.Equal(XrefEntryKind.Uncompressed, table.Entries[5].Kind);
+        }
+        governor.CompleteStorage(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]
@@ -378,7 +400,7 @@ public sealed class XrefCollectionTests
     }
 
     [Fact]
-    public void TruncatedTailSizeReleasesTheCompleteScanMap()
+    public void StaleTailSizeRetainsRecoveredEntriesAndReleasesTheScanMap()
     {
         string original = Encoding.ASCII.GetString(Classic(2000, true)).Replace("/Size 2005", "/Size 5", StringComparison.Ordinal);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
@@ -386,8 +408,10 @@ public sealed class XrefCollectionTests
         DiagnosticBag diagnostics = new(governor);
         DiagnosticBag controlDiagnostics = new(control);
         XRefTable table = XRefTable.Parse(Encoding.ASCII.GetBytes(original), QpdfLimits.Default, governor, diagnostics, QpdfRecoveryMode.BoundedRepair, valuesEscape: true);
-        XRefTable expected = XRefTable.Parse(Classic(0, true), QpdfLimits.Default, control, controlDiagnostics, QpdfRecoveryMode.BoundedRepair, valuesEscape: true);
+        XRefTable expected = XRefTable.Parse(Classic(2000, true), QpdfLimits.Default, control, controlDiagnostics, QpdfRecoveryMode.BoundedRepair, valuesEscape: true);
         Assert.Equal(expected.Entries.Count, table.Entries.Count);
+        Assert.Equal(2004, table.Entries.Count);
+        Assert.Equal(XrefEntryKind.Uncompressed, table.Entries[2004].Kind);
         Assert.Equal(control.Snapshot().LiveMemoryBytes, governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(diagnostics);
         GC.KeepAlive(controlDiagnostics);
