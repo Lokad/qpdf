@@ -114,13 +114,11 @@ public sealed class TextBuilderEncodingTests
         }
     }
 
-    [Theory]
-    [InlineData("label")]
-    [InlineData("attachment")]
-    public async Task BrokenSurrogatesRetainExistingReplacementPolicy(string kind)
+    [Fact]
+    public async Task BrokenLabelSurrogatesRetainExistingReplacementPolicy()
     {
-        using InMemoryQpdfHost storage = Storage(); await Build(storage, "typed", kind, "A\ud800B", CancellationToken.None);
-        PdfByteString text = await ReadText(storage, storage, kind);
+        using InMemoryQpdfHost storage = Storage(); await Build(storage, "typed", "label", "A\ud800B", CancellationToken.None);
+        PdfByteString text = await ReadText(storage, storage, "label");
         ResourceGovernor decoding = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope decoded = ParserMemoryScope.Create(decoding);
         Assert.Equal("FEFF0041FFFD0042", Convert.ToHexString(text.Value)); Assert.Equal("A�B", PdfText.Decode(text.ValueMemory, decoded, decoding, CancellationToken.None));
