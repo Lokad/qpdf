@@ -283,7 +283,7 @@ Assert.DoesNotContain("/Fxo1 Do", Encoding.ASCII.GetString(content));
 [Theory]
 [InlineData("--flatten-annotations=screen", 32, false)]
 [InlineData("--flatten-annotations=screen", 0, true)]
-[InlineData("--flatten-annotations=all", 34, true)]
+[InlineData("--flatten-annotations=all", 34, false)]
 public async Task ScreenModeSkipsNoView(string flag, int bits, bool stamped)
 {
 byte[] appearance = Encoding.ASCII.GetBytes("BT (Note) Tj ET");

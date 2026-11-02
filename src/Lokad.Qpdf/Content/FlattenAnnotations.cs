@@ -11,6 +11,10 @@ namespace Lokad.Qpdf.Content;
 
 internal static class FlattenAnnotations
 {
+    private const int FlagInvisible = 1;
+
+    private const int FlagHidden = 2;
+
     private const int FlagPrint = 4;
 
     private const int FlagNoRotate = 16;
@@ -87,7 +91,7 @@ internal static class FlattenAnnotations
 
         limits.Validate();
         int required = mode == "print" ? FlagPrint : 0;
-        int forbidden = mode == "screen" ? FlagNoView : 0;
+        int forbidden = FlagInvisible | FlagHidden | (mode == "screen" ? FlagNoView : 0);
         bool warned = false;
         Span<byte> nameBytes = stackalloc byte[16];
         foreach ((GraphCopier copier, int pageId) in occurrences)

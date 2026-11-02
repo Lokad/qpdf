@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Honor Hidden and Invisible annotation flags in every flattening mode, including
+  indirect flag values. Flattened hidden annotations are removed without adding
+  their appearances to page content.
+
 - Accept rotation and collation in plain whole-file argv, matching the existing
   job-file route and native behavior. Rotations use the existing whole-file plan;
   collation leaves a sole source unchanged.
