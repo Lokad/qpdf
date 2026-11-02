@@ -214,7 +214,7 @@ failure behavior; the tables below highlight differences important to callers.
 
 | Area | Difference |
 | --- | --- |
-| Invocation | Managed syntax also accepts a separate `--job-json-file file`, collation inside a pages block and bare `--no-default-limits`. Job numeric limits accept numbers; native job files use decimal strings. |
+| Invocation | Managed syntax also accepts a separate `--job-json-file file` and bare `--no-default-limits`. Collation is a main option outside the pages block. Job numeric limits accept numbers; native job files use decimal strings. |
 | Inspection/output | Diagnostics and payloads are separate results. Failed/canceled jobs discard staged binary output; native stdout may already contain a prefix. Progress uses counted-byte milestones, and diagnostic wording is implementation-defined. Keep-open options are validated hints; host lease policy governs actual handles. |
 | Parser limits | Managed nesting settings accept 1..499 (default 256), within host ceilings. Native defaults to 499 and accepts zero as a depth cap; managed zero overrides reject as `InvalidArguments`. Tight container limits fail with exit 2 where native recovery may warn and skip an object. |
 | Filters | Partial predictor rows, unknown PNG row selectors, mismatched decode-parameter arrays and preset zlib dictionaries reject instead of using native's lenient handling. Unknown/above-level encodings remain opaque according to the operation's decode policy. |

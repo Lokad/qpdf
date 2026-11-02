@@ -225,15 +225,11 @@ internal static class ArgvParser
             string wholeInput = empty ? JobPlan.EmptyDocumentInput : ParseInputArea(argv, inputEnd, "whole-file rewriting");
             string wholeOutput = ParseOutputArea(argv, terminator >= 0 ? terminator : 0);
             return NewWholeFilePlan(wholeInput, wholeOutput, recovery, globals,
-                new List<PageLabelSpec>(), AttachmentEdits.Empty, new List<OverlaySpec>(), new List<OverlaySpec>());
+                AttachmentEdits.Empty, new List<OverlaySpec>(), new List<OverlaySpec>());
         }
 
         string input;
         List<PageGroup> groups = new();
-        List<OutputRotation> rotations = new();
-        List<PageLabelSpec> labels = new();
-        bool removeLabels = false;
-        List<int> collate = NewCollationVector(argv);
         int cursor;
         bool emptyInput = pagesAt > 0 && argv[0] == "--empty";
         if (emptyInput)
@@ -266,7 +262,7 @@ internal static class ArgvParser
             {
                 int areaEnd = FindTerminator(argv, pagesAt);
                 input = ParseInputArea(argv, pagesAt, "--pages");
-                (groups, rotations, labels, removeLabels, collate) = ParsePagesArea(argv, pagesAt, areaEnd);
+                groups = ParsePagesArea(argv, pagesAt, areaEnd);
                 cursor = areaEnd + 1;
             }
             else
@@ -281,7 +277,7 @@ internal static class ArgvParser
                 {
                     areaEnd = overlayAt;
                 }
-                (groups, rotations, labels, removeLabels, collate) = ParsePagesArea(argv, pagesAt, areaEnd);
+                groups = ParsePagesArea(argv, pagesAt, areaEnd);
                 if (emptyInput)
                 {
                     foreach (PageGroup group in groups)
@@ -332,7 +328,7 @@ internal static class ArgvParser
                 throw new QpdfParseException("No output file may be given with --replace-input.", pagesAt, null);
             }
 
-            return ParseReplace(input, groups, rotations, labels, removeLabels, collate, recovery, globals) with
+            return ParseReplace(input, groups, recovery, globals) with
             {
                 AttachmentsToAdd = edits.Adds,
                 AttachmentsToRemove = edits.Removes,
@@ -355,14 +351,14 @@ internal static class ArgvParser
 
         if (groups.Count == 0)
         {
-            return NewWholeFilePlan(input, output, recovery, globals, labels, edits, overlays, underlays);
+            return NewWholeFilePlan(input, output, recovery, globals, edits, overlays, underlays);
         }
 
-        if (emptyInput || groups.Count > 1 || collate.Count > 0 || globals.Collate.Count > 0
+        if (emptyInput || groups.Count > 1 || globals.Collate.Count > 0
             || (groups.Count == 1 && (!SelectionPlan.IsPlainPageNumber(groups[0].Range)
                 || (groups[0].File != "." && groups[0].File != input))))
         {
-            return ParseMerge(input, output, groups, rotations, labels, removeLabels, collate, recovery, globals, emptyInput) with
+            return ParseMerge(input, output, groups, recovery, globals, emptyInput) with
             {
                 AttachmentsToAdd = edits.Adds,
                 AttachmentsToRemove = edits.Removes,
@@ -381,9 +377,7 @@ internal static class ArgvParser
             ReportMemoryUsage = globals.ReportMemoryUsage,
             IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,
-            Rotations = [..globals.Rotations, ..rotations],
-            Labels = labels,
-            RemoveLabels = removeLabels,
+            Rotations = globals.Rotations,
             SplitPages = globals.SplitPages,
             MinVersion = globals.MinVersion,
             ForceVersion = globals.ForceVersion,
@@ -2971,15 +2965,11 @@ internal static class ArgvParser
         return input;
     }
 
-    internal static (List<PageGroup> Groups, List<OutputRotation> Rotations, List<PageLabelSpec> Labels, bool RemoveLabels, List<int> Collate) ParsePagesArea(IReadOnlyList<string> argv, int pagesAt, int terminatorAt)
+    internal static List<PageGroup> ParsePagesArea(IReadOnlyList<string> argv, int pagesAt, int terminatorAt)
     {
         List<PageGroup> groups = new();
         string? file = null;
         bool namedFile = false;
-        List<OutputRotation> rotations = new();
-        List<PageLabelSpec> labels = new();
-        bool removeLabels = false;
-        List<int> collate = NewCollationVector(argv);
         int i = pagesAt + 1;
         while (i < terminatorAt)
         {
@@ -3057,24 +3047,20 @@ internal static class ArgvParser
             throw new QpdfParseException("The --pages selection requires one file.", pagesAt, null);
         }
 
-        return (groups, rotations, labels, removeLabels, collate);
+        return groups;
     }
 
     private static JobPlan ParseReplace(
         string input,
         List<PageGroup> groups,
-        List<OutputRotation> rotations,
-        List<PageLabelSpec> labels,
-        bool removeLabels,
-        List<int> collate,
         QpdfRecoveryMode recovery,
         GlobalOptions globals)
     {
-        if (groups.Count > 1 || collate.Count > 0 || globals.Collate.Count > 0
+        if (groups.Count > 1 || globals.Collate.Count > 0
             || (groups.Count == 1 && (!SelectionPlan.IsPlainPageNumber(groups[0].Range)
                 || (groups[0].File != "." && groups[0].File != input))))
         {
-            return ParseMerge(input, input, groups, rotations, labels, removeLabels, collate, recovery, globals, false) with
+            return ParseMerge(input, input, groups, recovery, globals, false) with
             {
                 ReplaceInput = true,
             };
@@ -3089,9 +3075,7 @@ internal static class ArgvParser
             ReportMemoryUsage = globals.ReportMemoryUsage,
             IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,
-            Rotations = [..globals.Rotations, ..rotations],
-            Labels = labels,
-            RemoveLabels = removeLabels,
+            Rotations = globals.Rotations,
             SplitPages = globals.SplitPages,
             ReplaceInput = true,
             MinVersion = globals.MinVersion,
@@ -3140,18 +3124,13 @@ internal static class ArgvParser
         string input,
         string output,
         List<PageGroup> groups,
-        List<OutputRotation> rotations,
-        List<PageLabelSpec> labels,
-        bool removeLabels,
-        List<int> collate,
         QpdfRecoveryMode recovery,
         GlobalOptions globals,
         bool emptyInput)
     {
         CollationPreparation owner = globals.CollationStorage;
-        List<int> combined = owner.CreateVector();
-        owner.Append(combined, globals.Collate); owner.Append(combined, collate);
-        if (combined.Count != 0 && combined.Count != 1 && combined.Count != groups.Count)
+        List<int> sizes = globals.Collate;
+        if (sizes.Count != 0 && sizes.Count != 1 && sizes.Count != groups.Count)
         {
             throw new QpdfParseException("--pages: if --collate has more than one value, it must have one value per page specification.", 0L, null);
         }
@@ -3162,8 +3141,8 @@ internal static class ArgvParser
             sources.Add(new PdfPageSource(SelectionPlan.CheckedPath(group.File), PdfPageSelectionOptions.FromRange(group.Range)));
         }
 
-        PdfPageCollation? collation = combined.Count == 0 ? null
-            : owner.CreatePolicy(combined);
+        PdfPageCollation? collation = sizes.Count == 0 ? null
+            : owner.CreatePolicy(sizes);
         return new MergePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), sources, collation, recovery) with
         {
             EmptyInput = emptyInput,
@@ -3173,9 +3152,7 @@ internal static class ArgvParser
             ReportMemoryUsage = globals.ReportMemoryUsage,
             IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,
-            Rotations = [..globals.Rotations, ..rotations],
-            Labels = labels,
-            RemoveLabels = removeLabels,
+            Rotations = globals.Rotations,
             SplitPages = globals.SplitPages,
             MinVersion = globals.MinVersion,
             ForceVersion = globals.ForceVersion,
@@ -3275,7 +3252,6 @@ internal static class ArgvParser
         string output,
         QpdfRecoveryMode recovery,
         GlobalOptions globals,
-        List<PageLabelSpec> labels,
         AttachmentEdits edits,
         List<OverlaySpec> overlays,
         List<OverlaySpec> underlays)
@@ -3290,7 +3266,6 @@ internal static class ArgvParser
                 IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
                 Rotations = globals.Rotations,
-                Labels = labels,
                 SplitPages = globals.SplitPages,
                 MinVersion = globals.MinVersion,
                 ForceVersion = globals.ForceVersion,
