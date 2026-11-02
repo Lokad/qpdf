@@ -4,6 +4,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import subprocess
 from pathlib import Path
 import sys
 import tempfile
@@ -109,6 +110,17 @@ class CompatibilityUpdateTests(unittest.TestCase):
         before = self.output.read_bytes()
         with self.assertRaises(SystemExit):
             self.generate("wrong-checkout")
+        self.assertEqual(before, self.output.read_bytes())
+
+    def test_edited_reference_preserves_reviewed_file(self):
+        self.generate(inventory.COMMIT)
+        before = self.output.read_bytes()
+        argv = ["update-compatibility.py", "--reference", str(self.reference), "--output", str(self.output)]
+        with patch.object(sys, "argv", argv), \
+                patch.object(inventory.subprocess, "check_output", return_value=inventory.COMMIT), \
+                patch.object(inventory.subprocess, "run", side_effect=subprocess.CalledProcessError(1, "git diff")):
+            with self.assertRaises(subprocess.CalledProcessError):
+                inventory.main()
         self.assertEqual(before, self.output.read_bytes())
 
 
