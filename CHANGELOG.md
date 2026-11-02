@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Isolate shared annotations when flattening rotations on repeated or shared
+  pages. Each occurrence keeps its own rectangles, appearance headers, popup and
+  reply links, and page association. Copy affected widget field branches through
+  existing form registration and collision renaming; retain shared payload bytes.
+
 - Coalesce page contents through a fresh stream reference, preserving shared
   content-array values in page and catalog data. Retire replaced-only objects
   after final output roots are assembled, honoring unreferenced-object retention.

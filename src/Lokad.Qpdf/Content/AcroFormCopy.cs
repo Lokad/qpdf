@@ -62,14 +62,8 @@ internal static class AcroFormCopy
         QpdfLimits limits,
         ResourceGovernor governor,
         ParserMemoryScope ownership,
-        CancellationToken cancellationToken)
-        => ReadSourceForm(engine, copier, keptPages, pruneUnreachableFields, limits,
-            governor, ownership, cancellationToken, false);
-
-    private static CopiedForm? ReadSourceForm(
-        DocumentEngine engine, GraphCopier copier, IReadOnlyList<PageLocation> keptPages,
-        bool pruneUnreachableFields, QpdfLimits limits, ResourceGovernor governor,
-        ParserMemoryScope ownership, CancellationToken cancellationToken, bool retainSourceObjects)
+        CancellationToken cancellationToken,
+        bool retainSourceObjects)
     {
         if (engine is null)
         {
@@ -187,33 +181,22 @@ internal static class AcroFormCopy
     }
 
     internal static PdfDictionary? BuildSingle(
-        DocumentEngine engine,
+        CopiedForm? part,
         GraphCopier copier,
-        IReadOnlyList<PageLocation> keptPages,
         bool pruneUnreachableFields,
         IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
         Dictionary<int, QpdfObject> pool,
         IReadOnlyList<OverlayFieldImport> overlayImports,
+        IReadOnlyList<(GraphCopier Copier, CopiedForm Part)> rotationFields,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         ParserMemoryScope ownership,
-        CancellationToken cancellationToken,
-        bool retainSourceObjects)
+        CancellationToken cancellationToken)
     {
-        if (engine is null)
-        {
-            throw new ArgumentNullException(nameof(engine));
-        }
-
         if (copier is null)
         {
             throw new ArgumentNullException(nameof(copier));
-        }
-
-        if (keptPages is null)
-        {
-            throw new ArgumentNullException(nameof(keptPages));
         }
 
         if (occurrences is null)
@@ -248,8 +231,6 @@ internal static class AcroFormCopy
 
         ownership.CheckOwner(governor);
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
-        CopiedForm? part = ReadSourceForm(engine, copier, keptPages, pruneUnreachableFields, limits,
-            governor, scratch, cancellationToken, retainSourceObjects);
         foreach (KeyValuePair<int, QpdfObject> entry in copier.CopiedObjects)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -264,7 +245,7 @@ internal static class AcroFormCopy
                 pool.Add(entry.Key, entry.Value);
             }
         }
-        if (part is null && overlayImports.Count == 0)
+        if (part is null && overlayImports.Count == 0 && rotationFields.Count == 0)
         {
             return null;
         }
@@ -275,6 +256,13 @@ internal static class AcroFormCopy
         {
             ParserContainers.AddItem(scratch, allForms, part, IntPtr.Size);
             ParserContainers.AddItem(scratch, allCopiers, copier, IntPtr.Size);
+        }
+
+        foreach ((GraphCopier sourceCopier, CopiedForm fields) in rotationFields)
+        {
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            ParserContainers.AddItem(scratch, allForms, fields, IntPtr.Size);
+            ParserContainers.AddItem(scratch, allCopiers, sourceCopier, IntPtr.Size);
         }
 
         foreach (OverlayFieldImport import in overlayImports)
@@ -292,8 +280,10 @@ internal static class AcroFormCopy
         RenameCollidingFields(allForms, allCopiers, limits, governor, cancellationToken);
         // Renaming replaces copier headers; publish those owned identities into
         // the earlier pool snapshot before defaults and field fixups read it.
+        HashSet<GraphCopier> refreshed = ParserContainers.CreateSet<GraphCopier>(scratch);
         foreach (GraphCopier sourceCopier in allCopiers)
         {
+            if (!ParserContainers.AddSetItem(scratch, refreshed, sourceCopier, IntPtr.Size)) { continue; }
             foreach (KeyValuePair<int, QpdfObject> entry in sourceCopier.CopiedObjects)
             {
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();

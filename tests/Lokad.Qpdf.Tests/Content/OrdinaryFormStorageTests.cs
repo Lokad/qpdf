@@ -136,7 +136,7 @@ public sealed class OrdinaryFormStorageTests
         {
             GraphCopier copier = GraphCopier.CreateOwned(engine, governor, QpdfLimits.Default, 20, owner);
             long prior = owner.ReservedBytes, allocated = GC.GetAllocatedBytesForCurrentThread();
-            Assert.Throws<QpdfLimitException>(() => AcroFormCopy.TryCopySourceForm(engine, copier, [], false, QpdfLimits.Default, governor, owner, CancellationToken.None));
+            Assert.Throws<QpdfLimitException>(() => AcroFormCopy.TryCopySourceForm(engine, copier, [], false, QpdfLimits.Default, governor, owner, CancellationToken.None, false));
             Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 131072L);
             Assert.True(owner.ReservedBytes >= prior); // Accepted copied objects still belong to the enclosing copier.
         }

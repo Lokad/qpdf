@@ -70,6 +70,11 @@ Whole-file rewrites select all pages through the existing governed range resolve
 without constructing and cloning a separate page-number vector.
 Rotation and both flattening consumers resolve indirect rotation scalars through
 the copied object pool before normalization; the existing reference bounds apply.
+Rotation flattening isolates annotation headers shared by affected page occurrences
+before changing geometry, keeping one original occurrence and borrowing appearance
+payloads. Copies of widget ancestor branches join the existing form registration
+and name-collision passes. Source forms are copied once before transformation;
+obsolete appearance headers retire from final output roots, including catalog aliases.
 The accepted deterministic-ID flag validates at parsing; plans carry no unused
 flag value because deterministic identifiers are already the default.
 Zero-page whole-file jobs use the same graph, catalog and attachment preparation;

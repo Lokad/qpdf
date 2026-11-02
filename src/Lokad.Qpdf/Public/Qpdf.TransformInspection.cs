@@ -358,9 +358,11 @@ public static partial class Qpdf
             ParserContainers.EnsureEntryCapacity(memory, assembled, IntPtr.Size);
             assembled.Add(entry.Key, entry.Value);
         }
-        PdfDictionary? form = Content.AcroFormCopy.BuildSingle(document.Engine, pool, kept,
-            pruneFields, occurrences, assembled, imports, limits, governor, diagnostics,
-            memory, cancellationToken, true);
+        Content.CopiedForm? sourceForm = Content.AcroFormCopy.TryCopySourceForm(document.Engine, pool, kept,
+            pruneFields, limits, governor, memory, cancellationToken, true);
+        PdfDictionary? form = Content.AcroFormCopy.BuildSingle(sourceForm, pool,
+            pruneFields, occurrences, assembled, imports, Array.Empty<(GraphCopier, Content.CopiedForm)>(),
+            limits, governor, diagnostics, memory, cancellationToken);
         foreach (KeyValuePair<int, QpdfObject> entry in assembled)
         {
             governor.NoteOperation();

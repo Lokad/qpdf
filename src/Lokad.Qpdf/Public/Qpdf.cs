@@ -393,13 +393,17 @@ public static partial class Qpdf
                     int flattenAllocator = overlayApplied.NextId;
                     bool needAppearances = (settings.FlattenAnnotations is not null || settings.GenerateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine, governor, cancellationToken);
                     bool singleGenerated = settings.GenerateAppearances && needAppearances;
+                    Content.CopiedForm? singleForm = !settings.RemoveAcroform || singleGenerated
+                        ? Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, kept, true, limits, governor, copyMemory, cancellationToken, false)
+                        : null;
+                    IReadOnlyList<(GraphCopier Copier, Content.CopiedForm Part)> rotationFields = Array.Empty<(GraphCopier, Content.CopiedForm)>();
+                    flattenAllocator = Math.Max(flattenAllocator, copier.NextId);
                     if (singleGenerated)
                     {
                         using ParserMemoryScope gateMemory = ParserMemoryScope.Create(governor);
-                        Content.CopiedForm? gateForm = Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, kept, true, limits, governor, gateMemory, cancellationToken);
                         HashSet<int> gateSurvivors = Content.AcroFormCopy.CollectAnnotRefs(occurrences, governor, gateMemory, cancellationToken);
                         List<(IReadOnlyDictionary<int, QpdfObject> Pool, Content.CopiedForm? Part)> gateParts = ParserContainers.CreateList<(IReadOnlyDictionary<int, QpdfObject>, Content.CopiedForm?)>(gateMemory);
-                        ParserContainers.AddItem(gateMemory, gateParts, (copier.CopiedObjects, gateForm), 16L);
+                        ParserContainers.AddItem(gateMemory, gateParts, (copier.CopiedObjects, singleForm), 16L);
                         foreach (Content.AcroFormCopy.OverlayFieldImport import in overlayApplied.FieldImports)
                         {
                             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -408,7 +412,7 @@ public static partial class Qpdf
 
                         HashSet<int>? gateReached = CollectGenerateReached(gateParts, gateSurvivors, true, limits, governor, gateMemory, cancellationToken);
                         Dictionary<GraphCopier, Content.CopiedForm?> singleForms = ParserContainers.CreateDictionary<GraphCopier, Content.CopiedForm?>(gateMemory);
-                        ParserContainers.EnsureEntryCapacity(gateMemory, singleForms, IntPtr.Size); singleForms.Add(copier, gateForm);
+                        ParserContainers.EnsureEntryCapacity(gateMemory, singleForms, IntPtr.Size); singleForms.Add(copier, singleForm);
                         flattenAllocator = Math.Max(flattenAllocator, copier.NextId);
                         flattenAllocator = Content.GenerateAppearances.Apply(occurrences, singleForms, limits, governor, diagnostics, cancellationToken, gateReached, false, flattenAllocator);
                         needAppearances = false;
@@ -419,7 +423,11 @@ public static partial class Qpdf
                     }
                     if (settings.FlattenRotation)
                     {
-                        flattenAllocator = Content.FlattenRotation.Apply(occurrences, singleCompress, singleLevel, settings.PreserveUnreferenced, limits, governor, diagnostics, cancellationToken, flattenAllocator);
+                        using ParserMemoryScope rotationMemory = ParserMemoryScope.Create(governor);
+                        Dictionary<GraphCopier, Content.CopiedForm?> forms = ParserContainers.CreateDictionary<GraphCopier, Content.CopiedForm?>(rotationMemory);
+                        ParserContainers.EnsureEntryCapacity(rotationMemory, forms, IntPtr.Size); forms.Add(copier, settings.RemoveAcroform ? null : singleForm);
+                        (flattenAllocator, rotationFields) = Content.FlattenRotation.Apply(occurrences, forms, singleCompress, singleLevel,
+                            limits, governor, diagnostics, cancellationToken, flattenAllocator, copyMemory);
                     }
                     if (settings.Optimize.Optimize)
                     {
@@ -475,19 +483,18 @@ public static partial class Qpdf
                     PdfDictionary? singleAcroForm = settings.RemoveAcroform
                         ? null
                         : Content.AcroFormCopy.BuildSingle(
-                            document.Engine,
+                            singleForm,
                             copier,
-                            kept,
                             true,
                             occurrences,
                             singlePool,
                             overlayApplied.FieldImports,
+                            rotationFields,
                             limits,
                             governor,
                             diagnostics,
                             copyMemory,
-                            cancellationToken,
-                            false);
+                            cancellationToken);
                     if (singleGenerated)
                     {
                         singleAcroForm = ClearNeedAppearances(singleAcroForm, governor, cancellationToken);
@@ -522,7 +529,7 @@ public static partial class Qpdf
                     {
                         model.Add(new NumberedObject(entry.Key, entry.Value));
                     }
-                    if ((singleAttached.Replaced || settings.CoalesceContents) && !settings.PreserveUnreferenced)
+                    if ((singleAttached.Replaced || settings.CoalesceContents || settings.FlattenRotation) && !settings.PreserveUnreferenced)
                     {
                         PruneOutputModel(model, singlePool, singleCompressed, singleInfo, governor, cancellationToken);
                     }
@@ -1027,10 +1034,11 @@ public static partial class Qpdf
                         limits,
                         governor,
                         selectionMemory,
-                        cancellationToken);
+                        cancellationToken,
+                        false);
                 multiForms.Add(sourceForm);
                 gateForms.Add(settings.RemoveAcroform
-                    ? Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, kept, pruneUnreachableFields, limits, governor, selectionMemory, cancellationToken)
+                    ? Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, kept, pruneUnreachableFields, limits, governor, selectionMemory, cancellationToken, false)
                     : sourceForm);
                 if (needSourceLabels && !catalogOnly)
                 {
@@ -1175,9 +1183,19 @@ public static partial class Qpdf
             multiFlattenAllocator = Content.FlattenAnnotations.Apply(occurrences, settings.FlattenAnnotations, needAppearances, multiCompress, multiLevel, limits, governor, diagnostics, cancellationToken, multiFlattenAllocator);
         }
 
+        IReadOnlyList<(GraphCopier Copier, Content.CopiedForm Part)> rotationFields = Array.Empty<(GraphCopier, Content.CopiedForm)>();
         if (settings.FlattenRotation)
         {
-            nextId = Content.FlattenRotation.Apply(occurrences, multiCompress, multiLevel, settings.PreserveUnreferenced, limits, governor, diagnostics, cancellationToken, multiFlattenAllocator);
+            using ParserMemoryScope rotationMemory = ParserMemoryScope.Create(governor);
+            Dictionary<GraphCopier, Content.CopiedForm?> forms = ParserContainers.CreateDictionary<GraphCopier, Content.CopiedForm?>(rotationMemory);
+            for (int index = 0; index < copiers.Count; index++)
+            {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                ParserContainers.EnsureEntryCapacity(rotationMemory, forms, IntPtr.Size);
+                forms.Add(copiers[index], multiForms[index]);
+            }
+            (nextId, rotationFields) = Content.FlattenRotation.Apply(occurrences, forms, multiCompress, multiLevel,
+                limits, governor, diagnostics, cancellationToken, multiFlattenAllocator, selectionMemory);
         }
         if (settings.Optimize.Optimize)
         {
@@ -1210,15 +1228,20 @@ public static partial class Qpdf
 
         List<Content.CopiedForm?> renameForms = multiForms;
         List<GraphCopier> renameCopiers = copiers;
-        if (!settings.RemoveAcroform && overlayApplied.FieldImports.Count > 0)
+        if (!settings.RemoveAcroform && (overlayApplied.FieldImports.Count > 0 || rotationFields.Count > 0))
         {
-            int count = checked(multiForms.Count + overlayApplied.FieldImports.Count);
+            int count = checked(multiForms.Count + overlayApplied.FieldImports.Count + rotationFields.Count);
             renameForms = ParserContainers.CreateList<Content.CopiedForm?>(selectionMemory, count, IntPtr.Size);
             renameCopiers = ParserContainers.CreateList<GraphCopier>(selectionMemory, count, IntPtr.Size);
             for (int index = 0; index < multiForms.Count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 renameForms.Add(multiForms[index]); renameCopiers.Add(copiers[index]);
+            }
+            foreach ((GraphCopier sourceCopier, Content.CopiedForm fields) in rotationFields)
+            {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                renameForms.Add(fields); renameCopiers.Add(sourceCopier);
             }
             foreach (Content.AcroFormCopy.OverlayFieldImport import in overlayApplied.FieldImports)
             {
@@ -1410,7 +1433,7 @@ public static partial class Qpdf
             {
                 model.Add(new NumberedObject(entry.Key, entry.Value));
             }
-            if ((multiAttached.Replaced || settings.CoalesceContents) && !settings.PreserveUnreferenced)
+            if ((multiAttached.Replaced || settings.CoalesceContents || settings.FlattenRotation) && !settings.PreserveUnreferenced)
             {
                 PruneOutputModel(model, pool, multiCompressed, primaryInfo, governor, cancellationToken);
             }

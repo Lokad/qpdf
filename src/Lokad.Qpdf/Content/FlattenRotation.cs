@@ -6,7 +6,7 @@ using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Content;
 
-internal static class FlattenRotation
+internal static partial class FlattenRotation
 {
     private static readonly PdfName[] Boxes =
     [
@@ -15,16 +15,17 @@ internal static class FlattenRotation
     ];
     private static readonly PdfName Rect = PdfName.FromAscii("Rect");
 
-    internal static int Apply(
+    internal static (int NextId, IReadOnlyList<(GraphCopier Copier, CopiedForm Part)> FieldCopies) Apply(
         IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
+        IReadOnlyDictionary<GraphCopier, CopiedForm?> forms,
         bool compress,
         int? level,
-        bool preserveUnreferenced,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken,
-        int allocator)
+        int allocator,
+        ParserMemoryScope ownership)
     {
         if (occurrences is null)
         {
@@ -47,9 +48,9 @@ internal static class FlattenRotation
         }
 
         limits.Validate();
-        using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
-        HashSet<int> transformedAnnots = ParserContainers.CreateSet<int>(traversal);
-        Dictionary<GraphCopier, List<int>>? obsolete = null;
+        ownership.CheckOwner(governor);
+        IReadOnlyList<(GraphCopier Copier, CopiedForm Part)> fieldCopies = IsolateAnnotations(
+            occurrences, forms, governor, ownership, cancellationToken, ref allocator);
         foreach ((GraphCopier copier, int pageId) in occurrences)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -143,35 +144,15 @@ internal static class FlattenRotation
             rebuilt.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "Contents"u8), stacked, cancellationToken);
             if (page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject annotsRaw) && annotsRaw is not PdfNull)
             {
-                List<int>? candidates = null;
-                if (!preserveUnreferenced)
-                {
-                    obsolete ??= ParserContainers.CreateDictionary<GraphCopier, List<int>>(traversal);
-                    if (!obsolete.TryGetValue(copier, out candidates))
-                    {
-                        ParserContainers.EnsureEntryCapacity(traversal, obsolete, IntPtr.Size);
-                        candidates = ParserContainers.CreateList<int>(traversal); obsolete.Add(copier, candidates);
-                    }
-                }
-                PdfArray? annots = TransformAnnots(copier, annotsRaw, matrix, transformedAnnots, traversal, graph, diagnostics, candidates, ref allocator);
+                PdfArray? annots = TransformAnnots(copier, annotsRaw, matrix, graph, diagnostics, ref allocator);
                 rebuilt.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "Annots"u8), annots ?? annotsRaw, cancellationToken);
             }
             PdfDictionary result = PdfDictionaryRebuild.Complete(graph, rebuilt, allocation);
             copier.ReplaceCopiedObject(pageId, result); graph.Retain();
         }
 
-        if (obsolete is not null)
-        {
-            foreach (KeyValuePair<GraphCopier, List<int>> entry in obsolete)
-            {
-                if (entry.Value.Count == 0) { continue; }
-                // AP -> state dictionary -> stream: at most three layers.
-                // Scan each pool per layer, never once per page/annotation.
-                for (int layer = 0; layer < 3; layer++)
-                { entry.Key.DropPoolObjectsIfUnreferenced(entry.Value, cancellationToken); }
-            }
-        }
-        return allocator;
+        // Retire obsolete headers only after catalog and form roots are assembled.
+        return (allocator, fieldCopies);
     }
 
     private static double[] RotationMatrix(int angle, double[] media)
@@ -265,7 +246,7 @@ internal static class FlattenRotation
     private static PdfDictionary CopyAppearanceDictionary(
         GraphCopier copier, PdfDictionary source, bool states, double[] matrix,
         Dictionary<int, PdfReference> copies, ParserMemoryScope traversal,
-        OwnedAllocationBatch graph, List<int>? obsolete, ParserMemoryScope orphanMemory, ref int allocator)
+        OwnedAllocationBatch graph, ref int allocator)
     {
         ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
         PoolResolver resolver = new(copier.CopiedObjects);
@@ -281,10 +262,9 @@ internal static class FlattenRotation
             }
             else if (!states && target is PdfDictionary dictionary)
             {
-                PdfDictionary copy = CopyAppearanceDictionary(copier, dictionary, true, matrix, copies, traversal, graph, obsolete, orphanMemory, ref allocator);
-                if (value is PdfReference stateReference)
+                PdfDictionary copy = CopyAppearanceDictionary(copier, dictionary, true, matrix, copies, traversal, graph, ref allocator);
+                if (value is PdfReference)
                 {
-                    if (obsolete is not null) { ParserContainers.AddItem(orphanMemory, obsolete, stateReference.ObjectNumber, sizeof(int)); }
                     value = copier.AddIndirectObjectWithId(copy, allocator); allocator = checked(allocator + 1);
                 }
                 else { value = copy; }
@@ -376,8 +356,7 @@ internal static class FlattenRotation
 
     private static PdfArray? TransformAnnots(
         GraphCopier copier, QpdfObject annotsRaw, double[] matrix,
-        HashSet<int> transformed, ParserMemoryScope traversal,
-        OwnedAllocationBatch graph, DiagnosticBag diagnostics, List<int>? obsolete, ref int allocator)
+        OwnedAllocationBatch graph, DiagnosticBag diagnostics, ref int allocator)
     {
         ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
         PoolResolver resolver = new(copier.CopiedObjects);
@@ -389,17 +368,23 @@ internal static class FlattenRotation
         }
         using ParserMemoryScope appearanceMemory = ParserMemoryScope.Create(governor);
         Dictionary<int, PdfReference> copies = ParserContainers.CreateDictionary<int, PdfReference>(appearanceMemory);
+        HashSet<int> transformed = ParserContainers.CreateSet<int>(appearanceMemory);
+        List<PdfReference> linked = ParserContainers.CreateList<PdfReference>(appearanceMemory);
         bool skipped = false;
         long bytes = checked(32L + IntPtr.Size * (long)array.Count);
         graph.Memory.Reserve(bytes);
         QpdfObject[] items = new QpdfObject[array.Count]; graph.Add(bytes);
-        for (int index = 0; index < array.Count; index++)
+        for (int index = 0; index < array.Count + linked.Count; index++)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            QpdfObject item = array[index]; items[index] = item;
+            QpdfObject item = index < array.Count ? array[index] : linked[index - array.Count];
+            if (index < array.Count) { items[index] = item; }
             QpdfObject? targetAnnot = item is PdfReference reference ? ResolveOrNull(resolver, reference) ?? item : item;
             if (targetAnnot is not PdfDictionary annot) { skipped = true; continue; }
-            if (item is PdfReference indirect && !ParserContainers.AddSetItem(traversal, transformed, indirect.ObjectNumber, sizeof(int))) { continue; }
+            if (item is PdfReference indirect && !ParserContainers.AddSetItem(appearanceMemory, transformed, indirect.ObjectNumber, sizeof(int))) { continue; }
+            if (annot.TryGet(PdfName.FromAscii("Popup"), out QpdfObject popup) && popup is PdfReference popupRef
+                && !transformed.Contains(popupRef.ObjectNumber))
+            { ParserContainers.AddItem(appearanceMemory, linked, popupRef, IntPtr.Size); }
             double[]? rect = ReadBox(annot, Rect, resolver);
             if (rect is null) { skipped = true; continue; }
             PdfArray moved = NumberArray(TransformRect(rect, matrix), graph);
@@ -407,10 +392,9 @@ internal static class FlattenRotation
             if (annot.TryGet(PdfName.FromAscii("AP"), out QpdfObject apRaw)
                 && (apRaw is PdfReference apLink ? ResolveOrNull(resolver, apLink) : apRaw) is PdfDictionary ap)
             {
-                appearance = CopyAppearanceDictionary(copier, ap, false, matrix, copies, appearanceMemory, graph, obsolete, traversal, ref allocator);
-                if (apRaw is PdfReference oldAp)
+                appearance = CopyAppearanceDictionary(copier, ap, false, matrix, copies, appearanceMemory, graph, ref allocator);
+                if (apRaw is PdfReference)
                 {
-                    if (obsolete is not null) { ParserContainers.AddItem(traversal, obsolete, oldAp.ObjectNumber, sizeof(int)); }
                     appearance = copier.AddIndirectObjectWithId(appearance, allocator); allocator = checked(allocator + 1);
                 }
             }
@@ -428,16 +412,11 @@ internal static class FlattenRotation
             }
             PdfDictionary updated = PdfDictionaryRebuild.Complete(graph, entries, allocation);
             if (item is PdfReference annotReference) { copier.ReplaceCopiedObject(annotReference.ObjectNumber, updated); }
-            else { items[index] = updated; }
+            else if (index < array.Count) { items[index] = updated; }
         }
         if (skipped)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Some annotations could not be rotated; keeping them as is.");
-        }
-        if (obsolete is not null)
-        {
-            foreach (int number in copies.Keys)
-            { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); ParserContainers.AddItem(traversal, obsolete, number, sizeof(int)); }
         }
         graph.Memory.Reserve(24L); PdfArray result = PdfArray.FromOwnedItems(items); graph.Add(24L); return result;
     }

@@ -156,6 +156,12 @@ Additional intentional data differences are:
 
 Physical output can also differ while preserving PDF meaning:
 
+- Rotation flattening keeps popup/reply links local to each shared annotation
+  occurrence. Native qpdf 12.4.2 can leave these links pointing to detached or
+  original annotations after duplicating pages; managed output deliberately keeps
+  the relationships coherent. Appearance payload sharing remains independent of
+  annotation and field header identity.
+
 - Rebuilt page roots use a direct `/Type /Page`; native qpdf can retain indirect
   type names. Managed writer planning uses this canonical page type, while
   read-only inspection retains the source representation.

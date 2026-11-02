@@ -239,7 +239,13 @@ echoing values.
   stay null in either traversal order. Widget import retains actual field
   references through parent walks, including valid nonzero generations.
 - --flatten-rotation bakes page rotation into content: boxes rotate per the page angle, a counter-transform wraps the content streams, /Rotate is dropped, and annotation rectangles move with the page. Appearance headers are copied per transformed page while payload bytes remain shared; untouched pages retain their original appearances. Direct and indirect appearance-state dictionaries and matrices are equivalent.
-- --flatten-annotations with all, print, or screen stamps annotation appearance streams as /Fxo form XObjects into page content and drops the flattened annotations. Print mode keeps only print-flagged annotations and screen mode drops no-view ones; widgets wait for generated appearances when the document needs them. Annotations without appearances stay unless they carry an appearance dictionary, and field default resources are not merged. Pages without actionable rotation stay byte-identical; damaged content or boxes warn and keep the page.
+  Shared annotation identities are isolated before rotation, including duplicated
+  page selections. Page associations and popup/reply links follow their occurrence;
+  linked popups need not also appear in the page's annotation array. A copied widget
+  retains a coherent field ancestor branch; registered roots join the existing
+  collision-renaming pass, while unregistered widgets remain unregistered. Other
+  widgets on untouched pages keep their original field branches and geometry.
+- --flatten-annotations with all, print, or screen stamps annotation appearance streams as /Fxo form XObjects into page content and drops the flattened annotations. Print mode keeps only print-flagged annotations and screen mode drops no-view ones; widgets wait for generated appearances when the document needs them. Annotations without appearances stay unless they carry an appearance dictionary, and field default resources are not merged. Pages without actionable rotation keep their content and geometry; damaged content or boxes warn and keep the page.
 - Flattening annotations removes Hidden/Invisible annotations without stamping
   their appearances in every mode; Print and NoView further govern print/screen
   stamping respectively.
