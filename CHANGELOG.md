@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Reject obvious JSON numeric overflow before admitting expanded temporary
+  storage, retaining compensated exponents, signed zeros and exact underflow text.
+
 - Accept attachment add/remove/copy blocks throughout the main argv context,
   including before page selection or input and after the output filename.
   Reuse the existing block parsers and preserve input order and atomic failures.

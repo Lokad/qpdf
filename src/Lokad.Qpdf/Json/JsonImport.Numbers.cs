@@ -48,16 +48,21 @@ internal static partial class JsonImport
         bool negative = raw[0] == (byte)'-';
         int start = negative ? 1 : 0;
         ReadOnlySpan<byte> mantissa = raw[start..exponentAt];
-        bool nonzero = false;
+        int firstNonzero = -1;
         for (int i = 0; i < mantissa.Length; i++)
         {
             if ((i & 4095) == 0) { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); }
-            if (mantissa[i] is >= (byte)'1' and <= (byte)'9') { nonzero = true; break; }
+            if (mantissa[i] is >= (byte)'1' and <= (byte)'9') { firstNonzero = i; break; }
         }
-        if (!nonzero) { return new PdfInteger(negative ? "-0" : "0", 0L); }
+        if (firstNonzero < 0) { return new PdfInteger(negative ? "-0" : "0", 0L); }
         int point = mantissa.IndexOf((byte)'.');
         int digits = mantissa.Length - (point >= 0 ? 1 : 0);
         long shifted = (point >= 0 ? point : digits) + exponent;
+        int leadingZeros = firstNonzero - (point >= 0 && point < firstNonzero ? 1 : 0);
+        // Binary64 has no finite value with decimal order above 308. Account
+        // for leading fractional zeros before admitting expanded storage.
+        if (shifted - leadingZeros - 1L > 308L)
+        { throw new QpdfParseException("qpdf JSON real exceeds the supported finite range.", 0L, null); }
         long length = start + (shifted <= 0 ? 2L - shifted + digits
             : shifted >= digits ? shifted : digits + 1L);
         // Two spare bytes keep an integral real outside Int64 readable as a real.

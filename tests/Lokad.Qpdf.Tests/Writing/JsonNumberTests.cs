@@ -143,6 +143,71 @@ public sealed class JsonNumberTests
         Assert.True(storage.TryGetOutput(Output, out byte[] unchanged)); Assert.Equal(Prior, unchanged);
     }
 
+    public static IEnumerable<object[]> OverflowCases()
+    {
+        foreach (string route in new[] { "typed", "argv", "job" })
+        foreach (bool update in new[] { false, true })
+        foreach (string number in new[] { "1e1000000", "-0.001e1000000" }) { yield return [route, update, number]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(OverflowCases))]
+    public async Task ObviousOverflowRejectsBeforeExpansionAdmission(string route, bool update, string number)
+    {
+        using InMemoryQpdfHost storage = await Host(number, update);
+        RecordingMemoryBudget root = new(65536L);
+        using IMemoryScope owner = root.CreateScope();
+        MemoryHost host = new(storage, owner);
+        if (route == "typed")
+        {
+            QpdfParseException failure = await Assert.ThrowsAsync<QpdfParseException>(() => Run(host, route, update));
+            Assert.Contains("finite range", failure.Message, StringComparison.Ordinal);
+        }
+        else
+        {
+            QpdfExecutionResult result = Assert.IsType<QpdfExecutionResult>(await Run(host, route, update));
+            Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+            Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.InvalidArguments
+                && d.Message.Contains("finite range", StringComparison.Ordinal));
+        }
+        Assert.Equal(0, host.OutputCalls); Assert.Equal(0L, storage.OpenLeaseCount);
+        Assert.True(storage.TryGetOutput(Output, out byte[] unchanged)); Assert.Equal(Prior, unchanged);
+        owner.Dispose(); Assert.Equal(0L, root.ReservedBytes);
+    }
+
+    [Theory]
+    [InlineData("typed", false)]
+    [InlineData("argv", false)]
+    [InlineData("job", false)]
+    [InlineData("typed", true)]
+    [InlineData("argv", true)]
+    [InlineData("job", true)]
+    public async Task LargeCompensatedExponentsAndFiniteBoundariesRetainValues(string route, bool update)
+    {
+        string tiny = "0." + new string('0', 4095) + "1";
+        using InMemoryQpdfHost host = await Host("[" + tiny + "e4096,-" + tiny
+            + "e4096,1.7976931348623157e308,1e308,0e2147483647,-0e-2147483648,1e-4096]", update);
+        QpdfExecutionResult? result = await Run(host, route, update);
+        if (result is not null) { Assert.Equal(QpdfExitCode.Success, result.ExitCode); }
+        Assert.True(host.TryGetOutput(Output, out byte[] output));
+        host.AddInput(Output, output, QpdfInputOwnership.Transfer);
+        PdfArray values;
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, Output, CancellationToken.None))
+        {
+            Assert.Equal(1, document.PageCount);
+            Assert.True(Assert.IsType<PdfDictionary>(document.GetObject(1)).TryGet(PdfName.FromAscii("Probe"), out QpdfObject probe));
+            values = Assert.IsType<PdfArray>(probe);
+        }
+        Assert.Equal(1L, Assert.IsType<PdfInteger>(values[0]).Value);
+        Assert.Equal(-1L, Assert.IsType<PdfInteger>(values[1]).Value);
+        Assert.Equal(double.MaxValue, Assert.IsType<PdfReal>(values[2]).Value);
+        Assert.Equal(1e308, Assert.IsType<PdfReal>(values[3]).Value);
+        Assert.Equal("0", Assert.IsType<PdfInteger>(values[4]).Text);
+        Assert.Equal("-0", Assert.IsType<PdfInteger>(values[5]).Text);
+        Assert.Equal(tiny, Assert.IsType<PdfReal>(values[6]).Text);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
     private sealed class MemoryHost(InMemoryQpdfHost storage, IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
     {
         public IMemoryBudget MemoryBudget => budget;

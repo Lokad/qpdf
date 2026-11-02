@@ -276,6 +276,9 @@ Additional intentional data differences are:
   PDF decimal syntax, require finite binary64 magnitude and signed 32-bit
   exponents, and preserve decimal text on underflow. Unsupported magnitudes
   reject before publication rather than emitting unreadable numeric tokens.
+  Obvious overflow now rejects before expansion admission, so a short invalid
+  number can report `InvalidArguments` where temporary growth previously caused
+  a memory-budget failure. Valid compensated exponents retain their behavior.
 - RunLength decoding stops at its first end marker, ignoring trailing bytes.
   Native qpdf 12.4.2 also exhibits the former managed trailing-data defect.
 
