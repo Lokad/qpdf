@@ -404,7 +404,7 @@ public sealed class AttachmentCopyTests
         Assert.Equal("alpha.txt", Assert.Single(infos).Key);
         await Assert.ThrowsAsync<QpdfParseException>(
             () => Qpdf.RemoveAttachmentsAsync(host, QpdfPath.From("inputs/a.pdf"), QpdfPath.From("outputs/b.pdf"), ["missing.txt"], CancellationToken.None).AsTask());
-        await Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<QpdfParseException>(
             () => Qpdf.RemoveAttachmentsAsync(host, QpdfPath.From("inputs/a.pdf"), QpdfPath.From("outputs/b.pdf"), [string.Empty], CancellationToken.None).AsTask());
     }
 

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Accept explicitly empty existing attachment identifiers for extraction and
+  removal through typed, argv and job routes. Missing/null parameters and empty
+  creation keys still reject. A missing empty key now fails lookup instead of
+  argument validation, changing that typed exception to `QpdfParseException`.
+
 - Reject malformed UTF-16 in authored attachment keys, filenames, descriptions
   and copy prefixes, and reject NUL in authored MIME names before publication.
   Existing PDF text decoding stays lenient; valid replacement characters,

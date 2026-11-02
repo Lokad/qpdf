@@ -4186,7 +4186,7 @@ public static partial class Qpdf
     /// Extracts one embedded file by key into an output path with explicit budgets.
     /// </summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    /// <exception cref="ArgumentException">The key is empty.</exception>
+    /// <remarks>An explicitly empty key identifies an existing empty name-tree key.</remarks>
     public static async ValueTask<QpdfAttachmentExtraction> ExtractAttachmentAsync(
         IQpdfHost host,
         QpdfPath inputPath,
@@ -4203,11 +4203,6 @@ public static partial class Qpdf
         if (key is null)
         {
             throw new ArgumentNullException(nameof(key));
-        }
-
-        if (key.Length == 0)
-        {
-            throw new ArgumentException("Attachment key must not be empty.", nameof(key));
         }
 
         if (limits is null)
@@ -4436,7 +4431,8 @@ public static partial class Qpdf
     /// Removes embedded files by key with explicit budgets.
     /// </summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    /// <exception cref="ArgumentException">No key, or an empty key, was supplied.</exception>
+    /// <exception cref="ArgumentException">No key was supplied or a key entry is null.</exception>
+    /// <remarks>Explicitly empty keys identify existing empty name-tree keys.</remarks>
     public static ValueTask<QpdfAttachmentEditResult> RemoveAttachmentsAsync(
         IQpdfHost host,
         QpdfPath inputPath,
@@ -4550,7 +4546,6 @@ public static partial class Qpdf
                         cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                         string key = keys[index];
                         if (key is null) { throw new ArgumentException("Attachment keys must not contain null entries.", nameof(keys)); }
-                        if (key.Length == 0) { throw new ArgumentException("Attachment keys must not be empty.", nameof(keys)); }
                         removes.Add(key);
                     }
                 }

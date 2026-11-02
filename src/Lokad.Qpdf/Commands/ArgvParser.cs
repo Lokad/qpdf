@@ -2546,11 +2546,6 @@ internal static class ArgvParser
             if (token.StartsWith("--remove-attachment=", StringComparison.Ordinal))
             {
                 string key = ConfigurationText.Slice(argv, token, "--remove-attachment=".Length);
-                if (key.Length == 0)
-                {
-                    throw new QpdfParseException("Option --remove-attachment requires a non-empty key.", cursor, null);
-                }
-
                 removes.Add(key);
                 cursor += 1;
                 continue;

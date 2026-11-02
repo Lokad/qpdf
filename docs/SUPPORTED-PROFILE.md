@@ -487,6 +487,9 @@ UTF-16; malformed caller strings fail before publication instead of substituting
 U+FFFD. Valid U+FFFD and surrogate pairs retain their identity. MIME names must be
 ASCII without NUL. This PDF-name restriction does not prohibit NUL in text strings.
 Existing PDF text keeps its separate lenient decoding policy.
+Extraction and removal accept an explicitly empty existing name-tree key. Missing
+or null parameters still reject; new attachment keys and filenames remain nonempty.
+An absent empty identifier fails the same lookup as any other missing key.
 
 Named attachment extraction honors invocation parser controls and warning policy
 through argv, mixed job-file arguments and job JSON. Explicit host ceilings stay

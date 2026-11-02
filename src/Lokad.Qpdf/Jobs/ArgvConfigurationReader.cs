@@ -190,11 +190,12 @@ internal static class ArgvConfigurationReader
     private static string Value(IReadOnlyList<string> argv, ref int cursor, string? fallback)
     {
         string token = argv[cursor];
+        bool emptyIdentifier = ArgvParser.OptionName(token) is "show-attachment" or "remove-attachment";
         int equals = token.IndexOf('=');
         if (equals >= 0)
         {
             string value = ConfigurationText.Slice(argv, token, equals + 1);
-            if (value.Length == 0 && fallback is null) { throw Invalid("Empty option parameter.", cursor); }
+            if (value.Length == 0 && fallback is null && !emptyIdentifier) { throw Invalid("Empty option parameter.", cursor); }
             return value.Length == 0 ? fallback ?? string.Empty : value;
         }
         if (fallback is not null) { return fallback; }
@@ -203,7 +204,7 @@ internal static class ArgvConfigurationReader
             throw Invalid("Missing option parameter.", cursor);
         }
         cursor++;
-        if (argv[cursor].Length == 0) { throw Invalid("Empty option parameter.", cursor); }
+        if (argv[cursor].Length == 0 && !emptyIdentifier) { throw Invalid("Empty option parameter.", cursor); }
         return argv[cursor];
     }
 

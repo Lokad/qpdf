@@ -56,6 +56,13 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Extraction and removal now accept explicitly empty existing attachment identifiers,
+with removal matching native qpdf. Native 12.4.2 treats an empty extraction selector
+as a successful no-op; managed extraction returns the selected bytes or reports
+not found. Missing/null parameters remain errors, and creation keys stay
+nonempty. Typed lookup of an absent empty key throws `QpdfParseException` rather
+than the former `ArgumentException` from empty-argument validation.
+
 Typed and argv attachment authoring now reject malformed UTF-16 request text
 instead of silently substituting U+FFFD, consistent with job JSON's rejection.
 Authored MIME names also reject NUL. These intentional alpha behavior changes

@@ -355,7 +355,6 @@ public sealed class AttachmentEditTests
     [InlineData("--add-attachment", "files/note.bin", "--key=")]
     [InlineData("--add-attachment", "files/note.bin", "--filename=")]
     [InlineData("--remove-attachment")]
-    [InlineData("--remove-attachment=")]
     [InlineData("--copy-attachments-from", "inputs/b.pdf")]
     public async Task MalformedEditsFail(params string[] flags)
     {
@@ -430,7 +429,6 @@ public sealed class AttachmentEditTests
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"addAttachment\": [{\"key\": \"k\"}]}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"addAttachment\": [{\"file\": \"f\", \"nope\": 1}]}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"removeAttachment\": \"seed.txt\"}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"removeAttachment\": [\"\"]}")]
     public async Task JobMalformedEditsFail(string jobJson)
     {
         byte[] input = BuildPdf(string.Empty, string.Empty, new List<(string Dict, byte[]? StreamData)>());

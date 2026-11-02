@@ -936,11 +936,6 @@ internal static class JobJsonParser
 
                         seenShowAttachment = true;
                         showAttachment = RequireString(property.Value, "showAttachment", textStorage);
-                        if (showAttachment.Length == 0)
-                        {
-                            throw new QpdfParseException("Job \"showAttachment\" must not be empty.", 0L, null);
-                        }
-
                         break;
                     case "addAttachment":
                         if (seenAddAttachment && !configurationLayers)
@@ -1957,9 +1952,9 @@ internal static class JobJsonParser
             }
 
             string? key = textStorage.ReadJsonString(entry);
-            if (key is null || key.Length == 0)
+            if (key is null)
             {
-                throw new QpdfParseException("Job removeAttachment entries must be non-empty.", 0L, null);
+                throw new QpdfParseException("Job removeAttachment entries must be strings.", 0L, null);
             }
 
             removes.Add(key);
