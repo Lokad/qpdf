@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Honor parser limits, `--no-default-limits`, `--no-warn` and `--warning-exit-0`
+  during named attachment extraction through argv and job JSON. Accepted settings
+  previously disappeared from the extraction plan; explicit host ceilings remain
+  binding, and rejected inputs preserve prior output.
+
 - Validate imported and updated JSON page trees through the shared reader before
   publication. Indirect page types report correct counts; excessive depth, cycles
   and malformed child links reject without replacing prior output. This is stricter

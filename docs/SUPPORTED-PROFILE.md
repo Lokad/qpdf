@@ -452,6 +452,11 @@ Numbers are normalized lexically under the existing cancellation/output bounds.
 
 ## Attachments profile
 
+Named attachment extraction honors invocation parser controls and warning policy
+through argv, mixed job-file arguments and job JSON. Explicit host ceilings stay
+binding. Filter-limit refusals retain encoded bytes with a warning; `--no-warn`
+suppresses warning storage while `--warning-exit-0` controls the warning exit code.
+
 Removal matches name-tree keys before listing metadata or copying file
 specifications, so malformed/null values can be removed without being listed.
 Missing keys and duplicate removal requests fail before publication.

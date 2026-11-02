@@ -1236,7 +1236,22 @@ internal static class JobJsonParser
                 }
 
                 (QpdfPath attachmentInput, bool attachmentEmpty) = ResolveInspectionInput(input, empty, "attachment inspection");
-                return new AttachmentPlan(attachmentInput, SelectionPlan.CheckedPath(attachmentOutput), showAttachment, listAttachments, recovery) with { EmptyDocument = attachmentEmpty, IgnoreXrefStreams = ignoreXrefStreams, ReportMemoryUsage = reportMemoryUsage, Verbose = verbose, Progress = progress };
+                return new AttachmentPlan(attachmentInput, SelectionPlan.CheckedPath(attachmentOutput), showAttachment, listAttachments, recovery)
+                {
+                    EmptyDocument = attachmentEmpty,
+                    IgnoreXrefStreams = ignoreXrefStreams,
+                    ReportMemoryUsage = reportMemoryUsage,
+                    Verbose = verbose,
+                    Progress = progress,
+                    NoWarn = noWarn,
+                    WarningExitZero = warningExit0,
+                    MaxStreamFilters = maxStreamFilters,
+                    ParserMaxNesting = parserMaxNesting,
+                    MaxContainerSize = maxContainerSize,
+                    MaxContainerSizeDamaged = maxContainerSizeDamaged,
+                    ParserMaxErrors = parserMaxErrors,
+                    NoDefaultLimits = noDefaultLimits,
+                };
             }
 
             // Output-free inspections returned through CheckPlan above. Here an
