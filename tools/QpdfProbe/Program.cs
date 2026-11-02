@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-
 namespace Lokad.Qpdf.Probe;
 
 internal static class Program
@@ -137,8 +135,7 @@ internal static class Program
 
         OracleResult oracle = OracleRunner.Run(qpdfExe, input, ExpectedQpdfVersion);
         IndependentResult independent = IndependentReader.Read(input, false);
-        string sha = ComputeSha256(input);
-        Console.WriteLine($"compare: input-sha256={sha}");
+        Console.WriteLine($"compare: input-sha256={oracle.InputSha256}");
         Console.WriteLine($"compare: expected-npages={expected}");
         Console.WriteLine($"compare: oracle-npages={oracle.Npages}");
         Console.WriteLine($"compare: independent-npages={independent.Npages}");
@@ -201,10 +198,4 @@ internal static class Program
         return trimmed.Length <= 200 ? trimmed : trimmed[..200];
     }
 
-    private static string ComputeSha256(string path)
-    {
-        using FileStream stream = File.OpenRead(path);
-        byte[] hash = SHA256.HashData(stream);
-        return Convert.ToHexString(hash).ToLowerInvariant();
-    }
 }
