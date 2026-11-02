@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Apply native exact-range-key replacement and ordering to argv/job rotations,
+  retaining typed list order and repeated positions within a range. Allocate
+  per-page rotation folds only for affected pages, including inspection.
+
 - Treat `empty:false` consistently as disabled in partial job files before or
   after an input, preserving enabled empty-input ordering and conflict checks.
 

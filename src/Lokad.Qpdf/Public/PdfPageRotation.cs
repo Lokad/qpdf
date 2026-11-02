@@ -20,7 +20,9 @@ public sealed record PdfPageRotation
     /// <remarks>
     /// A null or empty page list selects every output page. Explicit positions
     /// preserve order and duplicates and use the operation's container limit,
-    /// without a text-length ceiling.
+    /// without a text-length ceiling. Typed operations apply rotation entries
+    /// in supplied list order; repeated entries are not replaced as command
+    /// settings with identical textual range keys would be.
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The angle is not a multiple of 90, or a page is not positive.</exception>
     public PdfPageRotation(PdfRotationMode mode, int angle, IReadOnlyList<int>? pages)

@@ -9,7 +9,8 @@ namespace Lokad.Qpdf.Commands;
 /// degrees normalized modulo 360, and the range uses the shared upstream
 /// page-range grammar (spans, descending ranges, `rN`/`z`, exclusions,
 /// `:odd`/`:even`, duplicates preserved). An absent range selects every page;
-/// later specifications win per page.
+/// command settings replace identical range keys and apply in ordinal key order.
+/// Typed settings retain their supplied order.
 /// </summary>
 internal sealed record OutputRotation(PdfRotationMode Mode, int Angle, string? Range)
 {
@@ -97,6 +98,55 @@ internal sealed record OutputRotation(PdfRotationMode Mode, int Angle, string? R
         // Public settings own a defensive read-only snapshot. Borrow it through
         // preparation/publication rather than copying or formatting its numbers.
         return new OutputRotation(rotation.Mode, Normalize(rotation.Angle), null) { Positions = rotation.Pages };
+    }
+
+    internal static void NormalizeCommandSettings(List<OutputRotation> rotations, ResourceGovernor governor)
+    {
+        governor.CheckCancellation();
+        if (rotations.Count < 2) { return; }
+
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        scratch.Reserve(checked(32L + 16L * rotations.Count));
+        (OutputRotation Rotation, int Order)[] ordered = new (OutputRotation, int)[rotations.Count];
+        for (int i = 0; i < rotations.Count; i++)
+        {
+            governor.CheckCancellation();
+            ordered[i] = (rotations[i], i);
+        }
+        CommandComparer comparer = new(governor);
+        GovernedSort.Sort(ordered.AsSpan(), comparer, governor, governor.CancellationToken);
+        int retained = 0;
+        for (int i = 0; i < ordered.Length; i++)
+        {
+            governor.CheckCancellation();
+            if (i + 1 == ordered.Length || comparer.CompareKeys(ordered[i].Rotation, ordered[i + 1].Rotation) != 0)
+            {
+                rotations[retained++] = ordered[i].Rotation;
+            }
+        }
+        rotations.RemoveRange(retained, rotations.Count - retained);
+    }
+
+    private readonly struct CommandComparer(ResourceGovernor governor) : IComparer<(OutputRotation Rotation, int Order)>
+    {
+        public int Compare((OutputRotation Rotation, int Order) left, (OutputRotation Rotation, int Order) right)
+        {
+            int key = CompareKeys(left.Rotation, right.Rotation);
+            return key == 0 ? left.Order.CompareTo(right.Order) : key;
+        }
+
+        internal int CompareKeys(OutputRotation left, OutputRotation right)
+        {
+            string a = left.Range ?? "1-z";
+            string b = right.Range ?? "1-z";
+            for (int i = 0; i < Math.Min(a.Length, b.Length); i++)
+            {
+                if ((i & 255) == 0) { governor.CheckCancellation(); }
+                int result = a[i].CompareTo(b[i]);
+                if (result != 0) { return result; }
+            }
+            return a.Length.CompareTo(b.Length);
+        }
     }
 
     internal IReadOnlyList<int> ResolvePositions(int total, long maxEntries,

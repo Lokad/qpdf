@@ -228,11 +228,11 @@ public static partial class Qpdf
                 }
             }
 
-            List<List<(PdfRotationMode Mode, int Angle)>> folds = ResolveRotationFolds(plan.Rotations, selectedPages.Count, governor, limits, memory);
+            List<List<(PdfRotationMode Mode, int Angle)>?> folds = ResolveRotationFolds(plan.Rotations, selectedPages.Count, governor, limits, memory);
             for (int i = 0; i < selectedPages.Count; i++)
             {
                 governor.CheckCancellation();
-                if (folds[i].Count == 0) { continue; }
+                if (folds[i] is not { Count: > 0 } specifications) { continue; }
                 InspectionPage selected = selectedPages[i];
                 PdfDictionary page = selected.Page;
                 QpdfObject? inherited = PageInheritance.Find(document.Engine, new PageLocation(new PdfReference(selected.Number, selected.Generation), page),
@@ -244,7 +244,7 @@ public static partial class Qpdf
                     memory.Reserve(32L);
                     page = PdfDictionary.FromOwnedEntries(entries);
                 }
-                ApplyRotation(pool, selected.Number, page, folds[i], i + 1, governor, memory);
+                ApplyRotation(pool, selected.Number, page, specifications, i + 1, governor, memory);
             }
             if (overlay)
             {

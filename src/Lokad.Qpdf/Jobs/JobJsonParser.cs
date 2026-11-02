@@ -291,10 +291,6 @@ internal static class JobJsonParser
                         seenRotate = true;
                         foreach (OutputRotation rotation in ParseRotateArray(property.Value, textStorage))
                         {
-                            if (configurationLayers)
-                            {
-                                rotations.RemoveAll(previous => string.Equals(previous.Range, rotation.Range, StringComparison.Ordinal));
-                            }
                             rotations.Add(rotation);
                         }
                         break;
@@ -1084,10 +1080,7 @@ internal static class JobJsonParser
                 }
             }
 
-            if (configurationLayers)
-            {
-                rotations.Sort(static (left, right) => string.CompareOrdinal(left.Range, right.Range));
-            }
+            OutputRotation.NormalizeCommandSettings(rotations, governor);
 
             if (seenWithImages && !showPages)
             {

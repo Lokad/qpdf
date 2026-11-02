@@ -419,7 +419,7 @@ public sealed class RotationTests
 
 
     [Fact]
-    public async Task ArgvRepeatedRotateLaterSpecsWin()
+    public async Task ArgvDifferentRangeKeysRotateTheirPages()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(

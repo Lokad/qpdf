@@ -56,6 +56,13 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Argv/job rotations now follow native range-key semantics. Repeating `+90:1`
+sets a single 90-degree addition; different textual keys compose in ordinal key
+order, even when they select the same pages. Omitted/empty ranges share `1-z`.
+Duplicate positions within one range still repeat the operation. Typed rotation
+lists retain their explicit order and every entry; they have no textual keys.
+This changes command calls that relied on folding repeated settings in input order.
+
 Managed job JSON treats `empty:false` as a disabled setting, including partial
 job files after an input. Enabled empty-input settings retain their ordering and
 conflict checks. Native qpdf's job schema does not accept `false` for this flag.

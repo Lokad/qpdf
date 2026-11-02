@@ -199,6 +199,11 @@ echoing values.
 - Ordinary rotation (`Set`/`Add`/`Subtract` multiples of 90 over output positions)
   folds over the inherited base; untouched pages keep their bytes. `--flatten-rotation`
   bakes rotation into content (see below).
+  Argv/job settings use the exact range text as a key: the last setting for a key
+  replaces earlier ones, and distinct keys apply in ordinal order. An absent or
+  empty range has key `1-z`; equivalent texts such as `1` and `1-1` stay distinct.
+  Duplicate positions within a range still apply repeatedly. Typed rotation lists
+  instead apply every entry in supplied order, including repeated page lists.
   Whole-file argv accepts rotation without an explicit pages block, including
   attachment edits. Collation has no effect on a sole whole-file source. Adding
   an empty job file preserves these results.

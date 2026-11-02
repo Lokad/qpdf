@@ -44,7 +44,7 @@ internal static class ArgvParser
             PagesArgumentBlock.Validate(argv, governor);
             using ArgumentFiltering filtering = ArgumentFiltering.Create(governor);
             argv = StripGlobalBlocks(argv, filtering);
-            GlobalOptions globals = ExtractGlobalOptions(ref argv, filtering);
+            GlobalOptions globals = ExtractGlobalOptions(ref argv, filtering, governor);
             JobPlan plan = ParseCore(argv, globals) with
             {
                 CompressionState = globals.CompressionState,
@@ -619,7 +619,8 @@ internal static class ArgvParser
         return ConfigurationText.Preserve(argv, kept);
     }
 
-    private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv, ArgumentFiltering filtering)
+    private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv, ArgumentFiltering filtering,
+        Runtime.ResourceGovernor governor)
     {
         List<string> kept = filtering.CreateKept();
         QpdfRecoveryMode recovery = QpdfRecoveryMode.BoundedRepair;
@@ -1517,6 +1518,7 @@ internal static class ArgvParser
         }
 
         argv = ConfigurationText.Preserve(argv, kept);
+        OutputRotation.NormalizeCommandSettings(mainRotations, governor);
         bool resolvedNormalize = normalizeContent || (qdf && !seenNormalizeContent);
         return new GlobalOptions
         {

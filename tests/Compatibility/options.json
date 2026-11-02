@@ -5672,7 +5672,9 @@
           "RotationTests.ArgvMainLevelRotateMatchesInsideForm",
           "RotationTests.ArgvRotateRangeFormsApplyToOutputPositions",
           "RotationTests.ArgvRotateDuplicatePositionsApplyTwice",
-          "RotationTests.ArgvRepeatedRotateLaterSpecsWin",
+          "RotationTests.ArgvDifferentRangeKeysRotateTheirPages",
+          "CommandRotationTests.CommandSettingsUseExactRangeKeysInOrdinalOrder",
+          "CommandRotationTests.TypedRotationListsKeepExplicitOrderAndRepeatedEntries",
           "RotationTests.ArgvRotateSpansMergeSources",
           "RotationTests.JobRotateRangeMatchesArgv",
           "RotationTests.ArgvRotateAppliesToFileRangeGroups",
@@ -5693,10 +5695,12 @@
         "interaction": [
           "RotationTests.SetIgnoresBaseAndLaterSpecsWin",
           "RotationTests.ArgvMainLevelRotateMatchesInsideForm",
-          "RotationTests.JobRotateRangeMatchesArgv"
+          "RotationTests.JobRotateRangeMatchesArgv",
+          "CommandRotationTests.InspectionUsesTheSameCommandRotationSettings"
         ],
         "resource": [
-          "ResourceEnforcementTests.RotateYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.RotateYieldsToExhaustedBudget",
+          "CommandRotationTests.CommandOrderingRefusesOrCancelsBeforeLargeScratchAllocation"
         ],
         "oracle": [
           "diff:rotate-ranges"
