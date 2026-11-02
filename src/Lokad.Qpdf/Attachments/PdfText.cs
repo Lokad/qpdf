@@ -159,36 +159,34 @@ internal static class PdfText
         while (i + 1 < value.Length)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            int unit = little ? (value[i] | (value[i + 1] << 8)) : ((value[i] << 8) | value[i + 1]);
-            i += 2;
-            if ((unit & 0xFC00) == 0xD800)
-            {
-                if (i + 1 < value.Length)
-                {
-                    int next = little ? (value[i] | (value[i + 1] << 8)) : ((value[i] << 8) | value[i + 1]);
-                    if ((next & 0xFC00) == 0xDC00)
-                    {
-                        i += 2;
-                        if (!target.IsEmpty) { target[length] = (char)unit; target[length + 1] = (char)next; }
-                        length += 2;
-                        continue;
-                    }
-                }
-
-                continue;
-            }
-
-            if ((unit & 0xFC00) == 0xDC00)
-            {
-                if (!target.IsEmpty) { target[length] = (char)(unit & 0x3FF); }
-                length++;
-                continue;
-            }
-
-            if (!target.IsEmpty) { target[length] = (char)unit; }
-            length++;
+            length += CopyUtf16Unit(value, ref i, little, target.IsEmpty ? Span<char>.Empty : target[length..]);
         }
 
         return length;
+    }
+
+    // An empty target measures the same units that string and JSON views copy.
+    // Callers check the remaining pair and cancellation between bounded units.
+    internal static int CopyUtf16Unit(ReadOnlySpan<byte> value, ref int at, bool little, Span<char> target)
+    {
+        int unit = little ? value[at] | value[at + 1] << 8 : value[at] << 8 | value[at + 1];
+        at += 2;
+        if ((unit & 0xFC00) == 0xD800)
+        {
+            if (at + 1 < value.Length)
+            {
+                int next = little ? value[at] | value[at + 1] << 8 : value[at] << 8 | value[at + 1];
+                if ((next & 0xFC00) == 0xDC00)
+                {
+                    at += 2;
+                    if (!target.IsEmpty) { target[0] = (char)unit; target[1] = (char)next; }
+                    return 2;
+                }
+            }
+            return 0;
+        }
+        if ((unit & 0xFC00) == 0xDC00) { unit &= 0x3FF; }
+        if (!target.IsEmpty) { target[0] = (char)unit; }
+        return 1;
     }
 }

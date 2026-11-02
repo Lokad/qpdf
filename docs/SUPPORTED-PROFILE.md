@@ -353,6 +353,9 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
   JSON pdfversion overrides the output version when present. Pushed inherited
   attributes stay explicitly unsupported. The typed
   `UpdatePdfFromJsonAsync` shares the engine.
+  JSON text projection uses the shared PDF text decoder, including malformed
+  UTF-16 with a byte-order mark. Returned text and UTF-8 publication agree;
+  valid surrogate pairs and binary-string encodings keep their existing behavior.
   Authored name keys and values reject NUL, including `#00` in `n:` name syntax.
   Literal hashes (including the characters `#00`) and NUL text strings retain their
   identity. The reader's damaged-hash repair marker remains a separate input policy.

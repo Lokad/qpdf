@@ -118,11 +118,13 @@ internal static class PdfJsonWriter
         if (version != 1) { builder.Append(binary ? "b:" : "u:"); }
         if (utf16)
         {
-            for (int index = 2; index + 1 < value.Length; index += 2)
+            Span<char> units = stackalloc char[2];
+            int at = 2, visits = 0;
+            while (at + 1 < value.Length)
             {
-                CheckChunkCancellation(builder.Governor, index - 2);
-                char unit = (char)(value[0] == 0xFF ? value[index] | value[index + 1] << 8 : value[index] << 8 | value[index + 1]);
-                AppendEscapedChar(builder, unit);
+                CheckChunkCancellation(builder.Governor, visits++);
+                int count = PdfText.CopyUtf16Unit(value, ref at, value[0] == 0xFF, units);
+                for (int index = 0; index < count; index++) { AppendEscapedChar(builder, units[index]); }
             }
         }
         else if (utf8) { AppendUtf8(builder, value[3..]); }

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Use the shared PDF UTF-16 decoder for JSON strings, preserving valid pairs and
+  applying the established stored-text policy to malformed units. Returned JSON
+  now agrees with UTF-8 publication without intermediate decoded-string copies.
+
 - Reject NUL in PDF JSON name keys and values before publication, including
   escaped name syntax. Preserve literal hashes, NUL text strings and the existing
   damaged-name repair behavior.

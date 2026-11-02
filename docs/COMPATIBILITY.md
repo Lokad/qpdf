@@ -56,6 +56,12 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+PDF JSON export now uses the existing PDF text-decoding policy for UTF-16-marked
+strings. Malformed stored text no longer leaks unpaired surrogates into returned
+JSON or changes during UTF-8 publication; valid text and binary strings are unchanged.
+Truncated UTF-8-marked text uses managed replacement decoding; native qpdf can
+emit invalid UTF-8 JSON for this existing malformed-input class.
+
 PDF JSON creation/update now reject NUL in authored names, including `#00` in
 `n:` name syntax. Native qpdf can publish a damaged name from literal NUL input.
 Literal hash names and NUL text strings remain valid. The reader's existing
