@@ -56,6 +56,11 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Main setters inside attachment/copy/overlay blocks now reject as invalid scoped
+options. They previously could be lifted into the main context and publish a
+different operation. Nested global markers remain with the owning block parser;
+legal main-context settings and prior-output preservation are unchanged.
+
 Attachment add/remove/copy arguments now work before input/page selection and
 after the output filename in pure argv, matching equivalent mixed-job calls.
 Existing block syntax, edit ordering and publication guarantees remain binding.

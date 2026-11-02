@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Reject main-context setters nested inside attachment/copy/overlay blocks,
+  including nested global markers, before PDF access or output publication.
+  Main-option extraction preserves each block for its existing parser.
+
 - Borrow funded unfiltered image samples through JPEG encoding instead of
   materializing stream slices, retaining decoded-byte charging and needed
   filtered/trimmed copies.

@@ -529,6 +529,22 @@ internal static class ArgvParser
             || token == "--max-stream-filters";
     }
 
+    private static bool IsScopedBlockStart(string token)
+        => token is "--pages" or "--overlay" or "--underlay" or "--add-attachment"
+            or "--copy-attachments-from" or "--set-page-labels";
+
+    private static int ScopedBlockEnd(IReadOnlyList<string> argv, int start, ArgumentFiltering filtering)
+    {
+        for (int index = start + 1; index < argv.Count; index++)
+        {
+            filtering.Visit();
+            if (argv[index] == "--") { return index + 1; }
+        }
+        // Preserve malformed blocks for their own parser, including its
+        // unsupported-option versus missing-terminator error ordering.
+        return argv.Count;
+    }
+
     private static IReadOnlyList<string> StripGlobalBlocks(IReadOnlyList<string> argv, ArgumentFiltering filtering)
     {
         List<int>? remove = null;
@@ -536,6 +552,11 @@ internal static class ArgvParser
         while (i < argv.Count)
         {
             filtering.Visit();
+            if (IsScopedBlockStart(argv[i]))
+            {
+                i = ScopedBlockEnd(argv, i, filtering);
+                continue;
+            }
             if (argv[i] != "--global")
             {
                 i += 1;
@@ -697,24 +718,16 @@ internal static class ArgvParser
         bool withImages = false;
         bool staticId = false;
         bool newlineBeforeEndstream = false;
-        int mainPagesAt = FindFlag(argv, "--pages");
-        int mainPagesEnd = argv.Count;
-        if (mainPagesAt >= 0)
-        {
-            for (int t = mainPagesAt + 1; t < argv.Count; t++)
-            {
-                filtering.Visit();
-                if (argv[t] == "--")
-                {
-                    mainPagesEnd = t;
-                    break;
-                }
-            }
-        }
-
         for (int i = 0; i < argv.Count; i++)
         {
             filtering.Visit();
+            if (IsScopedBlockStart(argv[i]))
+            {
+                int end = ScopedBlockEnd(argv, i, filtering);
+                for (int index = i; index < end; index++) { filtering.Add(kept, argv[index]); }
+                i = end - 1;
+                continue;
+            }
             if (argv[i] == "--suppress-recovery")
             {
                 if (seenSuppress)
@@ -775,7 +788,7 @@ internal static class ArgvParser
                 continue;
             }
 
-            if ((argv[i] == "--collate" || argv[i].StartsWith("--collate=", StringComparison.Ordinal)) && (mainPagesAt < 0 || i < mainPagesAt || i >= mainPagesEnd))
+            if (argv[i] == "--collate" || argv[i].StartsWith("--collate=", StringComparison.Ordinal))
             {
                 ReadOnlySpan<char> collateValue = default;
                 if (argv[i].StartsWith("--collate=", StringComparison.Ordinal))
@@ -790,7 +803,7 @@ internal static class ArgvParser
                 continue;
             }
 
-            if ((argv[i] == "--rotate" || argv[i].StartsWith("--rotate=", StringComparison.Ordinal)) && (mainPagesAt < 0 || i < mainPagesAt || i >= mainPagesEnd))
+            if (argv[i] == "--rotate" || argv[i].StartsWith("--rotate=", StringComparison.Ordinal))
             {
                 string? specification = null;
                 if (argv[i].StartsWith("--rotate=", StringComparison.Ordinal))

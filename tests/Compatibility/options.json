@@ -2179,6 +2179,8 @@
           "AttachmentEditTests.JobMalformedEditsFail",
           "AttachmentEditTests.NestedUnknownFlagFails",
           "AttachmentEditTests.AddBlockMissingTerminatorFails",
+          "OperationBlockScopeTests.MainOptionsInsideOperationBlocksRejectBeforePdfAccess",
+          "OperationBlockScopeTests.InvalidScopedOptionPrecedesMissingTerminator",
           "AttachmentBlockPlacementTests.MalformedBlocksRejectBeforePdfAccessAndPreservePriorTarget"
         ],
         "interaction": [
@@ -5693,6 +5695,7 @@
         "negative": [
           "RotationTests.OutOfRangePositionsFailCleanly",
           "RotationTests.ArgvRotateInvalidSpecsFail",
+          "OperationBlockScopeTests.MainOptionsInsideOperationBlocksRejectBeforePdfAccess",
           "RotationTests.ArgvRotateRangedOutOfRangeFails",
           "RotationTests.ArgvRotateWithoutSelectionChangesInspectedPage",
           "RotationTests.TypedSingleRotationNullGuard",
