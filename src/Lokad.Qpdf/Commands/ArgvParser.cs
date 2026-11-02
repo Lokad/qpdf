@@ -97,12 +97,12 @@ internal static class ArgvParser
             throw new QpdfParseException("Option --test-json-schema requires --json.", 0, null);
         }
 
-        if (globals.Collate.Count > 0 && pagesAt < 0)
+        if (globals.Collate.Count > 0 && pagesAt < 0 && (jsonEntryAt >= 0 || jsonImportAt >= 0))
         {
             throw new QpdfParseException("Option --collate requires --pages.", 0, null);
         }
 
-        if (globals.Rotations.Count > 0 && pagesAt < 0)
+        if (globals.Rotations.Count > 0 && pagesAt < 0 && (jsonEntryAt >= 0 || jsonImportAt >= 0))
         {
             throw new QpdfParseException("Option --rotate requires --pages.", 0, null);
         }
@@ -224,7 +224,7 @@ internal static class ArgvParser
             bool empty = IsEmptyDocumentInput(argv, inputEnd);
             string wholeInput = empty ? JobPlan.EmptyDocumentInput : ParseInputArea(argv, inputEnd, "whole-file rewriting");
             string wholeOutput = ParseOutputArea(argv, terminator >= 0 ? terminator : 0);
-            return NewWholeFilePlan(wholeInput, wholeOutput, recovery, globals, new List<OutputRotation>(),
+            return NewWholeFilePlan(wholeInput, wholeOutput, recovery, globals,
                 new List<PageLabelSpec>(), AttachmentEdits.Empty, new List<OverlaySpec>(), new List<OverlaySpec>());
         }
 
@@ -355,7 +355,7 @@ internal static class ArgvParser
 
         if (groups.Count == 0)
         {
-            return NewWholeFilePlan(input, output, recovery, globals, rotations, labels, edits, overlays, underlays);
+            return NewWholeFilePlan(input, output, recovery, globals, labels, edits, overlays, underlays);
         }
 
         if (emptyInput || groups.Count > 1 || collate.Count > 0 || globals.Collate.Count > 0
@@ -3278,7 +3278,6 @@ internal static class ArgvParser
         string output,
         QpdfRecoveryMode recovery,
         GlobalOptions globals,
-        List<OutputRotation> rotations,
         List<PageLabelSpec> labels,
         AttachmentEdits edits,
         List<OverlaySpec> overlays,
@@ -3293,7 +3292,7 @@ internal static class ArgvParser
                 ReportMemoryUsage = globals.ReportMemoryUsage,
                 IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
-                Rotations = rotations,
+                Rotations = globals.Rotations,
                 Labels = labels,
                 SplitPages = globals.SplitPages,
                 MinVersion = globals.MinVersion,

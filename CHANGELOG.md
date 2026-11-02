@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Accept rotation and collation in plain whole-file argv, matching the existing
+  job-file route and native behavior. Rotations use the existing whole-file plan;
+  collation leaves a sole source unchanged.
+
 - Remove retired argv inspection parsing, four unused plan variants and their
   execution branches; public inspection commands retain the shared job pipeline.
 

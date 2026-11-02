@@ -186,6 +186,9 @@ echoing values.
 - Ordinary rotation (`Set`/`Add`/`Subtract` multiples of 90 over output positions)
   folds over the inherited base; untouched pages keep their bytes. `--flatten-rotation`
   bakes rotation into content (see below).
+  Whole-file argv accepts rotation without an explicit pages block, including
+  attachment edits. Collation has no effect on a sole whole-file source. Adding
+  an empty job file preserves these results.
 - Bare `--empty` writes a zero-page PDF; it can also start a merge from a zero-page
   base whose catalog extras never carry over. Selecting from `.`, overlays and
   replacement with the synthetic base reject. Whole-file rewriting and typed
