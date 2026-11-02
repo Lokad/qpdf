@@ -40,8 +40,9 @@ def main():
         ["git", "-C", str(reference), "diff", "--exit-code", "HEAD", "--", "job.yml", "manual/cli.rst"],
         check=True, capture_output=True,
     )
-    job_bytes = (reference / "job.yml").read_bytes()
-    manual_bytes = (reference / "manual/cli.rst").read_bytes()
+    # Source identity is independent of Git's CRLF checkout conversion.
+    job_bytes = (reference / "job.yml").read_bytes().replace(b"\r\n", b"\n")
+    manual_bytes = (reference / "manual/cli.rst").read_bytes().replace(b"\r\n", b"\n")
     job = yaml.safe_load(job_bytes)
     manual = manual_bytes.decode("utf-8")
     forms = {}

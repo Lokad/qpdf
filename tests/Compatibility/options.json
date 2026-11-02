@@ -6,8 +6,8 @@
     "commit": "4eba95899886e851cc41d76886483b347612f2a8",
     "documentedFlagCount": 140,
     "sources": {
-      "job.yml": "138ec180062ab204de2126cc93c8b5d9fb7ef3f635777dd2e28b18550cd1f1d9",
-      "manual/cli.rst": "39175c7a8578e109a3b91bf4956e954cf60f64829813384b2a89cddfe7403cd1"
+      "job.yml": "0b0d6185d948c023355792eec264ee8e6be38082a33b4aa6675c9d2cdaa8f49f",
+      "manual/cli.rst": "02792f51d72029eea5a67f12770a8f46c36e15f8a774e67c85954be16dc7e77f"
     }
   },
   "contexts": [

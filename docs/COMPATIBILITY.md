@@ -425,6 +425,10 @@ or a process-memory bound.
 
 The target is [qpdf 12.4.2](https://github.com/qpdf/qpdf), commit
 `4eba95899886e851cc41d76886483b347612f2a8`; changing it requires explicit review.
+The option inventory's source hashes are SHA-256 over UTF-8 bytes with CRLF
+normalized to LF; all other bytes are preserved. LF and CRLF checkouts therefore
+have the same metadata identity. The updater still rejects a different commit
+or edited reference files; ordinary inventory tests remain offline.
 The official Windows `qpdf-12.4.2-msvc64.zip` reports `qpdf version 12.4.2`, has
 statically linked libjpeg support and no optional Zopfli support (requesting it
 exits 2).

@@ -1,5 +1,6 @@
 """Offline regeneration contracts using synthetic metadata and a mocked Git identity."""
 import contextlib
+import hashlib
 import importlib.util
 import io
 import json
@@ -64,6 +65,23 @@ class CompatibilityUpdateTests(unittest.TestCase):
         before = self.output.read_bytes()
         self.generate(inventory.COMMIT)
         self.assertEqual(before, self.output.read_bytes())
+
+    def test_source_hashes_ignore_checkout_newlines_but_preserve_content(self):
+        sources = {name: (self.reference / name).read_bytes().replace(b"\r\n", b"\n")
+                   for name in ("job.yml", "manual/cli.rst")}
+        for name, data in sources.items():
+            (self.reference / name).write_bytes(data)
+        lf = self.generate(inventory.COMMIT)
+        for name, data in sources.items():
+            (self.reference / name).write_bytes(data.replace(b"\n", b"\r\n"))
+        crlf = self.generate(inventory.COMMIT)
+        self.assertEqual(lf, crlf)
+        self.assertEqual({name: hashlib.sha256(data).hexdigest() for name, data in sources.items()},
+                         lf["reference"]["sources"])
+        (self.reference / "manual/cli.rst").write_bytes(sources["manual/cli.rst"] + b"\n.. hash control\n")
+        changed = self.generate(inventory.COMMIT)
+        self.assertNotEqual(lf["reference"]["sources"]["manual/cli.rst"],
+                            changed["reference"]["sources"]["manual/cli.rst"])
 
     def test_explicit_empty_requirements_remain_empty(self):
         reviewed = self.generate(inventory.COMMIT)
