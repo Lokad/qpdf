@@ -85,8 +85,14 @@ map and name-table storage. Recoverable catalog, attachment and unreferenced-roo
 share a reusable, admitted source-number list: rollback removes only new mappings,
 copied descendants and allocator slots, preserving earlier shared objects.
 Nested name-category attempts keep their enclosing attempt's bookkeeping.
-Attachment removals match keys in the same bounded name-tree walk before reading
-metadata or preserving values. After replacements, whole-file models use existing
+Attachment preservation enumerates raw names and specifications through the same
+bounded name-tree walk used by inspection and selective extraction. Display fields
+are projected only for inspection. Temporary entry arrays have a separate owner;
+copied names and specification graphs keep their source admission through publication.
+Removal and replacement survival is decided before copying discarded specifications,
+while original key presence still governs conflicts. Recoverable copy attempts catch
+malformed-data errors; retained profile, admission and host failures abort publication.
+After replacements, whole-file models use existing
 graph reachability from the final catalog, page tree and trailer Info. Coalescing
 uses that same final-root pass, preserving catalog aliases held outside the page
 pool and retiring only unreachable original content arrays and streams. An

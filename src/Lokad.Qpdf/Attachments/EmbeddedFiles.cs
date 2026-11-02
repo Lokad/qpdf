@@ -6,6 +6,8 @@ using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Attachments;
 
+internal readonly record struct EmbeddedFileEntry(string Key, PdfByteString Name, QpdfObject Spec);
+
 internal sealed record EmbeddedAttachment(
     string Key,
     string FileName,
@@ -28,12 +30,36 @@ internal static class EmbeddedFiles
 
     internal static List<EmbeddedAttachment> ReadAttachments(DocumentEngine engine, QpdfLimits limits,
         ResourceGovernor governor, DiagnosticBag diagnostics, ParserMemoryScope memory, CancellationToken token)
-        => ReadAttachmentsCore(engine, limits, governor, diagnostics, memory, token, null);
-
-    internal static List<EmbeddedAttachment> ReadAttachmentsForEdit(DocumentEngine engine, IReadOnlyList<string> removes,
-        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, ParserMemoryScope memory, CancellationToken token)
     {
-        if (removes.Count == 0) { return ReadAttachments(engine, limits, governor, diagnostics, memory, token); }
+        ArgumentNullException.ThrowIfNull(diagnostics);
+        using ParserMemoryScope entriesMemory = ParserMemoryScope.Create(governor);
+        List<EmbeddedFileEntry> entries = ReadEntries(engine, [], limits, governor, memory, entriesMemory, token);
+        List<EmbeddedAttachment> result = ParserContainers.CreateList<EmbeddedAttachment>(memory);
+        for (int index = 0; index < entries.Count; index++)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            EmbeddedFileEntry entry = entries[index]; entries[index] = default;
+            long before = memory.ReservedBytes;
+            EmbeddedAttachment attachment;
+            try { attachment = ParseAttachment(engine, entry.Key, entry.Spec, governor, memory, token); }
+            catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException))
+            {
+                memory.Release(checked(memory.ReservedBytes - before + GovernedText.StringBytes(entry.Key.Length)));
+                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unlistable attachment.");
+                continue;
+            }
+            ParserContainers.AddItem(memory, result, attachment, IntPtr.Size);
+        }
+        return result;
+    }
+
+    // Keys can outlive enumeration; the temporary entry array has its own owner.
+    internal static List<EmbeddedFileEntry> ReadEntries(DocumentEngine engine, IReadOnlyList<string> removes,
+        QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory, ParserMemoryScope entriesMemory, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(engine); ArgumentNullException.ThrowIfNull(limits);
+        memory.CheckOwner(governor); entriesMemory.CheckOwner(governor);
+        limits.Validate(); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
         Dictionary<string, bool> removed = ParserContainers.CreateDictionary<string, bool>(scratch);
         foreach (string key in removes)
@@ -43,31 +69,20 @@ internal static class EmbeddedFiles
             ParserContainers.EnsureEntryCapacity(scratch, removed, sizeof(int));
             removed.Add(key, false);
         }
-        List<EmbeddedAttachment> result = ReadAttachmentsCore(engine, limits, governor, diagnostics, memory, token, removed);
+        List<EmbeddedFileEntry> result = ParserContainers.CreateList<EmbeddedFileEntry>(entriesMemory);
+        PdfDictionary? catalog = ResolveDictionary(engine, engine.Trailer, "Root", governor, token);
+        PdfDictionary? names = catalog is null ? null : ResolveDictionary(engine, catalog, "Names", governor, token);
+        PdfDictionary? tree = names is null ? null : ResolveDictionary(engine, names, "EmbeddedFiles", governor, token);
+        if (tree is not null)
+        {
+            WalkNode(engine, tree, 0, GovernedIntSet.Create(scratch, governor, token), result,
+                limits, governor, memory, entriesMemory, scratch, token, null, removes.Count == 0 ? null : removed);
+        }
         foreach (bool found in removed.Values)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (!found) { throw new QpdfParseException("The requested attachment was not found.", 0L, null); }
         }
-        return result;
-    }
-
-    private static List<EmbeddedAttachment> ReadAttachmentsCore(DocumentEngine engine, QpdfLimits limits,
-        ResourceGovernor governor, DiagnosticBag diagnostics, ParserMemoryScope memory, CancellationToken token,
-        Dictionary<string, bool>? removed)
-    {
-        ArgumentNullException.ThrowIfNull(engine); ArgumentNullException.ThrowIfNull(limits);
-        ArgumentNullException.ThrowIfNull(governor); ArgumentNullException.ThrowIfNull(diagnostics);
-        memory.CheckOwner(governor); limits.Validate(); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        List<EmbeddedAttachment> result = ParserContainers.CreateList<EmbeddedAttachment>(memory);
-        PdfDictionary? catalog = ResolveDictionary(engine, engine.Trailer, "Root", governor, token);
-        PdfDictionary? names = catalog is null ? null : ResolveDictionary(engine, catalog, "Names", governor, token);
-        PdfDictionary? tree = names is null ? null : ResolveDictionary(engine, names, "EmbeddedFiles", governor, token);
-        if (tree is null) { return result; }
-
-        using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
-        WalkNode(engine, tree, 0, GovernedIntSet.Create(traversal, governor, token), result,
-            limits, governor, diagnostics, memory, traversal, token, null, removed);
         // Comparisons can examine large names even when there are few attachments.
         try { result.Sort((left, right) => CompareKeys(left.Key, right.Key, governor, token)); }
         catch (InvalidOperationException ex) when (ex.InnerException is OperationCanceledException or QpdfException)
@@ -99,7 +114,7 @@ internal static class EmbeddedFiles
         {
             raw = tree is null ? null : WalkNode(engine, tree, 0,
                 GovernedIntSet.Create(traversal, governor, token), null,
-                limits, governor, diagnostics, memory, traversal, token, key, null);
+                limits, governor, memory, traversal, traversal, token, key, null);
         }
         if (raw is null) { throw new QpdfParseException("The requested attachment was not found.", 0L, null); }
         (PdfStream stream, PdfReference? reference) = ReadEmbeddedStream(engine, ReadFileSpec(engine, raw, governor, token), governor, token);
@@ -194,8 +209,8 @@ internal static class EmbeddedFiles
     }
 
     private static QpdfObject? WalkNode(DocumentEngine engine, PdfDictionary node, int depth, GovernedIntSet visited,
-        List<EmbeddedAttachment>? result, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
-        ParserMemoryScope memory, ParserMemoryScope traversal, CancellationToken token, string? requestedKey,
+        List<EmbeddedFileEntry>? result, QpdfLimits limits, ResourceGovernor governor,
+        ParserMemoryScope memory, ParserMemoryScope entriesMemory, ParserMemoryScope traversal, CancellationToken token, string? requestedKey,
         Dictionary<string, bool>? removed)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -225,15 +240,7 @@ internal static class EmbeddedFiles
                     if (matches) { return names[i + 1]; }
                     continue;
                 }
-                EmbeddedAttachment attachment;
-                try { attachment = ParseAttachment(engine, key, names[i + 1], governor, memory, token); }
-                catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
-                {
-                    memory.Release(memory.ReservedBytes - before);
-                    diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unlistable attachment.");
-                    continue;
-                }
-                if (result is not null) { ParserContainers.AddItem(memory, result, attachment, IntPtr.Size); }
+                if (result is not null) { ParserContainers.AddItem(entriesMemory, result, new(key, keyBytes, names[i + 1]), 24L); }
             }
         }
         if (node.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw) && kidsRaw is not null && kidsRaw is not PdfNull)
@@ -250,7 +257,7 @@ internal static class EmbeddedFiles
                 if (item is PdfReference link && !visited.Add(traversal, link.ObjectNumber))
                 { throw new QpdfParseException("Embedded-files name tree contains a cycle.", null, link.ObjectNumber); }
                 QpdfObject? found = WalkNode(engine, kid, depth + 1, visited, result,
-                    limits, governor, diagnostics, memory, traversal, token, requestedKey, removed);
+                    limits, governor, memory, entriesMemory, traversal, token, requestedKey, removed);
                 if (item is PdfReference completed) { visited.Remove(completed.ObjectNumber); }
                 if (found is not null) { return found; }
             }

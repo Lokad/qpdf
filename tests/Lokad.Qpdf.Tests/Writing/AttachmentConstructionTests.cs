@@ -59,7 +59,7 @@ public sealed class AttachmentConstructionTests
     // Test the live shared assembly without charging preowned primary PDF/request
     // inputs. This exposes payload identity and incremental construction costs.
     private static async Task Assemble(Host host, Dictionary<int, QpdfObject> pool, AttachmentEdits edits,
-        SortedDictionary<string, PdfReference> existing, bool compress, QpdfLimits limits,
+        SortedDictionary<string, AttachmentReference> existing, bool compress, QpdfLimits limits,
         ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
     {
         MethodInfo method = typeof(Qpdf).GetMethod("AssembleAttachmentsAsync", BindingFlags.Static | BindingFlags.NonPublic)
@@ -128,7 +128,7 @@ public sealed class AttachmentConstructionTests
         {
             long allocated = GC.GetAllocatedBytesForCurrentThread();
             QpdfParseException failure = await Assert.ThrowsAsync<QpdfParseException>(() => Assemble(host, pool, new(adds, [], []),
-                new(StringComparer.Ordinal) { ["already"] = new(7, 0) }, false, limits, governor, memory, CancellationToken.None));
+                new(StringComparer.Ordinal) { ["already"] = new(new PdfByteString("already"u8.ToArray(), false), new PdfReference(7, 0)) }, false, limits, governor, memory, CancellationToken.None));
             Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 65536L);
             Assert.Equal("Attachments with conflicting keys already exist; use --replace to replace or --key to specify a different key. (offset 0).", failure.Message);
             Assert.Equal(1, host.Opens); Assert.Equal(1, host.Closes); Assert.Single(pool.Values.OfType<PdfStream>());
@@ -237,11 +237,11 @@ public sealed class AttachmentConstructionTests
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
-    private sealed class ExcessivePairs : IReadOnlyList<KeyValuePair<string, PdfReference>>
+    private sealed class ExcessivePairs : IReadOnlyList<AttachmentReference>
     {
         public int Count => Array.MaxLength / 2 + 1;
-        public KeyValuePair<string, PdfReference> this[int index] => throw new InvalidOperationException("Capacity must reject before entry access.");
-        public IEnumerator<KeyValuePair<string, PdfReference>> GetEnumerator() => throw new InvalidOperationException("Capacity must reject before enumeration.");
+        public AttachmentReference this[int index] => throw new InvalidOperationException("Capacity must reject before entry access.");
+        public IEnumerator<AttachmentReference> GetEnumerator() => throw new InvalidOperationException("Capacity must reject before enumeration.");
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
@@ -253,7 +253,7 @@ public sealed class AttachmentConstructionTests
         RecordingMemoryBudget root = new(4096L); using IMemoryScope caller = root.CreateScope();
         Host host = new([], null, shared ? caller : null);
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = shared ? 1048576L : 4096L }, CancellationToken.None, host);
-        KeyValuePair<string, PdfReference>[] pairs = Enumerable.Range(0, 1024).Select(i => new KeyValuePair<string, PdfReference>("key", new(i + 1, 0))).ToArray();
+        AttachmentReference[] pairs = Enumerable.Range(0, 1024).Select(i => new AttachmentReference(new PdfByteString("key"u8.ToArray(), false), new(i + 1, 0))).ToArray();
         using (ParserMemoryScope prior = ParserMemoryScope.Create(governor))
         {
             prior.Reserve(17L); long baseline = governor.Snapshot().LiveMemoryBytes;
@@ -276,7 +276,7 @@ public sealed class AttachmentConstructionTests
         using CancellationTokenSource cancellation = new();
         Host host = new([], null, new CancelingGrowth(caller, cancellation));
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None, host);
-        KeyValuePair<string, PdfReference>[] pairs = Enumerable.Range(0, 8192).Select(i => new KeyValuePair<string, PdfReference>("key", new(i + 1, 0))).ToArray();
+        AttachmentReference[] pairs = Enumerable.Range(0, 8192).Select(i => new AttachmentReference(new PdfByteString("key"u8.ToArray(), false), new(i + 1, 0))).ToArray();
         using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
         {
             long before = GC.GetAllocatedBytesForCurrentThread();

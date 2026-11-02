@@ -5,9 +5,11 @@ using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Attachments;
 
+internal readonly record struct AttachmentReference(PdfByteString Name, PdfReference? Spec);
+
 internal static class AttachmentBuilder
 {
-    private static PdfByteString EncodeText(string text, ResourceGovernor governor,
+    internal static PdfByteString EncodeText(string text, ResourceGovernor governor,
         ParserMemoryScope memory, CancellationToken token)
     {
         memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -66,11 +68,12 @@ internal static class AttachmentBuilder
         return PdfDictionary.FromOwnedEntries(entries);
     }
 
-    internal static string Basename(string path)
+    internal static string Basename(string path, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(path);
+        memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         int cut = Math.Max(path.LastIndexOf('/'), path.LastIndexOf((char)92));
-        return cut < 0 ? path : path.Substring(cut + 1);
+        return cut < 0 ? path : GovernedText.CopySubstring(governor, memory, path, cut + 1, path.Length - cut - 1);
     }
 
     internal static PdfDictionary BuildStreamDictionary(long length, byte[] checksum,
@@ -110,7 +113,7 @@ internal static class AttachmentBuilder
         ]);
     }
 
-    internal static PdfDictionary BuildNameTree(IReadOnlyCollection<KeyValuePair<string, PdfReference>> pairs,
+    internal static PdfDictionary BuildNameTree(IReadOnlyCollection<AttachmentReference> pairs,
         ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
     {
         memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -130,10 +133,10 @@ internal static class AttachmentBuilder
             int index = 0;
             bool sorted = true;
             EncodedKeyOrder order = new(governor, token);
-            foreach (KeyValuePair<string, PdfReference> pair in pairs)
+            foreach (AttachmentReference pair in pairs)
             {
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                encoded[index] = new(EncodeText(pair.Key, governor, memory, token), pair.Value);
+                encoded[index] = new(pair.Name, pair.Spec ?? throw new QpdfException("Attachment replacement was not completed."));
                 if (sorted && index > 0 && order.Compare(encoded[index - 1], encoded[index]) > 0) { sorted = false; }
                 index++;
             }

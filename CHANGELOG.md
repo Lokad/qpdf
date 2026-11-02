@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Preserve raw attachment names and file-specification graphs without decoding
+  unused listing metadata. Replacements discard superseded graphs before copying,
+  retaining independent aliases and original key-presence conflict checks. Retained
+  profile errors in Info, Metadata and attachments now fail publication even when
+  warnings are suppressed. Safely copyable entries can survive despite unlistable
+  optional metadata; extraction still requires a valid embedded stream.
+
 - Isolate shared annotations when flattening rotations on repeated or shared
   pages. Each occurrence keeps its own rectangles, appearance headers, popup and
   reply links, and page association. Copy affected widget field branches through

@@ -34,6 +34,10 @@ verified. Native qpdf 12.4.2 retains the reduced signed fixture's metadata; mana
 copying deliberately rejects it. Private dictionaries using `V` and `Parent` do
 not establish field context. Source catalog/page-tree containment and omitted-page
 pruning apply independently.
+The same exclusion propagates through retained Info, Metadata and attachment
+graphs. Warning suppression cannot convert it into a successful rewrite that
+drops those roots. Removed or replaced attachment-only graphs are not copied;
+independent page or metadata aliases still retain their own graphs.
 
 DCT decoding accepts absent/null `DecodeParms` only. Parameterized DCT, including
 empty or indirect parameter dictionaries, stays opaque with warnings in rewriting

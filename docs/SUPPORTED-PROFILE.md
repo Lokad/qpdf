@@ -474,6 +474,13 @@ suppresses warning storage while `--warning-exit-0` controls the warning exit co
 
 Removal matches name-tree keys before listing metadata or copying file
 specifications, so malformed/null values can be removed without being listed.
+Rewriting and attachment import preserve raw name bytes and safely copyable
+specification graphs without requiring successful listing projection. Optional
+descriptions, dates and checksums are decoded only for inspection. A preserved
+entry can therefore remain unlistable; extraction still requires a valid file
+specification and embedded stream. Edit counts describe retained name-tree entries.
+Replacement excludes the superseded specification before copying it, while its
+original key still governs conflicts. Independently retained aliases remain live.
 Missing keys and duplicate removal requests fail before publication.
 Removed/replaced attachment-only graphs are excluded from output by default.
 References from retained pages, catalog data or other attachments keep shared
