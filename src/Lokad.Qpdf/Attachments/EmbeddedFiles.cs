@@ -27,6 +27,7 @@ internal sealed record EmbeddedAttachment(
 internal static class EmbeddedFiles
 {
     private static readonly string[] NameKeys = ["UF", "F", "Unix", "DOS", "Mac"];
+    private const string DuplicateKeys = "Embedded-files name tree contains duplicate logical keys.";
 
     internal static List<EmbeddedAttachment> ReadAttachments(DocumentEngine engine, QpdfLimits limits,
         ResourceGovernor governor, DiagnosticBag diagnostics, ParserMemoryScope memory, CancellationToken token)
@@ -87,6 +88,12 @@ internal static class EmbeddedFiles
         try { result.Sort((left, right) => CompareKeys(left.Key, right.Key, governor, token)); }
         catch (InvalidOperationException ex) when (ex.InnerException is OperationCanceledException or QpdfException)
         { System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ex.InnerException ?? ex).Throw(); }
+        for (int index = 1; index < result.Count; index++)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (CompareKeys(result[index - 1].Key, result[index].Key, governor, token) == 0)
+            { throw new QpdfParseException(DuplicateKeys, 0L, null); }
+        }
         return result;
     }
 
@@ -236,8 +243,9 @@ internal static class EmbeddedFiles
                 { throw new QpdfParseException("Embedded-files name-tree keys must be strings.", null, null); }
                 long before = memory.ReservedBytes;
                 string key = PdfText.Decode(keyBytes.ValueMemory, memory, governor, token);
-                if (removed is not null && removed.ContainsKey(key))
+                if (removed is not null && removed.TryGetValue(key, out bool alreadyRemoved))
                 {
+                    if (alreadyRemoved) { throw new QpdfParseException(DuplicateKeys, 0L, null); }
                     removed[key] = true;
                     memory.Release(memory.ReservedBytes - before);
                     continue;

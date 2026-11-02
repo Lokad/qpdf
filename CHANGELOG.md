@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Reject duplicate decoded attachment keys in full-collection operations before
+  publication, preventing silent payload changes during rewriting and duplicate
+  JSON properties. Selective extraction retains its first-match behavior.
+
 - Accept explicitly empty existing attachment identifiers for extraction and
   removal through typed, argv and job routes. Missing/null parameters and empty
   creation keys still reject. A missing empty key now fails lookup instead of

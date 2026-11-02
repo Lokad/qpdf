@@ -491,6 +491,12 @@ Extraction and removal accept an explicitly empty existing name-tree key. Missin
 or null parameters still reject; new attachment keys and filenames remain nonempty.
 An absent empty identifier fails the same lookup as any other missing key.
 
+Full-collection operations (listing, attachment JSON, rewriting and edits/import)
+reject duplicate decoded keys, including equal text with different raw encodings.
+Warning suppression does not permit choosing a different payload or publishing
+duplicate JSON properties. Selective extraction retains its first-match lookup;
+it does not scan unrelated branches to establish collection-wide uniqueness.
+
 Named attachment extraction honors invocation parser controls and warning policy
 through argv, mixed job-file arguments and job JSON. Explicit host ceilings stay
 binding. Filter-limit refusals retain encoded bytes with a warning; `--no-warn`

@@ -56,6 +56,12 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Full attachment collection operations now reject duplicate logical keys before
+publication, including collisions between different PDF text encodings. Native
+qpdf repairs this ambiguous input and typically selects the later entry. Managed
+selective extraction keeps its existing first-match behavior without a full-tree
+scan; it can still extract from a source whose unrelated branches are malformed.
+
 Extraction and removal now accept explicitly empty existing attachment identifiers,
 with removal matching native qpdf. Native 12.4.2 treats an empty extraction selector
 as a successful no-op; managed extraction returns the selected bytes or reports
