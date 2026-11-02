@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Skip inline-image payload copying and admission when the borrowed payload is
+  below the externalization threshold, preserving cancellation and parsing order.
+
 - Reject obvious JSON numeric overflow before admitting expanded temporary
   storage, retaining compensated exponents, signed zeros and exact underflow text.
 

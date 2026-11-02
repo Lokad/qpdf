@@ -17,9 +17,9 @@ internal static class InlineImageStorage
         ResourceGovernor governor, DiagnosticBag diagnostics, PoolResolver resolver, CancellationToken token)
     {
         Step(governor, token);
+        if (imageBytes.Length < minimum) { return null; }
         using ParserMemoryScope dataMemory = ParserMemoryScope.Create(governor);
         byte[] data = Copy(imageBytes.Span, dataMemory, governor, token);
-        if (data.Length < minimum) { return null; }
         using ParserMemoryScope parsedMemory = ParserMemoryScope.Create(governor);
         PdfDictionary raw = Parse(dictionaryBytes, offset, limits, governor, diagnostics, resolver, parsedMemory, token);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
