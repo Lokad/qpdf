@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Report page-image JSON filterability using the accepted stream-filter ceiling
+  and decode level, including unfiltered images when decoding is disabled.
+
 - Honor configured field-parent depth in appearance generation and overlay default
   repair, preserving inherited values beyond the former 64/32-parent cutoffs.
   Resolve indirect widget subtypes, appearance states and inspection flags through

@@ -741,7 +741,8 @@ internal static class DocumentJson
         }
 
         builder.Append("],\"filterable\": ");
-        builder.Append(FilterChain.AllStagesInLevel(stages, request.DecodeLevel) ? "true" : "false");
+        builder.Append(request.DecodeLevel != "none" && stages.Count <= limits.MaxStreamFilters
+            && FilterChain.AllStagesInLevel(stages, request.DecodeLevel) ? "true" : "false");
         builder.Append(",\"height\": ");
         AppendImageValue(builder, detail.Stream.Dictionary, "Height"u8, request, limits, governor, cancellationToken);
         builder.Append(",\"name\": ");

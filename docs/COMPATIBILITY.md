@@ -56,6 +56,11 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Page-image JSON `filterable` now honors the accepted stream-filter ceiling and
+is false when decoding is disabled, matching native eligibility. Raw image
+descriptors remain unchanged. This projection does not decode the image or
+predict memory/codec admission; native can also emit filter-limit warnings.
+
 Field-parent inheritance for generated appearances and imported overlay defaults
 now uses the configured nesting limit instead of separate 64/32-parent cutoffs.
 Excess depth fails before publication rather than silently applying partial state.
