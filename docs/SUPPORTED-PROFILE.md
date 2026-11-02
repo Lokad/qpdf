@@ -327,7 +327,8 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
   engine. `input.pdf --update-from-json=update.json -- output.pdf` merges a
   qpdf JSON document into the PDF: objects are replaced or added by number
   (new streams still require payloads while existing streams keep their data
-  when payloads are omitted), the trailer is replaced when present, and the
+  when payloads are omitted; their supplied dictionary replaces the previous
+  dictionary, including filter entries), the trailer is replaced when present, and the
   JSON pdfversion overrides the output version when present. Pushed inherited
   attributes stay explicitly unsupported. The typed
   `UpdatePdfFromJsonAsync` shares the engine.
