@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Preserve inline-image sample bytes during content normalization, including QDF
+  defaults and images left inline by the externalization threshold. Binary samples
+  are no longer parsed as names, strings or comments.
+
 - Honor Hidden and Invisible annotation flags in every flattening mode, including
   indirect flag values. Flattened hidden annotations are removed without adding
   their appearances to page content.

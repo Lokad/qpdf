@@ -524,6 +524,14 @@ internal static class ContentTransforms
             governor.NoteOperation();
             switch (token.Kind)
             {
+                case ContentTokenKind.Operator when token.Data.Span.SequenceEqual("ID"u8):
+                    AppendRaw(output, token);
+                    int imageStart = checked((int)tokenizer.Position);
+                    tokenizer.TryReadInlineImageData(out _);
+                    // Include the original delimiter and EI; image samples are
+                    // opaque even when their bytes resemble content tokens.
+                    output.Write(data.AsSpan(imageStart, checked((int)tokenizer.Position) - imageStart));
+                    break;
                 case ContentTokenKind.Operator:
                 case ContentTokenKind.Integer:
                 case ContentTokenKind.Real:
@@ -568,9 +576,6 @@ internal static class ContentTransforms
                     break;
                 case ContentTokenKind.Whitespace:
                     AppendNormalizedSpace(output, token);
-                    break;
-                case ContentTokenKind.InlineImage:
-                    AppendRaw(output, token);
                     break;
                 default:
                     AppendRaw(output, token);
