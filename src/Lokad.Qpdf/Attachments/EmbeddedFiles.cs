@@ -183,7 +183,7 @@ internal static class EmbeddedFiles
             return null;
         }
 
-        QpdfObject target = raw is PdfReference reference ? ResolveRequired(engine, reference, key, governor, token) : raw;
+        QpdfObject target = raw is PdfReference reference ? ResolveReference(engine, reference, key, governor, token) : raw;
         if (target is PdfNull)
         {
             return null;
@@ -197,14 +197,23 @@ internal static class EmbeddedFiles
         return dictionary;
     }
 
-    private static QpdfObject ResolveRequired(DocumentEngine engine, PdfReference reference, string role,
+    private static QpdfObject ResolveReference(DocumentEngine engine, PdfReference reference, string role,
         ResourceGovernor governor, CancellationToken token)
     {
-        if (!PdfObjectLookup.TryResolve(reference, engine, governor, token, out QpdfObject? resolved) || resolved is null || resolved is PdfNull)
+        if (!PdfObjectLookup.TryResolve(reference, engine, governor, token, out QpdfObject? resolved) || resolved is null)
         {
             throw new QpdfParseException($"Unresolvable embedded-files {role} reference.", null, reference.ObjectNumber);
         }
 
+        return resolved;
+    }
+
+    private static QpdfObject ResolveRequired(DocumentEngine engine, PdfReference reference, string role,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        QpdfObject resolved = ResolveReference(engine, reference, role, governor, token);
+        if (resolved is PdfNull)
+        { throw new QpdfParseException($"Unresolvable embedded-files {role} reference.", null, reference.ObjectNumber); }
         return resolved;
     }
 
@@ -299,7 +308,7 @@ internal static class EmbeddedFiles
         if (data.Dictionary.TryGet(PdfName.FromAscii("Params"), out QpdfObject parametersRaw) && parametersRaw is not PdfNull)
         {
             parameters = (parametersRaw is PdfReference parametersReference
-                ? ResolveRequired(engine, parametersReference, "embedded stream parameters", governor, cancellationToken) : parametersRaw) as PdfDictionary;
+                ? ResolveReference(engine, parametersReference, "embedded stream parameters", governor, cancellationToken) : parametersRaw) as PdfDictionary;
         }
         EmbeddedStreamMetadata metadata = ReadStreamMetadata(engine, data, parameters, memory, governor, cancellationToken);
 
@@ -338,7 +347,7 @@ internal static class EmbeddedFiles
                 continue;
             }
 
-            QpdfObject resolved = candidate is PdfReference resolvedReference ? ResolveRequired(engine, resolvedReference, "embedded stream", governor, token) : candidate;
+            QpdfObject resolved = candidate is PdfReference resolvedReference ? ResolveReference(engine, resolvedReference, "embedded stream", governor, token) : candidate;
             if (resolved is PdfStream stream)
             {
                 data = stream;

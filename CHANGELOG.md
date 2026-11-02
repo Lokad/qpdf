@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Treat direct and indirect null consistently for optional attachment containers,
+  stream parameters and preferred stream candidates. A null preferred candidate
+  permits the existing fallback; required file and stream references remain strict.
+
 - Retain the primary document's attachment collection during ordinary page
   selection, including selections with no primary pages. Attachment edits change
   that retained set; they no longer enable retention. Equivalent typed, argv and

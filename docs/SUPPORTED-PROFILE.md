@@ -476,6 +476,12 @@ Numbers are normalized lexically under the existing cancellation/output bounds.
 
 ## Attachments profile
 
+Optional catalog `/Names` and `/EmbeddedFiles` containers, stream `/Params` and
+preferred embedded-stream candidates treat direct and indirect null equally.
+Null preferred candidates allow the next existing stream key to supply the data.
+Required file specifications, embedded-stream dictionaries and name-tree children
+still reject unresolvable/null references; generation and cycle checks remain active.
+
 Named attachment extraction honors invocation parser controls and warning policy
 through argv, mixed job-file arguments and job JSON. Explicit host ceilings stay
 binding. Filter-limit refusals retain encoded bytes with a warning; `--no-warn`
