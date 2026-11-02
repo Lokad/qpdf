@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Reject inconsistent QDF stream/object/length framing before publication,
+  including marker lines inside binary streams and object-stream members.
+  Preserve ordinary edited lengths and other marker-shaped payload bytes.
+
 - Preserve effective resources used by Type 3 glyphs and soft-mask groups during
   pruning, including uses inherited through forms. Conservatively keep these
   scopes while ordinary consumers still prune; native qpdf's destructive behavior

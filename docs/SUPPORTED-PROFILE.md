@@ -590,6 +590,9 @@ keys; listing order and request matching use decoded ordinal text.
   repairs edited QDF (stream lengths, object-stream tables, cross references,
   startxref offsets) and `RunZlibFlateAsync` compresses or uncompresses zlib bytes
   between host paths.
+  Repair requires consistent `endstream`/`endobj` and length-object framing;
+  marker-shaped payloads that disrupt this sequence fail before commit. Native
+  fix-qdf can instead publish an incorrect length for this ambiguous input.
   Both companions close their input before creating output staging; read or input-close failures publish nothing.
 - `--linearize` emits web-optimized output through a two-pass writer with generated page-offset, shared-object, and outline hint tables (hints Flate-encode under stream compression) and optional generated object streams;
   `--linearize-pass1` captures the counting pass while `--check-linearization` and `--show-linearization` inspect through the shared engine. QDF stays disabled over linearization.

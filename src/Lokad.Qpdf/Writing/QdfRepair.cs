@@ -4,7 +4,7 @@ using Lokad.Qpdf.Runtime;
 namespace Lokad.Qpdf.Writing;
 
 /// <summary>
-/// Line-oriented repair of edited QDF files. Mirrors upstream fix-qdf:
+/// Line-oriented repair of edited QDF files. Follows the upstream fix-qdf layout:
 /// recomputes object-stream tables, stream lengths, cross-reference tables
 /// or streams, and startxref offsets while passing all other bytes through.
 /// </summary>
@@ -16,12 +16,14 @@ internal sealed class QdfRepair
         InObject,
         InStream,
         AfterStream,
+        BeforeLength,
         InObjectStreamDictionary,
         InObjectStreamOffsets,
         InObjectStreamOuter,
         InObjectStreamObject,
         InXrefStreamDictionary,
         InLength,
+        EndObject,
         AtXref,
         BeforeTrailer,
         InTrailer,
@@ -177,6 +179,15 @@ internal sealed class QdfRepair
 
                 break;
             case RepairState.AfterStream:
+            case RepairState.EndObject:
+                if (!terminated || !MatchesLiteral(start, length, EndobjToken))
+                {
+                    throw new QpdfParseException("QDF repair expected endobj after stream data or length.", start, _lastObject);
+                }
+                await AppendRawAsync(start, length, cancellationToken).ConfigureAwait(false);
+                _state = _state == RepairState.AfterStream ? RepairState.BeforeLength : RepairState.Top;
+                break;
+            case RepairState.BeforeLength:
                 long headerStart = _outputLength;
                 await AppendRawAsync(start, length, cancellationToken).ConfigureAwait(false);
                 if (terminated && MatchesLiteral(start, length, IgnoreNewlineToken))
@@ -191,6 +202,10 @@ internal sealed class QdfRepair
                     CheckObjectId(number, start, headerStart);
                     _state = RepairState.InLength;
                 }
+                else if (!IsBlankOrComment(start, length, cancellationToken))
+                {
+                    throw new QpdfParseException("QDF repair expected the stream length object.", start, _lastObject);
+                }
 
                 break;
             case RepairState.InLength:
@@ -200,7 +215,7 @@ internal sealed class QdfRepair
                 }
 
                 await AppendTextAsync(FormatLong(_streamLength) + "\n", cancellationToken).ConfigureAwait(false);
-                _state = RepairState.Top;
+                _state = RepairState.EndObject;
                 break;
             case RepairState.InObjectStreamDictionary:
                 if (terminated && MatchesLiteral(start, length, StreamToken))
@@ -233,7 +248,7 @@ internal sealed class QdfRepair
                 {
                     await FlushContainerAsync(cancellationToken).ConfigureAwait(false);
                     await AppendRawAsync(start, length, cancellationToken).ConfigureAwait(false);
-                    _state = RepairState.InObject;
+                    _state = RepairState.EndObject;
                 }
                 else
                 {
@@ -284,8 +299,24 @@ internal sealed class QdfRepair
             _xrefOffset = _outputLength;
             _state = RepairState.AtXref;
         }
+        else if (!IsBlankOrComment(start, length, cancellationToken))
+        {
+            throw new QpdfParseException("QDF repair found unexpected data outside an object.", start, _lastObject);
+        }
 
         await AppendRawAsync(start, length, cancellationToken).ConfigureAwait(false);
+    }
+
+    private bool IsBlankOrComment(int start, int length, CancellationToken cancellationToken)
+    {
+        for (int at = start; at < start + length; at++)
+        {
+            if ((at & (ByteCheckInterval - 1)) == 0) { CheckCancellation(cancellationToken); }
+            byte value = _input[at];
+            if (value is 0 or 9 or 12 or 32 or LineFeed) { continue; }
+            return value == (byte)'%';
+        }
+        return true;
     }
 
     private async ValueTask ProcessObjectAsync(int start, int length, bool terminated, CancellationToken cancellationToken)

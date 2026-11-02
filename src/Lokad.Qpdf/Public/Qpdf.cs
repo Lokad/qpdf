@@ -5757,6 +5757,7 @@ public static partial class Qpdf
     /// explicit host paths; there is no standard input or output default,
     /// and the repaired bytes publish through a staged transaction.
     /// </summary>
+    /// <remarks>Inconsistent stream/object/length framing fails before output commit.</remarks>
     /// <exception cref="ArgumentNullException">Host or limits are null.</exception>
     public static async ValueTask<QpdfExecutionResult> FixQdfAsync(
         IQpdfHost host,
