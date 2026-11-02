@@ -56,6 +56,12 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Invocation nesting limits now govern later graph walks as well as PDF parsing,
+matching equivalent explicit host options. The validated effective limit is
+installed before PDF execution; explicit host ceilings still reject larger
+requests. The managed bound also applies to field ancestry and graph traversal,
+while native's parser nesting option need not reject the same indirect graphs.
+
 Page-image JSON `filterable` now honors the accepted stream-filter ceiling and
 is false when decoding is disabled, matching native eligibility. Raw image
 descriptors remain unchanged. This projection does not decode the image or

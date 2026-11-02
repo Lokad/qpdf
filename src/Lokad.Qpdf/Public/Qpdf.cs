@@ -5378,6 +5378,7 @@ public static partial class Qpdf
         try
         {
             limits = ResolveParserLimits(plan, limits, hostExplicit);
+            governor.MaxNestingDepth = limits.MaxNestingDepth;
             presentation = ExecutionPresentation.Create(governor, diagnostics, plan.Verbose,
                 plan.ReportMemoryUsage, plan.Progress, plan.NoWarn, plan.WarningExitZero, cancellationToken);
             ExecutionOutcome result = await RunPlanCoreAsync(host, plan, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);

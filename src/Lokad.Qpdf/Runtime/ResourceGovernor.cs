@@ -45,6 +45,7 @@ internal sealed class ResourceGovernor
 
         limits.Validate();
         _limits = limits;
+        MaxNestingDepth = limits.MaxNestingDepth;
         _cancellationToken = cancellationToken;
     }
 
@@ -64,7 +65,8 @@ internal sealed class ResourceGovernor
     // Jobs without a codec keep the existing path without a lock or gate object.
     internal object CodecMemoryGate => _codecMemoryGate ??= new();
 
-    internal long MaxNestingDepth => _limits.MaxNestingDepth;
+    // The job owner installs the validated invocation value before PDF execution.
+    internal long MaxNestingDepth { get; set; }
 
     private long LiveMemoryBytes => _liveMemoryBytes;
 

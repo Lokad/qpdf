@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Apply validated invocation nesting limits to the shared governor's graph walks,
+  keeping reader/writer traversal consistent with equivalent explicit host options.
+  Explicit host ceilings remain binding.
+
 - Report page-image JSON filterability using the accepted stream-filter ceiling
   and decode level, including unfiltered images when decoding is disabled.
 
