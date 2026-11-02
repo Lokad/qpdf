@@ -82,7 +82,9 @@ copied descendants and allocator slots, preserving earlier shared objects.
 Nested name-category attempts keep their enclosing attempt's bookkeeping.
 Attachment removals match keys in the same bounded name-tree walk before reading
 metadata or preserving values. After replacements, whole-file models use existing
-graph reachability from the final catalog, page tree and trailer Info; ordinary
+graph reachability from the final catalog, page tree and trailer Info. Coalescing
+uses that same final-root pass, preserving catalog aliases held outside the page
+pool and retiring only unreachable original content arrays and streams. Ordinary
 adds and removals need no extra graph scan. Split attachment
 roots come only from the final name tree. Shared references and explicit
 unreferenced-object preservation retain their existing ownership and policy.

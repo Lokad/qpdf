@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Coalesce page contents through a fresh stream reference, preserving shared
+  content-array values in page and catalog data. Retire replaced-only objects
+  after final output roots are assembled, honoring unreferenced-object retention.
+
 - Preserve inline-image sample bytes during content normalization, including QDF
   defaults and images left inline by the externalization threshold. Binary samples
   are no longer parsed as names, strings or comments.

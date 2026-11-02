@@ -271,28 +271,13 @@ internal static class ContentTransforms
             return page;
         }
 
-        PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, cancellationToken, out QpdfObject contentsRaw);
-        using ParserMemoryScope orphanMemory = ParserMemoryScope.Create(governor);
-        List<int> orphaned = ReplacedContentIds(contentsRaw, resolver, orphanMemory, governor, cancellationToken);
-        PdfDictionary replaced;
-        if (contentsRaw is PdfReference contentsRef)
-        {
-            copier.ReplaceCopiedObject(contentsRef.ObjectNumber, coalesced);
-            replaced = page;
-        }
-        else
-        {
-            PdfReference? link = copier.AddIndirectObject(coalesced);
-            if (link is null)
-            {
-                return page;
-            }
-
-            replaced = ReplaceEntry(page, "Contents"u8, link, governor, cancellationToken);
-        }
-
+        // The old Contents reference can identify an array shared with other
+        // page or catalog values. Replace this page's edge, leaving those
+        // identities intact until final output reachability is known.
+        PdfReference? link = copier.AddIndirectObject(coalesced);
+        if (link is null) { return page; }
+        PdfDictionary replaced = ReplaceEntry(page, "Contents"u8, link, governor, cancellationToken);
         copier.ReplaceCopiedObject(pageId, replaced);
-        if (!request.PreserveUnreferenced && orphaned.Count > 0) { copier.DropPoolObjectsIfUnreferenced(orphaned, cancellationToken); }
         return replaced;
     }
 

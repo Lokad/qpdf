@@ -522,9 +522,9 @@ public static partial class Qpdf
                     {
                         model.Add(new NumberedObject(entry.Key, entry.Value));
                     }
-                    if (singleAttached.Replaced && !settings.PreserveUnreferenced)
+                    if ((singleAttached.Replaced || settings.CoalesceContents) && !settings.PreserveUnreferenced)
                     {
-                        PruneAttachmentModel(model, singlePool, singleCompressed, singleInfo, governor, cancellationToken);
+                        PruneOutputModel(model, singlePool, singleCompressed, singleInfo, governor, cancellationToken);
                     }
                     GovernedSort.Sort(CollectionsMarshal.AsSpan(model)[2..], new WriterObjectOrder(), governor, cancellationToken);
 
@@ -1410,9 +1410,9 @@ public static partial class Qpdf
             {
                 model.Add(new NumberedObject(entry.Key, entry.Value));
             }
-            if (multiAttached.Replaced && !settings.PreserveUnreferenced)
+            if ((multiAttached.Replaced || settings.CoalesceContents) && !settings.PreserveUnreferenced)
             {
-                PruneAttachmentModel(model, pool, multiCompressed, primaryInfo, governor, cancellationToken);
+                PruneOutputModel(model, pool, multiCompressed, primaryInfo, governor, cancellationToken);
             }
             GovernedSort.Sort(CollectionsMarshal.AsSpan(model)[2..], new WriterObjectOrder(), governor, cancellationToken);
             List<List<int>> multiGroups = PlanObjectStreamGroups(multiCompressed, selectionMemory, governor, cancellationToken);
@@ -3529,11 +3529,11 @@ public static partial class Qpdf
 
     private sealed record AttachmentAssembly(PdfReference? NamesRef, string? PageMode, int FinalCount, bool Replaced);
 
-    private static void PruneAttachmentModel(List<NumberedObject> model, Dictionary<int, QpdfObject> pool,
+    private static void PruneOutputModel(List<NumberedObject> model, Dictionary<int, QpdfObject> pool,
         HashSet<int> compressed, PdfReference? info, ResourceGovernor governor, CancellationToken token)
     {
         // Catalog, page tree and trailer Info are the actual output roots. Keep
-        // shared page/catalog references; attachment-only leftovers have no root.
+        // shared page/catalog references; replaced-only objects have no root.
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
         scratch.Reserve(96L);
         PdfArray roots = PdfArray.FromOwnedItems([model[0].Value, model[1].Value, info is null ? PdfNull.Instance : info]);

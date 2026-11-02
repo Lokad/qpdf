@@ -372,7 +372,10 @@ Numbers are normalized lexically under the existing cancellation/output bounds.
 
 - `--coalesce-contents` joins each page content array into one stream with
   newline separators, decoding first and recompressing when compression is
-  active. `--normalize-content=y` rewrites newlines to LF and recodes strings
+  active. Shared original arrays and streams retain their values through other
+  page/catalog references; unreferenced originals are retired after root assembly
+  unless `--preserve-unreferenced` applies.
+  `--normalize-content=y` rewrites newlines to LF and recodes strings
   and names canonically, keeping damaged streams with a warning.
 - `--remove-unreferenced-resources` (auto by default, `yes`/`no`) drops
   unused `/Font` and `/XObject` entries using content analysis that recurses
