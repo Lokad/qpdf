@@ -9,24 +9,24 @@ internal static class JpegCodec
     internal const int DefaultQuality = 75;
     internal const long SampleArrayOverheadBytes = GovernedBufferStream.ArrayOverheadBytes;
 
-    internal static byte[] EncodeGray(byte[] raw, int width, int height, int quality, QpdfLimits limits, ResourceGovernor governor)
+    internal static byte[] EncodeGray(ReadOnlyMemory<byte> raw, int width, int height, int quality, QpdfLimits limits, ResourceGovernor governor)
         => Encode(raw, width, height, 1, quality, limits, governor);
 
-    internal static byte[] EncodeRgb(byte[] raw, int width, int height, int quality, QpdfLimits limits, ResourceGovernor governor)
+    internal static byte[] EncodeRgb(ReadOnlyMemory<byte> raw, int width, int height, int quality, QpdfLimits limits, ResourceGovernor governor)
         => Encode(raw, width, height, 3, quality, limits, governor);
 
-    private static byte[] Encode(byte[] raw, int width, int height, int components, int quality,
+    private static byte[] Encode(ReadOnlyMemory<byte> raw, int width, int height, int components, int quality,
         QpdfLimits limits, ResourceGovernor governor)
     {
-        ArgumentNullException.ThrowIfNull(raw); ArgumentNullException.ThrowIfNull(limits); ArgumentNullException.ThrowIfNull(governor);
+        ArgumentNullException.ThrowIfNull(limits); ArgumentNullException.ThrowIfNull(governor);
         limits.Validate(); governor.CheckCancellation();
         if (width <= 0 || height <= 0)
         { throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, FilterName, "JPEG frame dimensions are not positive."); }
         long pixels = (long)width * height;
-        if (pixels > raw.LongLength / components || raw.LongLength != pixels * components)
+        if (pixels > raw.Length / components || raw.Length != pixels * components)
         { throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, FilterName, "Raw samples do not match the declared frame size."); }
-        if (raw.LongLength > limits.MaxDecodedBytes)
-        { throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), raw.LongLength, limits.MaxDecodedBytes); }
+        if (raw.Length > limits.MaxDecodedBytes)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), raw.Length, limits.MaxDecodedBytes); }
         if (quality < 0 || quality > 100) { throw new ArgumentOutOfRangeException(nameof(quality)); }
         IQpdfJpegCodec codec = governor.JpegCodec ?? throw new QpdfFilterException(QpdfFilterFailureReason.UnsupportedFilter,
             FilterName, "JPEG encoding requires a codec supplied by the host.");

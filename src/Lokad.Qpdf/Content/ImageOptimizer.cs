@@ -219,17 +219,17 @@ internal static class ImageOptimizer
         }
 
         using ParserMemoryScope samples = ParserMemoryScope.Create(governor);
-        byte[] raw;
+        ReadOnlyMemory<byte> raw;
         try
         {
-            raw = image.ArrayData(samples, governor, cancellationToken);
             if (stages.Count == 0)
             {
-                if (raw.LongLength > limits.MaxDecodedBytes)
-                { throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), raw.LongLength, limits.MaxDecodedBytes); }
+                raw = image.RawMemory;
+                if (raw.Length > limits.MaxDecodedBytes)
+                { throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), raw.Length, limits.MaxDecodedBytes); }
                 governor.ChargeDecodedBytes(raw.Length);
             }
-            else { raw = FilterChain.Decode(raw, stages, limits, governor, samples, cancellationToken); }
+            else { raw = FilterChain.Decode(image.ArrayData(samples, governor, cancellationToken), stages, limits, governor, samples, cancellationToken); }
         }
         catch (QpdfFilterException)
         {
@@ -241,13 +241,13 @@ internal static class ImageOptimizer
         {
             // Inline-image extraction conventionally retains the separator whitespace before EI;
             // trim trailing PDF whitespace so such samples still validate, and skip anything else.
-            byte[]? trimmed = TrimSeparators(raw, expected, samples, governor, cancellationToken);
+            ReadOnlyMemory<byte>? trimmed = TrimSeparators(raw, expected, samples, governor, cancellationToken);
             if (trimmed is null)
             {
                 return null;
             }
 
-            raw = trimmed;
+            raw = trimmed.Value;
         }
 
         cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -294,11 +294,11 @@ internal static class ImageOptimizer
         candidate.Add(32L); candidate.Retain(); return optimized;
     }
 
-    private static byte[]? TrimSeparators(byte[] raw, long expected, ParserMemoryScope memory,
+    private static ReadOnlyMemory<byte>? TrimSeparators(ReadOnlyMemory<byte> raw, long expected, ParserMemoryScope memory,
         ResourceGovernor governor, CancellationToken cancellationToken)
     {
         int length = raw.Length;
-        while ((long)length > expected && length > 0 && IsPdfWhitespace(raw[length - 1]))
+        while ((long)length > expected && length > 0 && IsPdfWhitespace(raw.Span[length - 1]))
         {
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             length -= 1;
@@ -316,7 +316,7 @@ internal static class ImageOptimizer
 
         memory.Reserve(checked(32L + length));
         byte[] trimmed = new byte[length];
-        GovernedBufferStream.CopyBytes(raw.AsSpan(0, length), trimmed, governor, cancellationToken, CancellationToken.None);
+        GovernedBufferStream.CopyBytes(raw.Span[..length], trimmed, governor, cancellationToken, CancellationToken.None);
         return trimmed;
     }
 

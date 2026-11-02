@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Borrow funded unfiltered image samples through JPEG encoding instead of
+  materializing stream slices, retaining decoded-byte charging and needed
+  filtered/trimmed copies.
+
 - Skip inline-image payload copying and admission when the borrowed payload is
   below the externalization threshold, preserving cancellation and parsing order.
 
