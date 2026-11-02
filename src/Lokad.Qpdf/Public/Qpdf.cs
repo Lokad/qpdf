@@ -4911,34 +4911,6 @@ public static partial class Qpdf
         diagnostics.AddParts(QpdfDiagnosticCode.PageCount, QpdfDiagnosticSeverity.Info, [input.Value, ": ", DiagnosticPart.Invariant(count)]);
     }
 
-    private static async ValueTask InspectLinearizationAsync(
-        IQpdfHost host,
-        QpdfPath inputPath,
-        QpdfLimits limits,
-        QpdfRecoveryMode recovery,
-        bool emptyDocument,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
-        CancellationToken cancellationToken)
-    {
-        await using QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
-        InspectLinearization(document, inputPath, limits, governor, diagnostics, cancellationToken);
-    }
-
-    private static async ValueTask ShowLinearizationAsync(
-        IQpdfHost host,
-        QpdfPath inputPath,
-        QpdfLimits limits,
-        QpdfRecoveryMode recovery,
-        bool emptyDocument,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
-        CancellationToken cancellationToken)
-    {
-        await using QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
-        ShowLinearization(document, inputPath, limits, governor, diagnostics, cancellationToken);
-    }
-
     private static readonly PdfName WriterMediaBox = PdfName.FromAscii("MediaBox");
     private static readonly PdfName[] WriterInherited =
         [PdfName.FromAscii("Resources"), WriterMediaBox, PdfName.FromAscii("CropBox"), PdfName.FromAscii("Rotate")];
@@ -5422,25 +5394,6 @@ public static partial class Qpdf
             return await RunCheckPlanAsync(host, check, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
         }
 
-        if (plan is ShowXrefPlan showXref)
-        {
-            try
-            {
-                await using QpdfDocument document = await OpenPlanInputAsync(host, showXref.Input, showXref.EmptyDocument, limits, governor, diagnostics, showXref.Recovery, cancellationToken).ConfigureAwait(false);
-                ShowXref(document, governor, diagnostics, cancellationToken);
-
-                return CompleteWithPresentation(governor);
-            }
-            catch (QpdfException ex)
-            {
-                return ToFailedResult(ex);
-            }
-            catch (OperationCanceledException)
-            {
-                return ExecutionOutcome.Canceled([]);
-            }
-        }
-
         if (plan is ShowObjectPlan showObject)
         {
             try
@@ -5452,73 +5405,6 @@ public static partial class Qpdf
             {
                 ExecutionOutcome failure = ToFailedResult(ex);
                 return new ExecutionOutcome(failure.Status, failure.ExitCode, failure.Diagnostics);
-            }
-            catch (OperationCanceledException)
-            {
-                return ExecutionOutcome.Canceled([]);
-            }
-        }
-
-        if (plan is ShowPagesPlan showPages)
-        {
-            try
-            {
-                await using QpdfDocument document = await OpenPlanInputAsync(host, showPages.Input, showPages.EmptyDocument, limits, governor, diagnostics, showPages.Recovery, cancellationToken).ConfigureAwait(false);
-                ShowPages(document, plan, limits, governor, diagnostics, cancellationToken);
-
-                return CompleteWithPresentation(governor);
-            }
-            catch (QpdfException ex)
-            {
-                return ToFailedResult(ex);
-            }
-            catch (OperationCanceledException)
-            {
-                return ExecutionOutcome.Canceled([]);
-            }
-        }
-
-        if (plan is ShowNpagesPlan npages)
-        {
-            try
-            {
-                diagnostics.ReportPageCountMismatch = false;
-                await using (QpdfDocument document = await OpenPlanInputAsync(host, npages.Input, npages.EmptyDocument, limits, governor, diagnostics, npages.Recovery, cancellationToken).ConfigureAwait(false))
-                {
-                    AddPageCountDiagnostic(document, npages.Input, diagnostics);
-                }
-                return CompleteWithPresentation(governor);
-            }
-            catch (QpdfException ex)
-            {
-                ExecutionOutcome failure = ToFailedResult(ex);
-                return new ExecutionOutcome(failure.Status, failure.ExitCode, failure.Diagnostics);
-            }
-            catch (OperationCanceledException)
-            {
-                return ExecutionOutcome.Canceled([]);
-            }
-        }
-
-        if (plan is LinearizationPlan linearization)
-        {
-            try
-            {
-                if (linearization.Check)
-                {
-                    await InspectLinearizationAsync(host, linearization.Input, limits, linearization.Recovery, linearization.EmptyDocument, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-                }
-
-                if (linearization.Show)
-                {
-                    await ShowLinearizationAsync(host, linearization.Input, limits, linearization.Recovery, linearization.EmptyDocument, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-                }
-
-                return CompleteWithPresentation(governor);
-            }
-            catch (QpdfException ex)
-            {
-                return ToFailedResult(ex);
             }
             catch (OperationCanceledException)
             {

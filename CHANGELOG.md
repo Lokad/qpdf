@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Remove retired argv inspection parsing, four unused plan variants and their
+  execution branches; public inspection commands retain the shared job pipeline.
+
 - Honor parser limits, `--no-default-limits`, `--no-warn` and `--warning-exit-0`
   during named attachment extraction through argv and job JSON. Accepted settings
   previously disappeared from the extraction plan; explicit host ceilings remain

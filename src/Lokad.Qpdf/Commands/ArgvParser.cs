@@ -1,8 +1,8 @@
 namespace Lokad.Qpdf.Commands;
 
 /// <summary>
-/// Argv parser for the shared operation plans: whole-file rewriting, selection,
-/// inspection, attachments and transformations. Bare input/output pairs use
+/// Argv parser for writing, selection, PDF JSON and shared option-block syntax.
+/// Inspection and layered job files use the job loader. Bare input/output pairs use
 /// the same whole-file plan as job JSON, with an optional -- output separator.
 /// --suppress-recovery selects strict opening; otherwise damaged inputs repair
 /// within bounds. Unsupported arguments fail explicitly.
@@ -79,13 +79,7 @@ internal static class ArgvParser
     private static JobPlan ParseCore(IReadOnlyList<string> argv, GlobalOptions globals)
     {
         QpdfRecoveryMode recovery = globals.Recovery;
-        int checkAt = FindFlag(argv, "--check");
-        int checkLinearizationAt = FindFlag(argv, "--check-linearization");
-        int showLinearizationAt = FindFlag(argv, "--show-linearization");
         int pagesAt = FindFlag(argv, "--pages");
-        int listAt = FindFlag(argv, "--list-attachments");
-        (int firstShowAt, int showAt, string? showKey) = FindShowAttachment(argv);
-        int firstAttachmentAt = listAt >= 0 ? (firstShowAt >= 0 ? Math.Min(listAt, firstShowAt) : listAt) : firstShowAt;
         int firstOverlayAt = FirstOverlayBlock(argv, 0, argv.Count);
         int jsonAt = FindJson(argv);
         int jsonOutputAt = FindJsonOutput(argv);
@@ -93,40 +87,7 @@ internal static class ArgvParser
         int jsonInputAt = FindFlag(argv, "--json-input");
         int updateFromJsonAt = FindUpdateFromJson(argv);
         int jsonImportAt = jsonInputAt >= 0 && updateFromJsonAt >= 0 ? (jsonInputAt < updateFromJsonAt ? jsonInputAt : updateFromJsonAt) : (jsonInputAt >= 0 ? jsonInputAt : updateFromJsonAt);
-        int showPagesAt = FindFlag(argv, "--show-pages");
-        int showObjectAt = -1;
-        string? showObjectSelector = null;
-        for (int showObjectScan = 0; showObjectScan < argv.Count; showObjectScan++)
-        {
-            string? showObjectToken = argv[showObjectScan];
-            if (showObjectToken == "--show-object")
-            {
-                throw new QpdfParseException("Missing parameter for --show-object.", showObjectScan, null);
-            }
-
-            if (showObjectToken is not null && showObjectToken.StartsWith("--show-object=", StringComparison.Ordinal))
-            {
-                if (showObjectAt >= 0)
-                {
-                    throw new QpdfParseException("Duplicate --show-object is outside the narrow profile.", showObjectScan, null);
-                }
-
-                showObjectAt = showObjectScan;
-                showObjectSelector = ConfigurationText.Slice(argv, showObjectToken, "--show-object=".Length);
-                if (showObjectSelector.Length == 0)
-                {
-                    throw new QpdfParseException("Empty parameter for --show-object.", showObjectScan, null);
-                }
-            }
-        }
-
-        if (showObjectSelector is not null)
-        {
-            SelectionPlan.ParseInspectionSelector(showObjectSelector, 0);
-        }
-        int showNpagesAt = FindFlag(argv, "--show-npages");
-        int showXrefAt = FindFlag(argv, "--show-xref");
-        if (globals.WithImages && showPagesAt < 0)
+        if (globals.WithImages)
         {
             throw new QpdfParseException("Option --with-images requires --show-pages.", 0, null);
         }
@@ -134,11 +95,6 @@ internal static class ArgvParser
         if (globals.TestJsonSchema && jsonEntryAt < 0 && jsonOutputAt < 0)
         {
             throw new QpdfParseException("Option --test-json-schema requires --json.", 0, null);
-        }
-
-        if ((globals.RawStreamData || globals.FilteredStreamData) && showObjectAt < 0)
-        {
-            throw new QpdfParseException("Options --raw-stream-data and --filtered-stream-data require --show-object.", 0, null);
         }
 
         if (globals.Collate.Count > 0 && pagesAt < 0)
@@ -151,361 +107,12 @@ internal static class ArgvParser
             throw new QpdfParseException("Option --rotate requires --pages.", 0, null);
         }
 
-        if (showXrefAt >= 0)
-        {
-            if (pagesAt >= 0)
-            {
-                throw new QpdfParseException("Options --show-xref and --pages cannot be combined.", showXrefAt, null);
-            }
-
-            if (firstOverlayAt >= 0)
-            {
-                throw new QpdfParseException("Options --show-xref and --overlay or --underlay cannot be combined.", showXrefAt, null);
-            }
-
-            if (globals.FlattenRotation)
-            {
-                throw new QpdfParseException("Options --show-xref and --flatten-rotation cannot be combined.", showXrefAt, null);
-            }
-
-            if (globals.FlattenAnnotations is not null)
-            {
-                throw new QpdfParseException("Options --show-xref and --flatten-annotations cannot be combined.", showXrefAt, null);
-            }
-
-            if (globals.GenerateAppearances)
-            {
-                throw new QpdfParseException("Options --show-xref and --generate-appearances cannot be combined.", showXrefAt, null);
-            }
-
-            if (globals.Qdf)
-            {
-                throw new QpdfParseException("Options --show-xref and --qdf cannot be combined.", showXrefAt, null);
-            }
-
-            if (globals.Linearize)
-            {
-                throw new QpdfParseException("Options --show-xref and --linearize cannot be combined.", showXrefAt, null);
-            }
-
-            if (globals.SplitPages.HasValue || globals.ReplaceInput)
-            {
-                throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", showXrefAt, null);
-            }
-
-            if (checkAt >= 0 || checkLinearizationAt >= 0 || showLinearizationAt >= 0 || listAt >= 0 || showAt >= 0 || showNpagesAt >= 0 || showPagesAt >= 0 || showObjectAt >= 0)
-            {
-                throw new QpdfParseException("Option --show-xref cannot be combined with other inspection.", showXrefAt, null);
-            }
-
-            if (HasAttachmentEdit(argv, 0, argv.Count))
-            {
-                throw new QpdfParseException("Option --show-xref cannot be combined with attachment editing.", showXrefAt, null);
-            }
-
-            if (jsonEntryAt >= 0 || jsonImportAt >= 0)
-            {
-                throw new QpdfParseException("Option --show-xref cannot be combined with JSON work.", showXrefAt, null);
-            }
-
-            string xrefInput = ParseInspectionInput(argv, showXrefAt, -1, -1, -1, "--show-xref");
-            return new ShowXrefPlan(SelectionPlan.CheckedPath(xrefInput), recovery) with
-            {
-                EmptyDocument = string.Equals(xrefInput, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
-                WarningExitZero = globals.WarningExitZero,
-                Verbose = globals.Verbose,
-            Progress = globals.Progress,
-                ReportMemoryUsage = globals.ReportMemoryUsage,
-                IgnoreXrefStreams = globals.IgnoreXrefStreams,
-                NoWarn = globals.NoWarn,
-            };
-        }
-
-        if (showObjectAt >= 0 && showObjectSelector is not null)
-        {
-            if (pagesAt >= 0)
-            {
-                throw new QpdfParseException("Options --show-object and --pages cannot be combined.", showObjectAt, null);
-            }
-
-            if (firstOverlayAt >= 0)
-            {
-                throw new QpdfParseException("Options --show-object and --overlay or --underlay cannot be combined.", showObjectAt, null);
-            }
-
-            if (globals.FlattenRotation)
-            {
-                throw new QpdfParseException("Options --show-object and --flatten-rotation cannot be combined.", showObjectAt, null);
-            }
-
-            if (globals.FlattenAnnotations is not null)
-            {
-                throw new QpdfParseException("Options --show-object and --flatten-annotations cannot be combined.", showObjectAt, null);
-            }
-
-            if (globals.GenerateAppearances)
-            {
-                throw new QpdfParseException("Options --show-object and --generate-appearances cannot be combined.", showObjectAt, null);
-            }
-
-            if (globals.Qdf)
-            {
-                throw new QpdfParseException("Options --show-object and --qdf cannot be combined.", showObjectAt, null);
-            }
-
-            if (globals.Linearize)
-            {
-                throw new QpdfParseException("Options --show-object and --linearize cannot be combined.", showObjectAt, null);
-            }
-
-            if (globals.SplitPages.HasValue || globals.ReplaceInput)
-            {
-                throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", showObjectAt, null);
-            }
-
-            if (checkAt >= 0 || checkLinearizationAt >= 0 || showLinearizationAt >= 0 || listAt >= 0 || showAt >= 0 || showNpagesAt >= 0 || showPagesAt >= 0 || showXrefAt >= 0)
-            {
-                throw new QpdfParseException("Option --show-object cannot be combined with other inspection.", showObjectAt, null);
-            }
-
-            if (HasAttachmentEdit(argv, 0, argv.Count))
-            {
-                throw new QpdfParseException("Option --show-object cannot be combined with attachment editing.", showObjectAt, null);
-            }
-
-            if (jsonEntryAt >= 0 || jsonImportAt >= 0)
-            {
-                throw new QpdfParseException("Option --show-object cannot be combined with JSON work.", showObjectAt, null);
-            }
-
-            string objectInput;
-            QpdfPath? objectOutput = null;
-            if (globals.RawStreamData || globals.FilteredStreamData)
-            {
-                if (globals.NormalizeContent)
-                {
-                    throw new QpdfParseException("Options --normalize-content and stream-data inspection cannot be combined.", showObjectAt, null);
-                }
-
-                objectInput = IsEmptyDocumentInput(argv, showObjectAt) ? JobPlan.EmptyDocumentInput : ParseInputArea(argv, showObjectAt, "--show-object");
-                int streamTermAt = -1;
-                for (int i = showObjectAt + 1; i < argv.Count && streamTermAt < 0; i++)
-                {
-                    if (argv[i] == "--")
-                    {
-                        streamTermAt = i;
-                    }
-                    else
-                    {
-                        throw new QpdfParseException($"Unexpected argument \u0027{ErrorPreview(argv[i])}\u0027 after --show-object; stream-data inspection takes an output file.", i, null);
-                    }
-                }
-
-                if (streamTermAt >= 0)
-                {
-                    string streamOutput = ParseOutputArea(argv, streamTermAt);
-                if (string.Equals(objectInput, streamOutput, StringComparison.Ordinal))
-                {
-                    throw new QpdfParseException("The output file must differ from the input file.", streamTermAt, null);
-                }
-
-                objectOutput = SelectionPlan.CheckedPath(streamOutput);
-                }
-            }
-            else
-            {
-                objectInput = ParseInspectionInput(argv, showObjectAt, -1, -1, -1, "--show-object");
-            }
-
-            return new ShowObjectPlan(SelectionPlan.CheckedPath(objectInput), recovery, showObjectSelector) with
-            {
-                EmptyDocument = string.Equals(objectInput, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
-                Output = objectOutput,
-                RawStreamData = globals.RawStreamData,
-                FilteredStreamData = globals.FilteredStreamData,
-                WarningExitZero = globals.WarningExitZero,
-                Verbose = globals.Verbose,
-            Progress = globals.Progress,
-                ReportMemoryUsage = globals.ReportMemoryUsage,
-                IgnoreXrefStreams = globals.IgnoreXrefStreams,
-                NoWarn = globals.NoWarn,
-            };
-        }
-
-        if (showNpagesAt >= 0)
-        {
-            if (pagesAt >= 0)
-            {
-                throw new QpdfParseException("Options --show-npages and --pages cannot be combined.", showNpagesAt, null);
-            }
-
-            if (firstOverlayAt >= 0)
-            {
-                throw new QpdfParseException("Options --show-npages and --overlay or --underlay cannot be combined.", showNpagesAt, null);
-            }
-
-            if (globals.FlattenRotation)
-            {
-                throw new QpdfParseException("Options --show-npages and --flatten-rotation cannot be combined.", showNpagesAt, null);
-            }
-
-            if (globals.FlattenAnnotations is not null)
-            {
-                throw new QpdfParseException("Options --show-npages and --flatten-annotations cannot be combined.", showNpagesAt, null);
-            }
-
-            if (globals.GenerateAppearances)
-            {
-                throw new QpdfParseException("Options --show-npages and --generate-appearances cannot be combined.", showNpagesAt, null);
-            }
-
-            if (globals.Qdf)
-            {
-                throw new QpdfParseException("Options --show-npages and --qdf cannot be combined.", showNpagesAt, null);
-            }
-
-            if (globals.Linearize)
-            {
-                throw new QpdfParseException("Options --show-npages and --linearize cannot be combined.", showNpagesAt, null);
-            }
-
-            if (globals.SplitPages.HasValue || globals.ReplaceInput)
-            {
-                throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", showNpagesAt, null);
-            }
-
-            if (listAt >= 0 || showAt >= 0 || showPagesAt >= 0 || showObjectAt >= 0 || showXrefAt >= 0
-                || (checkAt < 0 && (checkLinearizationAt >= 0 || showLinearizationAt >= 0)))
-            {
-                throw new QpdfParseException("Option --show-npages cannot be combined with other inspection.", showNpagesAt, null);
-            }
-
-            if (HasAttachmentEdit(argv, 0, argv.Count))
-            {
-                throw new QpdfParseException("Option --show-npages cannot be combined with attachment editing.", showNpagesAt, null);
-            }
-
-            if (jsonEntryAt >= 0 || jsonImportAt >= 0)
-            {
-                throw new QpdfParseException("Option --show-npages cannot be combined with JSON work.", showNpagesAt, null);
-            }
-
-            if (checkAt >= 0)
-            {
-                string combinedInput = ParseInspectionInput(argv, checkAt, checkLinearizationAt, showLinearizationAt, showNpagesAt, "--check");
-                return WithCheckGlobals(new CheckPlan(SelectionPlan.CheckedPath(combinedInput), recovery)
-                {
-                    EmptyDocument = string.Equals(combinedInput, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
-                    ShowNpages = true,
-                    CheckLinearization = checkLinearizationAt >= 0,
-                    ShowLinearization = showLinearizationAt >= 0,
-                }, globals);
-            }
-
-            string npagesInput = ParseInspectionInput(argv, showNpagesAt, -1, -1, -1, "--show-npages");
-            return new ShowNpagesPlan(SelectionPlan.CheckedPath(npagesInput), recovery) with
-            {
-                EmptyDocument = string.Equals(npagesInput, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
-                WarningExitZero = globals.WarningExitZero,
-                Verbose = globals.Verbose,
-            Progress = globals.Progress,
-                ReportMemoryUsage = globals.ReportMemoryUsage,
-                IgnoreXrefStreams = globals.IgnoreXrefStreams,
-                NoWarn = globals.NoWarn,
-            };
-        }
-
-        if (showPagesAt >= 0)
-        {
-            if (pagesAt >= 0)
-            {
-                throw new QpdfParseException("Options --show-pages and --pages cannot be combined.", showPagesAt, null);
-            }
-
-            if (firstOverlayAt >= 0)
-            {
-                throw new QpdfParseException("Options --show-pages and --overlay or --underlay cannot be combined.", showPagesAt, null);
-            }
-
-            if (globals.FlattenRotation)
-            {
-                throw new QpdfParseException("Options --show-pages and --flatten-rotation cannot be combined.", showPagesAt, null);
-            }
-
-            if (globals.FlattenAnnotations is not null)
-            {
-                throw new QpdfParseException("Options --show-pages and --flatten-annotations cannot be combined.", showPagesAt, null);
-            }
-
-            if (globals.GenerateAppearances)
-            {
-                throw new QpdfParseException("Options --show-pages and --generate-appearances cannot be combined.", showPagesAt, null);
-            }
-
-            if (globals.Qdf)
-            {
-                throw new QpdfParseException("Options --show-pages and --qdf cannot be combined.", showPagesAt, null);
-            }
-
-            if (globals.Linearize)
-            {
-                throw new QpdfParseException("Options --show-pages and --linearize cannot be combined.", showPagesAt, null);
-            }
-
-            if (globals.SplitPages.HasValue || globals.ReplaceInput)
-            {
-                throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", showPagesAt, null);
-            }
-
-            if (checkAt >= 0 || checkLinearizationAt >= 0 || showLinearizationAt >= 0 || listAt >= 0 || showAt >= 0 || showNpagesAt >= 0 || showObjectAt >= 0 || showXrefAt >= 0)
-            {
-                throw new QpdfParseException("Option --show-pages cannot be combined with other inspection.", showPagesAt, null);
-            }
-
-            if (HasAttachmentEdit(argv, 0, argv.Count))
-            {
-                throw new QpdfParseException("Option --show-pages cannot be combined with attachment editing.", showPagesAt, null);
-            }
-
-            if (jsonEntryAt >= 0 || jsonImportAt >= 0)
-            {
-                throw new QpdfParseException("Option --show-pages cannot be combined with JSON work.", showPagesAt, null);
-            }
-
-            string pagesInput = ParseInspectionInput(argv, showPagesAt, -1, -1, -1, "--show-pages");
-            return new ShowPagesPlan(SelectionPlan.CheckedPath(pagesInput), recovery) with
-            {
-                EmptyDocument = string.Equals(pagesInput, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
-                WarningExitZero = globals.WarningExitZero,
-                Verbose = globals.Verbose,
-            Progress = globals.Progress,
-                ReportMemoryUsage = globals.ReportMemoryUsage,
-                IgnoreXrefStreams = globals.IgnoreXrefStreams,
-                WithImages = globals.WithImages,
-                NoWarn = globals.NoWarn,
-            };
-        }
-
         if (jsonEntryAt >= 0)
         {
-            if (checkAt >= 0 || pagesAt >= 0)
+            if (pagesAt >= 0)
             {
                 throw new QpdfParseException("Option --json cannot be combined with --check or --pages.", jsonEntryAt, null);
             }
-            if (checkLinearizationAt >= 0)
-            {
-                throw new QpdfParseException("Option --json cannot be combined with --check-linearization.", jsonEntryAt, null);
-            }
-            if (showLinearizationAt >= 0)
-            {
-                throw new QpdfParseException("Option --json cannot be combined with --show-linearization.", jsonEntryAt, null);
-            }
-
-            if (listAt >= 0 || showAt >= 0)
-            {
-                throw new QpdfParseException("Option --json cannot be combined with attachment inspection.", jsonEntryAt, null);
-            }
-
             if (HasAttachmentEdit(argv, 0, argv.Count))
             {
                 throw new QpdfParseException("Option --json cannot be combined with attachment editing.", jsonEntryAt, null);
@@ -554,24 +161,10 @@ internal static class ArgvParser
 
         if (jsonImportAt >= 0)
         {
-            if (checkAt >= 0 || pagesAt >= 0)
+            if (pagesAt >= 0)
             {
                 throw new QpdfParseException("JSON import cannot be combined with --check or --pages.", jsonImportAt, null);
             }
-            if (checkLinearizationAt >= 0)
-            {
-                throw new QpdfParseException("JSON import cannot be combined with --check-linearization.", jsonImportAt, null);
-            }
-            if (showLinearizationAt >= 0)
-            {
-                throw new QpdfParseException("JSON import cannot be combined with --show-linearization.", jsonImportAt, null);
-            }
-
-            if (listAt >= 0 || showAt >= 0)
-            {
-                throw new QpdfParseException("JSON import cannot be combined with attachment inspection.", jsonImportAt, null);
-            }
-
             if (HasAttachmentEdit(argv, 0, argv.Count))
             {
                 throw new QpdfParseException("JSON import cannot be combined with attachment editing.", jsonImportAt, null);
@@ -622,174 +215,6 @@ internal static class ArgvParser
         if (strayJson >= 0)
         {
             throw new QpdfParseException("JSON options require --json or --json-output.", strayJson, null);
-        }
-
-        if (listAt >= 0 || showAt >= 0)
-        {
-            if (checkAt >= 0 || pagesAt >= 0)
-            {
-                throw new QpdfParseException("Options --list-attachments and --show-attachment cannot be combined with --check or --pages.", showAt >= 0 ? showAt : listAt, null);
-            }
-            if (checkLinearizationAt >= 0)
-            {
-                throw new QpdfParseException("Attachment inspection cannot be combined with --check-linearization.", showAt >= 0 ? showAt : listAt, null);
-            }
-            if (showLinearizationAt >= 0)
-            {
-                throw new QpdfParseException("Attachment inspection cannot be combined with --show-linearization.", showAt >= 0 ? showAt : listAt, null);
-            }
-
-            if (HasAttachmentEdit(argv, 0, argv.Count))
-            {
-                throw new QpdfParseException("Attachment inspection cannot be combined with attachment editing.", showAt >= 0 ? showAt : listAt, null);
-            }
-
-            if (firstOverlayAt >= 0)
-            {
-                throw new QpdfParseException("Attachment inspection cannot be combined with --overlay or --underlay.", showAt >= 0 ? showAt : listAt, null);
-            }
-
-
-            if (globals.FlattenRotation)
-            {
-                throw new QpdfParseException("Attachment inspection cannot be combined with --flatten-rotation.", showAt >= 0 ? showAt : listAt, null);
-            }
-
-            if (globals.FlattenAnnotations is not null)
-            {
-                throw new QpdfParseException("Attachment inspection cannot be combined with --flatten-annotations.", showAt >= 0 ? showAt : listAt, null);
-            }
-
-
-            if (globals.GenerateAppearances)
-            {
-                throw new QpdfParseException("Attachment inspection cannot be combined with --generate-appearances.", showAt >= 0 ? showAt : listAt, null);
-            }
-            if (globals.Qdf)
-            {
-                throw new QpdfParseException("Attachment inspection cannot be combined with --qdf.", showAt >= 0 ? showAt : listAt, null);
-            }
-            if (globals.Linearize)
-            {
-                throw new QpdfParseException("Attachment inspection cannot be combined with --linearize.", showAt >= 0 ? showAt : listAt, null);
-            }
-
-            if (globals.SplitPages.HasValue || globals.ReplaceInput)
-            {
-                throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", firstAttachmentAt, null);
-            }
-
-            return ParseAttachments(argv, listAt, firstAttachmentAt, showKey, recovery, globals);
-        }
-        if (checkLinearizationAt >= 0 || showLinearizationAt >= 0)
-        {
-            string linFlag = checkLinearizationAt >= 0 ? "--check-linearization" : "--show-linearization";
-            int linAt = checkLinearizationAt >= 0 ? checkLinearizationAt : showLinearizationAt;
-            if (pagesAt >= 0)
-            {
-                throw new QpdfParseException($"Options {linFlag} and --pages cannot be combined.", linAt, null);
-            }
-
-            if (firstOverlayAt >= 0)
-            {
-                throw new QpdfParseException($"Options {linFlag} and --overlay or --underlay cannot be combined.", linAt, null);
-            }
-
-            if (globals.FlattenRotation)
-            {
-                throw new QpdfParseException($"Options {linFlag} and --flatten-rotation cannot be combined.", linAt, null);
-            }
-
-            if (globals.FlattenAnnotations is not null)
-            {
-                throw new QpdfParseException($"Options {linFlag} and --flatten-annotations cannot be combined.", linAt, null);
-            }
-
-            if (globals.GenerateAppearances)
-            {
-                throw new QpdfParseException($"Options {linFlag} and --generate-appearances cannot be combined.", linAt, null);
-            }
-
-            if (globals.Qdf)
-            {
-                throw new QpdfParseException($"Options {linFlag} and --qdf cannot be combined.", linAt, null);
-            }
-
-            if (globals.Linearize)
-            {
-                throw new QpdfParseException($"Options {linFlag} and --linearize cannot be combined.", linAt, null);
-            }
-
-            if (globals.SplitPages.HasValue || globals.ReplaceInput)
-            {
-                throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", linAt, null);
-            }
-
-            if (checkAt >= 0)
-            {
-                string checkInput = ParseInspectionInput(argv, checkAt, checkLinearizationAt, showLinearizationAt, -1, "--check");
-                return WithCheckGlobals(new CheckPlan(SelectionPlan.CheckedPath(checkInput), recovery) with
-                {
-                    EmptyDocument = string.Equals(checkInput, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
-                }, globals) with
-                {
-                    CheckLinearization = checkLinearizationAt >= 0,
-                    ShowLinearization = showLinearizationAt >= 0,
-                };
-            }
-
-            string soloInput = ParseInspectionInput(argv, -1, checkLinearizationAt, showLinearizationAt, -1, linFlag);
-            return new LinearizationPlan(SelectionPlan.CheckedPath(soloInput), recovery) with
-            {
-                EmptyDocument = string.Equals(soloInput, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
-                Check = checkLinearizationAt >= 0,
-                Show = showLinearizationAt >= 0,
-                WarningExitZero = globals.WarningExitZero,
-                Verbose = globals.Verbose,
-            Progress = globals.Progress,
-                ReportMemoryUsage = globals.ReportMemoryUsage,
-                IgnoreXrefStreams = globals.IgnoreXrefStreams,
-                NoWarn = globals.NoWarn,
-            };
-        }
-        if (checkAt >= 0 && pagesAt >= 0)
-        {
-            throw new QpdfParseException("Options --check and --pages cannot be combined.", checkAt, null);
-        }
-        if (checkAt >= 0 && firstOverlayAt >= 0)
-        {
-            throw new QpdfParseException("Options --check and --overlay or --underlay cannot be combined.", checkAt, null);
-        }
-        if (checkAt >= 0 && globals.FlattenRotation)
-        {
-            throw new QpdfParseException("Options --check and --flatten-rotation cannot be combined.", checkAt, null);
-        }
-
-        if (checkAt >= 0 && globals.FlattenAnnotations is not null)
-        {
-            throw new QpdfParseException("Options --check and --flatten-annotations cannot be combined.", checkAt, null);
-        }
-        if (checkAt >= 0 && globals.GenerateAppearances)
-        {
-            throw new QpdfParseException("Options --check and --generate-appearances cannot be combined.", checkAt, null);
-        }
-        if (checkAt >= 0 && globals.Qdf)
-        {
-            throw new QpdfParseException("Options --check and --qdf cannot be combined.", checkAt, null);
-        }
-        if (checkAt >= 0 && globals.Linearize)
-        {
-            throw new QpdfParseException("Options --check and --linearize cannot be combined.", checkAt, null);
-        }
-
-        if (checkAt >= 0)
-        {
-            if (globals.SplitPages.HasValue || globals.ReplaceInput)
-            {
-                throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", checkAt, null);
-            }
-
-            return WithCheckGlobals(ParseCheck(argv, checkAt, recovery), globals);
         }
 
         if (pagesAt < 0 && !globals.ReplaceInput && !HasAttachmentEdit(argv, 0, argv.Count) && firstOverlayAt < 0)
@@ -1034,145 +459,6 @@ internal static class ArgvParser
         throw new QpdfParseException($"Unsupported option '--{ErrorPreview(name)}' in the narrow selection profile.", index, null);
     }
 
-    private static (int FirstAt, int At, string? Key) FindShowAttachment(IReadOnlyList<string> argv)
-    {
-        int firstAt = -1;
-        int at = -1;
-        string? key = null;
-        for (int i = 0; i < argv.Count; i++)
-        {
-            string token = argv[i];
-            if (token is null)
-            {
-                throw new QpdfParseException("Null argument.", i, null);
-            }
-
-            if (token == "--show-attachment")
-            {
-                throw new QpdfParseException("Option --show-attachment requires =key.", i, null);
-            }
-
-            if (token.StartsWith("--show-attachment=", StringComparison.Ordinal))
-            {
-                if (firstAt < 0)
-                {
-                    firstAt = i;
-                }
-
-                at = i;
-                key = ConfigurationText.Slice(argv, token, "--show-attachment=".Length);
-            }
-        }
-
-        if (at >= 0 && (key is null || key.Length == 0))
-        {
-            throw new QpdfParseException("Option --show-attachment requires a non-empty key.", at, null);
-        }
-
-        return (firstAt, at, key);
-    }
-
-    private static JobPlan ParseAttachments(
-        IReadOnlyList<string> argv,
-        int listAt,
-        int firstAt,
-        string? showKey,
-        QpdfRecoveryMode recovery,
-        GlobalOptions globals)
-    {
-
-        for (int i = 0; i < firstAt; i++)
-        {
-            if (argv[i] == "--")
-            {
-                throw new QpdfParseException("Misplaced -- terminator.", i, null);
-            }
-        }
-
-        string input = IsEmptyDocumentInput(argv, firstAt) ? JobPlan.EmptyDocumentInput : ParseInputArea(argv, firstAt, "attachment inspection");
-        if (showKey is not null)
-        {
-            int termAt = -1;
-            for (int i = firstAt; i < argv.Count; i++)
-            {
-                if (argv[i] == "--")
-                {
-                    termAt = i;
-                    break;
-                }
-            }
-
-            ValidateAttachmentFlags(argv, firstAt, termAt < 0 ? argv.Count : termAt);
-            if (termAt < 0)
-            {
-                throw new QpdfParseException("An output file is required after --.", firstAt, null);
-            }
-
-            string output = ParseOutputArea(argv, termAt);
-            if (string.Equals(input, output, StringComparison.Ordinal))
-            {
-                throw new QpdfParseException("The output file must differ from the input file.", termAt, null);
-            }
-
-            return new AttachmentPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), showKey, listAt >= 0, recovery) with
-            {
-                EmptyDocument = string.Equals(input, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
-                WarningExitZero = globals.WarningExitZero,
-                Verbose = globals.Verbose,
-            Progress = globals.Progress,
-                ReportMemoryUsage = globals.ReportMemoryUsage,
-                IgnoreXrefStreams = globals.IgnoreXrefStreams,
-                NoWarn = globals.NoWarn,
-            };
-        }
-
-        ValidateAttachmentFlags(argv, firstAt, argv.Count);
-        foreach (string token in argv)
-        {
-            if (token == "--")
-            {
-                throw new QpdfParseException("No output file may be given with --list-attachments.", listAt, null);
-            }
-        }
-
-        return new AttachmentPlan(SelectionPlan.CheckedPath(input), null, null, true, recovery) with
-        {
-            EmptyDocument = string.Equals(input, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
-            WarningExitZero = globals.WarningExitZero,
-            Verbose = globals.Verbose,
-            Progress = globals.Progress,
-            ReportMemoryUsage = globals.ReportMemoryUsage,
-            IgnoreXrefStreams = globals.IgnoreXrefStreams,
-            NoWarn = globals.NoWarn,
-        };
-    }
-
-    private static void ValidateAttachmentFlags(IReadOnlyList<string> argv, int first, int end)
-    {
-        for (int i = first; i < end; i++)
-        {
-            string token = argv[i];
-            if (token is null)
-            {
-                throw new QpdfParseException("Null argument.", i, null);
-            }
-
-            if (token == "--list-attachments" || token.StartsWith("--show-attachment=", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2)
-            {
-                CheckOptionToken(token, i);
-            }
-            else
-            {
-                throw new QpdfParseException($"Unexpected argument '{ErrorPreview(token)}' in the attachment options.", i, null);
-            }
-        }
-    }
-
     private static int FindFlag(IReadOnlyList<string> argv, string flag)
     {
         int found = -1;
@@ -1239,8 +525,6 @@ internal static class ArgvParser
         internal required bool ReportMemoryUsage { get; init; }
         internal required bool TestJsonSchema { get; init; }
         internal required bool Verbose { get; init; }
-        internal required bool RawStreamData { get; init; }
-        internal required bool FilteredStreamData { get; init; }
         internal required bool Progress { get; init; }
         internal required bool RemoveAcroform { get; init; }
         internal required bool RemoveStructure { get; init; }
@@ -1437,10 +721,6 @@ internal static class ArgvParser
         bool testJsonSchema = false;
         bool ignoreXrefStreams = false;
         bool withImages = false;
-        bool seenRawStreamData = false;
-        bool rawStreamData = false;
-        bool seenFilteredStreamData = false;
-        bool filteredStreamData = false;
         bool staticId = false;
         bool newlineBeforeEndstream = false;
         int mainPagesAt = FindFlag(argv, "--pages");
@@ -2102,40 +1382,6 @@ internal static class ArgvParser
                 continue;
             }
 
-            if (argv[i] == "--raw-stream-data")
-            {
-                if (seenRawStreamData)
-                {
-                    throw new QpdfParseException("Duplicate --raw-stream-data is outside the narrow profile.", i, null);
-                }
-
-                seenRawStreamData = true;
-                rawStreamData = true;
-                continue;
-            }
-
-            if (argv[i].StartsWith("--raw-stream-data=", StringComparison.Ordinal))
-            {
-                throw new QpdfParseException("Option --raw-stream-data takes no value.", i, null);
-            }
-
-            if (argv[i] == "--filtered-stream-data")
-            {
-                if (seenFilteredStreamData)
-                {
-                    throw new QpdfParseException("Duplicate --filtered-stream-data is outside the narrow profile.", i, null);
-                }
-
-                seenFilteredStreamData = true;
-                filteredStreamData = true;
-                continue;
-            }
-
-            if (argv[i].StartsWith("--filtered-stream-data=", StringComparison.Ordinal))
-            {
-                throw new QpdfParseException("Option --filtered-stream-data takes no value.", i, null);
-            }
-
             if (argv[i].StartsWith("--with-images=", StringComparison.Ordinal))
             {
                 throw new QpdfParseException("Option --with-images takes no value.", i, null);
@@ -2319,8 +1565,6 @@ internal static class ArgvParser
             ReportMemoryUsage = reportMemoryUsage,
             TestJsonSchema = testJsonSchema,
             Verbose = verbose,
-            RawStreamData = rawStreamData,
-            FilteredStreamData = filteredStreamData,
             Progress = progress,
             RemoveAcroform = removeAcroform,
             RemoveStructure = removeStructure,
@@ -2859,38 +2103,6 @@ internal static class ArgvParser
         return SelectionPlan.CheckedPath(globals.LinearizePass1);
     }
 
-    private static string ParseInspectionInput(
-        IReadOnlyList<string> argv, int checkAt, int checkLinearizationAt, int showLinearizationAt, int showNpagesAt, string operation)
-    {
-        if (argv.Count < 2 || checkAt == 0 || checkLinearizationAt == 0 || showLinearizationAt == 0 || showNpagesAt == 0)
-        {
-            throw new QpdfParseException($"A positional input file is required before {operation}.", 0L, null);
-        }
-
-        for (int i = 1; i < argv.Count; i++)
-        {
-            if (i == checkAt || i == checkLinearizationAt || i == showLinearizationAt || i == showNpagesAt)
-            {
-                continue;
-            }
-
-            string? token = argv[i];
-            if (token is null)
-            {
-                throw new QpdfParseException("Null argument.", i, null);
-            }
-
-            throw new QpdfParseException($"Unexpected argument '{ErrorPreview(token)}' after {operation}; inspection takes no output file.", i, null);
-        }
-
-        if (argv.Count > 0 && argv[0] == JobPlan.EmptyDocumentInput)
-        {
-            return JobPlan.EmptyDocumentInput;
-        }
-
-        return ParseInputArea(argv, 1, operation);
-    }
-
     private static bool IsEmptyDocumentInput(IReadOnlyList<string> argv, int boundaryAt)
     {
         if (boundaryAt != 1)
@@ -2899,65 +2111,6 @@ internal static class ArgvParser
         }
 
         return argv.Count > 0 && argv[0] == JobPlan.EmptyDocumentInput;
-    }
-
-    private static CheckPlan WithCheckGlobals(CheckPlan plan, GlobalOptions globals)
-    {
-        return plan with
-        {
-            WarningExitZero = globals.WarningExitZero,
-            Verbose = globals.Verbose,
-            Progress = globals.Progress,
-            ReportMemoryUsage = globals.ReportMemoryUsage,
-            IgnoreXrefStreams = globals.IgnoreXrefStreams,
-            NoWarn = globals.NoWarn,
-            MinVersion = globals.MinVersion,
-            ForceVersion = globals.ForceVersion,
-            StaticId = globals.StaticId,
-            NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
-            ObjectStreams = globals.ObjectStreams,
-            PreserveUnreferenced = globals.PreserveUnreferenced,
-            StreamData = globals.StreamData,
-            CompressStreams = globals.CompressStreams,
-            DecodeLevel = globals.DecodeLevel,
-            MaxStreamFilters = globals.MaxStreamFilters,
-            ParserMaxNesting = globals.ParserMaxNesting,
-            NoDefaultLimits = globals.NoDefaultLimits,
-            MaxContainerSize = globals.MaxContainerSize,
-            MaxContainerSizeDamaged = globals.MaxContainerSizeDamaged,
-            ParserMaxErrors = globals.ParserMaxErrors,
-            RecompressFlate = globals.RecompressFlate,
-            CompressionLevel = globals.CompressionLevel,
-            RemoveInfo = globals.RemoveInfo,
-            RemoveAcroform = globals.RemoveAcroform,
-            RemoveStructure = globals.RemoveStructure,
-            RemoveMetadata = globals.RemoveMetadata,
-            CoalesceContents = globals.CoalesceContents,
-            NormalizeContent = globals.NormalizeContent,
-            RemoveUnreferencedResources = globals.RemoveUnreferencedResources,
-            ExternalizeInlineImages = globals.ExternalizeInlineImages,
-            IiMinBytes = globals.IiMinBytes,
-        };
-    }
-
-    private static CheckPlan ParseCheck(IReadOnlyList<string> argv, int checkAt, QpdfRecoveryMode recovery)
-    {
-        string input = IsEmptyDocumentInput(argv, checkAt) ? JobPlan.EmptyDocumentInput : ParseInputArea(argv, checkAt, "--check");
-        if (checkAt + 1 >= argv.Count)
-        {
-            return new CheckPlan(SelectionPlan.CheckedPath(input), recovery) with
-            {
-                EmptyDocument = string.Equals(input, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
-            };
-        }
-
-        string? token = argv[checkAt + 1];
-        if (token is null)
-        {
-            throw new QpdfParseException("Null argument.", checkAt + 1, null);
-        }
-
-        throw new QpdfParseException($"Unexpected argument '{ErrorPreview(token)}' after --check; inspection takes no output file.", checkAt + 1, null);
     }
 
     private static bool HasAttachmentEdit(IReadOnlyList<string> argv, int start, int end)

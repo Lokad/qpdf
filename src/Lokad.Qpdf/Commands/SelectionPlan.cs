@@ -238,12 +238,6 @@ internal sealed record SelectionPlan(QpdfPath Input, QpdfPath Output, int Page, 
     }
 }
 
-/// <summary>Validated page-count inspection.</summary>
-internal sealed record ShowNpagesPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input);
-
-/// <summary>Validated page-dictionary inspection.</summary>
-internal sealed record ShowPagesPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input);
-
 /// <summary>Validated object inspection.</summary>
 internal sealed record ShowObjectPlan(QpdfPath Input, QpdfRecoveryMode Recovery, string Selector) : JobPlan(Input)
 {
@@ -251,9 +245,6 @@ internal sealed record ShowObjectPlan(QpdfPath Input, QpdfRecoveryMode Recovery,
 
     public QpdfPath? Output { get; init; }
 }
-
-/// <summary>Validated cross-reference inspection.</summary>
-internal sealed record ShowXrefPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input);
 
 /// <summary>Validated structural inspection.</summary>
 internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input)
@@ -279,14 +270,6 @@ internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : Jo
     public bool CheckLinearization { get; init; }
 
     public bool ShowLinearization { get; init; }
-}
-
-/// <summary>Validated linearization-only inspection.</summary>
-internal sealed record LinearizationPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input)
-{
-    public bool Check { get; init; }
-
-    public bool Show { get; init; }
 }
 
 /// <summary>Validated whole-file transformation.</summary>
