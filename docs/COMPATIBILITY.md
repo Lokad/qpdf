@@ -65,6 +65,9 @@ Fileless JSON now includes the returned text's UTF-8 bytes in cumulative
 `MaxOutputBytes` admission and `TotalOutputBytes`, alongside stream sidecars.
 The combined limit is checked before any target commits. Calls that previously
 omitted those bytes can now fail at that limit, preserving prior targets.
+Progress and output summaries now include fileless JSON. Four progress records
+use the existing diagnostic allowance; a smaller allowance fails before returning
+the JSON or publishing sidecars.
 
 Invocation nesting limits now govern later graph walks as well as PDF parsing,
 matching equivalent explicit host options. The validated effective limit is

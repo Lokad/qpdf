@@ -267,10 +267,18 @@ public sealed class PresentationCountTests
     [InlineData("job", "whole", "progress", 3L, false)]
     [InlineData("mixed", "whole", "progress", 1L, false)]
     [InlineData("response", "whole", "verbose progress report-memory-usage", 1L, false)]
-    [InlineData("argv", "json-inline", "progress", 1L, true)]
-    [InlineData("job", "json-inline", "progress", 1L, true)]
-    [InlineData("mixed", "json-inline", "progress", 1L, true)]
-    [InlineData("response", "json-inline", "progress", 1L, true)]
+    [InlineData("argv", "json-inline", "progress", 1L, false)]
+    [InlineData("job", "json-inline", "progress", 1L, false)]
+    [InlineData("mixed", "json-inline", "progress", 1L, false)]
+    [InlineData("response", "json-inline", "progress", 1L, false)]
+    [InlineData("argv", "json-inline", "progress", 3L, false)]
+    [InlineData("job", "json-inline", "progress", 3L, false)]
+    [InlineData("mixed", "json-inline", "progress", 3L, false)]
+    [InlineData("response", "json-inline", "progress", 3L, false)]
+    [InlineData("argv", "json-inline", "progress", 4L, true)]
+    [InlineData("job", "json-inline", "progress", 4L, true)]
+    [InlineData("mixed", "json-inline", "progress", 4L, true)]
+    [InlineData("response", "json-inline", "progress", 4L, true)]
     public async Task SlotsMatchTheSelectedFlagsAndActualOutput(string invocation, string operation, string flags, long count, bool success)
     {
         PublicationHost host = await Prepare(operation, false);

@@ -8,7 +8,8 @@
 
 - Count returned JSON UTF-8 bytes together with stream sidecars under the
   cumulative output limit, before any publication. Fileless JSON now reports
-  the same logical output count as equivalent named JSON.
+  the same logical output count as equivalent named JSON, including progress
+  summaries under the existing diagnostic quota.
 
 - Apply validated invocation nesting limits to the shared governor's graph walks,
   keeping reader/writer traversal consistent with equivalent explicit host options.
