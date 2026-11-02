@@ -1227,12 +1227,14 @@ internal static class AcroFormCopy
     {
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
         HashSet<int> visited = ParserContainers.CreateSet<int>(traversal);
+        traversal.Reserve(96L);
+        HashSet<PdfDictionary> ancestors = new(ReferenceEqualityComparer.Instance);
         foreach (PdfReference field in import.Part.Fields)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (!import.Copier.CopiedObjects.TryGetValue(field.ObjectNumber, out QpdfObject? raw) || raw is not PdfDictionary node) { continue; }
             PdfDictionary repaired = FixImportedNode(import.Copier, field.ObjectNumber, node, true, import, fontMap,
-                unionResources, destDefaultAppearance, destQuadding, visited, traversal, limits, governor, diagnostics, token, 0);
+                unionResources, destDefaultAppearance, destQuadding, visited, ancestors, traversal, limits, governor, diagnostics, token, 0);
             if (!ReferenceEquals(repaired, node)) { import.Copier.ReplaceCopiedObject(field.ObjectNumber, repaired); }
         }
     }
@@ -1240,7 +1242,7 @@ internal static class AcroFormCopy
     private static PdfDictionary FixImportedNode(
         GraphCopier copier, int? nodeId, PdfDictionary node, bool isTop, OverlayFieldImport import,
         PdfNameTable<PdfName>? fontMap, PdfReference unionResources, PdfByteString? destDefaultAppearance,
-        int? destQuadding, HashSet<int> visited, ParserMemoryScope traversal, QpdfLimits limits,
+        int? destQuadding, HashSet<int> visited, HashSet<PdfDictionary> ancestors, ParserMemoryScope traversal, QpdfLimits limits,
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token, int depth)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -1264,12 +1266,12 @@ internal static class AcroFormCopy
         PdfByteString? correctedDa = da is PdfByteString appearance && fontMap is { Count: > 0 }
             ? RewriteOverlayDa(appearance, fontMap, limits, graph) : null;
         if (import.SourceDefaultAppearance is PdfByteString sourceDa && (!hasDa || da is PdfNull)
-            && !HasInheritedFieldValue(node, copier, "DA"u8, governor, token)
+            && !HasInheritedFieldValue(node, copier, "DA"u8, ancestors, traversal, limits, governor, token)
             && !SameAppearance(sourceDa, destDefaultAppearance, governor, token)) { correctedDa = sourceDa; }
         bool hasQ = PdfDictionaryLookup.TryGet(node, "Q"u8, governor, token, out QpdfObject q);
         PdfInteger? correctedQ = null;
         if (import.SourceQuadding is int sourceQ && sourceQ != (destQuadding ?? 0) && (!hasQ || q is PdfNull)
-            && !HasInheritedFieldValue(node, copier, "Q"u8, governor, token))
+            && !HasInheritedFieldValue(node, copier, "Q"u8, ancestors, traversal, limits, governor, token))
         {
             graph.Memory.Reserve(32L + GovernedText.StringBytes(11));
             string text = sourceQ.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -1286,7 +1288,7 @@ internal static class AcroFormCopy
                 int? kidId = (item as PdfReference)?.ObjectNumber;
                 if (ResolveImportValue(copier, item) is not PdfDictionary kid) { continue; }
                 PdfDictionary fixedKid = FixImportedNode(copier, kidId, kid, false, import, fontMap, unionResources,
-                    destDefaultAppearance, destQuadding, visited, traversal, limits, governor, diagnostics, token, depth + 1);
+                    destDefaultAppearance, destQuadding, visited, ancestors, traversal, limits, governor, diagnostics, token, depth + 1);
                 if (nodeId.HasValue && (!PdfDictionaryLookup.TryGet(fixedKid, "Parent"u8, governor, token, out QpdfObject fixedParent) || fixedParent is PdfNull))
                 {
                     graph.Memory.Reserve(32L); PdfReference parentLink = new(nodeId.Value, 0); graph.Add(32L);
@@ -1349,18 +1351,24 @@ internal static class AcroFormCopy
     }
 
     private static bool HasInheritedFieldValue(PdfDictionary node, GraphCopier copier, ReadOnlySpan<byte> key,
-        ResourceGovernor governor, CancellationToken token)
+        HashSet<PdfDictionary> ancestors, ParserMemoryScope traversal, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
+        // Reuse one admitted identity set across the import's parent walks.
+        ancestors.Clear();
+        ParserContainers.AddSetItem(traversal, ancestors, node, IntPtr.Size);
         PdfDictionary cursor = node;
-        for (int depth = 0; depth < 32; depth++)
+        for (long depth = 1; ; depth++)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (!PdfDictionaryLookup.TryGet(cursor, "Parent"u8, governor, token, out QpdfObject raw)
                 || ResolveImportValue(copier, raw) is not PdfDictionary parent) { return false; }
+            if (ancestors.Contains(parent)) { return false; }
+            if (depth > limits.MaxNestingDepth)
+            { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, limits.MaxNestingDepth); }
+            ParserContainers.AddSetItem(traversal, ancestors, parent, IntPtr.Size);
             if (PdfDictionaryLookup.TryGet(parent, key, governor, token, out QpdfObject value) && value is not PdfNull) { return true; }
             cursor = parent;
         }
-        return false;
     }
 
     private static PdfByteString? ReadFieldText(GraphCopier copier, PdfDictionary node)

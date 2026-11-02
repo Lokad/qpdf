@@ -175,8 +175,7 @@ internal static class FlattenAnnotations
                 QpdfObject entryTarget = item is PdfReference itemReference ? ResolveOrNull(resolver, itemReference) ?? item : item;
                 if (entryTarget is not PdfDictionary annot)
                 { ParserContainers.AddItem(graph.Memory, kept, item, IntPtr.Size); continue; }
-                bool isWidget = annot.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject? subtypeRaw)
-                    && subtypeRaw is PdfName subtype && PdfDictionaryLookup.NameEquals(subtype, "Widget"u8, governor, cancellationToken);
+                bool isWidget = PdfDictionaryLookup.HasName(annot, "Subtype"u8, "Widget"u8, resolver, governor, cancellationToken);
                 if (needAppearances && isWidget)
                 { ParserContainers.AddItem(graph.Memory, kept, item, IntPtr.Size); continue; }
 
@@ -306,7 +305,8 @@ internal static class FlattenAnnotations
             return null;
         }
 
-        if (!PdfDictionaryLookup.TryGet(annot, "AS"u8, governor, token, out QpdfObject stateRaw) || stateRaw is not PdfName state
+        if (!PdfDictionaryLookup.TryGet(annot, "AS"u8, governor, token, out QpdfObject stateRaw)
+            || CatalogCopy.ResolveValue(stateRaw, resolver, governor, token) is not PdfName state
             || !PdfDictionaryLookup.TryGet(states, state.RawSpan, governor, token, out QpdfObject found)) { return null; }
         QpdfObject target = found is PdfReference reference ? ResolveOrNull(resolver, reference) ?? found : found;
         if (target is not PdfStream stream) { return null; }

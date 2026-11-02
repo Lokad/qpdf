@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Honor configured field-parent depth in appearance generation and overlay default
+  repair, preserving inherited values beyond the former 64/32-parent cutoffs.
+  Resolve indirect widget subtypes, appearance states and inspection flags through
+  existing bounded lookups; retain cycle handling and atomic limit failures.
+
 - Use the shared PDF UTF-16 decoder for JSON strings, preserving valid pairs and
   applying the established stored-text policy to malformed units. Returned JSON
   now agrees with UTF-8 publication without intermediate decoded-string copies.

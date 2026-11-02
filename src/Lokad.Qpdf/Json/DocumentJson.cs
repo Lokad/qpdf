@@ -1530,8 +1530,8 @@ internal static class DocumentJson
             && hasRaw is not PdfNull;
         bool needAppearances = false;
         if (acroform is not null
-            && acroform.TryGet(PdfName.FromAscii("NeedAppearances"), out QpdfObject? needRaw)
-            && needRaw is PdfBoolean need)
+            && PdfDictionaryLookup.TryGet(acroform, "NeedAppearances"u8, governor, cancellationToken, out QpdfObject needRaw)
+            && Content.CatalogCopy.ResolveValue(needRaw, engine, governor, cancellationToken) is PdfBoolean need)
         {
             needAppearances = need.Value;
         }
@@ -1570,7 +1570,7 @@ internal static class DocumentJson
                     continue;
                 }
 
-                if (!annot.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject subtypeRaw) || subtypeRaw is not PdfName subtype || !subtype.RawSpan.SequenceEqual("Widget"u8))
+                if (!PdfDictionaryLookup.HasName(annot, "Subtype"u8, "Widget"u8, engine, governor, cancellationToken))
                 {
                     continue;
                 }

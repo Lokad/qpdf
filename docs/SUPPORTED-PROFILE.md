@@ -262,7 +262,10 @@ echoing values.
   values and inherited or form-level default appearance programs, then clears
   the condition so later flattening can stamp the result. It replaces a bounded,
   matching `/Tx` block and preserves unrelated content. Parent-held fields retain
-  their terminal identity; checkboxes synchronize raw state names. Radios and
+  their terminal identity; field-parent inheritance uses the configured nesting
+  bound with cycle handling, including overlay default repair. Indirect widget
+  subtypes and appearance-state names behave like direct names. Checkboxes
+  synchronize raw state names. Radios and
   pushbuttons warn and keep their state, and empty signature fields skip.
   Copying populated signature values, including overlay and underlay field
   imports, is excluded; typed calls reject `/Sig` and

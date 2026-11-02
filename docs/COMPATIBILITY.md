@@ -56,6 +56,13 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Field-parent inheritance for generated appearances and imported overlay defaults
+now uses the configured nesting limit instead of separate 64/32-parent cutoffs.
+Excess depth fails before publication rather than silently applying partial state.
+Native qpdf can warn that a valid deeply nested widget is unreachable; managed
+generation uses its configured structural bounds. Indirect widget subtypes,
+appearance-state names and AcroForm inspection flags follow their direct values.
+
 PDF JSON export now uses the existing PDF text-decoding policy for UTF-16-marked
 strings. Malformed stored text no longer leaks unpaired surrogates into returned
 JSON or changes during UTF-8 publication; valid text and binary strings are unchanged.

@@ -91,7 +91,8 @@ internal static class GenerateAppearances
                 QpdfObject item = annots[index];
                 QpdfObject entryTarget = item is PdfReference itemReference
                     ? ResolveOrNull(resolver, itemReference) ?? item : item;
-                if (entryTarget is not PdfDictionary annot || !IsWidget(annot, governor, cancellationToken)) { continue; }
+                if (entryTarget is not PdfDictionary annot
+                    || !PdfDictionaryLookup.HasName(annot, "Subtype"u8, "Widget"u8, resolver, governor, cancellationToken)) { continue; }
                 int? annotId = (item as PdfReference)?.ObjectNumber;
                 if (annotId.HasValue && !ParserContainers.AddSetItem(traversal, generated, annotId.Value, sizeof(int))) { continue; }
                 if (!IsReached(annotId, reachedAnnots, warnUnreachable, diagnostics)) { continue; }
@@ -162,12 +163,6 @@ internal static class GenerateAppearances
     private readonly record struct FieldContext(
         FieldType Type, long Flags, QpdfObject? Value, ReadOnlyMemory<byte>? DefaultAppearance,
         PdfDictionary Node, int? NodeId);
-
-    private static bool IsWidget(PdfDictionary annot, ResourceGovernor governor, CancellationToken token)
-    {
-        return PdfDictionaryLookup.TryGet(annot, "Subtype"u8, governor, token, out QpdfObject subtype)
-            && subtype is PdfName name && name.RawSpan.SequenceEqual("Widget"u8);
-    }
 
     private static FieldContext ResolveField(GraphCopier copier, PdfDictionary annot, int? annotId,
         PoolResolver resolver, Dictionary<GraphCopier, FieldParents> parents, ParserMemoryScope traversal,
@@ -275,13 +270,15 @@ internal static class GenerateAppearances
     {
         List<(PdfDictionary Node, int? Id)> chain = ParserContainers.CreateList<(PdfDictionary Node, int? Id)>(scratch);
         PdfDictionary current = annot; int? currentId = annotId;
-        for (int depth = 0; depth <= Math.Min(64L, limits.MaxNestingDepth); depth++)
+        for (long depth = 0; ; depth++)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             bool seen = false;
             foreach ((PdfDictionary node, int? id) in chain)
             { if (ReferenceEquals(node, current) || (currentId.HasValue && id == currentId)) { seen = true; break; } }
             if (seen) { break; }
+            if (depth > limits.MaxNestingDepth)
+            { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, limits.MaxNestingDepth); }
             ParserContainers.AddItem(scratch, chain, (current, currentId), 16L);
             if (PdfDictionaryLookup.TryGet(current, "Parent"u8, governor, token, out QpdfObject parentRaw)
                 && parentRaw is not PdfNull)

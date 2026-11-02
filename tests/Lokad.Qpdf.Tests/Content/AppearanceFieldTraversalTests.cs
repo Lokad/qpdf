@@ -143,6 +143,55 @@ public sealed class AppearanceFieldTraversalTests
         Assert.Equal(0L, root.ReservedBytes);
     }
 
+    [Theory]
+    [InlineData(1, false)]
+    [InlineData(1, true)]
+    [InlineData(32, false)]
+    [InlineData(32, true)]
+    [InlineData(64, false)]
+    [InlineData(64, true)]
+    [InlineData(120, false)]
+    [InlineData(120, true)]
+    public void FieldParentsUseTheConfiguredBoundaryAndRefundTraversal(int maximum, bool tooDeep)
+    {
+        using DocumentEngine engine = Engine();
+        ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope copierMemory = ParserMemoryScope.Create(construction);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 1, copierMemory);
+        PdfDictionary page = Dict(("Annots", new PdfArray([new PdfReference(2, 0)])));
+        copier.AddIndirectObjectWithId(page, 1);
+        int edges = maximum + (tooDeep ? 1 : 0);
+        for (int at = 0; at <= edges; at++)
+        {
+            PdfDictionary node = at == edges ? Dict(("FT", PdfName.FromAscii("Btn")), ("V", PdfName.FromAscii("Off")))
+                : at == 0 ? Dict(("Subtype", PdfName.FromAscii("Widget")), ("Parent", new PdfReference(3, 0)))
+                : Dict(("Parent", new PdfReference(3 + at, 0)));
+            copier.AddIndirectObjectWithId(node, 2 + at);
+        }
+        QpdfObject widget = copier.CopiedObjects[2];
+        QpdfLimits limits = QpdfLimits.Default with { MaxNestingDepth = maximum };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        void Generate() => GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, CopiedForm?>(),
+            limits, governor, new(governor), CancellationToken.None, new HashSet<int> { 2 }, false, edges + 3);
+        if (tooDeep)
+        {
+            QpdfLimitException failure = Assert.Throws<QpdfLimitException>(Generate);
+            Assert.Equal(nameof(QpdfLimits.MaxNestingDepth), failure.LimitName);
+            Assert.Equal(maximum + 1L, failure.Requested); Assert.Equal(maximum, failure.Allowed);
+            Assert.Same(widget, copier.CopiedObjects[2]);
+            Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        }
+        else
+        {
+            Generate();
+            Assert.Equal(PdfName.FromAscii("Off"), Get(Assert.IsType<PdfDictionary>(copier.CopiedObjects[2]), "AS"));
+            Assert.True(governor.Snapshot().LiveMemoryBytes > 0L);
+        }
+        Assert.Same(page, copier.CopiedObjects[1]);
+        governor.CompleteStorage();
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
     private static QpdfObject Get(PdfDictionary dictionary, string key)
     { Assert.True(dictionary.TryGet(PdfName.FromAscii(key), out QpdfObject value)); return value; }
 }
