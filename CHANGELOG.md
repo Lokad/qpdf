@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Validate imported and updated JSON page trees through the shared reader before
+  publication. Indirect page types report correct counts; excessive depth, cycles
+  and malformed child links reject without replacing prior output. This is stricter
+  than native JSON pass-through. Shared page references count each occurrence.
+  Catalog-type diagnostics bound name display to 64 bytes without materializing
+  oversized names.
+
 - Resolve indirect catalog and page-tree type names, page-tree children and page
   counts. Equivalent indirect layouts now open, select and report counts through
   the existing bounded reader; copying retains omitted-page and containment guards.

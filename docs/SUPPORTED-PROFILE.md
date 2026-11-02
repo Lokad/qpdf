@@ -331,6 +331,12 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
   JSON pdfversion overrides the output version when present. Pushed inherited
   attributes stay explicitly unsupported. The typed
   `UpdatePdfFromJsonAsync` shares the engine.
+  Creation/update validates the normalized page tree with the shared reader before
+  publication. Direct/indirect types and child arrays have identical counting;
+  repeated references count each occurrence, while cycles, excessive depth and
+  malformed page-tree links reject. Empty page trees remain supported. Declared
+  count mismatches retain the reader's warning policy. Unlike native JSON
+  pass-through, rejected trees leave the previous output untouched.
   After reference normalization, the root catalog `/Version` must be a supported
   PDF version name (1.0 through 1.7 or 2.0), directly or through one reference.
   Wrong types, malformed names, unsupported versions and reference cycles fail
@@ -340,7 +346,7 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
   promoted to the first output object. Validation preserves JSON header
   negotiation: a forced header can remain below a valid catalog override, which
   the reader still uses for the effective version. The shared reader/import
-  diagnostic echoes malformed names only up to 64 raw bytes; longer names use
+  diagnostics echo malformed catalog type/version names only up to 64 raw bytes; longer names use
   a fixed description.
   Numeric exponent notation expands to exact decimal PDF text under memory
   admission. Plain integers require signed 64-bit values; real magnitudes must

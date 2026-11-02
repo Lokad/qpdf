@@ -4795,7 +4795,7 @@ public static partial class Qpdf
         {
             Json.ImportedModel model = await Json.JsonImport.BuildCreateModelAsync(host, parsed, limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
             (model, PdfVersion effective) = PrepareImportedVersion(model, minVersion, forceVersion, governor, cancellationToken);
-            Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, importMemory, cancellationToken);
+            Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, diagnostics, importMemory, cancellationToken);
             await PublishModelAsync(host, effective, renumbered.Model, null, false, null, renumbered.InfoNumber, null, staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, false, null, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
             return new JsonImportOutcome(renumbered.PageCount, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
         }
@@ -4834,7 +4834,7 @@ public static partial class Qpdf
         {
             Json.ImportedModel model = await Json.JsonImport.BuildUpdateModelAsync(host, parsed, document, limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
             (model, PdfVersion effective) = PrepareImportedVersion(model, minVersion, forceVersion, governor, cancellationToken);
-            Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, importMemory, cancellationToken);
+            Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, diagnostics, importMemory, cancellationToken);
             byte[]? originalId1 = TryGetOriginalId(document.Engine);
             await PublishModelAsync(host, effective, renumbered.Model, null, false, null, renumbered.InfoNumber, originalId1, staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, false, null, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
             return new JsonImportOutcome(renumbered.PageCount, ResultWarningSnapshot.Read(resultWarnings, diagnostics));

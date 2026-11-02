@@ -132,7 +132,7 @@ public sealed class JsonImportMemoryTests
         {
             ImportedModel model = await JsonImport.BuildCreateModelAsync(storage, json, QpdfLimits.Default, governor, memory, CancellationToken.None);
             PdfStream original = Assert.IsType<PdfStream>(model.Objects[4]);
-            JsonImport.RenumberedModel remapped = JsonImport.Renumber(model, QpdfLimits.Default, governor, memory, CancellationToken.None);
+            JsonImport.RenumberedModel remapped = JsonImport.Renumber(model, QpdfLimits.Default, governor, new DiagnosticBag(governor), memory, CancellationToken.None);
             PdfStream actual = Assert.IsType<PdfStream>(Assert.Single(remapped.Model, item => item.Number == 4).Value);
             Assert.Same(original.AllocationCarrier, actual.AllocationCarrier);
             Assert.True(actual.RawMemory.Span.SequenceEqual(payload));
@@ -236,23 +236,26 @@ public sealed class JsonImportMemoryTests
         Assert.Equal(0L, root.ReservedBytes);
     }
 
-    [Fact]
-    public async Task PageCountingDoesNotMaterializeLargeBorrowedTypeNames()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PageValidationRejectsLargeInvalidTypesWithoutMaterializingNames(bool catalog)
     {
         using InMemoryQpdfHost storage = new();
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         using JsonDocument warmJson = JsonDocument.Parse(Fixture("{\"value\":7}"));
         ImportedModel warm = await JsonImport.BuildCreateModelAsync(storage, warmJson, QpdfLimits.Default, governor, memory, CancellationToken.None);
-        JsonImport.Renumber(warm, QpdfLimits.Default, governor, memory, CancellationToken.None);
+        JsonImport.Renumber(warm, QpdfLimits.Default, governor, new DiagnosticBag(governor), memory, CancellationToken.None);
         string source = Encoding.UTF8.GetString(Fixture("{\"value\":7}"))
-            .Replace("\"/Type\":\"/Page\"", "\"/Type\":\"/" + new string('A', 1048576) + "\"", StringComparison.Ordinal);
+            .Replace(catalog ? "\"/Type\":\"/Catalog\"" : "\"/Type\":\"/Page\"", "\"/Type\":\"/" + new string('A', 1048576) + "\"", StringComparison.Ordinal);
         using JsonDocument json = JsonDocument.Parse(source);
         ImportedModel model = await JsonImport.BuildCreateModelAsync(storage, json, QpdfLimits.Default, governor, memory, CancellationToken.None);
         long before = GC.GetAllocatedBytesForCurrentThread();
-        JsonImport.RenumberedModel remapped = JsonImport.Renumber(model, QpdfLimits.Default, governor, memory, CancellationToken.None);
+        QpdfParseException failure = Assert.Throws<QpdfParseException>(() =>
+            JsonImport.Renumber(model, QpdfLimits.Default, governor, new DiagnosticBag(governor), memory, CancellationToken.None));
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-        Assert.Equal(0, remapped.PageCount);
+        Assert.Contains(catalog ? "Catalog" : "Page tree nodes", failure.Message, StringComparison.Ordinal);
         Assert.InRange(allocated, 0L, 262144L);
     }
 }

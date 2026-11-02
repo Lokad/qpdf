@@ -852,9 +852,11 @@ internal static partial class JsonImport
         ImportedModel model,
         QpdfLimits limits,
         ResourceGovernor governor,
+        DiagnosticBag diagnostics,
         ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(diagnostics);
         if (model is null)
         {
             throw new ArgumentNullException(nameof(model));
@@ -968,7 +970,9 @@ internal static partial class JsonImport
         }
 
         // Validate the published graph, where dangling imported references have become null.
-        ValidateCatalogVersion((PdfDictionary)mapped[1], mapped, governor, cancellationToken);
+        using ParserMemoryScope pageMemory = ParserMemoryScope.Create(governor);
+        Content.PoolResolver resolver = Content.PoolResolver.Create(pageMemory, mapped);
+        ValidateCatalogVersion((PdfDictionary)mapped[1], resolver, governor, cancellationToken);
 
         if (infoDirect && infoDict is not null)
         {
@@ -994,21 +998,21 @@ internal static partial class JsonImport
             ordered.Add(new Writing.NumberedObject(number, mapped[number]));
         }
 
-        int pages = CountPages(mapped, governor, limits, cancellationToken);
+        int pages = PageTree.Read(resolver, mapped[1], diagnostics, governor, limits, pageMemory, cancellationToken).Count;
         return new RenumberedModel(ordered, infoNew, pages);
     }
 
-    private static void ValidateCatalogVersion(PdfDictionary root, Dictionary<int, QpdfObject> pool,
+    private static void ValidateCatalogVersion(PdfDictionary root, Syntax.IIndirectResolver resolver,
         ResourceGovernor governor, CancellationToken token)
     {
-        if (PdfDictionaryLookup.TryGet(root, "Type"u8, governor, token, out QpdfObject type)
-            && type is PdfName name && !name.RawSpan.IsEmpty && !name.RawSpan.SequenceEqual("Catalog"u8))
+        if (PageTree.ReadType(resolver, root, governor, token) is PdfName name
+            && !name.RawSpan.IsEmpty && !name.RawSpan.SequenceEqual("Catalog"u8))
         { return; }
         if (!PdfDictionaryLookup.TryGet(root, "Version"u8, governor, token, out QpdfObject raw) || raw is PdfNull)
         { return; }
         if (raw is PdfReference reference)
         {
-            if (!PdfObjectLookup.TryResolve(reference, pool, governor, token, out QpdfObject? resolved) || resolved is null)
+            if (!PdfObjectLookup.TryResolve(reference, resolver, governor, token, out QpdfObject? resolved) || resolved is null)
             { throw new QpdfParseException("Unresolvable catalog /Version reference.", null, reference.ObjectNumber); }
             raw = resolved;
             if (raw is PdfNull) { return; }
@@ -1017,91 +1021,4 @@ internal static partial class JsonImport
         QpdfDocument.ParseCatalogVersion(raw);
     }
 
-    private static int CountPages(
-        Dictionary<int, QpdfObject> pool,
-        ResourceGovernor governor,
-        QpdfLimits limits,
-        CancellationToken cancellationToken)
-    {
-        if (!pool.TryGetValue(1, out QpdfObject? rootValue) || rootValue is not PdfDictionary root)
-        {
-            return 0;
-        }
-
-        if (!root.TryGet(PdfName.FromAscii("Pages"), out QpdfObject? pagesRaw) || pagesRaw is null || pagesRaw is PdfNull)
-        {
-            return 0;
-        }
-
-        QpdfObject pages = ResolvePool(pagesRaw, pool);
-        if (pages is not PdfDictionary pagesDict)
-        {
-            return 0;
-        }
-
-        int count = 0;
-        using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
-        List<QpdfObject> stack = Syntax.ParserContainers.CreateList<QpdfObject>(traversal);
-        Syntax.ParserContainers.AddItem(traversal, stack, pagesDict);
-        traversal.Reserve(96L);
-        HashSet<QpdfObject> visited = new(ReferenceEqualityComparer.Instance);
-        Syntax.ParserContainers.AddSetItem(traversal, visited, pagesDict, IntPtr.Size);
-        int depth = 0;
-        while (stack.Count > 0)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            if (depth > limits.MaxNestingDepth)
-            {
-                return count;
-            }
-
-            depth += 1;
-            List<QpdfObject> next = Syntax.ParserContainers.CreateList<QpdfObject>(traversal);
-            foreach (QpdfObject node in stack)
-            {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                if (node is not PdfDictionary dictionary)
-                {
-                    continue;
-                }
-
-                if (dictionary.TryGet(PdfName.FromAscii("Type"), out QpdfObject? typeRaw) && typeRaw is PdfName type && type.RawSpan.SequenceEqual("Page"u8))
-                {
-                    count += 1;
-                    continue;
-                }
-
-                if (dictionary.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw) && kidsRaw is not null && kidsRaw is not PdfNull)
-                {
-                    QpdfObject kids = ResolvePool(kidsRaw, pool);
-                    if (kids is PdfArray array)
-                    {
-                        for (int index = 0; index < array.Count; index++)
-                        {
-                            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                            QpdfObject target = ResolvePool(array[index], pool);
-                            if (target is PdfDictionary && Syntax.ParserContainers.AddSetItem(traversal, visited, target, IntPtr.Size))
-                            { Syntax.ParserContainers.AddItem(traversal, next, target); }
-                        }
-                    }
-                }
-            }
-
-            Syntax.ParserContainers.ReleaseList(traversal, stack);
-            stack = next;
-        }
-
-        return count;
-    }
-
-    private static QpdfObject ResolvePool(QpdfObject value, Dictionary<int, QpdfObject> pool)
-    {
-        if (value is PdfReference reference && pool.TryGetValue(reference.ObjectNumber, out QpdfObject? resolved) && resolved is not null)
-        {
-            return resolved;
-        }
-
-        return value;
-    }
 }

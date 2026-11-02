@@ -134,6 +134,12 @@ failure behavior; the tables below highlight differences important to callers.
 
 Additional intentional data differences are:
 
+- PDF JSON creation/update validates page-tree structure before publication through
+  the shared bounded reader. Cycles, nesting-limit violations and malformed tree
+  links reject with prior output preserved; native JSON import can pass these
+  graphs through until a later read/check fails. Counts follow actual traversal,
+  including indirect page types and repeated references.
+
 - Split labels advance their source numbering runs. Selecting/reordering then
   splitting retains source labels; native's combined selection-and-split command
   instead applies original label positions. Native selection followed by a

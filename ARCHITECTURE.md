@@ -59,6 +59,10 @@ both cancellation routes are checked before parsing the completed input.
 Selection cores borrow one immutable settings value containing the existing
 feature requests. Typed defaults and command-plan projection are defined once;
 source documents, selective-read retries and publication owners stay explicit.
+PDF opening and normalized JSON creation/update use the same bounded page-tree
+traversal, including indirect values, path cycle guards and nesting limits. JSON
+validation borrows its mapped model and retires temporary page locations before
+publication; no second counting walk approximates the reader's result.
 When a primary document supplies no selected pages, the same copy loop admits its
 catalog graph without adding a page group or changing source mappings. Replacement
 targets the primary path independently of the selected page providers.
