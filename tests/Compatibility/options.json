@@ -1822,10 +1822,11 @@
           "XrefCollectionTests.FiniteCeilingRejectsLargeTablesAndReleasesFailedOwnership",
           "XrefCollectionTests.PublicCeilingRejectsLargeRecoveryBeforePublication",
           "XrefCollectionTests.RepeatedRevisionsReleaseSectionMapsAndVisitedStorage",
-          "XrefCollectionTests.RepeatedRecoveryHeadersAndDroppedEntriesKeepOnlyFinalStorage",
+          "XrefCollectionTests.RepeatedRecoveryHeadersKeepOnlyFinalStorage",
+          "XrefCollectionTests.RepeatedCatalogHeadersKeepWorkingMetadataBounded",
           "XrefCollectionTests.GrowthFailurePreservesPreviouslyAcceptedTable",
           "XrefCollectionTests.SparseRecoveryAdmitsFilledFreeSlots",
-          "XrefCollectionTests.TruncatedTailSizeReleasesTheCompleteScanMap",
+          "XrefCollectionTests.StaleTailSizeRetainsRecoveredEntriesAndReleasesTheScanMap",
           "XrefCollectionTests.MissingCatalogOrEmptyScanReleasesStorage",
           "XrefCollectionTests.GenerousPublicArgvAndJobBudgetsKeepPageCounts",
           "XrefCollectionTests.TypedStrictOpeningEnforcesCollectionAdmission",
@@ -6334,7 +6335,9 @@
         ],
         "resource": [
           "RecoveryTests.SuppressRecoveryFailsWithoutOutputUnderBudget",
-          "RecoveryTests.RecoveredOutputYieldsToExhaustedBudget"
+          "RecoveryTests.RecoveredOutputYieldsToExhaustedBudget",
+          "RecoveryCatalogTests.RecoveryKeepsLiveCatalogIdentityAndDependencies",
+          "RecoveryCatalogTests.ReconstructedTableUsesLiveGenerationsAndRetainsRequiredEntries"
         ],
         "oracle": [
           "diff:recovery"
