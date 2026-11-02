@@ -96,6 +96,11 @@ copied names and specification graphs keep their source admission through public
 Removal and replacement survival is decided before copying discarded specifications,
 while original key presence still governs conflicts. Recoverable copy attempts catch
 malformed-data errors; retained profile, admission and host failures abort publication.
+Catalog preparation resolves PageMode once, independently of generic extras and
+attachment storage. Existing name bytes stay borrowed with their source ownership;
+opaque values use the copier's ordinary attempts. Attachment insertion supplies
+the default only when that resolved hint is absent. Split keeps named hints while
+dropping opaque catalog extras under its existing policy.
 After replacements, whole-file models use existing
 graph reachability from the final catalog, page tree and trailer Info. Coalescing
 uses that same final-root pass, preserving catalog aliases held outside the page

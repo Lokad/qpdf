@@ -107,7 +107,7 @@ public sealed class CatalogRecoveryTests
             Assert.Null(CatalogCopy.TryCopyOutlines(document.Engine, copier, true, false, governor, CancellationToken.None));
             Assert.Equal((null, null), CatalogCopy.TryCopyStructure(document.Engine, copier, true, false, governor, CancellationToken.None));
             Assert.Equal(firstId, copier.NextId);
-            IReadOnlyDictionary<PdfName, QpdfObject> extras = CatalogCopy.TryCopyExtras(document.Engine, copier, true, false, governor, owner, CancellationToken.None);
+            IReadOnlyDictionary<PdfName, QpdfObject> extras = CatalogCopy.TryCopyExtras(document.Engine, copier, true, false, governor, owner, CancellationToken.None).Extras;
             Assert.DoesNotContain(5, copier.SourceToDestination.Keys);
             Assert.DoesNotContain(6, copier.SourceToDestination.Keys);
             Assert.Equal(shared, copier.SourceToDestination.ContainsKey(9));

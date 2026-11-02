@@ -482,6 +482,13 @@ Null preferred candidates allow the next existing stream key to supply the data.
 Required file specifications, embedded-stream dictionaries and name-tree children
 still reject unresolvable/null references; generation and cycle checks remain active.
 
+Adding or importing attachments supplies `/PageMode /UseAttachments` when the
+primary hint is absent or null, including indirect null. Explicit name hints retain
+their original bytes after resolution; other copyable explicit values follow the
+ordinary catalog-preservation policy. Split keeps name hints and drops opaque
+extras; a new attachment then supplies the default. Removing files alone does not
+create a viewing hint.
+
 Authored keys, filenames, descriptions and copy prefixes require well-formed
 UTF-16; malformed caller strings fail before publication instead of substituting
 U+FFFD. Valid U+FFFD and surrogate pairs retain their identity. MIME names must be

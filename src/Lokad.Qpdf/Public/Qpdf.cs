@@ -367,9 +367,8 @@ public static partial class Qpdf
                     (PdfReference? singleInfo, PdfReference? singleMetadata) = CopyDocumentMetadata(copier, document.Engine, settings.RemoveInfo, settings.RemoveMetadata, diagnostics);
                     PdfReference? singleOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, settings.PreserveCatalog, settings.Linearize, governor, cancellationToken);
                     (PdfReference? singleStructTree, QpdfObject? singleMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, settings.PreserveCatalog, settings.RemoveStructure, governor, cancellationToken);
-                    IReadOnlyDictionary<PdfName, QpdfObject> singleExtras = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, settings.PreserveCatalog, settings.RemoveAcroform, governor, copyMemory, cancellationToken);
+                    (QpdfObject? singlePageMode, IReadOnlyDictionary<PdfName, QpdfObject> singleExtras) = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, settings.PreserveCatalog, settings.RemoveAcroform, governor, copyMemory, cancellationToken);
                     SortedDictionary<string, AttachmentReference> singleExisting = PreserveExistingAttachments(copier, document.Engine, settings.Edits, limits, governor, diagnostics, copyMemory, cancellationToken);
-                    string? singlePageMode = ReadInputPageMode(document.Engine);
 
                     (bool singleCompress, string singleDecode, int? singleLevel) = ResolveCompression(settings.Compression, settings.Qdf.Enabled);
                     if (singleCompress || singleDecode != "none" || (singleMetadata is not null && settings.Compression.CompressStreams is not null))
@@ -508,7 +507,7 @@ public static partial class Qpdf
                     {
                         (copier.SourceToDestination, compressedOrig),
                     };
-                    AttachmentAssembly singleAttached = await AssembleAttachmentsAsync(host, singleExisting, singlePool, settings.Edits, singlePageMode, singleCompress, singleLevel, streamMode == "preserve", singleSources, recovery, limits, governor, diagnostics, copyMemory, cancellationToken).ConfigureAwait(false);
+                    AttachmentAssembly singleAttached = await AssembleAttachmentsAsync(host, singleExisting, singlePool, settings.Edits, singleCompress, singleLevel, streamMode == "preserve", singleSources, recovery, limits, governor, diagnostics, copyMemory, cancellationToken).ConfigureAwait(false);
                     HashSet<int> singleCompressed = ResolveCompressedSet(streamMode, singlePool, singleSources, copyMemory, governor, cancellationToken);
                     PdfVersion effective = negotiated;
                     int extensionLevel = negotiatedExtension;
@@ -518,7 +517,7 @@ public static partial class Qpdf
                         extensionLevel = 0;
                     }
 
-                    PdfDictionary catalog = NewCatalog(singleLabels, effective, extensionLevel, singleMetadata, singleAttached.NamesRef, singleAttached.PageMode, singleOutlines, singleAcroForm, singleStructTree, singleMarkInfo, singleExtras, singlePool, governor, cancellationToken);
+                    PdfDictionary catalog = NewCatalog(singleLabels, effective, extensionLevel, singleMetadata, singleAttached.NamesRef, singlePageMode ?? (singleAttached.Inserted ? UseAttachmentsPageMode : null), singleOutlines, singleAcroForm, singleStructTree, singleMarkInfo, singleExtras, singlePool, governor, cancellationToken);
                     PdfDictionary pages = PagesNode(kids, copyMemory, governor, cancellationToken);
                     int modelCount = checked(singlePool.Count + 2);
                     copyMemory.Reserve(checked(64L + 16L * modelCount));
@@ -937,7 +936,7 @@ public static partial class Qpdf
         bool needSourceLabels = !settings.RemoveLabels && (settings.Labels.Count == 0 || splitPages.HasValue);
         selectionMemory.Reserve(96L);
         SortedDictionary<string, AttachmentReference> primaryExisting = new(StringComparer.Ordinal);
-        string? primaryPageMode = null;
+        QpdfObject? primaryPageMode = null;
         PdfReference? primaryInfo = null;
         PdfReference? primaryMetadata = null;
         PdfReference? primaryOutlines = null;
@@ -1063,7 +1062,7 @@ public static partial class Qpdf
                     (primaryInfo, primaryMetadata) = CopyDocumentMetadata(copier, document.Engine, settings.RemoveInfo, settings.RemoveMetadata, diagnostics);
                     primaryOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, settings.PreserveCatalog, settings.Linearize, governor, cancellationToken);
                     (primaryStructTree, primaryMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, settings.PreserveCatalog, settings.RemoveStructure, governor, cancellationToken);
-                    primaryExtras = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, settings.PreserveCatalog, settings.RemoveAcroform, governor, selectionMemory, cancellationToken);
+                    (primaryPageMode, primaryExtras) = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, settings.PreserveCatalog, settings.RemoveAcroform, governor, selectionMemory, cancellationToken);
                     if (primaryInfo is not null)
                     {
                         ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryInfo.ObjectNumber, sizeof(int));
@@ -1089,7 +1088,6 @@ public static partial class Qpdf
                     }
 
                     primaryExisting = PreserveExistingAttachments(copier, document.Engine, settings.Edits, limits, governor, diagnostics, selectionMemory, cancellationToken);
-                    primaryPageMode = ReadInputPageMode(document.Engine);
                 }
 
                 if (multiCompress || multiDecode != "none" || (s == primaryIdx && primaryMetadata is not null && settings.Compression.CompressStreams is not null))
@@ -1288,7 +1286,7 @@ public static partial class Qpdf
             multiSources.Add((copiers[s].SourceToDestination, sourceCompressed[s]));
         }
 
-        AttachmentAssembly multiAttached = await AssembleAttachmentsAsync(host, primaryExisting, pool, settings.Edits, primaryPageMode, multiCompress, multiLevel, settings.ObjectStreams is not ("disable" or "generate"), multiSources, recovery, limits, governor, diagnostics, selectionMemory, cancellationToken).ConfigureAwait(false);
+        AttachmentAssembly multiAttached = await AssembleAttachmentsAsync(host, primaryExisting, pool, settings.Edits, multiCompress, multiLevel, settings.ObjectStreams is not ("disable" or "generate"), multiSources, recovery, limits, governor, diagnostics, selectionMemory, cancellationToken).ConfigureAwait(false);
 
         List<(int Index, PdfDictionary Label)> explicitItems = settings.Labels.Count > 0
             ? ResolveLabelItems(settings.Labels, kids.Count, governor, selectionMemory)
@@ -1430,7 +1428,7 @@ public static partial class Qpdf
             selectionMemory.Reserve(checked(64L + 16L * modelCount));
             List<NumberedObject> model = new(modelCount)
             {
-                new NumberedObject(1, NewCatalog(catalogLabels, effective, extensionLevel, primaryMetadata, multiAttached.NamesRef, multiAttached.PageMode, primaryOutlines, multiAcroForm, primaryStructTree, primaryMarkInfo, primaryExtras, pool, governor, cancellationToken)),
+                new NumberedObject(1, NewCatalog(catalogLabels, effective, extensionLevel, primaryMetadata, multiAttached.NamesRef, primaryPageMode ?? (multiAttached.Inserted ? UseAttachmentsPageMode : null), primaryOutlines, multiAcroForm, primaryStructTree, primaryMarkInfo, primaryExtras, pool, governor, cancellationToken)),
                 new NumberedObject(2, PagesNode(kids, selectionMemory, governor, cancellationToken)),
             };
             foreach (KeyValuePair<int, QpdfObject> entry in pool)
@@ -1653,7 +1651,7 @@ public static partial class Qpdf
                 remappedLabels = remappedLabelsDictionary;
             }
             List<NumberedObject> sub = ParserContainers.CreateList<NumberedObject>(groupMemory);
-            NumberedObject groupCatalog = new(1, NewCatalog(remappedLabels, effective, extensionLevel, groupMetadata, groupNames, multiAttached.PageMode, groupOutlines, remappedAcroForm, groupStructTree, groupMarkInfo, null, pool, governor, cancellationToken));
+            NumberedObject groupCatalog = new(1, NewCatalog(remappedLabels, effective, extensionLevel, groupMetadata, groupNames, primaryPageMode as PdfName ?? (multiAttached.Inserted ? UseAttachmentsPageMode : null), groupOutlines, remappedAcroForm, groupStructTree, groupMarkInfo, null, pool, governor, cancellationToken));
             NumberedObject groupPages = new(2, PagesNode(renumberedKids, groupMemory, governor, cancellationToken));
             ParserContainers.AddItem(groupMemory, sub, groupCatalog, 16L);
             ParserContainers.AddItem(groupMemory, sub, groupPages, 16L);
@@ -1861,8 +1859,9 @@ public static partial class Qpdf
     private static readonly byte[] StaticIdBytes = new byte[] { 0x31, 0x41, 0x59, 0x26, 0x53, 0x58, 0x97, 0x93, 0x23, 0x84, 0x62, 0x64, 0x33, 0x83, 0x27, 0x95 };
 
     private static readonly byte[] PlaceholderIdBytes = new byte[16];
+    private static readonly PdfName UseAttachmentsPageMode = PdfName.FromAscii("UseAttachments");
 
-    private static PdfDictionary NewCatalog(QpdfObject? pageLabels, PdfVersion finalVersion, int extensionLevel, PdfReference? metadataRef, PdfReference? namesRef, string? pageMode, PdfReference? outlinesRef, PdfDictionary? acroForm, PdfReference? structTreeRef, QpdfObject? markInfo, IReadOnlyDictionary<PdfName, QpdfObject>? extras, IReadOnlyDictionary<int, QpdfObject> pool, ResourceGovernor governor, CancellationToken token)
+    private static PdfDictionary NewCatalog(QpdfObject? pageLabels, PdfVersion finalVersion, int extensionLevel, PdfReference? metadataRef, PdfReference? namesRef, QpdfObject? pageMode, PdfReference? outlinesRef, PdfDictionary? acroForm, PdfReference? structTreeRef, QpdfObject? markInfo, IReadOnlyDictionary<PdfName, QpdfObject>? extras, IReadOnlyDictionary<int, QpdfObject> pool, ResourceGovernor governor, CancellationToken token)
     {
         if (finalVersion is null)
         {
@@ -1893,10 +1892,7 @@ public static partial class Qpdf
 
         if (pageMode is not null)
         {
-            long bytes = checked(56L + pageMode.Length);
-            graph.Memory.Reserve(bytes);
-            PdfName mode = PdfName.FromOwnedBytes(System.Text.Encoding.ASCII.GetBytes(pageMode)); graph.Add(bytes);
-            Set("PageMode"u8, mode);
+            Set("PageMode"u8, pageMode);
         }
 
         if (outlinesRef is not null)
@@ -3554,7 +3550,7 @@ public static partial class Qpdf
         return (infoRef, metadataRef);
     }
 
-    private sealed record AttachmentAssembly(PdfReference? NamesRef, string? PageMode, int FinalCount, bool Replaced);
+    private sealed record AttachmentAssembly(PdfReference? NamesRef, bool Inserted, int FinalCount, bool Replaced);
 
     private static void PruneOutputModel(List<NumberedObject> model, Dictionary<int, QpdfObject> pool,
         HashSet<int> compressed, PdfReference? info, ResourceGovernor governor, CancellationToken token)
@@ -3574,24 +3570,6 @@ public static partial class Qpdf
             else { compressed.Remove(entry.Number); }
         }
         model.RemoveRange(kept, model.Count - kept);
-    }
-
-    private static string? ReadInputPageMode(DocumentEngine engine)
-    {
-        if (engine is null)
-        {
-            throw new ArgumentNullException(nameof(engine));
-        }
-
-        PdfDictionary? catalog = TryGetInputCatalog(engine);
-        if (catalog is not null
-            && catalog.TryGet(PdfName.FromAscii("PageMode"), out QpdfObject? raw)
-            && raw is PdfName name)
-        {
-            return name.DisplayText;
-        }
-
-        return null;
     }
 
     private static SortedDictionary<string, AttachmentReference> PreserveExistingAttachments(
@@ -3654,7 +3632,6 @@ public static partial class Qpdf
         SortedDictionary<string, AttachmentReference> existing,
         Dictionary<int, QpdfObject> pool,
         AttachmentEdits edits,
-        string? inputPageMode,
         bool compress,
         int? level,
         bool preserveObjectStreams,
@@ -3694,7 +3671,7 @@ public static partial class Qpdf
 
         if (!edits.HasEdits && existing.Count == 0)
         {
-            return new AttachmentAssembly(null, inputPageMode, 0, false);
+            return new AttachmentAssembly(null, false, 0, false);
         }
 
         int nextId = 3;
@@ -3849,7 +3826,7 @@ public static partial class Qpdf
 
         if (existing.Count == 0)
         {
-            return new AttachmentAssembly(null, inputPageMode, 0, false);
+            return new AttachmentAssembly(null, false, 0, false);
         }
 
         PdfDictionary tree = AttachmentBuilder.BuildNameTree(existing.Values, governor, ownership, cancellationToken);
@@ -3867,8 +3844,7 @@ public static partial class Qpdf
         ownership.Reserve(128L);
         ParserContainers.EnsureEntryCapacity(ownership, pool, IntPtr.Size);
         pool[rootId] = wrapper;
-        string? pageMode = edits.Adds.Count > 0 || copiedAny ? inputPageMode ?? "UseAttachments" : inputPageMode;
-        return new AttachmentAssembly(new PdfReference(rootId, 0), pageMode, existing.Count, replaced);
+        return new AttachmentAssembly(new PdfReference(rootId, 0), edits.Adds.Count > 0 || copiedAny, existing.Count, replaced);
     }
 
     private static string AttachmentCopyKey(string? prefix, string key, ResourceGovernor governor,

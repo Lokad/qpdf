@@ -15,7 +15,7 @@ namespace Lokad.Qpdf.Tests.Content;
 public sealed class CatalogStorageTests
 {
     private delegate PdfDictionary Catalog(QpdfObject? labels, PdfVersion version, int extension,
-        PdfReference? metadata, PdfReference? names, string? mode, PdfReference? outlines, PdfDictionary? form,
+        PdfReference? metadata, PdfReference? names, QpdfObject? mode, PdfReference? outlines, PdfDictionary? form,
         PdfReference? structure, QpdfObject? mark, IReadOnlyDictionary<PdfName, QpdfObject>? extras,
         IReadOnlyDictionary<int, QpdfObject> pool, ResourceGovernor governor, CancellationToken token);
     private static readonly Catalog Build = (typeof(Qpdf).GetMethod("NewCatalog", BindingFlags.NonPublic | BindingFlags.Static)
@@ -84,7 +84,7 @@ public sealed class CatalogStorageTests
         {
             GraphCopier copier = GraphCopier.CreateOwned(engine, governor, QpdfLimits.Default, 3, owner);
             long allocated = GC.GetAllocatedBytesForCurrentThread();
-            IReadOnlyDictionary<PdfName, QpdfObject> extras = CatalogCopy.TryCopyExtras(engine, copier, true, false, governor, owner, CancellationToken.None);
+            IReadOnlyDictionary<PdfName, QpdfObject> extras = CatalogCopy.TryCopyExtras(engine, copier, true, false, governor, owner, CancellationToken.None).Extras;
             escaped = Build(null, new(1, 4), 0, null, null, null, null, null, null, null, extras, copier.CopiedObjects, governor, CancellationToken.None);
             Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 65536L);
             Assert.Same(key, Assert.Single(extras).Key);
@@ -182,7 +182,7 @@ public sealed class CatalogStorageTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope owner = ParserMemoryScope.Create(governor);
         GraphCopier copier = GraphCopier.CreateOwned(engine, governor, QpdfLimits.Default, 3, owner);
-        IReadOnlyDictionary<PdfName, QpdfObject> extras = CatalogCopy.TryCopyExtras(engine, copier, true, false, governor, owner, CancellationToken.None);
+        IReadOnlyDictionary<PdfName, QpdfObject> extras = CatalogCopy.TryCopyExtras(engine, copier, true, false, governor, owner, CancellationToken.None).Extras;
         PdfDictionary kept = Assert.IsType<PdfDictionary>(extras[PdfName.FromAscii("Names")]);
         Assert.False(kept.TryGet(PdfName.FromAscii("Broken"), out _));
         Assert.True(kept.TryGet(PdfName.FromAscii("PrivateTree"), out QpdfObject value));
@@ -224,7 +224,7 @@ public sealed class CatalogStorageTests
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096 }, CancellationToken.None);
         using ParserMemoryScope owner = ParserMemoryScope.Create(governor);
         GraphCopier copier = GraphCopier.CreateOwned(engine, governor, QpdfLimits.Default, 3, owner);
-        IReadOnlyDictionary<PdfName, QpdfObject> extras = CatalogCopy.TryCopyExtras(engine, copier, true, false, governor, owner, CancellationToken.None);
+        IReadOnlyDictionary<PdfName, QpdfObject> extras = CatalogCopy.TryCopyExtras(engine, copier, true, false, governor, owner, CancellationToken.None).Extras;
         Assert.Empty(extras); Assert.Empty(copier.CopiedObjects);
         PdfDictionary catalog = Build(null, new(1, 7), 0, null, null, null, null, null, null, null, extras, copier.CopiedObjects, governor, CancellationToken.None);
         Assert.False(catalog.TryGet(PdfName.FromAscii("Names"), out _));
@@ -254,8 +254,8 @@ public sealed class CatalogStorageTests
         PdfDictionary form = Dict(("Fields", new PdfArray([])));
         PdfArray opaque = new([new PdfReference(17, 0)]); PdfReference mode = new(44, 0);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        PdfDictionary catalog = Build(null, new(1, 7), 3, null, null, "UseAttachments", null, form, null, null,
-            new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("AcroForm")] = opaque, [PdfName.FromAscii("PageMode")] = mode }, new Dictionary<int, QpdfObject>(), governor, CancellationToken.None);
+        PdfDictionary catalog = Build(null, new(1, 7), 3, null, null, mode, null, form, null, null,
+            new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("AcroForm")] = opaque }, new Dictionary<int, QpdfObject>(), governor, CancellationToken.None);
         Assert.True(catalog.TryGet(PdfName.FromAscii("AcroForm"), out QpdfObject kept)); Assert.Same(form, kept);
         Assert.True(catalog.TryGet(PdfName.FromAscii("PageMode"), out kept)); Assert.Same(mode, kept);
         Assert.True(catalog.TryGet(PdfName.FromAscii("Extensions"), out kept)); PdfDictionary extensions = Assert.IsType<PdfDictionary>(kept);

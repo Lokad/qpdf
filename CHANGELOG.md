@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Resolve primary PageMode before applying attachment defaults, treating indirect
+  null as absent and retaining name bytes without a text round trip. Keep opaque
+  hints under ordinary catalog preservation and existing split policy.
+
 - Reject duplicate decoded attachment keys in full-collection operations before
   publication, preventing silent payload changes during rewriting and duplicate
   JSON properties. Selective extraction retains its first-match behavior.

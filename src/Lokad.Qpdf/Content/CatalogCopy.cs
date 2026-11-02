@@ -165,12 +165,13 @@ internal static class CatalogCopy
     /// `/NeedsRendering`, `/PageLayout`, `/ViewerPreferences`, or `/OpenAction`)
     /// through the owning copier so ordinary selection and rewrite paths preserve
     /// them while merge keeps the primary source copy and split groups drop them.
+    /// PageMode is resolved separately so attachment defaults have one authority.
     /// Names retain the categories other than rebuilt embedded files. Fully
     /// rebuilt keys stay out; values that fail to resolve
     /// or reach structural nodes are skipped silently like the reference, while
     /// budget exhaustion and cancellation still fail loudly.
     /// </summary>
-    internal static IReadOnlyDictionary<PdfName, QpdfObject> TryCopyExtras(
+    internal static (QpdfObject? PageMode, IReadOnlyDictionary<PdfName, QpdfObject> Extras) TryCopyExtras(
         DocumentEngine engine,
         GraphCopier copier,
         bool preserveCatalog,
@@ -197,9 +198,22 @@ internal static class CatalogCopy
         ownership.CheckOwner(governor);
         using ParserMemoryScope result = ParserMemoryScope.Create(governor);
         PdfNameTable<QpdfObject> extras = PdfNameTable<QpdfObject>.Create(result, governor, IntPtr.Size, cancellationToken);
-        PdfDictionary? catalog = preserveCatalog ? TryGetCatalog(engine) : null;
+        PdfDictionary? catalog = TryGetCatalog(engine);
+        QpdfObject? pageMode = null;
+        if (catalog is not null && PdfDictionaryLookup.TryGet(catalog, "PageMode"u8, governor, cancellationToken, out QpdfObject rawMode))
+        {
+            QpdfObject? resolved = ResolveValue(rawMode, engine, governor, cancellationToken);
+            if (resolved is PdfName) { pageMode = resolved; }
+            else if (preserveCatalog && resolved is not null and not PdfNull)
+            {
+                int firstId = copier.BeginCopyAttempt();
+                try { pageMode = copier.CopyValue(rawMode, 0); }
+                catch (QpdfParseException) { copier.RollbackCopyAttempt(firstId, cancellationToken); }
+                finally { copier.EndCopyAttempt(); }
+            }
+        }
         using PdfDictionary.EntryEnumerator entries = catalog is null ? default : catalog.GetEntryEnumerator();
-        while (catalog is not null && entries.MoveNext(governor, cancellationToken))
+        while (preserveCatalog && catalog is not null && entries.MoveNext(governor, cancellationToken))
         {
             PdfName key = entries.Current.Key;
             if (IsHandledCatalogKey(key.RawSpan))
@@ -221,13 +235,6 @@ internal static class CatalogCopy
                 continue;
             }
 
-            // Name-valued PageMode is rebuilt by attachment handling. Preserve
-            // other values, including indirect roots, through the ordinary copier.
-            if (key.RawSpan.SequenceEqual("PageMode"u8) && raw is PdfName)
-            {
-                continue;
-            }
-
             int firstId = copier.BeginCopyAttempt();
             try
             {
@@ -244,7 +251,7 @@ internal static class CatalogCopy
             finally { copier.EndCopyAttempt(); }
         }
         extras.Freeze(result, governor, cancellationToken);
-        result.TransferTo(ownership); return extras;
+        result.TransferTo(ownership); return (pageMode, extras);
     }
 
     private static PdfDictionary? TryCopyNames(QpdfObject raw, DocumentEngine engine, GraphCopier copier,
@@ -279,6 +286,7 @@ internal static class CatalogCopy
         return name.SequenceEqual("Type"u8)
             || name.SequenceEqual("Pages"u8)
             || name.SequenceEqual("PageLabels"u8)
+            || name.SequenceEqual("PageMode"u8)
             || name.SequenceEqual("Outlines"u8)
             || name.SequenceEqual("StructTreeRoot"u8)
             || name.SequenceEqual("MarkInfo"u8)

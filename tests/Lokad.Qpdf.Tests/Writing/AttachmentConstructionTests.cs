@@ -64,7 +64,7 @@ public sealed class AttachmentConstructionTests
     {
         MethodInfo method = typeof(Qpdf).GetMethod("AssembleAttachmentsAsync", BindingFlags.Static | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("Missing attachment assembly.");
-        object pending = method.Invoke(null, [host, existing, pool, edits, null, compress, null, false,
+        object pending = method.Invoke(null, [host, existing, pool, edits, compress, null, false,
             new List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)>(), QpdfRecoveryMode.Strict,
             limits, governor, new DiagnosticBag(governor), memory, token]) ?? throw new InvalidOperationException("Missing assembly result.");
         Task task = (Task)(pending.GetType().GetMethod("AsTask")?.Invoke(pending, null)
