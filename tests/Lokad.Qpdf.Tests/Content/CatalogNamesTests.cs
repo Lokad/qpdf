@@ -72,7 +72,7 @@ public sealed class CatalogNamesTests
             Assert.Equal(Entry(privateTree, "Shared"), Entry(privateTree, "Alias"));
             Assert.Same(privateTree, Property(document, privateTree, "Self"));
             text = Assert.IsType<PdfByteString>(Property(document, privateTree, "Shared"));
-            int expected = (attachment && operation is not ("remove" or "subset") ? 1 : 0) + (operation == "add" ? 1 : 0);
+            int expected = (attachment && operation != "remove" ? 1 : 0) + (operation == "add" ? 1 : 0);
             Assert.Equal(expected > 0, escaped.TryGet(PdfName.FromAscii("EmbeddedFiles"), out QpdfObject files));
             if (expected > 0)
             {

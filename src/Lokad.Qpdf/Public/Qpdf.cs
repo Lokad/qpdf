@@ -31,6 +31,8 @@ public static partial class Qpdf
     /// <summary>
     /// Copies the selected pages into a standalone PDF with default budgets. Streams
     /// travel opaquely; inherited page attributes are materialized.
+    /// The primary document's attachment collection is retained independently of
+    /// the selected pages, including first/last preview selections.
     /// </summary>
     public static ValueTask<PdfPageSelectionResult> SelectPageAsync(
         IQpdfHost host,
@@ -366,7 +368,7 @@ public static partial class Qpdf
                     PdfReference? singleOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, settings.PreserveCatalog, settings.Linearize, governor, cancellationToken);
                     (PdfReference? singleStructTree, QpdfObject? singleMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, settings.PreserveCatalog, settings.RemoveStructure, governor, cancellationToken);
                     IReadOnlyDictionary<PdfName, QpdfObject> singleExtras = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, settings.PreserveCatalog, settings.RemoveAcroform, governor, copyMemory, cancellationToken);
-                    SortedDictionary<string, AttachmentReference> singleExisting = PreserveExistingAttachments(copier, document.Engine, settings.Edits, settings.PreserveAttachments, limits, governor, diagnostics, copyMemory, cancellationToken);
+                    SortedDictionary<string, AttachmentReference> singleExisting = PreserveExistingAttachments(copier, document.Engine, settings.Edits, limits, governor, diagnostics, copyMemory, cancellationToken);
                     string? singlePageMode = ReadInputPageMode(document.Engine);
 
                     (bool singleCompress, string singleDecode, int? singleLevel) = ResolveCompression(settings.Compression, settings.Qdf.Enabled);
@@ -590,6 +592,8 @@ public static partial class Qpdf
 
     /// <summary>
     /// Copies pages from several inputs into one standalone PDF with explicit budgets.
+    /// The first source supplies the retained document attachment collection;
+    /// other sources contribute files reachable from their selected pages.
     /// </summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">No page source was supplied.</exception>
@@ -1084,7 +1088,7 @@ public static partial class Qpdf
                         ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryMarkRef.ObjectNumber, sizeof(int));
                     }
 
-                    primaryExisting = PreserveExistingAttachments(copier, document.Engine, settings.Edits, settings.PreserveAttachments, limits, governor, diagnostics, selectionMemory, cancellationToken);
+                    primaryExisting = PreserveExistingAttachments(copier, document.Engine, settings.Edits, limits, governor, diagnostics, selectionMemory, cancellationToken);
                     primaryPageMode = ReadInputPageMode(document.Engine);
                 }
 
@@ -3594,7 +3598,6 @@ public static partial class Qpdf
         GraphCopier copier,
         DocumentEngine engine,
         AttachmentEdits edits,
-        bool preserve,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
@@ -3604,46 +3607,43 @@ public static partial class Qpdf
         ownership.CheckOwner(governor);
         ownership.Reserve(96L);
         SortedDictionary<string, AttachmentReference> kept = new(StringComparer.Ordinal);
-        if (edits.HasEdits || preserve)
+        using ParserMemoryScope entriesMemory = ParserMemoryScope.Create(governor);
+        List<EmbeddedFileEntry> found = EmbeddedFiles.ReadEntries(engine, edits.Removes, limits, governor, ownership, entriesMemory, cancellationToken);
+        HashSet<string> replacements = ParserContainers.CreateSet<string>(entriesMemory);
+        foreach (AttachmentAdd add in edits.Adds)
         {
-            using ParserMemoryScope entriesMemory = ParserMemoryScope.Create(governor);
-            List<EmbeddedFileEntry> found = EmbeddedFiles.ReadEntries(engine, edits.Removes, limits, governor, ownership, entriesMemory, cancellationToken);
-            HashSet<string> replacements = ParserContainers.CreateSet<string>(entriesMemory);
-            foreach (AttachmentAdd add in edits.Adds)
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (add.Replace)
             {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                if (add.Replace)
-                {
-                    string key = add.Key ?? AttachmentBuilder.Basename(add.File, governor, entriesMemory, cancellationToken);
-                    ParserContainers.AddSetItem(entriesMemory, replacements, key, IntPtr.Size);
-                }
+                string key = add.Key ?? AttachmentBuilder.Basename(add.File, governor, entriesMemory, cancellationToken);
+                ParserContainers.AddSetItem(entriesMemory, replacements, key, IntPtr.Size);
             }
-            foreach (EmbeddedFileEntry attachment in found)
+        }
+        foreach (EmbeddedFileEntry attachment in found)
+        {
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (replacements.Contains(attachment.Key))
             {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                if (replacements.Contains(attachment.Key))
+                if (!kept.ContainsKey(attachment.Key)) { ownership.Reserve(64L); }
+                kept[attachment.Key] = new(attachment.Name, null); // Keep conflict information, not the discarded graph.
+                continue;
+            }
+            int firstId = copier.BeginCopyAttempt();
+            try
+            {
+                PdfReference? link = copier.AddIndirectObject(attachment.Spec);
+                if (link is not null)
                 {
                     if (!kept.ContainsKey(attachment.Key)) { ownership.Reserve(64L); }
-                    kept[attachment.Key] = new(attachment.Name, null); // Keep conflict information, not the discarded graph.
-                    continue;
+                    kept[attachment.Key] = new(attachment.Name, link);
                 }
-                int firstId = copier.BeginCopyAttempt();
-                try
-                {
-                    PdfReference? link = copier.AddIndirectObject(attachment.Spec);
-                    if (link is not null)
-                    {
-                        if (!kept.ContainsKey(attachment.Key)) { ownership.Reserve(64L); }
-                        kept[attachment.Key] = new(attachment.Name, link);
-                    }
-                }
-                catch (QpdfParseException)
-                {
-                    copier.RollbackCopyAttempt(firstId, cancellationToken);
-                    diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unpreservable attachment.");
-                }
-                finally { copier.EndCopyAttempt(); }
             }
+            catch (QpdfParseException)
+            {
+                copier.RollbackCopyAttempt(firstId, cancellationToken);
+                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unpreservable attachment.");
+            }
+            finally { copier.EndCopyAttempt(); }
         }
 
         return kept;
@@ -4051,7 +4051,7 @@ public static partial class Qpdf
             pruneUnreachableFields: false,
             limits: limits,
             recovery: plan.Recovery,
-            settings: SelectionSettings.FromPlan(plan, pruneEnabled: plan.SplitPages.HasValue) with { PreserveAttachments = true },
+            settings: SelectionSettings.FromPlan(plan, pruneEnabled: plan.SplitPages.HasValue),
             collation: null,
             verbatimLabels: verbatimTree,
             splitPages: plan.SplitPages,

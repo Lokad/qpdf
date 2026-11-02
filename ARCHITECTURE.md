@@ -66,6 +66,10 @@ publication; no second counting walk approximates the reader's result.
 When a primary document supplies no selected pages, the same copy loop admits its
 catalog graph without adding a page group or changing source mappings. Replacement
 targets the primary path independently of the selected page providers.
+Ordinary selection retains the primary document's attachment collection, independent
+of edits and selected page ranges. Other sources contribute page-reachable files;
+their document collections require explicit attachment import. An explicit empty
+primary starts without a collection, while a real zero-page input can own one.
 Whole-file rewrites select all pages through the existing governed range resolver
 without constructing and cloning a separate page-number vector.
 Rotation and both flattening consumers resolve indirect rotation scalars through

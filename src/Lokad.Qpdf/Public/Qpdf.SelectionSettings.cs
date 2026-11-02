@@ -38,7 +38,6 @@ public static partial class Qpdf
         internal required QdfOptions Qdf { get; init; }
         internal required ContentPrunePolicy Prune { get; init; }
         internal bool PreserveCatalog { get; init; }
-        internal bool PreserveAttachments { get; init; }
         internal bool Linearize { get; init; }
         internal QpdfPath? LinearizePass1 { get; init; }
 

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Retain the primary document's attachment collection during ordinary page
+  selection, including selections with no primary pages. Attachment edits change
+  that retained set; they no longer enable retention. Equivalent typed, argv and
+  job operations use the same rule. Secondary collections require explicit import;
+  use an explicit empty primary where supported when assembling a new document.
+
 - Preserve raw attachment names and file-specification graphs without decoding
   unused listing metadata. Replacements discard superseded graphs before copying,
   retaining independent aliases and original key-presence conflict checks. Retained

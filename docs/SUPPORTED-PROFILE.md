@@ -180,6 +180,15 @@ echoing values.
 
 ## Selection semantics
 
+- Ordinary selection preserves the primary document's attachment collection,
+  including when none of its pages are selected. Typed multi-source selection
+  uses its first source as primary; argv/job input identifies the primary separately
+  from selected page providers. Edits modify this existing set. Secondary sources
+  contribute page-reachable files without automatically importing their global
+  collections. An explicit empty primary starts with no collection; a real
+  zero-page input can own attachments. `FirstAndLast` chooses pages under the same
+  retention rule. Use empty-base assembly where supported for a deliberately new
+  document; the typed merge options currently have no explicit empty-base setting.
 - Explicit ordered pages by 1-based index (order and duplicates preserved),
   `FirstAndLast(N)` windows, or sorted/deduplicated `Normalized` sets; out-of-range
   indexes fail explicitly and empty explicit selections are rejected.
@@ -523,8 +532,8 @@ keys; listing order and request matching use decoded ordinal text.
   Counters charge staged output even when it is subsequently discarded.
   Explicit output paths use the host's staged transaction instead of stdout.
 - Catalog-preserving rewriting and selection retain nonattachment `/Names`
-  categories through the graph copier. Embedded files use the attachment-edit
-  path; ordinary page selection omits them unless attachment edits apply.
+  categories through the graph copier. Embedded files use the shared attachment
+  path; ordinary selection retains the primary collection independently of edits.
   `--add-attachment FILE [--key=] [--filename=] [--creationdate=] [--moddate=]
   [--mimetype=] [--description=] [--replace] --` (repeatable) embeds host
   files with key/filename defaulting to the path basename; unspecified dates

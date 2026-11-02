@@ -56,6 +56,15 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Ordinary page selection now retains the primary document's attachment collection
+even when no primary pages are selected. This intentional alpha behavior change
+replaces edit-dependent retention and aligns ordinary selection with native qpdf.
+Explicit edits modify that collection; secondary collections require explicit import.
+Managed split outputs continue retaining the final collection in every output.
+For a new document assembled only from page graphs, use an explicit empty primary
+where supported. Retained data can increase resource cost or expose profile errors;
+limits still fail atomically instead of omitting attachments as a fallback.
+
 The **0.1.0-alpha.2** host integration deliberately changes these alpha APIs:
 
 - `IQpdfInput.ReadAsync` fills caller-supplied `Memory<byte>` and returns a byte
