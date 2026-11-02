@@ -61,7 +61,7 @@ public sealed class RecoveryCatalogTests
         objects[root - 1] = (root, "<< /Type " + rootType + " /Pages 2 0 R /Audit (" + marker + ")" + alias
             + (embedded ? " /Carrier 4 0 R" : "") + " >>", null);
         objects[1] = (2, "<< /Type /Pages /Kids [" + page + " 0 R] /Count 1 >>", null);
-        objects[page - 1] = (page, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] >>", null);
+        objects[page - 1] = (page, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null);
         if (type > 0 && type != root) { objects[type - 1] = (type, "/" + scalarName, null); }
         if (backup) { objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /Audit (backup) >>", null); }
         if (kind == "embedded-stream-header")

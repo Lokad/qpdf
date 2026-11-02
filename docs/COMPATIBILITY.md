@@ -64,7 +64,7 @@ chooses the last live catalog. Parsed string/stream payloads do not supply new
 top-level headers. Strict opening, structural limits and crypto exclusions remain.
 Native qpdf can retain an overwritten catalog or select header-looking stream
 data in these damaged-input cases. Its fallback rewrites can also omit `/Size`;
-managed rewrites require a complete, strictly readable output.
+managed rebuilt tables and output trailers include the computed size.
 
 Invalid JSON-key diagnostics now use a bounded prefix ending in `...` for long
 keys, including terminal failures after ordinary diagnostic storage is exhausted.
