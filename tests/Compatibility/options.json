@@ -5815,6 +5815,7 @@
           "LabelTests.ArgvSetPageLabelsMatchesTyped",
           "LabelTests.JobSetPageLabelsMatchesArgv",
           "LabelTests.PrefixEncodingsFollowUpstream",
+          "LabelOutputOwnershipTests.PrefixEncodingPreservesSurrogateBoundariesAndUndefinedPdfDocCharacters",
           "LabelTests.MergeConcatenatesSourceLabelsWithOffsets",
           "LabelTests.MergePutsUnlabeledFirst",
           "LabelTests.MergeMatchesArgvAndJob",
@@ -5831,6 +5832,7 @@
         ],
         "negative": [
           "LabelTests.LabelOrderRulesFailCleanly",
+          "LabelPrefixValidationTests.TypedLabelsRejectInvalidUtf16BeforePublicationAndRefundPrivateStorage",
           "LabelTests.ArgvLabelFormsFailExplicitly",
           "LabelTests.MalformedLabelTreeFailsExplicitly",
           "LabelTests.LabelMergeYieldsToExhaustedBudget",

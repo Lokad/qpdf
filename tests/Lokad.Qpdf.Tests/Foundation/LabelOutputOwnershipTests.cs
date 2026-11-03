@@ -194,31 +194,26 @@ public sealed class LabelOutputOwnershipTests(ITestOutputHelper log)
     public async Task LargeTypedPrefixesRejectBeforeAllocatingUnadmittedEncoding()
     {
         string prefix = new('p', 4 * 1024 * 1024);
-        List<string> defects = [];
-        foreach (bool work in new[] { false, true })
-        {
-            InMemoryQpdfHost host = new(); host.AddInput(Input, Fixture(), QpdfInputOwnership.Copy);
-            await using (IQpdfOutputTransaction seed = await host.CreateOutputAsync(Output, CancellationToken.None))
-            { await seed.WriteAsync(Prior, CancellationToken.None); await seed.CommitAsync(CancellationToken.None); }
-            QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 2L * 1024 * 1024};
-            PdfPageMergeOptions options = new() { Labels = [new(1, PdfPageLabelStyle.Decimal, 1, prefix)] };
-            PdfPageSource[] sources = [new(Input, PdfPageSelectionOptions.FromPages([1]))];
-            long allocated = GC.GetTotalAllocatedBytes(true);
-            QpdfLimitException failure = await Assert.ThrowsAsync<QpdfLimitException>(() => Qpdf.SelectPagesAsync(host, sources, Output, options, limits, CancellationToken.None).AsTask());
-            long delta = GC.GetTotalAllocatedBytes(true) - allocated;
-            log.WriteLine("LABEL BUDGET {0} allocation={1}", work ? "work" : "memory", delta);
-            Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
-            if (delta >= prefix.Length) { defects.Add((work ? "work" : "memory") + ":" + delta); }
-            Assert.Equal(0L, host.OpenLeaseCount); Assert.True(host.TryGetOutput(Output, out byte[] prior)); Assert.Equal(Prior, prior);
-        }
-        Assert.True(defects.Count == 0, "Unadmitted prefix encoding allocated before public rejection: " + string.Join(',', defects));
+        using InMemoryQpdfHost host = new(); host.AddInput(Input, Fixture(), QpdfInputOwnership.Copy);
+        await using (IQpdfOutputTransaction seed = await host.CreateOutputAsync(Output, CancellationToken.None))
+        { await seed.WriteAsync(Prior, CancellationToken.None); await seed.CommitAsync(CancellationToken.None); }
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 2L * 1024 * 1024 };
+        PdfPageMergeOptions options = new() { Labels = [new(1, PdfPageLabelStyle.Decimal, 1, prefix)] };
+        PdfPageSource[] sources = [new(Input, PdfPageSelectionOptions.FromPages([1]))];
+        long allocated = GC.GetTotalAllocatedBytes(true);
+        QpdfLimitException failure = await Assert.ThrowsAsync<QpdfLimitException>(() => Qpdf.SelectPagesAsync(host, sources, Output, options, limits, CancellationToken.None).AsTask());
+        long delta = GC.GetTotalAllocatedBytes(true) - allocated;
+        log.WriteLine("LABEL MEMORY allocation={0}", delta);
+        Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
+        Assert.True(delta < prefix.Length, "Unadmitted prefix encoding allocated before public rejection: " + delta);
+        Assert.Equal(0L, host.OpenLeaseCount); Assert.True(host.TryGetOutput(Output, out byte[] prior)); Assert.Equal(Prior, prior);
     }
 
     [Fact]
     public async Task PrefixEncodingPreservesSurrogateBoundariesAndUndefinedPdfDocCharacters()
     {
-        string[] prefixes = [new string('p', 255) + "\ud83d\ude00tail", new string('p', 255) + "\ud83dtail",
-            new string('p', 256) + "\ude00tail", "\u007f\u00e9"];
+        string[] prefixes = [new string('p', 255) + "\ud83d\ude00tail", new string('p', 511) + "\ud83d\ude00tail",
+            "\ufffd", "\ufefftext", "\u007f\u00e9"];
         foreach (string prefix in prefixes)
         {
             InMemoryQpdfHost host = new(); host.AddInput(Input, Fixture(), QpdfInputOwnership.Copy);

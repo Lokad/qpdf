@@ -245,6 +245,9 @@ stream payloads while their operation owns the backing input through publication
 Retaining/async sinks receive independent immutable packets. Exclusive multisource
 inputs transfer payload/backing admission to the job before earlier documents
 close; rewritten headers borrow those immutable bytes through publication.
+Writer/import version carriers use private job storage. Typed checking admits its
+escaping version in the existing result batch; public document version properties
+keep their caller ownership. Failed private negotiation leaves no version charge.
 
 Failed or canceled operations discard uncommitted staging and close their leases.
 Host lease wrappers are allocated before acquisition. Completed host operations

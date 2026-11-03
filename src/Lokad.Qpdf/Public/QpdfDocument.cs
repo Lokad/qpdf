@@ -105,10 +105,6 @@ public sealed class QpdfDocument : IAsyncDisposable
 
     internal DocumentEngine Engine => _engine ?? throw new ObjectDisposedException(nameof(QpdfDocument));
 
-    // Complete jobs keep the parsed graph exclusive, but their negotiated
-    // version may outlive a private source. Retain only that immutable carrier.
-    internal PdfVersion OwnVersion() => _version ?? _governor.OwnVersion(_effectiveVersionParts.Major, _effectiveVersionParts.Minor);
-
     internal IReadOnlyList<PageLocation> PageReferences => _inspectionPages ?? _pages ?? throw new ObjectDisposedException(nameof(QpdfDocument));
 
     internal void SetInspectionPages(IReadOnlyList<PageLocation>? pages) => _inspectionPages = pages;

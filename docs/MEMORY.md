@@ -15,6 +15,9 @@ kept-page snapshot; multisource range/snapshot scratch refunds when that source
 finishes. Preservation reuses its cycle set instead of allocating one per page.
 Copied graph pool tables and page-child backing stay funded through publication.
 Returned immutable selection metadata keeps its separate caller ownership.
+Private writer/import version carriers refund with their job, including failed
+or canceled selection. Typed checking funds its returned version in the result
+batch; public document versions remain caller-owned after document disposal.
 
 Unreferenced preservation admits its candidate list and uses the same copy-table
 growth as ordinary copying. One reusable list records new source identities for

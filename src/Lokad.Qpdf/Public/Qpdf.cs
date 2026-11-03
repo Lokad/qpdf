@@ -441,7 +441,8 @@ public static partial class Qpdf
                     copier.AdvanceNextId(flattenAllocator);
 
                     int inputExtension = Content.CatalogCopy.ReadExtensionLevel(document.Engine, governor, cancellationToken);
-                    (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(document.OwnVersion(), inputExtension, settings.MinVersion, settings.ForceVersion, governor);
+                    PdfVersion sourceVersion = governor.PrivateVersion(document.EffectiveVersionParts.Major, document.EffectiveVersionParts.Minor);
+                    (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(sourceVersion, inputExtension, settings.MinVersion, settings.ForceVersion, governor);
                     string streamMode = ResolveObjectStreamMode(settings.ObjectStreams);
                     if (settings.ForceVersion is not null && CompareVersions(negotiated.Major, negotiated.Minor, 1, 5) < 0)
                     {
@@ -517,7 +518,7 @@ public static partial class Qpdf
                     int extensionLevel = negotiatedExtension;
                     if (singleCompressed.Count > 0 && CompareVersions(effective.Major, effective.Minor, 1, 5) < 0)
                     {
-                        effective = governor.OwnVersion(1, 5);
+                        effective = governor.PrivateVersion(1, 5);
                         extensionLevel = 0;
                     }
 
@@ -971,7 +972,7 @@ public static partial class Qpdf
                 document.Engine.BorrowImmutableStreamData = !catalogOnly && sources.Count == 1 && !document.Engine.HasSelectiveInput;
                 if (!catalogOnly && (settings.ExternalizeInlineImages || (settings.Optimize.Optimize && !settings.Optimize.KeepInline))) { document.PrepareInlinePageResources(cancellationToken); }
                 if (!catalogOnly) { ParserContainers.AddItem(selectionMemory, sourceCounts, document.PageReferences.Count, sizeof(int)); }
-                PdfVersion sourceVersion = document.OwnVersion();
+                PdfVersion sourceVersion = governor.PrivateVersion(document.EffectiveVersionParts.Major, document.EffectiveVersionParts.Minor);
                 if (version is null || IsNewerVersion(sourceVersion, version))
                 {
                     version = sourceVersion;
@@ -1350,7 +1351,7 @@ public static partial class Qpdf
                 catalogLabels = verbatimCopied;
             }
         }
-        PdfVersion inputMax = version ?? governor.OwnVersion(1, 4);
+        PdfVersion inputMax = version ?? governor.PrivateVersion(1, 4);
         (PdfVersion negotiatedMulti, int negotiatedMultiExtension) = NegotiateVersion(inputMax, inputExtension, settings.MinVersion, settings.ForceVersion, governor);
         string multiStreamMode = ResolveObjectStreamMode(settings.ObjectStreams);
         if (settings.ForceVersion is not null && CompareVersions(negotiatedMulti.Major, negotiatedMulti.Minor, 1, 5) < 0)
@@ -1363,7 +1364,7 @@ public static partial class Qpdf
         int extensionLevel = negotiatedMultiExtension;
         if (multiCompressed.Count > 0 && CompareVersions(effective.Major, effective.Minor, 1, 5) < 0)
         {
-            effective = governor.OwnVersion(1, 5);
+            effective = governor.PrivateVersion(1, 5);
             extensionLevel = 0;
         }
 
@@ -2933,7 +2934,7 @@ public static partial class Qpdf
         if (forceText is not null)
         {
             (int major, int minor, int ext) = ParseWriterVersion(forceText, "--force-version");
-            return (governor.OwnVersion(major, minor), ext);
+            return (governor.PrivateVersion(major, minor), ext);
         }
 
         if (minText is null)
@@ -2950,7 +2951,7 @@ public static partial class Qpdf
 
         if (order < 0)
         {
-            return (governor.OwnVersion(minMajor, minMinor), minExt);
+            return (governor.PrivateVersion(minMajor, minMinor), minExt);
         }
 
         return (inputMax, Math.Max(inputExtension, minExt));
@@ -4931,21 +4932,24 @@ public static partial class Qpdf
         diagnostics.ReportPageCountMismatch = false;
         List<QpdfCheckOutcome> checks;
         int pageCount;
-        PdfVersion version;
+        QpdfDocument.VersionParts versionParts;
         await using (QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false))
         {
             checks = DocumentCheck.Run(document, options, limits, governor, diagnostics, false, cancellationToken);
             pageCount = document.PageCount;
-            version = document.OwnVersion();
+            versionParts = document.EffectiveVersionParts;
             if (showNpages && !checks.Exists(static outcome => outcome.Status == QpdfCheckStatus.Failed))
             {
                 AddPageCountDiagnostic(document, inputPath, diagnostics);
             }
         }
         using OwnedAllocationBatch resultStorage = OwnedAllocationBatch.Create(governor, cancellationToken);
+        resultStorage.Memory.Reserve(PdfVersion.StorageBytes);
+        PdfVersion version = new(versionParts.Major, versionParts.Minor); resultStorage.Add(PdfVersion.StorageBytes);
         IReadOnlyList<QpdfCheckOutcome> resultChecks = ResultCollectionStorage.Copy(resultStorage, checks, IntPtr.Size);
         IReadOnlyList<QpdfDiagnostic> resultDiagnostics = ResultCollectionStorage.Copy(resultStorage, diagnostics.Entries, IntPtr.Size);
-        resultStorage.RetainResult();
+        if (governor.HasTypedResult) { resultStorage.RetainResult(); }
+        else { resultStorage.Retain(); }
         return new TypedCheckOutcome(pageCount, version, resultChecks, resultDiagnostics);
     }
 

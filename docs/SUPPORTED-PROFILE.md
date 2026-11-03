@@ -225,7 +225,9 @@ echoing values.
   arrays, keys and starts retain their direct-value semantics. Optional Names/Nums/
   Kids arrays resolve explicit null references as absent; malformed required values
   and unresolved references retain their failure policy. An optional split group size partitions
-  output through the same engine.
+  output through the same engine. Typed explicit prefixes reject invalid UTF-16
+  before publication; valid surrogate pairs, literal U+FFFD and BOM-looking text
+  retain their values with bounded validation and encoding.
 - Output carries a fresh catalog with the copied pages only; each occurrence is an
   independent page object sharing immutable resources. Shared non-page objects
   are copied once; `/Parent` links are dropped. Results carry the source page

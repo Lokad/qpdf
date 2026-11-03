@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Reject invalid UTF-16 in typed page-label prefixes before publication, retaining
+  valid surrogate pairs and literal replacement/BOM-looking text. Remove the
+  stale duplicate "work" iteration from the prefix memory-refusal test.
+
+- Refund private writer/import version carriers on completion, failure and
+  cancellation. Keep public document versions and typed check-result versions
+  funded under their existing caller/result owners.
+
 - Treat resolved null optional Names/Nums/Kids arrays like direct null in
   attachment and page-label walkers. Keep malformed required entries, missing
   references, cycles and bounds explicit, including selective extraction.

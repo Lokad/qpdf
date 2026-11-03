@@ -496,6 +496,19 @@ internal sealed class ResourceGovernor
         catch { ReleaseCallerMetadata(PdfVersion.StorageBytes); throw; }
     }
 
+    internal PdfVersion PrivateVersion(int major, int minor)
+    {
+        CheckCancellation();
+        ReserveMemory(PdfVersion.StorageBytes);
+        try
+        {
+            PdfVersion version = new(major, minor);
+            RetainPrivateStorage(PdfVersion.StorageBytes);
+            return version;
+        }
+        catch { ReleaseMemory(PdfVersion.StorageBytes); throw; }
+    }
+
     internal QpdfExecutionCounters OwnedSnapshot()
     {
         CheckCancellation();

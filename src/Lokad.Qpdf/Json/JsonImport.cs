@@ -416,7 +416,7 @@ internal static partial class JsonImport
             throw new QpdfParseException("Unsupported PDF version " + major.ToString(CultureInfo.InvariantCulture) + "." + minor.ToString(CultureInfo.InvariantCulture) + ".", 0L, null);
         }
 
-        return governor.OwnVersion(major, minor);
+        return governor.PrivateVersion(major, minor);
     }
 
     private static bool TryParseVersionPart(ReadOnlySpan<char> text, out int value)

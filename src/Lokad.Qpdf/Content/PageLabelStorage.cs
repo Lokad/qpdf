@@ -79,11 +79,17 @@ internal static class PageLabelStorage
         bool ascii = true;
         for (int offset = 0; offset < prefix.Length;)
         {
-            int count = Math.Min(256, prefix.Length - offset); Step(graph);
+            int count = Math.Min(256, prefix.Length - offset);
+            if (offset + count < prefix.Length && char.IsHighSurrogate(prefix[offset + count - 1])
+                && char.IsLowSurrogate(prefix[offset + count])) { count++; }
+            Step(graph); bool blockAscii = true;
             for (int i = offset; i < offset + count; i++)
             {
-                ascii &= Attachments.PdfText.IsAsciiTextCharacter(prefix[i]);
+                blockAscii &= Attachments.PdfText.IsAsciiTextCharacter(prefix[i]);
             }
+            if (!blockAscii && !GovernedText.IsValidUtf16(prefix.AsSpan(offset, count), graph.Governor))
+            { throw new QpdfParseException("Page-label prefix contains invalid UTF-16.", null, null); }
+            ascii &= blockAscii;
             offset += count;
         }
         int length = ascii ? prefix.Length : Attachments.PdfText.GetEncodedLength(prefix, graph.Governor, graph.Token);

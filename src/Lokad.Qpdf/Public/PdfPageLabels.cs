@@ -55,5 +55,6 @@ public sealed record PdfPageLabel
     public int? Start { get; }
 
     /// <summary>Gets the prepended prefix, or null for none.</summary>
+    /// <remarks>Execution rejects ill-formed UTF-16 instead of replacing invalid code units.</remarks>
     public string? Prefix { get; }
 }
