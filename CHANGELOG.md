@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Preserve imported attachment key identity when graph copying fails. Later
+  imports with the same final prefixed key now reject in either request order,
+  while unrelated imports and distinct prefixes retain their recovery behavior.
+
 - Treat resolved-null AcroForm roots and optional field entries like direct null
   when copying or inspecting forms. Preserve terminal field identity and inherited
   values, including flags, names, choices and quadding; retain existing malformed

@@ -630,6 +630,9 @@ entry can therefore remain unlistable; extraction still requires a valid file
 specification and embedded stream. Edit counts describe retained name-tree entries.
 Replacement excludes the superseded specification before copying it, while its
 original key still governs conflicts. Independently retained aliases remain live.
+Imported keys also retain their final prefixed identity after a recoverable
+copy failure, so later collisions reject regardless of request order. Repeating
+a failed source cannot waive a collision; distinct prefixes remain independent.
 Missing keys and duplicate removal requests fail before publication.
 Removed/replaced attachment-only graphs are excluded from output by default.
 References from retained pages, catalog data or other attachments keep shared

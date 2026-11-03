@@ -94,7 +94,8 @@ bounded name-tree walk used by inspection and selective extraction. Display fiel
 are projected only for inspection. Temporary entry arrays have a separate owner;
 copied names and specification graphs keep their source admission through publication.
 Removal and replacement survival is decided before copying discarded specifications,
-while original key presence still governs conflicts. Recoverable copy attempts catch
+while original and requested imported key presence still govern conflicts, including
+after recoverable graph-copy failures. Recoverable copy attempts catch
 malformed-data errors; retained profile, admission and host failures abort publication.
 Catalog preparation resolves PageMode once, independently of generic extras and
 attachment storage. Existing name bytes stay borrowed with their source ownership;

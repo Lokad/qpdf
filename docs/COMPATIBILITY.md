@@ -136,6 +136,14 @@ qpdf can retain the indirect spelling or widget identity in these cases; managed
 inspection deliberately keeps its terminal-field and resolved-value contract.
 Public signatures are unchanged.
 
+Attachment import conflicts now use requested keys even when an earlier graph
+cannot be preserved. Reversing import order no longer changes whether a collision
+rejects; prefixes apply before this decision, and warning controls cannot waive
+it. Native also rejects both orders for contained catalog/page-tree graphs. Its
+name-tree repair can drop missing specifications before conflict checking;
+managed imports retain their raw key identity, consistently with primary entries.
+Unrelated failed copies still warn/skip and disappear from the final collection.
+
 Optional attachment name-tree and page-label number-tree arrays now classify
 resolved values before testing presence. Indirect null Names/Nums/Kids behaves
 like direct null or absence, including nonempty data in the other branch.

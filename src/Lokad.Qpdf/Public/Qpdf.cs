@@ -3789,6 +3789,10 @@ public static partial class Qpdf
                     continue;
                 }
 
+                // Keep the requested key even if its graph cannot be copied.
+                // Failed placeholders retire only after all imports check conflicts.
+                ownership.Reserve(64L); // SortedDictionary node; key text is funded separately.
+                existing.Add(newKey, new(attachment.Name, null));
                 PdfReference? link;
                 int firstId = copyCopier.BeginCopyAttempt();
                 try
@@ -3809,7 +3813,6 @@ public static partial class Qpdf
                     continue;
                 }
 
-                ownership.Reserve(64L); // SortedDictionary node; key text is funded separately.
                 PdfByteString name = string.IsNullOrEmpty(copy.Prefix) ? attachment.Name
                     : AttachmentBuilder.EncodeText(newKey, governor, ownership, cancellationToken);
                 existing[newKey] = new(name, link);
