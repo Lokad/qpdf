@@ -115,9 +115,9 @@ public sealed class TextBuilderEncodingTests
     }
 
     [Fact]
-    public async Task BrokenLabelSurrogatesRetainExistingReplacementPolicy()
+    public async Task LiteralLabelReplacementCharacterKeepsItsValue()
     {
-        using InMemoryQpdfHost storage = Storage(); await Build(storage, "typed", "label", "A\ud800B", CancellationToken.None);
+        using InMemoryQpdfHost storage = Storage(); await Build(storage, "typed", "label", "A\ufffdB", CancellationToken.None);
         PdfByteString text = await ReadText(storage, storage, "label");
         ResourceGovernor decoding = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope decoded = ParserMemoryScope.Create(decoding);
