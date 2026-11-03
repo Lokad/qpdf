@@ -779,13 +779,7 @@ internal static class GenerateAppearances
             return stream.RawMemory;
         }
 
-        foreach (FilterStage stage in stages)
-        {
-            if (!IsDecodable(stage.Name))
-            {
-                return null;
-            }
-        }
+        if (!FilterChain.AllStagesInLevel(stages, "specialized")) { return null; }
 
         try
         {
@@ -795,15 +789,6 @@ internal static class GenerateAppearances
         {
             return null;
         }
-    }
-
-    private static bool IsDecodable(string filter)
-    {
-        return filter == FlateFilter.FilterName
-            || filter == LzwFilter.FilterName
-            || filter == AsciiHexFilter.FilterName
-            || filter == Ascii85Filter.FilterName
-            || filter == RunLengthFilter.FilterName;
     }
 
     internal readonly record struct TfResult(double Size, byte[] FontName, ReadOnlyMemory<byte> Appearance);

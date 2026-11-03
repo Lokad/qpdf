@@ -6,12 +6,6 @@ namespace Lokad.Qpdf.Content;
 /// <summary>Builds fresh resource containers while borrowing immutable keys, values and payloads.</summary>
 internal static class ResourceRebuild
 {
-    internal static PdfNameTable<QpdfObject> CreateEntries(OwnedAllocationBatch graph, out long allocation)
-        => PdfDictionaryRebuild.CreateEntries(graph, out allocation);
-
-    internal static PdfDictionary Complete(OwnedAllocationBatch graph, PdfNameTable<QpdfObject> entries, long allocation)
-        => PdfDictionaryRebuild.Complete(graph, entries, allocation);
-
     internal static PdfDictionary ReplaceResources(OwnedAllocationBatch graph, PdfDictionary source, PdfDictionary resources)
         => PdfDictionaryRebuild.ReplaceEntry(graph, source, "Resources"u8, resources);
 

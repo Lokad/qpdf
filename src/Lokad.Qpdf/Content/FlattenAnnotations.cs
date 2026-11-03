@@ -168,7 +168,7 @@ internal static class FlattenAnnotations
             // One live set of fixed-size matrices and one formatted scalar at a
             // time. Growing content and resource containers are admitted separately.
             graph.Memory.Reserve(2048L);
-            PdfNameTable<QpdfObject> xobjects = ResourceRebuild.CreateEntries(graph, out long resourceAllocation);
+            PdfNameTable<QpdfObject> xobjects = PdfDictionaryRebuild.CreateEntries(graph, out long resourceAllocation);
             if (ResolveXObjects(resources, resolver) is PdfDictionary existing)
             {
                 using PdfDictionary.EntryEnumerator source = existing.GetEntryEnumerator();
@@ -211,7 +211,7 @@ internal static class FlattenAnnotations
             PdfDictionary outputResources = resources;
             if (stamped.Length > 3)
             {
-                PdfDictionary xobjectDictionary = ResourceRebuild.Complete(graph, xobjects, resourceAllocation);
+                PdfDictionary xobjectDictionary = PdfDictionaryRebuild.Complete(graph, xobjects, resourceAllocation);
                 outputResources = PdfDictionaryRebuild.ReplaceEntry(graph, resources, "XObject"u8, xobjectDictionary);
             }
             else { graph.UpdateBytes(resourceAllocation, 0L); }

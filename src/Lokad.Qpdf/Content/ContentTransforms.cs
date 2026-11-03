@@ -998,7 +998,7 @@ internal static class ContentTransforms
                 continue;
             }
 
-            PdfNameTable<QpdfObject> kept = ResourceRebuild.CreateEntries(graph, out long allocation);
+            PdfNameTable<QpdfObject> kept = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
             if (sectionIndex == 0) { fonts = kept; fontAllocation = allocation; }
             else { xobjects = kept; xobjectAllocation = allocation; }
             using var sectionEntries = sectionDict.GetEntryEnumerator();
@@ -1034,7 +1034,7 @@ internal static class ContentTransforms
             return;
         }
 
-        PdfNameTable<QpdfObject> resourcesEntries = ResourceRebuild.CreateEntries(graph, out long resourceAllocation);
+        PdfNameTable<QpdfObject> resourcesEntries = PdfDictionaryRebuild.CreateEntries(graph, out long resourceAllocation);
         PdfName? fontKey = null, xobjectKey = null;
         using var resourceEntries = resources.GetEntryEnumerator();
         while (resourceEntries.MoveNext(governor, cancellationToken))
@@ -1051,15 +1051,15 @@ internal static class ContentTransforms
 
         if (fonts is not null)
         {
-            PdfDictionary kept = ResourceRebuild.Complete(graph, fonts, fontAllocation);
+            PdfDictionary kept = PdfDictionaryRebuild.Complete(graph, fonts, fontAllocation);
             resourcesEntries.Assign(graph.Memory, governor, fontKey ?? throw new InvalidOperationException("Font resource key is missing."), kept, cancellationToken);
         }
         if (xobjects is not null)
         {
-            PdfDictionary kept = ResourceRebuild.Complete(graph, xobjects, xobjectAllocation);
+            PdfDictionary kept = PdfDictionaryRebuild.Complete(graph, xobjects, xobjectAllocation);
             resourcesEntries.Assign(graph.Memory, governor, xobjectKey ?? throw new InvalidOperationException("XObject resource key is missing."), kept, cancellationToken);
         }
-        PdfDictionary rebuilt = ResourceRebuild.Complete(graph, resourcesEntries, resourceAllocation);
+        PdfDictionary rebuilt = PdfDictionaryRebuild.Complete(graph, resourcesEntries, resourceAllocation);
         if (isPage)
         {
             if (page is null)
