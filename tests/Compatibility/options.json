@@ -4375,6 +4375,9 @@
       "evidence": {
         "positive": [
           "ContentTransformsTests.NormalizeRewritesNewlines",
+          "NormalizedContentIdentityTests.NormalizationChangesPageEdgesAndPreservesIndependentPayloads",
+          "NormalizedContentIdentityTests.SkippedSharedStreamsWarnOnceAndKeepTheirBytes",
+          "NormalizedContentIdentityTests.NormalizationFailuresPreserveTargetsAndRefundStorage",
           "ContentTransformsTests.NormalizeDecodesFlate"
         ],
         "negative": [

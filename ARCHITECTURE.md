@@ -110,7 +110,11 @@ pool and retiring only unreachable original content arrays and streams. An
 operation-scoped identity cache shares the joined stream for repeated references
 to the same immutable array without changing that array. Inline externalization
 also retires original content from final roots after creating new stream identities;
-there is no per-page pool-removal plan or source-map mutation. Ordinary
+there is no per-page pool-removal plan or source-map mutation. Content
+normalization replaces page edges and keeps an original stream or array
+for independent catalog, metadata or attachment roots. Its existing per-operation
+cache shares replacements while the source pool version matches, including cached
+failed attempts. Ordinary
 adds and removals need no extra graph scan. Split attachment
 roots come only from the final name tree. Shared references and explicit
 unreferenced-object preservation retain their existing ownership and policy.

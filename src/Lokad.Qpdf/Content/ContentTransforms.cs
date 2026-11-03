@@ -105,8 +105,8 @@ internal static class ContentTransforms
 
         int beforeTransforms = copier.NextId;
         using ParserMemoryScope phase = ParserMemoryScope.Create(governor);
-        GovernedIntDictionary<PdfStream>? normalized = request.Normalize
-            ? GovernedIntDictionary<PdfStream>.Create(phase, governor, IntPtr.Size, cancellationToken) : null;
+        GovernedIntDictionary<(PdfStream Source, PdfReference? Replacement)>? normalized = request.Normalize
+            ? GovernedIntDictionary<(PdfStream Source, PdfReference? Replacement)>.Create(phase, governor, 2L * IntPtr.Size, cancellationToken) : null;
         Dictionary<PdfArray, PdfReference>? coalesced = null;
         if (request.Coalesce)
         {
@@ -322,7 +322,7 @@ internal static class ContentTransforms
         GraphCopier copier,
         int pageId,
         PdfDictionary page,
-        GovernedIntDictionary<PdfStream> normalized,
+        GovernedIntDictionary<(PdfStream Source, PdfReference? Replacement)> normalized,
         ParserMemoryScope phase,
         QpdfLimits limits,
         ResourceGovernor governor,
@@ -337,7 +337,7 @@ internal static class ContentTransforms
 
         using ParserMemoryScope rewriteMemory = ParserMemoryScope.Create(governor);
         PoolResolver resolver = PoolResolver.Create(rewriteMemory, copier.CopiedObjects);
-        GovernedIntDictionary<PdfStream>? rewritten = GovernedIntDictionary<PdfStream>.Create(rewriteMemory, governor, IntPtr.Size, cancellationToken);
+        GovernedIntDictionary<QpdfObject>? rewritten = GovernedIntDictionary<QpdfObject>.Create(rewriteMemory, governor, IntPtr.Size, cancellationToken);
         try
         {
             for (int entryIndex = 0; entryIndex < entries.Count; entryIndex++)
@@ -348,19 +348,23 @@ internal static class ContentTransforms
                 PdfStream stream = entry.Stream;
                 if (entry.ObjectId is int identity)
                 {
-                    // Other page transforms may replace a shared stream. Cache
-                    // only the current pool version, including failed attempts.
+                    // A different transform can replace the source pool slot.
+                    // Share normalization only while that source version matches.
                     if (copier.CopiedObjects.TryGetValue(identity, out QpdfObject? poolValue) && poolValue is PdfStream found) { stream = found; }
-                    if (normalized.TryGetValue(identity, out PdfStream? previous) && ReferenceEquals(previous, stream)) { continue; }
+                    if (normalized.TryGetValue(identity, out var previous) && ReferenceEquals(previous.Source, stream))
+                    {
+                        if (previous.Replacement is PdfReference cached) { rewritten.Assign(rewriteMemory, entry.ArrayIndex, cached); }
+                        continue;
+                    }
                 }
                 PdfStream? replacement = BuildNormalizedContent(stream, resolver, limits, governor, diagnostics, cancellationToken);
-                if (entry.ObjectId is int id) { normalized.Assign(phase, id, replacement ?? stream); }
-                if (replacement is null) { continue; }
-                if (entry.ObjectId.HasValue)
+                if (entry.ObjectId is int id)
                 {
-                    copier.ReplaceCopiedObject(entry.ObjectId.Value, replacement);
+                    PdfReference? link = replacement is null ? null : copier.AddIndirectObjectWithId(replacement, copier.NextId);
+                    normalized.Assign(phase, id, (stream, link));
+                    if (link is not null) { rewritten.Assign(rewriteMemory, entry.ArrayIndex, link); }
                 }
-                else
+                else if (replacement is not null)
                 {
                     rewritten.Assign(rewriteMemory, entry.ArrayIndex, replacement);
                 }
@@ -430,7 +434,7 @@ internal static class ContentTransforms
     private static PdfDictionary ReplaceContentEntries(
         GraphCopier copier,
         PdfDictionary page,
-        GovernedIntDictionary<PdfStream> rewritten,
+        GovernedIntDictionary<QpdfObject> rewritten,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
@@ -439,20 +443,11 @@ internal static class ContentTransforms
             return page;
         }
 
-        if (contents is PdfStream)
-        {
-            foreach (KeyValuePair<int, PdfStream> entry in rewritten)
-            {
-                return ReplaceEntry(page, "Contents"u8, entry.Value, governor, cancellationToken);
-            }
-
-            return page;
-        }
-
-        PdfReference? arrayLink = contents as PdfReference;
         QpdfObject? target = contents;
-        if (arrayLink is not null)
-        { PdfObjectLookup.TryResolve(arrayLink, copier.CopiedObjects, governor, cancellationToken, out target); }
+        if (contents is PdfReference link)
+        { PdfObjectLookup.TryResolve(link, copier.CopiedObjects, governor, cancellationToken, out target); }
+        if (target is PdfStream && rewritten.TryGetValue(0, out QpdfObject? single))
+        { return ReplaceEntry(page, "Contents"u8, single, governor, cancellationToken); }
         if (target is PdfArray array)
         {
             using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
@@ -467,7 +462,7 @@ internal static class ContentTransforms
             for (int i = 0; i < array.Count; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                if (rewritten.TryGetValue(i, out PdfStream? replacement))
+                if (rewritten.TryGetValue(i, out QpdfObject? replacement))
                 {
                     items[i] = replacement;
                     continue;
@@ -476,8 +471,6 @@ internal static class ContentTransforms
                 items[i] = array[i];
             }
             graph.Memory.Reserve(24L); PdfArray rebuilt = PdfArray.FromOwnedItems(items); graph.Add(24L);
-            if (arrayLink is not null)
-            { graph.Retain(); copier.ReplaceCopiedObject(arrayLink.ObjectNumber, rebuilt); return page; }
             PdfDictionary result = PdfDictionaryRebuild.ReplaceEntry(graph, page, "Contents"u8, rebuilt); graph.Retain(); return result;
         }
 

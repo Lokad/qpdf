@@ -56,6 +56,12 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Content normalization, including QDF defaults, now replaces page content edges
+while preserving original streams and arrays retained by other roots. In
+particular, an embedded file sharing a page stream keeps its exact decoded bytes.
+Native qpdf can change that payload during normalization; managed preservation
+intentionally strengthens this case. Output object numbering and sharing can change.
+
 Inline-image externalization now retains original content streams and arrays
 referenced by independent catalog values. Previously those aliases could disappear,
 or QDF output could fail on an unmapped object. Retirement now uses the complete

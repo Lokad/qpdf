@@ -433,6 +433,9 @@ Numbers are normalized lexically under the existing cancellation/output bounds.
   unless `--preserve-unreferenced` applies.
   `--normalize-content=y` rewrites newlines to LF and recodes strings
   and names canonically, keeping damaged streams with a warning.
+  It replaces page content edges while independent catalog, metadata and
+  attachment roots retain the original stream/array values. Normalized page uses
+  share a replacement while their source stream version stays unchanged.
 - `--remove-unreferenced-resources` (auto by default, `yes`/`no`) drops
   unused `/Font` and `/XObject` entries using content analysis that recurses
   into form XObjects; pages with unreadable content or unresolvable names

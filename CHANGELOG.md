@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Preserve independently rooted streams and arrays during page-content
+  normalization, including exact attachment payloads shared with page content.
+
 - Preserve catalog aliases to externalized content through final-root retirement;
   remove the obsolete per-page orphan-removal plan and its test scaffolding.
 
