@@ -178,8 +178,11 @@ echoing values.
   maps 0 to 1). Already-DCT images recompress only under an explicit quality; large
   inline images externalize first unless --keep-inline-images. Images exceeding
   MaxStreamFilters stay opaque with a warning before sample admission or codec
-  checks. Unfiltered images remain eligible at a zero filter ceiling. Other
-  ineligible images skip silently; an eligible operation without a codec fails
+  checks. Unfiltered images remain eligible at a zero filter ceiling. Images
+  with effective color-key Mask arrays remain opaque to preserve exact
+  transparency keys. A valid SMask image takes precedence; stream masks and
+  absent/null masks retain ordinary eligibility. Other ineligible images skip
+  silently; an eligible operation without a codec fails
   explicitly. Warning suppression/exit policy applies as usual; diagnostic limits
   can still fail the operation before publication.
 - One input file per selection job, several per merge, through host-mediated ranged reads.

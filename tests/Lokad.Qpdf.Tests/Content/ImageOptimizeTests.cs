@@ -451,7 +451,7 @@ public sealed class ImageOptimizeTests
     }
 
     [Fact]
-    public async Task MaskArrayImageKeepsMaskEntry()
+    public async Task ColorKeyImageKeepsExactSamples()
     {
         byte[] raw = NoiseRgb(200, 200);
         byte[] flated = ZLibCompress(raw);
@@ -463,7 +463,9 @@ public sealed class ImageOptimizeTests
         Assert.Empty(result.Diagnostics);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
         PdfStream image = await OutputImageAsync(host, pdf);
-        Assert.Equal("DCTDecode", FilterOf(image));
+        Assert.Equal("FlateDecode", FilterOf(image));
+        Assert.Equal(flated, image.RawMemory.ToArray());
+        Assert.Equal(raw, Writing.StreamObservation.Decode(image));
         Assert.True(image.Dictionary.TryGet(PdfName.FromAscii("Mask"), out QpdfObject mask));
         PdfArray maskArray = Assert.IsType<PdfArray>(mask);
         Assert.Equal(6, maskArray.Count);

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Keep effective color-key image masks opaque during JPEG optimization, preserving
+  exact transparency keys before sample admission while retaining soft-mask precedence.
+
 - Preserve independently retained image and Form payloads while redirecting
   transformed resource references, including shared and cyclic Forms. Leave
   unchanged Form headers intact during inline-image externalization.

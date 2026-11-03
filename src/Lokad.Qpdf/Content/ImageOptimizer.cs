@@ -25,7 +25,8 @@ internal sealed record ImageOptimizeRequest(
 /// Mirrors the upstream size and colorspace rules: already-DCT images are
 /// left alone unless a quality forces recompression. Eligibility skips are
 /// silent; filter-ceiling refusals warn and preserve opaque data. Inline images
-/// are never touched here; four-component CMYK has no
+/// and effective color-key masks stay opaque here. Soft masks retain precedence.
+/// Four-component CMYK has no
 /// raw-sample encode path and stays as is. Recursion follows form XObjects
 /// with a cycle guard; shared images optimize once and stay consistent.
 /// </summary>
@@ -182,6 +183,16 @@ internal static class ImageOptimizer
             || (request.MinArea > 0L && pixels <= request.MinArea))
         {
             return null;
+        }
+
+        if (PdfDictionaryLookup.TryGet(image.Dictionary, "Mask"u8, governor, cancellationToken, out QpdfObject maskRaw)
+            && (maskRaw is PdfReference maskReference ? ResolveOrNull(resolver, maskReference) : maskRaw) is PdfArray)
+        {
+            // JPEG changes exact sample keys. A soft-mask image takes
+            // precedence; otherwise retain the color-key image opaquely.
+            if (!PdfDictionaryLookup.TryGet(image.Dictionary, "SMask"u8, governor, cancellationToken, out QpdfObject softRaw)
+                || (softRaw is PdfReference softReference ? ResolveOrNull(resolver, softReference) : softRaw) is not PdfStream)
+            { return null; }
         }
 
         FilterPlan stages;

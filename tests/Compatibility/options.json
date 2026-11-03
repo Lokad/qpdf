@@ -4607,7 +4607,7 @@
           "ImageOptimizeTests.ZeroThresholdsOptimizeSmallImages",
           "ImageOptimizeTests.LargeInlineImageExternalizesAndOptimizes",
           "ImageOptimizeTests.SmaskImageOptimizesKeepingMask",
-          "ImageOptimizeTests.MaskArrayImageKeepsMaskEntry",
+          "ImageOptimizeTests.ColorKeyImageKeepsExactSamples",
           "ImageOptimizeTests.IndexedImageStaysUntouched"
         ],
         "negative": [
@@ -4625,14 +4625,16 @@
         "interaction": [
           "ImageOptimizeTests.MergeOptimizesEveryPage",
           "ImageOptimizeTests.JobParityHolds",
-          "ResourcePayloadIdentityTests.ResourceReplacementsKeepIndependentPayloadsAndSharedBindings"
+          "ResourcePayloadIdentityTests.ResourceReplacementsKeepIndependentPayloadsAndSharedBindings",
+          "ImageColorKeyTests.OptimizationPreservesColorKeysAndStillSupportsOtherMaskKinds"
         ],
         "resource": [
           "ImageOptimizationGraphTests.EachImageIdentityIsAttemptedOnceIncludingSkippedCandidates",
           "ImageOptimizationGraphTests.FilterCeilingsPreserveOpaqueBytesBeforeSampleAndCodecAdmission",
           "ImageOptimizationGraphTests.ZeroFilterCeilingStillAllowsUnfilteredImages",
           "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget",
-          "ResourcePayloadIdentityTests.FailurePreservesTheTargetAndRefundsBothResourcePaths"
+          "ResourcePayloadIdentityTests.FailurePreservesTheTargetAndRefundsBothResourcePaths",
+          "ImageColorKeyTests.ColorKeysSkipSampleAdmissionAndDoNotRequireACodec"
         ],
         "oracle": [
           "diff:optimize-masks"

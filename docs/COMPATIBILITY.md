@@ -84,6 +84,13 @@ the retained Form program; managed preservation intentionally strengthens that
 case. Form conversion that makes no payload change keeps its original header,
 including absent/null resource entries. Output identities and identifiers can change.
 
+JPEG optimization now keeps images with effective color-key Mask arrays opaque,
+preserving the exact samples used to determine transparency. Native qpdf can keep
+the Mask array while changing those samples, making transparent pixels opaque;
+this is an intentional managed strengthening. Absent/null masks, stream masks and
+valid overriding SMask images retain their optimization policy. The color-key
+skip happens before sample admission and does not require a host JPEG codec.
+
 Inline-image externalization now retains original content streams and arrays
 referenced by independent catalog values. Previously those aliases could disappear,
 or QDF output could fail on an unmapped object. Retirement now uses the complete
