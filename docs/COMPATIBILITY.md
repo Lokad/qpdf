@@ -96,6 +96,12 @@ order, including indirect arrays and coordinates. Equivalent rectangles produce
 the same placement and imported annotation geometry; original box values and
 independent aliases retain their spelling and order.
 
+Overlay/underlay source preparation resolves optional Contents and TrimBox nulls
+before classifying them. Indirect-null Contents is empty; indirect-null TrimBox
+uses the inherited CropBox/MediaBox fallback. Blank sources still import their
+annotations. Malformed non-null boxes and content retain the warning/skip policy;
+null entries inside content arrays remain damaged input.
+
 Inline-image externalization now retains original content streams and arrays
 referenced by independent catalog values. Previously those aliases could disappear,
 or QDF output could fail on an unmapped object. Retirement now uses the complete

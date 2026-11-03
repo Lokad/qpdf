@@ -104,13 +104,14 @@ public sealed class InlineContentInputTests
     [Theory]
     [InlineData("missing")]
     [InlineData("null")]
+    [InlineData("null-reference")]
     [InlineData("integer")]
     [InlineData("empty-array")]
     public void AbsentNullUnsupportedAndEmptyContentsProduceAnEmptyOwner(string shape)
     {
         using Prepared prepared = new(Stream("", []));
         PdfDictionary page = shape == "missing" ? Dictionary() : Dictionary(("Contents", shape switch
-        { "null" => PdfNull.Instance, "empty-array" => new PdfArray([]), _ => new PdfInteger("1", 1L) }));
+        { "null" => PdfNull.Instance, "null-reference" => new PdfReference(8, 7), "empty-array" => new PdfArray([]), _ => new PdfInteger("1", 1L) }));
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         object? owner = Collect(prepared.Copier, page, QpdfLimits.Default, governor, CancellationToken.None);
         try { Assert.NotNull(owner); Assert.Empty(Parts(owner)); }
@@ -120,7 +121,6 @@ public sealed class InlineContentInputTests
 
     [Theory]
     [InlineData("missing-reference")]
-    [InlineData("null-reference")]
     [InlineData("integer-reference")]
     [InlineData("array-null")]
     [InlineData("array-actual-null")]
@@ -130,7 +130,7 @@ public sealed class InlineContentInputTests
         PdfStream invalidData = new(Dictionary(("Filter", PdfName.FromAscii("ASCIIHexDecode"))), "ABCG>"u8.ToArray());
         using Prepared prepared = new(invalidData);
         QpdfObject contents = shape switch
-        { "missing-reference" => new PdfReference(99, 7), "null-reference" => new PdfReference(8, 7), "integer-reference" => new PdfReference(9, 7),
+        { "missing-reference" => new PdfReference(99, 7), "integer-reference" => new PdfReference(9, 7),
             "array-null" => new PdfArray([invalidData, PdfNull.Instance]), "array-integer" => new PdfArray([invalidData, new PdfInteger("1", 1L)]),
             _ => new PdfArray(new QpdfObject[2]) };
         PdfDictionary page = Dictionary(("Contents", contents)); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);

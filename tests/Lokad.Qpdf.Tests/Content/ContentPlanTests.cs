@@ -113,6 +113,7 @@ public sealed class ContentPlanTests
     public void InvalidContentsDropPrefixScratchAndKeepTheExactWarning(string shape)
     {
         using Prepared prepared = new();
+        if (shape == "nonstream-reference") { ((IDictionary<int, QpdfObject>)prepared.Copier.CopiedObjects)[8] = PdfInteger.GetSharedValue(3); }
         QpdfObject contents = shape switch
         { "missing-reference" => new PdfReference(99, 3), "nonstream-reference" => new PdfReference(8, 3),
           "array-nonstream" => new PdfArray([prepared.Stream, PdfNull.Instance]), _ => new PdfArray([prepared.Stream, new PdfReference(99, 3)]) };
@@ -125,6 +126,24 @@ public sealed class ContentPlanTests
         Assert.Equal("Skipped content operation on unreadable page contents.", warning.Message);
         Assert.True(page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject unchanged));
         Assert.Same(contents, unchanged);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void OptionalNullContentsOwnAnEmptyPlanAndRefundItsStorage(bool indirect)
+    {
+        using Prepared prepared = new(); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using (ParserMemoryScope scratch = ParserMemoryScope.Create(governor))
+        {
+            PoolResolver resolver = PoolResolver.Create(scratch, prepared.Copier.CopiedObjects); long baseline = governor.Snapshot().LiveMemoryBytes;
+            using (ContentEntries? entries = ContentEntries.TryRead(indirect ? new PdfReference(8, 0) : PdfNull.Instance, resolver, governor, CancellationToken.None))
+            {
+                Assert.NotNull(entries); Assert.Equal(0, entries.Count); Assert.True(governor.Snapshot().LiveMemoryBytes > baseline);
+            }
+            Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]

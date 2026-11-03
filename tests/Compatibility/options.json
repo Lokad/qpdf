@@ -4720,7 +4720,8 @@
         "interaction": [
           "OverlayTests.JobRoundTripMatchesArgv",
           "OverlayTests.JobFromRangeMatchesArgv",
-          "OverlayRectangleTests.OpposingCornersPreserveIndependentPlacementAndOriginalBoxValues"
+          "OverlayRectangleTests.OpposingCornersPreserveIndependentPlacementAndOriginalBoxValues",
+          "OverlayOptionalSourceTests.OptionalSourceNullsUseFallbacksWhileMalformedValuesKeepTheirSkipPolicy"
         ],
         "resource": [
           "ResourceEnforcementTests.OverlayYieldsToExhaustedBudget",
@@ -6488,7 +6489,8 @@
         ],
         "interaction": [
           "OverlayTests.WholeFileJobOverlay",
-          "OverlayRectangleTests.OpposingCornersPreserveIndependentPlacementAndOriginalBoxValues"
+          "OverlayRectangleTests.OpposingCornersPreserveIndependentPlacementAndOriginalBoxValues",
+          "OverlayOptionalSourceTests.OptionalSourceNullsUseFallbacksWhileMalformedValuesKeepTheirSkipPolicy"
         ],
         "resource": [
           "ResourceEnforcementTests.UnderlayYieldsToExhaustedBudget",

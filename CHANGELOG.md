@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Resolve optional overlay/underlay source Contents and TrimBox nulls before
+  selecting empty content or a fallback box, retaining annotation imports.
+
 - Normalize local destination-box coordinates for overlay/underlay placement,
   preserving original rectangle values and independent aliases.
 

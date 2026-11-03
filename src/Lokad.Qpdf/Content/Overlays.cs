@@ -320,6 +320,9 @@ internal static class Overlays
         QpdfObject? trim = null;
         if (location.Page.TryGet(PdfName.FromAscii("TrimBox"), out QpdfObject? trimRaw) && trimRaw is not null && trimRaw is not PdfNull)
         {
+            if (trimRaw is PdfReference trimReference
+                && PdfObjectLookup.TryResolve(trimReference, engine, governor, cancellationToken, out QpdfObject? resolvedTrim)
+                && resolvedTrim is PdfNull) { trimRaw = null; }
             trim = trimRaw;
         }
 

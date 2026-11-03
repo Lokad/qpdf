@@ -44,6 +44,7 @@ internal sealed class ContentEntries : IDisposable
             if (!resolver.TryResolve(root, out QpdfObject? resolved) || resolved is null) { return null; }
             target = resolved;
         }
+        if (target is PdfNull) { return Create(governor, token); }
         if (target is not (PdfArray or PdfStream)) { return null; }
         ContentEntries entries = Create(governor, token);
         try
