@@ -1,11 +1,38 @@
 using Lokad.Qpdf.Commands;
 using Lokad.Qpdf.Content;
+using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf;
 
 public static partial class Qpdf
 {
+    private static void ValidateFirstPassInputs(JobPlan plan, ResourceGovernor governor, CancellationToken token)
+    {
+        if (!plan.Linearize || plan.LinearizePass1 is not QpdfPath pass1) { return; }
+        bool empty = plan.EmptyDocument || plan is MergePlan { EmptyInput: true };
+        if (!empty) { Check(plan.Input.Value); }
+        if (plan is MergePlan merge)
+        {
+            foreach (PdfPageSource source in merge.Sources)
+            {
+                if (source.Input.Value == ".") { if (!empty) { Check(plan.Input.Value); } }
+                else { Check(source.Input.Value); }
+            }
+        }
+        foreach (OverlaySpec overlay in plan.Overlays) { Check(overlay.File); }
+        foreach (OverlaySpec underlay in plan.Underlays) { Check(underlay.File); }
+        foreach (AttachmentCopy copy in plan.AttachmentsToCopy) { Check(copy.File); }
+        foreach (AttachmentAdd add in plan.AttachmentsToAdd) { Check(add.File); }
+
+        void Check(string input)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (string.Equals(pass1.Value, input, StringComparison.Ordinal))
+            { throw new QpdfParseException("The first-pass output must differ from every input file.", null, null); }
+        }
+    }
+
     // Borrows configuration through the selection call. This value owns no
     // graph, input lease, reservation or output transaction.
     private readonly struct SelectionSettings

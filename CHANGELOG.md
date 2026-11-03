@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Reject active linearization pass-one captures at primary, page, overlay/underlay
+  or attachment input paths before PDF access or publication. Preserve ignored
+  capture settings when linearization is disabled.
+
 - Reject main-context setters nested inside attachment/copy/overlay blocks,
   including nested global markers, before PDF access or output publication.
   Main-option extraction preserves each block for its existing parser.

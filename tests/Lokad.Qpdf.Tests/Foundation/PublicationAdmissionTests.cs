@@ -593,6 +593,71 @@ public sealed class PublicationAdmissionTests
         Assert.Equal(0L, baseline.Inner.OpenLeaseCount); Assert.Equal(0L, host.Inner.OpenLeaseCount);
     }
 
+    public static IEnumerable<object[]> FirstPassInputs()
+    {
+        foreach (string route in new[] { "argv", "job", "mixed" })
+        foreach (string shape in new[] { "whole", "selected-primary", "omitted-primary", "secondary", "overlay", "underlay",
+            "attachment-copy", "attachment-add", "replace-input", "split-secondary", "scratch", "inactive" })
+        { yield return [route, shape]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(FirstPassInputs))]
+    public async Task FirstPassRejectsInputPathsBeforePublication(string route, string shape)
+    {
+        ObservedHost host = await Observed("whole", false, false);
+        foreach (string input in new[] { "input.pdf", "second.pdf" })
+        {
+            await using IQpdfOutputTransaction seed = await host.Inner.CreateOutputAsync(QpdfPath.From(input), CancellationToken.None);
+            await seed.WriteAsync(new byte[] { 17, 23, 41 }, CancellationToken.None); await seed.CommitAsync(CancellationToken.None);
+        }
+        bool collision = shape is not ("scratch" or "inactive");
+        string capture = shape is "secondary" or "split-secondary" or "overlay" or "underlay" or "attachment-copy" or "attachment-add"
+            ? "second.pdf" : shape == "scratch" ? "pass1.pdf" : "input.pdf";
+        List<string> argv = ["input.pdf", "--linearize-pass1=" + capture];
+        Dictionary<string, object> job = new(StringComparer.Ordinal)
+        { ["inputFile"] = "input.pdf", ["linearizePass1"] = capture };
+        if (shape != "inactive") { argv.Add("--linearize"); job.Add("linearize", ""); }
+        if (shape is "selected-primary" or "omitted-primary" or "secondary" or "split-secondary" or "replace-input")
+        {
+            string pageSource = shape is "omitted-primary" or "secondary" or "split-secondary" ? "second.pdf" : ".";
+            argv.AddRange(["--pages", pageSource, "1", "--"]);
+            job.Add("pages", new[] { new { file = pageSource, range = "1" } });
+        }
+        if (shape is "overlay" or "underlay")
+        {
+            argv.AddRange(["--" + shape, "second.pdf", "--"]);
+            job.Add(shape, new { file = "second.pdf" });
+        }
+        if (shape == "attachment-copy")
+        { argv.AddRange(["--copy-attachments-from", "second.pdf", "--"]); job.Add("copyAttachmentsFrom", new[] { new { file = "second.pdf" } }); }
+        if (shape == "attachment-add")
+        { argv.AddRange(["--add-attachment", "second.pdf", "--"]); job.Add("addAttachment", new[] { new { file = "second.pdf" } }); }
+        if (shape == "split-secondary") { argv.Add("--split-pages=1"); job.Add("splitPages", "1"); }
+        if (shape == "replace-input") { argv.Add("--replace-input"); job.Add("replaceInput", ""); }
+        else { argv.Add("output.pdf"); job.Add("outputFile", "output.pdf"); }
+        if (route == "mixed") { argv.Insert(0, "--job-json-file=settings.json"); }
+        QpdfExecutionResult result = route == "job"
+            ? await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(job), CancellationToken.None)
+            : await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(collision ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(collision ? QpdfExitCode.Error : QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, host.Inner.OpenLeaseCount);
+        if (collision)
+        {
+            Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.InvalidArguments && item.Message.Contains("differ", StringComparison.Ordinal));
+            Assert.Equal(0, host.Creates); Assert.Empty(host.Committed);
+            if (route != "mixed") { Assert.Equal(0L, result.Counters.HostOperations); }
+        }
+        foreach (string target in Targets.Concat(new[] { "input.pdf", "second.pdf" }))
+        {
+            Assert.True(host.Inner.TryGetOutput(QpdfPath.From(target), out byte[] bytes));
+            if (!host.Committed.Contains(target)) { Assert.Equal(new byte[] { 17, 23, 41 }, bytes); }
+        }
+        if (!collision)
+        { Assert.Equal(shape == "scratch" ? new[] { "output.pdf", "pass1.pdf" } : new[] { "output.pdf" }, host.Committed); }
+    }
+
     private sealed class ObservedHost(InMemoryQpdfHost inner) : IQpdfHost
     {
         internal InMemoryQpdfHost Inner => inner;

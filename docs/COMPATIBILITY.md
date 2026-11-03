@@ -56,6 +56,12 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Active linearization pass-one output now rejects logical paths used by primary,
+page, overlay/underlay or attachment inputs before PDF access or any output
+commit. This extends the existing main-output alias policy to the auxiliary
+capture. An inactive capture remains ignored; host identity rules still govern
+aliases between different logical names.
+
 Main setters inside attachment/copy/overlay blocks now reject as invalid scoped
 options. They previously could be lifted into the main context and publish a
 different operation. Nested global markers remain with the owning block parser;

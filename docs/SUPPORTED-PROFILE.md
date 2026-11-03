@@ -621,8 +621,9 @@ keys; listing order and request matching use decoded ordinal text.
   Both companions close their input before creating output staging; read or input-close failures publish nothing.
 - `--linearize` emits web-optimized output through a two-pass writer with generated page-offset, shared-object, and outline hint tables (hints Flate-encode under stream compression) and optional generated object streams;
   `--linearize-pass1` captures the counting pass while `--check-linearization` and `--show-linearization` inspect through the shared engine. QDF stays disabled over linearization.
-  An active first-pass target must differ from every main PDF target, including
-  later split groups; equal ordinal logical names reject before output creation.
+  An active first-pass target must differ from every primary/page/overlay/underlay/
+  attachment input and every main PDF target, including later split groups;
+  equal ordinal logical names reject before output creation.
   Without `--linearize`, the capture option creates no output, including in split
   jobs. Active split capture retains the last group's first pass at its target.
 
@@ -677,7 +678,7 @@ fresh admitted buffer; public construction and returned copies still clone.
 JSON uses an exclusive reader through serialization and closes it before output
 creation. Input-close faults preserve prior main/sidecar targets on all three
 routes; raw/decoded sidecar copies survive cleanup and fit one open handle.
-Main/sidecar and active first-pass/main target collisions reject before any output
+Main/sidecar and active first-pass/input/main target collisions reject before any output
 creation. Different logical names can still alias according to the host; multiple
 outputs retain sequential commits rather than a group transaction.
 Diagnostic records/text/list growth and failure-history export use the shared

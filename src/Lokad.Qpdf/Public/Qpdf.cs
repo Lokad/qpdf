@@ -5546,6 +5546,7 @@ public static partial class Qpdf
             }
         }
 
+        ValidateFirstPassInputs(plan, governor, cancellationToken);
         if (plan is WholeFilePlan whole)
         {
             try
