@@ -292,6 +292,11 @@ echoing values.
   are not merged. Unusable defaults/resources and malformed programs warn and
   preserve appearances. Structural, decompression, memory and cancellation limits
   remain binding.
+  Choice options keep export/display identity until selection is resolved. Lists
+  support scalar and multiselect values with validated sorted indices; combo boxes
+  paint the selected display label, and editable combos can paint an unmatched value.
+  Empty selections have no fabricated selected row. Malformed indices, mismatched
+  values and ambiguous exports warn and preserve the appearance/readiness state.
 
 Image optimization resolves indirect Image/Form subtype names before choosing
 traversal or sample processing; stale and malformed subtype values stay opaque.

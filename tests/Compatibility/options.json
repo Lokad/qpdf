@@ -3212,6 +3212,7 @@
           "AppearanceEncodingReferenceTests.IndirectEncodingNamesKeepGlyphsAndLocalFontPrecedence",
           "AppearanceFontIdentityTests.TextEncodingBelongsToTheSelectedFont",
           "GenerateAppearancesTests.ListBoxHighlightsSelectedRow",
+          "ChoiceAppearanceTests.RegenerationPreservesChoiceIdentity",
           "GenerateAppearancesTests.GenerateThenFlattenStampsFreshAppearance",
           "GenerateAppearancesTests.ParentHeldFieldIsSkipped",
           "GenerateAppearancesTests.RadioButtonIsSkipped",

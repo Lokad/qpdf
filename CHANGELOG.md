@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Preserve choice export/display and selection identities in generated appearances,
+  including valid multiselect indices. Keep malformed or ambiguous choices with
+  a warning instead of painting a fabricated selected row.
+
 - Keep generated text encoding with the selected appearance font, including its
   default encoding, while retaining document-font fallback for missing local fonts.
 

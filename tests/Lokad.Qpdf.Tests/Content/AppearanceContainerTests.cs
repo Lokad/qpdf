@@ -37,6 +37,7 @@ public sealed class AppearanceContainerTests
     [Theory]
     [InlineData("generation-noop")]
     [InlineData("generation-direct")]
+    [InlineData("generation-choice")]
     [InlineData("flatten-contents")]
     [InlineData("flatten-annotations")]
     public void LargeArraysBorrowOrRefuseBeforeMaterialization(string mode)
@@ -44,15 +45,27 @@ public sealed class AppearanceContainerTests
         using DocumentEngine engine = Engine(); ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope copierMemory = ParserMemoryScope.Create(construction);
         GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 1, copierMemory);
-        PdfDictionary annot = Dict(("Subtype", PdfName.FromAscii(mode == "generation-direct" ? "Widget" : "Text")),
+        PdfDictionary annot = Dict(("Subtype", PdfName.FromAscii(mode is "generation-direct" or "generation-choice" ? "Widget" : "Text")),
             ("FT", PdfName.FromAscii("Btn")), ("V", PdfName.FromAscii("Off")));
-        QpdfObject[] items = Enumerable.Repeat<QpdfObject>(new PdfReference(3, 0), 262144).ToArray();
+        bool choice = mode == "generation-choice";
+        if (choice) { copierMemory.Reserve(2L * (32L + IntPtr.Size * 262144L) + 1024L); }
+        QpdfObject[] items = Enumerable.Repeat<QpdfObject>(choice ? new PdfByteString("EX"u8.ToArray(), false) : new PdfReference(3, 0), 262144).ToArray();
         if (mode == "generation-direct") { items[0] = annot; }
         PdfArray large = new(items);
-        PdfDictionary page = Dict(("Annots", mode == "flatten-contents" ? new PdfArray([new PdfReference(3, 0)]) : large),
+        PdfDictionary streamHeader = Dict();
+        if (choice)
+        {
+            PdfDictionary font = Dict(("Type", PdfName.FromAscii("Font")), ("Subtype", PdfName.FromAscii("Type1")), ("BaseFont", PdfName.FromAscii("Helvetica")));
+            PdfArray box = new([new PdfInteger("0", 0), new PdfInteger("0", 0), new PdfInteger("100", 100), new PdfInteger("20", 20)]);
+            annot = Dict(("Subtype", PdfName.FromAscii("Widget")), ("FT", PdfName.FromAscii("Ch")), ("V", new PdfByteString("EX"u8.ToArray(), false)),
+                ("DA", new PdfByteString("/F1 10 Tf"u8.ToArray(), false)), ("Opt", large), ("I", new PdfArray([new PdfInteger("0", 0)])),
+                ("Rect", box), ("AP", Dict(("N", new PdfReference(4, 0)))));
+            streamHeader = Dict(("BBox", box), ("Resources", Dict(("Font", Dict(("F1", font))))));
+        }
+        PdfDictionary page = Dict(("Annots", mode == "flatten-contents" || choice ? new PdfArray([new PdfReference(3, 0)]) : large),
             ("Contents", mode == "flatten-contents" ? new PdfArray(Enumerable.Repeat<QpdfObject>(new PdfReference(4, 0), 262144).ToArray()) : PdfNull.Instance));
         copier.AddIndirectObjectWithId(page, 1); copier.AddIndirectObjectWithId(annot, 3);
-        copier.AddIndirectObjectWithId(PdfStream.FromOwnedData(Dict(), "q Q"u8.ToArray()), 4);
+        copier.AddIndirectObjectWithId(PdfStream.FromOwnedData(streamHeader, "q Q"u8.ToArray()), 4);
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 8192 }, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor) { SuppressWarningStorage = true }; long allocated = GC.GetAllocatedBytesForCurrentThread();
         void Run()

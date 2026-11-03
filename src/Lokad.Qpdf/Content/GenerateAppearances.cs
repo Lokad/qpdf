@@ -13,6 +13,9 @@ namespace Lokad.Qpdf.Content;
 internal static class GenerateAppearances
 {
     private const int FlagCombo = 131072;
+    private const int FlagEditable = 262144;
+    private const int FlagMultiSelect = 2097152;
+    private const string ChoiceDataError = "Malformed or ambiguous choice field data.";
     private static readonly PdfName DefaultAppearanceKey = PdfName.FromAscii("DA");
 
     internal static (int NextId, bool Complete) Apply(
@@ -301,48 +304,103 @@ internal static class GenerateAppearances
         }
         return chain;
     }
-    private static List<string> ReadChoices(PdfDictionary field, PoolResolver resolver, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    private readonly record struct AppearanceLine(byte[] Text, bool Selected);
+
+    private static (PdfByteString Export, PdfByteString Display) ReadChoice(QpdfObject raw,
+        PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
     {
-        List<string> choices = ParserContainers.CreateList<string>(memory);
-        if (!field.TryGet(PdfName.FromAscii("Opt"), out QpdfObject? opt) || opt is null || opt is PdfNull)
-        {
-            return choices;
-        }
+        QpdfObject? option = ResolveFieldValue(raw, resolver, governor, token);
+        if (option is PdfByteString text) { return (text, text); }
+        if (option is PdfArray pair && pair.Count == 2
+            && ResolveFieldValue(pair[0], resolver, governor, token) is PdfByteString export
+            && ResolveFieldValue(pair[1], resolver, governor, token) is PdfByteString display)
+        { return (export, display); }
+        throw new QpdfParseException(ChoiceDataError, null, null);
+    }
 
-        QpdfObject optTarget = opt is PdfReference optReference
-            ? ResolveOrNull(resolver, optReference) ?? opt
-            : opt;
-        if (optTarget is not PdfArray array)
-        {
-            return choices;
-        }
+    private static int ChoiceIndex(PdfArray indices, int at, int optionCount, PoolResolver resolver,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        if (ResolveFieldValue(indices[at], resolver, governor, token) is PdfInteger index
+            && index.Value >= 0 && index.Value < optionCount) { return (int)index.Value; }
+        throw new QpdfParseException(ChoiceDataError, null, null);
+    }
 
-        for (int index = 0; index < array.Count; index++)
+    private static (byte[] Value, List<AppearanceLine>? Options) PrepareChoice(FieldContext field,
+        AppearanceEncoding encoding, PoolResolver resolver, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        bool combo = (field.Flags & FlagCombo) != 0;
+        PdfArray? values = field.Value as PdfArray;
+        if (field.Value is not (null or PdfByteString or PdfArray)
+            || (values is not null && (combo || (field.Flags & FlagMultiSelect) == 0)))
+        { throw new QpdfParseException(ChoiceDataError, null, null); }
+        string? scalar = field.Value is PdfByteString value ? PdfText.Decode(value.ValueMemory, memory, governor, token) : null;
+        QpdfObject? rawOptions = ReadFieldValue(field.Node, "Opt"u8, resolver, governor, token);
+        QpdfObject? rawIndices = ReadFieldValue(field.Node, "I"u8, resolver, governor, token);
+        PdfArray? options = rawOptions as PdfArray, indices = rawIndices as PdfArray;
+        int count = options?.Count ?? 0;
+        int selectedCount = values?.Count ?? (scalar is null || (scalar.Length == 0 && indices?.Count == 0) ? 0 : 1);
+        if ((rawOptions is not null && options is null) || (rawIndices is not null && indices is null)
+            || (values is not null && indices is null) || (indices is not null && indices.Count != selectedCount))
+        { throw new QpdfParseException(ChoiceDataError, null, null); }
+        int previous = -1;
+        if (indices is not null)
+        {
+            for (int at = 0; at < indices.Count; at++)
+            {
+                int index = ChoiceIndex(indices, at, count, resolver, governor, token);
+                if (index <= previous) { throw new QpdfParseException(ChoiceDataError, null, null); }
+                previous = index;
+            }
+        }
+        Dictionary<string, int>? remaining = null;
+        if (values is not null)
+        {
+            remaining = ParserContainers.CreateDictionary<string, int>(memory);
+            for (int at = 0; at < values.Count; at++)
+            {
+                if (ResolveFieldValue(values[at], resolver, governor, token) is not PdfByteString text)
+                { throw new QpdfParseException(ChoiceDataError, null, null); }
+                string key = PdfText.Decode(text.ValueMemory, memory, governor, token);
+                bool found = remaining.TryGetValue(key, out int occurrences);
+                if (!found) { ParserContainers.EnsureEntryCapacity(memory, remaining, sizeof(int)); }
+                remaining[key] = occurrences + 1;
+            }
+        }
+        List<AppearanceLine>? lines = combo ? null : ParserContainers.CreateList<AppearanceLine>(memory);
+        string chosen = scalar ?? string.Empty;
+        int matches = 0, selectedAt = 0;
+        int next = indices is not null && indices.Count > 0 ? ChoiceIndex(indices, 0, count, resolver, governor, token) : -1;
+        for (int index = 0; options is not null && index < options.Count; index++)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            QpdfObject item = array[index];
-            QpdfObject entry = item is PdfReference entryReference
-                ? ResolveOrNull(resolver, entryReference) ?? item
-                : item;
-            if (entry is PdfByteString text)
+            (PdfByteString export, PdfByteString display) = ReadChoice(options[index], resolver, governor, token);
+            string exportText = PdfText.Decode(export.ValueMemory, memory, governor, token);
+            bool selected = indices is not null ? index == next : scalar is not null && TextEquals(scalar, exportText, governor, token);
+            if (selected)
             {
-                ParserContainers.AddItem(memory, choices, PdfText.Decode(text.ValueMemory, memory, governor, token), IntPtr.Size);
-                continue;
-            }
-
-            if (entry is PdfArray pair && pair.Count == 2)
-            {
-                QpdfObject display = pair[1] is PdfReference displayReference
-                    ? ResolveOrNull(resolver, displayReference) ?? pair[1]
-                    : pair[1];
-                if (display is PdfByteString displayText)
+                if (remaining is not null)
                 {
-                    ParserContainers.AddItem(memory, choices, PdfText.Decode(displayText.ValueMemory, memory, governor, token), IntPtr.Size);
+                    if (!remaining.TryGetValue(exportText, out int occurrences) || occurrences == 0)
+                    { throw new QpdfParseException(ChoiceDataError, null, null); }
+                    remaining[exportText] = occurrences - 1;
                 }
+                else if (scalar is null || !TextEquals(scalar, exportText, governor, token) || matches != 0)
+                { throw new QpdfParseException(ChoiceDataError, null, null); }
+                matches++;
+                selectedAt++;
+                next = indices is not null && selectedAt < indices.Count ? ChoiceIndex(indices, selectedAt, count, resolver, governor, token) : -1;
+            }
+            if (lines is not null || selected)
+            {
+                string displayText = ReferenceEquals(export, display) ? exportText : PdfText.Decode(display.ValueMemory, memory, governor, token);
+                if (lines is null) { chosen = displayText; }
+                else { ParserContainers.AddItem(memory, lines, new AppearanceLine(EncodeValue(displayText, encoding, memory, governor, token), selected), 16L); }
             }
         }
-
-        return choices;
+        if (scalar is { Length: > 0 } && matches == 0 && (!combo || (field.Flags & FlagEditable) == 0))
+        { throw new QpdfParseException(ChoiceDataError, null, null); }
+        return (combo ? EncodeValue(chosen, encoding, memory, governor, token) : Array.Empty<byte>(), lines);
     }
 
     private static PdfDictionary? SyncButton(
@@ -520,12 +578,6 @@ internal static class GenerateAppearances
             return null;
         }
 
-        string valueText = string.Empty;
-        if (field.Value is PdfByteString valueString)
-        {
-            valueText = PdfText.Decode(valueString.ValueMemory, scratch, governor, cancellationToken);
-        }
-
         TfResult font = AnalyzeDa(field.DefaultAppearance ?? defaultAppearance?.ValueMemory ?? ReadOnlyMemory<byte>.Empty, governor, scratch, cancellationToken);
         if (font.FontName.Length == 0)
         {
@@ -533,14 +585,21 @@ internal static class GenerateAppearances
             return null;
         }
         AppearanceEncoding encoding = SelectEncoding(appearanceDict, font.FontName, formResources, resolver, governor, cancellationToken);
-        byte[] encodedValue = EncodeValue(valueText, encoding, scratch, governor, cancellationToken);
-        List<byte[]> encodedOpt = ParserContainers.CreateList<byte[]>(scratch);
-        if (field.Type == FieldType.Choice && (field.Flags & FlagCombo) == 0L)
+        byte[] encodedValue;
+        List<AppearanceLine>? encodedOpt = null;
+        if (field.Type == FieldType.Choice)
         {
-            foreach (string choice in ReadChoices(field.Node, resolver, scratch, governor, cancellationToken))
+            try { (encodedValue, encodedOpt) = PrepareChoice(field, encoding, resolver, scratch, governor, cancellationToken); }
+            catch (QpdfParseException)
             {
-                ParserContainers.AddItem(scratch, encodedOpt, EncodeValue(choice, encoding, scratch, governor, cancellationToken), IntPtr.Size);
+                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot generate an appearance for malformed or ambiguous choice data; keeping the field as is.");
+                return null;
             }
+        }
+        else
+        {
+            string valueText = field.Value is PdfByteString valueString ? PdfText.Decode(valueString.ValueMemory, scratch, governor, cancellationToken) : string.Empty;
+            encodedValue = EncodeValue(valueText, encoding, scratch, governor, cancellationToken);
         }
 
         byte[] built;
@@ -1008,7 +1067,7 @@ internal static class GenerateAppearances
         ReadOnlyMemory<byte> data,
         ReadOnlyMemory<byte> appearance,
         byte[] value,
-        List<byte[]> options,
+        List<AppearanceLine>? options,
         double size,
         double[] box,
         QpdfLimits limits,
@@ -1082,7 +1141,7 @@ internal static class GenerateAppearances
         using GovernedBufferStream output = new(governor, limits.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes), cancellationToken, 256);
         output.Write(start < 0 ? data.Span : data.Span[..start], cancellationToken);
         AppendAscii(output, start < 0 ? "\n/Tx BMC\n" : "\n");
-        WriteTextAppearance(output, appearance, value, options, size, box, governor, memory, cancellationToken);
+        WriteTextAppearance(output, appearance, value, options, size, box, governor, cancellationToken);
         if (end >= 0) { output.Write(data.Span[end..], cancellationToken); }
         return output.ToArray(memory, cancellationToken);
     }
@@ -1090,78 +1149,35 @@ internal static class GenerateAppearances
         GovernedBufferStream built,
         ReadOnlyMemory<byte> appearance,
         byte[] value,
-        List<byte[]> options,
+        List<AppearanceLine>? options,
         double size,
         double[] box,
-        ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
+        ResourceGovernor governor, CancellationToken token)
     {
         double lineHeight = 1.2 * size;
         int step = 1;
         double rows = (box[3] - box[1]) / lineHeight;
-        long maxRows = rows < 0.0 ? 0L : (long)rows;
-        bool highlight = false;
-        long highlightIndex = 0L;
-        List<byte[]> lines = ParserContainers.CreateList<byte[]>(memory);
-        if (options.Count == 0 || maxRows < 2L)
+        int first = 0, count = 1;
+        if (options is not null)
         {
-            ParserContainers.AddItem(memory, lines, value, IntPtr.Size);
+            count = options.Count == 0 ? 0 : rows >= options.Count ? options.Count : Math.Clamp((int)Math.Max(0, rows), 1, options.Count);
+            int found = -1;
+            for (int index = 0; index < options.Count; index++)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                if (options[index].Selected) { found = index; break; }
+            }
+            first = found < 0 ? 0 : Math.Clamp(rows < 2 ? found : found - 1, 0, options.Count - count);
         }
-        else
-        {
-            long found = -1L;
-            for (long i = 0L; i < options.Count; i++)
-            {
-                if (BytesEqual(options[(int)i], value, governor, token))
-                {
-                    found = i;
-                    break;
-                }
-            }
-
-            if (found >= 0L)
-            {
-                long wantedFirst = found - 1L;
-                long wantedLast = found + maxRows - 2L;
-                if (wantedFirst < 0L)
-                {
-                    wantedLast -= wantedFirst;
-                    wantedFirst = 0L;
-                }
-
-                if (wantedLast >= options.Count)
-                {
-                    long diff = wantedLast - options.Count + 1L;
-                    wantedFirst = wantedFirst - diff < 0L ? 0L : wantedFirst - diff;
-                    wantedLast -= diff;
-                }
-
-                highlight = true;
-                highlightIndex = found - wantedFirst;
-                for (long i = wantedFirst; i <= wantedLast; i++)
-                {
-                    ParserContainers.AddItem(memory, lines, options[(int)i], IntPtr.Size);
-                }
-            }
-            else
-            {
-                highlightIndex = 0L;
-                highlight = true;
-                ParserContainers.AddItem(memory, lines, value, IntPtr.Size);
-                for (int i = 0; i < options.Count && i < maxRows - 1L; i++)
-                {
-                    ParserContainers.AddItem(memory, lines, options[i], IntPtr.Size);
-                }
-            }
-        }
-
-        long count = lines.Count;
         double top = box[3] - ((box[3] - box[1] - count * lineHeight) / 2.0);
-        if (highlight)
+        for (int index = 0; options is not null && rows >= 2 && index < count; index++)
         {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (!options[first + index].Selected) { continue; }
             AppendAscii(built, "q\n0.85 0.85 0.85 rg\n");
             WriterNumber.AppendGeometry(built, box[0]);
             AppendAscii(built, " ");
-            WriterNumber.AppendGeometry(built, box[1] + top - (lineHeight * (highlightIndex + 1L)));
+            WriterNumber.AppendGeometry(built, box[1] + top - (lineHeight * (index + 1L)));
             AppendAscii(built, " ");
             WriterNumber.AppendGeometry(built, box[2] - box[0]);
             AppendAscii(built, " ");
@@ -1173,7 +1189,7 @@ internal static class GenerateAppearances
         AppendAscii(built, "q\nBT\n");
         built.Write(appearance.Span, token);
         AppendAscii(built, "\n");
-        for (int i = 0; i < lines.Count; i++)
+        for (int i = 0; i < count; i++)
         {
             if (i == 0)
             {
@@ -1189,26 +1205,25 @@ internal static class GenerateAppearances
                 AppendAscii(built, " Td\n");
             }
 
-            WriteLiteral(built, lines[i], governor, token);
+            WriteLiteral(built, options is null ? value : options[first + i].Text, governor, token);
             AppendAscii(built, " Tj\n");
         }
 
         AppendAscii(built, "ET\nQ\nEMC");
     }
-    private static bool BytesEqual(byte[] left, byte[] right, ResourceGovernor governor, CancellationToken token)
+    private static bool TextEquals(string left, string right, ResourceGovernor governor, CancellationToken token)
     {
         if (left.Length != right.Length)
         {
             return false;
         }
 
-        for (int i = 0; i < left.Length; i++)
+        for (int offset = 0; offset < left.Length;)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            if (left[i] != right[i])
-            {
-                return false;
-            }
+            int count = Math.Min(1024, left.Length - offset);
+            if (!left.AsSpan(offset, count).SequenceEqual(right.AsSpan(offset, count))) { return false; }
+            offset += count;
         }
 
         return true;
