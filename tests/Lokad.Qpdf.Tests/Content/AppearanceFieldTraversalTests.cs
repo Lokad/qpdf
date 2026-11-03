@@ -36,6 +36,9 @@ public sealed class AppearanceFieldTraversalTests
     private static PdfDictionary Dict(params (string Key, QpdfObject Value)[] pairs)
         => new(pairs.ToDictionary(p => PdfName.FromAscii(p.Key), p => p.Value));
 
+    private static Dictionary<GraphCopier, CopiedForm?> Registered(GraphCopier copier, int root)
+        => new() { [copier] = new([new(root, 0)], true, false, false, null, false, [], new Dictionary<PdfName, QpdfObject>()) };
+
     private static DocumentEngine Engine()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
@@ -83,7 +86,7 @@ public sealed class AppearanceFieldTraversalTests
         copier.AddIndirectObjectWithId(page, 1); copier.AddIndirectObjectWithId(field, 2); copier.AddIndirectObjectWithId(widget, 3);
         copier.AddIndirectObjectWithId(new PdfReference(4, 0), 4);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); DiagnosticBag diagnostics = new(governor);
-        (int next, _) = GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, CopiedForm?>(), QpdfLimits.Default,
+        (int next, _) = GenerateAppearances.Apply([(copier, 1)], Registered(copier, 2), QpdfLimits.Default,
             governor, diagnostics, CancellationToken.None, new HashSet<int> { 3 }, kind == "direct-kids", 5);
         Assert.Equal(5, next);
         if (kind is "broken-without-kids" or "value-cycle") { Assert.Same(widget, copier.CopiedObjects[3]); }
@@ -109,7 +112,7 @@ public sealed class AppearanceFieldTraversalTests
         copier.AddIndirectObjectWithId(page, 1); copier.AddIndirectObjectWithId(field, 2); copier.AddIndirectObjectWithId(widget, 3);
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096 }, CancellationToken.None);
         long allocated = GC.GetAllocatedBytesForCurrentThread();
-        Assert.Throws<QpdfLimitException>(() => GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, CopiedForm?>(),
+        Assert.Throws<QpdfLimitException>(() => GenerateAppearances.Apply([(copier, 1)], Registered(copier, 2),
             QpdfLimits.Default, governor, new(governor), CancellationToken.None, new HashSet<int> { 3 }, false, 4));
         Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 131072L);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Same(page, copier.CopiedObjects[1]); Assert.Same(widget, copier.CopiedObjects[3]);
@@ -134,7 +137,7 @@ public sealed class AppearanceFieldTraversalTests
         {
             ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None, host);
             long allocated = GC.GetAllocatedBytesForCurrentThread();
-            Assert.ThrowsAny<OperationCanceledException>(() => GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, CopiedForm?>(),
+            Assert.ThrowsAny<OperationCanceledException>(() => GenerateAppearances.Apply([(copier, 1)], Registered(copier, 2),
                 QpdfLimits.Default, governor, new(governor), governorToken ? CancellationToken.None : cancellation.Token, new HashSet<int> { 3 }, false, 4));
             Assert.True(cancellation.IsCancellationRequested); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
             Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 131072L);
@@ -190,6 +193,105 @@ public sealed class AppearanceFieldTraversalTests
         Assert.Same(page, copier.CopiedObjects[1]);
         governor.CompleteStorage();
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Fact]
+    public void KidsOnlyTextParentsIncludeDirectBranchesInsideTheRegisteredTree()
+    {
+        using DocumentEngine engine = Engine(); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope copierMemory = ParserMemoryScope.Create(governor);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, governor, QpdfLimits.Default, 1, copierMemory);
+        PdfDictionary widget = Dict(("Subtype", PdfName.FromAscii("Widget")), ("Rect", new PdfArray([new PdfInteger("0", 0), new PdfInteger("0", 0), new PdfInteger("90", 90), new PdfInteger("40", 40)])));
+        PdfDictionary parent = Dict(("V", new PdfByteString("nested"u8.ToArray(), false)), ("Kids", new PdfArray([new PdfReference(3, 0)])));
+        PdfDictionary field = Dict(("FT", PdfName.FromAscii("Tx")), ("DA", new PdfByteString("/F1 9 Tf 0 g"u8.ToArray(), false)), ("Kids", new PdfArray([parent])));
+        copier.AddIndirectObjectWithId(Dict(("Annots", new PdfArray([new PdfReference(3, 0)]))), 1);
+        copier.AddIndirectObjectWithId(field, 2); copier.AddIndirectObjectWithId(widget, 3);
+        (int next, bool complete) = GenerateAppearances.Apply([(copier, 1)], Registered(copier, 2), QpdfLimits.Default,
+            governor, new(governor), CancellationToken.None, new HashSet<int> { 3 }, false, 4);
+        Assert.True(complete); Assert.Equal(5, next);
+        PdfDictionary updated = Assert.IsType<PdfDictionary>(copier.CopiedObjects[3]);
+        PdfDictionary ap = Assert.IsType<PdfDictionary>(Get(updated, "AP"));
+        PdfStream appearance = Assert.IsType<PdfStream>(copier.CopiedObjects[Assert.IsType<PdfReference>(Get(ap, "N")).ObjectNumber]);
+        Assert.Contains("(nested) Tj", System.Text.Encoding.ASCII.GetString(appearance.RawMemory.Span), StringComparison.Ordinal);
+        Assert.Same(field, copier.CopiedObjects[2]); Assert.Same(parent, Assert.IsType<PdfArray>(Get(field, "Kids"))[0]);
+        copierMemory.Dispose(); governor.CompletePrivateStorage(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RegisteredRootsOnlyUseExplicitParents(bool explicitParent)
+    {
+        using DocumentEngine engine = Engine(); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, governor, QpdfLimits.Default, 1, memory);
+        PdfDictionary widget = Dict(("Subtype", PdfName.FromAscii("Widget")), ("FT", PdfName.FromAscii("Btn")),
+            ("Parent", explicitParent ? new PdfReference(2, 0) : PdfNull.Instance));
+        copier.AddIndirectObjectWithId(Dict(("Annots", new PdfArray([new PdfReference(3, 0)]))), 1);
+        copier.AddIndirectObjectWithId(Dict(("FT", PdfName.FromAscii("Btn")), ("V", PdfName.FromAscii("Off")), ("Kids", new PdfArray([new PdfReference(3, 0)]))), 2);
+        copier.AddIndirectObjectWithId(widget, 3);
+        CopiedForm form = new([new(2, 0), new(3, 0)], true, false, false, null, false, [], new Dictionary<PdfName, QpdfObject>());
+        DiagnosticBag diagnostics = new(governor);
+        (_, bool complete) = GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, CopiedForm?> { [copier] = form },
+            QpdfLimits.Default, governor, diagnostics, CancellationToken.None, new HashSet<int> { 3 }, false, 4);
+        Assert.Equal(explicitParent, complete);
+        if (explicitParent) { Assert.Equal(PdfName.FromAscii("Off"), Get(Assert.IsType<PdfDictionary>(copier.CopiedObjects[3]), "AS")); Assert.Empty(diagnostics.Entries); }
+        else { Assert.Same(widget, copier.CopiedObjects[3]); Assert.Single(diagnostics.Entries); }
+    }
+
+    [Fact]
+    public void ARegisteredRootDoesNotIndexLargePrivateKids()
+    {
+        using DocumentEngine engine = Engine(); ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(construction);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 1, memory);
+        PdfDictionary widget = Dict(("Subtype", PdfName.FromAscii("Widget")), ("FT", PdfName.FromAscii("Btn")), ("V", PdfName.FromAscii("Off")));
+        copier.AddIndirectObjectWithId(Dict(("Annots", new PdfArray([new PdfReference(2, 0)]))), 1);
+        copier.AddIndirectObjectWithId(widget, 2);
+        PdfDictionary unrelated = Dict(("Kids", new PdfArray(Enumerable.Range(2, 262144).Select(n => (QpdfObject)new PdfReference(n, 0)).ToArray())));
+        copier.AddIndirectObjectWithId(unrelated, 3);
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 4096L };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        (_, bool complete) = GenerateAppearances.Apply([(copier, 1)], Registered(copier, 2), limits, governor, new(governor),
+            CancellationToken.None, new HashSet<int> { 2 }, false, 4);
+        Assert.True(complete); Assert.Same(unrelated, copier.CopiedObjects[3]);
+        Assert.Equal(PdfName.FromAscii("Off"), Get(Assert.IsType<PdfDictionary>(copier.CopiedObjects[2]), "AS"));
+        governor.CompletePrivateStorage(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Theory]
+    [InlineData(1, false)]
+    [InlineData(1, true)]
+    [InlineData(8, false)]
+    [InlineData(8, true)]
+    [InlineData(32, false)]
+    [InlineData(32, true)]
+    public void RegisteredKidsTraversalKeepsDepthBoundsAndRefunds(int maximum, bool tooDeep)
+    {
+        using DocumentEngine engine = Engine(); ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(construction);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 1, memory);
+        int edges = maximum + (tooDeep ? 1 : 0), widget = edges + 2;
+        copier.AddIndirectObjectWithId(Dict(("Annots", new PdfArray([new PdfReference(widget, 0)]))), 1);
+        for (int id = 2; id <= widget; id++)
+        {
+            PdfDictionary node = id == widget ? Dict(("Subtype", PdfName.FromAscii("Widget")))
+                : Dict(("FT", PdfName.FromAscii("Btn")), ("V", PdfName.FromAscii("Off")), ("Kids", new PdfArray([new PdfReference(id + 1, 0)])));
+            copier.AddIndirectObjectWithId(node, id);
+        }
+        QpdfObject original = copier.CopiedObjects[widget];
+        QpdfLimits limits = QpdfLimits.Default with { MaxNestingDepth = maximum };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        void Generate() => GenerateAppearances.Apply([(copier, 1)], Registered(copier, 2), limits, governor, new(governor),
+            CancellationToken.None, new HashSet<int> { widget }, false, widget + 1);
+        if (tooDeep)
+        {
+            QpdfLimitException error = Assert.Throws<QpdfLimitException>(Generate);
+            Assert.Equal(nameof(QpdfLimits.MaxNestingDepth), error.LimitName); Assert.Equal(maximum + 1L, error.Requested);
+            Assert.Same(original, copier.CopiedObjects[widget]);
+        }
+        else { Generate(); Assert.Equal(PdfName.FromAscii("Off"), Get(Assert.IsType<PdfDictionary>(copier.CopiedObjects[widget]), "AS")); }
+        governor.CompletePrivateStorage(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     private static QpdfObject Get(PdfDictionary dictionary, string key)

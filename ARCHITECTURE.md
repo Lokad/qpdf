@@ -174,6 +174,10 @@ Direct and indirect arrays borrow the same owned backing into the existing sourc
 combination and final field-closure filtering; opaque non-array extras stay opaque.
 Field identity and inherited optional values likewise classify resolved nulls;
 inspection keeps the existing terminal-field projection and bounded ancestry.
+Appearance generation infers missing field parents only through the copied form's
+registered Kids branches. Private dictionaries elsewhere cannot supply field
+values or defaults. A lazy reverse index keeps indirect replacements visible and
+borrows direct parents; its bounded cursor walk never queues whole child arrays.
 Appearance generation replaces changed annotation-array edges while independent
 consumers retain the original direct values. A lazy operation-local map shares
 one replacement per copier/indirect-array identity across affected pages; skipped

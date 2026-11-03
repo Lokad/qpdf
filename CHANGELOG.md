@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Constrain appearance parent recovery to registered form branches. Private Kids
+  dictionaries in catalog, Info, attachments or pages no longer supply field text,
+  default appearances or flags, or cause unrelated field-depth failures. Preserve
+  bounded explicit-parent inheritance and Kids-only recovery inside the form.
+
 - Preserve independent annotation-array aliases during appearance generation.
   Share changed indirect arrays across affected pages, avoiding repeated direct
   widget generation and duplicate warnings; retain skipped arrays unchanged.

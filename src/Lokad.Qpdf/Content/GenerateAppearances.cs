@@ -110,7 +110,7 @@ internal static class GenerateAppearances
                 int? annotId = (item as PdfReference)?.ObjectNumber;
                 if (annotId.HasValue && !ParserContainers.AddSetItem(traversal, generated, annotId.Value, sizeof(int))) { continue; }
                 if (!IsReached(annotId, reachedAnnots, warnUnreachable, diagnostics)) { complete = false; continue; }
-                FieldContext field = ResolveField(copier, annot, annotId, resolver, parents, traversal, limits, governor, cancellationToken);
+                FieldContext field = ResolveField(copier, form, annot, annotId, resolver, parents, traversal, limits, governor, cancellationToken);
                 if (field.Type == FieldType.Other) { complete = false; continue; }
                 // Indirect widgets replace their existing graph slot. Only direct
                 // widgets need an annotation-array copy, funded before mutation.
@@ -192,12 +192,12 @@ internal static class GenerateAppearances
         FieldType Type, long Flags, QpdfObject? Value, ReadOnlyMemory<byte>? DefaultAppearance,
         PdfDictionary Node, int? NodeId);
 
-    private static FieldContext ResolveField(GraphCopier copier, PdfDictionary annot, int? annotId,
+    private static FieldContext ResolveField(GraphCopier copier, CopiedForm? form, PdfDictionary annot, int? annotId,
         PoolResolver resolver, Dictionary<GraphCopier, FieldParents> parents, ParserMemoryScope traversal,
         QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
-        List<(PdfDictionary Node, int? Id)> chain = FindFieldChain(copier, annot, annotId, resolver, parents,
+        List<(PdfDictionary Node, int? Id)> chain = FindFieldChain(copier, form, annot, annotId, resolver, parents,
             traversal, scratch, limits, governor, token);
         // A separate widget belongs to its immediate terminal field, independently
         // of which ancestor supplies FT. A merged widget carries field entries.
@@ -247,43 +247,73 @@ internal static class GenerateAppearances
         return null;
     }
 
-    // A single lazy reverse index preserves lenient Kids-only parents. Keys use
-    // object numbers or direct identity, so later V/AS replacements stay visible.
+    // Only registered field branches supply fallback parents. Borrow their links
+    // or direct dictionaries, so later replacements of indirect fields stay visible.
     private sealed class FieldParents
     {
-        internal readonly Dictionary<int, int> Ids;
-        internal readonly Dictionary<PdfDictionary, int> Direct;
+        internal readonly Dictionary<int, QpdfObject> Ids;
+        internal readonly Dictionary<PdfDictionary, QpdfObject> Direct;
         internal FieldParents(ParserMemoryScope memory)
         {
             memory.Reserve(32L);
-            Ids = ParserContainers.CreateDictionary<int, int>(memory);
+            Ids = ParserContainers.CreateDictionary<int, QpdfObject>(memory);
             memory.Reserve(96L);
             Direct = new(ReferenceEqualityComparer.Instance);
         }
     }
 
-    private static FieldParents GetParents(GraphCopier copier, PoolResolver resolver,
+    private static FieldParents GetParents(GraphCopier copier, CopiedForm form, PoolResolver resolver,
         Dictionary<GraphCopier, FieldParents> parents, ParserMemoryScope memory,
-        ResourceGovernor governor, CancellationToken token)
+        QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
         if (parents.TryGetValue(copier, out FieldParents? found)) { return found; }
         FieldParents built = new(memory);
-        foreach ((int id, QpdfObject raw) in copier.CopiedObjects)
+        foreach (PdfReference root in form.Fields)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            if (raw is not PdfDictionary node || ReadFieldValue(node, "Kids"u8, resolver, governor, token) is not PdfArray kids) { continue; }
-            for (int index = 0; index < kids.Count; index++)
+            if (built.Ids.ContainsKey(root.ObjectNumber)) { continue; }
+            ParserContainers.EnsureEntryCapacity(memory, built.Ids, IntPtr.Size);
+            // Registered roots have no inferred parent, even when another
+            // malformed branch includes them among its children.
+            built.Ids.Add(root.ObjectNumber, PdfNull.Instance);
+        }
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        scratch.Reserve(96L);
+        HashSet<PdfDictionary> visited = new(ReferenceEqualityComparer.Instance);
+        List<(QpdfObject Parent, PdfArray Kids, int Next, int Depth)> frames =
+            ParserContainers.CreateList<(QpdfObject, PdfArray, int, int)>(scratch);
+        foreach (PdfReference root in form.Fields)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (ResolveFieldValue(root, resolver, governor, token) is not PdfDictionary node
+                || ReadFieldValue(node, "Kids"u8, resolver, governor, token) is not PdfArray children
+                || !ParserContainers.AddSetItem(scratch, visited, node, IntPtr.Size)) { continue; }
+            ParserContainers.AddItem(scratch, frames, ((QpdfObject)root, children, 0, 0), 24L);
+            while (frames.Count != 0)
             {
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                if (kids[index] is PdfReference link && !built.Ids.ContainsKey(link.ObjectNumber))
+                var frame = frames[^1];
+                if (frame.Next == frame.Kids.Count) { frames.RemoveAt(frames.Count - 1); continue; }
+                QpdfObject child = frame.Kids[frame.Next];
+                frames[^1] = (frame.Parent, frame.Kids, frame.Next + 1, frame.Depth);
+                if (child is PdfReference link && !built.Ids.ContainsKey(link.ObjectNumber))
                 {
-                    ParserContainers.EnsureEntryCapacity(memory, built.Ids, sizeof(int));
-                    built.Ids.Add(link.ObjectNumber, id);
+                    ParserContainers.EnsureEntryCapacity(memory, built.Ids, IntPtr.Size);
+                    built.Ids.Add(link.ObjectNumber, frame.Parent);
                 }
-                else if (kids[index] is PdfDictionary direct && !built.Direct.ContainsKey(direct))
+                else if (child is PdfDictionary direct && !built.Direct.ContainsKey(direct))
                 {
-                    ParserContainers.EnsureEntryCapacity(memory, built.Direct, sizeof(int));
-                    built.Direct.Add(direct, id);
+                    ParserContainers.EnsureEntryCapacity(memory, built.Direct, IntPtr.Size);
+                    built.Direct.Add(direct, frame.Parent);
+                }
+                if (ResolveFieldValue(child, resolver, governor, token) is not PdfDictionary descendant
+                    || visited.Contains(descendant)) { continue; }
+                if (frame.Depth >= limits.MaxNestingDepth)
+                { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), (long)frame.Depth + 1L, limits.MaxNestingDepth); }
+                if (ReadFieldValue(descendant, "Kids"u8, resolver, governor, token) is PdfArray kids)
+                {
+                    ParserContainers.AddSetItem(scratch, visited, descendant, IntPtr.Size);
+                    ParserContainers.AddItem(scratch, frames, (child, kids, 0, frame.Depth + 1), 24L);
                 }
             }
         }
@@ -291,7 +321,7 @@ internal static class GenerateAppearances
         parents.Add(copier, built); return built;
     }
 
-    private static List<(PdfDictionary Node, int? Id)> FindFieldChain(GraphCopier copier,
+    private static List<(PdfDictionary Node, int? Id)> FindFieldChain(GraphCopier copier, CopiedForm? form,
         PdfDictionary annot, int? annotId, PoolResolver resolver, Dictionary<GraphCopier, FieldParents> parents,
         ParserMemoryScope traversal, ParserMemoryScope scratch, QpdfLimits limits,
         ResourceGovernor governor, CancellationToken token)
@@ -318,11 +348,14 @@ internal static class GenerateAppearances
                     continue;
                 }
             }
-            FieldParents index = GetParents(copier, resolver, parents, traversal, governor, token);
-            bool hasParent = currentId is int number ? index.Ids.TryGetValue(number, out int parentId)
-                : index.Direct.TryGetValue(current, out parentId);
-            if (!hasParent || !copier.CopiedObjects.TryGetValue(parentId, out QpdfObject? candidate) || candidate is not PdfDictionary ancestor) { break; }
-            current = ancestor; currentId = parentId;
+            if (form is null || form.Fields.Count == 0
+                || form.Fields.Count == 1 && currentId == form.Fields[0].ObjectNumber) { break; }
+            FieldParents index = GetParents(copier, form, resolver, parents, traversal, limits, governor, token);
+            bool hasParent = currentId is int number ? index.Ids.TryGetValue(number, out QpdfObject? parentValue)
+                : index.Direct.TryGetValue(current, out parentValue);
+            if (!hasParent || parentValue is null
+                || ResolveFieldValue(parentValue, resolver, governor, token) is not PdfDictionary ancestor) { break; }
+            current = ancestor; currentId = (parentValue as PdfReference)?.ObjectNumber;
         }
         return chain;
     }

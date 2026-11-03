@@ -310,7 +310,11 @@ echoing values.
   highlights count the existing BBox's vertical origin once, including negative
   origins. Parent-held fields retain
   their terminal identity; field-parent inheritance uses the configured nesting
-  bound with cycle handling, including overlay default repair. Indirect widget
+  bound with cycle handling, including overlay default repair. Missing parents
+  can be recovered from registered Kids branches, including direct child
+  dictionaries; private Kids entries elsewhere supply no field ancestry. Top-level
+  registrations have no inferred parent. Explicit parent links retain their
+  bounded lenient handling. Indirect widget
   subtypes and appearance-state names behave like direct names. Checkboxes select
   stream-backed raw states by value; single-widget fields can normalize to a sole
   on-state, while shared fields keep their value and nonmatching siblings are off.

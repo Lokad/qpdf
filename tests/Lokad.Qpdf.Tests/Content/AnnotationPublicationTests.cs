@@ -42,6 +42,7 @@ public sealed class AnnotationPublicationTests
             : mode.StartsWith("attachment", StringComparison.Ordinal) ? File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "minimal-1page.pdf"))
             : mode.StartsWith("rotation", StringComparison.Ordinal) ? RotationAppearanceTests.SharedFixture(270)
             : mode.StartsWith("os-", StringComparison.Ordinal) ? ObjectStreamPlanningTests.Fixture(mode.Contains("qdf", StringComparison.Ordinal) ? 16 : 201)
+            : mode.StartsWith("generate-parent", StringComparison.Ordinal) ? AppearanceParentScopeTests.Fixture("value", "info", false)
             : mode.StartsWith("generate-array", StringComparison.Ordinal) ? AnnotationArrayIsolationTests.Fixture("button", "attachment", true, 3, 1)
             : mode.StartsWith("generate-text", StringComparison.Ordinal)
             ? AppearanceProgramTests.Fixture(new string(' ', 32768) + "/Tx BMC\n0 0 10 10 re f EMC", "", "/DA (/Helv 17 Tf)", "")
@@ -119,10 +120,10 @@ public sealed class AnnotationPublicationTests
             : mode == "catalog-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","pages":[{"file":".","range":"1"}],"addAttachment":[{"file":"payload"}]}""", token)
             : mode == "catalog" ? Qpdf.ExecuteAsync(host, new(["input", "--pages", ".", "1", "--", "--add-attachment", "payload", "--", "output"]), token)
             : mode is "overlay-form-job" or "overlay-form-indirect" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","overlay":{"file":"overlay"}}""", token)
-            : mode is "generate-job" or "generate-text-job" or "generate-array-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","generateAppearances":true}""", token)
+            : mode is "generate-job" or "generate-text-job" or "generate-array-job" or "generate-parent-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","generateAppearances":true}""", token)
             : Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(mode == "merge" ? ["input", "--pages", ".", "1", "overlay", "1", "--", "output"] : mode is "overlay" or "overlay-form"
             ? ["input", "--overlay", "overlay", "--", "output"]
-            : ["input", mode switch { "generate" or "generate-text" or "generate-array" => "--generate-appearances", "flatten" => "--flatten-annotations=all", "coalesce" => "--coalesce-contents",
+            : ["input", mode switch { "generate" or "generate-text" or "generate-array" or "generate-parent" => "--generate-appearances", "flatten" => "--flatten-annotations=all", "coalesce" => "--coalesce-contents",
                 "normalize" => "--normalize-content=y", _ => "--externalize-inline-images" }, "--ii-min-bytes=0", "--", "output"]), token);
 
     // Keep exhaustive growth refusal bounded; construction tests cover 65+ name trees.
@@ -181,6 +182,8 @@ public sealed class AnnotationPublicationTests
     [InlineData("generate-text-job")]
     [InlineData("generate-array")]
     [InlineData("generate-array-job")]
+    [InlineData("generate-parent")]
+    [InlineData("generate-parent-job")]
     [InlineData("rotation")]
     [InlineData("rotation-job")]
     [InlineData("labels-split")]
@@ -471,6 +474,16 @@ public sealed class AnnotationPublicationTests
     [InlineData("commit", "generate-array-job")]
     [InlineData("cancel", "generate-array-job")]
     [InlineData("close", "generate-array-job")]
+    [InlineData("create", "generate-parent")]
+    [InlineData("write", "generate-parent")]
+    [InlineData("commit", "generate-parent")]
+    [InlineData("cancel", "generate-parent")]
+    [InlineData("close", "generate-parent")]
+    [InlineData("create", "generate-parent-job")]
+    [InlineData("write", "generate-parent-job")]
+    [InlineData("commit", "generate-parent-job")]
+    [InlineData("cancel", "generate-parent-job")]
+    [InlineData("close", "generate-parent-job")]
     public async Task OutputFaultsRefundOwnersAndRespectCommit(string phase, string mode)
     {
         using InMemoryQpdfHost storage = await Storage(mode);

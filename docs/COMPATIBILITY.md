@@ -69,6 +69,15 @@ longer regenerate those direct widgets or repeat their unreachable-widget
 warnings; distinct warnings still obey the same quota and fail before commit.
 Skipped arrays and indirect widget identities keep their existing behavior.
 
+Appearance parent recovery now follows only registered field Kids branches.
+Private dictionaries in catalog data, Info, attachments or pages cannot become
+inferred field ancestors, even when their Kids arrays reference a widget. Valid
+empty values and form defaults therefore stay independent of that private data.
+Registered roots acquire no inferred parent; bounded explicit-parent inheritance
+and supported Kids-only recovery within the form remain. Public signatures are
+unchanged. This corrects generated values and removes spurious private-graph
+nesting failures without increasing structural limits.
+
 The built-in memory host stores registered inputs separately from published
 outputs, including equal-path companion calls and `--replace-input`. Opening an
 input reads its registration until the caller exports and registers the new bytes.
