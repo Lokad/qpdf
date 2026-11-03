@@ -54,12 +54,13 @@ public sealed class JsonArrayReaderTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task MismatchedObjectHeadersStillUseReaderValidation(bool array)
+    [InlineData("stream")]
+    [InlineData("array")]
+    [InlineData("null")]
+    public async Task MismatchedObjectHeadersStillUseReaderValidation(string shape)
     {
-        byte[] input = RotationContentTests.Fixture(array ? "5 0 R" : "4 0 R", "[4 0 R]", "q"u8.ToArray());
-        string number = array ? "5" : "4";
+        byte[] input = RotationContentTests.Fixture(shape == "stream" ? "4 0 R" : "5 0 R", shape == "null" ? "null" : "[4 0 R]", "q"u8.ToArray());
+        string number = shape == "stream" ? "4" : "5";
         input = Encoding.ASCII.GetBytes(Encoding.ASCII.GetString(input).Replace(number + " 0 obj", "9 0 obj", StringComparison.Ordinal));
         using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Transfer);
         await Assert.ThrowsAsync<QpdfParseException>(() => Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("input"), QpdfPath.From("output"), new QpdfJsonOptions(2, ["pages"]), CancellationToken.None).AsTask());
@@ -78,8 +79,8 @@ public sealed class JsonArrayReaderTests
             PdfReference reference = Assert.IsType<PdfReference>(value);
             Assert.Equal(XrefEntryKind.Compressed, document.Engine.XRefEntries[reference.ObjectNumber].Kind);
             PdfArray cached = Assert.IsType<PdfArray>(document.GetObject(reference.ObjectNumber));
-            Assert.Same(cached, document.Engine.ResolveArray(reference));
-            Assert.Null(document.Engine.ResolveArray(new PdfReference(reference.ObjectNumber, 1)));
+            Assert.Same(cached, document.Engine.ResolveArrayOrNull(reference));
+            Assert.IsType<PdfNull>(document.Engine.ResolveArrayOrNull(new PdfReference(reference.ObjectNumber, 1)));
         }
         QpdfJsonResult result = await Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("again"), QpdfPath.From("json"), new QpdfJsonOptions(2, ["pages"]), CancellationToken.None);
         using JsonDocument json = JsonDocument.Parse(result.Json); JsonElement contents = json.RootElement.GetProperty("pages")[0].GetProperty("contents");

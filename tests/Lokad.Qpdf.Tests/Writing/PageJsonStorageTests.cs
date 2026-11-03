@@ -45,7 +45,6 @@ public sealed class PageJsonStorageTests
 
     [Theory]
     [InlineData("6 0 R", "[4 0 R null 99 0 R [5 0 R] 42]", "[\"4 0 R\",null,\"99 0 R\",[\"5 0 R\"],42]")]
-    [InlineData("6 0 R", "null", "[\"6 0 R\"]")]
     [InlineData("6 0 R", "6 0 R", "[\"6 0 R\"]")]
     [InlineData("42", "[]", "[42]")]
     [InlineData("4 0 R", "[]", "[\"4 0 R\"]")]
@@ -62,9 +61,9 @@ public sealed class PageJsonStorageTests
 
     [Theory]
     [InlineData("", "4 0 R")]
-    [InlineData("/Resources 99 0 R", null)]
+    [InlineData("/Resources 99 0 R", "4 0 R")]
     [InlineData("/Resources 42", null)]
-    public async Task ImageResourceInheritanceRetainsInvalidOverridePolicy(string resources, string? expected)
+    public async Task ImageResourceInheritanceUsesSharedResolvedPresence(string resources, string? expected)
     {
         using InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("input"), Fixture("[]", "[]", resources), QpdfInputOwnership.Transfer);

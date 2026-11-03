@@ -305,10 +305,10 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
     bool IIndirectResolver.TryResolve(PdfReference reference, out QpdfObject? value)
         => TryResolve(reference, false, out value);
 
-    internal PdfArray? ResolveArray(PdfReference reference)
-        => TryResolve(reference, true, out QpdfObject? value) ? value as PdfArray : null;
+    internal QpdfObject? ResolveArrayOrNull(PdfReference reference)
+        => TryResolve(reference, true, out QpdfObject? value) && value is PdfArray or PdfNull ? value : null;
 
-    private bool TryResolve(PdfReference reference, bool arrayOnly, out QpdfObject? value)
+    private bool TryResolve(PdfReference reference, bool arrayOrNullOnly, out QpdfObject? value)
     {
         _ = Cache;
         if (reference is null)
@@ -358,7 +358,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
             return true;
         }
 
-        if (arrayOnly && entry.Kind == XrefEntryKind.Uncompressed && !StartsWithArray(reference, entry.First))
+        if (arrayOrNullOnly && entry.Kind == XrefEntryKind.Uncompressed && !StartsWithArrayOrNull(reference, entry.First))
         { value = null; return false; }
         value = Load(reference.ObjectNumber, entry);
         return true;
@@ -366,8 +366,8 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
 
     // Inspect only the header and first value token. A stream dictionary stops
     // here, so JSON can report its reference without copying the stream payload.
-    // Arrays and compressed members still use the ordinary parser/cache owner.
-    private bool StartsWithArray(PdfReference reference, long offset)
+    // Arrays, null values and compressed members still use the ordinary parser/cache owner.
+    private bool StartsWithArrayOrNull(PdfReference reference, long offset)
     {
         _governor.CheckCancellation(); _governor.ReserveMemory(128L);
         PdfTokenizer? tokenizer = null;
@@ -387,7 +387,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
                 || generationBytes != generation.Data.Length || generationNumber != reference.Generation
                 || !tokenizer.TryReadToken(out PdfToken marker, false, _governor) || marker.Kind != PdfTokenKind.Object)
             { return true; }
-            return !tokenizer.TryReadToken(out PdfToken first, false, _governor) || first.Kind == PdfTokenKind.ArrayOpen;
+            return !tokenizer.TryReadToken(out PdfToken first, false, _governor) || first.Kind is PdfTokenKind.ArrayOpen or PdfTokenKind.Null;
         }
         finally
         {

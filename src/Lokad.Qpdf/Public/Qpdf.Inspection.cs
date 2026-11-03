@@ -340,7 +340,7 @@ public static partial class Qpdf
             diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, "  content:");
             if (location.Page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject? contents) && contents is not null)
             {
-                if (contents is PdfReference root && document.Engine.ResolveArray(root) is PdfArray indirect) { contents = indirect; }
+                if (contents is PdfReference root && document.Engine.ResolveArrayOrNull(root) is QpdfObject indirect) { contents = indirect; }
                 PdfArray? array = contents as PdfArray;
                 int count = array?.Count ?? 1;
                 for (int i = 0; i < count; i++)

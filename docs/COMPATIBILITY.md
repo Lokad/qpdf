@@ -136,6 +136,14 @@ qpdf can retain the indirect spelling or widget identity in these cases; managed
 inspection deliberately keeps its terminal-field and resolved-value contract.
 Public signatures are unchanged.
 
+JSON and show-pages image inspection now share ordinary page-resource inheritance.
+Null and undefined resource references allow ancestor resources, matching the
+reader and native qpdf; explicit non-null invalid overrides still hide images.
+Resolved-null Contents is empty in both reports. The existing header probe still
+leaves stream payloads unread and preserves raw references within content arrays,
+including malformed entries. Non-null invalid Contents values remain visible;
+required parent errors, cycles and nesting limits still reject.
+
 Attachment import conflicts now use requested keys even when an earlier graph
 cannot be preserved. Reversing import order no longer changes whether a collision
 rejects; prefixes apply before this decision, and warning controls cannot waive

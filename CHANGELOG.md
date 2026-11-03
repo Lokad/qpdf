@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Share page-resource inheritance across JSON and show-pages inspection, including
+  null and undefined overrides. Report resolved-null Contents as empty while
+  preserving stream identities, malformed non-null values and bounded ancestry.
+  Remove both duplicate resource walks without eagerly reading stream payloads.
+
 - Preserve imported attachment key identity when graph copying fails. Later
   imports with the same final prefixed key now reject in either request order,
   while unrelated imports and distinct prefixes retain their recovery behavior.

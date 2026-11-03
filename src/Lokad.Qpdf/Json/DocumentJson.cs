@@ -771,7 +771,8 @@ internal static class DocumentJson
     {
         memory.CheckOwner(governor); cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         List<PageImageDetail> images = ParserContainers.CreateList<PageImageDetail>(memory);
-        PdfDictionary? resources = EffectiveImageResources(engine, location, limits, memory, governor, cancellationToken);
+        QpdfObject? rawResources = PageInheritance.Find(engine, location, PdfName.FromAscii("Resources"), limits, governor, cancellationToken);
+        PdfDictionary? resources = Content.CatalogCopy.ResolveDictionary(rawResources, engine, governor, cancellationToken);
         if (resources is null)
         {
             return images;
@@ -830,83 +831,6 @@ internal static class DocumentJson
         return images;
     }
 
-    private static PdfDictionary? EffectiveImageResources(
-        DocumentEngine engine,
-        PageLocation location,
-        QpdfLimits limits,
-        ParserMemoryScope memory,
-        ResourceGovernor governor,
-        CancellationToken cancellationToken)
-    {
-        GovernedIntSet? visited = null;
-
-        PdfDictionary current = location.Page;
-        int depth = 0;
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (current.TryGet(PdfName.FromAscii("Resources"), out QpdfObject resourcesRaw) && resourcesRaw is not PdfNull)
-            {
-                if (resourcesRaw is PdfDictionary direct)
-                {
-                    return direct;
-                }
-
-                if (resourcesRaw is PdfReference resourcesReference
-                    && ((IIndirectResolver)engine).TryResolve(resourcesReference, out QpdfObject? resourcesResolved)
-                    && resourcesResolved is PdfDictionary resolved)
-                {
-                    return resolved;
-                }
-
-                return null;
-            }
-
-            if (!current.TryGet(PdfName.FromAscii("Parent"), out QpdfObject parentRaw) || parentRaw is PdfNull)
-            {
-                return null;
-            }
-
-            PdfDictionary parent;
-            if (parentRaw is PdfReference parentReference)
-            {
-                if (visited is null)
-                {
-                    visited = GovernedIntSet.Create(memory, governor, cancellationToken);
-                    if (location.Source is not null) { visited.Add(memory, location.Source.ObjectNumber); }
-                }
-                if (!visited.Add(memory, parentReference.ObjectNumber))
-                {
-                    throw new QpdfParseException($"Page ancestry cycle at object {parentReference.ObjectNumber}.", null, parentReference.ObjectNumber);
-                }
-
-                if (!((IIndirectResolver)engine).TryResolve(parentReference, out QpdfObject? resolved) || resolved is not PdfDictionary resolvedParent)
-                {
-                    throw new QpdfParseException("Unresolvable page parent.", null, parentReference.ObjectNumber);
-                }
-
-                parent = resolvedParent;
-            }
-            else if (parentRaw is PdfDictionary directParent)
-            {
-                parent = directParent;
-            }
-            else
-            {
-                throw new QpdfParseException("Page /Parent must be a dictionary or a reference.", null, null);
-            }
-
-            depth += 1;
-            if (depth > limits.MaxNestingDepth)
-            {
-                throw new QpdfParseException($"Page ancestry depth exceeds {limits.MaxNestingDepth}.", null, null);
-            }
-
-            governor.NoteOperation();
-            current = parent;
-        }
-    }
-
     private static void AppendContents(
         DisplayBuffer builder,
         DocumentEngine engine,
@@ -915,15 +839,11 @@ internal static class DocumentJson
         ResourceGovernor governor,
         QpdfLimits limits)
     {
-        if (!page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject? contents) || contents is null || contents is PdfNull)
-        {
-            builder.Append("[]");
-            return;
-        }
+        PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, governor.CancellationToken, out QpdfObject contents);
 
         // Resolve only the outer container. Entries keep their stream identity;
         // malformed non-array values remain visible in the inspection report.
-        if (contents is PdfReference reference && engine.ResolveArray(reference) is PdfArray indirect) { contents = indirect; }
+        if (contents is PdfReference reference && engine.ResolveArrayOrNull(reference) is QpdfObject indirect) { contents = indirect; }
         builder.Append((char)91);
         if (contents is PdfArray array)
         {
@@ -937,7 +857,7 @@ internal static class DocumentJson
                 PdfJsonWriter.AppendValue(builder, array[i], request.Version, governor, 0, limits);
             }
         }
-        else
+        else if (contents is not PdfNull)
         {
             PdfJsonWriter.AppendValue(builder, contents, request.Version, governor, 0, limits);
         }

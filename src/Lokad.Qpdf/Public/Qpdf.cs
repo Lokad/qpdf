@@ -2329,7 +2329,8 @@ public static partial class Qpdf
     {
         memory.CheckOwner(governor);
         List<PageImage> images = ParserContainers.CreateList<PageImage>(memory);
-        PdfDictionary? resources = EffectivePageResources(engine, location, limits, governor, cancellationToken);
+        QpdfObject? rawResources = PageInheritance.Find(engine, location, PdfName.FromAscii("Resources"), limits, governor, cancellationToken);
+        PdfDictionary? resources = Content.CatalogCopy.ResolveDictionary(rawResources, engine, governor, cancellationToken);
         if (resources is null)
         {
             return images;
@@ -2386,82 +2387,6 @@ public static partial class Qpdf
         }
 
         return images;
-    }
-
-    private static PdfDictionary? EffectivePageResources(
-        DocumentEngine engine,
-        PageLocation location,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        CancellationToken cancellationToken)
-    {
-        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        HashSet<int> visited = ParserContainers.CreateSet<int>(memory);
-        if (location.Source is not null)
-        {
-            GovernedCollections.AddNumber(memory, governor, visited, location.Source.ObjectNumber);
-        }
-
-        PdfDictionary current = location.Page;
-        int depth = 0;
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (current.TryGet(PdfName.FromAscii("Resources"), out QpdfObject resourcesRaw) && resourcesRaw is not PdfNull)
-            {
-                if (resourcesRaw is PdfDictionary direct)
-                {
-                    return direct;
-                }
-
-                if (resourcesRaw is PdfReference resourcesReference
-                    && ((IIndirectResolver)engine).TryResolve(resourcesReference, out QpdfObject? resourcesResolved)
-                    && resourcesResolved is PdfDictionary resolved)
-                {
-                    return resolved;
-                }
-
-                return null;
-            }
-
-            if (!current.TryGet(PdfName.FromAscii("Parent"), out QpdfObject parentRaw) || parentRaw is PdfNull)
-            {
-                return null;
-            }
-
-            PdfDictionary parent;
-            if (parentRaw is PdfReference parentReference)
-            {
-                if (!GovernedCollections.AddNumber(memory, governor, visited, parentReference.ObjectNumber))
-                {
-                    throw new QpdfParseException($"Page ancestry cycle at object {parentReference.ObjectNumber}.", null, parentReference.ObjectNumber);
-                }
-
-                if (!((IIndirectResolver)engine).TryResolve(parentReference, out QpdfObject? resolved) || resolved is not PdfDictionary resolvedParent)
-                {
-                    throw new QpdfParseException("Unresolvable page parent.", null, parentReference.ObjectNumber);
-                }
-
-                parent = resolvedParent;
-            }
-            else if (parentRaw is PdfDictionary directParent)
-            {
-                parent = directParent;
-            }
-            else
-            {
-                throw new QpdfParseException("Page /Parent must be a dictionary or a reference.", null, null);
-            }
-
-            depth += 1;
-            if (depth > limits.MaxNestingDepth)
-            {
-                throw new QpdfParseException($"Page ancestry depth exceeds {limits.MaxNestingDepth}.", null, null);
-            }
-
-            governor.NoteOperation();
-            current = parent;
-        }
     }
 
     private static long ImageDimension(

@@ -388,7 +388,11 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
   encrypt, outlines, and objects/objectinfo for version 1 or qpdf for
   version 2). Pages carry object, contents, label, outlines,
   pageposfrom1, and direct image descriptors with raw dimension/colorspace values
-  and filter data. Image resources use unsigned raw-name byte order; their names
+  and filter data. Image lookup shares ordinary page-resource inheritance with
+  show-pages; null/undefined overrides allow ancestors, while explicit invalid
+  non-null overrides stop lookup. Resolved-null Contents is empty; array entries
+  keep their raw identities and malformed non-null values remain visible.
+  Image resources use unsigned raw-name byte order; their names
   preserve UTF-8 in both versions, with the `n:` escaped-name form for invalid UTF-8.
   Outlines
   resolve explicit destinations, including local GoTo actions; named destinations
