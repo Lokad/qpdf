@@ -66,11 +66,25 @@ retains source objects without manufacturing unusable candidate images.
 Externalization also uses declared unfiltered sample extents before accepting an
 inline terminator. Row padding, image masks and resolved component counts prevent
 an embedded `EI` from truncating the samples, even below an apparent byte threshold.
-Native qpdf can truncate these inputs. Header framing can now require parsing and
+Native qpdf can truncate these inputs. Flate, LZW, RunLength, ASCIIHex, ASCII85 and
+DCT packets now supply encoded extents too, using the outer filter in a chain.
+Packet scans do not inflate samples, require a JPEG codec or charge decoded bytes;
+actual decoding retains its validation and decompression limits. Known extents
+take precedence over lexical lookahead. Header framing can require parsing and
 admission before threshold eligibility is known; malformed headers can report
-warnings at that point. Entire programs shorter than the threshold stay unchanged
-without that parsing. Filtered or unresolved extents retain the existing heuristic
-lookahead; this correction does not establish universal binary framing.
+warnings at that point. Entire programs shorter than the externalization threshold
+stay unchanged without that parsing.
+
+Externalization, normalization, resource scanning, appearance scanning and page
+content checking share this framing decision. Unknown filters or unresolved sample
+extents preserve the entire program with bounded reporting; page-content checking
+reports unavailable coverage instead of interpreting uncertain bytes. Malformed
+known packets retain the operation's existing malformed-data warning/failure policy.
+Abandoned externalization discards all staged candidates. Normalization reuses a
+shared stream only under matching resources when named colorspace framing depends
+on them; context-independent streams retain sharing. Standalone stream inspection
+has only that stream's resource context and can reject requested normalization
+before binary output when the extent cannot be established.
 
 Content normalization now interprets an unescaped CR or CRLF inside a literal
 string as one LF byte, matching the reader and PDF syntax rules. Explicit escaped

@@ -404,6 +404,7 @@ internal static class DocumentCheck
                 continue;
             }
 
+            QpdfObject? resources = PageInheritance.Find(engine, location, PdfName.FromAscii("Resources"), limits, governor, cancellationToken);
             for (int streamIndex = 0; streamIndex < streams.Count; streamIndex++)
             {
                 PdfStream stream = streams.Get(streamIndex).Stream;
@@ -418,9 +419,11 @@ internal static class DocumentCheck
                         if (outsideLevel) { aboveLevel += 1; }
                         continue;
                     }
-                    TokenizeCheckStream(bytes, governor, cancellationToken);
+                    TokenizeCheckStream(bytes, resources, resolver, limits, governor, diagnostics, cancellationToken);
                     examined += 1;
                 }
+                catch (QpdfFilterException ex) when (ex.Reason == QpdfFilterFailureReason.UnsupportedFilter)
+                { skipped += 1; }
                 catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
                 {
                     AddFailure(failures, ref failureCount, ["Page ", DiagnosticPart.Invariant(pageNumber), " content: ", ex.Message]);
@@ -850,18 +853,21 @@ internal static class DocumentCheck
 
     private static void TokenizeCheckStream(
         byte[] bytes,
+        QpdfObject? resources,
+        IIndirectResolver resolver,
+        QpdfLimits limits,
         ResourceGovernor governor,
+        DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
         ContentTokenizer tokenizer = new(bytes, governor, cancellationToken);
-        byte[] idMarker = [(byte)73, (byte)68];
         while (tokenizer.TryReadToken(out ContentToken token))
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
-            if (token.Kind == ContentTokenKind.Operator && token.Data.Span.SequenceEqual(idMarker))
+            if (token.Kind == ContentTokenKind.Operator && token.Data.Span.SequenceEqual("ID"u8))
             {
-                tokenizer.TryReadInlineImageData(null, out ContentToken _);
+                InlineImageStorage.ReadData(tokenizer, resources, resolver, limits, governor, diagnostics, cancellationToken, out _);
             }
         }
     }

@@ -116,7 +116,7 @@ public sealed class ContentTokenizerTests
             prefix.Add(token);
         }
 
-        Assert.True(tokenizer.TryReadInlineImageData(null, out ContentToken image));
+        ContentToken image = InlineImageStorage.ReadData(tokenizer, null, null, limits, governor, new(governor), CancellationToken.None, out _);
         List<ContentToken> suffix = new();
         while (tokenizer.TryReadToken(out ContentToken rest))
         {
@@ -148,7 +148,7 @@ public sealed class ContentTokenizerTests
     [Fact]
     public void InlineImageIgnoresEmbeddedEIWithoutDelimiters()
     {
-        byte[] head = Encoding.ASCII.GetBytes("BI /W 2 ID ");
+        byte[] head = Encoding.ASCII.GetBytes("BI /W 11 /H 1 /CS /G /BPC 8 ID ");
         byte[] data = Encoding.ASCII.GetBytes("xEIyBEIzEIw");
         byte[] tail = Encoding.ASCII.GetBytes(" EI Q");
         byte[] bytes = new byte[head.Length + data.Length + tail.Length];
@@ -165,9 +165,9 @@ public sealed class ContentTokenizerTests
     }
 
     [Fact]
-    public void InlineImageLookaheadRejectsBinaryLead()
+    public void InlineImageExtentSkipsDelimitedEiAndBinarySamples()
     {
-        byte[] head = Encoding.ASCII.GetBytes("BI ID ");
+        byte[] head = Encoding.ASCII.GetBytes("BI /W 12 /H 1 /CS /G /BPC 8 ID ");
         byte[] data = Encoding.ASCII.GetBytes("AB EI ");
         byte[] garbage = [0x01, 0x02];
         byte[] middle = Encoding.ASCII.GetBytes("Q RS EI");
@@ -191,22 +191,22 @@ public sealed class ContentTokenizerTests
     }
 
     [Fact]
-    public void InlineImageFallsBackToLastCandidate()
+    public void InlineImageBoundaryDoesNotDependOnFollowingTokens()
     {
-        byte[] bytes = Encoding.ASCII.GetBytes("BI ID AB EI \x01\x02");
+        byte[] bytes = Encoding.ASCII.GetBytes("BI /W 2 /H 1 /CS /G /BPC 8 ID AB EI \x01\x02");
         (List<ContentToken> _, ContentToken image, List<ContentToken> suffix) = TokenizeImage(bytes);
         Assert.Equal(Encoding.ASCII.GetBytes("AB "), image.Data.ToArray());
         Assert.Single(suffix);
     }
 
     [Fact]
-    public void InlineImageEmptyAndTrailing()
+    public void InlineImageWhitespaceSampleAndTrailingTerminator()
     {
-        byte[] bytes = Encoding.ASCII.GetBytes("BI ID  EI");
+        byte[] bytes = Encoding.ASCII.GetBytes("BI /W 1 /H 1 /CS /G /BPC 8 ID   EI");
         (List<ContentToken> _, ContentToken image, List<ContentToken> suffix) = TokenizeImage(bytes);
-        Assert.Equal([0x20], image.Data.ToArray());
+        Assert.Equal([0x20, 0x20], image.Data.ToArray());
         Assert.Empty(suffix);
-        byte[] trailing = Encoding.ASCII.GetBytes("BI ID X EI");
+        byte[] trailing = Encoding.ASCII.GetBytes("BI /W 1 /H 1 /CS /G /BPC 8 ID X EI");
         (List<ContentToken> _, ContentToken second, List<ContentToken> rest) = TokenizeImage(trailing);
         Assert.Equal(Encoding.ASCII.GetBytes("X "), second.Data.ToArray());
         Assert.Empty(rest);
@@ -215,7 +215,7 @@ public sealed class ContentTokenizerTests
     [Fact]
     public void InlineImageUnterminatedThrows()
     {
-        byte[] bytes = Encoding.ASCII.GetBytes("BI /W 1 ID ABC");
+        byte[] bytes = Encoding.ASCII.GetBytes("BI /W 3 /H 1 /CS /G /BPC 8 ID ABC");
         QpdfLimits limits = QpdfLimits.Default;
         ResourceGovernor governor = new(limits, CancellationToken.None);
         ContentTokenizer tokenizer = new(bytes, governor);
@@ -223,7 +223,7 @@ public sealed class ContentTokenizerTests
         {
             if (token.Kind == ContentTokenKind.Operator && Text(token) == "ID")
             {
-                Assert.Throws<QpdfParseException>(() => tokenizer.TryReadInlineImageData(null, out ContentToken _));
+                Assert.Throws<QpdfParseException>(() => InlineImageStorage.ReadData(tokenizer, null, null, limits, governor, new(governor), CancellationToken.None, out _));
                 return;
             }
         }

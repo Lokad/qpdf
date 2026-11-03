@@ -117,7 +117,7 @@ public sealed class ResourceNameAnalysisTests
     public void InlineImageBytesDoNotIntroduceResourceNames()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); using Prepared prepared = new(governor);
-        PdfDictionary page = Page("BI /W 1 /H 1 ID /Unused Tf EI /Used 12 Tf", Dictionary(("Font", Dictionary(("Used", Dictionary()), ("Unused", Dictionary())))));
+        PdfDictionary page = Page("BI /W 10 /H 1 /BPC 8 /CS /G ID /Unused Tf EI /Used 12 Tf", Dictionary(("Font", Dictionary(("Used", Dictionary()), ("Unused", Dictionary())))));
         PdfDictionary output = Prune(prepared.Copier, 3, page, QpdfLimits.Default, governor, new DiagnosticBag(governor), CancellationToken.None);
         Assert.True(Has(Fonts(output), "Used")); Assert.False(Has(Fonts(output), "Unused"));
     }

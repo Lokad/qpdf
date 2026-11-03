@@ -13,7 +13,7 @@ internal readonly record struct FilterStage(string Name, PdfDictionary? Parms, I
 /// Abbreviated names (`Fl`, `LZW`, `A85`,
 /// `AHx`, `RL`, `CCF`, `DCT`) resolve canonically; anything else fails explicitly as unsupported.
 /// </summary>
-internal static class FilterChain
+internal static partial class FilterChain
 {
     internal static FilterPlan Resolve(PdfDictionary streamDict, IIndirectResolver? resolver,
         ResourceGovernor governor, CancellationToken token) => ResolveCore(streamDict, resolver, governor, token, null, true);

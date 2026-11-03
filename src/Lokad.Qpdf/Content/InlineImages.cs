@@ -164,12 +164,18 @@ internal static class InlineImages
                 if (token.Kind == ContentTokenKind.Operator && token.Data.Span.SequenceEqual("EI"u8)) { inImage = false; }
             }
         }
+        catch (QpdfFilterException ex) when (ex.Reason == QpdfFilterFailureReason.UnsupportedFilter)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, canAttach
+                ? "Unable to frame an inline image safely; keeping the original content program."
+                : "Inline image kept because its XObject resources are unavailable.");
+            return new(false, null, resources);
+        }
         catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
             if (form && resources is not PdfNull) { throw; }
             if (resources is PdfNull) { return new(false, null, resources); }
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Unable to filter content stream; not attempting to externalize inline images.");
-            resources = AddXObjects(copier, resources, output, governor, cancellationToken);
             return page is null && output.Count == 0 ? default : new(false, null, resources);
         }
         if (output.Count == 0) { return page is null ? default : new(false, null, resources); }

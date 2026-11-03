@@ -36,9 +36,13 @@ public sealed class ParsedAllocationBatchTests
         ResourceGovernor governor=new(QpdfLimits.Default,CancellationToken.None);PdfByteString borrowed=new(new byte[2*1024*1024],false);
         PdfDictionary spaces=new(new Dictionary<PdfName,QpdfObject>{[PdfName.FromAscii("Named")]=borrowed});
         PdfDictionary resources=new(new Dictionary<PdfName,QpdfObject>{[PdfName.FromAscii("ColorSpace")]=spaces});
-        int suffix=1;
-        Lokad.Qpdf.Content.InlineImageEntry image=Lokad.Qpdf.Content.InlineImageStorage.ReadWithResources("/CS /Named /W 1"u8.ToArray(),Lokad.Qpdf.Tests.Content.InlineImageStorageTests.DataTokenizer("abc"u8,governor,CancellationToken.None),0L,0L,resources,true,ref suffix,QpdfLimits.Default,governor,new(governor),new(new Dictionary<int,QpdfObject>()),CancellationToken.None)??throw new InvalidOperationException();
-        Assert.True(image.Stream.Dictionary.TryGet(PdfName.FromAscii("ColorSpace"),out QpdfObject? found));Assert.Same(borrowed,found);
+        using ParserMemoryScope parsed=ParserMemoryScope.Create(governor);
+        PdfParser parser=new(QpdfLimits.Default,governor,new(governor),null);
+        PdfDictionary raw=Assert.IsType<PdfDictionary>(parser.ParseValue(new("<< /CS /Named /W 1 >>"u8.ToArray()),0,parsed));
+        using OwnedAllocationBatch graph=OwnedAllocationBatch.Create(governor,CancellationToken.None);
+        PdfDictionary image=Lokad.Qpdf.Content.InlineImageDictionary.BuildWithResources(graph,raw,resources,new(governor),null)??throw new InvalidOperationException();
+        graph.RetainParsed(parsed);
+        Assert.True(image.TryGet(PdfName.FromAscii("ColorSpace"),out QpdfObject? found));Assert.Same(borrowed,found);
         Assert.True(governor.Snapshot().PeakMemoryBytes<16384L);GC.KeepAlive(image);GC.KeepAlive(resources);
     }
     private static object Capture(ResourceGovernor governor,bool text)

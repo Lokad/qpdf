@@ -2285,7 +2285,8 @@
           "CheckTransformationTests.SelectedFilteredStreamReturnsTheOriginalPayload",
           "CheckTransformationTests.OverlayChangesInspectedPageBeforeChecking",
           "CheckTransformationTests.OverlayRegistersImportedFieldsBeforeChecking",
-          "CheckInspectionTests.PruningDoesNotRewriteFilelessInspectionResources"
+          "CheckInspectionTests.PruningDoesNotRewriteFilelessInspectionResources",
+          "InlinePacketBoundaryTests.CheckingDoesNotParseBinarySamplesAsAnUnterminatedLiteral"
         ],
         "negative": [
           "CheckTests.ArgvCheckRejectsCombinedAndTrailingForms",
@@ -2296,7 +2297,8 @@
           "BinaryInspectionTests.CheckerOutputPathRejectsBeforePdfAccess",
           "BinaryInspectionTests.FatalCheckingOfAnUnextractedStreamStopsAttachmentOutput",
           "CheckTransformationTests.RangeBoundsReturnExplicitFailureAfterInputWork",
-          "CheckTransformationTests.MissingOverlayFailsBeforeCheckingOrListing"
+          "CheckTransformationTests.MissingOverlayFailsBeforeCheckingOrListing",
+          "InlinePacketBoundaryTests.UnknownFramingPreservesTheWholeProgramAndDiscardsEarlierCandidates"
         ],
         "interaction": [
           "CheckTests.ArgvCheckRejectsCombinedAndTrailingForms",
@@ -2961,7 +2963,7 @@
           "InlineImagesTests.ExternalizeAboveThreshold",
           "InlineBindingTests.ConversionRequiresBindableResourcesAndPreservesSharedContext",
           "InlineBindingTests.IneligibleImagesDoNotRequireResourceBindingOrWarnings",
-          "InlineResourceGovernanceTests.UnresolvedColorspaceDoesNotMaterializeTheBorrowedPayload",
+          "InlineResourceGovernanceTests.UnresolvedColorspaceRefusesFramingBeforePayloadAdmission",
           "ExternalizedContentIdentityTests.ExternalizationPreservesIndependentRootsAndRetiresOnlyUnreachableOriginals",
           "ExternalizedContentIdentityTests.FailurePreservesPriorOutputAndRefundsTheCall",
           "InlineImagesTests.CustomThresholdExternalizesSmall",
@@ -2971,10 +2973,12 @@
           "InlineImageBoundaryTests.KnownSampleExtentsTakePrecedenceOverEmbeddedTerminators",
           "InlineImageBoundaryTests.CompleteSamplesReceiveAdmissionAndRefundOnRefusal",
           "InlineImageBoundaryTests.CancellationAfterSampleAdmissionRefundsBothOwners",
-          "InlineImageBoundaryTests.NamedColorFamiliesSupplyTheirDeclaredSampleComponents"
+          "InlineImageBoundaryTests.NamedColorFamiliesSupplyTheirDeclaredSampleComponents",
+          "InlinePacketBoundaryTests.EveryConsumerSkipsCompleteFilteredPackets"
         ],
         "negative": [
-          "InlineImagesTests.MalformedExternalizeFlagsFail"
+          "InlineImagesTests.MalformedExternalizeFlagsFail",
+          "InlinePacketBoundaryTests.UnknownFramingPreservesTheWholeProgramAndDiscardsEarlierCandidates"
         ],
         "interaction": [
           "InlineImagesTests.JobRoundTripMatchesArgv",
@@ -2984,7 +2988,9 @@
           "ResourceEnforcementTests.ExternalizeInlineImagesYieldsToExhaustedBudget",
           "SinglePartContentOwnershipTests.OwnedPartMovesWithoutASecondPayloadAllocation",
           "SinglePartContentOwnershipTests.CancellationAfterJoinAdmissionLeavesThePartFunded",
-          "ResourcePayloadIdentityTests.FailurePreservesTheTargetAndRefundsBothResourcePaths"
+          "ResourcePayloadIdentityTests.FailurePreservesTheTargetAndRefundsBothResourcePaths",
+          "InlinePacketBoundaryTests.PacketConstructionAndPublicationFailuresKeepPriorOutputAndRefundOwners",
+          "PacketFramingTests.FlateFrameStateAlsoReceivesSharedAdmission"
         ],
         "oracle": [
           "diff:inline"
@@ -3259,7 +3265,8 @@
         "interaction": [
           "GenerateAppearancesTests.JobRoundTripMatchesArgv",
           "GenerateAppearancesTests.WholeFileJobGenerates",
-          "GenerateAppearancesTests.MergeThenGenerateAppliesToFinalPages"
+          "GenerateAppearancesTests.MergeThenGenerateAppliesToFinalPages",
+          "InlinePacketBoundaryTests.AppearanceScanningCannotSelectMarkedContentInsideSamples"
         ],
         "resource": [
           "ResourceEnforcementTests.GenerateAppearancesYieldsToExhaustedBudget"
@@ -4394,17 +4401,21 @@
           "NormalizedContentIdentityTests.NormalizationChangesPageEdgesAndPreservesIndependentPayloads",
           "NormalizedContentIdentityTests.SkippedSharedStreamsWarnOnceAndKeepTheirBytes",
           "NormalizedContentIdentityTests.NormalizationFailuresPreserveTargetsAndRefundStorage",
-          "ContentTransformsTests.NormalizeDecodesFlate"
+          "ContentTransformsTests.NormalizeDecodesFlate",
+          "InlinePacketBoundaryTests.EveryConsumerSkipsCompleteFilteredPackets",
+          "InlineFramingContextTests.NormalizationSharesOnlyContextIndependentOrMatchingResourceUses"
         ],
         "negative": [
           "ContentTransformsTests.MalformedContentFlagsFail",
-          "ContentTransformsTests.NormalizeKeepsDamagedStreamsWithWarning"
+          "ContentTransformsTests.NormalizeKeepsDamagedStreamsWithWarning",
+          "InlinePacketBoundaryTests.UnknownFramingPreservesTheWholeProgramAndDiscardsEarlierCandidates"
         ],
         "interaction": [
           "ContentTransformsTests.JobContentFlagsRoundTrip"
         ],
         "resource": [
-          "ResourceEnforcementTests.NormalizeYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.NormalizeYieldsToExhaustedBudget",
+          "InlinePacketBoundaryTests.PacketConstructionAndPublicationFailuresKeepPriorOutputAndRefundOwners"
         ],
         "oracle": [
           "diff:normalize-payloads"
@@ -5568,7 +5579,8 @@
         "interaction": [
           "ContentTransformsTests.JobContentFlagsRoundTrip",
           "ContentTransformsTests.JobContentFlagsMalformedFail",
-          "ContentTransformsTests.PruneAppliesOnMerge"
+          "ContentTransformsTests.PruneAppliesOnMerge",
+          "InlinePacketBoundaryTests.EveryConsumerSkipsCompleteFilteredPackets"
         ],
         "resource": [
           "ResourceEnforcementTests.PruneYieldsToExhaustedBudget",

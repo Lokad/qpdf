@@ -131,8 +131,8 @@ internal static class ContentTransforms
             int allocator = copier.NextId;
             forms.ApplyReplacements(copier, pageIds, replacements, ref allocator);
         }
-        GovernedIntDictionary<(PdfStream Source, PdfReference? Replacement)>? normalized = request.Normalize
-            ? GovernedIntDictionary<(PdfStream Source, PdfReference? Replacement)>.Create(phase, governor, 2L * IntPtr.Size, cancellationToken) : null;
+        GovernedIntDictionary<(PdfStream Source, QpdfObject? Context, PdfReference? Replacement)>? normalized = request.Normalize
+            ? GovernedIntDictionary<(PdfStream Source, QpdfObject? Context, PdfReference? Replacement)>.Create(phase, governor, 3L * IntPtr.Size, cancellationToken) : null;
         Dictionary<PdfArray, PdfReference>? coalesced = null;
         if (request.Coalesce)
         {
@@ -296,7 +296,7 @@ internal static class ContentTransforms
         GraphCopier copier,
         int pageId,
         PdfDictionary page,
-        GovernedIntDictionary<(PdfStream Source, PdfReference? Replacement)> normalized,
+        GovernedIntDictionary<(PdfStream Source, QpdfObject? Context, PdfReference? Replacement)> normalized,
         ParserMemoryScope phase,
         QpdfLimits limits,
         ResourceGovernor governor,
@@ -311,6 +311,8 @@ internal static class ContentTransforms
 
         using ParserMemoryScope rewriteMemory = ParserMemoryScope.Create(governor);
         PoolResolver resolver = PoolResolver.Create(rewriteMemory, copier.CopiedObjects);
+        PdfDictionary? resources = PdfDictionaryLookup.TryGet(page, "Resources"u8, governor, cancellationToken, out QpdfObject rawResources)
+            ? CatalogCopy.ResolveDictionary(rawResources, resolver, governor, cancellationToken) : null;
         GovernedIntDictionary<QpdfObject>? rewritten = GovernedIntDictionary<QpdfObject>.Create(rewriteMemory, governor, IntPtr.Size, cancellationToken);
         try
         {
@@ -325,17 +327,18 @@ internal static class ContentTransforms
                     // A different transform can replace the source pool slot.
                     // Share normalization only while that source version matches.
                     if (copier.CopiedObjects.TryGetValue(identity, out QpdfObject? poolValue) && poolValue is PdfStream found) { stream = found; }
-                    if (normalized.TryGetValue(identity, out var previous) && ReferenceEquals(previous.Source, stream))
+                    if (normalized.TryGetValue(identity, out var previous) && ReferenceEquals(previous.Source, stream)
+                        && (previous.Context is null || ReferenceEquals(previous.Context, resources ?? (QpdfObject)PdfNull.Instance)))
                     {
                         if (previous.Replacement is PdfReference cached) { rewritten.Assign(rewriteMemory, entry.ArrayIndex, cached); }
                         continue;
                     }
                 }
-                PdfStream? replacement = BuildNormalizedContent(stream, resolver, limits, governor, diagnostics, cancellationToken);
+                PdfStream? replacement = BuildNormalizedContent(stream, resources, resolver, limits, governor, diagnostics, cancellationToken, out QpdfObject? context);
                 if (entry.ObjectId is int id)
                 {
                     PdfReference? link = replacement is null ? null : copier.AddIndirectObjectWithId(replacement, copier.NextId);
-                    normalized.Assign(phase, id, (stream, link));
+                    normalized.Assign(phase, id, (stream, context, link));
                     if (link is not null) { rewritten.Assign(rewriteMemory, entry.ArrayIndex, link); }
                 }
                 else if (replacement is not null)
@@ -367,9 +370,10 @@ internal static class ContentTransforms
         finally { rewritten = null; }
     }
 
-    private static PdfStream? BuildNormalizedContent(PdfStream original, PoolResolver resolver, QpdfLimits limits,
-        ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+    private static PdfStream? BuildNormalizedContent(PdfStream original, PdfDictionary? resources, PoolResolver resolver, QpdfLimits limits,
+        ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token, out QpdfObject? context)
     {
+        context = null;
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         bool contentError = false;
         using (ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor))
@@ -386,9 +390,11 @@ internal static class ContentTransforms
                 }
                 using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
                 byte[]? normalized = null;
+                bool requiresResources = false;
                 try
                 {
-                    try { normalized = NormalizeContentBytesOwned(data, governor, token, limits.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes), graph.Memory); }
+                    try { normalized = NormalizeContentBytesOwned(data, resources, resolver, limits, governor, diagnostics, token,
+                        limits.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes), graph.Memory, out requiresResources); }
                     catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException)) { contentError = true; }
                     if (normalized is not null)
                     {
@@ -397,7 +403,7 @@ internal static class ContentTransforms
                         PdfStream replacement = CreateContentStream(graph, dictionary, normalized); graph.Retain(); return replacement;
                     }
                 }
-                finally { normalized = null; }
+                finally { normalized = null; context = requiresResources ? resources ?? (QpdfObject)PdfNull.Instance : null; }
             }
             finally { data = Array.Empty<byte>(); }
         }
@@ -450,9 +456,11 @@ internal static class ContentTransforms
 
         return page;
     }
-    internal static byte[] NormalizeContentBytesOwned(byte[] data, ResourceGovernor governor,
-        CancellationToken cancellationToken, long maximumBytes, string limitName, ParserMemoryScope memory)
+    internal static byte[] NormalizeContentBytesOwned(byte[] data, QpdfObject? resources, IIndirectResolver? resolver,
+        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken,
+        long maximumBytes, string limitName, ParserMemoryScope memory, out bool requiresResources)
     {
+        requiresResources = false;
         memory.CheckOwner(governor);
         cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor); scratch.Reserve(192L);
@@ -471,7 +479,9 @@ internal static class ContentTransforms
                 case ContentTokenKind.Operator when token.Data.Span.SequenceEqual("ID"u8):
                     AppendRaw(output, token);
                     int imageStart = checked((int)tokenizer.Position);
-                    tokenizer.TryReadInlineImageData(null, out _);
+                    bool imageRequiresResources = false;
+                    try { InlineImageStorage.ReadData(tokenizer, resources, resolver, limits, governor, diagnostics, cancellationToken, out imageRequiresResources); }
+                    finally { requiresResources |= imageRequiresResources; }
                     // Include the original delimiter and EI; image samples are
                     // opaque even when their bytes resemble content tokens.
                     output.Write(data.AsSpan(imageStart, checked((int)tokenizer.Position) - imageStart));
@@ -841,7 +851,7 @@ internal static class ContentTransforms
         }
 
         using JoinedContent content = pageChunks.Join();
-        ScanAndPrune(copier, pageId, page, content.Bytes, resources, true, unresolved, governor, diagnostics, cancellationToken);
+        ScanAndPrune(copier, pageId, page, content.Bytes, resources, true, unresolved, limits, governor, diagnostics, cancellationToken);
         if (copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? refreshed) && refreshed is PdfDictionary refreshedPage)
         {
             return refreshedPage;
@@ -883,7 +893,7 @@ internal static class ContentTransforms
         }
 
         using JoinedContent content = chunks.Join();
-        ScanAndPrune(copier, formId, null, content.Bytes, resources, false, unresolved, governor, diagnostics, cancellationToken);
+        ScanAndPrune(copier, formId, null, content.Bytes, resources, false, unresolved, limits, governor, diagnostics, cancellationToken);
     }
 
     private static void ScanAndPrune(
@@ -894,6 +904,7 @@ internal static class ContentTransforms
         PdfDictionary? resources,
         bool isPage,
         ResourceNameSet unresolved,
+        QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
@@ -902,7 +913,7 @@ internal static class ContentTransforms
         PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
         using ResourceNameSet names = ResourceNameSet.Create(governor, cancellationToken);
         using ResourceNameSet scoped = ResourceNameSet.Create(governor, cancellationToken);
-        if (!ScanNames(content, names, scoped, governor, cancellationToken))
+        if (!ScanNames(content, names, scoped, resources, resolver, limits, governor, diagnostics, cancellationToken))
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped resource pruning for content that could not be parsed.");
             return;
@@ -1218,7 +1229,11 @@ internal static class ContentTransforms
         ReadOnlyMemory<byte> content,
         ResourceNameSet names,
         ResourceNameSet scoped,
+        PdfDictionary? resources,
+        PoolResolver resolver,
+        QpdfLimits limits,
         ResourceGovernor governor,
+        DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
         using ParserMemoryScope tokenizerMemory = ParserMemoryScope.Create(governor);
@@ -1243,7 +1258,7 @@ internal static class ContentTransforms
                     governor.CheckCancellation();
                     if (word.SequenceEqual("ID"u8))
                     {
-                        tokenizer.TryReadInlineImageData(null, out ContentToken _);
+                        InlineImageStorage.ReadData(tokenizer, resources, resolver, limits, governor, diagnostics, cancellationToken, out _);
                         continue;
                     }
 

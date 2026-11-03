@@ -235,8 +235,10 @@ public static partial class Qpdf
                 }
                 if (showObject.NormalizeContent)
                 {
-                    payload = Content.ContentTransforms.NormalizeContentBytesOwned(decoded ?? dataStream.ArrayData(memory, governor, cancellationToken), governor,
-                        cancellationToken, limits.MaxOutputBytes, nameof(QpdfLimits.MaxOutputBytes), memory);
+                    QpdfObject? resources = PdfDictionaryLookup.TryGet(dataStream.Dictionary, "Resources"u8, governor, cancellationToken, out QpdfObject rawResources)
+                        ? rawResources : null;
+                    payload = Content.ContentTransforms.NormalizeContentBytesOwned(decoded ?? dataStream.ArrayData(memory, governor, cancellationToken), resources,
+                        document.Engine, limits, governor, diagnostics, cancellationToken, limits.MaxOutputBytes, nameof(QpdfLimits.MaxOutputBytes), memory, out _);
                 }
             }
 

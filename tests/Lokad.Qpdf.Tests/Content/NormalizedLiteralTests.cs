@@ -34,7 +34,8 @@ public sealed class NormalizedLiteralTests
         {
             byte[] normalized;
             if (route == "core")
-            { normalized = ContentTransforms.NormalizeContentBytesOwned(content, governor, CancellationToken.None, QpdfLimits.Default.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes), memory); }
+            { normalized = ContentTransforms.NormalizeContentBytesOwned(content, null, null, QpdfLimits.Default, governor, new(governor), CancellationToken.None,
+                QpdfLimits.Default.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes), memory, out _); }
             else
             {
                 byte[] source = CheckTests.Assemble([
@@ -77,8 +78,8 @@ public sealed class NormalizedLiteralTests
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 256 }, governorRoute ? cancellation.Token : CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor); memory.Reserve(61L);
         long baseline = governor.Snapshot().LiveMemoryBytes; cancellation.Cancel();
-        Assert.Throws<OperationCanceledException>(() => ContentTransforms.NormalizeContentBytesOwned("(a\r\nb)"u8.ToArray(), governor,
-            governorRoute ? CancellationToken.None : cancellation.Token, 1048576, "test", memory));
+        Assert.Throws<OperationCanceledException>(() => ContentTransforms.NormalizeContentBytesOwned("(a\r\nb)"u8.ToArray(), null, null, QpdfLimits.Default, governor, new(governor),
+            governorRoute ? CancellationToken.None : cancellation.Token, 1048576, "test", memory, out _));
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 }

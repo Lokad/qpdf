@@ -442,7 +442,9 @@ Numbers are normalized lexically under the existing cancellation/output bounds.
   CR and octal values stay distinct, and escaped line continuations add no byte.
   It replaces page content edges while independent catalog, metadata and
   attachment roots retain the original stream/array values. Normalized page uses
-  share a replacement while their source stream version stays unchanged.
+  share a replacement while their source stream version stays unchanged. Named
+  inline colorspace framing also requires matching resources; independent framing
+  continues to share across different page scopes.
 - `--remove-unreferenced-resources` (auto by default, `yes`/`no`) drops
   unused `/Font` and `/XObject` entries using content analysis that recurses
   into form XObjects; pages with unreadable content or unresolvable names
@@ -466,9 +468,14 @@ Numbers are normalized lexically under the existing cancellation/output bounds.
   so sample bytes spelling EI do not end an image prematurely. Header framing can
   require parsing/admission before threshold eligibility, with ordinary malformed
   header reporting; programs shorter than the threshold skip it. Below-threshold
-  images need no candidate binding. Filtered/unresolved extents still use bounded
-  heuristic lookahead. Rejected lookup does not materialize pixel data
-  or create unattached candidate objects under `--preserve-unreferenced`.
+  images need no candidate binding. Flate, LZW, RunLength, ASCIIHex, ASCII85 and
+  DCT outer packets supply encoded extents without inflating pixels or requiring
+  a codec. Known extents outrank lexical lookahead. The same framing serves page
+  normalization, resource/appearance scanning and checking. Unknown/unresolved
+  extents preserve the program with a warning, or report unavailable checking;
+  malformed known packets retain the operation's malformed-data outcomes. An
+  abandoned rewrite discards earlier candidates. Rejected lookup does not
+  materialize pixel data or create unattached objects under `--preserve-unreferenced`.
 
 ## Writer profile
 

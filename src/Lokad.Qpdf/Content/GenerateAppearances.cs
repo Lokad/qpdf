@@ -599,8 +599,10 @@ internal static class GenerateAppearances
         }
 
         byte[] built;
-        try { built = FilterAppearance(decoded, font.Appearance, encodedValue, encodedOpt, font.Size, bbox, limits, governor, scratch, cancellationToken); }
-        catch (QpdfParseException)
+        QpdfObject? appearanceResources = PdfDictionaryLookup.TryGet(appearanceDict, "Resources"u8, governor, cancellationToken, out QpdfObject rawResources)
+            ? rawResources : null;
+        try { built = FilterAppearance(decoded, font.Appearance, encodedValue, encodedOpt, font.Size, bbox, appearanceResources, resolver, limits, governor, diagnostics, scratch, cancellationToken); }
+        catch (QpdfException exception) when (exception is QpdfParseException or QpdfFilterException)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot rewrite a malformed appearance program; keeping the field as is.");
             return null;
@@ -1051,8 +1053,11 @@ internal static class GenerateAppearances
         List<AppearanceLine>? options,
         double size,
         double[] box,
+        QpdfObject? resources,
+        PoolResolver resolver,
         QpdfLimits limits,
         ResourceGovernor governor,
+        DiagnosticBag diagnostics,
         ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
@@ -1114,7 +1119,8 @@ internal static class GenerateAppearances
                 if (depth == selectedDepth && end < 0) { end = checked((int)tokenizer.Position); }
                 depth--;
             }
-            else if (word.SequenceEqual("ID"u8)) { tokenizer.TryReadInlineImageData(null, out _); }
+            else if (word.SequenceEqual("ID"u8))
+            { InlineImageStorage.ReadData(tokenizer, resources, resolver, limits, governor, diagnostics, cancellationToken, out _); }
             operands = 0; textTag = false; namedTag = false; properties = false;
         }
         if (depth != 0 || containers.Count != 0)

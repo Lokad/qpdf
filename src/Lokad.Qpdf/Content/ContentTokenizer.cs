@@ -43,7 +43,7 @@ internal readonly struct ContentToken
 /// Byte-oriented content-stream tokenizer. Mirrors the object tokenizer
 /// conventions: raw spans, skipped whitespace and comments, strict failures
 /// with offsets. Words named ID start inline images; call
-/// TryReadInlineImageData immediately after reading one.
+/// InlineImageStorage establishes the extent before reading image data.
 /// </summary>
 internal sealed class ContentTokenizer
 {
@@ -51,6 +51,7 @@ internal sealed class ContentTokenizer
     private readonly ResourceGovernor _governor;
     private readonly CancellationToken _token;
     private int _position;
+    private int _inlineDictionaryStart = -1;
 
     internal ContentTokenizer(ReadOnlyMemory<byte> data, ResourceGovernor governor)
         : this(data, governor, governor?.CancellationToken ?? CancellationToken.None)
@@ -72,6 +73,12 @@ internal sealed class ContentTokenizer
     internal bool IncludeWhitespace { get; set; }
 
     internal long Position => _position;
+
+    internal ReadOnlyMemory<byte> InlineDictionary => _inlineDictionaryStart >= 0 && _position - 2 >= _inlineDictionaryStart
+        ? _data.Slice(_inlineDictionaryStart, _position - 2 - _inlineDictionaryStart)
+        : throw new QpdfParseException("Inline image data has no BI header.", _position, null);
+
+    internal ReadOnlyMemory<byte> InlineData => _position < _data.Length ? _data[(_position + 1)..] : ReadOnlyMemory<byte>.Empty;
 
     internal bool TryReadToken(out ContentToken token)
     {
@@ -158,7 +165,7 @@ internal sealed class ContentTokenizer
 
         return ReadWord(offset, out token);
     }
-    internal bool TryReadInlineImageData(long? minimumDataBytes, out ContentToken token)
+    internal ContentToken ReadInlineImageData(long minimumDataBytes)
     {
         Check();
         if (_position >= _data.Length)
@@ -168,283 +175,35 @@ internal sealed class ContentTokenizer
 
         _position += 1;
         int dataStart = _position;
-        int searchStart = dataStart;
         // A complete sample span takes precedence over EI-shaped sample bytes.
-        if (minimumDataBytes is long length)
-        {
-            if (length < 0L || length > _data.Length - dataStart)
-            { throw new QpdfParseException("Inline image has fewer bytes than its declared samples.", dataStart, null); }
-            searchStart += (int)length;
-        }
-        int end = FindImageEnd(searchStart);
+        if (minimumDataBytes < 0L || minimumDataBytes > _data.Length - dataStart)
+        { throw new QpdfParseException("Inline image has fewer bytes than its declared samples.", dataStart, null); }
+        int end = FindImageEnd(dataStart + (int)minimumDataBytes);
         if (end < 0)
         {
             throw new QpdfParseException("Unterminated inline image in content stream.", dataStart, null);
         }
 
         Visit();
-        token = new ContentToken(ContentTokenKind.InlineImage, _data.Slice(dataStart, end - dataStart), dataStart);
+        ContentToken token = new(ContentTokenKind.InlineImage, _data.Slice(dataStart, end - dataStart), dataStart);
         _position = end + 2;
-        return true;
+        _inlineDictionaryStart = -1;
+        return token;
     }
     private int FindImageEnd(int dataStart)
     {
         ReadOnlySpan<byte> span = _data.Span;
-        int search = dataStart;
-        int last = -1;
-        while (search + 1 < span.Length)
+        for (int position = dataStart; position + 1 < span.Length; position++)
         {
             Visit();
-            int candidate = IndexOfEI(span, search);
-            if (candidate < 0)
-            {
-                break;
-            }
-
-            if (candidate > 0 && IsImageDelimiter(span[candidate - 1])
-                && (candidate + 2 >= span.Length || IsImageDelimiter(span[candidate + 2])))
-            {
-                if (ValidateEILookahead(candidate + 2))
-                {
-                    return candidate;
-                }
-
-                last = candidate;
-            }
-
-            search = candidate + 2;
-        }
-
-        return last;
-    }
-
-    private int IndexOfEI(ReadOnlySpan<byte> span, int start)
-    {
-        for (int i = start; i + 1 < span.Length; i++)
-        {
-            Visit();
-            if (span[i] == (byte)'E' && span[i + 1] == (byte)'I')
-            {
-                return i;
-            }
+            if (span[position] == 'E' && span[position + 1] == 'I'
+                && position > 0 && IsImageDelimiter(span[position - 1])
+                && (position + 2 >= span.Length || IsImageDelimiter(span[position + 2]))) { return position; }
         }
 
         return -1;
     }
 
-    private bool ValidateEILookahead(int position)
-    {
-        for (int i = 0; i < 10; i++)
-        {
-            Visit();
-            ProbeKind kind = ScanToken(position, out int next, out bool suspiciousWord);
-            if (kind == ProbeKind.End)
-            {
-                return true;
-            }
-
-            if (kind == ProbeKind.Bad || suspiciousWord)
-            {
-                return false;
-            }
-
-            position = next;
-        }
-
-        return true;
-    }
-
-    private enum ProbeKind
-    {
-        Clean,
-        Bad,
-        End,
-    }
-    private ProbeKind ScanToken(int position, out int next, out bool suspiciousWord)
-    {
-        suspiciousWord = false;
-        next = position;
-        ReadOnlySpan<byte> span = _data.Span;
-        int i = position;
-        while (i < span.Length && IsWhitespace(span[i]))
-        {
-            Visit();
-            i += 1;
-        }
-
-        while (i < span.Length && span[i] == (byte)'%')
-        {
-            Visit();
-            while (i < span.Length && span[i] != (byte)'\n' && span[i] != (byte)'\r')
-            {
-                Visit();
-                i += 1;
-            }
-
-            while (i < span.Length && IsWhitespace(span[i]))
-            {
-                Visit();
-                i += 1;
-            }
-        }
-
-        if (i >= span.Length)
-        {
-            next = i;
-            return ProbeKind.End;
-        }
-
-        byte b = span[i];
-        Visit();
-        if (b == (byte)'[' || b == (byte)']')
-        {
-            next = i + 1;
-            return ProbeKind.Clean;
-        }
-
-        if (b == (byte)')' || (b == (byte)'>' && (i + 1 >= span.Length || span[i + 1] != (byte)'>')))
-        {
-            next = i + 1;
-            return ProbeKind.Bad;
-        }
-
-        if (b == (byte)'<' )
-        {
-            if (i + 1 < span.Length && span[i + 1] == (byte)'<')
-            {
-                next = i + 2;
-                return ProbeKind.Clean;
-            }
-
-            return ScanHex(i, out next);
-        }
-
-        if (b == (byte)'(')
-        {
-            return ScanLiteral(i, out next);
-        }
-
-        if (b == (byte)'/')
-        {
-            int j = i + 1;
-            while (j < span.Length && !IsDelimiter(span[j]))
-            {
-                Visit();
-                j += 1;
-            }
-
-            next = j;
-            return ProbeKind.Clean;
-        }
-
-        return ScanWord(i, out next, out suspiciousWord);
-    }
-
-    private ProbeKind ScanHex(int position, out int next)
-    {
-        next = position;
-        ReadOnlySpan<byte> span = _data.Span;
-        int i = position + 1;
-        while (i < span.Length)
-        {
-            Visit();
-            byte b = span[i];
-            if (b == (byte)'>')
-            {
-                next = i + 1;
-                return ProbeKind.Clean;
-            }
-
-            if (!IsWhitespace(b) && !IsHexDigit(b))
-            {
-                next = i + 1;
-                return ProbeKind.Bad;
-            }
-
-            i += 1;
-        }
-
-        next = i;
-        return ProbeKind.Bad;
-    }
-
-    private ProbeKind ScanLiteral(int position, out int next)
-    {
-        next = position;
-        ReadOnlySpan<byte> span = _data.Span;
-        int depth = 0;
-        int i = position;
-        while (i < span.Length)
-        {
-            Visit();
-            if (span[i] == (byte)'\\')
-            {
-                i += 2;
-                continue;
-            }
-
-            if (span[i] == (byte)'(')
-            {
-                depth += 1;
-            }
-            else if (span[i] == (byte)')')
-            {
-                depth -= 1;
-                if (depth == 0)
-                {
-                    next = i + 1;
-                    return ProbeKind.Clean;
-                }
-            }
-
-            i += 1;
-        }
-
-        next = i;
-        return ProbeKind.Bad;
-    }
-
-    private ProbeKind ScanWord(int position, out int next, out bool suspiciousWord)
-    {
-        suspiciousWord = false;
-        next = position;
-        ReadOnlySpan<byte> span = _data.Span;
-        int i = position;
-        while (i < span.Length && !IsDelimiter(span[i]))
-        {
-            Visit();
-            i += 1;
-        }
-
-        next = i;
-        if (i == position)
-        {
-            return ProbeKind.Bad;
-        }
-
-        bool alpha = false;
-        bool other = false;
-        for (int j = position; j < i; j++)
-        {
-            Visit();
-            byte b = span[j];
-            if ((b >= (byte)'a' && b <= (byte)'z') || (b >= (byte)'A' && b <= (byte)'Z') || b == (byte)'*')
-            {
-                alpha = true;
-            }
-            else if ((sbyte)b < 32 && !IsLookaheadSpace(b))
-            {
-                return ProbeKind.Bad;
-            }
-            else
-            {
-                other = true;
-            }
-        }
-
-        suspiciousWord = alpha && other;
-        return ProbeKind.Clean;
-    }
     private bool ReadLiteralString(long offset, out ContentToken token)
     {
         token = default;
@@ -606,6 +365,7 @@ internal sealed class ContentTokenizer
 
         token = new ContentToken(kind, raw, offset);
         _position = i;
+        if (kind == ContentTokenKind.Operator && raw.Span.SequenceEqual("BI"u8)) { _inlineDictionaryStart = i; }
         return true;
     }
 
@@ -697,11 +457,6 @@ internal sealed class ContentTokenizer
     private static bool IsWhitespace(byte b)
     {
         return b == 0x00 || b == 0x09 || b == 0x0A || b == 0x0C || b == 0x0D || b == 0x20;
-    }
-
-    private static bool IsLookaheadSpace(byte b)
-    {
-        return b == 0x20 || b == 0x0A || b == 0x0D || b == 0x09 || b == 0x0C || b == 0x0B;
     }
 
     private static bool IsImageDelimiter(byte b)

@@ -76,7 +76,7 @@ public sealed class InlineImageReconstructionTests
     {
         PdfDictionary resources = Dictionary(("XObject",Dictionary(("IIm1",PdfNull.Instance),("IIm3",PdfNull.Instance))));
         ResourceGovernor governor = new(QpdfLimits.Default,CancellationToken.None); DiagnosticBag diagnostics = new(governor);
-        Lokad.Qpdf.Content.InlineImages.RewriteResult result = Run(governor,Content("BI /W 1 /H 1 ID a EI BI /W 1 /H 1 ID b EI BI /W 1 /H 1 ID c EI\n"),Dictionary(("Resources",resources)),0L,false,diagnostics,CancellationToken.None);
+        Lokad.Qpdf.Content.InlineImages.RewriteResult result = Run(governor,Content("BI /W 1 /H 1 /BPC 8 /CS /G ID a EI BI /W 1 /H 1 /BPC 8 /CS /G ID b EI BI /W 1 /H 1 /BPC 8 /CS /G ID c EI\n"),Dictionary(("Resources",resources)),0L,false,diagnostics,CancellationToken.None);
         PdfStream stream=Assert.IsType<PdfStream>(result.Stream);
         Assert.Equal("/IIm1 Do\n /IIm2 Do\n /IIm3 Do\n\n",Encoding.ASCII.GetString(stream.Data));
         PdfDictionary rewritten=Assert.IsType<PdfDictionary>(result.Resources);
@@ -112,7 +112,7 @@ public sealed class InlineImageReconstructionTests
     {
         ResourceGovernor governor=new(QpdfLimits.Default with {MaxMemoryBytes=maximum},CancellationToken.None); DiagnosticBag diagnostics=new(governor);
         using ParserMemoryScope prior=ParserMemoryScope.Create(governor); prior.Reserve(61L);
-        byte[] source=Content("BI /W 1 ID "+new string('a',32768)+" EI\n");
+        byte[] source=Content("BI /W 1 /H 32768 /BPC 8 /CS /G ID "+new string('a',32768)+" EI\n");
         QpdfLimitException error=Assert.Throws<QpdfLimitException>(()=>Run(governor,source,null,0L,false,diagnostics,CancellationToken.None));
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), error.LimitName); Collect(); Assert.Equal(61L, prior.ReservedBytes);
         Assert.True(governor.Snapshot().PeakMemoryBytes<=maximum); GC.KeepAlive(source);

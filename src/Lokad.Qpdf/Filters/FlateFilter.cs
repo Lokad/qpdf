@@ -10,7 +10,7 @@ namespace Lokad.Qpdf.Filters;
 /// exceeds lenient BCL behavior, which can return short output for truncated
 /// input without throwing; see the codec notes in docs/COMPATIBILITY.md.
 /// </summary>
-internal static class FlateFilter
+internal static partial class FlateFilter
 {
     internal const string FilterName = "FlateDecode";
 

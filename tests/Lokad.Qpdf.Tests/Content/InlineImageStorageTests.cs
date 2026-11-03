@@ -65,7 +65,7 @@ public sealed class InlineImageStorageTests
     private static InlineImageEntry Create(ResourceGovernor governor, CancellationToken token)
     {
         int suffix=1; PoolResolver resolver=new(new Dictionary<int,QpdfObject>());
-        return InlineImageStorage.ReadWithResources(Encoding.ASCII.GetBytes("/W 2 /H 1 /D [0 1] /F [/AHx /Fl] /Binary#FF#23 (text)"), DataTokenizer("abc"u8,governor,token),0L,0L,Empty(),true,ref suffix,QpdfLimits.Default,governor,new(governor),resolver,token)??throw new InvalidOperationException();
+        return InlineImageStorage.ReadWithResources(Encoding.ASCII.GetBytes("/W 2 /H 1 /D [0 1] /F [/AHx /Fl] /Binary#FF#23 (text)"), DataTokenizer("abc>"u8,governor,token),0L,0L,Empty(),true,ref suffix,QpdfLimits.Default,governor,new(governor),resolver,token)??throw new InvalidOperationException();
     }
     private sealed class Holder(object value,WeakReference governor)
     { internal object? Value=value; internal readonly WeakReference Governor=governor; }

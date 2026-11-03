@@ -18,6 +18,26 @@ internal static class LzwFilter
     private const int FirstCode = 258;
     private const int LastCode = 4095;
 
+    internal static bool TryGetEncodedLength(ReadOnlySpan<byte> data, bool earlyChange,
+        ResourceGovernor governor, CancellationToken token, out int length)
+    {
+        length = 0; int next = FirstCode, width = 9, previous = ClearCode;
+        LzwBitReader reader = new(data, governor, token);
+        while (reader.TryReadCode(width, out int code))
+        {
+            if (code == ClearCode) { next = FirstCode; width = 9; previous = ClearCode; continue; }
+            if (code == EndCode) { length = reader.Position; return true; }
+            if (code > next || code == next && previous == ClearCode || previous != ClearCode && next > LastCode) { return false; }
+            if (previous != ClearCode)
+            {
+                int change = next++ + (earlyChange ? 1 : 0);
+                if (change is 511 or 1023 or 2047) { width++; }
+            }
+            previous = code;
+        }
+        return false;
+    }
+
     internal static byte[] Decode(byte[] input, bool earlyChange, QpdfLimits limits, ResourceGovernor governor,
         CancellationToken token, long selectorStride)
     {
@@ -120,6 +140,8 @@ internal static class LzwFilter
             _position = 0;
             _buffer = 0; _available = 0;
         }
+
+        internal int Position => _position;
 
         internal bool TryReadCode(int codeSize, out int code)
         {

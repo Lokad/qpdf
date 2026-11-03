@@ -7,6 +7,32 @@ internal static class DctFilter
 {
     internal const string FilterName = "DCTDecode";
 
+    internal static bool TryGetEncodedLength(ReadOnlySpan<byte> data, ResourceGovernor governor,
+        CancellationToken token, out int length)
+    {
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); length = 0;
+        if (data.Length < 2 || data[0] != 255 || data[1] != 216) { return false; }
+        int position = 2; bool entropy = false;
+        while (position < data.Length)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (data[position++] != 255) { if (entropy) { continue; } return false; }
+            while (position < data.Length && data[position] == 255)
+            { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); position++; }
+            if (position == data.Length) { return false; }
+            int marker = data[position++];
+            if (entropy && (marker == 0 || marker is >= 208 and <= 215)) { continue; }
+            if (marker == 217) { length = position; return true; }
+            if (marker is 0 or 216 || marker is >= 208 and <= 215) { return false; }
+            if (marker == 1) { continue; }
+            if (position + 1 >= data.Length) { return false; }
+            int size = (data[position] << 8) | data[position + 1];
+            if (size < 2 || size > data.Length - position) { return false; }
+            position += size; entropy = marker == 218 || entropy && marker == 220;
+        }
+        return false;
+    }
+
     internal static byte[] Decode(byte[] input, QpdfLimits limits, ResourceGovernor governor)
     {
         ArgumentNullException.ThrowIfNull(input); ArgumentNullException.ThrowIfNull(limits); ArgumentNullException.ThrowIfNull(governor);

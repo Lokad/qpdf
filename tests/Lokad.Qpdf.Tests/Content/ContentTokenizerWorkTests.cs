@@ -14,7 +14,7 @@ public sealed class ContentTokenizerWorkTests
     {
         using CancellationTokenSource source = new(); ResourceGovernor governor = new(QpdfLimits.Default, source.Token);
         ContentTokenizer tokenizer = new(ReadOnlyMemory<byte>.Empty, governor); source.Cancel();
-        if (inline) { Assert.ThrowsAny<OperationCanceledException>(() => tokenizer.TryReadInlineImageData(null, out _)); }
+        if (inline) { Assert.ThrowsAny<OperationCanceledException>(() => tokenizer.ReadInlineImageData(0L)); }
         else { Assert.ThrowsAny<OperationCanceledException>(() => tokenizer.TryReadToken(out _)); }
     }
 }
@@ -29,7 +29,7 @@ public sealed class ContentTokenizerCallerCancellationTests
         using CancellationTokenSource source = new(); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         ContentTokenizer tokenizer = new("ID x EI q"u8.ToArray(), governor, source.Token);
         Assert.True(tokenizer.TryReadToken(out _)); source.Cancel();
-        if (inline) { Assert.ThrowsAny<OperationCanceledException>(() => tokenizer.TryReadInlineImageData(null, out _)); }
+        if (inline) { Assert.ThrowsAny<OperationCanceledException>(() => tokenizer.ReadInlineImageData(0L)); }
         else { Assert.ThrowsAny<OperationCanceledException>(() => tokenizer.TryReadToken(out _)); }
     }
 }

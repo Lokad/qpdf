@@ -262,8 +262,13 @@ Assert.Contains("/IIm1 Do", Encoding.ASCII.GetString(output));
 [Fact]
 public async Task FilterAbbreviationExpands()
 {
-byte[] image = Filled(1500, 67);
-byte[] content = InlineContent("/W 1 /H 1 /CS /G /BPC 1 /F /Fl", image);
+byte[] image;
+using (MemoryStream packet = new())
+{
+using (System.IO.Compression.ZLibStream encoder = new(packet, System.IO.Compression.CompressionLevel.NoCompression, true)) { encoder.Write(Filled(1500, 67)); }
+image = packet.ToArray();
+}
+byte[] content = InlineContent("/W 1 /H 1500 /CS /G /BPC 8 /F /Fl", image);
 byte[] fixture = BuildPdf(string.Empty, " /Contents 4 0 R", new List<(string Dict, byte[] StreamData)> { (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content) });
 byte[] pdf = await TransformWithWarningsAsync(HostWith("inputs/a.pdf", fixture), ["Page Resources is missing or invalid; repairing."], "--externalize-inline-images", "--pages", ".", "1");
 using JsonDocument full = await InspectAsync(HostWith("inputs/a.pdf", pdf), "--json", "--json-key=qpdf");

@@ -222,7 +222,7 @@ public sealed class InlineResourceDefaultsTests
     }
     [Theory]
     [MemberData(nameof(FailureCases))]
-    public async Task LaterParseFailureKeepsPageResourcesOrPreservesTheFormTarget(string route, bool form, bool broken)
+    public async Task LaterParseFailureRollsBackPageCandidatesOrPreservesTheFormTarget(string route, bool form, bool broken)
     {
         byte[] tail = broken ? "BI /W [ ID xy EI\n"u8.ToArray() : "BI /W 6 0 R /H 1 /BPC 8 /CS /G ID abcd EI\n"u8.ToArray();
         byte[] content = [.. Image, .. tail];
@@ -237,8 +237,8 @@ public sealed class InlineResourceDefaultsTests
         await using QpdfDocument document = await Open(host);
         Assert.Equal(content, Content(document, false).Data);
         PdfDictionary resources = Assert.IsType<PdfDictionary>(Get(document, document.PageReferences[0].Page, "Resources"));
-        Assert.Single(Assert.IsType<PdfDictionary>(Get(document, resources, "XObject")).Keys);
-        Assert.Equal("abcd "u8.ToArray(), Assert.Single(Images(document)).Data);
+        Assert.Empty(Assert.IsType<PdfDictionary>(Get(document, resources, "XObject")).Keys);
+        Assert.Empty(Images(document));
     }
 
     [Theory]

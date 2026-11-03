@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Share inline-image packet framing across externalization, normalization,
+  resource/appearance scanning and checking. Keep unknown extents opaque,
+  respect named colorspace contexts in shared streams and discard candidates
+  from abandoned rewrites. Remove obsolete lexical boundary guessing; packet
+  scans require no pixel decoding or JPEG codec.
+
 - Bound unfiltered inline-image terminator searches by complete sample extents,
   retaining packed rows, masks and named colors while removing the old candidate
   builder that accepted already truncated data.

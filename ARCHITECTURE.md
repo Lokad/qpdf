@@ -131,6 +131,14 @@ form guards independent of resource-scope visits.
 Inline conversion requires attachment and colorspace bindings before copying
 pixels. Refused conversion keeps the original bytes and refunds temporary parsing
 storage; source-object preservation needs no separate candidate-preservation flag.
+Inline framing reuses the object parser and reads sample dimensions or the outer
+filter's packet structure. It produces no decoded samples. Normalization,
+resource/appearance scans and checking use that same boundary before interpreting
+more content. Unknown extents stay opaque; aborted rewrites publish no staged
+image bindings. Normalization's existing cache records a resource context only
+when named colorspace framing needs it, preserving ordinary stream sharing.
+The tokenizer requires that known extent; the obsolete lexical lookahead and its
+fallback mode are removed.
 Cross-reference tables likewise require an explicit owner. Synthetic fixtures
 admit their entry maps, trailer lists and input receipts and transfer them through
 the same owned table/engine factories as production, with explicit escape and input

@@ -13,7 +13,7 @@ namespace Lokad.Qpdf.Tests.Content;
 public sealed class ContentBufferGraphTests
 {
     private delegate PdfStream? JoinCall(ContentEntries entries, PoolResolver resolver, ContentTransformRequest request, QpdfLimits limits, ResourceGovernor governor, CancellationToken token);
-    private delegate PdfStream? NormalizeCall(PdfStream original, PoolResolver resolver, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token);
+    private delegate PdfStream? NormalizeCall(PdfStream original, PdfDictionary? resources, PoolResolver resolver, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token, out QpdfObject? context);
     private static readonly JoinCall Join = (typeof(ContentTransforms).GetMethod("BuildCoalescedContent", BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException()).CreateDelegate<JoinCall>();
     private static readonly NormalizeCall Normalize = (typeof(ContentTransforms).GetMethod("BuildNormalizedContent", BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException()).CreateDelegate<NormalizeCall>();
     private static PoolResolver Resolver() => new(new Dictionary<int, QpdfObject>());
@@ -68,7 +68,7 @@ public sealed class ContentBufferGraphTests
         PdfStream original = Stream(filter, "q\rQ"u8.ToArray());
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None), construction = new(QpdfLimits.Default, CancellationToken.None);
         DiagnosticBag diagnostics = new(construction);
-        PdfStream output = Normalize(original, Resolver(), QpdfLimits.Default, governor, diagnostics, CancellationToken.None) ?? throw new InvalidOperationException();
+        PdfStream output = Normalize(original, null, Resolver(), QpdfLimits.Default, governor, diagnostics, CancellationToken.None, out _) ?? throw new InvalidOperationException();
         Assert.Equal("q\nQ"u8.ToArray(), output.Data); Assert.Empty(diagnostics.Entries);
         if (filter == "ASCIIHexDecode") { Assert.Equal(0, output.Dictionary.Count); }
         else { Assert.Same(original.Dictionary, output.Dictionary); }
@@ -82,7 +82,7 @@ public sealed class ContentBufferGraphTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None), construction = new(QpdfLimits.Default, CancellationToken.None);
         DiagnosticBag diagnostics = new(construction); PdfStream original = Stream("ASCIIHexDecode", "(unterminated"u8.ToArray());
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(23L); long live = governor.Snapshot().LiveMemoryBytes;
-        Assert.Null(Normalize(original, Resolver(), QpdfLimits.Default, governor, diagnostics, CancellationToken.None));
+        Assert.Null(Normalize(original, null, Resolver(), QpdfLimits.Default, governor, diagnostics, CancellationToken.None, out _));
         Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
         QpdfDiagnostic warning = Assert.Single(diagnostics.Entries);
         Assert.Equal(QpdfDiagnosticCode.UnsupportedFeature, warning.Code); Assert.Equal(QpdfDiagnosticSeverity.Warning, warning.Severity);
@@ -97,7 +97,7 @@ public sealed class ContentBufferGraphTests
         ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None); PdfStream original = Stream("", "q"u8.ToArray());
         using ContentEntries entries = Entries(construction, original, original); using CancellationTokenSource cancellation = new(); cancellation.Cancel();
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 1L }, CancellationToken.None);
-        Assert.Throws<OperationCanceledException>(() => normalize ? Normalize(original, Resolver(), QpdfLimits.Default, governor, new(construction), cancellation.Token)
+        Assert.Throws<OperationCanceledException>(() => normalize ? Normalize(original, null, Resolver(), QpdfLimits.Default, governor, new(construction), cancellation.Token, out _)
             : Join(entries, Resolver(), new(true, false, false, null, false, 0L), QpdfLimits.Default, governor, cancellation.Token));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
@@ -130,7 +130,7 @@ public sealed class ContentBufferGraphTests
     private static (PdfStream Stream, WeakReference Governor) Completed()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None), construction = new(QpdfLimits.Default, CancellationToken.None);
-        PdfStream stream = Normalize(Stream("ASCIIHexDecode", "q\rQ"u8.ToArray()), Resolver(), QpdfLimits.Default, governor, new(construction), CancellationToken.None) ?? throw new InvalidOperationException();
+        PdfStream stream = Normalize(Stream("ASCIIHexDecode", "q\rQ"u8.ToArray()), null, Resolver(), QpdfLimits.Default, governor, new(construction), CancellationToken.None, out _) ?? throw new InvalidOperationException();
         return (stream, new(governor));
     }
 }
