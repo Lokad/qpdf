@@ -384,7 +384,9 @@ companion tests exercise the shared production pipeline; the standalone BCL
 feasibility implementation and smoke-only command test are no longer maintained.
 
 Reference checks compare fresh managed/native outputs under the original input
-and budget controls. Stable inspection text, decoded bytes, page order, sharing,
+and budget controls. Generated text placement is compared numerically at its
+existing five-decimal acceptance; the decimal token spelling can differ.
+Stable inspection text, decoded bytes, page order, sharing,
 field relationships, error/warning exits and output integrity have mechanism-
 appropriate assertions. Exact stream comparisons use pinned qpdf's structural
 JSON and generalized decoding, retaining encoded bytes for opaque filters.

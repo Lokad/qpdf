@@ -13,6 +13,20 @@ New-Item -ItemType Directory -Path $WorkRoot | Out-Null
 . (Join-Path $PSScriptRoot 'ReferenceProbe.ps1')
 . (Join-Path $PSScriptRoot 'ReferenceContent.ps1')
 
+foreach ($control in @(
+  @{Text = "1 5.2 Td`n"; Expected = $true},
+  @{Text = "1 5.199999999999999 Td`n"; Expected = $true},
+  @{Text = "1 5.200004 Td`n"; Expected = $true},
+  @{Text = "1 5.200006 Td`n"; Expected = $false},
+  @{Text = "1.000006 5.2 Td`n"; Expected = $false},
+  @{Text = "1 50.2 Td`n"; Expected = $false},
+  @{Text = "% 1 5.2 Td`n"; Expected = $false},
+  @{Text = "(1 5.2 Td)`n"; Expected = $false}
+)) {
+  if ((Test-ReferenceTextPosition $control.Text 1 5.2) -ne $control.Expected) { throw 'Reference placement control failed.' }
+}
+Write-Output 'Reference placement controls passed at the unchanged five-decimal acceptance.'
+
 function Write-TestPdf([string]$Name, [string[]]$Objects, [bool]$Reverse) {
   $path = Join-Path $WorkRoot ($Name + '.pdf')
   $buffer = [IO.MemoryStream]::new()

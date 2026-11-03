@@ -49,6 +49,24 @@ function Read-ReferenceContent {
   } finally { $allBytes.Dispose() }
 }
 
+function Test-ReferenceTextPosition {
+  param([string]$Text, [double]$X, [double]$Y)
+  # Retain the original five-decimal placement acceptance while allowing the
+  # engine's round-trip decimal spelling. These fixtures emit Td on its own line.
+  $positions = [regex]::Matches($Text, '(?m)^[ \t]*([+-]?[0-9.]+)[ \t]+([+-]?[0-9.]+)[ \t]+Td[ \t]*\r?$')
+  foreach ($position in $positions) {
+    [double]$xCoordinate = 0
+    [double]$yCoordinate = 0
+    $style = [Globalization.NumberStyles]::AllowLeadingSign -bor [Globalization.NumberStyles]::AllowDecimalPoint
+    if ([double]::TryParse($position.Groups[1].Value, $style, [Globalization.CultureInfo]::InvariantCulture, [ref]$xCoordinate) -and
+        [double]::TryParse($position.Groups[2].Value, $style, [Globalization.CultureInfo]::InvariantCulture, [ref]$yCoordinate) -and
+        [double]::IsFinite($xCoordinate) -and [double]::IsFinite($yCoordinate) -and
+        [Math]::Round($xCoordinate, 5, [MidpointRounding]::AwayFromZero) -eq $X -and
+        [Math]::Round($yCoordinate, 5, [MidpointRounding]::AwayFromZero) -eq $Y) { return $true }
+  }
+  return $false
+}
+
 function Assert-ReferenceContent {
   param([string]$QpdfExe, [string]$ProbeDll, [string]$Left, [string]$Right)
   $leftContent = Read-ReferenceContent $QpdfExe $Left

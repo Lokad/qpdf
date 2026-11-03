@@ -866,9 +866,10 @@ foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
   $rawText = [IO.File]::ReadAllText($pair[1])
   if ($rawText.Contains('/Annots')) { Write-Output "[forms] FAIL: /Annots remains in $($pair[0]) output"; $script:failures++ }
   $decoded = (Read-ReferenceContent $QpdfExe $pair[1]).AllText
-  foreach ($needle in @('(Hello)', '(Stale)', '/Tx BMC', '1 5.2 Td', '/Fxo1 Do')) {
+  foreach ($needle in @('(Hello)', '(Stale)', '/Tx BMC', '/Fxo1 Do')) {
     if (-not $decoded.Contains($needle)) { Write-Output "[forms] FAIL: '$needle' missing from decoded $($pair[0]) output"; $script:failures++ }
   }
+  if (-not (Test-ReferenceTextPosition $decoded 1 5.2)) { Write-Output "[forms] FAIL: generated placement differs in $($pair[0]) output"; $script:failures++ }
 }
 Write-Output "[forms] appearance assertions done"
 
@@ -2317,7 +2318,7 @@ $libText = [Text.Encoding]::Latin1.GetString(((Read-ReferenceContent $QpdfExe "$
 $oraText = [Text.Encoding]::Latin1.GetString(((Read-ReferenceContent $QpdfExe "$case/ora.pdf").AllBytes))
 foreach ($side in @(('managed', $libText), ('oracle', $oraText))) {
   if ($side[1] -notmatch '\(Hello\) Tj') { Write-Output "[parent-held] FAIL: $($side[0]) appearance lacks parent value"; $script:failures++ }
-  elseif ($side[1] -notmatch '1 5\.2 Td') { Write-Output "[parent-held] FAIL: $($side[0]) appearance lacks generated placement"; $script:failures++ }
+  elseif (-not (Test-ReferenceTextPosition $side[1] 1 5.2)) { Write-Output "[parent-held] FAIL: $($side[0]) appearance lacks generated placement"; $script:failures++ }
 }
 Write-Output "[parent-held] parent-held appearance assertions done"
 
