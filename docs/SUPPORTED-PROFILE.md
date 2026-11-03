@@ -461,8 +461,13 @@ Numbers are normalized lexically under the existing cancellation/output bounds.
   original values; `--preserve-unreferenced` retains otherwise obsolete objects.
   Eligible images need a writable XObject dictionary and resolvable named
   colorspaces before conversion. Otherwise a warning preserves the inline bytes;
-  resource-less forms keep their original lookup context. Below-threshold images
-  need no binding or new warning. Rejected lookup does not materialize pixel data
+  resource-less forms keep their original lookup context. Unfiltered image extents
+  account for component counts and per-row packing before the terminator search,
+  so sample bytes spelling EI do not end an image prematurely. Header framing can
+  require parsing/admission before threshold eligibility, with ordinary malformed
+  header reporting; programs shorter than the threshold skip it. Below-threshold
+  images need no candidate binding. Filtered/unresolved extents still use bounded
+  heuristic lookahead. Rejected lookup does not materialize pixel data
   or create unattached candidate objects under `--preserve-unreferenced`.
 
 ## Writer profile

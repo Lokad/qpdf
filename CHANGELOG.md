@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Bound unfiltered inline-image terminator searches by complete sample extents,
+  retaining packed rows, masks and named colors while removing the old candidate
+  builder that accepted already truncated data.
+
 - Retain attachment key conflicts after recoverable specification-copy failures,
   while excluding skipped graphs from the final collection.
 

@@ -2967,7 +2967,11 @@
           "InlineImagesTests.CustomThresholdExternalizesSmall",
           "InlineImagesTests.AbbreviationsExpandInXObject",
           "InlineImagesTests.FilterAbbreviationExpands",
-          "InlineImagesTests.ResourceLessFormKeepsItsInlineImage"
+          "InlineImagesTests.ResourceLessFormKeepsItsInlineImage",
+          "InlineImageBoundaryTests.KnownSampleExtentsTakePrecedenceOverEmbeddedTerminators",
+          "InlineImageBoundaryTests.CompleteSamplesReceiveAdmissionAndRefundOnRefusal",
+          "InlineImageBoundaryTests.CancellationAfterSampleAdmissionRefundsBothOwners",
+          "InlineImageBoundaryTests.NamedColorFamiliesSupplyTheirDeclaredSampleComponents"
         ],
         "negative": [
           "InlineImagesTests.MalformedExternalizeFlagsFail"

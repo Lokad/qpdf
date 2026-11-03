@@ -116,7 +116,7 @@ public sealed class ContentTokenizerTests
             prefix.Add(token);
         }
 
-        Assert.True(tokenizer.TryReadInlineImageData(out ContentToken image));
+        Assert.True(tokenizer.TryReadInlineImageData(null, out ContentToken image));
         List<ContentToken> suffix = new();
         while (tokenizer.TryReadToken(out ContentToken rest))
         {
@@ -223,7 +223,7 @@ public sealed class ContentTokenizerTests
         {
             if (token.Kind == ContentTokenKind.Operator && Text(token) == "ID")
             {
-                Assert.Throws<QpdfParseException>(() => tokenizer.TryReadInlineImageData(out ContentToken _));
+                Assert.Throws<QpdfParseException>(() => tokenizer.TryReadInlineImageData(null, out ContentToken _));
                 return;
             }
         }

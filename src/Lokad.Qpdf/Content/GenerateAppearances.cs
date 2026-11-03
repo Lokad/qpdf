@@ -1114,7 +1114,7 @@ internal static class GenerateAppearances
                 if (depth == selectedDepth && end < 0) { end = checked((int)tokenizer.Position); }
                 depth--;
             }
-            else if (word.SequenceEqual("ID"u8)) { tokenizer.TryReadInlineImageData(out _); }
+            else if (word.SequenceEqual("ID"u8)) { tokenizer.TryReadInlineImageData(null, out _); }
             operands = 0; textTag = false; namedTag = false; properties = false;
         }
         if (depth != 0 || containers.Count != 0)

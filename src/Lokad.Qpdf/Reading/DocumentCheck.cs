@@ -861,7 +861,7 @@ internal static class DocumentCheck
             governor.NoteOperation();
             if (token.Kind == ContentTokenKind.Operator && token.Data.Span.SequenceEqual(idMarker))
             {
-                tokenizer.TryReadInlineImageData(out ContentToken _);
+                tokenizer.TryReadInlineImageData(null, out ContentToken _);
             }
         }
     }

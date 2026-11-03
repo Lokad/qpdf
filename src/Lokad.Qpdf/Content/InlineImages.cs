@@ -128,6 +128,7 @@ internal static class InlineImages
         QpdfObject? resources = EnsureResources(copier, page, governor, cancellationToken);
         bool canAttach = resources is PdfDictionary prepared &&
             PdfDictionaryLookup.TryGet(prepared, "XObject"u8, governor, cancellationToken, out QpdfObject objects) && objects is PdfDictionary;
+        if (joined.LongLength < minBytes) { return page is null ? default : new(false, null, resources); }
         scratch.Reserve(160L);
         ContentTokenizer tokenizer = new(joined, governor, cancellationToken) { IncludeComments = true, IncludeWhitespace = true };
         using InlineImageBuffer output = InlineImageBuffer.Create(governor, limits, cancellationToken);
@@ -146,17 +147,9 @@ internal static class InlineImages
                 }
                 if (token.Kind == ContentTokenKind.Operator && token.Data.Span.SequenceEqual("ID"u8))
                 {
-                    if (!tokenizer.TryReadInlineImageData(out ContentToken image)) { inImage = false; continue; }
-                    if (image.Data.Length >= minBytes && !canAttach)
-                    {
-                        diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning,
-                            "Inline image kept because its XObject resources are unavailable.");
-                        output.Write(joined.AsSpan(checked((int)imageStart), checked((int)(tokenizer.Position - imageStart))));
-                        inImage = false; continue;
-                    }
                     int dictionaryLength = checked((int)(token.Offset - dictStart));
-                    InlineImageEntry? converted = InlineImageStorage.CreateWithResources(joined.AsMemory(checked((int)dictStart), dictionaryLength), image.Data,
-                        minBytes, token.Offset, resources, ref suffix, limits, governor, diagnostics, resolver, cancellationToken);
+                    InlineImageEntry? converted = InlineImageStorage.ReadWithResources(joined.AsMemory(checked((int)dictStart), dictionaryLength), tokenizer,
+                        minBytes, token.Offset, resources, canAttach, ref suffix, limits, governor, diagnostics, resolver, cancellationToken);
                     if (converted is InlineImageEntry entry)
                     {
                         PdfStream candidate = StreamTransformer.Transform(entry.Stream, copier.NextId, resolver, compress,

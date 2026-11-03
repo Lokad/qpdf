@@ -63,6 +63,15 @@ instead emit an invocation without an attached image or keep an unresolved name;
 managed preservation intentionally strengthens these cases. Explicit preservation
 retains source objects without manufacturing unusable candidate images.
 
+Externalization also uses declared unfiltered sample extents before accepting an
+inline terminator. Row padding, image masks and resolved component counts prevent
+an embedded `EI` from truncating the samples, even below an apparent byte threshold.
+Native qpdf can truncate these inputs. Header framing can now require parsing and
+admission before threshold eligibility is known; malformed headers can report
+warnings at that point. Entire programs shorter than the threshold stay unchanged
+without that parsing. Filtered or unresolved extents retain the existing heuristic
+lookahead; this correction does not establish universal binary framing.
+
 Content normalization now interprets an unescaped CR or CRLF inside a literal
 string as one LF byte, matching the reader and PDF syntax rules. Explicit escaped
 CR and octal bytes retain their values; line continuations still contribute no

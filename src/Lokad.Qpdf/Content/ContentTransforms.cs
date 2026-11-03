@@ -471,7 +471,7 @@ internal static class ContentTransforms
                 case ContentTokenKind.Operator when token.Data.Span.SequenceEqual("ID"u8):
                     AppendRaw(output, token);
                     int imageStart = checked((int)tokenizer.Position);
-                    tokenizer.TryReadInlineImageData(out _);
+                    tokenizer.TryReadInlineImageData(null, out _);
                     // Include the original delimiter and EI; image samples are
                     // opaque even when their bytes resemble content tokens.
                     output.Write(data.AsSpan(imageStart, checked((int)tokenizer.Position) - imageStart));
@@ -1243,7 +1243,7 @@ internal static class ContentTransforms
                     governor.CheckCancellation();
                     if (word.SequenceEqual("ID"u8))
                     {
-                        tokenizer.TryReadInlineImageData(out ContentToken _);
+                        tokenizer.TryReadInlineImageData(null, out ContentToken _);
                         continue;
                     }
 

@@ -15,9 +15,10 @@ public sealed class InlineResourceGovernanceTests
         byte[] payload = new byte[1048576]; int suffix = 1;
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 32768 }, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor); PoolResolver resolver = new(new Dictionary<int, QpdfObject>());
+        ContentTokenizer tokenizer = InlineImageStorageTests.DataTokenizer(payload, governor, CancellationToken.None);
         long before = GC.GetAllocatedBytesForCurrentThread();
-        InlineImageEntry? result = InlineImageStorage.CreateWithResources("/W 1 /H 1 /BPC 8 /CS /Missing"u8.ToArray(), payload,
-            0, 0, Dictionary(), ref suffix, QpdfLimits.Default, governor, diagnostics, resolver, CancellationToken.None);
+        InlineImageEntry? result = InlineImageStorage.ReadWithResources("/W 1 /H 1 /BPC 8 /CS /Missing"u8.ToArray(), tokenizer,
+            0, 0, Dictionary(), true, ref suffix, QpdfLimits.Default, governor, diagnostics, resolver, CancellationToken.None);
         Assert.Null(result); Assert.Equal(1, suffix);
         // Counting must not export the diagnostic list to a surviving caller owner.
         Assert.Equal(1L, governor.Snapshot().DiagnosticCount);
@@ -50,8 +51,8 @@ public sealed class InlineResourceGovernanceTests
     private static WeakReference Capture(ResourceGovernor governor, PdfDictionary resources, PdfDictionary colors, PdfByteString borrowed)
     {
         int suffix = 1; PoolResolver resolver = new(new Dictionary<int, QpdfObject> { [17] = colors });
-        InlineImageEntry image = InlineImageStorage.CreateWithResources("/W 1 /H 1 /CS /Local"u8.ToArray(), "a"u8.ToArray(),
-            0L, 0L, resources, ref suffix, QpdfLimits.Default, governor, new(governor), resolver, CancellationToken.None) ?? throw new InvalidOperationException();
+        InlineImageEntry image = InlineImageStorage.ReadWithResources("/W 1 /H 1 /CS /Local"u8.ToArray(), InlineImageStorageTests.DataTokenizer("a"u8, governor, CancellationToken.None),
+            0L, 0L, resources, true, ref suffix, QpdfLimits.Default, governor, new(governor), resolver, CancellationToken.None) ?? throw new InvalidOperationException();
         Assert.Equal(PdfName.FromAscii("IIm2"), image.Name);
         Assert.True(image.Stream.Dictionary.TryGet(PdfName.FromAscii("ColorSpace"), out QpdfObject? color)); Assert.Same(borrowed, color);
         return new(image.Stream);

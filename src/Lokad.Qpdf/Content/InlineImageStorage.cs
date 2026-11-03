@@ -12,14 +12,22 @@ internal readonly record struct InlineImageEntry(PdfName Name, PdfStream Stream)
 /// <summary>Constructs image candidates through the shared parser and allocation handoff.</summary>
 internal static class InlineImageStorage
 {
-    internal static InlineImageEntry? CreateWithResources(ReadOnlyMemory<byte> dictionaryBytes, ReadOnlyMemory<byte> imageBytes,
-        long minimum, long offset, QpdfObject? resources, ref int suffix, QpdfLimits limits,
+    internal static InlineImageEntry? ReadWithResources(ReadOnlyMemory<byte> dictionaryBytes, ContentTokenizer tokenizer,
+        long minimum, long offset, QpdfObject? resources, bool canAttach, ref int suffix, QpdfLimits limits,
         ResourceGovernor governor, DiagnosticBag diagnostics, PoolResolver resolver, CancellationToken token)
     {
         Step(governor, token);
-        if (imageBytes.Length < minimum) { return null; }
         using ParserMemoryScope parsedMemory = ParserMemoryScope.Create(governor);
         PdfDictionary raw = Parse(dictionaryBytes, offset, limits, governor, diagnostics, resolver, parsedMemory, token);
+        tokenizer.TryReadInlineImageData(SampleLength(raw, resources, resolver, governor, token), out ContentToken image);
+        ReadOnlyMemory<byte> imageBytes = image.Data;
+        if (imageBytes.Length < minimum) { return null; }
+        if (!canAttach)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning,
+                "Inline image kept because its XObject resources are unavailable.");
+            return null;
+        }
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         PdfDictionary? converted = InlineImageDictionary.BuildWithResources(graph, raw, resources, diagnostics, resolver);
         if (converted is null) { return null; }
@@ -35,6 +43,67 @@ internal static class InlineImageStorage
         PdfName name = Name(graph, resources as PdfDictionary, resolver, ref suffix);
         graph.RetainParsed(parsedMemory);
         return new(name, stream);
+    }
+
+    private static QpdfObject? Value(PdfDictionary dictionary, ReadOnlySpan<byte> key, ReadOnlySpan<byte> alias,
+        PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
+    {
+        if (!PdfDictionaryLookup.TryGet(dictionary, key, governor, token, out QpdfObject raw) || raw is PdfNull)
+        { if (!PdfDictionaryLookup.TryGet(dictionary, alias, governor, token, out raw)) { return null; } }
+        return CatalogCopy.ResolveValue(raw, resolver, governor, token);
+    }
+
+    // Only an unfiltered image has a sample extent equal to its encoded extent.
+    // Row padding belongs to each row, rather than to the whole image.
+    private static long? SampleLength(PdfDictionary raw, QpdfObject? resources, PoolResolver resolver,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        QpdfObject? filter = Value(raw, "Filter"u8, "F"u8, resolver, governor, token);
+        if (filter is not null and not PdfNull && (filter is not PdfArray filters || filters.Count != 0)) { return null; }
+        if (Value(raw, "Width"u8, "W"u8, resolver, governor, token) is not PdfInteger width || width.Value <= 0
+            || Value(raw, "Height"u8, "H"u8, resolver, governor, token) is not PdfInteger height || height.Value <= 0) { return null; }
+        bool mask = Value(raw, "ImageMask"u8, "IM"u8, resolver, governor, token) is PdfBoolean { Value: true };
+        QpdfObject? depth = Value(raw, "BitsPerComponent"u8, "BPC"u8, resolver, governor, token);
+        long bits = depth is PdfInteger integer ? integer.Value : mask && (depth is null or PdfNull) ? 1L : 0L;
+        if (bits is not (1 or 2 or 4 or 8 or 16) || mask && bits != 1) { return null; }
+        int components = mask ? 1 : Components(Value(raw, "ColorSpace"u8, "CS"u8, resolver, governor, token), resources, resolver, governor, token);
+        if (components <= 0) { return null; }
+        try { return checked(((checked(width.Value * components * bits) + 7L) / 8L) * height.Value); }
+        catch (OverflowException) { return null; }
+    }
+
+    private static int Components(QpdfObject? color, QpdfObject? resources, PoolResolver resolver,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        if (color is PdfName name)
+        {
+            if (name.RawSpan.SequenceEqual("G"u8) || name.RawSpan.SequenceEqual("DeviceGray"u8)) { return 1; }
+            if (name.RawSpan.SequenceEqual("RGB"u8) || name.RawSpan.SequenceEqual("DeviceRGB"u8)) { return 3; }
+            if (name.RawSpan.SequenceEqual("CMYK"u8) || name.RawSpan.SequenceEqual("DeviceCMYK"u8)) { return 4; }
+            if (resources is not PdfDictionary dictionary
+                || !PdfDictionaryLookup.TryGet(dictionary, "ColorSpace"u8, governor, token, out QpdfObject spacesRaw)
+                || CatalogCopy.ResolveDictionary(spacesRaw, resolver, governor, token) is not PdfDictionary spaces
+                || !PdfDictionaryLookup.TryGet(spaces, name.RawSpan, governor, token, out QpdfObject raw)) { return 0; }
+            color = CatalogCopy.ResolveValue(raw, resolver, governor, token);
+            if (color is PdfName resolved)
+            {
+                if (resolved.RawSpan.SequenceEqual("DeviceGray"u8)) { return 1; }
+                if (resolved.RawSpan.SequenceEqual("DeviceRGB"u8)) { return 3; }
+                if (resolved.RawSpan.SequenceEqual("DeviceCMYK"u8)) { return 4; }
+            }
+        }
+        if (color is not PdfArray array || array.Count == 0
+            || CatalogCopy.ResolveValue(array[0], resolver, governor, token) is not PdfName family) { return 0; }
+        ReadOnlySpan<byte> kind = family.RawSpan;
+        if (kind.SequenceEqual("Indexed"u8) || kind.SequenceEqual("I"u8) || kind.SequenceEqual("Separation"u8) || kind.SequenceEqual("CalGray"u8)) { return 1; }
+        if (kind.SequenceEqual("CalRGB"u8) || kind.SequenceEqual("Lab"u8)) { return 3; }
+        if (array.Count < 2) { return 0; }
+        QpdfObject? value = CatalogCopy.ResolveValue(array[1], resolver, governor, token);
+        if (kind.SequenceEqual("DeviceN"u8) && value is PdfArray names) { return names.Count; }
+        if (kind.SequenceEqual("ICCBased"u8) && value is PdfStream profile
+            && PdfDictionaryLookup.TryGet(profile.Dictionary, "N"u8, governor, token, out QpdfObject count)
+            && CatalogCopy.ResolveValue(count, resolver, governor, token) is PdfInteger channels && channels.Value is 1 or 3 or 4) { return (int)channels.Value; }
+        return 0;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

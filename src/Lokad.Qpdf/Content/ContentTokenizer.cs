@@ -158,7 +158,7 @@ internal sealed class ContentTokenizer
 
         return ReadWord(offset, out token);
     }
-    internal bool TryReadInlineImageData(out ContentToken token)
+    internal bool TryReadInlineImageData(long? minimumDataBytes, out ContentToken token)
     {
         Check();
         if (_position >= _data.Length)
@@ -168,7 +168,15 @@ internal sealed class ContentTokenizer
 
         _position += 1;
         int dataStart = _position;
-        int end = FindImageEnd(dataStart);
+        int searchStart = dataStart;
+        // A complete sample span takes precedence over EI-shaped sample bytes.
+        if (minimumDataBytes is long length)
+        {
+            if (length < 0L || length > _data.Length - dataStart)
+            { throw new QpdfParseException("Inline image has fewer bytes than its declared samples.", dataStart, null); }
+            searchStart += (int)length;
+        }
+        int end = FindImageEnd(searchStart);
         if (end < 0)
         {
             throw new QpdfParseException("Unterminated inline image in content stream.", dataStart, null);
@@ -179,7 +187,6 @@ internal sealed class ContentTokenizer
         _position = end + 2;
         return true;
     }
-
     private int FindImageEnd(int dataStart)
     {
         ReadOnlySpan<byte> span = _data.Span;

@@ -10,23 +10,31 @@ namespace Lokad.Qpdf.Tests.Content;
 [Collection(nameof(NameTableCollection))]
 public sealed class InlineImageStorageTests
 {
+    internal static ContentTokenizer DataTokenizer(ReadOnlySpan<byte> bytes, ResourceGovernor governor, CancellationToken token)
+    {
+        byte[] data = [.. " "u8, .. bytes, .. " EI"u8];
+        return new(data, governor, token);
+    }
+
     [Theory]
     [InlineData(16384, false)]
     [InlineData(262144, false)]
     [InlineData(16384, true)]
     [InlineData(262144, true)]
-    public void BelowThresholdSkipsPayloadAdmissionAndDictionaryParsing(int length, bool canceled)
+    public void BelowThresholdSkipsPayloadAdmission(int length, bool canceled)
     {
         byte[] bytes = new byte[length];
         using CancellationTokenSource cancellation = new();
         if (canceled) { cancellation.Cancel(); }
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 1024L }, cancellation.Token);
+        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 32768L }, cancellation.Token);
         DiagnosticBag diagnostics = new(governor);
         PoolResolver resolver = new(new Dictionary<int, QpdfObject>());
         int suffix = 1;
+        ContentTokenizer tokenizer = DataTokenizer(bytes, governor, cancellation.Token);
+        byte[] header = Encoding.ASCII.GetBytes("/W 1 /H " + length + " /CS /G /BPC 8");
         long before = GC.GetAllocatedBytesForCurrentThread();
-        InlineImageEntry? Convert() => InlineImageStorage.CreateWithResources("not a dictionary"u8.ToArray(), bytes,
-            length + 1L, 0L, null, ref suffix, QpdfLimits.Default, governor, diagnostics, resolver, cancellation.Token);
+        InlineImageEntry? Convert() => InlineImageStorage.ReadWithResources(header, tokenizer,
+            length + 2L, 0L, null, true, ref suffix, QpdfLimits.Default, governor, diagnostics, resolver, cancellation.Token);
         if (canceled) { Assert.ThrowsAny<OperationCanceledException>(() => Convert()); }
         else { Assert.Null(Convert()); }
         Assert.InRange(GC.GetAllocatedBytesForCurrentThread() - before, 0L, 32768L);
@@ -37,17 +45,18 @@ public sealed class InlineImageStorageTests
     [Theory]
     [InlineData(1, true)]
     [InlineData(2, true)]
-    [InlineData(3, false)]
-    public void ThresholdUsesTheBorrowedPayloadLength(long minimum, bool converted)
+    [InlineData(3, true)]
+    [InlineData(4, false)]
+    public void ThresholdUsesTheTokenizedPayloadLength(long minimum, bool converted)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
         PoolResolver resolver = new(new Dictionary<int, QpdfObject>());
         int suffix = 1;
-        InlineImageEntry? entry = InlineImageStorage.CreateWithResources("/W 2 /H 1 /BPC 8 /CS /G"u8.ToArray(),
-            "ab"u8.ToArray(), minimum, 0L, null, ref suffix, QpdfLimits.Default, governor, diagnostics, resolver, CancellationToken.None);
+        InlineImageEntry? entry = InlineImageStorage.ReadWithResources("/W 2 /H 1 /BPC 8 /CS /G"u8.ToArray(),
+            DataTokenizer("ab"u8, governor, CancellationToken.None), minimum, 0L, null, true, ref suffix, QpdfLimits.Default, governor, diagnostics, resolver, CancellationToken.None);
         Assert.Equal(converted, entry.HasValue);
-        if (entry is InlineImageEntry image) { Assert.Equal("ab"u8.ToArray(), image.Stream.Data.ToArray()); }
+        if (entry is InlineImageEntry image) { Assert.Equal("ab "u8.ToArray(), image.Stream.Data.ToArray()); }
         Assert.Equal(converted ? 2 : 1, suffix);
         governor.CompletePrivateStorage(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
@@ -56,7 +65,7 @@ public sealed class InlineImageStorageTests
     private static InlineImageEntry Create(ResourceGovernor governor, CancellationToken token)
     {
         int suffix=1; PoolResolver resolver=new(new Dictionary<int,QpdfObject>());
-        return InlineImageStorage.CreateWithResources(Encoding.ASCII.GetBytes("/W 2 /H 1 /D [0 1] /F [/AHx /Fl] /Binary#FF#23 (text)"), "abc"u8.ToArray(),0L,0L,Empty(),ref suffix,QpdfLimits.Default,governor,new(governor),resolver,token)??throw new InvalidOperationException();
+        return InlineImageStorage.ReadWithResources(Encoding.ASCII.GetBytes("/W 2 /H 1 /D [0 1] /F [/AHx /Fl] /Binary#FF#23 (text)"), DataTokenizer("abc"u8,governor,token),0L,0L,Empty(),true,ref suffix,QpdfLimits.Default,governor,new(governor),resolver,token)??throw new InvalidOperationException();
     }
     private sealed class Holder(object value,WeakReference governor)
     { internal object? Value=value; internal readonly WeakReference Governor=governor; }
