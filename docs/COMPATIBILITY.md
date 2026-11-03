@@ -73,7 +73,8 @@ Content normalization, including QDF defaults, now replaces page content edges
 while preserving original streams and arrays retained by other roots. In
 particular, an embedded file sharing a page stream keeps its exact decoded bytes.
 Native qpdf can change that payload during normalization; managed preservation
-intentionally strengthens this case. Output object numbering and sharing can change.
+intentionally strengthens this case. Output object numbering, sharing and derived
+identifiers can change.
 
 Inline-image externalization now retains original content streams and arrays
 referenced by independent catalog values. Previously those aliases could disappear,

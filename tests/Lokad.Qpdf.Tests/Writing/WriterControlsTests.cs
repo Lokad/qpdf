@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Security.Cryptography;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 
@@ -348,7 +349,7 @@ public sealed class WriterControlsTests
     [Theory]
     [InlineData("classic", "FC9DF6086517866565582BD1EA5DC87D")]
     [InlineData("linearize", "F6C5DD38EBC4ADA74EAB25DBE33D31EB")]
-    [InlineData("qdf", "9734D05A373790248A1C1A1563791889")]
+    [InlineData("qdf", "8FA2813C403AE73D1D2FCAF8F31EDE1A")]
     public async Task DefaultIdsPreservePlaceholderHashesAcrossRuns(string mode, string expected)
     {
         List<string> args = ["inputs/a.pdf"];
@@ -377,6 +378,16 @@ public sealed class WriterControlsTests
         Assert.Equal(id2a, id2b);
         Assert.Equal(expected, id1a);
         Assert.Equal(expected, id2a);
+        if (mode is "classic" or "qdf")
+        {
+            // Normalized streams can acquire new identities. Independently
+            // verify the hash relation as well as each exact golden identifier.
+            byte[] placeholders = a.ToArray();
+            int firstSlot = placeholders.AsSpan().IndexOf("/ID [<"u8) + "/ID [<"u8.Length;
+            placeholders.AsSpan(firstSlot, 32).Fill((byte)'0');
+            placeholders.AsSpan(firstSlot + 34, 32).Fill((byte)'0');
+            Assert.Equal(expected, Convert.ToHexString(MD5.HashData(placeholders)));
+        }
     }
 
     [Theory]

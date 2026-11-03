@@ -29,8 +29,8 @@ public sealed class ContentArrayRebuildTests
         internal readonly GraphCopier Copier;
         internal readonly PdfStream Original = new(DecoderOwnershipFixtures.Dictionary(), new byte[2 * 1024 * 1024]);
         internal readonly PdfStream Replacement = new(DecoderOwnershipFixtures.Dictionary(), new byte[2 * 1024 * 1024]);
-        internal readonly GovernedIntDictionary<PdfStream> Mapping;
-        internal Prepared(bool fill)
+        internal readonly GovernedIntDictionary<QpdfObject> Mapping;
+        internal Prepared(bool fill, int replacementIndex)
         {
             ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
             PdfDictionary trailer = DecoderOwnershipFixtures.Dictionary();
@@ -53,8 +53,8 @@ public sealed class ContentArrayRebuildTests
             _engine = fixtureEngine;
             _memory = ParserMemoryScope.Create(construction);
             Copier = GraphCopier.CreateOwned(_engine, construction, QpdfLimits.Default, 1, _memory);
-            Mapping = GovernedIntDictionary<PdfStream>.Create(_memory, construction, IntPtr.Size, CancellationToken.None);
-            if (fill) { Mapping.Assign(_memory, 3, Replacement); }
+            Mapping = GovernedIntDictionary<QpdfObject>.Create(_memory, construction, IntPtr.Size, CancellationToken.None);
+            if (fill) { Mapping.Assign(_memory, replacementIndex, Replacement); }
         }
         public void Dispose() { _memory.Dispose(); _engine.Dispose(); }
     }
@@ -62,16 +62,17 @@ public sealed class ContentArrayRebuildTests
         => page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject value) ? value : throw new InvalidOperationException();
 
     [Fact]
-    public void RebuildingAnIndirectArrayKeepsItsReferenceAndBorrowedOriginal()
+    public void RebuildingAnIndirectArrayReplacesThePageEdgeAndKeepsTheBorrowedOriginal()
     {
-        using Prepared prepared = new(true);
+        using Prepared prepared = new(true, 3);
         PdfArray original = new([prepared.Original, prepared.Original, prepared.Original, prepared.Original]);
         ((IDictionary<int, QpdfObject>)prepared.Copier.CopiedObjects)[9] = original;
         PdfDictionary page = DecoderOwnershipFixtures.Dictionary(("Contents", new PdfReference(9, 0)));
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        Assert.Same(page, Replace(page, prepared, governor));
+        PdfDictionary result = Replace(page, prepared, governor); Assert.NotSame(page, result);
         Assert.Equal(9, Assert.IsType<PdfReference>(Contents(page)).ObjectNumber);
-        PdfArray rebuilt = Assert.IsType<PdfArray>(prepared.Copier.CopiedObjects[9]);
+        Assert.Same(original, prepared.Copier.CopiedObjects[9]);
+        PdfArray rebuilt = Assert.IsType<PdfArray>(Contents(result));
         Assert.Same(prepared.Replacement, rebuilt[3]); Assert.Same(prepared.Original, original[3]);
         governor.CompletePrivateStorage(); GC.KeepAlive(rebuilt);
     }
@@ -85,7 +86,7 @@ public sealed class ContentArrayRebuildTests
     [InlineData("missing")]
     public void RebuildingPreservesBorrowedValuesAndOriginalShapes(string shape)
     {
-        using Prepared prepared = new(true); QpdfObject[] items = [prepared.Original, new PdfReference(7, 11), PdfNull.Instance, prepared.Original];
+        using Prepared prepared = new(true, shape == "single" ? 0 : 3); QpdfObject[] items = [prepared.Original, new PdfReference(7, 11), PdfNull.Instance, prepared.Original];
         if (shape == "actual-null") { items.SetValue(null, 1); }
         QpdfObject value = shape switch { "single" => prepared.Original, "reference" => new PdfReference(7, 11), "empty" => new PdfArray([]), _ => new PdfArray(items) };
         PdfDictionary page = shape == "missing" ? DecoderOwnershipFixtures.Dictionary() : DecoderOwnershipFixtures.Dictionary(("Contents", value), ("Keep", prepared.Original));
@@ -108,7 +109,7 @@ public sealed class ContentArrayRebuildTests
     [Fact]
     public void LargeArrayRejectsMemoryBeforePublication()
     {
-        using Prepared prepared = new(false); PdfArray array = new(Enumerable.Repeat<QpdfObject>(prepared.Original, 1024).ToArray());
+        using Prepared prepared = new(true, 3); PdfArray array = new(Enumerable.Repeat<QpdfObject>(prepared.Original, 1024).ToArray());
         PdfDictionary page = DecoderOwnershipFixtures.Dictionary(("Contents", array));
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096L }, CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(23L); long live = governor.Snapshot().LiveMemoryBytes;
@@ -120,7 +121,7 @@ public sealed class ContentArrayRebuildTests
     [Fact]
     public void EscapedArrayAndBackingStayFundedAfterThePageDies()
     {
-        using Prepared prepared = new(true); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using Prepared prepared = new(true, 3); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         PdfArray? array = EscapeArray(prepared, governor); Collect();
         Assert.True(governor.Snapshot().LiveMemoryBytes >= 88L); Assert.Same(prepared.Replacement, array[3]);
         object? backing = array.AllocationCarrier; array = null; Collect();
