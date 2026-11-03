@@ -71,7 +71,7 @@ public sealed class ResourcePruningScopeTests
     public static IEnumerable<object[]> CategoryCases()
     {
         foreach (bool font in new[] { false, true })
-        foreach (string local in new[] { "absent", "right", "wrong" })
+        foreach (string local in new[] { "absent", "right", "wrong", "null", "indirect-null" })
         foreach (bool escaped in new[] { false, true })
         foreach (bool job in new[] { false, true }) { yield return [font, local, escaped, job]; }
     }
@@ -84,14 +84,17 @@ public sealed class ResourcePruningScopeTests
         byte[] program = Encoding.ASCII.GetBytes(font ? "BT /" + name + " 0.2 Tf (text) Tj ET" : "/" + name + " Do");
         string localResources = local == "absent" ? "" : "/Resources " + ((local == "right") == font
             ? "<< /Font << /AA 10 0 R >> >>" : "<< /XObject << /AA 6 0 R >> >>");
+        if (local is "null" or "indirect-null")
+        { localResources = "/Resources << /" + (font ? "Font" : "XObject") + " << /AA " + (local == "null" ? "null" : "8 0 R") + " >> >>"; }
         byte[] input = Fixture("q 60 0 0 60 20 20 cm /Form Do Q"u8.ToArray(), "4 0 R",
             "<< /XObject << /Form 5 0 R /AA 6 0 R /Unused 7 0 R >> /Font << /AA 10 0 R /Unused 10 0 R >> >>", program, localResources, false);
         using InMemoryQpdfHost host = new(); QpdfExecutionResult result = await Rewrite(host, input, job, false, false);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Empty(result.Diagnostics);
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("read"), CancellationToken.None);
         PdfDictionary resources = Dictionary(document, document.PageReferences[0].Page, "Resources");
-        Assert.Equal(local == "wrong", Dictionary(document, resources, "XObject").TryGet(PdfName.FromAscii("Unused"), out _));
-        Assert.Equal(local == "wrong", Dictionary(document, resources, "Font").TryGet(PdfName.FromAscii("Unused"), out _));
+        bool uncertain = local is "wrong" or "null" or "indirect-null";
+        Assert.Equal(uncertain, Dictionary(document, resources, "XObject").TryGet(PdfName.FromAscii("Unused"), out _));
+        Assert.Equal(uncertain, Dictionary(document, resources, "Font").TryGet(PdfName.FromAscii("Unused"), out _));
     }
 
     public static IEnumerable<object[]> ContentCases()
