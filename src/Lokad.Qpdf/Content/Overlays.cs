@@ -1012,7 +1012,11 @@ internal static class Overlays
             return null;
         }
 
-        return ReadRectangle(raw, resolver);
+        double[]? rectangle = ReadRectangle(raw, resolver);
+        if (rectangle is null) { return null; }
+        if (rectangle[0] > rectangle[2]) { (rectangle[0], rectangle[2]) = (rectangle[2], rectangle[0]); }
+        if (rectangle[1] > rectangle[3]) { (rectangle[1], rectangle[3]) = (rectangle[3], rectangle[1]); }
+        return rectangle;
     }
 
     private static QpdfObject? FindPageBoxObject(PdfDictionary page, IIndirectResolver resolver)

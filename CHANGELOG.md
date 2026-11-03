@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Normalize local destination-box coordinates for overlay/underlay placement,
+  preserving original rectangle values and independent aliases.
+
 - Keep effective color-key image masks opaque during JPEG optimization, preserving
   exact transparency keys before sample admission while retaining soft-mask precedence.
 

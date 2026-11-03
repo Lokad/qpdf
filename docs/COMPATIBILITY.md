@@ -91,6 +91,11 @@ this is an intentional managed strengthening. Absent/null masks, stream masks an
 valid overriding SMask images retain their optimization policy. The color-key
 skip happens before sample admission and does not require a host JPEG codec.
 
+Overlay and underlay placement now interpret destination box corners in either
+order, including indirect arrays and coordinates. Equivalent rectangles produce
+the same placement and imported annotation geometry; original box values and
+independent aliases retain their spelling and order.
+
 Inline-image externalization now retains original content streams and arrays
 referenced by independent catalog values. Previously those aliases could disappear,
 or QDF output could fail on an unmapped object. Retirement now uses the complete
