@@ -331,6 +331,11 @@ echoing values.
   generation creates new streams. Independent catalog, Info, Metadata and other
   appearance aliases survive; `--preserve-unreferenced` keeps superseded objects.
   Unchanged or skipped generation needs no additional retirement traversal.
+  Generating direct widgets replaces their page's annotation-array edge, keeping
+  independently retained original arrays and their direct values intact. Pages
+  sharing an indirect array reuse one generated replacement; unreachable-widget
+  warnings in that array are reported once. Skipped arrays keep their identity.
+  Fresh indirect arrays join the same final-root retirement as new appearances.
   Choice options keep export/display identity until selection is resolved. Lists
   support scalar and multiselect values with validated sorted indices; combo boxes
   paint the selected display label, and editable combos can paint an unmatched value.

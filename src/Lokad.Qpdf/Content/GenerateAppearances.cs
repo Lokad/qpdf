@@ -57,6 +57,7 @@ internal static class GenerateAppearances
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
         Dictionary<GraphCopier, FieldParents> parents = ParserContainers.CreateDictionary<GraphCopier, FieldParents>(traversal);
         HashSet<int> generated = ParserContainers.CreateSet<int>(traversal);
+        Dictionary<(GraphCopier Copier, int Number), PdfReference>? arrays = null;
         bool complete = true;
         foreach ((GraphCopier copier, int pageId) in occurrences)
         {
@@ -80,6 +81,14 @@ internal static class GenerateAppearances
             if (annotsTarget is not PdfArray annots)
             {
                 complete = false;
+                continue;
+            }
+
+            if (annotsRaw is PdfReference originalArray && arrays is not null
+                && arrays.TryGetValue((copier, originalArray.ObjectNumber), out PdfReference? existingArray))
+            {
+                PdfDictionary replacement = PdfDictionaryRebuild.ReplaceEntry(graph, page, "Annots"u8, existingArray);
+                copier.ValidateReplacement(pageId); graph.Retain(); copier.ReplaceCopiedObject(pageId, replacement);
                 continue;
             }
 
@@ -130,9 +139,22 @@ internal static class GenerateAppearances
             if (pageChanged && directEntries is not null)
             {
                 graph.Memory.Reserve(24L); PdfArray rebuilt = PdfArray.FromOwnedItems(directEntries); graph.Add(24L);
-                int target = (annotsRaw as PdfReference)?.ObjectNumber ?? pageId;
-                QpdfObject replacement = annotsRaw is PdfReference ? rebuilt : PdfDictionaryRebuild.ReplaceEntry(graph, page, "Annots"u8, rebuilt);
-                copier.ValidateReplacement(target); graph.Retain(); copier.ReplaceCopiedObject(target, replacement);
+                QpdfObject value = rebuilt;
+                if (annotsRaw is PdfReference)
+                {
+                    if (occurrences.Count > 1)
+                    {
+                        arrays ??= ParserContainers.CreateDictionary<(GraphCopier, int), PdfReference>(traversal);
+                        ParserContainers.EnsureEntryCapacity(traversal, arrays, IntPtr.Size);
+                    }
+                    value = copier.AddIndirectObjectWithId(rebuilt, allocator); allocator = checked(allocator + 1);
+                }
+                // Publish only this page edge. Independent consumers retain the
+                // original array, while other affected pages reuse one replacement.
+                PdfDictionary replacement = PdfDictionaryRebuild.ReplaceEntry(graph, page, "Annots"u8, value);
+                copier.ValidateReplacement(pageId); graph.Retain(); copier.ReplaceCopiedObject(pageId, replacement);
+                if (annotsRaw is PdfReference original && arrays is not null && value is PdfReference changed)
+                { arrays.Add((copier, original.ObjectNumber), changed); }
             }
         }
 

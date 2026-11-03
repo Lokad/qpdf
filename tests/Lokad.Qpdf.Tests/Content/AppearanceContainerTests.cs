@@ -116,12 +116,14 @@ public sealed class AppearanceContainerTests
             copier.AddIndirectObjectWithId(page, 1); copier.AddIndirectObjectWithId(original, 2);
             GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, CopiedForm?>(), QpdfLimits.Default,
                 governor, new(governor), CancellationToken.None, new HashSet<int>(), true, 3);
-            if (indirectArray) { escaped = Assert.IsType<PdfArray>(copier.CopiedObjects[2]); }
-            else
+            Assert.Same(original, copier.CopiedObjects[2]);
+            Assert.True(Assert.IsType<PdfDictionary>(copier.CopiedObjects[1]).TryGet(PdfName.FromAscii("Annots"), out QpdfObject value));
+            if (indirectArray)
             {
-                Assert.True(Assert.IsType<PdfDictionary>(copier.CopiedObjects[1]).TryGet(PdfName.FromAscii("Annots"), out QpdfObject value));
-                escaped = Assert.IsType<PdfArray>(value);
+                PdfReference reference = Assert.IsType<PdfReference>(value); Assert.NotEqual(2, reference.ObjectNumber);
+                escaped = Assert.IsType<PdfArray>(copier.CopiedObjects[reference.ObjectNumber]);
             }
+            else { escaped = Assert.IsType<PdfArray>(value); }
             Assert.NotSame(original, escaped); Assert.Same(skipped, escaped[0]);
             governor.AcceptDocument(); governor.CompletePrivateStorage();
         }

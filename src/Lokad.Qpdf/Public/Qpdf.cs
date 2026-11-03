@@ -418,7 +418,7 @@ public static partial class Qpdf
                         flattenAllocator = Math.Max(flattenAllocator, copier.NextId);
                         int beforeGeneration = flattenAllocator;
                         (flattenAllocator, singleGenerated) = Content.GenerateAppearances.Apply(occurrences, singleForms, limits, governor, diagnostics, cancellationToken, gateReached, false, flattenAllocator);
-                        // Generation allocates indirect identities only for new appearance streams.
+                        // New appearances and isolated annotation arrays need final-root retirement.
                         singleRebuiltAppearances = flattenAllocator != beforeGeneration;
                         needAppearances = !singleGenerated;
                     }

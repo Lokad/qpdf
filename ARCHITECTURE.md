@@ -174,6 +174,11 @@ Direct and indirect arrays borrow the same owned backing into the existing sourc
 combination and final field-closure filtering; opaque non-array extras stay opaque.
 Field identity and inherited optional values likewise classify resolved nulls;
 inspection keeps the existing terminal-field projection and bounded ancestry.
+Appearance generation replaces changed annotation-array edges while independent
+consumers retain the original direct values. A lazy operation-local map shares
+one replacement per copier/indirect-array identity across affected pages; skipped
+arrays need no replacement. New array identities use the existing final-root
+retirement, including button-only header updates.
 Cross-reference tables likewise require an explicit owner. Synthetic fixtures
 admit their entry maps, trailer lists and input receipts and transfer them through
 the same owned table/engine factories as production, with explicit escape and input

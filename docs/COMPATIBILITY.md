@@ -61,6 +61,14 @@ JSON edges can still target added or replaced objects. Public signatures are unc
 Update source documents and version carriers remain private through publication,
 refunding their charges on failure and cancellation.
 
+Appearance generation now isolates changed annotation arrays from independent
+catalog and attachment aliases. It retains their original direct values while
+affected pages share one replacement for each original indirect array. Native
+qpdf changes the shared original in the qualified controls. Repeated pages no
+longer regenerate those direct widgets or repeat their unreachable-widget
+warnings; distinct warnings still obey the same quota and fail before commit.
+Skipped arrays and indirect widget identities keep their existing behavior.
+
 The built-in memory host stores registered inputs separately from published
 outputs, including equal-path companion calls and `--replace-input`. Opening an
 input reads its registration until the caller exports and registers the new bytes.

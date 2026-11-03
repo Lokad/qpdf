@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Preserve independent annotation-array aliases during appearance generation.
+  Share changed indirect arrays across affected pages, avoiding repeated direct
+  widget generation and duplicate warnings; retain skipped arrays unchanged.
+
 - Reject nonzero JSON reference generations before publication. Preserve valid
   source aliases during updates and normalize stale, free and missing source
   pairs to null before applying edits, including no-op updates. Keep update
