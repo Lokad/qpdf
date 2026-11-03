@@ -139,6 +139,10 @@ image bindings. Normalization's existing cache records a resource context only
 when named colorspace framing needs it, preserving ordinary stream sharing.
 The tokenizer requires that known extent; the obsolete lexical lookahead and its
 fallback mode are removed.
+Resource pruning likewise shares the Contents reader. Its existing name sets
+record actual Font/XObject uses instead of copying all declared resource names
+into a combined index. Incomplete Form analysis marks the enclosing scope
+uncertain before pruning; a spelling in another category cannot resolve a use.
 Cross-reference tables likewise require an explicit owner. Synthetic fixtures
 admit their entry maps, trailer lists and input receipts and transfer them through
 the same owned table/engine factories as production, with explicit escape and input

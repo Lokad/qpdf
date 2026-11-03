@@ -30,6 +30,7 @@ public sealed class ResourcePruningGraphTests
         internal readonly GraphCopier Copier;
         internal readonly PdfName FontKey = PdfName.FromAscii("F"), BinaryKey = new([0, 255, 35]);
         internal readonly PdfByteString Borrowed = new(new byte[8192], false);
+        internal readonly PdfDictionary Font = Dictionary();
         internal readonly PdfDictionary Resources, Fonts, Page;
         internal readonly PdfStream Content;
 
@@ -55,7 +56,7 @@ public sealed class ResourcePruningGraphTests
             _engine = fixtureEngine;
             _copyMemory = ParserMemoryScope.Create(governor);
             Copier = GraphCopier.CreateOwned(_engine, governor, QpdfLimits.Default, 1, _copyMemory);
-            Fonts = new(new Dictionary<PdfName, QpdfObject> { [FontKey] = PdfNull.Instance, [PdfName.FromAscii("Unused")] = PdfNull.Instance });
+            Fonts = new(new Dictionary<PdfName, QpdfObject> { [FontKey] = Font, [PdfName.FromAscii("Unused")] = PdfNull.Instance });
             Resources = new(new Dictionary<PdfName, QpdfObject>
             {
                 [PdfName.FromAscii("ProcSet")] = new PdfArray([PdfName.FromAscii("PDF")]),
@@ -82,7 +83,7 @@ public sealed class ResourcePruningGraphTests
         Assert.IsType<PdfNameTable<QpdfObject>>(resources.AllocationCarrier);
         Assert.True(resources.TryGet(PdfName.FromAscii("Font"), out QpdfObject value)); PdfDictionary fonts = Assert.IsType<PdfDictionary>(value);
         Assert.IsType<PdfNameTable<QpdfObject>>(fonts.AllocationCarrier);
-        Assert.Same(source.FontKey, Assert.Single(fonts.Keys)); Assert.True(fonts.TryGet(source.FontKey, out value)); Assert.Same(PdfNull.Instance, value);
+        Assert.Same(source.FontKey, Assert.Single(fonts.Keys)); Assert.True(fonts.TryGet(source.FontKey, out value)); Assert.Same(source.Font, value);
         Assert.Equal(source.Resources.Keys, resources.Keys); Assert.Same(source.BinaryKey, resources.Keys.Last());
         Assert.True(resources.TryGet(source.BinaryKey, out value)); Assert.Same(source.Borrowed, value);
         Assert.True(replacement.TryGet(PdfName.FromAscii("Contents"), out value)); Assert.Same(source.Content, value);

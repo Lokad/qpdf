@@ -11,11 +11,11 @@ internal sealed class ResourceNameSet : IDisposable
     private PdfNameTable<byte>? _names;
     private CancellationToken _token;
 
-    internal bool HasUnresolvedLocalScope { get; private set; }
-    internal void MarkUnresolvedLocalScope()
+    internal bool HasUnresolvedScope { get; private set; }
+    internal void MarkUnresolvedScope()
     {
         _token.ThrowIfCancellationRequested(); Governor.CheckCancellation();
-        HasUnresolvedLocalScope = true;
+        HasUnresolvedScope = true;
     }
 
     private ResourceNameSet(ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
@@ -54,7 +54,7 @@ internal sealed class ResourceNameSet : IDisposable
     {
         ParserMemoryScope? memory = _memory;
         _names = null; _memory = null; _governor = null; _token = default;
-        HasUnresolvedLocalScope = false;
+        HasUnresolvedScope = false;
         memory?.Dispose();
     }
 }

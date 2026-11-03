@@ -451,6 +451,11 @@ Numbers are normalized lexically under the existing cancellation/output bounds.
   keep everything. Undefined usage under an explicit local form Resources
   dictionary also preserves the page scope conservatively; absent form Resources
   keeps inherited-name protection, and declared form fonts still allow pruning.
+  Unreadable or unparseable Form programs preserve the enclosing scope as well.
+  Font and XObject uses require bindings in their respective categories; null
+  bindings do not establish a definition. Pruning uses the shared Contents reader,
+  including indirect arrays and empty/null values. Malformed non-null content
+  keeps its resources even without coalescing.
   Used Type 3 fonts and soft-mask groups keep the enclosing scope, including uses
   inherited through forms. Their glyph/mask programs are outside this scanner;
   a local dictionary alone does not establish dependency completeness. This can

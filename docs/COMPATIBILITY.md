@@ -86,6 +86,14 @@ on them; context-independent streams retain sharing. Standalone stream inspectio
 has only that stream's resource context and can reject requested normalization
 before binary output when the extent cannot be established.
 
+Resource pruning now keeps the enclosing scope when a Form's program cannot be
+read or parsed, including Forms that borrow page resources. A Font spelling does
+not establish an XObject binding, or vice versa; absent/null bindings preserve
+uncertain scopes. This intentionally strengthens cases where native qpdf can also
+prune after a category mismatch. The existing `ContentEntries` reader now serves
+pruning as well: indirect content arrays behave like direct arrays without
+requiring coalescing, and malformed non-null content keeps its resources.
+
 Content normalization now interprets an unescaped CR or CRLF inside a literal
 string as one LF byte, matching the reader and PDF syntax rules. Explicit escaped
 CR and octal bytes retain their values; line continuations still contribute no

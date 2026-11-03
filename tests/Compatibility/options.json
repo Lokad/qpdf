@@ -2426,7 +2426,8 @@
         ],
         "interaction": [
           "ContentTransformsTests.JobContentFlagsRoundTrip",
-          "ContentTransformsTests.PruneAppliesOnMerge"
+          "ContentTransformsTests.PruneAppliesOnMerge",
+          "ResourcePruningScopeTests.PruningSharesContentsClassificationWithTheOtherTransforms"
         ],
         "resource": [
           "ResourceEnforcementTests.CoalesceYieldsToExhaustedBudget",
@@ -5570,7 +5571,10 @@
           "ContentTransformsTests.PruneKeepsUnresolvedPageNames",
           "ContentTransformsTests.PruneRecursesIntoForms",
           "ContentTransformsTests.PruneUnresolvedFormNameBlocksFormOnly",
-          "ContentTransformsTests.SplitOutputsPrune"
+          "ContentTransformsTests.SplitOutputsPrune",
+          "ResourcePruningScopeTests.FailedFormAnalysisKeepsTheEnclosingScope",
+          "ResourcePruningScopeTests.ASpellingInTheOtherCategoryDoesNotProveALocalBinding",
+          "ResourcePruningScopeTests.PruningSharesContentsClassificationWithTheOtherTransforms"
         ],
         "negative": [
           "ContentTransformsTests.MalformedContentFlagsFail",

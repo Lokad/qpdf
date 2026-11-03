@@ -95,7 +95,10 @@ public sealed class ResourceNameAnalysisTests
     public void AllEstablishedResourceOperatorsRetainTheLastName(string operation)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); using Prepared prepared = new(governor);
-        PdfDictionary page = Page("/Used 12 " + operation, Dictionary(("Font", Dictionary(("Used", Dictionary()), ("Unused", Dictionary())))));
+        PdfDictionary fonts = Dictionary(("Used", Dictionary()), ("Unused", Dictionary()));
+        PdfDictionary resources = operation == "Do"
+            ? Dictionary(("Font", fonts), ("XObject", Dictionary(("Used", new PdfStream(Dictionary(), []))))) : Dictionary(("Font", fonts));
+        PdfDictionary page = Page("/Used 12 " + operation, resources);
         PdfDictionary output = Prune(prepared.Copier, 3, page, QpdfLimits.Default, governor, new DiagnosticBag(governor), CancellationToken.None);
         Assert.True(Has(Fonts(output), "Used")); Assert.False(Has(Fonts(output), "Unused"));
     }

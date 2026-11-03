@@ -888,6 +888,7 @@ internal static class ContentTransforms
         using AnalysisChunks? chunks = CollectFormContent(form, resolver, limits, governor, cancellationToken);
         if (chunks is null)
         {
+            unresolved.MarkUnresolvedScope();
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped resource pruning for content that could not be read.");
             return;
         }
@@ -912,79 +913,38 @@ internal static class ContentTransforms
         using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
         PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
         using ResourceNameSet names = ResourceNameSet.Create(governor, cancellationToken);
-        using ResourceNameSet scoped = ResourceNameSet.Create(governor, cancellationToken);
-        if (!ScanNames(content, names, scoped, resources, resolver, limits, governor, diagnostics, cancellationToken))
+        using ResourceNameSet fontsUsed = ResourceNameSet.Create(governor, cancellationToken);
+        using ResourceNameSet objectsUsed = ResourceNameSet.Create(governor, cancellationToken);
+        if (!ScanNames(content, names, fontsUsed, objectsUsed, resources, resolver, limits, governor, diagnostics, cancellationToken))
         {
+            if (!isPage) { unresolved.MarkUnresolvedScope(); }
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped resource pruning for content that could not be parsed.");
             return;
         }
-
-
-        using ResourceNameSet known = ResourceNameSet.Create(governor, cancellationToken);
-        if (resources is not null)
-        {
-            for (int section = 0; section < 2; section++)
-            {
-                ReadOnlySpan<byte> key = section == 0 ? "Font"u8 : "XObject"u8;
-                if (PdfDictionaryLookup.TryGet(resources, key, governor, cancellationToken, out QpdfObject sectionRaw) && sectionRaw is not PdfNull)
-                {
-                    QpdfObject sectionTarget = sectionRaw is PdfReference sectionReference
-                        ? ResolvePool(resolver, sectionReference, governor, cancellationToken) ?? sectionRaw
-                        : sectionRaw;
-                    if (sectionTarget is PdfDictionary sectionDict)
-                    {
-                        using var entries = sectionDict.GetEntryEnumerator();
-                        while (entries.MoveNext(governor, cancellationToken))
-                        {
-                            known.AddDecoded(entries.Current.Key.RawSpan);
-                        }
-                    }
-                }
-            }
-        }
-
-        using var scopedEntries = scoped.GetEnumerator();
-        while (scopedEntries.MoveNext(governor, cancellationToken))
-        {
-            ReadOnlySpan<byte> name = scopedEntries.Current.Key.RawSpan;
-            if (!known.ContainsDecoded(name))
-            {
-                unresolved.AddDecoded(name);
-            }
-        }
-
         if (resources is null)
         {
-            // Inherited gs/font uses can hide further consumers in the parent
-            // scope, including soft-mask groups and Type 3 glyph programs.
+            // Inherited consumers can hide glyph and mask dependencies as well.
             using var inherited = names.GetEnumerator();
             while (inherited.MoveNext(governor, cancellationToken))
             { unresolved.AddDecoded(inherited.Current.Key.RawSpan); }
             return;
         }
-
-        bool hasUnknown = false;
-        using var unknownEntries = scoped.GetEnumerator();
-        while (unknownEntries.MoveNext(governor, cancellationToken))
+        for (int section = 0; section < 2; section++)
         {
-            if (!known.ContainsDecoded(unknownEntries.Current.Key.RawSpan))
+            ReadOnlySpan<byte> key = section == 0 ? "Font"u8 : "XObject"u8;
+            PdfDictionary? category = PdfDictionaryLookup.TryGet(resources, key, governor, cancellationToken, out QpdfObject rawCategory)
+                ? CatalogCopy.ResolveDictionary(rawCategory, resolver, governor, cancellationToken) : null;
+            using var uses = (section == 0 ? fontsUsed : objectsUsed).GetEnumerator();
+            while (uses.MoveNext(governor, cancellationToken))
             {
-                hasUnknown = true;
-                break;
+                if (category is not null && PdfDictionaryLookup.TryGet(category, uses.Current.Key.RawSpan, governor, cancellationToken, out QpdfObject binding)
+                    && CatalogCopy.ResolveValue(binding, resolver, governor, cancellationToken) is not (null or PdfNull)) { continue; }
+                // A spelling in another category cannot satisfy this operator.
+                if (!isPage) { unresolved.MarkUnresolvedScope(); }
+                return;
             }
         }
-
-        if (hasUnknown)
-        {
-            // An explicit local form dictionary cannot resolve its usage.
-            // Preserve the page scope conservatively, rather than assuming
-            // only the unresolved spelling needs to survive there. An absent
-            // form dictionary still uses the existing inherited-name policy.
-            if (!isPage) { unresolved.MarkUnresolvedLocalScope(); }
-            return;
-        }
-
-        if (isPage && unresolved.HasUnresolvedLocalScope) { return; }
+        if (isPage && unresolved.HasUnresolvedScope) { return; }
         if (HasUnscannedResourceConsumer(resources, names, unresolved, resolver, governor, cancellationToken)) { return; }
 
         // Two sections, resources and the node header each own a table/wrapper.
@@ -1109,62 +1069,18 @@ internal static class ContentTransforms
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
-        if (!PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, cancellationToken, out QpdfObject contents) || contents is PdfNull)
-        {
-            return AnalysisChunks.Create(governor, cancellationToken);
-        }
-
-        using CheckStreamList streams = CheckStreamList.Create(governor);
-        if (contents is PdfArray array)
-        {
-            for (int index = 0; index < array.Count; index++)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                governor.CheckCancellation();
-                QpdfObject item = array[index];
-                QpdfObject target = item is PdfReference reference ? ResolvePool(resolver, reference, governor, cancellationToken) ?? item : item;
-                if (target is not PdfStream stream)
-                {
-                    return null;
-                }
-
-                streams.Add(stream, cancellationToken);
-            }
-        }
-        else if (contents is PdfReference singleReference)
-        {
-            QpdfObject? target = ResolvePool(resolver, singleReference, governor, cancellationToken);
-            if (target is not PdfStream stream)
-            {
-                return null;
-            }
-
-            streams.Add(stream, cancellationToken);
-        }
-        else if (contents is PdfStream single)
-        {
-            streams.Add(single, cancellationToken);
-        }
-        else
-        {
-            return AnalysisChunks.Create(governor, cancellationToken);
-        }
-
+        if (!PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, cancellationToken, out QpdfObject contents))
+        { return AnalysisChunks.Create(governor, cancellationToken); }
+        using ContentEntries? entries = ContentEntries.TryRead(contents, resolver, governor, cancellationToken);
+        if (entries is null) { return null; }
         AnalysisChunks chunks = AnalysisChunks.Create(governor, cancellationToken);
         try
         {
-            for (int index = 0; index < streams.Count; index++)
+            for (int index = 0; index < entries.Count; index++)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                governor.NoteOperation();
-                PdfStream stream = streams.Get(index, cancellationToken);
-                if (!chunks.TryAdd(stream, resolver, limits))
-                {
-                    chunks.Dispose();
-                    return null;
-                }
+                if (!chunks.TryAdd(entries.Get(index).Stream, resolver, limits))
+                { chunks.Dispose(); return null; }
             }
-
             return chunks;
         }
         catch { chunks.Dispose(); throw; }
@@ -1228,7 +1144,8 @@ internal static class ContentTransforms
     private static bool ScanNames(
         ReadOnlyMemory<byte> content,
         ResourceNameSet names,
-        ResourceNameSet scoped,
+        ResourceNameSet fontsUsed,
+        ResourceNameSet objectsUsed,
         PdfDictionary? resources,
         PoolResolver resolver,
         QpdfLimits limits,
@@ -1270,7 +1187,7 @@ internal static class ContentTransforms
                         names.AddRaw(lastName.Span);
                         if (scopedOperator)
                         {
-                            scoped.AddRaw(lastName.Span);
+                            (word.SequenceEqual("Tf"u8) ? fontsUsed : objectsUsed).AddRaw(lastName.Span);
                         }
                     }
 

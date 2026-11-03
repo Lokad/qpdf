@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Preserve enclosing resources after failed Form analysis and check Font/XObject
+  uses in the correct category. Remove pruning's duplicate Contents reader and
+  declared-name index, keeping indirect arrays consistent with other transforms.
+
 - Share inline-image packet framing across externalization, normalization,
   resource/appearance scanning and checking. Keep unknown extents opaque,
   respect named colorspace contexts in shared streams and discard candidates
