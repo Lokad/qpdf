@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Keep page resources used by retained annotation appearances during pruning and
+  page stamping. Avoid existing XObject names and give imported appearances
+  explicit source resources when they have no local scope. Transform only the
+  normal, rollover and down appearance slots, preserving private AP values.
+
 - Preserve independently retained Form resource headers during pruning and share
   replacements across selected pages. Analyze inherited uses before pruning
   enclosing Forms, retaining scopes whose dependencies remain unknown.

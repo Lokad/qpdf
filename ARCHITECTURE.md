@@ -148,6 +148,13 @@ each program once per copied source. Unknown dependencies keep the examined scop
 known inherited names protect enclosing dictionaries. Form candidates publish
 through the existing resource replacement walk, preserving independent original
 headers and sharing one replacement across selected pages and cyclic parents.
+Retained annotation appearances with absent/null Resources conservatively keep
+their page resource namespace during pruning and overlay wrapping. Generated
+placement names avoid the existing XObject bindings. Other pages keep the fresh
+namespace path. Imported appearances acquire their source page resources on the
+existing per-placement copies; local appearance resources take precedence.
+Appearance discovery examines only N/R/D and their one-level state dictionaries;
+private AP entries remain opaque. Payload bytes and original headers stay shared.
 Cross-reference tables likewise require an explicit owner. Synthetic fixtures
 admit their entry maps, trailer lists and input receipts and transfer them through
 the same owned table/engine factories as production, with explicit escape and input

@@ -94,6 +94,15 @@ prune after a category mismatch. The existing `ContentEntries` reader now serves
 pruning as well: indirect content arrays behave like direct arrays without
 requiring coalescing, and malformed non-null content keeps its resources.
 
+Annotation appearances with absent or resolved-null Resources retain their page
+scope during pruning and overlay/underlay wrapping. Such pages conservatively
+keep their original resource categories and bindings; placement names avoid
+existing XObjects. Imported appearances receive explicit source page resources
+on their fresh placement copies, with local appearance resources taking precedence.
+Only N/R/D appearance slots and their state dictionaries receive placement
+transforms; private AP entries keep their values. Affected output bytes and object
+numbering can change. Public signatures are unchanged.
+
 Content normalization now interprets an unescaped CR or CRLF inside a literal
 string as one LF byte, matching the reader and PDF syntax rules. Explicit escaped
 CR and octal bytes retain their values; line continuations still contribute no

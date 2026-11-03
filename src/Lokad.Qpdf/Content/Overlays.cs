@@ -577,12 +577,23 @@ internal static class Overlays
         PdfStream pageForm = EncodeForm(new PdfDictionary(formEntries), pageContent, compress, level, limits, governor, ownership);
         PdfReference pageFormLink = copier.AddIndirectObjectWithId(pageForm, allocator);
         allocator = checked(allocator + 1);
-        // Original resources belong to the nested Fx0 Form, not this fresh
-        // page namespace. Sequential placement names cannot collide here.
+        // Most pages use a fresh namespace. Retained appearances without local
+        // resources still need the old page namespace, including XObject names.
+        bool keepResources = pageResources is not null && AppearanceResources.PageNeedsResources(page, resolver, governor, cancellationToken);
         int suffix = 1;
         PdfNameTable<QpdfObject> xobjects = PdfNameTable<QpdfObject>.Create(ownership, governor, IntPtr.Size, cancellationToken);
+        if (keepResources && pageResources is not null
+            && PdfDictionaryLookup.TryGet(pageResources, "XObject"u8, governor, cancellationToken, out QpdfObject oldObjects)
+            && CatalogCopy.ResolveDictionary(oldObjects, resolver, governor, cancellationToken) is PdfDictionary previous)
+        {
+            using PdfDictionary.EntryEnumerator entries = previous.GetEntryEnumerator();
+            while (entries.MoveNext(governor, cancellationToken))
+            { xobjects.Assign(ownership, governor, entries.Current.Key, entries.Current.Value, cancellationToken); }
+        }
+        string background = "Fx0";
+        if (keepResources) { suffix = 0; background = NextPlacementName(xobjects, ref suffix, governor, ownership, cancellationToken); }
         ownership.Reserve(64L);
-        xobjects.Assign(ownership, governor, PdfName.FromAscii("Fx0"), pageFormLink, cancellationToken);
+        xobjects.Assign(ownership, governor, PdfName.FromAscii(background), pageFormLink, cancellationToken);
         using GovernedBufferStream stacked = new(governor, limits.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes), cancellationToken, 256);
         double[] destTransform = TransformMatrix(placeBox, rotate, userUnit, true);
         foreach (OverlayPlacement placement in underlays)
@@ -590,34 +601,38 @@ internal static class Overlays
             cancellationToken.ThrowIfCancellationRequested();
             OverlayForm? form = GetOrBuildOverlayForm(placement, formCache, compress, level, limits, governor, planning, ownership, cancellationToken, ref allocator);
             if (form is null) { continue; }
-            ownership.Reserve(192L); // Bounded decimal name, its bytes and temporary formatting.
-            string name = "Fx" + suffix.ToString(CultureInfo.InvariantCulture); suffix = checked(suffix + 1);
+            string name = NextPlacementName(xobjects, ref suffix, governor, ownership, cancellationToken);
             xobjects.Assign(ownership, governor, PdfName.FromAscii(name), form.Link, cancellationToken);
             AppendPlacement(stacked, name, PlacementMatrix(form.Box, form.FormMatrix, placeBox, destTransform, true, false));
         }
 
         // The outer page already supplies its rotation, scale and visible clip.
         // Only imported artwork is fitted to the preferred placement rectangle.
-        AppendPlacement(stacked, "Fx0", IdentityArray());
+        AppendPlacement(stacked, background, IdentityArray());
         foreach (OverlayPlacement placement in overlays)
         {
             cancellationToken.ThrowIfCancellationRequested();
             OverlayForm? form = GetOrBuildOverlayForm(placement, formCache, compress, level, limits, governor, planning, ownership, cancellationToken, ref allocator);
             if (form is null) { continue; }
-            ownership.Reserve(192L); // Bounded decimal name, its bytes and temporary formatting.
-            string name = "Fx" + suffix.ToString(CultureInfo.InvariantCulture); suffix = checked(suffix + 1);
+            string name = NextPlacementName(xobjects, ref suffix, governor, ownership, cancellationToken);
             xobjects.Assign(ownership, governor, PdfName.FromAscii(name), form.Link, cancellationToken);
             AppendPlacement(stacked, name, PlacementMatrix(form.Box, form.FormMatrix, placeBox, destTransform, true, false));
         }
 
         xobjects.Freeze(ownership, governor, cancellationToken);
         ownership.Reserve(24L); PdfDictionary forms = PdfDictionary.FromOwnedEntries(xobjects);
-        ownership.Reserve(512L); // Fixed one-entry resource dictionaries and their key.
-        Dictionary<PdfName, QpdfObject> resources = new()
+        PdfDictionary outputResources;
+        if (keepResources && pageResources is not null)
         {
-            [PdfName.FromAscii("XObject")] = forms,
-        };
-        PdfDictionary outputResources = new(resources);
+            using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
+            outputResources = PdfDictionaryRebuild.ReplaceEntry(graph, pageResources, "XObject"u8, forms);
+            graph.Memory.TransferTo(ownership, graph.Bytes);
+        }
+        else
+        {
+            ownership.Reserve(512L); // Fixed one-entry resource dictionary and its key.
+            outputResources = new(new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("XObject")] = forms });
+        }
         byte[] stackedBytes = stacked.ToArray(ownership, cancellationToken);
         PdfStream stackedStream = EncodeForm(new PdfDictionary(new Dictionary<PdfName, QpdfObject>()),
             stackedBytes, compress, level, limits, governor, ownership);
@@ -630,6 +645,23 @@ internal static class Overlays
     }
 
     private sealed record OverlayForm(PdfReference Link, double[] Box, double[]? FormMatrix);
+
+    private static string NextPlacementName(PdfNameTable<QpdfObject> objects, ref int suffix,
+        ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token)
+    {
+        Span<byte> bytes = stackalloc byte[12]; "Fx"u8.CopyTo(bytes);
+        while (true)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (suffix == int.MaxValue) { throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), (long)suffix + 1L, int.MaxValue); }
+            if (!suffix.TryFormat(bytes[2..], out int digits, provider: CultureInfo.InvariantCulture))
+            { throw new InvalidOperationException("Placement name exceeds bounded formatting storage."); }
+            suffix = checked(suffix + 1);
+            if (objects.TryGetValue(bytes[..(digits + 2)], governor, token, out _)) { continue; }
+            ownership.Reserve(192L); // Selected name, immutable key bytes and formatting.
+            return Encoding.ASCII.GetString(bytes[..(digits + 2)]);
+        }
+    }
 
     private static OverlayForm? GetOrBuildOverlayForm(
         OverlayPlacement placement,
@@ -1149,6 +1181,7 @@ internal static class Overlays
         List<PdfReference> fresh = ParserContainers.CreateList<PdfReference>(scratch);
         AcroFormCopy.OverlaySourceForm? sourceForm = source.FormInfo;
         PdfReference? placementDr = null;
+        bool needsPageResources = false;
         int annotIndex = 0;
         for (int index = 0; index < annots.Count; index++)
         {
@@ -1178,6 +1211,7 @@ internal static class Overlays
                 continue;
             }
 
+            needsPageResources |= AppearanceResources.NeedsPageResources(annot, resolver, governor, cancellationToken);
             if (IsWidgetAnnotation(annot, resolver))
             {
                 if (TryImportOverlayWidget(destCopier, engine, annot, item, fromPage, annotIndex, source, sourceForm, memo, scratch, imports, ref placementDr, limits, governor, ownership, diagnostics, cancellationToken, ref allocator, ref nullId, fresh))
@@ -1204,6 +1238,14 @@ internal static class Overlays
 
         if (fresh.Count == 0) { return; }
 
+        QpdfObject? appearanceResources = null;
+        if (needsPageResources && PageInheritance.Find(engine, location, PdfName.FromAscii("Resources"), limits, governor, cancellationToken) is QpdfObject sourceResources
+            && CatalogCopy.ResolveDictionary(sourceResources, resolver, governor, cancellationToken) is not null)
+        {
+            appearanceResources = CopyOverlayNode(sourceResources, engine, source.Copier, destCopier, memo, scratch,
+                ref allocator, ref nullId, limits, governor, ownership, cancellationToken, 0);
+        }
+
         // Cloning preserves sharing within this placement. Transform each copied
         // annotation/appearance once, after all fields and annotations are copied.
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
@@ -1214,7 +1256,7 @@ internal static class Overlays
             cancellationToken.ThrowIfCancellationRequested();
             if (!transformed.Add(traversal, annotation.ObjectNumber)) { continue; }
             TransformOverlayRect(destCopier, annotation.ObjectNumber, cm, governor, ownership, cancellationToken);
-            TransformOverlayAppearances(destCopier, annotation.ObjectNumber, cm, appearances, traversal, governor, cancellationToken);
+            TransformOverlayAppearances(destCopier, annotation.ObjectNumber, cm, appearanceResources, appearances, traversal, governor, cancellationToken);
         }
 
         if (!destCopier.CopiedObjects.TryGetValue(destPageId, out QpdfObject? pageRaw) || pageRaw is not PdfDictionary page)
@@ -1651,6 +1693,7 @@ internal static class Overlays
         GraphCopier destCopier,
         int annotId,
         double[] cm,
+        QpdfObject? pageResources,
         GovernedIntSet done,
         ParserMemoryScope traversal,
         ResourceGovernor governor,
@@ -1678,6 +1721,8 @@ internal static class Overlays
         foreach (PdfName key1 in ap.Keys)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            ReadOnlySpan<byte> slot = key1.RawSpan;
+            if (!slot.SequenceEqual("N"u8) && !slot.SequenceEqual("R"u8) && !slot.SequenceEqual("D"u8)) { continue; }
             if (!ap.TryGet(key1, out QpdfObject? value1) || value1 is null)
             {
                 continue;
@@ -1690,6 +1735,7 @@ internal static class Overlays
             {
                 if (value1 is PdfReference streamReference && done.Add(traversal, streamReference.ObjectNumber))
                 {
+                    BindAppearanceResources(destCopier, streamReference.ObjectNumber, pageResources, pool, governor, cancellationToken);
                     TransformOverlayStreamMatrix(destCopier, streamReference.ObjectNumber, cm, governor, cancellationToken);
                 }
 
@@ -1711,12 +1757,26 @@ internal static class Overlays
                         QpdfObject? resolved2 = ResolveOrNull(pool, streamReference2);
                         if (resolved2 is PdfStream && done.Add(traversal, streamReference2.ObjectNumber))
                         {
+                            BindAppearanceResources(destCopier, streamReference2.ObjectNumber, pageResources, pool, governor, cancellationToken);
                             TransformOverlayStreamMatrix(destCopier, streamReference2.ObjectNumber, cm, governor, cancellationToken);
                         }
                     }
                 }
             }
         }
+    }
+
+    private static void BindAppearanceResources(GraphCopier copier, int id, QpdfObject? resources,
+        PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
+    {
+        if (resources is null || !copier.CopiedObjects.TryGetValue(id, out QpdfObject? raw) || raw is not PdfStream stream
+            || !AppearanceResources.UsesPageResources(stream, resolver, governor, token)) { return; }
+        // These are the fresh per-placement annotation copies. Their source
+        // page scope must become explicit before the destination scope changes.
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
+        PdfDictionary header = PdfDictionaryRebuild.ReplaceEntry(graph, stream.Dictionary, "Resources"u8, resources);
+        graph.Memory.Reserve(32L); PdfStream replacement = stream.WithDictionary(header); graph.Add(32L);
+        copier.ValidateReplacement(id); graph.Retain(); copier.ReplaceCopiedObject(id, replacement);
     }
 
     internal static void TransformOverlayStreamMatrix(

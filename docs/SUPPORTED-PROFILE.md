@@ -261,6 +261,11 @@ echoing values.
   Source generations are validated before placement memo reuse; stale references
   stay null in either traversal order. Widget import retains actual field
   references through parent walks, including valid nonzero generations.
+  Retained appearances with absent/null Resources keep their original page scope;
+  pruning conservatively retains that page's resources and placement names avoid
+  its existing XObjects. Imported appearances bind source page resources on fresh
+  copies when no local scope exists. N/R/D and their one-level state dictionaries
+  are appearance slots; private AP values remain opaque.
 - --flatten-rotation bakes page rotation into content: boxes rotate per the page angle, a counter-transform wraps the content streams, /Rotate is dropped, and annotation rectangles move with the page. Appearance headers are copied per transformed page while payload bytes remain shared; untouched pages retain their original appearances. Direct and indirect appearance-state dictionaries and matrices are equivalent.
   Shared annotation identities are isolated before rotation, including duplicated
   page selections. Page associations and popup/reply links follow their occurrence;

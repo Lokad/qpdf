@@ -2429,7 +2429,8 @@
           "ContentTransformsTests.PruneAppliesOnMerge",
           "ResourcePruningScopeTests.PruningSharesContentsClassificationWithTheOtherTransforms",
           "ResourcePruningScopeTests.NonIndependentChildProtectsTheEnclosingFormBeforePruning",
-          "ResourcePruningRoleTests.PruningRedirectsResourceRolesAndKeepsOriginalFormAliases"
+          "ResourcePruningRoleTests.PruningRedirectsResourceRolesAndKeepsOriginalFormAliases",
+          "AppearanceResourceScopeTests.RetainedAppearancesKeepTheirOwnPageScopeAndAvoidPlacementNames"
         ],
         "resource": [
           "ResourceEnforcementTests.CoalesceYieldsToExhaustedBudget",
@@ -4745,14 +4746,17 @@
           "OverlayTests.JobFromRangeMatchesArgv",
           "OverlayRectangleTests.OpposingCornersPreserveIndependentPlacementAndOriginalBoxValues",
           "OverlayOptionalSourceTests.OptionalSourceNullsUseFallbacksWhileMalformedValuesKeepTheirSkipPolicy",
-          "OverlayBackgroundTests.EmptyStampKeepsOriginalContentCoordinatesAndVisibleBounds"
+          "OverlayBackgroundTests.EmptyStampKeepsOriginalContentCoordinatesAndVisibleBounds",
+          "AppearanceResourceScopeTests.ImportedAppearancesCarryTheSourcePageScopeAndKeepPrivateAPValues",
+          "AppearanceResourceScopeTests.RetainedAppearancesKeepTheirOwnPageScopeAndAvoidPlacementNames"
         ],
         "resource": [
           "ResourceEnforcementTests.OverlayYieldsToExhaustedBudget",
           "SinglePartContentOwnershipTests.OwnedPartMovesWithoutASecondPayloadAllocation",
           "SinglePartContentOwnershipTests.JoinAdmissionRefusalPreservesTheSourceAndCanRetry",
           "OverlayGenerationTests.EveryAdmissionRefusalPreservesPriorOutputAndRefundsPrivateStorage",
-          "OverlayGenerationTests.GenerationAwareCopyKeepsRollbackAndCancellation"
+          "OverlayGenerationTests.GenerationAwareCopyKeepsRollbackAndCancellation",
+          "AppearanceResourceScopeTests.ScopePublicationFailuresPreserveTheTargetAndRefundAdmission"
         ],
         "oracle": [
           "diff:overlay",

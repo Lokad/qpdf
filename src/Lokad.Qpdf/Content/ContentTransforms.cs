@@ -858,6 +858,7 @@ internal static class ContentTransforms
     {
         if (!PdfDictionaryLookup.TryGet(page, "Resources"u8, governor, token, out QpdfObject raw)
             || CatalogCopy.ResolveDictionary(raw, resolver, governor, token) is not PdfDictionary resources) { return; }
+        if (AppearanceResources.PageNeedsResources(page, resolver, governor, token)) { return; }
         using AnalysisChunks? chunks = CollectPageChunks(page, resolver, limits, governor, token);
         if (chunks is null)
         {
