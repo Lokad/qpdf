@@ -222,7 +222,9 @@ echoing values.
 - Merge options interleave per-source groups (collation), rotate, and emit explicit
   page labels or merge source label trees with page-index offsets (unlabeled pages
   fabricate continuations, runs compress using copied identities). Indirect tree
-  arrays, keys and starts retain their direct-value semantics. An optional split group size partitions
+  arrays, keys and starts retain their direct-value semantics. Optional Names/Nums/
+  Kids arrays resolve explicit null references as absent; malformed required values
+  and unresolved references retain their failure policy. An optional split group size partitions
   output through the same engine.
 - Output carries a fresh catalog with the copied pages only; each occurrence is an
   independent page object sharing immutable resources. Shared non-page objects
@@ -242,8 +244,7 @@ echoing values.
   surviving-field filtering and isolated rotation-field registration. Empty
   orders stay empty; malformed non-array values remain opaque. This preserves
   field ordering without executing calculations. Widget annotations travel with
-  appearances, while
-  document info (`/Info`, ModDate-only under `--remove-info`) and the catalog
+  appearances, while document info (`/Info`, ModDate-only under `--remove-info`) and the catalog
   metadata stream are preserved unless `--remove-info`/`--remove-metadata`
   drop them (`--remove-info` also drops metadata).
 - Repeated runs over the same input and options are byte-identical.

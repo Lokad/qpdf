@@ -9,7 +9,7 @@ public sealed class LabelTreeIndirectionTests
 {
     public static IEnumerable<object[]> Cases()
     {
-        foreach (string form in new[] { "direct", "nums", "kids", "key", "entry", "start" })
+        foreach (string form in new[] { "direct", "nums", "kids", "key", "entry", "start", "nums-null-kids", "kids-null-nums" })
         foreach (string operation in new[] { "select", "merge", "inspect" })
         foreach (string route in new[] { "typed", "argv", "job" })
         { yield return new object[] { form, operation, route }; }
@@ -22,6 +22,8 @@ public sealed class LabelTreeIndirectionTests
         "key" => LabelIndirectionTests.Build(2, "<< /Nums [5 0 R << /S /D /St 10 >>] >>", (5, "0")),
         "entry" => LabelIndirectionTests.Build(2, "<< /Nums [0 5 0 R] >>", (5, "<< /S /D /St 10 >>")),
         "start" => LabelIndirectionTests.Build(2, "<< /Nums [0 << /S /D /St 5 0 R >>] >>", (5, "10")),
+        "nums-null-kids" => LabelIndirectionTests.Build(2, "<< /Nums 5 0 R /Kids [6 0 R] >>", (5, "null"), (6, "<< /Nums [0 << /S /D /St 10 >>] >>")),
+        "kids-null-nums" => LabelIndirectionTests.Build(2, "<< /Kids 5 0 R /Nums [0 << /S /D /St 10 >>] >>", (5, "null")),
         _ => LabelIndirectionTests.Build(2, "<< /Nums [0 << /S /D /St 10 >>] >>"),
     };
 

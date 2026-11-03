@@ -127,6 +127,14 @@ removed fields; those are intentional managed differences. Empty arrays stay emp
 and opaque non-array values keep their preservation policy. No calculation engine
 or public signature is added.
 
+Optional attachment name-tree and page-label number-tree arrays now classify
+resolved values before testing presence. Indirect null Names/Nums/Kids behaves
+like direct null or absence, including nonempty data in the other branch.
+Malformed non-null arrays, required key/child errors, unresolved references,
+cycles and structural limits keep their existing failures. Selective attachment
+extraction still stops after finding its requested entry. Empty trees retain
+their existing operation-specific warning policy; public signatures are unchanged.
+
 Content normalization now interprets an unescaped CR or CRLF inside a literal
 string as one LF byte, matching the reader and PDF syntax rules. Explicit escaped
 CR and octal bytes retain their values; line continuations still contribute no

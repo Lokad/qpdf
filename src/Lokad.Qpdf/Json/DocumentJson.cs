@@ -239,11 +239,11 @@ internal static class DocumentJson
         }
 
         governor.NoteOperation();
-        if (node.TryGet(PdfName.FromAscii("Nums"), out QpdfObject? numsRaw) && numsRaw is not null && numsRaw is not PdfNull)
+        QpdfObject? numbersValue = node.TryGet(PdfName.FromAscii("Nums"), out QpdfObject? numsRaw) && numsRaw is not null
+            ? EmbeddedFiles.ResolveOptionalValue(engine, numsRaw, governor, cancellationToken) : PdfNull.Instance;
+        if (numbersValue is not PdfNull)
         {
-            if (numsRaw is PdfReference numbersReference)
-            { PdfObjectLookup.TryResolve(numbersReference, (IIndirectResolver)engine, governor, cancellationToken, out numsRaw); }
-            if (numsRaw is not PdfArray nums || nums.Count % 2 != 0)
+            if (numbersValue is not PdfArray nums || nums.Count % 2 != 0)
             {
                 throw new QpdfParseException("Page-label number array must hold index/value pairs.", null, null);
             }
@@ -271,11 +271,11 @@ internal static class DocumentJson
             }
         }
 
-        if (node.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw) && kidsRaw is not null && kidsRaw is not PdfNull)
+        QpdfObject? childrenValue = node.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw) && kidsRaw is not null
+            ? EmbeddedFiles.ResolveOptionalValue(engine, kidsRaw, governor, cancellationToken) : PdfNull.Instance;
+        if (childrenValue is not PdfNull)
         {
-            if (kidsRaw is PdfReference childrenReference)
-            { PdfObjectLookup.TryResolve(childrenReference, (IIndirectResolver)engine, governor, cancellationToken, out kidsRaw); }
-            if (kidsRaw is not PdfArray kids)
+            if (childrenValue is not PdfArray kids)
             {
                 throw new QpdfParseException("Page-label kids must be an array.", null, null);
             }

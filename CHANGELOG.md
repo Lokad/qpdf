@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Treat resolved null optional Names/Nums/Kids arrays like direct null in
+  attachment and page-label walkers. Keep malformed required entries, missing
+  references, cycles and bounds explicit, including selective extraction.
+
 - Reconstruct indirect calculation-order arrays through the same form path as
   direct arrays. Merge source orders, filter removed fields and include isolated
   rotation copies consistently, while retaining opaque non-array values.

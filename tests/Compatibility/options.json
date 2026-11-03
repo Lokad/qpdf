@@ -4188,6 +4188,7 @@
           "AttachmentTreeReferenceTests.EquivalentTreesWorkAcrossPublicOperations",
           "AttachmentTests.ListShowsKeysAndStreams",
           "AttachmentTests.ListEmptyReportsNone",
+          "AttachmentTreeReferenceTests.AbsentAndNullTreeArraysRemainOptional",
           "AttachmentTests.KidsTreeListsAllAttachments",
           "AttachmentTests.UnicodeKeysMatchAndList",
           "AttachmentTests.TypedListReturnsAttachments",

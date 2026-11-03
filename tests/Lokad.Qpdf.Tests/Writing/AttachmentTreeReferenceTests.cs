@@ -10,7 +10,7 @@ public sealed class AttachmentTreeReferenceTests
 
     public static IEnumerable<object[]> Cases()
     {
-        foreach (string variant in new[] { "direct", "names", "kids", "key", "all" })
+        foreach (string variant in new[] { "direct", "names", "kids", "key", "all", "names-null-kids", "kids-null-names" })
         foreach (string operation in new[] { "list", "extract", "json1", "json2", "copy", "rewrite" })
         foreach (string route in new[] { "typed", "argv", "job" })
         {
@@ -102,6 +102,8 @@ public sealed class AttachmentTreeReferenceTests
     [InlineData("kids")]
     [InlineData("key")]
     [InlineData("all")]
+    [InlineData("names-null-kids")]
+    [InlineData("kids-null-names")]
     public async Task LookupUsesTheEffectiveNonzeroGenerations(string variant)
     {
         using InMemoryQpdfHost host = new();
@@ -115,7 +117,9 @@ public sealed class AttachmentTreeReferenceTests
     [Theory]
     [InlineData("empty")]
     [InlineData("direct-null")]
-    public async Task AbsentAndDirectNullTreeArraysRemainOptional(string variant)
+    [InlineData("names-null")]
+    [InlineData("kids-null")]
+    public async Task AbsentAndNullTreeArraysRemainOptional(string variant)
     {
         using InMemoryQpdfHost host = new();
         host.AddInput(Input, Fixture(variant, "(note.txt)", 0), QpdfInputOwnership.Transfer);
@@ -125,8 +129,8 @@ public sealed class AttachmentTreeReferenceTests
 
     public static IEnumerable<object[]> MalformedCases()
     {
-        foreach (string variant in new[] { "names-type", "names-null", "names-odd", "names-missing", "names-stale",
-            "kids-type", "kids-null", "kids-missing", "kids-stale", "kids-cycle",
+        foreach (string variant in new[] { "names-type", "names-odd", "names-missing", "names-stale",
+            "kids-type", "kids-missing", "kids-stale", "kids-cycle",
             "key-type", "key-null", "key-missing", "key-stale", "deep" })
         foreach (string route in new[] { "typed", "argv", "job" }) { yield return [variant, route]; }
     }
@@ -191,6 +195,12 @@ public sealed class AttachmentTreeReferenceTests
         switch (variant)
         {
             case "direct-null": objects[3] = (4, "<< /Names null /Kids null >>", null); break;
+            case "names-null-kids":
+                objects[3] = (4, $"<< /Names {Reference(9)} /Kids {Reference(7)} >>", null);
+                objects[8] = (9, "null", null); break;
+            case "kids-null-names":
+                objects[3] = (4, $"<< /Names [(note.txt) 5 0 R] /Kids {Reference(7)} >>", null);
+                objects[6] = (7, "null", null); break;
             case "names-type": objects[8] = (9, "0", null); break;
             case "names-null": objects[8] = (9, "null", null); break;
             case "names-odd": objects[8] = (9, "[(note.txt)]", null); break;

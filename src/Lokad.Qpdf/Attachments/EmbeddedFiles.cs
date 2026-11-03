@@ -232,9 +232,11 @@ internal static class EmbeddedFiles
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (depth > limits.MaxNestingDepth)
         { throw new QpdfParseException("Embedded-files name tree exceeds nesting budget.", null, null); }
-        if (node.TryGet(PdfName.FromAscii("Names"), out QpdfObject? namesRaw) && namesRaw is not null && namesRaw is not PdfNull)
+        QpdfObject? namesValue = node.TryGet(PdfName.FromAscii("Names"), out QpdfObject? namesRaw) && namesRaw is not null
+            ? ResolveOptionalValue(engine, namesRaw, governor, token) : PdfNull.Instance;
+        if (namesValue is not PdfNull)
         {
-            if (ResolveOptionalValue(engine, namesRaw, governor, token) is not PdfArray names || names.Count % 2 != 0)
+            if (namesValue is not PdfArray names || names.Count % 2 != 0)
             { throw new QpdfParseException("Embedded-files name array must hold key/value pairs.", null, null); }
             for (int i = 0; i < names.Count; i += 2)
             {
@@ -260,9 +262,11 @@ internal static class EmbeddedFiles
                 if (result is not null) { ParserContainers.AddItem(entriesMemory, result, new(key, keyBytes, names[i + 1]), 24L); }
             }
         }
-        if (node.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw) && kidsRaw is not null && kidsRaw is not PdfNull)
+        QpdfObject? kidsValue = node.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw) && kidsRaw is not null
+            ? ResolveOptionalValue(engine, kidsRaw, governor, token) : PdfNull.Instance;
+        if (kidsValue is not PdfNull)
         {
-            if (ResolveOptionalValue(engine, kidsRaw, governor, token) is not PdfArray kids)
+            if (kidsValue is not PdfArray kids)
             { throw new QpdfParseException("Embedded-files kids must be an array.", null, null); }
             for (int i = 0; i < kids.Count; i++)
             {
