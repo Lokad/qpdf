@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Remove the unused checker stream-list owner and its type-specific tests;
+  checking and transformations use the shared content-entry reader.
+
 - Preserve enclosing resources after failed Form analysis and check Font/XObject
   uses in the correct category. Remove pruning's duplicate Contents reader and
   declared-name index, keeping indirect arrays consistent with other transforms.
