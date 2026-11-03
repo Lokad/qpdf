@@ -1256,7 +1256,7 @@ internal static class Overlays
             cancellationToken.ThrowIfCancellationRequested();
             if (!transformed.Add(traversal, annotation.ObjectNumber)) { continue; }
             TransformOverlayRect(destCopier, annotation.ObjectNumber, cm, governor, ownership, cancellationToken);
-            TransformOverlayAppearances(destCopier, annotation.ObjectNumber, cm, appearanceResources, appearances, traversal, governor, cancellationToken);
+            TransformOverlayAppearances(destCopier, annotation.ObjectNumber, cm, appearanceResources, appearances, traversal, governor, diagnostics, cancellationToken);
         }
 
         if (!destCopier.CopiedObjects.TryGetValue(destPageId, out QpdfObject? pageRaw) || pageRaw is not PdfDictionary page)
@@ -1697,6 +1697,7 @@ internal static class Overlays
         GovernedIntSet done,
         ParserMemoryScope traversal,
         ResourceGovernor governor,
+        DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
         PoolResolver pool = new(destCopier.CopiedObjects);
@@ -1736,7 +1737,7 @@ internal static class Overlays
                 if (value1 is PdfReference streamReference && done.Add(traversal, streamReference.ObjectNumber))
                 {
                     BindAppearanceResources(destCopier, streamReference.ObjectNumber, pageResources, pool, governor, cancellationToken);
-                    TransformOverlayStreamMatrix(destCopier, streamReference.ObjectNumber, cm, governor, cancellationToken);
+                    TransformOverlayStreamMatrix(destCopier, streamReference.ObjectNumber, cm, governor, diagnostics, cancellationToken);
                 }
 
                 continue;
@@ -1758,7 +1759,7 @@ internal static class Overlays
                         if (resolved2 is PdfStream && done.Add(traversal, streamReference2.ObjectNumber))
                         {
                             BindAppearanceResources(destCopier, streamReference2.ObjectNumber, pageResources, pool, governor, cancellationToken);
-                            TransformOverlayStreamMatrix(destCopier, streamReference2.ObjectNumber, cm, governor, cancellationToken);
+                            TransformOverlayStreamMatrix(destCopier, streamReference2.ObjectNumber, cm, governor, diagnostics, cancellationToken);
                         }
                     }
                 }
@@ -1783,7 +1784,7 @@ internal static class Overlays
         GraphCopier destCopier,
         int streamId,
         double[] cm,
-        ResourceGovernor governor, CancellationToken cancellationToken)
+        ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         governor.NoteOperation();
@@ -1793,11 +1794,20 @@ internal static class Overlays
         }
 
         PoolResolver pool = new(destCopier.CopiedObjects);
-        bool present = stream.Dictionary.TryGet(PdfName.FromAscii("Matrix"), out QpdfObject? matrixRaw) && matrixRaw is not null && matrixRaw is not PdfNull;
+        PdfDictionaryLookup.TryGet(stream.Dictionary, "Matrix"u8, governor, cancellationToken, out QpdfObject matrixRaw);
+        QpdfObject matrixValue = CatalogCopy.ResolveValue(matrixRaw, pool, governor, cancellationToken) ?? matrixRaw;
+        bool present = matrixValue is not PdfNull;
         double[] matrix = new double[6] { 1.0, 0.0, 0.0, 1.0, 0.0, 0.0 };
-        if (present && matrixRaw is not null)
+        if (present)
         {
-            matrix = ReadOverlayMatrix(matrixRaw, pool) ?? new double[6];
+            if (matrixValue is not PdfArray array)
+            {
+                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning,
+                    "Kept a non-array appearance Matrix unchanged during placement.");
+                return;
+            }
+            // Malformed arrays retain the existing native-compatible zero fallback.
+            matrix = ReadOverlayMatrix(array, pool) ?? new double[6];
         }
 
         ContentMatrix work = FromArray(matrix);
@@ -1869,12 +1879,9 @@ internal static class Overlays
         return values;
     }
 
-    private static double[]? ReadOverlayMatrix(QpdfObject raw, PoolResolver pool)
+    private static double[]? ReadOverlayMatrix(PdfArray array, PoolResolver pool)
     {
-        QpdfObject target = raw is PdfReference reference
-            ? ResolveOrNull(pool, reference) ?? raw
-            : raw;
-        if (target is not PdfArray array || array.Count != 6)
+        if (array.Count != 6)
         {
             return null;
         }

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Keep non-array appearance matrices opaque during overlay/underlay placement,
+  with a bounded warning, instead of replacing them with invisible zero transforms.
+  Preserve sharing and the separate legacy malformed-array fallback.
+
 - Share page-resource inheritance across JSON and show-pages inspection, including
   null and undefined overrides. Report resolved-null Contents as empty while
   preserving stream identities, malformed non-null values and bounded ancestry.

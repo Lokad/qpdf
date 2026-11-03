@@ -273,6 +273,10 @@ echoing values.
   its existing XObjects. Imported appearances bind source page resources on fresh
   copies when no local scope exists. N/R/D and their one-level state dictionaries
   are appearance slots; private AP values remain opaque.
+  Placement keeps a non-array appearance Matrix opaque and warns once per copied
+  stream identity. Malformed array matrices retain the historical zero-transform
+  fallback. Warning overflow rejects before commit; suppressed warnings consume
+  no diagnostic quota under the existing warning policy.
 - --flatten-rotation bakes page rotation into content: boxes rotate per the page angle, a counter-transform wraps the content streams, /Rotate is dropped, and annotation rectangles move with the page. Appearance headers are copied per transformed page while payload bytes remain shared; untouched pages retain their original appearances. Direct and indirect appearance-state dictionaries and matrices are equivalent.
   Only N/R/D appearance slots and their one-level states receive rotation matrices;
   private AP streams and dictionaries keep their identities and matrices.

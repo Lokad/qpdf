@@ -158,6 +158,8 @@ namespace path. Imported appearances acquire their source page resources on the
 existing per-placement copies; local appearance resources take precedence.
 Appearance discovery examines only N/R/D and their one-level state dictionaries;
 private AP entries remain opaque. Payload bytes and original headers stay shared.
+Placement resolves Matrix before classifying it: non-arrays stay opaque with a
+bounded warning, while malformed arrays retain their existing compatibility fallback.
 Rotation uses the same N/R/D slot boundary. Annotation flattening resolves an
 indirect Form subtype before deciding whether a header needs normalization;
 normalization creates a fresh stream identity and keeps independent originals.

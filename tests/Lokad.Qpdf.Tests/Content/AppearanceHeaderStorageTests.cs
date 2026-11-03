@@ -33,7 +33,7 @@ public sealed class AppearanceHeaderStorageTests
             }
             else
             {
-                Overlays.TransformOverlayStreamMatrix(copier, link.ObjectNumber, [0.5, 0, 0, 0.5, 2, 3], governor, CancellationToken.None);
+                Overlays.TransformOverlayStreamMatrix(copier, link.ObjectNumber, [0.5, 0, 0, 0.5, 2, 3], governor, new(governor), CancellationToken.None);
                 result = Assert.IsType<PdfStream>(copier.CopiedObjects[link.ObjectNumber]);
             }
             Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < source.RawMemory.Length);
@@ -58,7 +58,7 @@ public sealed class AppearanceHeaderStorageTests
         copier.AddIndirectObjectWithId(source, 1); long baseline = governor.Snapshot().LiveMemoryBytes;
         using CancellationTokenSource cancellation = new();
         if (cancel) { cancellation.Cancel(); }
-        Action rewrite = () => Overlays.TransformOverlayStreamMatrix(copier, 1, [0.5, 0, 0, 0.5, 0, 0], governor, cancellation.Token);
+        Action rewrite = () => Overlays.TransformOverlayStreamMatrix(copier, 1, [0.5, 0, 0, 0.5, 0, 0], governor, new(governor), cancellation.Token);
         if (cancel) { Assert.ThrowsAny<OperationCanceledException>(rewrite); }
         else { Assert.Throws<QpdfLimitException>(rewrite); }
         Assert.Same(source, copier.CopiedObjects[1]); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
@@ -85,6 +85,29 @@ public sealed class AppearanceHeaderStorageTests
         }
         catch { fixtureTable.Dispose(); throw; }
         return fixtureEngine;
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void OpaqueMatrixKeepsItsHeaderAndLargePayloadWhenReportingOrRefusing(bool overflow)
+    {
+        PdfStream source = PdfStream.FromOwnedData(new(new Dictionary<PdfName, QpdfObject>
+            { [PdfName.FromAscii("Matrix")] = new PdfInteger("42", 42) }), new byte[8 * 1048576]);
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 8192L, MaxDiagnostics = 1L };
+        ResourceGovernor governor = new(limits, CancellationToken.None); DiagnosticBag diagnostics = new(governor);
+        using DocumentEngine engine = Engine(); using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, governor, limits, 1, memory); copier.AddIndirectObjectWithId(source, 1);
+        if (overflow) { diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Info, "prior"); }
+        long before = governor.Snapshot().LiveMemoryBytes, allocated = GC.GetAllocatedBytesForCurrentThread();
+        void Place() => Overlays.TransformOverlayStreamMatrix(copier, 1, [0.5, 0, 0, 0.5, 2, 3], governor, diagnostics, CancellationToken.None);
+        if (overflow)
+        {
+            QpdfLimitException error = Assert.Throws<QpdfLimitException>(Place); Assert.Equal(nameof(QpdfLimits.MaxDiagnostics), error.LimitName);
+            Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
+        }
+        else { Place(); Assert.Single(diagnostics.Entries); }
+        Assert.Same(source, copier.CopiedObjects[1]); Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 32768L);
     }
 
     [Theory]
