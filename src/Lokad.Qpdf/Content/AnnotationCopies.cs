@@ -5,25 +5,26 @@ using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Content;
 
-internal static partial class FlattenRotation
+internal static class AnnotationCopies
 {
-    private readonly record struct AnnotationUse(int Owner, int LastPage, bool Shared, bool Rotated, bool OwnerRotates);
+    private readonly record struct AnnotationUse(int Owner, int LastPage, bool Shared, bool Changed, bool OwnerChanges);
     private static readonly PdfName AnnotsKey = PdfName.FromAscii("Annots");
     private static readonly PdfName ParentKey = PdfName.FromAscii("Parent");
     private static readonly PdfName KidsKey = PdfName.FromAscii("Kids");
 
-    // All copies precede geometry changes. Keep one original occurrence, preferring
-    // an untouched page; other occurrences copy headers, never appearance payloads.
-    private static IReadOnlyList<(GraphCopier Copier, CopiedForm Part)> IsolateAnnotations(
+    // Keep one original occurrence, preferring an untouched page for rotation.
+    // Other occurrences copy headers, never appearance or resource payloads.
+    internal static IReadOnlyList<(GraphCopier Copier, CopiedForm Part, int Occurrence)> Isolate(
         IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
         IReadOnlyDictionary<GraphCopier, CopiedForm?> forms,
+        bool duplicateWidgets,
         ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token, ref int allocator)
     {
-        if (occurrences.Count < 2) { return Array.Empty<(GraphCopier, CopiedForm)>(); }
+        if (occurrences.Count < 2) { return Array.Empty<(GraphCopier, CopiedForm, int)>(); }
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
         traversal.Reserve(512L); // Temporary box and content-resolution state.
         Dictionary<(GraphCopier, int), AnnotationUse> uses = ParserContainers.CreateDictionary<(GraphCopier, int), AnnotationUse>(traversal);
-        bool sharedRotation = false;
+        bool sharedChange = false;
         for (int index = 0; index < occurrences.Count; index++)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -31,26 +32,29 @@ internal static partial class FlattenRotation
             if (!copier.CopiedObjects.TryGetValue(id, out QpdfObject? raw) || raw is not PdfDictionary page) { continue; }
             PoolResolver resolver = new(copier.CopiedObjects);
             if (!page.TryGet(AnnotsKey, out QpdfObject annotsRaw) || ResolveValue(annotsRaw, resolver) is not PdfArray annots) { continue; }
-            bool rotates = CanFlatten(page, resolver, governor, token);
+            bool changes = duplicateWidgets || FlattenRotation.CanFlatten(page, resolver, governor, token);
             for (int item = 0; item < annots.Count; item++)
             {
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                if (annots[item] is not PdfReference reference || ResolveOrNull(resolver, reference) is not PdfDictionary) { continue; }
+                if (annots[item] is not PdfReference reference || ResolveOrNull(resolver, reference) is not PdfDictionary annotation) { continue; }
                 (GraphCopier, int) key = (copier, reference.ObjectNumber);
                 if (!uses.TryGetValue(key, out AnnotationUse use))
                 {
                     ParserContainers.EnsureEntryCapacity(traversal, uses, 32L);
-                    uses.Add(key, new(index, index, false, rotates, rotates));
+                    uses.Add(key, new(index, index, false, changes, changes));
                     continue;
                 }
                 if (use.LastPage == index) { continue; }
-                bool replaceOwner = use.OwnerRotates && !rotates;
-                use = new(replaceOwner ? index : use.Owner, index, true, use.Rotated || rotates, replaceOwner ? rotates : use.OwnerRotates);
+                bool replaceOwner = use.OwnerChanges && !changes;
+                use = new(replaceOwner ? index : use.Owner, index, true, use.Changed || changes, replaceOwner ? changes : use.OwnerChanges);
                 uses[key] = use;
-                sharedRotation |= use.Rotated;
+                // Widget copies need their page-local popup/reply bundle too.
+                // Retain ordinary annotation sharing when no widget is shared.
+                sharedChange |= use.Changed && (!duplicateWidgets
+                    || PdfDictionaryLookup.HasName(annotation, "Subtype"u8, "Widget"u8, resolver, governor, token));
             }
         }
-        if (!sharedRotation) { return Array.Empty<(GraphCopier, CopiedForm)>(); }
+        if (!sharedChange) { return Array.Empty<(GraphCopier, CopiedForm, int)>(); }
 
         HashSet<(GraphCopier, int)> registered = ParserContainers.CreateSet<(GraphCopier, int)>(traversal);
         foreach (KeyValuePair<GraphCopier, CopiedForm?> source in forms)
@@ -63,7 +67,7 @@ internal static partial class FlattenRotation
                 ParserContainers.AddSetItem(traversal, registered, (source.Key, root.ObjectNumber), 16L);
             }
         }
-        List<(GraphCopier, CopiedForm)> fieldCopies = ParserContainers.CreateList<(GraphCopier, CopiedForm)>(ownership);
+        List<(GraphCopier, CopiedForm, int)> fieldCopies = ParserContainers.CreateList<(GraphCopier, CopiedForm, int)>(ownership);
         for (int index = 0; index < occurrences.Count; index++)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -81,7 +85,7 @@ internal static partial class FlattenRotation
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 if (annots[item] is not PdfReference reference
                     || !uses.TryGetValue((copier, reference.ObjectNumber), out AnnotationUse use)
-                    || !use.Shared || !use.Rotated || use.Owner == index) { continue; }
+                    || !use.Shared || !use.Changed || use.Owner == index) { continue; }
                 AddHeaderCopy(reference, copier, copies, scratch, ref allocator);
                 if (ResolveOrNull(resolver, reference) is not PdfDictionary annot) { continue; }
                 // A popup's Parent is an annotation relationship, not a field spine.
@@ -141,7 +145,7 @@ internal static partial class FlattenRotation
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 if (annots[item] is not PdfReference reference
                     || !uses.TryGetValue((copier, reference.ObjectNumber), out AnnotationUse use)
-                    || !use.Shared || !use.Rotated || use.Owner != index) { continue; }
+                    || !use.Shared || !use.Changed || use.Owner != index) { continue; }
                 if (ParserContainers.AddSetItem(scratch, rebound, reference.ObjectNumber, sizeof(int)))
                 { ParserContainers.AddItem(scratch, linked, reference.ObjectNumber, sizeof(int)); }
             }
@@ -187,7 +191,7 @@ internal static partial class FlattenRotation
                 }
                 ownership.Reserve(80L);
                 CopiedForm part = form with { Fields = fields, CalculationOrder = order, HasCalculationOrder = order.Count > 0 };
-                ParserContainers.AddItem(ownership, fieldCopies, (copier, part), 16L);
+                ParserContainers.AddItem(ownership, fieldCopies, (copier, part, index), 24L);
             }
             graph.Retain();
         }
@@ -258,13 +262,7 @@ internal static partial class FlattenRotation
     private static QpdfObject? ResolveValue(QpdfObject value, PoolResolver resolver)
         => value is PdfReference reference ? ResolveOrNull(resolver, reference) : value;
 
-    private static bool CanFlatten(PdfDictionary page, PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
-    {
-        if (!page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject raw)
-            || ResolveValue(raw, resolver) is not PdfInteger rotate || rotate.Value % 360L is not (90L or -270L or 180L or -180L or 270L or -90L)
-            || ReadBox(page, Boxes[0], resolver) is null) { return false; }
-        if (!page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject contents) || contents is PdfNull) { return true; }
-        using ContentEntries? entries = ContentEntries.TryRead(contents, resolver, governor, token);
-        return entries is not null;
-    }
+    private static QpdfObject? ResolveOrNull(PoolResolver resolver, PdfReference reference)
+        => ((IIndirectResolver)resolver).TryResolve(reference, out QpdfObject? value) ? value : null;
+
 }

@@ -36,6 +36,7 @@ public sealed class AnnotationPublicationTests
         InMemoryQpdfHost host = new();
         byte[] input = mode.StartsWith("labels-split", StringComparison.Ordinal)
             ? File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "labels-split-start.pdf"))
+            : mode.StartsWith("source-groups", StringComparison.Ordinal) ? SourceGroupIdentityTests.Fixture("A")
             : mode == "preserve-many" ? PreservationAdmissionTests.Scalars(128)
             : mode is "preserve-rollback" or "preserve-split" ? PreservationGraphTests.RollbackFixture()
             : mode.StartsWith("form-indirect", StringComparison.Ordinal) ? FormNeedAppearancesTests.Fixture("9 3 R", "true", 3)
@@ -81,7 +82,12 @@ public sealed class AnnotationPublicationTests
     }
 
     private static ValueTask<QpdfExecutionResult> Run(Host host, string mode, CancellationToken token)
-        => mode.StartsWith("preserve-", StringComparison.Ordinal) ? Qpdf.ExecuteAsync(host, new(mode == "preserve-split"
+        => mode == "source-groups-job" ? Qpdf.ExecuteJobAsync(host,
+            """{"inputFile":"input","outputFile":"output","pages":[{"file":".","range":"1"},{"file":"input","range":"2,3"}]}""", token)
+            : mode.StartsWith("source-groups", StringComparison.Ordinal) ? Qpdf.ExecuteAsync(host, new(mode == "source-groups-linear"
+                ? ["input", "--pages", ".", "1", "input", "2,3", "--", "--linearize", "--object-streams=generate", "output"]
+                : ["input", "--pages", ".", "1", "input", "2,3", "--", "output"]), token)
+            : mode.StartsWith("preserve-", StringComparison.Ordinal) ? Qpdf.ExecuteAsync(host, new(mode == "preserve-split"
             ? ["input", "--preserve-unreferenced", "--split-pages=1", "output"] : ["input", "--preserve-unreferenced", "output"]), token)
             : mode == "labels-split" ? Qpdf.ExecuteAsync(host, new(["input", "--split-pages=1", "output"]), token)
             : mode == "labels-split-job" ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","splitPages":"1"}""", token)
@@ -136,6 +142,9 @@ public sealed class AnnotationPublicationTests
     }
 
     [Theory]
+    [InlineData("source-groups")]
+    [InlineData("source-groups-job")]
+    [InlineData("source-groups-linear")]
     [InlineData("os-qdf")]
     [InlineData("os-qdf-job")]
     [InlineData("os-qdf-noids")]
@@ -225,6 +234,16 @@ public sealed class AnnotationPublicationTests
     }
 
     [Theory]
+    [InlineData("create", "source-groups")]
+    [InlineData("write", "source-groups")]
+    [InlineData("commit", "source-groups")]
+    [InlineData("cancel", "source-groups")]
+    [InlineData("close", "source-groups")]
+    [InlineData("create", "source-groups-job")]
+    [InlineData("write", "source-groups-job")]
+    [InlineData("commit", "source-groups-job")]
+    [InlineData("cancel", "source-groups-job")]
+    [InlineData("close", "source-groups-job")]
     [InlineData("create", "preserve-many")]
     [InlineData("write", "preserve-many")]
     [InlineData("commit", "preserve-many")]

@@ -74,6 +74,12 @@ bind newly introduced objects merely because their numbers match.
 When a primary document supplies no selected pages, the same copy loop admits its
 catalog graph without adding a page group or changing source mappings. Replacement
 targets the primary path independently of the selected page providers.
+Repeated page-source groups share one reader and copier per logical path. The
+selector registers their complete selected-root union before copying, then
+assembles the original group occurrences, counts and mappings. Each document closes
+before the next opens. Duplicate widget pages reuse the rotation path's annotation
+header copying, including field spines, popup/reply links and form registration;
+appearance and resource payloads stay shared.
 Ordinary selection retains the primary document's attachment collection, independent
 of edits and selected page ranges. Other sources contribute page-reachable files;
 their document collections require explicit attachment import. An explicit empty

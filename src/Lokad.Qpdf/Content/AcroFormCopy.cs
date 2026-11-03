@@ -197,7 +197,7 @@ internal static class AcroFormCopy
         IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
         Dictionary<int, QpdfObject> pool,
         IReadOnlyList<OverlayFieldImport> overlayImports,
-        IReadOnlyList<(GraphCopier Copier, CopiedForm Part)> rotationFields,
+        IReadOnlyList<(GraphCopier Copier, CopiedForm Part, int Occurrence)> rotationFields,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
@@ -268,7 +268,7 @@ internal static class AcroFormCopy
             ParserContainers.AddItem(scratch, allCopiers, copier, IntPtr.Size);
         }
 
-        foreach ((GraphCopier sourceCopier, CopiedForm fields) in rotationFields)
+        foreach ((GraphCopier sourceCopier, CopiedForm fields, int _) in rotationFields)
         {
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             ParserContainers.AddItem(scratch, allForms, fields, IntPtr.Size);

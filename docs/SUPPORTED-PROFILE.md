@@ -189,6 +189,15 @@ echoing values.
 
 ## Selection semantics
 
+- Repeated page-source groups with the same logical input path share a source
+  document and the union of selected page identities. Links and retained metadata
+  or attachment graphs can target pages selected in a later group. Group order,
+  collation, per-group counts and source mappings are preserved. Different logical
+  paths remain independent, including byte-identical inputs. Duplicate page objects
+  remain independent; duplicated widgets and their registered field branches get
+  separate headers and collision-safe names while sharing immutable payloads.
+  Distinct pages from one logical document retain shared field branches, including
+  imported sources where native qpdf can create separately named field copies.
 - Ordinary selection preserves the primary document's attachment collection,
   including when none of its pages are selected. Typed multi-source selection
   uses its first source as primary; argv/job input identifies the primary separately

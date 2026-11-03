@@ -197,6 +197,10 @@ public sealed class PresentationOwnershipTests
         {
             object host = await Prepare("split-pass1", false, false);
             Inner(host).AddInput(QpdfPath.From("input.pdf"), pdf, QpdfInputOwnership.Copy);
+            // Independent logical documents preserve the eight-copy workload;
+            // repeated groups now correctly share their input graph and payload.
+            for (int index = 1; index < 8; index++)
+            { Inner(host).AddInput(QpdfPath.From($"source-{index}.pdf"), pdf, QpdfInputOwnership.Copy); }
             string[] targets = [.. Enumerable.Range(1, 8).Select(index => $"output-{index}.pdf"), "pass1.pdf"];
             foreach (string target in targets)
             {
@@ -206,14 +210,14 @@ public sealed class PresentationOwnershipTests
             byte[][] aliases = targets.Select(target =>
             { Assert.True(Inner(host).TryGetOutput(QpdfPath.From(target), out byte[] bytes)); return bytes; }).ToArray();
             List<string> argv = ["input.pdf", "--verbose", "--progress", "--report-memory-usage", "--linearize", "--linearize-pass1=pass1.pdf", "--split-pages=1", "--pages"];
-            for (int index = 0; index < 8; index++) { argv.AddRange([".", "1"]); }
+            for (int index = 0; index < 8; index++) { argv.AddRange([index == 0 ? "." : $"source-{index}.pdf", "1"]); }
             argv.AddRange(["--", "output.pdf"]);
             QpdfExecutionOptions options = new(QpdfLimits.Default with { MaxMemoryBytes = ceiling });
             QpdfExecutionResult result;
             if (route == "job")
             {
                 result = await Qpdf.ExecuteJobAsync((IQpdfHost)host, JsonSerializer.Serialize(new
-                { inputFile = "input.pdf", outputFile = "output.pdf", verbose = "", progress = "", reportMemoryUsage = "", linearize = "", linearizePass1 = "pass1.pdf", splitPages = "1", pages = Enumerable.Range(0, 8).Select(_ => new { file = ".", range = "1" }).ToArray() }), options, CancellationToken.None);
+                { inputFile = "input.pdf", outputFile = "output.pdf", verbose = "", progress = "", reportMemoryUsage = "", linearize = "", linearizePass1 = "pass1.pdf", splitPages = "1", pages = Enumerable.Range(0, 8).Select(index => new { file = index == 0 ? "." : $"source-{index}.pdf", range = "1" }).ToArray() }), options, CancellationToken.None);
             }
             else
             {

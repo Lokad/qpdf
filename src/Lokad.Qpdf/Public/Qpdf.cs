@@ -330,10 +330,13 @@ public static partial class Qpdf
 
                     IReadOnlyList<PageLocation> kept = KeptLocations(document, requested, copyMemory, governor, cancellationToken);
                     GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, limits, 3, copyMemory);
+                    bool duplicatePages = false;
                     foreach (int pageNumber in requested)
                     {
                         cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                        copier.RegisterPageRoot(document.PageReferences[pageNumber - 1].Source?.ObjectNumber);
+                        PdfReference? reference = document.PageReferences[pageNumber - 1].Source;
+                        duplicatePages |= reference is null || copier.SourceToDestination.ContainsKey(reference.ObjectNumber);
+                        copier.RegisterPageRoot(reference?.ObjectNumber);
                     }
                     copier.HintPageCapacity(requested.Count);
                     List<PdfReference> kids = ParserContainers.CreateList<PdfReference>(copyMemory, requested.Count, IntPtr.Size);
@@ -398,7 +401,7 @@ public static partial class Qpdf
                     Content.CopiedForm? singleForm = !settings.RemoveAcroform || (settings.GenerateAppearances && needAppearances)
                         ? Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, kept, true, limits, governor, copyMemory, cancellationToken, false)
                         : null;
-                    IReadOnlyList<(GraphCopier Copier, Content.CopiedForm Part)> rotationFields = Array.Empty<(GraphCopier, Content.CopiedForm)>();
+                    IReadOnlyList<(GraphCopier Copier, Content.CopiedForm Part, int Occurrence)> rotationFields = Array.Empty<(GraphCopier, Content.CopiedForm, int)>();
                     flattenAllocator = Math.Max(flattenAllocator, copier.NextId);
                     if (settings.GenerateAppearances && needAppearances)
                     {
@@ -426,13 +429,27 @@ public static partial class Qpdf
                     {
                         flattenAllocator = Content.FlattenAnnotations.Apply(occurrences, settings.FlattenAnnotations, needAppearances, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, flattenAllocator);
                     }
-                    if (settings.FlattenRotation)
+                    IReadOnlyList<(GraphCopier Copier, Content.CopiedForm Part, int Occurrence)> duplicateFields = Array.Empty<(GraphCopier, Content.CopiedForm, int)>();
+                    if (settings.FlattenRotation || duplicatePages && !settings.RemoveAcroform)
                     {
                         using ParserMemoryScope rotationMemory = ParserMemoryScope.Create(governor);
                         Dictionary<GraphCopier, Content.CopiedForm?> forms = ParserContainers.CreateDictionary<GraphCopier, Content.CopiedForm?>(rotationMemory);
                         ParserContainers.EnsureEntryCapacity(rotationMemory, forms, IntPtr.Size); forms.Add(copier, settings.RemoveAcroform ? null : singleForm);
-                        (flattenAllocator, rotationFields) = Content.FlattenRotation.Apply(occurrences, forms, singleCompress, singleLevel,
-                            limits, governor, diagnostics, cancellationToken, flattenAllocator, copyMemory);
+                        if (duplicatePages && !settings.RemoveAcroform)
+                        { duplicateFields = Content.AnnotationCopies.Isolate(occurrences, forms, true, governor, copyMemory, cancellationToken, ref flattenAllocator); }
+                        if (settings.FlattenRotation)
+                        {
+                            (flattenAllocator, rotationFields) = Content.FlattenRotation.Apply(occurrences, forms, singleCompress, singleLevel,
+                                limits, governor, diagnostics, cancellationToken, flattenAllocator, copyMemory);
+                        }
+                    }
+                    if (duplicateFields.Count > 0)
+                    {
+                        List<(GraphCopier Copier, Content.CopiedForm Part, int Occurrence)> fields = ParserContainers.CreateList<(GraphCopier, Content.CopiedForm, int)>(copyMemory,
+                            checked(duplicateFields.Count + rotationFields.Count), 24L);
+                        foreach (var part in duplicateFields) { cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); fields.Add(part); }
+                        foreach (var part in rotationFields) { cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); fields.Add(part); }
+                        rotationFields = fields;
                     }
                     if (settings.Optimize.Optimize)
                     {
@@ -922,10 +939,16 @@ public static partial class Qpdf
                 break;
             }
         }
-        int documentCount = primaryIdx == sources.Count && !emptyPrimary ? checked(sources.Count + 1) : sources.Count;
-        List<int> sourceCounts = ParserContainers.CreateList<int>(selectionMemory);
-        List<List<(GraphCopier Copier, int Id, int SourcePage)>> perSource = ParserContainers.CreateList<List<(GraphCopier, int, int)>>(selectionMemory, sources.Count, IntPtr.Size);
+        Dictionary<string, List<int>> sourceGroups = GroupPageSources(sources, selectionMemory, governor, cancellationToken);
+        bool catalogOnlyPrimary = primaryIdx == sources.Count && !emptyPrimary;
+        int documentCount = catalogOnlyPrimary ? checked(sourceGroups.Count + 1) : sourceGroups.Count;
+        int sourcePasses = catalogOnlyPrimary ? checked(sources.Count + 1) : sources.Count;
+        selectionMemory.Reserve(checked(96L + sources.Count * (sizeof(int) + 2L * IntPtr.Size)));
+        int[] sourceCounts = new int[sources.Count];
+        List<(GraphCopier Copier, int Id, int SourcePage)>[] perSource = new List<(GraphCopier, int, int)>[sources.Count];
+        Content.SourceLabels?[] multiLabels = new Content.SourceLabels?[sources.Count];
         int nextId = 3;
+        bool duplicateSourcePages = false;
         bool multiRebuiltContent = false;
         bool needAppearances = false;
         List<GraphCopier> copiers = ParserContainers.CreateList<GraphCopier>(selectionMemory, documentCount, IntPtr.Size);
@@ -937,7 +960,6 @@ public static partial class Qpdf
             ? ParserContainers.CreateSet<int>(selectionMemory) : null;
         List<Content.CopiedForm?> multiForms = ParserContainers.CreateList<Content.CopiedForm?>(selectionMemory, documentCount, IntPtr.Size);
         List<Content.CopiedForm?> gateForms = ParserContainers.CreateList<Content.CopiedForm?>(selectionMemory, documentCount, IntPtr.Size);
-        List<Content.SourceLabels?> multiLabels = ParserContainers.CreateList<Content.SourceLabels?>(selectionMemory, documentCount, IntPtr.Size);
         QpdfObject? verbatimCopied = null;
         bool needSourceLabels = !settings.RemoveLabels && (settings.Labels.Count == 0 || splitPages.HasValue);
         selectionMemory.Reserve(96L);
@@ -954,10 +976,12 @@ public static partial class Qpdf
         (bool multiCompress, string multiDecode, int? multiLevel) = ResolveCompression(settings.Compression, settings.Qdf.Enabled);
         // An unselected primary still supplies the document catalog and ID. Its
         // copier joins the ordinary pools, but it contributes no selection group.
-        for (int s = 0; s < documentCount; s++)
+        for (int s = 0; s < sourcePasses; s++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             bool catalogOnly = s == sources.Count;
+            IReadOnlyList<int> sourceGroupIndices = catalogOnly ? Array.Empty<int>() : sourceGroups[sources[s].Input.Value];
+            if (!catalogOnly && sourceGroupIndices[0] != s) { continue; }
             QpdfPath sourcePath = catalogOnly ? primaryInput : sources[s].Input;
             // Multisource graphs survive each reader. Independent payloads let
             // catalog-only and mostly unused inputs retire after their copies.
@@ -971,7 +995,6 @@ public static partial class Qpdf
                 // independent; retaining output sinks receive isolated payloads.
                 document.Engine.BorrowImmutableStreamData = !catalogOnly && sources.Count == 1 && !document.Engine.HasSelectiveInput;
                 if (!catalogOnly && (settings.ExternalizeInlineImages || (settings.Optimize.Optimize && !settings.Optimize.KeepInline))) { document.PrepareInlinePageResources(cancellationToken); }
-                if (!catalogOnly) { ParserContainers.AddItem(selectionMemory, sourceCounts, document.PageReferences.Count, sizeof(int)); }
                 PdfVersion sourceVersion = governor.PrivateVersion(document.EffectiveVersionParts.Major, document.EffectiveVersionParts.Minor);
                 if (version is null || IsNewerVersion(sourceVersion, version))
                 {
@@ -989,41 +1012,54 @@ public static partial class Qpdf
                 sourceCompressed.Add(CollectCompressedOriginals(document.Engine, settings.ObjectStreams is not ("disable" or "generate"), selectionMemory, governor, cancellationToken));
 
                 using ParserMemoryScope sourcePlan = ParserMemoryScope.Create(governor);
-                IReadOnlyList<int> requested = catalogOnly ? Array.Empty<int>()
-                    : sources[s].Selection.Resolve(document.PageReferences.Count, limits.MaxContainerSize, governor, sourcePlan);
-                foreach (int pageNumber in requested)
+                List<IReadOnlyList<int>> requests = ParserContainers.CreateList<IReadOnlyList<int>>(sourcePlan, sourceGroupIndices.Count, IntPtr.Size);
+                long groupedPageCount = 0L;
+                foreach (int group in sourceGroupIndices)
                 {
                     cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                    if (pageNumber > document.PageReferences.Count)
+                    IReadOnlyList<int> requested = sources[group].Selection.Resolve(document.PageReferences.Count,
+                        limits.MaxContainerSize, governor, sourcePlan);
+                    selected = checked(selected + requested.Count);
+                    if (selected > limits.MaxContainerSize)
                     {
-                        throw new ArgumentOutOfRangeException(nameof(sources), $"Source {s} page {pageNumber} exceeds the page count of {document.PageReferences.Count}.");
+                        throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), selected, limits.MaxContainerSize);
+                    }
+                    sourceCounts[group] = document.PageReferences.Count;
+                    requests.Add(requested);
+                    groupedPageCount = checked(groupedPageCount + requested.Count);
+                }
+                if (groupedPageCount > Array.MaxLength)
+                { throw new QpdfLimitException("Selected pages", groupedPageCount, Array.MaxLength); }
+                List<PageLocation> kept = ParserContainers.CreateList<PageLocation>(sourcePlan, (int)groupedPageCount, 16L);
+                GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, limits, nextId, selectionMemory);
+                for (int group = 0; group < sourceGroupIndices.Count; group++)
+                {
+                    foreach (int pageNumber in requests[group])
+                    {
+                        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                        if (pageNumber > document.PageReferences.Count)
+                        { throw new ArgumentOutOfRangeException(nameof(sources), $"Source {sourceGroupIndices[group]} page {pageNumber} exceeds the page count of {document.PageReferences.Count}."); }
+                        PageLocation location = document.PageReferences[pageNumber - 1];
+                        kept.Add(location);
+                        duplicateSourcePages |= location.Source is null || copier.SourceToDestination.ContainsKey(location.Source.ObjectNumber);
+                        copier.RegisterPageRoot(location.Source?.ObjectNumber);
                     }
                 }
-
-                selected += requested.Count;
-                if (selected > limits.MaxContainerSize)
+                copier.HintPageCapacity(kept.Count);
+                for (int group = 0; group < sourceGroupIndices.Count; group++)
                 {
-                    throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), selected, limits.MaxContainerSize);
-                }
-
-                IReadOnlyList<PageLocation> kept = KeptLocations(document, requested, sourcePlan, governor, cancellationToken);
-                GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, limits, nextId, selectionMemory);
-                foreach (int pageNumber in requested)
-                {
-                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                    copier.RegisterPageRoot(document.PageReferences[pageNumber - 1].Source?.ObjectNumber);
-                }
-                copier.HintPageCapacity(requested.Count);
-                List<(GraphCopier Copier, int Id, int SourcePage)> taken = ParserContainers.CreateList<(GraphCopier, int, int)>(selectionMemory, requested.Count, 16L);
-                foreach (int pageNumber in requested)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    governor.NoteOperation();
-                    PageLocation location = document.PageReferences[pageNumber - 1];
-                    IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location, copier, governor, limits, cancellationToken, selectionMemory);
-                    (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
-                    RequireMediaBox(page);
-                    taken.Add((copier, pageId, pageNumber));
+                    IReadOnlyList<int> requested = requests[group];
+                    List<(GraphCopier Copier, int Id, int SourcePage)> taken = ParserContainers.CreateList<(GraphCopier, int, int)>(selectionMemory, requested.Count, 16L);
+                    perSource[sourceGroupIndices[group]] = taken;
+                    foreach (int pageNumber in requested)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested(); governor.NoteOperation();
+                        PageLocation location = document.PageReferences[pageNumber - 1];
+                        IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location, copier, governor, limits, cancellationToken, selectionMemory);
+                        (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
+                        RequireMediaBox(page);
+                        taken.Add((copier, pageId, pageNumber));
+                    }
                 }
 
                 if (settings.PreserveUnreferenced && s == primaryIdx && !emptyPrimary)
@@ -1051,11 +1087,9 @@ public static partial class Qpdf
                     : sourceForm);
                 if (needSourceLabels && !catalogOnly)
                 {
-                    multiLabels.Add(Content.PageLabelMerge.ReadSource(document.Engine, copier, limits, governor, cancellationToken));
-                }
-                else
-                {
-                    multiLabels.Add(null);
+                    Content.SourceLabels labels = Content.PageLabelMerge.ReadSource(document.Engine, copier, limits, governor, cancellationToken);
+                    foreach (int group in sourceGroupIndices)
+                    { cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); multiLabels[group] = labels; }
                 }
 
                 if (verbatimLabels is not null && s == 0)
@@ -1106,11 +1140,11 @@ public static partial class Qpdf
                     Content.ContentTransformRequest? sourceTransforms = PrepareSourceContentTransforms(settings.CoalesceContents, settings.NormalizeContent, settings.ExternalizeInlineImages || (settings.Optimize.Optimize && !settings.Optimize.KeepInline), settings.IiMinBytes, multiCompress, multiLevel, StreamTransformer.Options(multiDecode, settings.Compression.RecompressFlate), settings.Prune, document.Engine, limits, governor, cancellationToken, out bool sourcePrune);
                     if (sourceTransforms is not null)
                     {
-                        List<int> takenIds = ParserContainers.CreateList<int>(selectionMemory, taken.Count, sizeof(int));
-                        foreach ((GraphCopier _, int takenId, int _) in taken)
+                        List<int> takenIds = ParserContainers.CreateList<int>(selectionMemory, kept.Count, sizeof(int));
+                        foreach (int group in sourceGroupIndices)
                         {
-                            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                            takenIds.Add(takenId);
+                            foreach ((GraphCopier _, int takenId, int _) in perSource[group])
+                            { cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); takenIds.Add(takenId); }
                         }
                         multiRebuiltContent |= Content.ContentTransforms.ApplyPageTransforms(copier, takenIds, sourceTransforms, sourcePrune, limits, governor, diagnostics, cancellationToken);
                     }
@@ -1123,7 +1157,6 @@ public static partial class Qpdf
 
                 nextId = copier.NextId;
                 copiers.Add(copier);
-                if (!catalogOnly) { perSource.Add(taken); }
                 // Copied containers still borrow immutable source scalars/keys.
                 // Keep their coarse admission until this complete job releases them.
                 document.Engine.TransferExclusiveValuesTo(selectionMemory);
@@ -1195,8 +1228,11 @@ public static partial class Qpdf
             multiFlattenAllocator = Content.FlattenAnnotations.Apply(occurrences, settings.FlattenAnnotations, needAppearances, multiCompress, multiLevel, limits, governor, diagnostics, cancellationToken, multiFlattenAllocator);
         }
 
-        IReadOnlyList<(GraphCopier Copier, Content.CopiedForm Part)> rotationFields = Array.Empty<(GraphCopier, Content.CopiedForm)>();
-        if (settings.FlattenRotation)
+        IReadOnlyList<(GraphCopier Copier, Content.CopiedForm Part, int Occurrence)> rotationFields = Array.Empty<(GraphCopier, Content.CopiedForm, int)>();
+        IReadOnlyList<(GraphCopier Copier, Content.CopiedForm Part, int Occurrence)> duplicateFields = Array.Empty<(GraphCopier, Content.CopiedForm, int)>();
+        List<Content.CopiedForm?> renameForms = multiForms;
+        List<GraphCopier> renameCopiers = copiers;
+        if (settings.FlattenRotation || duplicateSourcePages && !settings.RemoveAcroform)
         {
             using ParserMemoryScope rotationMemory = ParserMemoryScope.Create(governor);
             Dictionary<GraphCopier, Content.CopiedForm?> forms = ParserContainers.CreateDictionary<GraphCopier, Content.CopiedForm?>(rotationMemory);
@@ -1206,8 +1242,38 @@ public static partial class Qpdf
                 ParserContainers.EnsureEntryCapacity(rotationMemory, forms, IntPtr.Size);
                 forms.Add(copiers[index], multiForms[index]);
             }
-            (nextId, rotationFields) = Content.FlattenRotation.Apply(occurrences, forms, multiCompress, multiLevel,
-                limits, governor, diagnostics, cancellationToken, multiFlattenAllocator, selectionMemory);
+            if (duplicateSourcePages && !settings.RemoveAcroform)
+            { duplicateFields = Content.AnnotationCopies.Isolate(occurrences, forms, true, governor, selectionMemory, cancellationToken, ref multiFlattenAllocator); }
+            if (settings.FlattenRotation)
+            {
+                (nextId, rotationFields) = Content.FlattenRotation.Apply(occurrences, forms, multiCompress, multiLevel,
+                    limits, governor, diagnostics, cancellationToken, multiFlattenAllocator, selectionMemory);
+            }
+            if (duplicateFields.Count > 0)
+            {
+                int count = checked(multiForms.Count + duplicateFields.Count);
+                renameForms = ParserContainers.CreateList<Content.CopiedForm?>(selectionMemory, count, IntPtr.Size);
+                renameCopiers = ParserContainers.CreateList<GraphCopier>(selectionMemory, count, IntPtr.Size);
+                int duplicate = 0;
+                for (int position = 0; position < occurrences.Count; position++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    GraphCopier sourceCopier = occurrences[position].Copier;
+                    if (forms.Remove(sourceCopier, out Content.CopiedForm? original))
+                    { renameForms.Add(original); renameCopiers.Add(sourceCopier); }
+                    while (duplicate < duplicateFields.Count && duplicateFields[duplicate].Occurrence == position)
+                    {
+                        var part = duplicateFields[duplicate++];
+                        renameForms.Add(part.Part); renameCopiers.Add(part.Copier);
+                    }
+                }
+                foreach (GraphCopier sourceCopier in copiers)
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    if (forms.TryGetValue(sourceCopier, out Content.CopiedForm? original))
+                    { renameForms.Add(original); renameCopiers.Add(sourceCopier); }
+                }
+            }
         }
         if (settings.Optimize.Optimize)
         {
@@ -1239,19 +1305,19 @@ public static partial class Qpdf
             }
         }
 
-        List<Content.CopiedForm?> renameForms = multiForms;
-        List<GraphCopier> renameCopiers = copiers;
         if (!settings.RemoveAcroform && (overlayApplied.FieldImports.Count > 0 || rotationFields.Count > 0))
         {
-            int count = checked(multiForms.Count + overlayApplied.FieldImports.Count + rotationFields.Count);
+            List<Content.CopiedForm?> orderedForms = renameForms;
+            List<GraphCopier> orderedCopiers = renameCopiers;
+            int count = checked(orderedForms.Count + overlayApplied.FieldImports.Count + rotationFields.Count);
             renameForms = ParserContainers.CreateList<Content.CopiedForm?>(selectionMemory, count, IntPtr.Size);
             renameCopiers = ParserContainers.CreateList<GraphCopier>(selectionMemory, count, IntPtr.Size);
-            for (int index = 0; index < multiForms.Count; index++)
+            for (int index = 0; index < orderedForms.Count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                renameForms.Add(multiForms[index]); renameCopiers.Add(copiers[index]);
+                renameForms.Add(orderedForms[index]); renameCopiers.Add(orderedCopiers[index]);
             }
-            foreach ((GraphCopier sourceCopier, Content.CopiedForm fields) in rotationFields)
+            foreach ((GraphCopier sourceCopier, Content.CopiedForm fields, int _) in rotationFields)
             {
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 renameForms.Add(fields); renameCopiers.Add(sourceCopier);
@@ -1833,8 +1899,30 @@ public static partial class Qpdf
         return (int)(((value % 360L) + 360L) % 360L);
     }
 
+    // Groups keep their output order/mapping; one logical document supplies the
+    // complete selected-root set to its reader and copier before any descent.
+    private static Dictionary<string, List<int>> GroupPageSources(IReadOnlyList<PdfPageSource> sources,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        memory.CheckOwner(governor);
+        Dictionary<string, List<int>> grouped = ParserContainers.CreateDictionary<string, List<int>>(memory);
+        for (int index = 0; index < sources.Count; index++)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            string path = sources[index].Input.Value;
+            if (!grouped.TryGetValue(path, out List<int>? groups))
+            {
+                groups = ParserContainers.CreateList<int>(memory);
+                ParserContainers.EnsureEntryCapacity(memory, grouped, IntPtr.Size);
+                grouped.Add(path, groups);
+            }
+            ParserContainers.AddItem(memory, groups, index, sizeof(int));
+        }
+        return grouped;
+    }
+
     private static List<(int Source, int Slot)> CollateOrder(
-        List<List<(GraphCopier Copier, int Id, int SourcePage)>> perSource,
+        IReadOnlyList<List<(GraphCopier Copier, int Id, int SourcePage)>> perSource,
         PdfPageCollation? collation, ResourceGovernor governor, ParserMemoryScope memory)
     {
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);

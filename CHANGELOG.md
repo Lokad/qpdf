@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Share source document identity across repeated page groups, preserving links and
+  metadata/attachment targets selected in later groups. Keep original group
+  mappings, counts and order, with one stable input lease per logical document.
+  Reuse annotation header copying for duplicate form pages so widgets, field
+  branches and popup/reply links stay independent without copying payloads.
+
 - Constrain appearance parent recovery to registered form branches. Private Kids
   dictionaries in catalog, Info, attachments or pages no longer supply field text,
   default appearances or flags, or cause unrelated field-depth failures. Preserve

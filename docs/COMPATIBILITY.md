@@ -24,6 +24,23 @@ to generalized decoding and compression; typed selection preserves opaque stream
 encodings. Compression/decode setters apply in configuration order; QDF fills
 unset defaults. These distinctions are part of the supported contract.
 
+Repeated page-source groups now use one source document per logical path and
+register their selected page union before copying. Equivalent combined and
+repeated groups retain the same selected-target links and metadata/attachment
+aliases. Group mappings, collation and counts remain separate. Different logical
+paths remain independent. Duplicate form pages keep independent widget and field
+headers with collision-safe names; the previous combined-range path could share
+one field where native qpdf creates distinct copies.
+Distinct pages from one logical source retain their shared field branch, including
+secondary sources. Native qpdf can split imported fields into separately named
+copies. Group boundaries do not split that field identity here; genuinely repeated
+widget pages still receive independent field headers.
+
+Split navigation has a remaining limitation: references to pages selected before
+splitting can retain orphan Page objects outside a split file's page tree. Native
+qpdf clears targets outside each split group. Source-group identity correction
+does not resolve that separate publication boundary.
+
 Page-copy operations, including overlay/underlay imports, reject reachable
 signature dictionaries (`/Type /Sig`) and populated signature fields in widget
 or retained AcroForm contexts. Field types may be inherited or indirect, and the

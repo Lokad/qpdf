@@ -6,7 +6,7 @@ using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Content;
 
-internal static partial class FlattenRotation
+internal static class FlattenRotation
 {
     private static readonly PdfName[] Boxes =
     [
@@ -15,7 +15,7 @@ internal static partial class FlattenRotation
     ];
     private static readonly PdfName Rect = PdfName.FromAscii("Rect");
 
-    internal static (int NextId, IReadOnlyList<(GraphCopier Copier, CopiedForm Part)> FieldCopies) Apply(
+    internal static (int NextId, IReadOnlyList<(GraphCopier Copier, CopiedForm Part, int Occurrence)> FieldCopies) Apply(
         IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
         IReadOnlyDictionary<GraphCopier, CopiedForm?> forms,
         bool compress,
@@ -49,8 +49,8 @@ internal static partial class FlattenRotation
 
         limits.Validate();
         ownership.CheckOwner(governor);
-        IReadOnlyList<(GraphCopier Copier, CopiedForm Part)> fieldCopies = IsolateAnnotations(
-            occurrences, forms, governor, ownership, cancellationToken, ref allocator);
+        IReadOnlyList<(GraphCopier Copier, CopiedForm Part, int Occurrence)> fieldCopies = AnnotationCopies.Isolate(
+            occurrences, forms, false, governor, ownership, cancellationToken, ref allocator);
         foreach ((GraphCopier copier, int pageId) in occurrences)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -153,6 +153,17 @@ internal static partial class FlattenRotation
 
         // Retire obsolete headers only after catalog and form roots are assembled.
         return (allocator, fieldCopies);
+    }
+
+    internal static bool CanFlatten(PdfDictionary page, PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
+    {
+        if (!page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject raw)
+            || CatalogCopy.ResolveValue(raw, resolver, governor, token) is not PdfInteger rotate
+            || rotate.Value % 360L is not (90L or -270L or 180L or -180L or 270L or -90L)
+            || ReadBox(page, Boxes[0], resolver) is null) { return false; }
+        if (!page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject contents) || contents is PdfNull) { return true; }
+        using ContentEntries? entries = ContentEntries.TryRead(contents, resolver, governor, token);
+        return entries is not null;
     }
 
     private static double[] RotationMatrix(int angle, double[] media)

@@ -361,7 +361,7 @@ public static partial class Qpdf
         Content.CopiedForm? sourceForm = Content.AcroFormCopy.TryCopySourceForm(document.Engine, pool, kept,
             pruneFields, limits, governor, memory, cancellationToken, true);
         PdfDictionary? form = Content.AcroFormCopy.BuildSingle(sourceForm, pool,
-            pruneFields, occurrences, assembled, imports, Array.Empty<(GraphCopier, Content.CopiedForm)>(),
+            pruneFields, occurrences, assembled, imports, Array.Empty<(GraphCopier, Content.CopiedForm, int)>(),
             limits, governor, diagnostics, memory, cancellationToken);
         foreach (KeyValuePair<int, QpdfObject> entry in assembled)
         {

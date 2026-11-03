@@ -3,6 +3,11 @@ using Lokad.Qpdf.Runtime;
 namespace Lokad.Qpdf;
 
 /// <summary>One merge input: a document path plus its page selection.</summary>
+/// <remarks>
+/// Repeated groups using the same logical path share one opened document and
+/// its selected object identities. Group order and source mapping remain separate.
+/// Different logical paths remain separate inputs even when their bytes match.
+/// </remarks>
 public sealed record PdfPageSource
 {
     /// <summary>Creates a page source.</summary>
@@ -30,7 +35,7 @@ public sealed record PdfPageSelectionMapping
         SourcePage = sourcePage;
     }
 
-    /// <summary>Gets the zero-based source document position.</summary>
+    /// <summary>Gets the zero-based input group position, including repeated paths.</summary>
     public int SourceIndex { get; }
 
     /// <summary>Gets the one-based source page number.</summary>
