@@ -376,6 +376,7 @@ public static partial class Qpdf
                     }
 
                     Content.ContentTransformRequest? singleTransforms = PrepareSourceContentTransforms(settings.CoalesceContents, settings.NormalizeContent, settings.ExternalizeInlineImages || (settings.Optimize.Optimize && !settings.Optimize.KeepInline), settings.IiMinBytes, singleCompress, singleLevel, StreamTransformer.Options(singleDecode, settings.Compression.RecompressFlate), settings.Prune, document.Engine, limits, governor, cancellationToken, settings.PreserveUnreferenced, out bool singlePrune);
+                    bool singleRebuiltContent = false;
                     if (singleTransforms is not null)
                     {
                         List<int> occurrenceIds = ParserContainers.CreateList<int>(copyMemory, occurrences.Count, sizeof(int));
@@ -384,7 +385,7 @@ public static partial class Qpdf
                             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                             occurrenceIds.Add(occurrenceId);
                         }
-                        Content.ContentTransforms.ApplyPageTransforms(copier, occurrenceIds, singleTransforms, singlePrune, limits, governor, diagnostics, cancellationToken);
+                        singleRebuiltContent = Content.ContentTransforms.ApplyPageTransforms(copier, occurrenceIds, singleTransforms, singlePrune, limits, governor, diagnostics, cancellationToken);
                     }
 
                     Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, inputPath, occurrences, settings.Underlays, settings.Overlays, singleCompress, singleLevel, recovery, limits, governor, diagnostics, copyMemory, cancellationToken, copier.NextId, null).ConfigureAwait(false);
@@ -534,7 +535,7 @@ public static partial class Qpdf
                     {
                         model.Add(new NumberedObject(entry.Key, entry.Value));
                     }
-                    if ((singleAttached.Replaced || settings.CoalesceContents || settings.FlattenRotation || singleRebuiltAppearances) && !settings.PreserveUnreferenced)
+                    if ((singleAttached.Replaced || settings.CoalesceContents || settings.FlattenRotation || singleRebuiltContent || singleRebuiltAppearances) && !settings.PreserveUnreferenced)
                     {
                         PruneOutputModel(model, singlePool, singleCompressed, singleInfo, governor, cancellationToken);
                     }
@@ -925,6 +926,7 @@ public static partial class Qpdf
         List<int> sourceCounts = ParserContainers.CreateList<int>(selectionMemory);
         List<List<(GraphCopier Copier, int Id, int SourcePage)>> perSource = ParserContainers.CreateList<List<(GraphCopier, int, int)>>(selectionMemory, sources.Count, IntPtr.Size);
         int nextId = 3;
+        bool multiRebuiltContent = false;
         bool needAppearances = false;
         List<GraphCopier> copiers = ParserContainers.CreateList<GraphCopier>(selectionMemory, documentCount, IntPtr.Size);
         PdfVersion? version = null;
@@ -1110,7 +1112,7 @@ public static partial class Qpdf
                             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                             takenIds.Add(takenId);
                         }
-                        Content.ContentTransforms.ApplyPageTransforms(copier, takenIds, sourceTransforms, sourcePrune, limits, governor, diagnostics, cancellationToken);
+                        multiRebuiltContent |= Content.ContentTransforms.ApplyPageTransforms(copier, takenIds, sourceTransforms, sourcePrune, limits, governor, diagnostics, cancellationToken);
                     }
                 }
 
@@ -1443,7 +1445,7 @@ public static partial class Qpdf
             {
                 model.Add(new NumberedObject(entry.Key, entry.Value));
             }
-            if ((multiAttached.Replaced || settings.CoalesceContents || settings.FlattenRotation || multiRebuiltAppearances) && !settings.PreserveUnreferenced)
+            if ((multiAttached.Replaced || settings.CoalesceContents || settings.FlattenRotation || multiRebuiltContent || multiRebuiltAppearances) && !settings.PreserveUnreferenced)
             {
                 PruneOutputModel(model, pool, multiCompressed, primaryInfo, governor, cancellationToken);
             }

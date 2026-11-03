@@ -39,24 +39,10 @@ internal static class InlineImages
             return replaced;
         }
 
-        PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, cancellationToken, out QpdfObject contentsRaw);
-        using ParserMemoryScope orphanMemory = ParserMemoryScope.Create(governor);
-        List<int> orphaned = ContentTransforms.ReplacedContentIds(contentsRaw, new PoolResolver(copier.CopiedObjects), orphanMemory, governor, cancellationToken);
         PdfReference link = copier.AddIndirectObjectWithId(rewritten.Stream, copier.NextId);
         replaced = ReplaceEntry(replaced, "Contents"u8, link, governor, cancellationToken);
 
         copier.ReplaceCopiedObject(pageId, replaced);
-        if (!preserveUnreferenced && orphaned is { Count: > 0 })
-        {
-            // Retire an unused outer array before testing the streams it held.
-            if (contentsRaw is PdfReference outer && copier.CopiedObjects.TryGetValue(outer.ObjectNumber, out QpdfObject? old) && old is PdfArray)
-            {
-                orphanMemory.Reserve(40L);
-                copier.DropPoolObjectsIfUnreferenced(new[] { outer.ObjectNumber }, cancellationToken);
-            }
-            copier.DropPoolObjectsIfUnreferenced(orphaned, cancellationToken);
-        }
-
         return replaced;
     }
 

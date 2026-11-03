@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Preserve catalog aliases to externalized content through final-root retirement;
+  remove the obsolete per-page orphan-removal plan and its test scaffolding.
+
 - Retire superseded appearance streams after final-root assembly, retaining
   independent aliases and explicit unreferenced-object preservation.
 

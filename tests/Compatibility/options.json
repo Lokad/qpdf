@@ -2955,6 +2955,8 @@
       "evidence": {
         "positive": [
           "InlineImagesTests.ExternalizeAboveThreshold",
+          "ExternalizedContentIdentityTests.ExternalizationPreservesIndependentRootsAndRetiresOnlyUnreachableOriginals",
+          "ExternalizedContentIdentityTests.FailurePreservesPriorOutputAndRefundsTheCall",
           "InlineImagesTests.CustomThresholdExternalizesSmall",
           "InlineImagesTests.AbbreviationsExpandInXObject",
           "InlineImagesTests.FilterAbbreviationExpands",

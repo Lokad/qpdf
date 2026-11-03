@@ -56,7 +56,8 @@ internal sealed class PoolResolver : IIndirectResolver
 /// </summary>
 internal static class ContentTransforms
 {
-    internal static void ApplyPageTransforms(
+    // Reports whether a new indirect stream identity needs final-root retirement.
+    internal static bool ApplyPageTransforms(
         GraphCopier copier,
         IReadOnlyList<int> pageIds,
         ContentTransformRequest request,
@@ -99,9 +100,10 @@ internal static class ContentTransforms
         limits.Validate();
         if (!request.Coalesce && !request.Normalize && !prune && !request.Externalize)
         {
-            return;
+            return false;
         }
 
+        int beforeTransforms = copier.NextId;
         using ParserMemoryScope phase = ParserMemoryScope.Create(governor);
         GovernedIntDictionary<PdfStream>? normalized = request.Normalize
             ? GovernedIntDictionary<PdfStream>.Create(phase, governor, IntPtr.Size, cancellationToken) : null;
@@ -141,6 +143,7 @@ internal static class ContentTransforms
                 page = PrunePage(copier, pageId, page, limits, governor, diagnostics, cancellationToken);
             }
         }
+        return copier.NextId != beforeTransforms;
     }
     private static PdfDictionary ExternalizePageWithForms(GraphCopier copier, int pageId, PdfDictionary page, ContentTransformRequest request, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {
@@ -214,41 +217,6 @@ internal static class ContentTransforms
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
         PdfDictionary result = PdfDictionaryRebuild.ReplaceEntry(graph, dictionary, key, value);
         graph.Retain(); return result;
-    }
-
-    internal static List<int> ReplacedContentIds(QpdfObject? value, IIndirectResolver resolver, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
-    {
-        memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        List<int> ids = ParserContainers.CreateList<int>(memory);
-        if (value is PdfReference reference)
-        {
-            AddContentId(ids, reference.ObjectNumber, memory, governor, token);
-            value = resolver.TryResolve(reference, out QpdfObject? resolved) ? resolved : null;
-        }
-        if (value is PdfArray array)
-        {
-            for (int i = 0; i < array.Count; i++)
-            {
-                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                if (array[i] is PdfReference item)
-                {
-                    AddContentId(ids, item.ObjectNumber, memory, governor, token);
-                }
-            }
-        }
-
-        return ids;
-    }
-
-    private static void AddContentId(List<int> ids, int id, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
-    {
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        if (ids.Count == ids.Capacity)
-        {
-            governor.NoteOperation();
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        }
-        ParserContainers.AddItem(memory, ids, id, sizeof(int));
     }
 
     private static PdfDictionary CoalescePage(

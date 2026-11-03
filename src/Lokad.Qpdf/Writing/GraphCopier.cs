@@ -229,20 +229,6 @@ internal sealed class GraphCopier
         }
     }
 
-    /// <summary>
-    /// Drops candidate pool objects that nothing in the pool references anymore.
-    /// Content rewrites (coalescing, inline-image externalization) replace page
-    /// entries with fresh objects; the replaced identities would otherwise ship
-    /// as dead weight. Removal keeps any candidate that still has an inbound
-    /// reference (shared streams and dictionaries stay), and it clears stale
-    /// source mappings so a later copy re-materializes instead of dangling.
-    /// </summary>
-    internal void DropPoolObjectsIfUnreferenced(IReadOnlyList<int> candidates, CancellationToken cancellationToken)
-    {
-        using OrphanRemovalPlan plan = OrphanRemovalPlan.Create(candidates, _copied, _mapping, _governor, cancellationToken);
-        plan.Apply();
-    }
-
     internal IReadOnlyDictionary<int, int> SourceToDestination => _mapping;
 
     /// <summary>

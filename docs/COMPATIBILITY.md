@@ -56,6 +56,11 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Inline-image externalization now retains original content streams and arrays
+referenced by independent catalog values. Previously those aliases could disappear,
+or QDF output could fail on an unmapped object. Retirement now uses the complete
+output roots, with explicit unreferenced-object preservation unchanged.
+
 Regenerating appearance streams now retires superseded streams and headers only
 after the final output roots are assembled. Catalog, Info, Metadata and surviving
 rollover/down aliases retain their original graphs. Explicit
