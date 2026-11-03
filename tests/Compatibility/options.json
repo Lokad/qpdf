@@ -2427,7 +2427,9 @@
         "interaction": [
           "ContentTransformsTests.JobContentFlagsRoundTrip",
           "ContentTransformsTests.PruneAppliesOnMerge",
-          "ResourcePruningScopeTests.PruningSharesContentsClassificationWithTheOtherTransforms"
+          "ResourcePruningScopeTests.PruningSharesContentsClassificationWithTheOtherTransforms",
+          "ResourcePruningScopeTests.NonIndependentChildProtectsTheEnclosingFormBeforePruning",
+          "ResourcePruningRoleTests.PruningRedirectsResourceRolesAndKeepsOriginalFormAliases"
         ],
         "resource": [
           "ResourceEnforcementTests.CoalesceYieldsToExhaustedBudget",
@@ -5588,6 +5590,7 @@
         ],
         "resource": [
           "ResourceEnforcementTests.PruneYieldsToExhaustedBudget",
+          "ResourcePruningRoleTests.FailedPruningPublicationKeepsThePriorTargetAndRefundsAdmission",
           "SinglePartContentOwnershipTests.JoinAdmissionRefusalPreservesTheSourceAndCanRetry",
           "SinglePartContentOwnershipTests.EscapedBytesDropTheLargerSourceAndCompletedExecution"
         ],

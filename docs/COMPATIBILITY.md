@@ -150,6 +150,14 @@ referenced by independent catalog values. Previously those aliases could disappe
 or QDF output could fail on an unmapped object. Retirement now uses the complete
 output roots, with explicit unreferenced-object preservation unchanged.
 
+Resource pruning also leaves independently referenced Form headers intact.
+Resource uses receive shared replacements through the same Form graph walk as
+image processing; catalog and other data aliases retain their original resources.
+Non-independent Form names are gathered before enclosing dictionaries are pruned.
+Unknown dependencies conservatively retain the examined scopes for a copied
+source, including incomplete nested-resource declarations that viewers tolerate.
+This policy does not certify malformed declarations as standards-complete.
+
 Regenerating appearance streams now retires superseded streams and headers only
 after the final output roots are assembled. Catalog, Info, Metadata and surviving
 rollover/down aliases retain their original graphs. Explicit

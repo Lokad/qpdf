@@ -159,11 +159,8 @@ internal static class ContentTransforms
                 page = NormalizePage(copier, pageId, page, normalized, phase, limits, governor, diagnostics, cancellationToken);
             }
 
-            if (prune)
-            {
-                page = PrunePage(copier, pageId, page, limits, governor, diagnostics, cancellationToken);
-            }
         }
+        if (prune) { ApplyResourcePruning(copier, pageIds, limits, governor, diagnostics, cancellationToken); }
         return copier.NextId != beforeTransforms;
     }
     internal static ContentEntries? ReadPageContents(
@@ -808,110 +805,97 @@ internal static class ContentTransforms
         return null;
     }
 
-    private static PdfDictionary PrunePage(
-        GraphCopier copier,
-        int pageId,
-        PdfDictionary page,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
-        CancellationToken cancellationToken)
+    private static void ApplyResourcePruning(GraphCopier copier, IReadOnlyList<int> pageIds,
+        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
-        using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
-        PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
-        if (!PdfDictionaryLookup.TryGet(page, "Resources"u8, governor, cancellationToken, out QpdfObject resourcesRaw) || resourcesRaw is PdfNull)
+        using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
+        using FormResourceWalk forms = FormResourceWalk.Create(governor, token);
+        PoolResolver resolver = forms.CreateResolver(copier.CopiedObjects);
+        foreach (int id in pageIds)
         {
-            return page;
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (copier.CopiedObjects.TryGetValue(id, out QpdfObject? raw) && raw is PdfDictionary page
+                && PdfDictionaryLookup.TryGet(page, "Resources"u8, governor, token, out QpdfObject resourcesRaw)
+                && CatalogCopy.ResolveDictionary(resourcesRaw, resolver, governor, token) is PdfDictionary resources)
+            { forms.AddResources(resources, resolver); }
         }
-
-        QpdfObject resourcesTarget = resourcesRaw is PdfReference resourcesReference
-            ? ResolvePool(resolver, resourcesReference, governor, cancellationToken) ?? resourcesRaw
-            : resourcesRaw;
-        if (resourcesTarget is not PdfDictionary resources)
+        using ResourceNameSet inherited = ResourceNameSet.Create(governor, token);
+        GovernedIntDictionary<PdfStream> replacements = GovernedIntDictionary<PdfStream>.Create(traversal, governor, IntPtr.Size, token);
+        // Analyze non-independent Forms first. Their names must protect enclosing
+        // dictionaries before any scoped Form is pruned. Every program is read once.
+        for (int pass = 0; pass < 2; pass++)
         {
-            return page;
-        }
-
-        using ResourceNameSet unresolved = ResourceNameSet.Create(governor, cancellationToken);
-        using (FormResourceWalk forms = FormResourceWalk.Create(governor, cancellationToken))
-        {
-            forms.AddResources(resources, resolver);
             for (int index = 0; index < forms.Count; index++)
             {
                 FormResourceWalk.Form form = forms.Get(index);
-                ScanForm(copier, form.Id, form.Stream, unresolved, limits, governor, diagnostics, cancellationToken);
+                PdfDictionary? resources = PdfDictionaryLookup.TryGet(form.Stream.Dictionary, "Resources"u8, governor, token, out QpdfObject raw)
+                    ? CatalogCopy.ResolveDictionary(raw, resolver, governor, token) : null;
+                if ((resources is null) != (pass == 0)) { continue; }
+                using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
+                PdfDictionary? pruned = ScanForm(form.Stream, resources, inherited, resolver, limits, diagnostics, graph);
+                if (pruned is null || form.Id is not int id) { continue; }
+                PdfStream replacement = ResourceRebuild.ReplaceResources(graph, form.Stream, pruned);
+                replacements.TryAdd(traversal, id, replacement); graph.Retain();
             }
         }
+        // A failed scoped consumer can depend on another scope. Until its
+        // dependencies are known, discard all staged pruning changes.
+        if (!inherited.HasUnresolvedScope)
+        {
+            int allocator = copier.NextId;
+            forms.ApplyReplacements(copier, pageIds, replacements, ref allocator);
+        }
+        foreach (int id in pageIds)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (copier.CopiedObjects.TryGetValue(id, out QpdfObject? raw) && raw is PdfDictionary page)
+            { PrunePage(copier, id, page, inherited, resolver, limits, governor, diagnostics, token); }
+        }
+    }
 
-        using AnalysisChunks? pageChunks = CollectPageChunks(page, resolver, limits, governor, cancellationToken);
-        if (pageChunks is null)
+    private static void PrunePage(GraphCopier copier, int pageId, PdfDictionary page, ResourceNameSet inherited,
+        PoolResolver resolver, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+    {
+        if (!PdfDictionaryLookup.TryGet(page, "Resources"u8, governor, token, out QpdfObject raw)
+            || CatalogCopy.ResolveDictionary(raw, resolver, governor, token) is not PdfDictionary resources) { return; }
+        using AnalysisChunks? chunks = CollectPageChunks(page, resolver, limits, governor, token);
+        if (chunks is null)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped resource pruning for content that could not be read.");
-            return page;
+            return;
         }
-
-        using JoinedContent content = pageChunks.Join();
-        ScanAndPrune(copier, pageId, page, content.Bytes, resources, true, unresolved, limits, governor, diagnostics, cancellationToken);
-        if (copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? refreshed) && refreshed is PdfDictionary refreshedPage)
-        {
-            return refreshedPage;
-        }
-
-        return page;
+        using JoinedContent content = chunks.Join();
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
+        PdfDictionary? pruned = ScanAndPrune(content.Bytes, resources, true, inherited, resolver, limits, diagnostics, graph);
+        if (pruned is null) { return; }
+        PdfDictionary replacement = ResourceRebuild.ReplaceResources(graph, page, pruned);
+        copier.ValidateReplacement(pageId); graph.Retain(); copier.ReplaceCopiedObject(pageId, replacement);
     }
 
     private static bool IsFormXObject(PdfStream stream, ResourceGovernor governor, CancellationToken cancellationToken)
         => PdfDictionaryLookup.TryGet(stream.Dictionary, "Subtype"u8, governor, cancellationToken, out QpdfObject subtype)
             && subtype is PdfName name && PdfDictionaryLookup.NameEquals(name, "Form"u8, governor, cancellationToken);
 
-    private static void ScanForm(
-        GraphCopier copier,
-        int? formId,
-        PdfStream form,
-        ResourceNameSet unresolved,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
-        CancellationToken cancellationToken)
+    private static PdfDictionary? ScanForm(PdfStream form, PdfDictionary? resources, ResourceNameSet inherited,
+        PoolResolver resolver, QpdfLimits limits, DiagnosticBag diagnostics, OwnedAllocationBatch graph)
     {
-        using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
-        PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
-        PdfDictionary? resources = null;
-        if (PdfDictionaryLookup.TryGet(form.Dictionary, "Resources"u8, governor, cancellationToken, out QpdfObject ownRaw) && ownRaw is not PdfNull)
-        {
-            QpdfObject ownTarget = ownRaw is PdfReference ownReference
-                ? ResolvePool(resolver, ownReference, governor, cancellationToken) ?? ownRaw
-                : ownRaw;
-            resources = ownTarget as PdfDictionary;
-        }
-
-        using AnalysisChunks? chunks = CollectFormContent(form, resolver, limits, governor, cancellationToken);
+        ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
+        using AnalysisChunks? chunks = CollectFormContent(form, resolver, limits, governor, token);
         if (chunks is null)
         {
-            unresolved.MarkUnresolvedScope();
+            inherited.MarkUnresolvedScope();
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped resource pruning for content that could not be read.");
-            return;
+            return null;
         }
-
         using JoinedContent content = chunks.Join();
-        ScanAndPrune(copier, formId, null, content.Bytes, resources, false, unresolved, limits, governor, diagnostics, cancellationToken);
+        return ScanAndPrune(content.Bytes, resources, false, inherited, resolver, limits, diagnostics, graph);
     }
 
-    private static void ScanAndPrune(
-        GraphCopier copier,
-        int? nodeId,
-        PdfDictionary? page,
-        ReadOnlyMemory<byte> content,
-        PdfDictionary? resources,
-        bool isPage,
-        ResourceNameSet unresolved,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
-        CancellationToken cancellationToken)
+    private static PdfDictionary? ScanAndPrune(ReadOnlyMemory<byte> content, PdfDictionary? resources,
+        bool isPage, ResourceNameSet unresolved, PoolResolver resolver, QpdfLimits limits,
+        DiagnosticBag diagnostics, OwnedAllocationBatch graph)
     {
-        using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
-        PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
+        ResourceGovernor governor = graph.Governor; CancellationToken cancellationToken = graph.Token;
         using ResourceNameSet names = ResourceNameSet.Create(governor, cancellationToken);
         using ResourceNameSet fontsUsed = ResourceNameSet.Create(governor, cancellationToken);
         using ResourceNameSet objectsUsed = ResourceNameSet.Create(governor, cancellationToken);
@@ -919,7 +903,7 @@ internal static class ContentTransforms
         {
             if (!isPage) { unresolved.MarkUnresolvedScope(); }
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped resource pruning for content that could not be parsed.");
-            return;
+            return null;
         }
         if (resources is null)
         {
@@ -927,7 +911,7 @@ internal static class ContentTransforms
             using var inherited = names.GetEnumerator();
             while (inherited.MoveNext(governor, cancellationToken))
             { unresolved.AddDecoded(inherited.Current.Key.RawSpan); }
-            return;
+            return null;
         }
         for (int section = 0; section < 2; section++)
         {
@@ -941,15 +925,18 @@ internal static class ContentTransforms
                     && CatalogCopy.ResolveValue(binding, resolver, governor, cancellationToken) is not (null or PdfNull)) { continue; }
                 // A spelling in another category cannot satisfy this operator.
                 if (!isPage) { unresolved.MarkUnresolvedScope(); }
-                return;
+                return null;
             }
         }
-        if (isPage && unresolved.HasUnresolvedScope) { return; }
-        if (HasUnscannedResourceConsumer(resources, names, unresolved, resolver, governor, cancellationToken)) { return; }
+        if (unresolved.HasUnresolvedScope) { return null; }
+        if (HasUnscannedResourceConsumer(resources, names, unresolved, resolver, governor, cancellationToken))
+        {
+            if (!isPage) { unresolved.MarkUnresolvedScope(); }
+            return null;
+        }
 
-        // Two sections, resources and the node header each own a table/wrapper.
-        // A form adds one stream wrapper; a synthetic header can add a name/buffer.
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
+        // Fresh section/resource containers borrow their immutable keys and values.
+        // Callers publish only role-specific headers after analysis completes.
         PdfNameTable<QpdfObject>? fonts = null, xobjects = null;
         long fontAllocation = -1L, xobjectAllocation = -1L;
         bool changed = false;
@@ -983,7 +970,7 @@ internal static class ContentTransforms
                     continue;
                 }
 
-                if (isPage && unresolved.ContainsDecoded(key.RawSpan))
+                if (unresolved.ContainsDecoded(key.RawSpan))
                 {
                     kept.Assign(graph.Memory, governor, key, held, cancellationToken);
                     continue;
@@ -1000,9 +987,9 @@ internal static class ContentTransforms
 
         }
 
-        if (!changed || !nodeId.HasValue)
+        if (!changed)
         {
-            return;
+            return null;
         }
 
         PdfNameTable<QpdfObject> resourcesEntries = PdfDictionaryRebuild.CreateEntries(graph, out long resourceAllocation);
@@ -1031,36 +1018,7 @@ internal static class ContentTransforms
             resourcesEntries.Assign(graph.Memory, governor, xobjectKey ?? throw new InvalidOperationException("XObject resource key is missing."), kept, cancellationToken);
         }
         PdfDictionary rebuilt = PdfDictionaryRebuild.Complete(graph, resourcesEntries, resourceAllocation);
-        if (isPage)
-        {
-            if (page is null)
-            {
-                return;
-            }
-
-            PdfDictionary replacement = ResourceRebuild.ReplaceResources(graph, page, rebuilt);
-            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            copier.ValidateReplacement(nodeId.Value);
-            graph.Retain();
-            copier.ReplaceCopiedObject(nodeId.Value, replacement);
-            return;
-        }
-
-        QpdfObject? current = null;
-        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        if (copier.CopiedObjects.TryGetValue(nodeId.Value, out QpdfObject? stored))
-        {
-            current = stored;
-        }
-
-        if (current is PdfStream stream)
-        {
-            PdfStream replacement = ResourceRebuild.ReplaceResources(graph, stream, rebuilt);
-            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            copier.ValidateReplacement(nodeId.Value);
-            graph.Retain();
-            copier.ReplaceCopiedObject(nodeId.Value, replacement);
-        }
+        return rebuilt;
     }
     private static AnalysisChunks? CollectPageChunks(
         PdfDictionary page,

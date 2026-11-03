@@ -120,4 +120,44 @@ public sealed class ResourcePruningScopeTests
         Assert.Equal(used || damaged, objects.TryGet(PdfName.FromAscii("AA"), out _));
         Assert.Equal(damaged, objects.TryGet(PdfName.FromAscii("Unused"), out _));
     }
+
+    public static IEnumerable<object[]> NestedCases()
+    {
+        foreach (string program in new[] { "readable", "unknown", "literal", "hex" })
+        foreach (string scope in new[] { "absent", "null", "indirect-null", "local" })
+        foreach (bool indirect in new[] { false, true })
+        foreach (bool job in new[] { false, true }) { yield return [program, scope, indirect, job]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(NestedCases))]
+    public async Task NonIndependentChildProtectsTheEnclosingFormBeforePruning(string program, string scope, bool indirect, bool job)
+    {
+        byte[] page = "q 60 0 0 60 20 20 cm /Parent Do Q"u8.ToArray();
+        byte[] child = Encoding.ASCII.GetBytes("/Im Do" + (program == "literal" ? " (" : program == "hex" ? " <" : ""));
+        string childResources = scope switch { "absent" => "", "null" => "/Resources null", "indirect-null" => "/Resources 9 0 R", _ => "/Resources << /XObject << /Im 7 0 R >> >>" };
+        string parentResources = "<< /XObject << /Child 6 0 R /Im 7 0 R /Unused 8 0 R >> >>";
+        // The missing page declarations are deliberately incomplete. The legacy
+        // enclosing-scope use still follows our conservative preservation policy.
+        byte[] input = CheckTests.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << /XObject << /Parent 5 0 R >> >> /Contents 4 0 R >>", null),
+            (4, "<< /Length " + page.Length + " >>", page),
+            (5, "<< /Subtype /Form /BBox [0 0 1 1] /Resources " + (indirect ? "10 0 R" : parentResources) + " /Length 9 >>", "/Child Do"u8.ToArray()),
+            (6, "<< /Subtype /Form /BBox [0 0 1 1] " + childResources + (program == "unknown" ? " /Filter /Unknown" : "") + " /Length " + child.Length + " >>", child),
+            (7, "<< /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Length 3 >>", new byte[] { 255, 0, 0 }),
+            (8, "<< /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Length 3 >>", new byte[] { 0, 255, 0 }),
+            (9, "null", null), (10, parentResources, null)], 1);
+        using InMemoryQpdfHost host = new(); QpdfExecutionResult result = await Rewrite(host, input, job, false, false);
+        Assert.Equal(program == "readable" ? QpdfExitCode.Success : QpdfExitCode.Warning, result.ExitCode);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("read"), CancellationToken.None);
+        PdfDictionary objects = Dictionary(document, Dictionary(document, document.PageReferences[0].Page, "Resources"), "XObject");
+        Assert.True(objects.TryGet(PdfName.FromAscii("Parent"), out QpdfObject parentRaw));
+        PdfReference parentLink = Assert.IsType<PdfReference>(parentRaw);
+        PdfStream parent = Assert.IsType<PdfStream>(document.GetObject(parentLink.ObjectNumber));
+        PdfDictionary kept = Dictionary(document, Dictionary(document, parent.Dictionary, "Resources"), "XObject");
+        Assert.Equal(scope != "local" || program != "readable", kept.TryGet(PdfName.FromAscii("Im"), out _));
+        Assert.Equal(program != "readable", kept.TryGet(PdfName.FromAscii("Unused"), out _));
+    }
 }

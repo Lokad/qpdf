@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Objects;
@@ -13,12 +12,14 @@ namespace Lokad.Qpdf.Tests.Content;
 [Collection(nameof(NameTableCollection))]
 public sealed class ResourcePruningGraphTests
 {
-    private static readonly Func<GraphCopier, int, PdfDictionary, QpdfLimits, ResourceGovernor, DiagnosticBag, CancellationToken, PdfDictionary> Prune =
-        (typeof(ContentTransforms).GetMethod("PrunePage", BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException("Missing pruning."))
-        .CreateDelegate<Func<GraphCopier, int, PdfDictionary, QpdfLimits, ResourceGovernor, DiagnosticBag, CancellationToken, PdfDictionary>>();
-    private static readonly Action<GraphCopier, int?, PdfDictionary?, ReadOnlyMemory<byte>, PdfDictionary?, bool, ResourceNameSet, QpdfLimits, ResourceGovernor, DiagnosticBag, CancellationToken> Scan =
-        (typeof(ContentTransforms).GetMethod("ScanAndPrune", BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException("Missing scan."))
-        .CreateDelegate<Action<GraphCopier, int?, PdfDictionary?, ReadOnlyMemory<byte>, PdfDictionary?, bool, ResourceNameSet, QpdfLimits, ResourceGovernor, DiagnosticBag, CancellationToken>>();
+    private static PdfDictionary Prune(GraphCopier copier, int id, PdfDictionary page, QpdfLimits limits,
+        ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+    {
+        ContentTransforms.ApplyPageTransforms(copier, [id], new(false, false, false, null, false, 0L), true,
+            limits, governor, diagnostics, token);
+        return copier.CopiedObjects.TryGetValue(id, out QpdfObject? result) && result is PdfDictionary replacement ? replacement : page;
+    }
+
 
     private static PdfDictionary Dictionary(params (string Key, QpdfObject Value)[] entries)
         => new(entries.ToDictionary(entry => PdfName.FromAscii(entry.Key), entry => entry.Value));
@@ -68,6 +69,7 @@ public sealed class ResourcePruningGraphTests
             IDictionary<int, QpdfObject> pool = (IDictionary<int, QpdfObject>)Copier.CopiedObjects;
             if (stored) { pool.Add(1, Page); }
             if (indirect) { pool.Add(7, Resources); }
+            Copier.AdvanceNextId(indirect ? 8 : 2);
         }
 
         public void Dispose() { ((IDictionary<int, QpdfObject>)Copier.CopiedObjects).Clear(); _engine.Dispose(); _copyMemory.Dispose(); }
@@ -113,9 +115,18 @@ public sealed class ResourcePruningGraphTests
         PdfDictionary header = Dictionary(("Subtype", PdfName.FromAscii("Form")), ("Resources", indirect ? new PdfReference(7, 3) : source.Resources));
         PdfStream form = new(header, "/F 12 Tf"u8.ToArray());
         ((IDictionary<int, QpdfObject>)source.Copier.CopiedObjects).Add(1, form);
-        using ResourceNameSet unresolved = ResourceNameSet.Create(governor, CancellationToken.None);
-        Scan(source.Copier, 1, null, form.RawMemory, source.Resources, false, unresolved, QpdfLimits.Default, governor, new DiagnosticBag(governor), CancellationToken.None);
-        PdfStream replacement = Assert.IsType<PdfStream>(source.Copier.CopiedObjects[1]); Assert.NotSame(form, replacement);
+        PdfDictionary page = Dictionary(("Resources", Dictionary(("XObject", Dictionary(("Form", new PdfReference(1, 0)))))),
+            ("Contents", new PdfStream(Dictionary(), "/Form Do"u8.ToArray())));
+        ((IDictionary<int, QpdfObject>)source.Copier.CopiedObjects).Add(3, page);
+        source.Copier.AdvanceNextId(8);
+        PdfDictionary result = Prune(source.Copier, 3, page, QpdfLimits.Default, governor, new DiagnosticBag(governor), CancellationToken.None);
+        PdfDictionary resourceDictionary = ResourcesOf(result);
+        Assert.True(resourceDictionary.TryGet(PdfName.FromAscii("XObject"), out QpdfObject objects));
+        PdfDictionary bindings = Assert.IsType<PdfDictionary>(objects);
+        Assert.True(bindings.TryGet(PdfName.FromAscii("Form"), out QpdfObject target));
+        PdfReference link = Assert.IsType<PdfReference>(target);
+        PdfStream replacement = Assert.IsType<PdfStream>(source.Copier.CopiedObjects[link.ObjectNumber]);
+        Assert.NotSame(form, replacement); Assert.Same(form, source.Copier.CopiedObjects[1]);
         Assert.Same(form.AllocationCarrier, replacement.AllocationCarrier); Assert.Equal(form.RawMemory.ToArray(), replacement.RawMemory.ToArray());
         PdfDictionary resources = ResourcesOf(replacement.Dictionary);
         Assert.IsType<PdfNameTable<QpdfObject>>(resources.AllocationCarrier);
@@ -125,27 +136,14 @@ public sealed class ResourcePruningGraphTests
     }
 
     [Fact]
-    public void MissingPageTargetFailsBeforeReceiptActivationAndPreservesPriorFunding()
+    public void MissingPageHasNoPruningPublicationAndPreservesPriorFunding()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(61L);
         using Prepared source = new(governor, false, false); long live = governor.Snapshot().LiveMemoryBytes;
-        QpdfException failure = Assert.Throws<QpdfException>(() => Prune(source.Copier, 1, source.Page, QpdfLimits.Default, governor, new DiagnosticBag(governor), CancellationToken.None));
-        Assert.Equal("Destination object 1 does not exist.", failure.Message);
+        Assert.Same(source.Page, Prune(source.Copier, 1, source.Page, QpdfLimits.Default, governor, new DiagnosticBag(governor), CancellationToken.None));
         Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(61L, prior.ReservedBytes);
         Assert.Empty(source.Copier.CopiedObjects); Assert.Equal(2, source.Fonts.Count);
-    }
-
-    [Fact]
-    public void ChangedFormWhoseCurrentPoolValueIsNotAStreamRetiresItsUnpublishedGraph()
-    {
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        using Prepared source = new(governor, false, false);
-        PdfInteger stored = new("1", 1L); ((IDictionary<int, QpdfObject>)source.Copier.CopiedObjects).Add(1, stored);
-        using ResourceNameSet unresolved = ResourceNameSet.Create(governor, CancellationToken.None);
-        long live = governor.Snapshot().LiveMemoryBytes;
-        Scan(source.Copier, 1, null, source.Content.RawMemory, source.Resources, false, unresolved, QpdfLimits.Default, governor, new DiagnosticBag(governor), CancellationToken.None);
-        Assert.Same(stored, source.Copier.CopiedObjects[1]); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]

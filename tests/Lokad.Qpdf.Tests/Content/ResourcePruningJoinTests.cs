@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Objects;
@@ -13,9 +12,13 @@ public sealed class ResourcePruningJoinTests
 {
     private static PdfDictionary Dictionary(params (string Key, QpdfObject Value)[] entries)
         => new(entries.ToDictionary(entry => PdfName.FromAscii(entry.Key), entry => entry.Value));
-    private static readonly Func<GraphCopier, int, PdfDictionary, QpdfLimits, ResourceGovernor, DiagnosticBag, CancellationToken, PdfDictionary> Prune =
-        (typeof(ContentTransforms).GetMethod("PrunePage", BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException("Missing pruning."))
-        .CreateDelegate<Func<GraphCopier, int, PdfDictionary, QpdfLimits, ResourceGovernor, DiagnosticBag, CancellationToken, PdfDictionary>>();
+    private static PdfDictionary Prune(GraphCopier copier, int id, PdfDictionary page, QpdfLimits limits,
+        ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+    {
+        ContentTransforms.ApplyPageTransforms(copier, [id], new(false, false, false, null, false, 0L), true,
+            limits, governor, diagnostics, token);
+        return copier.CopiedObjects.TryGetValue(id, out QpdfObject? result) && result is PdfDictionary replacement ? replacement : page;
+    }
     private sealed class Prepared : IDisposable
     {
         private readonly DocumentEngine _engine;

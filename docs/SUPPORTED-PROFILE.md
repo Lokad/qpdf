@@ -452,6 +452,11 @@ Numbers are normalized lexically under the existing cancellation/output bounds.
   dictionary also preserves the page scope conservatively; absent form Resources
   keeps inherited-name protection, and declared form fonts still allow pruning.
   Unreadable or unparseable Form programs preserve the enclosing scope as well.
+  Non-independent Form names are gathered before pruning enclosing Forms. An
+  undecidable Form dependency conservatively keeps the scopes examined for the
+  copied source; complete ordinary scopes still permit pruning. Form resource
+  replacements preserve original headers reached through independent page,
+  catalog, metadata or attachment values, and retain sharing across selected pages.
   Font and XObject uses require bindings in their respective categories; null
   bindings do not establish a definition. Pruning uses the shared Contents reader,
   including indirect arrays and empty/null values. Malformed non-null content

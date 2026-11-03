@@ -11,9 +11,13 @@ namespace Lokad.Qpdf.Tests.Content;
 
 public sealed class ResourcePruningChunkTests
 {
-    private static readonly Func<GraphCopier, int, PdfDictionary, QpdfLimits, ResourceGovernor, DiagnosticBag, CancellationToken, PdfDictionary> Prune =
-        (typeof(ContentTransforms).GetMethod("PrunePage", BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException("Missing pruning."))
-        .CreateDelegate<Func<GraphCopier, int, PdfDictionary, QpdfLimits, ResourceGovernor, DiagnosticBag, CancellationToken, PdfDictionary>>();
+    private static PdfDictionary Prune(GraphCopier copier, int id, PdfDictionary page, QpdfLimits limits,
+        ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+    {
+        ContentTransforms.ApplyPageTransforms(copier, [id], new(false, false, false, null, false, 0L), true,
+            limits, governor, diagnostics, token);
+        return copier.CopiedObjects.TryGetValue(id, out QpdfObject? result) && result is PdfDictionary replacement ? replacement : page;
+    }
     private static readonly Func<PdfDictionary, PoolResolver, QpdfLimits, ResourceGovernor, CancellationToken, object?> Collect =
         (typeof(ContentTransforms).GetMethod("CollectPageChunks", BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException("Missing collection."))
         .CreateDelegate<Func<PdfDictionary, PoolResolver, QpdfLimits, ResourceGovernor, CancellationToken, object?>>();

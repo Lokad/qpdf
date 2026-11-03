@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Objects;
@@ -13,9 +12,13 @@ public sealed class ResourceNameAnalysisTests
 {
     private static PdfDictionary Dictionary(params (string Key, QpdfObject Value)[] entries)
         => new(entries.ToDictionary(entry => new PdfName(Encoding.Latin1.GetBytes(entry.Key)), entry => entry.Value));
-    private static readonly Func<GraphCopier, int, PdfDictionary, QpdfLimits, ResourceGovernor, DiagnosticBag, CancellationToken, PdfDictionary> PruneCore =
-        (typeof(ContentTransforms).GetMethod("PrunePage", BindingFlags.NonPublic | BindingFlags.Static) ?? throw new InvalidOperationException("Missing page pruning."))
-        .CreateDelegate<Func<GraphCopier, int, PdfDictionary, QpdfLimits, ResourceGovernor, DiagnosticBag, CancellationToken, PdfDictionary>>();
+    private static PdfDictionary PruneCore(GraphCopier copier, int id, PdfDictionary page, QpdfLimits limits,
+        ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+    {
+        ContentTransforms.ApplyPageTransforms(copier, [id], new(false, false, false, null, false, 0L), true,
+            limits, governor, diagnostics, token);
+        return copier.CopiedObjects.TryGetValue(id, out QpdfObject? result) && result is PdfDictionary replacement ? replacement : page;
+    }
     private static PdfDictionary Prune(GraphCopier copier, int id, PdfDictionary page, QpdfLimits limits,
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {

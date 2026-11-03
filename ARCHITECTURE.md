@@ -143,6 +143,11 @@ Resource pruning likewise shares the Contents reader. Its existing name sets
 record actual Font/XObject uses instead of copying all declared resource names
 into a combined index. Incomplete Form analysis marks the enclosing scope
 uncertain before pruning; a spelling in another category cannot resolve a use.
+Pruning gathers non-independent Form names before examining scoped Forms, reading
+each program once per copied source. Unknown dependencies keep the examined scopes;
+known inherited names protect enclosing dictionaries. Form candidates publish
+through the existing resource replacement walk, preserving independent original
+headers and sharing one replacement across selected pages and cyclic parents.
 Cross-reference tables likewise require an explicit owner. Synthetic fixtures
 admit their entry maps, trailer lists and input receipts and transfer them through
 the same owned table/engine factories as production, with explicit escape and input

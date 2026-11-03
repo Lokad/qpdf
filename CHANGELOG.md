@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Preserve independently retained Form resource headers during pruning and share
+  replacements across selected pages. Analyze inherited uses before pruning
+  enclosing Forms, retaining scopes whose dependencies remain unknown.
+
 - Remove the unused checker stream-list owner and its type-specific tests;
   checking and transformations use the shared content-entry reader.
 
