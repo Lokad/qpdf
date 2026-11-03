@@ -295,6 +295,10 @@ echoing values.
   are not merged. Unusable defaults/resources and malformed programs warn and
   preserve appearances. Structural, decompression, memory and cancellation limits
   remain binding.
+  Replaced appearance streams and headers retire from final output roots after
+  generation creates new streams. Independent catalog, Info, Metadata and other
+  appearance aliases survive; `--preserve-unreferenced` keeps superseded objects.
+  Unchanged or skipped generation needs no additional retirement traversal.
   Choice options keep export/display identity until selection is resolved. Lists
   support scalar and multiselect values with validated sorted indices; combo boxes
   paint the selected display label, and editable combos can paint an unmatched value.

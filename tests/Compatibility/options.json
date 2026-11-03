@@ -3203,6 +3203,8 @@
           "GenerateAppearancesTests.TextFieldAppearanceRegeneratesValue",
           "GenerationReadinessTests.OnlyCompletedGenerationClearsReadiness",
           "GenerationReadinessTests.PartialGenerationKeepsFailuresTransactionalAndRefundsAdmission",
+          "AppearanceRetirementTests.RegeneratedProgramsRetireOnlyAfterFinalRootsAreKnown",
+          "AppearanceRetirementTests.PartialSharedAndUnchangedProgramsKeepTheirOwners",
           "AppearanceStateGenerationTests.GenerationResolvesTheSelectedStateBeforeReplacingItsProgram",
           "GenerateAppearancesTests.MissingAppearanceIsCreated",
           "GeneratedGeometryTests.GeneratedCoordinatesRemainReadableAfterDocumentsAndHostClose",

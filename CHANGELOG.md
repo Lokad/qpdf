@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Retire superseded appearance streams after final-root assembly, retaining
+  independent aliases and explicit unreferenced-object preservation.
+
 - Select checkbox states by value and stream-backed appearances, preserving shared
   field values and warning on missing/ambiguous states instead of guessing from order.
 

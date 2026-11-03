@@ -394,7 +394,7 @@ public static partial class Qpdf
                     bool needAppearances = (settings.FlattenAnnotations is not null || settings.GenerateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine, governor, cancellationToken);
                     if (settings.FlattenAnnotations is not null || settings.GenerateAppearances)
                     { needAppearances |= Content.FlattenAnnotations.NeedsAppearances(overlayApplied.FieldImports, governor, cancellationToken); }
-                    bool singleGenerated = false;
+                    bool singleGenerated = false, singleRebuiltAppearances = false;
                     Content.CopiedForm? singleForm = !settings.RemoveAcroform || (settings.GenerateAppearances && needAppearances)
                         ? Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, kept, true, limits, governor, copyMemory, cancellationToken, false)
                         : null;
@@ -416,7 +416,10 @@ public static partial class Qpdf
                         Dictionary<GraphCopier, Content.CopiedForm?> singleForms = ParserContainers.CreateDictionary<GraphCopier, Content.CopiedForm?>(gateMemory);
                         ParserContainers.EnsureEntryCapacity(gateMemory, singleForms, IntPtr.Size); singleForms.Add(copier, singleForm);
                         flattenAllocator = Math.Max(flattenAllocator, copier.NextId);
+                        int beforeGeneration = flattenAllocator;
                         (flattenAllocator, singleGenerated) = Content.GenerateAppearances.Apply(occurrences, singleForms, limits, governor, diagnostics, cancellationToken, gateReached, false, flattenAllocator);
+                        // Generation allocates indirect identities only for new appearance streams.
+                        singleRebuiltAppearances = flattenAllocator != beforeGeneration;
                         needAppearances = !singleGenerated;
                     }
                     if (settings.FlattenAnnotations is not null)
@@ -531,7 +534,7 @@ public static partial class Qpdf
                     {
                         model.Add(new NumberedObject(entry.Key, entry.Value));
                     }
-                    if ((singleAttached.Replaced || settings.CoalesceContents || settings.FlattenRotation) && !settings.PreserveUnreferenced)
+                    if ((singleAttached.Replaced || settings.CoalesceContents || settings.FlattenRotation || singleRebuiltAppearances) && !settings.PreserveUnreferenced)
                     {
                         PruneOutputModel(model, singlePool, singleCompressed, singleInfo, governor, cancellationToken);
                     }
@@ -1155,7 +1158,7 @@ public static partial class Qpdf
         int multiFlattenAllocator = overlayApplied.NextId;
         if (settings.FlattenAnnotations is not null || settings.GenerateAppearances)
         { needAppearances |= Content.FlattenAnnotations.NeedsAppearances(overlayApplied.FieldImports, governor, cancellationToken); }
-        bool multiGenerated = false;
+        bool multiGenerated = false, multiRebuiltAppearances = false;
         if (settings.GenerateAppearances && needAppearances)
         {
             using ParserMemoryScope gateMemory = ParserMemoryScope.Create(governor);
@@ -1180,7 +1183,9 @@ public static partial class Qpdf
             }
 
             HashSet<int>? multiReached = CollectGenerateReached(multiGateParts, multiSurvivors, pruneUnreachableFields, limits, governor, gateMemory, cancellationToken);
+            int beforeGeneration = multiFlattenAllocator;
             (multiFlattenAllocator, multiGenerated) = Content.GenerateAppearances.Apply(occurrences, generationForms, limits, governor, diagnostics, cancellationToken, multiReached, !pruneUnreachableFields, multiFlattenAllocator);
+            multiRebuiltAppearances = multiFlattenAllocator != beforeGeneration;
             needAppearances = !multiGenerated;
         }
         if (settings.FlattenAnnotations is not null)
@@ -1438,7 +1443,7 @@ public static partial class Qpdf
             {
                 model.Add(new NumberedObject(entry.Key, entry.Value));
             }
-            if ((multiAttached.Replaced || settings.CoalesceContents || settings.FlattenRotation) && !settings.PreserveUnreferenced)
+            if ((multiAttached.Replaced || settings.CoalesceContents || settings.FlattenRotation || multiRebuiltAppearances) && !settings.PreserveUnreferenced)
             {
                 PruneOutputModel(model, pool, multiCompressed, primaryInfo, governor, cancellationToken);
             }

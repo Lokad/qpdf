@@ -56,6 +56,13 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Regenerating appearance streams now retires superseded streams and headers only
+after the final output roots are assembled. Catalog, Info, Metadata and surviving
+rollover/down aliases retain their original graphs. Explicit
+`--preserve-unreferenced` retains the superseded objects as well; native qpdf can
+still omit some of those objects under that flag. Skipped generation does not
+trigger an extra retirement pass.
+
 Checkbox synchronization selects an existing stream-backed state by field value,
 independently of dictionary order. Single-widget fields can still normalize to a
 sole on-state; shared fields keep their value while nonmatching siblings are off.

@@ -102,7 +102,9 @@ opaque values use the copier's ordinary attempts. Attachment insertion supplies
 the default only when that resolved hint is absent. Split keeps named hints while
 dropping opaque catalog extras under its existing policy.
 After replacements, whole-file models use existing
-graph reachability from the final catalog, page tree and trailer Info. Coalescing
+graph reachability from the final catalog, page tree and trailer Info. Appearance
+generation joins this pass when it creates replacement stream identities;
+unchanged and skipped generation need no extra traversal. Coalescing
 uses that same final-root pass, preserving catalog aliases held outside the page
 pool and retiring only unreachable original content arrays and streams. An
 operation-scoped identity cache shares the joined stream for repeated references
