@@ -21,7 +21,6 @@ public sealed record PdfPageSource
 }
 
 /// <summary>Maps one output page back to its source document and page.</summary>
-/// <summary>Maps one output page back to its source document and page.</summary>
 public sealed record PdfPageSelectionMapping
 {
     /// <summary>Creates a page mapping.</summary>
