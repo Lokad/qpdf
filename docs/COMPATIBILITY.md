@@ -141,6 +141,12 @@ deriving their dimensions. Reversed corners no longer create negative-width or
 negative-height appearance boxes. Original Rect values and independent aliases
 stay intact; existing appearance BBoxes retain their separate handling.
 
+Generated text, list and combo appearances use an existing BBox's vertical origin
+once for text and selected-row highlights. Translating the BBox therefore keeps
+the visible positions within the widget. Native qpdf 12.4.2 can add that origin
+twice; managed output intentionally corrects this displacement. Choice selection,
+existing artwork, fonts and appearance matrices keep their existing policies.
+
 Overlay/underlay source preparation resolves optional Contents and TrimBox nulls
 before classifying them. Indirect-null Contents is empty; indirect-null TrimBox
 uses the inherited CropBox/MediaBox fallback. Blank sources still import their

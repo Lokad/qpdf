@@ -286,7 +286,9 @@ echoing values.
   preserves the flag and keeps widgets during later flattening; eligible
   non-widget annotations can still flatten. The decision applies conservatively
   across split groups and includes imported form readiness. It replaces a bounded,
-  matching `/Tx` block and preserves unrelated content. Parent-held fields retain
+  matching `/Tx` block and preserves unrelated content. Text and selected-row
+  highlights count the existing BBox's vertical origin once, including negative
+  origins. Parent-held fields retain
   their terminal identity; field-parent inheritance uses the configured nesting
   bound with cycle handling, including overlay default repair. Indirect widget
   subtypes and appearance-state names behave like direct names. Checkboxes select

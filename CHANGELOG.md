@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Count a generated text/list appearance's BBox origin once when placing text
+  and selected-row highlights. This intentionally corrects nonzero vertical
+  origins that native qpdf can also offset twice.
+
 - Keep page resources used by retained annotation appearances during pruning and
   page stamping. Avoid existing XObject names and give imported appearances
   explicit source resources when they have no local scope. Transform only the

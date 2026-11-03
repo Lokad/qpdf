@@ -3259,7 +3259,8 @@
           "GenerateAppearancesTests.DirectWidgetSelectionSkipsSilently",
           "GenerateAppearancesTests.DirectWidgetWholeFileWarnsAndGenerates",
           "GenerateAppearancesTests.QuaddingIsIgnoredLikeReference",
-          "FreshAppearanceRectangleTests.FreshAppearanceUsesNormalizedDimensionsAndPreservesRawRectangles"
+          "FreshAppearanceRectangleTests.FreshAppearanceUsesNormalizedDimensionsAndPreservesRawRectangles",
+          "AppearanceOriginTests.GeneratedTextAndHighlightsUseTheBBoxOriginOnce"
         ],
         "negative": [
           "GenerateAppearancesTests.SignatureFieldIsSkipped",

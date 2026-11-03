@@ -1143,7 +1143,8 @@ internal static class GenerateAppearances
     {
         double lineHeight = 1.2 * size;
         int step = 1;
-        double rows = (box[3] - box[1]) / lineHeight;
+        double height = box[3] - box[1];
+        double rows = height / lineHeight;
         int first = 0, count = 1;
         if (options is not null)
         {
@@ -1156,7 +1157,7 @@ internal static class GenerateAppearances
             }
             first = found < 0 ? 0 : Math.Clamp(rows < 2 ? found : found - 1, 0, options.Count - count);
         }
-        double top = box[3] - ((box[3] - box[1] - count * lineHeight) / 2.0);
+        double top = height - ((height - count * lineHeight) / 2.0);
         for (int index = 0; options is not null && rows >= 2 && index < count; index++)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
