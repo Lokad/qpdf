@@ -3070,7 +3070,9 @@
           "FormNeedAppearancesTests.MissingFlagObjectStillFailsBeforePublication"
         ],
         "interaction": [
-          "FlattenAnnotationsTests.JobRoundTripMatchesArgv"
+          "FlattenAnnotationsTests.JobRoundTripMatchesArgv",
+          "GenerationReadinessTests.SkippedWidgetsStayWhileNonwidgetsFlatten",
+          "GenerationReadinessTests.ImportedReadinessParticipatesInGenerationAndFlattening"
         ],
         "resource": [
           "ResourceEnforcementTests.FlattenAnnotationsYieldsToExhaustedBudget"
@@ -3199,6 +3201,8 @@
         "positive": [
           "FormNeedAppearancesTests.DirectAndIndirectTrueKeepCurrentValues",
           "GenerateAppearancesTests.TextFieldAppearanceRegeneratesValue",
+          "GenerationReadinessTests.OnlyCompletedGenerationClearsReadiness",
+          "GenerationReadinessTests.PartialGenerationKeepsFailuresTransactionalAndRefundsAdmission",
           "AppearanceStateGenerationTests.GenerationResolvesTheSelectedStateBeforeReplacingItsProgram",
           "GenerateAppearancesTests.MissingAppearanceIsCreated",
           "GeneratedGeometryTests.GeneratedCoordinatesRemainReadableAfterDocumentsAndHostClose",
@@ -3218,7 +3222,7 @@
           "GenerateAppearancesTests.RadioButtonWarnsAndKeeps",
           "GenerateAppearancesTests.UnreachableWidgetDroppedOnSelection",
           "GenerateAppearancesTests.UnreachableWidgetWarnsAndGeneratesOnWholeFile",
-          "GenerateAppearancesTests.FormlessSelectionKeepsEmptyFormAndSkipsGeneration",
+          "GenerateAppearancesTests.FormlessSelectionPreservesReadinessWhenGenerationIsSkipped",
           "GenerateAppearancesTests.FormlessWholeFileSkipsSilently",
           "GenerateAppearancesTests.DirectWidgetSelectionSkipsSilently",
           "GenerateAppearancesTests.DirectWidgetWholeFileWarnsAndGenerates",

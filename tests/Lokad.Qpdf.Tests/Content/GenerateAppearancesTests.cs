@@ -244,7 +244,7 @@ byte[] bytes = await AppearanceBytesAsync(pdf, 0);
 Assert.Contains("(Hello) Tj", Encoding.ASCII.GetString(bytes));
 }
 [Fact]
-public async Task FormlessSelectionKeepsEmptyFormAndSkipsGeneration()
+public async Task FormlessSelectionPreservesReadinessWhenGenerationIsSkipped()
 {
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
@@ -268,7 +268,7 @@ string[] linked = (form.GetString() ?? string.Empty).Split((char)32);
 form = objects.GetProperty(string.Concat("obj:", linked[0], SP(), linked[1], " R")).GetProperty("value");
 }
 Assert.False(form.TryGetProperty("/Fields", out JsonElement _));
-Assert.False(form.TryGetProperty("/NeedAppearances", out JsonElement _));
+Assert.True(form.GetProperty("/NeedAppearances").GetBoolean());
 byte[] bytes = await AppearanceBytesAsync(pdf, 0);
 Assert.DoesNotContain("(Hello) Tj", Encoding.ASCII.GetString(bytes));
 }

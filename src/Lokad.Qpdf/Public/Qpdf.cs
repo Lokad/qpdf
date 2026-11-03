@@ -228,8 +228,7 @@ public static partial class Qpdf
     }
 
     /// <summary>
-    /// Drops a generated /NeedAppearances flag from an assembled form, mirroring the reference
-    /// clearing the condition once appearance generation has run.
+    /// Drops /NeedAppearances after the caller confirms that all retained widgets were updated.
     /// </summary>
     internal static PdfDictionary? ClearNeedAppearances(PdfDictionary? form, ResourceGovernor governor,
         CancellationToken cancellationToken)
@@ -393,13 +392,15 @@ public static partial class Qpdf
 
                     int flattenAllocator = overlayApplied.NextId;
                     bool needAppearances = (settings.FlattenAnnotations is not null || settings.GenerateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine, governor, cancellationToken);
-                    bool singleGenerated = settings.GenerateAppearances && needAppearances;
-                    Content.CopiedForm? singleForm = !settings.RemoveAcroform || singleGenerated
+                    if (settings.FlattenAnnotations is not null || settings.GenerateAppearances)
+                    { needAppearances |= Content.FlattenAnnotations.NeedsAppearances(overlayApplied.FieldImports, governor, cancellationToken); }
+                    bool singleGenerated = false;
+                    Content.CopiedForm? singleForm = !settings.RemoveAcroform || (settings.GenerateAppearances && needAppearances)
                         ? Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, kept, true, limits, governor, copyMemory, cancellationToken, false)
                         : null;
                     IReadOnlyList<(GraphCopier Copier, Content.CopiedForm Part)> rotationFields = Array.Empty<(GraphCopier, Content.CopiedForm)>();
                     flattenAllocator = Math.Max(flattenAllocator, copier.NextId);
-                    if (singleGenerated)
+                    if (settings.GenerateAppearances && needAppearances)
                     {
                         using ParserMemoryScope gateMemory = ParserMemoryScope.Create(governor);
                         HashSet<int> gateSurvivors = Content.AcroFormCopy.CollectAnnotRefs(occurrences, governor, gateMemory, cancellationToken);
@@ -415,8 +416,8 @@ public static partial class Qpdf
                         Dictionary<GraphCopier, Content.CopiedForm?> singleForms = ParserContainers.CreateDictionary<GraphCopier, Content.CopiedForm?>(gateMemory);
                         ParserContainers.EnsureEntryCapacity(gateMemory, singleForms, IntPtr.Size); singleForms.Add(copier, singleForm);
                         flattenAllocator = Math.Max(flattenAllocator, copier.NextId);
-                        flattenAllocator = Content.GenerateAppearances.Apply(occurrences, singleForms, limits, governor, diagnostics, cancellationToken, gateReached, false, flattenAllocator);
-                        needAppearances = false;
+                        (flattenAllocator, singleGenerated) = Content.GenerateAppearances.Apply(occurrences, singleForms, limits, governor, diagnostics, cancellationToken, gateReached, false, flattenAllocator);
+                        needAppearances = !singleGenerated;
                     }
                     if (settings.FlattenAnnotations is not null)
                     {
@@ -1152,8 +1153,10 @@ public static partial class Qpdf
         Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, primaryInput, occurrences, settings.Underlays, settings.Overlays, multiCompress, multiLevel, recovery, limits, governor, diagnostics, selectionMemory, cancellationToken, nextId, null).ConfigureAwait(false);
 
         int multiFlattenAllocator = overlayApplied.NextId;
-        bool multiGenerated = settings.GenerateAppearances && needAppearances;
-        if (multiGenerated)
+        if (settings.FlattenAnnotations is not null || settings.GenerateAppearances)
+        { needAppearances |= Content.FlattenAnnotations.NeedsAppearances(overlayApplied.FieldImports, governor, cancellationToken); }
+        bool multiGenerated = false;
+        if (settings.GenerateAppearances && needAppearances)
         {
             using ParserMemoryScope gateMemory = ParserMemoryScope.Create(governor);
             Dictionary<GraphCopier, Content.CopiedForm?> generationForms = ParserContainers.CreateDictionary<GraphCopier, Content.CopiedForm?>(gateMemory);
@@ -1177,8 +1180,8 @@ public static partial class Qpdf
             }
 
             HashSet<int>? multiReached = CollectGenerateReached(multiGateParts, multiSurvivors, pruneUnreachableFields, limits, governor, gateMemory, cancellationToken);
-            multiFlattenAllocator = Content.GenerateAppearances.Apply(occurrences, generationForms, limits, governor, diagnostics, cancellationToken, multiReached, !pruneUnreachableFields, multiFlattenAllocator);
-            needAppearances = false;
+            (multiFlattenAllocator, multiGenerated) = Content.GenerateAppearances.Apply(occurrences, generationForms, limits, governor, diagnostics, cancellationToken, multiReached, !pruneUnreachableFields, multiFlattenAllocator);
+            needAppearances = !multiGenerated;
         }
         if (settings.FlattenAnnotations is not null)
         {

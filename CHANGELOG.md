@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Preserve appearance readiness after skipped regeneration, including imported
+  forms and split output. Later flattening keeps affected widgets while eligible
+  non-widget annotations can still flatten.
+
 - Preserve finite geometry values with bounded round-trip decimal formatting,
   including tiny page dimensions and placement scales that previously became zero.
 

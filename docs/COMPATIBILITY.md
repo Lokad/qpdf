@@ -56,6 +56,13 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Appearance generation clears `NeedAppearances` only when all retained widgets
+were updated. Skipped generation preserves the flag and prevents subsequent
+flattening from stamping stale widget appearances; eligible non-widget annotations
+can still flatten. The completion decision is conservative across split groups,
+and imported form readiness participates in the same guard. This intentionally
+strengthens the previous request-based clearing policy.
+
 Computed geometry now emits decimal PDF numbers that round-trip their finite
 binary64 values. Tiny nonzero dimensions and scales are preserved instead of
 being clamped to zero or rounded to five decimals. Numeric spelling and output

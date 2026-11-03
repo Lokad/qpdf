@@ -271,8 +271,11 @@ echoing values.
   their appearances in every mode; Print and NoView further govern print/screen
   stamping respectively.
 - `--generate-appearances` regenerates text/list widget appearances from field
-  values and inherited or form-level default appearance programs, then clears
-  the condition so later flattening can stamp the result. It replaces a bounded,
+  values and inherited or form-level default appearance programs. It clears
+  NeedAppearances only after all retained widgets were updated. Skipped work
+  preserves the flag and keeps widgets during later flattening; eligible
+  non-widget annotations can still flatten. The decision applies conservatively
+  across split groups and includes imported form readiness. It replaces a bounded,
   matching `/Tx` block and preserves unrelated content. Parent-held fields retain
   their terminal identity; field-parent inheritance uses the configured nesting
   bound with cycle handling, including overlay default repair. Indirect widget

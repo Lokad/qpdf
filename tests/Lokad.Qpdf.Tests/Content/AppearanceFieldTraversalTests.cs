@@ -83,7 +83,7 @@ public sealed class AppearanceFieldTraversalTests
         copier.AddIndirectObjectWithId(page, 1); copier.AddIndirectObjectWithId(field, 2); copier.AddIndirectObjectWithId(widget, 3);
         copier.AddIndirectObjectWithId(new PdfReference(4, 0), 4);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); DiagnosticBag diagnostics = new(governor);
-        int next = GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, CopiedForm?>(), QpdfLimits.Default,
+        (int next, _) = GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, CopiedForm?>(), QpdfLimits.Default,
             governor, diagnostics, CancellationToken.None, new HashSet<int> { 3 }, kind == "direct-kids", 5);
         Assert.Equal(5, next);
         if (kind is "broken-without-kids" or "value-cycle") { Assert.Same(widget, copier.CopiedObjects[3]); }

@@ -15,7 +15,7 @@ internal static class GenerateAppearances
     private const int FlagCombo = 131072;
     private static readonly PdfName DefaultAppearanceKey = PdfName.FromAscii("DA");
 
-    internal static int Apply(
+    internal static (int NextId, bool Complete) Apply(
         IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
         IReadOnlyDictionary<GraphCopier, CopiedForm?> forms,
         QpdfLimits limits,
@@ -54,6 +54,7 @@ internal static class GenerateAppearances
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
         Dictionary<GraphCopier, FieldParents> parents = ParserContainers.CreateDictionary<GraphCopier, FieldParents>(traversal);
         HashSet<int> generated = ParserContainers.CreateSet<int>(traversal);
+        bool complete = true;
         foreach ((GraphCopier copier, int pageId) in occurrences)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -75,6 +76,7 @@ internal static class GenerateAppearances
                 : annotsRaw;
             if (annotsTarget is not PdfArray annots)
             {
+                complete = false;
                 continue;
             }
 
@@ -95,9 +97,9 @@ internal static class GenerateAppearances
                     || !PdfDictionaryLookup.HasName(annot, "Subtype"u8, "Widget"u8, resolver, governor, cancellationToken)) { continue; }
                 int? annotId = (item as PdfReference)?.ObjectNumber;
                 if (annotId.HasValue && !ParserContainers.AddSetItem(traversal, generated, annotId.Value, sizeof(int))) { continue; }
-                if (!IsReached(annotId, reachedAnnots, warnUnreachable, diagnostics)) { continue; }
+                if (!IsReached(annotId, reachedAnnots, warnUnreachable, diagnostics)) { complete = false; continue; }
                 FieldContext field = ResolveField(copier, annot, annotId, resolver, parents, traversal, limits, governor, cancellationToken);
-                if (field.Type == FieldType.Other) { continue; }
+                if (field.Type == FieldType.Other) { complete = false; continue; }
                 // Indirect widgets replace their existing graph slot. Only direct
                 // widgets need an annotation-array copy, funded before mutation.
                 if (!annotId.HasValue && directEntries is null)
@@ -118,6 +120,7 @@ internal static class GenerateAppearances
                     updated = GenerateText(copier, annot, annotId, field, resolver, limits, governor, diagnostics,
                         cancellationToken, formResources, defaultAppearance, ref allocator);
                 }
+                if (updated is null) { complete = false; }
                 if (updated is not null && !annotId.HasValue && directEntries is not null)
                 { directEntries[index] = updated; pageChanged = true; }
             }
@@ -130,7 +133,7 @@ internal static class GenerateAppearances
             }
         }
 
-        return allocator;
+        return (allocator, complete);
     }
     /// <summary>
     /// Reports whether a widget keeps generation under the shared reachability rule:
