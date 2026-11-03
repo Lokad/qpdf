@@ -442,10 +442,17 @@ internal static class GenerateAppearances
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot update a field embedded without identity; keeping it as is.");
             return null;
         }
+        bool shared = !merged && ReadFieldValue(field.Node, "Kids"u8, resolver, governor, token) is PdfArray { Count: > 1 };
+        PdfName? selected = valueName.RawSpan.SequenceEqual("Off"u8) ? valueName
+            : SelectOnState(annot, valueName, shared, resolver, governor, token);
+        if (selected is null)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning,
+                "Cannot synchronize a checkbox without an unambiguous appearance state; keeping it as is.");
+            return null;
+        }
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
-        PdfName selected = valueName.RawSpan.SequenceEqual("Off"u8) ? valueName
-            : FirstOnState(annot, resolver, governor, token) ?? PdfDictionaryRebuild.CreateName(graph, "Yes"u8);
-        PdfDictionary? updatedField = merged ? null : PdfDictionaryRebuild.ReplaceEntry(graph, field.Node, "V"u8, selected);
+        PdfDictionary? updatedField = merged || shared ? null : PdfDictionaryRebuild.ReplaceEntry(graph, field.Node, "V"u8, selected);
         PdfNameTable<QpdfObject> annotation = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         bool hasValue = false, hasState = false;
         using (PdfDictionary.EntryEnumerator source = annot.GetEntryEnumerator())
@@ -461,7 +468,7 @@ internal static class GenerateAppearances
         if (merged && !hasValue) { annotation.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "V"u8), selected, token); }
         if (!hasState) { annotation.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "AS"u8), selected, token); }
         PdfDictionary updatedAnnot = PdfDictionaryRebuild.Complete(graph, annotation, allocation);
-        if (field.NodeId is int fieldId) { copier.ValidateReplacement(fieldId); }
+        if (updatedField is not null && field.NodeId is int fieldId) { copier.ValidateReplacement(fieldId); }
         if (annotId is int widgetId) { copier.ValidateReplacement(widgetId); }
         // Prepare both dictionaries before changing either graph slot. A merged
         // widget publishes V and AS together instead of overwriting its V update.
@@ -471,41 +478,28 @@ internal static class GenerateAppearances
         return updatedAnnot;
     }
 
-    private static PdfName? FirstOnState(PdfDictionary annot, PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
+    private static PdfName? SelectOnState(PdfDictionary annot, PdfName requested, bool shared,
+        PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
     {
-        if (!annot.TryGet(PdfName.FromAscii("AP"), out QpdfObject? ap) || ap is null || ap is PdfNull)
-        {
-            return null;
-        }
-
-        QpdfObject apTarget = ap is PdfReference apReference
-            ? ResolveOrNull(resolver, apReference) ?? ap
-            : ap;
-        if (apTarget is not PdfDictionary apDict)
-        {
-            return null;
-        }
-
-        if (!apDict.TryGet(PdfName.FromAscii("N"), out QpdfObject? normal) || normal is null || normal is PdfNull)
-        {
-            return null;
-        }
-
-        QpdfObject normalTarget = normal is PdfReference normalReference
-            ? ResolveOrNull(resolver, normalReference) ?? normal
-            : normal;
-        if (normalTarget is not PdfDictionary states)
-        {
-            return null;
-        }
-
+        if (ReadFieldValue(annot, "AP"u8, resolver, governor, token) is not PdfDictionary appearance
+            || ReadFieldValue(appearance, "N"u8, resolver, governor, token) is not PdfDictionary states) { return null; }
+        if (PdfDictionaryLookup.TryGet(states, requested.RawSpan, governor, token, out QpdfObject raw)
+            && ResolveFieldValue(raw, resolver, governor, token) is PdfStream) { return requested; }
+        PdfName? candidate = null;
         using PdfDictionary.EntryEnumerator entries = states.GetEntryEnumerator();
         while (entries.MoveNext(governor, token))
         {
             PdfName key = entries.Current.Key;
-            if (!key.RawSpan.SequenceEqual("Off"u8)) { return key; }
+            if (ResolveFieldValue(entries.Current.Value, resolver, governor, token) is not PdfStream) { continue; }
+            bool off = key.RawSpan.SequenceEqual("Off"u8);
+            // A shared field keeps its named value. Siblings without that state
+            // are off; one widget must not normalize the value for the others.
+            if (shared) { if (off) { return key; } continue; }
+            if (off) { continue; }
+            if (candidate is not null) { return null; }
+            candidate = key;
         }
-        return null;
+        return candidate;
     }
 
     private static PdfDictionary? GenerateText(

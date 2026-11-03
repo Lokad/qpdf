@@ -56,6 +56,13 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Checkbox synchronization selects an existing stream-backed state by field value,
+independently of dictionary order. Single-widget fields can still normalize to a
+sole on-state; shared fields keep their value while nonmatching siblings are off.
+Absent or ambiguous non-Off states warn and preserve the original field and
+readiness flag instead of choosing a first key or fabricating `Yes`. This
+intentionally strengthens native qpdf's first-state normalization.
+
 Choice appearance generation now resolves selection by export value and paints
 the corresponding display label. Lists retain valid multiselect values and sorted
 indices, including repeated exports disambiguated by indices. Empty selections

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Select checkbox states by value and stream-backed appearances, preserving shared
+  field values and warning on missing/ambiguous states instead of guessing from order.
+
 - Preserve choice export/display and selection identities in generated appearances,
   including valid multiselect indices. Keep malformed or ambiguous choices with
   a warning instead of painting a fabricated selected row.

@@ -84,12 +84,17 @@ public sealed class CheckboxNameTests
         Dictionary<PdfName, QpdfObject> entries = new();
         for (int i = 0; i < 16384; i++) { entries[new PdfName(System.Text.Encoding.ASCII.GetBytes("Key" + i))] = PdfNull.Instance; }
         entries[PdfName.FromAscii("FT")] = PdfName.FromAscii("Btn"); entries[PdfName.FromAscii("V")] = PdfName.FromAscii("Yes");
-        PdfDictionary field = new(entries), widget = new(new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("Subtype")] = PdfName.FromAscii("Widget"), [PdfName.FromAscii("Parent")] = new PdfReference(2, 0) });
+        PdfDictionary field = new(entries), widget = new(new Dictionary<PdfName, QpdfObject> {
+            [PdfName.FromAscii("Subtype")] = PdfName.FromAscii("Widget"), [PdfName.FromAscii("Parent")] = new PdfReference(2, 0),
+            [PdfName.FromAscii("AP")] = new PdfDictionary(new Dictionary<PdfName, QpdfObject> {
+                [PdfName.FromAscii("N")] = new PdfDictionary(new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("Yes")] = new PdfReference(4, 0) }) }) });
         PdfDictionary page = new(new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("Annots")] = new PdfArray([new PdfReference(3, 0)]) });
         copier.AddIndirectObjectWithId(page, 1); copier.AddIndirectObjectWithId(field, 2); copier.AddIndirectObjectWithId(widget, 3);
+        copierMemory.Reserve(128L);
+        copier.AddIndirectObjectWithId(PdfStream.FromOwnedData(new PdfDictionary(new Dictionary<PdfName, QpdfObject>()), []), 4);
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096 }, CancellationToken.None);
         long allocated = GC.GetAllocatedBytesForCurrentThread();
-        void Run() => GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, CopiedForm?>(), QpdfLimits.Default, governor, new(governor), canceled ? new CancellationToken(true) : CancellationToken.None, new HashSet<int> { 3 }, false, 4);
+        void Run() => GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, CopiedForm?>(), QpdfLimits.Default, governor, new(governor), canceled ? new CancellationToken(true) : CancellationToken.None, new HashSet<int> { 3 }, false, 5);
         if (canceled) { Assert.ThrowsAny<OperationCanceledException>(Run); } else { Assert.Throws<QpdfLimitException>(Run); }
         Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 131072L); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.Same(field, copier.CopiedObjects[2]); Assert.Same(widget, copier.CopiedObjects[3]);

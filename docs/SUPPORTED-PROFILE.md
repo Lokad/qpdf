@@ -279,8 +279,11 @@ echoing values.
   matching `/Tx` block and preserves unrelated content. Parent-held fields retain
   their terminal identity; field-parent inheritance uses the configured nesting
   bound with cycle handling, including overlay default repair. Indirect widget
-  subtypes and appearance-state names behave like direct names. Checkboxes
-  synchronize raw state names. Radios and
+  subtypes and appearance-state names behave like direct names. Checkboxes select
+  stream-backed raw states by value; single-widget fields can normalize to a sole
+  on-state, while shared fields keep their value and nonmatching siblings are off.
+  Missing or ambiguous non-Off states warn and retain field/appearance readiness.
+  Radios and
   pushbuttons warn and keep their state, and empty signature fields skip.
   Copying populated signature values, including overlay and underlay field
   imports, is excluded; typed calls reject `/Sig` and
