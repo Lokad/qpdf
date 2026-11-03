@@ -201,7 +201,7 @@ internal static class FlattenAnnotations
                 string name = UniqueFxoName(xobjects, ref suffix, governor, cancellationToken);
                 changed = true;
                 if (!AppendAppearance(name, annot, appearance.Dictionary, (int)rotate, required, forbidden, resolver, stamped)) { continue; }
-                PdfReference appearanceLink = EnsureAppearanceObject(copier, appearance, appearanceRaw, governor, cancellationToken, ref allocator);
+                PdfReference appearanceLink = EnsureAppearanceObject(copier, appearance, appearanceRaw, resolver, governor, cancellationToken, ref allocator);
                 int length = Encoding.ASCII.GetBytes(name.AsSpan(), nameBytes);
                 PdfName key = PdfDictionaryRebuild.CreateName(graph, nameBytes[..length]);
                 xobjects.Assign(graph.Memory, governor, key, appearanceLink, cancellationToken);
@@ -329,14 +329,13 @@ internal static class FlattenAnnotations
         GraphCopier copier,
         PdfStream stream,
         PdfReference? link,
+        PoolResolver resolver,
         ResourceGovernor governor,
         CancellationToken cancellationToken,
         ref int allocator)
     {
         cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        bool isForm = stream.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject? subtype)
-            && subtype is PdfName subtypeName
-            && subtypeName.DisplayText == "Form";
+        bool isForm = PdfDictionaryLookup.HasName(stream.Dictionary, "Subtype"u8, "Form"u8, resolver, governor, cancellationToken);
         if (isForm && link is not null) { return link; }
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
         PdfDictionary header = isForm ? stream.Dictionary
@@ -344,10 +343,10 @@ internal static class FlattenAnnotations
         PdfStream result = stream;
         if (!isForm)
         { graph.Memory.Reserve(32L); result = stream.WithDictionary(header); graph.Add(32L); }
-        if (link is null)
-        { link = copier.AddIndirectObjectWithId(result, allocator); allocator = checked(allocator + 1); }
-        else { copier.ReplaceCopiedObject(link.ObjectNumber, result); }
-        graph.Retain(); return link;
+        // Normalization belongs to this appearance edge. Other roots can retain
+        // the original stream header, including an indirect Subtype value.
+        PdfReference normalized = copier.AddIndirectObjectWithId(result, allocator); allocator = checked(allocator + 1);
+        graph.Retain(); return normalized;
     }
 
     private static bool AppendAppearance(

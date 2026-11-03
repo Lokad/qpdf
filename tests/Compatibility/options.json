@@ -3096,6 +3096,7 @@
         ],
         "interaction": [
           "FlattenAnnotationsTests.JobRoundTripMatchesArgv",
+          "AppearanceRoleTests.FlatteningNormalizesOnlyTheAppearanceEdgeAndPreservesOriginalHeaders",
           "GenerationReadinessTests.SkippedWidgetsStayWhileNonwidgetsFlatten",
           "GenerationReadinessTests.ImportedReadinessParticipatesInGenerationAndFlattening"
         ],
@@ -3151,7 +3152,8 @@
           "RotationAppearanceTests.DamagedAppearanceReferencesStayBounded"
         ],
         "interaction": [
-          "FlattenRotationTests.JobRoundTripMatchesArgv"
+          "FlattenRotationTests.JobRoundTripMatchesArgv",
+          "AppearanceRoleTests.RotationTransformsActualAppearancesAndKeepsPrivateAPValuesOpaque"
         ],
         "resource": [
           "ResourceEnforcementTests.FlattenRotationYieldsToExhaustedBudget"

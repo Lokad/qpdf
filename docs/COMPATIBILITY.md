@@ -103,6 +103,14 @@ Only N/R/D appearance slots and their state dictionaries receive placement
 transforms; private AP entries keep their values. Affected output bytes and object
 numbering can change. Public signatures are unchanged.
 
+Annotation flattening resolves an indirect Form subtype without rewriting its
+header. If a different or absent subtype needs normalization, it creates a fresh
+Form header and borrows the payload, retaining original headers held by independent
+roots. Rotation flattening likewise transforms only N/R/D and their one-level
+state dictionaries; private AP streams and dictionaries retain their identities
+and matrices. Affected output identities and bytes can change; public signatures
+are unchanged.
+
 Content normalization now interprets an unescaped CR or CRLF inside a literal
 string as one LF byte, matching the reader and PDF syntax rules. Explicit escaped
 CR and octal bytes retain their values; line continuations still contribute no

@@ -105,14 +105,16 @@ public sealed class AppearanceHeaderStorageTests
         PdfReference? link = indirect ? copier.AddIndirectObjectWithId(source, 1) : null;
         int allocator = 2;
         long allocated = GC.GetAllocatedBytesForCurrentThread();
-        PdfReference result = FlattenAnnotations.EnsureAppearanceObject(copier, source, link, governor, CancellationToken.None, ref allocator);
+        PdfReference result = FlattenAnnotations.EnsureAppearanceObject(copier, source, link, new(copier.CopiedObjects), governor, CancellationToken.None, ref allocator);
         Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < payload.Length);
         PdfStream replacement = Assert.IsType<PdfStream>(copier.CopiedObjects[result.ObjectNumber]);
         Assert.Same(source.AllocationCarrier, replacement.AllocationCarrier);
         Assert.Equal(91, replacement.RawMemory.Span[17]);
         Assert.True(replacement.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject subtype));
         Assert.Equal("Form", Assert.IsType<PdfName>(subtype).DisplayText);
-        Assert.Equal(indirect ? 2 : 3, allocator);
+        Assert.Equal(form && indirect ? 2 : 3, allocator);
+        if (indirect)
+        { Assert.Same(source, copier.CopiedObjects[1]); Assert.Equal(form, result.ObjectNumber == 1); }
         governor.AcceptDocument(); governor.CompletePrivateStorage();
         if (!form) { Assert.True(governor.CallerStorageBytes > 0L); }
         GC.KeepAlive(replacement); GC.KeepAlive(source);
@@ -163,7 +165,7 @@ public sealed class AppearanceHeaderStorageTests
                 using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
                 FlattenRotation.CopyRotatedAppearance(copier, link, [1, 0, 0, 1, 0, 0], copies, traversal, graph, ref allocator);
             }
-            else { FlattenAnnotations.EnsureAppearanceObject(copier, source, link, governor, CancellationToken.None, ref allocator); }
+            else { FlattenAnnotations.EnsureAppearanceObject(copier, source, link, new(copier.CopiedObjects), governor, CancellationToken.None, ref allocator); }
         });
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes); Assert.Same(source, copier.CopiedObjects[1]);
         Assert.Equal(2, allocator);

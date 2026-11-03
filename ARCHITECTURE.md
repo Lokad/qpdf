@@ -155,6 +155,9 @@ namespace path. Imported appearances acquire their source page resources on the
 existing per-placement copies; local appearance resources take precedence.
 Appearance discovery examines only N/R/D and their one-level state dictionaries;
 private AP entries remain opaque. Payload bytes and original headers stay shared.
+Rotation uses the same N/R/D slot boundary. Annotation flattening resolves an
+indirect Form subtype before deciding whether a header needs normalization;
+normalization creates a fresh stream identity and keeps independent originals.
 Cross-reference tables likewise require an explicit owner. Synthetic fixtures
 admit their entry maps, trailer lists and input receipts and transfer them through
 the same owned table/engine factories as production, with explicit escape and input

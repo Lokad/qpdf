@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Preserve independently retained appearance headers when flattening requires
+  Form normalization; reuse indirect Form subtypes like direct ones. Rotation
+  flattening keeps private AP values opaque instead of adding placement matrices.
+
 - Count a generated text/list appearance's BBox origin once when placing text
   and selected-row highlights. This intentionally corrects nonzero vertical
   origins that native qpdf can also offset twice.

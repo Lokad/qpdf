@@ -255,6 +255,9 @@ internal static partial class FlattenRotation
         while (sourceEntries.MoveNext(governor, token))
         {
             PdfName key = sourceEntries.Current.Key; QpdfObject value = sourceEntries.Current.Value;
+            ReadOnlySpan<byte> slot = key.RawSpan;
+            if (!states && !slot.SequenceEqual("N"u8) && !slot.SequenceEqual("R"u8) && !slot.SequenceEqual("D"u8))
+            { entries.Assign(graph.Memory, governor, key, value, token); continue; }
             QpdfObject target = value is PdfReference reference ? ResolveOrNull(resolver, reference) ?? value : value;
             if (target is PdfStream && value is PdfReference streamReference)
             {
