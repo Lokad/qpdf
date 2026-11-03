@@ -56,6 +56,11 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Text appearance regeneration now resolves an indirect appearance-state name
+before selecting its normal program. Existing selected-state artwork and
+resources survive generation and subsequent annotation flattening just as they
+do with a direct name. Null/malformed state values retain their existing fallback.
+
 Active linearization pass-one output now rejects logical paths used by primary,
 page, overlay/underlay or attachment inputs before PDF access or any output
 commit. This extends the existing main-output alias policy to the auxiliary

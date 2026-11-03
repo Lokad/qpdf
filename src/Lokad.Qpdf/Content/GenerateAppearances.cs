@@ -613,7 +613,8 @@ internal static class GenerateAppearances
             return new GenAppearance(null, apDict);
         }
 
-        if (!PdfDictionaryLookup.TryGet(annot, "AS"u8, governor, token, out QpdfObject stateRaw) || stateRaw is not PdfName state
+        if (!PdfDictionaryLookup.TryGet(annot, "AS"u8, governor, token, out QpdfObject stateRaw)
+            || CatalogCopy.ResolveValue(stateRaw, resolver, governor, token) is not PdfName state
             || !PdfDictionaryLookup.TryGet(states, state.RawSpan, governor, token, out QpdfObject found))
         { return new GenAppearance(null, apDict); }
         QpdfObject target = found is PdfReference link ? ResolveOrNull(resolver, link) ?? found : found;

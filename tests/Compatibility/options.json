@@ -3199,6 +3199,7 @@
         "positive": [
           "FormNeedAppearancesTests.DirectAndIndirectTrueKeepCurrentValues",
           "GenerateAppearancesTests.TextFieldAppearanceRegeneratesValue",
+          "AppearanceStateGenerationTests.GenerationResolvesTheSelectedStateBeforeReplacingItsProgram",
           "GenerateAppearancesTests.MissingAppearanceIsCreated",
           "GeneratedGeometryTests.GeneratedCoordinatesRemainReadableAfterDocumentsAndHostClose",
           "GenerateAppearancesTests.CheckboxSynchronizesState",

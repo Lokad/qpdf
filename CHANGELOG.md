@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Preserve existing text-field artwork when generating an appearance selected
+  by an indirect state name, including generation followed by flattening.
+
 - Reject active linearization pass-one captures at primary, page, overlay/underlay
   or attachment input paths before PDF access or publication. Preserve ignored
   capture settings when linearization is disabled.
