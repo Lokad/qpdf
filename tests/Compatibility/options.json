@@ -2955,12 +2955,15 @@
       "evidence": {
         "positive": [
           "InlineImagesTests.ExternalizeAboveThreshold",
+          "InlineBindingTests.ConversionRequiresBindableResourcesAndPreservesSharedContext",
+          "InlineBindingTests.IneligibleImagesDoNotRequireResourceBindingOrWarnings",
+          "InlineResourceGovernanceTests.UnresolvedColorspaceDoesNotMaterializeTheBorrowedPayload",
           "ExternalizedContentIdentityTests.ExternalizationPreservesIndependentRootsAndRetiresOnlyUnreachableOriginals",
           "ExternalizedContentIdentityTests.FailurePreservesPriorOutputAndRefundsTheCall",
           "InlineImagesTests.CustomThresholdExternalizesSmall",
           "InlineImagesTests.AbbreviationsExpandInXObject",
           "InlineImagesTests.FilterAbbreviationExpands",
-          "InlineImagesTests.FormXObjectExternalizes"
+          "InlineImagesTests.ResourceLessFormKeepsItsInlineImage"
         ],
         "negative": [
           "InlineImagesTests.MalformedExternalizeFlagsFail"

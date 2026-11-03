@@ -9,6 +9,22 @@ namespace Lokad.Qpdf.Tests.Content;
 [Collection(nameof(NameTableCollection))]
 public sealed class InlineResourceGovernanceTests
 {
+    [Fact]
+    public void UnresolvedColorspaceDoesNotMaterializeTheBorrowedPayload()
+    {
+        byte[] payload = new byte[1048576]; int suffix = 1;
+        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 32768 }, CancellationToken.None);
+        DiagnosticBag diagnostics = new(governor); PoolResolver resolver = new(new Dictionary<int, QpdfObject>());
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        InlineImageEntry? result = InlineImageStorage.CreateWithResources("/W 1 /H 1 /BPC 8 /CS /Missing"u8.ToArray(), payload,
+            0, 0, Dictionary(), ref suffix, QpdfLimits.Default, governor, diagnostics, resolver, CancellationToken.None);
+        Assert.Null(result); Assert.Equal(1, suffix);
+        // Counting must not export the diagnostic list to a surviving caller owner.
+        Assert.Equal(1L, governor.Snapshot().DiagnosticCount);
+        Assert.InRange(GC.GetAllocatedBytesForCurrentThread() - before, 0L, 131072L);
+        governor.CompleteStorage(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
     private static PdfDictionary Dictionary(params (string Key, QpdfObject Value)[] values)
         => new(values.ToDictionary(item => PdfName.FromAscii(item.Key), item => item.Value));
 

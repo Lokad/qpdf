@@ -260,7 +260,6 @@ public static partial class Qpdf
         QpdfLimits limits,
         ResourceGovernor governor,
         CancellationToken cancellationToken,
-        bool preserveUnreferenced,
         out bool pruneHere)
     {
         pruneHere = prune.Enabled && (prune.Mode == "yes"
@@ -271,7 +270,7 @@ public static partial class Qpdf
         }
 
         return new Content.ContentTransformRequest(coalesceContents, normalizeContent, compress, level, externalizeInlineImages, iiMinBytes)
-        { PreserveUnreferenced = preserveUnreferenced, FilterOptions = filterOptions };
+        { FilterOptions = filterOptions };
     }
 
 
@@ -375,7 +374,7 @@ public static partial class Qpdf
                         TransformCopierStreams(copier, document.Engine, singleCompress, singleDecode, settings.Compression.RecompressFlate, singleLevel, limits, governor, diagnostics, cancellationToken, singleMetadata);
                     }
 
-                    Content.ContentTransformRequest? singleTransforms = PrepareSourceContentTransforms(settings.CoalesceContents, settings.NormalizeContent, settings.ExternalizeInlineImages || (settings.Optimize.Optimize && !settings.Optimize.KeepInline), settings.IiMinBytes, singleCompress, singleLevel, StreamTransformer.Options(singleDecode, settings.Compression.RecompressFlate), settings.Prune, document.Engine, limits, governor, cancellationToken, settings.PreserveUnreferenced, out bool singlePrune);
+                    Content.ContentTransformRequest? singleTransforms = PrepareSourceContentTransforms(settings.CoalesceContents, settings.NormalizeContent, settings.ExternalizeInlineImages || (settings.Optimize.Optimize && !settings.Optimize.KeepInline), settings.IiMinBytes, singleCompress, singleLevel, StreamTransformer.Options(singleDecode, settings.Compression.RecompressFlate), settings.Prune, document.Engine, limits, governor, cancellationToken, out bool singlePrune);
                     bool singleRebuiltContent = false;
                     if (singleTransforms is not null)
                     {
@@ -1103,7 +1102,7 @@ public static partial class Qpdf
 
                 if (!catalogOnly)
                 {
-                    Content.ContentTransformRequest? sourceTransforms = PrepareSourceContentTransforms(settings.CoalesceContents, settings.NormalizeContent, settings.ExternalizeInlineImages || (settings.Optimize.Optimize && !settings.Optimize.KeepInline), settings.IiMinBytes, multiCompress, multiLevel, StreamTransformer.Options(multiDecode, settings.Compression.RecompressFlate), settings.Prune, document.Engine, limits, governor, cancellationToken, settings.PreserveUnreferenced, out bool sourcePrune);
+                    Content.ContentTransformRequest? sourceTransforms = PrepareSourceContentTransforms(settings.CoalesceContents, settings.NormalizeContent, settings.ExternalizeInlineImages || (settings.Optimize.Optimize && !settings.Optimize.KeepInline), settings.IiMinBytes, multiCompress, multiLevel, StreamTransformer.Options(multiDecode, settings.Compression.RecompressFlate), settings.Prune, document.Engine, limits, governor, cancellationToken, out bool sourcePrune);
                     if (sourceTransforms is not null)
                     {
                         List<int> takenIds = ParserContainers.CreateList<int>(selectionMemory, taken.Count, sizeof(int));

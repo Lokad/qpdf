@@ -11,7 +11,6 @@ namespace Lokad.Qpdf.Content;
 /// <summary>Page content operation request: coalescing, normalization, compression.</summary>
 internal sealed record ContentTransformRequest(bool Coalesce, bool Normalize, bool Compress, int? Level, bool Externalize, long MinBytes)
 {
-    internal bool PreserveUnreferenced { get; init; }
     internal byte FilterOptions { get; init; }
 }
 
@@ -147,7 +146,7 @@ internal static class ContentTransforms
     }
     private static PdfDictionary ExternalizePageWithForms(GraphCopier copier, int pageId, PdfDictionary page, ContentTransformRequest request, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {
-        PdfDictionary current = InlineImages.ExternalizePage(copier, pageId, page, request.MinBytes, request.Compress, request.Level, limits, governor, diagnostics, cancellationToken, request.PreserveUnreferenced, request.FilterOptions);
+        PdfDictionary current = InlineImages.ExternalizePage(copier, pageId, page, request.MinBytes, request.Compress, request.Level, limits, governor, diagnostics, cancellationToken, request.FilterOptions);
         if (!copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? refreshed) || refreshed is not PdfDictionary freshPage)
         {
             return current;
@@ -181,7 +180,7 @@ internal static class ContentTransforms
                 continue;
             }
 
-            InlineImages.ExternalizeForm(copier, formId.Value, form, request.MinBytes, request.Compress, request.Level, limits, governor, diagnostics, cancellationToken, request.PreserveUnreferenced, request.FilterOptions);
+            InlineImages.ExternalizeForm(copier, formId.Value, form, request.MinBytes, request.Compress, request.Level, limits, governor, diagnostics, cancellationToken, request.FilterOptions);
         }
 
         if (copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? finalRaw) && finalRaw is PdfDictionary finalPage)

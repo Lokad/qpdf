@@ -454,6 +454,11 @@ Numbers are normalized lexically under the existing cancellation/output bounds.
   Original content streams and arrays retire only after final output roots exist.
   Independent catalog, page, Info, Metadata and attachment aliases keep their
   original values; `--preserve-unreferenced` retains otherwise obsolete objects.
+  Eligible images need a writable XObject dictionary and resolvable named
+  colorspaces before conversion. Otherwise a warning preserves the inline bytes;
+  resource-less forms keep their original lookup context. Below-threshold images
+  need no binding or new warning. Rejected lookup does not materialize pixel data
+  or create unattached candidate objects under `--preserve-unreferenced`.
 
 ## Writer profile
 

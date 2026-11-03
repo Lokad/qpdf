@@ -192,23 +192,22 @@ public sealed class InlineResourceDefaultsTests
     }
     [Theory]
     [MemberData(nameof(FormCases))]
-    public async Task MalformedFormsKeepValuesAndPreserveOnlyRequestedOrphans(string route, string kind, string sequence, bool keep)
+    public async Task MalformedFormsKeepValuesWithoutCreatingUnattachedImages(string route, string kind, string sequence, bool keep)
     {
         string resources = kind switch { "missing" => "", "null" => " /Resources null", "integer" => " /Resources 3", _ => " /Resources [1 2]" };
         byte[] content = sequence == "two" ? [.. Image, .. Image] : Image;
         bool below = sequence == "below"; int count = sequence == "two" ? 2 : 1;
-        int warnings = kind == "null" ? (below ? 0 : 1) : (below ? 0 : 2 * count) + (kind is "integer" or "array" ? 1 : 0);
+        int warnings = (below ? 0 : count) + (kind is "integer" or "array" ? 1 : 0);
         (InMemoryQpdfHost host, QpdfExecutionResult result) = await Execute(Fixture(true, resources, content, string.Empty, null), route, below ? 1000L : 0L, keep, "whole", false);
         Warnings(result, warnings);
         await using QpdfDocument document = await Open(host);
         PdfStream form = Content(document, true);
-        Assert.Equal(below || kind == "null" ? content : Encoding.ASCII.GetBytes(string.Concat(Enumerable.Repeat("/IIm1 Do\n\n", count))), form.Data);
+        Assert.Equal(content, form.Data);
         if (kind == "integer") { Assert.Equal(3L, Assert.IsType<PdfInteger>(Get(document, form.Dictionary, "Resources")).Value); }
         else if (kind == "array") { Assert.Equal(2, Assert.IsType<PdfArray>(Get(document, form.Dictionary, "Resources")).Count); }
         else { Assert.False(form.Dictionary.TryGet(PdfName.FromAscii("Resources"), out _)); }
         List<PdfStream> images = Images(document);
-        Assert.Equal(keep && !below ? (kind == "null" ? 1 : count) : 0, images.Count);
-        Assert.All(images, image => Assert.Equal("abcd "u8.ToArray(), image.Data));
+        Assert.Empty(images);
     }
 
     public static IEnumerable<object[]> FailureCases()
@@ -258,13 +257,13 @@ public sealed class InlineResourceDefaultsTests
     [InlineData("whole")]
     [InlineData("single")]
     [InlineData("multi")]
-    public async Task PreservedOldContentAndUnattachedImagesSurviveEachCopyRoute(string selection)
+    public async Task RefusedConversionsKeepOriginalContentWithoutManufacturingImages(string selection)
     {
         byte[] input = Fixture(false, " /Resources << /XObject 3 >>", Image, string.Empty, null);
         (InMemoryQpdfHost host, QpdfExecutionResult result) = await Execute(input, "argv", 0L, true, selection, false);
         Warnings(result, selection == "multi" ? 2 : 1);
         await using QpdfDocument document = await Open(host);
-        Assert.Equal(selection == "multi" ? 2 : 1, Images(document).Count);
+        Assert.Empty(Images(document));
         int oldContents = 0;
         foreach ((int number, var entry) in document.Engine.XRefEntries)
         {
@@ -294,11 +293,11 @@ public sealed class InlineResourceDefaultsTests
             Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] prior)); Assert.Equal(new byte[] { 9, 8, 7 }, prior);
             return;
         }
-        Warnings(result, below ? 1 : 3);
+        Warnings(result, below ? 1 : 2);
         Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Message == RepairWarning);
         await using QpdfDocument document = await Open(host);
         Assert.Equal(3L, Assert.IsType<PdfInteger>(Get(document, document.PageReferences[0].Page, "Resources")).Value);
-        Assert.Equal(below ? Image : "/IIm1 Do\n\n"u8.ToArray(), Content(document, false).Data);
+        Assert.Equal(Image, Content(document, false).Data);
         Assert.Empty(Images(document));
     }
 
@@ -310,19 +309,17 @@ public sealed class InlineResourceDefaultsTests
     }
     [Theory]
     [MemberData(nameof(ColorspaceCases))]
-    public async Task NamedColorspacesPreserveMalformedResourceFailureOrder(string route, string kind)
+    public async Task NamedColorspacesWithUnwritableResourcesKeepTheOriginalImage(string route, string kind)
     {
         string resources = kind switch { "missing" => "", "null" => " /Resources null", "integer" => " /Resources 3", _ => " /Resources [1 2]" };
         byte[] content = Encoding.ASCII.GetBytes(Encoding.ASCII.GetString(Image).Replace("/CS /G", "/CS /Local", StringComparison.Ordinal));
         (InMemoryQpdfHost host, QpdfExecutionResult result) = await Execute(Fixture(true, resources, content, string.Empty, null), route, 0L, true, "whole", false);
-        Warnings(result, kind == "null" ? 1 : kind == "missing" ? 4 : 5);
-        Assert.EndsWith("returning null for attempted key retrieval", result.Diagnostics[0].Message);
-        if (kind != "null") { Assert.Equal("Unable to resolve image colorspace; keeping the original name.", result.Diagnostics[1].Message); }
+        Warnings(result, kind is "missing" or "null" ? 1 : 2);
+        Assert.Equal("Inline image kept because its XObject resources are unavailable.", result.Diagnostics[0].Message);
         await using QpdfDocument document = await Open(host);
-        Assert.Equal(kind == "null" ? content : "/IIm1 Do\n\n"u8.ToArray(), Content(document, true).Data);
+        Assert.Equal(content, Content(document, true).Data);
         List<PdfStream> images = Images(document);
-        Assert.Equal(kind == "null" ? 0 : 1, images.Count);
-        if (images.Count != 0) { Assert.Equal("Local"u8.ToArray(), Assert.IsType<PdfName>(Get(document, images[0].Dictionary, "ColorSpace")).RawBytes); }
+        Assert.Empty(images);
     }
 
     public static IEnumerable<object[]> IndirectFormCases()

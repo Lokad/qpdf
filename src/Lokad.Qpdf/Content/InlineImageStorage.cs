@@ -18,14 +18,13 @@ internal static class InlineImageStorage
     {
         Step(governor, token);
         if (imageBytes.Length < minimum) { return null; }
-        using ParserMemoryScope dataMemory = ParserMemoryScope.Create(governor);
-        byte[] data = Copy(imageBytes.Span, dataMemory, governor, token);
         using ParserMemoryScope parsedMemory = ParserMemoryScope.Create(governor);
         PdfDictionary raw = Parse(dictionaryBytes, offset, limits, governor, diagnostics, resolver, parsedMemory, token);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
-        dataMemory.TransferTo(graph.Memory);
+        PdfDictionary? converted = InlineImageDictionary.BuildWithResources(graph, raw, resources, diagnostics, resolver);
+        if (converted is null) { return null; }
+        byte[] data = Copy(imageBytes.Span, graph.Memory, governor, token);
         if (data.Length != 0) { graph.Add(checked(32L + data.Length)); }
-        PdfDictionary converted = InlineImageDictionary.BuildWithResources(graph, raw, resources, diagnostics, resolver);
         PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         AddDefault(graph, entries, converted, "Type"u8, "XObject"u8);
         AddDefault(graph, entries, converted, "Subtype"u8, "Image"u8);

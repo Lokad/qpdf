@@ -56,6 +56,13 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Inline-image externalization now requires a writable XObject dictionary and a
+resolved named colorspace before replacing the inline bytes. Unavailable bindings
+warn and keep the original image, including resource-less forms. Native qpdf can
+instead emit an invocation without an attached image or keep an unresolved name;
+managed preservation intentionally strengthens these cases. Explicit preservation
+retains source objects without manufacturing unusable candidate images.
+
 Content normalization now interprets an unescaped CR or CRLF inside a literal
 string as one LF byte, matching the reader and PDF syntax rules. Explicit escaped
 CR and octal bytes retain their values; line continuations still contribute no

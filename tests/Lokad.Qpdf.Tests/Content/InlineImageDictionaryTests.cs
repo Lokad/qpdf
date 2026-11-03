@@ -29,7 +29,7 @@ public sealed class InlineImageDictionaryTests
         PdfByteString value = new(new byte[8192], false); PdfDictionary raw = Dictionary((abbreviated, value));
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
-        PdfDictionary result = InlineImageDictionary.BuildWithResources(graph, raw, Dictionary(), new(governor), null);
+        PdfDictionary result = Assert.IsType<PdfDictionary>(InlineImageDictionary.BuildWithResources(graph, raw, Dictionary(), new(governor), null));
         graph.Retain();
         Assert.Equal(1, result.Count); Assert.True(result.TryGet(PdfName.FromAscii(expected), out QpdfObject? found));
         Assert.Same(value, found); Assert.Same(value, Get(raw, PdfName.FromAscii(abbreviated)));
@@ -44,7 +44,7 @@ public sealed class InlineImageDictionaryTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
-        PdfDictionary result = InlineImageDictionary.BuildWithResources(graph, Dictionary(("CS", PdfName.FromAscii(abbreviated))), Dictionary(), new(governor), null);
+        PdfDictionary result = Assert.IsType<PdfDictionary>(InlineImageDictionary.BuildWithResources(graph, Dictionary(("CS", PdfName.FromAscii(abbreviated))), Dictionary(), new(governor), null));
         graph.Retain();
         Assert.Equal(PdfName.FromAscii(expected), Assert.IsType<PdfName>(Get(result, PdfName.FromAscii("ColorSpace"))));
     }
@@ -61,7 +61,7 @@ public sealed class InlineImageDictionaryTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
-        PdfDictionary result = InlineImageDictionary.BuildWithResources(graph, Dictionary(("F", PdfName.FromAscii(abbreviated))), Dictionary(), new(governor), null);
+        PdfDictionary result = Assert.IsType<PdfDictionary>(InlineImageDictionary.BuildWithResources(graph, Dictionary(("F", PdfName.FromAscii(abbreviated))), Dictionary(), new(governor), null));
         graph.Retain();
         Assert.Equal(PdfName.FromAscii(expected), Assert.IsType<PdfName>(Get(result, PdfName.FromAscii("Filter"))));
     }
@@ -73,7 +73,7 @@ public sealed class InlineImageDictionaryTests
         PdfDictionary raw = new(new Dictionary<PdfName, QpdfObject> { [key] = value });
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
-        PdfDictionary result = InlineImageDictionary.BuildWithResources(graph, raw, Dictionary(), new(governor), null);
+        PdfDictionary result = Assert.IsType<PdfDictionary>(InlineImageDictionary.BuildWithResources(graph, raw, Dictionary(), new(governor), null));
         graph.Retain();
         Assert.True(result.TryGet(key, out QpdfObject? found)); Assert.Same(value, found);
         Assert.Same(key, Assert.Single(result.Keys)); Assert.Equal(1, raw.Count);
@@ -89,7 +89,7 @@ public sealed class InlineImageDictionaryTests
         PdfDictionary raw = canonicalFirst ? Dictionary(("Width", canonical), ("W", abbreviated)) : Dictionary(("W", abbreviated), ("Width", canonical));
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
-        PdfDictionary result = InlineImageDictionary.BuildWithResources(graph, raw, Dictionary(), new(governor), null);
+        PdfDictionary result = Assert.IsType<PdfDictionary>(InlineImageDictionary.BuildWithResources(graph, raw, Dictionary(), new(governor), null));
         graph.Retain();
         Assert.Same(canonical, Get(result, PdfName.FromAscii("Width"))); Assert.Equal(1, result.Count); Assert.Equal(2, raw.Count);
     }
@@ -99,7 +99,7 @@ public sealed class InlineImageDictionaryTests
     {
         PdfInteger value = new("1", 1L); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
-        PdfDictionary result = InlineImageDictionary.BuildWithResources(graph, Dictionary(("Width", PdfNull.Instance), ("W", value), ("Other", PdfNull.Instance)), Dictionary(), new(governor), null);
+        PdfDictionary result = Assert.IsType<PdfDictionary>(InlineImageDictionary.BuildWithResources(graph, Dictionary(("Width", PdfNull.Instance), ("W", value), ("Other", PdfNull.Instance)), Dictionary(), new(governor), null));
         graph.Retain();
         Assert.Equal(1, result.Count); Assert.Same(value, Get(result, PdfName.FromAscii("Width")));
     }
@@ -111,21 +111,20 @@ public sealed class InlineImageDictionaryTests
         PdfDictionary spaces = new(new Dictionary<PdfName, QpdfObject> { [name] = lookup });
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
-        PdfDictionary result = InlineImageDictionary.BuildWithResources(graph, Dictionary(("CS", name)), Dictionary(("ColorSpace", spaces)), new(governor), null);
+        PdfDictionary result = Assert.IsType<PdfDictionary>(InlineImageDictionary.BuildWithResources(graph, Dictionary(("CS", name)), Dictionary(("ColorSpace", spaces)), new(governor), null));
         graph.Retain();
         Assert.Same(lookup, Get(result, PdfName.FromAscii("ColorSpace"))); Assert.Same(lookup, Get(spaces, name));
     }
 
     [Fact]
-    public void MissingColorspacePreservesNameAndOriginalWarning()
+    public void MissingColorspaceDeclinesConversionAndKeepsTheOriginalName()
     {
         PdfName name = new([67, 255, 35]); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); DiagnosticBag diagnostics = new(governor);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
-        PdfDictionary result = InlineImageDictionary.BuildWithResources(graph, Dictionary(("CS", name)), Dictionary(), diagnostics, null);
-        graph.Retain();
-        Assert.Same(name, Get(result, PdfName.FromAscii("ColorSpace")));
+        PdfDictionary? result = InlineImageDictionary.BuildWithResources(graph, Dictionary(("CS", name)), Dictionary(), diagnostics, null);
+        Assert.Null(result);
         QpdfDiagnostic warning = Assert.Single(diagnostics.Entries);
-        Assert.Equal("Unable to resolve image colorspace; keeping the original name.", warning.Message);
+        Assert.Equal("Unable to resolve image colorspace; keeping the inline image.", warning.Message);
     }
 
     [Fact]
@@ -135,7 +134,7 @@ public sealed class InlineImageDictionaryTests
         PdfArray filters = new([PdfName.FromAscii("AHx"), unknown, borrowed, PdfName.FromAscii("Fl")]);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
-        PdfDictionary result = InlineImageDictionary.BuildWithResources(graph, Dictionary(("F", filters)), Dictionary(), new(governor), null);
+        PdfDictionary result = Assert.IsType<PdfDictionary>(InlineImageDictionary.BuildWithResources(graph, Dictionary(("F", filters)), Dictionary(), new(governor), null));
         graph.Retain();
         PdfArray expanded = Assert.IsType<PdfArray>(Get(result, PdfName.FromAscii("Filter")));
         Assert.Equal(PdfName.FromAscii("ASCIIHexDecode"), expanded[0]); Assert.Same(unknown, expanded[1]); Assert.Same(borrowed, expanded[2]);
@@ -148,7 +147,7 @@ public sealed class InlineImageDictionaryTests
         PdfArray filters = new([new PdfName([255, 35]), new PdfByteString(new byte[8192], false)]);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
-        PdfDictionary result = InlineImageDictionary.BuildWithResources(graph, Dictionary(("Filter", filters)), Dictionary(), new(governor), null);
+        PdfDictionary result = Assert.IsType<PdfDictionary>(InlineImageDictionary.BuildWithResources(graph, Dictionary(("Filter", filters)), Dictionary(), new(governor), null));
         graph.Retain();
         Assert.Same(filters, Get(result, PdfName.FromAscii("Filter"))); Assert.True(governor.Snapshot().PeakMemoryBytes < 4096L);
     }
@@ -201,7 +200,7 @@ public sealed class InlineImageDictionaryTests
     {
         PdfDictionary raw = Dictionary(("W", new PdfInteger("1", 1L)), ("F", new PdfArray([PdfName.FromAscii("AHx"), PdfName.FromAscii("Fl")])));
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
-        PdfDictionary result = InlineImageDictionary.BuildWithResources(graph, raw, Dictionary(), new(governor), null);
+        PdfDictionary result = Assert.IsType<PdfDictionary>(InlineImageDictionary.BuildWithResources(graph, raw, Dictionary(), new(governor), null));
         graph.Retain();
         return new(keys ? result.Keys : result, new(governor), new(raw));
     }
@@ -231,7 +230,7 @@ public sealed class InlineImageDictionaryTests
     private static Escaping CaptureFilterAlias(ResourceGovernor governor, bool nameOnly)
     {
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
-        PdfDictionary result = InlineImageDictionary.BuildWithResources(graph, Dictionary(("F", new PdfArray([PdfName.FromAscii("AHx"), PdfName.FromAscii("Fl")]))), Dictionary(), new(governor), null);
+        PdfDictionary result = Assert.IsType<PdfDictionary>(InlineImageDictionary.BuildWithResources(graph, Dictionary(("F", new PdfArray([PdfName.FromAscii("AHx"), PdfName.FromAscii("Fl")]))), Dictionary(), new(governor), null));
         graph.Retain();
         PdfArray filters = Assert.IsType<PdfArray>(Get(result, PdfName.FromAscii("Filter")));
         return new(nameOnly ? filters[0] : filters, new(governor), new(result));

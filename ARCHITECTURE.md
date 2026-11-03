@@ -121,6 +121,9 @@ unreferenced-object preservation retain their existing ownership and policy.
 Tests use this production path; there is no unowned
 copier mode. Form-resource traversal tracks graph identities, with indirect
 form guards independent of resource-scope visits.
+Inline conversion requires attachment and colorspace bindings before copying
+pixels. Refused conversion keeps the original bytes and refunds temporary parsing
+storage; source-object preservation needs no separate candidate-preservation flag.
 Cross-reference tables likewise require an explicit owner. Synthetic fixtures
 admit their entry maps, trailer lists and input receipts and transfer them through
 the same owned table/engine factories as production, with explicit escape and input

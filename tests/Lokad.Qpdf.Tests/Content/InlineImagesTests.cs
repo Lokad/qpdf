@@ -282,7 +282,7 @@ byte[] output = await PageContentAsync(pdf);
 Assert.Contains("/IIm1 Do", Encoding.ASCII.GetString(output));
 }
 [Fact]
-public async Task ColorspaceMissWarnsAndKeepsName()
+public async Task ColorspaceMissWarnsAndKeepsInlineBytes()
 {
 byte[] image = Filled(1500, 69);
 byte[] content = InlineContent("/W 1 /H 1 /CS /Nope /BPC 1", image);
@@ -294,7 +294,7 @@ Assert.True(result.ExitCode == QpdfExitCode.Success || result.ExitCode == QpdfEx
 Assert.Contains(result.Diagnostics, static d => d.Code == QpdfDiagnosticCode.UnsupportedFeature);
 Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
 byte[] output = await PageContentAsync(pdf);
-Assert.Contains("/IIm1 Do", Encoding.ASCII.GetString(output));
+Assert.Equal(content, output);
 }
 [Fact]
 public async Task UniqueNamingSkipsTaken()
@@ -337,7 +337,7 @@ byte[] output = await PageContentAsync(pdf);
 Assert.Contains("/IIm1 Do", Encoding.ASCII.GetString(output));
 }
 [Fact]
-public async Task FormXObjectExternalizes()
+public async Task ResourceLessFormKeepsItsInlineImage()
 {
 byte[] image = Filled(1500, 73);
 byte[] formContent = InlineContent("/W 1 /H 1 /CS /G /BPC 1", image);
@@ -349,14 +349,13 @@ List<(string Dict, byte[] StreamData)> extras = new()
 };
 string pageExtra = " /Contents 4 0 R /Resources << /XObject << /Fm1 5 0 R >> >>";
 byte[] fixture = BuildPdf(string.Empty, pageExtra, extras);
-byte[] pdf = await TransformWithWarningsAsync(HostWith("inputs/a.pdf", fixture), ["operation for dictionary attempted on object of type null: returning null for attempted key retrieval",
-"operation for dictionary attempted on object of type null: ignoring key replacement request"], "--externalize-inline-images", "--pages", ".", "1");
+byte[] pdf = await TransformWithWarningsAsync(HostWith("inputs/a.pdf", fixture), ["Inline image kept because its XObject resources are unavailable."], "--externalize-inline-images", "--pages", ".", "1");
 using JsonDocument full = await InspectAsync(HostWith("inputs/a.pdf", pdf), "--json", "--json-key=qpdf", "--json-stream-data=inline");
 JsonElement[] streams = full.RootElement.GetProperty("qpdf")[1].EnumerateObject()
     .Where(p => p.Value.TryGetProperty("stream", out _)).Select(p => p.Value.GetProperty("stream")).ToArray();
 JsonElement form = Assert.Single(streams, s => s.GetProperty("dict").TryGetProperty("/Subtype", out JsonElement subtype) && subtype.GetString() == "/Form");
 Assert.False(form.GetProperty("dict").TryGetProperty("/Resources", out _));
-Assert.Contains("/IIm1 Do", Encoding.ASCII.GetString(Convert.FromBase64String(form.GetProperty("data").GetString() ?? string.Empty)));
+Assert.Equal(formContent, Convert.FromBase64String(form.GetProperty("data").GetString() ?? string.Empty));
 Assert.DoesNotContain(streams, s => s.GetProperty("dict").TryGetProperty("/Subtype", out JsonElement subtype) && subtype.GetString() == "/Image");
 }
 [Fact]

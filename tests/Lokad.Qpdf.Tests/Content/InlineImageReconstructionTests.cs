@@ -41,7 +41,7 @@ public sealed class InlineImageReconstructionTests
         using DocumentEngine engine = Engine(); using ParserMemoryScope copierMemory = ParserMemoryScope.Create(governor);
         GraphCopier copier = GraphCopier.CreateOwned(engine, governor, QpdfLimits.Default, 1, copierMemory);
         return Lokad.Qpdf.Content.InlineImages.RewriteContentCore(copier, page, bytes, minimum, compress, null,
-            QpdfLimits.Default, governor, diagnostics, token, false, false, 0);
+            QpdfLimits.Default, governor, diagnostics, token, false, 0);
     }
     private static byte[] Content(string body) => Encoding.ASCII.GetBytes(body);
 

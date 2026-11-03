@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Keep inline images when resource or colorspace binding fails, preserving form
+  artwork and rejecting unresolved conversion before pixel allocation. Remove the
+  obsolete candidate-preservation parameter and intermediate pixel owner.
+
 - Normalize physical literal-string EOLs to one LF byte, preserving explicit CR
   escapes and line-continuation semantics.
 

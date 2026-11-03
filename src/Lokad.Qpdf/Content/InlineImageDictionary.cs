@@ -7,7 +7,7 @@ namespace Lokad.Qpdf.Content;
 /// <summary>Expands inline-image names while owning only fresh dictionary/name/array storage.</summary>
 internal static class InlineImageDictionary
 {
-    internal static PdfDictionary BuildWithResources(OwnedAllocationBatch graph, PdfDictionary raw, QpdfObject? resources,
+    internal static PdfDictionary? BuildWithResources(OwnedAllocationBatch graph, PdfDictionary raw, QpdfObject? resources,
         DiagnosticBag diagnostics, IIndirectResolver? resolver)
     {
         ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
@@ -28,12 +28,8 @@ internal static class InlineImageDictionary
                 { value = found; }
                 else
                 {
-                    if (resources is not PdfDictionary)
-                    {
-                        InlineImages.WarnDictionaryOperation(resources, false, diagnostics);
-                        if (resources is PdfNull) { throw new QpdfParseException("Unable to resolve image colorspace through null Resources.", null, null); }
-                    }
-                    diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Unable to resolve image colorspace; keeping the original name.");
+                    diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Unable to resolve image colorspace; keeping the inline image.");
+                    return null;
                 }
             }
             else if (Equal(name, "Filter"u8, governor, token)) { value = ExpandFilters(graph, value); }
