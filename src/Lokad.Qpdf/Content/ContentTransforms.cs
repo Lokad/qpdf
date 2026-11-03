@@ -698,8 +698,14 @@ internal static class ContentTransforms
                 continue;
             }
 
-            decoded.WriteByte(span[i]);
-            i += 1;
+            byte currentByte = span[i++];
+            if (currentByte == (byte)'\r')
+            {
+                // A physical CR or CRLF is one LF byte in a PDF literal.
+                if (i < end && span[i] == (byte)'\n') { i++; }
+                currentByte = (byte)'\n';
+            }
+            decoded.WriteByte(currentByte);
         }
 
         return decoded.ToArray(memory, cancellationToken);

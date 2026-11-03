@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Normalize physical literal-string EOLs to one LF byte, preserving explicit CR
+  escapes and line-continuation semantics.
+
 - Preserve independently rooted streams and arrays during page-content
   normalization, including exact attachment payloads shared with page content.
 

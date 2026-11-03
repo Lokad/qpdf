@@ -56,6 +56,12 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Content normalization now interprets an unescaped CR or CRLF inside a literal
+string as one LF byte, matching the reader and PDF syntax rules. Explicit escaped
+CR and octal bytes retain their values; line continuations still contribute no
+byte. Output with those physical line endings can change under normalization
+and QDF defaults.
+
 Content normalization, including QDF defaults, now replaces page content edges
 while preserving original streams and arrays retained by other roots. In
 particular, an embedded file sharing a page stream keeps its exact decoded bytes.
