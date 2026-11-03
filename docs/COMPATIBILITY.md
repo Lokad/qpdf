@@ -102,6 +102,13 @@ uses the inherited CropBox/MediaBox fallback. Blank sources still import their
 annotations. Malformed non-null boxes and content retain the warning/skip policy;
 null entries inside content arrays remain damaged input.
 
+Overlay/underlay preserves the destination's original content frame. Its background
+Form uses MediaBox and an identity placement; the outer page retains rotation,
+UserUnit and visible clipping. CropBox/TrimBox fitting applies to imported artwork.
+This intentionally strengthens native behavior that can move or clip existing
+marks, even when stamping an empty page. Source content bytes and resource scopes
+remain unchanged.
+
 Inline-image externalization now retains original content streams and arrays
 referenced by independent catalog values. Previously those aliases could disappear,
 or QDF output could fail on an unmapped object. Retirement now uses the complete

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Preserve existing page artwork under overlay/underlay, keeping background
+  coordinates and clipping independent of the imported artwork's placement box.
+
 - Resolve optional overlay/underlay source Contents and TrimBox nulls before
   selecting empty content or a fallback box, retaining annotation imports.
 

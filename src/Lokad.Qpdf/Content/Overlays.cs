@@ -552,23 +552,17 @@ internal static class Overlays
             pageResources = target as PdfDictionary;
         }
 
-        QpdfObject? pageBoxObject = FindPageBoxObject(page, resolver);
-        if (pageBoxObject is null)
+        if (!page.TryGet(PdfName.FromAscii("MediaBox"), out QpdfObject? pageBoxObject) || pageBoxObject is null)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Output page has no bounding box; skipping overlay for it.");
             return;
         }
 
-        double[]? destMatrix = HasTransform(page) ? TransformMatrix(placeBox, rotate, userUnit, false) : null;
         ownership.Reserve(512L); // Bounded Form header; resources and payloads are borrowed.
         Dictionary<PdfName, QpdfObject> formEntries = new();
         formEntries[PdfName.FromAscii("Type")] = PdfName.FromAscii("XObject");
         formEntries[PdfName.FromAscii("Subtype")] = PdfName.FromAscii("Form");
         formEntries[PdfName.FromAscii("BBox")] = pageBoxObject;
-        if (destMatrix is not null)
-        {
-            formEntries[PdfName.FromAscii("Matrix")] = NumberArray(destMatrix, governor, ownership);
-        }
 
         if (pageResources is not null)
         {
@@ -602,7 +596,9 @@ internal static class Overlays
             AppendPlacement(stacked, name, PlacementMatrix(form.Box, form.FormMatrix, placeBox, destTransform, true, false));
         }
 
-        AppendPlacement(stacked, "Fx0", PlacementMatrix(placeBox, destMatrix, media, destTransform, false, false));
+        // The outer page already supplies its rotation, scale and visible clip.
+        // Only imported artwork is fitted to the preferred placement rectangle.
+        AppendPlacement(stacked, "Fx0", IdentityArray());
         foreach (OverlayPlacement placement in overlays)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1020,37 +1016,6 @@ internal static class Overlays
         if (rectangle[0] > rectangle[2]) { (rectangle[0], rectangle[2]) = (rectangle[2], rectangle[0]); }
         if (rectangle[1] > rectangle[3]) { (rectangle[1], rectangle[3]) = (rectangle[3], rectangle[1]); }
         return rectangle;
-    }
-
-    private static QpdfObject? FindPageBoxObject(PdfDictionary page, IIndirectResolver resolver)
-    {
-        foreach (string key in new string[] { "TrimBox", "CropBox", "MediaBox" })
-        {
-            if (page.TryGet(PdfName.FromAscii(key), out QpdfObject? raw) && raw is not null && raw is not PdfNull)
-            {
-                if (ReadRectangle(raw, resolver) is not null)
-                {
-                    return raw;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    private static bool HasTransform(PdfDictionary page)
-    {
-        if (page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject? rotate) && rotate is not null && rotate is not PdfNull)
-        {
-            return true;
-        }
-
-        if (page.TryGet(PdfName.FromAscii("UserUnit"), out QpdfObject? unit) && unit is not null && unit is not PdfNull)
-        {
-            return true;
-        }
-
-        return false;
     }
 
     /// <summary>
