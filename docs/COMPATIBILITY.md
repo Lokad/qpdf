@@ -119,6 +119,14 @@ This conservatively avoids native qpdf 12.4.2's loss of layer visibility. It doe
 not evaluate the viewer's current layer state or merge layer configurations from
 different documents. Widget appearance-readiness preservation still takes priority.
 
+Direct and indirect AcroForm calculation-order arrays now use the same reconstruction
+path. Managed merging concatenates source orders, filters references outside the
+surviving field closure and appends isolated rotation-field copies in the existing
+order. Native qpdf 12.4.2 can keep only the primary order or retain references to
+removed fields; those are intentional managed differences. Empty arrays stay empty
+and opaque non-array values keep their preservation policy. No calculation engine
+or public signature is added.
+
 Content normalization now interprets an unescaped CR or CRLF inside a literal
 string as one LF byte, matching the reader and PDF syntax rules. Explicit escaped
 CR and octal bytes retain their values; line continuations still contribute no

@@ -163,12 +163,17 @@ internal static class AcroFormCopy
                 continue;
             }
 
-            if (text.SequenceEqual("CO"u8) && copied is PdfArray copiedOrder)
+            if (text.SequenceEqual("CO"u8))
             {
-                hasOrder = true;
-                order = copiedOrder.BorrowedItems;
-
-                continue;
+                QpdfObject? calculationOrder = copied;
+                if (copied is PdfReference orderLink)
+                { PdfObjectLookup.TryResolve(orderLink, copier.CopiedObjects, governor, cancellationToken, out calculationOrder); }
+                if (calculationOrder is PdfArray copiedOrder)
+                {
+                    hasOrder = true;
+                    order = copiedOrder.BorrowedItems;
+                    continue;
+                }
             }
 
             ParserContainers.EnsureEntryCapacity(result, extras, IntPtr.Size);

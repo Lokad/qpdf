@@ -238,7 +238,11 @@ echoing values.
   preserves the form dictionary (fields, values, parent links, default resources),
   outlines, and structure through the shared copy engine while contained preview
   drops outlines and structure; explicit `--remove-acroform` and `--remove-structure`
-  prune them. Widget annotations travel with appearances, while
+  prune them. Direct/indirect calculation-order arrays share source-order concatenation,
+  surviving-field filtering and isolated rotation-field registration. Empty
+  orders stay empty; malformed non-array values remain opaque. This preserves
+  field ordering without executing calculations. Widget annotations travel with
+  appearances, while
   document info (`/Info`, ModDate-only under `--remove-info`) and the catalog
   metadata stream are preserved unless `--remove-info`/`--remove-metadata`
   drop them (`--remove-info` also drops metadata).

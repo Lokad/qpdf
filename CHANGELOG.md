@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Reconstruct indirect calculation-order arrays through the same form path as
+  direct arrays. Merge source orders, filter removed fields and include isolated
+  rotation copies consistently, while retaining opaque non-array values.
+
 - Retain annotations with non-null optional-content conditions during flattening,
   with one bounded warning. Preserve their flags and condition instead of turning
   layer-dependent artwork into unconditional page content; null conditions remain

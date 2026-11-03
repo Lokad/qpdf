@@ -158,6 +158,9 @@ private AP entries remain opaque. Payload bytes and original headers stay shared
 Rotation uses the same N/R/D slot boundary. Annotation flattening resolves an
 indirect Form subtype before deciding whether a header needs normalization;
 normalization creates a fresh stream identity and keeps independent originals.
+Form calculation-order arrays resolve through the copied pool before classification.
+Direct and indirect arrays borrow the same owned backing into the existing source
+combination and final field-closure filtering; opaque non-array extras stay opaque.
 Cross-reference tables likewise require an explicit owner. Synthetic fixtures
 admit their entry maps, trailer lists and input receipts and transfer them through
 the same owned table/engine factories as production, with explicit escape and input
