@@ -527,6 +527,8 @@ internal static class GenerateAppearances
         if (found is null)
         {
             double[] box = ReadBox(annot, "Rect", resolver) ?? [0.0, 0.0, 0.0, 0.0];
+            if (box[0] > box[2]) { (box[0], box[2]) = (box[2], box[0]); }
+            if (box[1] > box[3]) { (box[1], box[3]) = (box[3], box[1]); }
             double width = box[2] - box[0];
             double height = box[3] - box[1];
             // Fixed header/resource containers; numeric text is admitted separately.

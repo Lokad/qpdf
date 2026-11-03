@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Normalize local widget rectangles before deriving fresh appearance dimensions,
+  preserving source coordinates and aliases through generation and flattening.
+
 - Preserve existing page artwork under overlay/underlay, keeping background
   coordinates and clipping independent of the imported artwork's placement box.
 

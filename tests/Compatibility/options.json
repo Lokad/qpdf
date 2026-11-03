@@ -3240,7 +3240,8 @@
           "GenerateAppearancesTests.FormlessWholeFileSkipsSilently",
           "GenerateAppearancesTests.DirectWidgetSelectionSkipsSilently",
           "GenerateAppearancesTests.DirectWidgetWholeFileWarnsAndGenerates",
-          "GenerateAppearancesTests.QuaddingIsIgnoredLikeReference"
+          "GenerateAppearancesTests.QuaddingIsIgnoredLikeReference",
+          "FreshAppearanceRectangleTests.FreshAppearanceUsesNormalizedDimensionsAndPreservesRawRectangles"
         ],
         "negative": [
           "GenerateAppearancesTests.SignatureFieldIsSkipped",

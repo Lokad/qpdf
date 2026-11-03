@@ -96,6 +96,11 @@ order, including indirect arrays and coordinates. Equivalent rectangles produce
 the same placement and imported annotation geometry; original box values and
 independent aliases retain their spelling and order.
 
+Fresh text appearances likewise normalize local widget Rect corners before
+deriving their dimensions. Reversed corners no longer create negative-width or
+negative-height appearance boxes. Original Rect values and independent aliases
+stay intact; existing appearance BBoxes retain their separate handling.
+
 Overlay/underlay source preparation resolves optional Contents and TrimBox nulls
 before classifying them. Indirect-null Contents is empty; indirect-null TrimBox
 uses the inherited CropBox/MediaBox fallback. Blank sources still import their

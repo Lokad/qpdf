@@ -3443,7 +3443,6 @@ public static partial class Qpdf
         foreach (int pageNumber in requested)
         {
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             kept.Add(document.PageReferences[pageNumber - 1]);
         }
 
