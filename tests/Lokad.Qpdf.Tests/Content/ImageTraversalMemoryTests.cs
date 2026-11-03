@@ -85,7 +85,10 @@ public sealed class ImageTraversalMemoryTests
     }
 
     private static void Apply(GraphCopier copier, ResourceGovernor governor, CancellationToken token)
-        => ImageOptimizer.Apply([(copier, 1)], new(true, 0, 0, 0, false, null), QpdfLimits.Default, governor, new(governor), token);
+    {
+        int allocator = copier.NextId;
+        ImageOptimizer.Apply([(copier, 1)], new(true, 0, 0, 0, false, null), QpdfLimits.Default, governor, new(governor), token, ref allocator);
+    }
 
     [Theory]
     [InlineData(false)]
@@ -156,5 +159,77 @@ public sealed class ImageTraversalMemoryTests
         host.AddInput(QpdfPath.From("reread.pdf"), output, QpdfInputOwnership.Copy);
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("reread.pdf"), CancellationToken.None);
         Assert.Equal(1, document.PageCount);
+    }
+
+    private static GraphCopier ParentAliases(DocumentEngine engine, ResourceGovernor construction, ParserMemoryScope memory, out PdfStream form)
+    {
+        GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 1, memory);
+        memory.Reserve(4096L * 128L); // Preowned source dictionaries, names and links.
+        Dictionary<PdfName, QpdfObject> aliases = new(4096);
+        PdfStream image = new(Dict(), [1]);
+        for (int index = 0; index < 4096; index++)
+        {
+            aliases.Add(PdfName.FromAscii("I" + index), new PdfReference(index + 3, 0));
+            copier.AddIndirectObjectWithId(image, index + 3);
+        }
+        form = new(Dict(("Subtype", PdfName.FromAscii("Form")), ("Resources", Dict(("XObject", new PdfDictionary(aliases))))), []);
+        copier.AddIndirectObjectWithId(Dict(("Resources", Dict(("XObject", Dict(("F", new PdfReference(2, 0))))))), 1);
+        copier.AddIndirectObjectWithId(form, 2);
+        return copier;
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RefusedParentPropagationRefundsScratchAndKeepsOriginalPool(bool shared)
+    {
+        using DocumentEngine engine = Engine(); ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope sourceMemory = ParserMemoryScope.Create(construction);
+        GraphCopier copier = ParentAliases(engine, construction, sourceMemory, out PdfStream form);
+        RecordingMemoryBudget root = new(4096); using IMemoryScope caller = root.CreateScope();
+        ResourceGovernor governor = shared ? new(QpdfLimits.Default, CancellationToken.None, new MemoryHost(caller))
+            : new(QpdfLimits.Default with { MaxMemoryBytes = 4096 }, CancellationToken.None);
+        using (ParserMemoryScope prior = ParserMemoryScope.Create(governor))
+        {
+            prior.Reserve(17L); long baseline = governor.Snapshot().LiveMemoryBytes;
+            using (ParserMemoryScope scratch = ParserMemoryScope.Create(governor))
+            using (FormResourceWalk walk = FormResourceWalk.Create(governor, CancellationToken.None))
+            {
+                walk.Add(2, form);
+                GovernedIntDictionary<PdfStream> replacements = GovernedIntDictionary<PdfStream>.Create(scratch, governor, IntPtr.Size, CancellationToken.None);
+                replacements.TryAdd(scratch, 3, new PdfStream(Dict(), [2])); int allocator = copier.NextId;
+                if (shared) { Assert.Throws<QpdfMemoryAdmissionException>(() => walk.ApplyReplacements(copier, [1], replacements, ref allocator)); }
+                else { Assert.Throws<QpdfLimitException>(() => walk.ApplyReplacements(copier, [1], replacements, ref allocator)); }
+                Assert.Equal(4098, copier.CopiedObjects.Count); Assert.Equal(4099, copier.NextId);
+                Assert.Same(form, copier.CopiedObjects[2]); Assert.Equal(new byte[] { 1 }, Assert.IsType<PdfStream>(copier.CopiedObjects[3]).RawMemory.ToArray());
+            }
+            Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, root.ReservedBytes);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CancellationDuringParentPropagationRefundsItsIndexes(bool governorToken)
+    {
+        using DocumentEngine engine = Engine(); ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope sourceMemory = ParserMemoryScope.Create(construction);
+        GraphCopier copier = ParentAliases(engine, construction, sourceMemory, out PdfStream form);
+        RecordingMemoryBudget root = new(1048576); using IMemoryScope caller = root.CreateScope(); using CancellationTokenSource cancellation = new();
+        CancellationToken token = governorToken ? CancellationToken.None : cancellation.Token;
+        ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None,
+            new MemoryHost(new CancelingGrowth(caller, cancellation)));
+        using (ParserMemoryScope scratch = ParserMemoryScope.Create(governor))
+        using (FormResourceWalk walk = FormResourceWalk.Create(governor, token))
+        {
+            walk.Add(2, form);
+            GovernedIntDictionary<PdfStream> replacements = GovernedIntDictionary<PdfStream>.Create(scratch, governor, IntPtr.Size, token);
+            replacements.TryAdd(scratch, 3, new PdfStream(Dict(), [2])); int allocator = copier.NextId;
+            Assert.ThrowsAny<OperationCanceledException>(() => walk.ApplyReplacements(copier, [1], replacements, ref allocator));
+            Assert.Equal(4098, copier.CopiedObjects.Count); Assert.Equal(4099, copier.NextId); Assert.Same(form, copier.CopiedObjects[2]);
+        }
+        Assert.True(cancellation.IsCancellationRequested);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, root.ReservedBytes);
     }
 }

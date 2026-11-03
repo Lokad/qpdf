@@ -46,7 +46,7 @@ internal static class InlineImages
         return replaced;
     }
 
-    internal static void ExternalizeForm(
+    internal static PdfStream? ExternalizeForm(
         GraphCopier copier, int formId, PdfStream form, long minBytes, bool compress, int? level,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
         CancellationToken cancellationToken, byte filterOptions)
@@ -56,30 +56,27 @@ internal static class InlineImages
         using AnalysisChunks chunks = AnalysisChunks.Create(governor, cancellationToken);
         if (!chunks.TryAdd(form, resolver, limits))
         {
-            return;
+            return null;
         }
 
         RewriteResult rewritten = RewriteContentCore(copier, form.Dictionary, chunks.Parts[0], minBytes, compress, level, limits, governor, diagnostics, cancellationToken, true, filterOptions);
         chunks.Dispose();
         resolverMemory.Dispose();
         CompleteResourceWalk(form.Dictionary, rewritten.Resources, formId, governor, diagnostics, cancellationToken);
+        if (!rewritten.Changed || rewritten.Stream is null) { return null; }
         using OwnedAllocationBatch headers = OwnedAllocationBatch.Create(governor, cancellationToken);
-        PdfDictionary formDict = rewritten.Changed && rewritten.Stream is not null
-            ? PdfDictionaryRebuild.StripStreamEncoding(headers, form.Dictionary) : form.Dictionary;
-        if (rewritten.Resources is PdfNull)
-        { formDict = PdfDictionaryRebuild.RemoveEntry(headers, formDict, "Resources"u8); }
-        else if (rewritten.Resources is QpdfObject resources)
+        PdfDictionary formDict = PdfDictionaryRebuild.StripStreamEncoding(headers, form.Dictionary);
+        if (rewritten.Resources is QpdfObject resources)
         { formDict = PdfDictionaryRebuild.ReplaceEntry(headers, formDict, "Resources"u8, resources); }
-        if (rewritten.Changed && rewritten.Stream is not null && PdfDictionaryLookup.TryGet(rewritten.Stream.Dictionary, "Filter"u8, governor, cancellationToken, out QpdfObject filter))
+        if (PdfDictionaryLookup.TryGet(rewritten.Stream.Dictionary, "Filter"u8, governor, cancellationToken, out QpdfObject filter))
         {
             formDict = PdfDictionaryRebuild.ReplaceEntry(headers, formDict, "Filter"u8, filter);
         }
-        if (ReferenceEquals(formDict, form.Dictionary)) { return; }
         headers.Retain();
         using OwnedAllocationBatch final = OwnedAllocationBatch.Create(governor, cancellationToken);
         final.Memory.Reserve(32L);
-        PdfStream replaced = (rewritten.Stream ?? form).WithDictionary(formDict);
-        final.Add(32L); final.Retain(); copier.ReplaceCopiedObject(formId, replaced);
+        PdfStream replaced = rewritten.Stream.WithDictionary(formDict);
+        final.Add(32L); final.Retain(); return replaced;
     }
 
     internal readonly record struct RewriteResult(bool Changed, PdfStream? Stream, QpdfObject? Resources);

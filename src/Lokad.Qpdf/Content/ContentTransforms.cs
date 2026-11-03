@@ -104,6 +104,33 @@ internal static class ContentTransforms
 
         int beforeTransforms = copier.NextId;
         using ParserMemoryScope phase = ParserMemoryScope.Create(governor);
+        if (request.Externalize)
+        {
+            using FormResourceWalk forms = FormResourceWalk.Create(governor, cancellationToken);
+            PoolResolver resolver = forms.CreateResolver(copier.CopiedObjects);
+            foreach (int pageId in pageIds)
+            {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                if (!copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? raw) || raw is not PdfDictionary page) { continue; }
+                page = InlineImages.ExternalizePage(copier, pageId, page, request.MinBytes, request.Compress, request.Level, limits, governor, diagnostics, cancellationToken, request.FilterOptions);
+                if (PdfDictionaryLookup.TryGet(page, "Resources"u8, governor, cancellationToken, out QpdfObject resourcesRaw))
+                {
+                    QpdfObject? resources = resourcesRaw is PdfReference link ? ResolvePool(resolver, link, governor, cancellationToken) : resourcesRaw;
+                    if (resources is PdfDictionary dictionary) { forms.AddResources(dictionary, resolver); }
+                }
+            }
+            GovernedIntDictionary<PdfStream> replacements = GovernedIntDictionary<PdfStream>.Create(phase, governor, IntPtr.Size, cancellationToken);
+            for (int index = 0; index < forms.Count; index++)
+            {
+                FormResourceWalk.Form form = forms.Get(index);
+                if (form.Id is not int id) { continue; }
+                PdfStream? candidate = InlineImages.ExternalizeForm(copier, id, form.Stream, request.MinBytes, request.Compress,
+                    request.Level, limits, governor, diagnostics, cancellationToken, request.FilterOptions);
+                if (candidate is not null) { replacements.TryAdd(phase, id, candidate); }
+            }
+            int allocator = copier.NextId;
+            forms.ApplyReplacements(copier, pageIds, replacements, ref allocator);
+        }
         GovernedIntDictionary<(PdfStream Source, PdfReference? Replacement)>? normalized = request.Normalize
             ? GovernedIntDictionary<(PdfStream Source, PdfReference? Replacement)>.Create(phase, governor, 2L * IntPtr.Size, cancellationToken) : null;
         Dictionary<PdfArray, PdfReference>? coalesced = null;
@@ -122,11 +149,6 @@ internal static class ContentTransforms
             }
 
             PdfDictionary page = (PdfDictionary)raw;
-            if (request.Externalize)
-            {
-                page = ExternalizePageWithForms(copier, pageId, page, request, limits, governor, diagnostics, cancellationToken);
-            }
-
             if (coalesced is not null)
             {
                 page = CoalescePage(copier, pageId, page, request, coalesced, phase, limits, governor, diagnostics, cancellationToken);
@@ -144,53 +166,6 @@ internal static class ContentTransforms
         }
         return copier.NextId != beforeTransforms;
     }
-    private static PdfDictionary ExternalizePageWithForms(GraphCopier copier, int pageId, PdfDictionary page, ContentTransformRequest request, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
-    {
-        PdfDictionary current = InlineImages.ExternalizePage(copier, pageId, page, request.MinBytes, request.Compress, request.Level, limits, governor, diagnostics, cancellationToken, request.FilterOptions);
-        if (!copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? refreshed) || refreshed is not PdfDictionary freshPage)
-        {
-            return current;
-        }
-
-        current = freshPage;
-        using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
-        PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
-        if (!PdfDictionaryLookup.TryGet(current, "Resources"u8, governor, cancellationToken, out QpdfObject resourcesRaw) || resourcesRaw is PdfNull)
-        {
-            return current;
-        }
-
-        QpdfObject resourcesTarget = resourcesRaw is PdfReference resourcesReference ? ResolvePool(resolver, resourcesReference, governor, cancellationToken) ?? resourcesRaw : resourcesRaw;
-        if (resourcesTarget is not PdfDictionary resources)
-        {
-            return current;
-        }
-
-        using FormResourceWalk forms = CollectFormStreams(copier, resources, governor, cancellationToken);
-        for (int index = 0; index < forms.Count; index++)
-        {
-            int? formId = forms.Get(index).Id;
-            if (!formId.HasValue)
-            {
-                continue;
-            }
-
-            if (!copier.CopiedObjects.TryGetValue(formId.Value, out QpdfObject? formRaw) || formRaw is not PdfStream form)
-            {
-                continue;
-            }
-
-            InlineImages.ExternalizeForm(copier, formId.Value, form, request.MinBytes, request.Compress, request.Level, limits, governor, diagnostics, cancellationToken, request.FilterOptions);
-        }
-
-        if (copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? finalRaw) && finalRaw is PdfDictionary finalPage)
-        {
-            return finalPage;
-        }
-
-        return current;
-    }
-
     internal static ContentEntries? ReadPageContents(
         GraphCopier copier,
         PdfDictionary page,
@@ -848,8 +823,9 @@ internal static class ContentTransforms
         }
 
         using ResourceNameSet unresolved = ResourceNameSet.Create(governor, cancellationToken);
-        using (FormResourceWalk forms = CollectFormStreams(copier, resources, governor, cancellationToken))
+        using (FormResourceWalk forms = FormResourceWalk.Create(governor, cancellationToken))
         {
+            forms.AddResources(resources, resolver);
             for (int index = 0; index < forms.Count; index++)
             {
                 FormResourceWalk.Form form = forms.Get(index);
@@ -874,61 +850,9 @@ internal static class ContentTransforms
         return page;
     }
 
-    private static FormResourceWalk CollectFormStreams(
-        GraphCopier copier,
-        PdfDictionary resources,
-        ResourceGovernor governor,
-        CancellationToken cancellationToken)
-    {
-        FormResourceWalk forms = FormResourceWalk.Create(governor, cancellationToken);
-        try
-        {
-            PoolResolver resolver = forms.CreateResolver(copier.CopiedObjects);
-            forms.AddScope(resources);
-            for (int scope = 0; scope < forms.ScopeCount; scope++)
-            {
-                PdfDictionary current = forms.GetScope(scope);
-                if (!PdfDictionaryLookup.TryGet(current, "XObject"u8, governor, cancellationToken, out QpdfObject xobjectsRaw) || xobjectsRaw is PdfNull)
-                { continue; }
-                QpdfObject xobjectsTarget = xobjectsRaw is PdfReference xobjectsReference
-                    ? ResolvePool(resolver, xobjectsReference, governor, cancellationToken) ?? xobjectsRaw : xobjectsRaw;
-                if (xobjectsTarget is not PdfDictionary xobjects) { continue; }
-                using var entries = xobjects.GetEntryEnumerator();
-                while (entries.MoveNext(governor, cancellationToken))
-                {
-                    QpdfObject entry = entries.Current.Value;
-                    if (entry is null || entry is PdfNull) { continue; }
-                    int? formId = null; QpdfObject target = entry;
-                    if (entry is PdfReference entryReference)
-                    {
-                        formId = entryReference.ObjectNumber;
-                        target = ResolvePool(resolver, entryReference, governor, cancellationToken) ?? entry;
-                    }
-                    if (target is not PdfStream stream || !IsFormXObject(stream, governor, cancellationToken)) { continue; }
-                    if (formId.HasValue && !forms.VisitNumber(formId.Value)) { continue; }
-                    forms.Add(formId, stream);
-                    if (PdfDictionaryLookup.TryGet(stream.Dictionary, "Resources"u8, governor, cancellationToken, out QpdfObject nestedRaw) && nestedRaw is not PdfNull)
-                    {
-                        QpdfObject nestedTarget = nestedRaw is PdfReference nestedReference
-                            ? ResolvePool(resolver, nestedReference, governor, cancellationToken) ?? nestedRaw : nestedRaw;
-                        if (nestedTarget is PdfDictionary nested) { forms.AddScope(nested); }
-                    }
-                }
-            }
-            return forms;
-        }
-        catch { forms.Dispose(); throw; }
-    }
-
     private static bool IsFormXObject(PdfStream stream, ResourceGovernor governor, CancellationToken cancellationToken)
-    {
-        if (PdfDictionaryLookup.TryGet(stream.Dictionary, "Subtype"u8, governor, cancellationToken, out QpdfObject subtype) && subtype is PdfName name)
-        {
-            return PdfDictionaryLookup.NameEquals(name, "Form"u8, governor, cancellationToken);
-        }
-
-        return false;
-    }
+        => PdfDictionaryLookup.TryGet(stream.Dictionary, "Subtype"u8, governor, cancellationToken, out QpdfObject subtype)
+            && subtype is PdfName name && PdfDictionaryLookup.NameEquals(name, "Form"u8, governor, cancellationToken);
 
     private static void ScanForm(
         GraphCopier copier,

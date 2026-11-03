@@ -170,7 +170,9 @@ echoing values.
 - --optimize-images uses the supplied codec to recompress eligible image XObjects
   (8-bit DeviceGray/DeviceRGB above the oi-min thresholds) as JPEG only when strictly
   smaller. Each image identity is attempted once across aliases, forms and repeated
-  pages, including skipped candidates. Indirect Image/Form subtype names resolve
+  pages, including skipped candidates. Resource aliases share replacements while
+  independent attachment and catalog roots retain original payloads; affected
+  ancestor Forms preserve sharing and cycles. Indirect Image/Form subtype names resolve
   through the copied object pool; stale or malformed values remain opaque.
   Providers receive --jpeg-quality in 0–100 (the development Lokad.Image adapter
   maps 0 to 1). Already-DCT images recompress only under an explicit quality; large

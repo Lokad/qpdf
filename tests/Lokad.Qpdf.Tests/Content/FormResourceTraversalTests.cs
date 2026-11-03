@@ -15,9 +15,12 @@ public sealed class FormResourceTraversalTests
     private static PdfDictionary Dictionary(params (string Key, QpdfObject Value)[] values)
     { Dictionary<PdfName, QpdfObject> entries = new(); foreach (var value in values) { entries.Add(PdfName.FromAscii(value.Key), value.Value); } return new(entries); }
     private static PdfStream Form(PdfDictionary resources) => new(Dictionary(("Subtype", PdfName.FromAscii("Form")), ("Resources", resources)), []);
-    private static readonly Func<GraphCopier, PdfDictionary, ResourceGovernor, CancellationToken, FormResourceWalk> Collect =
-        (typeof(ContentTransforms).GetMethod("CollectFormStreams", BindingFlags.NonPublic | BindingFlags.Static) ?? throw new InvalidOperationException("Missing form collector."))
-        .CreateDelegate<Func<GraphCopier, PdfDictionary, ResourceGovernor, CancellationToken, FormResourceWalk>>();
+    private static FormResourceWalk Collect(GraphCopier copier, PdfDictionary resources, ResourceGovernor governor, CancellationToken token)
+    {
+        FormResourceWalk walk = FormResourceWalk.Create(governor, token);
+        try { walk.AddResources(resources, walk.CreateResolver(copier.CopiedObjects)); return walk; }
+        catch { walk.Dispose(); throw; }
+    }
     private static List<(int? Id, PdfStream Stream)> Read(FormResourceWalk result)
     {
         try

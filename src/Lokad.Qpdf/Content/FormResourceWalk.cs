@@ -5,7 +5,7 @@ using Lokad.Qpdf.Syntax;
 namespace Lokad.Qpdf.Content;
 
 /// <summary>Owns form-resource traversal metadata while borrowing PDF values.</summary>
-internal sealed class FormResourceWalk : IDisposable
+internal sealed partial class FormResourceWalk : IDisposable
 {
     internal readonly record struct Form(int? Id, PdfStream Stream);
     private ParserMemoryScope? _memory;
@@ -69,6 +69,34 @@ internal sealed class FormResourceWalk : IDisposable
         }
         catch { scopes.RemoveAt(scopes.Count - 1); throw; }
         scopes.RemoveAt(scopes.Count - 1); return false;
+    }
+
+    internal void AddResources(PdfDictionary resources, PoolResolver resolver)
+    {
+        int first = ScopeCount;
+        AddScope(resources);
+        for (int scope = first; scope < ScopeCount; scope++)
+        {
+            PdfDictionary current = GetScope(scope);
+            PdfDictionary? objects = ResolveDictionary(current, "XObject"u8, resolver);
+            if (objects is null) { continue; }
+            using PdfDictionary.EntryEnumerator entries = objects.GetEntryEnumerator();
+            while (entries.MoveNext(Governor, _token))
+            {
+                QpdfObject target = entries.Current.Value; int? id = null;
+                if (target is PdfReference reference)
+                {
+                    id = reference.ObjectNumber;
+                    if (!PdfObjectLookup.TryResolve(reference, (IIndirectResolver)resolver, Governor, _token, out QpdfObject? value) || value is null) { continue; }
+                    target = value;
+                }
+                if (target is not PdfStream stream || !PdfDictionaryLookup.HasName(stream.Dictionary, "Subtype"u8, "Form"u8, resolver, Governor, _token)) { continue; }
+                if (id.HasValue && !VisitNumber(id.Value)) { continue; }
+                Add(id, stream);
+                PdfDictionary? nested = ResolveDictionary(stream.Dictionary, "Resources"u8, resolver);
+                if (nested is not null) { AddScope(nested); }
+            }
+        }
     }
 
     public void Dispose()

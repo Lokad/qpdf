@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Preserve independently retained image and Form payloads while redirecting
+  transformed resource references, including shared and cyclic Forms. Leave
+  unchanged Form headers intact during inline-image externalization.
+
 - Keep inline images when resource or colorspace binding fails, preserving form
   artwork and rejecting unresolved conversion before pixel allocation. Remove the
   obsolete candidate-preservation parameter and intermediate pixel owner.

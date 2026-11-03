@@ -31,13 +31,14 @@ internal sealed record ImageOptimizeRequest(
 /// </summary>
 internal static class ImageOptimizer
 {
-    internal static void Apply(
+    internal static bool Apply(
         IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
         ImageOptimizeRequest request,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ref int allocator)
     {
         if (occurrences is null)
         {
@@ -63,25 +64,42 @@ internal static class ImageOptimizer
         ArgumentNullException.ThrowIfNull(diagnostics);
         if (!request.Optimize)
         {
-            return;
+            return false;
         }
 
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
-        HashSet<int> visitedObjects = ParserContainers.CreateSet<int>(traversal);
-        traversal.Reserve(32L); // One short-lived pool resolver at a time.
+        Dictionary<GraphCopier, List<int>> pages = ParserContainers.CreateDictionary<GraphCopier, List<int>>(traversal);
         foreach ((GraphCopier copier, int pageId) in occurrences)
         {
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            if (copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? raw) && raw is PdfDictionary page)
+            allocator = Math.Max(allocator, copier.NextId);
+            if (!pages.TryGetValue(copier, out List<int>? ids))
             {
-                ProcessResources(copier, new PoolResolver(copier.CopiedObjects), page, request,
-                    limits, governor, diagnostics, traversal, visitedObjects, 0, cancellationToken);
+                ids = ParserContainers.CreateList<int>(traversal);
+                ParserContainers.EnsureEntryCapacity(traversal, pages, IntPtr.Size); pages.Add(copier, ids);
             }
+            ParserContainers.AddItem(traversal, ids, pageId, sizeof(int));
         }
+        bool changed = false;
+        foreach (KeyValuePair<GraphCopier, List<int>> group in pages)
+        {
+            using FormResourceWalk forms = FormResourceWalk.Create(governor, cancellationToken);
+            PoolResolver resolver = forms.CreateResolver(group.Key.CopiedObjects);
+            GovernedIntDictionary<PdfStream> replacements = GovernedIntDictionary<PdfStream>.Create(traversal, governor, IntPtr.Size, cancellationToken);
+            foreach (int pageId in group.Value)
+            {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                if (group.Key.CopiedObjects.TryGetValue(pageId, out QpdfObject? raw) && raw is PdfDictionary page)
+                {
+                    ProcessResources(resolver, page, request, limits, governor, diagnostics, traversal, forms, replacements, 0, cancellationToken);
+                }
+            }
+            changed |= forms.ApplyReplacements(group.Key, group.Value, replacements, ref allocator);
+        }
+        return changed;
     }
 
     private static void ProcessResources(
-        GraphCopier copier,
         PoolResolver resolver,
         PdfDictionary owner,
         ImageOptimizeRequest request,
@@ -89,7 +107,8 @@ internal static class ImageOptimizer
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         ParserMemoryScope traversal,
-        HashSet<int> visitedObjects,
+        FormResourceWalk forms,
+        GovernedIntDictionary<PdfStream> replacements,
         int depth,
         CancellationToken token)
     {
@@ -103,9 +122,8 @@ internal static class ImageOptimizer
         resolved = raw is PdfReference objectsLink ? ResolveOrNull(resolver, objectsLink) : raw;
         if (resolved is not PdfDictionary xobjects) { return; }
 
-        // PDF streams are indirect objects, including images externalized from
-        // inline content. Replacing a pool entry preserves every resource alias;
-        // page/resource dictionaries do not need to be copied or rebuilt.
+        // Gather candidates without changing the original pool slots. The same
+        // stream can also be an attachment or an independent catalog value.
         using PdfDictionary.EntryEnumerator entries = xobjects.GetEntryEnumerator();
         while (entries.MoveNext(governor, token))
         {
@@ -115,17 +133,18 @@ internal static class ImageOptimizer
             if (subtype is null) { continue; }
             if (PdfDictionaryLookup.NameEquals(subtype, "Form"u8, governor, token))
             {
-                if (ParserContainers.AddSetItem(traversal, visitedObjects, link.ObjectNumber, sizeof(int)))
+                if (forms.VisitNumber(link.ObjectNumber))
                 {
-                    ProcessResources(copier, resolver, stream.Dictionary, request, limits, governor,
-                        diagnostics, traversal, visitedObjects, checked(depth + 1), token);
+                    forms.Add(link.ObjectNumber, stream);
+                    ProcessResources(resolver, stream.Dictionary, request, limits, governor,
+                        diagnostics, traversal, forms, replacements, checked(depth + 1), token);
                 }
             }
             else if (PdfDictionaryLookup.NameEquals(subtype, "Image"u8, governor, token)
-                && ParserContainers.AddSetItem(traversal, visitedObjects, link.ObjectNumber, sizeof(int)))
+                && forms.VisitNumber(link.ObjectNumber))
             {
                 PdfStream? optimized = TryOptimize(stream, request, resolver, limits, governor, diagnostics, token);
-                if (optimized is not null) { copier.ReplaceCopiedObject(link.ObjectNumber, optimized); }
+                if (optimized is not null) { replacements.TryAdd(traversal, link.ObjectNumber, optimized); }
             }
         }
     }

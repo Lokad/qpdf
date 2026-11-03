@@ -76,6 +76,14 @@ Native qpdf can change that payload during normalization; managed preservation
 intentionally strengthens this case. Output object numbering, sharing and derived
 identifiers can change.
 
+Image optimization and inline externalization inside Forms now replace resource
+references while preserving original streams retained by attachments or other
+independent roots. Repeated resource uses share replacements, including cyclic
+Forms. Native qpdf preserves the image alias in the qualified cases but can change
+the retained Form program; managed preservation intentionally strengthens that
+case. Form conversion that makes no payload change keeps its original header,
+including absent/null resource entries. Output identities and identifiers can change.
+
 Inline-image externalization now retains original content streams and arrays
 referenced by independent catalog values. Previously those aliases could disappear,
 or QDF output could fail on an unmapped object. Retirement now uses the complete

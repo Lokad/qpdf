@@ -2969,12 +2969,14 @@
           "InlineImagesTests.MalformedExternalizeFlagsFail"
         ],
         "interaction": [
-          "InlineImagesTests.JobRoundTripMatchesArgv"
+          "InlineImagesTests.JobRoundTripMatchesArgv",
+          "ResourcePayloadIdentityTests.ResourceReplacementsKeepIndependentPayloadsAndSharedBindings"
         ],
         "resource": [
           "ResourceEnforcementTests.ExternalizeInlineImagesYieldsToExhaustedBudget",
           "SinglePartContentOwnershipTests.OwnedPartMovesWithoutASecondPayloadAllocation",
-          "SinglePartContentOwnershipTests.CancellationAfterJoinAdmissionLeavesThePartFunded"
+          "SinglePartContentOwnershipTests.CancellationAfterJoinAdmissionLeavesThePartFunded",
+          "ResourcePayloadIdentityTests.FailurePreservesTheTargetAndRefundsBothResourcePaths"
         ],
         "oracle": [
           "diff:inline"
@@ -4622,13 +4624,15 @@
         ],
         "interaction": [
           "ImageOptimizeTests.MergeOptimizesEveryPage",
-          "ImageOptimizeTests.JobParityHolds"
+          "ImageOptimizeTests.JobParityHolds",
+          "ResourcePayloadIdentityTests.ResourceReplacementsKeepIndependentPayloadsAndSharedBindings"
         ],
         "resource": [
           "ImageOptimizationGraphTests.EachImageIdentityIsAttemptedOnceIncludingSkippedCandidates",
           "ImageOptimizationGraphTests.FilterCeilingsPreserveOpaqueBytesBeforeSampleAndCodecAdmission",
           "ImageOptimizationGraphTests.ZeroFilterCeilingStillAllowsUnfilteredImages",
-          "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget",
+          "ResourcePayloadIdentityTests.FailurePreservesTheTargetAndRefundsBothResourcePaths"
         ],
         "oracle": [
           "diff:optimize-masks"

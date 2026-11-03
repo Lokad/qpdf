@@ -150,7 +150,7 @@ public sealed class InlineResourceDefaultsTests
     }
     [Theory]
     [MemberData(nameof(PreparationCases))]
-    public async Task BelowThresholdStillPreparesAnEmptyXObjectDictionary(string route, bool form, string resources)
+    public async Task BelowThresholdKeepsFormHeadersAndPreparesPageBindings(string route, bool form, string resources)
     {
         byte[] input = Fixture(form, resources, Image, string.Empty, resources.Contains("6 0 R", StringComparison.Ordinal) ? "<< >>" : null);
         (InMemoryQpdfHost host, QpdfExecutionResult result) = await Execute(input, route, 1000L, false, "whole", false);
@@ -158,7 +158,9 @@ public sealed class InlineResourceDefaultsTests
         await using QpdfDocument document = await Open(host);
         PdfDictionary dictionary = form ? Content(document, true).Dictionary : document.PageReferences[0].Page;
         PdfDictionary prepared = Assert.IsType<PdfDictionary>(Get(document, dictionary, "Resources"));
-        Assert.Empty(Assert.IsType<PdfDictionary>(Get(document, prepared, "XObject")).Keys);
+        if (form && resources.Contains("null", StringComparison.Ordinal)) { Assert.IsType<PdfNull>(Get(document, prepared, "XObject")); }
+        else if (form && resources == " /Resources << >>") { Assert.Null(Get(document, prepared, "XObject")); }
+        else { Assert.Empty(Assert.IsType<PdfDictionary>(Get(document, prepared, "XObject")).Keys); }
         Assert.Equal(Image, Content(document, form).Data);
     }
 
@@ -205,6 +207,7 @@ public sealed class InlineResourceDefaultsTests
         Assert.Equal(content, form.Data);
         if (kind == "integer") { Assert.Equal(3L, Assert.IsType<PdfInteger>(Get(document, form.Dictionary, "Resources")).Value); }
         else if (kind == "array") { Assert.Equal(2, Assert.IsType<PdfArray>(Get(document, form.Dictionary, "Resources")).Count); }
+        else if (kind == "null") { Assert.IsType<PdfNull>(Get(document, form.Dictionary, "Resources")); }
         else { Assert.False(form.Dictionary.TryGet(PdfName.FromAscii("Resources"), out _)); }
         List<PdfStream> images = Images(document);
         Assert.Empty(images);

@@ -225,23 +225,20 @@ public sealed class ImageOptimizeTests
         QpdfPath reread = QpdfPath.From("inputs/reread.pdf");
         host.AddInput(reread, pdf, QpdfInputOwnership.Copy);
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, reread, CancellationToken.None);
-        for (int number = 1; number <= 40; number++)
+        QpdfObject Resolve(QpdfObject value) => value is PdfReference reference ? document.GetObject(reference.ObjectNumber) : value;
+        QpdfObject Get(PdfDictionary dictionary, PdfName name) { Assert.True(dictionary.TryGet(name, out QpdfObject value)); return Resolve(value); }
+        PdfDictionary resources = Assert.IsType<PdfDictionary>(Get(document.PageReferences[0].Page, PdfName.FromAscii("Resources")));
+        PdfDictionary objects = Assert.IsType<PdfDictionary>(Get(resources, PdfName.FromAscii("XObject")));
+        List<PdfStream> images = [];
+        foreach (PdfName key in objects.Keys)
         {
-            try
+            if (Get(objects, key) is PdfStream stream && stream.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject subtype)
+                && Resolve(subtype) is PdfName name && name.DisplayText == "Image")
             {
-                if (document.GetObject(number) is PdfStream stream
-                    && stream.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject subtype)
-                    && subtype is PdfName name && name.DisplayText == "Image")
-                {
-                    return stream;
-                }
-            }
-            catch (QpdfParseException)
-            {
+                images.Add(stream);
             }
         }
-
-        throw new Xunit.Sdk.XunitException("No image XObject found in output.");
+        return Assert.Single(images);
     }
 
     private static string FilterOf(PdfStream stream)

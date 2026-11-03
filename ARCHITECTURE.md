@@ -114,7 +114,14 @@ there is no per-page pool-removal plan or source-map mutation. Content
 normalization replaces page edges and keeps an original stream or array
 for independent catalog, metadata or attachment roots. Its existing per-operation
 cache shares replacements while the source pool version matches, including cached
-failed attempts. Ordinary
+failed attempts. Image optimization and Form inline conversion likewise gather
+replacements
+without changing original stream slots. The existing form walk redirects resource
+edges and affected ancestor Forms, registering new identities before rebuilding
+headers so cycles and shared bindings stay coherent. Resource headers are copied
+once per dictionary identity; independent payload roots keep their originals.
+No-op Form conversion keeps its existing header. These replacements join final-root
+retirement. Ordinary
 adds and removals need no extra graph scan. Split attachment
 roots come only from the final name tree. Shared references and explicit
 unreferenced-object preservation retain their existing ownership and policy.
