@@ -127,6 +127,15 @@ removed fields; those are intentional managed differences. Empty arrays stay emp
 and opaque non-array values keep their preservation policy. No calculation engine
 or public signature is added.
 
+Form inspection now resolves optional entries before deciding field identity or
+inheritance. Indirect null entries behave like direct null or absence, including
+parent projection, flags, text values, choices and quadding. A catalog AcroForm
+that resolves null is absent for inspection and copying. Existing malformed
+non-null outcomes and bounded lenient field ancestry remain unchanged. Native
+qpdf can retain the indirect spelling or widget identity in these cases; managed
+inspection deliberately keeps its terminal-field and resolved-value contract.
+Public signatures are unchanged.
+
 Optional attachment name-tree and page-label number-tree arrays now classify
 resolved values before testing presence. Indirect null Names/Nums/Kids behaves
 like direct null or absence, including nonempty data in the other branch.

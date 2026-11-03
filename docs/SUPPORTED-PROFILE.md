@@ -393,7 +393,11 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
   Outlines
   resolve explicit destinations, including local GoTo actions; named destinations
   remain unresolved. Acroform reports fields with inherited
-  types, names, values, and annotations. `--json-object={trailer|obj[,gen]}`
+  types, names, values, and annotations. Optional field entries resolve before
+  identity and inheritance decisions: indirect null behaves like direct null or
+  absence. A resolved-null catalog AcroForm is absent for inspection and copying;
+  malformed non-null values keep their existing outcomes.
+  `--json-object={trailer|obj[,gen]}`
   limits the objects dictionaries. `--json-stream-data={none|inline|file}`
   adds base64 payloads inline or writes sidecar files (`--json-stream-prefix`
   overrides the output-derived prefix), decoding per the decode level with

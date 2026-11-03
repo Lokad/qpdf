@@ -37,18 +37,23 @@ internal sealed record CopiedForm(
 /// </summary>
 internal static class AcroFormCopy
 {
-    internal static bool HasFieldEntries(PdfDictionary node, ResourceGovernor governor, CancellationToken token)
+    internal static bool HasFieldEntries(PdfDictionary node, IIndirectResolver resolver, ResourceGovernor governor, CancellationToken token)
     {
         using PdfDictionary.EntryEnumerator entries = node.GetEntryEnumerator();
-        while (entries.MoveNext())
+        while (entries.MoveNext(governor, token))
         {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (entries.Current.Value is PdfNull) { continue; }
             ReadOnlySpan<byte> key = entries.Current.Key.RawSpan;
             if (key.SequenceEqual("T"u8) || key.SequenceEqual("FT"u8) || key.SequenceEqual("TU"u8)
                 || key.SequenceEqual("TM"u8) || key.SequenceEqual("Ff"u8) || key.SequenceEqual("V"u8)
                 || key.SequenceEqual("DV"u8) || key.SequenceEqual("DA"u8) || key.SequenceEqual("Q"u8)
-                || key.SequenceEqual("Opt"u8) || key.SequenceEqual("MaxLen"u8)) { return true; }
+                || key.SequenceEqual("Opt"u8) || key.SequenceEqual("MaxLen"u8))
+            {
+                if (entries.Current.Value is PdfReference reference
+                    && PdfObjectLookup.TryResolve(reference, resolver, governor, token, out QpdfObject? resolved)
+                    && resolved is null or PdfNull) { continue; }
+                return true;
+            }
         }
         return false;
     }
@@ -1715,6 +1720,7 @@ internal static class AcroFormCopy
             if (resolver.TryResolve(formReference, out QpdfObject? resolved))
             {
                 if (resolved is PdfDictionary resolvedForm) { return resolvedForm; }
+                if (resolved is PdfNull) { return null; }
                 if (resolved is PdfArray) { return null; }
             }
 

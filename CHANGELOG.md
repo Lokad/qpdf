@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Treat resolved-null AcroForm roots and optional field entries like direct null
+  when copying or inspecting forms. Preserve terminal field identity and inherited
+  values, including flags, names, choices and quadding; retain existing malformed
+  non-null handling and bounded ancestry.
+
 - Reject invalid UTF-16 in typed page-label prefixes before publication, retaining
   valid surrogate pairs and literal replacement/BOM-looking text. Remove the
   stale duplicate "work" iteration from the prefix memory-refusal test.

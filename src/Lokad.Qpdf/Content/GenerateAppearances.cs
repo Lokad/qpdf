@@ -179,7 +179,7 @@ internal static class GenerateAppearances
             traversal, scratch, limits, governor, token);
         // A separate widget belongs to its immediate terminal field, independently
         // of which ancestor supplies FT. A merged widget carries field entries.
-        int fieldIndex = chain.Count > 1 && !AcroFormCopy.HasFieldEntries(annot, governor, token) ? 1 : 0;
+        int fieldIndex = chain.Count > 1 && !AcroFormCopy.HasFieldEntries(annot, resolver, governor, token) ? 1 : 0;
         FieldType type = FieldType.Other;
         bool typeFound = false, flagsFound = false;
         long flags = 0;

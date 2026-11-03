@@ -161,6 +161,8 @@ normalization creates a fresh stream identity and keeps independent originals.
 Form calculation-order arrays resolve through the copied pool before classification.
 Direct and indirect arrays borrow the same owned backing into the existing source
 combination and final field-closure filtering; opaque non-array extras stay opaque.
+Field identity and inherited optional values likewise classify resolved nulls;
+inspection keeps the existing terminal-field projection and bounded ancestry.
 Cross-reference tables likewise require an explicit owner. Synthetic fixtures
 admit their entry maps, trailer lists and input receipts and transfer them through
 the same owned table/engine factories as production, with explicit escape and input
