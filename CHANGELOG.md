@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Keep generated text encoding with the selected appearance font, including its
+  default encoding, while retaining document-font fallback for missing local fonts.
+
 - Preserve appearance readiness after skipped regeneration, including imported
   forms and split output. Later flattening keeps affected widgets while eligible
   non-widget annotations can still flatten.

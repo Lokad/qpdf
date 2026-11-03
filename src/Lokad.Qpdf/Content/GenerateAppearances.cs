@@ -818,21 +818,6 @@ internal static class GenerateAppearances
         return new(11.0, Array.Empty<byte>(), appearance);
     }
 
-    private static PdfName? FindFontEncoding(QpdfObject? resourcesRaw, ReadOnlySpan<byte> fontName,
-        PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
-    {
-        QpdfObject? resources = resourcesRaw is PdfReference link ? ResolveOrNull(resolver, link) : resourcesRaw;
-        if (resources is PdfDictionary dictionary
-            && TryGetFontRaw(dictionary, fontName, resolver, governor, token) is QpdfObject fontRaw)
-        {
-            QpdfObject? font = fontRaw is PdfReference fontLink ? ResolveOrNull(resolver, fontLink) : fontRaw;
-            if (font is PdfDictionary fontDictionary
-                && PdfDictionaryLookup.TryGet(fontDictionary, "Encoding"u8, governor, token, out QpdfObject encoding)
-                && ResolveFieldValue(encoding, resolver, governor, token) is PdfName name) { return name; }
-        }
-        return null;
-    }
-
     private static PdfDictionary? TryMergeDrFont(PdfDictionary appearance, ReadOnlySpan<byte> fontName,
         PdfDictionary? formResources, PoolResolver resolver, OwnedAllocationBatch graph)
     {
@@ -887,12 +872,17 @@ internal static class GenerateAppearances
         PdfDictionary? formResources, PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
     {
         if (fontName.IsEmpty) { return AppearanceEncoding.Ascii; }
-        PdfName? encoding = null;
-        if (appearance.TryGet(PdfName.FromAscii("Resources"), out QpdfObject? resourcesRaw))
-        { encoding = FindFontEncoding(resourcesRaw, fontName, resolver, governor, token); }
-        // Encoding inheritance consults document-level AcroForm DR, not field DR or page resources.
-        if ((encoding is null || encoding.RawSpan.IsEmpty) && formResources is not null)
-        { encoding = FindFontEncoding(formResources, fontName, resolver, governor, token); }
+        QpdfObject? fontRaw = null;
+        if (PdfDictionaryLookup.TryGet(appearance, "Resources"u8, governor, token, out QpdfObject resourcesRaw)
+            && CatalogCopy.ResolveDictionary(resourcesRaw, resolver, governor, token) is PdfDictionary local)
+        { fontRaw = TryGetFontRaw(local, fontName, resolver, governor, token); }
+        // The local font wins even when its encoding is absent or unsupported.
+        // Only a missing font falls back to document DR; field/page DR stays ignored.
+        if (fontRaw is null && formResources is not null)
+        { fontRaw = TryGetFontRaw(formResources, fontName, resolver, governor, token); }
+        PdfName? encoding = CatalogCopy.ResolveDictionary(fontRaw, resolver, governor, token) is PdfDictionary font
+            && PdfDictionaryLookup.TryGet(font, "Encoding"u8, governor, token, out QpdfObject encodingRaw)
+            ? ResolveFieldValue(encodingRaw, resolver, governor, token) as PdfName : null;
         if (encoding is not null)
         {
             if (PdfDictionaryLookup.NameEquals(encoding, "WinAnsiEncoding"u8, governor, token)) { return AppearanceEncoding.WinAnsi; }

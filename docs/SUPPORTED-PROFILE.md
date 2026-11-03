@@ -286,7 +286,9 @@ echoing values.
   imports, is excluded; typed calls reject `/Sig` and
   argv/job JSON report `UnsupportedCryptoOperation`. An absent or null `/V`
   remains copyable; inspection does not verify signatures. Local
-  appearance fonts win over AcroForm default resources; field default resources
+  appearance fonts win over AcroForm default resources, including their absent or
+  unsupported encoding. Encoding fallback never crosses selected font identities.
+  A missing local font can use the document default; field default resources
   are not merged. Unusable defaults/resources and malformed programs warn and
   preserve appearances. Structural, decompression, memory and cancellation limits
   remain binding.

@@ -3210,6 +3210,7 @@
           "GenerateAppearancesTests.CheckboxSynchronizesState",
           "GenerateAppearancesTests.FontEncodingKeepsAccentsWithEquivalentNameSpellings",
           "AppearanceEncodingReferenceTests.IndirectEncodingNamesKeepGlyphsAndLocalFontPrecedence",
+          "AppearanceFontIdentityTests.TextEncodingBelongsToTheSelectedFont",
           "GenerateAppearancesTests.ListBoxHighlightsSelectedRow",
           "GenerateAppearancesTests.GenerateThenFlattenStampsFreshAppearance",
           "GenerateAppearancesTests.ParentHeldFieldIsSkipped",

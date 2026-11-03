@@ -56,6 +56,11 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Generated text now takes its encoding from the selected font. A local appearance
+font with an absent/default encoding no longer borrows encoding from a shadowed
+AcroForm default font of the same name. A genuinely missing local font still uses
+the document default; unsupported encodings retain the bounded ASCII fallback.
+
 Appearance generation clears `NeedAppearances` only when all retained widgets
 were updated. Skipped generation preserves the flag and prevents subsequent
 flattening from stamping stale widget appearances; eligible non-widget annotations
