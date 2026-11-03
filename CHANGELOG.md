@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Preserve finite geometry values with bounded round-trip decimal formatting,
+  including tiny page dimensions and placement scales that previously became zero.
+
 - Preserve existing text-field artwork when generating an appearance selected
   by an indirect state name, including generation followed by flattening.
 

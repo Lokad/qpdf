@@ -31,10 +31,44 @@ internal static class WriterNumber
     {
         if (!double.IsFinite(value))
         { throw new QpdfParseException("Transformation produced non-finite geometry.", null, null); }
-        if (value > -0.00001 && value < 0.00001) { value = 0.0; }
-        double rounded = Math.Round(value, 5, MidpointRounding.AwayFromZero);
-        if (!rounded.TryFormat(target, out int written, "0.#####", CultureInfo.InvariantCulture))
+        // The shortest round-trip form preserves nonzero dimensions/scales.
+        // Expand scientific notation because PDF number tokens have no exponent.
+        Span<char> compact = stackalloc char[32];
+        if (!value.TryFormat(compact, out int length, "R", CultureInfo.InvariantCulture))
         { throw new QpdfParseException("Transformation coordinate exceeds its numeric format.", null, null); }
+        if (value == 0.0) { compact[0] = '0'; length = 1; }
+        int exponentAt = compact[..length].IndexOf('E');
+        int written;
+        if (exponentAt < 0)
+        {
+            if (!compact[..length].TryCopyTo(target))
+            { throw new QpdfParseException("Transformation coordinate exceeds its numeric format.", null, null); }
+            written = length;
+        }
+        else
+        {
+            int sign = compact[0] == '-' ? 1 : 0;
+            ReadOnlySpan<char> mantissa = compact[sign..exponentAt];
+            int point = mantissa.IndexOf('.');
+            int digits = mantissa.Length - (point < 0 ? 0 : 1);
+            int exponent = int.Parse(compact[(exponentAt + 1)..length], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+            int decimalAt = (point < 0 ? digits : point) + exponent;
+            written = sign + (decimalAt <= 0 ? 2 - decimalAt + digits
+                : Math.Max(decimalAt, digits) + (decimalAt < digits ? 1 : 0));
+            if (written > target.Length)
+            { throw new QpdfParseException("Transformation coordinate exceeds its numeric format.", null, null); }
+            target[..written].Fill('0');
+            if (sign != 0) { target[0] = '-'; }
+            int destination = sign;
+            if (decimalAt <= 0) { target[sign + 1] = '.'; destination = sign + 2 - decimalAt; }
+            int copied = 0;
+            foreach (char digit in mantissa)
+            {
+                if (digit == '.') { continue; }
+                if (decimalAt > 0 && copied == decimalAt) { target[destination++] = '.'; }
+                target[destination++] = digit; copied++;
+            }
+        }
         // Large integral reals must remain real tokens: integer parsing is 64-bit.
         if (!target[..written].Contains('.')
             && !long.TryParse(target[..written], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out _))

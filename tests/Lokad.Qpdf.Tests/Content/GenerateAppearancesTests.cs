@@ -12,6 +12,16 @@ private static string SP()
 {
 return new string((char)32, 1);
 }
+private static void AssertTextPosition(string program, double x, double y)
+{
+System.Text.RegularExpressions.Match position = System.Text.RegularExpressions.Regex.Match(program, @"(?m)^([+-]?[0-9.]+) ([+-]?[0-9.]+) Td$");
+Assert.True(position.Success);
+// Preserve the original five-decimal placement check without requiring its old numeric spelling.
+double actualX = double.Parse(position.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+double actualY = double.Parse(position.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture);
+Assert.Equal(x, Math.Round(actualX, 5, MidpointRounding.AwayFromZero));
+Assert.Equal(y, Math.Round(actualY, 5, MidpointRounding.AwayFromZero));
+}
 private static byte[] BuildPdf(string catalogExtra, string pageExtra, List<(string Dict, byte[]? StreamData)> extras)
 {
 List<string> bodies = new()
@@ -357,7 +367,7 @@ byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appe
 byte[] bytes = await AppearanceBytesAsync(pdf, 0);
 string text = Encoding.ASCII.GetString(bytes);
 Assert.Contains("(Hello) Tj", text);
-Assert.Contains("1 5.2 Td", text);
+AssertTextPosition(text, 1.0, 5.2);
 }
 [Fact]
 public async Task TextFieldAppearanceRegeneratesValue()
@@ -377,7 +387,7 @@ byte[] bytes = await AppearanceBytesAsync(pdf, 0);
 string text = Encoding.ASCII.GetString(bytes);
 Assert.Contains("/Helv 12 Tf", text);
 Assert.Contains("(Hello) Tj", text);
-Assert.Contains("1 5.2 Td", text);
+AssertTextPosition(text, 1.0, 5.2);
 }
 
 [Fact]
@@ -715,7 +725,7 @@ Assert.Equal(QpdfDiagnosticSeverity.Warning, parentWarning.Severity);
 byte[] bytes = await AppearanceBytesAsync(pdf, 0);
 string text = Encoding.ASCII.GetString(bytes);
 Assert.Contains("(Hello) Tj", text);
-Assert.Contains("1 5.2 Td", text);
+AssertTextPosition(text, 1.0, 5.2);
 }
 [Fact]
 public async Task MergeUsesPrimaryDefaultResourcesEncoding()

@@ -58,7 +58,7 @@ public sealed class GeneratedGeometryTests
     {
         foreach (string operation in new[] { "appearance", "overlay", "underlay" })
         foreach (bool job in new[] { false, true })
-        foreach (string width in new[] { "200", "100000000000000000000.0", "9223372036854776000.0" })
+        foreach (string width in new[] { "200", "0.000001", "100000000000000000000.0", "9223372036854776000.0" })
         { yield return [operation, job, width]; }
     }
 

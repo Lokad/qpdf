@@ -56,6 +56,12 @@ input reads its registration until the caller exports and registers the new byte
 
 ## Resource API and behavior changes
 
+Computed geometry now emits decimal PDF numbers that round-trip their finite
+binary64 values. Tiny nonzero dimensions and scales are preserved instead of
+being clamped to zero or rounded to five decimals. Numeric spelling and output
+bytes can change; native qpdf can retain less precision. Non-finite results and
+insufficient bounded formatting storage still reject before publication.
+
 Text appearance regeneration now resolves an indirect appearance-state name
 before selecting its normal program. Existing selected-state artwork and
 resources survive generation and subsequent annotation flattening just as they

@@ -3202,6 +3202,7 @@
           "AppearanceStateGenerationTests.GenerationResolvesTheSelectedStateBeforeReplacingItsProgram",
           "GenerateAppearancesTests.MissingAppearanceIsCreated",
           "GeneratedGeometryTests.GeneratedCoordinatesRemainReadableAfterDocumentsAndHostClose",
+          "GeometryPrecisionTests.FlatteningPreservesNonzeroDimensionsAfterCleanup",
           "GenerateAppearancesTests.CheckboxSynchronizesState",
           "GenerateAppearancesTests.FontEncodingKeepsAccentsWithEquivalentNameSpellings",
           "AppearanceEncodingReferenceTests.IndirectEncodingNamesKeepGlyphsAndLocalFontPrecedence",
