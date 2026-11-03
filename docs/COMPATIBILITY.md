@@ -131,7 +131,9 @@ Optional attachment name-tree and page-label number-tree arrays now classify
 resolved values before testing presence. Indirect null Names/Nums/Kids behaves
 like direct null or absence, including nonempty data in the other branch.
 Malformed non-null arrays, required key/child errors, unresolved references,
-cycles and structural limits keep their existing failures. Selective attachment
+cycles and structural limits keep their existing failures. Dead generation pairs
+and free entries follow the reader's resolved-null policy for optional arrays;
+required keys and children still fail. Selective attachment
 extraction still stops after finding its requested entry. Empty trees retain
 their existing operation-specific warning policy; public signatures are unchanged.
 

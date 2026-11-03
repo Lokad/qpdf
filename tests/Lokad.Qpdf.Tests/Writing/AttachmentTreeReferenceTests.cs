@@ -114,23 +114,34 @@ public sealed class AttachmentTreeReferenceTests
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
+    public static IEnumerable<object[]> OptionalCases()
+    {
+        foreach (string variant in new[] { "empty", "direct-null", "names-null", "kids-null", "names-stale", "kids-stale" })
+        foreach (string route in new[] { "typed", "argv", "job" }) { yield return [variant, route]; }
+    }
+
     [Theory]
-    [InlineData("empty")]
-    [InlineData("direct-null")]
-    [InlineData("names-null")]
-    [InlineData("kids-null")]
-    public async Task AbsentAndNullTreeArraysRemainOptional(string variant)
+    [MemberData(nameof(OptionalCases))]
+    public async Task AbsentAndNullTreeArraysRemainOptional(string variant, string route)
     {
         using InMemoryQpdfHost host = new();
         host.AddInput(Input, Fixture(variant, "(note.txt)", 0), QpdfInputOwnership.Transfer);
-        Assert.Empty(await Qpdf.ListAttachmentsAsync(host, Input, CancellationToken.None));
+        if (route == "typed") { Assert.Empty(await Qpdf.ListAttachmentsAsync(host, Input, CancellationToken.None)); }
+        else
+        {
+            QpdfExecutionResult result = route == "argv"
+                ? await Qpdf.ExecuteAsync(host, new(["input", "--list-attachments"]), CancellationToken.None)
+                : await Qpdf.ExecuteJobAsync(host, Job("list"), CancellationToken.None);
+            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+            Assert.Contains(result.Diagnostics, item => item.Message.Contains("has no embedded files", StringComparison.Ordinal));
+        }
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     public static IEnumerable<object[]> MalformedCases()
     {
-        foreach (string variant in new[] { "names-type", "names-odd", "names-missing", "names-stale",
-            "kids-type", "kids-missing", "kids-stale", "kids-cycle",
+        foreach (string variant in new[] { "names-type", "names-odd", "names-missing",
+            "kids-type", "kids-missing", "kids-cycle",
             "key-type", "key-null", "key-missing", "key-stale", "deep" })
         foreach (string route in new[] { "typed", "argv", "job" }) { yield return [variant, route]; }
     }
