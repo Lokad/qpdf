@@ -282,7 +282,11 @@ echoing values.
   Computed coordinates use bounded decimal formatting that preserves finite
   binary64 values, including nonzero dimensions/scales below five decimal places;
   exponent notation is expanded for valid PDF numeric tokens.
-- Flattening annotations removes Hidden/Invisible annotations without stamping
+- Flattening retains annotations with effective non-null OC conditions, preserving
+  their flags, identities and appearance edges, and warns once per operation.
+  Absent/null OC remains eligible. It does not bake viewer layer state or combine
+  layer configurations across documents. Widget readiness keeps its existing priority.
+- Flattening eligible annotations removes Hidden/Invisible annotations without stamping
   their appearances in every mode; Print and NoView further govern print/screen
   stamping respectively.
 - `--generate-appearances` regenerates text/list widget appearances from field

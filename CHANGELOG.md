@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Retain annotations with non-null optional-content conditions during flattening,
+  with one bounded warning. Preserve their flags and condition instead of turning
+  layer-dependent artwork into unconditional page content; null conditions remain
+  eligible for ordinary flattening.
+
 - Preserve independently retained appearance headers when flattening requires
   Form normalization; reuse indirect Form subtypes like direct ones. Rotation
   flattening keeps private AP values opaque instead of adding placement matrices.

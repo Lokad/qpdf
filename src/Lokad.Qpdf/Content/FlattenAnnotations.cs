@@ -105,6 +105,7 @@ internal static class FlattenAnnotations
         int required = mode == "print" ? FlagPrint : 0;
         int forbidden = FlagInvisible | FlagHidden | (mode == "screen" ? FlagNoView : 0);
         bool warned = false;
+        bool warnedOptionalContent = false;
         Span<byte> nameBytes = stackalloc byte[16];
         foreach ((GraphCopier copier, int pageId) in occurrences)
         {
@@ -190,6 +191,18 @@ internal static class FlattenAnnotations
                 bool isWidget = PdfDictionaryLookup.HasName(annot, "Subtype"u8, "Widget"u8, resolver, governor, cancellationToken);
                 if (needAppearances && isWidget)
                 { ParserContainers.AddItem(graph.Memory, kept, item, IntPtr.Size); continue; }
+                if (PdfDictionaryLookup.TryGet(annot, "OC"u8, governor, cancellationToken, out QpdfObject condition)
+                    && CatalogCopy.ResolveValue(condition, resolver, governor, cancellationToken) is not (null or PdfNull))
+                {
+                    ParserContainers.AddItem(graph.Memory, kept, item, IntPtr.Size);
+                    if (!warnedOptionalContent)
+                    {
+                        warnedOptionalContent = true;
+                        diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning,
+                            "Cannot flatten annotations with optional-content conditions; keeping those annotations.");
+                    }
+                    continue;
+                }
 
                 PdfStream? appearance = FindAppearanceStream(annot, resolver, governor, cancellationToken, out PdfReference? appearanceRaw);
                 if (appearance is null)

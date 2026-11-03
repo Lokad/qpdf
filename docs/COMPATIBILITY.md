@@ -111,6 +111,14 @@ state dictionaries; private AP streams and dictionaries retain their identities
 and matrices. Affected output identities and bytes can change; public signatures
 are unchanged.
 
+Annotation flattening now retains annotations with non-null optional-content
+conditions, including OCG/OCMD values, and reports one warning per operation.
+Their flags, identities and appearances remain intact; unrelated annotations can
+still flatten. Absent/direct-null/indirect-null conditions use the ordinary path.
+This conservatively avoids native qpdf 12.4.2's loss of layer visibility. It does
+not evaluate the viewer's current layer state or merge layer configurations from
+different documents. Widget appearance-readiness preservation still takes priority.
+
 Content normalization now interprets an unescaped CR or CRLF inside a literal
 string as one LF byte, matching the reader and PDF syntax rules. Explicit escaped
 CR and octal bytes retain their values; line continuations still contribute no

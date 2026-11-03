@@ -3097,6 +3097,7 @@
         "interaction": [
           "FlattenAnnotationsTests.JobRoundTripMatchesArgv",
           "AppearanceRoleTests.FlatteningNormalizesOnlyTheAppearanceEdgeAndPreservesOriginalHeaders",
+          "AnnotationOptionalContentTests.FlatteningKeepsConditionalAnnotationsAndLeavesNullConditionsEligible",
           "GenerationReadinessTests.SkippedWidgetsStayWhileNonwidgetsFlatten",
           "GenerationReadinessTests.ImportedReadinessParticipatesInGenerationAndFlattening"
         ],
