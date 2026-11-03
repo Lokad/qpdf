@@ -65,6 +65,12 @@ PDF opening and normalized JSON creation/update use the same bounded page-tree
 traversal, including indirect values, path cycle guards and nesting limits. JSON
 validation borrows its mapped model and retires temporary page locations before
 publication; no second counting walk approximates the reader's result.
+JSON updates use the existing immutable remapping walk to validate source
+generations against the borrowed xref table before merging authored zero-generation
+values. Source pairs normalize without renumbering; later publication remaps the
+merged graph once. Changed containers borrow their original payloads, and the
+private input owner remains alive through publication. Dead source edges cannot
+bind newly introduced objects merely because their numbers match.
 When a primary document supplies no selected pages, the same copy loop admits its
 catalog graph without adding a page group or changing source mappings. Replacement
 targets the primary path independently of the selected page providers.

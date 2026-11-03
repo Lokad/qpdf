@@ -1,4 +1,5 @@
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 
@@ -11,6 +12,16 @@ namespace Lokad.Qpdf.Writing;
 /// </summary>
 internal static class ObjectRemap
 {
+    // Validate source pairs before JSON edits introduce generation-zero values.
+    // The existing immutable walk borrows the xref index and stream payloads.
+    internal static QpdfObject NormalizeSource(QpdfObject value, IReadOnlyDictionary<int, XrefEntry> entries,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        memory.CheckOwner(governor);
+        return RemapIds(value, new NumberMap(null, null, null) { SourceEntries = entries, DiscardUnmapped = true },
+            memory, governor, token, 0L);
+    }
+
     internal static QpdfObject RemapImported(QpdfObject value, Dictionary<int, int> renumber,
         ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
@@ -55,8 +66,16 @@ internal static class ObjectRemap
         WriterIndex<int>? Writer)
     {
         internal bool DiscardUnmapped { get; init; }
-        internal bool TryGetValue(int number, out int mapped)
+        internal IReadOnlyDictionary<int, XrefEntry>? SourceEntries { get; init; }
+        internal bool TryGetValue(PdfReference reference, out int mapped)
         {
+            int number = reference.ObjectNumber;
+            if (SourceEntries is not null)
+            {
+                mapped = number;
+                return SourceEntries.TryGetValue(number, out XrefEntry entry) && entry.Kind != XrefEntryKind.Free
+                    && reference.Generation == (entry.Kind == XrefEntryKind.Compressed ? 0 : entry.Second);
+            }
             if (Writer is not null) { return Writer.TryGetValue(number, out mapped); }
             if (Governed is not null) { return Governed.TryGetValue(number, out mapped); }
             if (Plain is not null) { return Plain.TryGetValue(number, out mapped); }
@@ -86,7 +105,7 @@ internal static class ObjectRemap
         governor.NoteOperation();
         if (value is PdfReference reference)
         {
-            if (!renumber.TryGetValue(reference.ObjectNumber, out int mapped))
+            if (!renumber.TryGetValue(reference, out int mapped))
             {
                 if (renumber.DiscardUnmapped) { return PdfNull.Instance; }
                 throw new QpdfException($"Publication reached unmapped object {reference.ObjectNumber}.");

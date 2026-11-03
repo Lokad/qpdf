@@ -246,10 +246,12 @@ internal static partial class JsonImport
             }
 
             governor.NoteOperation();
-            merged[entry.Key] = engine.Load(entry.Key);
+            merged[entry.Key] = Writing.ObjectRemap.NormalizeSource(engine.Load(entry.Key), engine.XRefEntries,
+                memory, governor, cancellationToken);
         }
 
-        PdfDictionary trailer = engine.Trailer;
+        PdfDictionary trailer = (PdfDictionary)Writing.ObjectRemap.NormalizeSource(engine.Trailer, engine.XRefEntries,
+            memory, governor, cancellationToken);
         foreach (JsonProperty property in qpdf[1].EnumerateObject())
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -271,7 +273,8 @@ internal static partial class JsonImport
             merged[number] = await ReadObjectAsync(host, property.Value, existing as PdfStream, limits, governor, memory, cancellationToken).ConfigureAwait(false);
         }
 
-        return new ImportedModel(updateVersion ?? pdf.HeaderVersion, merged, trailer);
+        QpdfDocument.VersionParts header = pdf.HeaderVersionParts;
+        return new ImportedModel(updateVersion ?? governor.PrivateVersion(header.Major, header.Minor), merged, trailer);
     }
 
     private static PdfVersion? ReadUpdateMeta(JsonElement meta, ResourceGovernor governor)
@@ -717,7 +720,12 @@ internal static partial class JsonImport
     private static QpdfObject DecodeString(string text, ResourceGovernor governor, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        if (IsIndirectReference(text, out int number, out int generation)) { return new PdfReference(number, generation); }
+        if (IsIndirectReference(text, out int number, out int generation))
+        {
+            if (generation != 0)
+            { throw new QpdfParseException("qpdf JSON reference generations other than 0 are outside the narrow profile.", 0L, null); }
+            return new PdfReference(number, 0);
+        }
         ReadOnlySpan<char> span = text.AsSpan();
         if (span.StartsWith("u:", StringComparison.Ordinal))
         {

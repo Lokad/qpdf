@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Reject nonzero JSON reference generations before publication. Preserve valid
+  source aliases during updates and normalize stale, free and missing source
+  pairs to null before applying edits, including no-op updates. Keep update
+  source documents and version carriers private so failure/cancellation refunds
+  their charges.
+
 - Keep non-array appearance matrices opaque during overlay/underlay placement,
   with a bounded warning, instead of replacing them with invisible zero transforms.
   Preserve sharing and the separate legacy malformed-array fallback.

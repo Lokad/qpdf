@@ -4800,7 +4800,7 @@ public static partial class Qpdf
             throw new QpdfParseException("The output file must differ from the JSON file.", 0L, null);
         }
 
-        await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
+        await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
         using ParserMemoryScope importMemory = ParserMemoryScope.Create(governor);
         System.Text.Json.JsonDocument parsed = await Json.JsonImport.ReadJsonAsync(host, jsonPath, limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
         using (parsed)

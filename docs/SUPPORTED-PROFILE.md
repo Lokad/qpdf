@@ -417,9 +417,10 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
 - `input.json --json-input -- output.pdf` builds a PDF from qpdf JSON version
   2 (only the top-level qpdf array is read): strict object keys, canonical
   value encodings with resolved names, inline base64 or host sidecar stream
-  payloads, and renumbered classic output with the catalog first. Generations
-  other than 0, encrypted trailers, and stream/metadata writer options stay
-  explicitly unsupported. The typed `CreatePdfFromJsonAsync` shares the
+  payloads, and renumbered classic output with the catalog first. Authored object
+  declaration and reference generations other than 0, encrypted trailers, and
+  stream/metadata writer options stay explicitly unsupported. The typed
+  `CreatePdfFromJsonAsync` shares the
   engine. `input.pdf --update-from-json=update.json -- output.pdf` merges a
   qpdf JSON document into the PDF: objects are replaced or added by number
   (new streams still require payloads while existing streams keep their data
@@ -428,6 +429,11 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
   JSON pdfversion overrides the output version when present. Pushed inherited
   attributes stay explicitly unsupported. The typed
   `UpdatePdfFromJsonAsync` shares the engine.
+  Existing PDF references are checked against the source cross-reference table
+  before applying updates. Valid source generations normalize to zero; stale,
+  free and missing source pairs become null, including retained trailer and
+  stream-header values. Later declarations do not revive these dead source edges;
+  newly authored generation-zero references can target added or replaced objects.
   JSON text projection uses the shared PDF text decoder, including malformed
   UTF-16 with a byte-order mark. Returned text and UTF-8 publication agree;
   valid surrogate pairs and binary-string encodings keep their existing behavior.

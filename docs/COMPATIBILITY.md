@@ -50,6 +50,17 @@ publications. JSON main output and stream sidecars follow the same rule. Prepare
 PDF and JSON bytes pass their known lengths through an optional host capacity
 hint. Hosts retain their own admission and publication authority.
 
+JSON creation and updates now reject nonzero generations in reference values,
+consistently with the existing declaration-key restriction. Previously, those
+values could silently bind generation-zero objects by number. Updates also
+validate existing PDF pairs before applying edits: live source generations stay
+connected after normalization, while stale/free/missing references stay null,
+including Info, attachments and stream headers. Empty updates no longer revive
+dead references; this matches the native controls. Explicit new generation-zero
+JSON edges can still target added or replaced objects. Public signatures are unchanged.
+Update source documents and version carriers remain private through publication,
+refunding their charges on failure and cancellation.
+
 The built-in memory host stores registered inputs separately from published
 outputs, including equal-path companion calls and `--replace-input`. Opening an
 input reads its registration until the caller exports and registers the new bytes.
