@@ -247,6 +247,11 @@ qpdf repairs this ambiguous input and typically selects the later entry. Managed
 selective extraction keeps its existing first-match behavior without a full-tree
 scan; it can still extract from a source whose unrelated branches are malformed.
 
+Existing attachment keys also remain reserved when their specification graph
+cannot be preserved. A non-replacing add or import still reports a conflict;
+explicit replacement/removal remains available. Unrelated edits retain the
+recoverable skip policy, and skipped graphs never enter the final collection.
+
 Extraction and removal now accept explicitly empty existing attachment identifiers,
 with removal matching native qpdf. Native 12.4.2 treats an empty extraction selector
 as a successful no-op; managed extraction returns the selected bytes or reports

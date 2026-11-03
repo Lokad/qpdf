@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Retain attachment key conflicts after recoverable specification-copy failures,
+  while excluding skipped graphs from the final collection.
+
 - Normalize local widget rectangles before deriving fresh appearance dimensions,
   preserving source coordinates and aliases through generation and flattening.
 

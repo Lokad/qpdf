@@ -2170,7 +2170,9 @@
           "AttachmentConstructionTests.NameTreeBoundariesAndUnicodeRoundTripThroughThePublicPipeline",
           "AttachmentEditTests.AddWithPagesSelectsAndAttaches",
           "AttachmentBlockPlacementTests.AttachmentBlocksKeepTheirMeaningAtMainArgumentPositions",
-          "AttachmentBlockPlacementTests.EmptyPrimaryKeepsExplicitAddsWithoutImportingProviderCollection"
+          "AttachmentBlockPlacementTests.EmptyPrimaryKeepsExplicitAddsWithoutImportingProviderCollection",
+          "AttachmentConflictIdentityTests.OriginalKeyConflictsSurviveRecoverableCopyFailures",
+          "AttachmentConflictIdentityTests.SkippedGraphsStayAbsentWhileExplicitEditsAndSharedPayloadsSurvive"
         ],
         "negative": [
           "AttachmentEditTests.AddMissingFileFails",
@@ -2599,7 +2601,9 @@
           "AttachmentTreeReferenceTests.EquivalentTreesWorkAcrossPublicOperations",
           "AttachmentCopyTests.CopyBasic",
           "AttachmentNameOrderTests.MixedEncodingTreesSupportByteSearchWithoutChangingListingOrPayloads",
-          "AttachmentCopyTests.CopyPrefix"
+          "AttachmentCopyTests.CopyPrefix",
+          "AttachmentConflictIdentityTests.OriginalKeyConflictsSurviveRecoverableCopyFailures",
+          "AttachmentConflictIdentityTests.SkippedGraphsStayAbsentWhileExplicitEditsAndSharedPayloadsSurvive"
         ],
         "negative": [
           "AttachmentCopyTests.CopyCollisionFails",

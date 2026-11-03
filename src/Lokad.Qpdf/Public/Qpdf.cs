@@ -3610,10 +3610,11 @@ public static partial class Qpdf
         foreach (EmbeddedFileEntry attachment in found)
         {
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            ownership.Reserve(64L);
+            // Presence determines conflicts even when this graph cannot be kept.
+            kept[attachment.Key] = new(attachment.Name, null);
             if (replacements.Contains(attachment.Key))
             {
-                if (!kept.ContainsKey(attachment.Key)) { ownership.Reserve(64L); }
-                kept[attachment.Key] = new(attachment.Name, null); // Keep conflict information, not the discarded graph.
                 continue;
             }
             int firstId = copier.BeginCopyAttempt();
@@ -3622,7 +3623,6 @@ public static partial class Qpdf
                 PdfReference? link = copier.AddIndirectObject(attachment.Spec);
                 if (link is not null)
                 {
-                    if (!kept.ContainsKey(attachment.Key)) { ownership.Reserve(64L); }
                     kept[attachment.Key] = new(attachment.Name, link);
                 }
             }
@@ -3834,6 +3834,23 @@ public static partial class Qpdf
             throw AttachmentCopyConflict(firstCopyConflict, moreCopyConflicts, governor, ownership, cancellationToken);
         }
 
+        // Discard failed specifications only after every edit has used their keys.
+        using (ParserMemoryScope skippedMemory = ParserMemoryScope.Create(governor))
+        {
+            List<string>? skipped = null;
+            foreach (KeyValuePair<string, AttachmentReference> entry in existing)
+            {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                if (entry.Value.Spec is not null) { continue; }
+                skipped ??= ParserContainers.CreateList<string>(skippedMemory);
+                ParserContainers.AddItem(skippedMemory, skipped, entry.Key, IntPtr.Size);
+            }
+            if (skipped is not null)
+            {
+                foreach (string key in skipped)
+                { cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); existing.Remove(key); }
+            }
+        }
         if (existing.Count == 0)
         {
             return new AttachmentAssembly(null, false, 0, false);
