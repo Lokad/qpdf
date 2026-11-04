@@ -180,6 +180,14 @@ Overlay and underlay sources read UserUnit only from the leaf page. Ancestor
 values no longer change placement; direct/indirect leaf values and null defaults
 retain their existing meaning. Resources, MediaBox, CropBox and Rotate still inherit.
 
+Separately imported annotation rectangles and appearance headers receive the
+source Form's rotation/UserUnit transform before the destination placement.
+Native qpdf 12.4.2 can omit that source frame and move annotations relative to
+the imported page artwork. Private appearance aliases and payload sharing stay
+intact; affected output bytes and identifiers change. This correction covers the
+ordinary annotation frame; subtype coordinate arrays, source-page clipping and
+NoRotate anchor/orientation remain distinct limitations under review.
+
 Page-copy operations, including overlay/underlay imports, reject reachable
 signature dictionaries (`/Type /Sig`) and populated signature fields in widget
 or retained AcroForm contexts. Field types may be inherited or indirect, and the

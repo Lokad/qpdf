@@ -98,6 +98,9 @@ assembles the original group occurrences, counts and mappings. Each document clo
 before the next opens. Duplicate widget pages reuse the rotation path's annotation
 header copying, including field spines, popup/reply links and form registration;
 appearance and resource payloads stay shared.
+Imported annotation geometry composes the source Form frame into the existing
+placement matrix buffer. Content receives that frame from its Form header;
+separately copied annotation rectangles and appearance headers need it explicitly.
 The first registered page identity remains canonical when a page is repeated;
 later catalog and destination copies cannot retarget it to a duplicate occurrence.
 Serialization authors each page's Parent backlink during the existing header

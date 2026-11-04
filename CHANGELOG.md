@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Apply source page rotation and UserUnit to separately imported overlay/underlay
+  annotation rectangles and appearance headers, matching the source Form frame.
+  Keep private appearance aliases and shared payloads intact. This deliberately
+  corrects native qpdf's missing source transform; public signatures are unchanged.
+
 - Preserve PDF byte-string identity through JSON v2 export and import. Use the
   existing binary encoding whenever text would re-encode differently, retaining
   distinct destination keys/actions, Limits, opaque values and malformed Unicode.

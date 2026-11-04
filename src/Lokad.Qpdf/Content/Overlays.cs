@@ -1175,6 +1175,15 @@ internal static class Overlays
             OverlayForm? form = GetOrBuildOverlayForm(placement, formCache, compress, level, limits, governor, planning, ownership, cancellationToken, ref allocator);
             if (form is null) { continue; }
             double[] cm = PlacementMatrix(form.Box, form.FormMatrix, placeBox, destTransform, true, false);
+            if (form.FormMatrix is not null)
+            {
+                // Content gets the source frame from the Form itself. Separately
+                // imported annotations need that same frame before placement.
+                ContentMatrix complete = FromArray(cm);
+                complete.Concat(FromArray(form.FormMatrix));
+                (cm[0], cm[1], cm[2], cm[3], cm[4], cm[5]) =
+                    (complete.A, complete.B, complete.C, complete.D, complete.E, complete.F);
+            }
             CopyOverlayPageAnnots(copier, pageId, placement.Spec.Source, placement.FromPage, cm, imports, limits, governor, ownership, diagnostics, cancellationToken, ref allocator);
         }
     }
