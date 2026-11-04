@@ -40,6 +40,15 @@ and original source counts still validate; pages retained by another positive gr
 keep their shared identity. Previously, omitted groups could leave live page targets
 and orphan Page dictionaries in nonsplit output.
 
+Fileless page/object inspection likewise prepares the complete selected-root union
+per logical secondary source before copying. Forward selected-target links no
+longer become null merely because their target is copied later. Secondary root
+numbers reserve before dependent objects and may differ from native qpdf; primary
+IDs/generations and physical xrefs stay intact. Completed secondary sources transfer
+their copied-value admission to the existing inspection owner and close promptly,
+avoiding repeated growing-pool transfers, cumulative open leases and public-version
+funding for private readers. Zero collation still validates omitted ranges.
+
 Split publication restricts retained page references to each file's own page tree.
 Targets outside that group become null, including references through shared
 destination arrays, Info, metadata, attachments and form graphs. Within-group

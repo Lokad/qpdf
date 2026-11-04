@@ -21,12 +21,6 @@ public static partial class Qpdf
 
     private readonly record struct InspectionPage(int Number, int Generation, PdfDictionary Page);
 
-    private sealed class InspectionSource(QpdfDocument document, GraphCopier copier)
-    {
-        internal QpdfDocument Document { get; } = document;
-        internal GraphCopier Copier { get; } = copier;
-    }
-
     // The input engine borrows this graph only while its owner is alive. Source
     // cache values remain independent; new dictionaries, arrays and copy pools
     // belong to this scope and are detached before their admission is released.
@@ -60,12 +54,10 @@ public static partial class Qpdf
         if (plan.Sources.Count == 0 && plan.Rotations.Count == 0 && !overlay) { return null; }
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         InspectionGraph? lifetime = null;
-        Dictionary<string, InspectionSource>? sources = null;
         try
         {
             memory.Reserve(32L);
             lifetime = new(document, memory);
-            sources = ParserContainers.CreateDictionary<string, InspectionSource>(memory);
             int greatest = 0;
             foreach (int number in document.Engine.XRefEntries.Keys)
             {
@@ -118,59 +110,8 @@ public static partial class Qpdf
                 }
             }
 
-            List<List<InspectionPage>> groups = ParserContainers.CreateList<List<InspectionPage>>(memory);
-            if (plan.Sources.Count == 0) { ParserContainers.AddItem(memory, groups, original, IntPtr.Size); }
-            foreach (PdfPageSource source in plan.Sources)
-            {
-                governor.NoteOperation();
-                bool primary = source.Input.Value == "." || string.Equals(source.Input.Value, plan.Input.Value, StringComparison.Ordinal);
-                QpdfDocument sourceDocument = document;
-                GraphCopier sourceCopier = pool;
-                if (!primary)
-                {
-                    if (!sources.TryGetValue(source.Input.Value, out InspectionSource? loaded))
-                    {
-                        ParserContainers.EnsureEntryCapacity(memory, sources, IntPtr.Size);
-                        sourceDocument = await QpdfDocument.OpenCore(host, source.Input, limits, governor,
-                            diagnostics, plan.Recovery, cancellationToken).ConfigureAwait(false);
-                        try
-                        {
-                            sourceCopier = GraphCopier.CreateOwned(sourceDocument.Engine, governor, limits, pool.NextId, memory);
-                            memory.Reserve(32L);
-                            loaded = new InspectionSource(sourceDocument, sourceCopier);
-                            sources.Add(source.Input.Value, loaded);
-                        }
-                        catch { await sourceDocument.DisposeAsync().ConfigureAwait(false); throw; }
-                    }
-                    sourceDocument = loaded.Document;
-                    sourceCopier = loaded.Copier;
-                }
-                IReadOnlyList<int> requested = Pages.PageRanges.Expand(source.Selection.Range, sourceDocument.PageCount,
-                    limits.MaxContainerSize, governor, memory);
-                List<InspectionPage> group = ParserContainers.CreateList<InspectionPage>(memory);
-                foreach (int pageNumber in requested)
-                {
-                    governor.NoteOperation();
-                    InspectionPage selected;
-                    if (primary) { selected = original[pageNumber - 1]; }
-                    else
-                    {
-                        PageLocation location = sourceDocument.PageReferences[pageNumber - 1];
-                        sourceCopier.AdvanceNextId(pool.NextId);
-                        IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(sourceDocument.Engine, location,
-                            sourceCopier, governor, limits, cancellationToken, memory);
-                        (int id, PdfDictionary page) = sourceCopier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
-                        selected = new InspectionPage(id, 0, page);
-                        foreach (KeyValuePair<int, QpdfObject> entry in sourceCopier.CopiedObjects)
-                        {
-                            governor.NoteOperation();
-                            StoreInspectionObject(pool, entry.Key, entry.Value);
-                        }
-                    }
-                    ParserContainers.AddItem(memory, group, selected, 16L);
-                }
-                ParserContainers.AddItem(memory, groups, group, IntPtr.Size);
-            }
+            List<List<InspectionPage>> groups = await PrepareInspectionSourcesAsync(host, document, original,
+                pool, plan, limits, governor, diagnostics, memory, cancellationToken).ConfigureAwait(false);
 
             List<int> counts = ParserContainers.CreateList<int>(memory);
             foreach (List<InspectionPage> group in groups) { ParserContainers.AddItem(memory, counts, group.Count, sizeof(int)); }
@@ -294,20 +235,96 @@ public static partial class Qpdf
             else { lifetime.Dispose(); }
             throw;
         }
-        finally
+    }
+
+    private static async ValueTask<List<List<InspectionPage>>> PrepareInspectionSourcesAsync(
+        IQpdfHost host, QpdfDocument document, List<InspectionPage> original, GraphCopier pool,
+        CheckPlan plan, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
+        ParserMemoryScope memory, CancellationToken token)
+    {
+        List<List<InspectionPage>> groups = ParserContainers.CreateList<List<InspectionPage>>(memory);
+        if (plan.Sources.Count == 0)
         {
-            Exception? disposalFailure = null;
-            foreach (InspectionSource source in sources?.Values ?? Enumerable.Empty<InspectionSource>())
-            {
-                try { await source.Document.DisposeAsync().ConfigureAwait(false); }
-                catch (Exception ex) { disposalFailure ??= ex; }
-            }
-            if (disposalFailure is not null)
-            {
-                lifetime?.Dispose();
-                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(disposalFailure).Throw();
-            }
+            ParserContainers.AddItem(memory, groups, original, IntPtr.Size);
+            return groups;
         }
+        if (plan.Collation is PdfPageCollation collation
+            && collation.GroupSizes.Count != 1 && collation.GroupSizes.Count != plan.Sources.Count)
+        { throw new ArgumentException("Collation requires one size or one size per source."); }
+
+        using ParserMemoryScope planning = ParserMemoryScope.Create(governor);
+        Dictionary<string, List<int>> sources = ParserContainers.CreateDictionary<string, List<int>>(planning);
+        for (int index = 0; index < plan.Sources.Count; index++)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            string path = plan.Sources[index].Input.Value;
+            if (path == ".") { path = plan.Input.Value; }
+            if (!sources.TryGetValue(path, out List<int>? indices))
+            {
+                indices = ParserContainers.CreateList<int>(planning);
+                ParserContainers.EnsureEntryCapacity(planning, sources, IntPtr.Size);
+                sources.Add(path, indices);
+            }
+            ParserContainers.AddItem(planning, indices, index, sizeof(int));
+            ParserContainers.AddItem(memory, groups, ParserContainers.CreateList<InspectionPage>(memory), IntPtr.Size);
+        }
+        foreach (KeyValuePair<string, List<int>> source in sources)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            bool primary = string.Equals(source.Key, plan.Input.Value, StringComparison.Ordinal);
+            await using QpdfDocument? secondary = primary ? null : await QpdfDocument.OpenCore(host,
+                QpdfPath.From(source.Key), limits, governor, diagnostics, plan.Recovery, token, false).ConfigureAwait(false);
+            QpdfDocument reader = secondary ?? document;
+            GraphCopier copier = primary ? pool : GraphCopier.CreateOwned(reader.Engine, governor, limits, pool.NextId, memory);
+            using ParserMemoryScope ranges = ParserMemoryScope.Create(governor);
+            List<(int Group, IReadOnlyList<int> Pages, bool Included)> requests =
+                ParserContainers.CreateList<(int, IReadOnlyList<int>, bool)>(ranges);
+            foreach (int group in source.Value)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                IReadOnlyList<int> pages = Pages.PageRanges.Expand(plan.Sources[group].Selection.Range,
+                    reader.PageCount, limits.MaxContainerSize, governor, ranges);
+                bool included = plan.Collation is null
+                    || plan.Collation.GroupSizes[plan.Collation.GroupSizes.Count == 1 ? 0 : group] > 0;
+                ParserContainers.AddItem(ranges, requests, (group, pages, included), 24L);
+                if (primary || !included) { continue; }
+                foreach (int number in pages)
+                {
+                    token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    copier.RegisterPageRoot(reader.PageReferences[number - 1].Source?.ObjectNumber);
+                }
+            }
+            foreach ((int group, IReadOnlyList<int> pages, bool included) in requests)
+            {
+                if (!included) { continue; }
+                foreach (int number in pages)
+                {
+                    token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    InspectionPage selected;
+                    if (primary) { selected = original[number - 1]; }
+                    else
+                    {
+                        PageLocation location = reader.PageReferences[number - 1];
+                        IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(reader.Engine,
+                            location, copier, governor, limits, token, memory);
+                        (int id, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
+                        selected = new(id, 0, page);
+                    }
+                    ParserContainers.AddItem(memory, groups[group], selected, 16L);
+                }
+            }
+            if (primary || copier.CopiedObjects.Count == 0) { continue; }
+            foreach (KeyValuePair<int, QpdfObject> entry in copier.CopiedObjects)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                StoreInspectionObject(pool, entry.Key, entry.Value);
+            }
+            // Copied headers borrow immutable values and possibly stream slices.
+            // Move their admission before closing this private reader; subsequent
+            // sources and inspection use only the completed destination pool.
+            reader.Engine.TransferExclusiveValuesTo(memory);
+        }
+        return groups;
     }
 
     private static Dictionary<PdfName, QpdfObject> CopyInspectionEntries(PdfDictionary dictionary,

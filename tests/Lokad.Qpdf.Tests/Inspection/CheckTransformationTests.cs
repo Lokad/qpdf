@@ -96,7 +96,7 @@ public sealed class CheckTransformationTests
 
     [Theory]
     [MemberData(nameof(SourceContexts))]
-    public async Task SourceKeysCollationAndForeignSharingMatchNativeIdentities(string route, bool check, string mode)
+    public async Task SourceKeysCollationAndForeignSharingPreserveInspectionIdentities(string route, bool check, string mode)
     {
         InMemoryQpdfHost storage = Host(Fixture());
         storage.AddInput(QpdfPath.From("b.pdf"), Fixture(), QpdfInputOwnership.Copy);
@@ -119,7 +119,9 @@ public sealed class CheckTransformationTests
         flags.Add("--");
         if (check) { properties += ",\"check\":\"\""; flags.Add("--check"); }
         if (mode == "collation") { properties += ",\"collate\":\"1\""; flags.Add("--collate=1"); }
-        int[] expected = mode switch { "same" => [4], "alias" => [8], "foreign-duplicate" => [8, 11], "interleaved" => [8, 4, 11], _ => [3, 8, 4, 11] };
+        // Foreign selected roots register before their dependent objects. Primary
+        // identities stay physical; collation only changes occurrence order.
+        int[] expected = mode switch { "same" => [4], "alias" => [8], "foreign-duplicate" => [8, 11], "interleaved" => [8, 4, 9], _ => [3, 8, 4, 9] };
         QpdfExecutionResult result = await Execute(storage, host, route, properties, flags.ToArray(), QpdfLimits.Default, CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         string[] pageLines = result.Diagnostics.Where(d => d.Code == QpdfDiagnosticCode.PageListing && d.Message.StartsWith("page ", StringComparison.Ordinal)).Select(d => d.Message).ToArray();

@@ -60,6 +60,14 @@ existing array form.
 Selection changes counts/order and materializes inheritance before inspection;
 primary generations stay intact, duplicates/imports get fresh identities, and
 physical xrefs remain unchanged. Rotation uses selected output-page positions.
+Secondary selection groups share one copier per logical path. Their complete
+selected-root union registers before copying; zero-sized collation groups still
+validate their ranges but contribute no roots. Selected links stay connected,
+while genuinely omitted page targets become null. Imported root numbers allocate
+before their dependent objects and may differ from native qpdf; page/object
+listings use the same consistent identities. Each completed secondary reader
+closes before the next opens, with copied immutable values funded through the
+inspection lifetime. Distinct logical paths remain independent.
 Overlay/underlay uses the shared placement and widget-import pipeline before
 checking/listing, preserves primary form/annotation identities and registers
 imported fields with merged defaults/resources. Direct trailer catalogs remain

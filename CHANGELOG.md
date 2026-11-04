@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Prepare complete secondary page-root unions for fileless inspection, preserving
+  selected links across repeated source groups. Transfer each completed pool once
+  and fund its immutable values through inspection before closing the private
+  reader. Imported root numbering may change; primary identities and physical
+  xrefs remain stable. Zero collation validates ranges without retaining roots.
+
 - Restrict split publications to their own page identities. Clear foreign page
   references through navigation, Info, metadata, attachments and form graphs,
   preserving within-group links, shared non-page values and transactional output.
