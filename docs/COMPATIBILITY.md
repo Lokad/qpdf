@@ -44,6 +44,12 @@ Outline inspection treats indirect-null First/Next links as absent, matching dir
 nulls. Missing targets and malformed non-null links still reject; cycle and nesting
 bounds remain. This corrects otherwise valid outline/pages JSON projection failures.
 
+Field selection and checking resolve Widget subtypes before classifying membership.
+Direct and indirect name values retain the same registered field/annotation and
+calculation-order relationships. Form checking validates a child's Parent against
+the actual live parent object, including its generation; a matching number with a
+dead generation no longer suppresses the invalid-parent warning.
+
 Fileless page/object inspection likewise prepares the complete selected-root union
 per logical secondary source before copying. Forward selected-target links no
 longer become null merely because their target is copied later. Secondary root

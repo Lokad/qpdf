@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Resolve Widget subtypes consistently in source/pool field membership and form
+  checking; share the membership walk. Check Parent backlinks against the live
+  resolved parent identity, preserving valid nonzero generations and reporting
+  stale-generation links.
+
 - Resolve optional outline First/Next values before traversing them. Indirect
   nulls match direct-null/absent links; missing references and malformed non-null
   entries still reject before publishing JSON.

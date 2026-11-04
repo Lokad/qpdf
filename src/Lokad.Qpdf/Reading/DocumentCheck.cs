@@ -604,7 +604,7 @@ internal static class DocumentCheck
         }
 
         state.Nodes += 1;
-        if (nodeId.HasValue && IsCheckWidget(node, governor, cancellationToken))
+        if (nodeId.HasValue && IsCheckWidget(node, resolver, governor, cancellationToken))
         {
             state.ReachWidget(nodeId.Value, cancellationToken);
         }
@@ -624,7 +624,7 @@ internal static class DocumentCheck
                 {
                     if (nodeId.HasValue)
                     {
-                        CheckParentLink(kidDictionary, kidReference.ObjectNumber, nodeId.Value, governor, diagnostics, state, cancellationToken);
+                        CheckParentLink(kidDictionary, kidReference.ObjectNumber, node, resolver, governor, diagnostics, state, cancellationToken);
                     }
 
                     WalkFieldNode(kidDictionary, kidReference.ObjectNumber, depth + 1, resolver, governor, diagnostics, state, cancellationToken);
@@ -665,7 +665,8 @@ internal static class DocumentCheck
     private static void CheckParentLink(
         PdfDictionary kid,
         int kidNumber,
-        int parentNumber,
+        PdfDictionary parent,
+        IIndirectResolver resolver,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         FormCheckState state,
@@ -673,7 +674,8 @@ internal static class DocumentCheck
     {
         bool valid = PdfDictionaryLookup.TryGet(kid, "Parent"u8, governor, cancellationToken, out QpdfObject parentRaw)
             && parentRaw is PdfReference parentReference
-            && parentReference.ObjectNumber == parentNumber;
+            && PdfObjectLookup.TryResolve(parentReference, resolver, governor, cancellationToken, out QpdfObject? target)
+            && ReferenceEquals(target, parent);
         if (valid)
         {
             return;
@@ -724,7 +726,7 @@ internal static class DocumentCheck
                     continue;
                 }
 
-                if (!PdfObjectLookup.TryResolve(itemReference, resolver, governor, cancellationToken, out QpdfObject? target) || target is not PdfDictionary annot || !IsCheckWidget(annot, governor, cancellationToken))
+                if (!PdfObjectLookup.TryResolve(itemReference, resolver, governor, cancellationToken, out QpdfObject? target) || target is not PdfDictionary annot || !IsCheckWidget(annot, resolver, governor, cancellationToken))
                 {
                     continue;
                 }
@@ -808,12 +810,9 @@ internal static class DocumentCheck
         return false;
     }
 
-    private static bool IsCheckWidget(PdfDictionary dictionary, ResourceGovernor governor, CancellationToken cancellationToken)
-    {
-        return PdfDictionaryLookup.TryGet(dictionary, "Subtype"u8, governor, cancellationToken, out QpdfObject subtype)
-            && subtype is PdfName name
-            && PdfDictionaryLookup.NameEquals(name, "Widget"u8, governor, cancellationToken);
-    }
+    private static bool IsCheckWidget(PdfDictionary dictionary, IIndirectResolver resolver,
+        ResourceGovernor governor, CancellationToken token)
+        => PdfDictionaryLookup.HasName(dictionary, "Subtype"u8, "Widget"u8, resolver, governor, token);
     private static byte[]? DecodeCheckStream(
         PdfStream stream,
         IIndirectResolver resolver,

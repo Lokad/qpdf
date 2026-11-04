@@ -1643,6 +1643,7 @@ internal static class AcroFormCopy
         using ParserMemoryScope result = ParserMemoryScope.Create(governor);
         List<PdfReference> kept = ParserContainers.CreateList<PdfReference>(result);
         HashSet<int> closure = ParserContainers.CreateSet<int>(result);
+        PoolResolver? resolver = null;
         foreach (PdfReference field in fields)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1653,7 +1654,13 @@ internal static class AcroFormCopy
             }
 
             using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
-            HashSet<int> members = WalkPoolMembers(pool, field.ObjectNumber, limits, governor, traversal, cancellationToken);
+            HashSet<int> members;
+            if (pool.TryGetValue(field.ObjectNumber, out QpdfObject? raw) && raw is PdfDictionary root)
+            {
+                resolver ??= PoolResolver.Create(result, pool);
+                members = WalkFieldMembers(resolver, root, field.ObjectNumber, limits, governor, traversal, cancellationToken);
+            }
+            else { members = ParserContainers.CreateSet<int>(traversal); }
             bool survives = members.Count == 0 && !pruneUnreachableFields;
             foreach (int member in members)
             {
@@ -1784,7 +1791,7 @@ internal static class AcroFormCopy
                     continue;
                 }
 
-                if (IsWidget(annot))
+                if (IsWidget(annot, resolver, governor, cancellationToken))
                 {
                     ParserContainers.AddSetItem(memory, found, itemReference.ObjectNumber, sizeof(int));
                 }
@@ -1879,7 +1886,7 @@ internal static class AcroFormCopy
             }
 
             using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
-            HashSet<int> members = WalkSourceMembers(resolver, field, reference.ObjectNumber, limits, governor, traversal, cancellationToken);
+            HashSet<int> members = WalkFieldMembers(resolver, field, reference.ObjectNumber, limits, governor, traversal, cancellationToken);
             if (members.Count == 0 && pruneUnreachableFields)
             {
                 continue;
@@ -1911,7 +1918,7 @@ internal static class AcroFormCopy
         return kept;
     }
 
-    private static HashSet<int> WalkSourceMembers(
+    private static HashSet<int> WalkFieldMembers(
         IIndirectResolver resolver,
         PdfDictionary root,
         int rootNumber,
@@ -1921,7 +1928,7 @@ internal static class AcroFormCopy
         CancellationToken cancellationToken)
     {
         HashSet<int> members = ParserContainers.CreateSet<int>(memory);
-        if (IsWidget(root))
+        if (IsWidget(root, resolver, governor, cancellationToken))
         {
             ParserContainers.AddSetItem(memory, members, rootNumber, sizeof(int));
         }
@@ -1973,82 +1980,7 @@ internal static class AcroFormCopy
                     continue;
                 }
 
-                if (IsWidget(kid))
-                {
-                    ParserContainers.AddSetItem(memory, members, kidReference.ObjectNumber, sizeof(int));
-                }
-
-                ParserContainers.AddItem(memory, stack, (kid, current.Depth + 1), 16L);
-            }
-        }
-
-        return members;
-    }
-
-    private static HashSet<int> WalkPoolMembers(
-        IReadOnlyDictionary<int, QpdfObject> pool,
-        int rootNumber,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        ParserMemoryScope memory,
-        CancellationToken cancellationToken)
-    {
-        HashSet<int> members = ParserContainers.CreateSet<int>(memory);
-        if (!pool.TryGetValue(rootNumber, out QpdfObject? root) || root is not PdfDictionary rootDict)
-        {
-            return members;
-        }
-
-        if (IsWidget(rootDict))
-        {
-            ParserContainers.AddSetItem(memory, members, rootNumber, sizeof(int));
-        }
-
-        HashSet<int> visited = ParserContainers.CreateSet<int>(memory);
-        ParserContainers.AddSetItem(memory, visited, rootNumber, sizeof(int));
-        List<(PdfDictionary Node, int Depth)> stack = ParserContainers.CreateList<(PdfDictionary, int)>(memory);
-        ParserContainers.AddItem(memory, stack, (rootDict, 0), 16L);
-        while (stack.Count != 0)
-        {
-            var current = stack[^1]; stack.RemoveAt(stack.Count - 1);
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            if (current.Depth > limits.MaxNestingDepth)
-            {
-                continue;
-            }
-
-            if (!current.Node.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw) || kidsRaw is null || kidsRaw is PdfNull)
-            {
-                continue;
-            }
-
-            PdfArray? kids = ResolvePoolArray(pool, kidsRaw);
-            if (kids is null)
-            {
-                continue;
-            }
-
-            for (int i = 0; i < kids.Count; i++)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                governor.NoteOperation();
-                if (kids[i] is not PdfReference kidReference)
-                {
-                    continue;
-                }
-
-                if (!ParserContainers.AddSetItem(memory, visited, kidReference.ObjectNumber, sizeof(int)))
-                {
-                    continue;
-                }
-
-                if (!pool.TryGetValue(kidReference.ObjectNumber, out QpdfObject? kidTarget) || kidTarget is not PdfDictionary kid)
-                {
-                    continue;
-                }
-
-                if (IsWidget(kid))
+                if (IsWidget(kid, resolver, governor, cancellationToken))
                 {
                     ParserContainers.AddSetItem(memory, members, kidReference.ObjectNumber, sizeof(int));
                 }
@@ -2122,10 +2054,7 @@ internal static class AcroFormCopy
         return null;
     }
 
-    private static bool IsWidget(PdfDictionary dictionary)
-    {
-        return dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject? raw)
-            && raw is PdfName name
-            && name.RawSpan.SequenceEqual("Widget"u8);
-    }
+    private static bool IsWidget(PdfDictionary dictionary, IIndirectResolver resolver,
+        ResourceGovernor governor, CancellationToken token)
+        => PdfDictionaryLookup.HasName(dictionary, "Subtype"u8, "Widget"u8, resolver, governor, token);
 }

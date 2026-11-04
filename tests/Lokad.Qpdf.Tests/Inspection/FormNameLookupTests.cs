@@ -13,6 +13,8 @@ namespace Lokad.Qpdf.Tests.Inspection;
 public sealed class FormNameLookupTests
 {
     private delegate bool Predicate(PdfDictionary dictionary, ResourceGovernor governor, CancellationToken token);
+    private delegate bool WidgetPredicate(PdfDictionary dictionary, IIndirectResolver resolver,
+        ResourceGovernor governor, CancellationToken token);
     private delegate QpdfCheckOutcome FormCheck(QpdfDocument document, ResourceGovernor governor,
         DiagnosticBag diagnostics, CancellationToken token);
 
@@ -24,10 +26,39 @@ public sealed class FormNameLookupTests
     }
 
     private static readonly Predicate Field = Bind("IsFieldLike");
-    private static readonly Predicate Widget = Bind("IsCheckWidget");
+    private static readonly IIndirectResolver EmptyResolver = new Lokad.Qpdf.Content.PoolResolver(new Dictionary<int, QpdfObject>());
+    private static readonly WidgetPredicate Widget = (typeof(DocumentCheck).GetMethod("IsCheckWidget",
+        BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException("Missing widget classifier."))
+        .CreateDelegate<WidgetPredicate>();
     private static readonly FormCheck RunForms = (typeof(DocumentCheck).GetMethod("CheckFormTree",
         BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException("Missing form checker."))
         .CreateDelegate<FormCheck>();
+
+    private sealed class CancelingResolver(CancellationTokenSource cancellation) : IIndirectResolver
+    {
+        internal int Calls { get; private set; }
+        public bool TryResolve(PdfReference reference, out QpdfObject? value)
+        {
+            Calls++; cancellation.Cancel(); value = PdfName.FromAscii("Widget"); return true;
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void IndirectSubtypeResolutionChecksBothCancellationContextsAfterTheCall(bool governorToken)
+    {
+        using CancellationTokenSource cancellation = new();
+        CancelingResolver resolver = new(cancellation);
+        ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
+        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
+        long before = governor.Snapshot().LiveMemoryBytes;
+        PdfDictionary dictionary = Dictionary("Subtype", new PdfReference(7, 0));
+        Assert.ThrowsAny<OperationCanceledException>(() => Widget(dictionary, resolver, governor,
+            governorToken ? CancellationToken.None : cancellation.Token));
+        Assert.Equal(1, resolver.Calls); Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
+        Assert.Single(dictionary.Keys);
+    }
 
     private static PdfDictionary Dictionary(string key, QpdfObject value)
         => new(new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii(key)] = value });
@@ -55,7 +86,7 @@ public sealed class FormNameLookupTests
         };
         PdfDictionary dictionary = shape == "missing" ? new(new Dictionary<PdfName, QpdfObject>()) : Dictionary("Subtype", subtype);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        Assert.Equal(expected, Widget(dictionary, governor, CancellationToken.None));
+        Assert.Equal(expected, Widget(dictionary, EmptyResolver, governor, CancellationToken.None));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         if (shape != "missing") { Assert.True(dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject found)); Assert.Same(subtype, found); }
     }
@@ -98,8 +129,10 @@ public sealed class FormNameLookupTests
     {
         using CancellationTokenSource cancellation = new(); cancellation.Cancel();
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
-        Assert.ThrowsAny<OperationCanceledException>(() => (widget ? Widget : Field)(Wide(false, widget), governor,
-            governorToken ? CancellationToken.None : cancellation.Token));
+        PdfDictionary dictionary = Wide(false, widget);
+        CancellationToken token = governorToken ? CancellationToken.None : cancellation.Token;
+        Assert.ThrowsAny<OperationCanceledException>(() => widget
+            ? Widget(dictionary, EmptyResolver, governor, token) : Field(dictionary, governor, token));
 Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
@@ -110,7 +143,8 @@ Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     [InlineData(true, true)]
     public async Task CancellationAfterCompletedEntryVisitsPreservesPriorFundingAndBorrowing(bool widget, bool governorToken)
     {
-        PdfDictionary dictionary = Wide(false, widget); Predicate predicate = widget ? Widget : Field;
+        PdfDictionary dictionary = Wide(false, widget);
+        Predicate predicate = widget ? static (value, governor, token) => Widget(value, EmptyResolver, governor, token) : Field;
         using CancellationTokenSource cancellation = new();
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
         CancellationToken token = governorToken ? CancellationToken.None : cancellation.Token;
@@ -136,7 +170,8 @@ Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     [InlineData("widget-binary")]
     public void WarmedBorrowedClassificationAllocatesNoNameKeyOrDisplayString(string shape)
     {
-        Predicate predicate = shape == "field" ? Field : Widget;
+        Predicate predicate = shape == "field" ? Field
+            : static (value, governor, token) => Widget(value, EmptyResolver, governor, token);
         PdfDictionary dictionary = shape == "field" ? Dictionary("T", new PdfByteString(new byte[2 * 1024 * 1024], false))
             : Dictionary("Subtype", shape == "widget-exact" ? PdfName.FromAscii("Widget") : new PdfName(new byte[8192]));
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 128L }, CancellationToken.None);
@@ -152,7 +187,8 @@ Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     {
         PdfDictionary dictionary = widget ? Dictionary("Subtype", PdfName.FromAscii("Widget")) : Dictionary("T", new PdfByteString([65], false));
         using CancellationTokenSource source = new(); ResourceGovernor governor = new(QpdfLimits.Default, source.Token);
-        Assert.True((widget ? Widget : Field)(dictionary, governor, source.Token)); return (dictionary, new(governor), new(source));
+        Assert.True(widget ? Widget(dictionary, EmptyResolver, governor, source.Token) : Field(dictionary, governor, source.Token));
+        return (dictionary, new(governor), new(source));
     }
 
     [Theory]
@@ -167,11 +203,11 @@ Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
 
     [Theory]
     [InlineData("4 0 R", false)]
-    [InlineData("4 7 R", false)]
+    [InlineData("4 7 R", true)]
     [InlineData("6 0 R", true)]
     [InlineData("null", true)]
     [InlineData("missing", true)]
-    public async Task FormTraversalPreservesParentNumberMatchingAndWarningText(string parent, bool warning)
+    public async Task FormTraversalValidatesParentIdentityAndPreservesWarningText(string parent, bool warning)
     {
         List<(int Number, string Dict, byte[]? StreamData)> objects =
         [
