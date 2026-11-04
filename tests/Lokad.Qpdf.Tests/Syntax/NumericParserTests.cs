@@ -152,7 +152,8 @@ public sealed class NumericParserTests
         Assert.Same(first, second);
         Assert.Equal(text, first.Text);
         Assert.Equal(expected, first.Value);
-        Assert.False(new PdfInteger(text, expected).IsSharedValue);
+        PdfInteger authored = new(text, expected);
+        Assert.NotSame(first, authored); Assert.Equal(expected, authored.Value); Assert.Equal(text, authored.Text);
     }
 
     [Theory]

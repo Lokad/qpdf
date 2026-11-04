@@ -13,7 +13,7 @@ public sealed class ContentTokenizerWorkTests
     public void GovernorCancellationStopsEvenEmptyContent(bool inline)
     {
         using CancellationTokenSource source = new(); ResourceGovernor governor = new(QpdfLimits.Default, source.Token);
-        ContentTokenizer tokenizer = new(ReadOnlyMemory<byte>.Empty, governor); source.Cancel();
+        ContentTokenizer tokenizer = new(ReadOnlyMemory<byte>.Empty, governor, governor.CancellationToken); source.Cancel();
         if (inline) { Assert.ThrowsAny<OperationCanceledException>(() => tokenizer.ReadInlineImageData(0L)); }
         else { Assert.ThrowsAny<OperationCanceledException>(() => tokenizer.TryReadToken(out _)); }
     }

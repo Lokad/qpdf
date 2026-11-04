@@ -3371,7 +3371,7 @@ public static partial class Qpdf
             throw new QpdfParseException("--decode-level must be none, generalized, specialized, or all.", 0L, null);
         }
 
-        int? level = request.CompressionLevel is null ? null : ParseCompressionLevel(request.CompressionLevel, "--compression-level");
+        int? level = request.CompressionLevel is null ? null : CompressionRequest.ParseLevel(request.CompressionLevel, "--compression-level");
         bool compress = request.CompressStreams is not null
             ? request.CompressStreams == "y"
             : request.StreamData == "compress";
@@ -3381,9 +3381,6 @@ public static partial class Qpdf
         if (compress && decode == "none") { decode = "generalized"; }
         return (compress, decode, level);
     }
-
-    private static int ParseCompressionLevel(string text, string option)
-        => CompressionRequest.ParseLevel(text, option);
 
     private static void TransformCopierStreams(
         GraphCopier copier,

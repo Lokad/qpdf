@@ -43,21 +43,6 @@ internal static class GovernedCollections
         entries[number] = value;
     }
 
-    // Borrow dictionary entries directly. Literal-key lookup needs no temporary
-    // PdfName, boxed key enumerator, or display string for unknown names.
-    internal static bool TryGet(PdfDictionary dictionary, ReadOnlySpan<byte> key,
-        ResourceGovernor governor, CancellationToken cancellationToken, out QpdfObject value)
-        => PdfDictionaryLookup.TryGet(dictionary, key, governor, cancellationToken, out value);
-
-    internal static bool AddNumber(ParserMemoryScope memory, ResourceGovernor governor, HashSet<int> items, int number)
-    {
-        memory.CheckOwner(governor);
-        governor.NoteOperation();
-        if (items.Contains(number)) { return false; }
-        if (items.Count == items.EnsureCapacity(0)) { governor.NoteOperation(); }
-        return ParserContainers.AddSetItem(memory, items, number, sizeof(int));
-    }
-
     internal static void SortNumbers(ParserMemoryScope memory, ResourceGovernor governor, List<int> items)
     {
         memory.CheckOwner(governor);

@@ -1110,8 +1110,8 @@ internal sealed class LinearizedWriter
             if (n == 0)
             {
                 raw[offsetInData] = 0;
-                PdfSerializer.WriteUInt(raw.AsSpan(offsetInData + 1, field1), 0L);
-                PdfSerializer.WriteUInt(raw.AsSpan(offsetInData + 1 + field1, field2), 0L);
+                WriterNumber.WriteUInt(raw.AsSpan(offsetInData + 1, field1), 0L);
+                WriterNumber.WriteUInt(raw.AsSpan(offsetInData + 1 + field1, field2), 0L);
             }
             else if (layout.TryGetMember(n, out (int Container, int Index) packed))
             {
@@ -1121,8 +1121,8 @@ internal sealed class LinearizedWriter
                 }
 
                 raw[offsetInData] = 2;
-                PdfSerializer.WriteUInt(raw.AsSpan(offsetInData + 1, field1), packed.Container);
-                PdfSerializer.WriteUInt(raw.AsSpan(offsetInData + 1 + field1, field2), packed.Index);
+                WriterNumber.WriteUInt(raw.AsSpan(offsetInData + 1, field1), packed.Container);
+                WriterNumber.WriteUInt(raw.AsSpan(offsetInData + 1 + field1, field2), packed.Index);
             }
             else
             {
@@ -1133,8 +1133,8 @@ internal sealed class LinearizedWriter
                 }
 
                 raw[offsetInData] = 1;
-                PdfSerializer.WriteUInt(raw.AsSpan(offsetInData + 1, field1), offset);
-                PdfSerializer.WriteUInt(raw.AsSpan(offsetInData + 1 + field1, field2), 0L);
+                WriterNumber.WriteUInt(raw.AsSpan(offsetInData + 1, field1), offset);
+                WriterNumber.WriteUInt(raw.AsSpan(offsetInData + 1 + field1, field2), 0L);
             }
             _governor.NoteOperation();
         }

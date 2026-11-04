@@ -29,15 +29,6 @@ internal static class ObjectRemap
         return RemapIds(value, new NumberMap(renumber, null, null) { DiscardUnmapped = true }, memory, governor, token, 0L);
     }
 
-    internal static QpdfObject RemapIds(QpdfObject value, Dictionary<int, int> renumber,
-        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(renumber);
-        ArgumentNullException.ThrowIfNull(governor);
-        memory.CheckOwner(governor);
-        return RemapIds(value, new NumberMap(renumber, null, null), memory, governor, cancellationToken, 0L);
-    }
-
     // Split membership removes foreign page edges, including private aliases.
     // Other missing mappings still indicate an incomplete publication graph.
     internal static QpdfObject RemapSplit(QpdfObject value, Dictionary<int, int> renumber,

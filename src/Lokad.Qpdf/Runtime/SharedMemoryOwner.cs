@@ -9,8 +9,6 @@ internal sealed class SharedMemoryOwner(IMemoryBudget budget, long localCeiling)
     private long _reserved;
     private bool _shrinkDeclined;
 
-    internal long ReservedBytes => _reserved;
-
     internal void Ensure(long liveBytes)
     {
         if (_budget is null) { return; }

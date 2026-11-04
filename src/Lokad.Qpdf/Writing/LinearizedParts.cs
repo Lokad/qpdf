@@ -739,7 +739,7 @@ internal sealed class LinearizedParts : IDisposable
     {
         using ParserMemoryScope temporary = ParserMemoryScope.Create(governor);
         List<int> ordered = ParserContainers.CreateList<int>(memory);
-        if (!GovernedCollections.TryGet(catalog, "Outlines"u8, governor, cancellationToken, out QpdfObject? outlinesRaw) || outlinesRaw is null || outlinesRaw is PdfNull)
+        if (!PdfDictionaryLookup.TryGet(catalog, "Outlines"u8, governor, cancellationToken, out QpdfObject? outlinesRaw) || outlinesRaw is null || outlinesRaw is PdfNull)
         {
             return ordered;
         }
@@ -803,7 +803,7 @@ internal sealed class LinearizedParts : IDisposable
     private static bool IsUseOutlines(PdfDictionary catalog, GovernedIntDictionary<QpdfObject> lookup,
         ResourceGovernor governor, CancellationToken cancellationToken)
     {
-        if (!GovernedCollections.TryGet(catalog, "PageMode"u8, governor, cancellationToken, out QpdfObject? mode)) { return false; }
+        if (!PdfDictionaryLookup.TryGet(catalog, "PageMode"u8, governor, cancellationToken, out QpdfObject? mode)) { return false; }
         if (mode is PdfReference reference) { lookup.TryGetValue(reference.ObjectNumber, out mode); }
         return mode is PdfName modeName
             && modeName.RawSpan.SequenceEqual("UseOutlines"u8);
@@ -827,7 +827,7 @@ internal sealed class LinearizedParts : IDisposable
         ParserMemoryScope memory, ResourceGovernor governor, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (GovernedCollections.TryGet(catalog, key, governor, cancellationToken, out QpdfObject value)
+        if (PdfDictionaryLookup.TryGet(catalog, key, governor, cancellationToken, out QpdfObject value)
             && value is not PdfNull)
         {
             // Walk the catalog value itself: direct containers have indirect
@@ -874,7 +874,7 @@ internal sealed class LinearizedParts : IDisposable
                 }
 
                 if (!currentTop && target is PdfDictionary dict
-                    && GovernedCollections.TryGet(dict, "Type"u8, governor, cancellationToken, out QpdfObject kind)
+                    && PdfDictionaryLookup.TryGet(dict, "Type"u8, governor, cancellationToken, out QpdfObject kind)
                     && kind is PdfName name
                     && name.RawSpan.SequenceEqual("Page"u8))
                 {
@@ -936,7 +936,7 @@ internal sealed class LinearizedParts : IDisposable
         CancellationToken cancellationToken)
     {
         using ParserMemoryScope temporary = ParserMemoryScope.Create(governor);
-        if (!GovernedCollections.TryGet(catalog, "Pages"u8, governor, cancellationToken, out QpdfObject pagesRaw)
+        if (!PdfDictionaryLookup.TryGet(catalog, "Pages"u8, governor, cancellationToken, out QpdfObject pagesRaw)
             || pagesRaw is not PdfReference pagesReference)
         {
             throw new QpdfParseException("Linearized output needs a reachable pages tree.", null, 1);
@@ -962,7 +962,7 @@ internal sealed class LinearizedParts : IDisposable
                 continue;
             }
 
-            if (GovernedCollections.TryGet(node, "Type"u8, governor, cancellationToken, out QpdfObject kind)
+            if (PdfDictionaryLookup.TryGet(node, "Type"u8, governor, cancellationToken, out QpdfObject kind)
                 && kind is PdfName name
                 && name.RawSpan.SequenceEqual("Page"u8))
             {
@@ -970,7 +970,7 @@ internal sealed class LinearizedParts : IDisposable
                 continue;
             }
 
-            if (GovernedCollections.TryGet(node, "Kids"u8, governor, cancellationToken, out QpdfObject kids) && kids is PdfArray array)
+            if (PdfDictionaryLookup.TryGet(node, "Kids"u8, governor, cancellationToken, out QpdfObject kids) && kids is PdfArray array)
             {
                 for (int i = array.Count - 1; i >= 0; i--)
                 {
@@ -1034,7 +1034,7 @@ internal sealed class LinearizedParts : IDisposable
 
                 if (target is PdfDictionary dict)
                 {
-                    if (GovernedCollections.TryGet(dict, "Type"u8, governor, cancellationToken, out QpdfObject kind)
+                    if (PdfDictionaryLookup.TryGet(dict, "Type"u8, governor, cancellationToken, out QpdfObject kind)
                         && kind is PdfName name)
                     {
                         if (name.RawSpan.SequenceEqual("Page"u8) && !top)
@@ -1093,7 +1093,7 @@ internal sealed class LinearizedParts : IDisposable
             if (current is PdfDictionary dictionary)
             {
                 bool topPage = top
-                    && GovernedCollections.TryGet(dictionary, "Type"u8, governor, cancellationToken, out QpdfObject pageKind)
+                    && PdfDictionaryLookup.TryGet(dictionary, "Type"u8, governor, cancellationToken, out QpdfObject pageKind)
                     && pageKind is PdfName pageName
                     && pageName.RawSpan.SequenceEqual("Page"u8);
                 using PdfDictionary.EntryEnumerator dictionaryEntries = dictionary.GetEntryEnumerator();
@@ -1146,7 +1146,7 @@ internal sealed class LinearizedParts : IDisposable
 
         List<int> tree = ParserContainers.CreateList<int>(memory);
         GovernedIntSet added = GovernedIntSet.Create(temporary, governor, cancellationToken);
-        if (!GovernedCollections.TryGet(catalog, "Pages"u8, governor, cancellationToken, out QpdfObject pagesRaw)
+        if (!PdfDictionaryLookup.TryGet(catalog, "Pages"u8, governor, cancellationToken, out QpdfObject pagesRaw)
             || pagesRaw is not PdfReference pagesReference)
         {
             return tree;
@@ -1180,7 +1180,7 @@ internal sealed class LinearizedParts : IDisposable
             {
                 Add(memory, governor, tree, OwnerOf(owners, number));
             }
-            if (GovernedCollections.TryGet(node, "Kids"u8, governor, cancellationToken, out QpdfObject kids) && kids is PdfArray array)
+            if (PdfDictionaryLookup.TryGet(node, "Kids"u8, governor, cancellationToken, out QpdfObject kids) && kids is PdfArray array)
             {
                 for (int i = array.Count - 1; i >= 0; i--)
                 {

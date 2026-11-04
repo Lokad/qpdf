@@ -140,15 +140,15 @@ internal static class XRefRecovery
         AddTrailerEntry(trailerEntries, values, governor, "Root", root);
         if (tailDictionary is not null)
         {
-            if (GovernedCollections.TryGet(tailDictionary, "Encrypt"u8, governor, governor.CancellationToken, out QpdfObject encryptValue) && encryptValue is not PdfNull)
+            if (PdfDictionaryLookup.TryGet(tailDictionary, "Encrypt"u8, governor, governor.CancellationToken, out QpdfObject encryptValue) && encryptValue is not PdfNull)
             {
                 AddTrailerEntry(trailerEntries, values, governor, "Encrypt", encryptValue);
             }
-            if (GovernedCollections.TryGet(tailDictionary, "Info"u8, governor, governor.CancellationToken, out QpdfObject infoValue) && infoValue is not PdfNull)
+            if (PdfDictionaryLookup.TryGet(tailDictionary, "Info"u8, governor, governor.CancellationToken, out QpdfObject infoValue) && infoValue is not PdfNull)
             {
                 AddTrailerEntry(trailerEntries, values, governor, "Info", infoValue);
             }
-            if (GovernedCollections.TryGet(tailDictionary, "ID"u8, governor, governor.CancellationToken, out QpdfObject idValue) && idValue is not PdfNull)
+            if (PdfDictionaryLookup.TryGet(tailDictionary, "ID"u8, governor, governor.CancellationToken, out QpdfObject idValue) && idValue is not PdfNull)
             {
                 AddTrailerEntry(trailerEntries, values, governor, "ID", idValue);
             }

@@ -110,7 +110,7 @@ internal static class DiagnosticMessage
             foreach (byte value in part.RawName)
             {
                 governor.NoteOperation();
-                int count = PdfName.WriteDisplayByte(value, escaped);
+                int count = PdfNameDisplay.WriteByte(value, escaped);
                 scanner.Append(governor, escaped.Slice(0, count), diagnostic);
             }
         }
@@ -131,7 +131,7 @@ internal static class DiagnosticMessage
             foreach (byte value in part.RawName)
             {
                 governor.NoteOperation();
-                int count = PdfName.WriteDisplayByte(value, escaped);
+                int count = PdfNameDisplay.WriteByte(value, escaped);
                 CopyPart(governor, escaped.Slice(0, count), target, ref position);
             }
         }

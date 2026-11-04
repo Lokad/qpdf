@@ -569,10 +569,6 @@ internal sealed partial class PdfSerializer
         return bytes;
     }
 
-    internal static void WriteUInt(Span<byte> output, long value)
-        => WriterNumber.WriteUInt(output, value);
-
-
     internal ValueTask AppendValueAsync(QpdfObject value, IByteSink sink, int depth, bool newlineBeforeEndstream, CancellationToken cancellationToken)
     {
         if (sink is CountingSink counter)

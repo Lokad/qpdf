@@ -25,7 +25,7 @@ public sealed class SplitRemapOwnershipTests
             long allocated = GC.GetAllocatedBytesForCurrentThread();
             Assert.Throws<QpdfLimitException>(() => split
                 ? ObjectRemap.RemapSplit(source, new Dictionary<int, int>(), new HashSet<int> { 7 }, attempt, governor, CancellationToken.None)
-                : ObjectRemap.RemapIds(source, new Dictionary<int, int> { [7] = 8 }, attempt, governor, CancellationToken.None));
+                : ObjectRemap.RemapSplit(source, new Dictionary<int, int> { [7] = 8 }, new HashSet<int>(), attempt, governor, CancellationToken.None));
             Assert.InRange(GC.GetAllocatedBytesForCurrentThread() - allocated, 0L, 65536L);
         }
         Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); Assert.Equal(31L, prior.ReservedBytes);
@@ -45,7 +45,7 @@ public sealed class SplitRemapOwnershipTests
         long before = governor.Snapshot().LiveMemoryBytes; cancellation.Cancel();
         Assert.Throws<OperationCanceledException>(() => split
             ? ObjectRemap.RemapSplit(new PdfReference(7, 1), new Dictionary<int, int>(), new HashSet<int> { 7 }, memory, governor, caller ? cancellation.Token : CancellationToken.None)
-            : ObjectRemap.RemapIds(new PdfReference(7, 1), new Dictionary<int, int> { [7] = 8 }, memory, governor, caller ? cancellation.Token : CancellationToken.None));
+            : ObjectRemap.RemapSplit(new PdfReference(7, 1), new Dictionary<int, int> { [7] = 8 }, new HashSet<int>(), memory, governor, caller ? cancellation.Token : CancellationToken.None));
         Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
     }
 
@@ -61,7 +61,7 @@ public sealed class SplitRemapOwnershipTests
         long before = governor.Snapshot().LiveMemoryBytes;
         using (ParserMemoryScope attempt = ParserMemoryScope.Create(governor))
         {
-            QpdfException failure = Assert.ThrowsAny<QpdfException>(() => ObjectRemap.RemapIds(source, new Dictionary<int, int> { [7] = 8 }, attempt, governor, CancellationToken.None));
+            QpdfException failure = Assert.ThrowsAny<QpdfException>(() => ObjectRemap.RemapSplit(source, new Dictionary<int, int> { [7] = 8 }, new HashSet<int>(), attempt, governor, CancellationToken.None));
             if (depth) { Assert.Equal(nameof(QpdfLimits.MaxNestingDepth), Assert.IsType<QpdfLimitException>(failure).LimitName); }
             else { Assert.Contains("unmapped object 99", failure.Message, StringComparison.Ordinal); }
         }
@@ -80,7 +80,7 @@ public sealed class SplitRemapOwnershipTests
         PdfStream mapped;
         using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
         {
-            mapped = Assert.IsType<PdfStream>(ObjectRemap.RemapIds(source, new Dictionary<int, int> { [7] = 8, [8] = 8 }, memory, governor, CancellationToken.None));
+            mapped = Assert.IsType<PdfStream>(ObjectRemap.RemapSplit(source, new Dictionary<int, int> { [7] = 8, [8] = 8 }, new HashSet<int>(), memory, governor, CancellationToken.None));
             Assert.True(memory.ReservedBytes > 0L);
             Assert.Same(source.AllocationCarrier, mapped.AllocationCarrier);
         }

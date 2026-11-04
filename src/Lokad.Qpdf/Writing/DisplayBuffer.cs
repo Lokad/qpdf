@@ -98,7 +98,7 @@ internal sealed class DisplayBuffer : IDisposable
             foreach (byte value in part.RawName)
             {
                 _governor.NoteOperation();
-                int count = PdfName.WriteDisplayByte(value, escaped);
+                int count = PdfNameDisplay.WriteByte(value, escaped);
                 AppendSpan(escaped.Slice(0, count));
             }
         }

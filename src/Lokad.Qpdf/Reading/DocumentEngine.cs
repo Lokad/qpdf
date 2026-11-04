@@ -228,8 +228,6 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
 
     internal IReadOnlyList<PdfDictionary> Trailers => Table.Trailers;
 
-    internal DiagnosticBag Diagnostics => _diagnostics;
-
     internal IReadOnlyDictionary<int, XrefEntry> XRefEntries => Table.Entries;
 
     internal ReadOnlyMemory<byte> Data => _data;

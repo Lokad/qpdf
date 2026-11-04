@@ -84,9 +84,6 @@ public sealed class PdfInteger : QpdfObject, IEquatable<PdfInteger>
     internal static string GetSingleDigitText(int digit) => SingleDigitText[digit];
     internal static PdfInteger GetSharedValue(int value) => SharedValues[value];
 
-    internal bool IsSharedValue => (ulong)Value < SharedValueCount
-        && ReferenceEquals(this, SharedValues[(int)Value]);
-
     private static PdfInteger[] CreateSharedValues()
     {
         // Fixed immutable atoms, independent of documents and their owners.
@@ -213,18 +210,6 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
         _ => -1,
     };
 
-    internal bool IsSharedValue
-    {
-        get
-        {
-            foreach (PdfName name in SharedSyntaxNames.Values)
-            {
-                if (ReferenceEquals(this, name)) { return true; }
-            }
-            return false;
-        }
-    }
-
     /// <summary>Creates a name, copying the raw bytes.</summary>
     /// <exception cref="ArgumentNullException">The bytes are null.</exception>
     public PdfName(byte[] rawBytes) : this(rawBytes, true) { }
@@ -322,7 +307,7 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
                 int position = 0;
                 foreach (byte b in raw)
                 {
-                    position += WriteDisplayByte(b, target[position..]);
+                    position += PdfNameDisplay.WriteByte(b, target[position..]);
                 }
             });
         }
@@ -358,8 +343,6 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
         hash.Add(raw.Length);
         return hash.ToHashCode();
     }
-
-    internal static int WriteDisplayByte(byte value, Span<char> target) => PdfNameDisplay.WriteByte(value, target);
 
 }
 
@@ -736,8 +719,6 @@ public sealed class PdfStream : QpdfObject, IEquatable<PdfStream>
 
     internal object AllocationCarrier => MemoryMarshal.TryGetArray(_data, out ArraySegment<byte> segment)
         && segment.Array is byte[] bytes ? bytes : throw new InvalidOperationException("Missing stream array storage.");
-
-    internal long AllocationBytes => 32L + ((byte[])AllocationCarrier).Length;
 
     // Array-based filters and content consumers need the payload, not its
     // potentially larger backing. Materialize a slice under their scratch owner.

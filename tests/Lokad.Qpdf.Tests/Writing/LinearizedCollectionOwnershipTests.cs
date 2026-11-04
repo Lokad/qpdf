@@ -232,13 +232,13 @@ public sealed class LinearizedCollectionOwnershipTests
             [PdfName.FromAscii("Root")] = root,
         });
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        Assert.True(GovernedCollections.TryGet(dictionary, "Root"u8, governor, CancellationToken.None, out QpdfObject warm));
+        Assert.True(PdfDictionaryLookup.TryGet(dictionary, "Root"u8, governor, CancellationToken.None, out QpdfObject warm));
         Assert.Same(root, warm);
         long before = GC.GetAllocatedBytesForCurrentThread();
         bool found = true;
         for (int index = 0; index < 64; index++)
         {
-            found &= GovernedCollections.TryGet(dictionary, "Root"u8, governor, CancellationToken.None, out QpdfObject value)
+            found &= PdfDictionaryLookup.TryGet(dictionary, "Root"u8, governor, CancellationToken.None, out QpdfObject value)
                 && ReferenceEquals(root, value);
         }
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
@@ -249,6 +249,6 @@ public sealed class LinearizedCollectionOwnershipTests
         cancellation.Cancel();
         PdfDictionary empty = new(new Dictionary<PdfName, QpdfObject>());
         Assert.ThrowsAny<OperationCanceledException>(() =>
-            GovernedCollections.TryGet(empty, "Root"u8, governor, cancellation.Token, out _));
+            PdfDictionaryLookup.TryGet(empty, "Root"u8, governor, cancellation.Token, out _));
     }
 }

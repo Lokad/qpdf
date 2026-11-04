@@ -134,7 +134,7 @@ public sealed class WriterValueTests
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         using WriterValue? owner = writerIndex ? WriterValue.Remap(source, map, governor, CancellationToken.None) : null;
         PdfDictionary result = Assert.IsType<PdfDictionary>(owner is null
-            ? ObjectRemap.RemapIds(source, new Dictionary<int, int>(), memory, governor, CancellationToken.None) : owner.Value);
+            ? ObjectRemap.RemapSplit(source, new Dictionary<int, int>(), new HashSet<int>(), memory, governor, CancellationToken.None) : owner.Value);
         Assert.NotSame(source, result); Assert.Equal(new[] { first, last }, result.Keys);
         Assert.Same(PdfNull.Instance, Entry(result, "First"));
         Assert.Equal(3, source.Count); Assert.Equal(2, result.Count);

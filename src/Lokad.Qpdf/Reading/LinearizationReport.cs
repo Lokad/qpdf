@@ -1,6 +1,5 @@
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
-using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Reading;
@@ -8,10 +7,6 @@ namespace Lokad.Qpdf.Reading;
 /// <summary>Writes the linearization layout directly into admitted diagnostic storage.</summary>
 internal static class LinearizationReport
 {
-    internal static ClassifiedGraph ClassifyDocument(DocumentEngine engine, int lindictObject, int hintObject,
-        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken cancellationToken)
-        => LinearizationGraph.Classify(engine, lindictObject, hintObject, memory, governor, cancellationToken);
-
     internal static void Write(string inputName, LinearizationData data, ClassifiedGraph parts,
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {

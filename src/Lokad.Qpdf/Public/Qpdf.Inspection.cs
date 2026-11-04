@@ -169,7 +169,7 @@ public static partial class Qpdf
             ClassifiedGraph graph;
             try
             {
-                graph = LinearizationReport.ClassifyDocument(document.Engine, data.LindictObject, data.HintObject,
+                graph = LinearizationGraph.Classify(document.Engine, data.LindictObject, data.HintObject,
                     classificationMemory, governor, cancellationToken);
             }
             catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
