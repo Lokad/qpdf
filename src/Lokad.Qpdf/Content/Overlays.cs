@@ -177,7 +177,7 @@ internal static class Overlays
 
     internal sealed record OverlaySource(QpdfDocument Document, GraphCopier Copier, int PageCount, AcroFormCopy.OverlaySourceForm? FormInfo, HashSet<string> ImportNotes);
 
-    private sealed record PageBundle(QpdfObject? Resources, QpdfObject? Group, QpdfObject? BoxObject, double[]? Box, byte[]? Content, long Rotate, double UserUnit, bool HasTransform, bool DeferredCopy);
+    private sealed record PageBundle(QpdfObject? Resources, QpdfObject? Group, QpdfObject BoxObject, double[] Box, byte[] Content, long Rotate, double UserUnit, bool HasTransform, bool DeferredCopy);
 
     private sealed record ResolvedSpec(OverlaySource Source, int SpecIndex, GovernedIntDictionary<PageBundle> Bundles);
 
@@ -291,12 +291,14 @@ internal static class Overlays
         foreach (int page in needed)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            planning.Reserve(224L); // Bundle, optional rectangle and deferred-copy record.
-            bundles.TryAdd(planning, page, BuildBundle(source, page, limits, governor, ownership, diagnostics, cancellationToken, deferCopy));
+            planning.Reserve(224L); // Rectangle/scratch, bundle and later deferred clone.
+            PageBundle? bundle = BuildBundle(source, page, limits, governor, ownership, diagnostics, cancellationToken, deferCopy);
+            if (bundle is not null) { bundles.TryAdd(planning, page, bundle); }
+            else { planning.Release(224L); }
         }
     }
 
-    private static PageBundle BuildBundle(
+    private static PageBundle? BuildBundle(
         OverlaySource source,
         int pageNumber,
         QpdfLimits limits,
@@ -310,13 +312,6 @@ internal static class Overlays
         governor.NoteOperation();
         PageLocation location = source.Document.PageReferences[pageNumber - 1];
         DocumentEngine engine = source.Document.Engine;
-        QpdfObject? resources = FindInherited(engine, location, "Resources", limits, governor, cancellationToken);
-        QpdfObject? group = null;
-        if (location.Page.TryGet(PdfName.FromAscii("Group"), out QpdfObject? groupRaw) && groupRaw is not null && groupRaw is not PdfNull)
-        {
-            group = groupRaw;
-        }
-
         QpdfObject? trim = null;
         if (location.Page.TryGet(PdfName.FromAscii("TrimBox"), out QpdfObject? trimRaw) && trimRaw is not null && trimRaw is not PdfNull)
         {
@@ -329,18 +324,46 @@ internal static class Overlays
         QpdfObject? crop = FindInherited(engine, location, "CropBox", limits, governor, cancellationToken);
         QpdfObject? media = FindInherited(engine, location, "MediaBox", limits, governor, cancellationToken);
         QpdfObject? boxObject = trim ?? crop ?? media;
-        double[]? box = null;
-        if (boxObject is not null)
-        {
-            box = ReadRectangle(boxObject, engine);
-            if (box is null)
-            {
-                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Overlay page bounding box is invalid; skipping it.");
-            }
-        }
-        else
+        if (boxObject is null)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Overlay page has no bounding box; skipping it.");
+            return null;
+        }
+        double[]? box = ReadRectangle(boxObject, engine);
+        if (box is null)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Overlay page bounding box is invalid; skipping it.");
+            return null;
+        }
+        // The bundle's coarse admission covers this fixed scratch beside its
+        // rectangle. The deferred bundle clone is created later, after it retires.
+        Span<double> mediaBox = stackalloc double[4];
+        if (ReferenceEquals(boxObject, media)) { box.AsSpan().CopyTo(mediaBox); }
+        else if (!TryReadRectangle(media, engine, mediaBox))
+        {
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Overlay page media box is invalid; skipping it.");
+            return null;
+        }
+        double left = Math.Max(Math.Min(box[0], box[2]), Math.Min(mediaBox[0], mediaBox[2]));
+        double bottom = Math.Max(Math.Min(box[1], box[3]), Math.Min(mediaBox[1], mediaBox[3]));
+        double right = Math.Min(Math.Max(box[0], box[2]), Math.Max(mediaBox[0], mediaBox[2]));
+        double top = Math.Min(Math.Max(box[1], box[3]), Math.Max(mediaBox[1], mediaBox[3]));
+        if (left >= right || bottom >= top)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Overlay page has an empty media intersection; skipping it.");
+            return null;
+        }
+        bool rebuildBox = left != box[0] || bottom != box[1] || right != box[2] || top != box[3];
+        if (rebuildBox)
+        {
+            box[0] = left; box[1] = bottom; box[2] = right; box[3] = top;
+        }
+
+        QpdfObject? resources = FindInherited(engine, location, "Resources", limits, governor, cancellationToken);
+        QpdfObject? group = null;
+        if (location.Page.TryGet(PdfName.FromAscii("Group"), out QpdfObject? groupRaw) && groupRaw is not null && groupRaw is not PdfNull)
+        {
+            group = groupRaw;
         }
 
         long rotate = 0L;
@@ -372,6 +395,9 @@ internal static class Overlays
         }
 
         byte[]? content = CollectSourceContents(location, engine, limits, governor, ownership, diagnostics, cancellationToken);
+        if (content is null) { return null; }
+        // Replace this role's bounds, leaving independent raw-box aliases intact.
+        if (rebuildBox) { boxObject = NumberArray(box, governor, ownership); }
         if (deferCopy)
         {
             return new PageBundle(resources, group, boxObject, box, content, rotate, userUnit, hasRotate || hasUnit, true);
@@ -390,12 +416,8 @@ internal static class Overlays
             copiedGroup = source.Copier.CopyValue(group, 0);
         }
 
-        QpdfObject? copiedBox = null;
-        if (box is not null && boxObject is not null)
-        {
-            governor.NoteOperation();
-            copiedBox = source.Copier.CopyValue(boxObject, 0);
-        }
+        governor.NoteOperation();
+        QpdfObject copiedBox = source.Copier.CopyValue(boxObject, 0);
 
         return new PageBundle(copiedResources, copiedGroup, copiedBox, box, content, rotate, userUnit, hasRotate || hasUnit, false);
     }
@@ -431,12 +453,18 @@ internal static class Overlays
 
     private static double[]? ReadRectangle(QpdfObject? value, IIndirectResolver resolver)
     {
+        Span<double> numbers = stackalloc double[4];
+        return TryReadRectangle(value, resolver, numbers) ? numbers.ToArray() : null;
+    }
+
+    private static bool TryReadRectangle(QpdfObject? value, IIndirectResolver resolver, Span<double> numbers)
+    {
         QpdfObject? target = value;
         if (target is PdfReference reference)
         {
             if (!resolver.TryResolve(reference, out QpdfObject? resolved) || resolved is null || resolved is PdfNull)
             {
-                return null;
+                return false;
             }
 
             target = resolved;
@@ -444,10 +472,9 @@ internal static class Overlays
 
         if (target is not PdfArray array || array.Count != 4)
         {
-            return null;
+            return false;
         }
 
-        double[] numbers = new double[4];
         for (int i = 0; i < 4; i++)
         {
             QpdfObject item = array[i];
@@ -455,7 +482,7 @@ internal static class Overlays
             {
                 if (!resolver.TryResolve(itemReference, out QpdfObject? resolvedItem) || resolvedItem is null)
                 {
-                    return null;
+                    return false;
                 }
 
                 item = resolvedItem;
@@ -471,16 +498,16 @@ internal static class Overlays
             }
             else
             {
-                return null;
+                return false;
             }
 
             if (!double.IsFinite(numbers[i]))
             {
-                return null;
+                return false;
             }
         }
 
-        return numbers;
+        return true;
     }
 
     private static void ApplyToPage(
@@ -684,11 +711,6 @@ internal static class Overlays
         }
 
         if (!spec.Bundles.TryGetValue(placement.FromPage, out PageBundle? bundle) || bundle is null)
-        {
-            return null;
-        }
-
-        if (bundle.Box is null || bundle.BoxObject is null || bundle.Content is null)
         {
             return null;
         }

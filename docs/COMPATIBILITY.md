@@ -317,6 +317,12 @@ null entries inside content arrays remain damaged input.
 Overlay/underlay preserves the destination's original content frame. Its background
 Form uses MediaBox and an identity placement; the outer page retains rotation,
 UserUnit and visible clipping. CropBox/TrimBox fitting applies to imported artwork.
+Imported bounds use their effective intersection with MediaBox for both fitting
+and the Form BBox; reversed corners normalize first. Native qpdf can expose
+off-media artwork by using the raw preferred box. Original box aliases retain
+their values. Missing, malformed or empty effective bounds warn and skip the
+source before decoding content or copying resources; valid blank sources still
+import their annotations.
 This intentionally strengthens native behavior that can move or clip existing
 marks, even when stamping an empty page. Source content bytes and resource scopes
 remain unchanged.

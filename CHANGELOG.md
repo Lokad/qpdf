@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Intersect imported overlay/underlay TrimBox and CropBox bounds with MediaBox
+  for clipping and fitting, including reversed and indirect rectangles. Preserve
+  independently referenced original boxes; skip empty or unusable bounds before
+  decoding content or copying unused resources, with a warning.
+
 - Protect Type 3 glyph resources when ExtGState Font selects the font, including
   indirect arrays and subtype names. Keep ordinary font pruning and soft-mask
   guards; native qpdf can lose glyph artwork through this graphics-state path.
