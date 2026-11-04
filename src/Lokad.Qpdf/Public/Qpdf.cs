@@ -449,6 +449,9 @@ public static partial class Qpdf
                     Content.CopiedForm? singleForm = !settings.RemoveAcroform || (settings.GenerateAppearances && needAppearances)
                         ? Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, kept, true, limits, governor, copyMemory, cancellationToken, false)
                         : null;
+                    (singleForm, _, IReadOnlyDictionary<PdfName, QpdfObject>? boundExtras, singleOutlines) = Content.SourceActions.BindDocument(
+                        document.Engine, copier, singleForm, singleForm, singleExtras, true, singleOutlines, governor, copyMemory, cancellationToken);
+                    singleExtras = boundExtras ?? singleExtras;
                     IReadOnlyList<(GraphCopier Copier, Content.CopiedForm Part, int Occurrence)> rotationFields = Array.Empty<(GraphCopier, Content.CopiedForm, int)>();
                     flattenAllocator = Math.Max(flattenAllocator, copier.NextId);
                     if (settings.GenerateAppearances && needAppearances)
@@ -527,6 +530,7 @@ public static partial class Qpdf
                         singleLabels = singleItems.Count == 0 ? null : NumbersDictionary(singleItems, governor);
                     }
 
+                    Content.OptionalContent.Capture(document.Engine, copier, singleExtras, copyMemory, governor, cancellationToken);
                     Dictionary<int, QpdfObject> singlePool = ParserContainers.CreateDictionary<int, QpdfObject>(copyMemory);
                     ParserContainers.HintEntryCapacity(copyMemory, singlePool, copier.CopiedObjects.Count, IntPtr.Size, governor);
                     foreach (KeyValuePair<int, QpdfObject> entry in copier.CopiedObjects)
@@ -580,6 +584,9 @@ public static partial class Qpdf
                     }
                     FinishContentTransforms(singlePool, occurrences, singleTransforms, singlePruneSources, processedContentForms,
                         settings.Optimize, limits, governor, diagnostics, cancellationToken);
+                    QpdfObject? singleOptionalContent = Content.OptionalContent.Combine(copier, Array.Empty<GraphCopier>(), overlayApplied.Copiers, singleExtras, singlePool, governor, cancellationToken);
+                    if (singleOptionalContent is not null && settings.ForceVersion is null)
+                    { IncludeVersionRequirement(ref negotiated, ref negotiatedExtension, new QpdfDocument.VersionParts(1, 5), 0, governor); }
                     HashSet<int> singleCompressed = ResolveCompressedSet(streamMode, singlePool, singleSources, copyMemory, governor, cancellationToken);
                     PdfVersion effective = negotiated;
                     int extensionLevel = negotiatedExtension;
@@ -589,7 +596,7 @@ public static partial class Qpdf
                         extensionLevel = 0;
                     }
 
-                    PdfDictionary catalog = NewCatalog(singleLabels, effective, extensionLevel, singleMetadata, singleAttached.NamesRef, singlePageMode ?? (singleAttached.Inserted ? UseAttachmentsPageMode : null), singleOutlines, singleAcroForm, singleStructTree, singleMarkInfo, singleExtras, singlePool, governor, cancellationToken);
+                    PdfDictionary catalog = NewCatalog(singleLabels, effective, extensionLevel, singleMetadata, singleAttached.NamesRef, singlePageMode ?? (singleAttached.Inserted ? UseAttachmentsPageMode : null), singleOutlines, singleAcroForm, singleStructTree, singleMarkInfo, singleExtras, singleOptionalContent, singlePool, governor, cancellationToken);
                     PdfDictionary pages = PagesNode(kids, copyMemory, governor, cancellationToken);
                     int modelCount = checked(singlePool.Count + 2);
                     copyMemory.Reserve(checked(64L + 16L * modelCount));
@@ -1222,6 +1229,17 @@ public static partial class Qpdf
                     needAppearances = true;
                 }
 
+                (Content.CopiedForm? boundForm, Content.CopiedForm? boundGateForm,
+                    IReadOnlyDictionary<PdfName, QpdfObject>? boundExtras, PdfReference? boundOutlines) = Content.SourceActions.BindDocument(
+                        document.Engine, copier, sourceForm, gateForms[^1], s == primaryIdx ? primaryExtras : null, !splitPages.HasValue,
+                        s == primaryIdx ? primaryOutlines : null, governor, selectionMemory, cancellationToken);
+                multiForms[^1] = boundForm; gateForms[^1] = boundGateForm;
+                if (s == primaryIdx)
+                {
+                    primaryExtras = boundExtras; primaryOutlines = boundOutlines;
+                    if (primaryOutlines is not null) { ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryOutlines.ObjectNumber, sizeof(int)); }
+                }
+                Content.OptionalContent.Capture(document.Engine, copier, s == primaryIdx ? primaryExtras : null, selectionMemory, governor, cancellationToken);
                 nextId = copier.NextId;
                 copiers.Add(copier);
                 // Copied containers still borrow immutable source scalars/keys.
@@ -1539,6 +1557,10 @@ public static partial class Qpdf
         FinishContentTransforms(pool, occurrences, finalTransforms, pruneSources, processedContentForms,
             settings.Optimize, limits, governor, diagnostics, cancellationToken);
 
+        GraphCopier? primaryOptionalCopier = primaryIdx >= 0 && primaryIdx < copiers.Count ? copiers[primaryIdx] : null;
+        QpdfObject? optionalContent = Content.OptionalContent.Combine(primaryOptionalCopier, copiers, overlayApplied.Copiers, primaryExtras, pool, governor, cancellationToken);
+        if (optionalContent is not null && settings.ForceVersion is null)
+        { IncludeVersionRequirement(ref effective, ref extensionLevel, new QpdfDocument.VersionParts(1, 5), 0, governor); }
         if (governor.HasTypedResult) { selectionMemory.PrepareResultStorage(checked(24L * mapping.Count)); }
         if (!splitPages.HasValue)
         {
@@ -1546,7 +1568,7 @@ public static partial class Qpdf
             selectionMemory.Reserve(checked(64L + 16L * modelCount));
             List<NumberedObject> model = new(modelCount)
             {
-                new NumberedObject(1, NewCatalog(catalogLabels, effective, extensionLevel, primaryMetadata, multiAttached.NamesRef, primaryPageMode ?? (multiAttached.Inserted ? UseAttachmentsPageMode : null), primaryOutlines, multiAcroForm, primaryStructTree, primaryMarkInfo, primaryExtras, pool, governor, cancellationToken)),
+                new NumberedObject(1, NewCatalog(catalogLabels, effective, extensionLevel, primaryMetadata, multiAttached.NamesRef, primaryPageMode ?? (multiAttached.Inserted ? UseAttachmentsPageMode : null), primaryOutlines, multiAcroForm, primaryStructTree, primaryMarkInfo, primaryExtras, optionalContent, pool, governor, cancellationToken)),
                 new NumberedObject(2, PagesNode(kids, selectionMemory, governor, cancellationToken)),
             };
             foreach (KeyValuePair<int, QpdfObject> entry in pool)
@@ -1683,6 +1705,11 @@ public static partial class Qpdf
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 ParserContainers.AddItem(groupMemory, roots, attachmentNames.ObjectNumber, sizeof(int));
             }
+            if (optionalContent is not null)
+            {
+                foreach (int id in Content.AcroFormCopy.CollectRefNumbers(optionalContent, governor, groupMemory, cancellationToken))
+                { ParserContainers.AddItem(groupMemory, roots, id, sizeof(int)); }
+            }
             using ParserMemoryScope reachabilityMemory = ParserMemoryScope.Create(governor);
             groupMemory.Reserve(40L);
             HashSet<int> reachable = ReachableIds(new SplitResolver(pool, pageNumbers, groupPageNumbers), roots, reachabilityMemory, governor);
@@ -1782,8 +1809,10 @@ public static partial class Qpdf
 
                 remappedLabels = remappedLabelsDictionary;
             }
+            QpdfObject? groupOptionalContent = optionalContent is null ? null
+                : Writing.ObjectRemap.RemapSplit(optionalContent, renumber, pageNumbers, groupMemory, governor, cancellationToken);
             List<NumberedObject> sub = ParserContainers.CreateList<NumberedObject>(groupMemory);
-            NumberedObject groupCatalog = new(1, NewCatalog(remappedLabels, effective, extensionLevel, groupMetadata, groupNames, primaryPageMode as PdfName ?? (multiAttached.Inserted ? UseAttachmentsPageMode : null), groupOutlines, remappedAcroForm, groupStructTree, groupMarkInfo, null, pool, governor, cancellationToken));
+            NumberedObject groupCatalog = new(1, NewCatalog(remappedLabels, effective, extensionLevel, groupMetadata, groupNames, primaryPageMode as PdfName ?? (multiAttached.Inserted ? UseAttachmentsPageMode : null), groupOutlines, remappedAcroForm, groupStructTree, groupMarkInfo, null, groupOptionalContent, pool, governor, cancellationToken));
             NumberedObject groupPages = new(2, PagesNode(renumberedKids, groupMemory, governor, cancellationToken));
             ParserContainers.AddItem(groupMemory, sub, groupCatalog, 16L);
             ParserContainers.AddItem(groupMemory, sub, groupPages, 16L);
@@ -2016,7 +2045,7 @@ public static partial class Qpdf
     private static readonly byte[] PlaceholderIdBytes = new byte[16];
     private static readonly PdfName UseAttachmentsPageMode = PdfName.FromAscii("UseAttachments");
 
-    private static PdfDictionary NewCatalog(QpdfObject? pageLabels, PdfVersion finalVersion, int extensionLevel, PdfReference? metadataRef, PdfReference? namesRef, QpdfObject? pageMode, PdfReference? outlinesRef, PdfDictionary? acroForm, PdfReference? structTreeRef, QpdfObject? markInfo, IReadOnlyDictionary<PdfName, QpdfObject>? extras, IReadOnlyDictionary<int, QpdfObject> pool, ResourceGovernor governor, CancellationToken token)
+    private static PdfDictionary NewCatalog(QpdfObject? pageLabels, PdfVersion finalVersion, int extensionLevel, PdfReference? metadataRef, PdfReference? namesRef, QpdfObject? pageMode, PdfReference? outlinesRef, PdfDictionary? acroForm, PdfReference? structTreeRef, QpdfObject? markInfo, IReadOnlyDictionary<PdfName, QpdfObject>? extras, QpdfObject? optionalContent, IReadOnlyDictionary<int, QpdfObject> pool, ResourceGovernor governor, CancellationToken token)
     {
         if (finalVersion is null)
         {
@@ -2093,6 +2122,7 @@ public static partial class Qpdf
             }
         }
 
+        if (optionalContent is not null) { Set("OCProperties"u8, optionalContent); }
         if (originalExtensions is not null || extensionLevel > 0)
         {
             IIndirectResolver resolver = Content.PoolResolver.Create(graph.Memory, pool);

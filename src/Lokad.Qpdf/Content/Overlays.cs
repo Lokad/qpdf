@@ -144,6 +144,12 @@ internal static class Overlays
             QpdfDocument.VersionParts? version = null; int extensionLevel = 0;
             foreach (OverlaySource source in sources.Values)
             {
+                if (retainedResolver is null)
+                {
+                    source.Copier.AdvanceNextId(allocator);
+                    OptionalContent.Capture(source.Document.Engine, source.Copier, null, ownership, governor, cancellationToken);
+                    allocator = Math.Max(allocator, source.Copier.NextId);
+                }
                 ParserContainers.AddItem(ownership, copiers, source.Copier, IntPtr.Size);
                 CatalogCopy.IncludeSourceVersion(ref version, ref extensionLevel, source.Document, governor, cancellationToken);
             }
@@ -1222,6 +1228,7 @@ internal static class Overlays
         Dictionary<int, PdfReference> memo = ParserContainers.CreateDictionary<int, PdfReference>(scratch);
         int nullId = -1;
         List<PdfReference> fresh = ParserContainers.CreateList<PdfReference>(scratch);
+        int firstImport = imports.Count;
         AcroFormCopy.OverlaySourceForm? sourceForm = source.FormInfo;
         PdfReference? placementDr = null;
         bool needsPageResources = false;
@@ -1288,6 +1295,9 @@ internal static class Overlays
             appearanceResources = CopyOverlayNode(sourceResources, engine, source.Copier, destCopier, memo, scratch,
                 ref allocator, ref nullId, limits, governor, ownership, cancellationToken, 0);
         }
+
+        SourceActions.BindPlacement(engine, source.Copier, destCopier, fresh, imports, firstImport,
+            governor, ownership, cancellationToken, ref allocator);
 
         // Geometry changes each annotation once. Appearance roles get fresh headers;
         // independently retained aliases keep the original stream and containers.
@@ -1569,6 +1579,16 @@ internal static class Overlays
 
             if (resolved is PdfDictionary dictionary)
             {
+                if (PdfDictionaryLookup.HasName(dictionary, "Type"u8, "OCG"u8, resolver, governor, cancellationToken)
+                    || PdfDictionaryLookup.HasName(dictionary, "Type"u8, "OCMD"u8, resolver, governor, cancellationToken))
+                {
+                    // Group membership belongs to the source document, independently
+                    // of placement-specific annotation and field headers.
+                    sourceCopier.AdvanceNextId(allocator);
+                    QpdfObject group = sourceCopier.CopyValue(reference, depth);
+                    allocator = Math.Max(allocator, sourceCopier.NextId);
+                    return group;
+                }
                 string? kind = OverlayNodeKind(dictionary, resolver);
                 if (kind == "Page")
                 {

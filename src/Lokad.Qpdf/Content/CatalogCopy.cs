@@ -39,6 +39,24 @@ internal static class CatalogCopy
     internal static PdfDictionary? ResolveDictionary(QpdfObject? raw, IIndirectResolver resolver, ResourceGovernor governor, CancellationToken token)
         => ResolveValue(raw, resolver, governor, token) as PdfDictionary;
 
+    internal static PdfDictionary? ResolveDictionary(QpdfObject? raw, IReadOnlyDictionary<int, QpdfObject> pool, ResourceGovernor governor, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        if (raw is PdfReference reference) { PdfObjectLookup.TryResolve(reference, pool, governor, token, out raw); }
+        return raw as PdfDictionary;
+    }
+
+    internal static QpdfObject? ReadExtra(IReadOnlyDictionary<PdfName, QpdfObject>? extras, ReadOnlySpan<byte> key,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        if (extras is null) { return null; }
+        if (extras is PdfNameTable<QpdfObject> names)
+        { return names.TryGetValue(key, governor, token, out QpdfObject? value) ? value : null; }
+        foreach (KeyValuePair<PdfName, QpdfObject> entry in extras)
+        { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); if (entry.Key.RawSpan.SequenceEqual(key)) { return entry.Value; } }
+        return null;
+    }
+
     internal static QpdfObject? ResolveValue(QpdfObject? raw, IIndirectResolver resolver, ResourceGovernor governor, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();

@@ -16,7 +16,7 @@ public sealed class CatalogStorageTests
 {
     private delegate PdfDictionary Catalog(QpdfObject? labels, PdfVersion version, int extension,
         PdfReference? metadata, PdfReference? names, QpdfObject? mode, PdfReference? outlines, PdfDictionary? form,
-        PdfReference? structure, QpdfObject? mark, IReadOnlyDictionary<PdfName, QpdfObject>? extras,
+        PdfReference? structure, QpdfObject? mark, IReadOnlyDictionary<PdfName, QpdfObject>? extras, QpdfObject? optionalContent,
         IReadOnlyDictionary<int, QpdfObject> pool, ResourceGovernor governor, CancellationToken token);
     private static readonly Catalog Build = (typeof(Qpdf).GetMethod("NewCatalog", BindingFlags.NonPublic | BindingFlags.Static)
         ?? throw new InvalidOperationException("Missing live catalog builder.")).CreateDelegate<Catalog>();
@@ -66,7 +66,7 @@ public sealed class CatalogStorageTests
         Assert.Throws<QpdfLimitException>(() =>
         {
             if (copying) { CatalogCopy.TryCopyExtras(engine, copier, true, false, governor, owner, CancellationToken.None); }
-            else { Build(null, new(1, 4), 0, null, null, null, null, null, null, null, extras, copier.CopiedObjects, governor, CancellationToken.None); }
+            else { Build(null, new(1, 4), 0, null, null, null, null, null, null, null, extras, null, copier.CopiedObjects, governor, CancellationToken.None); }
         });
         Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 65536L);
         Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
@@ -85,7 +85,7 @@ public sealed class CatalogStorageTests
             GraphCopier copier = GraphCopier.CreateOwned(engine, governor, QpdfLimits.Default, 3, owner);
             long allocated = GC.GetAllocatedBytesForCurrentThread();
             IReadOnlyDictionary<PdfName, QpdfObject> extras = CatalogCopy.TryCopyExtras(engine, copier, true, false, governor, owner, CancellationToken.None).Extras;
-            escaped = Build(null, new(1, 4), 0, null, null, null, null, null, null, null, extras, copier.CopiedObjects, governor, CancellationToken.None);
+            escaped = Build(null, new(1, 4), 0, null, null, null, null, null, null, null, extras, null, copier.CopiedObjects, governor, CancellationToken.None);
             Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 65536L);
             Assert.Same(key, Assert.Single(extras).Key);
         }
@@ -121,7 +121,7 @@ public sealed class CatalogStorageTests
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(31L);
         long baseline = governor.Snapshot().LiveMemoryBytes;
         Assert.ThrowsAny<OperationCanceledException>(() => Build(null, new(1, 4), 0, null, null, null, null, null, null, null,
-            new CancelingExtras(cancellation.Cancel), new Dictionary<int, QpdfObject>(), governor, caller ? cancellation.Token : CancellationToken.None));
+            new CancelingExtras(cancellation.Cancel), null, new Dictionary<int, QpdfObject>(), governor, caller ? cancellation.Token : CancellationToken.None));
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes); Assert.Equal(31L, prior.ReservedBytes);
     }
 
@@ -168,7 +168,7 @@ public sealed class CatalogStorageTests
         {
             if (copying) { CatalogCopy.TryCopyExtras(engine, copier, true, false, governor, owner, CancellationToken.None); }
             else { Build(null, new(1, 7), 0, null, new(7, 0), null, null, null, null, null,
-                new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("Names")] = names }, pool, governor, CancellationToken.None); }
+                new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("Names")] = names }, null, pool, governor, CancellationToken.None); }
         });
         Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 65536L);
         Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
@@ -210,7 +210,7 @@ public sealed class CatalogStorageTests
             {
                 if (copying) { CatalogCopy.TryCopyExtras(engine, copier, true, false, governor, owner, CancellationToken.None); }
                 else { Build(null, new(1, 7), 0, null, new(7, 0), null, null, null, null, null,
-                    new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("Names")] = names }, pool, governor, CancellationToken.None); }
+                    new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("Names")] = names }, null, pool, governor, CancellationToken.None); }
             });
             Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
         }
@@ -226,7 +226,7 @@ public sealed class CatalogStorageTests
         GraphCopier copier = GraphCopier.CreateOwned(engine, governor, QpdfLimits.Default, 3, owner);
         IReadOnlyDictionary<PdfName, QpdfObject> extras = CatalogCopy.TryCopyExtras(engine, copier, true, false, governor, owner, CancellationToken.None).Extras;
         Assert.Empty(extras); Assert.Empty(copier.CopiedObjects);
-        PdfDictionary catalog = Build(null, new(1, 7), 0, null, null, null, null, null, null, null, extras, copier.CopiedObjects, governor, CancellationToken.None);
+        PdfDictionary catalog = Build(null, new(1, 7), 0, null, null, null, null, null, null, null, extras, null, copier.CopiedObjects, governor, CancellationToken.None);
         Assert.False(catalog.TryGet(PdfName.FromAscii("Names"), out _));
     }
 
@@ -255,7 +255,7 @@ public sealed class CatalogStorageTests
         PdfArray opaque = new([new PdfReference(17, 0)]); PdfReference mode = new(44, 0);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         PdfDictionary catalog = Build(null, new(1, 7), 3, null, null, mode, null, form, null, null,
-            new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("AcroForm")] = opaque }, new Dictionary<int, QpdfObject>(), governor, CancellationToken.None);
+            new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("AcroForm")] = opaque }, null, new Dictionary<int, QpdfObject>(), governor, CancellationToken.None);
         Assert.True(catalog.TryGet(PdfName.FromAscii("AcroForm"), out QpdfObject kept)); Assert.Same(form, kept);
         Assert.True(catalog.TryGet(PdfName.FromAscii("PageMode"), out kept)); Assert.Same(mode, kept);
         Assert.True(catalog.TryGet(PdfName.FromAscii("Extensions"), out kept)); PdfDictionary extensions = Assert.IsType<PdfDictionary>(kept);
@@ -277,7 +277,7 @@ public sealed class CatalogStorageTests
         CancelingObjects pool = new(cancellation.Cancel) { [10] = Dict(("ACME", Dict(("ExtensionLevel", new PdfInteger("42", 42))))) };
         Dictionary<PdfName, QpdfObject> extras = new() { [PdfName.FromAscii("Extensions")] = new PdfReference(10, 0) };
         Assert.ThrowsAny<OperationCanceledException>(() => Build(null, new(1, 7), 3, null, null, null, null, null, null, null,
-            extras, pool, governor, caller ? cancellation.Token : CancellationToken.None));
+            extras, null, pool, governor, caller ? cancellation.Token : CancellationToken.None));
         Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); Assert.Equal(31L, prior.ReservedBytes);
     }
 }

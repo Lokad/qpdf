@@ -95,8 +95,8 @@ internal sealed class GraphCopier
     {
         if (!_mapping.ContainsKey(source))
         {
-            // Keys identify source objects. Duplicate destination pages do not
-            // increase this cardinality; their separate map keeps normal growth.
+            // Keys identify source objects. Duplicate output pages grow only
+            // the copied pool, keeping their first registered source mapping.
             ParserContainers.EnsureEntryCapacity(_ownership, _mapping, sizeof(int), _sourceObjectCount);
             if (_copyAttempts > 0)
             {
@@ -182,6 +182,7 @@ internal sealed class GraphCopier
     internal SignatureCopyPolicy SignaturePolicy { get; }
 
     internal int NextId => _nextId;
+    internal Content.CopiedOptionalContent? OptionalContent { get; set; }
     // Source copying is complete. Continue mutation in the already admitted
     // assembled output pool, retaining origin maps and the construction owner.
     internal void UseOutputPool(Dictionary<int, QpdfObject> pool, CancellationToken token)
@@ -195,8 +196,9 @@ internal sealed class GraphCopier
         }
         _copied = pool; _nextId = next;
     }
-    // Removing edges does not necessarily allocate a new indirect identity.
+    // Replacing copied objects or catalog roots can retire their old descendants.
     internal bool HasReplacedObjects { get; private set; }
+    internal void MarkChangedRoots() { _governor.CheckCancellation(); HasReplacedObjects = true; }
 
     // Register selected page identities before descending into any page graph.
     // Otherwise a link to a later selected page is prematurely pruned to null.
@@ -462,7 +464,10 @@ internal sealed class GraphCopier
             checked { _nextId += 1; }
         }
 
-        if (sourceNumber.HasValue)
+        // Registered destinations identify the first selected occurrence.
+        // A duplicate gets its own page object without retargeting later copies
+        // of the source's links, catalog values or named destinations.
+        if (sourceNumber.HasValue && !_mapping.ContainsKey(sourceNumber.Value))
         {
             Map(sourceNumber.Value, pageId);
         }

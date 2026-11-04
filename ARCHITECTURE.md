@@ -93,6 +93,24 @@ assembles the original group occurrences, counts and mappings. Each document clo
 before the next opens. Duplicate widget pages reuse the rotation path's annotation
 header copying, including field spines, popup/reply links and form registration;
 appearance and resource payloads stay shared.
+The first registered page identity remains canonical when a page is repeated;
+later catalog and destination copies cannot retarget it to a duplicate occurrence.
+Unchanged primary catalog context keeps its original action values and shared
+identities. When source context would otherwise be lost, retained action roles bind
+explicit URI bases and source-local named destinations while the reader lives,
+copying resolved target arrays through that page map. Page/annotation/field events,
+action chains, outlines and retained
+catalog actions share one bounded role walk. Incoming role edges propagate changed
+headers; new identities are assigned before rebuilding cycles. Private graph edges
+keep original objects, and field registrations/calculation order follow the new
+field identities. Movie activation data and popup extras retain their separate roles.
+Optional-content capture examines the source's declared groups through the existing
+copy map. Ordinary documents need no pool scan, and existing catalog properties are
+borrowed directly. A sole complex configuration stays intact; multiple static View
+contexts combine registrations and OFF states by identity. Unsupported automatic,
+alternate-configuration and non-View composition fails before publication. Changed
+catalog headers join the existing final-root retirement; no second PDF model or
+source-reader registry survives copying.
 Combined forms bind retained fields to their own source default resources and
 DA/Q values. The existing placement resource union also serves ordinary merges;
 only placements repair parent links and reset field resources. Indirect DA and
@@ -100,7 +118,7 @@ source fallbacks use the same font renaming. Consecutive field tops with the sam
 placement context share that work, while registrations retain their order and
 collision policy. Rewritten indirect/default programs receive shared fresh
 identities; independent aliases retain the original bytes. One-source forms need
-no context-binding pass, and existing appearance-local resources remain untouched.
+no appearance-default rebinding, and existing appearance-local resources remain untouched.
 Zero-sized collation groups still resolve and validate their requests, but do not
 join the copied root union or form closure. Original group positions and counts
 remain available without constructing page objects that publication must discard.

@@ -1,0 +1,209 @@
+using System.Diagnostics.CodeAnalysis;
+using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.TestSupport;
+
+namespace Lokad.Qpdf.Tests.Content;
+
+public sealed class SourceActionFailureTests
+{
+    private static readonly QpdfPath Input = QpdfPath.From("input"), Output = QpdfPath.From("output");
+
+    private static async Task<QpdfExecutionResult?> Run(IQpdfHost host, string route, CancellationToken token)
+    {
+        if (route == "typed") { await Qpdf.SelectPageAsync(host, Input, Output, new(1), token); return null; }
+        return route == "argv" ? await Qpdf.ExecuteAsync(host, new(["input", "output"]), token)
+            : await Qpdf.ExecuteJobAsync(host, "{\"inputFile\":\"input\",\"outputFile\":\"output\"}", token);
+    }
+
+    private static async Task Seed(InMemoryQpdfHost storage)
+    {
+        await using IQpdfOutputTransaction prior = await storage.CreateOutputAsync(Output, CancellationToken.None);
+        await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None); await prior.CommitAsync(CancellationToken.None);
+    }
+
+    public static IEnumerable<object[]> InvalidBases()
+    {
+        foreach (string route in new[] { "typed", "argv", "job" })
+        foreach (string basis in new[] { "42", "(../relative/)", "<feff00680074>", "(D:\\134folder\\134file)" })
+        { yield return [route, basis]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(InvalidBases))]
+    public async Task AnUnusableExplicitBaseCannotPublishChangedMeaning(string route, string basis)
+    {
+        RecordingMemoryBudget budget = new(16L << 20); using IMemoryScope owner = budget.CreateScope();
+        using InMemoryQpdfHost storage = new(); storage.AddInput(Input, SourceActionRoleTests.Fixture(true, basis + " /Source 1 0 R"), QpdfInputOwnership.Transfer);
+        await Seed(storage); View host = new(storage, owner, "ordinary");
+        if (route == "typed") { await Assert.ThrowsAnyAsync<QpdfException>(() => Run(host, route, CancellationToken.None)); }
+        else
+        { QpdfExecutionResult? result = await Run(host, route, CancellationToken.None); Assert.NotNull(result); Assert.Equal(QpdfExitCode.Error, result.ExitCode); }
+        Assert.True(storage.TryGetOutput(Output, out byte[] output)); Assert.Equal("prior"u8.ToArray(), output);
+        Assert.Equal(0, host.Created); Assert.Equal(0L, storage.OpenLeaseCount);
+        storage.Dispose(); owner.Dispose(); Assert.Equal(0L, budget.ReservedBytes); Assert.Equal(0, budget.LiveReservations);
+    }
+
+    [Theory]
+    [InlineData("typed", "missing")]
+    [InlineData("argv", "missing")]
+    [InlineData("job", "missing")]
+    [InlineData("typed", "cycle")]
+    [InlineData("argv", "cycle")]
+    [InlineData("job", "cycle")]
+    [InlineData("typed", "odd")]
+    [InlineData("argv", "odd")]
+    [InlineData("job", "odd")]
+    public async Task UnresolvedOrMalformedSourceDestinationsCannotPublish(string route, string shape)
+    {
+        string tree = shape switch { "cycle" => "<< /Kids [6 0 R] /Source 1 0 R >>", "odd" => "<< /Names [(Here)] /Source 1 0 R >>", _ => "<< /Names [(Other) [3 0 R /Fit]] /Source 1 0 R >>" };
+        byte[] source = Tests.Inspection.CheckTests.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R /Names << /Dests 6 0 R >> >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [4 0 R] >>", null),
+            (4, "<< /Type /Annot /Subtype /Link /Rect [10 10 20 20] /A 5 0 R >>", null),
+            (5, "<< /S /GoTo /D (Here) >>", null), (6, tree, null)], 1);
+        RecordingMemoryBudget budget = new(16L << 20); using IMemoryScope owner = budget.CreateScope();
+        using InMemoryQpdfHost storage = new(); storage.AddInput(Input, source, QpdfInputOwnership.Transfer); await Seed(storage);
+        View host = new(storage, owner, "ordinary");
+        if (route == "typed") { await Assert.ThrowsAnyAsync<QpdfException>(() => Run(host, route, CancellationToken.None)); }
+        else
+        { QpdfExecutionResult? result = await Run(host, route, CancellationToken.None); Assert.NotNull(result); Assert.Equal(QpdfExitCode.Error, result.ExitCode); }
+        Assert.Equal(0, host.Created); Assert.Equal(0L, storage.OpenLeaseCount);
+        Assert.True(storage.TryGetOutput(Output, out byte[] output)); Assert.Equal("prior"u8.ToArray(), output);
+        storage.Dispose(); owner.Dispose(); Assert.Equal(0L, budget.ReservedBytes); Assert.Equal(0, budget.LiveReservations);
+    }
+
+    [Theory]
+    [InlineData("typed", "write")]
+    [InlineData("argv", "write")]
+    [InlineData("job", "write")]
+    [InlineData("typed", "commit")]
+    [InlineData("argv", "commit")]
+    [InlineData("job", "commit")]
+    public async Task OutputFailureRefundsBoundRolesAndKeepsThePriorTarget(string route, string failure)
+    {
+        RecordingMemoryBudget budget = new(16L << 20); using IMemoryScope owner = budget.CreateScope();
+        using InMemoryQpdfHost storage = new(); storage.AddInput(Input, SourceActionRoleTests.Fixture(true, "(https://source.test/base/) /Source 1 0 R"), QpdfInputOwnership.Transfer);
+        await Seed(storage); View host = new(storage, owner, failure);
+        if (route == "typed") { await Assert.ThrowsAsync<QpdfHostException>(() => Run(host, route, CancellationToken.None)); }
+        else
+        { QpdfExecutionResult? result = await Run(host, route, CancellationToken.None); Assert.NotNull(result); Assert.Equal(QpdfExitCode.Error, result.ExitCode); }
+        Assert.True(host.Created > 0); Assert.Equal(0L, storage.OpenLeaseCount);
+        Assert.True(storage.TryGetOutput(Output, out byte[] output)); Assert.Equal("prior"u8.ToArray(), output);
+        storage.Dispose(); owner.Dispose(); Assert.Equal(0L, budget.ReservedBytes); Assert.Equal(0, budget.LiveReservations);
+    }
+
+    [Theory]
+    [InlineData("typed", "actions")]
+    [InlineData("argv", "actions")]
+    [InlineData("job", "actions")]
+    [InlineData("typed", "layers")]
+    [InlineData("argv", "layers")]
+    [InlineData("job", "layers")]
+    public async Task EveryObservedAdmissionRefusalKeepsTheTargetAndRefunds(string route, string feature)
+    {
+        async Task<(int Growths, bool Refused)> Attempt(int failAt)
+        {
+            RecordingMemoryBudget budget = new(16L << 20) { RefuseOnGrowth = failAt }; using IMemoryScope owner = budget.CreateScope();
+            using InMemoryQpdfHost storage = new();
+            byte[] fixture = feature == "layers" ? OptionalContentTests.Fixture(true, "static", false)
+                : SourceActionRoleTests.Fixture(true, "(https://source.test/base/) /Source 1 0 R");
+            storage.AddInput(Input, fixture, QpdfInputOwnership.Transfer);
+            await Seed(storage); View host = new(storage, owner, "ordinary"); bool refused = false;
+            try
+            {
+                QpdfExecutionResult? result = await Run(host, route, CancellationToken.None);
+                refused = result?.ExitCode == QpdfExitCode.Error;
+                if (refused) { Assert.Contains(result?.Diagnostics ?? [], d => d.Code == QpdfDiagnosticCode.BudgetExceeded); }
+            }
+            catch (QpdfMemoryAdmissionException) { Assert.Equal("typed", route); refused = true; }
+            Assert.Equal(0L, storage.OpenLeaseCount); Assert.True(storage.TryGetOutput(Output, out byte[] output));
+            if (failAt == 0) { Assert.False(refused); Assert.NotEqual("prior"u8.ToArray(), output); }
+            else { Assert.True(refused); Assert.Equal("prior"u8.ToArray(), output); }
+            int growths = budget.GrowthCalls; storage.Dispose(); owner.Dispose();
+            Assert.Equal(0L, budget.ReservedBytes); Assert.Equal(0, budget.LiveReservations); return (growths, refused);
+        }
+        (int growths, _) = await Attempt(0); Assert.InRange(growths, 2, 64);
+        for (int index = 1; index <= growths; index++) { await Attempt(index); }
+    }
+
+    [Theory]
+    [InlineData("typed")]
+    [InlineData("argv")]
+    [InlineData("job")]
+    public async Task CancellationAtUriScratchAdmissionClosesTheBorrowBeforeCleanup(string route)
+    {
+        RecordingMemoryBudget budget = new(16L << 20); using IMemoryScope owner = budget.CreateScope();
+        using InMemoryQpdfHost storage = new();
+        storage.AddInput(Input, SourceActionRoleTests.Fixture(true, "(https://source.test/" + new string('a', 10000) + "/) /Source 1 0 R"), QpdfInputOwnership.Transfer);
+        await Seed(storage); using CancellationTokenSource cancel = new();
+        CancelBudget memory = new(owner, cancel.Cancel); View host = new(storage, memory, "ordinary");
+        if (route == "typed") { await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Run(host, route, cancel.Token)); }
+        else
+        { QpdfExecutionResult? result = await Run(host, route, cancel.Token); Assert.NotNull(result); Assert.Equal(QpdfExecutionStatus.Canceled, result.Status); }
+        Assert.True(memory.Triggered); Assert.Equal(0, host.Created); Assert.Equal(0L, storage.OpenLeaseCount);
+        Assert.True(storage.TryGetOutput(Output, out byte[] output)); Assert.Equal("prior"u8.ToArray(), output);
+        storage.Dispose(); owner.Dispose(); Assert.Equal(0L, budget.ReservedBytes); Assert.Equal(0, budget.LiveReservations);
+    }
+
+    [Fact]
+    public async Task AuthoredUriBytesRemainFundedAfterDocumentAndHostClose()
+    {
+        RecordingMemoryBudget budget = new(16L << 20); using IMemoryScope owner = budget.CreateScope();
+        using InMemoryQpdfHost storage = new(QpdfLimits.Default, null, owner);
+        storage.AddInput(Input, SourceActionRoleTests.Fixture(true, "(https://source.test/base/)"), QpdfInputOwnership.Transfer);
+        await Qpdf.SelectPageAsync(storage, Input, Output, new(1), CancellationToken.None);
+        Assert.True(storage.TryGetOutput(Output, out byte[] output)); storage.AddInput(QpdfPath.From("read"), output, QpdfInputOwnership.Transfer);
+        PdfByteString escaped;
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(storage, QpdfPath.From("read"), CancellationToken.None))
+        {
+            QpdfObject Resolve(QpdfObject value) => value is PdfReference reference ? document.GetObject(reference.ObjectNumber) : value;
+            PdfDictionary page = document.PageReferences[0].Page; Assert.True(page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject raw));
+            PdfDictionary widget = Assert.IsType<PdfDictionary>(Resolve(Assert.IsType<PdfArray>(Resolve(raw))[0]));
+            Assert.True(widget.TryGet(PdfName.FromAscii("A"), out raw)); PdfDictionary action = Assert.IsType<PdfDictionary>(Resolve(raw));
+            Assert.True(action.TryGet(PdfName.FromAscii("URI"), out raw)); escaped = Assert.IsType<PdfByteString>(Resolve(raw));
+        }
+        storage.Dispose(); Assert.True(budget.ReservedBytes > 0L);
+        Assert.Equal("https://source.test/base/item.pdf"u8.ToArray(), escaped.Value);
+        owner.Dispose(); Assert.Equal(0L, budget.ReservedBytes); Assert.Equal(0, budget.LiveReservations);
+    }
+
+    private sealed class View(InMemoryQpdfHost storage, IMemoryBudget memory, string fault) : IQpdfHost, IQpdfMemoryHost
+    {
+        internal int Created { get; private set; }
+        public IMemoryBudget? MemoryBudget => memory;
+        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => storage.OpenInputAsync(path, token);
+        public async ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token)
+        { Created++; return new FaultOutput(await storage.CreateOutputAsync(path, token), fault); }
+    }
+
+    private sealed class FaultOutput(IQpdfOutputTransaction inner, string fault) : IQpdfOutputTransaction
+    {
+        public QpdfPath Path => inner.Path;
+        public ValueTask WriteAsync(ReadOnlyMemory<byte> data, CancellationToken token) => fault == "write"
+            ? ValueTask.FromException(new QpdfHostException(Path, QpdfHostFailureReason.WriteFailed)) : inner.WriteAsync(data, token);
+        public ValueTask CommitAsync(CancellationToken token) => fault == "commit"
+            ? ValueTask.FromException(new QpdfHostException(Path, QpdfHostFailureReason.CommitFailed)) : inner.CommitAsync(token);
+        public ValueTask DiscardAsync(CancellationToken token) => inner.DiscardAsync(token);
+        public ValueTask DisposeAsync() => inner.DisposeAsync();
+    }
+
+    private sealed class CancelBudget(IMemoryBudget inner, Action cancel) : IMemoryBudget
+    {
+        internal bool Triggered { get; private set; }
+        public IMemoryScope CreateScope() => inner.CreateScope();
+        private void Observe(long bytes) { if (!Triggered && bytes >= 128L * 1024L) { Triggered = true; cancel(); } }
+        public bool TryReserve(long bytes, [NotNullWhen(true)] out IMemoryReservation? reservation)
+        {
+            if (!inner.TryReserve(bytes, out IMemoryReservation? admitted)) { reservation = null; return false; }
+            reservation = new CancelReservation(admitted, this); Observe(bytes); return true;
+        }
+        private sealed class CancelReservation(IMemoryReservation inner, CancelBudget parent) : IMemoryReservation
+        {
+            public long Bytes => inner.Bytes;
+            public bool TryResize(long bytes) { bool accepted = inner.TryResize(bytes); if (accepted) { parent.Observe(bytes); } return accepted; }
+            public void Dispose() => inner.Dispose();
+        }
+    }
+}

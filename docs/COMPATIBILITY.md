@@ -24,6 +24,24 @@ to generalized decoding and compression; typed selection preserves opaque stream
 encodings. Compression/decode setters apply in configuration order; QDF fills
 unset defaults. These distinctions are part of the supported contract.
 
+Retained page objects now bind supported source-local catalog meaning before their
+reader closes. Static View optional-content registrations and OFF defaults combine
+by group identity; same-named groups remain distinct. A single complex configuration
+stays intact, while combining automatic states, alternate configurations or non-View
+intents fails before publication. When their source context would otherwise be lost,
+explicit URI bases produce absolute ASCII action URIs and source-local named
+destinations resolve before page remapping. Preserved primary context keeps its
+original action values and shared identities. Independent
+private aliases, remote targets and primary metadata/attachment ownership remain
+intact. This intentionally strengthens output where native qpdf 12.4.2 can lose
+secondary/placement context. URI resolution does not use ambient paths or network
+access. Typed generic-catalog defaults and split catalog-extra policy still apply.
+Repeated copies keep the first registered page target, matching native named-target
+behavior; the former overwrite could make named and explicit destinations disagree.
+No public signatures change. Required contexts that cannot be bound fail explicitly,
+including malformed source indexes and unusable explicit URI bases encountered in
+retained roles; prior output remains untouched.
+
 Page-range exclusions now apply only to the preceding positive range group,
 matching native qpdf. For example, `1-3,1-3,x2` selects `1,2,3,1,3`; earlier
 groups are retained. Consecutive exclusions remain in the latest positive group,
@@ -46,7 +64,8 @@ PDF output negotiation includes effective overlay/underlay and attachment-import
 versions and Adobe levels. Opened, validated sources contribute even when a target
 range or imported collection is empty. The basic writer's conservative 1.2 floor
 covers its name escaping, Flate and linearization syntax. Emitted PageLabels and EmbeddedFiles trees
-have floors of 1.3 and 1.4; new UF filespecs require 1.7. Null/absent trees add no
+have floors of 1.3 and 1.4; optional-content registration requires 1.5 and new UF
+filespecs require 1.7. Null/absent trees add no
 requirement. This deliberately strengthens defaults where native qpdf 12.4.2 also
 understates catalog-version imports or newly authored structures. Explicit force
 still wins; copied features are not transcoded, and opaque graphs are not scanned

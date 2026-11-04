@@ -288,6 +288,25 @@ toward the configured selection ceiling.
   independent page object sharing immutable resources. Shared non-page objects
   are copied once; `/Parent` links are dropped. Results carry the source page
   count and the exact per-output-page source mapping.
+- Retained objects keep supported source-local meaning independently of generic
+  catalog preservation. Static View optional-content groups/default OFF states
+  combine by identity, including page/appearance resources and annotations;
+  equal group names do not merge identities. A sole source keeps its complex
+  configuration. Combining automatic states, alternate configurations or non-View
+  intents fails before publication. Emitted optional-content registration requires
+  PDF 1.5 unless an explicit forced version overrides negotiation.
+  When source context would otherwise be lost, URI actions with an explicit source
+  Base become absolute ASCII URIs, and source-local named destinations resolve
+  through the source's legacy name dictionary or string name tree before existing
+  page remapping. Preserved primary context keeps original values and shared
+  identities. No ambient document path or network access supplies a missing base.
+  Repeated pages retain the first registered
+  target; omitted pages and placement-source page targets still prune to null.
+  Binding follows retained page/annotation/field events, action chains, outlines and
+  catalog actions. Independent private aliases and remote-action targets keep their
+  original values. Unsupported required contexts fail explicitly. These rules do
+  not import secondary metadata/attachment collections or enable generic typed
+  catalog preservation; split retains its existing catalog-extra policy.
 - The four inheritable attributes (`Resources`, `MediaBox`, `CropBox`,
   `/Rotate`) materialize from ancestry into each copied page; explicit null counts
   as absent. A missing `/MediaBox` after ancestry fails; missing `Resources` stays absent.

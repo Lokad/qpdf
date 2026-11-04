@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Preserve supported source catalog meaning for retained pages and actions.
+  Combine static View optional-content groups/OFF states by identity, retain
+  unchanged catalog-root aliases, and bind explicit URI bases and source-local
+  named destinations when their context would otherwise be lost. Preserved primary
+  context keeps its original values and identities. Keep field registration,
+  action cycles, private aliases and primary metadata/attachment ownership.
+  Repeated pages keep the first registered destination. Single complex layer
+  configurations remain intact; unsupported composition or required source
+  contexts fail before publication. This deliberately strengthens native qpdf
+  context preservation. No public signatures or generic typed-catalog defaults change.
+
 - Apply page-range exclusions only to their preceding positive group, preserving
   earlier groups and duplicate order. Selection, relative rotation and overlay/
   underlay to/from/repeat ranges share this correction. Consecutive exclusions
