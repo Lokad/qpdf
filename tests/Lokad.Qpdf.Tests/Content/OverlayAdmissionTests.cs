@@ -100,7 +100,7 @@ public sealed class OverlayAdmissionTests
             PdfDictionary page = Dictionary(("Annots", new PdfReference(11, 0)));
             destination.AddIndirectObjectWithId(page, 10); destination.AddIndirectObjectWithId(original, 11);
             destination.AddIndirectObjectWithId(Dictionary(("Subtype", PdfName.FromAscii("Text"))), 12);
-            List<AcroFormCopy.OverlayFieldImport> imports = new(); int allocator = 20;
+            List<AcroFormCopy.FieldImport> imports = new(); int allocator = 20;
             ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 8192L }, CancellationToken.None);
             DiagnosticBag diagnostics = new(governor) { SuppressWarningStorage = true };
             using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))

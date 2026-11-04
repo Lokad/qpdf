@@ -354,7 +354,7 @@ public static partial class Qpdf
 
     private static void UpdateInspectionForm(QpdfDocument document, GraphCopier pool,
         IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
-        IReadOnlyList<Content.AcroFormCopy.OverlayFieldImport> imports, bool pruneFields,
+        IReadOnlyList<Content.AcroFormCopy.FieldImport> imports, bool pruneFields,
         ParserMemoryScope memory, QpdfLimits limits, ResourceGovernor governor,
         DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {

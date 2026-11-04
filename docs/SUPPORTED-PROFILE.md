@@ -349,6 +349,14 @@ echoing values.
 - Flattening eligible annotations removes Hidden/Invisible annotations without stamping
   their appearances in every mode; Print and NoView further govern print/screen
   stamping respectively.
+- Form combination unions source default resources with collision-safe names and
+  preserves each retained field's source DA/Q defaults, including ordinary page
+  merges, overlays and underlays. Direct and indirect DA programs use the same
+  font map; absent/null values still inherit through their field ancestry before
+  source form defaults. Equal program text does not merge distinct font identities.
+  Rewritten shared programs stay shared without changing independent original
+  aliases. Ordinary copying retains its parent-link policy; appearance-local
+  resources and primary document metadata/attachment ownership stay independent.
 - `--generate-appearances` regenerates text/list widget appearances from field
   values and inherited or form-level default appearance programs. It clears
   NeedAppearances only after all retained widgets were updated. Skipped work

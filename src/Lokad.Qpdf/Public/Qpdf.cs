@@ -408,7 +408,7 @@ public static partial class Qpdf
                         HashSet<int> gateSurvivors = Content.AcroFormCopy.CollectAnnotRefs(occurrences, governor, gateMemory, cancellationToken);
                         List<(IReadOnlyDictionary<int, QpdfObject> Pool, Content.CopiedForm? Part)> gateParts = ParserContainers.CreateList<(IReadOnlyDictionary<int, QpdfObject>, Content.CopiedForm?)>(gateMemory);
                         ParserContainers.AddItem(gateMemory, gateParts, (copier.CopiedObjects, singleForm), 16L);
-                        foreach (Content.AcroFormCopy.OverlayFieldImport import in overlayApplied.FieldImports)
+                        foreach (Content.AcroFormCopy.FieldImport import in overlayApplied.FieldImports)
                         {
                             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                             ParserContainers.AddItem(gateMemory, gateParts, (import.Copier.CopiedObjects, import.Part), 16L);
@@ -1220,7 +1220,7 @@ public static partial class Qpdf
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 ParserContainers.AddItem(gateMemory, multiGateParts, (copiers[s].CopiedObjects, gateForms[s]), 16L);
             }
-            foreach (Content.AcroFormCopy.OverlayFieldImport import in overlayApplied.FieldImports)
+            foreach (Content.AcroFormCopy.FieldImport import in overlayApplied.FieldImports)
             {
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 ParserContainers.AddItem(gateMemory, multiGateParts, (import.Copier.CopiedObjects, import.Part), 16L);
@@ -1329,7 +1329,7 @@ public static partial class Qpdf
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 renameForms.Add(fields); renameCopiers.Add(sourceCopier);
             }
-            foreach (Content.AcroFormCopy.OverlayFieldImport import in overlayApplied.FieldImports)
+            foreach (Content.AcroFormCopy.FieldImport import in overlayApplied.FieldImports)
             {
                 renameForms.Add(import.Part);
                 renameCopiers.Add(import.Copier);
@@ -1466,37 +1466,8 @@ public static partial class Qpdf
         }
         Content.CopiedForm? multiCombined = settings.RemoveAcroform
             ? null
-            : Content.AcroFormCopy.Combine(renameForms, governor, selectionMemory, cancellationToken);
-        if (multiCombined is not null && overlayApplied.FieldImports.Count > 0)
-        {
-            (PdfByteString? multiDestAppearance, int? multiDestQuadding) = Content.AcroFormCopy.ReadMergedDefaults(multiCombined, pool, governor, cancellationToken);
-            int importAllocator = 1;
-            foreach (int id in pool.Keys)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                governor.NoteOperation();
-                if (id >= importAllocator)
-                {
-                    checked
-                    {
-                        importAllocator = id + 1;
-                    }
-                }
-            }
-
-            multiCombined = Content.AcroFormCopy.ApplyOverlayImports(
-                multiCombined,
-                overlayApplied.FieldImports,
-                multiDestAppearance,
-                multiDestQuadding,
-                overlayApplied.FieldImports[0].Copier,
-                pool,
-                ref importAllocator,
-                limits,
-                governor,
-                diagnostics,
-                cancellationToken);
-        }
+            : Content.AcroFormCopy.Combine(renameForms, renameCopiers, overlayApplied.FieldImports,
+                pool, limits, governor, diagnostics, selectionMemory, cancellationToken);
         PdfDictionary? multiAcroForm = multiCombined is null
             ? null
             : Content.AcroFormCopy.BuildCatalogForm(

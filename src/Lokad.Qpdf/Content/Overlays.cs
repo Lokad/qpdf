@@ -11,7 +11,7 @@ using Lokad.Qpdf.Writing;
 namespace Lokad.Qpdf.Content;
 
 internal sealed record OverlayApplication(List<GraphCopier> Copiers, int NextId,
-    IReadOnlyList<AcroFormCopy.OverlayFieldImport> FieldImports, QpdfDocument.VersionParts? Version, int ExtensionLevel);
+    IReadOnlyList<AcroFormCopy.FieldImport> FieldImports, QpdfDocument.VersionParts? Version, int ExtensionLevel);
 
 internal static class Overlays
 {
@@ -102,7 +102,7 @@ internal static class Overlays
             }
 
             Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache = ParserContainers.CreateDictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm>(planning);
-            List<AcroFormCopy.OverlayFieldImport> imports = ParserContainers.CreateList<AcroFormCopy.OverlayFieldImport>(ownership);
+            List<AcroFormCopy.FieldImport> imports = ParserContainers.CreateList<AcroFormCopy.FieldImport>(ownership);
             for (int dest = 0; dest < occurrences.Count; dest++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -527,7 +527,7 @@ internal static class Overlays
         IReadOnlyList<OverlayPlacement> underlays,
         IReadOnlyList<OverlayPlacement> overlays,
         Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache,
-        List<AcroFormCopy.OverlayFieldImport> imports,
+        List<AcroFormCopy.FieldImport> imports,
         IIndirectResolver? retainedResolver,
         bool compress,
         int? level,
@@ -1123,7 +1123,7 @@ internal static class Overlays
         IReadOnlyList<OverlayPlacement> underlays,
         IReadOnlyList<OverlayPlacement> overlays,
         Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache,
-        List<AcroFormCopy.OverlayFieldImport> imports,
+        List<AcroFormCopy.FieldImport> imports,
         bool compress,
         int? level,
         QpdfLimits limits,
@@ -1146,7 +1146,7 @@ internal static class Overlays
         double[] destTransform,
         IReadOnlyList<OverlayPlacement> placements,
         Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache,
-        List<AcroFormCopy.OverlayFieldImport> imports,
+        List<AcroFormCopy.FieldImport> imports,
         bool compress,
         int? level,
         QpdfLimits limits,
@@ -1174,7 +1174,7 @@ internal static class Overlays
         OverlaySource source,
         int fromPage,
         double[] cm,
-        List<AcroFormCopy.OverlayFieldImport> imports,
+        List<AcroFormCopy.FieldImport> imports,
         QpdfLimits limits,
         ResourceGovernor governor,
         ParserMemoryScope ownership,
@@ -1365,7 +1365,7 @@ internal static class Overlays
         AcroFormCopy.OverlaySourceForm? sourceForm,
         Dictionary<int, PdfReference> memo,
         ParserMemoryScope scratch,
-        List<AcroFormCopy.OverlayFieldImport> imports,
+        List<AcroFormCopy.FieldImport> imports,
         ref PdfReference? placementDr,
         QpdfLimits limits,
         ResourceGovernor governor,
@@ -1431,9 +1431,9 @@ internal static class Overlays
             placementDr ??= CopyOverlayImportDR(sourceForm, sourceEngine, source.Copier, destCopier, memo, scratch, limits, governor, ownership, cancellationToken, ref allocator, ref nullId);
             Dictionary<PdfName, QpdfObject> extras = new();
             CopiedForm part = new([fieldRef], true, sourceForm.NeedAppearances, sourceForm.NeedAppearances, placementDr, false, [], extras);
-            ownership.Reserve(48L);
+            ownership.Reserve(56L);
             ParserContainers.AddItem(ownership, imports,
-                new AcroFormCopy.OverlayFieldImport(destCopier, part, sourceForm.DefaultAppearance, sourceForm.Quadding), IntPtr.Size);
+                new AcroFormCopy.FieldImport(destCopier, part, sourceForm.DefaultAppearance, sourceForm.Quadding, true), IntPtr.Size);
         }
 
         QpdfObject cloned = CopyOverlayNode(item, sourceEngine, source.Copier, destCopier, memo, scratch, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, 0);

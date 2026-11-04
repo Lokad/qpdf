@@ -105,7 +105,8 @@ PdfByteString appearance;
 await using (QpdfDocument document = await OpenOutputAsync(pdf))
 {
 PdfDictionary field = Assert.Single(OutputFields(document));
-Assert.True(field.TryGet(PdfName.FromAscii("DA"), out QpdfObject value)); appearance = Assert.IsType<PdfByteString>(value);
+Assert.True(field.TryGet(PdfName.FromAscii("DA"), out QpdfObject value));
+appearance = Assert.IsType<PdfByteString>(value is PdfReference reference ? document.GetObject(reference.ObjectNumber) : value);
 }
 Assert.Equal(Convert.FromHexString(hex), appearance.ValueSpan.ToArray());
 }
@@ -964,7 +965,7 @@ await using QpdfDocument output = await OpenOutputAsync(pdf);
 PdfDictionary annot = Assert.Single(OutputAnnots(output, 0));
 Assert.Equal("Text", AnnotName(annot, "Subtype"));
 Assert.Equal(new double[4] { 10.0, 10.0, 60.0, 60.0 }, AnnotRect(annot));
-Assert.Equal("OverlayNote", AnnotString(annot, "Contents"));
+Assert.Equal("OverlayNote", AnnotString(output, annot, "Contents"));
 Assert.False(annot.TryGet(PdfName.FromAscii("P"), out QpdfObject? _));
 }
 [Fact]
@@ -995,7 +996,7 @@ byte[] overlay = BuildAnnotPdf("[0 0 612 792]", "[<< /Type /Annot /Subtype /Text
 Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 await using QpdfDocument output = await OpenOutputAsync(pdf);
 PdfDictionary annot = Assert.Single(OutputAnnots(output, 0));
-Assert.Equal("UnderNote", AnnotString(annot, "Contents"));
+Assert.Equal("UnderNote", AnnotString(output, annot, "Contents"));
 }
 [Fact]
 public async Task OverlayTransformsRectForScaledPlacement()
@@ -1095,7 +1096,7 @@ Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
 Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == QpdfDiagnosticCode.UnsupportedFeature);
 await using QpdfDocument output = await OpenOutputAsync(pdf);
 PdfDictionary annot = Assert.Single(OutputAnnots(output, 0));
-Assert.Equal("Kept", AnnotString(annot, "Contents"));
+Assert.Equal("Kept", AnnotString(output, annot, "Contents"));
 }
 [Fact]
 public async Task OverlayWidgetImportsFieldWithValueAndEmptyDr()
@@ -1111,10 +1112,10 @@ Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 Assert.Empty(result.Diagnostics);
 await using QpdfDocument output = await OpenOutputAsync(pdf);
 PdfDictionary field = Assert.Single(OutputFields(output));
-Assert.Equal("O", AnnotString(field, "T"));
-Assert.Equal("ov", AnnotString(field, "V"));
+Assert.Equal("O", AnnotString(output, field, "T"));
+Assert.Equal("ov", AnnotString(output, field, "V"));
 PdfDictionary annot = Assert.Single(OutputAnnots(output, 0));
-Assert.Equal("O", AnnotString(annot, "T"));
+Assert.Equal("O", AnnotString(output, annot, "T"));
 Assert.Equal(OutputFieldRefs(output)[0].ObjectNumber, OutputAnnotRefs(output, 0)[0].ObjectNumber);
 PdfDictionary resources = OutputFormDR(output, OutputForm(output));
 Assert.Empty(resources.Keys);
@@ -1134,8 +1135,8 @@ Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 Assert.Empty(result.Diagnostics);
 await using QpdfDocument output = await OpenOutputAsync(pdf);
 PdfDictionary field = Assert.Single(OutputFields(output));
-Assert.Equal("P", AnnotString(field, "T"));
-Assert.Equal("pv", AnnotString(field, "V"));
+Assert.Equal("P", AnnotString(output, field, "T"));
+Assert.Equal("pv", AnnotString(output, field, "V"));
 PdfDictionary annot = Assert.Single(OutputAnnots(output, 0));
 Assert.True(annot.TryGet(PdfName.FromAscii("Parent"), out QpdfObject? parentRaw));
 Assert.Equal(OutputFieldRefs(output)[0].ObjectNumber, Assert.IsType<PdfReference>(parentRaw).ObjectNumber);
@@ -1162,10 +1163,10 @@ Assert.Empty(result.Diagnostics);
 await using QpdfDocument output = await OpenOutputAsync(pdf);
 List<PdfDictionary> fields = OutputFields(output);
 Assert.Equal(2, fields.Count);
-Assert.Equal("O", AnnotString(fields[0], "T"));
-Assert.Equal("dest", AnnotString(fields[0], "V"));
-Assert.Equal("O+1", AnnotString(fields[1], "T"));
-Assert.Equal("ov", AnnotString(fields[1], "V"));
+Assert.Equal("O", AnnotString(output, fields[0], "T"));
+Assert.Equal("dest", AnnotString(output, fields[0], "V"));
+Assert.Equal("O+1", AnnotString(output, fields[1], "T"));
+Assert.Equal("ov", AnnotString(output, fields[1], "V"));
 }
 [Theory]
 [InlineData("F1", "F1", "/F1 12 Tf 0 g", "/F1_1 12 Tf 0 g")]
@@ -1195,10 +1196,10 @@ Assert.Empty(result.Diagnostics);
 await using QpdfDocument output = await OpenOutputAsync(pdf);
 List<PdfDictionary> fields = OutputFields(output);
 Assert.Equal(2, fields.Count);
-Assert.Equal("D", AnnotString(fields[0], "T"));
-Assert.Equal("S", AnnotString(fields[1], "T"));
-Assert.Equal("/F1 10 Tf 0 g", AnnotString(fields[0], "DA"));
-Assert.Equal(expected, AnnotString(fields[1], "DA"));
+Assert.Equal("D", AnnotString(output, fields[0], "T"));
+Assert.Equal("S", AnnotString(output, fields[1], "T"));
+Assert.Equal("/F1 10 Tf 0 g", AnnotString(output, fields[0], "DA"));
+Assert.Equal(expected, AnnotString(output, fields[1], "DA"));
 PdfDictionary resources = OutputFormDR(output, OutputForm(output));
 Assert.True(resources.TryGet(PdfName.FromAscii("Font"), out QpdfObject? fontsRaw));
 PdfDictionary fonts = fontsRaw is PdfReference fontsRef ? Assert.IsType<PdfDictionary>(output.GetObject(fontsRef.ObjectNumber)) : Assert.IsType<PdfDictionary>(fontsRaw);
@@ -1223,7 +1224,7 @@ Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 Assert.Empty(result.Diagnostics);
 await using QpdfDocument output = await OpenOutputAsync(pdf);
 PdfDictionary field = Assert.Single(OutputFields(output));
-Assert.Equal("/F1 12 Tf 0 g", AnnotString(field, "DA"));
+Assert.Equal("/F1 12 Tf 0 g", AnnotString(output, field, "DA"));
 }
 
 [Fact]
@@ -1242,8 +1243,8 @@ await using QpdfDocument output = await OpenOutputAsync(pdf);
 Assert.Equal(2, output.PageCount);
 List<PdfDictionary> fields = OutputFields(output);
 Assert.Equal(2, fields.Count);
-Assert.Equal("O", AnnotString(fields[0], "T"));
-Assert.Equal("O+1", AnnotString(fields[1], "T"));
+Assert.Equal("O", AnnotString(output, fields[0], "T"));
+Assert.Equal("O+1", AnnotString(output, fields[1], "T"));
 Assert.Single(OutputAnnots(output, 0));
 Assert.Single(OutputAnnots(output, 1));
 }
@@ -1263,7 +1264,7 @@ Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 Assert.Empty(result.Diagnostics);
 await using QpdfDocument output = await OpenOutputAsync(pdf);
 PdfDictionary field = Assert.Single(OutputFields(output));
-Assert.Equal("R", AnnotString(field, "T"));
+Assert.Equal("R", AnnotString(output, field, "T"));
 List<PdfDictionary> annots = OutputAnnots(output, 0);
 Assert.Equal(2, annots.Count);
 int fieldNumber = OutputFieldRefs(output)[0].ObjectNumber;
@@ -1289,9 +1290,9 @@ Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Severity == 
 await using QpdfDocument output = await OpenOutputAsync(pdf);
 List<PdfDictionary> fields = OutputFields(output);
 Assert.Equal(2, fields.Count);
-Assert.Equal("F", AnnotString(fields[0], "T"));
-Assert.Equal("UW", AnnotString(fields[1], "T"));
-Assert.Equal("uv", AnnotString(fields[1], "V"));
+Assert.Equal("F", AnnotString(output, fields[0], "T"));
+Assert.Equal("UW", AnnotString(output, fields[1], "T"));
+Assert.Equal("uv", AnnotString(output, fields[1], "V"));
 }
 [Fact]
 public async Task OverlayWidgetDirectWithFormClonesWithInfo()
@@ -1308,7 +1309,7 @@ Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Severity == 
 Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Severity == QpdfDiagnosticSeverity.Info && diagnostic.Message.Contains("not indirect"));
 await using QpdfDocument output = await OpenOutputAsync(pdf);
 PdfDictionary field = Assert.Single(OutputFields(output));
-Assert.Equal("F", AnnotString(field, "T"));
+Assert.Equal("F", AnnotString(output, field, "T"));
 Assert.Equal(2, OutputAnnots(output, 0).Count);
 }
 [Fact]
@@ -1344,8 +1345,8 @@ Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 Assert.Empty(result.Diagnostics);
 await using QpdfDocument output = await OpenOutputAsync(pdf);
 PdfDictionary field = Assert.Single(OutputFields(output));
-Assert.Equal("U", AnnotString(field, "T"));
-Assert.Equal("uv", AnnotString(field, "V"));
+Assert.Equal("U", AnnotString(output, field, "T"));
+Assert.Equal("uv", AnnotString(output, field, "V"));
 }
 [Fact]
 public async Task OverlayWidgetJobMatchesArgv()
@@ -1370,7 +1371,7 @@ Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] b));
 Assert.Equal(a, b);
 await using QpdfDocument output = await OpenOutputAsync(a);
-Assert.Equal("O", AnnotString(Assert.Single(OutputFields(output)), "T"));
+Assert.Equal("O", AnnotString(output, Assert.Single(OutputFields(output)), "T"));
 }
 [Fact]
 public async Task OverlayWidgetCycleWarnsAndStaysValid()
@@ -1387,7 +1388,7 @@ Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
 Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Severity == QpdfDiagnosticSeverity.Warning);
 await using QpdfDocument output = await OpenOutputAsync(pdf);
 PdfDictionary field = Assert.Single(OutputFields(output));
-Assert.Equal("P", AnnotString(field, "T"));
+Assert.Equal("P", AnnotString(output, field, "T"));
 Assert.Single(OutputAnnots(output, 0));
 }
 [Fact]
@@ -1405,13 +1406,13 @@ Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
 Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Severity == QpdfDiagnosticSeverity.Warning && diagnostic.Message.Contains("parent link"));
 await using QpdfDocument output = await OpenOutputAsync(pdf);
 PdfDictionary field = Assert.Single(OutputFields(output));
-Assert.Equal("P", AnnotString(field, "T"));
+Assert.Equal("P", AnnotString(output, field, "T"));
 Assert.True(field.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw));
 PdfArray kids = Assert.IsType<PdfArray>(kidsRaw);
 PdfDictionary directKid = Assert.IsType<PdfDictionary>(kids[0]);
 Assert.True(directKid.TryGet(PdfName.FromAscii("Parent"), out QpdfObject? parentRaw));
 PdfDictionary parent = Assert.IsType<PdfDictionary>(output.GetObject(Assert.IsType<PdfReference>(parentRaw).ObjectNumber));
-Assert.Equal("P", AnnotString(parent, "T"));
+Assert.Equal("P", AnnotString(output, parent, "T"));
 }
 
 [Fact]
@@ -1423,8 +1424,8 @@ byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
 Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 await using QpdfDocument output = await OpenOutputAsync(pdf);
 PdfDictionary annot = Assert.Single(OutputAnnots(output, 0));
-Assert.Equal("W", AnnotString(annot, "T"));
-Assert.Equal("vv", AnnotString(annot, "V"));
+Assert.Equal("W", AnnotString(output, annot, "T"));
+Assert.Equal("vv", AnnotString(output, annot, "V"));
 PdfDictionary catalog = Assert.IsType<PdfDictionary>(output.GetObject(1));
 Assert.False(catalog.TryGet(PdfName.FromAscii("AcroForm"), out QpdfObject? _));
 }
@@ -1475,8 +1476,8 @@ Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 await using QpdfDocument output = await OpenOutputAsync(pdf);
 List<PdfDictionary> annots = OutputAnnots(output, 0);
 Assert.Equal(2, annots.Count);
-Assert.Equal("Mine", AnnotString(annots[0], "Contents"));
-Assert.Equal("OverlayNote", AnnotString(annots[1], "Contents"));
+Assert.Equal("Mine", AnnotString(output, annots[0], "Contents"));
+Assert.Equal("OverlayNote", AnnotString(output, annots[1], "Contents"));
 }
 private static byte[] BuildFormPdf(string catalogInner, string annots, List<(string Dict, byte[]? StreamData)> extras, string contentText)
 {
@@ -1680,9 +1681,10 @@ private static string AnnotName(PdfDictionary annot, string key)
 Assert.True(annot.TryGet(PdfName.FromAscii(key), out QpdfObject? raw));
 return Assert.IsType<PdfName>(raw).DisplayText;
 }
-private static string AnnotString(PdfDictionary annot, string key)
+private static string AnnotString(QpdfDocument document, PdfDictionary annot, string key)
 {
 Assert.True(annot.TryGet(PdfName.FromAscii(key), out QpdfObject? raw));
+if (raw is PdfReference reference) { raw = document.GetObject(reference.ObjectNumber); }
 return Encoding.ASCII.GetString(Assert.IsType<PdfByteString>(raw).Value);
 }
 private static byte[] BuildAnnotPdf(string mediaBox, string annots, List<(string Dict, byte[]? StreamData)> extras, string contentText)

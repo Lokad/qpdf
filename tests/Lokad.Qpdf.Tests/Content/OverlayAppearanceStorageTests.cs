@@ -61,7 +61,7 @@ public sealed class OverlayAppearanceStorageTests
         PdfNameTable<PdfName> map = Map(memory, governor);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
         long baseline = governor.Snapshot().LiveMemoryBytes;
-        PdfByteString? result = AcroFormCopy.RewriteOverlayDa(new(Encoding.ASCII.GetBytes(text), false), map,
+        PdfByteString? result = AcroFormCopy.RewriteDefaultAppearance(new(Encoding.ASCII.GetBytes(text), false), map,
             QpdfLimits.Default, graph);
         if (expected is null) { Assert.Null(result); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes); }
         else
@@ -82,7 +82,7 @@ public sealed class OverlayAppearanceStorageTests
         PdfNameTable<PdfName> map = Map(memory, governor);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
         long baseline = governor.Snapshot().LiveMemoryBytes;
-        Assert.Null(AcroFormCopy.RewriteOverlayDa(input, map, limits, graph));
+        Assert.Null(AcroFormCopy.RewriteDefaultAppearance(input, map, limits, graph));
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 
@@ -102,9 +102,9 @@ public sealed class OverlayAppearanceStorageTests
         if (cancel)
         {
             source.Cancel();
-            Assert.ThrowsAny<OperationCanceledException>(() => AcroFormCopy.RewriteOverlayDa(input, map, limits, graph));
+            Assert.ThrowsAny<OperationCanceledException>(() => AcroFormCopy.RewriteDefaultAppearance(input, map, limits, graph));
         }
-        else { Assert.Throws<QpdfLimitException>(() => AcroFormCopy.RewriteOverlayDa(input, map, limits, graph)); }
+        else { Assert.Throws<QpdfLimitException>(() => AcroFormCopy.RewriteDefaultAppearance(input, map, limits, graph)); }
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 }

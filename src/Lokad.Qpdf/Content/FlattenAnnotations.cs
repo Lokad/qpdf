@@ -21,11 +21,11 @@ internal static class FlattenAnnotations
 
     private const int FlagNoView = 32;
 
-    internal static bool NeedsAppearances(IReadOnlyList<AcroFormCopy.OverlayFieldImport> imports,
+    internal static bool NeedsAppearances(IReadOnlyList<AcroFormCopy.FieldImport> imports,
         ResourceGovernor governor, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        foreach (AcroFormCopy.OverlayFieldImport import in imports)
+        foreach (AcroFormCopy.FieldImport import in imports)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (import.Part.NeedAppearances) { return true; }

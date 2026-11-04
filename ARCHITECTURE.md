@@ -89,6 +89,14 @@ assembles the original group occurrences, counts and mappings. Each document clo
 before the next opens. Duplicate widget pages reuse the rotation path's annotation
 header copying, including field spines, popup/reply links and form registration;
 appearance and resource payloads stay shared.
+Combined forms bind retained fields to their own source default resources and
+DA/Q values. The existing placement resource union also serves ordinary merges;
+only placements repair parent links and reset field resources. Indirect DA and
+source fallbacks use the same font renaming. Consecutive field tops with the same
+placement context share that work, while registrations retain their order and
+collision policy. Rewritten indirect/default programs receive shared fresh
+identities; independent aliases retain the original bytes. One-source forms need
+no context-binding pass, and existing appearance-local resources remain untouched.
 Zero-sized collation groups still resolve and validate their requests, but do not
 join the copied root union or form closure. Original group positions and counts
 remain available without constructing page objects that publication must discard.

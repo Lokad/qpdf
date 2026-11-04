@@ -61,9 +61,9 @@ public sealed class OrdinaryFormStorageTests
             ? Enumerable.Repeat<QpdfObject>(new PdfReference(10, 0), 16384).ToArray() : []);
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096 }, CancellationToken.None);
         using ParserMemoryScope owner = ParserMemoryScope.Create(governor);
-        Assert.Same(large, AcroFormCopy.Combine([null, large], governor, owner, CancellationToken.None));
+        Assert.Same(large, AcroFormCopy.CombineRegistrations([null, large], governor, owner, CancellationToken.None));
         long allocated = GC.GetAllocatedBytesForCurrentThread();
-        Assert.Throws<QpdfLimitException>(() => AcroFormCopy.Combine([large, large], governor, owner, CancellationToken.None));
+        Assert.Throws<QpdfLimitException>(() => AcroFormCopy.CombineRegistrations([large, large], governor, owner, CancellationToken.None));
         Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 131072L);
         Assert.Equal(0L, owner.ReservedBytes); Assert.Equal(64L, governor.Snapshot().LiveMemoryBytes);
     }
@@ -195,7 +195,7 @@ public sealed class OrdinaryFormStorageTests
         PdfDictionary escaped;
         using (ParserMemoryScope owner = ParserMemoryScope.Create(governor))
         {
-            CopiedForm combined = Assert.IsType<CopiedForm>(AcroFormCopy.Combine([form, form], governor, owner, CancellationToken.None));
+            CopiedForm combined = Assert.IsType<CopiedForm>(AcroFormCopy.CombineRegistrations([form, form], governor, owner, CancellationToken.None));
             escaped = Assert.IsType<PdfDictionary>(AcroFormCopy.BuildCatalogForm(combined,
                 new Dictionary<int, QpdfObject> { [10] = Dict(("Subtype", PdfName.FromAscii("Widget"))) }, [10], true, QpdfLimits.Default, governor, CancellationToken.None));
         }

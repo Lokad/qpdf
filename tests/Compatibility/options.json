@@ -3282,7 +3282,8 @@
           "GenerateAppearancesTests.JobRoundTripMatchesArgv",
           "GenerateAppearancesTests.WholeFileJobGenerates",
           "GenerateAppearancesTests.MergeThenGenerateAppliesToFinalPages",
-          "InlinePacketBoundaryTests.AppearanceScanningCannotSelectMarkedContentInsideSamples"
+          "InlinePacketBoundaryTests.AppearanceScanningCannotSelectMarkedContentInsideSamples",
+          "FormSourceContextTests.RetainedFieldsKeepSourceFontAndDefaults"
         ],
         "resource": [
           "ResourceEnforcementTests.GenerateAppearancesYieldsToExhaustedBudget"
@@ -4759,7 +4760,7 @@
           "OverlayGenerationTests.FieldRegistrationRetainsSourceIdentityAcrossParentsAndPlacements",
           "OverlayDefaultTests.ImportedDefaultsRetainEffectiveValues",
           "OverlayDefaultTests.IndirectDestinationDefaultsDoNotOverrideImportedValues",
-          "OverlayDefaultTests.EqualIndirectDestinationDefaultsAvoidRedundantFieldOverrides"
+          "OverlayDefaultTests.EqualDefaultTextStillBindsTheImportedFontIdentity"
         ],
         "negative": [
           "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
@@ -4776,7 +4777,9 @@
           "AppearanceResourceScopeTests.ImportedAppearancesCarryTheSourcePageScopeAndKeepPrivateAPValues",
           "AppearanceResourceScopeTests.RetainedAppearancesKeepTheirOwnPageScopeAndAvoidPlacementNames",
           "ImportedVersionTests.PlacementsIncludeEffectiveSourceVersionsBeforeMinimumAndForce",
-          "ExtensionVersionTests.ImportsNegotiateExtensionsAtTheSelectedBase"
+          "ExtensionVersionTests.ImportsNegotiateExtensionsAtTheSelectedBase",
+          "FormSourceContextTests.RetainedFieldsKeepSourceFontAndDefaults",
+          "FormSourceContextTests.RewrittenSharedProgramsKeepOneIdentityAndTheirOriginalAliases"
         ],
         "resource": [
           "ResourceEnforcementTests.OverlayYieldsToExhaustedBudget",
@@ -4858,7 +4861,9 @@
           "MergeCommandTests.ArgvMultiFileMergesInOrder",
           "MergeCommandTests.JobMultiEntryMergesInOrder",
           "SignatureSelectionTests.SelectingAnUnsignedPageDoesNotResurrectTheUnselectedSignedPage",
-          "SignatureSelectionTests.SignatureMetadataCanStillBeInspectedWithoutRewriting"
+          "SignatureSelectionTests.SignatureMetadataCanStillBeInspectedWithoutRewriting",
+          "FormSourceContextTests.RetainedFieldsKeepSourceFontAndDefaults",
+          "FormSourceContextTests.RewrittenSharedProgramsKeepOneIdentityAndTheirOriginalAliases"
         ],
         "resource": [
           "MergeCommandTests.CollateYieldsToStructuralCardinalityBound",
@@ -6552,7 +6557,7 @@
           "OverlayGenerationTests.FieldRegistrationRetainsSourceIdentityAcrossParentsAndPlacements",
           "OverlayDefaultTests.ImportedDefaultsRetainEffectiveValues",
           "OverlayDefaultTests.IndirectDestinationDefaultsDoNotOverrideImportedValues",
-          "OverlayDefaultTests.EqualIndirectDestinationDefaultsAvoidRedundantFieldOverrides"
+          "OverlayDefaultTests.EqualDefaultTextStillBindsTheImportedFontIdentity"
         ],
         "negative": [
           "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
@@ -6565,7 +6570,9 @@
           "OverlayOptionalSourceTests.OptionalSourceNullsUseFallbacksWhileMalformedValuesKeepTheirSkipPolicy",
           "OverlayBackgroundTests.EmptyStampKeepsOriginalContentCoordinatesAndVisibleBounds",
           "ImportedVersionTests.PlacementsIncludeEffectiveSourceVersionsBeforeMinimumAndForce",
-          "ExtensionVersionTests.ImportsNegotiateExtensionsAtTheSelectedBase"
+          "ExtensionVersionTests.ImportsNegotiateExtensionsAtTheSelectedBase",
+          "FormSourceContextTests.RetainedFieldsKeepSourceFontAndDefaults",
+          "FormSourceContextTests.RewrittenSharedProgramsKeepOneIdentityAndTheirOriginalAliases"
         ],
         "resource": [
           "ResourceEnforcementTests.UnderlayYieldsToExhaustedBudget",

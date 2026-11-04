@@ -112,7 +112,7 @@ public sealed class OverlayDefaultTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task EqualIndirectDestinationDefaultsAvoidRedundantFieldOverrides(bool job)
+    public async Task EqualDefaultTextStillBindsTheImportedFontIdentity(bool job)
     {
         using InMemoryQpdfHost host = new();
         const string defaults = "/DA 9 0 R /Q 10 0 R /NeedAppearances 11 0 R";
@@ -127,7 +127,11 @@ public sealed class OverlayDefaultTests
         PdfArray fields = Assert.IsType<PdfArray>(Get(document, form, "Fields")); Assert.Equal(2, fields.Count);
         PdfDictionary imported = Assert.IsType<PdfDictionary>(Resolve(document, fields[1]));
         Assert.Equal("LIVE"u8.ToArray(), Assert.IsType<PdfByteString>(Get(document, imported, "V")).Value);
-        Assert.False(imported.TryGet(PdfName.FromAscii("DA"), out _));
+        Assert.Equal("/F1_1 18 Tf 0.5 g", Encoding.ASCII.GetString(Assert.IsType<PdfByteString>(Get(document, imported, "DA")).ValueSpan));
+        PdfDictionary fonts = Assert.IsType<PdfDictionary>(Get(document, Assert.IsType<PdfDictionary>(Get(document, form, "DR")), "Font"));
+        Assert.True(fonts.TryGet(PdfName.FromAscii("F1"), out QpdfObject primaryFont));
+        Assert.True(fonts.TryGet(PdfName.FromAscii("F1_1"), out QpdfObject importedFont));
+        Assert.NotEqual(primaryFont, importedFont);
         Assert.False(imported.TryGet(PdfName.FromAscii("Q"), out _));
         Assert.Equal(2L, Assert.IsType<PdfInteger>(Effective(document, imported, form, "Q")).Value);
     }

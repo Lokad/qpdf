@@ -32,8 +32,8 @@ internal sealed record CopiedForm(
 /// survives, memberless tops drop, and an emptied form drops entirely. Whole-file
 /// rewrites keep widget-free registrations verbatim.
 /// Merges concatenate per-source registrations with upstream per-source-snapshot
-/// `+N` collision renaming, keep the first default-resources dictionary, and OR the
-/// NeedAppearances flags.
+/// `+N` collision renaming, preserve each source's field defaults through a resource
+/// union, and OR the NeedAppearances flags.
 /// </summary>
 internal static class AcroFormCopy
 {
@@ -196,7 +196,7 @@ internal static class AcroFormCopy
         bool pruneUnreachableFields,
         IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
         Dictionary<int, QpdfObject> pool,
-        IReadOnlyList<OverlayFieldImport> overlayImports,
+        IReadOnlyList<FieldImport> overlayImports,
         IReadOnlyList<(GraphCopier Copier, CopiedForm Part, int Occurrence)> rotationFields,
         QpdfLimits limits,
         ResourceGovernor governor,
@@ -275,7 +275,7 @@ internal static class AcroFormCopy
             ParserContainers.AddItem(scratch, allCopiers, sourceCopier, IntPtr.Size);
         }
 
-        foreach (OverlayFieldImport import in overlayImports)
+        foreach (FieldImport import in overlayImports)
         {
             if (import is null)
             {
@@ -301,37 +301,58 @@ internal static class AcroFormCopy
             }
         }
 
-        CopiedForm? combined = Combine(allForms, governor, scratch, cancellationToken);
-        if (combined is null)
-        {
-            return null;
-        }
-
-        if (overlayImports.Count > 0)
-        {
-            (PdfByteString? destAppearance, int? destQuadding) = ReadMergedDefaults(combined, pool, governor, cancellationToken);
-            int allocator = 1;
-            foreach (int id in pool.Keys)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                governor.NoteOperation();
-                if (id >= allocator)
-                {
-                    checked
-                    {
-                        allocator = id + 1;
-                    }
-                }
-            }
-
-            combined = ApplyOverlayImports(combined, overlayImports, destAppearance, destQuadding, overlayImports[0].Copier, pool, ref allocator, limits, governor, diagnostics, cancellationToken);
-        }
+        CopiedForm? combined = Combine(allForms, allCopiers, overlayImports, pool, limits,
+            governor, diagnostics, scratch, cancellationToken);
+        if (combined is null) { return null; }
 
         HashSet<int> survivors = CollectAnnotRefs(occurrences, governor, scratch, cancellationToken);
         return BuildCatalogForm(combined, pool, survivors, pruneUnreachableFields, limits, governor, cancellationToken);
     }
 
-    internal static CopiedForm? Combine(IReadOnlyList<CopiedForm?> parts, ResourceGovernor governor,
+    internal static CopiedForm? Combine(IReadOnlyList<CopiedForm?> parts, IReadOnlyList<GraphCopier> copiers,
+        IReadOnlyList<FieldImport> placements, Dictionary<int, QpdfObject> pool, QpdfLimits limits,
+        ResourceGovernor governor, DiagnosticBag diagnostics, ParserMemoryScope ownership, CancellationToken token)
+    {
+        if (parts.Count != copiers.Count || placements.Count > parts.Count)
+        { throw new ArgumentException("Form parts and their owners must be aligned.", nameof(copiers)); }
+        CopiedForm? combined = CombineRegistrations(parts, governor, ownership, token);
+        if (combined is null) { return null; }
+        int ordinaryCount = parts.Count - placements.Count;
+        GraphCopier? firstOwner = null;
+        bool bind = placements.Count != 0;
+        for (int index = 0; index < ordinaryCount; index++)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (parts[index] is null) { continue; }
+            if (firstOwner is null) { firstOwner = copiers[index]; }
+            else if (!ReferenceEquals(firstOwner, copiers[index])) { bind = true; }
+        }
+        // One source, including its duplicate/rotation branches, already has one
+        // resource and default context. It needs no binding storage or traversal.
+        if (!bind) { return combined; }
+
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        List<FieldImport> imports = ParserContainers.CreateList<FieldImport>(scratch);
+        for (int index = 0; index < ordinaryCount; index++)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (parts[index] is not CopiedForm part) { continue; }
+            (PdfByteString? appearance, int? quadding) = ReadMergedDefaults(part, pool, governor, token);
+            scratch.Reserve(56L);
+            ParserContainers.AddItem(scratch, imports, new(copiers[index], part, appearance ?? EmptyAppearance, quadding ?? 0, false), IntPtr.Size);
+        }
+        foreach (FieldImport placement in placements)
+        { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); ParserContainers.AddItem(scratch, imports, placement, IntPtr.Size); }
+        (PdfByteString? destAppearance, int? destQuadding) = ReadMergedDefaults(combined, pool, governor, token);
+        int allocator = 1;
+        foreach (int id in pool.Keys)
+        { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); if (id >= allocator) { allocator = checked(id + 1); } }
+        GraphCopier unionOwner = firstOwner ?? placements[0].Copier;
+        return BindFieldContexts(combined, imports, destAppearance, destQuadding, unionOwner, pool,
+            ref allocator, limits, governor, diagnostics, token);
+    }
+
+    internal static CopiedForm? CombineRegistrations(IReadOnlyList<CopiedForm?> parts, ResourceGovernor governor,
         ParserMemoryScope ownership, CancellationToken token)
     {
         if (parts is null)
@@ -595,15 +616,15 @@ internal static class AcroFormCopy
     }
 
     /// <summary>
-    /// One overlay/underlay placement batch of imported widget fields, in placement
-    /// order. The part joins the merge rename and combine passes; its copier owns the
-    /// destination-pool copies for pool writes.
+    /// One source form or placement batch with its source defaults. Only placements
+    /// repair parent links and reset field resources; ordinary fields keep ancestry.
     /// </summary>
-    internal sealed record OverlayFieldImport(
+    internal sealed record FieldImport(
         GraphCopier Copier,
         CopiedForm Part,
         PdfByteString? SourceDefaultAppearance,
-        int? SourceQuadding);
+        int? SourceQuadding,
+        bool IsPlacement);
 
     /// <summary>
     /// The resolved import top for an overlay source widget: its source object
@@ -847,8 +868,8 @@ internal static class AcroFormCopy
 
     /// <summary>
     /// Reads the merged default appearance and quadding back out of combined
-    /// form extras, so overlay imports compare against the destination values
-    /// the reference would inherit. Absent or mistyped entries yield null.
+    /// form extras, so source fields compare against the final inherited values.
+    /// Absent or mistyped entries yield null.
     /// </summary>
     internal static (PdfByteString? Appearance, int? Quadding) ReadMergedDefaults(CopiedForm combined,
         IReadOnlyDictionary<int, QpdfObject> pool, ResourceGovernor governor, CancellationToken token)
@@ -883,16 +904,16 @@ internal static class AcroFormCopy
 
 
     /// <summary>
-    /// Unions overlay-imported default resources into the combined form resources,
+    /// Unions source default resources into the combined form resources,
     /// destination wins with upstream key_N conflict renaming, then applies per-import
     /// fixups: default-appearance and quadding override, field-resource reset, and
     /// default-appearance rewriting. The destination base resolves through the assembled
     /// pool, and rewritten pool objects sync back into it, so later catalog assembly
     /// observes the union and the fixups. Returns the updated combined form.
     /// </summary>
-    internal static CopiedForm ApplyOverlayImports(
+    internal static CopiedForm BindFieldContexts(
         CopiedForm combined,
-        IReadOnlyList<OverlayFieldImport> imports,
+        IReadOnlyList<FieldImport> imports,
         PdfByteString? destDefaultAppearance,
         int? destQuadding,
         GraphCopier unionOwner,
@@ -962,24 +983,27 @@ internal static class AcroFormCopy
 
         using ParserMemoryScope mapMemory = ParserMemoryScope.Create(governor);
         List<PdfNameTable<PdfName>?> maps = ParserContainers.CreateList<PdfNameTable<PdfName>?>(mapMemory);
-        foreach (OverlayFieldImport import in imports)
+        for (int index = 0; index < imports.Count; index++)
         {
+            FieldImport import = imports[index];
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
+            if (index > 0 && SameFieldContext(imports[index - 1], import))
+            { ParserContainers.AddItem(mapMemory, maps, maps[index - 1], IntPtr.Size); continue; }
             if (import.Part.DefaultResources is null)
             {
                 ParserContainers.AddItem(mapMemory, maps, null, IntPtr.Size);
                 continue;
             }
 
-            QpdfObject? resolved = ResolveImportValue(import.Copier, import.Part.DefaultResources);
-            if (resolved is not PdfDictionary sourceDict)
+            QpdfObject? resolved = ResolveImportValue(pool, import.Part.DefaultResources);
+            if (resolved is not PdfDictionary sourceDict || ReferenceEquals(sourceDict, baseResources))
             {
                 ParserContainers.AddItem(mapMemory, maps, null, IntPtr.Size);
                 continue;
             }
 
-            ParserContainers.AddItem(mapMemory, maps, MergeResourceDictionaries(union, sourceDict, import.Copier, unionGraph.Memory, mapMemory, governor, cancellationToken), IntPtr.Size);
+            ParserContainers.AddItem(mapMemory, maps, MergeResourceDictionaries(union, sourceDict, pool, unionGraph.Memory, mapMemory, governor, cancellationToken), IntPtr.Size);
         }
 
         unionGraph.Add(unionGraph.Memory.ReservedBytes - unionStart);
@@ -996,15 +1020,22 @@ internal static class AcroFormCopy
             combined.CalculationOrder,
             combined.Extras);
 
-        for (int i = 0; i < imports.Count; i++)
+        HashSet<int> visited = ParserContainers.CreateSet<int>(mapMemory);
+        mapMemory.Reserve(96L);
+        HashSet<PdfDictionary> ancestors = new(ReferenceEqualityComparer.Instance);
+        for (int first = 0; first < imports.Count;)
         {
-            PdfNameTable<PdfName>? fontMap = maps[i];
-            FixImportedSubtrees(imports[i], fontMap, unionRef, destDefaultAppearance, destQuadding, limits, governor, diagnostics, cancellationToken);
+            int end = first + 1;
+            while (end < imports.Count && SameFieldContext(imports[first], imports[end]))
+            { cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); end++; }
+            FixImportedSubtrees(imports, first, end, maps[first], unionRef, destDefaultAppearance, destQuadding,
+                visited, ancestors, mapMemory, ref allocator, limits, governor, diagnostics, cancellationToken);
+            first = end;
         }
 
         HashSet<GraphCopier> owners = ParserContainers.CreateSet<GraphCopier>(mapMemory);
         ParserContainers.AddSetItem(mapMemory, owners, unionOwner, IntPtr.Size);
-        foreach (OverlayFieldImport import in imports)
+        foreach (FieldImport import in imports)
         { ParserContainers.AddSetItem(mapMemory, owners, import.Copier, IntPtr.Size); }
 
         foreach (GraphCopier owner in owners)
@@ -1013,6 +1044,13 @@ internal static class AcroFormCopy
             governor.NoteOperation();
             foreach (KeyValuePair<int, QpdfObject> entry in owner.CopiedObjects)
             {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                if (!pool.ContainsKey(entry.Key))
+                {
+                    long before = unionGraph.Memory.ReservedBytes;
+                    ParserContainers.EnsureEntryCapacity(unionGraph.Memory, pool, IntPtr.Size);
+                    unionGraph.Add(unionGraph.Memory.ReservedBytes - before);
+                }
                 pool[entry.Key] = entry.Value;
             }
         }
@@ -1020,14 +1058,21 @@ internal static class AcroFormCopy
         unionGraph.Retain(); return updated;
     }
 
-    private static QpdfObject? ResolveImportValue(GraphCopier copier, QpdfObject value)
+    // Consecutive field tops from one placement share these defaults and resources.
+    // Their registrations keep their original order and collision-renaming policy.
+    private static bool SameFieldContext(FieldImport left, FieldImport right)
+        => ReferenceEquals(left.Copier, right.Copier) && left.IsPlacement == right.IsPlacement
+        && ReferenceEquals(left.SourceDefaultAppearance, right.SourceDefaultAppearance)
+        && left.SourceQuadding == right.SourceQuadding
+        && (ReferenceEquals(left.Part.DefaultResources, right.Part.DefaultResources)
+            || left.Part.DefaultResources is PdfReference first && right.Part.DefaultResources is PdfReference second && first.Equals(second));
+
+    private static QpdfObject? ResolveImportValue(IReadOnlyDictionary<int, QpdfObject> pool, QpdfObject value)
     {
         if (value is PdfReference reference
-            && copier.CopiedObjects.TryGetValue(reference.ObjectNumber, out QpdfObject? target)
-            && target is not null
-            && target is not PdfNull)
+            && pool.TryGetValue(reference.ObjectNumber, out QpdfObject? target))
         {
-            return target;
+            return target is PdfNull ? null : target;
         }
 
         if (value is PdfNull)
@@ -1041,7 +1086,7 @@ internal static class AcroFormCopy
     private static PdfNameTable<PdfName> MergeResourceDictionaries(
         Dictionary<PdfName, QpdfObject> union,
         PdfDictionary source,
-        GraphCopier owner,
+        IReadOnlyDictionary<int, QpdfObject> pool,
         ParserMemoryScope unionMemory,
         ParserMemoryScope mapMemory,
         ResourceGovernor governor,
@@ -1057,7 +1102,7 @@ internal static class AcroFormCopy
                 continue;
             }
 
-            QpdfObject? otherResolved = ResolveImportValue(owner, otherRaw);
+            QpdfObject? otherResolved = ResolveImportValue(pool, otherRaw);
             if (otherResolved is null)
             {
                 continue;
@@ -1070,7 +1115,7 @@ internal static class AcroFormCopy
                 continue;
             }
 
-            QpdfObject? havingResolved = ResolveImportValue(owner, having);
+            QpdfObject? havingResolved = ResolveImportValue(pool, having);
             if (havingResolved is PdfDictionary havingDict && otherResolved is PdfDictionary otherDict)
             {
                 MergeResourceSubdictionary(union, rtype, havingDict, otherDict, map, mapMemory, governor, cancellationToken);
@@ -1193,7 +1238,7 @@ internal static class AcroFormCopy
         graph.Retain(); union[rtype] = result;
     }
 
-    internal static PdfByteString? RewriteOverlayDa(PdfByteString appearance, PdfNameTable<PdfName>? fontMap,
+    internal static PdfByteString? RewriteDefaultAppearance(PdfByteString appearance, PdfNameTable<PdfName>? fontMap,
         QpdfLimits limits, OwnedAllocationBatch graph)
     {
         ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
@@ -1231,36 +1276,48 @@ internal static class AcroFormCopy
         finally { output?.Dispose(); }
     }
     private static void FixImportedSubtrees(
-        OverlayFieldImport import, PdfNameTable<PdfName>? fontMap, PdfReference unionResources,
-        PdfByteString? destDefaultAppearance, int? destQuadding, QpdfLimits limits,
+        IReadOnlyList<FieldImport> imports, int first, int end, PdfNameTable<PdfName>? fontMap, PdfReference unionResources,
+        PdfByteString? destDefaultAppearance, int? destQuadding,
+        HashSet<int> visited, HashSet<PdfDictionary> ancestors, ParserMemoryScope traversal, ref int allocator, QpdfLimits limits,
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
-        using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
-        HashSet<int> visited = ParserContainers.CreateSet<int>(traversal);
-        traversal.Reserve(96L);
-        HashSet<PdfDictionary> ancestors = new(ReferenceEqualityComparer.Instance);
-        foreach (PdfReference field in import.Part.Fields)
+        FieldImport context = imports[first];
+        using OwnedAllocationBatch defaults = OwnedAllocationBatch.Create(governor, token);
+        PdfByteString? sourceAppearance = context.SourceDefaultAppearance;
+        if (sourceAppearance is not null)
+        { sourceAppearance = RewriteDefaultAppearance(sourceAppearance, fontMap, limits, defaults) ?? sourceAppearance; }
+        Dictionary<int, PdfReference>? rewritten = null;
+        PdfReference? defaultReference = null;
+        for (int index = first; index < end; index++)
         {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            if (!import.Copier.CopiedObjects.TryGetValue(field.ObjectNumber, out QpdfObject? raw) || raw is not PdfDictionary node) { continue; }
-            PdfDictionary repaired = FixImportedNode(import.Copier, field.ObjectNumber, node, true, import, fontMap,
-                unionResources, destDefaultAppearance, destQuadding, visited, ancestors, traversal, limits, governor, diagnostics, token, 0);
-            if (!ReferenceEquals(repaired, node)) { import.Copier.ReplaceCopiedObject(field.ObjectNumber, repaired); }
+            FieldImport import = imports[index];
+            foreach (PdfReference field in import.Part.Fields)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                if (!import.Copier.CopiedObjects.TryGetValue(field.ObjectNumber, out QpdfObject? raw) || raw is not PdfDictionary node) { continue; }
+                PdfDictionary repaired = FixImportedNode(field.ObjectNumber, node, true, import, fontMap, sourceAppearance,
+                    unionResources, destDefaultAppearance, destQuadding, visited, ancestors, traversal,
+                    ref rewritten, ref defaultReference, ref allocator, limits, governor, diagnostics, token, 0);
+                if (!ReferenceEquals(repaired, node)) { import.Copier.ReplaceCopiedObject(field.ObjectNumber, repaired); }
+            }
         }
+        if (defaults.Bytes != 0L) { defaults.Retain(); }
     }
 
     private static PdfDictionary FixImportedNode(
-        GraphCopier copier, int? nodeId, PdfDictionary node, bool isTop, OverlayFieldImport import,
-        PdfNameTable<PdfName>? fontMap, PdfReference unionResources, PdfByteString? destDefaultAppearance,
-        int? destQuadding, HashSet<int> visited, HashSet<PdfDictionary> ancestors, ParserMemoryScope traversal, QpdfLimits limits,
+        int? nodeId, PdfDictionary node, bool isTop, FieldImport import,
+        PdfNameTable<PdfName>? fontMap, PdfByteString? sourceAppearance, PdfReference unionResources, PdfByteString? destDefaultAppearance,
+        int? destQuadding, HashSet<int> visited, HashSet<PdfDictionary> ancestors, ParserMemoryScope traversal,
+        ref Dictionary<int, PdfReference>? rewritten, ref PdfReference? defaultReference, ref int allocator, QpdfLimits limits,
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token, int depth)
     {
+        GraphCopier copier = import.Copier;
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (depth > limits.MaxNestingDepth) { return node; }
         if (nodeId.HasValue && !ParserContainers.AddSetItem(traversal, visited, nodeId.Value, sizeof(int))) { return node; }
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         bool removeParent = false;
-        if (PdfDictionaryLookup.TryGet(node, "Parent"u8, governor, token, out QpdfObject parent))
+        if (import.IsPlacement && PdfDictionaryLookup.TryGet(node, "Parent"u8, governor, token, out QpdfObject parent))
         {
             bool self = isTop && nodeId.HasValue && parent is PdfReference selfLink && selfLink.ObjectNumber == nodeId.Value;
             bool inPool = parent is PdfReference parentLink && copier.CopiedObjects.TryGetValue(parentLink.ObjectNumber, out QpdfObject? parentNode)
@@ -1271,16 +1328,42 @@ internal static class AcroFormCopy
                 ? "Dropping an imported top-level parent link that closes a field cycle."
                 : "Dropping an imported parent link that does not resolve inside the copied pool."); }
         }
-        bool replaceResources = PdfDictionaryLookup.TryGet(node, "DR"u8, governor, token, out _);
+        bool replaceResources = import.IsPlacement && PdfDictionaryLookup.TryGet(node, "DR"u8, governor, token, out _);
         bool hasDa = PdfDictionaryLookup.TryGet(node, "DA"u8, governor, token, out QpdfObject da);
-        PdfByteString? correctedDa = da is PdfByteString appearance && fontMap is { Count: > 0 }
-            ? RewriteOverlayDa(appearance, fontMap, limits, graph) : null;
-        if (import.SourceDefaultAppearance is PdfByteString sourceDa && (!hasDa || da is PdfNull)
+        QpdfObject? resolvedDa = hasDa ? ResolveImportValue(copier.CopiedObjects, da) : null;
+        QpdfObject? correctedDa = null;
+        if (da is PdfReference prior && rewritten is not null && rewritten.TryGetValue(prior.ObjectNumber, out PdfReference? cached))
+        { correctedDa = cached; }
+        else if (resolvedDa is PdfByteString appearance && fontMap is { Count: > 0 })
+        {
+            PdfByteString? mapped = ReferenceEquals(appearance, import.SourceDefaultAppearance)
+                ? ReferenceEquals(appearance, sourceAppearance) ? null : sourceAppearance
+                : RewriteDefaultAppearance(appearance, fontMap, limits, graph);
+            if (mapped is not null)
+            {
+                correctedDa = mapped;
+                if (da is PdfReference original)
+                {
+                    // A renamed role keeps the source's sharing without changing
+                    // the original value held by independent graph aliases.
+                    PdfReference replacement;
+                    if (ReferenceEquals(mapped, sourceAppearance))
+                    { replacement = defaultReference ??= AddFieldAppearance(copier, mapped, ref allocator); }
+                    else { replacement = AddFieldAppearance(copier, mapped, ref allocator); }
+                    rewritten ??= ParserContainers.CreateDictionary<int, PdfReference>(traversal);
+                    ParserContainers.EnsureEntryCapacity(traversal, rewritten, IntPtr.Size);
+                    rewritten.Add(original.ObjectNumber, replacement); correctedDa = replacement;
+                }
+            }
+        }
+        if (sourceAppearance is PdfByteString sourceDa && resolvedDa is null or PdfNull
             && !HasInheritedFieldValue(node, copier, "DA"u8, ancestors, traversal, limits, governor, token)
-            && !SameAppearance(sourceDa, destDefaultAppearance, governor, token)) { correctedDa = sourceDa; }
+            && !SameAppearance(sourceDa, destDefaultAppearance, governor, token))
+        { correctedDa = defaultReference ??= AddFieldAppearance(copier, sourceDa, ref allocator); }
         bool hasQ = PdfDictionaryLookup.TryGet(node, "Q"u8, governor, token, out QpdfObject q);
+        QpdfObject? resolvedQ = hasQ ? ResolveImportValue(copier.CopiedObjects, q) : null;
         PdfInteger? correctedQ = null;
-        if (import.SourceQuadding is int sourceQ && sourceQ != (destQuadding ?? 0) && (!hasQ || q is PdfNull)
+        if (import.SourceQuadding is int sourceQ && sourceQ != (destQuadding ?? 0) && resolvedQ is null or PdfNull
             && !HasInheritedFieldValue(node, copier, "Q"u8, ancestors, traversal, limits, governor, token))
         {
             graph.Memory.Reserve(32L + GovernedText.StringBytes(11));
@@ -1290,16 +1373,17 @@ internal static class AcroFormCopy
 
         QpdfObject[]? rebuiltKids = null;
         if (PdfDictionaryLookup.TryGet(node, "Kids"u8, governor, token, out QpdfObject kidsRaw)
-            && ResolveImportValue(copier, kidsRaw) is PdfArray kids)
+            && ResolveImportValue(copier.CopiedObjects, kidsRaw) is PdfArray kids)
         {
             for (int i = 0; i < kids.Count; i++)
             {
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation(); QpdfObject item = kids[i];
                 int? kidId = (item as PdfReference)?.ObjectNumber;
-                if (ResolveImportValue(copier, item) is not PdfDictionary kid) { continue; }
-                PdfDictionary fixedKid = FixImportedNode(copier, kidId, kid, false, import, fontMap, unionResources,
-                    destDefaultAppearance, destQuadding, visited, ancestors, traversal, limits, governor, diagnostics, token, depth + 1);
-                if (nodeId.HasValue && (!PdfDictionaryLookup.TryGet(fixedKid, "Parent"u8, governor, token, out QpdfObject fixedParent) || fixedParent is PdfNull))
+                if (ResolveImportValue(copier.CopiedObjects, item) is not PdfDictionary kid) { continue; }
+                PdfDictionary fixedKid = FixImportedNode(kidId, kid, false, import, fontMap, sourceAppearance, unionResources,
+                    destDefaultAppearance, destQuadding, visited, ancestors, traversal,
+                    ref rewritten, ref defaultReference, ref allocator, limits, governor, diagnostics, token, depth + 1);
+                if (import.IsPlacement && nodeId.HasValue && (!PdfDictionaryLookup.TryGet(fixedKid, "Parent"u8, governor, token, out QpdfObject fixedParent) || fixedParent is PdfNull))
                 {
                     graph.Memory.Reserve(32L); PdfReference parentLink = new(nodeId.Value, 0); graph.Add(32L);
                     fixedKid = PdfDictionaryRebuild.ReplaceEntry(graph, fixedKid, "Parent"u8, parentLink);
@@ -1345,6 +1429,12 @@ internal static class AcroFormCopy
         return result;
     }
 
+    private static PdfReference AddFieldAppearance(GraphCopier copier, PdfByteString value, ref int allocator)
+    {
+        int id = allocator; allocator = checked(allocator + 1);
+        return copier.AddIndirectObjectWithId(value, id);
+    }
+
     private static readonly PdfByteString EmptyAppearance = PdfByteString.FromOwnedBytes(Array.Empty<byte>(), false);
 
     private static bool SameAppearance(PdfByteString source, PdfByteString? target, ResourceGovernor governor, CancellationToken token)
@@ -1371,12 +1461,13 @@ internal static class AcroFormCopy
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (!PdfDictionaryLookup.TryGet(cursor, "Parent"u8, governor, token, out QpdfObject raw)
-                || ResolveImportValue(copier, raw) is not PdfDictionary parent) { return false; }
+                || ResolveImportValue(copier.CopiedObjects, raw) is not PdfDictionary parent) { return false; }
             if (ancestors.Contains(parent)) { return false; }
             if (depth > limits.MaxNestingDepth)
             { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, limits.MaxNestingDepth); }
             ParserContainers.AddSetItem(traversal, ancestors, parent, IntPtr.Size);
-            if (PdfDictionaryLookup.TryGet(parent, key, governor, token, out QpdfObject value) && value is not PdfNull) { return true; }
+            if (PdfDictionaryLookup.TryGet(parent, key, governor, token, out QpdfObject value)
+                && ResolveImportValue(copier.CopiedObjects, value) is not (null or PdfNull)) { return true; }
             cursor = parent;
         }
     }

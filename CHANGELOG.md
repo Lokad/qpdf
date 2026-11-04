@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Preserve each retained source field's appearance resources, DA and Q defaults
+  in page merges and overlay/underlay imports. Resolve indirect programs before
+  renaming fonts and rewrite source fallbacks before comparing inherited defaults.
+  Keep original value aliases and shared rewritten programs; ordinary field
+  ancestry and appearance-local resources retain their existing policy.
+
 - Correct JSON v1 object and objectinfo keys to include the reference suffix,
   such as `3 0 R`, so emitted page references address those maps directly.
   Clients using the former shortened keys must update their lookups. Trailer

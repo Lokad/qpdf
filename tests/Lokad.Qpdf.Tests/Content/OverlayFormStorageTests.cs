@@ -129,16 +129,19 @@ public sealed class OverlayFormStorageTests
         => new(Enumerable.Range(0, count).ToDictionary(i => PdfName.FromAscii("Key" + i), _ => (QpdfObject)new PdfInteger("1", 1)));
 
     [Theory]
-    [InlineData("none")]
-    [InlineData("da")]
-    [InlineData("q")]
-    [InlineData("dr")]
-    [InlineData("parent")]
-    [InlineData("direct-kid")]
-    [InlineData("indirect-kid")]
-    [InlineData("kids-array")]
-    [InlineData("resource-union")]
-    public void FixupsBorrowUnchangedHeadersAndRefuseLargeEditsBeforeAllocation(string edit)
+    [InlineData("none", true)]
+    [InlineData("da", true)]
+    [InlineData("q", true)]
+    [InlineData("dr", true)]
+    [InlineData("parent", true)]
+    [InlineData("direct-kid", true)]
+    [InlineData("indirect-kid", true)]
+    [InlineData("kids-array", true)]
+    [InlineData("resource-union", true)]
+    [InlineData("da", false)]
+    [InlineData("q", false)]
+    [InlineData("resource-union", false)]
+    public void FixupsBorrowUnchangedHeadersAndRefuseLargeEditsBeforeAllocation(string edit, bool placement)
     {
         PdfDictionary large = LargeField(16384);
         PdfDictionary field = edit switch
@@ -157,11 +160,11 @@ public sealed class OverlayFormStorageTests
         if (edit == "indirect-kid") { copier.AddIndirectObjectWithId(large, 11); }
         CopiedForm form = new([new PdfReference(10, 0)], true, false, false, edit == "resource-union" ? large : null, false, [], new Dictionary<PdfName, QpdfObject>());
         PdfByteString appearance = new("/Helv 12 Tf"u8.ToArray(), false);
-        AcroFormCopy.OverlayFieldImport import = new(copier, form, appearance, edit == "q" ? 1 : 0);
+        AcroFormCopy.FieldImport import = new(copier, form, appearance, edit == "q" ? 1 : 0, placement);
         Dictionary<int, QpdfObject> pool = new(copier.CopiedObjects); int allocator = 20;
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096L }, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor) { SuppressWarningStorage = true };
-        Action fix = () => AcroFormCopy.ApplyOverlayImports(form, [import], edit == "da" ? null : appearance, 0, copier, pool,
+        Action fix = () => AcroFormCopy.BindFieldContexts(form, [import], edit == "da" ? null : appearance, 0, copier, pool,
             ref allocator, QpdfLimits.Default, governor, diagnostics, CancellationToken.None);
         long before = GC.GetAllocatedBytesForCurrentThread();
         if (edit == "none") { fix(); }
@@ -179,6 +182,7 @@ public sealed class OverlayFormStorageTests
         PdfByteString appearance = new("/H#65lv 12 Tf"u8.ToArray(), false);
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 8192L }, CancellationToken.None) { OwnsDocumentCounters = true };
         PdfDictionary escaped;
+        PdfByteString escapedAppearance;
         using (DocumentEngine engine = Engine(new Dictionary<int, QpdfObject>(), Dict()))
         {
             ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
@@ -186,16 +190,18 @@ public sealed class OverlayFormStorageTests
             GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 10, copierMemory);
             PdfDictionary source = Dict(("Payload", payload)); copier.AddIndirectObjectWithId(source, 10);
             CopiedForm form = new([new PdfReference(10, 0)], true, false, false, null, false, [], new Dictionary<PdfName, QpdfObject>());
-            AcroFormCopy.OverlayFieldImport import = new(copier, form, appearance, 1);
+            AcroFormCopy.FieldImport import = new(copier, form, appearance, 1, true);
             int allocator = 20; Dictionary<int, QpdfObject> pool = new(copier.CopiedObjects);
             long before = GC.GetAllocatedBytesForCurrentThread();
-            AcroFormCopy.ApplyOverlayImports(form, [import], null, 0, copier, pool, ref allocator,
+            AcroFormCopy.BindFieldContexts(form, [import], null, 0, copier, pool, ref allocator,
                 QpdfLimits.Default, governor, new(governor), CancellationToken.None);
             Assert.True(GC.GetAllocatedBytesForCurrentThread() - before < 131072L);
             escaped = Assert.IsType<PdfDictionary>(copier.CopiedObjects[10]);
+            Assert.True(escaped.TryGet(PdfName.FromAscii("DA"), out QpdfObject da));
+            escapedAppearance = Assert.IsType<PdfByteString>(copier.CopiedObjects[Assert.IsType<PdfReference>(da).ObjectNumber]);
         }
         governor.AcceptDocument(); governor.CompletePrivateStorage(); Assert.True(governor.CallerStorageBytes > 0L);
-        Assert.True(escaped.TryGet(PdfName.FromAscii("DA"), out QpdfObject da)); Assert.Same(appearance, da);
+        Assert.Same(appearance, escapedAppearance);
         Assert.True(escaped.TryGet(PdfName.FromAscii("Payload"), out QpdfObject stored)); Assert.Same(payload, stored);
         Assert.Equal(8 * 1024 * 1024, Assert.IsType<PdfStream>(stored).RawMemory.Length);
     }
@@ -214,10 +220,10 @@ public sealed class OverlayFormStorageTests
         copier.AddIndirectObjectWithId(Dict(("Kids", indirectArray ? new PdfReference(11, 0) : kids)), 10);
         if (indirectArray) { copier.AddIndirectObjectWithId(kids, 11); }
         CopiedForm form = new([new PdfReference(10, 0)], true, false, false, null, false, [], new Dictionary<PdfName, QpdfObject>());
-        AcroFormCopy.OverlayFieldImport import = new(copier, form, null, null);
+        AcroFormCopy.FieldImport import = new(copier, form, null, null, true);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); DiagnosticBag diagnostics = new(governor);
         int allocator = 20; Dictionary<int, QpdfObject> pool = new(copier.CopiedObjects);
-        AcroFormCopy.ApplyOverlayImports(form, [import], null, null, copier, pool, ref allocator,
+        AcroFormCopy.BindFieldContexts(form, [import], null, null, copier, pool, ref allocator,
             QpdfLimits.Default, governor, diagnostics, CancellationToken.None);
         PdfDictionary output = Assert.IsType<PdfDictionary>(copier.CopiedObjects[10]);
         Assert.True(output.TryGet(PdfName.FromAscii("Kids"), out QpdfObject raw)); PdfArray repaired = Assert.IsType<PdfArray>(raw);
@@ -268,7 +274,7 @@ public sealed class OverlayFormStorageTests
         GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 10, copierMemory);
         PdfDictionary field = LargeField(16384); copier.AddIndirectObjectWithId(field, 10);
         CopiedForm form = new([new PdfReference(10, 0)], true, false, false, null, false, [], new Dictionary<PdfName, QpdfObject>());
-        AcroFormCopy.OverlayFieldImport import = new(copier, form, new("/Helv 12 Tf"u8.ToArray(), false), 0);
+        AcroFormCopy.FieldImport import = new(copier, form, new("/Helv 12 Tf"u8.ToArray(), false), 0, true);
         RecordingMemoryBudget root = new(16L * 1024 * 1024);
         using (IMemoryScope owner = root.CreateScope())
         using (CancellationTokenSource cancellation = new())
@@ -279,7 +285,7 @@ public sealed class OverlayFormStorageTests
             using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(31L);
             long baseline = governor.Snapshot().LiveMemoryBytes; int allocator = 20;
             Dictionary<int, QpdfObject> pool = new(copier.CopiedObjects);
-            Assert.ThrowsAny<OperationCanceledException>(() => AcroFormCopy.ApplyOverlayImports(form, [import], null, 0, copier, pool,
+            Assert.ThrowsAny<OperationCanceledException>(() => AcroFormCopy.BindFieldContexts(form, [import], null, 0, copier, pool,
                 ref allocator, QpdfLimits.Default, governor, new(governor), caller ? cancellation.Token : CancellationToken.None));
             Assert.True(root.GrowthCalls >= 2); Assert.True(cancellation.IsCancellationRequested);
             Assert.Same(field, copier.CopiedObjects[10]); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
