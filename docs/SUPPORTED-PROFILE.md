@@ -1,11 +1,13 @@
 # Supported profile
 
-This describes shipped behavior. [Compatibility](COMPATIBILITY.md) records the
-reference target, known differences and per-option evidence.
+This describes the current repository implementation. [Compatibility](COMPATIBILITY.md)
+records the reference target, known differences and per-option evidence. See the
+[changelog](../CHANGELOG.md) for unreleased changes and release history; a released
+package's contract belongs to its source revision.
 
-This is the agreed delivery profile, qualified on `219eca3` by local Windows
+The original delivery profile was qualified at `219eca3` by local Windows
 and Ubuntu Release/package/consumer checks plus pinned-reference and finite
-visual checks. The accepted codec/build limitations
+visual checks. Subsequent corrections are recorded in the changelog. The accepted codec/build limitations
 remain explicit: four-component CMYK/YCCK JPEGs stay opaque with warnings where
 decoding is requested, and `--zopfli` fails explicitly with an unsupported-feature
 diagnostic and exit 2. These limitations have positive/negative controls; they
