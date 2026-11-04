@@ -37,7 +37,7 @@ public sealed class AnnotationPublicationTests
         byte[] input = mode.StartsWith("labels-split", StringComparison.Ordinal)
             ? File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "labels-split-start.pdf"))
             : mode.StartsWith("split-membership", StringComparison.Ordinal) ? SplitPageMembershipTests.Fixture("shared", true)
-            : mode.StartsWith("source-groups", StringComparison.Ordinal) ? SourceGroupIdentityTests.Fixture("A")
+            : mode.StartsWith("source-groups", StringComparison.Ordinal) || mode.StartsWith("zero-collation", StringComparison.Ordinal) ? SourceGroupIdentityTests.Fixture("A")
             : mode == "preserve-many" ? PreservationAdmissionTests.Scalars(128)
             : mode is "preserve-rollback" or "preserve-split" ? PreservationGraphTests.RollbackFixture()
             : mode.StartsWith("form-indirect", StringComparison.Ordinal) ? FormNeedAppearancesTests.Fixture("9 3 R", "true", 3)
@@ -83,7 +83,10 @@ public sealed class AnnotationPublicationTests
     }
 
     private static ValueTask<QpdfExecutionResult> Run(Host host, string mode, CancellationToken token)
-        => mode == "split-membership-job" ? Qpdf.ExecuteJobAsync(host,
+        => mode == "zero-collation-job" ? Qpdf.ExecuteJobAsync(host,
+            """{"inputFile":"input","outputFile":"output","collate":"1,0","pages":[{"file":".","range":"1,2"},{"file":".","range":"3"}]}""", token)
+            : mode == "zero-collation" ? Qpdf.ExecuteAsync(host, new(["input", "--collate=1,0", "--pages", ".", "1,2", ".", "3", "--", "output"]), token)
+            : mode == "split-membership-job" ? Qpdf.ExecuteJobAsync(host,
             """{"inputFile":"input","outputFile":"output","splitPages":"1","pages":[{"file":".","range":"1"},{"file":".","range":"2,3"}]}""", token)
             : mode == "split-membership" ? Qpdf.ExecuteAsync(host, new(["input", "--split-pages=1", "--pages", ".", "1", ".", "2,3", "--", "output"]), token)
             : mode == "source-groups-job" ? Qpdf.ExecuteJobAsync(host,
@@ -203,6 +206,8 @@ public sealed class AnnotationPublicationTests
     [InlineData("labels-split-job")]
     [InlineData("split-membership")]
     [InlineData("split-membership-job")]
+    [InlineData("zero-collation")]
+    [InlineData("zero-collation-job")]
     public async Task EverySharedGrowthCanRefuseWithoutPublishing(string mode)
     {
         int growths;
@@ -519,6 +524,16 @@ public sealed class AnnotationPublicationTests
     [InlineData("commit", "split-membership-job")]
     [InlineData("cancel", "split-membership-job")]
     [InlineData("close", "split-membership-job")]
+    [InlineData("create", "zero-collation")]
+    [InlineData("write", "zero-collation")]
+    [InlineData("commit", "zero-collation")]
+    [InlineData("cancel", "zero-collation")]
+    [InlineData("close", "zero-collation")]
+    [InlineData("create", "zero-collation-job")]
+    [InlineData("write", "zero-collation-job")]
+    [InlineData("commit", "zero-collation-job")]
+    [InlineData("cancel", "zero-collation-job")]
+    [InlineData("close", "zero-collation-job")]
     public async Task OutputFaultsRefundOwnersAndRespectCommit(string phase, string mode)
     {
         using InMemoryQpdfHost storage = await Storage(mode);

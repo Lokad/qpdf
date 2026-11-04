@@ -80,6 +80,9 @@ assembles the original group occurrences, counts and mappings. Each document clo
 before the next opens. Duplicate widget pages reuse the rotation path's annotation
 header copying, including field spines, popup/reply links and form registration;
 appearance and resource payloads stay shared.
+Zero-sized collation groups still resolve and validate their requests, but do not
+join the copied root union or form closure. Original group positions and counts
+remain available without constructing page objects that publication must discard.
 Split reachability views the existing pool through the current group's page
 membership. The same immutable remapping walk clears unmapped page edges while
 other missing mappings remain errors. All copied roots participate, including

@@ -35,6 +35,10 @@ Distinct pages from one logical source retain their shared field branch, includi
 secondary sources. Native qpdf can split imported fields into separately named
 copies. Group boundaries do not split that field identity here; genuinely repeated
 widget pages still receive independent field headers.
+Zero-sized collation groups contribute no copied page or field roots. Their ranges
+and original source counts still validate; pages retained by another positive group
+keep their shared identity. Previously, omitted groups could leave live page targets
+and orphan Page dictionaries in nonsplit output.
 
 Split publication restricts retained page references to each file's own page tree.
 Targets outside that group become null, including references through shared

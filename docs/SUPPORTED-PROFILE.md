@@ -198,6 +198,9 @@ echoing values.
   separate headers and collision-safe names while sharing immutable payloads.
   Distinct pages from one logical document retain shared field branches, including
   imported sources where native qpdf can create separately named field copies.
+  A zero collation group size omits that group's page roots while preserving range
+  validation and its source-count/mapping position. It does not remove a page
+  independently selected by another positive group.
 - Ordinary selection preserves the primary document's attachment collection,
   including when none of its pages are selected. Typed multi-source selection
   uses its first source as primary; argv/job input identifies the primary separately

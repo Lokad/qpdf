@@ -12,6 +12,8 @@
   mappings, counts and order, with one stable input lease per logical document.
   Reuse annotation header copying for duplicate form pages so widgets, field
   branches and popup/reply links stay independent without copying payloads.
+  Exclude zero-sized collation groups from copied roots while retaining request
+  validation and original group mappings, preventing omitted pages from resurfacing.
 
 - Constrain appearance parent recovery to registered form branches. Private Kids
   dictionaries in catalog, Info, attachments or pages no longer supply field text,

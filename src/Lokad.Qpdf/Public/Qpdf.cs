@@ -876,6 +876,8 @@ public static partial class Qpdf
         QpdfDocument? preparedSource,
         CancellationToken cancellationToken)
     {
+        if (collation is not null && collation.GroupSizes.Count != 1 && collation.GroupSizes.Count != sources.Count)
+        { throw new ArgumentException("Collation group sizes must hold one value or one per source.", nameof(collation)); }
         if (preparedSource is not null
             && (sources.Count != 1 || preparedSource.Path.Value != sources[0].Input.Value))
         { throw new InvalidOperationException("A prepared document requires its single original source."); }
@@ -1012,7 +1014,8 @@ public static partial class Qpdf
                 sourceCompressed.Add(CollectCompressedOriginals(document.Engine, settings.ObjectStreams is not ("disable" or "generate"), selectionMemory, governor, cancellationToken));
 
                 using ParserMemoryScope sourcePlan = ParserMemoryScope.Create(governor);
-                List<IReadOnlyList<int>> requests = ParserContainers.CreateList<IReadOnlyList<int>>(sourcePlan, sourceGroupIndices.Count, IntPtr.Size);
+                // Zero-sized collation groups validate ranges and counts but copy no roots.
+                List<(IReadOnlyList<int> Pages, bool Included)> requests = ParserContainers.CreateList<(IReadOnlyList<int>, bool)>(sourcePlan, sourceGroupIndices.Count, 16L);
                 long groupedPageCount = 0L;
                 foreach (int group in sourceGroupIndices)
                 {
@@ -1025,8 +1028,9 @@ public static partial class Qpdf
                         throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), selected, limits.MaxContainerSize);
                     }
                     sourceCounts[group] = document.PageReferences.Count;
-                    requests.Add(requested);
-                    groupedPageCount = checked(groupedPageCount + requested.Count);
+                    bool included = collation is null || collation.GroupSizes[collation.GroupSizes.Count == 1 ? 0 : group] > 0;
+                    requests.Add((requested, included));
+                    if (included) { groupedPageCount = checked(groupedPageCount + requested.Count); }
                 }
                 if (groupedPageCount > Array.MaxLength)
                 { throw new QpdfLimitException("Selected pages", groupedPageCount, Array.MaxLength); }
@@ -1034,11 +1038,13 @@ public static partial class Qpdf
                 GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, limits, nextId, selectionMemory);
                 for (int group = 0; group < sourceGroupIndices.Count; group++)
                 {
-                    foreach (int pageNumber in requests[group])
+                    (IReadOnlyList<int> requested, bool included) = requests[group];
+                    foreach (int pageNumber in requested)
                     {
                         cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                         if (pageNumber > document.PageReferences.Count)
                         { throw new ArgumentOutOfRangeException(nameof(sources), $"Source {sourceGroupIndices[group]} page {pageNumber} exceeds the page count of {document.PageReferences.Count}."); }
+                        if (!included) { continue; }
                         PageLocation location = document.PageReferences[pageNumber - 1];
                         kept.Add(location);
                         duplicateSourcePages |= location.Source is null || copier.SourceToDestination.ContainsKey(location.Source.ObjectNumber);
@@ -1048,7 +1054,7 @@ public static partial class Qpdf
                 copier.HintPageCapacity(kept.Count);
                 for (int group = 0; group < sourceGroupIndices.Count; group++)
                 {
-                    IReadOnlyList<int> requested = requests[group];
+                    IReadOnlyList<int> requested = requests[group].Included ? requests[group].Pages : Array.Empty<int>();
                     List<(GraphCopier Copier, int Id, int SourcePage)> taken = ParserContainers.CreateList<(GraphCopier, int, int)>(selectionMemory, requested.Count, 16L);
                     perSource[sourceGroupIndices[group]] = taken;
                     foreach (int pageNumber in requested)
