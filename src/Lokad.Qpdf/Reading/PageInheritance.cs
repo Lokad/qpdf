@@ -109,7 +109,7 @@ internal static class PageInheritance
                 if (!PdfDictionaryLookup.TryGet(_current, "Parent"u8, _governor, _token, out QpdfObject raw) || raw is PdfNull)
                 { current = _current; return false; }
                 if (_depth >= _limits.MaxNestingDepth)
-                { throw new QpdfParseException("Page ancestry exceeds the nesting limit.", null, null); }
+                { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), _depth + 1L, _limits.MaxNestingDepth); }
                 if (raw is PdfDictionary direct) { _current = direct; }
                 else if (raw is PdfReference reference)
                 {
@@ -151,7 +151,7 @@ internal static class PageInheritance
         for (int depth = 0; value is PdfReference reference; depth++)
         {
             governor.NoteOperation();
-            if (depth >= limits.MaxNestingDepth) { throw new QpdfParseException("Attribute reference chain exceeds the nesting limit.", null, null); }
+            if (depth >= limits.MaxNestingDepth) { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth + 1L, limits.MaxNestingDepth); }
             if (!((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? resolved) || resolved is null) { return PdfNull.Instance; }
             value = resolved;
         }

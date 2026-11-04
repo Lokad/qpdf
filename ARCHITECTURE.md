@@ -38,6 +38,10 @@ and loose objects. Indirect targets already belong to that model; validation
 walks only each object's direct syntax instead of allocating another graph index.
 Explicit unreferenced copying recovers malformed candidates only, so profile and
 resource failures reach the publication boundary without being downgraded.
+Parser, load, copy and presentation depth/container guards use the existing budget
+exception. Recoverable optional-root copying therefore cannot turn a configured
+ceiling into a successful publication that loses metadata, attachments or extras.
+Malformed-data recovery and cycle detection keep their separate outcomes.
 
 ## Execution flow
 

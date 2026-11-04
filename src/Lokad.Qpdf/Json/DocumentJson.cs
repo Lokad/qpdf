@@ -235,7 +235,7 @@ internal static class DocumentJson
         cancellationToken.ThrowIfCancellationRequested();
         if (depth > limits.MaxNestingDepth)
         {
-            throw new QpdfParseException("Page-label number tree exceeds nesting budget.", null, null);
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, limits.MaxNestingDepth);
         }
 
         governor.NoteOperation();
@@ -436,7 +436,7 @@ internal static class DocumentJson
         cancellationToken.ThrowIfCancellationRequested();
         if (depth > limits.MaxNestingDepth)
         {
-            throw new QpdfParseException("Outline tree exceeds nesting budget.", null, null);
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, limits.MaxNestingDepth);
         }
 
         governor.NoteOperation();

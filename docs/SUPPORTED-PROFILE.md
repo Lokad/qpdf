@@ -134,6 +134,10 @@ echoing values.
 - Strict parsing: damaged inputs fail as parse errors. The CLI repairs boundedly by
   default (warning, exit 3); `--suppress-recovery` keeps strict failure. Typed
   selection and inspection stay strict.
+  Configured nesting/container exhaustion is a resource failure, not malformed
+  data: reader/copy/presentation paths use `QpdfLimitException`, and rewriting
+  fails before publication instead of dropping retained optional roots. Checking
+  can report a failed item. Bounded malformed-input salvage remains separate.
   Reconstructed xrefs retain live scanned generations and dependencies despite a
   stale trailer size. The active root must match its scanned generation; otherwise
   the last live catalog with a direct/indirect type name is used. Successfully

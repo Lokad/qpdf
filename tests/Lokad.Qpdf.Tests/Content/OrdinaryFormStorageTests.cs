@@ -179,8 +179,12 @@ public sealed class OrdinaryFormStorageTests
         Assert.Equal(new[] { 10, 11, 12 }, selected.Closure.Order());
         var whole = AcroFormCopy.CollectKeptClosure(pool, fields, [], false, QpdfLimits.Default, governor, owner, CancellationToken.None);
         Assert.Equal(13, Assert.Single(whole.Kept).ObjectNumber);
-        var shallow = AcroFormCopy.CollectKeptClosure(pool, fields, [12], true, QpdfLimits.Default with { MaxNestingDepth = 1 }, governor, owner, CancellationToken.None);
-        Assert.Equal(2, shallow.Kept.Count); // Widgets are recognized before their children are depth-limited.
+        long before = governor.Snapshot().LiveMemoryBytes;
+        QpdfLimitException shallow = Assert.Throws<QpdfLimitException>(() => AcroFormCopy.CollectKeptClosure(pool, fields, [12], true,
+            QpdfLimits.Default with { MaxNestingDepth = 1 }, governor, owner, CancellationToken.None));
+        Assert.Equal(nameof(QpdfLimits.MaxNestingDepth), shallow.LimitName);
+        Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
+        Assert.Contains(12, selected.Closure);
         Assert.Throws<QpdfLimitException>(() => AcroFormCopy.CollectKeptClosure(pool, [fields[1]], [12], true,
             QpdfLimits.Default with { MaxContainerSize = 2 }, governor, owner, CancellationToken.None));
     }

@@ -71,6 +71,25 @@ public sealed class OverlayFormStorageTests
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes); Assert.Equal(17L, planning.ReservedBytes);
     }
 
+    [Fact]
+    public void FieldDepthRefusesInsteadOfReturningPartialRegistration()
+    {
+        Dictionary<int, QpdfObject> objects = new();
+        for (int id = 2; id < 34; id++)
+        { objects.Add(id, Dict(("Kids", new PdfArray([new PdfReference(id + 1, 0)])))); }
+        objects.Add(34, Dict(("Subtype", PdfName.FromAscii("Widget"))));
+        using DocumentEngine engine = Engine(objects, Dict(("Fields", new PdfArray([new PdfReference(2, 0)]))));
+        QpdfLimits limits = QpdfLimits.Default with { MaxNestingDepth = 8L };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        using ParserMemoryScope planning = ParserMemoryScope.Create(governor); planning.Reserve(17L);
+        long before = governor.Snapshot().LiveMemoryBytes;
+        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => AcroFormCopy.TryReadOverlaySourceForm(
+            engine, limits, governor, planning, CancellationToken.None));
+        Assert.Equal(nameof(QpdfLimits.MaxNestingDepth), error.LimitName);
+        Assert.Equal(9L, error.Requested); Assert.Equal(8L, error.Allowed);
+        Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); Assert.Equal(17L, planning.ReservedBytes);
+    }
+
     private sealed class CancelingObjects(Action cancel) : Dictionary<int, QpdfObject>, IReadOnlyDictionary<int, QpdfObject>
     {
         bool IReadOnlyDictionary<int, QpdfObject>.TryGetValue(int key, [MaybeNullWhen(false)] out QpdfObject value)
@@ -94,7 +113,7 @@ public sealed class OverlayFormStorageTests
     }
 
     [Theory]
-    [InlineData(1, 3)]
+    [InlineData(1, 0)]
     [InlineData(16, 4)]
     public void TraversalPreservesCycleBoundsAndDirectNodeReporting(int depth, int expected)
     {
@@ -110,6 +129,11 @@ public sealed class OverlayFormStorageTests
         QpdfLimits limits = QpdfLimits.Default with { MaxNestingDepth = depth };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         using ParserMemoryScope owner = ParserMemoryScope.Create(governor);
+        if (expected == 0)
+        {
+            QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => AcroFormCopy.TryReadOverlaySourceForm(engine, limits, governor, owner, CancellationToken.None));
+            Assert.Equal(nameof(QpdfLimits.MaxNestingDepth), error.LimitName); return;
+        }
         AcroFormCopy.OverlaySourceForm? form = AcroFormCopy.TryReadOverlaySourceForm(engine, limits, governor, owner, CancellationToken.None);
         Assert.NotNull(form); Assert.True(form.HasDirectNodes); Assert.False(form.FieldsNotArray);
         Assert.Equal(expected, form.ReachedObjects.Count);

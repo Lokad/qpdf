@@ -66,14 +66,14 @@ public sealed class NestingBudgetTests
             await previous.CommitAsync(CancellationToken.None);
         }
         QpdfLimits limits = QpdfLimits.Default with { MaxNestingDepth = maximum };
-        await Assert.ThrowsAsync<QpdfParseException>(() => QpdfDocument.OpenAsync(host, Input, limits, CancellationToken.None).AsTask());
+        await Assert.ThrowsAsync<QpdfLimitException>(() => QpdfDocument.OpenAsync(host, Input, limits, CancellationToken.None).AsTask());
         Assert.Equal(0L, host.OpenLeaseCount);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
             new QpdfCommandInvocation([Input.Value, "--suppress-recovery",
                 "--parser-max-nesting=" + maximum.ToString(CultureInfo.InvariantCulture), Output.Value]),
             new QpdfExecutionOptions(limits), CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-        Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.InvalidArguments && item.Message.Contains("Nesting depth", StringComparison.Ordinal));
+        Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.BudgetExceeded && item.Message.Contains(nameof(QpdfLimits.MaxNestingDepth), StringComparison.Ordinal));
         Assert.True(host.TryGetOutput(Output, out byte[] published));
         Assert.Equal(new byte[] { 17, 23, 41 }, published);
         Assert.Equal(0L, result.Counters.OpenHandles);

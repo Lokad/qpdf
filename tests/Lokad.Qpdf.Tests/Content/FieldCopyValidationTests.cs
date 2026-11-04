@@ -117,7 +117,7 @@ public sealed class FieldCopyValidationTests
             {
                 if (outcome == "cancel") { Assert.ThrowsAny<OperationCanceledException>(validate); }
                 else if (outcome == "refuse") { Assert.Throws<QpdfMemoryAdmissionException>(validate); }
-                else { Assert.Throws<QpdfParseException>(validate); }
+                else { Assert.Throws<QpdfLimitException>(validate); }
             }
         }
         Assert.Equal(0L, root.ReservedBytes);

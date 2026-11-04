@@ -622,7 +622,7 @@ internal sealed partial class PdfSerializer
     private void CheckValueDepth(int depth)
     {
         if (depth > _limits.MaxNestingDepth)
-        { throw new QpdfParseException($"Serialization depth exceeds {_limits.MaxNestingDepth}.", null, null); }
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, _limits.MaxNestingDepth); }
         _governor.NoteOperation();
     }
 

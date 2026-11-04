@@ -266,9 +266,10 @@ public sealed class SignatureSelectionTests
     {
         using InMemoryQpdfHost host = new();
         host.AddInput(Input, Fixture(kind, false), QpdfInputOwnership.Transfer);
-        QpdfParseException failure = await Assert.ThrowsAsync<QpdfParseException>(() =>
-            Qpdf.SelectPageAsync(host, Input, Output, PdfPageSelectionOptions.FromPages([1]),
-                QpdfLimits.Default with { MaxNestingDepth = 16L }, CancellationToken.None).AsTask());
+        Func<Task> select = () => Qpdf.SelectPageAsync(host, Input, Output, PdfPageSelectionOptions.FromPages([1]),
+            QpdfLimits.Default with { MaxNestingDepth = 16L }, CancellationToken.None).AsTask();
+        QpdfException failure = kind == "value-cycle" ? await Assert.ThrowsAsync<QpdfLimitException>(select)
+            : await Assert.ThrowsAsync<QpdfParseException>(select);
         if (kind == "catalog-only") { Assert.Contains("/Catalog", failure.Message, StringComparison.Ordinal); }
         Assert.Equal(0L, host.OpenLeaseCount); Assert.False(host.TryGetOutput(Output, out _));
     }

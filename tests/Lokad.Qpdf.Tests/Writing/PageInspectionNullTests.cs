@@ -152,7 +152,9 @@ public sealed class PageInspectionNullTests
         QpdfLimits limits = shape == "depth" ? QpdfLimits.Default with { MaxNestingDepth = 1 } : QpdfLimits.Default;
         if (route == "typed")
         {
-            await Assert.ThrowsAsync<QpdfParseException>(() => Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("input"), QpdfPath.From("output"), new(2, ["pages"]), limits, CancellationToken.None).AsTask());
+            Func<Task> inspect = () => Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("input"), QpdfPath.From("output"), new(2, ["pages"]), limits, CancellationToken.None).AsTask();
+            if (shape == "depth") { await Assert.ThrowsAsync<QpdfLimitException>(inspect); }
+            else { await Assert.ThrowsAsync<QpdfParseException>(inspect); }
         }
         else
         {

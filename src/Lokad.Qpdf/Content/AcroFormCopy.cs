@@ -514,7 +514,9 @@ internal static class AcroFormCopy
         ResourceGovernor governor, CancellationToken token, int depth)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        if (depth > limits.MaxNestingDepth || nodeId.HasValue && !visited.Add(traversal, nodeId.Value)) { return node; }
+        if (depth > limits.MaxNestingDepth)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, limits.MaxNestingDepth); }
+        if (nodeId.HasValue && !visited.Add(traversal, nodeId.Value)) { return node; }
         PdfByteString? ownBytes = ReadFieldText(copier, node);
         string? own = ownBytes is null ? null : PdfText.Decode(ownBytes.ValueMemory, names, governor, token);
         string? qualified = parentName;
@@ -852,16 +854,19 @@ internal static class AcroFormCopy
             if (!ParserContainers.AddSetItem(scratch, visited, reference.ObjectNumber, sizeof(int))) { continue; }
             if (!resolver.TryResolve(reference, out QpdfObject? resolvedNode) || resolvedNode is not PdfDictionary dictionary) { continue; }
             ParserContainers.AddSetItem(result, reached, reference.ObjectNumber, sizeof(int));
-            if (frame.Depth >= limits.MaxNestingDepth
-                || !PdfDictionaryLookup.TryGet(dictionary, "Kids"u8, governor, token, out QpdfObject kidsRaw) || kidsRaw is PdfNull) { continue; }
+            if (!PdfDictionaryLookup.TryGet(dictionary, "Kids"u8, governor, token, out QpdfObject kidsRaw) || kidsRaw is PdfNull) { continue; }
             QpdfObject kidsTarget = kidsRaw;
             if (kidsRaw is PdfReference kidsLink)
             {
                 if (!resolver.TryResolve(kidsLink, out QpdfObject? kidsResolved) || kidsResolved is null || kidsResolved is PdfNull) { continue; }
                 kidsTarget = kidsResolved;
             }
-            if (kidsTarget is PdfArray kids)
-            { ParserContainers.AddItem(scratch, frames, (kids, 0, frame.Depth + 1), 16L); }
+            if (kidsTarget is PdfArray { Count: > 0 } kids)
+            {
+                if (frame.Depth >= limits.MaxNestingDepth)
+                { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), frame.Depth + 1L, limits.MaxNestingDepth); }
+                ParserContainers.AddItem(scratch, frames, (kids, 0, frame.Depth + 1), 16L);
+            }
         }
         return (reached, false, hasDirectNodes);
     }
@@ -1313,7 +1318,8 @@ internal static class AcroFormCopy
     {
         GraphCopier copier = import.Copier;
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        if (depth > limits.MaxNestingDepth) { return node; }
+        if (depth > limits.MaxNestingDepth)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, limits.MaxNestingDepth); }
         if (nodeId.HasValue && !ParserContainers.AddSetItem(traversal, visited, nodeId.Value, sizeof(int))) { return node; }
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         bool removeParent = false;
@@ -2035,7 +2041,7 @@ internal static class AcroFormCopy
             governor.NoteOperation();
             if (current.Depth > limits.MaxNestingDepth)
             {
-                continue;
+                throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), current.Depth, limits.MaxNestingDepth);
             }
 
             if (!current.Node.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw) || kidsRaw is null || kidsRaw is PdfNull)

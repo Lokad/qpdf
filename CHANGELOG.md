@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Treat configured nesting/container exhaustion as a budget failure throughout
+  reading, copying and presentation. Rewriting fails before publication instead
+  of dropping retained catalog data, Info, XML metadata or attachments. Typed
+  reader/copy paths now throw `QpdfLimitException` rather than `QpdfParseException`;
+  execution reports `BudgetExceeded`, while checking can report failed items.
+  Keep malformed-input salvage, structural ceilings, cancellation and cleanup.
+
 - Preserve each retained source field's appearance resources, DA and Q defaults
   in page merges and overlay/underlay imports. Resolve indirect programs before
   renaming fonts and rewrite source fallbacks before comparing inherited defaults.

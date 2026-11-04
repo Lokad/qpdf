@@ -158,8 +158,9 @@ public sealed class AttachmentTreeReferenceTests
         string message;
         if (route == "typed")
         {
-            QpdfParseException failure = await Assert.ThrowsAsync<QpdfParseException>(async () =>
-                await Qpdf.ExtractAttachmentAsync(host, Input, "note.txt", Output, limits, CancellationToken.None));
+            Func<Task> extract = () => Qpdf.ExtractAttachmentAsync(host, Input, "note.txt", Output, limits, CancellationToken.None).AsTask();
+            QpdfException failure = variant == "deep" ? await Assert.ThrowsAsync<QpdfLimitException>(extract)
+                : await Assert.ThrowsAsync<QpdfParseException>(extract);
             message = failure.Message;
         }
         else
@@ -172,7 +173,7 @@ public sealed class AttachmentTreeReferenceTests
             message = Assert.Single(result.Diagnostics).Message;
         }
         if (variant == "kids-cycle") { Assert.Contains("cycle", message, StringComparison.Ordinal); }
-        if (variant == "deep") { Assert.Contains("Embedded-files name tree exceeds nesting budget", message, StringComparison.Ordinal); }
+        if (variant == "deep") { Assert.Contains(nameof(QpdfLimits.MaxNestingDepth), message, StringComparison.Ordinal); }
         Assert.True(host.TryGetOutput(Output, out byte[] bytes)); Assert.Equal("prior"u8.ToArray(), bytes);
         Assert.Equal(0L, host.OpenLeaseCount);
     }

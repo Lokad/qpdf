@@ -499,7 +499,7 @@ internal sealed class GraphCopier
 
         if (depth > _limits.MaxNestingDepth)
         {
-            throw new QpdfParseException($"Copy depth exceeds {_limits.MaxNestingDepth}.", null, null);
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, _limits.MaxNestingDepth);
         }
 
         _governor.NoteOperation();

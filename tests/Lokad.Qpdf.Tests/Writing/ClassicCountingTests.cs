@@ -85,12 +85,12 @@ public sealed class ClassicCountingTests
         NumberedObject[] model = [new(1, PdfNull.Instance), new(2, nested)];
         CountingSink counter = new(); counter.AppendLength(10_000_000_000L, CancellationToken.None);
         ResourceGovernor counting = new(QpdfLimits.Default, CancellationToken.None);
-        QpdfParseException countError = await Assert.ThrowsAsync<QpdfParseException>(
+        QpdfLimitException countError = await Assert.ThrowsAsync<QpdfLimitException>(
             () => Write(model, counting, counter, CancellationToken.None).AsTask());
         ResourceGovernor emitting = new(QpdfLimits.Default, CancellationToken.None);
-        QpdfParseException emittedError = await Assert.ThrowsAsync<QpdfParseException>(
+        QpdfLimitException emittedError = await Assert.ThrowsAsync<QpdfLimitException>(
             () => Write(model, emitting, new OutputSink(10_000_000_000L), CancellationToken.None).AsTask());
-        Assert.Contains("Serialization depth", countError.Message, StringComparison.Ordinal);
+        Assert.Equal(nameof(QpdfLimits.MaxNestingDepth), countError.LimitName);
         Assert.Equal(emittedError.Message, countError.Message);
         Assert.Equal(0L, counting.Snapshot().LiveMemoryBytes);
         Assert.Equal(0L, emitting.Snapshot().LiveMemoryBytes);

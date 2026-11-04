@@ -42,8 +42,11 @@ public sealed class ImageInspectionFailureTests
                     output, limits, governor, new(governor), failure == "caller" ? new CancellationToken(true) : CancellationToken.None);
             }
             if (failure is "caller" or "governor") { Assert.ThrowsAny<OperationCanceledException>(Inspect); }
-            else if (failure == "depth") { Assert.Throws<QpdfParseException>(Inspect); }
-            else { Assert.Throws<QpdfLimitException>(Inspect); }
+            else
+            {
+                QpdfLimitException error = Assert.Throws<QpdfLimitException>(Inspect);
+                Assert.Equal(failure == "depth" ? nameof(QpdfLimits.MaxNestingDepth) : nameof(QpdfLimits.MaxMemoryBytes), error.LimitName);
+            }
             Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
         }
         Assert.Equal(0L, host.OpenLeaseCount);

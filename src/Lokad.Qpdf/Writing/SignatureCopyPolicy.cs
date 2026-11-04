@@ -125,7 +125,7 @@ internal sealed class SignatureCopyPolicy
                     break;
                 }
                 if (path.Count > _limits.MaxNestingDepth)
-                { throw new QpdfParseException("Field parent chain exceeds the copy nesting limit.", null, null); }
+                { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), path.Count, _limits.MaxNestingDepth); }
                 ParserContainers.AddItem(_ownership, path, current, IntPtr.Size);
                 if (!found) { ParserContainers.EnsureEntryCapacity(_ownership, types, 16); }
                 types[current] = (false, ResolvingFieldType, cached.Validated);
@@ -140,7 +140,7 @@ internal sealed class SignatureCopyPolicy
             {
                 _governor.CheckCancellation();
                 if (++distance > _limits.MaxNestingDepth)
-                { throw new QpdfParseException("Field parent chain exceeds the copy nesting limit.", null, null); }
+                { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), distance, _limits.MaxNestingDepth); }
                 types[path[i]] = (signature, distance, types[path[i]].Validated);
             }
             var result = types[dictionary];
@@ -162,7 +162,7 @@ internal sealed class SignatureCopyPolicy
         {
             _governor.CheckCancellation(); _governor.NoteOperation();
             if (depth >= _limits.MaxNestingDepth)
-            { throw new QpdfParseException("Field attribute reference chain exceeds the copy nesting limit.", null, reference.ObjectNumber); }
+            { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth + 1L, _limits.MaxNestingDepth); }
             if (!_resolver.TryResolve(reference, out QpdfObject? resolved) || resolved is null) { return PdfNull.Instance; }
             value = resolved;
         }
@@ -191,7 +191,7 @@ internal sealed class SignatureCopyPolicy
     {
         _governor.CheckCancellation();
         if (depth > _limits.MaxNestingDepth)
-        { throw new QpdfParseException("Published object exceeds the copy nesting limit.", null, null); }
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, _limits.MaxNestingDepth); }
         if (value is PdfStream stream) { value = stream.Dictionary; }
         if (value is PdfDictionary dictionary)
         {

@@ -41,7 +41,7 @@ public class QpdfException : Exception
     }
 }
 
-/// <summary>A reserved resource budget was exceeded before allocating.</summary>
+/// <summary>An execution resource or structural budget was exceeded.</summary>
 public sealed class QpdfLimitException : QpdfException
 {
     /// <summary>Gets the budget name, such as <c>MaxOutputBytes</c>.</summary>

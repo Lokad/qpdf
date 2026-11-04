@@ -308,11 +308,13 @@ public sealed class ParserTests
         DiagnosticBag bag = new(governor);
         PdfParser parser = new(limits, governor, bag, null);
         PdfTokenizer tokenizer = new(Encoding.ASCII.GetBytes("[[[1]]]"));
-        Assert.Throws<QpdfParseException>(() =>
+        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
         {
             using ParserMemoryScope parsedMemory8 = ParserMemoryScope.Create(governor);
             _ = parser.ParseValue(tokenizer, 0, parsedMemory8);
         });
+        Assert.Equal(nameof(QpdfLimits.MaxNestingDepth), error.LimitName);
+        Assert.Equal(3L, error.Requested); Assert.Equal(2L, error.Allowed);
     }
 
     [Fact]

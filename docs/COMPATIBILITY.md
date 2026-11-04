@@ -24,6 +24,17 @@ to generalized decoding and compression; typed selection preserves opaque stream
 encodings. Compression/decode setters apply in configuration order; QDF fills
 unset defaults. These distinctions are part of the supported contract.
 
+Nesting and container exhaustion now uses `QpdfLimitException` through reading,
+copying and presentation, rather than `QpdfParseException`. Rewriting reports
+`BudgetExceeded` and fails before publication; it no longer drops retained Info,
+XML metadata, attachments or catalog extras under a success/warning result when
+those graphs exceed an explicit ceiling. Checking can instead report a failed
+check item. This intentionally strengthens managed failure behavior where native
+qpdf may warn and salvage deeply nested data. Genuine malformed-data recovery,
+cycle detection and cancellation remain independent.
+Callers that caught `QpdfParseException` for these ceilings should catch
+`QpdfLimitException` and inspect its `LimitName`, `Requested` and `Allowed` values.
+
 PDF output negotiation includes effective overlay/underlay and attachment-import
 versions and Adobe levels. Opened, validated sources contribute even when a target
 range or imported collection is empty. The basic writer's conservative 1.2 floor

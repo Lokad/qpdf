@@ -99,8 +99,11 @@ public sealed class LabelTreeIndirectionTests
             canceled.Cancel();
             void Read() => DocumentJson.ReadLabelTree(document.Engine, limits, governor, memory, outcome == "caller-cancel" ? canceled.Token : CancellationToken.None);
             if (outcome.EndsWith("cancel", StringComparison.Ordinal)) { Assert.ThrowsAny<OperationCanceledException>(Read); }
-            else if (outcome == "depth") { Assert.Throws<QpdfParseException>(Read); }
-            else { Assert.Throws<QpdfLimitException>(Read); }
+            else
+            {
+                QpdfLimitException error = Assert.Throws<QpdfLimitException>(Read);
+                Assert.Equal(outcome == "depth" ? nameof(QpdfLimits.MaxNestingDepth) : nameof(QpdfLimits.MaxMemoryBytes), error.LimitName);
+            }
         }
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }

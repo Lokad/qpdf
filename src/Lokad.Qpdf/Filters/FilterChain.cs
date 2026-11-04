@@ -25,7 +25,7 @@ internal static partial class FilterChain
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (depth >= governor.MaxNestingDepth)
-            { throw new QpdfParseException("Stream file specification exceeds the nesting budget.", null, reference.ObjectNumber); }
+            { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth + 1L, governor.MaxNestingDepth); }
             // Bootstrap readers cannot resolve an external descriptor. They
             // must not assume that its physical placeholder supplies data.
             if (resolver is null) { return true; }

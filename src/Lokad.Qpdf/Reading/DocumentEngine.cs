@@ -427,7 +427,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
     {
         if (Loading.Count >= _limits.MaxNestingDepth)
         {
-            throw new QpdfParseException($"Object load depth exceeds {_limits.MaxNestingDepth}.", null, number);
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), Loading.Count + 1L, _limits.MaxNestingDepth);
         }
 
         if (!ParserContainers.AddSetItem(Metadata, Loading, number, sizeof(int)))

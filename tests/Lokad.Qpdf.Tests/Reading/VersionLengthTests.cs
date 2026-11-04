@@ -364,7 +364,7 @@ public sealed class VersionLengthTests
         InMemoryQpdfHost host = HostWith("inputs/chain.pdf", bytes);
         QpdfLimits limits = QpdfLimits.Default with { MaxNestingDepth = 4L };
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/chain.pdf"), limits, CancellationToken.None);
-        Assert.Throws<QpdfParseException>(() => document.GetObject(4));
+        Assert.Throws<QpdfLimitException>(() => document.GetObject(4));
     }
 
     private static byte[] ChainPdf(List<string> objects)

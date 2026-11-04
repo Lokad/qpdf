@@ -112,7 +112,7 @@ internal static class PageTree
         cancellationToken.ThrowIfCancellationRequested();
         if (depth > limits.MaxNestingDepth)
         {
-            throw new QpdfParseException($"Page tree depth exceeds {limits.MaxNestingDepth}.", null, null);
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, limits.MaxNestingDepth);
         }
 
         governor.NoteOperation();

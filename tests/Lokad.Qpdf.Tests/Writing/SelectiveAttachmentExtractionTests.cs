@@ -128,7 +128,11 @@ public sealed class SelectiveAttachmentExtractionTests
         host.AddInput(QpdfPath.From("input"), Fixture(kind, false), QpdfInputOwnership.Transfer);
         QpdfLimits limits = Tight with { MaxNestingDepth = kind == "depth" ? 4 : Tight.MaxNestingDepth };
         if (route == "typed")
-        { await Assert.ThrowsAsync<QpdfParseException>(() => Qpdf.ExtractAttachmentAsync(host, QpdfPath.From("input"), "target", QpdfPath.From("output"), limits, CancellationToken.None).AsTask()); }
+        {
+            Func<Task> extract = () => Qpdf.ExtractAttachmentAsync(host, QpdfPath.From("input"), "target", QpdfPath.From("output"), limits, CancellationToken.None).AsTask();
+            if (kind == "depth") { await Assert.ThrowsAsync<QpdfLimitException>(extract); }
+            else { await Assert.ThrowsAsync<QpdfParseException>(extract); }
+        }
         else
         {
             QpdfExecutionResult result = await Execute(host, route, "target", limits, CancellationToken.None);

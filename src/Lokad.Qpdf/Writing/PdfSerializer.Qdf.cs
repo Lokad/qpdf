@@ -641,7 +641,7 @@ internal sealed partial class PdfSerializer
 
         if (level > _limits.MaxNestingDepth)
         {
-            throw new QpdfParseException($"Serialization depth exceeds {_limits.MaxNestingDepth}.", null, null);
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), level, _limits.MaxNestingDepth);
         }
 
         _governor.NoteOperation();

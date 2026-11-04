@@ -123,7 +123,11 @@ public sealed class JsonPageTreeTests
         QpdfLimits limits = layout == "default-depth" ? QpdfLimits.Default : QpdfLimits.Default with { MaxNestingDepth = 2 };
         int depth = deep ? checked((int)limits.MaxNestingDepth + 1) : 1;
         using InMemoryQpdfHost host = new(); Register(host, Fixture(depth, deep ? "direct" : layout, false)); await Seed(host);
-        if (route == "typed") { await Assert.ThrowsAsync<QpdfParseException>(() => Typed(host, update, limits, CancellationToken.None)); }
+        if (route == "typed")
+        {
+            if (deep) { await Assert.ThrowsAsync<QpdfLimitException>(() => Typed(host, update, limits, CancellationToken.None)); }
+            else { await Assert.ThrowsAsync<QpdfParseException>(() => Typed(host, update, limits, CancellationToken.None)); }
+        }
         else
         {
             QpdfExecutionResult result = await Execute(host, update, route, limits, CancellationToken.None);

@@ -227,7 +227,7 @@ public sealed class GlobalLimitsTests
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildDeepPage(300));
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host, new QpdfCommandInvocation(["inputs/a.pdf", "--check"]), CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
     }
 
     [Theory]
@@ -412,7 +412,7 @@ public sealed class GlobalLimitsTests
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildDeepPage(300));
         QpdfExecutionResult capped = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--no-default-limits"]), CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(capped).Code);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(capped).Code);
         InMemoryQpdfHost raised = HostWith("inputs/a.pdf", BuildDeepPage(300));
         QpdfExecutionResult allowed = await Qpdf.ExecuteAsync(raised, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--no-default-limits", "--parser-max-nesting=499"]), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, allowed.ExitCode);
@@ -425,7 +425,7 @@ public sealed class GlobalLimitsTests
         QpdfLimits tight = QpdfLimits.Default with { MaxContainerSize = 10L };
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--no-default-limits"]), new QpdfExecutionOptions(tight), CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
     }
 
@@ -463,7 +463,7 @@ public sealed class GlobalLimitsTests
         InMemoryQpdfHost plain = HostWith("inputs/a.pdf", input);
         QpdfLimits tight = QpdfLimits.Default with { MaxNestingDepth = 10L };
         QpdfExecutionResult denied = await Qpdf.ExecuteAsync(plain, new QpdfCommandInvocation(["inputs/a.pdf", "--check"]), new QpdfExecutionOptions(tight), CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(denied).Code);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(denied).Code);
         InMemoryQpdfHost raised = HostWith("inputs/a.pdf", input);
         QpdfExecutionResult capped = await Qpdf.ExecuteAsync(raised, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--parser-max-nesting=499"]), new QpdfExecutionOptions(tight), CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(capped).Code);
@@ -623,7 +623,7 @@ public sealed class GlobalLimitsTests
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildBigPage());
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--parser-max-container-size=10"]), CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
     }
 
     [Theory]
@@ -641,7 +641,7 @@ public sealed class GlobalLimitsTests
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--parser-max-container-size=1"]), CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
     }
 
     [Fact]
@@ -652,7 +652,7 @@ public sealed class GlobalLimitsTests
         Assert.Equal(QpdfExitCode.Warning, repaired.ExitCode);
         InMemoryQpdfHost capped = HostWith("inputs/a.pdf", WithBrokenStartXref(BuildBigPage()));
         QpdfExecutionResult refused = await Qpdf.ExecuteAsync(capped, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--parser-max-container-size-damaged=10"]), CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(refused).Code);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(refused).Code);
     }
 
     [Theory]
@@ -772,7 +772,7 @@ public sealed class GlobalLimitsTests
         QpdfLimits tight = QpdfLimits.Default with { MaxContainerSize = 10L };
         InMemoryQpdfHost plain = HostWith("inputs/a.pdf", input);
         QpdfExecutionResult denied = await Qpdf.ExecuteAsync(plain, new QpdfCommandInvocation(["inputs/a.pdf", "--check"]), new QpdfExecutionOptions(tight), CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(denied).Code);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(denied).Code);
         InMemoryQpdfHost raised = HostWith("inputs/a.pdf", input);
         QpdfExecutionResult capped = await Qpdf.ExecuteAsync(raised, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--parser-max-container-size=1000"]), new QpdfExecutionOptions(tight), CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(capped).Code);

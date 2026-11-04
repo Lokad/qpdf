@@ -210,7 +210,7 @@ internal static class PdfJsonWriter
         ResourceGovernor governor, int depth, QpdfLimits limits)
     {
         governor.CheckCancellation();
-        if (depth > limits.MaxNestingDepth) { throw new QpdfParseException("JSON inspection exceeds nesting budget.", null, null); }
+        if (depth > limits.MaxNestingDepth) { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, limits.MaxNestingDepth); }
         switch (value)
         {
             case PdfNull: builder.Append("null"); break;

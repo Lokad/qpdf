@@ -37,12 +37,13 @@ public sealed class LexicalParserTests
         ResourceGovernor governor = new(limits, CancellationToken.None);
         PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null);
         string text = "[" + string.Join(" ", Enumerable.Range(1, count)) + " [@]]";
-        QpdfParseException error = Assert.Throws<QpdfParseException>(() =>
+        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
         {
             using ParserMemoryScope parsedMemory1 = ParserMemoryScope.Create(governor);
             _ = parser.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes(text)), 0, parsedMemory1);
         });
-        Assert.Contains("top-level items", error.Message, StringComparison.Ordinal);
+        Assert.Equal(nameof(QpdfLimits.MaxContainerSize), error.LimitName);
+        Assert.Equal(count + 1L, error.Requested); Assert.Equal((long)count, error.Allowed);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 

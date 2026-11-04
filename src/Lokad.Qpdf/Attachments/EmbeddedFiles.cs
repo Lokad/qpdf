@@ -232,7 +232,7 @@ internal static class EmbeddedFiles
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (depth > limits.MaxNestingDepth)
-        { throw new QpdfParseException("Embedded-files name tree exceeds nesting budget.", null, null); }
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, limits.MaxNestingDepth); }
         QpdfObject? namesValue = node.TryGet(PdfName.FromAscii("Names"), out QpdfObject? namesRaw) && namesRaw is not null
             ? ResolveOptionalValue(engine, namesRaw, governor, token) : PdfNull.Instance;
         if (namesValue is not PdfNull)

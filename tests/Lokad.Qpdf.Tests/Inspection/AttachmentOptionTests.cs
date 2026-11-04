@@ -44,7 +44,7 @@ public sealed class AttachmentOptionTests
         };
         QpdfExecutionResult result = await Execute(host, route, [setting.Flag], "\"global\":{" + setting.Property + "}", new());
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-        Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.InvalidArguments);
+        Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.BudgetExceeded);
         AssertOutput(host, result, "prior"u8.ToArray());
     }
 

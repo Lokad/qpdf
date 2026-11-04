@@ -261,7 +261,7 @@ internal sealed class PdfParser
 
         if (depth > _limits.MaxNestingDepth)
         {
-            throw new QpdfParseException($"Nesting depth exceeds {_limits.MaxNestingDepth}.", tokenizer.Position, null);
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, _limits.MaxNestingDepth);
         }
 
         if (!TryReadValueToken(tokenizer, out PdfToken token))
@@ -279,7 +279,7 @@ internal sealed class PdfParser
     {
         if (depth > _limits.MaxNestingDepth)
         {
-            throw new QpdfParseException($"Nesting depth exceeds {_limits.MaxNestingDepth}.", token.Offset, null);
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, _limits.MaxNestingDepth);
         }
 
         switch (token.Kind)
@@ -683,7 +683,7 @@ internal sealed class PdfParser
 
             if (count >= _limits.MaxContainerSize)
             {
-                throw new QpdfParseException($"Array holds more than {_limits.MaxContainerSize} top-level items.", token.Offset, null);
+                throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), count + 1L, _limits.MaxContainerSize);
             }
 
             QpdfObject value = ParseToken(tokenizer, in token, depth + 1);
@@ -770,7 +770,8 @@ internal sealed class PdfParser
 
             if ((entries?.Count ?? prefixCount) + (long)(missingKeys?.Count ?? 0) >= _limits.MaxContainerSize)
             {
-                throw new QpdfParseException($"Dictionary holds more than {_limits.MaxContainerSize} top-level entries.", token.Offset, null);
+                throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize),
+                    (entries?.Count ?? prefixCount) + (long)(missingKeys?.Count ?? 0) + 1L, _limits.MaxContainerSize);
             }
 
             if (token.Kind != PdfTokenKind.Name)

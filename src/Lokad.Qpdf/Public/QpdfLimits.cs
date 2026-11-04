@@ -5,6 +5,12 @@ namespace Lokad.Qpdf;
 /// <see cref="Default" /> and adjust individual properties with object
 /// initializers; call <see cref="Validate" /> before use.
 /// </summary>
+/// <remarks>
+/// Nesting and container exhaustion uses <see cref="QpdfLimitException" /> rather
+/// than malformed-data recovery. Retained-graph failures abort rewriting before
+/// publication; checking can report a failed check item. Recovery cannot discard
+/// a retained graph merely because it exceeds a configured structural ceiling.
+/// </remarks>
 public sealed record QpdfLimits
 {
     /// <summary>Maximum bytes accepted for a single input.</summary>

@@ -59,7 +59,7 @@ internal static class CanonicalDisplay
 
         if (depth > limits.MaxNestingDepth)
         {
-            throw new QpdfParseException("Display depth exceeds the nesting budget.", null, null);
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, limits.MaxNestingDepth);
         }
 
         governor.NoteOperation();

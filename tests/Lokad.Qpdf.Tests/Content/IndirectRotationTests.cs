@@ -124,7 +124,7 @@ public sealed class IndirectRotationTests
             ("(bad)", "90", operation == "add" ? "invalid /Rotate" : null),
             ("5 0 R", "(bad)", operation == "add" ? "invalid /Rotate" : null),
             ("99 0 R", "90", "Unresolvable reference"),
-            ("5 0 R", "5 0 R", "reference chain exceeds the nesting limit"),
+            ("5 0 R", "5 0 R", nameof(QpdfLimits.MaxNestingDepth)),
         })
         { yield return [operation, rotation, target, failure ?? string.Empty]; }
     }
@@ -146,7 +146,7 @@ public sealed class IndirectRotationTests
         {
             Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
             QpdfDiagnostic diagnostic = Assert.Single(result.Diagnostics);
-            Assert.Equal(QpdfDiagnosticCode.InvalidArguments, diagnostic.Code);
+            Assert.Equal(failure == nameof(QpdfLimits.MaxNestingDepth) ? QpdfDiagnosticCode.BudgetExceeded : QpdfDiagnosticCode.InvalidArguments, diagnostic.Code);
             Assert.Contains(failure, diagnostic.Message, StringComparison.Ordinal);
             Assert.Equal("prior"u8.ToArray(), Published(host));
         }

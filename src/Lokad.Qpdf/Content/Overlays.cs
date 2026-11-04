@@ -1548,7 +1548,7 @@ internal static class Overlays
         governor.NoteOperation();
         if (depth > limits.MaxNestingDepth)
         {
-            throw new QpdfParseException("Overlay annotation depth exceeds the limit.", null, null);
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, limits.MaxNestingDepth);
         }
 
         if (node is PdfReference reference)

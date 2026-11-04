@@ -1625,7 +1625,8 @@
         "resource": [
           "GlobalLimitsTests.HostContainerBudgetInterplay",
           "GlobalLimitsTests.NegativeContainerBudgetsFailValidation",
-          "GlobalLimitsTests.FlagMayTightenBelowContainerCeiling"
+          "GlobalLimitsTests.FlagMayTightenBelowContainerCeiling",
+          "StructuralBudgetPublicationTests.StructuralRefusalNeverDropsARetainedRootAndCommits"
         ],
         "oracle": [
           "diff:global"
@@ -1922,7 +1923,9 @@
         ],
         "resource": [
           "GlobalLimitsTests.FlagCannotRaiseTighterHostBudget",
-          "GlobalLimitsTests.FlagMayTightenBelowHostCeiling"
+          "GlobalLimitsTests.FlagMayTightenBelowHostCeiling",
+          "StructuralBudgetPublicationTests.StructuralRefusalNeverDropsARetainedRootAndCommits",
+          "OverlayFormStorageTests.FieldDepthRefusesInsteadOfReturningPartialRegistration"
         ],
         "oracle": [
           "diff:global"

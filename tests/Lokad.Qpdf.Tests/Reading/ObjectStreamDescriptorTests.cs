@@ -174,7 +174,7 @@ public sealed class ObjectStreamDescriptorTests
                 Assert.True(original.TryGet(PdfName.FromAscii("Type"), out QpdfObject type));
                 Assert.Equal(new PdfReference(9, 0), type);
             }
-            else { Assert.Throws<QpdfParseException>(() => document.GetObject(5)); }
+            else { Assert.Throws<QpdfLimitException>(() => document.GetObject(5)); }
             // A rejected deeper load must clear its active sets. Reading the
             // descriptor stream directly fits even the shallower load budget.
             Assert.Equal(PdfName.FromAscii("ObjStm"), document.GetObject(9));
