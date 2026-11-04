@@ -48,6 +48,13 @@ Field selection validates child references before recording membership. A stale
 child preceding a live generation no longer removes the live field registration
 or calculation order. Existing malformed-value and memberless-field policies remain.
 
+Object-stream Type/N/First descriptors now resolve ordinary indirect values before
+validation. Equivalent direct/indirect representations preserve their Info,
+attachment and private graphs and remain usable as page sources. Previously, valid
+indirection could warn and discard optional data or reject required pages. Stale,
+malformed and cyclic descriptors retain rejection and rollback; xref-stream
+bootstrap direct-value restrictions remain unchanged.
+
 Field selection and checking resolve Widget subtypes before classifying membership.
 Direct and indirect name values retain the same registered field/annotation and
 calculation-order relationships. Form checking validates a child's Parent against

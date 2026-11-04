@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Resolve indirect object-stream Type/N/First descriptors through the existing
+  source resolver, preserving valid metadata, attachments and page members while
+  retaining type/range, generation, cycle and decompression checks.
+
 - Keep writer syntax caches retryable after cold allocation failure. The capped
   package consumer also verifies a successful engine run after releasing heap
   pressure and closing the original host lease.

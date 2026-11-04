@@ -554,8 +554,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
             }
 
             PdfDictionary dictionary = stream.Dictionary;
-            if (!PdfDictionaryLookup.TryGet(dictionary, "Type"u8, _governor, _governor.CancellationToken, out QpdfObject typeRaw)
-                || typeRaw is not PdfName typeName || !PdfDictionaryLookup.NameEquals(typeName, "ObjStm"u8, _governor, _governor.CancellationToken))
+            if (!PdfDictionaryLookup.HasName(dictionary, "Type"u8, "ObjStm"u8, this, _governor, _governor.CancellationToken))
             {
                 throw new QpdfParseException($"Object {streamNumber} must declare /Type /ObjStm.", null, streamNumber);
             }
@@ -678,7 +677,11 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
 
     private int ReadObjStmInt(PdfDictionary dictionary, ReadOnlySpan<byte> key, string name, int minimum, int streamNumber)
     {
-        if (!PdfDictionaryLookup.TryGet(dictionary, key, _governor, _governor.CancellationToken, out QpdfObject raw) || raw is not PdfInteger integer)
+        PdfDictionaryLookup.TryGet(dictionary, key, _governor, _governor.CancellationToken, out QpdfObject raw);
+        QpdfObject? value = raw;
+        if (raw is PdfReference reference)
+        { PdfObjectLookup.TryResolve(reference, (IIndirectResolver)this, _governor, _governor.CancellationToken, out value); }
+        if (value is not PdfInteger integer)
         {
             throw new QpdfParseException($"Object stream {streamNumber} has incorrect /{name}.", null, streamNumber);
         }

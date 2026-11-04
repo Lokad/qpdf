@@ -109,7 +109,10 @@ echoing values.
 - Chained cross references: classic tables and Flate- or LZW-compressed
   xref streams with exact entry sizing and coverage; `/Prev` chains and hybrid
   `/XRefStm` links merge latest-wins with cycle and revision budgets. Object streams
-  decode once with validated headers and extents. `/Extends` stays opaque;
+  decode once with validated headers and extents. Object-stream `/Type`, `/N`
+  and `/First` may use ordinary indirect values; their generations, required
+  types/ranges and loading cycles still validate. Xref-stream bootstrap entries
+  retain their direct-value restrictions. `/Extends` stays opaque;
   members resolve through the current stream's header pairs, matching the
   reference reader. Writer controls can preserve or generate object streams;
   ordinary selection output normalizes to classic xrefs. Bounded CLI recovery
