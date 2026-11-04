@@ -56,7 +56,10 @@ public sealed record QpdfLimits
     /// <summary>Maximum nesting depth for arrays, dictionaries, page trees and form checking, within 1..499.</summary>
     public long MaxNestingDepth { get; init; } = 256L;
 
-    /// <summary>Maximum stream filters decoded per stream; over-limit streams stay opaque.</summary>
+    /// <summary>Maximum filter-chain length eligible for decoding; zero prevents filtered decoding.</summary>
+    /// <remarks>Opaque copying can retain encoded streams. Filtered extraction and
+    /// checking report over-limit decoding as failure; transformations can warn
+    /// and preserve the original stream.</remarks>
     public long MaxStreamFilters { get; init; } = 25L;
 
     /// <summary>Ignores cross-reference streams when set; only classic tables are used.</summary>

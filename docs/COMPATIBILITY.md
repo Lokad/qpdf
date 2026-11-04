@@ -297,6 +297,11 @@ hint domain remains raw data or one Flate stage without non-null decode paramete
 The stream-filter ceiling also binds hint decoding; disabled hint decoding reports
 skipped coverage. General stream checking retains its existing filter-limit outcomes.
 
+`MaxStreamFilters` limits decoding eligibility, with operation-specific outcomes.
+Over-limit filtered extraction and stream checking report failure. Rewriting can
+retain the original encoded bytes and warn when decoding was requested; explicit
+opaque copying can preserve them silently. Zero prevents filtered decoding.
+
 A single failed output commit preserves its prior target. Multiple outputs commit
 sequentially; a later failure or post-commit close fault does not undo earlier
 publications. JSON main output and stream sidecars follow the same rule. Prepared
