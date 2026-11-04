@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Accept bytes after completed Flate frames, including in object-stream inputs
+  and the zlib-flate companion. Remove the redundant checksum/suffix scan;
+  the complete zlib decoder and bounded input still reject corruption/truncation.
+
 - Resolve indirect object-stream Type/N/First descriptors through the existing
   source resolver, preserving valid metadata, attachments and page members while
   retaining type/range, generation, cycle and decompression checks.

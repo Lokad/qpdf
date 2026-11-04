@@ -797,8 +797,11 @@ and decoded lossy samples can change between providers. Equal numeric quality
 does not imply identical distortion, and optimization still requires a smaller
 encoded packet. Caller codec signatures and the dependency-free core are retained.
 
-Flate validates zlib framing and Adler-32 because BCL inflate can return short
-output for truncated data. Codec calls/refills are bounded in 8 KiB chunks. The
+Flate uses the complete BCL zlib decoder to validate the frame and Adler-32 at
+its actual endpoint. Its bounded input rejects exhaustion before frame completion,
+so truncated input cannot return partial output. Bytes after the completed frame
+are ignored, including non-whitespace tails; the former extra suffix-checksum scan
+incorrectly rejected these inputs. Codec calls/refills are bounded in 8 KiB chunks. The
 current state allowances are 512 KiB for deflate and 128 KiB for inflate, with
 scratch/output growth charged separately. Their rationale combines
 [zlib's approximate state model](https://zlib.net/zlib_tech.html) (about 268 KiB

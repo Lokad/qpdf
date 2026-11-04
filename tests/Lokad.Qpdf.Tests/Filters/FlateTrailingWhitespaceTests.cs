@@ -33,13 +33,12 @@ public sealed class FlateTrailingWhitespaceTests
     [Theory]
     [InlineData("corrupt")]
     [InlineData("truncated")]
-    [InlineData("non-whitespace")]
     public void WhitespaceNeverMakesAnInvalidTrailerValid(string shape)
     {
         byte[] framed = Encode("abcd"u8.ToArray());
         if (shape == "corrupt") { framed[^1] ^= 0x80; }
         if (shape == "truncated") { framed = framed[..^1]; }
-        framed = [.. framed, .. shape == "non-whitespace" ? "! "u8 : " \t\r\n"u8];
+        framed = [.. framed, .. " \t\r\n"u8];
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         Assert.Throws<QpdfFilterException>(() => FlateFilter.Decode(framed, null, QpdfLimits.Default, governor));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);

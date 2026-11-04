@@ -769,7 +769,10 @@ keys; listing order and request matching use decoded ordinal text.
   filtered data; only surrounding content syntax is normalized. `FixQdfAsync`
   repairs edited QDF (stream lengths, object-stream tables, cross references,
   startxref offsets) and `RunZlibFlateAsync` compresses or uncompresses zlib bytes
-  between host paths.
+  between host paths. Flate decoding, including the companion, ends at the first
+  complete zlib frame and ignores later container bytes. Corrupt checksums and
+  unfinished frames still reject; chunked input/output, admission and decoding
+  ceilings remain binding.
   Repair requires consistent `endstream`/`endobj` and length-object framing;
   marker-shaped payloads that disrupt this sequence fail before commit. Native
   fix-qdf can instead publish an incorrect length for this ambiguous input.

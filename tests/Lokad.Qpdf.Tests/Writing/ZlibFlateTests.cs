@@ -100,6 +100,25 @@ public sealed class ZlibFlateTests
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task UncompressStopsAtTheCompletedFrame(bool corrupt)
+    {
+        byte[] raw = BinaryPayload(); byte[] encoded = await CompressAsync(raw, null);
+        if (corrupt) { encoded[^1] ^= 128; }
+        using InMemoryQpdfHost host = HostWith("input", [.. encoded, 255, 0, 11, 1]);
+        await using (IQpdfOutputTransaction prior = await host.CreateOutputAsync(QpdfPath.From("output"), CancellationToken.None))
+        { await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None); await prior.CommitAsync(CancellationToken.None); }
+        QpdfExecutionResult result = await Qpdf.RunZlibFlateAsync(host, QpdfPath.From("input"), QpdfPath.From("output"),
+            new(QpdfZlibFlateMode.Uncompress, null), CancellationToken.None);
+        Assert.Equal(corrupt ? QpdfExitCode.Error : QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output));
+        Assert.Equal(corrupt ? "prior"u8.ToArray() : raw, output);
+        Assert.Equal(corrupt ? 0L : raw.LongLength, result.Counters.TotalDecodedBytes);
+        Assert.Equal(0L, host.OpenLeaseCount); Assert.Equal(0L, result.Counters.OpenHandles);
+    }
+
     [Fact]
     public async Task HigherLevelCompressesSmaller()
     {

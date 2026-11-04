@@ -4,11 +4,10 @@ using Lokad.Qpdf.Runtime;
 namespace Lokad.Qpdf.Filters;
 
 /// <summary>
-/// Governed FlateDecode over BCL inflate with strict zlib framing: the header
-/// is validated, preset dictionaries rejected, the Adler-32 trailer verified,
-/// and predictor transforms applied under dimension budgets. This strictness
-/// exceeds lenient BCL behavior, which can return short output for truncated
-/// input without throwing; see the codec notes in docs/COMPATIBILITY.md.
+/// Governed FlateDecode over BCL ZLibStream. Header checks reject unsupported
+/// framing and preset dictionaries; bounded input rejects exhaustion before the
+/// codec completes its frame and validates Adler-32. Later container bytes are
+/// ignored. Predictor transforms retain their dimension and allocation bounds.
 /// </summary>
 internal static partial class FlateFilter
 {
@@ -155,32 +154,12 @@ internal static partial class FlateFilter
 
             governor.CheckCancellation();
             token.ThrowIfCancellationRequested();
-            if (!MatchesTrailer(input, Adler32(output.WrittenSpan, governor, token), governor, token))
-            {
-                throw new QpdfFilterException(QpdfFilterFailureReason.TruncatedInput, FilterName, "Adler-32 mismatch.");
-            }
-
             return output.ToArray();
         }
         finally
         {
             governor.ReleaseMemory(reserved);
         }
-    }
-
-    private static bool MatchesTrailer(ReadOnlySpan<byte> input, uint actual, ResourceGovernor governor, CancellationToken token)
-    {
-        // Inline image data includes the whitespace before EI. Check the full
-        // frame first so a checksum ending in whitespace is never stripped.
-        for (int end = input.Length; end >= 7; end--)
-        {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            uint expected = ((uint)input[end - 4] << 24) | ((uint)input[end - 3] << 16)
-                | ((uint)input[end - 2] << 8) | input[end - 1];
-            if (actual == expected) { return true; }
-            if (input[end - 1] is not (0 or 9 or 10 or 12 or 13 or 32)) { return false; }
-        }
-        return false;
     }
 
     /// <summary>
@@ -288,31 +267,4 @@ internal static partial class FlateFilter
             governor.ReleaseMemory(workingSet);
         }
     }
-
-    private static uint Adler32(ReadOnlySpan<byte> data, ResourceGovernor governor, CancellationToken token)
-    {
-        const uint Mod = 65521U;
-        uint a = 1U;
-        uint b = 0U;
-        int i = 0;
-        while (i < data.Length)
-        {
-            token.ThrowIfCancellationRequested();
-            governor.CheckCancellation();
-            int chunk = Math.Min(5552, data.Length - i);
-            governor.NoteOperation();
-            for (int j = 0; j < chunk; j++)
-            {
-                a += data[i + j];
-                b += a;
-            }
-
-            a %= Mod;
-            b %= Mod;
-            i += chunk;
-        }
-
-        return (b << 16) | a;
-    }
-
 }
