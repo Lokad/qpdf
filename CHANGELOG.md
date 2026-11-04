@@ -16,6 +16,12 @@
   owning annotation. Listed and linked-only popups receive the same frame once
   per placement, keeping Parent links and the original Annots membership.
 
+- Transform recognized absolute annotation coordinates during rotation baking and
+  placement: line endpoints, FreeText callouts, link/text-markup quadrilaterals,
+  polygon/polyline vertices and ink paths. Resolve indirect values and retain
+  private aliases and point order. Non-null malformed arrays reject when their
+  frame changes; null/empty handling and unrelated private fields stay intact.
+
 - Preserve PDF byte-string identity through JSON v2 export and import. Use the
   existing binary encoding whenever text would re-encode differently, retaining
   distinct destination keys/actions, Limits, opaque values and malformed Unicode.

@@ -1767,7 +1767,21 @@ internal static class Overlays
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         long before = graph.Memory.ReservedBytes;
         PdfArray values = NumberArray(moved, governor, graph.Memory); graph.Add(graph.Memory.ReservedBytes - before);
-        PdfDictionary result = PdfDictionaryRebuild.ReplaceEntry(graph, annot, "Rect"u8, values);
+        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
+        bool sawRect = false;
+        using (PdfDictionary.EntryEnumerator source = annot.GetEntryEnumerator())
+        {
+            while (source.MoveNext(governor, token))
+            {
+                PdfName key = source.Current.Key; QpdfObject value = source.Current.Value;
+                if (value is null) { continue; }
+                if (key.RawSpan.SequenceEqual("Rect"u8)) { value = values; sawRect = true; }
+                else { value = AnnotationCoordinates.TransformEntry(annot, key, value, cm, pool, graph); }
+                entries.Assign(graph.Memory, governor, key, value, token);
+            }
+        }
+        if (!sawRect) { entries.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "Rect"u8), values, token); }
+        PdfDictionary result = PdfDictionaryRebuild.Complete(graph, entries, allocation);
         destCopier.ValidateReplacement(annotId); graph.Memory.TransferTo(ownership, graph.Bytes);
         destCopier.ReplaceCopiedObject(annotId, result);
     }

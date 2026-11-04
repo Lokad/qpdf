@@ -422,6 +422,7 @@ internal static class FlattenRotation
                     PdfName key = source.Current.Key; QpdfObject value = source.Current.Value;
                     if (key.RawSpan.SequenceEqual("Rect"u8)) { value = moved; }
                     else if (appearance is not null && key.RawSpan.SequenceEqual("AP"u8)) { value = appearance; }
+                    else { value = AnnotationCoordinates.TransformEntry(annot, key, value, matrix, resolver, graph); }
                     entries.Assign(graph.Memory, governor, key, value, token);
                 }
             }

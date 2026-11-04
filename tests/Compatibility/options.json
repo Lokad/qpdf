@@ -3147,6 +3147,7 @@
           "FlattenRotationTests.Flatten90RotatesBoxesAndWrapsContent",
           "FlattenRotationTests.Flatten180KeepsMediaBox",
           "FlattenRotationTests.AnnotationRectanglesMoveWithPage",
+          "AnnotationCoordinateTests.AbsoluteSubtypePointsFollowThePageFrameAndRetainOriginalAliases",
           "FlattenRotationTests.MergeThenFlattenAppliesToFinalPages",
           "FlattenRotationTests.AppearanceStreamGainsRotationMatrix",
           "FlattenRotationTests.AppearanceMatrixComposesWithExisting",
@@ -3160,14 +3161,16 @@
         ],
         "negative": [
           "FlattenRotationTests.MalformedFlattenFlagsFail",
-          "RotationAppearanceTests.DamagedAppearanceReferencesStayBounded"
+          "RotationAppearanceTests.DamagedAppearanceReferencesStayBounded",
+          "AnnotationCoordinateFailureTests.InvalidRecognizedCoordinatesRefusePublicationAndPrivateFieldsStayOpaque"
         ],
         "interaction": [
           "FlattenRotationTests.JobRoundTripMatchesArgv",
           "AppearanceRoleTests.RotationTransformsActualAppearancesAndKeepsPrivateAPValuesOpaque"
         ],
         "resource": [
-          "ResourceEnforcementTests.FlattenRotationYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.FlattenRotationYieldsToExhaustedBudget",
+          "AnnotationCoordinateFailureTests.PointArraysAdmitBeforeAllocatingAndHonorBothCancellationRoutes"
         ],
         "oracle": [
           "diff:flatten-rotation"
@@ -4737,6 +4740,7 @@
           "OverlayScalarTests.IndirectStampScalarsMatchDirectTransforms",
           "OverlayAnnotationFrameTests.SourceRotationAndUnitMatchIndependentlyBakedAnnotationFrames",
           "OverlayPopupGeometryTests.LinkedOnlyAndListedPopupsUseTheSameFrameOncePerPlacement",
+          "AnnotationCoordinateTests.AbsoluteSubtypePointsFollowThePageFrameAndRetainOriginalAliases",
           "GeneratedGeometryTests.GeneratedCoordinatesRemainReadableAfterDocumentsAndHostClose",
           "OverlayTests.MultipleOverlaysStackInOrder",
           "OverlayTests.PagesSelectionThenOverlay",
@@ -4784,6 +4788,7 @@
         ],
         "negative": [
           "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
+          "AnnotationCoordinateFailureTests.InvalidRecognizedCoordinatesRefusePublicationAndPrivateFieldsStayOpaque",
           "OverlayTests.MalformedOverlayFlagsFail",
           "OverlayTests.RangedOverlayFlagsFail",
           "OverlayDefaultTests.UnusableDefaultsKeepFallbacksAndLocalOverrides"
@@ -4803,6 +4808,7 @@
         ],
         "resource": [
           "ResourceEnforcementTests.OverlayYieldsToExhaustedBudget",
+          "AnnotationCoordinateFailureTests.PointArraysAdmitBeforeAllocatingAndHonorBothCancellationRoutes",
           "SinglePartContentOwnershipTests.OwnedPartMovesWithoutASecondPayloadAllocation",
           "SinglePartContentOwnershipTests.JoinAdmissionRefusalPreservesTheSourceAndCanRetry",
           "OverlayGenerationTests.EveryAdmissionRefusalPreservesPriorOutputAndRefundsPrivateStorage",
@@ -6559,6 +6565,7 @@
           "OverlayScalarTests.IndirectStampScalarsMatchDirectTransforms",
           "OverlayAnnotationFrameTests.SourceRotationAndUnitMatchIndependentlyBakedAnnotationFrames",
           "OverlayPopupGeometryTests.LinkedOnlyAndListedPopupsUseTheSameFrameOncePerPlacement",
+          "AnnotationCoordinateTests.AbsoluteSubtypePointsFollowThePageFrameAndRetainOriginalAliases",
           "GeneratedGeometryTests.GeneratedCoordinatesRemainReadableAfterDocumentsAndHostClose",
           "OverlayTests.UnderlayAndOverlayCombineAroundOriginal",
           "OverlayTests.EmptyFromWithRepeatCoversAllPages",
@@ -6587,6 +6594,7 @@
         ],
         "negative": [
           "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
+          "AnnotationCoordinateFailureTests.InvalidRecognizedCoordinatesRefusePublicationAndPrivateFieldsStayOpaque",
           "OverlayTests.OverlayPasswordIsCrypto",
           "OverlayDefaultTests.UnusableDefaultsKeepFallbacksAndLocalOverrides"
         ],
@@ -6602,6 +6610,7 @@
         ],
         "resource": [
           "ResourceEnforcementTests.UnderlayYieldsToExhaustedBudget",
+          "AnnotationCoordinateFailureTests.PointArraysAdmitBeforeAllocatingAndHonorBothCancellationRoutes",
           "OverlayGenerationTests.EveryAdmissionRefusalPreservesPriorOutputAndRefundsPrivateStorage",
           "OverlayGenerationTests.GenerationAwareCopyKeepsRollbackAndCancellation"
         ],

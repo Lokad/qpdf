@@ -103,6 +103,9 @@ placement matrix buffer. Content receives that frame from its Form header;
 separately copied annotation rectangles and appearance headers need it explicitly.
 Appearance-local matrices apply before the page-frame change in both placement
 and rotation baking. Immutable header copies preserve independent original aliases.
+The existing annotation header-copy passes also transform recognized absolute
+point arrays by subtype. A shared bounded helper resolves numeric/array references
+and creates only changed role values; independent coordinate aliases stay borrowed.
 The first registered page identity remains canonical when a page is repeated;
 later catalog and destination copies cannot retarget it to a duplicate occurrence.
 Serialization authors each page's Parent backlink during the existing header
