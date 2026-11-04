@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Include effective overlay/underlay and attachment-import versions and Adobe
+  levels in PDF output negotiation, including validated empty selections. Apply
+  a conservative basic writer floor of 1.2 and known floors to emitted
+  label/attachment structures; explicit force still wins.
+  Preserve raw graphs and document the stronger defaults where native qpdf also
+  retains a lower declaration.
+
 - Check and normalize one logical page program across physical content streams,
   preserving split inline-image context and opaque samples. Normalization retains
   part count and independent original aliases; unreadable programs keep all their

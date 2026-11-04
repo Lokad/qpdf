@@ -8,6 +8,20 @@ namespace Lokad.Qpdf.Content;
 
 internal static class CatalogCopy
 {
+    internal static void IncludeSourceVersion(ref QpdfDocument.VersionParts? version, ref int extensionLevel,
+        QpdfDocument source, ResourceGovernor governor, CancellationToken token)
+    {
+        QpdfDocument.VersionParts parts = source.EffectiveVersionParts;
+        int order = version is QpdfDocument.VersionParts current
+            ? PdfVersion.CompareParts(parts.Major, parts.Minor, current.Major, current.Minor) : 1;
+        if (order > 0)
+        {
+            version = parts;
+            extensionLevel = ReadExtensionLevel(source.Engine, governor, token);
+        }
+        else if (order == 0) { extensionLevel = Math.Max(extensionLevel, ReadExtensionLevel(source.Engine, governor, token)); }
+    }
+
     internal static int ReadExtensionLevel(DocumentEngine engine, ResourceGovernor governor, CancellationToken token)
         => ReadExtensionLevel(TryGetCatalog(engine), engine, governor, token);
 

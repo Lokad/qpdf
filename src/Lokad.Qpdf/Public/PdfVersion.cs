@@ -29,6 +29,9 @@ public sealed record PdfVersion
     /// <summary>Gets the minor component.</summary>
     public int Minor { get; }
 
+    internal static int CompareParts(int major, int minor, int otherMajor, int otherMinor)
+        => major != otherMajor ? major.CompareTo(otherMajor) : minor.CompareTo(otherMinor);
+
     /// <summary>Returns the dotted major.minor text.</summary>
     public override string ToString()
     {

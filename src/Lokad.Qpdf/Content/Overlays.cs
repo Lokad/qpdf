@@ -10,7 +10,8 @@ using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Content;
 
-internal sealed record OverlayApplication(List<GraphCopier> Copiers, int NextId, IReadOnlyList<AcroFormCopy.OverlayFieldImport> FieldImports);
+internal sealed record OverlayApplication(List<GraphCopier> Copiers, int NextId,
+    IReadOnlyList<AcroFormCopy.OverlayFieldImport> FieldImports, QpdfDocument.VersionParts? Version, int ExtensionLevel);
 
 internal static class Overlays
 {
@@ -71,7 +72,7 @@ internal static class Overlays
         ownership.CheckOwner(governor);
         if ((underlays.Count == 0 && overlays.Count == 0) || occurrences.Count == 0)
         {
-            return new OverlayApplication([], nextId, []);
+            return new OverlayApplication([], nextId, [], null, 0);
         }
 
         if ((long)occurrences.Count > limits.MaxContainerSize)
@@ -138,12 +139,14 @@ internal static class Overlays
             }
 
             List<GraphCopier> copiers = ParserContainers.CreateList<GraphCopier>(ownership);
+            QpdfDocument.VersionParts? version = null; int extensionLevel = 0;
             foreach (OverlaySource source in sources.Values)
             {
                 ParserContainers.AddItem(ownership, copiers, source.Copier, IntPtr.Size);
+                CatalogCopy.IncludeSourceVersion(ref version, ref extensionLevel, source.Document, governor, cancellationToken);
             }
 
-            return new OverlayApplication(copiers, allocator, imports);
+            return new OverlayApplication(copiers, allocator, imports, version, extensionLevel);
         }
         finally
         {

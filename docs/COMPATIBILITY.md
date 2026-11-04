@@ -24,6 +24,19 @@ to generalized decoding and compression; typed selection preserves opaque stream
 encodings. Compression/decode setters apply in configuration order; QDF fills
 unset defaults. These distinctions are part of the supported contract.
 
+PDF output negotiation includes effective overlay/underlay and attachment-import
+versions and Adobe levels. Opened, validated sources contribute even when a target
+range or imported collection is empty. The basic writer's conservative 1.2 floor
+covers its name escaping, Flate and linearization syntax. Emitted PageLabels and EmbeddedFiles trees
+have floors of 1.3 and 1.4; new UF filespecs require 1.7. Null/absent trees add no
+requirement. This deliberately strengthens defaults where native qpdf 12.4.2 also
+understates catalog-version imports or newly authored structures. Explicit force
+still wins; copied features are not transcoded, and opaque graphs are not scanned
+for general version conformance.
+The default floor is a format policy; 1.0/1.1 inputs remain readable and an explicit
+force can retain a lower declaration. The relevant syntax dates are in the
+[Adobe PDF reference](https://opensource.adobe.com/dc-acrobat-sdk-docs/pdfstandards/pdfreference1.7old.pdf).
+
 Checking and normalization now interpret a page's Contents array as one logical
 program. Legal inline-image headers and tokens can span physical streams without
 false errors or partial normalization. Normalization retains the part count and

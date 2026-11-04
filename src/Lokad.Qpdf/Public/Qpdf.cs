@@ -455,9 +455,10 @@ public static partial class Qpdf
 
                     int inputExtension = Content.CatalogCopy.ReadExtensionLevel(document.Engine, governor, cancellationToken);
                     PdfVersion sourceVersion = governor.PrivateVersion(document.EffectiveVersionParts.Major, document.EffectiveVersionParts.Minor);
+                    IncludeVersionRequirement(ref sourceVersion, ref inputExtension, overlayApplied.Version, overlayApplied.ExtensionLevel, governor);
                     (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(sourceVersion, inputExtension, settings.MinVersion, settings.ForceVersion, governor);
                     string streamMode = ResolveObjectStreamMode(settings.ObjectStreams);
-                    if (settings.ForceVersion is not null && CompareVersions(negotiated.Major, negotiated.Minor, 1, 5) < 0)
+                    if (settings.ForceVersion is not null && PdfVersion.CompareParts(negotiated.Major, negotiated.Minor, 1, 5) < 0)
                     {
                         streamMode = "disable";
                     }
@@ -526,10 +527,16 @@ public static partial class Qpdf
                         (copier.SourceToDestination, compressedOrig),
                     };
                     AttachmentAssembly singleAttached = await AssembleAttachmentsAsync(host, singleExisting, singlePool, settings.Edits, singleCompress, singleLevel, streamMode == "preserve", singleSources, recovery, limits, governor, diagnostics, copyMemory, cancellationToken).ConfigureAwait(false);
+                    if (settings.ForceVersion is null)
+                    {
+                        IncludeVersionRequirement(ref negotiated, ref negotiatedExtension, singleAttached.Version, singleAttached.ExtensionLevel, governor);
+                        IncludeVersionRequirement(ref negotiated, ref negotiatedExtension,
+                            AuthoredVersionFloor(settings.Edits.Adds.Count != 0, singleAttached.NamesRef is not null, singleLabels is not null), 0, governor);
+                    }
                     HashSet<int> singleCompressed = ResolveCompressedSet(streamMode, singlePool, singleSources, copyMemory, governor, cancellationToken);
                     PdfVersion effective = negotiated;
                     int extensionLevel = negotiatedExtension;
-                    if (singleCompressed.Count > 0 && CompareVersions(effective.Major, effective.Minor, 1, 5) < 0)
+                    if (singleCompressed.Count > 0 && PdfVersion.CompareParts(effective.Major, effective.Minor, 1, 5) < 0)
                     {
                         effective = governor.PrivateVersion(1, 5);
                         extensionLevel = 0;
@@ -994,7 +1001,7 @@ public static partial class Qpdf
                 document.Engine.BorrowImmutableStreamData = !catalogOnly && sources.Count == 1 && !document.Engine.HasSelectiveInput;
                 if (!catalogOnly && (settings.ExternalizeInlineImages || (settings.Optimize.Optimize && !settings.Optimize.KeepInline))) { document.PrepareInlinePageResources(cancellationToken); }
                 PdfVersion sourceVersion = governor.PrivateVersion(document.EffectiveVersionParts.Major, document.EffectiveVersionParts.Minor);
-                if (version is null || IsNewerVersion(sourceVersion, version))
+                if (version is null || PdfVersion.CompareParts(sourceVersion.Major, sourceVersion.Minor, version.Major, version.Minor) > 0)
                 {
                     version = sourceVersion;
                     inputExtension = Content.CatalogCopy.ReadExtensionLevel(document.Engine, governor, cancellationToken);
@@ -1418,9 +1425,16 @@ public static partial class Qpdf
             }
         }
         PdfVersion inputMax = version ?? governor.PrivateVersion(1, 4);
+        IncludeVersionRequirement(ref inputMax, ref inputExtension, overlayApplied.Version, overlayApplied.ExtensionLevel, governor);
         (PdfVersion negotiatedMulti, int negotiatedMultiExtension) = NegotiateVersion(inputMax, inputExtension, settings.MinVersion, settings.ForceVersion, governor);
+        if (settings.ForceVersion is null)
+        {
+            IncludeVersionRequirement(ref negotiatedMulti, ref negotiatedMultiExtension, multiAttached.Version, multiAttached.ExtensionLevel, governor);
+            IncludeVersionRequirement(ref negotiatedMulti, ref negotiatedMultiExtension,
+                AuthoredVersionFloor(settings.Edits.Adds.Count != 0, multiAttached.NamesRef is not null, catalogLabels is not (null or PdfNull)), 0, governor);
+        }
         string multiStreamMode = ResolveObjectStreamMode(settings.ObjectStreams);
-        if (settings.ForceVersion is not null && CompareVersions(negotiatedMulti.Major, negotiatedMulti.Minor, 1, 5) < 0)
+        if (settings.ForceVersion is not null && PdfVersion.CompareParts(negotiatedMulti.Major, negotiatedMulti.Minor, 1, 5) < 0)
         {
             multiStreamMode = "disable";
         }
@@ -1428,7 +1442,7 @@ public static partial class Qpdf
         HashSet<int> multiCompressed = ResolveCompressedSet(multiStreamMode, pool, multiSources, selectionMemory, governor, cancellationToken);
         PdfVersion effective = negotiatedMulti;
         int extensionLevel = negotiatedMultiExtension;
-        if (multiCompressed.Count > 0 && CompareVersions(effective.Major, effective.Minor, 1, 5) < 0)
+        if (multiCompressed.Count > 0 && PdfVersion.CompareParts(effective.Major, effective.Minor, 1, 5) < 0)
         {
             effective = governor.PrivateVersion(1, 5);
             extensionLevel = 0;
@@ -2962,6 +2976,25 @@ public static partial class Qpdf
         return (int)value;
     }
 
+    private static QpdfDocument.VersionParts? AuthoredVersionFloor(bool filespec, bool embeddedFiles, bool labels)
+    {
+        int minor = filespec ? 7 : embeddedFiles ? 4 : labels ? 3 : 0;
+        return minor == 0 ? null : new QpdfDocument.VersionParts(1, minor);
+    }
+
+    private static void IncludeVersionRequirement(ref PdfVersion version, ref int extension,
+        QpdfDocument.VersionParts? requirement, int requiredExtension, ResourceGovernor governor)
+    {
+        if (requirement is not QpdfDocument.VersionParts source) { return; }
+        int order = PdfVersion.CompareParts(source.Major, source.Minor, version.Major, version.Minor);
+        if (order > 0)
+        {
+            version = governor.PrivateVersion(source.Major, source.Minor);
+            extension = requiredExtension;
+        }
+        else if (order == 0) { extension = Math.Max(extension, requiredExtension); }
+    }
+
     private static (PdfVersion Version, int Extension) NegotiateVersion(PdfVersion inputMax, int inputExtension, string? minText, string? forceText, ResourceGovernor governor)
     {
         if (inputMax is null)
@@ -2975,13 +3008,18 @@ public static partial class Qpdf
             return (governor.PrivateVersion(major, minor), ext);
         }
 
+        // The basic writer uses PDF 1.2 name escaping, compression and layout
+        // syntax. A conservative profile floor avoids classifying opaque graphs.
+        if (PdfVersion.CompareParts(inputMax.Major, inputMax.Minor, 1, 2) < 0)
+        { inputMax = governor.PrivateVersion(1, 2); inputExtension = 0; }
+
         if (minText is null)
         {
             return (inputMax, inputExtension);
         }
 
         (int minMajor, int minMinor, int minExt) = ParseWriterVersion(minText, "--min-version");
-        int order = CompareVersions(inputMax.Major, inputMax.Minor, minMajor, minMinor);
+        int order = PdfVersion.CompareParts(inputMax.Major, inputMax.Minor, minMajor, minMinor);
         if (order > 0)
         {
             return (inputMax, inputExtension);
@@ -2995,20 +3033,6 @@ public static partial class Qpdf
         return (inputMax, Math.Max(inputExtension, minExt));
     }
 
-    private static int CompareVersions(int major1, int minor1, int major2, int minor2)
-    {
-        if (major1 != major2)
-        {
-            return major1 > major2 ? 1 : -1;
-        }
-
-        if (minor1 != minor2)
-        {
-            return minor1 > minor2 ? 1 : -1;
-        }
-
-        return 0;
-    }
 
     private static byte[]? TryGetOriginalId(DocumentEngine engine)
     {
@@ -3598,7 +3622,8 @@ public static partial class Qpdf
         return (infoRef, metadataRef);
     }
 
-    private sealed record AttachmentAssembly(PdfReference? NamesRef, bool Inserted, int FinalCount, bool Replaced);
+    private sealed record AttachmentAssembly(PdfReference? NamesRef, bool Inserted, int FinalCount, bool Replaced,
+        QpdfDocument.VersionParts? Version, int ExtensionLevel);
 
     private static void PruneOutputModel(List<NumberedObject> model, Dictionary<int, QpdfObject> pool,
         HashSet<int> compressed, PdfReference? info, ResourceGovernor governor, CancellationToken token)
@@ -3719,7 +3744,7 @@ public static partial class Qpdf
 
         if (!edits.HasEdits && existing.Count == 0)
         {
-            return new AttachmentAssembly(null, false, 0, false);
+            return new AttachmentAssembly(null, false, 0, false, null, 0);
         }
 
         int nextId = 3;
@@ -3803,6 +3828,7 @@ public static partial class Qpdf
         }
 
         bool copiedAny = false;
+        QpdfDocument.VersionParts? copyVersion = null; int copyExtension = 0;
         string? firstCopyConflict = null;
         bool moreCopyConflicts = false;
         foreach (AttachmentCopy copy in edits.Copies)
@@ -3810,6 +3836,7 @@ public static partial class Qpdf
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
             await using QpdfDocument source = await QpdfDocument.OpenCore(host, SelectionPlan.CheckedPath(copy.File), limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
+            Content.CatalogCopy.IncludeSourceVersion(ref copyVersion, ref copyExtension, source, governor, cancellationToken);
             using ParserMemoryScope entriesMemory = ParserMemoryScope.Create(governor);
             List<EmbeddedFileEntry> found = EmbeddedFiles.ReadEntries(source.Engine, [], limits, governor, ownership, entriesMemory, cancellationToken);
             GraphCopier copyCopier = GraphCopier.CreateOwned(source.Engine, governor, limits, nextId, ownership);
@@ -3894,7 +3921,7 @@ public static partial class Qpdf
         }
         if (existing.Count == 0)
         {
-            return new AttachmentAssembly(null, false, 0, false);
+            return new AttachmentAssembly(null, false, 0, false, copyVersion, copyExtension);
         }
 
         PdfDictionary tree = AttachmentBuilder.BuildNameTree(existing.Values, governor, ownership, cancellationToken);
@@ -3912,7 +3939,7 @@ public static partial class Qpdf
         ownership.Reserve(128L);
         ParserContainers.EnsureEntryCapacity(ownership, pool, IntPtr.Size);
         pool[rootId] = wrapper;
-        return new AttachmentAssembly(new PdfReference(rootId, 0), edits.Adds.Count > 0 || copiedAny, existing.Count, replaced);
+        return new AttachmentAssembly(new PdfReference(rootId, 0), edits.Adds.Count > 0 || copiedAny, existing.Count, replaced, copyVersion, copyExtension);
     }
 
     private static string AttachmentCopyKey(string? prefix, string key, ResourceGovernor governor,
@@ -4107,15 +4134,6 @@ public static partial class Qpdf
             cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    private static bool IsNewerVersion(PdfVersion candidate, PdfVersion current)
-    {
-        if (candidate.Major != current.Major)
-        {
-            return candidate.Major > current.Major;
-        }
-
-        return candidate.Minor > current.Minor;
-    }
 
     /// <summary>
     /// Inspects a document with default budgets. Skipped stages stay visible;

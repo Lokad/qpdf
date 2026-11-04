@@ -2190,7 +2190,8 @@
           "ZeroPageRewriteTests.TypedAttachmentEditsAcceptRealZeroPageInput",
           "ZeroPageRewriteTests.WholeFileRewritePreservesZeroPageCatalogAndPayloads",
           "AttachmentEditTests.JobAddRemoveRoundTrip",
-          "AttachmentEditTests.NestedMetadataJobParityHolds"
+          "AttachmentEditTests.NestedMetadataJobParityHolds",
+          "ImportedVersionTests.AuthoredStructuresSetKnownVersionFloorsAndForceStillWins"
         ],
         "resource": [
           "AttachmentEditTests.AttachmentsYieldToExhaustedBudget",
@@ -2621,7 +2622,9 @@
           "AttachmentCopyTests.JobCopyRoundTrip",
           "AttachmentBlockPlacementTests.AttachmentBlocksKeepTheirMeaningAtMainArgumentPositions",
           "ZeroPageRewriteTests.ZeroPageEditsApplyThroughSharedAttachmentPipeline",
-          "AttachmentCopyTests.CopyAddCollisionFails"
+          "AttachmentCopyTests.CopyAddCollisionFails",
+          "ImportedVersionTests.AttachmentImportsRetainValidatedSourceVersionRequirements",
+          "ExtensionVersionTests.ImportsNegotiateExtensionsAtTheSelectedBase"
         ],
         "resource": [
           "AttachmentCopyTests.CopyYieldsToExhaustedBudget",
@@ -3195,7 +3198,12 @@
         ],
         "interaction": [
           "WriterControlsTests.ForceVersionWinsOverMinVersion",
-          "ExtensionVersionTests.JsonImportAndUpdateApplyTheSameExtensionRules"
+          "ExtensionVersionTests.JsonImportAndUpdateApplyTheSameExtensionRules",
+          "ImportedVersionTests.PlacementsIncludeEffectiveSourceVersionsBeforeMinimumAndForce",
+          "ExtensionVersionTests.ImportsNegotiateExtensionsAtTheSelectedBase",
+          "ImportedVersionTests.AuthoredStructuresSetKnownVersionFloorsAndForceStillWins",
+          "ImportedVersionTests.AttachmentImportsRetainValidatedSourceVersionRequirements",
+          "ImportedVersionTests.BasicWriterProfileDeclares12UnlessExplicitlyForced"
         ],
         "resource": [
           "WriterControlsTests.WriterControlsYieldToExhaustedBudget"
@@ -4108,7 +4116,8 @@
         ],
         "interaction": [
           "LinearizedWriterTests.JobParityMatchesArgvBytes",
-          "LinearizedWriterTests.QdfSilentlyDisabled"
+          "LinearizedWriterTests.QdfSilentlyDisabled",
+          "ImportedVersionTests.BasicWriterProfileDeclares12UnlessExplicitlyForced"
         ],
         "resource": [
           "ResourceEnforcementTests.LinearizeYieldsToExhaustedBudget"
@@ -4248,7 +4257,10 @@
         "interaction": [
           "WriterControlsTests.ForceVersionWinsOverMinVersion",
           "WriterControlsTests.JobJsonWriterControlsParityHolds",
-          "ExtensionVersionTests.JsonImportAndUpdateApplyTheSameExtensionRules"
+          "ExtensionVersionTests.JsonImportAndUpdateApplyTheSameExtensionRules",
+          "ImportedVersionTests.PlacementsIncludeEffectiveSourceVersionsBeforeMinimumAndForce",
+          "ExtensionVersionTests.ImportsNegotiateExtensionsAtTheSelectedBase",
+          "ImportedVersionTests.BasicWriterProfileDeclares12UnlessExplicitlyForced"
         ],
         "resource": [
           "WriterControlsTests.WriterControlsYieldToExhaustedBudget"
@@ -4756,7 +4768,9 @@
           "OverlayOptionalSourceTests.OptionalSourceNullsUseFallbacksWhileMalformedValuesKeepTheirSkipPolicy",
           "OverlayBackgroundTests.EmptyStampKeepsOriginalContentCoordinatesAndVisibleBounds",
           "AppearanceResourceScopeTests.ImportedAppearancesCarryTheSourcePageScopeAndKeepPrivateAPValues",
-          "AppearanceResourceScopeTests.RetainedAppearancesKeepTheirOwnPageScopeAndAvoidPlacementNames"
+          "AppearanceResourceScopeTests.RetainedAppearancesKeepTheirOwnPageScopeAndAvoidPlacementNames",
+          "ImportedVersionTests.PlacementsIncludeEffectiveSourceVersionsBeforeMinimumAndForce",
+          "ExtensionVersionTests.ImportsNegotiateExtensionsAtTheSelectedBase"
         ],
         "resource": [
           "ResourceEnforcementTests.OverlayYieldsToExhaustedBudget",
@@ -5165,7 +5179,8 @@
           "QdfTests.ObjectStreamsQdfJobParityMatchesArgvBytes",
           "QdfTests.ExplicitOverridesRestoreFlate",
           "QdfTests.NormalizeWinsOverDecodeNone",
-          "QdfTests.NormalizeExplicitNoKeepsNewlines"
+          "QdfTests.NormalizeExplicitNoKeepsNewlines",
+          "ImportedVersionTests.BasicWriterProfileDeclares12UnlessExplicitlyForced"
         ],
         "resource": [
           "ResourceEnforcementTests.QdfYieldsToExhaustedBudget"
@@ -5842,7 +5857,10 @@
           "SplitLabelContinuationTests.RealOverflowAndCyclicTreesFailBeforeAnySplitIsPublished"
         ],
         "interaction": [
-          "LabelTests.PrefixAndStartRoundTrip"
+          "LabelTests.PrefixAndStartRoundTrip",
+          "ImportedVersionTests.AuthoredStructuresSetKnownVersionFloorsAndForceStillWins",
+          "ImportedVersionTests.RebuiltSupportedTreesHaveTheirOwnVersionFloors",
+          "ImportedVersionTests.NullLabelTreesDoNotRaiseTheBasicWriterProfile"
         ],
         "resource": [
           "LabelTests.LabelsYieldToExhaustedBudget"
@@ -6537,7 +6555,9 @@
           "OverlayTests.WholeFileJobOverlay",
           "OverlayRectangleTests.OpposingCornersPreserveIndependentPlacementAndOriginalBoxValues",
           "OverlayOptionalSourceTests.OptionalSourceNullsUseFallbacksWhileMalformedValuesKeepTheirSkipPolicy",
-          "OverlayBackgroundTests.EmptyStampKeepsOriginalContentCoordinatesAndVisibleBounds"
+          "OverlayBackgroundTests.EmptyStampKeepsOriginalContentCoordinatesAndVisibleBounds",
+          "ImportedVersionTests.PlacementsIncludeEffectiveSourceVersionsBeforeMinimumAndForce",
+          "ExtensionVersionTests.ImportsNegotiateExtensionsAtTheSelectedBase"
         ],
         "resource": [
           "ResourceEnforcementTests.UnderlayYieldsToExhaustedBudget",

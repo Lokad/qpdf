@@ -59,6 +59,10 @@ both cancellation routes are checked before parsing the completed input.
 Selection cores borrow one immutable settings value containing the existing
 feature requests. Typed defaults and command-plan projection are defined once;
 source documents, selective-read retries and publication owners stay explicit.
+Placement and attachment readers contribute scalar effective-version/Adobe
+requirements before closing. The existing negotiation combines them and the known
+floors for emitted label/attachment structures; explicit force remains final.
+This borrows no secondary catalog and requires no opaque-graph feature scan.
 JSON and show-pages image inspection use shared page-attribute ancestry. Their
 Contents probe expands arrays/nulls while ordinary stream references keep payloads unread.
 PDF opening and normalized JSON creation/update use the same bounded page-tree

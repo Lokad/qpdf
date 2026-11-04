@@ -610,10 +610,13 @@ Numbers are normalized lexically under the existing cancellation/output bounds.
 
 - Classic xref tables with 20-byte entries, generation 0 throughout, and a
   trailer with `/Size`, `/Root`, `/ID`, `startxref`, and `%%EOF`.
-- Version label negotiates the effective version: the greatest input version
-  (the higher of each header and catalog `/Version`), raised by `--min-version` and
+- Version label negotiates the effective version: the greatest validated primary,
+  page, overlay/underlay and attachment-import source version (the higher of each
+  header and catalog `/Version`), raised by `--min-version` and
   overridden by `--force-version` (`major.minor[.extension]`; supported
-  headers are 1.0-1.7 and 2.0). Existing positive 32-bit Adobe extension levels
+  headers are 1.0-1.7 and 2.0). The managed writer uses a conservative basic
+  profile floor of 1.2, covering its name escaping, Flate and linearization syntax;
+  explicit force can lower the declaration. Existing positive 32-bit Adobe extension levels
   participate in minimum-version negotiation; merging uses the greatest level
   among inputs at the greatest base version. A higher base version resets the
   level. Forced versions set the exact base/level, removing `/ADBE` at level zero.
@@ -624,6 +627,12 @@ Numbers are normalized lexically under the existing cancellation/output bounds.
   Split and typed preview retain the negotiated Adobe level and omit other
   catalog extras under their existing policies. Invalid Adobe levels do not
   contribute to negotiation; indirect resolution remains bounded.
+  Validated placement/import sources participate even when their selected target
+  range or attachment collection is empty. Emitted page-label trees require 1.3,
+  EmbeddedFiles collections 1.4, and newly authored UF filespecs 1.7; absent/null
+  structures add no requirement. These known writer floors also apply when
+  rebuilding retained trees. Explicit force still wins and does not transcode
+  copied features. Opaque graphs are not scanned for general version conformance.
 - Identifiers always emit `/ID [<id1><id2>]`: the first word preserves the
   source trailer identifier when present, otherwise it repeats the second.
   The default second word is a deterministic content hash (stable across runs

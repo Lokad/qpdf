@@ -103,6 +103,58 @@ public sealed class ExtensionVersionTests
         await AssertExtensions(host, mode == "split" ? "out-1.pdf" : "output.pdf", expected, mode != "split", expected == 8 && mode != "split");
     }
 
+    public static IEnumerable<object[]> PlacementCases()
+    {
+        foreach (string mode in new[] { "default", "minimum", "force", "higher-minimum", "higher-source", "higher-target" })
+        foreach (bool job in new[] { false, true })
+        foreach (bool indirect in new[] { false, true })
+        { yield return [mode, job, indirect, "overlay"]; }
+        foreach (bool job in new[] { false, true })
+        foreach (bool indirect in new[] { false, true })
+        { yield return ["default", job, indirect, "underlay"]; }
+        foreach (string mode in new[] { "default", "minimum", "force", "higher-minimum" })
+        foreach (bool job in new[] { false, true })
+        foreach (bool indirect in new[] { false, true })
+        { yield return [mode, job, indirect, "copy"]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(PlacementCases))]
+    public async Task ImportsNegotiateExtensionsAtTheSelectedBase(string mode, bool job, bool indirect, string operation)
+    {
+        using InMemoryQpdfHost host = new();
+        byte[] target = Fixture(indirect, 3), source = Fixture(indirect, 8);
+        if (mode is "higher-source" or "higher-target")
+        {
+            // The newer base has no Adobe requirement. Keep opaque vendor data
+            // under another key while changing neither object lengths nor xrefs.
+            byte[] newer = Encoding.ASCII.GetBytes(Encoding.ASCII.GetString(mode == "higher-source" ? source : target)
+                .Replace("%PDF-1.7", "%PDF-2.0", StringComparison.Ordinal).Replace("/ADBE ", "/DATA ", StringComparison.Ordinal));
+            if (mode == "higher-source") { source = newer; } else { target = newer; }
+        }
+        host.AddInput(QpdfPath.From("input.pdf"), target, QpdfInputOwnership.Transfer);
+        host.AddInput(QpdfPath.From("source.pdf"), source, QpdfInputOwnership.Transfer);
+        List<string> argv = ["input.pdf", "--" + (operation == "copy" ? "copy-attachments-from" : operation), "source.pdf", "--"];
+        Dictionary<string, object> fields = new() { ["inputFile"] = "input.pdf", ["outputFile"] = "output.pdf" };
+        if (operation == "copy") { fields["copyAttachmentsFrom"] = new[] { new { file = "source.pdf" } }; }
+        else { fields[operation] = new { file = "source.pdf" }; }
+        if (mode is "minimum" or "higher-minimum")
+        {
+            string minimum = mode == "minimum" ? "1.7.5" : "2.0";
+            argv.Add("--min-version=" + minimum); fields["minVersion"] = minimum;
+        }
+        if (mode == "force") { argv.Add("--force-version=1.7.4"); fields["forceVersion"] = "1.7.4"; }
+        argv.Add("output.pdf");
+        QpdfExecutionResult result = job
+            ? await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(fields), CancellationToken.None)
+            : await Qpdf.ExecuteAsync(host, new(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Empty(result.Diagnostics);
+        int level = mode == "force" ? 4 : mode is "higher-minimum" or "higher-source" or "higher-target" ? 0 : 8;
+        await AssertExtensions(host, "output.pdf", level, true, false);
+        Assert.True(host.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] bytes));
+        Assert.Equal(mode is "higher-minimum" or "higher-source" or "higher-target" ? "%PDF-2.0" : "%PDF-1.7", Encoding.ASCII.GetString(bytes, 0, 8));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
