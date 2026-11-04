@@ -8,6 +8,26 @@ namespace Lokad.Qpdf.Tests.Filters;
 public sealed class ScopedFlateEncodeTests
 {
     [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(32769)]
+    public void BorrowedSlicesEncodeOnlyTheirSelectedBytes(int length)
+    {
+        byte[] backing = new byte[length + 18]; new Random(42).NextBytes(backing);
+        ReadOnlyMemory<byte> slice = backing.AsMemory(7, length);
+        byte[] expected = slice.ToArray();
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        byte[] encoded;
+        using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
+        { encoded = FlateFilter.Encode(slice, null, QpdfLimits.Default, governor, memory, CancellationToken.None); }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Array.Fill(backing, (byte)0);
+        using MemoryStream input = new(encoded); using ZLibStream inflater = new(input, CompressionMode.Decompress);
+        using MemoryStream output = new(); inflater.CopyTo(output);
+        Assert.Equal(expected, output.ToArray());
+    }
+
+    [Theory]
     [InlineData(null)]
     [InlineData(1)]
     [InlineData(2)]
@@ -37,7 +57,7 @@ public sealed class ScopedFlateEncodeTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        byte[] encoded = FlateFilter.Encode([], null, QpdfLimits.Default, governor, memory, CancellationToken.None);
+        byte[] encoded = FlateFilter.Encode(ReadOnlyMemory<byte>.Empty, null, QpdfLimits.Default, governor, memory, CancellationToken.None);
         Assert.Equal(new byte[] { 0x78, 0x9C, 0x03, 0x00, 0x00, 0x00, 0x00, 0x01 }, encoded);
         Assert.Equal(40L, memory.ReservedBytes);
         memory.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
@@ -66,7 +86,7 @@ public sealed class ScopedFlateEncodeTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         ResourceGovernor other = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(other);
-        Assert.Throws<InvalidOperationException>(() => FlateFilter.Encode([1], null, QpdfLimits.Default, governor, memory, CancellationToken.None));
+        Assert.Throws<InvalidOperationException>(() => FlateFilter.Encode(new byte[] { 1 }, null, QpdfLimits.Default, governor, memory, CancellationToken.None));
         Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);
         Assert.Equal(0L, memory.ReservedBytes);
     }

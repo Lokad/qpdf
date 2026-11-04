@@ -1287,12 +1287,12 @@ internal static class DocumentJson
         public int Compare(int left, int right) => left.CompareTo(right);
     }
 
-    private static (byte[] Data, bool Decoded) ResolveStreamPayload(DocumentEngine engine,
+    private static (ReadOnlyMemory<byte> Data, bool Decoded) ResolveStreamPayload(DocumentEngine engine,
         PdfStream stream, string decodeLevel, QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory)
     {
         // Borrow immutable reader storage. A file sidecar receives its own
         // admitted copy before the document can close; inline encoding does not.
-        byte[] raw = stream.ArrayData(memory, governor, governor.CancellationToken);
+        ReadOnlyMemory<byte> raw = stream.RawMemory;
         if (decodeLevel == "none") { return (raw, false); }
         if (FilterChain.HasExternalData(stream, engine, governor, governor.CancellationToken)) { return (raw, false); }
         FilterPlan stages;
@@ -1300,7 +1300,7 @@ internal static class DocumentJson
         catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException)) { return (raw, false); }
         using FilterPlan stageOwner = stages;
         if (stages.Count == 0 || !FilterChain.AllStagesInLevel(stages, decodeLevel)) { return (raw, false); }
-        try { return (FilterChain.Decode(raw, stages, limits, governor, memory, governor.CancellationToken), true); }
+        try { return (FilterChain.Decode(stream.ArrayData(memory, governor, governor.CancellationToken), stages, limits, governor, memory, governor.CancellationToken), true); }
         catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException)) { return (raw, false); }
     }
 
@@ -1316,17 +1316,17 @@ internal static class DocumentJson
             builder.Append("}}"); return;
         }
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        (byte[] data, bool decoded) = ResolveStreamPayload(engine, stream, request.DecodeLevel, limits, governor, memory);
+        (ReadOnlyMemory<byte> data, bool decoded) = ResolveStreamPayload(engine, stream, request.DecodeLevel, limits, governor, memory);
         if (request.StreamData == "file")
         {
-            JsonPayload payload = output.AddSidecar(request.StreamPrefix ?? string.Empty, number, data, limits);
+            JsonPayload payload = output.AddSidecar(request.StreamPrefix ?? string.Empty, number, data.Span, limits);
             builder.Append("{\"stream\": {\"datafile\": ");
             PdfJsonWriter.AppendJsonString(builder, payload.Name);
         }
         else
         {
             builder.Append("{\"stream\": {\"data\": ");
-            PdfJsonWriter.AppendBase64(builder, data);
+            PdfJsonWriter.AppendBase64(builder, data.Span);
         }
         builder.Append(",\"dict\": ");
         PdfJsonWriter.AppendStreamDictionary(builder, stream.Dictionary, request.Version, governor, limits, decoded);

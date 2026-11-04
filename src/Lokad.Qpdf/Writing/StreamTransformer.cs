@@ -40,21 +40,22 @@ internal static class StreamTransformer
         }
 
         using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
-        byte[] input = stream.ArrayData(decodedMemory, governor, token);
-        byte[] decoded = input;
+        ReadOnlyMemory<byte> input = stream.RawMemory;
+        byte[] decoded = Array.Empty<byte>();
         if (stages.Count != 0)
         {
-            try { decoded = FilterChain.Decode(input, stages, limits, governor, decodedMemory, token); }
+            try { decoded = FilterChain.Decode(stream.ArrayData(decodedMemory, governor, token), stages, limits, governor, decodedMemory, token); }
             catch (QpdfFilterException)
             {
                 Warn(governor, diagnostics, number, " kept opaque: decode failed."); return null;
             }
+            input = decoded;
         }
         stages.Dispose();
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
-        bool encoded = compress && decoded.Length != 0;
+        bool encoded = compress && input.Length != 0;
         byte[] data;
-        if (encoded) { data = FlateFilter.Encode(decoded, level, limits, governor, graph.Memory, token); }
+        if (encoded) { data = FlateFilter.Encode(input, level, limits, governor, graph.Memory, token); }
         else { data = decoded; decodedMemory.TransferTo(graph.Memory); }
         decodedMemory.Dispose();
         if (data.Length != 0) { graph.Add(checked(32L + data.Length)); }

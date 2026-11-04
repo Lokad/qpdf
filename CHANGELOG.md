@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Borrow immutable input slices during unfiltered compression, opaque JSON stream
+  projection and JPEG separator trimming. Remove intermediate payload copies while
+  retaining durable sidecar copies and escaping stream ownership.
+
 - Compute attachment checksums incrementally with cancellation checks between
   bounded chunks. Admit one temporary hash context and the small retained digest;
   preserve checksum and payload bytes while refunding temporary storage on failure.

@@ -22,6 +22,9 @@ JPEG decode streams expose their already admitted input segment for immutable
 borrowing during the call. Prepared PDF and JSON publications pass known lengths
 through the existing optional host capacity hint, avoiding growth copies in the
 memory host while preserving its durable storage admission.
+Unfiltered compression, opaque JSON stream projection and JPEG separator trimming
+borrow immutable slices while the existing input/sample owner lives. Actual filter
+materialization and durable sidecar copies retain their separate storage owners.
 
 The graph copier, overlay annotation imports and JSON publication share one
 signature-copy policy. It rejects signature dictionaries and populated widget/AcroForm fields

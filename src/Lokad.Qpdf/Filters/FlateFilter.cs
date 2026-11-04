@@ -168,9 +168,12 @@ internal static partial class FlateFilter
     /// smallest size, anything else (including the default) is optimal.
     /// </summary>
     internal static byte[] Encode(byte[] input, int? level, QpdfLimits limits, ResourceGovernor governor)
-        => EncodeCore(input, level, limits, governor, null, CancellationToken.None);
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        return EncodeCore(input, level, limits, governor, null, CancellationToken.None);
+    }
 
-    internal static byte[] Encode(byte[] input, int? level, QpdfLimits limits, ResourceGovernor governor,
+    internal static byte[] Encode(ReadOnlyMemory<byte> input, int? level, QpdfLimits limits, ResourceGovernor governor,
         ParserMemoryScope memory, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(governor);
@@ -179,14 +182,9 @@ internal static partial class FlateFilter
         return EncodeCore(input, level, limits, governor, memory, cancellationToken);
     }
 
-    private static byte[] EncodeCore(byte[] input, int? level, QpdfLimits limits, ResourceGovernor governor,
+    private static byte[] EncodeCore(ReadOnlyMemory<byte> input, int? level, QpdfLimits limits, ResourceGovernor governor,
         ParserMemoryScope? memory, CancellationToken cancellationToken)
     {
-        if (input is null)
-        {
-            throw new ArgumentNullException(nameof(input));
-        }
-
         if (limits is null)
         {
             throw new ArgumentNullException(nameof(limits));
@@ -247,7 +245,7 @@ internal static partial class FlateFilter
                     governor.CheckCancellation();
                     int count = Math.Min(ChunkBytes, input.Length - position);
                     if (memory is not null) { governor.NoteOperation(); }
-                    compressor.Write(input, position, count);
+                    compressor.Write(input.Span.Slice(position, count));
                     position += count;
                 }
             }

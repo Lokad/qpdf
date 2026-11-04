@@ -254,7 +254,7 @@ internal static class ImageOptimizer
         {
             // Inline-image extraction conventionally retains the separator whitespace before EI;
             // trim trailing PDF whitespace so such samples still validate, and skip anything else.
-            ReadOnlyMemory<byte>? trimmed = TrimSeparators(raw, expected, samples, governor, cancellationToken);
+            ReadOnlyMemory<byte>? trimmed = TrimSeparators(raw, expected, governor, cancellationToken);
             if (trimmed is null)
             {
                 return null;
@@ -307,7 +307,7 @@ internal static class ImageOptimizer
         candidate.Add(32L); candidate.Retain(); return optimized;
     }
 
-    private static ReadOnlyMemory<byte>? TrimSeparators(ReadOnlyMemory<byte> raw, long expected, ParserMemoryScope memory,
+    private static ReadOnlyMemory<byte>? TrimSeparators(ReadOnlyMemory<byte> raw, long expected,
         ResourceGovernor governor, CancellationToken cancellationToken)
     {
         int length = raw.Length;
@@ -327,10 +327,7 @@ internal static class ImageOptimizer
             return raw;
         }
 
-        memory.Reserve(checked(32L + length));
-        byte[] trimmed = new byte[length];
-        GovernedBufferStream.CopyBytes(raw.Span[..length], trimmed, governor, cancellationToken, CancellationToken.None);
-        return trimmed;
+        return raw[..length];
     }
 
     private static bool IsPdfWhitespace(byte value)

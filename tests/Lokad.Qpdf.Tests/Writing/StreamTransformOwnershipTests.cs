@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.IO.Compression;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
@@ -11,6 +12,26 @@ namespace Lokad.Qpdf.Tests.Writing;
 [Collection(nameof(NameTableCollection))]
 public sealed class StreamTransformOwnershipTests
 {
+    [Fact]
+    public void UnfilteredSliceCompressesWithinWorkingStorageWithoutCopyingThePayload()
+    {
+        byte[] backing = new byte[1048576 + 2]; backing.AsSpan().Fill(7);
+        PdfStream source = PdfStream.FromImmutableSlice(new(new Dictionary<PdfName, QpdfObject>()), backing.AsMemory(1, 1048576));
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 600000L };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        PdfStream compressed;
+        using (DocumentEngine engine = Engine())
+        {
+            compressed = Assert.IsType<PdfStream>(StreamTransformer.Transform(source, 4, engine, true,
+                "generalized", false, null, limits, governor, new(governor), CancellationToken.None));
+            Assert.True(governor.Snapshot().PeakMemoryBytes < limits.MaxMemoryBytes);
+        }
+        Array.Fill(backing, (byte)0);
+        using MemoryStream encoded = new(compressed.Data); using ZLibStream inflater = new(encoded, CompressionMode.Decompress);
+        using MemoryStream decoded = new(); inflater.CopyTo(decoded);
+        Assert.Equal(1048576L, decoded.Length); Assert.Equal(-1, decoded.GetBuffer().AsSpan(0, (int)decoded.Length).IndexOfAnyExcept((byte)7));
+    }
+
     private static DocumentEngine Engine()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
