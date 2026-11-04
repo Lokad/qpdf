@@ -107,20 +107,30 @@ public sealed class SplitPreparationTests
     }
 
     [Theory]
-    [InlineData("create", false)]
-    [InlineData("write", false)]
-    [InlineData("commit", false)]
-    [InlineData("cancel", false)]
-    [InlineData("close", false)]
-    [InlineData("create", true)]
-    [InlineData("write", true)]
-    [InlineData("commit", true)]
-    [InlineData("cancel", true)]
-    [InlineData("close", true)]
-    public async Task CapturedSplitsSurviveGroupCleanupAndKeepEarlierCommitsOnLaterFailure(string failure, bool streamed)
+    [InlineData("create", false, false)]
+    [InlineData("write", false, false)]
+    [InlineData("commit", false, false)]
+    [InlineData("cancel", false, false)]
+    [InlineData("close", false, false)]
+    [InlineData("create", true, false)]
+    [InlineData("write", true, false)]
+    [InlineData("commit", true, false)]
+    [InlineData("cancel", true, false)]
+    [InlineData("close", true, false)]
+    [InlineData("create", false, true)]
+    [InlineData("write", false, true)]
+    [InlineData("commit", false, true)]
+    [InlineData("cancel", false, true)]
+    [InlineData("close", false, true)]
+    [InlineData("create", true, true)]
+    [InlineData("write", true, true)]
+    [InlineData("commit", true, true)]
+    [InlineData("cancel", true, true)]
+    [InlineData("close", true, true)]
+    public async Task CapturedSplitsSurviveGroupCleanupAndKeepEarlierCommitsOnLaterFailure(string failure, bool streamed, bool linked)
     {
         using InMemoryQpdfHost storage = new();
-        storage.AddInput(QpdfPath.From("input"), ObjectStreamPlanningTests.Fixture(16), QpdfInputOwnership.Transfer);
+        storage.AddInput(QpdfPath.From("input"), linked ? SplitPageMembershipTests.Fixture("shared", true) : ObjectStreamPlanningTests.Fixture(16), QpdfInputOwnership.Transfer);
         byte[] prior = [17, 23, 41];
         for (int index = 1; index <= 3; index++)
         {
@@ -133,7 +143,7 @@ public sealed class SplitPreparationTests
         {
             QpdfExecutionResult result = await Qpdf.ExecuteAsync(new Host(storage, owner, failure, cancellation),
                 new(["input", "--qdf", "--object-streams=" + (streamed ? "generate" : "disable"), "--split-pages=1",
-                    "--pages", ".", "1,1,1", "--", "output"]), cancellation.Token);
+                    "--pages", ".", linked ? "1,2,3" : "1,1,1", "--", "output"]), cancellation.Token);
             Assert.Equal(failure == "cancel" ? QpdfExecutionStatus.Canceled : QpdfExecutionStatus.Failed, result.Status);
             for (int index = 1; index <= 3; index++)
             {

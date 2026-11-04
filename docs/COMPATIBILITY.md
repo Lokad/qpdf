@@ -36,10 +36,12 @@ secondary sources. Native qpdf can split imported fields into separately named
 copies. Group boundaries do not split that field identity here; genuinely repeated
 widget pages still receive independent field headers.
 
-Split navigation has a remaining limitation: references to pages selected before
-splitting can retain orphan Page objects outside a split file's page tree. Native
-qpdf clears targets outside each split group. Source-group identity correction
-does not resolve that separate publication boundary.
+Split publication restricts retained page references to each file's own page tree.
+Targets outside that group become null, including references through shared
+destination arrays, Info, metadata, attachments and form graphs. Within-group
+targets and non-page aliases remain connected. `--preserve-unreferenced` retains
+other copied objects without restoring foreign pages. This corrects earlier
+orphan Page retention; native qpdf likewise clears navigation outside a split group.
 
 Page-copy operations, including overlay/underlay imports, reject reachable
 signature dictionaries (`/Type /Sig`) and populated signature fields in widget

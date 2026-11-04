@@ -234,7 +234,10 @@ echoing values.
   arrays, keys and starts retain their direct-value semantics. Optional Names/Nums/
   Kids arrays resolve explicit null references as absent; malformed required values
   and unresolved references retain their failure policy. An optional split group size partitions
-  output through the same engine. Typed explicit prefixes reject invalid UTF-16
+  output through the same engine. Each split file retains references only to its
+  own pages; foreign page references become null in navigation and retained data
+  graphs, including when unreferenced-object preservation is enabled. Shared
+  non-page objects remain intact. Typed explicit prefixes reject invalid UTF-16
   before publication; valid surrogate pairs, literal U+FFFD and BOM-looking text
   retain their values with bounded validation and encoding.
 - Output carries a fresh catalog with the copied pages only; each occurrence is an

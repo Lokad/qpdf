@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Restrict split publications to their own page identities. Clear foreign page
+  references through navigation, Info, metadata, attachments and form graphs,
+  preserving within-group links, shared non-page values and transactional output.
+  Unreferenced-object preservation no longer restores pages outside the group.
+
 - Share source document identity across repeated page groups, preserving links and
   metadata/attachment targets selected in later groups. Keep original group
   mappings, counts and order, with one stable input lease per logical document.

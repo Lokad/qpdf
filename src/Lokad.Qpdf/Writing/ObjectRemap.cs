@@ -38,6 +38,15 @@ internal static class ObjectRemap
         return RemapIds(value, new NumberMap(renumber, null, null), memory, governor, cancellationToken, 0L);
     }
 
+    // Split membership removes foreign page edges, including private aliases.
+    // Other missing mappings still indicate an incomplete publication graph.
+    internal static QpdfObject RemapSplit(QpdfObject value, Dictionary<int, int> renumber,
+        IReadOnlySet<int> pageNumbers, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        memory.CheckOwner(governor);
+        return RemapIds(value, new NumberMap(renumber, null, null) { PageNumbers = pageNumbers }, memory, governor, token, 0L);
+    }
+
     internal static QpdfObject RemapIds(QpdfObject value, GovernedIntDictionary<int> renumber,
         ParserMemoryScope memory, ResourceGovernor governor, CancellationToken cancellationToken)
     {
@@ -66,6 +75,7 @@ internal static class ObjectRemap
         WriterIndex<int>? Writer)
     {
         internal bool DiscardUnmapped { get; init; }
+        internal IReadOnlySet<int>? PageNumbers { get; init; }
         internal IReadOnlyDictionary<int, XrefEntry>? SourceEntries { get; init; }
         internal bool TryGetValue(PdfReference reference, out int mapped)
         {
@@ -107,7 +117,7 @@ internal static class ObjectRemap
         {
             if (!renumber.TryGetValue(reference, out int mapped))
             {
-                if (renumber.DiscardUnmapped) { return PdfNull.Instance; }
+                if (renumber.DiscardUnmapped || renumber.PageNumbers?.Contains(reference.ObjectNumber) == true) { return PdfNull.Instance; }
                 throw new QpdfException($"Publication reached unmapped object {reference.ObjectNumber}.");
             }
 

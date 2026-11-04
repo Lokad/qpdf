@@ -7,9 +7,11 @@ namespace Lokad.Qpdf.Tests.Writing;
 public sealed class SplitRemapOwnershipTests
 {
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void LargeChangedContainerRefusesAndItsAttemptRefunds(bool dictionary)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void LargeChangedContainerRefusesAndItsAttemptRefunds(bool dictionary, bool split)
     {
         PdfReference reference = new(7, 0);
         QpdfObject source = dictionary
@@ -21,7 +23,9 @@ public sealed class SplitRemapOwnershipTests
         using (ParserMemoryScope attempt = ParserMemoryScope.Create(governor))
         {
             long allocated = GC.GetAllocatedBytesForCurrentThread();
-            Assert.Throws<QpdfLimitException>(() => ObjectRemap.RemapIds(source, new Dictionary<int, int> { [7] = 8 }, attempt, governor, CancellationToken.None));
+            Assert.Throws<QpdfLimitException>(() => split
+                ? ObjectRemap.RemapSplit(source, new Dictionary<int, int>(), new HashSet<int> { 7 }, attempt, governor, CancellationToken.None)
+                : ObjectRemap.RemapIds(source, new Dictionary<int, int> { [7] = 8 }, attempt, governor, CancellationToken.None));
             Assert.InRange(GC.GetAllocatedBytesForCurrentThread() - allocated, 0L, 65536L);
         }
         Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); Assert.Equal(31L, prior.ReservedBytes);
@@ -29,16 +33,19 @@ public sealed class SplitRemapOwnershipTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void EitherTokenCancelsThePlainMapPathBeforeConstruction(bool caller)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void EitherTokenCancelsThePlainMapPathBeforeConstruction(bool caller, bool split)
     {
         using CancellationTokenSource cancellation = new();
         ResourceGovernor governor = new(QpdfLimits.Default, caller ? CancellationToken.None : cancellation.Token);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         long before = governor.Snapshot().LiveMemoryBytes; cancellation.Cancel();
-        Assert.Throws<OperationCanceledException>(() => ObjectRemap.RemapIds(new PdfReference(7, 1), new Dictionary<int, int> { [7] = 8 },
-            memory, governor, caller ? cancellation.Token : CancellationToken.None));
+        Assert.Throws<OperationCanceledException>(() => split
+            ? ObjectRemap.RemapSplit(new PdfReference(7, 1), new Dictionary<int, int>(), new HashSet<int> { 7 }, memory, governor, caller ? cancellation.Token : CancellationToken.None)
+            : ObjectRemap.RemapIds(new PdfReference(7, 1), new Dictionary<int, int> { [7] = 8 }, memory, governor, caller ? cancellation.Token : CancellationToken.None));
         Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
     }
 
@@ -84,6 +91,30 @@ public sealed class SplitRemapOwnershipTests
         Assert.True(mapped.Dictionary.TryGet(PdfName.FromAscii("Changed"), out QpdfObject changed));
         PdfReference reference = Assert.IsType<PdfReference>(changed);
         Assert.Equal(8, reference.ObjectNumber); Assert.Equal(0, reference.Generation);
+        Assert.Equal(2 * 1024 * 1024, mapped.RawMemory.Length);
+    }
+
+    [Fact]
+    public void SplitMappingClearsOnlyForeignPagesAndBorrowsRetainedStreamStorage()
+    {
+        PdfStream source = new(new(new Dictionary<PdfName, QpdfObject> {
+            [PdfName.FromAscii("Foreign")] = new PdfReference(7, 0),
+            [PdfName.FromAscii("Kept")] = new PdfReference(8, 0) }), new byte[2 * 1024 * 1024]);
+        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096 }, CancellationToken.None);
+        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(31L);
+        long before = governor.Snapshot().LiveMemoryBytes;
+        PdfStream mapped;
+        using (ParserMemoryScope attempt = ParserMemoryScope.Create(governor))
+        {
+            Dictionary<int, int> numbers = new() { [8] = 8 }; HashSet<int> pages = [7, 8];
+            mapped = Assert.IsType<PdfStream>(ObjectRemap.RemapSplit(source, numbers, pages, attempt, governor, CancellationToken.None));
+            Assert.Same(source.AllocationCarrier, mapped.AllocationCarrier);
+            Assert.Throws<QpdfException>(() => ObjectRemap.RemapSplit(new PdfReference(99, 0), numbers, pages, attempt, governor, CancellationToken.None));
+        }
+        Assert.Equal(31L, prior.ReservedBytes); Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
+        Assert.True(mapped.Dictionary.TryGet(PdfName.FromAscii("Foreign"), out QpdfObject foreign)); Assert.IsType<PdfNull>(foreign);
+        Assert.True(mapped.Dictionary.TryGet(PdfName.FromAscii("Kept"), out QpdfObject kept)); Assert.Equal(new PdfReference(8, 0), kept);
+        Assert.True(source.Dictionary.TryGet(PdfName.FromAscii("Foreign"), out QpdfObject original)); Assert.IsType<PdfReference>(original);
         Assert.Equal(2 * 1024 * 1024, mapped.RawMemory.Length);
     }
 }

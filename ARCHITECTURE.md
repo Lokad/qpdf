@@ -80,6 +80,12 @@ assembles the original group occurrences, counts and mappings. Each document clo
 before the next opens. Duplicate widget pages reuse the rotation path's annotation
 header copying, including field spines, popup/reply links and form registration;
 appearance and resource payloads stay shared.
+Split reachability views the existing pool through the current group's page
+membership. The same immutable remapping walk clears unmapped page edges while
+other missing mappings remain errors. All copied roots participate, including
+groups removed by collation; explicit unreferenced preservation keeps other
+objects without adding foreign pages. Each group borrows the original pool,
+which stays intact for later groups and their shared metadata/attachment values.
 Ordinary selection retains the primary document's attachment collection, independent
 of edits and selected page ranges. Other sources contribute page-reachable files;
 their document collections require explicit attachment import. An explicit empty

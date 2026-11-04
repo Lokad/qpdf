@@ -1560,6 +1560,15 @@ public static partial class Qpdf
         }
 
         List<(int First, int Last)> groups = PartitionGroups(kids.Count, splitPages.Value, selectionMemory, governor);
+        HashSet<int> pageNumbers = ParserContainers.CreateSet<int>(selectionMemory);
+        foreach (var source in perSource)
+        {
+            foreach (var page in source)
+            {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                ParserContainers.AddSetItem(selectionMemory, pageNumbers, page.Id, sizeof(int));
+            }
+        }
         using PreparedSplitPublications preparation = PreparedSplitPublications.Create(governor);
         ParserMemoryScope presentationMemory = preparation.Memory;
         List<PreparedSplitPublication> prepared = preparation.Items;
@@ -1569,10 +1578,12 @@ public static partial class Qpdf
             cancellationToken.ThrowIfCancellationRequested();
             (int first, int last) = groups[g];
             List<int> roots = ParserContainers.CreateList<int>(groupMemory);
+            HashSet<int> groupPageNumbers = ParserContainers.CreateSet<int>(groupMemory);
             for (int slot = first - 1; slot < last; slot++)
             {
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 ParserContainers.AddItem(groupMemory, roots, kids[slot].ObjectNumber, sizeof(int));
+                ParserContainers.AddSetItem(groupMemory, groupPageNumbers, kids[slot].ObjectNumber, sizeof(int));
             }
 
             PdfDictionary? groupAcroForm = null;
@@ -1631,12 +1642,14 @@ public static partial class Qpdf
                 ParserContainers.AddItem(groupMemory, roots, attachmentNames.ObjectNumber, sizeof(int));
             }
             using ParserMemoryScope reachabilityMemory = ParserMemoryScope.Create(governor);
-            HashSet<int> reachable = ReachableIds(pool, roots, reachabilityMemory, governor);
+            groupMemory.Reserve(40L);
+            HashSet<int> reachable = ReachableIds(new SplitResolver(pool, pageNumbers, groupPageNumbers), roots, reachabilityMemory, governor);
             if (settings.PreserveUnreferenced)
             {
                 foreach (int id in pool.Keys)
                 {
                     cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    if (pageNumbers.Contains(id) && !groupPageNumbers.Contains(id)) { continue; }
                     ParserContainers.AddSetItem(reachabilityMemory, reachable, id, sizeof(int));
                 }
             }
@@ -1710,7 +1723,7 @@ public static partial class Qpdf
             PdfDictionary? remappedAcroForm = null;
             if (groupAcroForm is not null)
             {
-                if (Writing.ObjectRemap.RemapIds(groupAcroForm, renumber, groupMemory, governor, cancellationToken) is not PdfDictionary remapped)
+                if (Writing.ObjectRemap.RemapSplit(groupAcroForm, renumber, pageNumbers, groupMemory, governor, cancellationToken) is not PdfDictionary remapped)
                 {
                     throw new QpdfException("Split publication rebuilt a non-dictionary form entry.");
                 }
@@ -1720,7 +1733,7 @@ public static partial class Qpdf
             QpdfObject? remappedLabels = null;
             if (slicedLabels is not null)
             {
-                if (Writing.ObjectRemap.RemapIds(slicedLabels, renumber, groupMemory, governor, cancellationToken) is not PdfDictionary remappedLabelsDictionary)
+                if (Writing.ObjectRemap.RemapSplit(slicedLabels, renumber, pageNumbers, groupMemory, governor, cancellationToken) is not PdfDictionary remappedLabelsDictionary)
                 {
                     throw new QpdfException("Split publication rebuilt a non-dictionary label tree.");
                 }
@@ -1734,7 +1747,7 @@ public static partial class Qpdf
             ParserContainers.AddItem(groupMemory, sub, groupPages, 16L);
             foreach (int id in kept)
             {
-                NumberedObject item = new(renumber[id], Writing.ObjectRemap.RemapIds(pool[id], renumber, groupMemory, governor, cancellationToken));
+                NumberedObject item = new(renumber[id], Writing.ObjectRemap.RemapSplit(pool[id], renumber, pageNumbers, groupMemory, governor, cancellationToken));
                 ParserContainers.AddItem(groupMemory, sub, item, 16L);
             }
 
@@ -2269,7 +2282,18 @@ public static partial class Qpdf
         { throw new InvalidOperationException("Split page number exceeds its prepared width."); }
     }
 
-    private static HashSet<int> ReachableIds(Dictionary<int, QpdfObject> pool, List<int> roots,
+    private sealed class SplitResolver(IReadOnlyDictionary<int, QpdfObject> pool, IReadOnlySet<int> pages,
+        IReadOnlySet<int> groupPages) : IIndirectResolver
+    {
+        public bool TryResolve(PdfReference reference, out QpdfObject? value)
+        {
+            if ((!pages.Contains(reference.ObjectNumber) || groupPages.Contains(reference.ObjectNumber))
+                && pool.TryGetValue(reference.ObjectNumber, out value)) { return true; }
+            value = null; return false;
+        }
+    }
+
+    private static HashSet<int> ReachableIds(IIndirectResolver resolver, List<int> roots,
         ParserMemoryScope memory, ResourceGovernor governor)
     {
         List<QpdfObject> references = ParserContainers.CreateList(memory);
@@ -2280,7 +2304,7 @@ public static partial class Qpdf
             ParserContainers.AddItem(memory, references, new PdfReference(root, 0));
         }
         PdfArray rootArray = ParserContainers.CopyArray(memory, references);
-        return GraphReachability.Find(new Content.PoolResolver(pool), rootArray, memory, governor);
+        return GraphReachability.Find(resolver, rootArray, memory, governor);
     }
 
     private sealed class IdentifierHashSink : ISynchronousByteSink, IDisposable
