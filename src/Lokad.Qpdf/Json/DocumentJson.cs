@@ -381,6 +381,9 @@ internal static class DocumentJson
         PdfDictionary? tree = catalog is null ? null : ResolveChild(engine, catalog, "Outlines", "outlines");
         if (tree is null || !tree.TryGet(PdfName.FromAscii("First"), out QpdfObject? firstRaw)
             || firstRaw is null || firstRaw is PdfNull) { return roots; }
+        if (firstRaw is PdfReference firstReference
+            && ((IIndirectResolver)engine).TryResolve(firstReference, out QpdfObject? firstValue)
+            && firstValue is PdfNull) { return roots; }
 
         GovernedIntDictionary<int> pageIndex = BuildPageIndex(document, memory, governor, cancellationToken);
         GovernedIntSet visited = GovernedIntSet.Create(memory, governor, cancellationToken);
@@ -396,7 +399,9 @@ internal static class DocumentJson
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             PdfReference? reference = sibling as PdfReference;
-            QpdfObject? node = reference is null ? sibling : TryResolve(engine, reference);
+            QpdfObject? node = reference is null ? sibling
+                : ((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? resolved) ? resolved : null;
+            if (node is PdfNull) { break; }
             if (node is not PdfDictionary outline)
             { throw new QpdfParseException("Outline entry must resolve to a dictionary.", null, reference?.ObjectNumber); }
             if (reference is not null && !visited.Add(memory, reference.ObjectNumber))

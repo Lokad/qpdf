@@ -61,8 +61,10 @@ $cases = @(
   @{N='alias-source';R='2';Source='./inputs/a.pdf';O='2';Line='<< /Count 1 /Kids [ 8 0 R ] /Type /Pages >>'},
   @{N='foreign-source';R='2';Source='inputs/b.pdf';O='2';Line='<< /Count 1 /Kids [ 8 0 R ] /Type /Pages >>'},
   @{N='foreign-duplicate';R='1,1';Source='inputs/b.pdf';O='2'},
-  @{N='foreign-interleaved';Sources=@(@{file='inputs/b.pdf';range='1'},@{file='.';range='2'},@{file='inputs/b.pdf';range='2'});O='2'},
-  @{N='collation';Sources=@(@{file='.';range='1,2'},@{file='inputs/b.pdf';range='1,2'});Collate='1';O='2'},
+  # Managed inspection reserves selected foreign roots before their dependents.
+  # These pinned-fixture correspondences retain every primary identity and xref.
+  @{N='foreign-interleaved';Sources=@(@{file='inputs/b.pdf';range='1'},@{file='.';range='2'},@{file='inputs/b.pdf';range='2'});O='2';ImportedIdentities=@{9=10;10=11;11=9}},
+  @{N='collation';Sources=@(@{file='.';range='1,2'},@{file='inputs/b.pdf';range='1,2'});Collate='1';O='2';ImportedIdentities=@{9=10;10=11;11=9}},
   @{N='nested-first';Nested=$true;R='1';O='3,2';Pattern='/MediaBox 9 0 R'},
   @{N='nested-root';Nested=$true;R='1';O='2';Line='<< /Count 1 /Kids [ 3 2 R ] /Type /Pages >>'},
   @{N='nested-box';Nested=$true;R='1';O='9';Line='[ 0 0 600 800 ]'},
@@ -124,7 +126,17 @@ $records = foreach ($item in $cases) {
           if ($Matches[1] -eq 'PageCount') { $Matches[2] -replace '^inputs/a\.pdf: ','' } else { $Matches[2] }
         }
       })
-      if (($left -join "`n") -cne ($native -join "`n")) { throw "$name ordered graph effects differ; see $case" }
+      $expectedNative = if ($item.ImportedIdentities) {
+        # One pass preserves the correspondence when the permutation contains a
+        # cycle. Match references only: counts, physical xrefs and offsets stay exact.
+        [regex]::Replace(($native -join "`n"),'\b(\d+) 0 R\b',{
+          param($match)
+          $number = [int]$match.Groups[1].Value
+          if ($item.ImportedIdentities.ContainsKey($number)) { return "$($item.ImportedIdentities[$number]) 0 R" }
+          return $match.Value
+        })
+      } else { $native -join "`n" }
+      if (($left -join "`n") -cne $expectedNative) { throw "$name ordered graph effects differ; see $case" }
       if (@($managed | Where-Object {$_ -match '^emit: bytes '}).Count -ne 0) { throw "$name returned an unexpected binary payload." }
       if ($expected -eq 2 -and ($left.Count -ne 0 -or [IO.File]::ReadAllText("$case/native.txt") -match 'checking inputs/a.pdf')) { throw "$name inspected/checked before source/range rejection." }
       if ($item.Line -and $native -cnotcontains $item.Line) { throw "$name missing exact effect." }

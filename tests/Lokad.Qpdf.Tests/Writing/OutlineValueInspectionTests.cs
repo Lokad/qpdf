@@ -11,6 +11,95 @@ namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class OutlineValueInspectionTests
 {
+    private static byte[] LinkFixture(string position, string representation)
+    {
+        string token = representation switch { "null" => "null", "reference-null" => "6 0 R",
+            "present" => "8 0 R", "integer" => "42", "missing" => "99 0 R", _ => "7 0 R" };
+        string Entry(string key) => representation == "absent" ? string.Empty : " /" + key + " " + token;
+        bool present = representation == "present";
+        string first = position == "root" ? Entry("First") : " /First 5 0 R";
+        string last = position == "root" && !present ? string.Empty
+            : " /Last " + (present && position is "root" or "next" ? "8" : "5") + " 0 R";
+        return CheckTests.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R /Outlines 4 0 R >>", null),
+            (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 80 40] /Resources << >> >>", null),
+            (4, "<< /Type /Outlines" + first + last + " /Count " + (position == "root" && !present ? 0 : position == "next" && present ? 2 : 1) + " >>", null),
+            (5, "<< /Title (Parent) /Parent 4 0 R /Dest [3 0 R /Fit]"
+                + (position == "child" ? Entry("First") + (present ? " /Last 8 0 R /Count 1" : " /Count 0") : "")
+                + (position == "next" ? Entry("Next") : "") + " >>", null),
+            (6, "null", null), (7, "42", null),
+            (8, "<< /Title (Second) /Parent " + (position == "child" ? 5 : 4) + " 0 R /Dest [3 0 R /Fit] >>", null),
+        ], 1);
+    }
+
+    public static IEnumerable<object[]> LinkCases()
+    {
+        foreach (string position in new[] { "root", "child", "next" })
+        foreach (string representation in new[] { "absent", "null", "reference-null", "present" })
+        foreach (string route in new[] { "typed", "argv", "job" })
+        foreach (int version in new[] { 1, 2 }) { yield return [position, representation, route, version]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(LinkCases))]
+    public async Task OptionalLinksResolveBeforeWalking(string position, string representation, string route, int version)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), LinkFixture(position, representation), QpdfInputOwnership.Transfer);
+        using JsonDocument report = await Inspect(host, host, route, version);
+        JsonElement outlines = report.RootElement.GetProperty("outlines");
+        bool present = representation == "present";
+        Assert.Equal(position == "root" && !present ? 0 : position == "next" && present ? 2 : 1, outlines.GetArrayLength());
+        string[] titles = position == "root" ? present ? ["Second"] : []
+            : present ? ["Parent", "Second"] : ["Parent"];
+        Assert.Equal(titles, report.RootElement.GetProperty("pages")[0].GetProperty("outlines")
+            .EnumerateArray().Select(item => item.GetProperty("title").GetString()));
+        if (position == "child")
+        {
+            JsonElement children = outlines[0].GetProperty("kids");
+            Assert.Equal(present ? 1 : 0, children.GetArrayLength());
+            if (present) { Assert.Equal("8 0 R", children[0].GetProperty("object").GetString()); }
+        }
+        foreach (JsonElement item in outlines.EnumerateArray())
+        {
+            Assert.Equal(item.GetProperty("title").GetString() == "Parent" ? "5 0 R" : "8 0 R",
+                item.GetProperty("object").GetString());
+            Assert.Equal(1, item.GetProperty("destpageposfrom1").GetInt32());
+        }
+    }
+
+    public static IEnumerable<object[]> MalformedLinks()
+    {
+        foreach (string position in new[] { "root", "child", "next" })
+        foreach (string representation in new[] { "integer", "reference-integer", "missing" })
+        foreach (string route in new[] { "typed", "argv", "job" }) { yield return [position, representation, route]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(MalformedLinks))]
+    public async Task NonNullMalformedLinksStillRejectBeforePublication(string position, string representation, string route)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), LinkFixture(position, representation), QpdfInputOwnership.Transfer);
+        await using (IQpdfOutputTransaction seed = await host.CreateOutputAsync(QpdfPath.From("report"), CancellationToken.None))
+        { await seed.WriteAsync("prior"u8.ToArray(), CancellationToken.None); await seed.CommitAsync(CancellationToken.None); }
+        if (route == "typed")
+        {
+            await Assert.ThrowsAsync<QpdfParseException>(async () => await Qpdf.GetDocumentJsonAsync(host,
+                QpdfPath.From("input"), QpdfPath.From("report"), new(2, ["outlines", "pages"]), CancellationToken.None));
+        }
+        else
+        {
+            QpdfExecutionResult result = route == "argv"
+                ? await Qpdf.ExecuteAsync(host, new(["input", "--json=2", "--json-key=outlines", "--json-key=pages", "--", "report"]), CancellationToken.None)
+                : await Qpdf.ExecuteJobAsync(host, "{\"inputFile\":\"input\",\"outputFile\":\"report\",\"json\":\"2\",\"jsonKey\":[\"outlines\",\"pages\"]}", CancellationToken.None);
+            Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+        }
+        Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.True(host.TryGetOutput(QpdfPath.From("report"), out byte[] bytes)); Assert.Equal("prior"u8.ToArray(), bytes);
+    }
+
     private static byte[] Fixture(string title, string count, string destination, int generation)
     {
         byte[] bytes = CheckTests.Assemble([

@@ -2279,7 +2279,7 @@
           "BinaryInspectionTests.UnreferencedMalformedStreamsDoNotStopNativeCheckerExtraction",
           "CheckTransformationTests.SelectionAndRotationChangeActualCountsAndOriginalIdentities",
           "CheckTransformationTests.NestedSelectionPreservesGenerationsAndInheritedAllocationOrder",
-          "CheckTransformationTests.SourceKeysCollationAndForeignSharingMatchNativeIdentities",
+          "CheckTransformationTests.SourceKeysCollationAndForeignSharingPreserveInspectionIdentities",
           "CheckTransformationTests.ContentsArraysKeepEachStreamGeneration",
           "CheckTransformationTests.RemovedPageObjectsResolveToNullAfterSelection",
           "CheckTransformationTests.SelectedFilteredStreamReturnsTheOriginalPayload",

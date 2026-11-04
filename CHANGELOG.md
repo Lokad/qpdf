@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Resolve optional outline First/Next values before traversing them. Indirect
+  nulls match direct-null/absent links; missing references and malformed non-null
+  entries still reject before publishing JSON.
+
 - Prepare complete secondary page-root unions for fileless inspection, preserving
   selected links across repeated source groups. Transfer each completed pool once
   and fund its immutable values through inspection before closing the private
