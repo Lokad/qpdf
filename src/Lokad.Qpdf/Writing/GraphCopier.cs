@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.InteropServices;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
@@ -361,7 +362,7 @@ internal sealed class GraphCopier
             ParserContainers.AddItem(scratch, unmapped, entry.Key, sizeof(int));
         }
 
-        unmapped.Sort();
+        GovernedSort.Sort<int, WriterNumberOrder>(CollectionsMarshal.AsSpan(unmapped), new(), _governor, cancellationToken);
         int skipped = 0;
         IIndirectResolver resolver = (IIndirectResolver)engine;
         foreach (int number in unmapped)

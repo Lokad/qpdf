@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
@@ -142,7 +143,7 @@ internal static class DocumentCheck
             governor.NoteOperation();
             if (!engine.XRefEntries.ContainsKey(number)) { ParserContainers.AddItem(memory, numbers, number, sizeof(int)); }
         }
-        numbers.Sort();
+        GovernedSort.Sort<int, WriterNumberOrder>(CollectionsMarshal.AsSpan(numbers), new(), governor, cancellationToken);
         int resolved = 0;
         int unavailableObjects = 0;
         using DisplayBuffer failures = DisplayBuffer.Create(governor, false);

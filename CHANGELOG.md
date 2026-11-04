@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Check cancellation during object-number sorting in structural inspection and
+  unreferenced-object preservation. Reuse the existing in-place governed sorter
+  and numeric order without additional collection or comparer storage.
+
 - Reject bare indirect references used as object definitions in strict binary
   loading, including object-stream members. Bounded recovery substitutes null
   with a warning. Keep legal nested references and align PDF/JSON publication
