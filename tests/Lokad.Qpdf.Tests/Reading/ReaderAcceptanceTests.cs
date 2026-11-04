@@ -24,7 +24,7 @@ public sealed class ReaderAcceptanceTests
     {
         string literal = "(" + new string('A', 4096) + ")";
         foreach (string body in new[] { literal, "<" + string.Concat(Enumerable.Repeat("41", 4096)) + ">", "/" + new string('A', 4096),
-            new string('0', 4096) + "7", "0." + new string('0', 4096) + "1", "6 0 R", "[ " + literal + " /Name 0007 ]", "<< /A " + literal + " /A null /B [ /Name 7 ] >>" })
+            new string('0', 4096) + "7", "0." + new string('0', 4096) + "1", "[6 0 R]", "[ " + literal + " /Name 0007 ]", "<< /A " + literal + " /A null /B [ /Name 7 ] >>" })
         foreach (bool generation in new[] { false, true })
         { yield return [body, generation]; }
     }

@@ -198,7 +198,7 @@ internal sealed class PdfParser
         {
             try
             {
-                return ParseValueCore(tokenizer, depth);
+                return ParseDefinitionValue(tokenizer, depth);
             }
             catch (RepairAbort abort) when (TolerateObjectErrors)
             {
@@ -219,6 +219,17 @@ internal sealed class PdfParser
             return ParseValueCore(tokenizer, depth);
         }
         finally { _memory = parent; }
+    }
+
+    private QpdfObject ParseDefinitionValue(PdfTokenizer tokenizer, int depth)
+    {
+        long offset = tokenizer.Position;
+        QpdfObject value = ParseValueCore(tokenizer, depth);
+        if (value is not PdfReference) { return value; }
+        if (!TolerateObjectErrors)
+        { throw new QpdfParseException("An indirect object definition cannot be an indirect reference.", offset, null); }
+        CountToleratedError(offset);
+        throw new RepairAbort("An indirect object definition is a reference; treating it as null.", offset, null);
     }
 
     internal ParsedDictionaryValue ParseDictionaryValue(PdfTokenizer tokenizer, int depth, ParserMemoryScope memory)
@@ -407,7 +418,7 @@ internal sealed class PdfParser
         QpdfObject value;
         try
         {
-            value = ParseValueCore(tokenizer, depth);
+            value = ParseDefinitionValue(tokenizer, depth);
         }
         catch (RepairAbort abort) when (TolerateObjectErrors)
         {

@@ -33,6 +33,15 @@ to generalized decoding and compression; typed selection preserves opaque stream
 encodings. Compression/decode setters apply in configuration order; QDF fills
 unset defaults. These distinctions are part of the supported contract.
 
+An indirect object definition must contain a value, rather than a bare indirect
+reference. Strict loading rejects such definitions in both classic objects and
+object-stream members. Bounded recovery replaces the malformed body with null
+and records a repair warning; references inside arrays and dictionaries remain
+valid. PDF rewriting and JSON export use the same rule, so repaired exports can
+be reimported without retaining an illegal definition. This intentionally
+strengthens binary parsing where native qpdf can retain malformed alias bodies.
+Resource/diagnostic ceilings and transactional publication remain binding.
+
 Retained page objects now bind supported source-local catalog meaning before their
 reader closes. Static View optional-content registrations and OFF defaults combine
 by group identity; same-named groups remain distinct. A single complex configuration

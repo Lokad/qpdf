@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Reject bare indirect references used as object definitions in strict binary
+  loading, including object-stream members. Bounded recovery substitutes null
+  with a warning. Keep legal nested references and align PDF/JSON publication
+  with the existing JSON-import constraint; public signatures are unchanged.
+
 - Expand inline-only Indexed family/device-base aliases when externalizing images,
   including QDF. Preserve palette and sample bytes, canonical array identities
   and unrelated color-space values. This corrects output vocabulary that native
