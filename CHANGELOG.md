@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Validate source child identities before recording field membership, preserving
+  live registrations and calculation order after stale-generation links. Check
+  cancellation on both sides of child resolution.
+
 - Resolve Widget subtypes consistently in source/pool field membership and form
   checking; share the membership walk. Check Parent backlinks against the live
   resolved parent identity, preserving valid nonzero generations and reporting

@@ -44,6 +44,10 @@ Outline inspection treats indirect-null First/Next links as absent, matching dir
 nulls. Missing targets and malformed non-null links still reject; cycle and nesting
 bounds remain. This corrects otherwise valid outline/pages JSON projection failures.
 
+Field selection validates child references before recording membership. A stale
+child preceding a live generation no longer removes the live field registration
+or calculation order. Existing malformed-value and memberless-field policies remain.
+
 Field selection and checking resolve Widget subtypes before classifying membership.
 Direct and indirect name values retain the same registered field/annotation and
 calculation-order relationships. Form checking validates a child's Parent against

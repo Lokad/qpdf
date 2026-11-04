@@ -1970,12 +1970,15 @@ internal static class AcroFormCopy
                     continue;
                 }
 
-                if (!ParserContainers.AddSetItem(memory, visited, kidReference.ObjectNumber, sizeof(int)))
+                if (!PdfObjectLookup.TryResolve(kidReference, resolver, governor, cancellationToken, out QpdfObject? kidTarget)
+                    || kidTarget is not PdfDictionary kid)
                 {
                     continue;
                 }
 
-                if (!resolver.TryResolve(kidReference, out QpdfObject? kidTarget) || kidTarget is not PdfDictionary kid)
+                // Failed source generations must not hide a later live child.
+                // Copied pools already normalize references to one generation.
+                if (!ParserContainers.AddSetItem(memory, visited, kidReference.ObjectNumber, sizeof(int)))
                 {
                     continue;
                 }
