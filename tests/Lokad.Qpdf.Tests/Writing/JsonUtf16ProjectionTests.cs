@@ -25,7 +25,7 @@ public sealed class JsonUtf16ProjectionTests
 
     [Theory]
     [MemberData(nameof(Cases))]
-    public async Task JsonTextUsesTheEstablishedPdfDecodingPolicy(string hex, string expected, string route, int version)
+    public async Task VersionOneProjectsTextAndVersionTwoRetainsTheOriginalBytes(string hex, string expected, string route, int version)
     {
         string? named = null;
         foreach (bool fileless in route == "typed" ? new[] { false } : new[] { false, true })
@@ -70,7 +70,9 @@ public sealed class JsonUtf16ProjectionTests
             using JsonDocument parsed = JsonDocument.Parse(text);
             JsonElement catalog = version == 1 ? parsed.RootElement.GetProperty("objects").GetProperty("1 0 R")
                 : parsed.RootElement.GetProperty("qpdf")[1].GetProperty("obj:1 0 R").GetProperty("value");
-            Assert.Equal((version == 1 ? "" : "u:") + expected, catalog.GetProperty("/Probe").GetString());
+            string representation = version == 1 ? expected : hex is "FEFFD83DDE00" or "414243"
+                ? "u:" + expected : "b:" + hex.ToLowerInvariant();
+            Assert.Equal(representation, catalog.GetProperty("/Probe").GetString());
             Assert.Equal(0L, host.OpenLeaseCount);
         }
     }

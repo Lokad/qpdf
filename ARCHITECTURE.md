@@ -84,6 +84,11 @@ values. Source pairs normalize without renumbering; later publication remaps the
 merged graph once. Changed containers borrow their original payloads, and the
 private input owner remains alive through publication. Dead source edges cannot
 bind newly introduced objects merely because their numbers match.
+PDF JSON v2 strings use text only when the existing import encoder reproduces
+the original bytes. Other values use the established binary representation,
+including noncanonical Unicode markers and malformed Unicode. This preserves
+byte-based keys and opaque values without a role-specific serialization model.
+Version-one inspection and caller-authored Unicode strings keep their semantics.
 When a primary document supplies no selected pages, the same copy loop admits its
 catalog graph without adding a page group or changing source mappings. Replacement
 targets the primary path independently of the selected page providers.

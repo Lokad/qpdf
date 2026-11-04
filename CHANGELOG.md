@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Preserve PDF byte-string identity through JSON v2 export and import. Use the
+  existing binary encoding whenever text would re-encode differently, retaining
+  distinct destination keys/actions, Limits, opaque values and malformed Unicode.
+  Canonical Unicode stays readable; v1 inspection and authored text semantics
+  remain unchanged. This intentionally strengthens native qpdf round-trip fidelity.
+
 - Author required page Parent backlinks to the new output tree while copying
   page headers. Keep those edges through split remapping, QDF and linearization;
   preserve other Parent roles and read-only source ancestry. This corrects an

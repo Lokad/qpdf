@@ -42,6 +42,16 @@ No public signatures change. Required contexts that cannot be bound fail explici
 including malformed source indexes and unusable explicit URI bases encountered in
 retained roles; prior output remains untouched.
 
+PDF JSON v2 object strings now use `b:` when Unicode presentation would change
+their bytes on import. For example, `(K)` remains `u:K`, while `<feff004b>` becomes
+`b:feff004b`; these are distinct PDF byte-string keys even though their text is
+the same. Canonical UTF-16BE that requires Unicode can still use `u:`. UTF-16LE,
+UTF-8-marked strings and malformed Unicode retain their original bytes in binary
+form. This intentionally strengthens native qpdf 12.4.2 behavior, whose JSON
+round-trip can collapse named destinations or change key ordering. Existing `b:`
+consumers need no new encoding; JSON strings/output sizes can change. Authored
+`u:` input, v1 inspection and semantic text-field decoding retain their contracts.
+
 Rewritten pages now include the required indirect Parent backlink to the new
 page tree in ordinary, packed, QDF, linearized and split output. Source page
 ancestry is discarded; field, annotation and private Parent roles retain their
@@ -627,9 +637,9 @@ Native qpdf can warn that a valid deeply nested widget is unreachable; managed
 generation uses its configured structural bounds. Indirect widget subtypes,
 appearance-state names and AcroForm inspection flags follow their direct values.
 
-PDF JSON export now uses the existing PDF text-decoding policy for UTF-16-marked
-strings. Malformed stored text no longer leaks unpaired surrogates into returned
-JSON or changes during UTF-8 publication; valid text and binary strings are unchanged.
+Version-one PDF object inspection and semantic text fields use the shared PDF
+text-decoding policy for UTF-16-marked strings. Malformed stored text does not leak
+unpaired surrogates into returned JSON or change during UTF-8 publication.
 Truncated UTF-8-marked text uses managed replacement decoding; native qpdf can
 emit invalid UTF-8 JSON for this existing malformed-input class.
 

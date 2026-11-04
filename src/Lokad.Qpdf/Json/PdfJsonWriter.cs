@@ -112,11 +112,11 @@ internal static class PdfJsonWriter
     {
         bool utf16 = value.Length >= 2 && ((value[0] == 0xFE && value[1] == 0xFF) || (value[0] == 0xFF && value[1] == 0xFE));
         bool utf8 = value.Length >= 3 && value[0] == 0xEF && value[1] == 0xBB && value[2] == 0xBF;
-        bool binary = version != 1 && !utf16 && !utf8
-            && (UseHexString(value, builder.Governor) || !RoundTripsPdfDoc(value, builder.Governor));
+        bool binary = version != 1 && (utf16 ? !RoundTripsUtf16(value, builder.Governor)
+            : utf8 || UseHexString(value, builder.Governor) || !RoundTripsPdfDoc(value, builder.Governor));
         builder.Append('"');
         if (version != 1) { builder.Append(binary ? "b:" : "u:"); }
-        if (utf16)
+        if (utf16 && !binary)
         {
             Span<char> units = stackalloc char[2];
             int at = 2, visits = 0;
@@ -127,7 +127,7 @@ internal static class PdfJsonWriter
                 for (int index = 0; index < count; index++) { AppendEscapedChar(builder, units[index]); }
             }
         }
-        else if (utf8) { AppendUtf8(builder, value[3..]); }
+        else if (utf8 && !binary) { AppendUtf8(builder, value[3..]); }
         else
         {
             for (int index = 0; index < value.Length; index++)
@@ -153,6 +153,32 @@ internal static class PdfJsonWriter
             if (!PdfText.TryEncodePdfDocByte(PdfText.DecodePdfDocByte(value[index]), out byte encoded) || encoded != value[index]) { return false; }
         }
         return true;
+    }
+
+    private static bool RoundTripsUtf16(ReadOnlySpan<byte> value, ResourceGovernor governor)
+    {
+        // Import emits PDFDocEncoding when possible, otherwise UTF-16BE.
+        // Keep Unicode presentation only when that encoding retains every byte.
+        if (value[0] != 0xFE || (value.Length & 1) != 0) { return false; }
+        Span<char> units = stackalloc char[2], prefix = stackalloc char[3];
+        int at = 2, visits = 0, prefixCount = 0;
+        bool needsUtf16 = false;
+        while (at < value.Length)
+        {
+            CheckChunkCancellation(governor, visits++);
+            int start = at, count = PdfText.CopyUtf16Unit(value, ref at, false, units);
+            if (2 * count != at - start) { return false; }
+            for (int index = 0; index < count; index++)
+            {
+                char unit = units[index];
+                if (value[start + 2 * index] != (byte)(unit >> 8) || value[start + 2 * index + 1] != (byte)unit) { return false; }
+                if (prefixCount < prefix.Length) { prefix[prefixCount++] = unit; }
+                needsUtf16 |= !PdfText.TryEncodePdfDocByte(unit, out _);
+            }
+        }
+        // The existing encoder also protects PDFDoc text beginning with bytes
+        // that would look like a Unicode marker. Reuse that decision directly.
+        return needsUtf16 || PdfText.GetEncodedLength(prefix[..prefixCount], governor, governor.CancellationToken) != prefixCount;
     }
 
     internal static void AppendBase64(DisplayBuffer builder, ReadOnlySpan<byte> value)

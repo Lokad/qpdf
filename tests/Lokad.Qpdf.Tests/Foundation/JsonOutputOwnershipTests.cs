@@ -356,7 +356,9 @@ public sealed class JsonOutputOwnershipTests
         using JsonDocument parsed = JsonDocument.Parse(bytes);
         JsonElement value = version == 1 ? parsed.RootElement.GetProperty("objects").GetProperty("4 0 R")
             : parsed.RootElement.GetProperty("qpdf")[1].GetProperty("obj:4 0 R").GetProperty("value");
-        Assert.Equal((version == 1 ? "" : "u:") + expected, value.GetProperty("/Text").GetString());
+        string representation = version == 1 ? expected : encoding == "utf16-big"
+            ? "u:" + expected : "b:" + Convert.ToHexString(payload).ToLowerInvariant();
+        Assert.Equal(representation, value.GetProperty("/Text").GetString());
         Assert.Equal(version == 1 ? "/#c3#a9" : "/é", value.GetProperty("/\"\\").GetString());
         Assert.Equal("[1,-0.5,0.0,0.25]", value.GetProperty("/Numbers").GetRawText());
     }

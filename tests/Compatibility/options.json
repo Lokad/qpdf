@@ -3839,17 +3839,22 @@
       "evidence": {
         "positive": [
           "JsonModesTests.JsonOutputIsMinimal",
-          "JsonModesTests.JsonOutputAcceptsKeys"
+          "JsonModesTests.JsonOutputAcceptsKeys",
+          "JsonStringIdentityTests.TextEncodingIsUsedOnlyWhenItPreservesTheOriginalBytes"
         ],
         "negative": [
           "JsonModesTests.JsonOutputRejectsVersionOne"
         ],
         "interaction": [
           "JsonModesTests.JobModesRoundTrip",
-          "JsonModesTests.TypedMinimalOmitsVersion"
+          "JsonModesTests.TypedMinimalOmitsVersion",
+          "JsonStringIdentityTests.ExportImportKeepsRawKeysLimitsActionsAndIndependentByteValues"
         ],
         "resource": [
           "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
+          "JsonStringIdentityTests.EveryObservedMemoryRefusalPreservesTheTargetAndRefunds",
+          "JsonStringIdentityTests.OutputFailureKeepsThePriorTargetAndRefunds",
+          "JsonStringIdentityTests.BinaryExpansionObeysTheExactPublicationLimit",
           "JsonValueOwnershipTests.BulkJsonDiscardsFitConsumerMemoryAllowance",
           "JsonValueOwnershipTests.SidecarsPreserveRawAndDecodedBytesAfterReaderCloses",
           "JsonValueOwnershipTests.InputCloseFaultPreservesMainAndSidecarTargets",

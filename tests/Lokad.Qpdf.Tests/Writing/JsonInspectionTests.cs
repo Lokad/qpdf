@@ -370,7 +370,7 @@ public sealed class JsonInspectionTests
         JsonElement catalog = objects.GetProperty("obj:1 0 R").GetProperty("value");
         Assert.Equal("/text/plain", catalog.GetProperty("/Slash").GetString());
         Assert.Equal(0.5, catalog.GetProperty("/Real").GetDouble());
-        Assert.Equal("u:Hi", catalog.GetProperty("/Title").GetString());
+        Assert.Equal("b:feff00480069", catalog.GetProperty("/Title").GetString());
         Assert.Equal("b:ff00", catalog.GetProperty("/Raw").GetString());
         Assert.Equal(7, catalog.GetProperty("/Count").GetInt32());
 

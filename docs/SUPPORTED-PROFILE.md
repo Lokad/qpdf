@@ -559,9 +559,16 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
   free and missing source pairs become null, including retained trailer and
   stream-header values. Later declarations do not revive these dead source edges;
   newly authored generation-zero references can target added or replaced objects.
-  JSON text projection uses the shared PDF text decoder, including malformed
-  UTF-16 with a byte-order mark. Returned text and UTF-8 publication agree;
-  valid surrogate pairs and binary-string encodings keep their existing behavior.
+  Version-one object inspection and semantic text fields use the shared PDF text
+  decoder, including malformed Unicode. Version-two object strings use `u:` only
+  when import reproduces the original bytes; otherwise they use the existing `b:`
+  binary encoding. This includes UTF-16 text representable in PDFDocEncoding,
+  UTF-16LE/UTF-8 markers and damaged Unicode. Canonical UTF-16BE requiring Unicode
+  stays readable. Raw name-tree keys, Limits, actions and opaque aliases therefore
+  retain byte identity through export/create/update. Caller-authored `u:` values
+  still select the existing canonical text encoding. This deliberately strengthens
+  native qpdf round-trip fidelity; JSON encodings and output size can change.
+  Returned JSON text and its UTF-8 publication agree.
   Authored name keys and values reject NUL, including `#00` in `n:` name syntax.
   Literal hashes (including the characters `#00`) and NUL text strings retain their
   identity. The reader's damaged-hash repair marker remains a separate input policy.
