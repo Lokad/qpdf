@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Keep writer syntax caches retryable after cold allocation failure. The capped
+  package consumer also verifies a successful engine run after releasing heap
+  pressure and closing the original host lease.
+
 - Preserve private appearance aliases during overlay/underlay placement. Compose
   placement matrices and bind source resources through fresh appearance headers,
   keeping stream payloads and sharing within a placement.

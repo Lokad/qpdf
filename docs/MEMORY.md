@@ -1,5 +1,10 @@
 # Cooperative memory admission
 
+Writer syntax caches publish only complete tables. Cold construction runs outside
+type initialization, so a CLR allocation failure leaves the cache retryable after
+the host lease closes and heap pressure is released. This does not change the
+charged working-set estimate or shared-budget admission contract.
+
 Failure diagnostic views borrow admitted history and terminal storage. Four cached
 integers record visible counts and prefix overlap; their fixed allowance is
 56 bytes. Freezing scans the existing lists linearly without a new collection,

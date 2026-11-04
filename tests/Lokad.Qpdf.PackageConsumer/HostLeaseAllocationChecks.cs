@@ -38,6 +38,14 @@ internal static class HostLeaseAllocationChecks
         bool opened = output ? host.OutputOpened : host.InputOpened;
         if (!opened || disposed != 1 || host.PressureReached != pressure || oom && (raw || !pressure))
         { throw new InvalidOperationException($"{mode}: opened={opened}, disposals={disposed}, pressure={host.PressureReached}, OOM={oom}."); }
+        if (pressure && !raw)
+        {
+            Host retry = new(bytes, false, false);
+            QpdfExecutionResult result = await Qpdf.ExecuteAsync(retry, new(["input", "output"]), CancellationToken.None);
+            if (result.Status != QpdfExecutionStatus.Completed || !retry.InputOpened || !retry.OutputOpened
+                || retry.Input.Disposes != 1 || retry.Output.Disposes != 1)
+            { throw new InvalidOperationException("Engine retry after released heap pressure failed."); }
+        }
         Console.WriteLine($"PASS {mode}: disposals={disposed}, pressure={host.PressureReached}, OOM={oom}");
         return 0;
     }

@@ -10,7 +10,34 @@ internal sealed class WriterEncoding : IDisposable
     private const int VisitBytes = 8192;
     // Fixed PDF syntax has process lifetime and is never exposed for mutation.
     // Borrow it through sink awaits instead of allocating a scope and buffer per token.
-    private static readonly Dictionary<string, ReadOnlyMemory<byte>> AsciiLiterals =
+    // Build outside a type initializer: an allocation failure must allow retry.
+    private static Dictionary<string, ReadOnlyMemory<byte>>? _asciiLiterals;
+    private static Dictionary<PdfName, ReadOnlyMemory<byte>>? _nameLiterals;
+
+    private static Dictionary<string, ReadOnlyMemory<byte>> AsciiLiterals
+    {
+        get
+        {
+            Dictionary<string, ReadOnlyMemory<byte>>? cached = Volatile.Read(ref _asciiLiterals);
+            if (cached is not null) { return cached; }
+            Dictionary<string, ReadOnlyMemory<byte>> created = CreateAsciiLiterals();
+            return Interlocked.CompareExchange(ref _asciiLiterals, created, null) ?? created;
+        }
+    }
+
+    private static Dictionary<PdfName, ReadOnlyMemory<byte>> NameLiterals
+    {
+        get
+        {
+            Dictionary<PdfName, ReadOnlyMemory<byte>>? cached = Volatile.Read(ref _nameLiterals);
+            if (cached is not null) { return cached; }
+            Dictionary<PdfName, ReadOnlyMemory<byte>> created = CreateNameLiterals();
+            return Interlocked.CompareExchange(ref _nameLiterals, created, null) ?? created;
+        }
+    }
+
+    private static Dictionary<string, ReadOnlyMemory<byte>> CreateAsciiLiterals()
+        =>
         new Dictionary<string, ReadOnlyMemory<byte>>(StringComparer.Ordinal)
         {
             [" "] = " "u8.ToArray(), ["\n"] = "\n"u8.ToArray(),
@@ -25,7 +52,8 @@ internal sealed class WriterEncoding : IDisposable
             ["0"] = "0"u8.ToArray(), ["1"] = "1"u8.ToArray(), ["2"] = "2"u8.ToArray(),
             ["3"] = "3"u8.ToArray(), ["4"] = "4"u8.ToArray(),
         };
-    private static readonly Dictionary<PdfName, ReadOnlyMemory<byte>> NameLiterals =
+    private static Dictionary<PdfName, ReadOnlyMemory<byte>> CreateNameLiterals()
+        =>
         new Dictionary<PdfName, ReadOnlyMemory<byte>>
         {
             [PdfName.FromAscii("Type")] = "/Type"u8.ToArray(),

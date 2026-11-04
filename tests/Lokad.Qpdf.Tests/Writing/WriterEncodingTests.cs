@@ -10,6 +10,24 @@ namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class WriterEncodingTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ConcurrentWritersReuseImmutableSyntaxStorage(bool name)
+    {
+        ReadOnlyMemory<byte>[] values = new ReadOnlyMemory<byte>[16];
+        Parallel.For(0, values.Length, index =>
+        {
+            ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+            bool found = name
+                ? WriterEncoding.TryGetSharedName(PdfName.FromAscii("Type"), QpdfLimits.Default, governor, CancellationToken.None, out values[index])
+                : WriterEncoding.TryGetSharedAscii("null", QpdfLimits.Default, governor, CancellationToken.None, out values[index]);
+            Assert.True(found); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        });
+        Assert.True(values[0].Span.SequenceEqual(name ? "/Type"u8 : "null"u8));
+        foreach (ReadOnlyMemory<byte> value in values) { Assert.Equal(values[0], value); }
+    }
+
     private sealed class RetainingSink : IByteSink
     {
         internal readonly List<ReadOnlyMemory<byte>> Chunks = new();
