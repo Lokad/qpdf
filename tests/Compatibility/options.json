@@ -2971,6 +2971,7 @@
       "evidence": {
         "positive": [
           "InlineImagesTests.ExternalizeAboveThreshold",
+          "InlineIndexedPublicationTests.ExternalAndQdfImagesKeepPaletteSamplesAndEscapedLifetimes",
           "InlineBindingTests.ConversionRequiresBindableResourcesAndPreservesSharedContext",
           "InlineBindingTests.IneligibleImagesDoNotRequireResourceBindingOrWarnings",
           "InlineResourceGovernanceTests.UnresolvedColorspaceRefusesFramingBeforePayloadAdmission",
@@ -2998,6 +2999,7 @@
         ],
         "resource": [
           "ResourceEnforcementTests.ExternalizeInlineImagesYieldsToExhaustedBudget",
+          "InlineIndexedColorTests.RefusalAndBothCancellationRoutesLeaveTheOriginalArrayAndRefundConstruction",
           "SinglePartContentOwnershipTests.OwnedPartMovesWithoutASecondPayloadAllocation",
           "SinglePartContentOwnershipTests.CancellationAfterJoinAdmissionLeavesThePartFunded",
           "ResourcePayloadIdentityTests.FailurePreservesTheTargetAndRefundsBothResourcePaths",
@@ -5204,6 +5206,7 @@
       "evidence": {
         "positive": [
           "QdfTests.MarkerAndReadableLayout",
+          "InlineIndexedPublicationTests.ExternalAndQdfImagesKeepPaletteSamplesAndEscapedLifetimes",
           "QdfTests.StreamsUncompressedByDefault",
           "QdfTests.ContentNormalizedByDefault",
           "QdfTests.LengthsAreIndirectObjects",
@@ -5223,7 +5226,8 @@
           "ImportedVersionTests.BasicWriterProfileDeclares12UnlessExplicitlyForced"
         ],
         "resource": [
-          "ResourceEnforcementTests.QdfYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.QdfYieldsToExhaustedBudget",
+          "InlineIndexedColorTests.RefusalAndBothCancellationRoutesLeaveTheOriginalArrayAndRefundConstruction"
         ],
         "oracle": [
           "diff:qdf-markers"

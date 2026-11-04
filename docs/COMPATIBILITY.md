@@ -18,6 +18,15 @@ implemented behavior. Completed correction history is in the [changelog](../CHAN
 | Resource limits | Host ceilings remain binding under `--no-default-limits`. `MaxMemoryBytes` bounds a charged working-set estimate; an optional shared host budget can also refuse admission. Neither guarantees CLR-heap or process-RSS bounds. See [memory ownership and migration scope](MEMORY.md). |
 | PDF scope | Rendering, OCR, text extraction/layout and general authoring are outside the target. Rewriting does not establish PDF/A, PDF/X or PDF/UA conformance. |
 
+Inline image externalization, including QDF, expands `I` and device-base
+`G`/`RGB`/`CMYK` aliases in supported four-element Indexed color-space arrays.
+Image XObjects receive full names; palette and sample bytes keep their existing
+treatment. Canonical arrays, other array grammars and resource-defined values
+retain their identities/treatment. Native qpdf can leave inline-only names in
+these XObjects; managed output deliberately corrects that vocabulary. This is
+a structural correction, with no pixel-loss claim for the original tolerated
+cases. Output bytes and identifiers can change; public signatures do not.
+
 Typed opening/selection is strict; argv/job loading repairs boundedly by default,
 with `--suppress-recovery` selecting strict rejection. Argv/job rewriting defaults
 to generalized decoding and compression; typed selection preserves opaque stream

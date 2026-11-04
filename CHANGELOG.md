@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Expand inline-only Indexed family/device-base aliases when externalizing images,
+  including QDF. Preserve palette and sample bytes, canonical array identities
+  and unrelated color-space values. This corrects output vocabulary that native
+  qpdf and renderers can tolerate despite its restriction to inline dictionaries.
+
 - Apply source page rotation and UserUnit to separately imported overlay/underlay
   annotation rectangles and appearance headers, matching the source Form frame.
   Keep private appearance aliases and shared payloads intact. This deliberately

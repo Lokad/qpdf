@@ -20,17 +20,21 @@ internal static class InlineImageDictionary
             ReadOnlySpan<byte> expanded = KeyName(key, governor, token);
             if (IsShadowed(raw, expanded, governor, token)) { continue; }
             ReadOnlySpan<byte> name = expanded.IsEmpty ? key.RawSpan : expanded;
-            if (Equal(name, "ColorSpace"u8, governor, token) && value is PdfName color)
+            if (Equal(name, "ColorSpace"u8, governor, token))
             {
-                ReadOnlySpan<byte> full = ColorName(color, governor, token);
-                if (!full.IsEmpty) { value = PdfDictionaryRebuild.CreateName(graph, full); }
-                else if (TryColorspace(resources as PdfDictionary, color, resolver, governor, token, out QpdfObject found))
-                { value = found; }
-                else
+                if (value is PdfName color)
                 {
-                    diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Unable to resolve image colorspace; keeping the inline image.");
-                    return null;
+                    ReadOnlySpan<byte> full = ColorName(color, governor, token);
+                    if (!full.IsEmpty) { value = PdfDictionaryRebuild.CreateName(graph, full); }
+                    else if (TryColorspace(resources as PdfDictionary, color, resolver, governor, token, out QpdfObject found))
+                    { value = found; }
+                    else
+                    {
+                        diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Unable to resolve image colorspace; keeping the inline image.");
+                        return null;
+                    }
                 }
+                else { value = ExpandIndexedColor(graph, value); }
             }
             else if (Equal(name, "Filter"u8, governor, token)) { value = ExpandFilters(graph, value); }
             PdfName convertedKey = expanded.IsEmpty ? key : PdfDictionaryRebuild.CreateName(graph, expanded);
@@ -54,6 +58,23 @@ internal static class InlineImageDictionary
 
     private static bool IsShadowed(PdfDictionary raw, ReadOnlySpan<byte> expanded, ResourceGovernor governor, CancellationToken token)
         => !expanded.IsEmpty && PdfDictionaryLookup.TryGet(raw, expanded, governor, token, out QpdfObject canonical) && canonical is not PdfNull;
+
+    private static QpdfObject ExpandIndexedColor(OwnedAllocationBatch graph, QpdfObject value)
+    {
+        if (value is not PdfArray array || array.Count != 4 || array[0] is not PdfName family) { return value; }
+        bool abbreviated = PdfDictionaryLookup.NameEquals(family, "I"u8, graph.Governor, graph.Token);
+        if (!abbreviated && !PdfDictionaryLookup.NameEquals(family, "Indexed"u8, graph.Governor, graph.Token)) { return value; }
+        ReadOnlySpan<byte> baseName = array[1] is PdfName color ? ColorName(color, graph.Governor, graph.Token) : ReadOnlySpan<byte>.Empty;
+        // An Indexed base cannot itself be Indexed. Only device aliases expand.
+        if (baseName.SequenceEqual("Indexed"u8)) { baseName = ReadOnlySpan<byte>.Empty; }
+        if (!abbreviated && baseName.IsEmpty) { return value; }
+        long bytes = 32L + 4L * IntPtr.Size;
+        graph.Memory.Reserve(bytes); QpdfObject[] items = new QpdfObject[4]; graph.Add(bytes);
+        items[0] = abbreviated ? PdfDictionaryRebuild.CreateName(graph, "Indexed"u8) : array[0];
+        items[1] = baseName.IsEmpty ? array[1] : PdfDictionaryRebuild.CreateName(graph, baseName);
+        items[2] = array[2]; items[3] = array[3];
+        graph.Memory.Reserve(24L); PdfArray result = PdfArray.FromOwnedItems(items); graph.Add(24L); return result;
+    }
 
     private static QpdfObject ExpandFilters(OwnedAllocationBatch graph, QpdfObject value)
     {
