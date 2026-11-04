@@ -2372,9 +2372,15 @@ internal static class ArgvParser
 
         if (globals.ObjectStreams is not null || globals.StreamData is not null || globals.CompressStreams is not null
             || globals.DecodeLevel is not null || globals.MaxStreamFilters is not null || globals.ParserMaxNesting is not null || globals.MaxContainerSize is not null || globals.MaxContainerSizeDamaged is not null || globals.NoDefaultLimits || globals.ParserMaxErrors is not null || globals.TestJsonSchema || globals.RecompressFlate || globals.CompressionLevel is not null
-            || globals.RemoveInfo || globals.RemoveMetadata || globals.PreserveUnreferenced)
+            || globals.RemoveInfo || globals.RemoveMetadata || globals.PreserveUnreferenced
+            || globals.RemoveAcroform || globals.RemoveStructure || globals.CoalesceContents || globals.NormalizeContent
+            || globals.ExternalizeInlineImages || globals.IiMinBytes != 1024L
+            || globals.RemoveUnreferencedResources is not (null or "no")
+            || globals.OptimizeImages || globals.OiMinWidth != 128L || globals.OiMinHeight != 128L
+            || globals.OiMinArea != 16384L || globals.KeepInlineImages || globals.JpegQuality is not null
+            || globals.NoOriginalObjectIds || globals.LinearizePass1 is not null)
         {
-            throw new QpdfParseException("Stream and metadata options cannot be combined with JSON import.", entryAt, null);
+            throw new QpdfParseException("Stream, metadata, content, image and PDF layout settings cannot be combined with JSON import.", entryAt, null);
         }
 
         if (updateAt >= 0)

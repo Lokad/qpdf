@@ -113,6 +113,18 @@ connected after normalization, while stale/free/missing references stay null,
 including Info, attachments and stream headers. Empty updates no longer revive
 dead references; this matches the native controls. Explicit new generation-zero
 JSON edges can still target added or replaced objects. Public signatures are unchanged.
+
+JSON creation/update also rejects unsupported page, content, image, metadata and
+PDF layout transformations before opening document data or output. Previously,
+some settings silently succeeded without executing, including form/structure
+removal and job-JSON QDF/linearization. Argv, job JSON and mixed job files now
+report InvalidArguments and preserve the prior target. Disabled booleans,
+unchanged inline/image thresholds and disabled resource pruning remain harmless;
+supported version, identifier, newline and reporting settings keep their behavior.
+Document-JSON inspection likewise rejects the geometry/layout combinations already
+excluded by argv. Its documented writer ignores, and the checking path's broader
+inspection policy, remain separate. Native qpdf supports more JSON-import
+transformations; these combinations stay outside this library's profile.
 Update source documents and version carriers remain private through publication,
 refunding their charges on failure and cancellation.
 

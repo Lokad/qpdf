@@ -1317,6 +1317,32 @@ internal static class JobJsonParser
                 throw new QpdfParseException("Job \"jsonInput\" and \"updateFromJson\" cannot be combined.", 0L, null);
             }
 
+            // Complete validation before any restricted JSON-plan return. These
+            // plans cannot run geometry/layout operations; ordinary checking and
+            // document-JSON writer ignores retain their separate policies.
+            bool importJson = jsonInput || seenUpdateFromJson;
+            if ((importJson || seenJson || seenJsonOutput)
+                && (replaceInput || splitPages is not null || seenCollate || rotations.Count > 0
+                    || flattenRotation || flattenAnnotations is not null || generateAppearances
+                    || qdf || linearize || overlays.Count > 0 || underlays.Count > 0))
+            {
+                throw new QpdfParseException("JSON operations cannot be combined with page transformations or PDF layout settings.", 0L, null);
+            }
+
+            if (importJson && (objectStreams is not null || streamData is not null || compressStreams is not null
+                || decodeLevel is not null || maxStreamFilters is not null || noDefaultLimits || testJsonSchema
+                || parserMaxNesting is not null || maxContainerSize is not null || maxContainerSizeDamaged is not null
+                || parserMaxErrors is not null || recompressFlate || compressionLevel is not null || preserveUnreferenced
+                || removeInfo || removeMetadata || removeAcroform || removeStructure || labels.Count > 0 || removeLabels
+                || coalesceContents || normalizeContent || externalizeInlineImages || iiMinBytes != 1024L
+                || removeUnreferencedResources is not (null or "no") || noOriginalObjectIds || linearizePass1 is not null
+                || optimizeImages || oiMinWidth != 128L || oiMinHeight != 128L || oiMinArea != 16384L
+                || keepInlineImages || jpegQuality is not null || rawStreamData || filteredStreamData
+                || showObject is not null || showNpages || showPages || checkLinearization || showLinearization))
+            {
+                throw new QpdfParseException("Stream, metadata, content, image and PDF layout settings cannot be combined with JSON import.", 0L, null);
+            }
+
             if (jsonInput)
             {
                 if (hasPages)
@@ -1337,13 +1363,6 @@ internal static class JobJsonParser
                 if (output is null)
                 {
                     throw new QpdfParseException("Job JSON requires \"outputFile\" with \"jsonInput\".", 0L, null);
-                }
-
-                if (objectStreams is not null || streamData is not null || compressStreams is not null
-                    || decodeLevel is not null || maxStreamFilters is not null || noDefaultLimits || testJsonSchema || parserMaxNesting is not null || maxContainerSize is not null || maxContainerSizeDamaged is not null || parserMaxErrors is not null || recompressFlate || compressionLevel is not null
-                    || removeInfo || removeMetadata || preserveUnreferenced)
-                {
-                    throw new QpdfParseException("Stream and metadata keys cannot be combined with \"jsonInput\".", 0L, null);
                 }
 
                 return new JsonInputPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output)) with
@@ -1381,13 +1400,6 @@ internal static class JobJsonParser
                 if (output is null)
                 {
                     throw new QpdfParseException("Job JSON requires \"outputFile\" with \"updateFromJson\".", 0L, null);
-                }
-
-                if (objectStreams is not null || streamData is not null || compressStreams is not null
-                    || decodeLevel is not null || maxStreamFilters is not null || noDefaultLimits || testJsonSchema || parserMaxNesting is not null || maxContainerSize is not null || maxContainerSizeDamaged is not null || parserMaxErrors is not null || recompressFlate || compressionLevel is not null
-                    || removeInfo || removeMetadata || preserveUnreferenced)
-                {
-                    throw new QpdfParseException("Stream and metadata keys cannot be combined with \"updateFromJson\".", 0L, null);
                 }
 
                 return new JsonUpdatePlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(updateFromJson!), SelectionPlan.CheckedPath(output), recovery) with

@@ -451,7 +451,13 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
   value encodings with resolved names, inline base64 or host sidecar stream
   payloads, and renumbered classic output with the catalog first. Authored object
   declaration and reference generations other than 0, encrypted trailers, and
-  stream/metadata writer options stay explicitly unsupported. The typed
+  stream/metadata writer options stay explicitly unsupported. Creation/update
+  also rejects page, content, image and PDF layout transformations, including
+  QDF/linearization and form/structure removal, across argv, job JSON and mixed
+  files. Unsupported requests fail before document-data/output access; they do
+  not silently publish an unchanged graph. Disabled booleans, unchanged inline/image
+  thresholds and disabled pruning remain harmless. Version, static-ID, newline
+  and reporting settings retain their supported behavior. The typed
   `CreatePdfFromJsonAsync` shares the
   engine. `input.pdf --update-from-json=update.json -- output.pdf` merges a
   qpdf JSON document into the PDF: objects are replaced or added by number

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Reject unsupported transformations and PDF layout settings in JSON creation
+  and updates instead of silently discarding them. Align job/mixed JSON inspection
+  rejections with argv while preserving documented inspection writer ignores,
+  disabled settings and supported JSON controls.
+
 - Intersect imported overlay/underlay TrimBox and CropBox bounds with MediaBox
   for clipping and fitting, including reversed and indirect rectangles. Preserve
   independently referenced original boxes; skip empty or unusable bounds before
