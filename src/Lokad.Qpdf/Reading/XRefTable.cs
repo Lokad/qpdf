@@ -266,7 +266,7 @@ internal sealed class XRefTable : IDisposable
         using ParserMemoryScope values = ParserMemoryScope.Create(governor);
         using ParserMemoryScope section = ParserMemoryScope.Create(governor);
         PdfTokenizer tokenizer = new(window);
-        if (!tokenizer.TryReadToken(out PdfToken keyword) || keyword.Kind != PdfTokenKind.XRef)
+        if (!tokenizer.TryReadToken(out PdfToken keyword, false, governor) || keyword.Kind != PdfTokenKind.XRef)
         { throw new CompleteInputRequiredException(); }
         (Dictionary<int, XrefEntry> entries, PdfDictionary trailer) = ParseClassicSection(
             window, limits, governor, diagnostics, tokenizer, values, section);
@@ -297,7 +297,7 @@ internal sealed class XRefTable : IDisposable
         using ParserMemoryScope section = ParserMemoryScope.Create(governor);
         PdfTokenizer tokenizer = new(data);
         tokenizer.SetPosition(current);
-        if (!tokenizer.TryReadToken(out PdfToken head))
+        if (!tokenizer.TryReadToken(out PdfToken head, false, governor))
         {
             throw new QpdfParseException("Cross-reference section points at end of input.", current, null);
         }
@@ -437,7 +437,7 @@ internal sealed class XRefTable : IDisposable
         Dictionary<int, XrefEntry> entries = ParserContainers.CreateDictionary<int, XrefEntry>(entriesMemory);
         while (true)
         {
-            if (!tokenizer.TryReadToken(out PdfToken token))
+            if (!tokenizer.TryReadToken(out PdfToken token, false, governor))
             {
                 throw new QpdfParseException("Unterminated xref table.", tokenizer.Position, null);
             }
@@ -452,7 +452,7 @@ internal sealed class XRefTable : IDisposable
                 throw new QpdfParseException($"Unexpected token {token.Kind} in xref table.", token.Offset, null);
             }
 
-            if (!tokenizer.TryReadToken(out PdfToken countToken) || countToken.Kind != PdfTokenKind.Integer)
+            if (!tokenizer.TryReadToken(out PdfToken countToken, false, governor) || countToken.Kind != PdfTokenKind.Integer)
             {
                 throw new QpdfParseException("Expected an xref subsection count.", token.Offset, null);
             }

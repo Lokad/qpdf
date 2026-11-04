@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Observe cooperative cancellation while scanning classic-xref section tokens,
+  including long malformed tokens, comments and whitespace.
+
 - Accept equivalent signed integer spelling in object-stream headers/startxref
   and CR/LF/CRLF classic xrefs with count padding. Share the existing converter;
   preserve structural bounds and reject overflowing subsection ranges explicitly.
