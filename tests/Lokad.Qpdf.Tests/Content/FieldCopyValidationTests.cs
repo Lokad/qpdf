@@ -58,10 +58,10 @@ public sealed class FieldCopyValidationTests
         {
             GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, limits, 1000, owner);
             // Start at the deepest field to exercise one long inherited lookup.
-            copier.ValidateFieldCopy(new PdfReference(count + 3, 0));
+            copier.SignaturePolicy.ValidateField(new PdfReference(count + 3, 0));
             Assert.True(fields.Reads <= 4 * count, $"Unexpected repeated ancestry lookups: {fields.Reads}");
             int before = fields.Reads;
-            for (int i = 0; i < count; i++) { copier.ValidateFieldCopy(new PdfReference(i + 4, 0)); }
+            for (int i = 0; i < count; i++) { copier.SignaturePolicy.ValidateField(new PdfReference(i + 4, 0)); }
             Assert.Equal(count, fields.Reads - before);
         }
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
@@ -81,8 +81,8 @@ public sealed class FieldCopyValidationTests
         using ParserMemoryScope owner = ParserMemoryScope.Create(governor);
         GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, QpdfLimits.Default, 100, owner);
         Assert.IsType<PdfReference>(copier.CopyValue(new PdfReference(4, 0), 0));
-        Assert.Throws<QpdfCryptoException>(() => copier.ValidateFieldCopy(new PdfReference(4, 0)));
-        Assert.Throws<QpdfCryptoException>(() => copier.ValidateFieldCopy(new PdfReference(4, 0)));
+        Assert.Throws<QpdfCryptoException>(() => copier.SignaturePolicy.ValidateField(new PdfReference(4, 0)));
+        Assert.Throws<QpdfCryptoException>(() => copier.SignaturePolicy.ValidateField(new PdfReference(4, 0)));
     }
 
     [Theory]
@@ -107,12 +107,12 @@ public sealed class FieldCopyValidationTests
         {
             GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, limits, 100, owner);
             // Warm an ancestor first: a cached type must not bypass the depth limit.
-            copier.ValidateFieldCopy(new PdfReference(4, 0));
+            copier.SignaturePolicy.ValidateField(new PdfReference(4, 0));
             if (outcome == "cancel") { fields.OnRead = () => { if (fields.Reads == 6) { cancellation.Cancel(); } }; }
             IMemoryReservation? blocker = null;
             if (outcome == "refuse")
             { Assert.True(invocation.TryReserve(root.LimitBytes - root.ReservedBytes, out blocker)); }
-            Action validate = () => copier.ValidateFieldCopy(new PdfReference(35, 0));
+            Action validate = () => copier.SignaturePolicy.ValidateField(new PdfReference(35, 0));
             using (blocker)
             {
                 if (outcome == "cancel") { Assert.ThrowsAny<OperationCanceledException>(validate); }

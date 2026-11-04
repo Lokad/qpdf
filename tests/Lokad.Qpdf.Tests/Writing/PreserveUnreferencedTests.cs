@@ -295,7 +295,7 @@ public sealed class PreserveUnreferencedTests
     }
 
     [Fact]
-    public async Task PreserveFailsOnExhaustedWorkBudget()
+    public async Task PreserveFailsOnExhaustedOutputBudget()
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", OrphanFixture());
         QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };

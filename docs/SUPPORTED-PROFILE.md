@@ -486,7 +486,11 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
   payloads, and renumbered classic output with the catalog first. Authored object
   declaration and reference generations other than 0, encrypted trailers, and
   stream/metadata writer options stay explicitly unsupported. Creation/update
-  also rejects page, content, image and PDF layout transformations, including
+  applies the ordinary signature-copy exclusion to all emitted mapped objects,
+  including loose signature dictionaries and populated registered fields.
+  Blank fields, private V/Parent dictionaries and read-only JSON stay supported.
+  Excluded structures reject before opening output.
+  Creation/update also rejects page, content, image and PDF layout transformations, including
   QDF/linearization and form/structure removal, across argv, job JSON and mixed
   files. Unsupported requests fail before document-data/output access; they do
   not silently publish an unchanged graph. Disabled booleans, unchanged inline/image
@@ -678,9 +682,11 @@ Numbers are normalized lexically under the existing cancellation/output bounds.
   the reachable graph (fresh catalog/pages stay 1/2). The input catalog,
   page-tree, page, and object/xref-stream containers are excluded by
   contained-preview policy (structure is rebuilt; stream payloads travel
-  through their members). Unresolvable roots and objects rejected by contained
-  copying are skipped under one aggregated warning; strict load failures remain
-  errors. Preserved objects join object-stream packing and every
+  through their members). Unresolvable roots and malformed objects rejected by
+  contained copying are skipped under one aggregated warning. Excluded-profile,
+  resource and strict load failures remain errors; explicit preservation cannot
+  turn signature exclusion into a warning that drops its requested root.
+  Preserved objects join object-stream packing and every
   split group under the same rules. Transitive copies retain sharing and cycles;
   a failed candidate drops its fresh copies before later roots continue. Native
   qpdf omits unreferenced objects from split output; managed split retention is

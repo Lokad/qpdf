@@ -140,6 +140,13 @@ The same exclusion propagates through retained Info, Metadata and attachment
 graphs. Warning suppression cannot convert it into a successful rewrite that
 drops those roots. Removed or replaced attachment-only graphs are not copied;
 independent page or metadata aliases still retain their own graphs.
+JSON creation/update now applies the same exclusion to every emitted object,
+including loose objects and populated registered fields without a Widget tag.
+Previously, this publication route could emit the excluded structures.
+Explicit unreferenced preservation now propagates the excluded-feature failure
+instead of warning and dropping that requested root. Only unresolvable/malformed
+copy candidates retain the recoverable skip policy; resource and profile failures
+abort before publication. Blank fields and read-only inspection remain supported.
 
 DCT decoding accepts absent/null `DecodeParms` only. Parameterized DCT, including
 empty or indirect parameter dictionaries, stays opaque with warnings in rewriting

@@ -1000,6 +1000,10 @@ internal static partial class JsonImport
             mapped[renumber[-2]] = Writing.ObjectRemap.RemapImported(infoDict, renumber, memory, governor, cancellationToken);
         }
 
+        pageMemory.Reserve(80L);
+        Writing.SignatureCopyPolicy signaturePolicy = new(resolver, governor, limits, pageMemory);
+        signaturePolicy.ValidatePublishedModel(mapped, (PdfDictionary)mapped[1]);
+
         int? infoNew = null;
         if (infoOld >= 0 && renumber.TryGetValue(infoOld, out int mappedInfo))
         {

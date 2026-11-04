@@ -23,16 +23,21 @@ borrowing during the call. Prepared PDF and JSON publications pass known lengths
 through the existing optional host capacity hint, avoiding growth copies in the
 memory host while preserving its durable storage admission.
 
-The graph copier and overlay annotation imports share a source-specific signature
-policy. It rejects signature dictionaries and populated widget/AcroForm fields
+The graph copier, overlay annotation imports and JSON publication share one
+signature-copy policy. It rejects signature dictionaries and populated widget/AcroForm fields
 before following signature metadata into the source catalog. Private V/Parent
 dictionaries do not establish field context. Inherited types are memoized by
 source dictionary identity, including parent distance for cached-depth checks.
-Reusable traversal lists and the cache use the copier's existing memory owner;
+Reusable traversal lists and the cache use the existing construction/validation owner;
 the source graph stays owned through output construction and publication.
 Blank signature fields remain copyable. Read-only inspection retains original
 values and performs no signature creation or verification. Catalog/page-tree
 containment remains independent of this explicit excluded-feature outcome.
+JSON validates its fully mapped publication model, including registered fields
+and loose objects. Indirect targets already belong to that model; validation
+walks only each object's direct syntax instead of allocating another graph index.
+Explicit unreferenced copying recovers malformed candidates only, so profile and
+resource failures reach the publication boundary without being downgraded.
 
 ## Execution flow
 

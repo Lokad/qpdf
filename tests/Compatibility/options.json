@@ -3676,13 +3676,15 @@
           "JsonImportTests.MalformedJsonFails",
           "JsonNumberTests.UnsupportedNumbersPreservePriorOutput",
           "JsonImportTests.ImportCombinationsFail",
-          "JsonImportTests.MissingOutputFails"
+          "JsonImportTests.MissingOutputFails",
+          "PublicationProfileTests.JsonPublicationUsesTheCopyProfile"
         ],
         "interaction": [
           "JsonImportTests.JobCreateRoundTrip",
           "JsonImportTests.TypedCreateRoundTrip",
           "JsonImportTests.JobUpdateRoundTrip",
-          "JsonImportTests.TypedUpdateRoundTrip"
+          "JsonImportTests.TypedUpdateRoundTrip",
+          "PublicationProfileTests.JsonPublicationUsesTheCopyProfile"
         ],
         "resource": [
           "JsonImportTests.CreateYieldsToExhaustedBudget",
@@ -5041,15 +5043,17 @@
           "PreserveUnreferencedTests.DefaultDropsUnreferencedObjects",
           "PreserveUnreferencedTests.JobJsonInvalidValueFails",
           "PreservationAdmissionTests.CopyCollectionsRefuseBeforeLargeUnadmittedGrowth",
-          "PreservationAdmissionTests.EitherCancellationTokenStopsAfterResolvingTheLastCandidate"
+          "PreservationAdmissionTests.EitherCancellationTokenStopsAfterResolvingTheLastCandidate",
+          "PublicationProfileTests.ExplicitLoosePreservationPropagatesExcludedOutcomes"
         ],
         "interaction": [
           "PreserveUnreferencedTests.PreserveSkipsRebuiltRoots",
           "PreserveUnreferencedTests.PreserveSkipsUnpreservableWithWarning",
-          "PreserveUnreferencedTests.JobJsonParityHolds"
+          "PreserveUnreferencedTests.JobJsonParityHolds",
+          "PublicationProfileTests.ExplicitLoosePreservationPropagatesExcludedOutcomes"
         ],
         "resource": [
-          "PreserveUnreferencedTests.PreserveFailsOnExhaustedWorkBudget",
+          "PreserveUnreferencedTests.PreserveFailsOnExhaustedOutputBudget",
           "PreservationAdmissionTests.SuccessfulScalarCopiesKeepTheirTableCapacityAdmitted",
           "AnnotationPublicationTests.EverySharedGrowthCanRefuseWithoutPublishing",
           "AnnotationPublicationTests.OutputFaultsRefundOwnersAndRespectCommit"
@@ -6610,13 +6614,15 @@
           "JsonImportTests.UpdateCombinationsFail",
           "JsonNumberTests.UnsupportedNumbersPreservePriorOutput",
           "JsonImportTests.UpdateMissingOutputFails",
-          "JsonImportTests.UpdatePushedAttributesFail"
+          "JsonImportTests.UpdatePushedAttributesFail",
+          "PublicationProfileTests.JsonPublicationUsesTheCopyProfile"
         ],
         "interaction": [
           "JsonImportTests.JobUpdateRoundTrip",
           "JsonImportTests.JobUpdateMalformedFails",
           "JsonImportTests.TypedUpdateRoundTrip",
-          "JsonImportTests.TypedUpdateValidation"
+          "JsonImportTests.TypedUpdateValidation",
+          "PublicationProfileTests.JsonPublicationUsesTheCopyProfile"
         ],
         "resource": [
           "JsonImportTests.UpdateYieldsToExhaustedBudget"

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Apply the existing signature-copy exclusion to JSON creation/update, including
+  loose objects and populated registered fields. Explicit unreferenced preservation
+  now fails on excluded structures instead of warning and dropping requested roots.
+  Retain malformed-data recovery, blank fields and read-only inspection; share
+  the current policy and cache without compatibility forwarding paths.
+
 - Include effective overlay/underlay and attachment-import versions and Adobe
   levels in PDF output negotiation, including validated empty selections. Apply
   a conservative basic writer floor of 1.2 and known floors to emitted

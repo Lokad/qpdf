@@ -1419,7 +1419,7 @@ internal static class Overlays
         }
 
         PdfReference topReference = top.Reference ?? annotationReference;
-        source.Copier.ValidateFieldCopy(topReference);
+        source.Copier.SignaturePolicy.ValidateField(topReference);
         if (!memo.ContainsKey(topReference.ObjectNumber))
         {
             QpdfObject fieldCopy = CopyOverlayNode(topReference, sourceEngine, source.Copier, destCopier, memo, scratch, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, 0);
@@ -1611,7 +1611,7 @@ internal static class Overlays
         cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (node is PdfDictionary dictionary)
         {
-            sourceCopier.RejectSignatureCopy(dictionary);
+            sourceCopier.SignaturePolicy.RejectDictionary(dictionary);
             PdfNameTable<QpdfObject> entries = PdfNameTable<QpdfObject>.Create(ownership, governor, IntPtr.Size, cancellationToken);
             using PdfDictionary.EntryEnumerator source = dictionary.GetEntryEnumerator();
             while (source.MoveNext(governor, cancellationToken))

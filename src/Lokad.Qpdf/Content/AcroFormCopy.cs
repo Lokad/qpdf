@@ -115,7 +115,7 @@ internal static class AcroFormCopy
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
-            if (!retainSourceObjects) { copier.ValidateFieldCopy(entry); }
+            if (!retainSourceObjects) { copier.SignaturePolicy.ValidateField(entry); }
             if (entry is PdfReference)
             {
                 if ((retainSourceObjects ? copier.RetainSourceValue(entry) : copier.CopyValue(entry, 0)) is PdfReference copiedReference)
