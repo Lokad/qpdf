@@ -347,9 +347,10 @@ public sealed class WriterControlsTests
     }
 
     [Theory]
-    [InlineData("classic", "FC9DF6086517866565582BD1EA5DC87D")]
-    [InlineData("linearize", "F6C5DD38EBC4ADA74EAB25DBE33D31EB")]
-    [InlineData("qdf", "8FA2813C403AE73D1D2FCAF8F31EDE1A")]
+    // These goldens include each page's required backlink to the rebuilt tree.
+    [InlineData("classic", "8030691E765E4103B314D2E4DFC9F2B5")]
+    [InlineData("linearize", "CC34456DA934629E95FF3962DC6B9B3E")]
+    [InlineData("qdf", "15377B8C7F18F996016998D40EBA10F9")]
     public async Task DefaultIdsPreservePlaceholderHashesAcrossRuns(string mode, string expected)
     {
         List<string> args = ["inputs/a.pdf"];
