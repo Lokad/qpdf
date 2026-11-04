@@ -378,7 +378,6 @@ public static partial class Qpdf
                     }
 
                     Content.ContentTransformRequest? singleTransforms = PrepareSourceContentTransforms(settings.CoalesceContents, settings.NormalizeContent, settings.ExternalizeInlineImages || (settings.Optimize.Optimize && !settings.Optimize.KeepInline), settings.IiMinBytes, singleCompress, singleLevel, StreamTransformer.Options(singleDecode, settings.Compression.RecompressFlate), settings.Prune, document.Engine, limits, governor, cancellationToken, out bool singlePrune);
-                    bool singleRebuiltContent = false;
                     if (singleTransforms is not null)
                     {
                         List<int> occurrenceIds = ParserContainers.CreateList<int>(copyMemory, occurrences.Count, sizeof(int));
@@ -387,7 +386,7 @@ public static partial class Qpdf
                             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                             occurrenceIds.Add(occurrenceId);
                         }
-                        singleRebuiltContent = Content.ContentTransforms.ApplyPageTransforms(copier, occurrenceIds, singleTransforms, singlePrune, limits, governor, diagnostics, cancellationToken);
+                        Content.ContentTransforms.ApplyPageTransforms(copier, occurrenceIds, singleTransforms, singlePrune, limits, governor, diagnostics, cancellationToken);
                     }
 
                     Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, inputPath, occurrences, settings.Underlays, settings.Overlays, singleCompress, singleLevel, recovery, limits, governor, diagnostics, copyMemory, cancellationToken, copier.NextId, null).ConfigureAwait(false);
@@ -397,7 +396,7 @@ public static partial class Qpdf
                     bool needAppearances = (settings.FlattenAnnotations is not null || settings.GenerateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine, governor, cancellationToken);
                     if (settings.FlattenAnnotations is not null || settings.GenerateAppearances)
                     { needAppearances |= Content.FlattenAnnotations.NeedsAppearances(overlayApplied.FieldImports, governor, cancellationToken); }
-                    bool singleGenerated = false, singleRebuiltAppearances = false;
+                    bool singleGenerated = false;
                     Content.CopiedForm? singleForm = !settings.RemoveAcroform || (settings.GenerateAppearances && needAppearances)
                         ? Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, kept, true, limits, governor, copyMemory, cancellationToken, false)
                         : null;
@@ -419,10 +418,7 @@ public static partial class Qpdf
                         Dictionary<GraphCopier, Content.CopiedForm?> singleForms = ParserContainers.CreateDictionary<GraphCopier, Content.CopiedForm?>(gateMemory);
                         ParserContainers.EnsureEntryCapacity(gateMemory, singleForms, IntPtr.Size); singleForms.Add(copier, singleForm);
                         flattenAllocator = Math.Max(flattenAllocator, copier.NextId);
-                        int beforeGeneration = flattenAllocator;
                         (flattenAllocator, singleGenerated) = Content.GenerateAppearances.Apply(occurrences, singleForms, limits, governor, diagnostics, cancellationToken, gateReached, false, flattenAllocator);
-                        // New appearances and isolated annotation arrays need final-root retirement.
-                        singleRebuiltAppearances = flattenAllocator != beforeGeneration;
                         needAppearances = !singleGenerated;
                     }
                     if (settings.FlattenAnnotations is not null)
@@ -453,7 +449,7 @@ public static partial class Qpdf
                     }
                     if (settings.Optimize.Optimize)
                     {
-                        singleRebuiltContent |= Content.ImageOptimizer.Apply(occurrences, settings.Optimize, limits, governor, diagnostics, cancellationToken, ref flattenAllocator);
+                        Content.ImageOptimizer.Apply(occurrences, settings.Optimize, limits, governor, diagnostics, cancellationToken, ref flattenAllocator);
                     }
                     copier.AdvanceNextId(flattenAllocator);
 
@@ -552,7 +548,8 @@ public static partial class Qpdf
                     {
                         model.Add(new NumberedObject(entry.Key, entry.Value));
                     }
-                    if ((singleAttached.Replaced || settings.CoalesceContents || settings.FlattenRotation || singleRebuiltContent || singleRebuiltAppearances) && !settings.PreserveUnreferenced)
+                    if ((singleAttached.Replaced || copier.HasReplacedObjects
+                        || overlayApplied.Copiers.Exists(static item => item.HasReplacedObjects)) && !settings.PreserveUnreferenced)
                     {
                         PruneOutputModel(model, singlePool, singleCompressed, singleInfo, governor, cancellationToken);
                     }
@@ -951,7 +948,6 @@ public static partial class Qpdf
         Content.SourceLabels?[] multiLabels = new Content.SourceLabels?[sources.Count];
         int nextId = 3;
         bool duplicateSourcePages = false;
-        bool multiRebuiltContent = false;
         bool needAppearances = false;
         List<GraphCopier> copiers = ParserContainers.CreateList<GraphCopier>(selectionMemory, documentCount, IntPtr.Size);
         PdfVersion? version = null;
@@ -1152,7 +1148,7 @@ public static partial class Qpdf
                             foreach ((GraphCopier _, int takenId, int _) in perSource[group])
                             { cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); takenIds.Add(takenId); }
                         }
-                        multiRebuiltContent |= Content.ContentTransforms.ApplyPageTransforms(copier, takenIds, sourceTransforms, sourcePrune, limits, governor, diagnostics, cancellationToken);
+                        Content.ContentTransforms.ApplyPageTransforms(copier, takenIds, sourceTransforms, sourcePrune, limits, governor, diagnostics, cancellationToken);
                     }
                 }
 
@@ -1199,7 +1195,7 @@ public static partial class Qpdf
         int multiFlattenAllocator = overlayApplied.NextId;
         if (settings.FlattenAnnotations is not null || settings.GenerateAppearances)
         { needAppearances |= Content.FlattenAnnotations.NeedsAppearances(overlayApplied.FieldImports, governor, cancellationToken); }
-        bool multiGenerated = false, multiRebuiltAppearances = false;
+        bool multiGenerated = false;
         if (settings.GenerateAppearances && needAppearances)
         {
             using ParserMemoryScope gateMemory = ParserMemoryScope.Create(governor);
@@ -1224,9 +1220,7 @@ public static partial class Qpdf
             }
 
             HashSet<int>? multiReached = CollectGenerateReached(multiGateParts, multiSurvivors, pruneUnreachableFields, limits, governor, gateMemory, cancellationToken);
-            int beforeGeneration = multiFlattenAllocator;
             (multiFlattenAllocator, multiGenerated) = Content.GenerateAppearances.Apply(occurrences, generationForms, limits, governor, diagnostics, cancellationToken, multiReached, !pruneUnreachableFields, multiFlattenAllocator);
-            multiRebuiltAppearances = multiFlattenAllocator != beforeGeneration;
             needAppearances = !multiGenerated;
         }
         if (settings.FlattenAnnotations is not null)
@@ -1284,7 +1278,7 @@ public static partial class Qpdf
         if (settings.Optimize.Optimize)
         {
             multiFlattenAllocator = Math.Max(multiFlattenAllocator, nextId);
-            multiRebuiltContent |= Content.ImageOptimizer.Apply(occurrences, settings.Optimize, limits, governor, diagnostics, cancellationToken, ref multiFlattenAllocator);
+            Content.ImageOptimizer.Apply(occurrences, settings.Optimize, limits, governor, diagnostics, cancellationToken, ref multiFlattenAllocator);
         }
 
         if (replaceInput && splitPages.HasValue)
@@ -1518,7 +1512,8 @@ public static partial class Qpdf
             {
                 model.Add(new NumberedObject(entry.Key, entry.Value));
             }
-            if ((multiAttached.Replaced || settings.CoalesceContents || settings.FlattenRotation || multiRebuiltContent || multiRebuiltAppearances) && !settings.PreserveUnreferenced)
+            if ((multiAttached.Replaced || copiers.Exists(static item => item.HasReplacedObjects)
+                || overlayApplied.Copiers.Exists(static item => item.HasReplacedObjects)) && !settings.PreserveUnreferenced)
             {
                 PruneOutputModel(model, pool, multiCompressed, primaryInfo, governor, cancellationToken);
             }

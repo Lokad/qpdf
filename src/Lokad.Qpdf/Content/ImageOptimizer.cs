@@ -32,7 +32,7 @@ internal sealed record ImageOptimizeRequest(
 /// </summary>
 internal static class ImageOptimizer
 {
-    internal static bool Apply(
+    internal static void Apply(
         IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
         ImageOptimizeRequest request,
         QpdfLimits limits,
@@ -65,7 +65,7 @@ internal static class ImageOptimizer
         ArgumentNullException.ThrowIfNull(diagnostics);
         if (!request.Optimize)
         {
-            return false;
+            return;
         }
 
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
@@ -81,7 +81,6 @@ internal static class ImageOptimizer
             }
             ParserContainers.AddItem(traversal, ids, pageId, sizeof(int));
         }
-        bool changed = false;
         foreach (KeyValuePair<GraphCopier, List<int>> group in pages)
         {
             using FormResourceWalk forms = FormResourceWalk.Create(governor, cancellationToken);
@@ -95,9 +94,8 @@ internal static class ImageOptimizer
                     ProcessResources(resolver, page, request, limits, governor, diagnostics, traversal, forms, replacements, 0, cancellationToken);
                 }
             }
-            changed |= forms.ApplyReplacements(group.Key, group.Value, replacements, ref allocator);
+            forms.ApplyReplacements(group.Key, group.Value, replacements, ref allocator);
         }
-        return changed;
     }
 
     private static void ProcessResources(

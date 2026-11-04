@@ -10,11 +10,11 @@ internal sealed partial class FormResourceWalk
     // Redirect resource uses, leaving original stream identities available to
     // attachments and other roots. Parent links propagate only actual changes;
     // registering new form identities before rebuilding headers closes cycles.
-    internal bool ApplyReplacements(GraphCopier copier, IReadOnlyList<int> pageIds,
+    internal void ApplyReplacements(GraphCopier copier, IReadOnlyList<int> pageIds,
         GovernedIntDictionary<PdfStream> replacements, ref int allocator)
     {
         Visit();
-        if (replacements.Count == 0) { return false; }
+        if (replacements.Count == 0) { return; }
         ResourceGovernor governor = Governor; CancellationToken token = _token;
         PoolResolver resolver = CreateResolver(copier.CopiedObjects);
         GovernedIntSet formIds = GovernedIntSet.Create(Memory, governor, token);
@@ -134,7 +134,7 @@ internal sealed partial class FormResourceWalk
             PdfDictionary replacement = RewriteResources(page);
             if (!ReferenceEquals(replacement, page)) { copier.ReplaceCopiedObject(id, replacement); }
         }
-        graph.Retain(); return true;
+        graph.Retain();
     }
 
     private PdfDictionary? ResolveDictionary(PdfDictionary owner, ReadOnlySpan<byte> key, PoolResolver resolver)

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Preserve private appearance aliases during overlay/underlay placement. Compose
+  placement matrices and bind source resources through fresh appearance headers,
+  keeping stream payloads and sharing within a placement.
+- Request final-root retirement when copied objects are replaced, removing obsolete
+  resource/annotation graphs without losing independent aliases or explicit
+  unreferenced preservation. Remove transform-specific retirement bookkeeping.
+
 - Fit overlays/underlays to the destination TrimBox/CropBox intersection with
   MediaBox, preserving original box values and aliases. Share the bounded
   intersection calculation with source Forms; skip empty destination bounds

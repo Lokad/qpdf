@@ -176,9 +176,14 @@ Retained annotation appearances with absent/null Resources conservatively keep
 their page resource namespace during pruning and overlay wrapping. Generated
 placement names avoid the existing XObject bindings. Other pages keep the fresh
 namespace path. Imported appearances acquire their source page resources on the
-existing per-placement copies; local appearance resources take precedence.
+fresh appearance-role headers; local appearance resources take precedence.
 Appearance discovery examines only N/R/D and their one-level state dictionaries;
-private AP entries remain opaque. Payload bytes and original headers stay shared.
+private AP entries remain opaque. Placement redirects those semantic edges while
+independent aliases keep original stream/state/container headers. One placement
+memo preserves appearance sharing, and payload bytes retain their existing owner.
+Replacing any copied object requests the existing final-root retirement pass after
+catalog assembly, independently of which transform replaced it. Explicit
+unreferenced preservation still applies; pure copying requests no extra walk.
 Placement resolves Matrix before classifying it: non-arrays stay opaque with a
 bounded warning, while malformed arrays retain their existing compatibility fallback.
 Rotation uses the same N/R/D slot boundary. Annotation flattening resolves an

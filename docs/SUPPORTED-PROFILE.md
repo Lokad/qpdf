@@ -289,6 +289,11 @@ echoing values.
   outputs separate: reopening that path reads the original registration until
   the caller exports the output with `TryGetOutput` and registers it with `AddInput`.
   Partial split outputs can remain if a later group fails.
+- Replacing copied graph objects requests one retirement pass after final catalog,
+  page-tree and Info assembly. Removed resource/annotation edges no longer leave
+  obsolete payloads or headers in ordinary output. Independent catalog, metadata,
+  attachment and page aliases retain their originals; `--preserve-unreferenced`
+  keeps its explicit policy. Pure copying needs no additional retirement walk.
 - --overlay and --underlay blocks (--file, --to, --from, --repeat, repeatable with order kept) stamp whole pages from other files as /Fx form XObjects below or above each output page, centered with shrink-to-fit placement that inverts destination rotation and scale. Ranges use the full shared grammar with an empty --from= letting --repeat supply every page. Missing files fail; damaged or unsupported content warns and skips. Applied pages contribute placement-transformed annotation copies, including imported widgets and form fields within the form limitations above. Shared appearance streams transform once within each placement; separate placements stay independent. Empty or entirely skipped annotation imports preserve the destination array, including an absent Annots entry.
   Source generations are validated before placement memo reuse; stale references
   stay null in either traversal order. Widget import retains actual field
@@ -297,7 +302,10 @@ echoing values.
   pruning conservatively retains that page's resources and placement names avoid
   its existing XObjects. Imported appearances bind source page resources on fresh
   copies when no local scope exists. N/R/D and their one-level state dictionaries
-  are appearance slots; private AP values remain opaque.
+  are appearance slots; private AP values remain opaque. Placement creates fresh
+  stream/state/container headers for changed appearance roles, preserving original
+  matrices and resource scopes held by private aliases. Shared appearances remain
+  shared within one placement; payload bytes are borrowed without copying.
   Placement keeps a non-array appearance Matrix opaque and warns once per copied
   stream identity. Malformed array matrices retain the historical zero-transform
   fallback. Warning overflow rejects before commit; suppressed warnings consume

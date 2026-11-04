@@ -192,6 +192,8 @@ internal sealed class GraphCopier
     }
 
     internal int NextId => _nextId;
+    // Removing edges does not necessarily allocate a new indirect identity.
+    internal bool HasReplacedObjects { get; private set; }
 
     // Register selected page identities before descending into any page graph.
     // Otherwise a link to a later selected page is prematurely pruned to null.
@@ -219,6 +221,7 @@ internal sealed class GraphCopier
 
         ValidateReplacement(id);
         _copied[id] = value;
+        HasReplacedObjects = true;
     }
 
     internal void ValidateReplacement(int id)

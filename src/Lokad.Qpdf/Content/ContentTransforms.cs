@@ -55,8 +55,8 @@ internal sealed class PoolResolver : IIndirectResolver
 /// </summary>
 internal static class ContentTransforms
 {
-    // Reports whether a new indirect stream identity needs final-root retirement.
-    internal static bool ApplyPageTransforms(
+    // Copied-object replacement records retirement independently of the transform.
+    internal static void ApplyPageTransforms(
         GraphCopier copier,
         IReadOnlyList<int> pageIds,
         ContentTransformRequest request,
@@ -99,10 +99,9 @@ internal static class ContentTransforms
         limits.Validate();
         if (!request.Coalesce && !request.Normalize && !prune && !request.Externalize)
         {
-            return false;
+            return;
         }
 
-        int beforeTransforms = copier.NextId;
         using ParserMemoryScope phase = ParserMemoryScope.Create(governor);
         if (request.Externalize)
         {
@@ -161,7 +160,6 @@ internal static class ContentTransforms
 
         }
         if (prune) { ApplyResourcePruning(copier, pageIds, limits, governor, diagnostics, cancellationToken); }
-        return copier.NextId != beforeTransforms;
     }
     internal static ContentEntries? ReadPageContents(
         GraphCopier copier,

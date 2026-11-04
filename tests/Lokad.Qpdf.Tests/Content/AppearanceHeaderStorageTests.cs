@@ -33,8 +33,11 @@ public sealed class AppearanceHeaderStorageTests
             }
             else
             {
-                Overlays.TransformOverlayStreamMatrix(copier, link.ObjectNumber, [0.5, 0, 0, 0.5, 2, 3], governor, new(governor), CancellationToken.None);
-                result = Assert.IsType<PdfStream>(copier.CopiedObjects[link.ObjectNumber]);
+                using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
+                int allocator = 2;
+                PdfReference placed = Overlays.CopyOverlayAppearanceStream(copier, link, [0.5, 0, 0, 0.5, 2, 3], null, graph, new(governor), ref allocator);
+                result = Assert.IsType<PdfStream>(copier.CopiedObjects[placed.ObjectNumber]);
+                Assert.Same(source, copier.CopiedObjects[link.ObjectNumber]); graph.Retain();
             }
             Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < source.RawMemory.Length);
             Assert.Same(source.AllocationCarrier, result.AllocationCarrier);
@@ -45,22 +48,30 @@ public sealed class AppearanceHeaderStorageTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void OverlayHeaderRefusalOrCancellationPreservesSource(bool cancel)
+    [InlineData("memory")]
+    [InlineData("caller")]
+    [InlineData("governor")]
+    public void OverlayHeaderRefusalOrCancellationPreservesSource(string failure)
     {
         PdfStream source = PdfStream.FromOwnedData(new(Enumerable.Range(0, 512).ToDictionary(
             i => PdfName.FromAscii(i.ToString(System.Globalization.CultureInfo.InvariantCulture)), _ => (QpdfObject)PdfNull.Instance)), new byte[1048576]);
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 4096L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        using CancellationTokenSource operation = new();
+        ResourceGovernor governor = new(limits, operation.Token);
         using DocumentEngine engine = Engine(); using ParserMemoryScope copierMemory = ParserMemoryScope.Create(governor);
         GraphCopier copier = GraphCopier.CreateOwned(engine, governor, limits, 1, copierMemory);
         copier.AddIndirectObjectWithId(source, 1); long baseline = governor.Snapshot().LiveMemoryBytes;
         using CancellationTokenSource cancellation = new();
-        if (cancel) { cancellation.Cancel(); }
-        Action rewrite = () => Overlays.TransformOverlayStreamMatrix(copier, 1, [0.5, 0, 0, 0.5, 0, 0], governor, new(governor), cancellation.Token);
-        if (cancel) { Assert.ThrowsAny<OperationCanceledException>(rewrite); }
-        else { Assert.Throws<QpdfLimitException>(rewrite); }
+        if (failure == "caller") { cancellation.Cancel(); }
+        if (failure == "governor") { operation.Cancel(); }
+        Action rewrite = () =>
+        {
+            using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellation.Token);
+            int allocator = 2;
+            Overlays.CopyOverlayAppearanceStream(copier, new(1, 0), [0.5, 0, 0, 0.5, 0, 0], null, graph, new(governor), ref allocator);
+        };
+        if (failure == "memory") { Assert.Throws<QpdfLimitException>(rewrite); }
+        else { Assert.ThrowsAny<OperationCanceledException>(rewrite); }
         Assert.Same(source, copier.CopiedObjects[1]); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 
@@ -100,7 +111,13 @@ public sealed class AppearanceHeaderStorageTests
         GraphCopier copier = GraphCopier.CreateOwned(engine, governor, limits, 1, memory); copier.AddIndirectObjectWithId(source, 1);
         if (overflow) { diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Info, "prior"); }
         long before = governor.Snapshot().LiveMemoryBytes, allocated = GC.GetAllocatedBytesForCurrentThread();
-        void Place() => Overlays.TransformOverlayStreamMatrix(copier, 1, [0.5, 0, 0, 0.5, 2, 3], governor, diagnostics, CancellationToken.None);
+        void Place()
+        {
+            using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
+            int allocator = 2;
+            PdfReference placed = Overlays.CopyOverlayAppearanceStream(copier, new(1, 0), [0.5, 0, 0, 0.5, 2, 3], null, graph, diagnostics, ref allocator);
+            Assert.Equal(1, placed.ObjectNumber);
+        }
         if (overflow)
         {
             QpdfLimitException error = Assert.Throws<QpdfLimitException>(Place); Assert.Equal(nameof(QpdfLimits.MaxDiagnostics), error.LimitName);

@@ -204,6 +204,16 @@ on their fresh placement copies, with local appearance resources taking preceden
 Only N/R/D appearance slots and their state dictionaries receive placement
 transforms; private AP entries keep their values. Affected output bytes and object
 numbering can change. Public signatures are unchanged.
+Placement now copies changed appearance stream/state/container headers instead of
+mutating their shared slots. Private aliases retain original matrices and resource
+scopes, including when the same stream supplies several live appearance states.
+Payload bytes keep their existing owner and sharing.
+
+Final-root retirement now follows copied-object replacement rather than a list of
+transform-specific signals. Resource pruning and annotation flattening consequently
+retire obsolete graph members in ordinary output, while independent aliases and
+explicit unreferenced preservation still retain them. Pure copying adds no walk.
+Affected output bytes/object numbering change; public signatures are unchanged.
 
 Annotation flattening resolves an indirect Form subtype without rewriting its
 header. If a different or absent subtype needs normalization, it creates a fresh
