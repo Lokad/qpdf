@@ -30,7 +30,8 @@ internal static class Overlays
         ParserMemoryScope ownership,
         CancellationToken cancellationToken,
         int nextId,
-        IIndirectResolver? retainedResolver)
+        IIndirectResolver? retainedResolver,
+        HashSet<int>? processedContentForms)
     {
         if (host is null)
         {
@@ -129,6 +130,7 @@ internal static class Overlays
                     formCache,
                     imports,
                     retainedResolver,
+                    processedContentForms,
                     compress,
                     level,
                     limits,
@@ -529,6 +531,7 @@ internal static class Overlays
         Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache,
         List<AcroFormCopy.FieldImport> imports,
         IIndirectResolver? retainedResolver,
+        HashSet<int>? processedContentForms,
         bool compress,
         int? level,
         QpdfLimits limits,
@@ -619,6 +622,8 @@ internal static class Overlays
 
         PdfStream pageForm = EncodeForm(new PdfDictionary(formEntries), pageContent, compress, level, limits, governor, ownership);
         PdfReference pageFormLink = copier.AddIndirectObjectWithId(pageForm, allocator);
+        if (processedContentForms is not null)
+        { ParserContainers.AddSetItem(ownership, processedContentForms, pageFormLink.ObjectNumber, sizeof(int)); }
         allocator = checked(allocator + 1);
         // Most pages use a fresh namespace. Retained appearances without local
         // resources still need the old page namespace, including XObject names.

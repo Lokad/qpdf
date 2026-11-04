@@ -49,9 +49,9 @@ internal sealed class PoolResolver : IIndirectResolver
 }
 
 /// <summary>
-/// Page content transforms applied to copied pages: stream coalescing,
-/// newline normalization, and unreferenced-resource pruning. Mirrors the
-/// upstream page-operation behavior including its skip-on-damage policy.
+/// Content and resource transforms over copied pages and their live Form resources.
+/// Page program preparation precedes placement; Form processing and pruning use
+/// the assembled graph, retaining the existing skip-on-damage policy.
 /// </summary>
 internal static class ContentTransforms
 {
@@ -60,7 +60,6 @@ internal static class ContentTransforms
         GraphCopier copier,
         IReadOnlyList<int> pageIds,
         ContentTransformRequest request,
-        bool prune,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
@@ -97,39 +96,22 @@ internal static class ContentTransforms
         }
 
         limits.Validate();
-        if (!request.Coalesce && !request.Normalize && !prune && !request.Externalize)
+        if (!request.Coalesce && !request.Normalize && !request.Externalize)
         {
             return;
         }
 
-        using ParserMemoryScope phase = ParserMemoryScope.Create(governor);
         if (request.Externalize)
         {
-            using FormResourceWalk forms = FormResourceWalk.Create(governor, cancellationToken);
-            PoolResolver resolver = forms.CreateResolver(copier.CopiedObjects);
             foreach (int pageId in pageIds)
             {
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 if (!copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? raw) || raw is not PdfDictionary page) { continue; }
-                page = InlineImages.ExternalizePage(copier, pageId, page, request.MinBytes, request.Compress, request.Level, limits, governor, diagnostics, cancellationToken, request.FilterOptions);
-                if (PdfDictionaryLookup.TryGet(page, "Resources"u8, governor, cancellationToken, out QpdfObject resourcesRaw))
-                {
-                    QpdfObject? resources = resourcesRaw is PdfReference link ? ResolvePool(resolver, link, governor, cancellationToken) : resourcesRaw;
-                    if (resources is PdfDictionary dictionary) { forms.AddResources(dictionary, resolver); }
-                }
+                InlineImages.ExternalizePage(copier, pageId, page, request.MinBytes, request.Compress, request.Level, limits, governor, diagnostics, cancellationToken, request.FilterOptions);
             }
-            GovernedIntDictionary<PdfStream> replacements = GovernedIntDictionary<PdfStream>.Create(phase, governor, IntPtr.Size, cancellationToken);
-            for (int index = 0; index < forms.Count; index++)
-            {
-                FormResourceWalk.Form form = forms.Get(index);
-                if (form.Id is not int id) { continue; }
-                PdfStream? candidate = InlineImages.ExternalizeForm(copier, id, form.Stream, request.MinBytes, request.Compress,
-                    request.Level, limits, governor, diagnostics, cancellationToken, request.FilterOptions);
-                if (candidate is not null) { replacements.TryAdd(phase, id, candidate); }
-            }
-            int allocator = copier.NextId;
-            forms.ApplyReplacements(copier, pageIds, replacements, ref allocator);
         }
+        if (!request.Coalesce && !request.Normalize) { return; }
+        using ParserMemoryScope phase = ParserMemoryScope.Create(governor);
         Dictionary<QpdfObject, (QpdfObject? Context, QpdfObject? Replacement)>? normalized = null;
         if (request.Normalize)
         {
@@ -165,7 +147,36 @@ internal static class ContentTransforms
             }
 
         }
-        if (prune) { ApplyResourcePruning(copier, pageIds, limits, governor, diagnostics, cancellationToken); }
+    }
+
+    internal static void ExternalizeForms(GraphCopier copier, IReadOnlyList<int> pageIds,
+        ContentTransformRequest request, HashSet<int>? processedForms, QpdfLimits limits,
+        ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+    {
+        using ParserMemoryScope phase = ParserMemoryScope.Create(governor);
+        using FormResourceWalk forms = FormResourceWalk.Create(governor, token);
+        PoolResolver resolver = forms.CreateResolver(copier.CopiedObjects);
+        foreach (int pageId in pageIds)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? raw) && raw is PdfDictionary page
+                && PdfDictionaryLookup.TryGet(page, "Resources"u8, governor, token, out QpdfObject resourcesRaw))
+            {
+                QpdfObject? resources = resourcesRaw is PdfReference link ? ResolvePool(resolver, link, governor, token) : resourcesRaw;
+                if (resources is PdfDictionary dictionary) { forms.AddResources(dictionary, resolver); }
+            }
+        }
+        GovernedIntDictionary<PdfStream> replacements = GovernedIntDictionary<PdfStream>.Create(phase, governor, IntPtr.Size, token);
+        for (int index = 0; index < forms.Count; index++)
+        {
+            FormResourceWalk.Form form = forms.Get(index);
+            if (form.Id is not int id || processedForms is not null && processedForms.Contains(id)) { continue; }
+            PdfStream? candidate = InlineImages.ExternalizeForm(copier, id, form.Stream, request.MinBytes, request.Compress,
+                request.Level, limits, governor, diagnostics, token, request.FilterOptions);
+            if (candidate is not null) { replacements.TryAdd(phase, id, candidate); }
+        }
+        int allocator = copier.NextId;
+        forms.ApplyReplacements(copier, pageIds, replacements, ref allocator);
     }
     internal static ContentEntries? ReadPageContents(
         GraphCopier copier,
@@ -933,7 +944,7 @@ internal static class ContentTransforms
         return null;
     }
 
-    private static void ApplyResourcePruning(GraphCopier copier, IReadOnlyList<int> pageIds,
+    internal static void ApplyResourcePruning(GraphCopier copier, IReadOnlyList<int> pageIds,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);

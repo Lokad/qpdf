@@ -25,7 +25,7 @@ public sealed class OverlayPlanningStorageTests
             long allocated = GC.GetAllocatedBytesForCurrentThread();
             OverlayApplication result = await Overlays.ApplyAsync(host, input, occurrences, [],
                 [new OverlaySpec("input", "", null, null)], false, null, QpdfRecoveryMode.Strict,
-                limits, governor, new DiagnosticBag(governor), ownership, CancellationToken.None, 10, null);
+                limits, governor, new DiagnosticBag(governor), ownership, CancellationToken.None, 10, null, null);
             long bytes = GC.GetAllocatedBytesForCurrentThread() - allocated;
             Assert.True(bytes < 1024L * 1024, $"Empty placement planning allocated {bytes} bytes.");
             Assert.Empty(result.FieldImports); Assert.Single(result.Copiers); Assert.Equal(10, result.NextId);

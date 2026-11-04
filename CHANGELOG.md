@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Finish Form inline conversion, selected resource pruning and image optimization
+  after placements and appearance flattening over the assembled output graph.
+  Process supported imported and flattened XObjects while preserving independent
+  original aliases and early page conversion/coalescing/normalization order.
+  This deliberately strengthens coverage where native qpdf misses flattened
+  appearances or late unused resources. Newly reached eligible optimization also
+  requires the host JPEG codec and fails before publication when it is absent.
+  Clarify XObject-resource traversal scope; unflattened AP, pattern/glyph programs
+  and soft-mask-only Forms retain their existing scope. No public signature changes.
+
 - Treat configured nesting/container exhaustion as a budget failure throughout
   reading, copying and presentation. Rewriting fails before publication instead
   of dropping retained catalog data, Info, XML metadata or attachments. Typed

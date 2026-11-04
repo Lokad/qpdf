@@ -172,7 +172,14 @@ without changing original stream slots. The existing form walk redirects resourc
 edges and affected ancestor Forms, registering new identities before rebuilding
 headers so cycles and shared bindings stay coherent. Resource headers are copied
 once per dictionary identity; independent payload roots keep their originals.
-No-op Form conversion keeps its existing header. These replacements join final-root
+Page inline conversion still precedes page coalescing and normalization. Form
+conversion, selected resource pruning and image optimization run after placements
+and appearance flattening, over the assembled output pool. One existing copier
+continues in that pool while its construction owner and original source mappings
+stay alive. Source pruning decisions retain their original occurrence copiers.
+Only primary wrapper Forms already contain a processed page program; other Forms
+are processed once through their XObject bindings. No-op Form conversion keeps its
+existing header. These replacements join final-root
 retirement. Ordinary
 adds and removals need no extra graph scan. Split attachment
 roots come only from the final name tree. Shared references and explicit

@@ -2984,7 +2984,8 @@
           "InlineImageBoundaryTests.CompleteSamplesReceiveAdmissionAndRefundOnRefusal",
           "InlineImageBoundaryTests.CancellationAfterSampleAdmissionRefundsBothOwners",
           "InlineImageBoundaryTests.NamedColorFamiliesSupplyTheirDeclaredSampleComponents",
-          "InlinePacketBoundaryTests.EveryConsumerSkipsCompleteFilteredPackets"
+          "InlinePacketBoundaryTests.EveryConsumerSkipsCompleteFilteredPackets",
+          "LateContentTransformTests.FinalLiveFormsReceiveRequestedInlineProcessing"
         ],
         "negative": [
           "InlineImagesTests.MalformedExternalizeFlagsFail",
@@ -2992,7 +2993,8 @@
         ],
         "interaction": [
           "InlineImagesTests.JobRoundTripMatchesArgv",
-          "ResourcePayloadIdentityTests.ResourceReplacementsKeepIndependentPayloadsAndSharedBindings"
+          "ResourcePayloadIdentityTests.ResourceReplacementsKeepIndependentPayloadsAndSharedBindings",
+          "InlineConsumerScopeTests.OnlyXObjectResourceBindingsEnterFormExternalization"
         ],
         "resource": [
           "ResourceEnforcementTests.ExternalizeInlineImagesYieldsToExhaustedBudget",
@@ -3105,7 +3107,9 @@
           "AppearanceRoleTests.FlatteningNormalizesOnlyTheAppearanceEdgeAndPreservesOriginalHeaders",
           "AnnotationOptionalContentTests.FlatteningKeepsConditionalAnnotationsAndLeavesNullConditionsEligible",
           "GenerationReadinessTests.SkippedWidgetsStayWhileNonwidgetsFlatten",
-          "GenerationReadinessTests.ImportedReadinessParticipatesInGenerationAndFlattening"
+          "GenerationReadinessTests.ImportedReadinessParticipatesInGenerationAndFlattening",
+          "LateContentTransformTests.FinalLiveFormsReceiveRequestedInlineProcessing",
+          "LateContentPublicationTests.MalformedLateFormFailsWithoutPublishing"
         ],
         "resource": [
           "ResourceEnforcementTests.FlattenAnnotationsYieldsToExhaustedBudget"
@@ -4662,7 +4666,8 @@
           "ImageOptimizeTests.LargeInlineImageExternalizesAndOptimizes",
           "ImageOptimizeTests.SmaskImageOptimizesKeepingMask",
           "ImageOptimizeTests.ColorKeyImageKeepsExactSamples",
-          "ImageOptimizeTests.IndexedImageStaysUntouched"
+          "ImageOptimizeTests.IndexedImageStaysUntouched",
+          "LateContentTransformTests.FinalLiveFormsReceiveRequestedInlineProcessing"
         ],
         "negative": [
           "ImageOptimizeTests.SmallImageStaysUntouched",
@@ -4674,13 +4679,18 @@
           "ImageOptimizeTests.KeepInlineImagesLeavesInlineAlone",
           "ImageOptimizeTests.SmallInlineImageStaysInline",
           "ImageOptimizeTests.ExternalizedInlineRespectsOiThresholds",
-          "ImageOptimizeTests.DimensionMismatchSkipsSilently"
+          "ImageOptimizeTests.DimensionMismatchSkipsSilently",
+          "LateContentPublicationTests.PreviouslyMissedEligibleImagesNowRequireTheHostCodec",
+          "LateContentPublicationTests.MalformedLateFormFailsWithoutPublishing"
         ],
         "interaction": [
           "ImageOptimizeTests.MergeOptimizesEveryPage",
           "ImageOptimizeTests.JobParityHolds",
           "ResourcePayloadIdentityTests.ResourceReplacementsKeepIndependentPayloadsAndSharedBindings",
-          "ImageColorKeyTests.OptimizationPreservesColorKeysAndStillSupportsOtherMaskKinds"
+          "ImageColorKeyTests.OptimizationPreservesColorKeysAndStillSupportsOtherMaskKinds",
+          "LateContentPublicationTests.LateCodecAndPublicationFailuresPreserveTargetsAndRefund",
+          "LateContentPublicationTests.EveryGrowthCanRefuseThroughTheAssembledGraph",
+          "LateContentPublicationTests.LateImagePayloadEscapesDocumentAndHostOwnership"
         ],
         "resource": [
           "ImageOptimizationGraphTests.EachImageIdentityIsAttemptedOnceIncludingSkippedCandidates",
@@ -5632,7 +5642,9 @@
           "ContentTransformsTests.JobContentFlagsRoundTrip",
           "ContentTransformsTests.JobContentFlagsMalformedFail",
           "ContentTransformsTests.PruneAppliesOnMerge",
-          "InlinePacketBoundaryTests.EveryConsumerSkipsCompleteFilteredPackets"
+          "InlinePacketBoundaryTests.EveryConsumerSkipsCompleteFilteredPackets",
+          "LateContentTransformTests.SelectedPruningSeesImportedResourcesAndKeepsIndependentAliases",
+          "LateContentPublicationTests.EveryGrowthCanRefuseThroughTheAssembledGraph"
         ],
         "resource": [
           "ResourceEnforcementTests.PruneYieldsToExhaustedBudget",

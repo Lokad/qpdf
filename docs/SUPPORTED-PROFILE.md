@@ -204,6 +204,10 @@ echoing values.
   independent attachment and catalog roots retain original payloads; affected
   ancestor Forms preserve sharing and cycles. Indirect Image/Form subtype names resolve
   through the copied object pool; stale or malformed values remain opaque.
+  Processing uses the assembled graph after placements and appearance flattening,
+  including imported Forms and flattened appearances reached through XObject
+  resources. Previously missed eligible images now also require the host codec;
+  an unavailable codec fails before publication.
   Providers receive --jpeg-quality in 0–100 (the development Lokad.Image adapter
   maps 0 to 1). Already-DCT images recompress only under an explicit quality; large
   inline images externalize first unless --keep-inline-images. Images exceeding
@@ -606,7 +610,20 @@ Numbers are normalized lexically under the existing cancellation/output bounds.
   retain unused entries. Ordinary consumers still permit pruning.
   Auto mode prunes only when resource dictionaries are
   shared. Pruning applies to page selection, merge, and split outputs.
-- --externalize-inline-images with --ii-min-bytes (default 1024) lifts inline images at or above the threshold into /IIm1, /IIm2 image XObjects referenced by Do. Abbreviated keys, filters, and device color names expand, other color names resolve through page resources with a warning on miss, taken names are skipped, and smaller images keep their bytes. Runs before coalescing and normalization on pages and indirect forms across selection, merge, split, and whole-file output, keeping damaged content with a warning.
+- --externalize-inline-images with --ii-min-bytes (default 1024) lifts inline images
+  at or above the threshold into /IIm1, /IIm2 image XObjects referenced by Do.
+  Abbreviated keys, filters and device color names expand; other color names resolve
+  through resources with a warning on miss. Taken names are skipped and smaller
+  images keep their bytes. Page conversion precedes page coalescing/normalization.
+  Form conversion follows placement and appearance flattening over the assembled
+  output graph, across selection, merge, split and whole-file output. It follows
+  indirect Form bindings in page/Form Resources/XObject dictionaries, including
+  imported page Forms and appearances made into live XObjects by flattening.
+  Unflattened annotation appearances, tiling patterns, Type3 glyph programs and
+  Forms reached only through ExtGState/SMask/G are outside this traversal. Binding
+  the same Form as an XObject makes it eligible through that resource edge;
+  independently retained originals keep their bytes. Page damaged-content recovery
+  and existing Form error behavior remain.
   Original content streams and arrays retire only after final output roots exist.
   Independent catalog, page, Info, Metadata and attachment aliases keep their
   original values; `--preserve-unreferenced` retains otherwise obsolete objects.

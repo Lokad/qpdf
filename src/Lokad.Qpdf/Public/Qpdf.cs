@@ -264,7 +264,7 @@ public static partial class Qpdf
     {
         pruneHere = prune.Enabled && (prune.Mode == "yes"
             || (prune.Mode is null or "auto" && Content.ContentTransforms.SharedResourcesHeuristic(engine, limits, governor, cancellationToken)));
-        if (!coalesceContents && !normalizeContent && !pruneHere && !externalizeInlineImages)
+        if (!coalesceContents && !normalizeContent && !externalizeInlineImages)
         {
             return null;
         }
@@ -273,6 +273,46 @@ public static partial class Qpdf
         { FilterOptions = filterOptions };
     }
 
+
+    private static void FinishContentTransforms(
+        Dictionary<int, QpdfObject> pool, IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
+        Content.ContentTransformRequest? request, HashSet<GraphCopier>? pruneSources,
+        HashSet<int>? processedForms, Content.ImageOptimizeRequest images, QpdfLimits limits,
+        ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+    {
+        if (occurrences.Count == 0 || request is not { Externalize: true } && pruneSources is null && !images.Optimize) { return; }
+        GraphCopier copier = occurrences[0].Copier;
+        copier.UseOutputPool(pool, token);
+        using ParserMemoryScope phase = ParserMemoryScope.Create(governor);
+        List<int> pageIds = ParserContainers.CreateList<int>(phase, occurrences.Count, sizeof(int));
+        bool allPruned = true, anyPruned = false;
+        foreach ((GraphCopier source, int id) in occurrences)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            pageIds.Add(id);
+            bool prune = pruneSources is not null && pruneSources.Contains(source);
+            allPruned &= prune; anyPruned |= prune;
+        }
+        if (request is { Externalize: true })
+        { Content.ContentTransforms.ExternalizeForms(copier, pageIds, request, processedForms, limits, governor, diagnostics, token); }
+        if (anyPruned)
+        {
+            IReadOnlyList<int> pruneIds = pageIds;
+            if (!allPruned)
+            {
+                List<int> selected = ParserContainers.CreateList<int>(phase);
+                foreach ((GraphCopier source, int id) in occurrences)
+                {
+                    token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    if (pruneSources is not null && pruneSources.Contains(source))
+                    { ParserContainers.AddItem(phase, selected, id, sizeof(int)); }
+                }
+                pruneIds = selected;
+            }
+            Content.ContentTransforms.ApplyResourcePruning(copier, pruneIds, limits, governor, diagnostics, token);
+        }
+        Content.ImageOptimizer.Apply(copier, pageIds, images, limits, governor, diagnostics, token);
+    }
 
     private static async ValueTask<PageSelectionOutcome> SelectPageCoreAsync(
         IQpdfHost host,
@@ -386,10 +426,19 @@ public static partial class Qpdf
                             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                             occurrenceIds.Add(occurrenceId);
                         }
-                        Content.ContentTransforms.ApplyPageTransforms(copier, occurrenceIds, singleTransforms, singlePrune, limits, governor, diagnostics, cancellationToken);
+                        Content.ContentTransforms.ApplyPageTransforms(copier, occurrenceIds, singleTransforms, limits, governor, diagnostics, cancellationToken);
                     }
 
-                    Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, inputPath, occurrences, settings.Underlays, settings.Overlays, singleCompress, singleLevel, recovery, limits, governor, diagnostics, copyMemory, cancellationToken, copier.NextId, null).ConfigureAwait(false);
+                    HashSet<GraphCopier>? singlePruneSources = null;
+                    if (singlePrune)
+                    {
+                        singlePruneSources = ParserContainers.CreateSet<GraphCopier>(copyMemory);
+                        ParserContainers.AddSetItem(copyMemory, singlePruneSources, copier, IntPtr.Size);
+                    }
+                    HashSet<int>? processedContentForms = singleTransforms is { Externalize: true }
+                        && (settings.Overlays.Count != 0 || settings.Underlays.Count != 0)
+                        ? ParserContainers.CreateSet<int>(copyMemory) : null;
+                    Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, inputPath, occurrences, settings.Underlays, settings.Overlays, singleCompress, singleLevel, recovery, limits, governor, diagnostics, copyMemory, cancellationToken, copier.NextId, null, processedContentForms).ConfigureAwait(false);
                     copier.AdvanceNextId(overlayApplied.NextId);
 
                     int flattenAllocator = overlayApplied.NextId;
@@ -446,10 +495,6 @@ public static partial class Qpdf
                         foreach (var part in duplicateFields) { cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); fields.Add(part); }
                         foreach (var part in rotationFields) { cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); fields.Add(part); }
                         rotationFields = fields;
-                    }
-                    if (settings.Optimize.Optimize)
-                    {
-                        Content.ImageOptimizer.Apply(occurrences, settings.Optimize, limits, governor, diagnostics, cancellationToken, ref flattenAllocator);
                     }
                     copier.AdvanceNextId(flattenAllocator);
 
@@ -533,6 +578,8 @@ public static partial class Qpdf
                         IncludeVersionRequirement(ref negotiated, ref negotiatedExtension,
                             AuthoredVersionFloor(settings.Edits.Adds.Count != 0, singleAttached.NamesRef is not null, singleLabels is not null), 0, governor);
                     }
+                    FinishContentTransforms(singlePool, occurrences, singleTransforms, singlePruneSources, processedContentForms,
+                        settings.Optimize, limits, governor, diagnostics, cancellationToken);
                     HashSet<int> singleCompressed = ResolveCompressedSet(streamMode, singlePool, singleSources, copyMemory, governor, cancellationToken);
                     PdfVersion effective = negotiated;
                     int extensionLevel = negotiatedExtension;
@@ -979,6 +1026,11 @@ public static partial class Qpdf
         HashSet<int> catalogExtraIds = ParserContainers.CreateSet<int>(selectionMemory);
         long selected = 0L;
         (bool multiCompress, string multiDecode, int? multiLevel) = ResolveCompression(settings.Compression, settings.Qdf.Enabled);
+        Content.ContentTransformRequest? finalTransforms = null;
+        HashSet<GraphCopier>? pruneSources = null;
+        HashSet<int>? processedContentForms = (settings.ExternalizeInlineImages || settings.Optimize.Optimize && !settings.Optimize.KeepInline)
+            && (settings.Overlays.Count != 0 || settings.Underlays.Count != 0)
+            ? ParserContainers.CreateSet<int>(selectionMemory) : null;
         // An unselected primary still supplies the document catalog and ID. Its
         // copier joins the ordinary pools, but it contributes no selection group.
         for (int s = 0; s < sourcePasses; s++)
@@ -1147,15 +1199,21 @@ public static partial class Qpdf
                 if (!catalogOnly)
                 {
                     Content.ContentTransformRequest? sourceTransforms = PrepareSourceContentTransforms(settings.CoalesceContents, settings.NormalizeContent, settings.ExternalizeInlineImages || (settings.Optimize.Optimize && !settings.Optimize.KeepInline), settings.IiMinBytes, multiCompress, multiLevel, StreamTransformer.Options(multiDecode, settings.Compression.RecompressFlate), settings.Prune, document.Engine, limits, governor, cancellationToken, out bool sourcePrune);
+                    if (sourcePrune)
+                    {
+                        pruneSources ??= ParserContainers.CreateSet<GraphCopier>(selectionMemory);
+                        ParserContainers.AddSetItem(selectionMemory, pruneSources, copier, IntPtr.Size);
+                    }
                     if (sourceTransforms is not null)
                     {
+                        finalTransforms = sourceTransforms;
                         List<int> takenIds = ParserContainers.CreateList<int>(selectionMemory, kept.Count, sizeof(int));
                         foreach (int group in sourceGroupIndices)
                         {
                             foreach ((GraphCopier _, int takenId, int _) in perSource[group])
                             { cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); takenIds.Add(takenId); }
                         }
-                        Content.ContentTransforms.ApplyPageTransforms(copier, takenIds, sourceTransforms, sourcePrune, limits, governor, diagnostics, cancellationToken);
+                        Content.ContentTransforms.ApplyPageTransforms(copier, takenIds, sourceTransforms, limits, governor, diagnostics, cancellationToken);
                     }
                 }
 
@@ -1197,7 +1255,7 @@ public static partial class Qpdf
             ApplyRotations(occurrences, ResolveRotationFolds(settings.Rotations, kids.Count, governor, limits, selectionMemory), governor, selectionMemory);
         }
 
-        Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, primaryInput, occurrences, settings.Underlays, settings.Overlays, multiCompress, multiLevel, recovery, limits, governor, diagnostics, selectionMemory, cancellationToken, nextId, null).ConfigureAwait(false);
+        Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, primaryInput, occurrences, settings.Underlays, settings.Overlays, multiCompress, multiLevel, recovery, limits, governor, diagnostics, selectionMemory, cancellationToken, nextId, null, processedContentForms).ConfigureAwait(false);
 
         int multiFlattenAllocator = overlayApplied.NextId;
         if (settings.FlattenAnnotations is not null || settings.GenerateAppearances)
@@ -1281,11 +1339,6 @@ public static partial class Qpdf
                     { renameForms.Add(original); renameCopiers.Add(sourceCopier); }
                 }
             }
-        }
-        if (settings.Optimize.Optimize)
-        {
-            multiFlattenAllocator = Math.Max(multiFlattenAllocator, nextId);
-            Content.ImageOptimizer.Apply(occurrences, settings.Optimize, limits, governor, diagnostics, cancellationToken, ref multiFlattenAllocator);
         }
 
         if (replaceInput && splitPages.HasValue)
@@ -1482,6 +1535,9 @@ public static partial class Qpdf
         {
             multiAcroForm = ClearNeedAppearances(multiAcroForm, governor, cancellationToken);
         }
+
+        FinishContentTransforms(pool, occurrences, finalTransforms, pruneSources, processedContentForms,
+            settings.Optimize, limits, governor, diagnostics, cancellationToken);
 
         if (governor.HasTypedResult) { selectionMemory.PrepareResultStorage(checked(24L * mapping.Count)); }
         if (!splitPages.HasValue)

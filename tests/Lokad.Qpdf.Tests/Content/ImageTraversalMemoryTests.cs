@@ -86,8 +86,7 @@ public sealed class ImageTraversalMemoryTests
 
     private static void Apply(GraphCopier copier, ResourceGovernor governor, CancellationToken token)
     {
-        int allocator = copier.NextId;
-        ImageOptimizer.Apply([(copier, 1)], new(true, 0, 0, 0, false, null), QpdfLimits.Default, governor, new(governor), token, ref allocator);
+        ImageOptimizer.Apply(copier, [1], new(true, 0, 0, 0, false, null), QpdfLimits.Default, governor, new(governor), token);
     }
 
     [Theory]

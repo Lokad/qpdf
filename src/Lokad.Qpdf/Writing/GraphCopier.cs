@@ -29,7 +29,7 @@ internal sealed class GraphCopier
     private readonly QpdfLimits _limits;
     private readonly Dictionary<int, int> _mapping;
     private readonly int _sourceObjectCount;
-    private readonly Dictionary<int, QpdfObject> _copied;
+    private Dictionary<int, QpdfObject> _copied;
     private readonly ParserMemoryScope _ownership;
     private int _nextId;
     private int _rootPageNumber = -1;
@@ -182,6 +182,19 @@ internal sealed class GraphCopier
     internal SignatureCopyPolicy SignaturePolicy { get; }
 
     internal int NextId => _nextId;
+    // Source copying is complete. Continue mutation in the already admitted
+    // assembled output pool, retaining origin maps and the construction owner.
+    internal void UseOutputPool(Dictionary<int, QpdfObject> pool, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(pool);
+        int next = _nextId;
+        foreach (int number in pool.Keys)
+        {
+            token.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+            if (number >= next) { next = checked(number + 1); }
+        }
+        _copied = pool; _nextId = next;
+    }
     // Removing edges does not necessarily allocate a new indirect identity.
     internal bool HasReplacedObjects { get; private set; }
 

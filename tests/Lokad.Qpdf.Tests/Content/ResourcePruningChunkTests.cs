@@ -14,7 +14,7 @@ public sealed class ResourcePruningChunkTests
     private static PdfDictionary Prune(GraphCopier copier, int id, PdfDictionary page, QpdfLimits limits,
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
-        ContentTransforms.ApplyPageTransforms(copier, [id], new(false, false, false, null, false, 0L), true,
+        ContentTransforms.ApplyResourcePruning(copier, [id],
             limits, governor, diagnostics, token);
         return copier.CopiedObjects.TryGetValue(id, out QpdfObject? result) && result is PdfDictionary replacement ? replacement : page;
     }

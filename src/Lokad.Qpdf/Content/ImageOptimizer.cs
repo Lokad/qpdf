@@ -33,18 +33,16 @@ internal sealed record ImageOptimizeRequest(
 internal static class ImageOptimizer
 {
     internal static void Apply(
-        IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
+        GraphCopier copier,
+        IReadOnlyList<int> pageIds,
         ImageOptimizeRequest request,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
-        CancellationToken cancellationToken,
-        ref int allocator)
+        CancellationToken cancellationToken)
     {
-        if (occurrences is null)
-        {
-            throw new ArgumentNullException(nameof(occurrences));
-        }
+        ArgumentNullException.ThrowIfNull(copier);
+        ArgumentNullException.ThrowIfNull(pageIds);
 
         if (request is null)
         {
@@ -69,33 +67,19 @@ internal static class ImageOptimizer
         }
 
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
-        Dictionary<GraphCopier, List<int>> pages = ParserContainers.CreateDictionary<GraphCopier, List<int>>(traversal);
-        foreach ((GraphCopier copier, int pageId) in occurrences)
+        using FormResourceWalk forms = FormResourceWalk.Create(governor, cancellationToken);
+        PoolResolver resolver = forms.CreateResolver(copier.CopiedObjects);
+        GovernedIntDictionary<PdfStream> replacements = GovernedIntDictionary<PdfStream>.Create(traversal, governor, IntPtr.Size, cancellationToken);
+        foreach (int pageId in pageIds)
         {
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            allocator = Math.Max(allocator, copier.NextId);
-            if (!pages.TryGetValue(copier, out List<int>? ids))
+            if (copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? raw) && raw is PdfDictionary page)
             {
-                ids = ParserContainers.CreateList<int>(traversal);
-                ParserContainers.EnsureEntryCapacity(traversal, pages, IntPtr.Size); pages.Add(copier, ids);
+                ProcessResources(resolver, page, request, limits, governor, diagnostics, traversal, forms, replacements, 0, cancellationToken);
             }
-            ParserContainers.AddItem(traversal, ids, pageId, sizeof(int));
         }
-        foreach (KeyValuePair<GraphCopier, List<int>> group in pages)
-        {
-            using FormResourceWalk forms = FormResourceWalk.Create(governor, cancellationToken);
-            PoolResolver resolver = forms.CreateResolver(group.Key.CopiedObjects);
-            GovernedIntDictionary<PdfStream> replacements = GovernedIntDictionary<PdfStream>.Create(traversal, governor, IntPtr.Size, cancellationToken);
-            foreach (int pageId in group.Value)
-            {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                if (group.Key.CopiedObjects.TryGetValue(pageId, out QpdfObject? raw) && raw is PdfDictionary page)
-                {
-                    ProcessResources(resolver, page, request, limits, governor, diagnostics, traversal, forms, replacements, 0, cancellationToken);
-                }
-            }
-            forms.ApplyReplacements(group.Key, group.Value, replacements, ref allocator);
-        }
+        int allocator = copier.NextId;
+        forms.ApplyReplacements(copier, pageIds, replacements, ref allocator);
     }
 
     private static void ProcessResources(

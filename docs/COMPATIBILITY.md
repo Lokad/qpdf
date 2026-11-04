@@ -414,6 +414,20 @@ the retained Form program; managed preservation intentionally strengthens that
 case. Form conversion that makes no payload change keeps its original header,
 including absent/null resource entries. Output identities and identifiers can change.
 
+Form inline conversion, selected resource pruning and image optimization now run
+over the assembled output graph after overlay/underlay import and appearance
+flattening. Eligible inline images in those newly live XObjects are processed;
+selected pruning can retire their unused resources. Page conversion still precedes
+page coalescing/normalization. Ordinary whole-file pruning stays outside scope.
+Native qpdf handles the qualified imported Forms but can miss flattened appearances
+and late unused resources; managed coverage intentionally strengthens those cases.
+Forms enter this walk through page/Form Resources/XObject bindings. A Form reached
+only as a soft-mask group stays outside it, as do unflattened AP, tiling-pattern
+and Type3 glyph programs. No new general content interpreter is implied.
+Eligible optimization that was previously missed now fails explicitly before
+publication when the host supplies no JPEG codec. Public signatures and thresholds
+are unchanged; output storage, object identities and derived identifiers can change.
+
 JPEG optimization now keeps images with effective color-key Mask arrays opaque,
 preserving the exact samples used to determine transparency. Native qpdf can keep
 the Mask array while changing those samples, making transparent pixels opaque;
