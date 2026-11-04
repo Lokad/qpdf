@@ -1083,12 +1083,15 @@ internal static class ContentTransforms
                 if (consumer is null) { continue; }
                 if (section == 0)
                 {
-                    if (!PdfDictionaryLookup.TryGet(consumer, "Subtype"u8, governor, token, out raw)
-                        || CatalogCopy.ResolveValue(raw, resolver, governor, token) is not PdfName type
-                        || !PdfDictionaryLookup.NameEquals(type, "Type3"u8, governor, token)) { continue; }
+                    if (!PdfDictionaryLookup.HasName(consumer, "Subtype"u8, "Type3"u8, resolver, governor, token)) { continue; }
                 }
                 else
                 {
+                    if (PdfDictionaryLookup.TryGet(consumer, "Font"u8, governor, token, out raw)
+                        && CatalogCopy.ResolveValue(raw, resolver, governor, token) is PdfArray selection && selection.Count > 0
+                        && CatalogCopy.ResolveDictionary(selection[0], resolver, governor, token) is PdfDictionary font
+                        && PdfDictionaryLookup.HasName(font, "Subtype"u8, "Type3"u8, resolver, governor, token))
+                    { return true; }
                     if (!PdfDictionaryLookup.TryGet(consumer, "SMask"u8, governor, token, out raw)) { continue; }
                     PdfDictionary? mask = CatalogCopy.ResolveDictionary(raw, resolver, governor, token);
                     if (mask is null || !PdfDictionaryLookup.TryGet(mask, "G"u8, governor, token, out raw)

@@ -592,7 +592,9 @@ Additional intentional data differences are:
   form/structure removals.
 
 - Resource pruning keeps the effective scope for used Type 3 fonts and soft-mask
-  groups, including inherited uses through forms. Native
+  groups, including inherited uses through forms. Type 3 protection applies to
+  both Tf-selected fonts and ExtGState Font selections, including indirect arrays
+  and subtypes. Native
   qpdf 12.4.2 can remove these dependencies and blank the reduced fixtures; managed
   deliberately preserves their rendering. These programs can retain unused page
   entries even with local resources; ordinary consumers still permit pruning.

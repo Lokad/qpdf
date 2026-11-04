@@ -10,35 +10,42 @@ public sealed class ResourceConsumerPruningTests
 {
     private static byte[] Fixture(string kind, bool local, bool indirect)
     {
+        bool graphicsFont = kind.StartsWith("gs-", StringComparison.Ordinal);
         string resources = " /Resources 4 0 R";
         string page = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 100]" + (indirect ? "" : resources) + " /Contents 9 0 R >>";
-        string content = kind is "type3" or "type3-empty" ? "BT /F3 60 Tf 20 20 Td (A) Tj ET\n"
+        string content = graphicsFont ? "BT /Gs gs 20 20 Td (A) Tj ET\n"
+            : kind is "type3" or "type3-empty" ? "BT /F3 60 Tf 20 20 Td (A) Tj ET\n"
             : kind is "mask" or "mask-empty" ? "q /Gs gs 0 0 200 100 re f Q\n"
             : kind == "nested-mask" ? "/Outer Do\n" : "BT /F1 20 Tf 20 20 Td (A) Tj ET\n";
         string outer = "q /Gs gs 0 0 200 100 re f Q\n";
         string glyph = "1000 0 d0 q 1000 0 0 1000 0 0 cm /Im Do Q\n";
         string group = "1 g BT /F1 70 Tf 20 20 Td (A) Tj ET\n";
         string mask = "<< /S /Luminosity /G 11 0 R >>";
+        string fontArray = "[" + (kind == "gs-ordinary" ? "12" : "5") + " 0 R 60]";
+        string state = graphicsFont ? "<< /Type /ExtGState /Font " + (indirect ? "18 0 R" : fontArray) + " >>"
+            : "<< /Type /ExtGState /SMask " + (indirect ? "16 0 R" : mask) + " >>";
         return CheckTests.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R 13 0 R] /Count 2" + (indirect ? resources : "") + " >>", null),
             (3, page, null),
             (4, "<< /Font << /F3 5 0 R /F1 12 0 R /Unused 12 0 R >> /XObject << /Im 7 0 R /Spare 8 0 R"
-                + (kind == "nested-mask" ? " /Outer 17 0 R" : "") + " >> /ExtGState << /Gs 10 0 R >> >>", null),
+                + (kind == "nested-mask" ? " /Outer 17 0 R" : "") + " >> /ExtGState << /Gs "
+                + (kind == "gs-type3-direct" ? state : "10 0 R") + " >> >>", null),
             (5, "<< /Type /Font /Subtype " + (indirect ? "14 0 R" : "/Type3")
                 + " /FontBBox [0 0 1000 1000] /FontMatrix [0.001 0 0 0.001 0 0] /CharProcs " + (indirect ? "15 0 R" : "<< /A 6 0 R >>")
                 + " /Encoding << /Type /Encoding /Differences [65 /A] >> /FirstChar 65 /LastChar 65 /Widths [1000]"
-                + (local ? kind == "type3-empty" ? " /Resources << >>" : " /Resources << /XObject << /Im 7 0 R >> >>" : "") + " >>", null),
+                + (local ? kind is "type3-empty" or "gs-type3-empty" ? " /Resources << >>" : " /Resources << /XObject << /Im 7 0 R >> >>" : "") + " >>", null),
             (6, "<< /Length " + glyph.Length + " >>", Encoding.ASCII.GetBytes(glyph)),
             (7, "<< /Type /XObject /Subtype /Image /Width 8 /Height 8 /ColorSpace /DeviceGray /BitsPerComponent 8 /Length 64 >>", new byte[64]),
             (8, "<< /Type /XObject /Subtype /Image /Width 8 /Height 8 /ColorSpace /DeviceGray /BitsPerComponent 8 /Length 64 >>", Enumerable.Repeat((byte)255, 64).ToArray()),
             (9, "<< /Length " + content.Length + " >>", Encoding.ASCII.GetBytes(content)),
-            (10, "<< /Type /ExtGState /SMask " + (indirect ? "16 0 R" : mask) + " >>", null),
+            (10, state, null),
             (11, "<< /Type /XObject /Subtype /Form /BBox [0 0 200 100] /Group << /S /Transparency /CS /DeviceGray >>"
                 + (local ? kind == "mask-empty" ? " /Resources << >>" : " /Resources << /Font << /F1 12 0 R >> >>" : "") + " /Length " + group.Length + " >>", Encoding.ASCII.GetBytes(group)),
             (12, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
             (13, page, null), (14, "/Type3", null), (15, "<< /A 6 0 R >>", null), (16, mask, null),
-            (17, "<< /Type /XObject /Subtype /Form /BBox [0 0 200 100] /Length " + outer.Length + " >>", Encoding.ASCII.GetBytes(outer))], 1);
+            (17, "<< /Type /XObject /Subtype /Form /BBox [0 0 200 100] /Length " + outer.Length + " >>", Encoding.ASCII.GetBytes(outer)),
+            (18, fontArray, null)], 1);
     }
 
     private static QpdfObject Resolve(QpdfDocument document, QpdfObject value)
@@ -51,7 +58,7 @@ public sealed class ResourceConsumerPruningTests
     {
         foreach (string route in new[] { "argv", "job" })
         {
-            foreach (string kind in new[] { "type3", "mask" })
+            foreach (string kind in new[] { "type3", "mask", "gs-type3" })
             {
                 foreach (bool local in new[] { false, true })
                 foreach (bool indirect in new[] { false, true }) { yield return [route, kind, local, indirect, "yes"]; }
@@ -59,7 +66,9 @@ public sealed class ResourceConsumerPruningTests
             }
             foreach (bool indirect in new[] { false, true }) { yield return [route, "ordinary", false, indirect, "yes"]; }
             foreach (bool local in new[] { false, true }) { yield return [route, "nested-mask", local, true, "yes"]; }
-            foreach (string kind in new[] { "type3-empty", "mask-empty" }) { yield return [route, kind, true, false, "yes"]; }
+            foreach (string kind in new[] { "type3-empty", "mask-empty", "gs-type3-empty" }) { yield return [route, kind, true, false, "yes"]; }
+            yield return [route, "gs-type3-direct", false, false, "yes"];
+            yield return [route, "gs-ordinary", false, true, "yes"];
         }
     }
 
@@ -89,13 +98,13 @@ public sealed class ResourceConsumerPruningTests
         {
             PdfDictionary resources = Get(document, Assert.IsType<PdfDictionary>(document.GetObject(3)), "Resources");
             PdfDictionary fonts = Get(document, resources, "Font"), images = Get(document, resources, "XObject");
-            bool preserve = policy == "no" || kind != "ordinary";
+            bool preserve = policy == "no" || kind is not ("ordinary" or "gs-ordinary");
             Assert.Equal(preserve, images.TryGet(PdfName.FromAscii("Spare"), out _));
             Assert.Equal(preserve, fonts.TryGet(PdfName.FromAscii("Unused"), out _));
-            if (kind is "type3" or "type3-empty")
+            if (kind is "type3" or "type3-empty" or "gs-type3" or "gs-type3-empty" or "gs-type3-direct")
             {
                 PdfDictionary font = Get(document, fonts, "F3");
-                if (kind == "type3-empty") { Assert.Equal(0, Get(document, font, "Resources").Count); Assert.True(images.TryGet(PdfName.FromAscii("Im"), out _)); }
+                if (kind is "type3-empty" or "gs-type3-empty") { Assert.Equal(0, Get(document, font, "Resources").Count); Assert.True(images.TryGet(PdfName.FromAscii("Im"), out _)); }
                 else if (local) { Assert.True(Get(document, Get(document, font, "Resources"), "XObject").TryGet(PdfName.FromAscii("Im"), out _)); }
                 else { Assert.True(images.TryGet(PdfName.FromAscii("Im"), out _)); }
             }
@@ -111,6 +120,15 @@ public sealed class ResourceConsumerPruningTests
                     else { Assert.True(Get(document, own, "Font").TryGet(PdfName.FromAscii("F1"), out _)); }
                 }
                 else { Assert.True(fonts.TryGet(PdfName.FromAscii("F1"), out _)); }
+            }
+            else if (kind == "gs-ordinary")
+            {
+                PdfDictionary state = Get(document, Get(document, resources, "ExtGState"), "Gs");
+                Assert.True(state.TryGet(PdfName.FromAscii("Font"), out QpdfObject raw));
+                PdfArray selection = Assert.IsType<PdfArray>(Resolve(document, raw));
+                PdfDictionary font = Assert.IsType<PdfDictionary>(Resolve(document, selection[0]));
+                Assert.True(font.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject subtype));
+                Assert.True(Assert.IsType<PdfName>(Resolve(document, subtype)).RawSpan.SequenceEqual("Type1"u8));
             }
             else { Assert.True(fonts.TryGet(PdfName.FromAscii("F1"), out _)); }
         }

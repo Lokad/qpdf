@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Protect Type 3 glyph resources when ExtGState Font selects the font, including
+  indirect arrays and subtype names. Keep ordinary font pruning and soft-mask
+  guards; native qpdf can lose glyph artwork through this graphics-state path.
+
 - Read overlay/underlay UserUnit from the source leaf page, keeping private
   ancestor values out of placement while preserving actual page inheritance.
 
