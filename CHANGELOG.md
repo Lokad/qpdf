@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Apply page-range exclusions only to their preceding positive group, preserving
+  earlier groups and duplicate order. Selection, relative rotation and overlay/
+  underlay to/from/repeat ranges share this correction. Consecutive exclusions
+  stay in that group; final odd/even filtering and entry budgets retain their rules.
+
 - Finish Form inline conversion, selected resource pruning and image optimization
   after placements and appearance flattening over the assembled output graph.
   Process supported imported and flattened XObjects while preserving independent

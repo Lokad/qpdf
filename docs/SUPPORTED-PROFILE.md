@@ -223,6 +223,13 @@ echoing values.
 
 ## Selection semantics
 
+Page-range `x` exclusions remove matches only from their preceding positive group;
+consecutive exclusions stay in that group. Earlier groups and duplicate order remain.
+For example, `1-3,1-3,x2` expands to `1,2,3,1,3`. A final `:odd`/`:even` filters
+positions after all groups. The same grammar serves selection, rotation and
+placement ranges; excluded endpoints still validate and all retained entries count
+toward the configured selection ceiling.
+
 - Repeated page-source groups with the same logical input path share a source
   document and the union of selected page identities. Links and retained metadata
   or attachment graphs can target pages selected in a later group. Group order,

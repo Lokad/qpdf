@@ -75,7 +75,7 @@ public sealed class PageRangesTests
     [InlineData("1-6,x2,x3", new int[] { 1, 4, 5, 6 })]
     [InlineData("6-1,x5", new int[] { 6, 4, 3, 2, 1 })]
     [InlineData("1-6,x2:odd", new int[] { 1, 4, 6 })]
-    public void ExclusionsRemoveAccumulatedMembers(string range, int[] expected)
+    public void ExclusionsRemoveMembersOfTheLatestPositiveGroup(string range, int[] expected)
     {
         Matches(15, range, expected);
     }

@@ -9,8 +9,8 @@ namespace Lokad.Qpdf.Pages;
 /// <c>rN</c>/<c>z</c> endpoints, descending ranges, <c>x</c> exclusions, and a
 /// single trailing <c>:odd</c>/<c>:even</c> position filter. An empty range
 /// selects every page; <c>:odd</c>/<c>:even</c> alone select nothing.
-/// Groups expand in order with duplicates preserved; exclusions remove every
-/// matching member accumulated so far, and the position filter applies last.
+/// Groups expand in order with duplicates preserved; exclusions remove matching
+/// members of the latest positive group, and the position filter applies last.
 /// Out-of-range endpoints (including excluded ones) fail explicitly.
 /// <c>CheckSyntax</c> validates structure without a page count so plans can
 /// fail fast at parse time; bounds still resolve at execution.
@@ -80,12 +80,14 @@ internal static class PageRanges
         governor.NoteOperation();
         (List<Group> groups, bool oddOnly, bool evenOnly) = Parse(range);
         List<int> selected = ParserContainers.CreateList<int>(memory);
+        int groupStart = 0;
         foreach (Group group in groups)
         {
             int first = ResolveEndpoint(group.First, range, total);
             int last = group.Last is null ? first : ResolveEndpoint(group.Last, range, total);
             if (!group.Exclude)
             {
+                groupStart = selected.Count;
                 long span = Math.Abs((long)last - first) + 1L;
                 if (span > maxEntries - selected.Count)
                 {
@@ -98,8 +100,8 @@ internal static class PageRanges
             }
 
             int lower = Math.Min(first, last), upper = Math.Max(first, last);
-            int kept = 0;
-            for (int i = 0; i < selected.Count; i++)
+            int kept = groupStart;
+            for (int i = groupStart; i < selected.Count; i++)
             {
                 governor.NoteOperation();
                 if (selected[i] >= lower && selected[i] <= upper)

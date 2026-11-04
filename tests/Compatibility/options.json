@@ -4876,7 +4876,8 @@
           "SignatureSelectionTests.SelectingAnUnsignedPageDoesNotResurrectTheUnselectedSignedPage",
           "SignatureSelectionTests.SignatureMetadataCanStillBeInspectedWithoutRewriting",
           "FormSourceContextTests.RetainedFieldsKeepSourceFontAndDefaults",
-          "FormSourceContextTests.RewrittenSharedProgramsKeepOneIdentityAndTheirOriginalAliases"
+          "FormSourceContextTests.RewrittenSharedProgramsKeepOneIdentityAndTheirOriginalAliases",
+          "RangeGroupScopeTests.SelectionRotationAndPlacementMatchTheNativeGroupScope"
         ],
         "resource": [
           "MergeCommandTests.CollateYieldsToStructuralCardinalityBound",
@@ -5824,7 +5825,8 @@
           "RotationTests.SetIgnoresBaseAndLaterSpecsWin",
           "RotationTests.ArgvMainLevelRotateMatchesInsideForm",
           "RotationTests.JobRotateRangeMatchesArgv",
-          "CommandRotationTests.InspectionUsesTheSameCommandRotationSettings"
+          "CommandRotationTests.InspectionUsesTheSameCommandRotationSettings",
+          "RangeGroupScopeTests.SelectionRotationAndPlacementMatchTheNativeGroupScope"
         ],
         "resource": [
           "ResourceEnforcementTests.RotateYieldsToExhaustedBudget",
@@ -7114,7 +7116,8 @@
         ],
         "interaction": [
           "OverlayTests.JobRoundTripMatchesArgv",
-          "OverlayTests.JobFromRangeMatchesArgv"
+          "OverlayTests.JobFromRangeMatchesArgv",
+          "RangeGroupScopeTests.SelectionRotationAndPlacementMatchTheNativeGroupScope"
         ],
         "resource": [
           "ResourceEnforcementTests.OverlayFromYieldsToExhaustedBudget"
@@ -7206,7 +7209,9 @@
           "OverlayTests.RangedOverlayFlagsFail",
           "OverlayTests.OverlayBlockOptionsRequireEqualsForm"
         ],
-        "interaction": [],
+        "interaction": [
+          "RangeGroupScopeTests.SelectionRotationAndPlacementMatchTheNativeGroupScope"
+        ],
         "resource": [
           "ResourceEnforcementTests.OverlayRepeatYieldsToExhaustedBudget"
         ],
@@ -7268,7 +7273,9 @@
           "OverlayTests.RangedOverlayFlagsFail",
           "OverlayTests.OverlayBlockOptionsRequireEqualsForm"
         ],
-        "interaction": [],
+        "interaction": [
+          "RangeGroupScopeTests.SelectionRotationAndPlacementMatchTheNativeGroupScope"
+        ],
         "resource": [
           "ResourceEnforcementTests.OverlayToYieldsToExhaustedBudget"
         ],

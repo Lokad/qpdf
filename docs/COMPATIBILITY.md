@@ -24,6 +24,13 @@ to generalized decoding and compression; typed selection preserves opaque stream
 encodings. Compression/decode setters apply in configuration order; QDF fills
 unset defaults. These distinctions are part of the supported contract.
 
+Page-range exclusions now apply only to the preceding positive range group,
+matching native qpdf. For example, `1-3,1-3,x2` selects `1,2,3,1,3`; earlier
+groups are retained. Consecutive exclusions remain in the latest positive group,
+duplicates keep their order, and odd/even filters apply to the completed selection.
+This corrects page selection, repeated relative rotation and placement to/from/
+repeat semantics. Endpoint validation, entry ceilings and cancellation stay binding.
+
 Nesting and container exhaustion now uses `QpdfLimitException` through reading,
 copying and presentation, rather than `QpdfParseException`. Rewriting reports
 `BudgetExceeded` and fails before publication; it no longer drops retained Info,

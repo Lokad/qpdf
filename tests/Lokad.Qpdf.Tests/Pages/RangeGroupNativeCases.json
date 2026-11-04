@@ -1,0 +1,1270 @@
+{
+  "reference": "qpdf 12.4.2",
+  "retainedControlSha256": "1ed30bd64edea7290dcfe371a34a935ae04c7d639f7fa36f030e07f456486a25",
+  "ranges": [
+    {
+      "range": "1-3,1-3,x2",
+      "pages": [
+        1,
+        2,
+        3,
+        1,
+        3
+      ]
+    },
+    {
+      "range": "1-3,2-4,x3",
+      "pages": [
+        1,
+        2,
+        3,
+        2,
+        4
+      ]
+    },
+    {
+      "range": "1,2,x1",
+      "pages": [
+        1,
+        2
+      ]
+    },
+    {
+      "range": "1-5,x2,x4",
+      "pages": [
+        1,
+        3,
+        5
+      ]
+    },
+    {
+      "range": "5-1,2-4,x3",
+      "pages": [
+        5,
+        4,
+        3,
+        2,
+        1,
+        2,
+        4
+      ]
+    },
+    {
+      "range": "1-3,2-4,x3,5:odd",
+      "pages": [
+        1,
+        3,
+        4
+      ]
+    },
+    {
+      "range": "1-3,2-4,x3,5:even",
+      "pages": [
+        2,
+        2,
+        5
+      ]
+    },
+    {
+      "range": "1,1,x1,2",
+      "pages": [
+        1,
+        2
+      ]
+    },
+    {
+      "range": "1-3,x2,3-5,x4",
+      "pages": [
+        1,
+        3,
+        3,
+        5
+      ]
+    },
+    {
+      "range": "1-3,2-4,xr3",
+      "pages": [
+        1,
+        2,
+        3,
+        2,
+        4
+      ]
+    },
+    {
+      "range": "1-3,2-4,x2-3",
+      "pages": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "range": "1-3,2-4,x3,5",
+      "pages": [
+        1,
+        2,
+        3,
+        2,
+        4,
+        5
+      ]
+    },
+    {
+      "range": "1-z",
+      "pages": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "range": "z-1",
+      "pages": [
+        5,
+        4,
+        3,
+        2,
+        1
+      ]
+    },
+    {
+      "range": "1-z:odd",
+      "pages": [
+        1,
+        3,
+        5
+      ]
+    },
+    {
+      "range": "1-z:even",
+      "pages": [
+        2,
+        4
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "range": "1-3,1-3,x2",
+      "mode": "select",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        },
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        }
+      ]
+    },
+    {
+      "range": "1-3,1-3,x2",
+      "mode": "rotate",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 180,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 90,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 180,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-4"
+          ]
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-5"
+          ]
+        }
+      ]
+    },
+    {
+      "range": "1-3,1-3,x2",
+      "mode": "to",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1",
+            "u:https://example.test/page-4"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3",
+            "u:https://example.test/page-5"
+          ]
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": []
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": []
+        }
+      ]
+    },
+    {
+      "range": "1-3,1-3,x2",
+      "mode": "from",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        }
+      ]
+    },
+    {
+      "range": "1-3,1-3,x2",
+      "mode": "repeat",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        }
+      ]
+    },
+    {
+      "range": "1,2,x1",
+      "mode": "select",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        }
+      ]
+    },
+    {
+      "range": "1,2,x1",
+      "mode": "rotate",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 90,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 90,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-4"
+          ]
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-5"
+          ]
+        }
+      ]
+    },
+    {
+      "range": "1,2,x1",
+      "mode": "to",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": []
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": []
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": []
+        }
+      ]
+    },
+    {
+      "range": "1,2,x1",
+      "mode": "from",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": []
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": []
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": []
+        }
+      ]
+    },
+    {
+      "range": "1,2,x1",
+      "mode": "repeat",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        }
+      ]
+    },
+    {
+      "range": "1-5,x2,x4",
+      "mode": "select",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-5"
+          ]
+        }
+      ]
+    },
+    {
+      "range": "1-5,x2,x4",
+      "mode": "rotate",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 90,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 90,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-4"
+          ]
+        },
+        {
+          "index": 5,
+          "rotation": 90,
+          "uris": [
+            "u:https://example.test/page-5"
+          ]
+        }
+      ]
+    },
+    {
+      "range": "1-5,x2,x4",
+      "mode": "to",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": []
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": []
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        }
+      ]
+    },
+    {
+      "range": "1-5,x2,x4",
+      "mode": "from",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-5"
+          ]
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": []
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": []
+        }
+      ]
+    },
+    {
+      "range": "1-5,x2,x4",
+      "mode": "repeat",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-5"
+          ]
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        }
+      ]
+    },
+    {
+      "range": "1-3,2-4,x3,5:odd",
+      "mode": "select",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-4"
+          ]
+        }
+      ]
+    },
+    {
+      "range": "1-3,2-4,x3,5:odd",
+      "mode": "rotate",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 90,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 90,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        },
+        {
+          "index": 4,
+          "rotation": 90,
+          "uris": [
+            "u:https://example.test/page-4"
+          ]
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-5"
+          ]
+        }
+      ]
+    },
+    {
+      "range": "1-3,2-4,x3,5:odd",
+      "mode": "to",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": []
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": []
+        }
+      ]
+    },
+    {
+      "range": "1-3,2-4,x3,5:odd",
+      "mode": "from",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-4"
+          ]
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": []
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": []
+        }
+      ]
+    },
+    {
+      "range": "1-3,2-4,x3,5:odd",
+      "mode": "repeat",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-4"
+          ]
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        }
+      ]
+    },
+    {
+      "range": "1,1,x1,2",
+      "mode": "select",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        }
+      ]
+    },
+    {
+      "range": "1,1,x1,2",
+      "mode": "rotate",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 90,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 90,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-4"
+          ]
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-5"
+          ]
+        }
+      ]
+    },
+    {
+      "range": "1,1,x1,2",
+      "mode": "to",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": []
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": []
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": []
+        }
+      ]
+    },
+    {
+      "range": "1,1,x1,2",
+      "mode": "from",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": []
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": []
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": []
+        }
+      ]
+    },
+    {
+      "range": "1,1,x1,2",
+      "mode": "repeat",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        }
+      ]
+    },
+    {
+      "range": "1-z",
+      "mode": "select",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-4"
+          ]
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-5"
+          ]
+        }
+      ]
+    },
+    {
+      "range": "1-z",
+      "mode": "rotate",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 90,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 90,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 90,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        },
+        {
+          "index": 4,
+          "rotation": 90,
+          "uris": [
+            "u:https://example.test/page-4"
+          ]
+        },
+        {
+          "index": 5,
+          "rotation": 90,
+          "uris": [
+            "u:https://example.test/page-5"
+          ]
+        }
+      ]
+    },
+    {
+      "range": "1-z",
+      "mode": "to",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-4"
+          ]
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-5"
+          ]
+        }
+      ]
+    },
+    {
+      "range": "1-z",
+      "mode": "from",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-4"
+          ]
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-5"
+          ]
+        }
+      ]
+    },
+    {
+      "range": "1-z",
+      "mode": "repeat",
+      "expected": [
+        {
+          "index": 1,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-1"
+          ]
+        },
+        {
+          "index": 2,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-2"
+          ]
+        },
+        {
+          "index": 3,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-3"
+          ]
+        },
+        {
+          "index": 4,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-4"
+          ]
+        },
+        {
+          "index": 5,
+          "rotation": 0,
+          "uris": [
+            "u:https://example.test/page-5"
+          ]
+        }
+      ]
+    }
+  ]
+}
