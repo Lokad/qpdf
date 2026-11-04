@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
@@ -77,7 +78,7 @@ public sealed class InlineChunkOwnershipTests
         PdfStream indirect = new(Dictionary(("Filter", new PdfReference(7, 0))), "AB>"u8.ToArray());
         Assert.Throws<OperationCanceledException>(() => chunks.TryAdd(indirect, resolver, QpdfLimits.Default));
         Assert.Equal(1, pool.Visits); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
-        Assert.Same(first.AllocationCarrier, Assert.Single(chunks.Parts)); chunks.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.True(first.RawMemory.Equals(Assert.Single(chunks.Parts))); chunks.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     private static object Field(object owner, string name) => owner.GetType().GetField(name, BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(owner)
@@ -90,7 +91,8 @@ public sealed class InlineChunkOwnershipTests
         PdfStream borrowed = new(Dictionary(), new byte[32768]); Assert.True(owner.TryAdd(borrowed, resolver, QpdfLimits.Default));
         PdfStream encoded = new(Dictionary(("Filter", PdfName.FromAscii("ASCIIHexDecode"))), "6669727374>"u8.ToArray());
         Assert.True(owner.TryAdd(encoded, resolver, QpdfLimits.Default));
-        WeakReference[] witnesses = [new(governor), new(source), new(Field(owner, "_memory")), new(Field(owner, "_parts")), new(owner.Parts[1])];
+        Assert.True(MemoryMarshal.TryGetArray(owner.Parts[1], out ArraySegment<byte> payload));
+        WeakReference[] witnesses = [new(governor), new(source), new(Field(owner, "_memory")), new(Field(owner, "_parts")), new(payload.Array ?? throw new InvalidOperationException("Missing decoded array"))];
         owner.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); return (owner, borrowed, witnesses);
     }
     [Fact]

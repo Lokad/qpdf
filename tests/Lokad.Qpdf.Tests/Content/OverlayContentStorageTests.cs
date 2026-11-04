@@ -22,7 +22,7 @@ public sealed class OverlayContentStorageTests
     }
 
     [Fact]
-    public void RawChunksBorrowFullArraysAndAdmitSliceAdaptersBeforeCopying()
+    public void RawChunksBorrowFullArraysAndSlicesUntilAnAdmittedJoin()
     {
         byte[] payload = new byte[8 * 1024 * 1024];
         PdfDictionary header = new(new Dictionary<PdfName, QpdfObject>());
@@ -32,10 +32,12 @@ public sealed class OverlayContentStorageTests
         using AnalysisChunks chunks = AnalysisChunks.Create(governor, CancellationToken.None);
         PoolResolver resolver = new(new Dictionary<int, QpdfObject>());
         Assert.True(chunks.TryAdd(full, resolver, QpdfLimits.Default));
-        Assert.Same(payload, Assert.Single(chunks.Parts));
+        Assert.True(full.RawMemory.Equals(Assert.Single(chunks.Parts)));
         long baseline = governor.Snapshot().LiveMemoryBytes;
         long allocated = GC.GetAllocatedBytesForCurrentThread();
-        Assert.Throws<QpdfLimitException>(() => chunks.TryAdd(slice, resolver, QpdfLimits.Default));
+        Assert.True(chunks.TryAdd(slice, resolver, QpdfLimits.Default));
+        Assert.True(slice.RawMemory.Equals(chunks.Parts[1]));
+        Assert.Throws<QpdfLimitException>(() => chunks.Join());
         Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < payload.Length);
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }

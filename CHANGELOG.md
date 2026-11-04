@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Check and normalize one logical page program across physical content streams,
+  preserving split inline-image context and opaque samples. Normalization retains
+  part count and independent original aliases; unreadable programs keep all their
+  parts. Check details now count page programs rather than individual streams.
+  Borrow immutable raw slices until joining, avoiding a payload copy for each part;
+  retain decoded ownership transfers and independent final buffers.
+
 - Ignore row geometry when `Predictor` is absent or 1, restoring usable Flate/LZW
   data in metadata, attachments and pages. Keep LZW `EarlyChange` independent;
   active predictor metadata now validates in fixed parameter order.

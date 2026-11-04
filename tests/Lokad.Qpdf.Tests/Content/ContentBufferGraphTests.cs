@@ -36,13 +36,13 @@ public sealed class ContentBufferGraphTests
         using ContentEntries entries = Entries(construction, Stream("", []), Stream("ASCIIHexDecode", "q\n"u8.ToArray()), Stream("", []), Stream("FlateDecode", "Q"u8.ToArray()));
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         PdfStream output = Assert.IsType<PdfStream>(Join(entries, Resolver(), new(true, false, compress, 9, false, 0L), QpdfLimits.Default, governor, CancellationToken.None));
-        byte[] actual = output.Data;
+        ReadOnlyMemory<byte> actual = output.RawMemory;
         if (compress)
         {
             using ParserMemoryScope decoded = ParserMemoryScope.Create(construction);
             Assert.True(AnalysisChunks.TryDecode(output, Resolver(), QpdfLimits.Default, construction, decoded, CancellationToken.None, out actual, out _));
         }
-        Assert.Equal("\nq\n\nQ"u8.ToArray(), actual);
+        Assert.Equal("\nq\n\nQ"u8.ToArray(), actual.ToArray());
         Assert.Equal(compress ? 1 : 0, output.Dictionary.Count); Assert.True(governor.Snapshot().LiveMemoryBytes > output.RawMemory.Length);
         GC.KeepAlive(output);
     }

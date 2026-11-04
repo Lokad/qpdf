@@ -6,13 +6,13 @@ namespace Lokad.Qpdf.Tests.Content;
 
 public sealed class ContentJoinTests
 {
-    private static (ReadOnlyMemory<byte> Bytes, IDisposable Owner) Join(List<byte[]> parts, ResourceGovernor governor, CancellationToken token)
+    private static (ReadOnlyMemory<byte> Bytes, IDisposable Owner) Join(List<ReadOnlyMemory<byte>> parts, ResourceGovernor governor, CancellationToken token)
     {
         JoinedContent owner = JoinedContent.Create(parts, governor, token);
         return (owner.Bytes, owner);
     }
 
-    private static List<byte[]> Parts(params string[] parts) => parts.Select(Encoding.Latin1.GetBytes).ToList();
+    private static List<ReadOnlyMemory<byte>> Parts(params string[] parts) => parts.Select(part => (ReadOnlyMemory<byte>)Encoding.Latin1.GetBytes(part)).ToList();
 
     [Theory]
     [InlineData("", new string[0])]
@@ -40,7 +40,7 @@ public sealed class ContentJoinTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
-        long live = governor.Snapshot().LiveMemoryBytes; List<byte[]> parts = Parts("a", "b");
+        long live = governor.Snapshot().LiveMemoryBytes; List<ReadOnlyMemory<byte>> parts = Parts("a", "b");
         var joined = Join(parts, governor, CancellationToken.None);
         Assert.True(governor.Snapshot().LiveMemoryBytes >= live + 3L);
         Assert.Equal("a\nb"u8.ToArray(), joined.Bytes.ToArray());
@@ -53,7 +53,7 @@ public sealed class ContentJoinTests
     public void RepeatedAnalysesFitOneFiniteBufferBudget()
     {
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 32768L }, CancellationToken.None);
-        List<byte[]> parts = [new byte[16384]];
+        List<ReadOnlyMemory<byte>> parts = [new byte[16384]];
         for (int cycle = 0; cycle < 32; cycle++)
         {
             var joined = Join(parts, governor, CancellationToken.None);

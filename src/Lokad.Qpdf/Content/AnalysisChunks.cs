@@ -6,17 +6,17 @@ using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Content;
 
-/// <summary>Owns decoded/materialized chunks and list storage; complete raw arrays stay borrowed.</summary>
+/// <summary>Owns decoded chunks and list storage; immutable raw payloads stay borrowed until joining.</summary>
 internal sealed class AnalysisChunks : IDisposable
 {
     private ParserMemoryScope? _memory;
     private ResourceGovernor? _governor;
-    private List<byte[]>? _parts;
+    private List<ReadOnlyMemory<byte>>? _parts;
     private CancellationToken _token;
     private bool _ownsSinglePart;
 
     private AnalysisChunks(ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
-    { _memory = memory; _governor = governor; _token = token; _parts = ParserContainers.CreateList<byte[]>(memory); }
+    { _memory = memory; _governor = governor; _token = token; _parts = ParserContainers.CreateList<ReadOnlyMemory<byte>>(memory); }
 
     internal static AnalysisChunks Create(ResourceGovernor governor, CancellationToken token)
     {
@@ -25,24 +25,42 @@ internal sealed class AnalysisChunks : IDisposable
         catch { memory.Dispose(); throw; }
     }
     // Borrowed only while this owner is alive; joining uses indexed reads.
-    internal IReadOnlyList<byte[]> Parts => _parts ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
+    internal IReadOnlyList<ReadOnlyMemory<byte>> Parts => _parts ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
     internal bool TryAdd(PdfStream stream, IIndirectResolver resolver, QpdfLimits limits)
     {
         ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
         ResourceGovernor governor = _governor ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
-        long before = memory.ReservedBytes; // A raw slice may also materialize under this owner.
-        if (!TryDecode(stream, resolver, limits, governor, memory, _token, out byte[] bytes, out bool decoded))
+        if (!TryDecode(stream, resolver, limits, governor, memory, _token, out ReadOnlyMemory<byte> bytes, out bool decoded))
         { return false; }
-        Append(bytes, decoded || memory.ReservedBytes > before); return true;
+        Append(bytes, decoded); return true;
+    }
+
+    // The decoder's temporary scope owns a complete decoded array, or nothing
+    // when it borrowed immutable raw memory. Transfer only that payload;
+    // the decoder can retire any other scratch when its scope closes.
+    internal void Add(ReadOnlyMemory<byte> bytes, ParserMemoryScope source)
+    {
+        ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
+        ResourceGovernor governor = _governor ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
+        source.CheckOwner(governor); _token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        bool owned = bytes.Length != 0 && source.ReservedBytes != 0L;
+        long allocation = owned ? checked((long)bytes.Length + GovernedBufferStream.ArrayOverheadBytes) : 0L;
+        if (owned) { source.TransferTo(memory, allocation); }
+        try
+        {
+            Append(bytes, false);
+            _ownsSinglePart = Parts.Count == 1 && owned;
+        }
+        catch { if (owned) { memory.TransferTo(source, allocation); } throw; }
     }
 
     // Joining consumes this owner only on success. Move a sole owned payload;
-    // borrowed arrays still need an independent copy before their source closes.
+    // borrowed memory still needs an independent copy before its source closes.
     internal JoinedContent Join()
     {
         ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
         ResourceGovernor governor = _governor ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
-        List<byte[]> parts = _parts ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
+        List<ReadOnlyMemory<byte>> parts = _parts ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
         _token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         JoinedContent joined = _ownsSinglePart
             ? JoinedContent.TakeOwned(parts[0], memory, governor, _token)
@@ -53,10 +71,10 @@ internal sealed class AnalysisChunks : IDisposable
 
     internal static bool TryDecode(PdfStream stream, IIndirectResolver resolver, QpdfLimits limits,
         ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token,
-        out byte[] bytes, out bool decoded)
+        out ReadOnlyMemory<byte> bytes, out bool decoded)
     {
         memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        bytes = Array.Empty<byte>(); decoded = false;
+        bytes = ReadOnlyMemory<byte>.Empty; decoded = false;
         if (FilterChain.HasExternalData(stream, resolver, governor, token)) { return false; }
         FilterPlan stages;
         try { stages = FilterChain.ResolveScoped(stream.Dictionary, resolver, governor, token); }
@@ -64,17 +82,17 @@ internal sealed class AnalysisChunks : IDisposable
         using FilterPlan stageOwner = stages;
         if (!FilterChain.AllStagesInLevel(stages, "specialized")) { return false; }
         // Only unfiltered or successfully decoded bytes may be interpreted as content.
-        byte[] raw = stream.ArrayData(memory, governor, token);
-        try { bytes = stages.Count == 0 ? raw : FilterChain.Decode(raw, stages, limits, governor, memory, token); }
+        if (stages.Count == 0) { bytes = stream.RawMemory; return true; }
+        try { bytes = FilterChain.Decode(stream.ArrayData(memory, governor, token), stages, limits, governor, memory, token); }
         catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException)) { return false; }
-        decoded = stages.Count != 0; return true;
+        decoded = true; return true;
     }
 
-    private void Append(byte[] decoded, bool owned)
+    private void Append(ReadOnlyMemory<byte> decoded, bool owned)
     {
         ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
         ResourceGovernor governor = _governor ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
-        List<byte[]> parts = _parts ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
+        List<ReadOnlyMemory<byte>> parts = _parts ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
         try
         {
             _token.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -83,7 +101,7 @@ internal sealed class AnalysisChunks : IDisposable
                 governor.NoteOperation();
                 _token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             }
-            ParserContainers.AddItem(memory, parts, decoded, IntPtr.Size);
+            ParserContainers.AddItem(memory, parts, decoded, 16L);
             _ownsSinglePart = parts.Count == 1 && owned && decoded.Length != 0;
         }
         catch
@@ -91,7 +109,7 @@ internal sealed class AnalysisChunks : IDisposable
             if (owned && decoded.Length != 0)
             {
                 long bytes = decoded.Length + GovernedBufferStream.ArrayOverheadBytes;
-                decoded = Array.Empty<byte>(); memory.Release(bytes);
+                decoded = ReadOnlyMemory<byte>.Empty; memory.Release(bytes);
             }
             throw;
         }

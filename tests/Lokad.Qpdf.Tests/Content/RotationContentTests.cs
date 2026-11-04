@@ -31,7 +31,7 @@ public sealed class RotationContentTests
         QpdfCheckOutcome content = Assert.Single(result.Checks, c => c.Name == "page-content");
         Assert.Equal(malformed ? QpdfCheckStatus.Failed : QpdfCheckStatus.Passed, content.Status);
         Assert.Equal(!malformed, result.Passed);
-        Assert.Contains(malformed ? "Unterminated string" : "2 content streams tokenized, 0 skipped", content.Detail);
+        Assert.Contains(malformed ? "Unterminated string" : "1 page programs tokenized, 0 skipped", content.Detail);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 

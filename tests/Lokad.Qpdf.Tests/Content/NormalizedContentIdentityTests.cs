@@ -126,35 +126,40 @@ public sealed class NormalizedContentIdentityTests
     }
 
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(false, true)]
-    [InlineData(true, false)]
-    [InlineData(true, true)]
-    public async Task SkippedSharedStreamsWarnOnceAndKeepTheirBytes(bool filter, bool job)
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, true)]
+    public async Task SkippedPageProgramsKeepAllPartsAndShareOriginalStreams(bool filter, bool job, bool sharedArray)
     {
         byte[] damaged = "("u8.ToArray(); byte[] good = "q \r\nQ\r\n"u8.ToArray();
         byte[] source = CheckTests.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Keep 4 0 R >>", null),
             (2, "<< /Type /Pages /Count 2 /Kids [3 0 R 5 0 R] >>", null),
-            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << >> /Contents [4 0 R 6 0 R] >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << >> /Contents " + (sharedArray ? "7 0 R" : "[4 0 R 6 0 R]") + " >>", null),
             (4, "<< /Length 1 " + (filter ? "/Filter /Unknown" : "") + " >>", damaged),
-            (5, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << >> /Contents [4 0 R 6 0 R] >>", null),
-            (6, "<< /Length " + good.Length + " >>", good)], 1);
+            (5, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << >> /Contents " + (sharedArray ? "7 0 R" : "[4 0 R 6 0 R]") + " >>", null),
+            (6, "<< /Length " + good.Length + " >>", good), (7, "[4 0 R 6 0 R]", null)], 1);
         using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), source, QpdfInputOwnership.Copy);
         QpdfExecutionResult result = job ? await Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","normalizeContent":"y","streamData":"preserve","compressStreams":"n","removeUnreferencedResources":"no"}""", CancellationToken.None)
             : await Qpdf.ExecuteAsync(host, new(["input", "--normalize-content=y", "--stream-data=preserve", "--compress-streams=n", "--remove-unreferenced-resources=no", "output"]), CancellationToken.None);
-        Assert.Equal(QpdfExitCode.Warning, result.ExitCode); Assert.Single(result.Diagnostics);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode); Assert.Equal(sharedArray ? 1 : 2, result.Diagnostics.Count);
         Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output)); host.AddInput(QpdfPath.From("read"), output, QpdfInputOwnership.Copy);
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("read"), CancellationToken.None);
         PdfReference? first = null, second = null;
         foreach (var page in document.PageReferences)
         {
-            Assert.True(page.Page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject raw)); PdfArray entries = Assert.IsType<PdfArray>(raw);
+            Assert.True(page.Page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject raw));
+            PdfArray entries = Assert.IsType<PdfArray>(raw is PdfReference link ? document.GetObject(link.ObjectNumber) : raw);
             PdfReference bad = Assert.IsType<PdfReference>(entries[0]), normalized = Assert.IsType<PdfReference>(entries[1]);
             if (first is not null) { Assert.Equal(first, bad); Assert.Equal(second, normalized); }
             first = bad; second = normalized;
             Assert.Equal(damaged, Assert.IsType<PdfStream>(document.GetObject(bad.ObjectNumber)).RawMemory.ToArray());
-            Assert.Equal("q \nQ\n"u8.ToArray(), Assert.IsType<PdfStream>(document.GetObject(normalized.ObjectNumber)).RawMemory.ToArray());
+            Assert.Equal(good, Assert.IsType<PdfStream>(document.GetObject(normalized.ObjectNumber)).RawMemory.ToArray());
         }
     }
 
@@ -180,14 +185,20 @@ public sealed class NormalizedContentIdentityTests
     }
 
     [Theory]
-    [InlineData("write")]
-    [InlineData("commit")]
-    [InlineData("cancel")]
-    [InlineData("local")]
-    [InlineData("shared")]
-    public async Task NormalizationFailuresPreserveTargetsAndRefundStorage(string phase)
+    [InlineData("write", false)]
+    [InlineData("commit", false)]
+    [InlineData("cancel", false)]
+    [InlineData("local", false)]
+    [InlineData("shared", false)]
+    [InlineData("write", true)]
+    [InlineData("commit", true)]
+    [InlineData("cancel", true)]
+    [InlineData("local", true)]
+    [InlineData("shared", true)]
+    public async Task NormalizationFailuresPreserveTargetsAndRefundStorage(string phase, bool fragmented)
     {
-        using InMemoryQpdfHost storage = new(); storage.AddInput(QpdfPath.From("input"), Fixture("repeat", true), QpdfInputOwnership.Copy);
+        using InMemoryQpdfHost storage = new();
+        storage.AddInput(QpdfPath.From("input"), fragmented ? LogicalContentPartitionTests.Fixture("dictionary", true, true, true).Bytes : Fixture("repeat", true), QpdfInputOwnership.Copy);
         await using (IQpdfOutputTransaction prior = await storage.CreateOutputAsync(QpdfPath.From("output"), CancellationToken.None))
         { await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None); await prior.CommitAsync(CancellationToken.None); }
         RecordingMemoryBudget root = new(phase == "shared" ? 8192 : 16777216); using CancellationTokenSource cancellation = new();

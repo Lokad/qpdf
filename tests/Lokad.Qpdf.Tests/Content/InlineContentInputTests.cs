@@ -13,7 +13,7 @@ public sealed class InlineContentInputTests
     private static AnalysisChunks? Collect(GraphCopier copier, PdfDictionary page, QpdfLimits limits,
         ResourceGovernor governor, CancellationToken token)
         => InlineImages.CollectDecodedContents(copier, page, limits, governor, token);
-    private static IReadOnlyList<byte[]> Parts(object owner) => ((AnalysisChunks)owner).Parts;
+    private static IReadOnlyList<ReadOnlyMemory<byte>> Parts(object owner) => ((AnalysisChunks)owner).Parts;
     private static void Close(object? owner) => (owner as AnalysisChunks)?.Dispose();
     private static PdfDictionary Dictionary(params (string Key, QpdfObject Value)[] entries) => DecoderOwnershipFixtures.Dictionary(entries);
     private static PdfStream Stream(string filter, byte[] raw)
@@ -72,12 +72,12 @@ public sealed class InlineContentInputTests
         object? owner = Collect(prepared.Copier, page, QpdfLimits.Default, governor, CancellationToken.None);
         try
         {
-            Assert.NotNull(owner); IReadOnlyList<byte[]> parts = Parts(owner); Assert.Equal(3, parts.Count);
-            foreach (byte[] part in parts)
+            Assert.NotNull(owner); IReadOnlyList<ReadOnlyMemory<byte>> parts = Parts(owner); Assert.Equal(3, parts.Count);
+            foreach (ReadOnlyMemory<byte> part in parts)
             {
-                Assert.Equal(raw, part);
-                if (filter is "" or "DCTDecode" or "UnknownFilter" or "bad-plan") { Assert.Same(stream.AllocationCarrier, part); }
-                else { Assert.NotSame(stream.AllocationCarrier, part); }
+                Assert.Equal(raw, part.ToArray());
+                if (filter is "" or "DCTDecode" or "UnknownFilter" or "bad-plan") { Assert.True(stream.RawMemory.Equals(part)); }
+                else { Assert.False(stream.RawMemory.Equals(part)); }
             }
             using JoinedContent joined = JoinedContent.Create(parts, governor, CancellationToken.None);
             Close(owner); owner = null;

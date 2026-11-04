@@ -45,7 +45,7 @@ public sealed class FilterPlanPipelineTests
         else
         {
             (object? bytes, bool aboveLevel) = Decode(new PdfDictionary(entries), limits, governor);
-            if (kind == "empty") { Assert.Equal(new byte[] { 7 }, Assert.IsType<byte[]>(bytes)); Assert.False(aboveLevel); }
+            if (kind == "empty") { Assert.Equal(new byte[] { 7 }, Assert.IsType<ReadOnlyMemory<byte>>(bytes).ToArray()); Assert.False(aboveLevel); }
             else { Assert.Null(bytes); Assert.True(aboveLevel); }
         }
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);

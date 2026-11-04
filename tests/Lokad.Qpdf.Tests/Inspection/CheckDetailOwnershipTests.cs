@@ -127,17 +127,19 @@ public sealed class CheckDetailOwnershipTests
     [Fact]
     public async Task PageContentFailureDetailsKeepTheirOrderAndEightFailureLimit()
     {
-        List<(int Number, string Dict, byte[]? StreamData)> objects = CheckTests.SinglePage("<< /Length 1 >>", Encoding.ASCII.GetBytes("("));
-        string references = "4 0 R " + string.Join(" ", Enumerable.Range(6, 11).Select(number => number + " 0 R"));
-        objects[2] = (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents [" + references + "] >>", null);
-        for (int number = 6; number < 17; number++) { objects.Add((number, "<< /Length 1 >>", Encoding.ASCII.GetBytes("("))); }
+        List<(int Number, string Dict, byte[]? StreamData)> objects = [
+            (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
+            (2, "<< /Type /Pages /Count 12 /Kids [" + string.Join(" ", Enumerable.Range(3, 12).Select(number => number + " 0 R")) + "] >>", null)];
+        for (int number = 3; number < 15; number++)
+        { objects.Add((number, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 15 0 R >>", null)); }
+        objects.Add((15, "<< /Length 1 >>", Encoding.ASCII.GetBytes("(")));
         InMemoryQpdfHost host = new();
         QpdfPath path = QpdfPath.From("damaged-content.pdf");
         host.AddInput(path, CheckTests.Assemble(objects, 1), QpdfInputOwnership.Copy);
         QpdfCheckResult result = await Qpdf.CheckAsync(host, path, CancellationToken.None);
         QpdfCheckOutcome outcome = Assert.Single(result.Checks, check => check.Name == "page-content");
         Assert.Equal(QpdfCheckStatus.Failed, outcome.Status);
-        Assert.Equal(string.Join(" ", Enumerable.Repeat("Page 1 content: Unterminated string in content stream. (offset 0).", 8)), outcome.Detail);
+        Assert.Equal(string.Join(" ", Enumerable.Range(1, 8).Select(number => "Page " + number + " content: Unterminated string in content stream. (offset 0).")), outcome.Detail);
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.CheckFailed
             && diagnostic.Message == "Check 'page-content' failed: " + outcome.Detail);
         Assert.Equal(0L, host.OpenLeaseCount);

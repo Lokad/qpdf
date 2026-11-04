@@ -23,7 +23,7 @@ public sealed class JoinedContentOwnershipTests
     public void EmptyAnalysisOwnsNoArrayAndDisposalIsIdempotent()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        JoinedContent joined = JoinedContent.Create(Array.Empty<byte[]>(), governor, CancellationToken.None);
+        JoinedContent joined = JoinedContent.Create(Array.Empty<ReadOnlyMemory<byte>>(), governor, CancellationToken.None);
         Assert.True(joined.Bytes.IsEmpty); Assert.Equal(96L, governor.Snapshot().LiveMemoryBytes);
         joined.Dispose(); joined.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.Throws<ObjectDisposedException>(() => joined.Bytes);
@@ -38,18 +38,18 @@ public sealed class JoinedContentOwnershipTests
         Assert.Equal(131L, governor.Snapshot().LiveMemoryBytes);
     }
 
-    private sealed class ObservedParts : IReadOnlyList<byte[]>
+    private sealed class ObservedParts : IReadOnlyList<ReadOnlyMemory<byte>>
     {
-        private readonly byte[][] _parts;
+        private readonly ReadOnlyMemory<byte>[] _parts;
         private readonly Action _observe;
         private int _visits;
-        internal ObservedParts(byte[][] parts, Action observe) { _parts = parts; _observe = observe; }
+        internal ObservedParts(ReadOnlyMemory<byte>[] parts, Action observe) { _parts = parts; _observe = observe; }
         public int Count => _parts.Length;
-        public byte[] this[int index]
+        public ReadOnlyMemory<byte> this[int index]
         {
             get { if (++_visits == 3) { _observe(); } return _parts[index]; }
         }
-        public IEnumerator<byte[]> GetEnumerator() => ((IEnumerable<byte[]>)_parts).GetEnumerator();
+        public IEnumerator<ReadOnlyMemory<byte>> GetEnumerator() => ((IEnumerable<ReadOnlyMemory<byte>>)_parts).GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 

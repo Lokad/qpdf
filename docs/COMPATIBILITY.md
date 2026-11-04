@@ -24,6 +24,18 @@ to generalized decoding and compression; typed selection preserves opaque stream
 encodings. Compression/decode setters apply in configuration order; QDF fills
 unset defaults. These distinctions are part of the supported contract.
 
+Checking and normalization now interpret a page's Contents array as one logical
+program. Legal inline-image headers and tokens can span physical streams without
+false errors or partial normalization. Normalization retains the part count and
+original independently rooted values; a complete token/inline packet can move to
+its starting part, leaving a later part empty. If any required fragment is unreadable,
+the whole program stays unchanged with a normalization warning or reports skipped
+checking coverage. Content errors still fail checking. Content-check details count
+page programs instead of streams; normalization warnings are memoized per logical
+source/context. Distinct arrays can therefore report separate warnings even when
+they reference the same damaged stream. Structural, decoding and memory limits,
+cancellation and transactional output remain binding.
+
 Repeated page-source groups now use one source document per logical path and
 register their selected page union before copying. Equivalent combined and
 repeated groups retain the same selected-target links and metadata/attachment

@@ -136,9 +136,16 @@ to the same immutable array without changing that array. Inline externalization
 also retires original content from final roots after creating new stream identities;
 there is no per-page pool-removal plan or source-map mutation. Content
 normalization replaces page edges and keeps an original stream or array
-for independent catalog, metadata or attachment roots. Its existing per-operation
-cache shares replacements while the source pool version matches, including cached
-failed attempts. Image optimization and Form inline conversion likewise gather
+for independent catalog, metadata or attachment roots. Checking and normalization
+use the existing joiner to interpret one logical page program. Normalization keeps
+the physical part count; complete tokens and inline packets remain with their
+starting part. An unreadable program keeps all original parts with a warning.
+Chunk metadata borrows immutable raw slices while the source reader lives;
+only actual filters require array adapters. Joining copies borrowed payloads once
+and transfers a sole decoded array, retaining admission and rollback at both boundaries.
+The operation's identity memo borrows immutable source streams/arrays; independent
+fragments share replacements, while dependent fragments require their whole array.
+Named inline colorspace framing also requires the matching resources. Image optimization and Form inline conversion likewise gather
 replacements
 without changing original stream slots. The existing form walk redirects resource
 edges and affected ancestor Forms, registering new identities before rebuilding

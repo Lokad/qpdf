@@ -415,8 +415,11 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
   Undefined typed decode levels throw `ArgumentOutOfRangeException` before host
   access; `None` intentionally disables stream decoding and reports skipped stages.
 - Skipped stages stay visible with reasons and never pass silently; failures
-  carry capped per-object detail. Page content tokenizes content streams
-  (decode-level gated) instead of skipping; linearization
+  carry capped per-object detail. Page content tokenizes each complete logical
+  page program across its physical streams, subject to the decode level. If a
+  required fragment is unavailable, the whole program reports skipped coverage;
+  readable fragments are not inspected as independent programs. Content-check
+  detail counts page programs rather than physical streams. Linearization
   passes when absent and validates dictionaries, hint streams, and
   bit-level hint tables when present. Hint filters use the shared resolver for
   names, arrays and indirect values; the supported domain remains raw or a single
@@ -547,12 +550,18 @@ Numbers are normalized lexically under the existing cancellation/output bounds.
   page/catalog references; unreferenced originals are retired after root assembly
   unless `--preserve-unreferenced` applies.
   `--normalize-content=y` rewrites newlines to LF and recodes strings
-  and names canonically, keeping damaged streams with a warning.
+  and names canonically across the logical page program. It keeps the physical
+  part count unless another requested transformation coalesces it. A complete
+  token or inline-image packet crossing a boundary remains with its starting
+  part; later parts can become empty. Any unreadable fragment/content error
+  keeps the whole original program with a warning instead of partially normalizing it.
   Physical CR/CRLF within literal strings represent one LF byte; explicit escaped
   CR and octal values stay distinct, and escaped line continuations add no byte.
   It replaces page content edges while independent catalog, metadata and
   attachment roots retain the original stream/array values. Normalized page uses
-  share a replacement while their source stream version stays unchanged. Named
+  share replacements by immutable source identity. Independent fragments can
+  share a stream replacement; context-dependent fragments are memoized with
+  their complete array. Failed attempts are cached per logical source/context. Named
   inline colorspace framing also requires matching resources; independent framing
   continues to share across different page scopes.
 - `--remove-unreferenced-resources` (auto by default, `yes`/`no`) drops

@@ -11,10 +11,10 @@ namespace Lokad.Qpdf.Tests.Content;
 [Collection(nameof(NameTableCollection))]
 public sealed class ContentBufferTests
 {
-    private static (byte[] Data, bool Decoded) Decode(PdfStream stream, ResourceGovernor governor, ParserMemoryScope memory)
+    private static (ReadOnlyMemory<byte> Data, bool Decoded) Decode(PdfStream stream, ResourceGovernor governor, ParserMemoryScope memory)
     {
         Assert.True(AnalysisChunks.TryDecode(stream, new PoolResolver(new Dictionary<int, QpdfObject>()),
-            QpdfLimits.Default, governor, memory, CancellationToken.None, out byte[] bytes, out bool decoded));
+            QpdfLimits.Default, governor, memory, CancellationToken.None, out ReadOnlyMemory<byte> bytes, out bool decoded));
         return (bytes, decoded);
     }
     private static byte[] Normalize(byte[] data, ResourceGovernor governor, ParserMemoryScope memory, long maximum)
@@ -39,9 +39,9 @@ public sealed class ContentBufferTests
         using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
         {
             var decoded = Decode(stream, governor, memory); bool supported = filter is not ("" or "DCTDecode" or "bad-plan");
-            Assert.Equal(supported, decoded.Decoded); Assert.Equal(raw, decoded.Data);
-            if (supported) { Assert.NotSame(stream.AllocationCarrier, decoded.Data); Assert.Equal(raw.Length + 32L, memory.ReservedBytes); }
-            else { Assert.Same(stream.AllocationCarrier, decoded.Data); Assert.Equal(0L, memory.ReservedBytes); }
+            Assert.Equal(supported, decoded.Decoded); Assert.Equal(raw, decoded.Data.ToArray());
+            if (supported) { Assert.False(stream.RawMemory.Equals(decoded.Data)); Assert.Equal(raw.Length + 32L, memory.ReservedBytes); }
+            else { Assert.True(stream.RawMemory.Equals(decoded.Data)); Assert.Equal(0L, memory.ReservedBytes); }
             decoded = default;
         }
         Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(original, stream.Data);
@@ -54,8 +54,8 @@ public sealed class ContentBufferTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         Assert.False(AnalysisChunks.TryDecode(stream, new PoolResolver(new Dictionary<int, QpdfObject>()),
-            QpdfLimits.Default, governor, memory, CancellationToken.None, out byte[] bytes, out bool decoded));
-        Assert.Empty(bytes); Assert.False(decoded); Assert.Equal(0L, memory.ReservedBytes);
+            QpdfLimits.Default, governor, memory, CancellationToken.None, out ReadOnlyMemory<byte> bytes, out bool decoded));
+        Assert.True(bytes.IsEmpty); Assert.False(decoded); Assert.Equal(0L, memory.ReservedBytes);
         Assert.Equal(64L, governor.Snapshot().LiveMemoryBytes); Assert.Equal("ABCG>"u8.ToArray(), stream.Data);
     }
 

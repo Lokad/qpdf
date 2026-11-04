@@ -74,6 +74,8 @@ internal sealed class ContentTokenizer
 
     internal long Position => _position;
 
+    internal bool HasInlineImageHeader => _inlineDictionaryStart >= 0;
+
     internal ReadOnlyMemory<byte> InlineDictionary => _inlineDictionaryStart >= 0 && _position - 2 >= _inlineDictionaryStart
         ? _data.Slice(_inlineDictionaryStart, _position - 2 - _inlineDictionaryStart)
         : throw new QpdfParseException("Inline image data has no BI header.", _position, null);

@@ -9,7 +9,6 @@ internal sealed class ContentEntries : IDisposable
 {
     internal readonly record struct Entry(PdfReference? Reference, int ArrayIndex, PdfStream Stream)
     {
-        internal int? ObjectId => Reference?.ObjectNumber;
         internal QpdfObject Value => Reference is null ? Stream : Reference;
     }
     private ParserMemoryScope? _memory;

@@ -60,7 +60,7 @@ public sealed class ContentPlanTests
         using ContentEntries? entries = ContentTransforms.ReadPageContents(prepared.Copier,
             Dictionary(("Contents", new PdfReference(9, 0))), governor, new(governor), CancellationToken.None);
         Assert.NotNull(entries); Assert.Equal(3, entries.Count);
-        Assert.Equal(7, entries.Get(0).ObjectId); Assert.Null(entries.Get(1).ObjectId); Assert.Equal(7, entries.Get(2).ObjectId);
+        Assert.Equal(7, entries.Get(0).Reference?.ObjectNumber); Assert.Null(entries.Get(1).Reference); Assert.Equal(7, entries.Get(2).Reference?.ObjectNumber);
 
     }
 
@@ -84,7 +84,7 @@ public sealed class ContentPlanTests
             for (int index = 0; index < count; index++)
             {
                 ContentEntries.Entry entry = entries.Get(index); Assert.Same(prepared.Stream, entry.Stream); Assert.Equal(index, entry.ArrayIndex);
-                Assert.Equal(shape == "reference" || shape == "mixed" && index == 1 ? 7 : (int?)null, entry.ObjectId);
+                Assert.Equal(shape == "reference" || shape == "mixed" && index == 1 ? 7 : (int?)null, entry.Reference?.ObjectNumber);
             }
             Assert.Equal(1, page.Count);
         }

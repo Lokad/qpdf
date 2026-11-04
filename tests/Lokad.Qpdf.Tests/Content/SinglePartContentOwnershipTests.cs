@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
@@ -24,7 +25,6 @@ public sealed class SinglePartContentOwnershipTests
     }
 
     [Theory]
-    [InlineData("slice")]
     [InlineData("decoded")]
     [InlineData("decoded-slice")]
     public void OwnedPartMovesWithoutASecondPayloadAllocation(string kind)
@@ -35,26 +35,31 @@ public sealed class SinglePartContentOwnershipTests
         long baseline = governor.Snapshot().LiveMemoryBytes;
         using AnalysisChunks chunks = AnalysisChunks.Create(governor, CancellationToken.None);
         Assert.True(chunks.TryAdd(Stream(kind, payload), Resolver(), QpdfLimits.Default));
-        byte[] part = Assert.Single(chunks.Parts);
+        ReadOnlyMemory<byte> part = Assert.Single(chunks.Parts);
         long allocated = GC.GetAllocatedBytesForCurrentThread();
         using JoinedContent joined = chunks.Join();
         Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < payload.Length / 2);
-        Assert.Same(part, joined.RawBytes); Assert.Equal(payload, joined.RawBytes);
+        Assert.True(part.Equals(joined.RawBytes.AsMemory())); Assert.Equal(payload, joined.RawBytes);
         Assert.Throws<ObjectDisposedException>(() => chunks.Parts);
         Assert.Equal(baseline + payload.Length + 128L, governor.Snapshot().LiveMemoryBytes);
         joined.Dispose(); chunks.Dispose(); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 
-    [Fact]
-    public void BorrowedPartStillGetsIndependentOwnedStorage()
+    [Theory]
+    [InlineData("borrowed")]
+    [InlineData("slice")]
+    public void BorrowedPartStillGetsIndependentOwnedStorage(string kind)
     {
         byte[] input = Enumerable.Repeat((byte)91, 1024).ToArray();
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using AnalysisChunks chunks = AnalysisChunks.Create(governor, CancellationToken.None);
-        Assert.True(chunks.TryAdd(Stream("borrowed", input), Resolver(), QpdfLimits.Default));
-        Assert.Same(input, Assert.Single(chunks.Parts));
+        PdfStream stream = Stream(kind, input);
+        Assert.True(chunks.TryAdd(stream, Resolver(), QpdfLimits.Default));
+        Assert.True(Assert.Single(chunks.Parts).Equals(stream.RawMemory));
+        Assert.True(MemoryMarshal.TryGetArray(stream.RawMemory, out ArraySegment<byte> payload));
+        byte[] backing = Assert.IsType<byte[]>(payload.Array);
         using JoinedContent joined = chunks.Join();
-        Assert.NotSame(input, joined.RawBytes); input[0] = 0; Assert.Equal(91, joined.RawBytes[0]);
+        Assert.NotSame(backing, joined.RawBytes); backing[payload.Offset] = 0; Assert.Equal(91, joined.RawBytes[0]);
         Assert.Throws<ObjectDisposedException>(() => chunks.Parts);
         joined.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
@@ -74,7 +79,6 @@ public sealed class SinglePartContentOwnershipTests
 
     [Theory]
     [InlineData("borrowed")]
-    [InlineData("slice")]
     [InlineData("decoded")]
     public void EmptyAndMultiplePartsKeepTheirExactJoiningRules(string kind)
     {
@@ -99,16 +103,16 @@ public sealed class SinglePartContentOwnershipTests
         ResourceGovernor governor = shared ? new(limits, CancellationToken.None, host) : new(limits, CancellationToken.None);
         using (AnalysisChunks chunks = AnalysisChunks.Create(governor, CancellationToken.None))
         {
-            Assert.True(chunks.TryAdd(Stream("slice", new byte[1024]), Resolver(), limits)); byte[] part = chunks.Parts[0];
+            Assert.True(chunks.TryAdd(Stream("slice", new byte[1024]), Resolver(), limits)); ReadOnlyMemory<byte> part = chunks.Parts[0];
             using (ParserMemoryScope pressure = ParserMemoryScope.Create(governor))
             {
                 pressure.Reserve(16384L - governor.Snapshot().LiveMemoryBytes - 80L);
                 long before = governor.Snapshot().LiveMemoryBytes;
                 if (shared) { Assert.Throws<QpdfMemoryAdmissionException>(() => chunks.Join()); }
                 else { Assert.Throws<QpdfLimitException>(() => chunks.Join()); }
-                Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); Assert.Same(part, Assert.Single(chunks.Parts));
+                Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); Assert.True(part.Equals(Assert.Single(chunks.Parts)));
             }
-            using JoinedContent joined = chunks.Join(); Assert.Same(part, joined.RawBytes);
+            using JoinedContent joined = chunks.Join(); Assert.False(part.Equals(joined.RawBytes.AsMemory())); Assert.Equal(part.ToArray(), joined.RawBytes);
         }
         governor.CompletePrivateStorage(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, root.ReservedBytes);
     }
@@ -137,7 +141,7 @@ public sealed class SinglePartContentOwnershipTests
     }
 
     [Fact]
-    public void FailedListGrowthRefundsANewRawSliceAndPreservesEarlierParts()
+    public void RefusedListGrowthKeepsBorrowedSlicesAndEarlierParts()
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 32768L };
         ResourceGovernor governor = new(limits, CancellationToken.None); PoolResolver resolver = Resolver();
@@ -151,7 +155,7 @@ public sealed class SinglePartContentOwnershipTests
             long before = governor.Snapshot().LiveMemoryBytes;
             Assert.Throws<QpdfLimitException>(() => chunks.TryAdd(slice, resolver, limits));
             Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); Assert.Equal(512, chunks.Parts.Count);
-            Assert.All(chunks.Parts, part => Assert.Same(borrowed.AllocationCarrier, part));
+            Assert.All(chunks.Parts, part => Assert.True(borrowed.RawMemory.Equals(part)));
         }
         Assert.True(chunks.TryAdd(slice, resolver, limits)); Assert.Equal(513, chunks.Parts.Count);
         Assert.Equal(2048, chunks.Parts[^1].Length);
@@ -169,12 +173,12 @@ public sealed class SinglePartContentOwnershipTests
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None, host);
         using (AnalysisChunks chunks = AnalysisChunks.Create(governor, governorToken ? CancellationToken.None : cancellation.Token))
         {
-            Assert.True(chunks.TryAdd(Stream("slice", new byte[1024]), Resolver(), QpdfLimits.Default)); byte[] part = chunks.Parts[0];
+            Assert.True(chunks.TryAdd(Stream("slice", new byte[1024]), Resolver(), QpdfLimits.Default)); ReadOnlyMemory<byte> part = chunks.Parts[0];
             using ParserMemoryScope pressure = ParserMemoryScope.Create(governor);
             pressure.Reserve(16384L - governor.Snapshot().LiveMemoryBytes - 32L);
             long before = governor.Snapshot().LiveMemoryBytes; budget.Armed = true;
             Assert.ThrowsAny<OperationCanceledException>(() => chunks.Join()); Assert.True(cancellation.IsCancellationRequested);
-            Assert.Same(part, Assert.Single(chunks.Parts)); Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
+            Assert.True(part.Equals(Assert.Single(chunks.Parts))); Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
         }
         governor.CompletePrivateStorage(); Assert.Equal(0L, root.ReservedBytes);
     }

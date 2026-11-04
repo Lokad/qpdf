@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Content;
@@ -22,22 +23,25 @@ internal sealed class JoinedContent : IDisposable
         _bytes = null; _memory = null; memory.Dispose(); return bytes;
     }
 
-    internal static JoinedContent TakeOwned(byte[] part, ParserMemoryScope source, ResourceGovernor governor, CancellationToken token)
+    internal static JoinedContent TakeOwned(ReadOnlyMemory<byte> part, ParserMemoryScope source, ResourceGovernor governor, CancellationToken token)
     {
         source.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        if (!MemoryMarshal.TryGetArray(part, out ArraySegment<byte> storage) || storage.Array is not byte[] bytes
+            || storage.Offset != 0 || storage.Count != bytes.Length)
+        { throw new InvalidOperationException("Owned content requires a complete decoded array."); }
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         try
         {
             memory.Reserve(32L);
-            JoinedContent joined = new(memory, part);
+            JoinedContent joined = new(memory, bytes);
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            source.TransferTo(memory, checked(part.LongLength + GovernedBufferStream.ArrayOverheadBytes));
+            source.TransferTo(memory, checked((long)bytes.Length + GovernedBufferStream.ArrayOverheadBytes));
             return joined;
         }
         catch { memory.Dispose(); throw; }
     }
 
-    internal static JoinedContent Create(IReadOnlyList<byte[]> parts, ResourceGovernor governor, CancellationToken token)
+    internal static JoinedContent Create(IReadOnlyList<ReadOnlyMemory<byte>> parts, ResourceGovernor governor, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(parts);
         ArgumentNullException.ThrowIfNull(governor);
@@ -51,7 +55,7 @@ internal sealed class JoinedContent : IDisposable
             for (int index = 0; index < parts.Count; index++)
             {
                 Visit(governor, token);
-                byte[] part = parts[index];
+                ReadOnlySpan<byte> part = parts[index].Span;
                 length = checked(length + part.Length + (newline ? 1L : 0L));
                 newline = part.Length == 0 || part[^1] != (byte)'\n';
             }
@@ -70,7 +74,7 @@ internal sealed class JoinedContent : IDisposable
             for (int index = 0; index < parts.Count; index++)
             {
                 Visit(governor, token);
-                byte[] part = parts[index];
+                ReadOnlySpan<byte> part = parts[index].Span;
                 if (newline)
                 {
                     governor.NoteOperation();

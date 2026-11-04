@@ -122,7 +122,7 @@ internal static class InlineImages
     }
 
     internal static RewriteResult RewriteContentCore(
-        GraphCopier copier, PdfDictionary? page, byte[] joined, long minBytes, bool compress, int? level,
+        GraphCopier copier, PdfDictionary? page, ReadOnlyMemory<byte> joined, long minBytes, bool compress, int? level,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken,
         bool form, byte filterOptions)
     {
@@ -131,7 +131,7 @@ internal static class InlineImages
         QpdfObject? resources = EnsureResources(copier, page, governor, cancellationToken);
         bool canAttach = resources is PdfDictionary prepared &&
             PdfDictionaryLookup.TryGet(prepared, "XObject"u8, governor, cancellationToken, out QpdfObject objects) && objects is PdfDictionary;
-        if (joined.LongLength < minBytes) { return page is null ? default : new(false, null, resources); }
+        if (joined.Length < minBytes) { return page is null ? default : new(false, null, resources); }
         scratch.Reserve(160L);
         ContentTokenizer tokenizer = new(joined, governor, cancellationToken) { IncludeComments = true, IncludeWhitespace = true };
         using InlineImageBuffer output = InlineImageBuffer.Create(governor, limits, cancellationToken);
@@ -151,7 +151,7 @@ internal static class InlineImages
                 if (token.Kind == ContentTokenKind.Operator && token.Data.Span.SequenceEqual("ID"u8))
                 {
                     int dictionaryLength = checked((int)(token.Offset - dictStart));
-                    InlineImageEntry? converted = InlineImageStorage.ReadWithResources(joined.AsMemory(checked((int)dictStart), dictionaryLength), tokenizer,
+                    InlineImageEntry? converted = InlineImageStorage.ReadWithResources(joined.Slice(checked((int)dictStart), dictionaryLength), tokenizer,
                         minBytes, token.Offset, resources, canAttach, ref suffix, limits, governor, diagnostics, resolver, cancellationToken);
                     if (converted is InlineImageEntry entry)
                     {
@@ -161,7 +161,7 @@ internal static class InlineImages
                         output.Add(new(entry.Name, candidate));
                         output.WriteImage(entry.Name);
                     }
-                    else { output.Write(joined.AsSpan(checked((int)imageStart), checked((int)(tokenizer.Position - imageStart)))); }
+                    else { output.Write(joined.Span.Slice(checked((int)imageStart), checked((int)(tokenizer.Position - imageStart)))); }
                     inImage = false; continue;
                 }
                 if (token.Kind == ContentTokenKind.Operator && token.Data.Span.SequenceEqual("EI"u8)) { inImage = false; }

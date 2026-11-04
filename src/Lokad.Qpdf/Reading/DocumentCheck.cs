@@ -422,34 +422,46 @@ internal static class DocumentCheck
             }
 
             QpdfObject? resources = PageInheritance.Find(engine, location, PdfName.FromAscii("Resources"), limits, governor, cancellationToken);
-            for (int streamIndex = 0; streamIndex < streams.Count; streamIndex++)
+            if (streams.Count == 0) { continue; }
+            using AnalysisChunks? chunks = streams.Count > 1 ? AnalysisChunks.Create(governor, cancellationToken) : null;
+            try
             {
-                PdfStream stream = streams.Get(streamIndex).Stream;
-                cancellationToken.ThrowIfCancellationRequested();
-                using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
-                try
+                bool complete = true;
+                bool pageAboveLevel = false;
+                bool unavailable = false;
+                for (int streamIndex = 0; streamIndex < streams.Count; streamIndex++)
                 {
-                    byte[]? bytes = DecodeCheckStream(stream, resolver, options.DecodeLevel, limits, governor, decodedMemory, cancellationToken, out bool outsideLevel);
+                    PdfStream stream = streams.Get(streamIndex).Stream;
+                    cancellationToken.ThrowIfCancellationRequested();
+                    using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
+                    ReadOnlyMemory<byte>? bytes = DecodeCheckStream(stream, resolver, options.DecodeLevel, limits, governor, decodedMemory, cancellationToken, out bool outsideLevel);
                     if (bytes is null)
                     {
-                        skipped += 1;
-                        if (outsideLevel) { aboveLevel += 1; }
+                        complete = false; pageAboveLevel |= outsideLevel; unavailable |= !outsideLevel;
+                        chunks?.Dispose();
                         continue;
                     }
-                    TokenizeCheckStream(bytes, resources, resolver, limits, governor, diagnostics, cancellationToken);
-                    examined += 1;
+                    if (!complete) { continue; }
+                    if (chunks is not null) { chunks.Add(bytes.Value, decodedMemory); }
+                    else { TokenizeCheckStream(bytes.Value, resources, resolver, limits, governor, diagnostics, cancellationToken); }
                 }
-                catch (QpdfFilterException ex) when (ex.Reason == QpdfFilterFailureReason.UnsupportedFilter)
-                { skipped += 1; }
-                catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
+                if (!complete)
                 {
-                    AddFailure(failures, ref failureCount, ["Page ", DiagnosticPart.Invariant(pageNumber), " content: ", ex.Message]);
-                    if (failureCount >= MaxStreamFailures)
-                    {
-                        break;
-                    }
+                    skipped += 1;
+                    if (pageAboveLevel && !unavailable) { aboveLevel += 1; }
+                    continue;
                 }
+                if (chunks is not null)
+                {
+                    using JoinedContent joined = chunks.Join();
+                    TokenizeCheckStream(joined.RawBytes, resources, resolver, limits, governor, diagnostics, cancellationToken);
+                }
+                examined += 1;
             }
+            catch (QpdfFilterException ex) when (ex.Reason == QpdfFilterFailureReason.UnsupportedFilter)
+            { skipped += 1; }
+            catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
+            { AddFailure(failures, ref failureCount, ["Page ", DiagnosticPart.Invariant(pageNumber), " content: ", ex.Message]); }
 
             if (failureCount >= MaxStreamFailures)
             {
@@ -464,14 +476,14 @@ internal static class DocumentCheck
         if (skipped > 0)
         {
             QpdfCheckOutcome outcome = CheckOutcome.Create(governor, "page-content", QpdfCheckStatus.Skipped,
-                [examined, " content streams tokenized, ", skipped, " skipped (", aboveLevel, " above decode level, ", skipped - aboveLevel, " unavailable)."]);
+                [examined, " page programs tokenized, ", skipped, " skipped (", aboveLevel, " above decode level, ", skipped - aboveLevel, " unavailable)."]);
             diagnostics.AddParts(QpdfDiagnosticCode.CheckSkipped, skipped > aboveLevel ? QpdfDiagnosticSeverity.Warning : QpdfDiagnosticSeverity.Info,
                 ["Skipped check 'page-content': ", outcome.Detail]);
             return outcome;
         }
 
         return CheckOutcome.Create(governor, "page-content", QpdfCheckStatus.Passed,
-            [DiagnosticPart.Invariant(examined), " content streams tokenized, ", DiagnosticPart.Invariant(skipped), " skipped."]);
+            [DiagnosticPart.Invariant(examined), " page programs tokenized, ", DiagnosticPart.Invariant(skipped), " skipped."]);
     }
 
     private sealed class FormCheckState : IDisposable
@@ -830,7 +842,7 @@ internal static class DocumentCheck
     private static bool IsCheckWidget(PdfDictionary dictionary, IIndirectResolver resolver,
         ResourceGovernor governor, CancellationToken token)
         => PdfDictionaryLookup.HasName(dictionary, "Subtype"u8, "Widget"u8, resolver, governor, token);
-    private static byte[]? DecodeCheckStream(
+    private static ReadOnlyMemory<byte>? DecodeCheckStream(
         PdfStream stream,
         IIndirectResolver resolver,
         QpdfStreamDecodeLevel level,
@@ -846,7 +858,7 @@ internal static class DocumentCheck
 
         if (stages.Count == 0)
         {
-            return stream.ArrayData(memory, governor, cancellationToken);
+            return stream.RawMemory;
         }
 
         foreach (FilterStage stage in stages)
@@ -869,7 +881,7 @@ internal static class DocumentCheck
     }
 
     private static void TokenizeCheckStream(
-        byte[] bytes,
+        ReadOnlyMemory<byte> bytes,
         QpdfObject? resources,
         IIndirectResolver resolver,
         QpdfLimits limits,

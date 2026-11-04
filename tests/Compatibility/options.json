@@ -4408,8 +4408,11 @@
           "NormalizedLiteralTests.NormalizationKeepsLiteralSemanticBytes",
           "NormalizedLiteralTests.EitherCancellationRoutePrecedesNewStorage",
           "NormalizedContentIdentityTests.NormalizationChangesPageEdgesAndPreservesIndependentPayloads",
-          "NormalizedContentIdentityTests.SkippedSharedStreamsWarnOnceAndKeepTheirBytes",
+          "NormalizedContentIdentityTests.SkippedPageProgramsKeepAllPartsAndShareOriginalStreams",
           "NormalizedContentIdentityTests.NormalizationFailuresPreserveTargetsAndRefundStorage",
+          "LogicalContentPartitionTests.NormalizationPreservesPhysicalPartsAndInlineSamples",
+          "LogicalContentContextTests.FragmentAndArrayMemoizationRequiresTheirActualContext",
+          "LogicalContentContextTests.FailedProgramsDoNotPublishUnusedFragmentsAndLaterPagesCanUseAComputedFragment",
           "ContentTransformsTests.NormalizeDecodesFlate",
           "InlinePacketBoundaryTests.EveryConsumerSkipsCompleteFilteredPackets",
           "InlineFramingContextTests.NormalizationSharesOnlyContextIndependentOrMatchingResourceUses"
