@@ -193,17 +193,17 @@ internal sealed class XRefTable : IDisposable
         long startxrefPosition = FindStartXRef(data);
         PdfTokenizer tail = new(data);
         tail.SetPosition(startxrefPosition);
-        if (!tail.TryReadToken(out PdfToken keyword) || keyword.Kind != PdfTokenKind.StartXRef)
+        if (!tail.TryReadToken(out PdfToken keyword, false, governor) || keyword.Kind != PdfTokenKind.StartXRef)
         {
             throw new QpdfParseException("Expected 'startxref'.", startxrefPosition, null);
         }
 
-        if (!tail.TryReadToken(out PdfToken offsetToken) || offsetToken.Kind != PdfTokenKind.Integer)
+        if (!tail.TryReadToken(out PdfToken offsetToken, false, governor) || offsetToken.Kind != PdfTokenKind.Integer)
         {
             throw new QpdfParseException("Expected a startxref offset.", keyword.Offset, null);
         }
 
-        long xrefOffset = ParseOffset(offsetToken);
+        long xrefOffset = ParseOffset(offsetToken, governor);
         ExpectEndOfFile(data, offsetToken);
         if (xrefOffset < 0L || xrefOffset >= data.Length)
         {
@@ -243,15 +243,15 @@ internal sealed class XRefTable : IDisposable
         return CreateOwned(xrefOffset, merged, trailers[0], trailers, governor, memory, values, valuesEscape);
     }
 
-    internal static long ReadTailOffset(ReadOnlyMemory<byte> data)
+    internal static long ReadTailOffset(ReadOnlyMemory<byte> data, ResourceGovernor governor)
     {
         long marker = FindStartXRef(data);
         PdfTokenizer tokenizer = new(data);
         tokenizer.SetPosition(marker);
-        if (!tokenizer.TryReadToken(out PdfToken keyword) || keyword.Kind != PdfTokenKind.StartXRef
-            || !tokenizer.TryReadToken(out PdfToken offset) || offset.Kind != PdfTokenKind.Integer)
+        if (!tokenizer.TryReadToken(out PdfToken keyword, false, governor) || keyword.Kind != PdfTokenKind.StartXRef
+            || !tokenizer.TryReadToken(out PdfToken offset, false, governor) || offset.Kind != PdfTokenKind.Integer)
         { throw new CompleteInputRequiredException(); }
-        long position = ParseOffset(offset);
+        long position = ParseOffset(offset, governor);
         ExpectEndOfFile(data, offset);
         return position;
     }
@@ -759,30 +759,13 @@ internal sealed class XRefTable : IDisposable
             || b == (byte)'[' || b == (byte)']' || b == (byte)'/' || b == (byte)'%';
     }
 
-    private static long ParseOffset(PdfToken token)
+    private static long ParseOffset(PdfToken token, ResourceGovernor governor)
     {
-        ReadOnlySpan<byte> span = token.Data.Span;
-        long value = 0L;
-        try
+        long value = PdfParser.ParseIntegerText(in token, governor);
+        if (value < 0L)
         {
-            checked
-            {
-                for (int i = 0; i < span.Length; i++)
-                {
-                    if (span[i] < (byte)'0' || span[i] > (byte)'9')
-                    {
-                        throw new QpdfParseException("startxref offset must be a non-negative integer.", token.Offset, null);
-                    }
-
-                    value = (value * 10L) + (span[i] - (byte)'0');
-                }
-            }
+            throw new QpdfParseException("startxref offset must be a non-negative integer.", token.Offset, null);
         }
-        catch (OverflowException ex)
-        {
-            throw new QpdfParseException("startxref offset overflows 64 bits.", token.Offset, null, ex);
-        }
-
         return value;
     }
 
@@ -818,15 +801,12 @@ internal sealed class XRefTable : IDisposable
             throw new QpdfParseException($"xref subsection count {count} must be positive.", firstToken.Offset, null);
         }
 
-        checked
+        if (first < 0L || first > int.MaxValue || count > int.MaxValue - first)
         {
-            if (first < 0L || first + count > int.MaxValue)
-            {
-                throw new QpdfParseException($"xref subsection [{first}, {first + count}) is out of range.", firstToken.Offset, null);
-            }
+            throw new QpdfParseException("xref subsection exceeds the supported object-number range.", firstToken.Offset, null);
         }
 
-        long cursor = SkipSubsectionBreak(data, tokenizer, firstToken);
+        long cursor = SkipSubsectionBreak(data, tokenizer, firstToken, governor);
         ReadOnlySpan<byte> span = data.Span;
         // This validated subsection bounds the entries added by this loop.
         // Choose capped growth before admission rather than retrying on refusal.
@@ -847,26 +827,24 @@ internal sealed class XRefTable : IDisposable
         tokenizer.SetPosition(cursor);
     }
 
-    private static long SkipSubsectionBreak(ReadOnlyMemory<byte> data, PdfTokenizer tokenizer, PdfToken firstToken)
+    private static long SkipSubsectionBreak(ReadOnlyMemory<byte> data, PdfTokenizer tokenizer, PdfToken firstToken, ResourceGovernor governor)
     {
         long cursor = tokenizer.Position;
         ReadOnlySpan<byte> span = data.Span;
-        while (cursor < span.Length && span[(int)cursor] == (byte)' ')
+        while (cursor < span.Length && span[(int)cursor] is (9 or 12 or 32))
         {
+            if ((cursor & 4095L) == 0L) { governor.CheckCancellation(); }
             cursor += 1;
         }
 
         if (cursor < span.Length && span[(int)cursor] == (byte)'\r')
         {
             cursor += 1;
+            if (cursor < span.Length && span[(int)cursor] == (byte)'\n') { cursor += 1; }
         }
-
-        if (cursor >= span.Length || span[(int)cursor] != (byte)'\n')
-        {
-            throw new QpdfParseException("xref subsection header must end with a line break.", firstToken.Offset, null);
-        }
-
-        return cursor + 1;
+        else if (cursor < span.Length && span[(int)cursor] == (byte)'\n') { cursor += 1; }
+        else { throw new QpdfParseException("xref subsection header must end with a line break.", firstToken.Offset, null); }
+        return cursor;
     }
 
     private static long ParseSubsectionNumber(PdfToken token)
@@ -945,14 +923,11 @@ internal sealed class XRefTable : IDisposable
         if (cursor < span.Length && span[(int)cursor] == (byte)'\r')
         {
             cursor += 1;
+            if (cursor < span.Length && span[(int)cursor] == (byte)'\n') { cursor += 1; }
         }
+        else if (cursor < span.Length && span[(int)cursor] == (byte)'\n') { cursor += 1; }
+        else { throw new QpdfParseException($"xref entry for object {number} must end with a line break.", offset, number); }
 
-        if (cursor >= span.Length || span[(int)cursor] != (byte)'\n')
-        {
-            throw new QpdfParseException($"xref entry for object {number} must end with a line break.", offset, number);
-        }
-
-        cursor += 1;
         long target = 0L;
         for (int i = 0; i < 10; i++)
         {

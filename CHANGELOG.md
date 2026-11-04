@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Accept equivalent signed integer spelling in object-stream headers/startxref
+  and CR/LF/CRLF classic xrefs with count padding. Share the existing converter;
+  preserve structural bounds and reject overflowing subsection ranges explicitly.
+
 - Accept bytes after completed Flate frames, including in object-stream inputs
   and the zlib-flate companion. Remove the redundant checksum/suffix scan;
   the complete zlib decoder and bounded input still reject corruption/truncation.

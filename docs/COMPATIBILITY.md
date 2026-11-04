@@ -48,6 +48,14 @@ Field selection validates child references before recording membership. A stale
 child preceding a live generation no longer removes the live field registration
 or calculation order. Existing malformed-value and memberless-field policies remain.
 
+Object-stream header pairs and startxref now share the ordinary signed-integer
+converter. Positive signs no longer discard optional compressed data or reject
+valid page sources. Numeric/offset/member bounds and raw ordinary-object spelling
+remain intact. Classic xref line boundaries accept CR, LF and CRLF, with space,
+tab or form-feed padding after subsection counts. Signed classic subsection bounds
+still reject. Subsection ranges check before addition, so oversized malformed
+ranges report a parse failure instead of leaking an arithmetic exception.
+
 Object-stream Type/N/First descriptors now resolve ordinary indirect values before
 validation. Equivalent direct/indirect representations preserve their Info,
 attachment and private graphs and remain usable as page sources. Previously, valid

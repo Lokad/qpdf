@@ -464,8 +464,8 @@ internal sealed class PdfParser
             {
                 CountRepairToken(second.Offset);
                 CountRepairToken(third.Offset);
-                long number = ParseIntegerText(in first);
-                long generation = ParseIntegerText(in second);
+                long number = ParseIntegerText(in first, _governor);
+                long generation = ParseIntegerText(in second, _governor);
                 if (number < int.MinValue || number > int.MaxValue
                     || generation < int.MinValue || generation > int.MaxValue)
                 {
@@ -495,7 +495,7 @@ internal sealed class PdfParser
 
     private int ParseObjectNumber(in PdfToken token)
     {
-        long value = ParseIntegerText(in token);
+        long value = ParseIntegerText(in token, _governor);
         if (value < 0 || value > int.MaxValue)
         {
             throw new QpdfParseException($"Object number {value} is out of range.", token.Offset, null);
@@ -506,7 +506,7 @@ internal sealed class PdfParser
 
     private int ParseGeneration(in PdfToken token)
     {
-        long value = ParseIntegerText(in token);
+        long value = ParseIntegerText(in token, _governor);
         if (value < 0 || value > 65535)
         {
             throw new QpdfParseException($"Generation {value} is out of range.", token.Offset, null);
@@ -517,7 +517,7 @@ internal sealed class PdfParser
 
     private PdfInteger ParseInteger(in PdfToken token)
     {
-        long value = ParseIntegerText(in token);
+        long value = ParseIntegerText(in token, _governor);
         // These bounded immutable canonical values have process-lifetime storage,
         // just like booleans/null. Keep signed and padded spellings independent.
         if ((ulong)value < PdfInteger.SharedValueCount
@@ -539,7 +539,7 @@ internal sealed class PdfParser
         }
     }
 
-    private long ParseIntegerText(in PdfToken token)
+    internal static long ParseIntegerText(in PdfToken token, ResourceGovernor governor)
     {
         ReadOnlySpan<byte> span = token.Data.Span;
         int i = 0;
@@ -558,7 +558,7 @@ internal sealed class PdfParser
         {
             if ((i & 4095) == 0)
             {
-                _governor.CheckCancellation();
+                governor.CheckCancellation();
             }
 
             uint digit = (uint)(span[i] - (byte)'0');

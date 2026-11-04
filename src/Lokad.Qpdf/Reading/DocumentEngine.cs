@@ -749,35 +749,11 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
 
     private int ParseHeaderInt(PdfToken token, int streamNumber)
     {
-        long value = 0L;
-        try
-        {
-            checked
-            {
-                ReadOnlySpan<byte> bytes = token.Data.Span;
-                for (int i = 0; i < bytes.Length; i++)
-                {
-                    if ((i & 255) == 0) { _governor.NoteOperation(); }
-                    byte b = bytes[i];
-                    if (b < (byte)'0' || b > (byte)'9')
-                    {
-                        throw new QpdfParseException($"Object stream {streamNumber} header expects integers.", null, streamNumber);
-                    }
-
-                    value = (value * 10L) + (b - (byte)'0');
-                }
-            }
-        }
-        catch (OverflowException ex)
-        {
-            throw new QpdfParseException($"Object stream {streamNumber} header integer overflows.", null, streamNumber, ex);
-        }
-
-        if (value > int.MaxValue)
+        long value = PdfParser.ParseIntegerText(in token, _governor);
+        if (value < int.MinValue || value > int.MaxValue)
         {
             throw new QpdfParseException($"Object stream {streamNumber} header integer overflows.", null, streamNumber);
         }
-
         return (int)value;
     }
 }

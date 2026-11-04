@@ -116,7 +116,12 @@ echoing values.
   members resolve through the current stream's header pairs, matching the
   reference reader. Writer controls can preserve or generate object streams;
   ordinary selection output normalizes to classic xrefs. Bounded CLI recovery
-  and strict typed opening remain separate policies.
+  and strict typed opening remain separate policies. Header pairs and startxref
+  accept ordinary signed decimal integer spelling, including positive signs;
+  object numbers stay positive and offsets nonnegative within their existing
+  bounds. Classic xrefs accept CR, LF or CRLF line endings and space, tab or
+  form-feed padding after subsection counts. Their subsection bounds remain unsigned
+  decimal fields, and malformed/truncated entry fields still reject.
 - Catalog/page-tree `/Type` names and page-tree `/Kids` and `/Count` values may
   be direct or indirect. Structural bounds, cycle detection, omitted-page pruning
   and the copier's catalog/page-tree containment rules still apply.

@@ -41,7 +41,7 @@ public sealed class SelectiveInputTests
         return result;
     }
 
-    private sealed class Host(byte[] bytes, int chunk) : IQpdfHost
+    internal sealed class Host(byte[] bytes, int chunk) : IQpdfHost
     {
         private byte[] _nextInput = bytes;
         internal int Chunk { get; } = chunk;

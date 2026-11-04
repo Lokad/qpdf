@@ -40,7 +40,7 @@ internal sealed class SelectiveInputData : IDisposable
             using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
             scratch.Reserve(288L);
             byte[] tail = await QpdfInputReader.ReadAdmittedAsync(input, input.Length - 256L, 256, governor, token).ConfigureAwait(false);
-            long xref = XRefTable.ReadTailOffset(tail);
+            long xref = XRefTable.ReadTailOffset(tail, governor);
             long metadataLength = input.Length - xref;
             if (xref < 8L || metadataLength <= 0L || metadataLength > MaximumMetadata) { return null; }
             scratch.Reserve(checked(metadataLength + 32L));
