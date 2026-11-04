@@ -3851,7 +3851,7 @@ public static partial class Qpdf
                 throw new QpdfParseException("Attachment MIME type must be ASCII.", 0L, null);
             }
 
-            byte[] checksum = AttachmentBuilder.Checksum(data);
+            byte[] checksum = AttachmentBuilder.Checksum(data, governor, ownership, cancellationToken);
             byte[] stored = data;
             if (compress && data.Length > 0)
             {

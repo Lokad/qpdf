@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Compute attachment checksums incrementally with cancellation checks between
+  bounded chunks. Admit one temporary hash context and the small retained digest;
+  preserve checksum and payload bytes while refunding temporary storage on failure.
+
 - Check cancellation during object-number sorting in structural inspection and
   unreferenced-object preservation. Reuse the existing in-place governed sorter
   and numeric order without additional collection or comparer storage.

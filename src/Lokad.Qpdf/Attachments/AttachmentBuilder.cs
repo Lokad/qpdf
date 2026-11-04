@@ -88,7 +88,8 @@ internal static class AttachmentBuilder
     {
         memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         ArgumentNullException.ThrowIfNull(checksum);
-        memory.Reserve(192L + checksum.LongLength);
+        // The checksum buffer is already owned; these are new scalar/header objects.
+        memory.Reserve(192L);
         PdfInteger size = new(length.ToString(System.Globalization.CultureInfo.InvariantCulture), length);
         PdfByteString digest = PdfByteString.FromOwnedBytes(checksum, true);
         PdfDictionary parameters = Dictionary(governor, memory, token,
@@ -176,9 +177,27 @@ internal static class AttachmentBuilder
         }
     }
 
-    internal static byte[] Checksum(byte[] data)
+    internal static byte[] Checksum(byte[] data, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(data);
-        return MD5.HashData(data);
+        memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        const long contextBytes = 192L;
+        memory.Reserve(contextBytes);
+        try
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
+            for (int offset = 0; offset < data.Length;)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                int count = Math.Min(32768, data.Length - offset);
+                hash.AppendData(data.AsSpan(offset, count));
+                offset += count;
+            }
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            memory.Reserve(40L); // One sixteen-byte digest and its array header.
+            return hash.GetHashAndReset();
+        }
+        finally { memory.Release(contextBytes); }
     }
 }
