@@ -215,7 +215,7 @@ internal static class HelpText
         """;
 
     internal const string JsonHelpV1 = """
-        {"version": "JSON format version (1)", "parameters": "decode and stream-data parameters for this inspection", "pages": "per-page descriptors with object, contents, label, outlines, pageposfrom1 and images", "pagelabels": "explicit page labels", "attachments": "embedded-file entries", "encrypt": "unencrypted sentinel", "outlines": "explicit-destination outline entries", "acroform": "form fields with inherited types, names, values and annotations", "objects": "object table (version 1)", "objectinfo": "object metadata (version 1)"}
+        {"version": "JSON format version (1)", "parameters": "decode and stream-data parameters for this inspection", "pages": "per-page descriptors with object, contents, label, outlines, pageposfrom1 and images", "pagelabels": "explicit page labels", "attachments": "embedded-file entries", "encrypt": "unencrypted sentinel", "outlines": "explicit-destination outline entries", "acroform": "form fields with inherited types, names, values and annotations", "objects": "object table keyed by full references such as 3 0 R (version 1)", "objectinfo": "object metadata keyed by the same full references (version 1)"}
         """;
 
     internal static bool TryMatchJsonHelp(IReadOnlyList<string> argv, out string text)

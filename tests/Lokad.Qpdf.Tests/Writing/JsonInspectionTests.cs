@@ -165,15 +165,15 @@ public sealed class JsonInspectionTests
         Assert.Equal(1, root.GetProperty("version").GetInt32());
         Assert.False(root.TryGetProperty("qpdf", out _));
         JsonElement objects = root.GetProperty("objects");
-        Assert.True(objects.TryGetProperty("1 0", out JsonElement catalog));
+        Assert.True(objects.TryGetProperty("1 0 R", out JsonElement catalog));
         Assert.Equal("/Catalog", catalog.GetProperty("/Type").GetString());
-        Assert.True(objects.TryGetProperty("4 0", out JsonElement streamDict));
+        Assert.True(objects.TryGetProperty("4 0 R", out JsonElement streamDict));
         Assert.Equal(15, streamDict.GetProperty("/Length").GetInt32());
         Assert.True(objects.TryGetProperty("trailer", out JsonElement trailer));
         Assert.Equal("1 0 R", trailer.GetProperty("/Root").GetString());
         JsonElement info = root.GetProperty("objectinfo");
-        Assert.True(info.TryGetProperty("4 0", out JsonElement streamInfo));
-        Assert.Equal(JsonValueKind.True, info.GetProperty("4 0").GetProperty("stream").GetProperty("is").ValueKind);
+        Assert.True(info.TryGetProperty("4 0 R", out JsonElement streamInfo));
+        Assert.Equal(JsonValueKind.True, info.GetProperty("4 0 R").GetProperty("stream").GetProperty("is").ValueKind);
     }
 
     [Fact]
@@ -376,7 +376,7 @@ public sealed class JsonInspectionTests
 
         InMemoryQpdfHost host1 = HostWith("inputs/a.pdf", fixture);
         using JsonDocument v1 = await InspectAsync(host1, "--json=1", "--json-key=objects");
-        JsonElement one = v1.RootElement.GetProperty("objects").GetProperty("1 0");
+        JsonElement one = v1.RootElement.GetProperty("objects").GetProperty("1 0 R");
         Assert.Equal("/text#2fplain", one.GetProperty("/Slash").GetString());
         Assert.Equal("Hi", one.GetProperty("/Title").GetString());
     }

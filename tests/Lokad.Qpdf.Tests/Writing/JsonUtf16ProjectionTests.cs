@@ -68,7 +68,7 @@ public sealed class JsonUtf16ProjectionTests
             }
             else { Assert.Equal(named, text); StrictUtf8.GetBytes(text); }
             using JsonDocument parsed = JsonDocument.Parse(text);
-            JsonElement catalog = version == 1 ? parsed.RootElement.GetProperty("objects").GetProperty("1 0")
+            JsonElement catalog = version == 1 ? parsed.RootElement.GetProperty("objects").GetProperty("1 0 R")
                 : parsed.RootElement.GetProperty("qpdf")[1].GetProperty("obj:1 0 R").GetProperty("value");
             Assert.Equal((version == 1 ? "" : "u:") + expected, catalog.GetProperty("/Probe").GetString());
             Assert.Equal(0L, host.OpenLeaseCount);

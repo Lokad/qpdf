@@ -3611,7 +3611,8 @@
           "JsonInspectionTests.PageImagesFilteredDetails",
           "JsonInspectionTests.PageImagesRespectDecodeLevel",
           "JsonInspectionTests.PageImagesMatchAcrossVersions",
-          "JsonInspectionTests.PageImagesJobParity"
+          "JsonInspectionTests.PageImagesJobParity",
+          "JsonReferenceKeyTests.PageReferencesAddressObjectAndInfoMaps"
         ],
         "negative": [
           "JsonInspectionTests.BadVersionFails",
@@ -3625,7 +3626,8 @@
           "JsonInspectionTests.JobRoundTripMatchesArgv",
           "JsonInspectionTests.TypedRoundTripMatchesArgv",
           "JsonInspectionTests.PageImagesJobParity",
-          "JsonModesTests.JobModesRoundTrip"
+          "JsonModesTests.JobModesRoundTrip",
+          "JsonReferenceKeyTests.PageReferencesAddressObjectAndInfoMaps"
         ],
         "resource": [
           "JsonPublicationMemoryTests.KnownSidecarLengthFitsSharedAllowanceWithoutGrowthCopies",
@@ -3781,14 +3783,16 @@
         "positive": [
           "JsonModesTests.ObjectFilterSelectsObjects",
           "JsonModesTests.ObjectFilterSelectsTrailer",
-          "JsonModesTests.ObjectFilterAppliesToVersionOne"
+          "JsonModesTests.ObjectFilterAppliesToVersionOne",
+          "JsonReferenceKeyTests.PageReferencesAddressObjectAndInfoMaps"
         ],
         "negative": [
           "JsonModesTests.BadObjectSelectorsFail"
         ],
         "interaction": [
           "JsonModesTests.JobStreamModesRoundTrip",
-          "JsonModesTests.TypedModesRoundTrip"
+          "JsonModesTests.TypedModesRoundTrip",
+          "JsonReferenceKeyTests.PageReferencesAddressObjectAndInfoMaps"
         ],
         "resource": [
           "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget"

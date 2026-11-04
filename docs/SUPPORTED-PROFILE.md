@@ -456,7 +456,11 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
 - `input --json[=1|2|latest] [--json-key=]... -- output` writes document JSON
   (version plus parameters, then pages, pagelabels, acroform, attachments,
   encrypt, outlines, and objects/objectinfo for version 1 or qpdf for
-  version 2). Pages carry object, contents, label, outlines,
+  version 2). Version 1 object and objectinfo maps use complete reference keys
+  such as `3 0 R`, matching page/content references. This corrects the former
+  shortened `3 0` keys; clients must use the full spelling. The `trailer` key
+  stays literal and version 2 retains its `obj:3 0 R` namespace.
+  Pages carry object, contents, label, outlines,
   pageposfrom1, and direct image descriptors with raw dimension/colorspace values
   and filter data. Image lookup shares ordinary page-resource inheritance with
   show-pages; null/undefined overrides allow ancestors, while explicit invalid

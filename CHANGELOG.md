@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Correct JSON v1 object and objectinfo keys to include the reference suffix,
+  such as `3 0 R`, so emitted page references address those maps directly.
+  Clients using the former shortened keys must update their lookups. Trailer
+  spelling and JSON v2 object keys keep their existing contract.
+
 - Apply the existing signature-copy exclusion to JSON creation/update, including
   loose objects and populated registered fields. Explicit unreferenced preservation
   now fails on excluded structures instead of warning and dropping requested roots.

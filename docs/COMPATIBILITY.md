@@ -204,6 +204,12 @@ including Info, attachments and stream headers. Empty updates no longer revive
 dead references; this matches the native controls. Explicit new generation-zero
 JSON edges can still target added or replaced objects. Public signatures are unchanged.
 
+JSON version 1 now keys `objects` and `objectinfo` with complete references such
+as `3 0 R`, matching the page/content references and native qpdf. Clients using
+the former `3 0` spelling must update their lookups. The literal `trailer` key
+and version 2's `obj:3 0 R` namespace retain their meanings; no duplicate aliases
+or compatibility switch are added.
+
 JSON creation/update also rejects unsupported page, content, image, metadata and
 PDF layout transformations before opening document data or output. Previously,
 some settings silently succeeded without executing, including form/structure

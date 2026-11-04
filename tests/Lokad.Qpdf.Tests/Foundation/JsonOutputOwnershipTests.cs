@@ -319,8 +319,8 @@ public sealed class JsonOutputOwnershipTests
         using JsonDocument json = JsonDocument.Parse(bytes);
         for (int number = 5; number < 55; number++)
         {
-            Assert.Equal(JsonValueKind.Null, json.RootElement.GetProperty("objects").GetProperty($"{number} 0").ValueKind);
-            Assert.False(json.RootElement.GetProperty("objectinfo").GetProperty($"{number} 0").GetProperty("stream").GetProperty("is").GetBoolean());
+            Assert.Equal(JsonValueKind.Null, json.RootElement.GetProperty("objects").GetProperty($"{number} 0 R").ValueKind);
+            Assert.False(json.RootElement.GetProperty("objectinfo").GetProperty($"{number} 0 R").GetProperty("stream").GetProperty("is").GetBoolean());
         }
     }
 
@@ -354,7 +354,7 @@ public sealed class JsonOutputOwnershipTests
         Assert.True(host.TryGetOutput(QpdfPath.From("unicode.json"), out byte[] bytes));
         Assert.Equal(bytes, Encoding.UTF8.GetBytes(result.Json));
         using JsonDocument parsed = JsonDocument.Parse(bytes);
-        JsonElement value = version == 1 ? parsed.RootElement.GetProperty("objects").GetProperty("4 0")
+        JsonElement value = version == 1 ? parsed.RootElement.GetProperty("objects").GetProperty("4 0 R")
             : parsed.RootElement.GetProperty("qpdf")[1].GetProperty("obj:4 0 R").GetProperty("value");
         Assert.Equal((version == 1 ? "" : "u:") + expected, value.GetProperty("/Text").GetString());
         Assert.Equal(version == 1 ? "/#c3#a9" : "/é", value.GetProperty("/\"\\").GetString());

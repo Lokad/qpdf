@@ -197,12 +197,12 @@ internal static class PdfJsonWriter
         builder.AppendInteger(number); builder.Append(' '); builder.AppendInteger(generation); builder.Append(" R");
     }
 
-    internal static void AppendObjectKey(DisplayBuffer builder, int number, int generation, bool canonical)
+    internal static void AppendObjectKey(DisplayBuffer builder, int number, int generation, bool prefixed)
     {
         builder.Append('"');
-        if (canonical) { builder.Append("obj:"); }
+        if (prefixed) { builder.Append("obj:"); }
         builder.AppendInteger(number); builder.Append(' '); builder.AppendInteger(generation);
-        if (canonical) { builder.Append(" R"); }
+        builder.Append(" R");
         builder.Append('"');
     }
 

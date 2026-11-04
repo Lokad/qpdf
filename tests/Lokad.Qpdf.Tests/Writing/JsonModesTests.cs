@@ -216,7 +216,7 @@ public sealed class JsonModesTests
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", StreamFixture());
         using JsonDocument document = await InspectAsync(host, "--json=1", "--json-key=objects", "--json-stream-data=inline");
         JsonElement objects = document.RootElement.GetProperty("objects");
-        JsonElement stream = objects.GetProperty("5 0");
+        JsonElement stream = objects.GetProperty("5 0 R");
         Assert.Equal(10, stream.GetProperty("/Length").GetInt32());
         Assert.False(stream.TryGetProperty("data", out _));
     }
@@ -273,11 +273,11 @@ public sealed class JsonModesTests
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", StreamFixture());
         using JsonDocument document = await InspectAsync(host, "--json=1", "--json-key=objects", "--json-key=objectinfo", "--json-object=5");
         JsonElement root = document.RootElement;
-        Assert.True(root.GetProperty("objects").TryGetProperty("5 0", out _));
-        Assert.False(root.GetProperty("objects").TryGetProperty("4 0", out _));
+        Assert.True(root.GetProperty("objects").TryGetProperty("5 0 R", out _));
+        Assert.False(root.GetProperty("objects").TryGetProperty("4 0 R", out _));
         Assert.False(root.GetProperty("objects").TryGetProperty("trailer", out _));
-        Assert.True(root.GetProperty("objectinfo").TryGetProperty("5 0", out _));
-        Assert.False(root.GetProperty("objectinfo").TryGetProperty("4 0", out _));
+        Assert.True(root.GetProperty("objectinfo").TryGetProperty("5 0 R", out _));
+        Assert.False(root.GetProperty("objectinfo").TryGetProperty("4 0 R", out _));
     }
 
     [Theory]
