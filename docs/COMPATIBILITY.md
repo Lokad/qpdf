@@ -75,6 +75,10 @@ ancestors. Stale or private Parent links no longer discard unrelated original
 objects. Loose trees retain their existing preservation policy; uncopyable roots
 warn, and required malformed-ancestry lookups can still reject before publication.
 
+Overlay and underlay sources read UserUnit only from the leaf page. Ancestor
+values no longer change placement; direct/indirect leaf values and null defaults
+retain their existing meaning. Resources, MediaBox, CropBox and Rotate still inherit.
+
 Page-copy operations, including overlay/underlay imports, reject reachable
 signature dictionaries (`/Type /Sig`) and populated signature fields in widget
 or retained AcroForm contexts. Field types may be inherited or indirect, and the
@@ -561,7 +565,7 @@ failure behavior; the tables below highlight differences important to callers.
 | Page graphs | Duplicate pages are independent page objects; content-stream sharing can differ. Only the four PDF inheritable page attributes materialize. Omitted-page references become null; page-tree/catalog references are rejected by contained copying. Typed preview drops outlines/structure; ordinary copies preserve them. |
 | Catalog/structure | Unresolvable extras drop; extras referring to rebuilt catalog/page-tree nodes may drop instead of remapping. Damaged structure drops leniently. Dangling outline destinations become null; named destinations do not resolve in JSON inspection. |
 | Forms | Combined forms can be direct dictionaries, with direct children remaining embedded rather than promoted to indirect objects. Merge default resources are first-source wins. Malformed parent back-links remain on copying paths where native may repair and warn; checking warns on both. General parent-field/default-resource parity is not claimed. |
-| Overlay/widgets | Inherited `/UserUnit` is not inverted. Direct-dictionary field parents may remain plain clones where native fails; cyclic parents warn with a valid imported structure. Appearance-local resources preserve rendering while broader remapping remains limited. |
+| Overlay/widgets | `/UserUnit` applies only to the leaf page. Direct-dictionary field parents may remain plain clones where native fails; cyclic parents warn with a valid imported structure. Appearance-local resources preserve rendering while broader remapping remains limited. |
 | Appearances/content | Parent-held radios may skip; empty signature fields skip and pushbuttons warn. Populated signature copying rejects explicitly. Wider/conflicting resource lookup is limited. Many damaged content/box/appearance paths warn and preserve or skip. Placement keeps non-array appearance matrices opaque with a warning; malformed arrays retain the legacy zero-transform fallback. |
 | Labels/attachments | Malformed label trees fail instead of warning. Attachment dates are omitted unless supplied; names use ASCII/UTF-16 encoding and rebuilt trees use one flat name array. Empty attachment-copy prefixes reject instead of copying unchanged. |
 | PDF JSON | Import/update accepts generation 0 only, rejects pushed inherited attributes, and excludes stream/metadata writer combinations. Version 1 ignores stream payloads; `--json-output=1` rejects. Creation/update renumbers output to classic files. Unlike native qpdf 12.4.2, malformed, mistyped and unsupported catalog `/Version` values reject before output opens, including indirect values; this avoids publishing PDFs the managed reader cannot open. Dangling imported references still normalize to null. Valid catalog overrides remain intact even when `--force-version` lowers the JSON output header. |

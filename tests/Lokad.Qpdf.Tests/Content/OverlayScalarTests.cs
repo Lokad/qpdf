@@ -7,12 +7,13 @@ namespace Lokad.Qpdf.Tests.Content;
 
 public sealed class OverlayScalarTests
 {
-    private static byte[] Page(string property, string scalar, bool indirect, bool inherited)
+    private static byte[] Page(string property, string scalar, bool indirect, bool inherited, string ancestorUnit)
     {
         string entry = property.Length == 0 ? "" : "/" + property + " " + (indirect ? "5 0 R" : scalar);
         return CheckTests.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
-            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 " + (inherited ? entry : "") + " >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 " + (inherited ? entry : "")
+                + (ancestorUnit.Length == 0 ? "" : " /UserUnit " + ancestorUnit) + " >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 80 40] /Resources << >> /Contents 4 0 R " + (inherited ? "" : entry) + " >>", null),
             (4, "<< /Length 4 >>", "q Q\n"u8.ToArray()), (5, scalar, null)], 1);
     }
@@ -45,11 +46,11 @@ public sealed class OverlayScalarTests
     }
 
     private static async Task<(double[] Base, double[] Stamp, byte[] Program)> Run(
-        string route, string mode, bool source, string property, string scalar, bool inherited, bool indirect)
+        string route, string mode, bool source, string property, string scalar, bool inherited, bool indirect, string ancestorUnit)
     {
         using InMemoryQpdfHost host = new();
-        byte[] subject = Page(property, scalar, indirect, inherited);
-        byte[] plain = Page("", "0", false, false);
+        byte[] subject = Page(property, scalar, indirect, inherited, ancestorUnit);
+        byte[] plain = Page("", "0", false, false, "");
         host.AddInput(QpdfPath.From("input"), source ? plain : subject, QpdfInputOwnership.Copy);
         host.AddInput(QpdfPath.From("stamp"), source ? subject : plain, QpdfInputOwnership.Copy);
         string[] argv = ["input", "--stream-data=uncompress", "--" + mode, "stamp", "--", "output"];
@@ -77,8 +78,8 @@ public sealed class OverlayScalarTests
     [MemberData(nameof(Cases))]
     public async Task IndirectStampScalarsMatchDirectTransforms(string route, string mode, bool source, string property, string scalar, bool inherited)
     {
-        var direct = await Run(route, mode, source, property, scalar, inherited, false);
-        var indirect = await Run(route, mode, source, property, scalar, inherited, true);
+        var direct = await Run(route, mode, source, property, scalar, inherited, false, "");
+        var indirect = await Run(route, mode, source, property, scalar, inherited, true, "");
         Assert.Equal(direct.Base, indirect.Base); Assert.Equal(direct.Stamp, indirect.Stamp); Assert.Equal(direct.Program, indirect.Program);
     }
 
@@ -91,8 +92,8 @@ public sealed class OverlayScalarTests
     [InlineData(false, "UserUnit", "/Bad")]
     public async Task UnusableIndirectValuesKeepTheDirectFallback(bool source, string property, string scalar)
     {
-        var direct = await Run("argv", "overlay", source, property, scalar, false, false);
-        var indirect = await Run("argv", "overlay", source, property, scalar, false, true);
+        var direct = await Run("argv", "overlay", source, property, scalar, false, false, "");
+        var indirect = await Run("argv", "overlay", source, property, scalar, false, true, "");
         Assert.Equal(direct.Base, indirect.Base); Assert.Equal(direct.Stamp, indirect.Stamp); Assert.Equal(direct.Program, indirect.Program);
     }
 
@@ -115,8 +116,46 @@ public sealed class OverlayScalarTests
     public async Task EquivalentRotationsKeepPlacementAcrossSigned64BitValues(
         string route, string mode, bool source, bool inherited, string angle, string equivalent)
     {
-        var control = await Run(route, mode, source, "Rotate", equivalent, inherited, inherited);
-        var actual = await Run(route, mode, source, "Rotate", angle, inherited, inherited);
+        var control = await Run(route, mode, source, "Rotate", equivalent, inherited, inherited, "");
+        var actual = await Run(route, mode, source, "Rotate", angle, inherited, inherited, "");
+        Assert.Equal(control.Base, actual.Base); Assert.Equal(control.Stamp, actual.Stamp); Assert.Equal(control.Program, actual.Program);
+    }
+
+    public static IEnumerable<object[]> AncestorUnitCases()
+    {
+        foreach (string route in new[] { "argv", "job" })
+        foreach (string mode in new[] { "overlay", "underlay" })
+        foreach (bool source in new[] { false, true })
+        foreach (bool indirect in new[] { false, true })
+        foreach (string scalar in new[] { "0.5", "2", "null" })
+        { yield return [route, mode, source, indirect, scalar]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(AncestorUnitCases))]
+    public async Task UserUnitOnAnAncestorDoesNotChangePlacement(string route, string mode, bool source, bool indirect, string scalar)
+    {
+        var control = await Run(route, mode, source, "", "0", false, false, "");
+        var actual = await Run(route, mode, source, "UserUnit", scalar, true, indirect, "");
+        Assert.Equal(control.Base, actual.Base); Assert.Equal(control.Stamp, actual.Stamp); Assert.Equal(control.Program, actual.Program);
+    }
+
+    public static IEnumerable<object[]> LeafUnitCases()
+    {
+        foreach (string route in new[] { "argv", "job" })
+        foreach (string mode in new[] { "overlay", "underlay" })
+        foreach (bool indirect in new[] { false, true })
+        foreach (string scalar in new[] { "missing", "null", "2" })
+        { yield return [route, mode, indirect, scalar]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(LeafUnitCases))]
+    public async Task LeafUserUnitKeepsItsMeaningWithAPrivateAncestorValue(string route, string mode, bool indirect, string scalar)
+    {
+        string property = scalar == "missing" ? "" : "UserUnit", value = scalar == "missing" ? "0" : scalar;
+        var control = await Run(route, mode, true, property, value, false, indirect, "");
+        var actual = await Run(route, mode, true, property, value, false, indirect, "0.5");
         Assert.Equal(control.Base, actual.Base); Assert.Equal(control.Stamp, actual.Stamp); Assert.Equal(control.Program, actual.Program);
     }
 }

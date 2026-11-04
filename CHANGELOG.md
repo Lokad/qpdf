@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Read overlay/underlay UserUnit from the source leaf page, keeping private
+  ancestor values out of placement while preserving actual page inheritance.
+
 - Validate page-tree ancestry before excluding original objects from explicit
   unreferenced preservation. Keep private targets and report uncopyable roots
   under the existing warning policy; retain loose trees and genuine exclusions.

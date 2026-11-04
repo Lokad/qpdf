@@ -356,7 +356,8 @@ internal static class Overlays
 
         double userUnit = 1.0;
         bool hasUnit = false;
-        QpdfObject? unitRaw = FindInherited(engine, location, "UserUnit", limits, governor, cancellationToken);
+        QpdfObject? unitRaw = PdfDictionaryLookup.TryGet(location.Page, "UserUnit"u8, governor, cancellationToken, out QpdfObject declaredUnit)
+            ? declaredUnit : null;
         if (unitRaw is PdfReference unitReference)
         { PdfObjectLookup.TryResolve(unitReference, engine, governor, cancellationToken, out unitRaw); }
         if (unitRaw is PdfInteger unitInteger)
