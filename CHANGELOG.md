@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Fit overlays/underlays to the destination TrimBox/CropBox intersection with
+  MediaBox, preserving original box values and aliases. Share the bounded
+  intersection calculation with source Forms; skip empty destination bounds
+  before decoding their content, with a warning.
+
 - Reject unsupported transformations and PDF layout settings in JSON creation
   and updates instead of silently discarding them. Align job/mixed JSON inspection
   rejections with argv while preserving documented inspection writer ignores,

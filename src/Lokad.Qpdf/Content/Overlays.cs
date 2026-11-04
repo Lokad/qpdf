@@ -344,19 +344,10 @@ internal static class Overlays
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Overlay page media box is invalid; skipping it.");
             return null;
         }
-        double left = Math.Max(Math.Min(box[0], box[2]), Math.Min(mediaBox[0], mediaBox[2]));
-        double bottom = Math.Max(Math.Min(box[1], box[3]), Math.Min(mediaBox[1], mediaBox[3]));
-        double right = Math.Min(Math.Max(box[0], box[2]), Math.Max(mediaBox[0], mediaBox[2]));
-        double top = Math.Min(Math.Max(box[1], box[3]), Math.Max(mediaBox[1], mediaBox[3]));
-        if (left >= right || bottom >= top)
+        if (!TryIntersectRectangle(box, mediaBox, out bool rebuildBox))
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Overlay page has an empty media intersection; skipping it.");
             return null;
-        }
-        bool rebuildBox = left != box[0] || bottom != box[1] || right != box[2] || top != box[3];
-        if (rebuildBox)
-        {
-            box[0] = left; box[1] = bottom; box[2] = right; box[3] = top;
         }
 
         QpdfObject? resources = FindInherited(engine, location, "Resources", limits, governor, cancellationToken);
@@ -451,6 +442,18 @@ internal static class Overlays
         return joined.TakeBytes(ownership);
     }
 
+    private static bool TryIntersectRectangle(Span<double> box, ReadOnlySpan<double> media, out bool changed)
+    {
+        double left = Math.Max(Math.Min(box[0], box[2]), Math.Min(media[0], media[2]));
+        double bottom = Math.Max(Math.Min(box[1], box[3]), Math.Min(media[1], media[3]));
+        double right = Math.Min(Math.Max(box[0], box[2]), Math.Max(media[0], media[2]));
+        double top = Math.Min(Math.Max(box[1], box[3]), Math.Max(media[1], media[3]));
+        changed = left != box[0] || bottom != box[1] || right != box[2] || top != box[3];
+        if (left >= right || bottom >= top) { return false; }
+        box[0] = left; box[1] = bottom; box[2] = right; box[3] = top;
+        return true;
+    }
+
     private static double[]? ReadRectangle(QpdfObject? value, IIndirectResolver resolver)
     {
         Span<double> numbers = stackalloc double[4];
@@ -537,6 +540,11 @@ internal static class Overlays
         if (placeBox is null || media is null)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Output page has no bounding box; skipping overlay for it.");
+            return;
+        }
+        if (!TryIntersectRectangle(placeBox, media, out _))
+        {
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Output page has an empty media intersection; skipping overlay for it.");
             return;
         }
 

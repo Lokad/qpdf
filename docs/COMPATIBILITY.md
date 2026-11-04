@@ -75,6 +75,13 @@ ancestors. Stale or private Parent links no longer discard unrelated original
 objects. Loose trees retain their existing preservation policy; uncopyable roots
 warn, and required malformed-ancestry lookups can still reject before publication.
 
+Overlay/underlay destination fitting uses the preferred TrimBox/CropBox
+intersection with MediaBox, normalizing reversed rectangles first. Original page
+box values and independent aliases remain unchanged. Empty intersections warn and
+skip before reading destination content. Native qpdf can fit to the raw preferred
+box and clip the result afterward, changing the visible pattern; managed fitting
+deliberately uses the effective bounds for both source Forms and destinations.
+
 Overlay and underlay sources read UserUnit only from the leaf page. Ancestor
 values no longer change placement; direct/indirect leaf values and null defaults
 retain their existing meaning. Resources, MediaBox, CropBox and Rotate still inherit.
