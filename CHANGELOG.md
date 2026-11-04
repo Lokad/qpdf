@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Ignore row geometry when `Predictor` is absent or 1, restoring usable Flate/LZW
+  data in metadata, attachments and pages. Keep LZW `EarlyChange` independent;
+  active predictor metadata now validates in fixed parameter order.
+
 - Keep external-file streams opaque, refuse effective-data extraction and required
   structural decoding, and report unavailable check coverage. Preserve raw
   descriptors/placeholders instead of interpreting or recompressing them as data.

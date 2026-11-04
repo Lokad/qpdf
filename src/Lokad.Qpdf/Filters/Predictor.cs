@@ -1,3 +1,4 @@
+using System.Text;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
@@ -11,17 +12,6 @@ internal sealed record PredictorParameters(int Predictor, int Columns, int Color
 
     internal static PredictorParameters? FromDictionary(PdfDictionary? parms, string filterName, IIndirectResolver? resolver,
         ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
-        => Read(parms, filterName, resolver, memory, governor, token, null);
-
-    internal static PredictorParameters? FromDictionaryObserved(PdfDictionary? parms, string filterName, IIndirectResolver? resolver,
-        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token, Action observe)
-    {
-        ArgumentNullException.ThrowIfNull(observe);
-        return Read(parms, filterName, resolver, memory, governor, token, observe);
-    }
-
-    private static PredictorParameters? Read(PdfDictionary? parms, string filterName, IIndirectResolver? resolver,
-        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token, Action? observe)
     {
         ArgumentNullException.ThrowIfNull(memory); ArgumentNullException.ThrowIfNull(governor);
         token.ThrowIfCancellationRequested(); governor.CheckCancellation(); memory.CheckOwner(governor);
@@ -30,75 +20,26 @@ internal sealed record PredictorParameters(int Predictor, int Columns, int Color
             return null;
         }
 
-        int predictor = 1;
-        int columns = 1;
-        int colors = 1;
-        int bitsPerComponent = 8;
-        int visited = 0;
-        using var entries = parms.GetEntryEnumerator();
-        while (true)
-        {
-            Step(governor, token);
-            if (!entries.MoveNext()) { break; }
-            var entry = entries.Current;
-            string? name = ParameterName(entry.Key, governor, token);
-            if (name is null)
-            {
-                Observe(ref visited, observe);
-                continue;
-            }
-
-            QpdfObject raw = entry.Value;
-            if (raw is null)
-            {
-                throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"DecodeParms /{name} must be an integer.");
-            }
-
-            raw = DerefValue(raw, resolver, filterName, name, governor, token);
-            if (raw is PdfNull)
-            {
-                Observe(ref visited, observe);
-                continue;
-            }
-            if (raw is not PdfInteger integer)
-            {
-                throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"DecodeParms /{name} must be an integer.");
-            }
-
-            if (name == "Predictor")
-            {
-                predictor = CheckRange(integer.Value, filterName, "Predictor");
-            }
-            else if (name == "Columns")
-            {
-                columns = CheckRange(integer.Value, filterName, "Columns");
-            }
-            else if (name == "Colors")
-            {
-                colors = CheckRange(integer.Value, filterName, "Colors");
-            }
-            else
-            {
-                bitsPerComponent = CheckRange(integer.Value, filterName, "BitsPerComponent");
-            }
-            Observe(ref visited, observe);
-        }
-
-        if (predictor != 1 && predictor != 2 && (predictor < 10 || predictor > 15))
+        int predictor = ReadInteger(parms, "Predictor"u8, 1, filterName, resolver, governor, token);
+        if (predictor == 1) { return null; }
+        if (predictor != 2 && (predictor < 10 || predictor > 15))
         {
             throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"Unsupported /Predictor value {predictor}.");
         }
 
+        int columns = ReadInteger(parms, "Columns"u8, 1, filterName, resolver, governor, token);
         if (columns < 1)
         {
             throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"Invalid /Columns value {columns}.");
         }
 
+        int colors = ReadInteger(parms, "Colors"u8, 1, filterName, resolver, governor, token);
         if (colors < 1)
         {
             throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"Invalid /Colors value {colors}.");
         }
 
+        int bitsPerComponent = ReadInteger(parms, "BitsPerComponent"u8, 8, filterName, resolver, governor, token);
         if (bitsPerComponent != 1 && bitsPerComponent != 2 && bitsPerComponent != 4
             && bitsPerComponent != 8 && bitsPerComponent != 16)
         {
@@ -113,19 +54,20 @@ internal sealed record PredictorParameters(int Predictor, int Columns, int Color
     private static void Step(ResourceGovernor governor, CancellationToken token)
     { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); }
 
-    private static void Observe(ref int visited, Action? observe)
-    { if (++visited % 256 == 0) { observe?.Invoke(); } }
-
-    private static string? ParameterName(PdfName key, ResourceGovernor governor, CancellationToken token)
+    private static int ReadInteger(PdfDictionary dictionary, ReadOnlySpan<byte> key, int fallback,
+        string filterName, IIndirectResolver? resolver, ResourceGovernor governor, CancellationToken token)
     {
-        if (PdfDictionaryLookup.NameEquals(key, "Predictor"u8, governor, token)) { return "Predictor"; }
-        if (PdfDictionaryLookup.NameEquals(key, "Columns"u8, governor, token)) { return "Columns"; }
-        if (PdfDictionaryLookup.NameEquals(key, "Colors"u8, governor, token)) { return "Colors"; }
-        if (PdfDictionaryLookup.NameEquals(key, "BitsPerComponent"u8, governor, token)) { return "BitsPerComponent"; }
-        return null;
+        if (!PdfDictionaryLookup.TryGet(dictionary, key, governor, token, out QpdfObject raw)) { return fallback; }
+        raw = DerefValue(raw, resolver, filterName, key, governor, token);
+        if (raw is PdfNull) { return fallback; }
+        if (raw is not PdfInteger integer)
+        { throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"DecodeParms /{Encoding.ASCII.GetString(key)} must be an integer."); }
+        if (integer.Value < int.MinValue || integer.Value > int.MaxValue)
+        { throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"DecodeParms /{Encoding.ASCII.GetString(key)} is out of range."); }
+        return (int)integer.Value;
     }
 
-    private static QpdfObject DerefValue(QpdfObject raw, IIndirectResolver? resolver, string filterName, string role,
+    private static QpdfObject DerefValue(QpdfObject raw, IIndirectResolver? resolver, string filterName, ReadOnlySpan<byte> key,
         ResourceGovernor governor, CancellationToken token)
     {
         if (raw is not PdfReference reference)
@@ -135,7 +77,7 @@ internal sealed record PredictorParameters(int Predictor, int Columns, int Color
 
         if (resolver is null)
         {
-            throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"Indirect DecodeParms /{role} needs an object resolver.");
+            throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"Indirect DecodeParms /{Encoding.ASCII.GetString(key)} needs an object resolver.");
         }
 
         Step(governor, token);
@@ -143,20 +85,10 @@ internal sealed record PredictorParameters(int Predictor, int Columns, int Color
         Step(governor, token);
         if (!found || resolved is null)
         {
-            throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"Unresolvable indirect DecodeParms /{role}.");
+            throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"Unresolvable indirect DecodeParms /{Encoding.ASCII.GetString(key)}.");
         }
 
         return resolved;
-    }
-
-    private static int CheckRange(long value, string filterName, string role)
-    {
-        if (value < int.MinValue || value > int.MaxValue)
-        {
-            throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"DecodeParms /{role} is out of range.");
-        }
-
-        return (int)value;
     }
 }
 

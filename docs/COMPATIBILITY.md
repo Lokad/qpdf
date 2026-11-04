@@ -121,6 +121,18 @@ empty or indirect parameter dictionaries, stays opaque with warnings in rewritin
 and optimization; direct decode requests fail explicitly. This PDF policy is
 independent of the supplied codec's wider capabilities.
 
+Flate/LZW row geometry (`Columns`, `Colors`, `BitsPerComponent`) applies only when
+prediction is active. An absent or resolved-null `Predictor`, or value 1, ignores
+those dormant fields, including their indirect values. This restores previously
+rejected usable payloads and compressed metadata/attachment/page objects. Active
+predictors retain type, range, row, decoded-byte and admission checks. Their metadata
+validates in fixed Predictor/Columns/Colors/BitsPerComponent order rather than source
+dictionary iteration order; malformed inputs can therefore report a different first
+failure. LZW `EarlyChange` remains independently applicable and validated.
+Unused wrong-type or cyclic geometry is ignored as well; native qpdf can refuse
+those malformed controls. This deliberate tolerance follows parameter applicability
+and does not relax active prediction or general object-graph checks.
+
 A stream's effective non-null `F` names external file data, which this profile
 does not load. Raw inspection and opaque PDF/JSON copying retain its descriptor
 and physical placeholder bytes; routine compression leaves them unchanged.

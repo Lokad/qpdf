@@ -222,7 +222,7 @@ internal static partial class FilterChain
         {
             if (memory is not null)
             { parms = PredictorParameters.FromDictionary(stage.Parms, stage.Name, stage.Resolver, memory, governor, token); }
-            // Direct hint/companion decoding shares the same codec implementation.
+            // Hints and the companion facade share this same Flate codec.
             if (stage.Name == FlateFilter.FilterName) { return FlateFilter.Decode(input, parms, limits, governor, token); }
             long selectorStride = parms is not null && parms.Predictor >= 10
                 ? PredictorStages.RowLength(parms, LzwFilter.FilterName) + 1L : 0L;

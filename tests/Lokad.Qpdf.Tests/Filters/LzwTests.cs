@@ -38,7 +38,7 @@ public sealed class LzwTests
         return FilterChain.Decode(input, stages, limits, governor, decodedMemory);
     }
 
-    private static byte[] LzwEncode(byte[] raw, bool earlyChange)
+    internal static byte[] LzwEncode(byte[] raw, bool earlyChange)
     {
         // The decoder skips exactly one table add (the first code after
         // clear) which has no counterpart on the encoding side, so the

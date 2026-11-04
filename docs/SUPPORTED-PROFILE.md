@@ -179,6 +179,8 @@ echoing values.
   1- and 3-component JPEGs with absent/null `DecodeParms`. DCT parameter dictionaries
   and four-component samples stay opaque in transformations; explicit filtered-data
   requests fail as unsupported.
+  Flate/LZW row geometry is read only for active prediction. Absent/null Predictor
+  or Predictor 1 ignores dormant geometry; LZW EarlyChange still controls code width.
 - External-file streams (effective non-null `/F`) stay opaque. Raw inspection and
   PDF/JSON copying preserve their descriptors and physical placeholder bytes.
   Effective-data extraction, required structural decoding and transformations
