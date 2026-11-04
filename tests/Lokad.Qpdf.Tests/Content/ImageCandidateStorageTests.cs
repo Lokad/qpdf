@@ -56,7 +56,12 @@ public sealed class ImageCandidateStorageTests
             {
                 called = true;
                 Assert.Equal(128 * 128, raw.Length);
-                long minimum = samples.LongLength + 32L + (trim ? raw.Length + 32L : 0L);
+                Assert.True(MemoryMarshal.TryGetArray(raw, out ArraySegment<byte> segment));
+                byte[] decoded = Assert.IsType<byte[]>(segment.Array);
+                Assert.NotSame(image.AllocationCarrier, decoded);
+                Assert.Equal(samples.Length, decoded.Length); Assert.Equal(0, segment.Offset);
+                Assert.True(raw.Span.SequenceEqual(samples.AsSpan(0, raw.Length)));
+                long minimum = decoded.LongLength + 32L;
                 Assert.True(governor.Snapshot().LiveMemoryBytes >= minimum);
             }),
         };

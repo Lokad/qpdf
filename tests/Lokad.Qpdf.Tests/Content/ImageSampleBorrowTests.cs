@@ -9,7 +9,7 @@ namespace Lokad.Qpdf.Tests.Content;
 
 public sealed class ImageSampleBorrowTests
 {
-    private sealed class ObservingCodec(byte[] backing, int offset, int count, bool borrowed) : IQpdfJpegCodec
+    private sealed class ObservingCodec(byte[] backing, int offset, int count) : IQpdfJpegCodec
     {
         internal int Calls;
         internal bool CorrectBacking, CorrectWindow, CorrectBytes;
@@ -19,8 +19,8 @@ public sealed class ImageSampleBorrowTests
         {
             Calls++;
             bool array = MemoryMarshal.TryGetArray(samples, out ArraySegment<byte> segment);
-            CorrectBacking = array && ReferenceEquals(backing, segment.Array) == borrowed;
-            CorrectWindow = array && segment.Offset == (borrowed ? offset : 0) && segment.Count == count;
+            CorrectBacking = array && ReferenceEquals(backing, segment.Array);
+            CorrectWindow = array && segment.Offset == offset && segment.Count == count;
             CorrectBytes = samples.Span.SequenceEqual(backing.AsSpan(offset, count));
             LokadImageJpegCodec.Instance.Encode(samples, frame, quality, encoded, context);
         }
@@ -33,7 +33,7 @@ public sealed class ImageSampleBorrowTests
     [InlineData(3, "slice")]
     [InlineData(1, "trimmed")]
     [InlineData(3, "trimmed")]
-    public void UnfilteredSamplesBorrowFundedStorageAndTrimmingKeepsItsOwnCopy(int components, string storage)
+    public void UnfilteredAndTrimmedSamplesBorrowTheirFundedStorage(int components, string storage)
     {
         int count = 64 * 64 * components;
         int offset = storage == "array" ? 0 : 17;
@@ -41,7 +41,7 @@ public sealed class ImageSampleBorrowTests
         byte[] backing = new byte[storage == "array" ? count : length + 41];
         backing.AsSpan(offset, count).Fill(7);
         if (storage == "trimmed") { backing[offset + count] = 10; }
-        ObservingCodec codec = new(backing, offset, count, storage != "trimmed");
+        ObservingCodec codec = new(backing, offset, count);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None) { JpegCodec = codec };
         using ParserMemoryScope source = ParserMemoryScope.Create(governor);
         source.Reserve(1024L + backing.Length);
