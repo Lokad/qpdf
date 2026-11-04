@@ -374,9 +374,7 @@ public sealed class LinearizedWriterTests
         InMemoryQpdfHost showHost = HostWith("inputs/r.pdf", pdf);
         List<string> lines = await ShowAsync(showHost, "inputs/r.pdf");
         Assert.Contains("Outlines Hint Table", lines);
-        Assert.Contains("first_object: 5", lines);
-        Assert.Contains("nobjects: 3", lines);
-        Assert.Contains(" 4-7", lines);
+        await CheckOutlineAssignmentAsync(pdf, lines, "9 (everything else)");
     }
 
     [Fact]
@@ -401,9 +399,36 @@ public sealed class LinearizedWriterTests
         await CheckLinearizedAsync(pdf, 2);
         InMemoryQpdfHost showHost = HostWith("inputs/r.pdf", pdf);
         List<string> lines = await ShowAsync(showHost, "inputs/r.pdf");
-        Assert.Contains("first_object: 11", lines);
-        Assert.Contains("nobjects: 3", lines);
-        Assert.Contains(" 8-13", lines);
+        await CheckOutlineAssignmentAsync(pdf, lines, "6 (first page)");
+    }
+
+    private static async Task CheckOutlineAssignmentAsync(byte[] pdf, List<string> lines, string part)
+    {
+        InMemoryQpdfHost host = HostWith("input", pdf);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input"), CancellationToken.None);
+        Assert.True(document.Engine.Trailer.TryGet(PdfName.FromAscii("Root"), out QpdfObject rootRaw));
+        PdfDictionary catalog = Assert.IsType<PdfDictionary>(document.GetObject(Assert.IsType<PdfReference>(rootRaw).ObjectNumber));
+        Assert.True(catalog.TryGet(PdfName.FromAscii("Outlines"), out QpdfObject outlinesRaw));
+        int outlineNumber = Assert.IsType<PdfReference>(outlinesRaw).ObjectNumber;
+        PdfDictionary outlines = Assert.IsType<PdfDictionary>(document.GetObject(outlineNumber));
+        Assert.True(outlines.TryGet(PdfName.FromAscii("First"), out QpdfObject first));
+        Assert.True(outlines.TryGet(PdfName.FromAscii("Last"), out QpdfObject last));
+        int[] numbers = [outlineNumber, Assert.IsType<PdfReference>(first).ObjectNumber,
+            Assert.IsType<PdfReference>(last).ObjectNumber];
+        Assert.Equal(3, numbers.Distinct().Count());
+        Assert.Contains($"first_object: {numbers.Min()}", lines);
+        int hintAt = lines.IndexOf("Outlines Hint Table");
+        Assert.True(hintAt >= 0);
+        Assert.Equal("nobjects: 3", lines[hintAt + 3]);
+        int partAt = lines.IndexOf("part " + part + ":");
+        Assert.True(partAt >= 0);
+        IEnumerable<(int First, int Last)> ranges = lines.Skip(partAt + 1)
+            .TakeWhile(line => line.StartsWith(' ')).SelectMany(line => line.Trim().Split(", "))
+            .Select(range => range.Split('-')).Select(bounds =>
+                (int.Parse(bounds[0], System.Globalization.CultureInfo.InvariantCulture),
+                 int.Parse(bounds[^1], System.Globalization.CultureInfo.InvariantCulture)));
+        foreach (int number in numbers)
+        { Assert.Contains(ranges, range => number >= range.First && number <= range.Last); }
     }
 
     [Fact]
