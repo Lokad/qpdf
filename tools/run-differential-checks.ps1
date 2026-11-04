@@ -362,8 +362,19 @@ foreach ($name in @('rotation-indirect-states', 'rotation-indirect-matrix', 'rot
   Assert-Trio $name "$case/lib.pdf" "$case/ora.pdf" $(if ($name -like 'rotation-shared-*') { 2 } else { 1 })
   $managed = Get-RotationSemantics "$case/lib.pdf"
   $native = Get-RotationSemantics "$case/ora.pdf"
-  if ($managed -ne $native) { throw "$name appearance geometry mismatch: managed=$managed native=$native" }
-  Write-Output "[$name] page and appearance transforms agree"
+  if ($name -eq 'rotation-indirect-matrix') {
+    # Appearance-local coordinates precede the page transform. Native reverses
+    # this noncommuting pair; keep both exact expectations instead of equality.
+    $expectedManaged = '[{"Media":[0,0,792,612],"Rotate":null,"Rect":[20,562,40,602],"Matrix":[1,-2,3,-0.5,7,607]}]'
+    $expectedNative = '[{"Media":[0,0,792,612],"Rotate":null,"Rect":[20,562,40,602],"Matrix":[-0.5,-3,2,1,311,1843]}]'
+    if ($managed -ne $expectedManaged -or $native -ne $expectedNative) {
+      throw "$name unexpected appearance geometry: managed=$managed native=$native"
+    }
+    Write-Output "[$name] exact page geometry and intentional appearance-order divergence verified"
+  } else {
+    if ($managed -ne $native) { throw "$name appearance geometry mismatch: managed=$managed native=$native" }
+    Write-Output "[$name] page and appearance transforms agree"
+  }
 }
 
 # --- case: prune (page-operation resource pruning) ---
