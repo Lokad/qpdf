@@ -95,6 +95,10 @@ header copying, including field spines, popup/reply links and form registration;
 appearance and resource payloads stay shared.
 The first registered page identity remains canonical when a page is repeated;
 later catalog and destination copies cannot retarget it to a duplicate occurrence.
+Serialization authors each page's Parent backlink during the existing header
+copy, using one admitted page-tree reference per job. Split remapping keeps the
+reserved output-tree identity; QDF and linearization remap it normally. Inspection
+receives no synthetic ancestry, and source page-tree edges are never imported.
 Unchanged primary catalog context keeps its original action values and shared
 identities. When source context would otherwise be lost, retained action roles bind
 explicit URI bases and source-local named destinations while the reader lives,

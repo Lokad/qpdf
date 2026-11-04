@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Author required page Parent backlinks to the new output tree while copying
+  page headers. Keep those edges through split remapping, QDF and linearization;
+  preserve other Parent roles and read-only source ancestry. This corrects an
+  incomplete output graph that native syntax checking could accept.
+
 - Preserve supported source catalog meaning for retained pages and actions.
   Combine static View optional-content groups/OFF states by identity, retain
   unchanged catalog-root aliases, and bind explicit URI bases and source-local

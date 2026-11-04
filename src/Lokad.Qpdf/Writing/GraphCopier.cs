@@ -429,17 +429,13 @@ internal sealed class GraphCopier
         return false;
     }
 
-    internal (int Id, PdfDictionary Page) CopyPageRoot(
-        PdfDictionary page,
-        int? sourceNumber,
-        IReadOnlyDictionary<PdfName, QpdfObject> extra)
-        => CopyPageRoot(page, sourceNumber, extra, false);
-
     // Retained inspection pages share their existing immutable values and keep
-    // source identities. A null source number allocates a duplicate occurrence.
+    // source identities. Output pages receive the caller's new page-tree edge
+    // in this same header construction. Inspection supplies no synthetic parent.
+    // A null source number allocates a duplicate occurrence.
     internal (int Id, PdfDictionary Page) CopyPageRoot(
         PdfDictionary page, int? sourceNumber, IReadOnlyDictionary<PdfName, QpdfObject> extra,
-        bool retainSourceObjects)
+        bool retainSourceObjects, PdfReference? outputParent)
     {
         if (page is null)
         {
@@ -503,6 +499,11 @@ internal sealed class GraphCopier
             }
         }
 
+        if (outputParent is not null)
+        {
+            _ownership.Reserve(32L);
+            entries.Assign(_ownership, _governor, ParentKey, outputParent, _governor.CancellationToken);
+        }
         PdfDictionary copied = CompleteDictionary(entries);
         Store(pageId, copied);
         return (pageId, copied);

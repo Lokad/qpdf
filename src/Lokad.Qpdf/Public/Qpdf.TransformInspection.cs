@@ -95,7 +95,7 @@ public static partial class Qpdf
                         SetInspectionEntry(extra, key, kept, memory);
                     }
                 }
-                (int id, PdfDictionary page) = pool.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra, true);
+                (int id, PdfDictionary page) = pool.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra, true, null);
                 ParserContainers.AddItem(memory, original, new InspectionPage(id, location.Source?.Generation ?? 0, page), 16L);
             }
 
@@ -125,7 +125,7 @@ public static partial class Qpdf
                 if (!ParserContainers.AddSetItem(memory, used, page.Number, sizeof(int)))
                 {
                     Dictionary<PdfName, QpdfObject> extra = ParserContainers.CreateDictionary<PdfName, QpdfObject>(memory);
-                    (int id, PdfDictionary duplicate) = pool.CopyPageRoot(page.Page, null, extra, true);
+                    (int id, PdfDictionary duplicate) = pool.CopyPageRoot(page.Page, null, extra, true, null);
                     page = new InspectionPage(id, 0, duplicate);
                 }
                 ParserContainers.AddItem(memory, selectedPages, page, 16L);
@@ -307,7 +307,7 @@ public static partial class Qpdf
                         PageLocation location = reader.PageReferences[number - 1];
                         IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(reader.Engine,
                             location, copier, governor, limits, token, memory);
-                        (int id, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
+                        (int id, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra, false, null);
                         selected = new(id, 0, page);
                     }
                     ParserContainers.AddItem(memory, groups[group], selected, 16L);

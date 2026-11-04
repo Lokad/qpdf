@@ -382,13 +382,15 @@ public static partial class Qpdf
                     List<PdfReference> kids = ParserContainers.CreateList<PdfReference>(copyMemory, requested.Count, IntPtr.Size);
                     copyMemory.Reserve(checked(24L * requested.Count));
                     List<(GraphCopier Copier, int Id)> occurrences = ParserContainers.CreateList<(GraphCopier, int)>(copyMemory, requested.Count, 16L);
+                    PdfReference? outputParent = null;
                     foreach (int pageNumber in requested)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
                         governor.NoteOperation();
                         PageLocation location = document.PageReferences[pageNumber - 1];
                         IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location, copier, governor, limits, cancellationToken, copyMemory);
-                        (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
+                        if (outputParent is null) { copyMemory.Reserve(32L); outputParent = new PdfReference(2, 0); }
+                        (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra, false, outputParent);
                         RequireMediaBox(page);
                         kids.Add(new PdfReference(pageId, 0));
                         occurrences.Add((copier, pageId));
@@ -990,6 +992,7 @@ public static partial class Qpdf
         }
         using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
         using ParserMemoryScope selectionMemory = ParserMemoryScope.Create(governor);
+        PdfReference? outputParent = null;
         int primaryIdx = sources.Count;
         for (int p = 0; p < sources.Count; p++)
         {
@@ -1124,7 +1127,8 @@ public static partial class Qpdf
                         cancellationToken.ThrowIfCancellationRequested(); governor.NoteOperation();
                         PageLocation location = document.PageReferences[pageNumber - 1];
                         IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location, copier, governor, limits, cancellationToken, selectionMemory);
-                        (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
+                        if (outputParent is null) { selectionMemory.Reserve(32L); outputParent = new PdfReference(2, 0); }
+                        (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra, false, outputParent);
                         RequireMediaBox(page);
                         taken.Add((copier, pageId, pageNumber));
                     }
@@ -1735,7 +1739,10 @@ public static partial class Qpdf
 
             GovernedSort.Sort(CollectionsMarshal.AsSpan(kept), new WriterNumberOrder(), governor, cancellationToken);
             Dictionary<int, int> renumber = ParserContainers.CreateDictionary<int, int>(groupMemory);
-            ParserContainers.HintEntryCapacity(groupMemory, renumber, kept.Count, sizeof(int), governor);
+            ParserContainers.HintEntryCapacity(groupMemory, renumber, checked(kept.Count + 1), sizeof(int), governor);
+            // Page headers already name the reserved output tree. Each split
+            // rebuilds that tree at the same identity before ordinary layout.
+            GovernedCollections.Assign(groupMemory, governor, renumber, 2, 2, sizeof(int));
             for (int r = 0; r < kept.Count; r++)
             {
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();

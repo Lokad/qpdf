@@ -42,6 +42,13 @@ No public signatures change. Required contexts that cannot be bound fail explici
 including malformed source indexes and unusable explicit URI bases encountered in
 retained roles; prior output remains untouched.
 
+Rewritten pages now include the required indirect Parent backlink to the new
+page tree in ordinary, packed, QDF, linearized and split output. Source page
+ancestry is discarded; field, annotation and private Parent roles retain their
+existing policy, and inspection keeps its source identities. The former omission
+could pass native syntax checking despite an incomplete output page graph.
+Output bytes and content-derived identifiers change; public signatures do not.
+
 Page-range exclusions now apply only to the preceding positive range group,
 matching native qpdf. For example, `1-3,1-3,x2` selects `1,2,3,1,3`; earlier
 groups are retained. Consecutive exclusions remain in the latest positive group,

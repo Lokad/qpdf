@@ -286,7 +286,10 @@ toward the configured selection ceiling.
   retain their values with bounded validation and encoding.
 - Output carries a fresh catalog with the copied pages only; each occurrence is an
   independent page object sharing immutable resources. Shared non-page objects
-  are copied once; `/Parent` links are dropped. Results carry the source page
+  are copied once. Source page ancestry is discarded; every output page receives
+  an indirect `/Parent` link to the new page tree, including split, QDF and
+  linearized output. Other field, annotation and private Parent roles retain
+  their copying policy. Results carry the source page
   count and the exact per-output-page source mapping.
 - Retained objects keep supported source-local meaning independently of generic
   catalog preservation. Static View optional-content groups/default OFF states
