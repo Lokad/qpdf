@@ -212,13 +212,13 @@ public sealed class JsonCatalogVersionTests
         using Host host = new("", null, null);
         await Seed(host, System.Text.Encoding.UTF8.GetBytes("""
             {"qpdf":[{"jsonversion":2,"pdfversion":"1.3"},{
-              "obj:1 0 R":{"value":{"/Type":"/Catalog","/Pages":"2 0 R","/Version":"4 0 R"}}}]}
-            """));
+              "obj:1 0 R":{"value":{"/Type":"/Catalog","/Pages":"2 0 R","/Version":"VERSION"}}}]}
+            """.Replace("VERSION", target == "99 0 R" ? target : "4 0 R", StringComparison.Ordinal)));
         host.Inner.AddInput(Source, CheckTests.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 20] >>", null),
-            (4, target, null), (5, "4 0 R", null)], 1), QpdfInputOwnership.Copy);
+            (4, cycle ? "[" + target + "]" : target == "99 0 R" ? "null" : target, null), (5, "[4 0 R]", null)], 1), QpdfInputOwnership.Copy);
         QpdfExecutionResult result = Assert.IsType<QpdfExecutionResult>(await Run(host, "argv", true, "none", CancellationToken.None));
         if (cycle)
         {

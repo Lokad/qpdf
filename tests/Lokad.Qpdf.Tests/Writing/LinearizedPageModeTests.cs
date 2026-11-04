@@ -21,7 +21,7 @@ public sealed class LinearizedPageModeTests
     private static byte[] Input(string mode)
     {
         string entry = mode == "direct" ? "/PageMode /UseOutlines" : mode == "missing" ? "" : "/PageMode 9 0 R";
-        string value = mode switch { "null" => "null", "integer" => "7", "cycle" => "9 0 R", _ => "/UseOutlines" };
+        string value = mode switch { "null" => "null", "integer" => "7", "cycle" => "[9 0 R]", _ => "/UseOutlines" };
         return CheckTests.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Outlines 5 0 R " + entry + " >>", null),
             (2, "<< /Type /Pages /Count 2 /Kids [3 0 R 7 0 R] >>", null),

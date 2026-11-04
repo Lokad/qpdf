@@ -287,7 +287,7 @@ public sealed class ExtensionVersionTests
     [InlineData("-1", "null")]
     [InlineData("/eight", "null")]
     [InlineData("99 0 R", "null")]
-    [InlineData("4 0 R", "4 0 R")]
+    [InlineData("4 0 R", "[4 0 R]")]
     public async Task MalformedAdobeLevelsRespectBoundedResolutionAndCatalogDropPolicy(string level, string extra)
     {
         byte[] input = CheckTests.Assemble([

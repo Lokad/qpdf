@@ -63,7 +63,7 @@ public sealed class RotationContentTests
     [Theory]
     [InlineData("[null]")]
     [InlineData("42")]
-    [InlineData("5 0 R")]
+    [InlineData("[5 0 R]")]
     public async Task DamagedContentKeepsRotationAndItsWarning(string body)
     {
         using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), Fixture("5 0 R", body, "q"u8.ToArray()), QpdfInputOwnership.Transfer);

@@ -124,7 +124,7 @@ public sealed class IndirectRotationTests
             ("(bad)", "90", operation == "add" ? "invalid /Rotate" : null),
             ("5 0 R", "(bad)", operation == "add" ? "invalid /Rotate" : null),
             ("99 0 R", "90", "Unresolvable reference"),
-            ("5 0 R", "5 0 R", nameof(QpdfLimits.MaxNestingDepth)),
+            ("5 0 R", "5 0 R", null),
         })
         { yield return [operation, rotation, target, failure ?? string.Empty]; }
     }
@@ -152,7 +152,9 @@ public sealed class IndirectRotationTests
         }
         else
         {
-            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+            bool repairedDefinition = target == "5 0 R";
+            Assert.Equal(repairedDefinition ? QpdfExitCode.Warning : QpdfExitCode.Success, result.ExitCode);
+            if (repairedDefinition) { Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.RepairedObject); }
             host.AddInput(QpdfPath.From("readback"), Published(host), QpdfInputOwnership.Copy);
             await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("readback"), CancellationToken.None);
             PdfDictionary page = document.PageReferences[0].Page;

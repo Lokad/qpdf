@@ -41,6 +41,10 @@ valid. PDF rewriting and JSON export use the same rule, so repaired exports can
 be reimported without retaining an illegal definition. This intentionally
 strengthens binary parsing where native qpdf can retain malformed alias bodies.
 Resource/diagnostic ceilings and transactional publication remain binding.
+Optional attachment scalar inspection treats malformed referenced value syntax
+as unavailable, preserving a usable attachment and its payload. This narrow
+projection rule does not suppress resource, cancellation or host failures or
+make the malformed object valid for strict reading or graph publication.
 
 Retained page objects now bind supported source-local catalog meaning before their
 reader closes. Static View optional-content registrations and OFF defaults combine

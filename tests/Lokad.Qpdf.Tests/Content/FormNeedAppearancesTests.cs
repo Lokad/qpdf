@@ -121,7 +121,7 @@ public sealed class FormNeedAppearancesTests
     [InlineData("9 0 R", "false", 0)]
     [InlineData("9 0 R", "null", 0)]
     [InlineData("9 0 R", "<< >>", 0)]
-    [InlineData("9 0 R", "9 0 R", 0)]
+    [InlineData("9 0 R", "[9 0 R]", 0)]
     [InlineData("9 0 R", "true", 3)]
     public async Task UnusableOrFalseFlagsKeepTheExistingFlattenFallback(string flag, string value, int generation)
     {

@@ -26,7 +26,7 @@ public sealed class ImageInspectionTests
             ("/Image", "/Image", true), ("6 0 R", "/Image", true),
             ("/Form", "/Image", false), ("6 0 R", "/Form", false),
             ("6 0 R", "null", false), ("6 0 R", "17", false),
-            ("6 0 R", "6 0 R", false), ("42 0 R", "/Image", false),
+            ("6 0 R", "[6 0 R]", false), ("42 0 R", "/Image", false),
             ("6 1 R", "/Image", false), ("", "/Image", false) })
         foreach (int version in new[] { 1, 2 })
         foreach (string route in new[] { "typed", "argv", "job" })
@@ -73,8 +73,8 @@ public sealed class ImageInspectionTests
     [InlineData(true, "/Image", true)]
     [InlineData(false, "/Form", false)]
     [InlineData(true, "/Form", false)]
-    [InlineData(false, "6 0 R", false)]
-    [InlineData(true, "6 0 R", false)]
+    [InlineData(false, "[6 0 R]", false)]
+    [InlineData(true, "[6 0 R]", false)]
     public async Task TextListingsUseTheSameSubtypeRule(bool job, string target, bool expected)
     {
         using InMemoryQpdfHost host = new();

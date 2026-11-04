@@ -1,6 +1,9 @@
 using System.Text.Json;
+using Lokad.Qpdf.Attachments;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.TestSupport;
 using Lokad.Qpdf.Tests.Inspection;
 
@@ -74,12 +77,42 @@ public sealed class AttachmentIndirectMetadataTests
     [InlineData("null")]
     [InlineData("99 0 R")]
     [InlineData("6 0 R")]
-    public async Task UnusableOptionalScalarsRemainOmitted(string value)
+    [InlineData("[99 0 R]")]
+    [InlineData("[6 0 R]")]
+    public async Task UnusableOptionalValuesRemainOmitted(string value)
     {
         using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), Fixture(true, value), QpdfInputOwnership.Transfer);
         QpdfAttachmentInfo info = Assert.Single(await Qpdf.ListAttachmentsAsync(host, QpdfPath.From("input"), CancellationToken.None));
         Assert.Empty(info.FileName); Assert.Empty(info.Description); Assert.Empty(info.MimeType); Assert.Empty(info.CreationDate);
         Assert.Empty(info.ModDate); Assert.Empty(info.Checksum); Assert.Equal(-1L, info.Size); Assert.Equal(0L, host.OpenLeaseCount);
+        await Qpdf.ExtractAttachmentAsync(host, QpdfPath.From("input"), "K", QpdfPath.From("payload"), CancellationToken.None);
+        Assert.True(host.TryGetOutput(QpdfPath.From("payload"), out byte[] payload)); Assert.Equal("U"u8.ToArray(), payload);
+    }
+
+    [Theory]
+    [InlineData("syntax")]
+    [InlineData("limit")]
+    [InlineData("cancel")]
+    [InlineData("host")]
+    public void OptionalScalarInspectionOnlySuppressesMalformedSyntax(string failure)
+    {
+        Exception error = failure switch
+        {
+            "syntax" => new QpdfParseException("bad value", null, null),
+            "limit" => new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), 2L, 1L),
+            "cancel" => new OperationCanceledException(),
+            _ => new QpdfHostException(QpdfPath.From("input"), QpdfHostFailureReason.ReadFailed),
+        };
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        Func<QpdfObject?> resolve = () => EmbeddedFiles.ResolveOptionalValue(new FailingResolver(error), new PdfReference(6, 0), governor, CancellationToken.None);
+        if (failure == "syntax") { Assert.Null(resolve()); }
+        else { Assert.Same(error, Record.Exception(() => resolve())); }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    private sealed class FailingResolver(Exception error) : IIndirectResolver
+    {
+        public bool TryResolve(PdfReference reference, out QpdfObject? value) => throw error;
     }
 
     private sealed class Host(IQpdfHost storage, IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost

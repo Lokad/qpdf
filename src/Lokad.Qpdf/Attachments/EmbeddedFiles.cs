@@ -382,9 +382,13 @@ internal static class EmbeddedFiles
 
     internal static QpdfObject? ResolveOptionalValue(IIndirectResolver resolver, QpdfObject raw,
         ResourceGovernor governor, CancellationToken token)
-        => raw is PdfReference reference
-            ? PdfObjectLookup.TryResolve(reference, resolver, governor, token, out QpdfObject? value) ? value : null
-            : raw;
+    {
+        if (raw is not PdfReference reference) { return raw; }
+        try { return PdfObjectLookup.TryResolve(reference, resolver, governor, token, out QpdfObject? value) ? value : null; }
+        // Optional scalar inspection already omits unavailable/wrong-typed values.
+        // Damaged value syntax must not discard a usable attachment or its payload.
+        catch (QpdfParseException) { return null; }
+    }
 
     internal static EmbeddedStreamMetadata ReadStreamMetadata(IIndirectResolver resolver, PdfStream data, PdfDictionary? parms, ParserMemoryScope memory,
         ResourceGovernor governor, CancellationToken cancellationToken)

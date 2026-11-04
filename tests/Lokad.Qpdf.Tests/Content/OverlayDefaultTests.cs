@@ -141,7 +141,7 @@ public sealed class OverlayDefaultTests
     [InlineData("/DA /Bad /Q /Bad /NeedAppearances /Bad", "/Bad", "/Bad", "/Bad")]
     [InlineData("/DA 9 0 R /Q 10 0 R /NeedAppearances 11 0 R", "null", "null", "null")]
     [InlineData("/DA 9 0 R /Q 10 0 R /NeedAppearances 11 0 R", "<< >>", "2147483648", "(true)")]
-    [InlineData("/DA 9 0 R /Q 10 0 R /NeedAppearances 11 0 R", "9 0 R", "10 0 R", "11 0 R")]
+    [InlineData("/DA 9 0 R /Q 10 0 R /NeedAppearances 11 0 R", "[9 0 R]", "[10 0 R]", "[11 0 R]")]
     public async Task UnusableDefaultsKeepFallbacksAndLocalOverrides(string defaults, string da, string q, string need)
     {
         using InMemoryQpdfHost host = new();
