@@ -197,6 +197,11 @@ publication; malformed arrays keep their existing fallback. Private appearance
 headers retain the original matrix and payload. Output bytes and identifiers can
 change; no public signatures change.
 
+Overlay/underlay placement also follows a retained annotation's indirect Popup
+link when transforming geometry. A popup listed separately in Annots is still
+transformed once; a linked-only popup remains outside that array. Parent links,
+per-placement identities and independent original rectangle aliases stay intact.
+
 Page-copy operations, including overlay/underlay imports, reject reachable
 signature dictionaries (`/Type /Sig`) and populated signature fields in widget
 or retained AcroForm contexts. Field types may be inherited or indirect, and the

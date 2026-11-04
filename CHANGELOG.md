@@ -12,6 +12,10 @@
   correct artwork orientation; private aliases and malformed-matrix policy stay
   intact. Finite geometry is judged using the corrected composition order.
 
+- Transform imported popup geometry when the popup is reachable only from its
+  owning annotation. Listed and linked-only popups receive the same frame once
+  per placement, keeping Parent links and the original Annots membership.
+
 - Preserve PDF byte-string identity through JSON v2 export and import. Use the
   existing binary encoding whenever text would re-encode differently, retaining
   distinct destination keys/actions, Limits, opaque values and malformed Unicode.

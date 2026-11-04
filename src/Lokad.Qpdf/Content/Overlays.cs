@@ -1312,12 +1312,21 @@ internal static class Overlays
         // independently retained aliases keep the original stream and containers.
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
         GovernedIntSet transformed = GovernedIntSet.Create(traversal, governor, cancellationToken);
+        // Only the original prefix belongs in Annots. Reuse the scratch queue
+        // for linked-only popups instead of allocating another root list.
+        int listedCount = fresh.Count;
         Dictionary<(int Id, bool States), PdfReference> appearances = ParserContainers.CreateDictionary<(int, bool), PdfReference>(traversal);
         using OwnedAllocationBatch appearanceGraph = OwnedAllocationBatch.Create(governor, cancellationToken);
-        foreach (PdfReference annotation in fresh)
+        for (int index = 0; index < fresh.Count; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            PdfReference annotation = fresh[index];
             if (!transformed.Add(traversal, annotation.ObjectNumber)) { continue; }
+            if (destCopier.CopiedObjects.TryGetValue(annotation.ObjectNumber, out QpdfObject? annotationRaw)
+                && annotationRaw is PdfDictionary dictionary
+                && PdfDictionaryLookup.TryGet(dictionary, "Popup"u8, governor, cancellationToken, out QpdfObject popup)
+                && popup is PdfReference popupReference && !transformed.Contains(popupReference.ObjectNumber))
+            { ParserContainers.AddItem(scratch, fresh, popupReference, IntPtr.Size); }
             TransformOverlayRect(destCopier, annotation.ObjectNumber, cm, governor, ownership, cancellationToken);
             CopyOverlayAppearances(destCopier, annotation.ObjectNumber, cm, appearanceResources, appearances, traversal, appearanceGraph, diagnostics, ref allocator);
         }
@@ -1346,7 +1355,7 @@ internal static class Overlays
             }
         }
 
-        long count = (long)(current?.Count ?? 0) + fresh.Count;
+        long count = (long)(current?.Count ?? 0) + listedCount;
         if (count > limits.MaxContainerSize || count > Array.MaxLength)
         { throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), count, Math.Min(limits.MaxContainerSize, Array.MaxLength)); }
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
@@ -1360,8 +1369,8 @@ internal static class Overlays
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); items[at] = current[at];
             }
         }
-        foreach (PdfReference clone in fresh)
-        { cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); items[at++] = clone; }
+        for (int index = 0; index < listedCount; index++)
+        { cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); items[at++] = fresh[index]; }
         graph.Memory.Reserve(24L); PdfArray rebuilt = PdfArray.FromOwnedItems(items); graph.Add(24L);
         int targetId = currentId >= 0 ? currentId : destPageId;
         QpdfObject replacement = currentId >= 0 ? rebuilt : PdfDictionaryRebuild.ReplaceEntry(graph, page, "Annots"u8, rebuilt);
