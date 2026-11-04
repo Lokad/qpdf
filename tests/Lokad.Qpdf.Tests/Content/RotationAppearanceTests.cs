@@ -89,7 +89,7 @@ public sealed class RotationAppearanceTests
     [InlineData("numbers", "job")]
     public async Task DirectAndIndirectAppearanceValuesAreEquivalent(string mode, string route)
     {
-        double[] expected = mode == "states" ? [0, -1, 1, 0, 0, 612] : [-0.5, -3, 2, 1, 311, 1843];
+        double[] expected = mode == "states" ? [0, -1, 1, 0, 0, 612] : [1, -2, 3, -0.5, 7, 607];
         foreach (bool indirect in new[] { false, true })
         {
             using InMemoryQpdfHost host = new();

@@ -188,6 +188,15 @@ intact; affected output bytes and identifiers change. This correction covers the
 ordinary annotation frame; subtype coordinate arrays, source-page clipping and
 NoRotate anchor/orientation remain distinct limitations under review.
 
+Appearance transforms apply the existing appearance Matrix before the page-frame
+change, both for rotation baking and placement. Reversing this order can rotate
+sheared artwork incorrectly even when native syntax checking accepts the result.
+The corrected order also changes matrix translations and which extreme finite
+inputs produce non-finite results. Computed non-finite geometry still fails before
+publication; malformed arrays keep their existing fallback. Private appearance
+headers retain the original matrix and payload. Output bytes and identifiers can
+change; no public signatures change.
+
 Page-copy operations, including overlay/underlay imports, reject reachable
 signature dictionaries (`/Type /Sig`) and populated signature fields in widget
 or retained AcroForm contexts. Field types may be inherited or indirect, and the

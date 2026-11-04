@@ -31,7 +31,8 @@ public sealed class TransformationGeometryTests
             string media = mode == "rotation" ? $"{huge} 0 {upper} 100" : mode == "annotation" ? "0 0 100 100" : $"0 0 {huge} 100";
             string rect = mode == "rectangle" ? $"-{upper} 0 -{huge} 10" : "0 0 20 20";
             string box = mode == "annotation" ? $"0 0 {tiny} {tiny}" : "0 0 10 10";
-            string matrix = mode == "appearance" ? $"1 0 0 1 0 {huge}" : "1 0 0 1 0 0";
+            // Correct appearance-then-page composition overflows the translated y.
+            string matrix = mode == "appearance" ? $"1 0 0 1 -{huge} 0" : "1 0 0 1 0 0";
             host.AddInput(QpdfPath.From("input"), Fixture(media, rect, box, matrix), QpdfInputOwnership.Copy);
             await using (QpdfDocument original = await QpdfDocument.OpenAsync(host, QpdfPath.From("input"), CancellationToken.None))
             { for (int number = 1; number <= 6; number++) { _ = original.GetObject(number); } }
@@ -50,6 +51,31 @@ public sealed class TransformationGeometryTests
         }
         Assert.Equal(0L, root.ReservedBytes);
         Assert.Equal(0, root.LiveReservations);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FiniteAppearanceTranslationSurvivesTheCorrectCompositionOrder(bool job)
+    {
+        string huge = "1" + new string('0', 308) + ".0";
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), Fixture($"0 0 {huge} 100", "0 0 20 20",
+            "0 0 10 10", $"1 0 0 1 0 {huge}"), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = await Run(host, false, job);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Empty(result.Diagnostics);
+        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output));
+        host.AddInput(QpdfPath.From("read"), output, QpdfInputOwnership.Transfer);
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("read"), CancellationToken.None))
+        {
+            PdfStream appearance = RotationAppearanceTests.Appearance(document, 0, 0);
+            Assert.True(appearance.Dictionary.TryGet(PdfName.FromAscii("Matrix"), out QpdfObject raw));
+            PdfArray matrix = Assert.IsType<PdfArray>(raw);
+            double[] values = matrix.Items.Select(item => item is PdfInteger integer ? (double)integer.Value
+                : Assert.IsType<PdfReal>(item).Value).ToArray();
+            Assert.Equal(new double[] { 0, -1, 1, 0, 1e308, 1e308 }, values);
+        }
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Theory]

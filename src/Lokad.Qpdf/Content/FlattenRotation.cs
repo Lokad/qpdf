@@ -307,7 +307,8 @@ internal static class FlattenRotation
             double[]? old = target is PdfArray array ? ReadMatrix(array, resolver) : null;
             if (old is not null)
             {
-                composed = MultiplyMatrices(matrix, old);
+                // PDF row-vector order: draw the appearance, then change page frame.
+                composed = MultiplyMatrices(old, matrix);
             }
         }
 

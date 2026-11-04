@@ -1855,10 +1855,15 @@ internal static class Overlays
         else
         {
             // Malformed arrays retain the existing native-compatible zero fallback.
-            double[] matrix = matrixValue is PdfArray array ? ReadOverlayMatrix(array, pool) ?? new double[6]
+            double[]? matrix = matrixValue is PdfArray array ? ReadOverlayMatrix(array, pool)
                 : [1, 0, 0, 1, 0, 0];
-            ContentMatrix work = FromArray(matrix); work.Concat(FromArray(cm));
-            next = work.ToArray();
+            if (matrix is null) { next = new double[6]; }
+            else
+            {
+                // The appearance maps its own coordinates before page placement.
+                ContentMatrix work = FromArray(cm); work.Concat(FromArray(matrix));
+                next = work.ToArray();
+            }
         }
         bool bindResources = pageResources is not null && AppearanceResources.UsesPageResources(stream, pool, governor, token);
         PdfArray? values = null;

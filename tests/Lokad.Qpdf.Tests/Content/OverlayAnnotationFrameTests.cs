@@ -16,13 +16,17 @@ public sealed class OverlayAnnotationFrameTests
         foreach (int angle in new[] { 0, 90, 180, 270 })
         foreach (double unit in new[] { .5, 1, 2 })
         foreach (bool underlay in new[] { false, true })
-        foreach (bool job in new[] { false, true }) { yield return [angle, unit, underlay, job]; }
+        foreach (bool job in new[] { false, true })
+        {
+            yield return [angle, unit, underlay, job, false];
+            if (unit == 1) { yield return [angle, unit, underlay, job, true]; }
+        }
     }
 
     [Theory]
     [MemberData(nameof(Frames))]
     public async Task SourceRotationAndUnitMatchIndependentlyBakedAnnotationFrames(
-        int angle, double unit, bool underlay, bool job)
+        int angle, double unit, bool underlay, bool job, bool shear)
     {
         double[] matrix = angle switch
         {
@@ -36,10 +40,12 @@ public sealed class OverlayAnnotationFrameTests
         double[] rect = Bounds(matrix, [10, 20, 40, 40]);
         double[] expected = [rect[0] + (400 - width) / 2, rect[1] + (400 - height) / 2,
             rect[2] + (400 - width) / 2, rect[3] + (400 - height) / 2];
+        double[] appearance = shear ? [2, 1, .5, 3, 5, 7] : [1, 0, 0, 1, 0, 0];
+        double[] bakedMatrix = Product(matrix, appearance);
         (double[] originalRect, double[] originalAppearance) = await Place(
-            Source(angle, unit, null, null, job), [1, 0, 0, 1, 0, 0], underlay, job);
+            Source(angle, unit, null, null, appearance, job), appearance, underlay, job);
         (double[] bakedRect, double[] bakedAppearance) = await Place(
-            Source(0, 1, [0, 0, width, height], (rect, matrix), job), matrix, underlay, job);
+            Source(0, 1, [0, 0, width, height], rect, bakedMatrix, job), bakedMatrix, underlay, job);
         Assert.Equal(expected, originalRect);
         Assert.Equal(expected, bakedRect);
         // Appearance translations are normalized against their transformed BBox.
@@ -94,11 +100,11 @@ public sealed class OverlayAnnotationFrameTests
     }
 
     private static byte[] Source(int angle, double unit, double[]? media,
-        (double[] Rect, double[] Matrix)? baked, bool indirect)
+        double[]? rectangle, double[] appearance, bool indirect)
     {
         string Array(double[] values) => "[" + string.Join(" ", values.Select(value => value.ToString(CultureInfo.InvariantCulture))) + "]";
-        string rect = baked is { } geometry ? Array(geometry.Rect) : "[10 20 40 40]";
-        string matrix = baked is { } appearance ? Array(appearance.Matrix) : "[1 0 0 1 0 0]";
+        string rect = rectangle is null ? "[10 20 40 40]" : Array(rectangle);
+        string matrix = Array(appearance);
         string Annot() => "<< /Type /Annot /Subtype /Stamp /Rect " + rect
             + " /F 4 /AP << /N 7 0 R >> /Private 7 0 R /PrivateMatrix 9 0 R >>";
         return CheckTests.Assemble([
@@ -121,6 +127,14 @@ public sealed class OverlayAnnotationFrameTests
             Y: matrix[1] * point.X + matrix[3] * point.Y + matrix[5])).ToArray();
         return [moved.Min(point => point.X), moved.Min(point => point.Y), moved.Max(point => point.X), moved.Max(point => point.Y)];
     }
+
+    private static double[] Product(double[] frame, double[] appearance)
+        => [frame[0] * appearance[0] + frame[2] * appearance[1],
+            frame[1] * appearance[0] + frame[3] * appearance[1],
+            frame[0] * appearance[2] + frame[2] * appearance[3],
+            frame[1] * appearance[2] + frame[3] * appearance[3],
+            frame[0] * appearance[4] + frame[2] * appearance[5] + frame[4],
+            frame[1] * appearance[4] + frame[3] * appearance[5] + frame[5]];
 
     private static QpdfObject Resolve(QpdfDocument document, QpdfObject value)
         => value is PdfReference reference ? document.GetObject(reference.ObjectNumber) : value;

@@ -101,6 +101,8 @@ appearance and resource payloads stay shared.
 Imported annotation geometry composes the source Form frame into the existing
 placement matrix buffer. Content receives that frame from its Form header;
 separately copied annotation rectangles and appearance headers need it explicitly.
+Appearance-local matrices apply before the page-frame change in both placement
+and rotation baking. Immutable header copies preserve independent original aliases.
 The first registered page identity remains canonical when a page is repeated;
 later catalog and destination copies cannot retarget it to a duplicate occurrence.
 Serialization authors each page's Parent backlink during the existing header

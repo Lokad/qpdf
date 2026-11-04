@@ -1041,7 +1041,7 @@ Assert.True(ap.TryGet(PdfName.FromAscii("N"), out QpdfObject? streamRaw));
 PdfReference streamLink = Assert.IsType<PdfReference>(streamRaw);
 PdfStream stream = Assert.IsType<PdfStream>(output.GetObject(streamLink.ObjectNumber));
 Assert.Equal(appearance, stream.Data);
-Assert.Equal(new double[6] { 1.0, 0.0, 0.0, 1.0, 5.0, 80.0 }, AnnotMatrix(stream.Dictionary));
+Assert.Equal(new double[6] { 1.0, 0.0, 0.0, 1.0, 2.5, 40.0 }, AnnotMatrix(stream.Dictionary));
 }
 [Fact]
 public async Task MalformedAppearanceMatrixBecomesZeros()

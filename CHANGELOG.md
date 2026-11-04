@@ -7,6 +7,11 @@
   Keep private appearance aliases and shared payloads intact. This deliberately
   corrects native qpdf's missing source transform; public signatures are unchanged.
 
+- Compose existing appearance matrices before changing page frame during rotation
+  baking and overlay/underlay placement. Noncommuting matrices now retain the
+  correct artwork orientation; private aliases and malformed-matrix policy stay
+  intact. Finite geometry is judged using the corrected composition order.
+
 - Preserve PDF byte-string identity through JSON v2 export and import. Use the
   existing binary encoding whenever text would re-encode differently, retaining
   distinct destination keys/actions, Limits, opaque values and malformed Unicode.

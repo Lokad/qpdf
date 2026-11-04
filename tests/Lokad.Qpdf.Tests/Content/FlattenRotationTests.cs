@@ -453,7 +453,7 @@ JsonElement annot = objects.GetProperty("obj:5 0 R").GetProperty("value");
 string normal = annot.GetProperty("/AP").GetProperty("/N").GetString() ?? string.Empty;
 string[] parts = normal.Split((char)32);
 string key = string.Concat("obj:", parts[0], SP(), parts[1], " R");
-Assert.Equal("[0,-2,2,0,5,1229]", objects.GetProperty(key).GetProperty("stream").GetProperty("dict").GetProperty("/Matrix").GetRawText());
+Assert.Equal("[0,-2,2,0,5,607]", objects.GetProperty(key).GetProperty("stream").GetProperty("dict").GetProperty("/Matrix").GetRawText());
 }
 [Fact]
 public async Task AppearanceStatesAllRotate()
