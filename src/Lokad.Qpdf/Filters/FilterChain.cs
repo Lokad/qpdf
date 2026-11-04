@@ -15,6 +15,34 @@ internal readonly record struct FilterStage(string Name, PdfDictionary? Parms, I
 /// </summary>
 internal static partial class FilterChain
 {
+    // F belongs to a stream's data source. It is unrelated to the inline-image
+    // Filter abbreviation or to a filespec dictionary's ordinary filename.
+    internal static bool HasExternalData(PdfStream stream, IIndirectResolver? resolver,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        if (!PdfDictionaryLookup.TryGet(stream.Dictionary, "F"u8, governor, token, out QpdfObject value)) { return false; }
+        for (int depth = 0; value is PdfReference reference; depth++)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (depth >= governor.MaxNestingDepth)
+            { throw new QpdfParseException("Stream file specification exceeds the nesting budget.", null, reference.ObjectNumber); }
+            // Bootstrap readers cannot resolve an external descriptor. They
+            // must not assume that its physical placeholder supplies data.
+            if (resolver is null) { return true; }
+            if (!PdfObjectLookup.TryResolve(reference, resolver, governor, token, out QpdfObject? resolved)
+                || resolved is null) { return false; }
+            value = resolved;
+        }
+        return value is not PdfNull;
+    }
+
+    internal static void RequireEmbeddedData(PdfStream stream, IIndirectResolver? resolver,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        if (HasExternalData(stream, resolver, governor, token))
+        { throw new QpdfFilterException(QpdfFilterFailureReason.ExternalData, null, "External-file stream data is unavailable in the supported profile"); }
+    }
+
     internal static FilterPlan Resolve(PdfDictionary streamDict, IIndirectResolver? resolver,
         ResourceGovernor governor, CancellationToken token) => ResolveCore(streamDict, resolver, governor, token, null, true);
 

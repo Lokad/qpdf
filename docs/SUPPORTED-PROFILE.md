@@ -179,6 +179,12 @@ echoing values.
   1- and 3-component JPEGs with absent/null `DecodeParms`. DCT parameter dictionaries
   and four-component samples stay opaque in transformations; explicit filtered-data
   requests fail as unsupported.
+- External-file streams (effective non-null `/F`) stay opaque. Raw inspection and
+  PDF/JSON copying preserve their descriptors and physical placeholder bytes.
+  Effective-data extraction, required structural decoding and transformations
+  needing those bytes fail explicitly; checks report skipped coverage. No external
+  file or URL is loaded. Ordinary embedded-data fallback cannot return a placeholder
+  as attachment contents. Null descriptors retain ordinary embedded-data behavior.
 - Argv/job rewriting defaults to compression with generalized decoding. Stream-data,
   compression and decode setters apply in configuration order; job keys use lexical
   order, including mixed/file-chain layers. QDF fills unset defaults. Catalog XML
@@ -410,7 +416,12 @@ existing malformed-appearance skipping and ordinary numeric rounding remain.
   carry capped per-object detail. Page content tokenizes content streams
   (decode-level gated) instead of skipping; linearization
   passes when absent and validates dictionaries, hint streams, and
-  bit-level hint tables when present. An absent or null optional `/P` uses its
+  bit-level hint tables when present. Hint filters use the shared resolver for
+  names, arrays and indirect values; the supported domain remains raw or a single
+  Flate stage with absent/resolved-null parameters. External hints or a filter
+  ceiling that prevents decoding report skipped linearization coverage. Standalone
+  check/report requests warn without presenting unavailable hint contents.
+  An absent or null optional `/P` uses its
   zero default; unavailable
   filters skip streams with a warning at level `all`. Form-tree validation warns without failing on page widgets no field registration reaches, kids whose /Parent back-link does not name the traversed node, and field-like direct objects met while traversing.
   Malformed content collections and decode errors fail page-content checking;

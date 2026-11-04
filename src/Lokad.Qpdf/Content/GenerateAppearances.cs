@@ -820,6 +820,7 @@ internal static class GenerateAppearances
         ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
+        if (FilterChain.HasExternalData(stream, resolver, governor, cancellationToken)) { return null; }
         FilterPlan stages;
         try
         {

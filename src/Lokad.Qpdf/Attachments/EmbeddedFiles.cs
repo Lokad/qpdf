@@ -167,6 +167,7 @@ internal static class EmbeddedFiles
         memory.CheckOwner(governor);
         cancellationToken.ThrowIfCancellationRequested();
         governor.CheckCancellation();
+        FilterChain.RequireEmbeddedData(stream, engine, governor, cancellationToken);
         try
         {
             using FilterPlan stages = FilterChain.Resolve(stream.Dictionary, (IIndirectResolver)engine, governor, cancellationToken);

@@ -170,7 +170,8 @@ internal sealed class XRefTable : IDisposable
         {
             return ParseStrict(data, limits, governor, diagnostics, valuesEscape);
         }
-        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
+        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException)
+            && ex is not QpdfFilterException { Reason: QpdfFilterFailureReason.ExternalData })
         {
             if (recovery == QpdfRecoveryMode.Strict)
             {
@@ -585,6 +586,7 @@ internal sealed class XRefTable : IDisposable
         int streamNumber,
         ParserMemoryScope scratch)
     {
+        FilterChain.RequireEmbeddedData(stream, null, governor, governor.CancellationToken);
         FilterPlan stages;
         try
         {

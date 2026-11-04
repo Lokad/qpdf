@@ -247,7 +247,11 @@ internal static class ContentTransforms
     {
         using AnalysisChunks chunks = AnalysisChunks.Create(governor, token);
         for (int index = 0; index < entries.Count; index++)
-        { if (!chunks.TryAdd(entries.Get(index).Stream, resolver, limits)) { return null; } }
+        {
+            PdfStream part = entries.Get(index).Stream;
+            if (!chunks.TryAdd(part, resolver, limits))
+            { FilterChain.RequireEmbeddedData(part, resolver, governor, token); return null; }
+        }
         using JoinedContent joined = chunks.Join();
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         bool compress = request.Compress && joined.RawBytes.Length > 0;
@@ -378,6 +382,7 @@ internal static class ContentTransforms
             {
                 if (!AnalysisChunks.TryDecode(original, resolver, limits, governor, decodedMemory, token, out data, out decoded))
                 {
+                    FilterChain.RequireEmbeddedData(original, resolver, governor, token);
                     decodedMemory.Dispose();
                     diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning,
                         "Left a content stream unnormalized because it could not be decoded.");

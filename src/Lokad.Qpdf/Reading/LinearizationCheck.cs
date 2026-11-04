@@ -11,9 +11,10 @@ internal enum LinearizationStatus
     NotLinearized = 0,
     Valid = 1,
     Invalid = 2,
+    Unavailable = 3,
 }
 
-/// <summary>Tri-state outcome of linearization inspection.</summary>
+/// <summary>Outcome of linearization inspection, including unavailable coverage.</summary>
 internal readonly record struct LinearizationInspection(LinearizationStatus Status, int SharedGroups, string ErrorMessage);
 
 /// <summary>Retained linearization parameter and hint-table values.</summary>
@@ -85,8 +86,6 @@ internal sealed record OutlineTable(
 /// </summary>
 internal static class LinearizationCheck
 {
-    private static readonly PdfName FilterKey = PdfName.FromAscii("Filter");
-    private static readonly PdfName DecodeParmsKey = PdfName.FromAscii("DecodeParms");
     private const int ScanBytes = 1024;
     private const int ScanTokens = 200;
 
@@ -105,6 +104,10 @@ internal static class LinearizationCheck
         if (inspection.Status == LinearizationStatus.Invalid)
         {
             return CheckOutcome.Create(governor, "linearization", QpdfCheckStatus.Failed, [inspection.ErrorMessage]);
+        }
+        if (inspection.Status == LinearizationStatus.Unavailable)
+        {
+            return CheckOutcome.Create(governor, "linearization", QpdfCheckStatus.Skipped, [inspection.ErrorMessage]);
         }
 
         return CheckOutcome.Create(governor, "linearization", QpdfCheckStatus.Passed,
@@ -151,6 +154,10 @@ internal static class LinearizationCheck
                 LinearizationStatus.Valid,
                 shared,
                 string.Empty);
+        }
+        catch (QpdfFilterException ex) when (ex.Reason is QpdfFilterFailureReason.ExternalData or QpdfFilterFailureReason.TooManyFilters)
+        {
+            return new LinearizationInspection(LinearizationStatus.Unavailable, 0, ex.Message);
         }
         catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
@@ -374,7 +381,7 @@ internal static class LinearizationCheck
         scratch.Reserve(192L); // Three bounded bit-reader cursors.
         long[] spans = fields.Spans;
         PdfStream primary = ResolveHintObject(engine, spans[0], governor, out int hintNumber);
-        byte[] first = DecodeHintStream(primary, limits, governor, scratch, cancellationToken);
+        byte[] first = DecodeHintStream(primary, engine, limits, governor, scratch, cancellationToken);
         observe?.Invoke(first);
         byte[] combined;
         if (spans.Length == 2)
@@ -384,7 +391,7 @@ internal static class LinearizationCheck
         else
         {
             PdfStream overflow = ResolveHintObject(engine, spans[2], governor, out int _);
-            byte[] rest = DecodeHintStream(overflow, limits, governor, scratch, cancellationToken);
+            byte[] rest = DecodeHintStream(overflow, engine, limits, governor, scratch, cancellationToken);
             observe?.Invoke(rest);
             combined = AllocateHintArray<byte>(scratch, checked(first.Length + rest.Length), sizeof(byte), governor, cancellationToken);
             GovernedBufferStream.CopyBytes(first, combined, governor, cancellationToken, CancellationToken.None);
@@ -668,28 +675,26 @@ internal static class LinearizationCheck
         throw new QpdfParseException($"No object starts at hint offset {offset}.", offset, null);
     }
 
-    private static byte[] DecodeHintStream(PdfStream stream, QpdfLimits limits, ResourceGovernor governor,
+    private static byte[] DecodeHintStream(PdfStream stream, IIndirectResolver resolver, QpdfLimits limits, ResourceGovernor governor,
         ParserMemoryScope memory, CancellationToken token)
     {
-        byte[] raw = stream.ArrayData(memory, governor, token);
-        if (!stream.Dictionary.TryGet(FilterKey, out QpdfObject filter) || filter is PdfNull)
+        FilterChain.RequireEmbeddedData(stream, resolver, governor, token);
+        using FilterPlan stages = FilterChain.ResolveScoped(stream.Dictionary, resolver, governor, token);
+        if (stages.Count > limits.MaxStreamFilters)
         {
-            return raw;
+            throw new QpdfFilterException(QpdfFilterFailureReason.TooManyFilters, null,
+                "Hint decoding exceeds the stream-filter budget");
         }
-
-        if (filter is PdfName name && name.RawSpan.SequenceEqual("FlateDecode"u8))
+        if (stages.Count == 0) { return stream.ArrayData(memory, governor, token); }
+        if (stages.Count != 1 || stages[0].Name != FlateFilter.FilterName)
         {
-            if (stream.Dictionary.TryGet(DecodeParmsKey, out QpdfObject parms) && parms is not PdfNull)
-            {
-                throw new QpdfParseException("Hint streams with decode parameters are unsupported.", null, null);
-            }
-
-            byte[] decoded = FlateFilter.Decode(raw, null, limits, governor, token);
-            if (decoded.Length > 0) { memory.AdoptReserved(32L + decoded.Length); }
-            return decoded;
+            throw new QpdfParseException("Hint streams must be raw or Flate-encoded.", null, null);
         }
-
-        throw new QpdfParseException("Hint streams must be raw or Flate-encoded.", null, null);
+        if (stages[0].Parms is not null)
+        {
+            throw new QpdfParseException("Hint streams with decode parameters are unsupported.", null, null);
+        }
+        return FilterChain.Decode(stream.ArrayData(memory, governor, token), stages, limits, governor, memory, token);
     }
 
     private sealed class HintBitReader

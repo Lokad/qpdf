@@ -14,6 +14,9 @@ internal enum QpdfFilterFailureReason
 
     /// <summary>The filter chain exceeds the stream-filter budget.</summary>
     TooManyFilters = 3,
+
+    /// <summary>Effective bytes belong to an external file that this profile cannot load.</summary>
+    ExternalData = 4,
 }
 
 /// <summary>Explicit filter-pipeline failure. Promoted to public API when a public surface decodes.</summary>

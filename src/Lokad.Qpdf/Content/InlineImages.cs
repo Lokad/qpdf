@@ -104,7 +104,10 @@ internal static class InlineImages
             for (int index = 0; index < streams.Count; index++)
             {
                 if (!chunks.TryAdd(streams.Get(index).Stream, resolver, limits))
-                { chunks.Dispose(); return null; }
+                {
+                    FilterChain.RequireEmbeddedData(streams.Get(index).Stream, resolver, governor, cancellationToken);
+                    chunks.Dispose(); return null;
+                }
             }
             return chunks;
         }

@@ -193,6 +193,7 @@ internal static class ImageOptimizer
             { return null; }
         }
 
+        FilterChain.RequireEmbeddedData(image, resolver, governor, cancellationToken);
         FilterPlan stages;
         try
         {

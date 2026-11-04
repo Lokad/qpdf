@@ -747,6 +747,7 @@ internal static class DocumentJson
 
         builder.Append("],\"filterable\": ");
         builder.Append(request.DecodeLevel != "none" && stages.Count <= limits.MaxStreamFilters
+            && !FilterChain.HasExternalData(detail.Stream, engine, governor, cancellationToken)
             && FilterChain.AllStagesInLevel(stages, request.DecodeLevel) ? "true" : "false");
         builder.Append(",\"height\": ");
         AppendImageValue(builder, detail.Stream.Dictionary, "Height"u8, request, limits, governor, cancellationToken);
@@ -1293,6 +1294,7 @@ internal static class DocumentJson
         // admitted copy before the document can close; inline encoding does not.
         byte[] raw = stream.ArrayData(memory, governor, governor.CancellationToken);
         if (decodeLevel == "none") { return (raw, false); }
+        if (FilterChain.HasExternalData(stream, engine, governor, governor.CancellationToken)) { return (raw, false); }
         FilterPlan stages;
         try { stages = FilterChain.ResolveScoped(stream.Dictionary, engine, governor, governor.CancellationToken); }
         catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException)) { return (raw, false); }

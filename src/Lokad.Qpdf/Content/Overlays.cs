@@ -437,7 +437,11 @@ internal static class Overlays
         if (entries is null) { return null; }
         using AnalysisChunks chunks = AnalysisChunks.Create(governor, token);
         for (int i = 0; i < entries.Count; i++)
-        { if (!chunks.TryAdd(entries.Get(i).Stream, resolver, limits)) { return null; } }
+        {
+            PdfStream stream = entries.Get(i).Stream;
+            if (!chunks.TryAdd(stream, resolver, limits))
+            { FilterChain.RequireEmbeddedData(stream, resolver, governor, token); return null; }
+        }
         using JoinedContent joined = chunks.Join();
         return joined.TakeBytes(ownership);
     }

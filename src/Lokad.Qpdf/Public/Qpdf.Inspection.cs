@@ -121,6 +121,12 @@ public static partial class Qpdf
             diagnostics.AddParts(QpdfDiagnosticCode.LinearizationReport, QpdfDiagnosticSeverity.Info, [inputPath.Value, ": no linearization errors"]);
             return;
         }
+        if (inspection.Status == LinearizationStatus.Unavailable)
+        {
+            diagnostics.AddParts(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Warning,
+                ["Skipped check 'linearization': ", inspection.ErrorMessage]);
+            return;
+        }
 
         diagnostics.AddParts(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, ["Check 'linearization' failed: ", inspection.ErrorMessage]);
     }
@@ -137,6 +143,12 @@ public static partial class Qpdf
         try
         {
             owner = LinearizationCheck.TryReadOwnedData(document.Engine, document.PageCount, limits, governor, cancellationToken);
+        }
+        catch (QpdfFilterException ex) when (ex.Reason is QpdfFilterFailureReason.ExternalData or QpdfFilterFailureReason.TooManyFilters)
+        {
+            diagnostics.AddParts(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Warning,
+                ["Skipped check 'linearization': ", ex.Message]);
+            return;
         }
         catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
@@ -226,6 +238,7 @@ public static partial class Qpdf
             ReadOnlyMemory<byte> payload = dataStream.RawMemory;
             if (showObject.FilteredStreamData)
             {
+                FilterChain.RequireEmbeddedData(dataStream, document.Engine, governor, cancellationToken);
                 using FilterPlan stages = FilterChain.Resolve(dataStream.Dictionary, (IIndirectResolver)document.Engine, governor, cancellationToken);
                 byte[]? decoded = null;
                 if (stages.Count > 0)

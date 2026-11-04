@@ -57,6 +57,7 @@ internal sealed class AnalysisChunks : IDisposable
     {
         memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         bytes = Array.Empty<byte>(); decoded = false;
+        if (FilterChain.HasExternalData(stream, resolver, governor, token)) { return false; }
         FilterPlan stages;
         try { stages = FilterChain.ResolveScoped(stream.Dictionary, resolver, governor, token); }
         catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException)) { return false; }

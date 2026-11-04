@@ -121,6 +121,30 @@ empty or indirect parameter dictionaries, stays opaque with warnings in rewritin
 and optimization; direct decode requests fail explicitly. This PDF policy is
 independent of the supplied codec's wider capabilities.
 
+A stream's effective non-null `F` names external file data, which this profile
+does not load. Raw inspection and opaque PDF/JSON copying retain its descriptor
+and physical placeholder bytes; routine compression leaves them unchanged.
+Filtered extraction, attachment extraction and transformations requiring effective
+bytes fail explicitly, including required object/xref-stream decoding. Checking
+reports unavailable coverage instead of counting placeholders as unfiltered data.
+Null and stale-generation descriptors behave like absence. Resource pruning keeps
+unavailable scopes. Appearance generation warns and retains unavailable programs
+and field readiness; optional font inference skips unavailable data.
+`FFilter`/`FDecodeParms` never become an embedded-data filter plan. The filename
+`F` in a filespec and the inline-image Filter abbreviation have separate meanings.
+Typed failures use `QpdfException`; argv/job failures report `UnsupportedFeature`.
+Native qpdf 12.4.2 can expose these placeholders as payloads; this deliberate
+divergence preserves the external-data boundary without adding external loading.
+Linearization hint consumers follow the same boundary: unavailable hints report
+skipped coverage, and `--check-linearization`/`--show-linearization` warn without
+claiming valid tables or presenting their contents.
+
+Hint decoding uses the shared filter resolver for equivalent names, one-element
+arrays and indirect values, including resolved null parameters. The supported
+hint domain remains raw data or one Flate stage without non-null decode parameters.
+The stream-filter ceiling also binds hint decoding; disabled hint decoding reports
+skipped coverage. General stream checking retains its existing filter-limit outcomes.
+
 A single failed output commit preserves its prior target. Multiple outputs commit
 sequentially; a later failure or post-commit close fault does not undo earlier
 publications. JSON main output and stream sidecars follow the same rule. Prepared

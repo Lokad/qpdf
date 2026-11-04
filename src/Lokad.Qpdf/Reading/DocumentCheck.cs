@@ -71,7 +71,9 @@ internal static class DocumentCheck
         List<(int Number, PdfStream Stream)> streams = ParserContainers.CreateList<(int, PdfStream)>(streamMemory);
         QpdfCheckOutcome objectGraph = CheckObjectGraph(engine, governor, streams, streamMemory, cancellationToken);
         AddItem(outcomeMemory, governor, outcomes, objectGraph, IntPtr.Size);
-        if (nativeStreamTraversal && objectGraph.Status != QpdfCheckStatus.Failed)
+        if (objectGraph.Status == QpdfCheckStatus.Skipped)
+        { diagnostics.AddParts(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Warning, ["Skipped check 'object-graph': ", objectGraph.Detail]); }
+        if (nativeStreamTraversal && objectGraph.Status == QpdfCheckStatus.Passed)
         {
             // Native checking writes the reachable graph to a discard sink;
             // unreferenced streams are not decoded by that writer traversal.
@@ -82,7 +84,10 @@ internal static class DocumentCheck
         AddItem(outcomeMemory, governor, outcomes, CheckStreams(engine, options.DecodeLevel, limits, governor, diagnostics, streams, cancellationToken), IntPtr.Size);
         AddItem(outcomeMemory, governor, outcomes, CheckPageContent(document, options, limits, governor, diagnostics, cancellationToken), IntPtr.Size);
         AddItem(outcomeMemory, governor, outcomes, CheckFormTree(document, governor, diagnostics, cancellationToken), IntPtr.Size);
-        AddItem(outcomeMemory, governor, outcomes, LinearizationCheck.Check(engine, document.PageCount, limits, governor, cancellationToken), IntPtr.Size);
+        QpdfCheckOutcome linearization = LinearizationCheck.Check(engine, document.PageCount, limits, governor, cancellationToken);
+        AddItem(outcomeMemory, governor, outcomes, linearization, IntPtr.Size);
+        if (linearization.Status == QpdfCheckStatus.Skipped)
+        { diagnostics.AddParts(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Warning, ["Skipped check 'linearization': ", linearization.Detail]); }
         foreach (QpdfCheckOutcome outcome in outcomes)
         {
             if (outcome.Status == QpdfCheckStatus.Failed)
@@ -139,6 +144,7 @@ internal static class DocumentCheck
         }
         numbers.Sort();
         int resolved = 0;
+        int unavailableObjects = 0;
         using DisplayBuffer failures = DisplayBuffer.Create(governor, false);
         int failureCount = 0;
         foreach (int number in numbers)
@@ -154,6 +160,8 @@ internal static class DocumentCheck
                     AddItem(streamMemory, governor, streams, (number, stream), 16L);
                 }
             }
+            catch (QpdfFilterException ex) when (ex.Reason == QpdfFilterFailureReason.ExternalData)
+            { unavailableObjects++; }
             catch (QpdfLimitException ex)
             {
                 AddFailure(failures, ref failureCount, ["object ", number, ": ", ex.Message]);
@@ -175,7 +183,9 @@ internal static class DocumentCheck
             return FinishOutcome(governor, "object-graph", QpdfCheckStatus.Failed, failures);
         }
 
-        return CheckOutcome.Create(governor, "object-graph", QpdfCheckStatus.Passed, [resolved, " objects resolved with ", streams.Count, " streams."]);
+        return unavailableObjects == 0
+            ? CheckOutcome.Create(governor, "object-graph", QpdfCheckStatus.Passed, [resolved, " objects resolved with ", streams.Count, " streams."])
+            : CheckOutcome.Create(governor, "object-graph", QpdfCheckStatus.Skipped, [resolved, " objects resolved; ", unavailableObjects, " unavailable (external-file stream data)."]);
     }
 
     private static bool InLevel(string filter, QpdfStreamDecodeLevel level)
@@ -228,6 +238,13 @@ internal static class DocumentCheck
             FilterPlan stages;
             try
             {
+                if (FilterChain.HasExternalData(stream, resolver, governor, cancellationToken))
+                {
+                    skippedUnavailable++;
+                    if (!ContainsUnavailable(governor, unavailable, "external-file data"))
+                    { AddItem(memory, governor, unavailable, "external-file data", IntPtr.Size); }
+                    continue;
+                }
                 stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, cancellationToken);
             }
             catch (QpdfParseException ex)
@@ -824,6 +841,7 @@ internal static class DocumentCheck
         out bool aboveLevel)
     {
         aboveLevel = false;
+        if (FilterChain.HasExternalData(stream, resolver, governor, cancellationToken)) { return null; }
         using FilterPlan stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, cancellationToken);
 
         if (stages.Count == 0)

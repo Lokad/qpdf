@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Keep external-file streams opaque, refuse effective-data extraction and required
+  structural decoding, and report unavailable check coverage. Preserve raw
+  descriptors/placeholders instead of interpreting or recompressing them as data.
+  Linearization checks/reports also skip unavailable external hint data.
+
+- Resolve supported Flate hint filters through the shared pipeline, including
+  arrays, indirect values and null parameters. Honor the stream-filter ceiling
+  without claiming that unavailable hint tables were validated.
+
 - Observe cooperative cancellation while scanning classic-xref section tokens,
   including long malformed tokens, comments and whitespace.
 

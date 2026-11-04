@@ -20,6 +20,7 @@ internal static class StreamTransformer
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        if (FilterChain.HasExternalData(stream, resolver, governor, token)) { return null; }
         FilterPlan stages;
         try { stages = FilterChain.ResolveScoped(stream.Dictionary, resolver, governor, token); }
         catch (QpdfParseException)

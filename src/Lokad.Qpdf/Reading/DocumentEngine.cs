@@ -696,6 +696,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
 
     private ReadOnlyMemory<byte> DecodeStreamData(PdfStream stream, int streamNumber, ParserMemoryScope scratch)
     {
+        FilterChain.RequireEmbeddedData(stream, this, _governor, _governor.CancellationToken);
         FilterPlan stages;
         try
         {
