@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Validate page-tree ancestry before excluding original objects from explicit
+  unreferenced preservation. Keep private targets and report uncopyable roots
+  under the existing warning policy; retain loose trees and genuine exclusions.
+
 - Validate source child identities before recording field membership, preserving
   live registrations and calculation order after stale-generation links. Check
   cancellation on both sides of child resolution.

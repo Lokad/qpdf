@@ -70,6 +70,11 @@ targets and non-page aliases remain connected. `--preserve-unreferenced` retains
 other copied objects without restoring foreign pages. This corrects earlier
 orphan Page retention; native qpdf likewise clears navigation outside a split group.
 
+Explicit unreferenced-object preservation excludes only resolved page-tree
+ancestors. Stale or private Parent links no longer discard unrelated original
+objects. Loose trees retain their existing preservation policy; uncopyable roots
+warn, and required malformed-ancestry lookups can still reject before publication.
+
 Page-copy operations, including overlay/underlay imports, reject reachable
 signature dictionaries (`/Type /Sig`) and populated signature fields in widget
 or retained AcroForm contexts. Field types may be inherited or indirect, and the

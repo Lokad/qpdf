@@ -3429,23 +3429,22 @@ public static partial class Qpdf
 
             visited.Clear(); ParserContainers.AddSetItem(memory, visited, source.ObjectNumber, sizeof(int));
             ParserContainers.AddSetItem(memory, excluded, source.ObjectNumber, sizeof(int));
-            PdfReference current = source;
+            PdfDictionary current = location.Page;
             int depth = 0;
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 governor.NoteOperation();
-                if (!resolver.TryResolve(current, out QpdfObject? node) || node is not PdfDictionary parent)
+                if (!current.TryGet(parentKey, out QpdfObject? raw) || raw is not PdfReference next)
                 {
                     break;
                 }
 
-                if (!parent.TryGet(parentKey, out QpdfObject? raw) || raw is null || raw is PdfNull)
-                {
-                    break;
-                }
-
-                if (raw is not PdfReference next)
+                // Source syntax alone does not establish containment. Failed
+                // generations and private Parent values must remain preservable.
+                if (!PdfObjectLookup.TryResolve(next, resolver, governor, cancellationToken, out QpdfObject? node)
+                    || node is not PdfDictionary parent
+                    || !PdfDictionaryLookup.HasName(parent, "Type"u8, "Pages"u8, resolver, governor, cancellationToken))
                 {
                     break;
                 }
@@ -3462,7 +3461,7 @@ public static partial class Qpdf
                     break;
                 }
 
-                current = next;
+                current = parent;
             }
         }
 
