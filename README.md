@@ -52,9 +52,9 @@ and decoded bytes. Results include warnings and resource counters.
 
 Hosts can expose a shared memory budget through `IQpdfMemoryHost`; the standalone
 `QpdfInputReader.ReadExactlyToArrayAsync` helper also accepts that budget directly.
-Custom inputs fill caller-owned `Memory<byte>` and return a count; see the
-breaking alpha.2 migration in the changelog. See
-[cooperative memory admission](docs/MEMORY.md) for caller-scope ownership and the
+Custom inputs fill caller-owned `Memory<byte>` and return a count.
+[API migrations](docs/COMPATIBILITY.md#resource-api-and-behavior-changes) describe
+the input and codec changes. See [cooperative memory admission](docs/MEMORY.md) for caller-scope ownership and the
 current boundary between engine estimates and host-private storage.
 
 For existing qpdf workflows, `Qpdf.ExecuteAsync` accepts a `QpdfCommandInvocation`,

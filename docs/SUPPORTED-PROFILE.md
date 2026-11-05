@@ -142,6 +142,8 @@ disable modes, version/extension negotiation, deterministic/static IDs, metadata
 controls, QDF and linearization. Known emitted features and opened page/placement/
 attachment sources contribute version floors; explicit force wins without transcoding
 opaque features. Object streams require 1.5. Catalog XML metadata is uncompressed.
+`--remove-info` removes Info and catalog XML metadata; `--remove-metadata` removes only
+the XML role. Independently rooted originals remain intact.
 Compression levels 1/2–8/9 map to BCL fastest/optimal/smallest size.
 
 Final-root reachability retires superseded graphs without deleting independent
@@ -169,8 +171,8 @@ Direct/indirect/null optional containers use the same policy.
   repeated removals and collisions without replacement reject. Removed/replaced
   attachment-only graphs drop unless independently rooted or explicitly preserved.
   Failed copied entries still participate in conflict detection.
-- New keys/filenames are nonempty, authored text is valid UTF-16 and MIME names
-  are ASCII without NUL. Existing empty keys can be removed/extracted. Dates are
+- New keys/filenames and explicit copy prefixes are nonempty; authored text is
+  valid UTF-16. MIME names are ASCII without NUL. Existing empty keys can be removed/extracted. Dates are
   omitted unless supplied; additions record size/checksum and default basename.
 - Primary collections and final split attachments survive independently of edits.
   Adding/importing supplies UseAttachments only when the primary PageMode hint is
