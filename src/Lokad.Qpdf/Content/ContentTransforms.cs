@@ -1012,9 +1012,16 @@ internal static class ContentTransforms
         copier.ValidateReplacement(pageId); graph.Retain(); copier.ReplaceCopiedObject(pageId, replacement);
     }
 
-    private static bool IsFormXObject(PdfStream stream, ResourceGovernor governor, CancellationToken cancellationToken)
-        => PdfDictionaryLookup.TryGet(stream.Dictionary, "Subtype"u8, governor, cancellationToken, out QpdfObject subtype)
-            && subtype is PdfName name && PdfDictionaryLookup.NameEquals(name, "Form"u8, governor, cancellationToken);
+    private static bool IsFormXObject(PdfStream stream, IIndirectResolver resolver, ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        if (!PdfDictionaryLookup.TryGet(stream.Dictionary, "Subtype"u8, governor, cancellationToken, out QpdfObject subtype)) { return false; }
+        if (subtype is PdfReference reference)
+        {
+            if (!PdfObjectLookup.TryResolve(reference, resolver, governor, cancellationToken, out QpdfObject? resolved)) { return false; }
+            subtype = resolved ?? PdfNull.Instance;
+        }
+        return subtype is PdfName name && PdfDictionaryLookup.NameEquals(name, "Form"u8, governor, cancellationToken);
+    }
 
     private static PdfDictionary? ScanForm(PdfStream form, PdfDictionary? resources, ResourceNameSet inherited,
         PoolResolver resolver, QpdfLimits limits, DiagnosticBag diagnostics, OwnedAllocationBatch graph)
@@ -1382,7 +1389,8 @@ internal static class ContentTransforms
                 continue;
             }
 
-            if (PdfDictionaryLookup.TryGet(dictionary, "Kids"u8, governor, cancellationToken, out QpdfObject kidsRaw) && kidsRaw is PdfArray kids)
+            if (PdfDictionaryLookup.TryGet(dictionary, "Kids"u8, governor, cancellationToken, out QpdfObject kidsRaw)
+                && (kidsRaw is PdfReference kidsReference ? ResolveEngine(engine, kidsReference, governor, cancellationToken) : kidsRaw) is PdfArray kids)
             {
                 bool hasResources = PdfDictionaryLookup.TryGet(dictionary, "Resources"u8, governor, cancellationToken, out QpdfObject branchResources)
                     && branchResources is not null
@@ -1454,7 +1462,7 @@ internal static class ContentTransforms
                 QpdfObject target = entry is PdfReference entryReference
                     ? ResolveEngine(engine, entryReference, governor, cancellationToken) ?? entry
                     : entry;
-                if (target is PdfStream stream && IsFormXObject(stream, governor, cancellationToken))
+                if (target is PdfStream stream && IsFormXObject(stream, engine, governor, cancellationToken))
                 {
                     walk.Push(entry, cancellationToken);
                 }

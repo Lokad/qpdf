@@ -302,6 +302,12 @@ Over-limit filtered extraction and stream checking report failure. Rewriting can
 retain the original encoded bytes and warn when decoding was requested; explicit
 opaque copying can preserve them silently. Zero prevents filtered decoding.
 
+Automatic resource pruning resolves indirect Kids arrays and Form Subtype names
+before deciding whether scopes share resources. Equivalent direct and indirect
+values now choose the same pruning behavior; explicit yes/no choices retain their
+semantics. Independently rooted original resource dictionaries remain intact.
+Previously retained unused resource bytes can disappear from automatic output.
+
 A single failed output commit preserves its prior target. Multiple outputs commit
 sequentially; a later failure or post-commit close fault does not undo earlier
 publications. JSON main output and stream sidecars follow the same rule. Prepared

@@ -46,6 +46,8 @@ public sealed class SharedResourceHeuristicTests
     [InlineData("leaf-empty", false)]
     [InlineData("branch-resources", true)]
     [InlineData("indirect-kids", false)]
+    [InlineData("indirect-kids-branch-resources", true)]
+    [InlineData("indirect-kids-shared-resource", true)]
     [InlineData("shared-resource", true)]
     [InlineData("shared-xobjects", true)]
     [InlineData("repeated-direct-resource", false)]
@@ -58,6 +60,8 @@ public sealed class SharedResourceHeuristicTests
         QpdfObject page = Dictionary();
         if (shape == "branch-resources") { page = Dictionary(("Kids", new PdfArray([])), ("Resources", empty)); }
         if (shape == "indirect-kids") { page = Dictionary(("Kids", new PdfReference(30, 0))); objects[30] = new PdfArray([Dictionary(("Resources", empty))]); }
+        if (shape == "indirect-kids-branch-resources") { page = Dictionary(("Kids", new PdfReference(30, 0)), ("Resources", empty)); objects[30] = new PdfArray([]); }
+        if (shape == "indirect-kids-shared-resource") { page = Dictionary(("Kids", new PdfReference(30, 0))); objects[30] = new PdfArray([Dictionary(("Resources", resources)), Dictionary(("Resources", resources))]); }
         if (shape is "shared-resource" or "generation-duplicate-resource")
         { page = Dictionary(("Kids", new PdfArray([Dictionary(("Resources", resources)), Dictionary(("Resources", shape == "shared-resource" ? resources : new PdfReference(20, 7)))]))); }
         if (shape == "shared-xobjects")
@@ -159,7 +163,7 @@ public sealed class SharedResourceHeuristicTests
         for (int index = 0; index < 32; index++) { Assert.True(Decide(engine, governor, CancellationToken.None)); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); }
     }
 
-    private delegate bool FormPredicate(PdfStream stream, ResourceGovernor governor, CancellationToken token);
+    private delegate bool FormPredicate(PdfStream stream, IIndirectResolver resolver, ResourceGovernor governor, CancellationToken token);
     private static FormPredicate BindForm()
     {
         MethodInfo method = typeof(ContentTransforms).GetMethod("IsFormXObject", BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException("Missing form classifier.");
@@ -168,26 +172,47 @@ public sealed class SharedResourceHeuristicTests
     private static readonly FormPredicate IsForm = BindForm();
 
     [Theory]
-    [InlineData("Form", true)]
-    [InlineData("form", false)]
-    [InlineData("Form#00", false)]
-    [InlineData("binary", false)]
-    [InlineData("missing", false)]
-    public void FormClassificationPreservesRawNameTruth(string shape, bool expected)
+    [InlineData("Form", true, false)]
+    [InlineData("form", false, false)]
+    [InlineData("Form#00", false, false)]
+    [InlineData("binary", false, false)]
+    [InlineData("missing", false, false)]
+    [InlineData("Form", true, true)]
+    [InlineData("form", false, true)]
+    [InlineData("Form#00", false, true)]
+    [InlineData("binary", false, true)]
+    [InlineData("missing", false, true)]
+    public void FormClassificationPreservesRawNameTruth(string shape, bool expected, bool indirect)
     {
         PdfName subtype = shape == "binary" ? new PdfName([0, 255, 35]) : PdfName.FromAscii(shape);
-        PdfStream stream = new(shape == "missing" ? Dictionary() : Dictionary(("Subtype", subtype)), new byte[2 * 1024 * 1024]);
+        PdfStream stream = new(shape == "missing" ? Dictionary() : Dictionary(("Subtype", indirect ? new PdfReference(7, 0) : subtype)), new byte[2 * 1024 * 1024]);
+        PoolResolver resolver = new(new Dictionary<int, QpdfObject> { [7] = subtype });
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        Assert.Equal(expected, IsForm(stream, governor, CancellationToken.None)); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(expected, IsForm(stream, resolver, governor, CancellationToken.None)); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]
     public void WarmedFormClassificationCreatesNoLookupNameDisplayStringOrPayloadCopy()
     {
         PdfStream stream = new(Dictionary(("Subtype", PdfName.FromAscii("Form"))), new byte[2 * 1024 * 1024]); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        for (int index = 0; index < 32; index++) { IsForm(stream, governor, CancellationToken.None); }
+        PoolResolver resolver = new(new Dictionary<int, QpdfObject>());
+        for (int index = 0; index < 32; index++) { IsForm(stream, resolver, governor, CancellationToken.None); }
         long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int index = 0; index < 128; index++) { IsForm(stream, governor, CancellationToken.None); }
+        for (int index = 0; index < 128; index++) { IsForm(stream, resolver, governor, CancellationToken.None); }
         Assert.Equal(0L, GC.GetAllocatedBytesForCurrentThread() - before); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(stream);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SubtypeResolverReturnCancellationStopsBeforePositiveClassification(bool governorToken)
+    {
+        using CancellationTokenSource cancellation = new();
+        ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
+        int calls = 0;
+        PoolResolver resolver = new(new ObservedObjects(new Dictionary<int, QpdfObject> { [7] = PdfName.FromAscii("Form") }, () => { calls++; cancellation.Cancel(); }));
+        PdfStream stream = new(Dictionary(("Subtype", new PdfReference(7, 0))), []);
+        Assert.ThrowsAny<OperationCanceledException>(() => IsForm(stream, resolver, governor, governorToken ? CancellationToken.None : cancellation.Token));
+        Assert.Equal(1, calls); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 }

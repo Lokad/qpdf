@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Make automatic resource pruning recognize indirect Kids arrays and Form Subtype
+  names, matching equivalent direct values. Preserve independently rooted original
+  resources, shared image identity and explicit pruning choices.
+
 - Borrow immutable input slices during unfiltered compression, opaque JSON stream
   projection and JPEG separator trimming. Remove intermediate payload copies while
   retaining durable sidecar copies and escaping stream ownership.
