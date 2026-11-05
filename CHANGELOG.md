@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Use existing byte-key lookup for attachment and appearance queries, avoiding
+  temporary PDF names. Keep filename precedence, optional metadata, reference
+  handling and diagnostic text unchanged.
+
 - Classify page-label container types directly from name bytes, avoiding display
   strings for long unknown names while preserving containment and opaque values.
 

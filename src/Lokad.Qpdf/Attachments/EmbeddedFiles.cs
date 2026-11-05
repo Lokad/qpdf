@@ -1,3 +1,4 @@
+using System.Text;
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
@@ -26,7 +27,7 @@ internal sealed record EmbeddedAttachment(
 
 internal static class EmbeddedFiles
 {
-    private static readonly string[] NameKeys = ["UF", "F", "Unix", "DOS", "Mac"];
+    private static readonly byte[][] NameKeys = ["UF"u8.ToArray(), "F"u8.ToArray(), "Unix"u8.ToArray(), "DOS"u8.ToArray(), "Mac"u8.ToArray()];
     private const string DuplicateKeys = "Embedded-files name tree contains duplicate logical keys.";
 
     internal static List<EmbeddedAttachment> ReadAttachments(DocumentEngine engine, QpdfLimits limits,
@@ -71,9 +72,9 @@ internal static class EmbeddedFiles
             removed.Add(key, false);
         }
         List<EmbeddedFileEntry> result = ParserContainers.CreateList<EmbeddedFileEntry>(entriesMemory);
-        PdfDictionary? catalog = ResolveDictionary(engine, engine.Trailer, "Root", governor, token);
-        PdfDictionary? names = catalog is null ? null : ResolveDictionary(engine, catalog, "Names", governor, token);
-        PdfDictionary? tree = names is null ? null : ResolveDictionary(engine, names, "EmbeddedFiles", governor, token);
+        PdfDictionary? catalog = ResolveDictionary(engine, engine.Trailer, "Root"u8, governor, token);
+        PdfDictionary? names = catalog is null ? null : ResolveDictionary(engine, catalog, "Names"u8, governor, token);
+        PdfDictionary? tree = names is null ? null : ResolveDictionary(engine, names, "EmbeddedFiles"u8, governor, token);
         if (tree is not null)
         {
             WalkNode(engine, tree, 0, GovernedIntSet.Create(scratch, governor, token), result,
@@ -112,9 +113,9 @@ internal static class EmbeddedFiles
         ParserMemoryScope memory, CancellationToken token)
     {
         memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        PdfDictionary? catalog = ResolveDictionary(engine, engine.Trailer, "Root", governor, token);
-        PdfDictionary? names = catalog is null ? null : ResolveDictionary(engine, catalog, "Names", governor, token);
-        PdfDictionary? tree = names is null ? null : ResolveDictionary(engine, names, "EmbeddedFiles", governor, token);
+        PdfDictionary? catalog = ResolveDictionary(engine, engine.Trailer, "Root"u8, governor, token);
+        PdfDictionary? names = catalog is null ? null : ResolveDictionary(engine, catalog, "Names"u8, governor, token);
+        PdfDictionary? tree = names is null ? null : ResolveDictionary(engine, names, "EmbeddedFiles"u8, governor, token);
         QpdfObject? raw;
         // The document owns the selected spec; tree scratch need not span decoding.
         using (ParserMemoryScope traversal = ParserMemoryScope.Create(governor))
@@ -183,10 +184,10 @@ internal static class EmbeddedFiles
         }
     }
 
-    private static PdfDictionary? ResolveDictionary(DocumentEngine engine, PdfDictionary parent, string key,
+    private static PdfDictionary? ResolveDictionary(DocumentEngine engine, PdfDictionary parent, ReadOnlySpan<byte> key,
         ResourceGovernor governor, CancellationToken token)
     {
-        if (!parent.TryGet(PdfName.FromAscii(key), out QpdfObject? raw) || raw is null || raw is PdfNull)
+        if (!PdfDictionaryLookup.TryGet(parent, key, governor, token, out QpdfObject raw) || raw is PdfNull)
         {
             return null;
         }
@@ -199,29 +200,29 @@ internal static class EmbeddedFiles
 
         if (target is not PdfDictionary dictionary)
         {
-            throw new QpdfParseException($"Embedded-files {key} must be a dictionary.", null, null);
+            throw new QpdfParseException($"Embedded-files {Encoding.ASCII.GetString(key)} must be a dictionary.", null, null);
         }
 
         return dictionary;
     }
 
-    private static QpdfObject ResolveReference(DocumentEngine engine, PdfReference reference, string role,
+    private static QpdfObject ResolveReference(DocumentEngine engine, PdfReference reference, ReadOnlySpan<byte> role,
         ResourceGovernor governor, CancellationToken token)
     {
         if (!PdfObjectLookup.TryResolve(reference, engine, governor, token, out QpdfObject? resolved) || resolved is null)
         {
-            throw new QpdfParseException($"Unresolvable embedded-files {role} reference.", null, reference.ObjectNumber);
+            throw new QpdfParseException($"Unresolvable embedded-files {Encoding.ASCII.GetString(role)} reference.", null, reference.ObjectNumber);
         }
 
         return resolved;
     }
 
-    private static QpdfObject ResolveRequired(DocumentEngine engine, PdfReference reference, string role,
+    private static QpdfObject ResolveRequired(DocumentEngine engine, PdfReference reference, ReadOnlySpan<byte> role,
         ResourceGovernor governor, CancellationToken token)
     {
         QpdfObject resolved = ResolveReference(engine, reference, role, governor, token);
         if (resolved is PdfNull)
-        { throw new QpdfParseException($"Unresolvable embedded-files {role} reference.", null, reference.ObjectNumber); }
+        { throw new QpdfParseException($"Unresolvable embedded-files {Encoding.ASCII.GetString(role)} reference.", null, reference.ObjectNumber); }
         return resolved;
     }
 
@@ -233,7 +234,7 @@ internal static class EmbeddedFiles
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (depth > limits.MaxNestingDepth)
         { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, limits.MaxNestingDepth); }
-        QpdfObject? namesValue = node.TryGet(PdfName.FromAscii("Names"), out QpdfObject? namesRaw) && namesRaw is not null
+        QpdfObject? namesValue = PdfDictionaryLookup.TryGet(node, "Names"u8, governor, token, out QpdfObject namesRaw)
             ? ResolveOptionalValue(engine, namesRaw, governor, token) : PdfNull.Instance;
         if (namesValue is not PdfNull)
         {
@@ -263,7 +264,7 @@ internal static class EmbeddedFiles
                 if (result is not null) { ParserContainers.AddItem(entriesMemory, result, new(key, keyBytes, names[i + 1]), 24L); }
             }
         }
-        QpdfObject? kidsValue = node.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw) && kidsRaw is not null
+        QpdfObject? kidsValue = PdfDictionaryLookup.TryGet(node, "Kids"u8, governor, token, out QpdfObject kidsRaw)
             ? ResolveOptionalValue(engine, kidsRaw, governor, token) : PdfNull.Instance;
         if (kidsValue is not PdfNull)
         {
@@ -273,7 +274,7 @@ internal static class EmbeddedFiles
             {
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 QpdfObject item = kids[i];
-                QpdfObject target = item is PdfReference reference ? ResolveRequired(engine, reference, "name-tree kid", governor, token) : item;
+                QpdfObject target = item is PdfReference reference ? ResolveRequired(engine, reference, "name-tree kid"u8, governor, token) : item;
                 if (target is not PdfDictionary kid)
                 { throw new QpdfParseException("Embedded-files kid must be a dictionary.", null, null); }
                 if (item is PdfReference link && !visited.Add(traversal, link.ObjectNumber))
@@ -299,9 +300,9 @@ internal static class EmbeddedFiles
         PdfDictionary spec = ReadFileSpec(engine, value, governor, cancellationToken);
 
         string fileName = string.Empty;
-        foreach (string name in NameKeys)
+        foreach (byte[] name in NameKeys)
         {
-            if (spec.TryGet(PdfName.FromAscii(name), out QpdfObject? raw)
+            if (PdfDictionaryLookup.TryGet(spec, name, governor, cancellationToken, out QpdfObject raw)
                 && ResolveOptionalValue(engine, raw, governor, cancellationToken) is PdfByteString text)
             {
                 fileName = PdfText.Decode(text.ValueMemory, memory, governor, cancellationToken);
@@ -310,7 +311,7 @@ internal static class EmbeddedFiles
         }
 
         string description = string.Empty;
-        if (spec.TryGet(PdfName.FromAscii("Desc"), out QpdfObject? descRaw)
+        if (PdfDictionaryLookup.TryGet(spec, "Desc"u8, governor, cancellationToken, out QpdfObject descRaw)
             && ResolveOptionalValue(engine, descRaw, governor, cancellationToken) is PdfByteString descText)
         {
             description = PdfText.Decode(descText.ValueMemory, memory, governor, cancellationToken);
@@ -318,10 +319,10 @@ internal static class EmbeddedFiles
 
         (PdfStream data, PdfReference? streamReference) = ReadEmbeddedStream(engine, spec, governor, cancellationToken);
         PdfDictionary? parameters = null;
-        if (data.Dictionary.TryGet(PdfName.FromAscii("Params"), out QpdfObject parametersRaw) && parametersRaw is not PdfNull)
+        if (PdfDictionaryLookup.TryGet(data.Dictionary, "Params"u8, governor, cancellationToken, out QpdfObject parametersRaw) && parametersRaw is not PdfNull)
         {
             parameters = (parametersRaw is PdfReference parametersReference
-                ? ResolveReference(engine, parametersReference, "embedded stream parameters", governor, cancellationToken) : parametersRaw) as PdfDictionary;
+                ? ResolveReference(engine, parametersReference, "embedded stream parameters"u8, governor, cancellationToken) : parametersRaw) as PdfDictionary;
         }
         EmbeddedStreamMetadata metadata = ReadStreamMetadata(engine, data, parameters, memory, governor, cancellationToken);
 
@@ -333,19 +334,19 @@ internal static class EmbeddedFiles
 
     private static PdfDictionary ReadFileSpec(DocumentEngine engine, QpdfObject value, ResourceGovernor governor, CancellationToken token)
     {
-        QpdfObject target = value is PdfReference reference ? ResolveRequired(engine, reference, "file specification", governor, token) : value;
+        QpdfObject target = value is PdfReference reference ? ResolveRequired(engine, reference, "file specification"u8, governor, token) : value;
         return target as PdfDictionary ?? throw new QpdfParseException("Embedded file specification must be a dictionary.", null, null);
     }
 
     private static (PdfStream Stream, PdfReference? Reference) ReadEmbeddedStream(DocumentEngine engine, PdfDictionary spec,
         ResourceGovernor governor, CancellationToken token)
     {
-        if (!spec.TryGet(PdfName.FromAscii("EF"), out QpdfObject? efRaw) || efRaw is null || efRaw is PdfNull)
+        if (!PdfDictionaryLookup.TryGet(spec, "EF"u8, governor, token, out QpdfObject efRaw) || efRaw is PdfNull)
         {
             throw new QpdfParseException("Embedded file specification has no embedded stream.", null, null);
         }
 
-        QpdfObject efTarget = efRaw is PdfReference efReference ? ResolveRequired(engine, efReference, "embedded stream set", governor, token) : efRaw;
+        QpdfObject efTarget = efRaw is PdfReference efReference ? ResolveRequired(engine, efReference, "embedded stream set"u8, governor, token) : efRaw;
         if (efTarget is not PdfDictionary ef)
         {
             throw new QpdfParseException("Embedded file specification has no embedded stream.", null, null);
@@ -353,14 +354,14 @@ internal static class EmbeddedFiles
 
         PdfReference? streamReference = null;
         PdfStream? data = null;
-        foreach (string name in NameKeys)
+        foreach (byte[] name in NameKeys)
         {
-            if (!ef.TryGet(PdfName.FromAscii(name), out QpdfObject? candidate) || candidate is null || candidate is PdfNull)
+            if (!PdfDictionaryLookup.TryGet(ef, name, governor, token, out QpdfObject candidate) || candidate is PdfNull)
             {
                 continue;
             }
 
-            QpdfObject resolved = candidate is PdfReference resolvedReference ? ResolveReference(engine, resolvedReference, "embedded stream", governor, token) : candidate;
+            QpdfObject resolved = candidate is PdfReference resolvedReference ? ResolveReference(engine, resolvedReference, "embedded stream"u8, governor, token) : candidate;
             if (resolved is PdfStream stream)
             {
                 data = stream;
@@ -395,7 +396,7 @@ internal static class EmbeddedFiles
     {
         memory.CheckOwner(governor); cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         string mimeType = string.Empty;
-        if (data.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject? subtypeRaw)
+        if (PdfDictionaryLookup.TryGet(data.Dictionary, "Subtype"u8, governor, cancellationToken, out QpdfObject subtypeRaw)
             && ResolveOptionalValue(resolver, subtypeRaw, governor, cancellationToken) is PdfName subtype)
         {
             mimeType = PdfText.DecodeUtf8(subtype.RawMemory, memory, governor, cancellationToken);
@@ -407,25 +408,25 @@ internal static class EmbeddedFiles
         long size = -1L;
         if (parms is not null)
         {
-            if (parms.TryGet(PdfName.FromAscii("CreationDate"), out QpdfObject? creationRaw)
+            if (PdfDictionaryLookup.TryGet(parms, "CreationDate"u8, governor, cancellationToken, out QpdfObject creationRaw)
                 && ResolveOptionalValue(resolver, creationRaw, governor, cancellationToken) is PdfByteString creationText)
             {
                 creationDate = PdfText.Decode(creationText.ValueMemory, memory, governor, cancellationToken);
             }
 
-            if (parms.TryGet(PdfName.FromAscii("ModDate"), out QpdfObject? modRaw)
+            if (PdfDictionaryLookup.TryGet(parms, "ModDate"u8, governor, cancellationToken, out QpdfObject modRaw)
                 && ResolveOptionalValue(resolver, modRaw, governor, cancellationToken) is PdfByteString modText)
             {
                 modDate = PdfText.Decode(modText.ValueMemory, memory, governor, cancellationToken);
             }
 
-            if (parms.TryGet(PdfName.FromAscii("CheckSum"), out QpdfObject? checksumRaw)
+            if (PdfDictionaryLookup.TryGet(parms, "CheckSum"u8, governor, cancellationToken, out QpdfObject checksumRaw)
                 && ResolveOptionalValue(resolver, checksumRaw, governor, cancellationToken) is PdfByteString checksumBytes)
             {
                 checksum = DecodeChecksum(checksumBytes.ValueMemory, memory, governor, cancellationToken);
             }
 
-            if (parms.TryGet(PdfName.FromAscii("Size"), out QpdfObject? sizeRaw)
+            if (PdfDictionaryLookup.TryGet(parms, "Size"u8, governor, cancellationToken, out QpdfObject sizeRaw)
                 && ResolveOptionalValue(resolver, sizeRaw, governor, cancellationToken) is PdfInteger sizeInteger && sizeInteger.Value >= 0L)
             {
                 size = sizeInteger.Value;

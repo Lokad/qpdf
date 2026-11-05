@@ -581,7 +581,7 @@ internal static class GenerateAppearances
         PdfDictionary appearanceDict;
         if (found is null)
         {
-            double[] box = ReadBox(annot, "Rect", resolver) ?? [0.0, 0.0, 0.0, 0.0];
+            double[] box = ReadBox(annot, "Rect"u8, resolver, governor, cancellationToken) ?? [0.0, 0.0, 0.0, 0.0];
             if (box[0] > box[2]) { (box[0], box[2]) = (box[2], box[0]); }
             if (box[1] > box[3]) { (box[1], box[3]) = (box[3], box[1]); }
             double width = box[2] - box[0];
@@ -616,7 +616,7 @@ internal static class GenerateAppearances
             appearanceDict = found.Dictionary;
         }
 
-        double[]? bbox = ReadBox(appearanceDict, "BBox", resolver);
+        double[]? bbox = ReadBox(appearanceDict, "BBox"u8, resolver, governor, cancellationToken);
         if (bbox is null)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot generate an appearance without a bounding box; keeping the field as is.");
@@ -697,7 +697,7 @@ internal static class GenerateAppearances
 
     private static GenAppearance FindGenAppearance(PdfDictionary annot, PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
     {
-        if (!annot.TryGet(PdfName.FromAscii("AP"), out QpdfObject? ap) || ap is null || ap is PdfNull)
+        if (!PdfDictionaryLookup.TryGet(annot, "AP"u8, governor, token, out QpdfObject ap) || ap is PdfNull)
         {
             return new GenAppearance(null, null);
         }
@@ -710,7 +710,7 @@ internal static class GenerateAppearances
             return new GenAppearance(null, null);
         }
 
-        if (!apDict.TryGet(PdfName.FromAscii("N"), out QpdfObject? normal) || normal is null || normal is PdfNull)
+        if (!PdfDictionaryLookup.TryGet(apDict, "N"u8, governor, token, out QpdfObject normal) || normal is PdfNull)
         {
             return new GenAppearance(null, apDict);
         }
@@ -743,9 +743,10 @@ internal static class GenerateAppearances
         entries.Assign(graph.Memory, graph.Governor, PdfName.FromAscii("N"), link, graph.Token);
         return PdfDictionaryRebuild.Complete(graph, entries, allocation);
     }
-    private static double[]? ReadBox(PdfDictionary dictionary, string key, PoolResolver resolver)
+    private static double[]? ReadBox(PdfDictionary dictionary, ReadOnlySpan<byte> key, PoolResolver resolver,
+        ResourceGovernor governor, CancellationToken token)
     {
-        if (!dictionary.TryGet(PdfName.FromAscii(key), out QpdfObject? raw) || raw is null || raw is PdfNull)
+        if (!PdfDictionaryLookup.TryGet(dictionary, key, governor, token, out QpdfObject raw) || raw is PdfNull)
         {
             return null;
         }
