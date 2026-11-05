@@ -1404,12 +1404,19 @@ internal static class Overlays
             && CatalogCopy.ResolveValue(rotationRaw, new PoolResolver(destCopier.CopiedObjects), governor, cancellationToken) is PdfInteger rotation)
         { destinationRotation = (int)((rotation.Value % 360 + 360) % 360); }
 
+        using OwnedAllocationBatch appearanceGraph = OwnedAllocationBatch.Create(governor, cancellationToken);
         QpdfObject? appearanceResources = null;
         if (needsPageResources && PageInheritance.Find(engine, location, PdfName.FromAscii("Resources"), limits, governor, cancellationToken) is QpdfObject sourceResources
             && CatalogCopy.ResolveDictionary(sourceResources, resolver, governor, cancellationToken) is not null)
         {
             appearanceResources = CopyOverlayNode(sourceResources, engine, source.Copier, destCopier, memo, scratch,
                 ref allocator, ref nullId, limits, governor, ownership, cancellationToken, 0);
+        }
+        else if (needsPageResources)
+        {
+            // An absent source namespace must not inherit placement/wrapper names.
+            PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(appearanceGraph, out long bytes);
+            appearanceResources = PdfDictionaryRebuild.Complete(appearanceGraph, entries, bytes);
         }
 
         SourceActions.BindPlacement(engine, source.Copier, destCopier, fresh, imports, firstImport,
@@ -1432,7 +1439,6 @@ internal static class Overlays
         int listedCount = fresh.Count;
         // The frame bit distinguishes shared AP uses within this placement.
         Dictionary<(int Id, AnnotationCopyKind Kind, bool Frame), PdfReference> appearances = ParserContainers.CreateDictionary<(int, AnnotationCopyKind, bool), PdfReference>(traversal);
-        using OwnedAllocationBatch appearanceGraph = OwnedAllocationBatch.Create(governor, cancellationToken);
         for (int index = 0; index < fresh.Count; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();

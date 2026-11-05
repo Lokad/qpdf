@@ -217,7 +217,11 @@ the output and changes object identities without changing public signatures.
 When clipping is required, missing/unusable normal appearances, non-stream
 states and unusable appearance frames fail with UnsupportedFeature before
 publication. Valid degenerate appearances remain empty. Fully contained and
-hidden annotations keep their existing paths. Popup windows and general viewer
+hidden annotations keep their existing paths.
+Screen annotations without an AP and links without an AP or visible border need
+no static clipping; resolved-null values and BS-over-Border precedence apply.
+Absent source resources bind as an explicit empty namespace, so wrapper names
+cannot acquire meaning inside the original AP. Popup windows and general viewer
 zoom, editing and interaction hit areas remain outside this static-artwork
 contract; the wrapper does not constrain viewer UI or create missing artwork.
 

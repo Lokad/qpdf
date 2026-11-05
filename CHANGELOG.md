@@ -4,8 +4,9 @@
 
 - Preserve source-page clipping for imported static annotation appearances with
   immutable N/R/D/state wrappers. Keep full rectangles, original payloads and
-  private aliases; generate imported widgets before clipping. Refuse required
-  unrepresentable clipping before publication and retain empty appearances.
+  private aliases; generate imported widgets before clipping. Bind absent source
+  resource namespaces as empty and keep nonvisual annotation paths. Refuse
+  required unrepresentable clipping before publication and retain empty appearances.
 
 - Preserve widget appearances and readiness when generation cannot select a font
   dictionary. Warn instead of emitting unbound text and flattening that widget;

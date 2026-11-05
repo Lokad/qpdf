@@ -301,8 +301,10 @@ After source generation and placement, annotations crossing the source Form's
 bounds receive immutable clipping wrappers. Their Rect stays intact, and the
 existing flattening fit calculation maps original artwork into each wrapper.
 A per-annotation memo shares N/R/D/state wrappers without changing independent
-original aliases. Contained annotations need no wrapper or memo. The existing
-allocation batch owns new headers and payloads through publication; unsupported
+original aliases. Contained and known nonvisual annotations need no wrapper or
+memo. Missing source resource namespaces bind explicitly as empty before role
+copying, so new placement/wrapper names cannot acquire meaning inside the AP.
+The existing allocation batch owns new headers and payloads through publication; unsupported
 required appearances fail before commit. Empty fits and unusable fits have
 distinct outcomes. Popup UI remains outside this static appearance boundary.
 Appearance generation replaces changed annotation-array edges while independent

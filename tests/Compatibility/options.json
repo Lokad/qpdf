@@ -4809,7 +4809,8 @@
           "ExtensionVersionTests.ImportsNegotiateExtensionsAtTheSelectedBase",
           "FormSourceContextTests.RetainedFieldsKeepSourceFontAndDefaults",
           "FormSourceContextTests.RewrittenSharedProgramsKeepOneIdentityAndTheirOriginalAliases",
-          "OverlayClippingGenerationTests.GeneratedSourceArtworkIsClippedBeforeOptionalFlattening"
+          "OverlayClippingGenerationTests.GeneratedSourceArtworkIsClippedBeforeOptionalFlattening",
+          "OverlayClippingResourceTests.WrapperNamesCannotSupplyMissingSourceResources"
         ],
         "resource": [
           "ResourceEnforcementTests.OverlayYieldsToExhaustedBudget",
@@ -6629,7 +6630,8 @@
           "ExtensionVersionTests.ImportsNegotiateExtensionsAtTheSelectedBase",
           "FormSourceContextTests.RetainedFieldsKeepSourceFontAndDefaults",
           "FormSourceContextTests.RewrittenSharedProgramsKeepOneIdentityAndTheirOriginalAliases",
-          "OverlayClippingGenerationTests.GeneratedSourceArtworkIsClippedBeforeOptionalFlattening"
+          "OverlayClippingGenerationTests.GeneratedSourceArtworkIsClippedBeforeOptionalFlattening",
+          "OverlayClippingResourceTests.WrapperNamesCannotSupplyMissingSourceResources"
         ],
         "resource": [
           "ResourceEnforcementTests.UnderlayYieldsToExhaustedBudget",

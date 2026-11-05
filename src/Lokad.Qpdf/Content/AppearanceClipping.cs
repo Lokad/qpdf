@@ -48,7 +48,10 @@ internal static class AppearanceClipping
         if (rect[0] >= clip[0] && rect[1] >= clip[1] && rect[2] <= clip[2] && rect[3] <= clip[3]) { return; }
         if (FlattenAnnotations.FindAppearanceStream(annotation, resolver, governor, token, out _) is null
             || !PdfDictionaryLookup.TryGet(annotation, "AP"u8, governor, token, out QpdfObject appearance))
-        { throw new QpdfUnsupportedFeatureException("Source clipping requires a usable normal annotation appearance."); }
+        {
+            if (HasNoStaticArtwork(annotation, resolver, governor, token)) { return; }
+            throw new QpdfUnsupportedFeatureException("Source clipping requires a usable normal annotation appearance.");
+        }
         clip[0] = Math.Max(rect[0], clip[0]); clip[1] = Math.Max(rect[1], clip[1]);
         clip[2] = Math.Min(rect[2], clip[2]); clip[3] = Math.Min(rect[3], clip[3]);
         if (clip[0] >= clip[2] || clip[1] >= clip[3]) { clip.Clear(); }
@@ -59,6 +62,30 @@ internal static class AppearanceClipping
         if (Equals(appearance, replacement)) { return; }
         PdfDictionary result = PdfDictionaryRebuild.ReplaceEntry(graph, annotation, "AP"u8, replacement);
         copier.ValidateReplacement(annotationId); copier.ReplaceCopiedObject(annotationId, result);
+    }
+
+    private static bool HasNoStaticArtwork(PdfDictionary annotation, PoolResolver resolver,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        if (PdfDictionaryLookup.TryGet(annotation, "AP"u8, governor, token, out QpdfObject ap)
+            && CatalogCopy.ResolveValue(ap, resolver, governor, token) is not (null or PdfNull)) { return false; }
+        if (PdfDictionaryLookup.HasName(annotation, "Subtype"u8, "Screen"u8, resolver, governor, token)) { return true; }
+        if (!PdfDictionaryLookup.HasName(annotation, "Subtype"u8, "Link"u8, resolver, governor, token)) { return false; }
+        QpdfObject? style = PdfDictionaryLookup.TryGet(annotation, "BS"u8, governor, token, out QpdfObject raw)
+            ? CatalogCopy.ResolveValue(raw, resolver, governor, token) : null;
+        QpdfObject? width;
+        if (style is PdfDictionary dictionary)
+        {
+            width = PdfDictionaryLookup.TryGet(dictionary, "W"u8, governor, token, out raw) ? raw : null;
+        }
+        else
+        {
+            if (style is not (null or PdfNull)) { return false; }
+            if (!PdfDictionaryLookup.TryGet(annotation, "Border"u8, governor, token, out raw)
+                || CatalogCopy.ResolveValue(raw, resolver, governor, token) is not PdfArray { Count: 3 or 4 } border) { return false; }
+            width = border[2];
+        }
+        return CatalogCopy.ResolveValue(width, resolver, governor, token) is PdfInteger { Value: 0 } or PdfReal { Value: 0 };
     }
 
     private static QpdfObject CopyDictionary(GraphCopier copier, PdfDictionary annotation, QpdfObject rectangle,
@@ -127,6 +154,9 @@ internal static class AppearanceClipping
         ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
         using ParserMemoryScope fitMemory = ParserMemoryScope.Create(governor);
         fitMemory.Reserve(2048L); // One live set of shared fit matrices and formatted scalars.
+        if (PdfDictionaryLookup.TryGet(stream.Dictionary, "Resources"u8, governor, token, out QpdfObject resourcesRaw)
+            && CatalogCopy.ResolveValue(resourcesRaw, resolver, governor, token) is not (null or PdfNull or PdfDictionary))
+        { throw new QpdfUnsupportedFeatureException("Source clipping cannot preserve unusable annotation appearance resources."); }
         if (PdfDictionaryLookup.TryGet(stream.Dictionary, "Matrix"u8, governor, token, out QpdfObject matrix)
             && CatalogCopy.ResolveValue(matrix, resolver, governor, token) is QpdfObject resolved && resolved is not PdfNull
             && (resolved is not PdfArray array || Overlays.ReadOverlayMatrix(array, resolver) is null))

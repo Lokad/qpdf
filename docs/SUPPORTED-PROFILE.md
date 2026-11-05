@@ -365,8 +365,12 @@ toward the configured selection ceiling.
   When an annotation crosses the source bounds, an absent/unusable normal AP,
   non-stream state or unusable frame fails with UnsupportedFeature before any
   output commit. Valid zero-area appearances stay empty. Contained and hidden
-  annotations retain existing handling. Popup windows, general viewer zoom,
-  editing UI and interaction hit areas are outside this static-artwork contract;
+  annotations retain existing handling.
+  Screen annotations without an AP and links without an AP or visible border
+  need no static clipping; effective BS takes precedence over Border. Absent
+  source resources bind explicitly as empty to isolate new wrapper names. Popup
+  windows, general viewer zoom, editing UI and interaction hit areas are outside
+  this static-artwork contract;
   clipping does not generate missing annotation artwork.
   Source generations are validated before placement memo reuse; stale references
   stay null in either traversal order. Widget import retains actual field
