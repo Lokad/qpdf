@@ -298,7 +298,7 @@ public async Task DirectWidgetSelectionSkipsSilently()
 {
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
-byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R << /Type /Annot /Subtype /Widget /Rect [10 10 100 30] /FT /Tx /T (Direct) /V (Dval) /DA (/Helv 12 Tf) >>]", new List<(string Dict, byte[]? StreamData)>
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true /DR << /Font << /Helv << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>", " /Contents 4 0 R /Annots [5 0 R << /Type /Annot /Subtype /Widget /Rect [10 10 100 30] /FT /Tx /T (Direct) /V (Dval) /DA (/Helv 12 Tf) >>]", new List<(string Dict, byte[]? StreamData)>
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 ("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /T (Mapped) /V (Mval) /DA (/Helv 12 Tf) /AP << /N 6 0 R >> >>", null),
@@ -328,7 +328,7 @@ public async Task DirectWidgetWholeFileWarnsAndGenerates()
 {
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
-byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R << /Type /Annot /Subtype /Widget /Rect [10 10 100 30] /FT /Tx /T (Direct) /V (Dval) /DA (/Helv 12 Tf) >>]", new List<(string Dict, byte[]? StreamData)>
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true /DR << /Font << /Helv << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>", " /Contents 4 0 R /Annots [5 0 R << /Type /Annot /Subtype /Widget /Rect [10 10 100 30] /FT /Tx /T (Direct) /V (Dval) /DA (/Helv 12 Tf) >>]", new List<(string Dict, byte[]? StreamData)>
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 ("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /T (Mapped) /V (Mval) /DA (/Helv 12 Tf) /AP << /N 6 0 R >> >>", null),
@@ -394,7 +394,7 @@ AssertTextPosition(text, 1.0, 5.2);
 public async Task MissingAppearanceIsCreated()
 {
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
-byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true /DR << /Font << /Helv << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 ("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V (Hello) /DA (/Helv 12 Tf) >>", null),
@@ -576,7 +576,7 @@ Assert.Contains("/" + spelling + " 12 Tf", Encoding.ASCII.GetString(bytes));
 public async Task GeneratedLiteralPreservesPdfEscaping()
 {
     byte[] stale = "q BT ET Q"u8.ToArray();
-    byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Annots [5 0 R]", new()
+    byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true /DR << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>", " /Annots [5 0 R]", new()
     {
         ("<< /Length 0 >>", Array.Empty<byte>()),
         ("<< /Type /Annot /Subtype /Widget /Rect [0 0 200 20] /FT /Tx /V <FEFF00280029005C000A000D> /DA (/F1 12 Tf) /AP << /N 6 0 R >> >>", null),
@@ -593,7 +593,7 @@ public async Task GeneratedLiteralPreservesPdfEscaping()
 public async Task AppearanceByteLimitRejectsBeforePublishing(bool oversizedSource)
 {
     byte[] stale = oversizedSource ? new byte[64] : "q BT ET Q"u8.ToArray();
-    byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Annots [5 0 R]", new()
+    byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true /DR << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>", " /Annots [5 0 R]", new()
     {
         ("<< /Length 0 >>", Array.Empty<byte>()),
         ("<< /Type /Annot /Subtype /Widget /Rect [0 0 200 20] /FT /Tx /V (value) /DA (/F1 12 Tf) /AP << /N 6 0 R >> >>", null),
@@ -636,7 +636,7 @@ public async Task FieldDefaultResourcesIsIgnored()
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
 string annotDict = string.Concat("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V <96> /DA (/F1 12 Tf) /DR << /Font << /F1 7 0 R >> >> /AP << /N 6 0 R >> >>");
-byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R] /Resources << /Font << /Helv 8 0 R >> >>", new List<(string Dict, byte[]? StreamData)>()
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true /DR << /Font << /F1 8 0 R >> >> >>", " /Contents 4 0 R /Annots [5 0 R] /Resources << /Font << /Helv 8 0 R >> >>", new List<(string Dict, byte[]? StreamData)>()
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 (annotDict, null),
@@ -646,8 +646,8 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >
 });
 byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appearances", "--pages", ".", "1")).Pdf;
 byte[] bytes = await AppearanceBytesAsync(pdf, 0);
-// The reference ignores field-level /DR for encoding (AcroForm /DR only),
-// so a WinAnsi font reachable only through the field falls back to ASCII.
+// Field-level DR does not change the selected document font or its
+// encoding. The document font has no Encoding and therefore uses ASCII.
 Assert.Contains("(?) Tj", Encoding.ASCII.GetString(bytes));
 }
 [Theory]
@@ -706,7 +706,7 @@ public async Task ParentHeldTextFieldGeneratesAppearance()
 {
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
-byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [6 0 R] /Resources << /Font << /Helv 8 0 R >> >>", new List<(string Dict, byte[]? StreamData)>()
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true /DR << /Font << /Helv 8 0 R >> >> >>", " /Contents 4 0 R /Annots [6 0 R] /Resources << /Font << /Helv 8 0 R >> >>", new List<(string Dict, byte[]? StreamData)>()
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 ("<< /FT /Tx /T (Name) /V (Hello) /DA (/Helv 12 Tf) >>", null),
@@ -760,7 +760,7 @@ public async Task ListBoxHighlightsSelectedRow()
 {
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
-byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true /DR << /Font << /Helv << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 ("<< /Type /Annot /Subtype /Widget /Rect [100 500 300 620] /FT /Ch /V (B) /DA (/Helv 12 Tf) /Opt [(A) (B) (C)] /AP << /N 6 0 R >> >>", null),
@@ -870,7 +870,7 @@ public async Task WholeFileJobGenerates()
 {
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
-byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true /DR << /Font << /Helv << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 ("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V (Hello) /DA (/Helv 12 Tf) /AP << /N 6 0 R >> >>", null),
@@ -889,7 +889,7 @@ public async Task MergeThenGenerateAppliesToFinalPages()
 {
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
-byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true /DR << /Font << /Helv << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 ("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V (Hello) /DA (/Helv 12 Tf) /AP << /N 6 0 R >> >>", null),
@@ -911,7 +911,7 @@ public async Task GenerateThenFlattenStampsFreshAppearance()
 {
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
-byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true /DR << /Font << /Helv << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 ("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V (Hello) /DA (/Helv 12 Tf) /AP << /N 6 0 R >> >>", null),

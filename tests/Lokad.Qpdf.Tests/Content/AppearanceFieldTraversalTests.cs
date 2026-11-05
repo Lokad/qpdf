@@ -206,7 +206,13 @@ public sealed class AppearanceFieldTraversalTests
         PdfDictionary field = Dict(("FT", PdfName.FromAscii("Tx")), ("DA", new PdfByteString("/F1 9 Tf 0 g"u8.ToArray(), false)), ("Kids", new PdfArray([parent])));
         copier.AddIndirectObjectWithId(Dict(("Annots", new PdfArray([new PdfReference(3, 0)]))), 1);
         copier.AddIndirectObjectWithId(field, 2); copier.AddIndirectObjectWithId(widget, 3);
-        (int next, bool complete) = GenerateAppearances.Apply([(copier, 1)], Registered(copier, 2), QpdfLimits.Default,
+        Dictionary<GraphCopier, CopiedForm?> forms = Registered(copier, 2);
+        forms[copier] = Assert.IsType<CopiedForm>(forms[copier]) with
+        {
+            DefaultResources = Dict(("Font", Dict(("F1", Dict(("Type", PdfName.FromAscii("Font")),
+                ("Subtype", PdfName.FromAscii("Type1")), ("BaseFont", PdfName.FromAscii("Helvetica")))))))
+        };
+        (int next, bool complete) = GenerateAppearances.Apply([(copier, 1)], forms, QpdfLimits.Default,
             governor, new(governor), CancellationToken.None, new HashSet<int> { 3 }, false, null, 4);
         Assert.True(complete); Assert.Equal(5, next);
         PdfDictionary updated = Assert.IsType<PdfDictionary>(copier.CopiedObjects[3]);

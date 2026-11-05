@@ -687,12 +687,17 @@ internal static class GenerateAppearances
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot generate text without a usable default appearance; keeping the field as is.");
             return null;
         }
-        AppearanceEncoding encoding = SelectEncoding(appearanceDict, font.FontName, formResources, resolver, governor, cancellationToken);
+        AppearanceEncoding? encoding = SelectEncoding(appearanceDict, font.FontName, formResources, resolver, governor, cancellationToken);
+        if (encoding is null)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot generate text without a usable font; keeping the field as is.");
+            return null;
+        }
         byte[] encodedValue;
         List<AppearanceLine>? encodedOpt = null;
         if (field.Type == FieldType.Choice)
         {
-            try { (encodedValue, encodedOpt) = PrepareChoice(field, encoding, resolver, scratch, governor, cancellationToken); }
+            try { (encodedValue, encodedOpt) = PrepareChoice(field, encoding.Value, resolver, scratch, governor, cancellationToken); }
             catch (QpdfParseException)
             {
                 diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot generate an appearance for malformed or ambiguous choice data; keeping the field as is.");
@@ -702,7 +707,7 @@ internal static class GenerateAppearances
         else
         {
             string valueText = field.Value is PdfByteString valueString ? PdfText.Decode(valueString.ValueMemory, scratch, governor, cancellationToken) : string.Empty;
-            encodedValue = EncodeValue(valueText, encoding, scratch, governor, cancellationToken);
+            encodedValue = EncodeValue(valueText, encoding.Value, scratch, governor, cancellationToken);
         }
 
         byte[] built;
@@ -1019,10 +1024,9 @@ internal static class GenerateAppearances
     }
     internal enum AppearanceEncoding { Ascii, WinAnsi, MacRoman }
 
-    private static AppearanceEncoding SelectEncoding(PdfDictionary appearance, ReadOnlySpan<byte> fontName,
+    private static AppearanceEncoding? SelectEncoding(PdfDictionary appearance, ReadOnlySpan<byte> fontName,
         PdfDictionary? formResources, PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
     {
-        if (fontName.IsEmpty) { return AppearanceEncoding.Ascii; }
         QpdfObject? fontRaw = null;
         if (PdfDictionaryLookup.TryGet(appearance, "Resources"u8, governor, token, out QpdfObject resourcesRaw)
             && CatalogCopy.ResolveDictionary(resourcesRaw, resolver, governor, token) is PdfDictionary local)
@@ -1031,8 +1035,8 @@ internal static class GenerateAppearances
         // Only a missing font falls back to document DR; field/page DR stays ignored.
         if (fontRaw is null && formResources is not null)
         { fontRaw = TryGetFontRaw(formResources, fontName, resolver, governor, token); }
-        PdfName? encoding = CatalogCopy.ResolveDictionary(fontRaw, resolver, governor, token) is PdfDictionary font
-            && PdfDictionaryLookup.TryGet(font, "Encoding"u8, governor, token, out QpdfObject encodingRaw)
+        if (CatalogCopy.ResolveDictionary(fontRaw, resolver, governor, token) is not PdfDictionary font) { return null; }
+        PdfName? encoding = PdfDictionaryLookup.TryGet(font, "Encoding"u8, governor, token, out QpdfObject encodingRaw)
             ? ResolveFieldValue(encodingRaw, resolver, governor, token) as PdfName : null;
         if (encoding is not null)
         {

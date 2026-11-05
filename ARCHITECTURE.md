@@ -294,6 +294,9 @@ immediate copy order. A placement-local set records registered top fields separa
 from the copy memo, so prior private copying cannot suppress form registration.
 Already generated widget identities survive through the final pass under the
 existing output owner; skipped generation still contributes incomplete readiness.
+The selected appearance font must resolve to a dictionary before rewriting text.
+Missing or non-dictionary bindings warn and preserve the original AP/readiness;
+ASCII encoding fallback applies only after a font dictionary is selected.
 Appearance generation replaces changed annotation-array edges while independent
 consumers retain the original direct values. A lazy operation-local map shares
 one replacement per copier/indirect-array identity across affected pages; skipped

@@ -742,6 +742,15 @@ is false when decoding is disabled, matching native eligibility. Raw image
 descriptors remain unchanged. This projection does not decode the image or
 predict memory/codec admission; native can also emit filter-limit warnings.
 
+Appearance generation now warns and retains the original appearance/readiness
+when the selected font binding is missing or resolves to a non-dictionary value.
+Later flattening keeps that widget. Native qpdf 12.4.2 can instead emit text with
+an unbound or non-font resource, clear readiness and flatten the widget; managed
+generation deliberately preserves the documented unusable-resource outcome.
+Local font identity/encoding precedence and missing-local-font fallback to AcroForm
+DR remain. This does not add font substitution or general font validation; public
+signatures do not change.
+
 Overlay/underlay appearance generation now consumes source defaults/resources
 and the original widget rectangle before applying the placement frame. Missing
 appearances retain source text scale/orientation instead of being authored in the

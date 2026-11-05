@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Preserve widget appearances and readiness when generation cannot select a font
+  dictionary. Warn instead of emitting unbound text and flattening that widget;
+  retain existing local-font precedence and document-resource fallback.
+
 - Generate imported widget appearances with source defaults/resources and layout
   before placement. Ignore skipped placements when establishing readiness, and
   retain field registrations even when private references copied their graphs first.

@@ -440,7 +440,10 @@ toward the configured selection ceiling.
   appearance fonts win over AcroForm default resources, including their absent or
   unsupported encoding. Encoding fallback never crosses selected font identities.
   A missing local font can use the document default; field default resources
-  are not merged. Unusable defaults/resources and malformed programs warn and
+  are not merged. A missing or non-dictionary selected font binding warns and
+  preserves the appearance, readiness flag and widget during later flattening;
+  ASCII encoding fallback does not substitute for a missing font resource.
+  Unusable defaults/resources and malformed programs warn and
   preserve appearances. Structural, decompression, memory and cancellation limits
   remain binding.
   Replaced appearance streams and headers retire from final output roots after
