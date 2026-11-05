@@ -5891,7 +5891,11 @@
           "LabelTests.WholeFileRewritePreservesTreeVerbatim",
           "LabelTests.SplitSlicesMergedLabels",
           "LabelTests.SetWinsOverMerge",
-          "LabelTests.SetDroppedUnderSplit",
+          "LabelTests.SetWinsUnderSplit",
+          "ExplicitSplitLabelTests.ExplicitOutputLabelsOverrideSourcesBeforePartitioning",
+          "PrefixOnlyLabelTests.AuthoredNoNumberStyleOmitsInactiveStartsAcrossSplitBoundaries",
+          "PrefixOnlyLabelTests.PrefixOnlyRunsIgnoreStartsAndKeepIndependentAliases",
+          "VerbatimLabelTreeTests.WholeFileRetainsRawTreeAndAliasesWithoutComputingPageCounters",
           "LabelTests.IndirectLabelValuesResolve",
           "SplitLabelContinuationTests.EverySplitKeepsTheSelectedPagesEffectiveLabels"
         ],
@@ -5901,7 +5905,9 @@
           "LabelTests.ArgvLabelFormsFailExplicitly",
           "LabelTests.MalformedLabelTreeFailsExplicitly",
           "LabelTests.LabelMergeYieldsToExhaustedBudget",
-          "SplitLabelContinuationTests.RealOverflowAndCyclicTreesFailBeforeAnySplitIsPublished"
+          "SplitLabelContinuationTests.RealOverflowAndCyclicTreesFailBeforeAnySplitIsPublished",
+          "PrefixOnlyLabelTests.NumberedStylesStillRejectMeaningfulCounterOverflowBeforePublication",
+          "PrefixOnlyLabelTests.OnlyNumberedLabelsInterpretAnOtherwiseUnusedMalformedStart"
         ],
         "interaction": [
           "LabelTests.PrefixAndStartRoundTrip",
@@ -5910,7 +5916,10 @@
           "ImportedVersionTests.NullLabelTreesDoNotRaiseTheBasicWriterProfile"
         ],
         "resource": [
-          "LabelTests.LabelsYieldToExhaustedBudget"
+          "LabelTests.LabelsYieldToExhaustedBudget",
+          "LabelComparisonStorageTests.RefusedLabelConstructionPreservesPriorAdmission",
+          "ExplicitSplitLabelTests.FailureAfterFirstSplitKeepsItsExplicitLabelsAndPreservesLaterTargets",
+          "VerbatimLabelTreeTests.OpaqueCopyKeepsSyntaxResourceCancellationAndPublicationGuards"
         ],
         "oracle": [
           "diff:labels",
