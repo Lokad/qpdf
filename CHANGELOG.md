@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Preserve null optional FreeText callouts when baking page rotation. Treat direct
+  and indirect nulls as absent without allocating coordinates; keep malformed
+  non-null rejection, private aliases and transactional failure handling.
+
 - Compact equivalent selected/merged page-label runs across direct and indirect
   style/prefix values. Compare resolved name and string bytes through the copied
   pool, retaining emitted references, private aliases and whole-file raw trees.

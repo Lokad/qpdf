@@ -29,7 +29,7 @@ internal static class AnnotationCoordinates
         // An identity operation borrows the original value without interpreting it.
         if (matrix[0] == 1 && matrix[1] == 0 && matrix[2] == 0 && matrix[3] == 1 && matrix[4] == 0 && matrix[5] == 0) { return raw; }
         QpdfObject? target = CatalogCopy.ResolveValue(raw, resolver, governor, token);
-        if (quads && target is PdfNull) { return raw; }
+        if ((quads || callout) && target is PdfNull) { return raw; }
         if (target is not PdfArray array || (line && array.Count != 4)
             || (callout && array.Count != 4 && array.Count != 6)
             || (quads && array.Count % 8 != 0)) { throw Malformed(); }

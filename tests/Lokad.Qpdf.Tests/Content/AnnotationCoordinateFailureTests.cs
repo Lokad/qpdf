@@ -17,6 +17,7 @@ public sealed class AnnotationCoordinateFailureTests
             ("Polygon", "Vertices", "[1 2 3]", true), ("Ink", "InkList", "[42]", true),
             ("Ink", "InkList", "[[1 2 3]]", true), ("Highlight", "QuadPoints", "[1 2]", true),
             ("Highlight", "QuadPoints", "null", false), ("FreeText", "CL", "[1 2 3 4 5 6 7 8]", true),
+            ("FreeText", "CL", "null", false),
             ("Stamp", "L", "[/Private]", false), ("Private", "Vertices", "/Opaque", false),
             ("Link", "QuadPoints", "null", false), ("Ink", "InkList", "[[] [1 2]]", false)];
         foreach (var shape in shapes)
@@ -111,6 +112,49 @@ public sealed class AnnotationCoordinateFailureTests
             Assert.Same(reference, AnnotationCoordinates.TransformEntry(annotation, PdfName.FromAscii(key), reference,
                 [1, 0, 0, 1, 10, 20], pool, graph));
             Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void NullOptionalCalloutsRetainTheirIdentityWithoutFreshStorage(bool indirect, bool indirectSubtype)
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 512L }, CancellationToken.None);
+        QpdfObject raw = indirect ? new PdfReference(1, 0) : PdfNull.Instance;
+        PdfName subtype = PdfName.FromAscii("FreeText");
+        PoolResolver pool = new(new Dictionary<int, QpdfObject> { [1] = PdfNull.Instance, [2] = subtype });
+        PdfDictionary annotation = new(new Dictionary<PdfName, QpdfObject>
+        { [PdfName.FromAscii("Subtype")] = indirectSubtype ? new PdfReference(2, 0) : subtype });
+        using (OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None))
+        {
+            long before = governor.Snapshot().LiveMemoryBytes;
+            Assert.Same(raw, AnnotationCoordinates.TransformEntry(annotation, PdfName.FromAscii("CL"), raw,
+                [0, -1, 1, 0, 0, 100], pool, graph));
+            Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Theory]
+    [InlineData("Line", "L", false)]
+    [InlineData("Line", "L", true)]
+    [InlineData("Ink", "InkList", false)]
+    [InlineData("Ink", "InkList", true)]
+    public void RecognizedRequiredCoordinateNullsKeepTheirLiveHelperFailure(string subtype, string key, bool indirect)
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        PdfDictionary annotation = new(new Dictionary<PdfName, QpdfObject>
+        { [PdfName.FromAscii("Subtype")] = PdfName.FromAscii(subtype) });
+        QpdfObject raw = indirect ? new PdfReference(1, 0) : PdfNull.Instance;
+        PoolResolver pool = new(new Dictionary<int, QpdfObject> { [1] = PdfNull.Instance });
+        using (OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None))
+        {
+            Assert.Throws<QpdfParseException>(() => AnnotationCoordinates.TransformEntry(annotation, PdfName.FromAscii(key), raw,
+                [0, -1, 1, 0, 0, 100], pool, graph));
         }
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
