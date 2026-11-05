@@ -179,7 +179,7 @@
         "type": "Project",
         "dependencies": {
           "Lokad.Image": "[0.2.0, 0.2.0]",
-          "Lokad.qpdf": "[0.1.0-alpha.2, )"
+          "Lokad.qpdf": "[0.1.0, )"
         }
       }
     },
@@ -325,7 +325,7 @@
         "type": "Project",
         "dependencies": {
           "Lokad.Image": "[0.2.0, 0.2.0]",
-          "Lokad.qpdf": "[0.1.0-alpha.2, )"
+          "Lokad.qpdf": "[0.1.0, )"
         }
       }
     }

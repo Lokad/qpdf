@@ -68,8 +68,7 @@ are generally not compatibility guarantees.
 
 ## Resource API and behavior changes
 
-This unpublished development API intentionally removes obsolete signatures without
-compatibility overloads:
+The development API changed before 0.1.0 without compatibility overloads:
 
 - Inputs implement `ReadAsync(offset, Memory<byte>, token)` and return a count;
   the caller owns the admitted destination. Identity, length and bytes stay pinned

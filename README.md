@@ -6,7 +6,7 @@ managed C#, with no native qpdf installation required at runtime.
 The core package has no runtime NuGet dependencies.
 
 Use typed C# methods, qpdf-style arguments or job JSON from your application.
-The library is currently prerelease and targets compatibility with qpdf 12.4.2;
+Version 0.1.0 targets compatibility with qpdf 12.4.2;
 see [compatibility](docs/COMPATIBILITY.md) for supported behavior and differences.
 
 ## What you can do

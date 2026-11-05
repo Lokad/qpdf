@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.1.0 (unreleased)
 
-This development version has not been published.
+Prepared for the first published release; no package or tag has been published yet.
 
 - Target .NET 10 and .NET 11; pin the .NET 11 RC 3 SDK and use .NET 11 for
   the performance baseline. Package and public-consumer checks cover both targets.
