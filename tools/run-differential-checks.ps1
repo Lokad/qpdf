@@ -764,9 +764,13 @@ $p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-object=1'
 $libCat = (Get-Content "$case/show-lib-m.txt" -Raw).Trim()
 $p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/ora-m.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora-m.txt" -RedirectStandardError "$case/show-ora-m-err.txt"
 $oraCat = (Get-Content "$case/show-ora-m.txt" -Raw).Trim()
-if ($libCat -ne $oraCat) { Write-Output "[labels-merge] FAIL: merged catalogs differ"; $script:failures++ }
-elseif (-not $libCat.Contains('/PageLabels')) { Write-Output "[labels-merge] FAIL: labels missing"; $script:failures++ }
-else { Write-Output "[labels-merge] merged catalogs agree" }
+# The last page is unnumbered. Native retains an inactive St; managed output
+# omits it. Check both complete catalogs so numbered labels and all other keys
+# remain exact rather than suppressing arbitrary counter differences.
+$expectedManaged = '<< /PageLabels << /Nums [ 0 << /S /D /St 1 >> 1 << /S /R /St 3 >> 2 << >> ] >> /Pages 2 0 R /Type /Catalog >>'
+$expectedNative = '<< /PageLabels << /Nums [ 0 << /S /D /St 1 >> 1 << /S /R /St 3 >> 2 << /St 3 >> ] >> /Pages 2 0 R /Type /Catalog >>'
+if ($libCat -cne $expectedManaged -or $oraCat -cne $expectedNative) { Write-Output "[labels-merge] FAIL: merged catalogs differ from their exact expected forms"; $script:failures++ }
+else { Write-Output "[labels-merge] numbered labels exact; managed unnumbered entry omits inactive St" }
 $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/s.pdf=$case/lib-s.pdf", '--', 'inputs/a.pdf', '--pages', '.', '2', '--', 'outputs/s.pdf')
 if ($code -ne 0) { throw "labels-merge/subset: emit failed ($code)" }
 $code = Invoke-Oracle $case @('inputs/a.pdf', '--pages', '.', '2', '--', "$case/ora-s.pdf")
