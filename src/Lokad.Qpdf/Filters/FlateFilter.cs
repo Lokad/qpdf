@@ -237,7 +237,8 @@ internal static partial class FlateFilter
         try
         {
             using GovernedBufferStream output = new(governor, limits.MaxOutputBytes, nameof(QpdfLimits.MaxOutputBytes), cancellationToken);
-            using (ZLibStream compressor = new(output, mapped, leaveOpen: true))
+            ZLibStream compressor = new(output, mapped, leaveOpen: true);
+            try
             {
                 for (int position = 0; position < input.Length;)
                 {
@@ -249,6 +250,16 @@ internal static partial class FlateFilter
                     position += count;
                 }
             }
+            catch
+            {
+                // Disposal can flush again after Write failed. Close the failed
+                // destination first, then free the codec without another admission
+                // attempt or replacing the original failure with a cleanup error.
+                output.Dispose();
+                try { compressor.Dispose(); } catch { }
+                throw;
+            }
+            compressor.Dispose();
 
             return memory is null ? output.ToArray() : output.ToArray(memory, cancellationToken);
         }
