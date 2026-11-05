@@ -1,178 +1,142 @@
 # Benchmarks
 
-At revision `83a9f93`, measured 2026-10-15, Lokad.qpdf's warmed elapsed-time
-medians were **0.38–0.96× native qpdf 12.4.2**
-across 13 structural workloads; equivalent sparse job JSON is **0.39×**.
-Process memory is higher: roughly **75–147 MiB** for managed workers versus
-**6–11 MiB** for native workers on this set.
+**.NET 11 is the performance baseline.** These measurements use SDK
+11.0.100-rc.3.26522.148 / runtime 11.0.0-rc.3.26522.148, code `33456c3`,
+measured 2026-11-05. The package also targets .NET 10.
 
-File-backed measurements use fresh documents in warmed workers. Times are
-milliseconds/job (Q1–Q3); M/N is managed/native elapsed time before rounding.
+The measurements below use a dedicated quiet VM. Six pre/postflight idle gates
+passed; same-build A/A medians differed by up to 2.3% below. Treat differences
+within that variability cautiously. These measurements do not isolate a .NET 11
+speedup over .NET 10: older records used different code and hardware and remain
+archived under `benchmarks/results/`. No timing threshold is a CI gate.
 
-| File-backed workload | Lokad.qpdf ms (Q1–Q3) | qpdf ms (Q1–Q3) | M/N |
+## Warmed complete jobs
+
+Milliseconds/job are medians (Q1–Q3), seven alternating batches per engine.
+M/N divides managed by native elapsed time. Both engines open fresh files with
+equivalent options; input acquisition, parsing, transformation, staging, publication,
+export and writes are included. Startup, protocol, validation and file deletion
+are outside timing. No parsed-document cache, forced GC or fsync is used.
+
+| Workload | Lokad.qpdf ms (Q1–Q3) | qpdf 12.4.2 ms (Q1–Q3) | M/N |
 | --- | ---: | ---: | ---: |
-| select-S10 | 0.48 (0.46–0.48) | 0.75 (0.72–0.75) | 0.6418× |
-| select-M500 | 13.48 (13.33–13.67) | 20.11 (19.78–20.55) | 0.6700× |
-| merge-250x2 | 16.04 (16.00–16.41) | 18.20 (17.95–18.63) | 0.8815× |
-| split-M500 | 21.24 (20.84–21.60) | 24.80 (23.94–25.03) | 0.8563× |
-| rewrite-M500 | 12.75 (12.68–13.67) | 13.28 (13.08–14.26) | 0.9606× |
-| rewrite-X100 | 1.70 (1.64–1.76) | 1.77 (1.72–1.81) | 0.9579× |
-| object-streams-X100 | 1.85 (1.79–1.88) | 2.40 (2.33–2.44) | 0.7690× |
-| linearize-M500 | 17.59 (17.55–17.93) | 20.18 (19.72–20.22) | 0.8718× |
-| check-X100 | 1.90 (1.88–1.94) | 2.33 (2.27–2.81) | 0.8157× |
-| rewrite-ID-M500 | 19.82 (19.69–20.31) | 22.91 (22.47–23.31) | 0.8654× |
-| rewrite-objects | 20.05 (19.62–20.21) | 25.71 (23.78–25.88) | 0.7797× |
-| select-sparse | 0.59 (0.58–0.61) | 1.57 (1.57–1.64) | 0.3767× |
-| split-single | 5.02 (4.96–5.07) | 6.71 (6.28–6.96) | 0.7488× |
-| select-sparse (job JSON) | 0.66 (0.65–0.69) | 1.68 (1.67–1.81) | 0.3919× |
+| select-S10 | 0.16 (0.15–0.19) | 0.46 (0.45–0.46) | 0.34× |
+| select-M500 | 7.34 (7.33–7.37) | 13.80 (13.68–13.86) | 0.53× |
+| merge-250x2 | 8.19 (8.15–8.27) | 13.52 (13.51–13.62) | 0.61× |
+| split-M500 | 9.51 (9.37–9.83) | 15.59 (15.49–15.64) | 0.61× |
+| rewrite-M500 | 7.21 (7.03–7.28) | 11.77 (11.67–11.82) | 0.61× |
+| rewrite-X100 | 0.55 (0.55–0.56) | 1.16 (1.16–1.17) | 0.47× |
+| object-streams-X100 | 0.60 (0.59–0.64) | 1.83 (1.83–1.85) | 0.33× |
+| linearize-M500 | 8.59 (8.57–8.65) | 15.17 (15.03–15.27) | 0.57× |
+| check-X100 | 0.61 (0.60–0.61) | 1.43 (1.41–1.44) | 0.42× |
+| rewrite-ID-M500 | 12.97 (12.85–13.06) | 18.36 (18.14–18.36) | 0.71× |
+| rewrite-objects | 7.11 (7.08–7.16) | 18.54 (18.50–18.69) | 0.38× |
+| select-sparse | 0.19 (0.19–0.19) | 1.22 (1.21–1.22) | 0.16× |
+| split-single | 3.17 (3.16–4.10) | 3.86 (3.85–3.89) | 0.82× |
+| select-sparse (job JSON) | 0.20 (0.20–0.20) | 1.34 (1.32–1.34) | 0.15× |
 
-Fixtures cover 10/100/500 pages, merging two 250-page inputs, splitting into
-50-page or individual files, incremental/xref/object-stream structure, 2,000
-reachable scalars and a 16 MiB omitted stream. Selections reverse page order;
-shared fonts, forms and metadata exercise graph copying. Image decoding,
-recompression, optimization and rendering are excluded.
+Fixtures cover 10/100/500 pages, two-source merging, group/individual splitting,
+incremental/xref/object streams, 2,000 reachable scalars and a 16 MiB omitted stream.
+They exercise shared fonts/forms/metadata and reordered pages. JPEG processing
+and rendering are not measured.
 
-## Memory and output size
+## Allocation and process memory
 
-Allocation is cumulative managed allocation/job. Peak RSS includes worker warmup
-and runtime storage; it is not a per-job working set. Output sizes sum split files;
-valid PDF layouts can differ in size.
+Managed allocation is cumulative bytes/job, averaged over measured jobs; it is
+not retained memory. Peak RSS includes runtime/warmup and is a dedicated worker's
+process high-water mark, not a per-job working set. Output sizes sum split files.
 
-| File-backed workload | Managed MB allocated/job | Peak RSS MiB managed / native | Output KiB managed / native |
+| Workload | Managed MB allocated/job | Peak RSS MiB managed / native | Output KiB managed / native |
 | --- | ---: | ---: | ---: |
-| select-S10 | 0.075 | 74.6 / 6.3 | 3.9 / 4.1 |
-| select-M500 | 17.192 | 110.4 / 7.7 | 5096.3 / 5105.1 |
-| merge-250x2 | 22.319 | 119.3 / 8.4 | 5096.7 / 5105.5 |
-| split-M500 | 25.827 | 147.2 / 7.9 | 5101.1 / 5108.7 |
-| rewrite-M500 | 17.186 | 120.2 / 7.5 | 5096.3 / 5095.9 |
-| rewrite-X100 | 0.536 | 78.5 / 6.4 | 69.5 / 69.5 |
-| object-streams-X100 | 0.624 | 81.2 / 6.5 | 65.8 / 65.8 |
-| linearize-M500 | 18.987 | 116.3 / 8.1 | 5099.2 / 5109.0 |
-| check-X100 | 0.518 | 78.4 / 6.8 | 0.0 / 0.0 |
-| rewrite-ID-M500 | 17.189 | 118.1 / 7.7 | 5096.3 / 5095.9 |
-| rewrite-objects | 4.500 | 86.8 / 10.6 | 293.1 / 295.0 |
-| select-sparse | 0.132 | 75.1 / 6.4 | 1.1 / 1.1 |
-| split-single | 1.094 | 80.9 / 6.5 | 68.9 / 62.6 |
-| select-sparse (job JSON) | 0.158 | 82.4 / 6.5 | 1.1 / 1.1 |
+| select-S10 | 0.069 | 95.7 / 6.3 | 4.0 / 4.1 |
+| select-M500 | 17.151 | 150.1 / 7.8 | 5103.1 / 5105.1 |
+| merge-250x2 | 22.283 | 125.1 / 8.5 | 5103.5 / 5105.5 |
+| split-M500 | 26.048 | 154.0 / 8.0 | 5107.9 / 5108.7 |
+| rewrite-M500 | 17.149 | 125.1 / 7.7 | 5103.1 / 5095.9 |
+| rewrite-X100 | 0.535 | 98.4 / 6.5 | 70.9 / 69.5 |
+| object-streams-X100 | 0.633 | 98.1 / 6.5 | 67.2 / 65.8 |
+| linearize-M500 | 18.992 | 127.9 / 8.1 | 5107.0 / 5109.0 |
+| check-X100 | 0.528 | 86.3 / 6.8 | 0.0 / 0.0 |
+| rewrite-ID-M500 | 17.152 | 133.7 / 7.9 | 5103.1 / 5095.9 |
+| rewrite-objects | 4.432 | 94.2 / 10.6 | 294.5 / 295.0 |
+| select-sparse | 0.126 | 122.2 / 6.4 | 1.1 / 1.1 |
+| split-single | 1.112 | 97.8 / 6.5 | 69.8 / 62.6 |
+| select-sparse (job JSON) | 0.146 | 122.5 / 6.7 | 1.1 / 1.1 |
 
-## Measurement conditions
+## Noise controls and provenance
+
+Independent A/B workers below run the **same .NET 11 probe and library hashes**,
+using the same alternating seven-batch protocol. Signed drift is A/B minus one;
+it measures run variability, not an implementation improvement.
+
+| A/A workload | A median ms | B median ms | Drift |
+| --- | ---: | ---: | ---: |
+| select-S10 | 0.15 | 0.15 | -2.3% |
+| split-M500 | 9.97 | 9.76 | +2.2% |
+| rewrite-M500 | 7.28 | 7.29 | -0.1% |
 
 | Setting | Measured configuration |
 | --- | --- |
-| Source | Release implementation `83a9f93`, measured 2026-10-15 |
-| Hardware | Xeon W-2223, 4 cores / 8 logical CPUs; 31.7 GiB host / 15.5 GiB WSL RAM |
-| Platform | WSL2, Ubuntu 24.04.3, kernel 6.18.54.1, ext4 |
-| Managed | .NET SDK 10.0.401, runtime 10.0.12, Release |
-| Native | qpdf 12.4.2, GCC 13.3, Release `-O3`, static libqpdf, system zlib/JPEG, Zopfli off |
+| Hardware | 4 vCPUs (AMD EPYC 9V45), 15.61 GiB RAM |
+| Platform | Linux VM, Ubuntu 24.04.5 LTS, kernel 7.0.0-1017-azure; inputs/outputs on its local filesystem |
+| Managed | .NET 11 RC 3, Release; portable assemblies built with the pinned SDK |
+| Native | qpdf 12.4.2 at the pinned source commit, GCC 13.3, Release -O3, static libqpdf, system zlib/JPEG, Zopfli off |
 
-Both engines run sequentially with warm filesystem caches, equivalent options and
-fresh file inputs/outputs. After ≥30 jobs/two seconds of warmup, seven alternating
-batches/engine each run ≥350 ms/three jobs. Managed warmup also waits for two seconds
-of quiet JIT counters, boundedly. Use an idle host; retain all samples and later JIT.
+Each campaign requires five consecutive one-second samples with at least 95% idle,
+less than 1% I/O wait/steal and over 3 GiB available memory before and after timing.
+Setup/builds and other agents' VM work stay outside these measurement windows.
 
-Worker startup and teardown stay outside job timing. Shutdown sends input EOF;
-a worker still running after 15 seconds is killed and awaited. Failed startup or
-cleanup still closes every owned worker and its streams, retaining stderr logs.
-Cleanup failures report separately on stderr when another exception is already
-active. CI exercises these paths with controlled Python children.
+Warmup requires at least thirty jobs/two seconds and a two-second quiet JIT window,
+bounded by thirty seconds/50,000 jobs. Measured batches accumulate at least 350 ms
+and three jobs. Later JIT activity, collections, hashes and all samples remain in
+the raw evidence in `benchmarks/results/2026-11-05-net11-vm.json.gz` in the source
+checkout, including A/A, job JSON, idle-gate samples and validation controls.
 
-Timing includes input acquisition, parsing, transformation, staging, publication,
-defensive export and file writes. Startup, protocol, validation and temporary-file
-deletion are excluded. No parsed cache, forced GC, fsync or library parallelism is
-used. Memory-input comparisons require equivalent prepared bytes or acquisition
-costs; these tables establish the file-input contract.
+Before timing, 26 fresh native/managed outcomes and three negative controls passed.
+Native checking and PdfPig validate structure, page/text semantics, resources,
+metadata, sharing, packing, linearization and IDs. Every timed output hash matches
+its independently validated output, and input hashes remain unchanged. These are
+finite workload checks, not general rendering equivalence. No CI timing gate applies.
 
-Before timing, native checks and PdfPig validate fresh output structure, page/text
-semantics, resources, metadata, graph sharing, object streams, linearization and IDs.
-Negative controls detect wrong content/order, fake object streams and no-op checking.
-Every timed output hash is verified; inputs stay unchanged.
+## Reproduce
 
-Raw measurements in `benchmarks/results/2026-10-12-parity-progress.json.gz` include
-samples, hashes and build identities. Entries for the tables above:
-`warm-integrated-83a9f93-file-13-01` and `warm-integrated-83a9f93-job-01`.
-Archived full-acquisition memory-host results retain their separate contract.
-
-## Reproduce on Linux or WSL
-
-Requires Python 3, GNU time, CMake/Ninja, C++/zlib/JPEG development tools and the
-SDK from `global.json`. The generated fixtures are MIT-licensed. From the repo root:
+Use a reserved quiet Linux VM with Python 3, GNU time, a C++ toolchain, zlib/JPEG development
+libraries, both .NET SDKs, and clean qpdf 12.4.2 source at the commit pinned in
+[compatibility](COMPATIBILITY.md). Build its static Release executable with Zopfli
+off. From the repository root (replace the native build paths if needed):
 
 ```bash
-git clone https://github.com/qpdf/qpdf.git external/qpdf
-git -C external/qpdf checkout 4eba95899886e851cc41d76886483b347612f2a8
-cmake -S external/qpdf -B external/qpdf-linux-build -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DBUILD_STATIC_LIBS=ON \
-  -DUSE_IMPLICIT_CRYPTO=OFF -DREQUIRE_CRYPTO_NATIVE=ON -DZOPFLI=OFF
-cmake --build external/qpdf-linux-build --target qpdf --parallel 4
-dotnet restore benchmarks/Lokad.Qpdf.Benchmarks --locked-mode
-dotnet restore tools/QpdfProbe --locked-mode
-dotnet build benchmarks/Lokad.Qpdf.Benchmarks -c Release --no-restore --disable-build-servers
-dotnet build tools/QpdfProbe -c Release --no-restore --disable-build-servers
-
-# Generate inputs and measure whole-process timings, including startup, separately.
+dotnet restore Lokad.Qpdf.slnx --locked-mode
+dotnet build Lokad.Qpdf.slnx -c Release --no-restore
 python3 tools/compare-linux-performance.py --repo "$PWD" \
-  --dotnet "$(command -v dotnet)" --qpdf "$PWD/external/qpdf-linux-build/qpdf/qpdf" \
-  --native-source "$PWD/external/qpdf" --native-build "$PWD/external/qpdf-linux-build" \
-  --work-root "$PWD/external/prepared-comparison" --skip-warmed
-
-# Independently validate the file-backed operations and negative controls.
-python3 tools/test-performance-validation.py --repo "$PWD" \
-  --dotnet "$(command -v dotnet)" --probe "$PWD/tools/QpdfProbe/bin/Release/net10.0/QpdfProbe.dll" \
-  --qpdf "$PWD/external/qpdf-linux-build/qpdf/qpdf" \
-  --input-root "$PWD/external/prepared-comparison" \
-  --work-root "$PWD/external/validate-file" --file-input
-
-# Measure comparable warmed jobs.
+  --dotnet "$(command -v dotnet)" --qpdf "$PWD/external/qpdf-build/qpdf/qpdf" \
+  --native-source "$PWD/external/qpdf" --native-build "$PWD/external/qpdf-build" \
+  --work-root "$PWD/external/prepared" --skip-warmed
 python3 tools/compare-warm-performance.py --repo "$PWD" \
-  --dotnet "$(command -v dotnet)" --qpdf "$PWD/external/qpdf-linux-build/qpdf/qpdf" \
-  --native-source "$PWD/external/qpdf" --native-build "$PWD/external/qpdf-linux-build" \
-  --input-root "$PWD/external/prepared-comparison" --work-root "$PWD/external/warm-file" \
-  --file-input
+  --dotnet "$(command -v dotnet)" --qpdf "$PWD/external/qpdf-build/qpdf/qpdf" \
+  --native-source "$PWD/external/qpdf" --native-build "$PWD/external/qpdf-build" \
+  --input-root "$PWD/external/prepared" --work-root "$PWD/external/warm-net11" \
+  --file-input --samples 7 --sample-seconds 0.35 --warmup-seconds 2
 ```
 
-Use fresh work roots. Add `--workload select-sparse --job-selection` for equivalent
-job JSON, or `--workload rewrite-X100` for a narrow probe. Whole-process timings
-include startup for both engines; the tables report warmed jobs. No CI timing gates.
+Use fresh work roots. The preparation command also records separate whole-process
+timings; the tables above report warmed jobs. For A/A, add
+`--baseline-probe tools/QpdfProbe/bin/Release/net11.0/QpdfProbe.dll` and the desired
+`--workload` entries. For job JSON, use `--workload select-sparse --job-selection`.
 
 ## Cooperative memory admission
 
-The development harness also measures managed allocation and admission without
-external tools. Run each command in a dedicated process after a Release build:
+The existing harness measures allocation/admission without native PDF tools:
 
 ```sh
-dotnet benchmarks/Lokad.Qpdf.Benchmarks/bin/Release/net10.0/Lokad.Qpdf.Benchmarks.dll --memory-report disabled 30 7 3
-dotnet benchmarks/Lokad.Qpdf.Benchmarks/bin/Release/net10.0/Lokad.Qpdf.Benchmarks.dll --memory-report enabled 30 7 3
+dotnet benchmarks/Lokad.Qpdf.Benchmarks/bin/Release/net11.0/Lokad.Qpdf.Benchmarks.dll --memory-report disabled 30 7 3
+dotnet benchmarks/Lokad.Qpdf.Benchmarks/bin/Release/net11.0/Lokad.Qpdf.Benchmarks.dll --memory-report enabled 30 7 3
 ```
 
-Arguments select the mode, minimum warmup jobs, samples and jobs per sample;
-optional scenario names narrow the run. Cases cover tiny inspection, sparse
-selection, object-heavy rewriting, merge/split, JSON, Flate, JPEG, linearization,
-large/dense configuration, mixed argv serialization and scalar/dense/Unicode/escaped JSON import. Input
-generation and JSON reporting stay outside measurement. Jobs include fresh copied
-host registration, execution, publication and cleanup. Engine and input hashes
-identify the measured artifacts and identical prepared inputs.
-
-Enabled mode reuses one shared recording root across jobs and gives fresh owners
-to host storage and execution. Request history is disabled during measurement.
-The development budget's scope/reservation costs are included in enabled
-allocation totals; a production adapter's costs can differ. JSON lines retain
-every sample: elapsed time, cumulative managed bytes, collections, JIT activity,
-local estimates, root peak/residual, reserve/resize counts and peak live handles.
-Bytes and calls are totals per sample; divide by batch size for per-job values.
-Peak and residual values are maxima across jobs. Owner closure must refund to
-zero before the next job, without forced collection.
-
-Warmup runs for at least two seconds and until JIT counters have been quiet for
-one second, bounded by 15 seconds or one million jobs. `warmupReady` records
-whether those conditions held; measured JIT activity remains visible. To compare
-a pre-hook revision, copy `MemoryReport.cs`, `Program.cs` and the benchmark project
-file into an isolated checkout, build with `-p:QpdfMemoryBaseline=true` and run
-`baseline` mode. The conditional driver omits unavailable budget hooks while
-preserving inputs, transport and job measurement.
-
-Allocation, calls and ownership evidence remain useful on a busy host. Before
-interpreting small elapsed differences, compare the same warmed build against
-itself with interleaved A/A batches, then use the same protocol for the change.
-Retain all samples and report contention/JIT spread. A roughly 5% difference is
-an investigation trigger, not a timing gate; defer fine timing conclusions when
-the observed noise is comparable. Running in WSL does not isolate host load.
+Run each in a dedicated process. Optional scenario names narrow the run. Enabled
+mode shares one recording root across fresh job/host owners and includes its
+overhead. Records retain allocation, JIT/GC, charged peaks, reserve/resize calls
+and residuals; owner closure must refund to zero without forced collection.
+Allocation/admission evidence remains useful under load. Interpret small elapsed
+differences only after representative interleaved A/A controls; see the
+[memory contract](MEMORY.md) for what the estimates cover.
