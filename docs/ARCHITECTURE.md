@@ -2,8 +2,8 @@
 
 Lokad.qpdf is a managed PDF engine shared by typed C# operations, qpdf-style
 arguments and job JSON. The engine owns PDF semantics; the application's host owns
-storage and publication. The [supported profile](docs/SUPPORTED-PROFILE.md) defines
-the public contract, and [compatibility](docs/COMPATIBILITY.md) records differences
+storage and publication. The [supported profile](SUPPORTED-PROFILE.md) defines
+the public contract, and [compatibility](COMPATIBILITY.md) records differences
 from native qpdf.
 
 Input leases expose offset-based reads into admitted caller buffers. Each lease
@@ -368,12 +368,12 @@ needs no canonical strings, execution clone or repeated scan of selector lists.
 
 | Component | Responsibility |
 | --- | --- |
-| [Public](src/Lokad.Qpdf/Public), [Commands](src/Lokad.Qpdf/Commands), [Jobs](src/Lokad.Qpdf/Jobs) | Public API, invocation parsing, configuration and operation plans. |
-| [Syntax](src/Lokad.Qpdf/Syntax), [Reading](src/Lokad.Qpdf/Reading), [Objects](src/Lokad.Qpdf/Objects) | Byte-oriented parsing, xrefs, bounded recovery, object resolution and immutable values. |
-| [Writing](src/Lokad.Qpdf/Writing) | Graph copying, identity remapping, serialization, object streams, QDF and linearization. |
-| [Content](src/Lokad.Qpdf/Content), [Filters](src/Lokad.Qpdf/Filters), [Attachments](src/Lokad.Qpdf/Attachments) | Content/image transformations, stream decoding/encoding and embedded files. |
-| [Json](src/Lokad.Qpdf/Json) | PDF inspection, import and update over the shared object model. |
-| [Runtime](src/Lokad.Qpdf/Runtime), [Hosting](src/Lokad.Qpdf/Hosting) | Resource admission, diagnostics, cleanup and the built-in in-memory host. |
+| `Public`, `Commands`, `Jobs` | Public API, invocation parsing, configuration and operation plans. |
+| `Syntax`, `Reading`, `Objects` | Byte-oriented parsing, xrefs, bounded recovery, object resolution and immutable values. |
+| `Writing` | Graph copying, identity remapping, serialization, object streams, QDF and linearization. |
+| `Content`, `Filters`, `Attachments` | Content/image transformations, stream decoding/encoding and embedded files. |
+| `Json` | PDF inspection, import and update over the shared object model. |
+| `Runtime`, `Hosting` | Resource admission, diagnostics, cleanup and the built-in in-memory host. |
 
 The reader handles classic, streamed, hybrid and incremental xrefs, including
 compressed objects. Copies track identities per source so shared/cyclic graphs
@@ -383,7 +383,7 @@ uses a two-pass physical layout.
 
 ## Storage and ownership
 
-[IQpdfHost](src/Lokad.Qpdf/Public/IQpdfHost.cs) supplies stable input leases and
+`IQpdfHost` supplies stable input leases and
 staged output transactions. Paths identify host resources; the library has no
 ambient filesystem, process or network access. The built-in host stores bytes in
 memory, with separate registered-input and published-output stores. Publishing at
@@ -429,7 +429,7 @@ and lengths. Descriptor growth and numeric formatting receive coarse admission;
 byte/record scans and output awaits check both cancellation routes. Outer syntax
 requires LF endings while binary payloads and cross-reference bytes stay opaque.
 
-[QpdfLimits](src/Lokad.Qpdf/Public/QpdfLimits.cs) bounds input/output bytes, decoded
+`QpdfLimits` bounds input/output bytes, decoded
 data, estimated memory, host operations, handles, diagnostics and nesting. Invocation options
 can tighten host policy but cannot raise explicit host ceilings. Nesting budgets,
 including direct host settings, must remain within 1..499. Significant storage,
@@ -447,7 +447,7 @@ The optional `IQpdfMemoryHost` capability forwards the active caller-owned memor
 budget to the resource governor. Shared admission batches the existing estimates
 into coarse growth blocks while local limits stay binding. Caller scopes outlive
 returned storage; host-private storage needs its own owner. See
-[memory admission](docs/MEMORY.md) for the contract and current migration boundary.
+[memory admission](MEMORY.md) for the contract and current migration boundary.
 Result wrappers, counter snapshots and versions use admitted capacity estimates
 without finalizer receipts; returned metadata never roots its completed job.
 Graph retention transfers construction estimates to coarse execution or caller
@@ -468,7 +468,7 @@ counts or terminal records does not repeat history searches; enumeration is line
 Argv option recognition borrows spans. Command errors bound echoed argument text
 before interpolation, including terminal parse failures outside ordinary quotas.
 
-## Dependencies and development tools
+## Development
 
 The development file-backed probe maps missing inputs and physical I/O failures
 to host outcomes. Cancellation and unexpected failures retain their own meaning;
@@ -489,9 +489,9 @@ eligible image optimization fails explicitly. CMYK/YCCK remains opaque.
 
 Native qpdf, PdfPig and renderers serve development tests, probes and benchmarks;
 they are not shipped with the library. The nonpackable
-[Lokad.Image 0.2.0 adapter](tools/Lokad.Qpdf.Image) exercises the public codec contract
-in tests, probes and benchmarks. See [AGENTS.md](AGENTS.md) for checks and
-[benchmarks](docs/BENCHMARKS.md) for performance measurements.
+`Lokad.Image 0.2.0 adapter` exercises the public codec contract
+in tests, probes and benchmarks. See `AGENTS.md` for checks and
+[benchmarks](BENCHMARKS.md) for performance measurements.
 
 The reference helper launches native tools with argument vectors and a 30-second
 deadline, preserving working directories and binary stdin/stdout/stderr. It closes

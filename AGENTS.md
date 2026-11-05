@@ -4,7 +4,7 @@ These instructions apply to this standalone repository.
 
 ## Scope and status
 
-Read `docs/COMPATIBILITY.md` and `ARCHITECTURE.md` before
+Read `docs/COMPATIBILITY.md` and `docs/ARCHITECTURE.md` before
 implementation. Stay within the current requested task. A roadmap entry does
 not mean that functionality exists or that it has been verified.
 

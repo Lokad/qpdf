@@ -17,7 +17,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>Managed non-cryptographic PDF operations targeting qpdf 12.4.2. JPEG processing requires a caller-supplied codec; the core has no runtime package dependencies. CMYK/YCCK decoding and Zopfli remain unavailable; see https://github.com/Lokad/qpdf/blob/master/docs/SUPPORTED-PROFILE.md and https://github.com/Lokad/qpdf/blob/master/docs/COMPATIBILITY.md.</PackageReleaseNotes>
+    <PackageReleaseNotes>Managed non-cryptographic PDF operations targeting qpdf 12.4.2. JPEG processing requires a caller-supplied codec; the core has no runtime package dependencies. CMYK/YCCK decoding and Zopfli remain unavailable; see the included docs/SUPPORTED-PROFILE.md and docs/COMPATIBILITY.md.</PackageReleaseNotes>
     <PackageTags>pdf;qpdf;structural-processing;embedding;managed</PackageTags>
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
@@ -37,6 +37,8 @@
   <ItemGroup>
     <None Include="../../README.md;../../LICENSE.txt;../../CHANGELOG.md;../../icon.png"
           Pack="true" PackagePath="/" Visible="false" />
+    <None Include="../../docs/*.md" Pack="true" PackagePath="docs/" Visible="false" />
+    <None Include="../../tests/Compatibility/options.json" Pack="true" PackagePath="tests/Compatibility/" Visible="false" />
   </ItemGroup>
 </Project>
 
