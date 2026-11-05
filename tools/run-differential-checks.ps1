@@ -2336,7 +2336,7 @@ Write-Output "[dr-merge] resource merge assertions done"
 
 # --- case: parent-held (managed vs oracle Parent-link field lookup, whole-file) ---
 $case = New-Case 'parent-held'
-Copy-Item "$fixtureDir/parent-held-1page.pdf" "$case/inputs/a.pdf"
+Copy-Item "$fixtureDir/parent-held-dr-1page.pdf" "$case/inputs/a.pdf"
 Set-Content "$case/whole-job.json" '{"inputFile": "inputs/a.pdf", "outputFile": "outputs/w.pdf", "generateAppearances": true}'
 $code = Invoke-Emit $case @('emit-job', '--workdir', $case, '--job', "$case/whole-job.json", '--out', "outputs/w.pdf=$case/lib.pdf")
 if ($code -ne 0) { throw "parent-held: emit-job failed ($code)" }
@@ -2352,6 +2352,28 @@ foreach ($side in @(('managed', $libText), ('oracle', $oraText))) {
   elseif (-not (Test-ReferenceTextPosition $side[1] 1 5.2)) { Write-Output "[parent-held] FAIL: $($side[0]) appearance lacks generated placement"; $script:failures++ }
 }
 Write-Output "[parent-held] parent-held appearance assertions done"
+
+# --- case: generate-page-font (declared local/AcroForm font lookup boundary) ---
+$case = New-Case 'generate-page-font'
+Copy-Item "$fixtureDir/parent-held-1page.pdf" "$case/inputs/a.pdf"
+Set-Content "$case/whole-job.json" '{"inputFile":"inputs/a.pdf","outputFile":"outputs/w.pdf","generateAppearances":true,"compressStreams":"n"}'
+$code = Invoke-Emit $case @('emit-job', '--workdir', $case, '--job', "$case/whole-job.json", '--out', "outputs/w.pdf=$case/lib.pdf")
+if ($code -ne 0) { throw "generate-page-font: emit-job failed ($code)" }
+$code = Invoke-Oracle $case @('--generate-appearances', '--stream-data=uncompress', 'inputs/a.pdf', '--', "$case/ora.pdf")
+if ($code -ne 3) { Write-Output "[generate-page-font] FAIL: oracle exit $code, expected unreachable-widget warning"; $script:failures++ }
+$sourceContent = Read-ReferenceContent $QpdfExe "$case/inputs/a.pdf"
+$libContent = Read-ReferenceContent $QpdfExe "$case/lib.pdf"
+foreach ($hash in $sourceContent.StreamHashes) {
+  if ($libContent.StreamHashes -notcontains $hash) { Write-Output "[generate-page-font] FAIL: managed output changed a retained source program"; $script:failures++ }
+}
+$libRaw = [Text.Encoding]::Latin1.GetString([IO.File]::ReadAllBytes("$case/lib.pdf"))
+if ($libRaw -notmatch '/NeedAppearances\s+true') { Write-Output "[generate-page-font] FAIL: managed output cleared readiness"; $script:failures++ }
+$oraText = [Text.Encoding]::Latin1.GetString(((Read-ReferenceContent $QpdfExe "$case/ora.pdf").AllBytes))
+if (-not (Test-ReferenceTextPosition $oraText 1 5.2)) { Write-Output "[generate-page-font] FAIL: oracle control did not regenerate the parent value"; $script:failures++ }
+foreach ($file in @("$case/lib.pdf", "$case/ora.pdf")) {
+  if ((Get-OracleNpages $file) -ne 1 -or (Get-PigNpages $file) -ne 1) { Write-Output "[generate-page-font] FAIL: output page count changed"; $script:failures++ }
+}
+Write-Output "[generate-page-font] managed source programs/readiness stay intact; oracle regeneration remains an explicit difference"
 
 # --- case: generate-radio (managed vs oracle radio synchronization warning) ---
 $case = New-Case 'generate-radio'

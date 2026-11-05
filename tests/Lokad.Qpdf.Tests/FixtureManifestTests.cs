@@ -84,6 +84,7 @@ public sealed class FixtureManifestTests
     [InlineData("dr-encoding-1page.pdf", 1)]
     [InlineData("dr-merge-1page.pdf", 1)]
     [InlineData("parent-held-1page.pdf", 1)]
+    [InlineData("parent-held-dr-1page.pdf", 1)]
     [InlineData("dc-a-1page.pdf", 1)]
     [InlineData("dc-b-1page.pdf", 1)]
     [InlineData("outlined-2page.pdf", 2)]

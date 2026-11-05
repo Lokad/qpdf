@@ -285,7 +285,16 @@
       "expectedNpages": 1,
       "headerVersion": "1.4",
       "valid": true,
-      "description": "One page with a bare widget whose Tx field lives behind /Parent without a /Kids back-link. Appearance generation must follow the preserved parent link; the parent-held differential consumes it."
+      "description": "Parent-held text field without a Kids back-link, with its appearance font available only on the page. Checking warns unreachable; generation preserves the appearance under the managed local/AcroForm-font policy while native qpdf can regenerate from page context."
+    },
+    {
+      "file": "parent-held-dr-1page.pdf",
+      "sha256": "27348e90e9b860602916874507ca460e2cfceecb7c649ccc71b476e50404eb15",
+      "bytes": 1057,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Parent-held text field without a Kids back-link and with a usable AcroForm default font. Appearance generation follows Parent and the differential checks the generated value and placement while retaining the unreachable-widget warning."
     },
     {
       "file": "dc-a-1page.pdf",

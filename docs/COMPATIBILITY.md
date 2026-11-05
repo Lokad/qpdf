@@ -749,7 +749,10 @@ an unbound or non-font resource, clear readiness and flatten the widget; managed
 generation deliberately preserves the documented unusable-resource outcome.
 Local font identity/encoding precedence and missing-local-font fallback to AcroForm
 DR remain. This does not add font substitution or general font validation; public
-signatures do not change.
+signatures do not change. A page-only font likewise leaves generation unchanged
+when no local/AcroForm binding can be selected; native qpdf can regenerate from
+that wider page context. Existing page-resource inheritance for retained static
+appearances remains separate.
 
 Overlay/underlay appearance generation now consumes source defaults/resources
 and the original widget rectangle before applying the placement frame. Missing
