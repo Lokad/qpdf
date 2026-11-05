@@ -8,6 +8,35 @@ namespace Lokad.Qpdf.Tests.Content;
 
 public sealed class LabelComparisonStorageTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task UnknownLabelContainerTypeDoesNotAllocateItsPresentation(bool escaped)
+    {
+        const int length = 262144;
+        string name = escaped ? string.Concat(Enumerable.Repeat("#FF", length)) : new string('Z', length);
+        var objects = Inspection.CheckTests.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray());
+        objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /PageLabels << /Nums [0 << /S /D /P << /Type /"
+            + name + " /Private (keep) >> >>] >> >>", null);
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), Inspection.CheckTests.Assemble(objects, 1), QpdfInputOwnership.Transfer);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input"), CancellationToken.None);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, QpdfLimits.Default, 1, memory);
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        SourceLabels labels = PageLabelMerge.ReadSource(document.Engine, copier, QpdfLimits.Default, governor, CancellationToken.None);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.True(allocated < 65536L, $"Label classification allocated {allocated} bytes.");
+        PdfDictionary prefix = Assert.IsType<PdfDictionary>(Assert.Single(labels.Entries).Entry.Prefix);
+        Assert.True(prefix.TryGet(PdfName.FromAscii("Type"), out QpdfObject type));
+        Assert.Equal(length, Assert.IsType<PdfName>(type).RawSpan.Length);
+        Assert.True(prefix.TryGet(PdfName.FromAscii("Private"), out QpdfObject value));
+        Assert.Equal("keep"u8.ToArray(), Assert.IsType<PdfByteString>(value).ValueSpan.ToArray());
+    }
+
     [Fact]
     public async Task LabelSourceRefusalRefundsAdmittedTreeScratch()
     {

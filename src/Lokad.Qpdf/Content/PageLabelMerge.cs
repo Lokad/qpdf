@@ -302,7 +302,8 @@ internal static class PageLabelMerge
             return false;
         }
 
-        return raw is PdfName name && (name.DisplayText == "Page" || name.DisplayText == "Pages" || name.DisplayText == "Catalog");
+        return raw is PdfName name && (name.RawSpan.SequenceEqual("Page"u8)
+            || name.RawSpan.SequenceEqual("Pages"u8) || name.RawSpan.SequenceEqual("Catalog"u8));
     }
 
     internal static bool SameValue(QpdfObject? left, QpdfObject? right, ResourceGovernor governor, CancellationToken token)

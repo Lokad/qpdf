@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Classify page-label container types directly from name bytes, avoiding display
+  strings for long unknown names while preserving containment and opaque values.
+
 - Keep temporary filter names scoped to private image, attachment, appearance and
   JSON descriptor consumers. Retain full names when results or errors can escape;
   preserve output bytes while refunding names after private plans close.
