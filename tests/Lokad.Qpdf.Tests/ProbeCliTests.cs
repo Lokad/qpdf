@@ -21,13 +21,13 @@ public sealed class ProbeCliTests
         DirectoryInfo? current = new DirectoryInfo(baseDir);
         for (int i = 0; i < 8 && current is not null; i++)
         {
-            string candidate = Path.Combine(current.FullName, "tools", "QpdfProbe", "bin", "Release", "net10.0", "QpdfProbe.dll");
+            string candidate = Path.Combine(current.FullName, "tools", "QpdfProbe", "bin", "Release", "net" + Environment.Version.Major + ".0", "QpdfProbe.dll");
             if (File.Exists(candidate))
             {
                 return candidate;
             }
 
-            string debugCandidate = Path.Combine(current.FullName, "tools", "QpdfProbe", "bin", "Debug", "net10.0", "QpdfProbe.dll");
+            string debugCandidate = Path.Combine(current.FullName, "tools", "QpdfProbe", "bin", "Debug", "net" + Environment.Version.Major + ".0", "QpdfProbe.dll");
             if (File.Exists(debugCandidate))
             {
                 return debugCandidate;

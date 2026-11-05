@@ -42,7 +42,7 @@ version-specific package commands when changing the project version.
 
 ## Architecture and style
 
-- Target `net10.0`, nullable enabled, warnings as errors, and no unsafe blocks.
+- Target `net10.0` and `net11.0`, nullable enabled, warnings as errors, and no unsafe blocks.
 - No vendored code, qpdf-related dependencies, native PDF engines, interop or
   runtime subprocess bridges. Public upstream code is reference material only.
 - The core package has no runtime NuGet dependencies. JPEG codecs are supplied

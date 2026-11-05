@@ -22,14 +22,18 @@ $consumerSource = Join-Path $repoRoot 'tests/Lokad.Qpdf.PackageConsumer'
 $seedPath = Join-Path $consumerSource 'packages.lock.json'
 $seedHash = (Get-FileHash -LiteralPath $seedPath -Algorithm SHA256).Hash
 $lock = Get-Content -LiteralPath $seedPath -Raw | ConvertFrom-Json -AsHashtable
-if ($lock.version -ne 2 -or $lock.dependencies.Count -ne 1 -or
-    -not $lock.dependencies.Contains('net10.0')) {
-    throw 'Expected the reviewed net10.0 consumer lock.'
+$frameworks = @('net10.0', 'net11.0')
+if ($lock.version -ne 2 -or $lock.dependencies.Count -ne $frameworks.Count) {
+    throw 'Expected the reviewed net10.0/net11.0 consumer lock.'
 }
-$dependencies = $lock.dependencies['net10.0']
-if ($dependencies.Count -ne 1 -or -not $dependencies.Contains('Lokad.qpdf')) {
-    throw 'Consumer must depend only on the core Lokad.qpdf package.'
+foreach ($framework in $frameworks) {
+    if (-not $lock.dependencies.Contains($framework)) { throw 'Expected the reviewed net10.0/net11.0 consumer lock.' }
+    $dependencies = $lock.dependencies[$framework]
+    if ($dependencies.Count -ne 1 -or -not $dependencies.Contains('Lokad.qpdf')) {
+        throw 'Consumer must depend only on the core Lokad.qpdf package.'
+    }
 }
+$expectedLibraryHashes = @{}
 
 $package = [System.IO.Compression.ZipFile]::OpenRead($resolvedPackage)
 try {
@@ -42,18 +46,23 @@ try {
     try { [xml] $manifest = $reader.ReadToEnd() } finally { $reader.Dispose() }
     $metadata = $manifest.SelectSingleNode('/*[local-name()="package"]/*[local-name()="metadata"]')
     if ($metadata.id -cne 'Lokad.qpdf' -or
-        $metadata.version -cne $dependencies['Lokad.qpdf'].resolved) {
+        $metadata.version -cne $lock.dependencies['net10.0']['Lokad.qpdf'].resolved) {
         throw 'Artifact identity/version must match the reviewed consumer lock.'
     }
     if (@($metadata.SelectNodes('*[local-name()="dependencies"]//*[local-name()="dependency"]')).Count -ne 0) {
         throw 'The core package must have no runtime package dependencies.'
     }
-    $library = $package.GetEntry('lib/net10.0/Lokad.Qpdf.dll')
-    if ($null -eq $library) { throw 'Missing net10.0 library assembly.' }
-    $libraryStream = $library.Open()
-    $libraryHasher = [System.Security.Cryptography.SHA256]::Create()
-    try { $expectedLibraryHash = [Convert]::ToHexString($libraryHasher.ComputeHash($libraryStream)) }
-    finally { $libraryHasher.Dispose(); $libraryStream.Dispose() }
+    foreach ($framework in $frameworks) {
+        if ($metadata.version -cne $lock.dependencies[$framework]['Lokad.qpdf'].resolved) {
+            throw 'Artifact identity/version must match the reviewed consumer lock.'
+        }
+        $library = $package.GetEntry("lib/$framework/Lokad.Qpdf.dll")
+        if ($null -eq $library) { throw "Missing $framework library assembly." }
+        $libraryStream = $library.Open()
+        $libraryHasher = [System.Security.Cryptography.SHA256]::Create()
+        try { $expectedLibraryHashes[$framework] = [Convert]::ToHexString($libraryHasher.ComputeHash($libraryStream)) }
+        finally { $libraryHasher.Dispose(); $libraryStream.Dispose() }
+    }
 }
 finally { $package.Dispose() }
 
@@ -72,7 +81,7 @@ try { $artifactHash = [Convert]::ToBase64String($packageHasher.ComputeHash($pack
 finally { $packageHasher.Dispose(); $packageStream.Dispose() }
 
 # Only the locally rebuilt artifact's hash changes; the reviewed graph stays locked.
-$dependencies['Lokad.qpdf'].contentHash = $artifactHash
+foreach ($framework in $frameworks) { $lock.dependencies[$framework]['Lokad.qpdf'].contentHash = $artifactHash }
 $copiedLock = Join-Path $projectDirectory 'packages.lock.json'
 [System.IO.File]::WriteAllText($copiedLock, ($lock | ConvertTo-Json -Depth 30) + "`n")
 $copiedLockHash = (Get-FileHash -LiteralPath $copiedLock -Algorithm SHA256).Hash
@@ -105,41 +114,43 @@ if ((Get-FileHash -LiteralPath $copiedLock -Algorithm SHA256).Hash -cne $copiedL
 }
 & dotnet build $project -c Release --no-restore --nologo -v quiet
 if ($LASTEXITCODE -ne 0) { throw "Fresh consumer build failed ($LASTEXITCODE)." }
-$restoredLibrary = Join-Path $projectDirectory 'bin/Release/net10.0/Lokad.Qpdf.dll'
-if ((Get-FileHash -LiteralPath $restoredLibrary -Algorithm SHA256).Hash -cne $expectedLibraryHash) {
-    throw 'Consumer assembly differs from the supplied package assembly.'
-}
 Write-Output "Artifact SHA-512: $artifactHash"
-Write-Output "Consumer library SHA-256: $expectedLibraryHash"
-& dotnet run --project $project -c Release --no-build --no-restore
-if ($LASTEXITCODE -ne 0) { throw "Fresh consumer smoke failed ($LASTEXITCODE)." }
-$consumerDll = Join-Path $projectDirectory 'bin/Release/net10.0/Lokad.Qpdf.PackageConsumer.dll'
-foreach ($mode in @('quiet-input', 'raw-input', 'engine-input', 'quiet-output', 'raw-output', 'engine-output')) {
-    $start = [System.Diagnostics.ProcessStartInfo]::new('dotnet')
-    $start.UseShellExecute = $false
-    $start.CreateNoWindow = $true
-    $start.RedirectStandardOutput = $true
-    $start.RedirectStandardError = $true
-    $start.Environment['DOTNET_GCHeapHardLimit'] = '0x2000000'
-    $start.ArgumentList.Add($consumerDll)
-    $start.ArgumentList.Add('--lease-allocation')
-    $start.ArgumentList.Add($mode)
-    $child = [System.Diagnostics.Process]::Start($start)
-    try {
-        $stdout = $child.StandardOutput.ReadToEndAsync()
-        $stderr = $child.StandardError.ReadToEndAsync()
-        if (-not $child.WaitForExit(30000)) {
-            $child.Kill($true)
-            $child.WaitForExit()
-            throw "Capped lease check timed out: $mode."
-        }
-        Write-Output $stdout.GetAwaiter().GetResult()
-        $errorText = $stderr.GetAwaiter().GetResult()
-        if ($child.ExitCode -ne 0) { throw "Capped lease check failed: $mode. $errorText" }
+foreach ($framework in $frameworks) {
+    $restoredLibrary = Join-Path $projectDirectory "bin/Release/$framework/Lokad.Qpdf.dll"
+    if ((Get-FileHash -LiteralPath $restoredLibrary -Algorithm SHA256).Hash -cne $expectedLibraryHashes[$framework]) {
+        throw "Consumer assembly differs from the supplied $framework package assembly."
     }
-    finally {
-        if (-not $child.HasExited) { $child.Kill($true); $child.WaitForExit() }
-        $child.Dispose()
+    Write-Output "Consumer $framework library SHA-256: $($expectedLibraryHashes[$framework])"
+    & dotnet run --project $project -f $framework -c Release --no-build --no-restore
+    if ($LASTEXITCODE -ne 0) { throw "Fresh $framework consumer smoke failed ($LASTEXITCODE)." }
+    $consumerDll = Join-Path $projectDirectory "bin/Release/$framework/Lokad.Qpdf.PackageConsumer.dll"
+    foreach ($mode in @('quiet-input', 'raw-input', 'engine-input', 'quiet-output', 'raw-output', 'engine-output')) {
+        $start = [System.Diagnostics.ProcessStartInfo]::new('dotnet')
+        $start.UseShellExecute = $false
+        $start.CreateNoWindow = $true
+        $start.RedirectStandardOutput = $true
+        $start.RedirectStandardError = $true
+        $start.Environment['DOTNET_GCHeapHardLimit'] = '0x2000000'
+        $start.ArgumentList.Add($consumerDll)
+        $start.ArgumentList.Add('--lease-allocation')
+        $start.ArgumentList.Add($mode)
+        $child = [System.Diagnostics.Process]::Start($start)
+        try {
+            $stdout = $child.StandardOutput.ReadToEndAsync()
+            $stderr = $child.StandardError.ReadToEndAsync()
+            if (-not $child.WaitForExit(30000)) {
+                $child.Kill($true)
+                $child.WaitForExit()
+                throw "Capped lease check timed out: $mode."
+            }
+            Write-Output $stdout.GetAwaiter().GetResult()
+            $errorText = $stderr.GetAwaiter().GetResult()
+            if ($child.ExitCode -ne 0) { throw "Capped lease check failed: $mode. $errorText" }
+        }
+        finally {
+            if (-not $child.HasExited) { $child.Kill($true); $child.WaitForExit() }
+            $child.Dispose()
+        }
     }
 }
 if ((Get-FileHash -LiteralPath $seedPath -Algorithm SHA256).Hash -cne $seedHash) {

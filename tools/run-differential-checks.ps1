@@ -21,7 +21,7 @@ if ([string]::IsNullOrWhiteSpace($QpdfExe)) {
 }
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$probeDll = Join-Path $repoRoot "tools/QpdfProbe/bin/$Configuration/net10.0/QpdfProbe.dll"
+$probeDll = Join-Path $repoRoot "tools/QpdfProbe/bin/$Configuration/net11.0/QpdfProbe.dll"
 if (-not (Test-Path $probeDll)) {
   throw "QpdfProbe.dll not found. Run tools/run-reference-checks.ps1 first (it builds the probe)."
 }

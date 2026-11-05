@@ -6,7 +6,15 @@
         "type": "Direct",
         "requested": "[0.1.0-alpha.2, )",
         "resolved": "0.1.0-alpha.2",
-        "contentHash": "1zrYV0kuym/EYE0vJxIzt9syR/Q0HX5Cxzwtk2Gac+Wzr7dp+2jgByBvSylDl5BPYl5rVhqsEyLBJ7tevHP8IA=="
+        "contentHash": "DhGnY32JmfnEDshhqoA12WdPsiCAVcFhKGuYKft7+CnTpF5YMDsSeWPVIAeVKS+mfDgzJDxZm2JtedzoR1HU5g=="
+      }
+    },
+    "net11.0": {
+      "Lokad.qpdf": {
+        "type": "Direct",
+        "requested": "[0.1.0-alpha.2, )",
+        "resolved": "0.1.0-alpha.2",
+        "contentHash": "DhGnY32JmfnEDshhqoA12WdPsiCAVcFhKGuYKft7+CnTpF5YMDsSeWPVIAeVKS+mfDgzJDxZm2JtedzoR1HU5g=="
       }
     }
   }

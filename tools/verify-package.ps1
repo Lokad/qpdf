@@ -8,11 +8,11 @@ $resolvedPackage = (Resolve-Path -LiteralPath $PackagePath).Path
 $package = [System.IO.Compression.ZipFile]::OpenRead($resolvedPackage)
 try {
     $names = @($package.Entries | ForEach-Object { $_.FullName })
-    $allowed = '^(\[Content_Types\]\.xml|_rels/\.rels|package/services/metadata/core-properties/[^/]+\.psmdcp|Lokad\.qpdf\.nuspec|README\.md|LICENSE\.txt|CHANGELOG\.md|icon\.png|docs/(?:ARCHITECTURE|BENCHMARKS|COMPATIBILITY|MEMORY|SUPPORTED-PROFILE)\.md|tests/Compatibility/options\.json|lib/net10\.0/Lokad\.Qpdf\.(dll|xml))$'
+    $allowed = '^(\[Content_Types\]\.xml|_rels/\.rels|package/services/metadata/core-properties/[^/]+\.psmdcp|Lokad\.qpdf\.nuspec|README\.md|LICENSE\.txt|CHANGELOG\.md|icon\.png|docs/(?:ARCHITECTURE|BENCHMARKS|COMPATIBILITY|MEMORY|SUPPORTED-PROFILE)\.md|tests/Compatibility/options\.json|lib/net(?:10|11)\.0/Lokad\.Qpdf\.(dll|xml))$'
     foreach ($name in $names) {
         if ($name -notmatch $allowed) { throw "Unexpected package member: $name" }
     }
-    foreach ($required in @('README.md', 'LICENSE.txt', 'CHANGELOG.md', 'icon.png', 'docs/ARCHITECTURE.md', 'docs/BENCHMARKS.md', 'docs/COMPATIBILITY.md', 'docs/MEMORY.md', 'docs/SUPPORTED-PROFILE.md', 'tests/Compatibility/options.json', 'lib/net10.0/Lokad.Qpdf.dll', 'lib/net10.0/Lokad.Qpdf.xml')) {
+    foreach ($required in @('README.md', 'LICENSE.txt', 'CHANGELOG.md', 'icon.png', 'docs/ARCHITECTURE.md', 'docs/BENCHMARKS.md', 'docs/COMPATIBILITY.md', 'docs/MEMORY.md', 'docs/SUPPORTED-PROFILE.md', 'tests/Compatibility/options.json', 'lib/net10.0/Lokad.Qpdf.dll', 'lib/net10.0/Lokad.Qpdf.xml', 'lib/net11.0/Lokad.Qpdf.dll', 'lib/net11.0/Lokad.Qpdf.xml')) {
         if ($required -notin $names) { throw "Missing package member: $required" }
     }
 
@@ -45,14 +45,14 @@ finally { $package.Dispose() }
 $symbolPath = [System.IO.Path]::ChangeExtension($resolvedPackage, '.snupkg')
 $symbols = [System.IO.Compression.ZipFile]::OpenRead($symbolPath)
 try {
-    $foundPdb = $false
+    $requiredPdbs = @('lib/net10.0/Lokad.Qpdf.pdb', 'lib/net11.0/Lokad.Qpdf.pdb')
     foreach ($entry in $symbols.Entries) {
-        if ($entry.FullName -eq 'lib/net10.0/Lokad.Qpdf.pdb') { $foundPdb = $true }
-        if ($entry.FullName -notmatch '^(\[Content_Types\]\.xml|_rels/\.rels|package/services/metadata/core-properties/[^/]+\.psmdcp|Lokad\.qpdf\.nuspec|lib/net10\.0/Lokad\.Qpdf\.pdb)$') {
+        $requiredPdbs = @($requiredPdbs | Where-Object { $_ -cne $entry.FullName })
+        if ($entry.FullName -notmatch '^(\[Content_Types\]\.xml|_rels/\.rels|package/services/metadata/core-properties/[^/]+\.psmdcp|Lokad\.qpdf\.nuspec|lib/net(?:10|11)\.0/Lokad\.Qpdf\.pdb)$') {
             throw "Unexpected symbol package member: $($entry.FullName)"
         }
     }
-    if (-not $foundPdb) { throw 'Missing portable symbols.' }
+    if ($requiredPdbs.Count -ne 0) { throw ('Missing portable symbols: ' + ($requiredPdbs -join ', ')) }
 }
 finally { $symbols.Dispose() }
 

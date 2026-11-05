@@ -1,6 +1,6 @@
 # Lokad.qpdf
 
-Lokad.qpdf is a .NET 10 library for splitting, merging, reordering, checking and
+Lokad.qpdf is a .NET 10 and .NET 11 library for splitting, merging, reordering, checking and
 rewriting PDF documents. It implements qpdf's non-cryptographic operations in
 managed C#, with no native qpdf installation required at runtime.
 The core package has no runtime NuGet dependencies.
@@ -19,7 +19,7 @@ see [compatibility](docs/COMPATIBILITY.md) for supported behavior and difference
 
 ## Example: reorder pages
 
-Reference the `Lokad.qpdf` package in a .NET 10 application. This example copies
+Reference the `Lokad.qpdf` package in a .NET 10 or .NET 11 application. This example copies
 pages 2 and 1, in that order, from a PDF with at least two pages:
 
 ```csharp
@@ -78,7 +78,8 @@ is unavailable. See the [supported profile](docs/SUPPORTED-PROFILE.md) for detai
 
 ## Build from source
 
-Use the .NET SDK pinned in `global.json`:
+Use the .NET 11 SDK pinned in `global.json` (currently RC 3), with the .NET 10
+SDK installed for its targeting packs and runtime:
 
 ```sh
 dotnet restore Lokad.Qpdf.slnx --locked-mode

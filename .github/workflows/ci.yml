@@ -29,6 +29,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+          dotnet-version: 10.0.x
+          include-prerelease: true
       - name: Record runtime and prepare logs
         run: |
           New-Item -ItemType Directory -Force artifacts/ci/logs, artifacts/ci/test-results | Out-Null
@@ -53,8 +55,8 @@ jobs:
           python tools/test-warm-workers.py 2>&1 | Tee-Object artifacts/ci/logs/warm-workers.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           pwsh -File tools/test-reference-probe.ps1 `
-            -ProbeDll tools/QpdfProbe/bin/Release/net10.0/QpdfProbe.dll `
-            -OracleFixture tests/Lokad.Qpdf.OracleFixture/bin/Release/net10.0/Lokad.Qpdf.OracleFixture${{ matrix.os == 'windows-latest' && '.exe' || '' }} `
+            -ProbeDll tools/QpdfProbe/bin/Release/net11.0/QpdfProbe.dll `
+            -OracleFixture tests/Lokad.Qpdf.OracleFixture/bin/Release/net11.0/Lokad.Qpdf.OracleFixture${{ matrix.os == 'windows-latest' && '.exe' || '' }} `
             -WorkRoot artifacts/ci/tool-controls `
             2>&1 | Tee-Object artifacts/ci/logs/tool-controls.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -62,7 +64,7 @@ jobs:
         timeout-minutes: 35
         run: |
           dotnet test Lokad.Qpdf.slnx -c Release --no-build --no-restore `
-            --logger 'trx;LogFileName=tests.trx' `
+            --logger 'trx;LogFilePrefix=tests' `
             --results-directory artifacts/ci/test-results `
             --diag artifacts/ci/logs/vstest.log `
             --blame-crash --blame-crash-dump-type mini `
@@ -112,6 +114,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+          dotnet-version: 10.0.x
+          include-prerelease: true
       - name: Record runtime and prepare logs
         run: |
           New-Item -ItemType Directory -Force artifacts/ci/logs | Out-Null

@@ -44,17 +44,23 @@ function Assert-Rejection {
     Write-Output "PASS $Name (rejected before restore or consumer execution)"
 }
 
-# A stale version must not be made acceptable by changing the local hash.
-$lock = $seedText | ConvertFrom-Json -AsHashtable
-$lock.dependencies['net10.0']['Lokad.qpdf'].resolved = '0.0.0-invalid'
-[System.IO.File]::WriteAllText($testLockPath, ($lock | ConvertTo-Json -Depth 30) + "`n")
-Assert-Rejection 'wrong-artifact-version' 'Artifact identity/version must match' $verifier $resolvedPackage
+# Both framework graphs must reject stale identities and unexpected dependencies.
+foreach ($framework in @('net10.0', 'net11.0')) {
+    $lock = $seedText | ConvertFrom-Json -AsHashtable
+    $lock.dependencies[$framework]['Lokad.qpdf'].resolved = '0.0.0-invalid'
+    [System.IO.File]::WriteAllText($testLockPath, ($lock | ConvertTo-Json -Depth 30) + "`n")
+    Assert-Rejection "wrong-$framework-artifact-version" 'Artifact identity/version must match' $verifier $resolvedPackage
 
-# A changed dependency graph must not silently introduce a codec package.
+    $lock = $seedText | ConvertFrom-Json -AsHashtable
+    $lock.dependencies[$framework]['Unexpected.Codec'] = @{ type = 'Transitive'; resolved = '1.0.0'; contentHash = 'invalid' }
+    [System.IO.File]::WriteAllText($testLockPath, ($lock | ConvertTo-Json -Depth 30) + "`n")
+    Assert-Rejection "unexpected-$framework-consumer-dependency" 'Consumer must depend only on' $verifier $resolvedPackage
+}
+
 $lock = $seedText | ConvertFrom-Json -AsHashtable
-$lock.dependencies['net10.0']['Unexpected.Codec'] = @{ type = 'Transitive'; resolved = '1.0.0'; contentHash = 'invalid' }
+$lock.dependencies.Remove('net11.0')
 [System.IO.File]::WriteAllText($testLockPath, ($lock | ConvertTo-Json -Depth 30) + "`n")
-Assert-Rejection 'unexpected-consumer-dependency' 'Consumer must depend only on' $verifier $resolvedPackage
+Assert-Rejection 'missing-framework-lock' 'Expected the reviewed net10.0/net11.0 consumer lock' $verifier $resolvedPackage
 
 # NuGet accepts either grouped or flat dependencies. Exercise actual artifacts,
 # independently of the copied-lock controls above, against both manifest guards.
@@ -91,6 +97,27 @@ foreach ($layout in @('grouped', 'ungrouped')) {
         (Join-Path $PSScriptRoot 'verify-package.ps1') $artifact
     Assert-Rejection "$layout-consumer-dependency" 'The core package must have no runtime package dependencies' `
         $verifier $artifact
+}
+
+foreach ($framework in @('net10.0', 'net11.0')) {
+    foreach ($kind in @('library', 'symbols')) {
+        $directory = Join-Path $testRoot "missing-$framework-$kind"
+        New-Item -ItemType Directory -Path $directory | Out-Null
+        $artifact = Join-Path $directory ([IO.Path]::GetFileName($resolvedPackage))
+        Copy-Item -LiteralPath $resolvedPackage -Destination $artifact
+        $symbols = [IO.Path]::ChangeExtension($artifact, '.snupkg')
+        Copy-Item -LiteralPath ([IO.Path]::ChangeExtension($resolvedPackage, '.snupkg')) -Destination $symbols
+        $changed = if ($kind -eq 'library') { $artifact } else { $symbols }
+        $extension = if ($kind -eq 'library') { 'dll' } else { 'pdb' }
+        $archive = [IO.Compression.ZipFile]::Open($changed, [IO.Compression.ZipArchiveMode]::Update)
+        try { $archive.GetEntry("lib/$framework/Lokad.Qpdf.$extension").Delete() }
+        finally { $archive.Dispose() }
+        $pattern = if ($kind -eq 'library') { 'Missing package member' } else { 'Missing portable symbols' }
+        Assert-Rejection "missing-$framework-$kind" $pattern (Join-Path $PSScriptRoot 'verify-package.ps1') $artifact
+        if ($kind -eq 'library') {
+            Assert-Rejection "missing-$framework-consumer-library" "Missing $framework library assembly" $verifier $artifact
+        }
+    }
 }
 
 foreach ($case in @(

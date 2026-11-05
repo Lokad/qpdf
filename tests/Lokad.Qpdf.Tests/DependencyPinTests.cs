@@ -67,7 +67,12 @@ public sealed class DependencyPinTests
     public void LibraryLockContainsOnlyPrivateBuildTooling()
     {
         using JsonDocument inventory = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(RepoRoot(), "src", "Lokad.Qpdf", "packages.lock.json")));
-        string[] packages = inventory.RootElement.GetProperty("dependencies").GetProperty("net10.0").EnumerateObject().Select(p => p.Name).ToArray();
-        Assert.Equal(new[] { "Microsoft.Build.Tasks.Git", "Microsoft.SourceLink.Common", "Microsoft.SourceLink.GitHub" }, packages.OrderBy(name => name, StringComparer.Ordinal));
+        JsonElement frameworks = inventory.RootElement.GetProperty("dependencies");
+        Assert.Equal(new[] { "net10.0", "net11.0" }, frameworks.EnumerateObject().Select(p => p.Name).OrderBy(name => name, StringComparer.Ordinal));
+        foreach (JsonProperty framework in frameworks.EnumerateObject())
+        {
+            string[] packages = framework.Value.EnumerateObject().Select(p => p.Name).ToArray();
+            Assert.Equal(new[] { "Microsoft.Build.Tasks.Git", "Microsoft.SourceLink.Common", "Microsoft.SourceLink.GitHub" }, packages.OrderBy(name => name, StringComparer.Ordinal));
+        }
     }
 }

@@ -29,7 +29,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $probeDllCandidates = @(
-  (Join-Path $repoRoot "tools/QpdfProbe/bin/$Configuration/net10.0/QpdfProbe.dll")
+  (Join-Path $repoRoot "tools/QpdfProbe/bin/$Configuration/net11.0/QpdfProbe.dll")
 )
 $probeDll = $probeDllCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 if ($null -eq $probeDll) {

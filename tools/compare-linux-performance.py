@@ -336,8 +336,8 @@ def main():
     native_source, native_build = args.native_source.resolve(), args.native_build.resolve()
     root.mkdir(parents=True, exist_ok=False)
     os.chdir(root)
-    probe = repo / "tools/QpdfProbe/bin/Release/net10.0/QpdfProbe.dll"
-    benchmark = repo / "benchmarks/Lokad.Qpdf.Benchmarks/bin/Release/net10.0/Lokad.Qpdf.Benchmarks.dll"
+    probe = repo / "tools/QpdfProbe/bin/Release/net11.0/QpdfProbe.dll"
+    benchmark = repo / "benchmarks/Lokad.Qpdf.Benchmarks/bin/Release/net11.0/Lokad.Qpdf.Benchmarks.dll"
     version = run([qpdf, "--version"]).decode().strip()
     if version.splitlines()[0] != "qpdf version 12.4.2":
         raise ValueError("Expected pinned native qpdf 12.4.2")

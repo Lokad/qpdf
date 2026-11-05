@@ -2,8 +2,10 @@
 
 ## Unreleased
 
-This development version has not been published. There is no alpha.1 release.
+This development version has not been published.
 
+- Target .NET 10 and .NET 11; pin the .NET 11 RC 3 SDK and use .NET 11 for
+  the performance baseline. Package and public-consumer checks cover both targets.
 - Provide managed qpdf 12.4.2 structural operations through shared typed, argv
   and job-JSON entry points: reading/recovery, inspection, page assembly,
   attachments, content transforms, QDF and two-pass linearization.

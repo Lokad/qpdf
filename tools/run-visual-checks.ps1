@@ -15,8 +15,8 @@ $RendererExe = (Resolve-Path -LiteralPath $RendererExe).Path
 $root = [IO.Path]::GetFullPath($WorkRoot)
 if (Test-Path -LiteralPath $root) { throw "Visual workspace already exists: $root" }
 if ([Environment]::Version.Major -lt 10) { throw 'Fixture reuse requires PowerShell running on .NET 10.' }
-$probe = Join-Path $repo 'tools/QpdfProbe/bin/Release/net10.0/QpdfProbe.dll'
-$bin = Join-Path $repo 'tests/Lokad.Qpdf.Tests/bin/Release/net10.0'
+$probe = Join-Path $repo 'tools/QpdfProbe/bin/Release/net11.0/QpdfProbe.dll'
+$bin = Join-Path $repo 'tests/Lokad.Qpdf.Tests/bin/Release/net11.0'
 foreach ($file in @($probe, (Join-Path $bin 'Lokad.Qpdf.Tests.dll'))) {
     if (!(Test-Path -LiteralPath $file)) { throw 'Build the Release solution before visual checks.' }
 }

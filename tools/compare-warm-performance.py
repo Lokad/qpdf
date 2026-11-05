@@ -190,7 +190,7 @@ def main():
         cases = [c for c in cases if c["Name"] in args.workload]
     if args.input_read_diagnostic and (len(cases) != 1 or len(cases[0]["Inputs"]) != 1):
         raise ValueError("Input-read diagnostic requires one selected single-input workload")
-    probe = repo / "tools/QpdfProbe/bin/Release/net10.0/QpdfProbe.dll"
+    probe = repo / "tools/QpdfProbe/bin/Release/net11.0/QpdfProbe.dll"
     driver = root / "qpdf-warm"
     compile_command = ["g++", "-std=c++17", "-O3", "-DNDEBUG", "-I" + str(native_source / "include"),
         "-I" + str(native_build / "libqpdf"), str(repo / "tools/qpdf-warm.cpp"),
