@@ -138,6 +138,10 @@ catalog actions share one bounded role walk. Incoming role edges propagate chang
 headers; new identities are assigned before rebuilding cycles. Private graph edges
 keep original objects, and field registrations/calculation order follow the new
 field identities. Movie activation data and popup extras retain their separate roles.
+The action walk keys objects by reference identity, object number and effective
+role. A shared dictionary can therefore retain opaque event data independently
+of an action replacement. Genuine widget field/annotation roles remain unified;
+same-role aliases and action cycles retain sharing.
 Optional-content capture examines the source's declared groups through the existing
 copy map. Ordinary documents need no pool scan, and existing catalog properties are
 borrowed directly. A sole complex configuration stays intact; multiple static View

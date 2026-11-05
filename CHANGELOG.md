@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Keep source-action replacements separate from opaque event data when equal or
+  shared dictionaries serve different roles. Preserve genuine action cycles and
+  widget registrations, and use identity lookups to avoid quadratic allocation
+  on direct actions.
+
 - Preserve source-page clipping for imported static annotation appearances with
   immutable N/R/D/state wrappers. Keep full rectangles, original payloads and
   private aliases; generate imported widgets before clipping. Bind absent source

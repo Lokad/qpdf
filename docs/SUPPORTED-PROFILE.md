@@ -316,7 +316,10 @@ toward the configured selection ceiling.
   target; omitted pages and placement-source page targets still prune to null.
   Binding follows retained page/annotation/field events, action chains, outlines and
   catalog actions. Independent private aliases and remote-action targets keep their
-  original values. Unsupported required contexts fail explicitly. These rules do
+  original values. Equal dictionaries do not establish identity; a dictionary
+  shared across different roles keeps independent role replacements. Genuine
+  action aliases, cycles and widget field/annotation registrations stay shared.
+  Unsupported required contexts fail explicitly. These rules do
   not import secondary metadata/attachment collections or enable generic typed
   catalog preservation; split retains its existing catalog-extra policy.
 - The four inheritable attributes (`Resources`, `MediaBox`, `CropBox`,

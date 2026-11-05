@@ -64,6 +64,14 @@ No public signatures change. Required contexts that cannot be bound fail explici
 including malformed source indexes and unusable explicit URI bases encountered in
 retained roles; prior output remains untouched.
 
+Source-action binding distinguishes object identity from equal PDF contents and
+keeps separate effective roles for shared dictionaries. For example, a relative
+URI under an annotation's action binds to the source base, while an opaque `URI`
+extra under its additional-actions dictionary retains its original bytes, even
+when both roles share one object. Genuine action aliases, cycles and widget field
+registrations retain sharing. Output bytes/identifiers can change; no public
+signature changes.
+
 PDF JSON v2 object strings now use `b:` when Unicode presentation would change
 their bytes on import. For example, `(K)` remains `u:K`, while `<feff004b>` becomes
 `b:feff004b`; these are distinct PDF byte-string keys even though their text is
