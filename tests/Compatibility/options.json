@@ -4786,14 +4786,16 @@
           "OverlayGenerationTests.FieldRegistrationRetainsSourceIdentityAcrossParentsAndPlacements",
           "OverlayDefaultTests.ImportedDefaultsRetainEffectiveValues",
           "OverlayDefaultTests.IndirectDestinationDefaultsDoNotOverrideImportedValues",
-          "OverlayDefaultTests.EqualDefaultTextStillBindsTheImportedFontIdentity"
+          "OverlayDefaultTests.EqualDefaultTextStillBindsTheImportedFontIdentity",
+          "OverlayAnnotationClippingTests.SourceClipKeepsFullRectAndPrivateAppearances"
         ],
         "negative": [
           "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
           "AnnotationCoordinateFailureTests.InvalidRecognizedCoordinatesRefusePublicationAndPrivateFieldsStayOpaque",
           "OverlayTests.MalformedOverlayFlagsFail",
           "OverlayTests.RangedOverlayFlagsFail",
-          "OverlayDefaultTests.UnusableDefaultsKeepFallbacksAndLocalOverrides"
+          "OverlayDefaultTests.UnusableDefaultsKeepFallbacksAndLocalOverrides",
+          "OverlayClippingProfileTests.ClippingRequiresRepresentableStaticArtwork"
         ],
         "interaction": [
           "OverlayTests.JobRoundTripMatchesArgv",
@@ -4806,7 +4808,8 @@
           "ImportedVersionTests.PlacementsIncludeEffectiveSourceVersionsBeforeMinimumAndForce",
           "ExtensionVersionTests.ImportsNegotiateExtensionsAtTheSelectedBase",
           "FormSourceContextTests.RetainedFieldsKeepSourceFontAndDefaults",
-          "FormSourceContextTests.RewrittenSharedProgramsKeepOneIdentityAndTheirOriginalAliases"
+          "FormSourceContextTests.RewrittenSharedProgramsKeepOneIdentityAndTheirOriginalAliases",
+          "OverlayClippingGenerationTests.GeneratedSourceArtworkIsClippedBeforeOptionalFlattening"
         ],
         "resource": [
           "ResourceEnforcementTests.OverlayYieldsToExhaustedBudget",
@@ -4815,7 +4818,8 @@
           "SinglePartContentOwnershipTests.JoinAdmissionRefusalPreservesTheSourceAndCanRetry",
           "OverlayGenerationTests.EveryAdmissionRefusalPreservesPriorOutputAndRefundsPrivateStorage",
           "OverlayGenerationTests.GenerationAwareCopyKeepsRollbackAndCancellation",
-          "AppearanceResourceScopeTests.ScopePublicationFailuresPreserveTheTargetAndRefundAdmission"
+          "AppearanceResourceScopeTests.ScopePublicationFailuresPreserveTheTargetAndRefundAdmission",
+          "OverlayClippingCancellationTests.BothTokensInterruptClippingAfterAdmissionWithoutPublishingTheHeader"
         ],
         "oracle": [
           "diff:overlay",
@@ -6606,13 +6610,15 @@
           "OverlayGenerationTests.FieldRegistrationRetainsSourceIdentityAcrossParentsAndPlacements",
           "OverlayDefaultTests.ImportedDefaultsRetainEffectiveValues",
           "OverlayDefaultTests.IndirectDestinationDefaultsDoNotOverrideImportedValues",
-          "OverlayDefaultTests.EqualDefaultTextStillBindsTheImportedFontIdentity"
+          "OverlayDefaultTests.EqualDefaultTextStillBindsTheImportedFontIdentity",
+          "OverlayAnnotationClippingTests.SourceClipKeepsFullRectAndPrivateAppearances"
         ],
         "negative": [
           "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
           "AnnotationCoordinateFailureTests.InvalidRecognizedCoordinatesRefusePublicationAndPrivateFieldsStayOpaque",
           "OverlayTests.OverlayPasswordIsCrypto",
-          "OverlayDefaultTests.UnusableDefaultsKeepFallbacksAndLocalOverrides"
+          "OverlayDefaultTests.UnusableDefaultsKeepFallbacksAndLocalOverrides",
+          "OverlayClippingProfileTests.ClippingRequiresRepresentableStaticArtwork"
         ],
         "interaction": [
           "OverlayTests.WholeFileJobOverlay",
@@ -6622,13 +6628,15 @@
           "ImportedVersionTests.PlacementsIncludeEffectiveSourceVersionsBeforeMinimumAndForce",
           "ExtensionVersionTests.ImportsNegotiateExtensionsAtTheSelectedBase",
           "FormSourceContextTests.RetainedFieldsKeepSourceFontAndDefaults",
-          "FormSourceContextTests.RewrittenSharedProgramsKeepOneIdentityAndTheirOriginalAliases"
+          "FormSourceContextTests.RewrittenSharedProgramsKeepOneIdentityAndTheirOriginalAliases",
+          "OverlayClippingGenerationTests.GeneratedSourceArtworkIsClippedBeforeOptionalFlattening"
         ],
         "resource": [
           "ResourceEnforcementTests.UnderlayYieldsToExhaustedBudget",
           "AnnotationCoordinateFailureTests.PointArraysAdmitBeforeAllocatingAndHonorBothCancellationRoutes",
           "OverlayGenerationTests.EveryAdmissionRefusalPreservesPriorOutputAndRefundsPrivateStorage",
-          "OverlayGenerationTests.GenerationAwareCopyKeepsRollbackAndCancellation"
+          "OverlayGenerationTests.GenerationAwareCopyKeepsRollbackAndCancellation",
+          "OverlayClippingCancellationTests.BothTokensInterruptClippingAfterAdmissionWithoutPublishingTheHeader"
         ],
         "oracle": [
           "diff:overlay-ranges",

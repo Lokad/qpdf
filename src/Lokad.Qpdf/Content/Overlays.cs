@@ -567,7 +567,7 @@ internal static class Overlays
         return TryReadRectangle(value, resolver, numbers) ? numbers.ToArray() : null;
     }
 
-    private static bool TryReadRectangle(QpdfObject? value, IIndirectResolver resolver, Span<double> numbers)
+    internal static bool TryReadRectangle(QpdfObject? value, IIndirectResolver resolver, Span<double> numbers)
     {
         QpdfObject? target = value;
         if (target is PdfReference reference)
@@ -1279,7 +1279,7 @@ internal static class Overlays
                 (cm[0], cm[1], cm[2], cm[3], cm[4], cm[5]) =
                     (complete.A, complete.B, complete.C, complete.D, complete.E, complete.F);
             }
-            CopyOverlayPageAnnots(copier, pageId, placement.Spec.Source, placement.FromPage, cm, imports, generatedWidgets, ref generationComplete, limits, governor, ownership, diagnostics, cancellationToken, ref allocator);
+            CopyOverlayPageAnnots(copier, pageId, placement.Spec.Source, placement.FromPage, cm, form.Box, imports, generatedWidgets, ref generationComplete, limits, governor, ownership, diagnostics, cancellationToken, ref allocator);
         }
     }
 
@@ -1289,6 +1289,7 @@ internal static class Overlays
         OverlaySource source,
         int fromPage,
         double[] cm,
+        double[] sourceBox,
         List<AcroFormCopy.FieldImport> imports,
         HashSet<int>? generatedWidgets,
         ref bool generationComplete,
@@ -1394,6 +1395,14 @@ internal static class Overlays
         }
 
         if (fresh.Count == 0) { return; }
+        scratch.Reserve(64L);
+        double[] sourceClip = FromArray(cm).TransformRect(sourceBox);
+        if (!IsFiniteRect(sourceClip)) { throw new QpdfParseException("Non-finite source appearance clip.", null, null); }
+        int destinationRotation = 0;
+        if (destCopier.CopiedObjects.TryGetValue(destPageId, out QpdfObject? destinationRaw) && destinationRaw is PdfDictionary destination
+            && PdfDictionaryLookup.TryGet(destination, "Rotate"u8, governor, cancellationToken, out QpdfObject rotationRaw)
+            && CatalogCopy.ResolveValue(rotationRaw, new PoolResolver(destCopier.CopiedObjects), governor, cancellationToken) is PdfInteger rotation)
+        { destinationRotation = (int)((rotation.Value % 360 + 360) % 360); }
 
         QpdfObject? appearanceResources = null;
         if (needsPageResources && PageInheritance.Find(engine, location, PdfName.FromAscii("Resources"), limits, governor, cancellationToken) is QpdfObject sourceResources
@@ -1437,6 +1446,8 @@ internal static class Overlays
             bool preserveFrame = TransformOverlayRect(destCopier, annotation.ObjectNumber, cm, governor, ownership, cancellationToken, appearances, traversal, ref allocator);
             CopyOverlayAppearances(destCopier, annotation.ObjectNumber, preserveFrame ? null : cm,
                 appearanceResources, appearances, traversal, appearanceGraph, diagnostics, ref allocator);
+            AppearanceClipping.Apply(destCopier, annotation.ObjectNumber, sourceClip, destinationRotation,
+                limits, appearanceGraph, ref allocator);
         }
         appearanceGraph.Memory.TransferTo(ownership, appearanceGraph.Bytes);
 
@@ -2092,7 +2103,7 @@ internal static class Overlays
         return values;
     }
 
-    private static double[]? ReadOverlayMatrix(PdfArray array, PoolResolver pool)
+    internal static double[]? ReadOverlayMatrix(PdfArray array, PoolResolver pool)
     {
         if (array.Count != 6)
         {

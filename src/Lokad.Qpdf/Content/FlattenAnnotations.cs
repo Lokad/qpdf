@@ -11,6 +11,8 @@ namespace Lokad.Qpdf.Content;
 
 internal static class FlattenAnnotations
 {
+    internal enum AppearanceFit { Invalid, Empty, Painted }
+
     private const int FlagInvisible = 1;
 
     private const int FlagHidden = 2;
@@ -213,7 +215,7 @@ internal static class FlattenAnnotations
                 }
                 string name = UniqueFxoName(xobjects, ref suffix, governor, cancellationToken);
                 changed = true;
-                if (!AppendAppearance(name, annot, appearance.Dictionary, (int)rotate, required, forbidden, resolver, stamped)) { continue; }
+                if (AppendAppearance(name, annot, appearance.Dictionary, (int)rotate, required, forbidden, resolver, stamped) != AppearanceFit.Painted) { continue; }
                 PdfReference appearanceLink = EnsureAppearanceObject(copier, appearance, appearanceRaw, resolver, governor, cancellationToken, ref allocator);
                 int length = Encoding.ASCII.GetBytes(name.AsSpan(), nameBytes);
                 PdfName key = PdfDictionaryRebuild.CreateName(graph, nameBytes[..length]);
@@ -294,7 +296,7 @@ internal static class FlattenAnnotations
     }
 
 
-    private static PdfStream? FindAppearanceStream(PdfDictionary annot, PoolResolver resolver, ResourceGovernor governor, CancellationToken token, out PdfReference? link)
+    internal static PdfStream? FindAppearanceStream(PdfDictionary annot, PoolResolver resolver, ResourceGovernor governor, CancellationToken token, out PdfReference? link)
     {
         link = null;
         if (!annot.TryGet(PdfName.FromAscii("AP"), out QpdfObject? ap) || ap is null || ap is PdfNull)
@@ -362,7 +364,7 @@ internal static class FlattenAnnotations
         graph.Retain(); return normalized;
     }
 
-    private static bool AppendAppearance(
+    internal static AppearanceFit AppendAppearance(
         string name,
         PdfDictionary annot,
         PdfDictionary appearance,
@@ -386,19 +388,19 @@ internal static class FlattenAnnotations
 
         if ((flags & forbidden) != 0L)
         {
-            return false;
+            return AppearanceFit.Invalid;
         }
 
         if ((flags & required) != required)
         {
-            return false;
+            return AppearanceFit.Invalid;
         }
 
         double[]? box = ReadBox(appearance, "BBox", resolver);
         double[]? rect = ReadBox(annot, "Rect", resolver);
         if (box is null || rect is null)
         {
-            return false;
+            return AppearanceFit.Invalid;
         }
         if (rect[0] > rect[2]) { (rect[0], rect[2]) = (rect[2], rect[0]); }
         if (rect[1] > rect[3]) { (rect[1], rect[3]) = (rect[3], rect[1]); }
@@ -428,7 +430,7 @@ internal static class FlattenAnnotations
         double movedHeight = moved[3] - moved[1];
         if (movedWidth == 0.0 || movedHeight == 0.0)
         {
-            return false;
+            return AppearanceFit.Empty;
         }
 
         double rectWidth = rect[2] - rect[0];
@@ -448,7 +450,7 @@ internal static class FlattenAnnotations
             AppendAscii(output, FormatDouble(final[i]));
         }
         output.Write(" cm\n/"u8); AppendAscii(output, name); output.Write(" Do\nQ\n"u8);
-        return true;
+        return AppearanceFit.Painted;
     }
 
     private static double[] RotateRect(double[] rect, int rotate)

@@ -108,7 +108,7 @@ public sealed class OverlayAdmissionTests
             using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
             {
                 bool generationComplete = true;
-                Action import = () => Overlays.CopyOverlayPageAnnots(destination, 10, source, 1, Identity, imports, null, ref generationComplete,
+                Action import = () => Overlays.CopyOverlayPageAnnots(destination, 10, source, 1, Identity, [0, 0, 100, 100], imports, null, ref generationComplete,
                     QpdfLimits.Default, governor, memory, diagnostics, CancellationToken.None, ref allocator);
                 long before = GC.GetAllocatedBytesForCurrentThread();
                 if (kind == "append") { Assert.Throws<QpdfLimitException>(import); }

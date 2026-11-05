@@ -357,6 +357,17 @@ toward the configured selection ceiling.
   attachment and page aliases retain their originals; `--preserve-unreferenced`
   keeps its explicit policy. Pure copying needs no additional retirement walk.
 - --overlay and --underlay blocks (--file, --to, --from, --repeat, repeatable with order kept) stamp whole pages from other files as /Fx form XObjects below or above each output page, centered with shrink-to-fit placement that inverts destination rotation and scale. Ranges use the full shared grammar with an empty --from= letting --repeat supply every page. Missing files fail; damaged or unsupported content warns and skips. Applied pages contribute placement-transformed annotation copies, including imported widgets and form fields within the form limitations above. Shared appearance streams transform once within each placement; separate placements stay independent. Empty or entirely skipped annotation imports preserve the destination array, including an absent Annots entry.
+  Supplied static annotation appearances also retain the source Form's clipping
+  bounds. Fresh wrappers preserve the full annotation Rect and original artwork;
+  only N/R/D slots and one-level state streams change. Private aliases retain
+  original containers and bytes, while equivalent states within one annotation
+  share their wrapper. Imported widget generation runs in source context first.
+  When an annotation crosses the source bounds, an absent/unusable normal AP,
+  non-stream state or unusable frame fails with UnsupportedFeature before any
+  output commit. Valid zero-area appearances stay empty. Contained and hidden
+  annotations retain existing handling. Popup windows, general viewer zoom,
+  editing UI and interaction hit areas are outside this static-artwork contract;
+  clipping does not generate missing annotation artwork.
   Source generations are validated before placement memo reuse; stale references
   stay null in either traversal order. Widget import retains actual field
   references through parent walks, including valid nonzero generations.

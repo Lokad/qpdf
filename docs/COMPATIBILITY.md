@@ -206,9 +206,20 @@ Separately imported annotation rectangles and appearance headers receive the
 source Form's rotation/UserUnit transform before the destination placement.
 Native qpdf 12.4.2 can omit that source frame and move annotations relative to
 the imported page artwork. Private appearance aliases and payload sharing stay
-intact; affected output bytes and identifiers change. This correction covers the
-ordinary annotation frame. Source-page clipping remains a separate limitation
-under review.
+intact; affected output bytes and identifiers change.
+
+Imported static annotation appearances now retain source-page clipping. Fresh
+Form wrappers clip N/R/D streams and their one-level states while keeping the
+full annotation Rect, source artwork, private aliases and appearance sharing.
+Generated imported widgets use their source layout before clipping. Native qpdf
+12.4.2 can expose artwork outside that source page; this intentionally corrects
+the output and changes object identities without changing public signatures.
+When clipping is required, missing/unusable normal appearances, non-stream
+states and unusable appearance frames fail with UnsupportedFeature before
+publication. Valid degenerate appearances remain empty. Fully contained and
+hidden annotations keep their existing paths. Popup windows and general viewer
+zoom, editing and interaction hit areas remain outside this static-artwork
+contract; the wrapper does not constrain viewer UI or create missing artwork.
 
 NoRotate annotations now keep their transformed upper-left anchor and upright
 orientation during rotation baking and overlay/underlay placement. Direct and

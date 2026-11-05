@@ -5878,7 +5878,7 @@ public static partial class Qpdf
             return Failed(QpdfDiagnosticCode.BudgetExceeded, ex.Message);
         }
 
-        if (ex is QpdfFilterException)
+        if (ex is QpdfFilterException or QpdfUnsupportedFeatureException)
         {
             return Failed(QpdfDiagnosticCode.UnsupportedFeature, ex.Message);
         }
