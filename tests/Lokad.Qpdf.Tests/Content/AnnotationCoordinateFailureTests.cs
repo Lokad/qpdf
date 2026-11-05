@@ -18,6 +18,8 @@ public sealed class AnnotationCoordinateFailureTests
             ("Ink", "InkList", "[[1 2 3]]", true), ("Highlight", "QuadPoints", "[1 2]", true),
             ("Highlight", "QuadPoints", "null", false), ("FreeText", "CL", "[1 2 3 4 5 6 7 8]", true),
             ("FreeText", "CL", "null", false),
+            ("Square", "RD", "[1 2]", true), ("Circle", "RD", "[1 /Bad 2 3]", true),
+            ("Caret", "RD", "null", false),
             ("Stamp", "L", "[/Private]", false), ("Private", "Vertices", "/Opaque", false),
             ("Link", "QuadPoints", "null", false), ("Ink", "InkList", "[[] [1 2]]", false)];
         foreach (var shape in shapes)

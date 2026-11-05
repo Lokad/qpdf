@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Rotate and scale `RD` inner-rectangle insets for FreeText, Square, Circle and
+  Caret annotations. Preserve original private values and translation-only
+  identities; reject unusable non-null insets when their linear frame changes.
+
 - Preserve null optional FreeText callouts when baking page rotation. Treat direct
   and indirect nulls as absent without allocating coordinates; keep malformed
   non-null rejection, private aliases and transactional failure handling.

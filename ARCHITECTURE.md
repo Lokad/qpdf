@@ -109,6 +109,9 @@ and rotation baking. Immutable header copies preserve independent original alias
 The existing annotation header-copy passes also transform recognized absolute
 point arrays by subtype. A shared bounded helper resolves numeric/array references
 and creates only changed role values; independent coordinate aliases stay borrowed.
+The same helper reorders/scales recognized RD inner-rectangle insets using the
+linear frame. It reads four scalar values without another Rect traversal; pure
+translation and optional nulls retain the original role value.
 The first registered page identity remains canonical when a page is repeated;
 later catalog and destination copies cannot retarget it to a duplicate occurrence.
 Serialization authors each page's Parent backlink during the existing header
