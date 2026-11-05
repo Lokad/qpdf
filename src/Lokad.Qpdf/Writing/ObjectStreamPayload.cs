@@ -7,18 +7,15 @@ namespace Lokad.Qpdf.Writing;
 internal sealed class ObjectStreamPayload : IDisposable
 {
     private ParserMemoryScope? _memory;
-    private byte[]? _raw;
     private byte[]? _stored;
 
     internal long First { get; }
     internal bool Compressed { get; }
-    internal ReadOnlyMemory<byte> Data => _raw is not null && _stored is not null
-        ? _stored : throw new ObjectDisposedException(nameof(ObjectStreamPayload));
+    internal ReadOnlyMemory<byte> Data => _stored ?? throw new ObjectDisposedException(nameof(ObjectStreamPayload));
 
-    private ObjectStreamPayload(ParserMemoryScope memory, byte[] raw, byte[] stored, long first, bool compressed)
+    private ObjectStreamPayload(ParserMemoryScope memory, byte[] stored, long first, bool compressed)
     {
         _memory = memory;
-        _raw = raw;
         _stored = stored;
         First = first;
         Compressed = compressed;
@@ -134,7 +131,8 @@ internal sealed class ObjectStreamPayload : IDisposable
                 position += body.Length;
             }
             byte[] stored = compress ? FlateFilter.Encode(raw, compressionLevel, limits, governor, memory, cancellationToken) : raw;
-            return new ObjectStreamPayload(memory, raw, stored, checked(used + (headers is null ? 0L : headers[0].Length)), compress);
+            if (compress) { memory.Release(checked(32L + length)); }
+            return new ObjectStreamPayload(memory, stored, checked(used + (headers is null ? 0L : headers[0].Length)), compress);
         }
         catch { memory.Dispose(); throw; }
     }
@@ -142,7 +140,6 @@ internal sealed class ObjectStreamPayload : IDisposable
     public void Dispose()
     {
         ParserMemoryScope? memory = _memory;
-        _raw = null;
         _stored = null;
         _memory = null;
         memory?.Dispose();

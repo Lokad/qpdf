@@ -1,5 +1,5 @@
 using System.IO.Compression;
-using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Writing;
@@ -8,6 +8,26 @@ namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class ObjectStreamPayloadTests
 {
+    [Theory]
+    [InlineData(16384, false)]
+    [InlineData(16384, true)]
+    [InlineData(1048576, false)]
+    [InlineData(1048576, true)]
+    public async Task CompletedPayloadFundsOnlyItsStoredBuffer(int length, bool compress)
+    {
+        byte[] value = new byte[length]; Array.Fill(value, (byte)'A'); value[0] = (byte)'('; value[^1] = (byte)')';
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ObjectStreamCapture members = await Capture(governor, QpdfLimits.Default, value);
+        long before = governor.Snapshot().LiveMemoryBytes;
+        using ObjectStreamPayload payload = ObjectStreamPayload.Create([1], null, members, compress, null,
+            QpdfLimits.Default, governor, CancellationToken.None);
+        Assert.InRange(governor.Snapshot().LiveMemoryBytes - before, payload.Data.Length, payload.Data.Length + 256L);
+        byte[] raw = compress ? Decode(payload.Data) : payload.Data.ToArray();
+        Assert.Equal("1 0\n"u8.ToArray(), raw.AsSpan(0, 4).ToArray()); Assert.Equal(value, raw.AsSpan(4).ToArray());
+        payload.Dispose(); Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
+        Assert.Throws<ObjectDisposedException>(() => payload.Data);
+    }
+
     private static async Task<ObjectStreamCapture> Capture(ResourceGovernor governor, QpdfLimits limits, params byte[][] values)
     {
         ObjectStreamCapture members = ObjectStreamCapture.Create(values.Length, limits, governor, CancellationToken.None);
@@ -190,33 +210,30 @@ public sealed class ObjectStreamPayloadTests
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static (ObjectStreamPayload Payload, WeakReference Raw, WeakReference Stored) Owned(ObjectStreamCapture members,
+    private static (ObjectStreamPayload Payload, WeakReference Stored) Owned(ObjectStreamCapture members,
         ResourceGovernor governor, bool compress)
     {
         ObjectStreamPayload payload = ObjectStreamPayload.Create(new[] { 1 }, null, members, compress, null,
             QpdfLimits.Default, governor, CancellationToken.None);
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        object raw = typeof(ObjectStreamPayload).GetField("_raw", flags)?.GetValue(payload)
-            ?? throw new InvalidOperationException("Expected raw payload.");
-        object stored = typeof(ObjectStreamPayload).GetField("_stored", flags)?.GetValue(payload)
-            ?? throw new InvalidOperationException("Expected stored payload.");
-        return (payload, new WeakReference(raw), new WeakReference(stored));
+        if (!MemoryMarshal.TryGetArray(payload.Data, out ArraySegment<byte> stored) || stored.Array is null)
+        { throw new InvalidOperationException("Expected stored array payload."); }
+        return (payload, new WeakReference(stored.Array));
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task RetainedDisposedOwnerDropsRawAndCompressedBacking(bool compress)
+    public async Task RetainedDisposedOwnerDropsItsLiveBacking(bool compress)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ObjectStreamCapture members = await Capture(governor, QpdfLimits.Default, new byte[65536]);
         long before = governor.Snapshot().LiveMemoryBytes;
-        (ObjectStreamPayload payload, WeakReference raw, WeakReference stored) = Owned(members, governor, compress);
+        (ObjectStreamPayload payload, WeakReference stored) = Owned(members, governor, compress);
         GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-        Assert.True(raw.IsAlive); Assert.True(stored.IsAlive);
+        Assert.True(stored.IsAlive);
         payload.Dispose();
         GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-        Assert.False(raw.IsAlive); Assert.False(stored.IsAlive);
+        Assert.False(stored.IsAlive);
         Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(payload);
     }

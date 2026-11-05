@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Release raw object-stream assembly storage after successful compression, keeping
+  the stored buffer funded through writing. Preserve ordinary, QDF and linearized
+  output bytes and cleanup on cancellation or allocation refusal.
+
 - Make automatic resource pruning recognize indirect Kids arrays and Form Subtype
   names, matching equivalent direct values. Preserve independently rooted original
   resources, shared image identity and explicit pruning choices.
