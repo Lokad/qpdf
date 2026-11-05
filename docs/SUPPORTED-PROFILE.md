@@ -458,6 +458,11 @@ toward the configured selection ceiling.
   Empty selections have no fabricated selected row. Malformed indices, mismatched
   values and ambiguous exports warn and preserve the appearance/readiness state.
 
+Overlay form lookup treats an absent, direct-null or indirect-null Fields value
+as absent. Null T, FT and Kids values likewise do not establish imported field
+identity. Empty arrays and malformed non-null values keep their existing lenient
+classification; this does not add general form validation.
+
 Image optimization resolves indirect Image/Form subtype names before choosing
 traversal or sample processing; stale and malformed subtype values stay opaque.
 

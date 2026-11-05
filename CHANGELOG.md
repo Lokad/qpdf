@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Treat direct and indirect nulls alike when classifying overlay form presence
+  and field identity. Keep null Fields absent and ignore null T/FT/Kids identity
+  entries, while retaining existing empty and malformed non-null handling.
+
 - Project stored annotation Border radii/widths/dashes and supported BS widths
   and active dashes into transformed page units. Materialize required defaults,
   preserve zero/unused fields and private originals, and share projected values

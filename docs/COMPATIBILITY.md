@@ -742,6 +742,14 @@ is false when decoding is disabled, matching native eligibility. Raw image
 descriptors remain unchanged. This projection does not decode the image or
 predict memory/codec admission; native can also emit filter-limit warnings.
 
+Overlay form lookup now treats indirect-null Fields like direct null or absence,
+matching native qpdf. Null T, FT and Kids values do not establish imported field
+identity, regardless of indirection. Native qpdf 12.4.2 can register such a field
+for either null spelling; managed lookup deliberately uses resolved absence.
+Empty arrays and malformed non-null values retain their separate compatibility
+handling. Affected registrations, output bytes and identifiers can change; public
+signatures do not.
+
 Field-parent inheritance for generated appearances and imported overlay defaults
 now uses the configured nesting limit instead of separate 64/32-parent cutoffs.
 Excess depth fails before publication rather than silently applying partial state.

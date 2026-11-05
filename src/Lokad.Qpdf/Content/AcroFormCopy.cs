@@ -740,7 +740,7 @@ internal static class AcroFormCopy
 
         cancellationToken.ThrowIfCancellationRequested();
         governor.CheckCancellation();
-        if (!HasFieldIdentity(cursor, governor, cancellationToken))
+        if (!HasFieldIdentity(cursor, source, governor, cancellationToken))
         {
             return null;
         }
@@ -766,18 +766,21 @@ internal static class AcroFormCopy
 
     /// <summary>
     /// Reports whether a dictionary carries field identity: a partial name,
-    /// a kid array, or a field type, mirroring the reference field check.
+    /// a kid array, or a field type. Resolved nulls do not establish identity.
     /// </summary>
-    private static bool HasFieldIdentity(PdfDictionary node, ResourceGovernor governor, CancellationToken token)
+    private static bool HasFieldIdentity(PdfDictionary node, IIndirectResolver source, ResourceGovernor governor, CancellationToken token)
     {
         if (node is null)
         {
             throw new ArgumentNullException(nameof(node));
         }
 
-        return (PdfDictionaryLookup.TryGet(node, "T"u8, governor, token, out QpdfObject title) && title is not PdfNull)
-            || (PdfDictionaryLookup.TryGet(node, "Kids"u8, governor, token, out QpdfObject kids) && kids is not PdfNull)
-            || (PdfDictionaryLookup.TryGet(node, "FT"u8, governor, token, out QpdfObject type) && type is not PdfNull);
+        return (PdfDictionaryLookup.TryGet(node, "T"u8, governor, token, out QpdfObject title)
+                && CatalogCopy.ResolveValue(title, source, governor, token) is not PdfNull)
+            || (PdfDictionaryLookup.TryGet(node, "Kids"u8, governor, token, out QpdfObject kids)
+                && CatalogCopy.ResolveValue(kids, source, governor, token) is not PdfNull)
+            || (PdfDictionaryLookup.TryGet(node, "FT"u8, governor, token, out QpdfObject type)
+                && CatalogCopy.ResolveValue(type, source, governor, token) is not PdfNull);
     }
 
     /// <summary>
@@ -803,7 +806,7 @@ internal static class AcroFormCopy
         using ParserMemoryScope result = ParserMemoryScope.Create(governor);
         result.Reserve(72L);
         bool hasFields = PdfDictionaryLookup.TryGet(source, "Fields"u8, governor, cancellationToken, out QpdfObject fieldsRaw)
-            && fieldsRaw is not PdfNull;
+            && CatalogCopy.ResolveValue(fieldsRaw, engine, governor, cancellationToken) is not PdfNull;
         PdfByteString appearance = PdfDictionaryLookup.TryGet(source, "DA"u8, governor, cancellationToken, out QpdfObject daRaw)
             && CatalogCopy.ResolveValue(daRaw, engine, governor, cancellationToken) is PdfByteString da ? da : EmptyAppearance;
         int quadding = PdfDictionaryLookup.TryGet(source, "Q"u8, governor, cancellationToken, out QpdfObject qRaw)
