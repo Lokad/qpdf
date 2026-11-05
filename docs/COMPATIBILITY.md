@@ -895,6 +895,12 @@ Additional intentional data differences are:
   splitting retains source labels; native's combined selection-and-split command
   instead applies original label positions. Native selection followed by a
   separate split supplies the managed behavior's reference control.
+- Explicit output labels override source labels before splitting, including
+  reordered and repeated selections. Their numbering continues in assembled
+  output order. Native qpdf honors this for plain splitting but drops the
+  explicit request with combined page selection and splitting; managed output
+  deliberately applies the request consistently. Private original-label aliases
+  stay unchanged, and overridden source counters need no semantic interpretation.
 - Selected/merged label runs compare resolved style-name bytes and raw prefix
   string bytes. Equivalent direct and indirect values share a run while emitted
   references and independent private aliases remain intact. Whole-file rewrites

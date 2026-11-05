@@ -151,13 +151,13 @@ public sealed class LabelOutputOwnershipTests(ITestOutputHelper log)
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, Input, CancellationToken.None);
         Assert.Equal(operation == "split" ? 1 : 3, document.PageCount);
         PdfDictionary catalog = Assert.IsType<PdfDictionary>(document.GetObject(1));
-        if (operation == "split" && !inherited)
-        { Assert.False(catalog.TryGet(PdfName.FromAscii("PageLabels"), out _)); return; }
         Assert.True(catalog.TryGet(PdfName.FromAscii("PageLabels"), out QpdfObject tree));
         Assert.True(Assert.IsType<PdfDictionary>(tree).TryGet(PdfName.FromAscii("Nums"), out QpdfObject raw));
         PdfArray numbers = Assert.IsType<PdfArray>(raw);
         Assert.Equal(operation == "split" ? 2 : inherited && operation == "selection" ? 6 : 4, numbers.Count);
-        string expected = inherited && (operation == "selection" || operation == "split" && part != 2) ? "tail" : prefix;
+        bool tail = inherited && operation == "selection"
+            || operation == "split" && (inherited ? part != 2 : part > 1);
+        string expected = tail ? "tail" : prefix;
         PdfDictionary label = Assert.IsType<PdfDictionary>(numbers[1]);
         Assert.Equal(0L, Assert.IsType<PdfInteger>(numbers[0]).Value);
         Assert.True(label.TryGet(PdfName.FromAscii("P"), out QpdfObject text));
@@ -165,10 +165,15 @@ public sealed class LabelOutputOwnershipTests(ITestOutputHelper log)
         Assert.Equal(encoded, Assert.IsType<PdfByteString>(text).ValueSpan.ToArray());
         Assert.True(label.TryGet(PdfName.FromAscii("S"), out QpdfObject style));
         Assert.Equal(expected == "tail" ? "r" : "D", Assert.IsType<PdfName>(style).DisplayText);
+        // The unchanged explicit range retains its omitted default start of one.
+        if (operation == "split" && !inherited && part == 2)
+        { Assert.False(label.TryGet(PdfName.FromAscii("St"), out _)); return; }
         if (expected != "tail" || operation == "selection" || operation == "split")
         {
             Assert.True(label.TryGet(PdfName.FromAscii("St"), out QpdfObject start));
-            Assert.Equal(expected == "tail" ? operation == "split" && part == 3 ? 1L : 2L : 17L, Assert.IsType<PdfInteger>(start).Value);
+            long expectedStart = !tail ? 17L : operation != "split" ? 2L
+                : inherited ? part == 3 ? 1L : 2L : part - 1L;
+            Assert.Equal(expectedStart, Assert.IsType<PdfInteger>(start).Value);
         }
     }
 

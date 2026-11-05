@@ -724,7 +724,7 @@ public sealed class LabelTests
     }
 
     [Fact]
-    public async Task SetDroppedUnderSplit()
+    public async Task SetWinsUnderSplit()
     {
         byte[] labeled = BuildLabeledDoc(2, "<< /Nums [0 << /S /D >> 1 << /S /R /St 3 >>] >>", new List<string>());
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", labeled);
@@ -738,7 +738,14 @@ public sealed class LabelTests
         await using QpdfDocument firstOutput = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/first.pdf"), CancellationToken.None);
         (List<long> keys, List<PdfDictionary> dicts) = ReadNums(ReadLabels(firstOutput));
         Assert.Equal([0L], keys);
-        Assert.Equal("D", LabelStyle(dicts[0]));
+        Assert.Equal("A", LabelStyle(dicts[0]));
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/split-2.pdf"), out byte[] second));
+        host.AddInput(QpdfPath.From("inputs/second.pdf"), second, QpdfInputOwnership.Copy);
+        await using QpdfDocument secondOutput = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/second.pdf"), CancellationToken.None);
+        (List<long> secondKeys, List<PdfDictionary> secondDicts) = ReadNums(ReadLabels(secondOutput));
+        Assert.Equal([0L], secondKeys);
+        Assert.Equal("A", LabelStyle(secondDicts[0]));
+        Assert.Equal(2L, LabelStart(secondDicts[0]));
     }
 
     [Fact]

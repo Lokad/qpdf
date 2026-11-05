@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Apply explicit output page labels before splitting, consistently across typed,
+  argv and job routes. Preserve output-order continuations and private source
+  aliases without interpreting the source labels they replace.
+
 - Preserve NoRotate annotation anchors and orientation during rotation baking
   and overlay/underlay placement. Keep equivalent appearance frames shared and
   bind inherited source resources without rotating the preserved appearance.

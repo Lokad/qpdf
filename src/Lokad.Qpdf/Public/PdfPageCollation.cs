@@ -56,7 +56,7 @@ public sealed record PdfPageMergeOptions
     /// <summary>Gets the rotations applied to output pages, in order.</summary>
     public IReadOnlyList<PdfPageRotation> Rotations { get; init; } = [];
 
-    /// <summary>Gets the explicit page labels for the output document.</summary>
+    /// <summary>Gets labels in assembled output order, overriding source labels before splitting.</summary>
     public IReadOnlyList<PdfPageLabel> Labels { get; init; } = [];
 
     /// <summary>Gets the split group size in pages, or null to publish one output.</summary>

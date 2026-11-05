@@ -1023,7 +1023,7 @@ public static partial class Qpdf
         List<Content.CopiedForm?> multiForms = ParserContainers.CreateList<Content.CopiedForm?>(selectionMemory, documentCount, IntPtr.Size);
         List<Content.CopiedForm?> gateForms = ParserContainers.CreateList<Content.CopiedForm?>(selectionMemory, documentCount, IntPtr.Size);
         QpdfObject? verbatimCopied = null;
-        bool needSourceLabels = !settings.RemoveLabels && (settings.Labels.Count == 0 || splitPages.HasValue);
+        bool needSourceLabels = !settings.RemoveLabels && settings.Labels.Count == 0;
         selectionMemory.Reserve(96L);
         SortedDictionary<string, AttachmentReference> primaryExisting = new(StringComparer.Ordinal);
         QpdfObject? primaryPageMode = null;
@@ -1457,7 +1457,7 @@ public static partial class Qpdf
             labelItems = new List<(int Index, PdfDictionary Label)>();
             catalogLabels = null;
         }
-        else if (settings.Labels.Count == 0 || splitPages.HasValue)
+        else if (settings.Labels.Count == 0)
         {
             bool anyLabels = false;
             foreach (Content.SourceLabels? part in multiLabels)
