@@ -256,7 +256,7 @@ internal static class FlattenRotation
     // rebuilt. Other values stay borrowed, including malformed cyclic values.
     private static PdfDictionary CopyAppearanceDictionary(
         GraphCopier copier, PdfDictionary source, bool states, double[] matrix,
-        Dictionary<int, PdfReference> copies, ParserMemoryScope traversal,
+        Dictionary<(int Id, AnnotationCopyKind Kind, bool Frame), PdfReference> copies, ParserMemoryScope traversal,
         OwnedAllocationBatch graph, ref int allocator)
     {
         ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
@@ -290,12 +290,12 @@ internal static class FlattenRotation
 
     internal static PdfReference CopyRotatedAppearance(
         GraphCopier copier, PdfReference reference, double[] matrix,
-        Dictionary<int, PdfReference> copies, ParserMemoryScope traversal,
+        Dictionary<(int Id, AnnotationCopyKind Kind, bool Frame), PdfReference> copies, ParserMemoryScope traversal,
         OwnedAllocationBatch graph, ref int allocator)
     {
         ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
         token.ThrowIfCancellationRequested(); governor.CheckCancellation(); traversal.CheckOwner(governor);
-        if (copies.TryGetValue(reference.ObjectNumber, out PdfReference? existingCopy)) { return existingCopy; }
+        if (copies.TryGetValue((reference.ObjectNumber, AnnotationCopyKind.Appearance, false), out PdfReference? existingCopy)) { return existingCopy; }
         PoolResolver resolver = new(copier.CopiedObjects);
         if (ResolveOrNull(resolver, reference) is not PdfStream stream) { return reference; }
 
@@ -317,9 +317,9 @@ internal static class FlattenRotation
         graph.Memory.Reserve(32L); PdfStream result = stream.WithDictionary(header); graph.Add(32L);
         // The source can still be used by an unrotated page. Copy only the
         // header and preserve sharing within this page through the local memo.
-        ParserContainers.EnsureEntryCapacity(traversal, copies, sizeof(int) + IntPtr.Size);
+        ParserContainers.EnsureEntryCapacity(traversal, copies, 2L * sizeof(int) + IntPtr.Size);
         PdfReference copy = copier.AddIndirectObjectWithId(result, allocator); allocator = checked(allocator + 1);
-        copies.Add(reference.ObjectNumber, copy);
+        copies.Add((reference.ObjectNumber, AnnotationCopyKind.Appearance, false), copy);
         return copy;
     }
 
@@ -382,7 +382,7 @@ internal static class FlattenRotation
             return null;
         }
         using ParserMemoryScope appearanceMemory = ParserMemoryScope.Create(governor);
-        Dictionary<int, PdfReference> copies = ParserContainers.CreateDictionary<int, PdfReference>(appearanceMemory);
+        Dictionary<(int Id, AnnotationCopyKind Kind, bool Frame), PdfReference> copies = ParserContainers.CreateDictionary<(int, AnnotationCopyKind, bool), PdfReference>(appearanceMemory);
         HashSet<int> transformed = ParserContainers.CreateSet<int>(appearanceMemory);
         List<PdfReference> linked = ParserContainers.CreateList<PdfReference>(appearanceMemory);
         bool skipped = false;
@@ -427,6 +427,7 @@ internal static class FlattenRotation
                     entries.Assign(graph.Memory, governor, key, value, token);
                 }
             }
+            AnnotationBorders.Apply(annot, entries, frame, resolver, graph, copier, copies, appearanceMemory, ref allocator);
             PdfDictionary updated = PdfDictionaryRebuild.Complete(graph, entries, allocation);
             if (item is PdfReference annotReference) { copier.ReplaceCopiedObject(annotReference.ObjectNumber, updated); }
             else if (index < array.Count) { items[index] = updated; }

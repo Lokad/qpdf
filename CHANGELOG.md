@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Project stored annotation Border radii/widths/dashes and supported BS widths
+  and active dashes into transformed page units. Materialize required defaults,
+  preserve zero/unused fields and private originals, and share projected values
+  across equivalent uses. Refuse unusable required projections before publication;
+  retain supplied appearances without adding general border generation.
+
 - Treat absent/null page-label numbering styles as prefix-only. Skip inactive
   counters, omit them from authored/derived labels, and compact equal prefix runs
   through selection and splitting while retaining private original values.

@@ -170,7 +170,7 @@ public sealed class AppearanceHeaderStorageTests
         GraphCopier copier = GraphCopier.CreateOwned(engine, governor, limits, 1, copierMemory);
         PdfReference link = copier.AddIndirectObjectWithId(source, 1);
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
-        Dictionary<int, PdfReference> copies = ParserContainers.CreateDictionary<int, PdfReference>(traversal);
+        Dictionary<(int, AnnotationCopyKind, bool), PdfReference> copies = ParserContainers.CreateDictionary<(int, AnnotationCopyKind, bool), PdfReference>(traversal);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
         int allocator = 2;
         PdfReference copy = FlattenRotation.CopyRotatedAppearance(copier, link, [0, -1, 1, 0, 0, 612], copies, traversal, graph, ref allocator);
@@ -201,7 +201,7 @@ public sealed class AppearanceHeaderStorageTests
             if (rotation)
             {
                 using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
-                Dictionary<int, PdfReference> copies = ParserContainers.CreateDictionary<int, PdfReference>(traversal);
+                Dictionary<(int, AnnotationCopyKind, bool), PdfReference> copies = ParserContainers.CreateDictionary<(int, AnnotationCopyKind, bool), PdfReference>(traversal);
                 using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, CancellationToken.None);
                 FlattenRotation.CopyRotatedAppearance(copier, link, [1, 0, 0, 1, 0, 0], copies, traversal, graph, ref allocator);
             }

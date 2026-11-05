@@ -5,6 +5,12 @@ using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Content;
 
+// A dictionary or array can occur in more than one annotation role.
+internal enum AnnotationCopyKind : byte
+{
+    Appearance, AppearanceStates, BorderStyle, Border, Dash
+}
+
 internal static class AnnotationCopies
 {
     private readonly record struct AnnotationUse(int Owner, int LastPage, bool Shared, bool Changed, bool OwnerChanges);

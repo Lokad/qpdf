@@ -207,8 +207,8 @@ source Form's rotation/UserUnit transform before the destination placement.
 Native qpdf 12.4.2 can omit that source frame and move annotations relative to
 the imported page artwork. Private appearance aliases and payload sharing stay
 intact; affected output bytes and identifiers change. This correction covers the
-ordinary annotation frame. Source-page clipping and border geometry remain
-distinct limitations under review.
+ordinary annotation frame. Source-page clipping remains a separate limitation
+under review.
 
 NoRotate annotations now keep their transformed upper-left anchor and upright
 orientation during rotation baking and overlay/underlay placement. Direct and
@@ -221,6 +221,24 @@ their output and identifiers without changing public signatures. This describes
 stored geometry and static appearances, not general viewer zoom, popup UI or
 appearance regeneration. See the
 [PDF reference, section 8.4.2](https://opensource.adobe.com/dc-acrobat-sdk-docs/pdfstandards/pdfreference1.6.pdf).
+
+Stored annotation borders now follow that effective frame: Border corner radii
+change axes on quarter turns, and widths/dash lengths scale with imported units.
+Supported BS dictionaries take precedence over Border; missing W/D and implicit
+border defaults become explicit when scaling requires it. Zero-width borders
+and inactive dash data stay uninterpreted. Shared projected values remain shared,
+and private aliases retain original dictionaries, arrays and payloads.
+Malformed active values or non-finite transformed dimensions fail before
+publication when their required projection cannot be computed. Unchanged border
+frames keep their original values. Native qpdf 12.4.2 can retain the old dimensions
+in these cases; output bytes and identifiers intentionally change, with no public
+signature change.
+
+This corrects stored dimensions and preserves supplied static appearances.
+It does not generate border appearances or promise identical viewer-generated
+dash origins/path direction after rotation: those paths are absent from the
+stored border description. Existing no-appearance renderer differences remain
+outside that exact static-appearance contract; no rendering tolerance is implied.
 
 Recognized absolute coordinate arrays also receive the changed page frame:
 Line L, FreeText CL, Link/text-markup QuadPoints, Polygon/PolyLine Vertices and

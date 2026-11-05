@@ -59,11 +59,13 @@ public sealed class OverlayAdmissionTests
         ResourceGovernor governor = new(limits, operation.Token);
         using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
         {
+            Dictionary<(int, AnnotationCopyKind, bool), PdfReference> copies = ParserContainers.CreateDictionary<(int, AnnotationCopyKind, bool), PdfReference>(memory);
+            int allocator = copier.NextId;
             long baseline = governor.Snapshot().LiveMemoryBytes;
             if (failure == "caller") { caller.Cancel(); }
             if (failure == "governor") { operation.Cancel(); }
             Action rewrite = rectangle
-                ? () => Overlays.TransformOverlayRect(copier, 1, Identity, governor, memory, caller.Token)
+                ? () => Overlays.TransformOverlayRect(copier, 1, Identity, governor, memory, caller.Token, copies, memory, ref allocator)
                 : () => Overlays.RebuildOverlayPage(source, Dictionary(), new PdfReference(2, 0), governor, memory, caller.Token);
             long before = GC.GetAllocatedBytesForCurrentThread();
             if (failure == "refuse") { Assert.Throws<QpdfLimitException>(rewrite); }
@@ -138,7 +140,9 @@ public sealed class OverlayAdmissionTests
             long before = GC.GetAllocatedBytesForCurrentThread();
             if (rectangle)
             {
-                Overlays.TransformOverlayRect(copier, 1, Identity, governor, memory, CancellationToken.None);
+                Dictionary<(int, AnnotationCopyKind, bool), PdfReference> copies = ParserContainers.CreateDictionary<(int, AnnotationCopyKind, bool), PdfReference>(memory);
+                int allocator = copier.NextId;
+                Overlays.TransformOverlayRect(copier, 1, Identity, governor, memory, CancellationToken.None, copies, memory, ref allocator);
                 result = Assert.IsType<PdfDictionary>(copier.CopiedObjects[1]);
             }
             else

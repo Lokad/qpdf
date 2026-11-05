@@ -141,7 +141,7 @@ internal static class AnnotationCoordinates
         graph.Memory.Reserve(24L); PdfArray result = PdfArray.FromOwnedItems(points); graph.Add(24L); return result;
     }
 
-    private static double Number(QpdfObject? raw, PoolResolver resolver, OwnedAllocationBatch graph)
+    internal static double Number(QpdfObject? raw, PoolResolver resolver, OwnedAllocationBatch graph)
     {
         QpdfObject? value = CatalogCopy.ResolveValue(raw, resolver, graph.Governor, graph.Token);
         double number = value switch { PdfInteger integer => integer.Value, PdfReal real => real.Value, _ => double.NaN };
@@ -149,7 +149,7 @@ internal static class AnnotationCoordinates
         return number;
     }
 
-    private static PdfReal Coordinate(double value, OwnedAllocationBatch graph)
+    internal static PdfReal Coordinate(double value, OwnedAllocationBatch graph)
     {
         Span<char> text = stackalloc char[384];
         int count = WriterNumber.FormatGeometry(value, text);

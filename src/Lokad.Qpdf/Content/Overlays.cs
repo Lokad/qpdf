@@ -1316,7 +1316,7 @@ internal static class Overlays
         // for linked-only popups instead of allocating another root list.
         int listedCount = fresh.Count;
         // The frame bit distinguishes shared AP uses within this placement.
-        Dictionary<(int Id, bool States, bool PreserveFrame), PdfReference> appearances = ParserContainers.CreateDictionary<(int, bool, bool), PdfReference>(traversal);
+        Dictionary<(int Id, AnnotationCopyKind Kind, bool Frame), PdfReference> appearances = ParserContainers.CreateDictionary<(int, AnnotationCopyKind, bool), PdfReference>(traversal);
         using OwnedAllocationBatch appearanceGraph = OwnedAllocationBatch.Create(governor, cancellationToken);
         for (int index = 0; index < fresh.Count; index++)
         {
@@ -1328,7 +1328,7 @@ internal static class Overlays
                 && PdfDictionaryLookup.TryGet(dictionary, "Popup"u8, governor, cancellationToken, out QpdfObject popup)
                 && popup is PdfReference popupReference && !transformed.Contains(popupReference.ObjectNumber))
             { ParserContainers.AddItem(scratch, fresh, popupReference, IntPtr.Size); }
-            bool preserveFrame = TransformOverlayRect(destCopier, annotation.ObjectNumber, cm, governor, ownership, cancellationToken);
+            bool preserveFrame = TransformOverlayRect(destCopier, annotation.ObjectNumber, cm, governor, ownership, cancellationToken, appearances, traversal, ref allocator);
             CopyOverlayAppearances(destCopier, annotation.ObjectNumber, preserveFrame ? null : cm,
                 appearanceResources, appearances, traversal, appearanceGraph, diagnostics, ref allocator);
         }
@@ -1754,7 +1754,9 @@ internal static class Overlays
     }
 
     internal static bool TransformOverlayRect(GraphCopier destCopier, int annotId, double[] cm,
-        ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token)
+        ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token,
+        Dictionary<(int Id, AnnotationCopyKind Kind, bool Frame), PdfReference> copies,
+        ParserMemoryScope traversal, ref int allocator)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation(); ownership.CheckOwner(governor);
         if (!destCopier.CopiedObjects.TryGetValue(annotId, out QpdfObject? raw) || raw is not PdfDictionary annot) { return false; }
@@ -1784,6 +1786,7 @@ internal static class Overlays
             }
         }
         if (!sawRect) { entries.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "Rect"u8), values, token); }
+        AnnotationBorders.Apply(annot, entries, frame, pool, graph, destCopier, copies, traversal, ref allocator);
         PdfDictionary result = PdfDictionaryRebuild.Complete(graph, entries, allocation);
         destCopier.ValidateReplacement(annotId); graph.Memory.TransferTo(ownership, graph.Bytes);
         destCopier.ReplaceCopiedObject(annotId, result);
@@ -1791,7 +1794,7 @@ internal static class Overlays
     }
 
     private static void CopyOverlayAppearances(GraphCopier copier, int annotId, double[]? cm,
-        QpdfObject? pageResources, Dictionary<(int Id, bool States, bool PreserveFrame), PdfReference> copies,
+        QpdfObject? pageResources, Dictionary<(int Id, AnnotationCopyKind Kind, bool Frame), PdfReference> copies,
         ParserMemoryScope traversal, OwnedAllocationBatch graph, DiagnosticBag diagnostics, ref int allocator)
     {
         ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
@@ -1805,14 +1808,14 @@ internal static class Overlays
     }
 
     private static QpdfObject CopyOverlayAppearanceDictionary(GraphCopier copier, QpdfObject raw, bool states,
-        double[]? cm, QpdfObject? pageResources, Dictionary<(int Id, bool States, bool PreserveFrame), PdfReference> copies,
+        double[]? cm, QpdfObject? pageResources, Dictionary<(int Id, AnnotationCopyKind Kind, bool Frame), PdfReference> copies,
         ParserMemoryScope traversal, OwnedAllocationBatch graph, DiagnosticBag diagnostics, ref int allocator)
     {
         ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
         PoolResolver pool = new(copier.CopiedObjects);
         if (CatalogCopy.ResolveValue(raw, pool, governor, token) is not PdfDictionary dictionary) { return raw; }
         PdfReference? reference = raw as PdfReference;
-        if (reference is not null && copies.TryGetValue((reference.ObjectNumber, states, cm is null), out PdfReference? cached)) { return cached; }
+        if (reference is not null && copies.TryGetValue((reference.ObjectNumber, states ? AnnotationCopyKind.AppearanceStates : AnnotationCopyKind.Appearance, cm is null), out PdfReference? cached)) { return cached; }
         PdfNameTable<QpdfObject>? entries = null; long allocation = 0L;
         using PdfDictionary.EntryEnumerator source = dictionary.GetEntryEnumerator();
         while (source.MoveNext(governor, token))
@@ -1824,11 +1827,11 @@ internal static class Overlays
             QpdfObject? target = CatalogCopy.ResolveValue(value, pool, governor, token);
             if (value is PdfReference streamReference && target is PdfStream)
             {
-                if (!copies.TryGetValue((streamReference.ObjectNumber, false, cm is null), out PdfReference? placed))
+                if (!copies.TryGetValue((streamReference.ObjectNumber, AnnotationCopyKind.Appearance, cm is null), out PdfReference? placed))
                 {
                     placed = CopyOverlayAppearanceStream(copier, streamReference, cm, pageResources, graph, diagnostics, ref allocator);
                     ParserContainers.EnsureEntryCapacity(traversal, copies, 2L * sizeof(int) + IntPtr.Size);
-                    copies.Add((streamReference.ObjectNumber, false, cm is null), placed);
+                    copies.Add((streamReference.ObjectNumber, AnnotationCopyKind.Appearance, cm is null), placed);
                 }
                 replacement = placed;
             }
@@ -1857,7 +1860,7 @@ internal static class Overlays
         if (reference is not null)
         {
             ParserContainers.EnsureEntryCapacity(traversal, copies, 2L * sizeof(int) + IntPtr.Size);
-            copies.Add((reference.ObjectNumber, states, cm is null), (PdfReference)result);
+            copies.Add((reference.ObjectNumber, states ? AnnotationCopyKind.AppearanceStates : AnnotationCopyKind.Appearance, cm is null), (PdfReference)result);
         }
         return result;
     }

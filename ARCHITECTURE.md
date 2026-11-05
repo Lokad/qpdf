@@ -118,6 +118,11 @@ changes describe stored geometry and do not add an appearance generator.
 NoRotate annotations retain their upper-left anchor and unrotated appearance
 frame. Placements still bind inherited source resources; the existing appearance
 memo distinguishes changed frames while equivalent frames retain sharing.
+Border radii, widths and active dash lengths use the same effective frame.
+Missing scalar defaults are materialized only when scaling requires it; zero
+widths and inactive dash data remain borrowed. The existing per-frame memo tags
+border/style/dash roles separately from appearances, preserving shared projected
+values and independent original aliases without a second graph walk.
 The first registered page identity remains canonical when a page is repeated;
 later catalog and destination copies cannot retarget it to a duplicate occurrence.
 Serialization authors each page's Parent backlink during the existing header

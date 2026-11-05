@@ -5,6 +5,7 @@ using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.TestSupport;
 using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Writing;
@@ -156,8 +157,10 @@ public sealed class NoRotateFrameTests
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 768L }, CancellationToken.None);
         using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
         {
+            Dictionary<(int, AnnotationCopyKind, bool), PdfReference> copies = ParserContainers.CreateDictionary<(int, AnnotationCopyKind, bool), PdfReference>(memory);
             long before = governor.Snapshot().LiveMemoryBytes, allocated = GC.GetAllocatedBytesForCurrentThread();
-            Assert.Throws<QpdfLimitException>(() => Overlays.TransformOverlayRect(copier, 1, [0, -1, 1, 0, 0, 100], governor, memory, CancellationToken.None));
+            int allocator = copier.NextId;
+            Assert.Throws<QpdfLimitException>(() => Overlays.TransformOverlayRect(copier, 1, [0, -1, 1, 0, 0, 100], governor, memory, CancellationToken.None, copies, memory, ref allocator));
             Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 65536L);
             Assert.Same(source, copier.CopiedObjects[1]); Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
         }
