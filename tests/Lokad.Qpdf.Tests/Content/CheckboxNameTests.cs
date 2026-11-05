@@ -94,7 +94,7 @@ public sealed class CheckboxNameTests
         copier.AddIndirectObjectWithId(PdfStream.FromOwnedData(new PdfDictionary(new Dictionary<PdfName, QpdfObject>()), []), 4);
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096 }, CancellationToken.None);
         long allocated = GC.GetAllocatedBytesForCurrentThread();
-        void Run() => GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, CopiedForm?>(), QpdfLimits.Default, governor, new(governor), canceled ? new CancellationToken(true) : CancellationToken.None, new HashSet<int> { 3 }, false, 5);
+        void Run() => GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, CopiedForm?>(), QpdfLimits.Default, governor, new(governor), canceled ? new CancellationToken(true) : CancellationToken.None, new HashSet<int> { 3 }, false, null, 5);
         if (canceled) { Assert.ThrowsAny<OperationCanceledException>(Run); } else { Assert.Throws<QpdfLimitException>(Run); }
         Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 131072L); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.Same(field, copier.CopiedObjects[2]); Assert.Same(widget, copier.CopiedObjects[3]);

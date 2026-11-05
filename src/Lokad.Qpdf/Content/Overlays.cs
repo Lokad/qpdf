@@ -11,7 +11,8 @@ using Lokad.Qpdf.Writing;
 namespace Lokad.Qpdf.Content;
 
 internal sealed record OverlayApplication(List<GraphCopier> Copiers, int NextId,
-    IReadOnlyList<AcroFormCopy.FieldImport> FieldImports, QpdfDocument.VersionParts? Version, int ExtensionLevel);
+    IReadOnlyList<AcroFormCopy.FieldImport> FieldImports, QpdfDocument.VersionParts? Version, int ExtensionLevel,
+    HashSet<int>? GeneratedWidgets, bool GenerationComplete);
 
 internal static class Overlays
 {
@@ -31,7 +32,9 @@ internal static class Overlays
         CancellationToken cancellationToken,
         int nextId,
         IIndirectResolver? retainedResolver,
-        HashSet<int>? processedContentForms)
+        HashSet<int>? processedContentForms,
+        bool generateAppearances,
+        bool primaryNeedsAppearances)
     {
         if (host is null)
         {
@@ -73,7 +76,7 @@ internal static class Overlays
         ownership.CheckOwner(governor);
         if ((underlays.Count == 0 && overlays.Count == 0) || occurrences.Count == 0)
         {
-            return new OverlayApplication([], nextId, [], null, 0);
+            return new OverlayApplication([], nextId, [], null, 0, null, true);
         }
 
         if ((long)occurrences.Count > limits.MaxContainerSize)
@@ -104,6 +107,15 @@ internal static class Overlays
 
             Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache = ParserContainers.CreateDictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm>(planning);
             List<AcroFormCopy.FieldImport> imports = ParserContainers.CreateList<AcroFormCopy.FieldImport>(ownership);
+            bool deferAnnotations = generateAppearances && !primaryNeedsAppearances
+                && (HasNeededForm(underlayPages, governor, cancellationToken)
+                    || HasNeededForm(overlayPages, governor, cancellationToken));
+            List<(int Destination, double[] Box, double[] Transform)>? prepared = deferAnnotations
+                ? ParserContainers.CreateList<(int, double[], double[])>(planning) : null;
+            const long frameBytes = 2L * GovernedBufferStream.ArrayOverheadBytes + 10L * sizeof(double);
+            HashSet<int>? generatedWidgets = generateAppearances && primaryNeedsAppearances
+                ? ParserContainers.CreateSet<int>(ownership) : null;
+            bool generationComplete = true;
             for (int dest = 0; dest < occurrences.Count; dest++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -121,14 +133,17 @@ internal static class Overlays
                     continue;
                 }
 
-                ApplyToPage(
+                // Retain only successful destination frames when imported forms
+                // must establish the global generation gate. Ordinary calls keep
+                // their immediate annotation-copy order and no frame list.
+                if (prepared is not null) { planning.Reserve(frameBytes); }
+                (double[] Box, double[] Transform)? frame = ApplyToPage(
                     copier,
                     pageId,
                     (PdfDictionary)raw,
                     below,
                     above,
                     formCache,
-                    imports,
                     retainedResolver,
                     processedContentForms,
                     compress,
@@ -138,6 +153,36 @@ internal static class Overlays
                     diagnostics,
                     cancellationToken,
                     ref allocator);
+                if (frame is null)
+                {
+                    if (prepared is not null) { planning.Release(frameBytes); }
+                    continue;
+                }
+                if (prepared is not null)
+                { ParserContainers.AddItem(planning, prepared, (dest, frame.Value.Box, frame.Value.Transform), 24L); }
+                else
+                {
+                    CopyPlacementAnnotations(copier, pageId, frame.Value.Box, frame.Value.Transform, below, above,
+                        formCache, imports, generatedWidgets, ref generationComplete, compress, level, limits,
+                        governor, planning, ownership, diagnostics, cancellationToken, ref allocator);
+                }
+            }
+
+            if (prepared is not null)
+            {
+                if (HasNeededImport(underlayPages, prepared, formCache, governor, cancellationToken)
+                    || HasNeededImport(overlayPages, prepared, formCache, governor, cancellationToken))
+                { generatedWidgets = ParserContainers.CreateSet<int>(ownership); }
+                foreach (var frame in prepared)
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    (GraphCopier copier, int pageId) = occurrences[frame.Destination];
+                    IReadOnlyList<OverlayPlacement> below = underlayPages.TryGetValue(frame.Destination, out List<OverlayPlacement>? under) ? under : Array.Empty<OverlayPlacement>();
+                    IReadOnlyList<OverlayPlacement> above = overlayPages.TryGetValue(frame.Destination, out List<OverlayPlacement>? over) ? over : Array.Empty<OverlayPlacement>();
+                    CopyPlacementAnnotations(copier, pageId, frame.Box, frame.Transform, below, above, formCache,
+                        imports, generatedWidgets, ref generationComplete, compress, level, limits, governor,
+                        planning, ownership, diagnostics, cancellationToken, ref allocator);
+                }
             }
 
             List<GraphCopier> copiers = ParserContainers.CreateList<GraphCopier>(ownership);
@@ -154,7 +199,7 @@ internal static class Overlays
                 CatalogCopy.IncludeSourceVersion(ref version, ref extensionLevel, source.Document, governor, cancellationToken);
             }
 
-            return new OverlayApplication(copiers, allocator, imports, version, extensionLevel);
+            return new OverlayApplication(copiers, allocator, imports, version, extensionLevel, generatedWidgets, generationComplete);
         }
         finally
         {
@@ -193,6 +238,53 @@ internal static class Overlays
     private sealed record ResolvedSpec(OverlaySource Source, int SpecIndex, GovernedIntDictionary<PageBundle> Bundles);
 
     private readonly record struct OverlayPlacement(ResolvedSpec Spec, int FromPage);
+
+    private static bool HasNeededForm(GovernedIntDictionary<List<OverlayPlacement>> pages,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        foreach (var entry in pages)
+        foreach (OverlayPlacement placement in entry.Value)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (placement.Spec.Source.FormInfo is { HasFields: true, NeedAppearances: true }) { return true; }
+        }
+        return false;
+    }
+
+    private static bool HasNeededImport(GovernedIntDictionary<List<OverlayPlacement>> pages,
+        IReadOnlyList<(int Destination, double[] Box, double[] Transform)> prepared,
+        Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        foreach (var frame in prepared)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (!pages.TryGetValue(frame.Destination, out List<OverlayPlacement>? placements)) { continue; }
+            foreach (OverlayPlacement placement in placements)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                OverlaySource source = placement.Spec.Source;
+                if (source.FormInfo is not { HasFields: true, NeedAppearances: true }
+                    || !formCache.ContainsKey((source.Copier, placement.Spec.SpecIndex, placement.FromPage))) { continue; }
+                IIndirectResolver resolver = source.Document.Engine;
+                PdfDictionary page = source.Document.PageReferences[placement.FromPage - 1].Page;
+                if (!PdfDictionaryLookup.TryGet(page, "Annots"u8, governor, token, out QpdfObject raw)
+                    || CatalogCopy.ResolveValue(raw, resolver, governor, token) is not PdfArray annotations) { continue; }
+                for (int index = 0; index < annotations.Count; index++)
+                {
+                    token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    if (annotations[index] is not PdfReference reference
+                        || CatalogCopy.ResolveDictionary(reference, resolver, governor, token) is not PdfDictionary widget
+                        || IsPageTreeDictionary(widget, resolver) || !IsWidgetAnnotation(widget, resolver)) { continue; }
+                    AcroFormCopy.OverlayTopMatch? top = AcroFormCopy.FindOverlayTopField(widget, reference, true, resolver, governor, token);
+                    if (top is not { DirectTop: false, Reference: PdfReference field }) { continue; }
+                    if (CatalogCopy.ResolveDictionary(field, resolver, governor, token) is PdfDictionary root
+                        && !IsPageTreeDictionary(root, resolver)) { return true; }
+                }
+            }
+        }
+        return false;
+    }
 
     private static async ValueTask ResolveSpecAsync(
         IQpdfHost host,
@@ -528,14 +620,13 @@ internal static class Overlays
         return true;
     }
 
-    private static void ApplyToPage(
+    private static (double[] Box, double[] Transform)? ApplyToPage(
         GraphCopier copier,
         int pageId,
         PdfDictionary page,
         IReadOnlyList<OverlayPlacement> underlays,
         IReadOnlyList<OverlayPlacement> overlays,
         Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache,
-        List<AcroFormCopy.FieldImport> imports,
         IIndirectResolver? retainedResolver,
         HashSet<int>? processedContentForms,
         bool compress,
@@ -556,12 +647,12 @@ internal static class Overlays
         if (placeBox is null || media is null)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Output page has no bounding box; skipping overlay for it.");
-            return;
+            return null;
         }
         if (!TryIntersectRectangle(placeBox, media, out _))
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Output page has an empty media intersection; skipping overlay for it.");
-            return;
+            return null;
         }
 
         long rotate = 0L;
@@ -592,7 +683,7 @@ internal static class Overlays
         if (pageContent is null)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Output page content could not be read; skipping overlay for it.");
-            return;
+            return null;
         }
 
         PdfDictionary? pageResources = null;
@@ -607,7 +698,7 @@ internal static class Overlays
         if (!page.TryGet(PdfName.FromAscii("MediaBox"), out QpdfObject? pageBoxObject) || pageBoxObject is null)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Output page has no bounding box; skipping overlay for it.");
-            return;
+            return null;
         }
 
         ownership.Reserve(512L); // Bounded Form header; resources and payloads are borrowed.
@@ -695,7 +786,7 @@ internal static class Overlays
         allocator = checked(allocator + 1);
         PdfDictionary replaced = RebuildOverlayPage(page, outputResources, stackedLink, governor, ownership, cancellationToken);
         copier.ReplaceCopiedObject(pageId, replaced);
-        CopyPlacementAnnotations(copier, pageId, placeBox, destTransform, underlays, overlays, formCache, imports, compress, level, limits, governor, planning, ownership, diagnostics, cancellationToken, ref allocator);
+        return (placeBox, destTransform);
     }
 
     private sealed record OverlayForm(PdfReference Link, double[] Box, double[]? FormMatrix);
@@ -1135,6 +1226,8 @@ internal static class Overlays
         IReadOnlyList<OverlayPlacement> overlays,
         Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache,
         List<AcroFormCopy.FieldImport> imports,
+        HashSet<int>? generatedWidgets,
+        ref bool generationComplete,
         bool compress,
         int? level,
         QpdfLimits limits,
@@ -1146,8 +1239,8 @@ internal static class Overlays
         ref int allocator)
     {
         limits.Validate();
-        CopyGroupAnnotations(copier, pageId, placeBox, destTransform, underlays, formCache, imports, compress, level, limits, governor, planning, ownership, diagnostics, cancellationToken, ref allocator);
-        CopyGroupAnnotations(copier, pageId, placeBox, destTransform, overlays, formCache, imports, compress, level, limits, governor, planning, ownership, diagnostics, cancellationToken, ref allocator);
+        CopyGroupAnnotations(copier, pageId, placeBox, destTransform, underlays, formCache, imports, generatedWidgets, ref generationComplete, compress, level, limits, governor, planning, ownership, diagnostics, cancellationToken, ref allocator);
+        CopyGroupAnnotations(copier, pageId, placeBox, destTransform, overlays, formCache, imports, generatedWidgets, ref generationComplete, compress, level, limits, governor, planning, ownership, diagnostics, cancellationToken, ref allocator);
     }
 
     private static void CopyGroupAnnotations(
@@ -1158,6 +1251,8 @@ internal static class Overlays
         IReadOnlyList<OverlayPlacement> placements,
         Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache,
         List<AcroFormCopy.FieldImport> imports,
+        HashSet<int>? generatedWidgets,
+        ref bool generationComplete,
         bool compress,
         int? level,
         QpdfLimits limits,
@@ -1184,7 +1279,7 @@ internal static class Overlays
                 (cm[0], cm[1], cm[2], cm[3], cm[4], cm[5]) =
                     (complete.A, complete.B, complete.C, complete.D, complete.E, complete.F);
             }
-            CopyOverlayPageAnnots(copier, pageId, placement.Spec.Source, placement.FromPage, cm, imports, limits, governor, ownership, diagnostics, cancellationToken, ref allocator);
+            CopyOverlayPageAnnots(copier, pageId, placement.Spec.Source, placement.FromPage, cm, imports, generatedWidgets, ref generationComplete, limits, governor, ownership, diagnostics, cancellationToken, ref allocator);
         }
     }
 
@@ -1195,6 +1290,8 @@ internal static class Overlays
         int fromPage,
         double[] cm,
         List<AcroFormCopy.FieldImport> imports,
+        HashSet<int>? generatedWidgets,
+        ref bool generationComplete,
         QpdfLimits limits,
         ResourceGovernor governor,
         ParserMemoryScope ownership,
@@ -1240,6 +1337,7 @@ internal static class Overlays
         int firstImport = imports.Count;
         AcroFormCopy.OverlaySourceForm? sourceForm = source.FormInfo;
         PdfReference? placementDr = null;
+        HashSet<int>? registeredFields = null;
         bool needsPageResources = false;
         int annotIndex = 0;
         for (int index = 0; index < annots.Count; index++)
@@ -1273,7 +1371,7 @@ internal static class Overlays
             needsPageResources |= AppearanceResources.NeedsPageResources(annot, resolver, governor, cancellationToken);
             if (IsWidgetAnnotation(annot, resolver))
             {
-                if (TryImportOverlayWidget(destCopier, engine, annot, item, fromPage, annotIndex, source, sourceForm, memo, scratch, imports, ref placementDr, limits, governor, ownership, diagnostics, cancellationToken, ref allocator, ref nullId, fresh))
+                if (TryImportOverlayWidget(destCopier, engine, annot, item, fromPage, annotIndex, source, sourceForm, memo, scratch, imports, ref placementDr, ref registeredFields, limits, governor, ownership, diagnostics, cancellationToken, ref allocator, ref nullId, fresh))
                 {
                     annotIndex += 1;
                     continue;
@@ -1307,6 +1405,14 @@ internal static class Overlays
 
         SourceActions.BindPlacement(engine, source.Copier, destCopier, fresh, imports, firstImport,
             governor, ownership, cancellationToken, ref allocator);
+
+        // Generation consumes the source defaults and untransformed layout.
+        // Final generation reuses this visited set, preserving the placed AP.
+        if (generatedWidgets is not null)
+        {
+            generationComplete &= GenerateAppearances.ApplyImported(destCopier, fresh, imports, firstImport,
+                limits, governor, diagnostics, cancellationToken, generatedWidgets, ownership, ref allocator);
+        }
 
         // Geometry changes each annotation once. Appearance roles get fresh headers;
         // independently retained aliases keep the original stream and containers.
@@ -1402,6 +1508,7 @@ internal static class Overlays
         ParserMemoryScope scratch,
         List<AcroFormCopy.FieldImport> imports,
         ref PdfReference? placementDr,
+        ref HashSet<int>? registeredFields,
         QpdfLimits limits,
         ResourceGovernor governor,
         ParserMemoryScope ownership,
@@ -1455,7 +1562,10 @@ internal static class Overlays
 
         PdfReference topReference = top.Reference ?? annotationReference;
         source.Copier.SignaturePolicy.ValidateField(topReference);
-        if (!memo.ContainsKey(topReference.ObjectNumber))
+        // Opaque annotation edges may have copied this field already. Storage
+        // identity does not establish its registration in this placement's form.
+        registeredFields ??= ParserContainers.CreateSet<int>(scratch);
+        if (ParserContainers.AddSetItem(scratch, registeredFields, topReference.ObjectNumber, sizeof(int)))
         {
             QpdfObject fieldCopy = CopyOverlayNode(topReference, sourceEngine, source.Copier, destCopier, memo, scratch, ref allocator, ref nullId, limits, governor, ownership, cancellationToken, 0);
             if (fieldCopy is not PdfReference fieldRef)

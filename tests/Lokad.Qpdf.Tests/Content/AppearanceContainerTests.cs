@@ -71,7 +71,7 @@ public sealed class AppearanceContainerTests
         void Run()
         {
             if (mode.StartsWith("generation", StringComparison.Ordinal))
-            { GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, CopiedForm?>(), QpdfLimits.Default, governor, diagnostics, CancellationToken.None, new HashSet<int> { 3 }, true, 5); }
+            { GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, CopiedForm?>(), QpdfLimits.Default, governor, diagnostics, CancellationToken.None, new HashSet<int> { 3 }, true, null, 5); }
             else { FlattenAnnotations.Apply([(copier, 1)], "all", false, false, null, QpdfLimits.Default, governor, diagnostics, CancellationToken.None, 5); }
         }
         if (mode == "generation-noop") { Run(); } else { Assert.Throws<QpdfLimitException>(Run); }
@@ -94,7 +94,7 @@ public sealed class AppearanceContainerTests
         copier.AddIndirectObjectWithId(page, 1); copier.AddIndirectObjectWithId(annots, 2); copier.AddIndirectObjectWithId(widget, 3);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, CopiedForm?>(), QpdfLimits.Default,
-            governor, new(governor), CancellationToken.None, new HashSet<int> { 3 }, false, 4);
+            governor, new(governor), CancellationToken.None, new HashSet<int> { 3 }, false, null, 4);
         Assert.Same(page, copier.CopiedObjects[1]); Assert.Same(annots, copier.CopiedObjects[2]); Assert.NotSame(widget, copier.CopiedObjects[3]);
     }
 
@@ -115,7 +115,7 @@ public sealed class AppearanceContainerTests
             PdfArray original = new([skipped, widget]); PdfDictionary page = Dict(("Annots", indirectArray ? new PdfReference(2, 0) : original));
             copier.AddIndirectObjectWithId(page, 1); copier.AddIndirectObjectWithId(original, 2);
             GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, CopiedForm?>(), QpdfLimits.Default,
-                governor, new(governor), CancellationToken.None, new HashSet<int>(), true, 3);
+                governor, new(governor), CancellationToken.None, new HashSet<int>(), true, null, 3);
             Assert.Same(original, copier.CopiedObjects[2]);
             Assert.True(Assert.IsType<PdfDictionary>(copier.CopiedObjects[1]).TryGet(PdfName.FromAscii("Annots"), out QpdfObject value));
             if (indirectArray)

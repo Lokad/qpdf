@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Generate imported widget appearances with source defaults/resources and layout
+  before placement. Ignore skipped placements when establishing readiness, and
+  retain field registrations even when private references copied their graphs first.
+
 - Treat direct and indirect nulls alike when classifying overlay form presence
   and field identity. Keep null Fields absent and ignore null T/FT/Kids identity
   entries, while retaining existing empty and malformed non-null handling.

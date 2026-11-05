@@ -27,6 +27,7 @@ internal static class GenerateAppearances
         CancellationToken cancellationToken,
         HashSet<int>? reachedAnnots,
         bool warnUnreachable,
+        IReadOnlySet<int>? alreadyGenerated,
         int allocator)
     {
         if (occurrences is null)
@@ -108,7 +109,8 @@ internal static class GenerateAppearances
                 if (entryTarget is not PdfDictionary annot
                     || !PdfDictionaryLookup.HasName(annot, "Subtype"u8, "Widget"u8, resolver, governor, cancellationToken)) { continue; }
                 int? annotId = (item as PdfReference)?.ObjectNumber;
-                if (annotId.HasValue && !ParserContainers.AddSetItem(traversal, generated, annotId.Value, sizeof(int))) { continue; }
+                if (annotId.HasValue && (alreadyGenerated?.Contains(annotId.Value) == true
+                    || !ParserContainers.AddSetItem(traversal, generated, annotId.Value, sizeof(int)))) { continue; }
                 if (!IsReached(annotId, reachedAnnots, warnUnreachable, diagnostics)) { complete = false; continue; }
                 FieldContext field = ResolveField(copier, form, annot, annotId, resolver, parents, traversal, limits, governor, cancellationToken);
                 if (field.Type == FieldType.Other) { complete = false; continue; }
@@ -124,14 +126,8 @@ internal static class GenerateAppearances
                         directEntries[at] = annots[at];
                     }
                 }
-                PdfDictionary? updated;
-                if (field.Type == FieldType.Button)
-                { updated = SyncButton(copier, annot, annotId, field, resolver, diagnostics, governor, cancellationToken); }
-                else
-                {
-                    updated = GenerateText(copier, annot, annotId, field, resolver, limits, governor, diagnostics,
-                        cancellationToken, formResources, defaultAppearance, ref allocator);
-                }
+                PdfDictionary? updated = GenerateWidget(copier, annot, annotId, field, resolver,
+                    limits, governor, diagnostics, cancellationToken, formResources, defaultAppearance, ref allocator);
                 if (updated is null) { complete = false; }
                 if (updated is not null && !annotId.HasValue && directEntries is not null)
                 { directEntries[index] = updated; pageChanged = true; }
@@ -159,6 +155,62 @@ internal static class GenerateAppearances
         }
 
         return (allocator, complete);
+    }
+
+    internal static bool ApplyImported(GraphCopier copier, IReadOnlyList<PdfReference> annotations,
+        IReadOnlyList<AcroFormCopy.FieldImport> imports, int firstImport, QpdfLimits limits,
+        ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token,
+        HashSet<int> generated, ParserMemoryScope generationMemory, ref int allocator)
+    {
+        generationMemory.CheckOwner(governor);
+        if (firstImport == imports.Count) { return true; }
+        using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
+        List<CopiedForm?> parts = ParserContainers.CreateList<CopiedForm?>(traversal);
+        for (int index = firstImport; index < imports.Count; index++)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            ParserContainers.AddItem(traversal, parts, imports[index].Part, IntPtr.Size);
+        }
+        CopiedForm? form = AcroFormCopy.CombineRegistrations(parts, governor, traversal, token);
+        if (form is null) { return true; }
+        HashSet<int> survivors = ParserContainers.CreateSet<int>(traversal);
+        foreach (PdfReference annotation in annotations)
+        { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); ParserContainers.AddSetItem(traversal, survivors, annotation.ObjectNumber, sizeof(int)); }
+        (_, HashSet<int> reached) = AcroFormCopy.CollectKeptClosure(copier.CopiedObjects, form.Fields,
+            survivors, true, limits, governor, traversal, token);
+        PoolResolver resolver = new(copier.CopiedObjects);
+        PdfDictionary? resources = form.DefaultResources is QpdfObject rawResources
+            ? ResolveFieldValue(rawResources, resolver, governor, token) as PdfDictionary : null;
+        PdfByteString? appearance = imports[firstImport].SourceDefaultAppearance;
+        Dictionary<GraphCopier, FieldParents> parents = ParserContainers.CreateDictionary<GraphCopier, FieldParents>(traversal);
+        bool complete = true;
+        foreach (PdfReference reference in annotations)
+        {
+            token.ThrowIfCancellationRequested(); governor.NoteOperation();
+            if (!reached.Contains(reference.ObjectNumber)
+                || !copier.CopiedObjects.TryGetValue(reference.ObjectNumber, out QpdfObject? raw)
+                || raw is not PdfDictionary widget
+                || !PdfDictionaryLookup.HasName(widget, "Subtype"u8, "Widget"u8, resolver, governor, token)
+                || !ParserContainers.AddSetItem(generationMemory, generated, reference.ObjectNumber, sizeof(int))) { continue; }
+            FieldContext field = ResolveField(copier, form, widget, reference.ObjectNumber, resolver, parents,
+                traversal, limits, governor, token);
+            complete &= GenerateWidget(copier, widget, reference.ObjectNumber, field, resolver,
+                limits, governor, diagnostics, token, resources, appearance, ref allocator) is not null;
+        }
+        return complete;
+    }
+
+    private static PdfDictionary? GenerateWidget(GraphCopier copier,
+        PdfDictionary widget, int? id, FieldContext field, PoolResolver resolver,
+        QpdfLimits limits, ResourceGovernor governor,
+        DiagnosticBag diagnostics, CancellationToken token, PdfDictionary? resources,
+        PdfByteString? appearance, ref int allocator)
+    {
+        if (field.Type == FieldType.Other) { return null; }
+        return field.Type == FieldType.Button
+            ? SyncButton(copier, widget, id, field, resolver, diagnostics, governor, token)
+            : GenerateText(copier, widget, id, field, resolver, limits, governor, diagnostics, token,
+                resources, appearance, ref allocator);
     }
     /// <summary>
     /// Reports whether a widget keeps generation under the shared reachability rule:

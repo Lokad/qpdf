@@ -458,6 +458,13 @@ toward the configured selection ceiling.
   Empty selections have no fabricated selected row. Malformed indices, mismatched
   values and ambiguous exports warn and preserve the appearance/readiness state.
 
+Imported overlay/underlay widgets generate in their source layout and resource
+context before placement. This preserves the physical text scale and orientation
+when an appearance must be created. Only successful field imports contribute
+readiness; a skipped placement does not trigger generation on other pages.
+Private graph references copied before a widget do not suppress its form
+registration or duplicate the registered field identity.
+
 Overlay form lookup treats an absent, direct-null or indirect-null Fields value
 as absent. Null T, FT and Kids values likewise do not establish imported field
 identity. Empty arrays and malformed non-null values keep their existing lenient

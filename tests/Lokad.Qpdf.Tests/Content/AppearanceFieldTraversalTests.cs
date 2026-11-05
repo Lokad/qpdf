@@ -87,7 +87,7 @@ public sealed class AppearanceFieldTraversalTests
         copier.AddIndirectObjectWithId(new PdfReference(4, 0), 4);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); DiagnosticBag diagnostics = new(governor);
         (int next, _) = GenerateAppearances.Apply([(copier, 1)], Registered(copier, 2), QpdfLimits.Default,
-            governor, diagnostics, CancellationToken.None, new HashSet<int> { 3 }, kind == "direct-kids", 5);
+            governor, diagnostics, CancellationToken.None, new HashSet<int> { 3 }, kind == "direct-kids", null, 5);
         Assert.Equal(5, next);
         if (kind is "broken-without-kids" or "value-cycle") { Assert.Same(widget, copier.CopiedObjects[3]); }
         else
@@ -113,7 +113,7 @@ public sealed class AppearanceFieldTraversalTests
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096 }, CancellationToken.None);
         long allocated = GC.GetAllocatedBytesForCurrentThread();
         Assert.Throws<QpdfLimitException>(() => GenerateAppearances.Apply([(copier, 1)], Registered(copier, 2),
-            QpdfLimits.Default, governor, new(governor), CancellationToken.None, new HashSet<int> { 3 }, false, 4));
+            QpdfLimits.Default, governor, new(governor), CancellationToken.None, new HashSet<int> { 3 }, false, null, 4));
         Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 131072L);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Same(page, copier.CopiedObjects[1]); Assert.Same(widget, copier.CopiedObjects[3]);
     }
@@ -138,7 +138,7 @@ public sealed class AppearanceFieldTraversalTests
             ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None, host);
             long allocated = GC.GetAllocatedBytesForCurrentThread();
             Assert.ThrowsAny<OperationCanceledException>(() => GenerateAppearances.Apply([(copier, 1)], Registered(copier, 2),
-                QpdfLimits.Default, governor, new(governor), governorToken ? CancellationToken.None : cancellation.Token, new HashSet<int> { 3 }, false, 4));
+                QpdfLimits.Default, governor, new(governor), governorToken ? CancellationToken.None : cancellation.Token, new HashSet<int> { 3 }, false, null, 4));
             Assert.True(cancellation.IsCancellationRequested); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
             Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 131072L);
             Assert.Same(page, copier.CopiedObjects[1]); Assert.Same(widget, copier.CopiedObjects[3]);
@@ -175,7 +175,7 @@ public sealed class AppearanceFieldTraversalTests
         QpdfLimits limits = QpdfLimits.Default with { MaxNestingDepth = maximum };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         void Generate() => GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, CopiedForm?>(),
-            limits, governor, new(governor), CancellationToken.None, new HashSet<int> { 2 }, false, edges + 3);
+            limits, governor, new(governor), CancellationToken.None, new HashSet<int> { 2 }, false, null, edges + 3);
         if (tooDeep)
         {
             QpdfLimitException failure = Assert.Throws<QpdfLimitException>(Generate);
@@ -207,7 +207,7 @@ public sealed class AppearanceFieldTraversalTests
         copier.AddIndirectObjectWithId(Dict(("Annots", new PdfArray([new PdfReference(3, 0)]))), 1);
         copier.AddIndirectObjectWithId(field, 2); copier.AddIndirectObjectWithId(widget, 3);
         (int next, bool complete) = GenerateAppearances.Apply([(copier, 1)], Registered(copier, 2), QpdfLimits.Default,
-            governor, new(governor), CancellationToken.None, new HashSet<int> { 3 }, false, 4);
+            governor, new(governor), CancellationToken.None, new HashSet<int> { 3 }, false, null, 4);
         Assert.True(complete); Assert.Equal(5, next);
         PdfDictionary updated = Assert.IsType<PdfDictionary>(copier.CopiedObjects[3]);
         PdfDictionary ap = Assert.IsType<PdfDictionary>(Get(updated, "AP"));
@@ -233,7 +233,7 @@ public sealed class AppearanceFieldTraversalTests
         CopiedForm form = new([new(2, 0), new(3, 0)], true, false, false, null, false, [], new Dictionary<PdfName, QpdfObject>());
         DiagnosticBag diagnostics = new(governor);
         (_, bool complete) = GenerateAppearances.Apply([(copier, 1)], new Dictionary<GraphCopier, CopiedForm?> { [copier] = form },
-            QpdfLimits.Default, governor, diagnostics, CancellationToken.None, new HashSet<int> { 3 }, false, 4);
+            QpdfLimits.Default, governor, diagnostics, CancellationToken.None, new HashSet<int> { 3 }, false, null, 4);
         Assert.Equal(explicitParent, complete);
         if (explicitParent) { Assert.Equal(PdfName.FromAscii("Off"), Get(Assert.IsType<PdfDictionary>(copier.CopiedObjects[3]), "AS")); Assert.Empty(diagnostics.Entries); }
         else { Assert.Same(widget, copier.CopiedObjects[3]); Assert.Single(diagnostics.Entries); }
@@ -253,7 +253,7 @@ public sealed class AppearanceFieldTraversalTests
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 4096L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         (_, bool complete) = GenerateAppearances.Apply([(copier, 1)], Registered(copier, 2), limits, governor, new(governor),
-            CancellationToken.None, new HashSet<int> { 2 }, false, 4);
+            CancellationToken.None, new HashSet<int> { 2 }, false, null, 4);
         Assert.True(complete); Assert.Same(unrelated, copier.CopiedObjects[3]);
         Assert.Equal(PdfName.FromAscii("Off"), Get(Assert.IsType<PdfDictionary>(copier.CopiedObjects[2]), "AS"));
         governor.CompletePrivateStorage(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
@@ -283,7 +283,7 @@ public sealed class AppearanceFieldTraversalTests
         QpdfLimits limits = QpdfLimits.Default with { MaxNestingDepth = maximum };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         void Generate() => GenerateAppearances.Apply([(copier, 1)], Registered(copier, 2), limits, governor, new(governor),
-            CancellationToken.None, new HashSet<int> { widget }, false, widget + 1);
+            CancellationToken.None, new HashSet<int> { widget }, false, null, widget + 1);
         if (tooDeep)
         {
             QpdfLimitException error = Assert.Throws<QpdfLimitException>(Generate);

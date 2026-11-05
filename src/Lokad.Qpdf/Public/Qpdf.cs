@@ -440,11 +440,13 @@ public static partial class Qpdf
                     HashSet<int>? processedContentForms = singleTransforms is { Externalize: true }
                         && (settings.Overlays.Count != 0 || settings.Underlays.Count != 0)
                         ? ParserContainers.CreateSet<int>(copyMemory) : null;
-                    Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, inputPath, occurrences, settings.Underlays, settings.Overlays, singleCompress, singleLevel, recovery, limits, governor, diagnostics, copyMemory, cancellationToken, copier.NextId, null, processedContentForms).ConfigureAwait(false);
+                    bool needAppearances = settings.GenerateAppearances && Content.FlattenAnnotations.NeedsAppearances(document.Engine, governor, cancellationToken);
+                    Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, inputPath, occurrences, settings.Underlays, settings.Overlays, singleCompress, singleLevel, recovery, limits, governor, diagnostics, copyMemory, cancellationToken, copier.NextId, null, processedContentForms, settings.GenerateAppearances, needAppearances).ConfigureAwait(false);
                     copier.AdvanceNextId(overlayApplied.NextId);
 
                     int flattenAllocator = overlayApplied.NextId;
-                    bool needAppearances = (settings.FlattenAnnotations is not null || settings.GenerateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine, governor, cancellationToken);
+                    if (settings.FlattenAnnotations is not null && !settings.GenerateAppearances)
+                    { needAppearances = Content.FlattenAnnotations.NeedsAppearances(document.Engine, governor, cancellationToken); }
                     if (settings.FlattenAnnotations is not null || settings.GenerateAppearances)
                     { needAppearances |= Content.FlattenAnnotations.NeedsAppearances(overlayApplied.FieldImports, governor, cancellationToken); }
                     bool singleGenerated = false;
@@ -472,7 +474,8 @@ public static partial class Qpdf
                         Dictionary<GraphCopier, Content.CopiedForm?> singleForms = ParserContainers.CreateDictionary<GraphCopier, Content.CopiedForm?>(gateMemory);
                         ParserContainers.EnsureEntryCapacity(gateMemory, singleForms, IntPtr.Size); singleForms.Add(copier, singleForm);
                         flattenAllocator = Math.Max(flattenAllocator, copier.NextId);
-                        (flattenAllocator, singleGenerated) = Content.GenerateAppearances.Apply(occurrences, singleForms, limits, governor, diagnostics, cancellationToken, gateReached, false, flattenAllocator);
+                        (flattenAllocator, singleGenerated) = Content.GenerateAppearances.Apply(occurrences, singleForms, limits, governor, diagnostics, cancellationToken, gateReached, false, overlayApplied.GeneratedWidgets, flattenAllocator);
+                        singleGenerated &= overlayApplied.GenerationComplete;
                         needAppearances = !singleGenerated;
                     }
                     if (settings.FlattenAnnotations is not null)
@@ -1277,7 +1280,7 @@ public static partial class Qpdf
             ApplyRotations(occurrences, ResolveRotationFolds(settings.Rotations, kids.Count, governor, limits, selectionMemory), governor, selectionMemory);
         }
 
-        Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, primaryInput, occurrences, settings.Underlays, settings.Overlays, multiCompress, multiLevel, recovery, limits, governor, diagnostics, selectionMemory, cancellationToken, nextId, null, processedContentForms).ConfigureAwait(false);
+        Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, primaryInput, occurrences, settings.Underlays, settings.Overlays, multiCompress, multiLevel, recovery, limits, governor, diagnostics, selectionMemory, cancellationToken, nextId, null, processedContentForms, settings.GenerateAppearances, needAppearances).ConfigureAwait(false);
 
         int multiFlattenAllocator = overlayApplied.NextId;
         if (settings.FlattenAnnotations is not null || settings.GenerateAppearances)
@@ -1307,7 +1310,8 @@ public static partial class Qpdf
             }
 
             HashSet<int>? multiReached = CollectGenerateReached(multiGateParts, multiSurvivors, pruneUnreachableFields, limits, governor, gateMemory, cancellationToken);
-            (multiFlattenAllocator, multiGenerated) = Content.GenerateAppearances.Apply(occurrences, generationForms, limits, governor, diagnostics, cancellationToken, multiReached, !pruneUnreachableFields, multiFlattenAllocator);
+            (multiFlattenAllocator, multiGenerated) = Content.GenerateAppearances.Apply(occurrences, generationForms, limits, governor, diagnostics, cancellationToken, multiReached, !pruneUnreachableFields, overlayApplied.GeneratedWidgets, multiFlattenAllocator);
+            multiGenerated &= overlayApplied.GenerationComplete;
             needAppearances = !multiGenerated;
         }
         if (settings.FlattenAnnotations is not null)

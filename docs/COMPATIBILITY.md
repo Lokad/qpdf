@@ -742,6 +742,15 @@ is false when decoding is disabled, matching native eligibility. Raw image
 descriptors remain unchanged. This projection does not decode the image or
 predict memory/codec admission; native can also emit filter-limit warnings.
 
+Overlay/underlay appearance generation now consumes source defaults/resources
+and the original widget rectangle before applying the placement frame. Missing
+appearances retain source text scale/orientation instead of being authored in the
+already placed rectangle. A skipped placement cannot trigger regeneration of
+another source's widgets. Prior private graph copying no longer suppresses field
+registration, source defaults or readiness. Independently rooted original AP
+payloads remain intact; affected output bytes and identifiers can change without
+public signature changes.
+
 Overlay form lookup now treats indirect-null Fields like direct null or absence,
 matching native qpdf. Null T, FT and Kids values do not establish imported field
 identity, regardless of indirection. Native qpdf 12.4.2 can register such a field

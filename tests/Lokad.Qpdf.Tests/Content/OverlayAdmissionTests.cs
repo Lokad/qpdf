@@ -107,7 +107,8 @@ public sealed class OverlayAdmissionTests
             DiagnosticBag diagnostics = new(governor) { SuppressWarningStorage = true };
             using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
             {
-                Action import = () => Overlays.CopyOverlayPageAnnots(destination, 10, source, 1, Identity, imports,
+                bool generationComplete = true;
+                Action import = () => Overlays.CopyOverlayPageAnnots(destination, 10, source, 1, Identity, imports, null, ref generationComplete,
                     QpdfLimits.Default, governor, memory, diagnostics, CancellationToken.None, ref allocator);
                 long before = GC.GetAllocatedBytesForCurrentThread();
                 if (kind == "append") { Assert.Throws<QpdfLimitException>(import); }

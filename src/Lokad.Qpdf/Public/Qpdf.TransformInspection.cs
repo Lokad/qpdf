@@ -196,7 +196,7 @@ public static partial class Qpdf
                 }
                 Content.OverlayApplication applied = await Content.Overlays.ApplyAsync(host, plan.Input,
                     overlayPages, plan.Underlays, plan.Overlays, false, null, plan.Recovery,
-                    limits, governor, diagnostics, memory, cancellationToken, pool.NextId, document.Engine, null).ConfigureAwait(false);
+                    limits, governor, diagnostics, memory, cancellationToken, pool.NextId, document.Engine, null, false, false).ConfigureAwait(false);
                 foreach (GraphCopier source in applied.Copiers)
                 {
                     foreach (KeyValuePair<int, QpdfObject> entry in source.CopiedObjects)

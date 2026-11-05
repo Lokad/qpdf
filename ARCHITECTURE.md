@@ -285,6 +285,15 @@ Appearance generation infers missing field parents only through the copied form'
 registered Kids branches. Private dictionaries elsewhere cannot supply field
 values or defaults. A lazy reverse index keeps indirect replacements visible and
 borrows direct parents; its bounded cursor walk never queues whole child arrays.
+Imported widgets generate through that same implementation while source defaults
+and original layout rectangles remain available, before their placement frame.
+When imported readiness establishes the generation gate, successful destination
+frames are retained under the existing planning owner until annotation copying;
+skipped placements cannot trigger generation elsewhere. Ordinary calls keep their
+immediate copy order. A placement-local set records registered top fields separately
+from the copy memo, so prior private copying cannot suppress form registration.
+Already generated widget identities survive through the final pass under the
+existing output owner; skipped generation still contributes incomplete readiness.
 Appearance generation replaces changed annotation-array edges while independent
 consumers retain the original direct values. A lazy operation-local map shares
 one replacement per copier/indirect-array identity across affected pages; skipped
