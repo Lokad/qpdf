@@ -14,7 +14,7 @@ if (Test-Path -LiteralPath $WorkRoot) { throw 'Split-label workspace already exi
 New-Item -ItemType Directory -Path $WorkRoot | Out-Null
 . (Join-Path $PSScriptRoot 'ReferenceProbe.ps1')
 
-function Read-LabelState([string] $File) {
+function Read-LabelState([string] $File, [bool] $RequireCanonicalPrefix) {
   & $QpdfExe --check $File 1> ($File + '.check.txt') 2> ($File + '.check-error.txt')
   if ($LASTEXITCODE -ne 0) { throw "Split-label syntax check failed: $File" }
   & $QpdfExe --json=2 --json-key=pages --json-key=pagelabels --json-key=qpdf $File 1> ($File + '.state.json') 2> ($File + '.state-error.txt')
@@ -25,10 +25,30 @@ function Read-LabelState([string] $File) {
     if ($value -is [string] -and $value -match '^\d+ \d+ R$') { return ,$objects['obj:' + $value].value }
     return ,$value
   }
+  # qpdf's pagelabels projection supplies default starts even when the raw
+  # dictionary omits them. Inspect the raw managed number tree for this guard.
+  if ($RequireCanonicalPrefix) {
+    $catalog = & $resolve $objects['trailer']['value']['/Root']
+    $tree = & $resolve $catalog['/PageLabels']
+    if ($null -ne $tree) {
+      $numbers = & $resolve $tree['/Nums']
+      if ($numbers -isnot [array] -or $numbers.Count % 2 -ne 0) { throw "Managed split labels must have a flat number tree: $File" }
+      for ($index = 1; $index -lt $numbers.Count; $index += 2) {
+        $rawLabel = & $resolve $numbers[$index]
+        $rawStyle = & $resolve $rawLabel['/S']
+        if ($null -eq $rawStyle -and $rawLabel.ContainsKey('/St')) {
+          throw "Prefix-only label contains an inactive start: $File"
+        }
+      }
+    }
+  }
   $labels = @(foreach ($entry in $json.pagelabels) {
     $label = & $resolve $entry.label
-    [ordered]@{ index = $entry.index; style = (& $resolve $label['/S']); prefix = (& $resolve $label['/P']);
-      start = $(if ($label.ContainsKey('/St')) { & $resolve $label['/St'] } else { 1 }) }
+    $style = & $resolve $label['/S']
+    # No numbering style means there is no counter to compare. Numbered starts
+    # stay exact, including the default that qpdf supplies in this projection.
+    $start = if ($null -eq $style) { $null } elseif ($label.ContainsKey('/St')) { & $resolve $label['/St'] } else { 1 }
+    [ordered]@{ index = $entry.index; style = $style; prefix = (& $resolve $label['/P']); start = $start }
   })
   $pages = @(foreach ($page in $json.pages) {
     $dictionary = & $resolve $page.object
@@ -80,12 +100,27 @@ try {
         & $QpdfExe "$case/selected.pdf" "--split-pages=$size" "$case/ora.pdf" 1> "$case/native.txt" 2> "$case/native-error.txt"
         if ($LASTEXITCODE -ne 0) { throw "Native split-label control failed: $case" }
         foreach ($part in $parts) {
-          $actual = Read-LabelState "$case/lib-$part.pdf"
-          $expected = Read-LabelState "$case/ora-$part.pdf"
+          $actual = Read-LabelState "$case/lib-$part.pdf" $true
+          $expected = Read-LabelState "$case/ora-$part.pdf" $false
           if ($actual -cne $expected) { throw "Split labels differ: $case/$part; native $expected; managed $actual" }
         }
         Write-Output "[split-labels/$($item.Name)/$size/$route] all $($parts.Count) outputs retain their label runs"
       }
     }
   }
+  # Keep both rejection boundaries visible alongside the native prefix controls.
+  try {
+    Read-LabelState "$WorkRoot/prefix-1-argv/ora-2.pdf" $true | Out-Null
+    throw 'Inactive managed counter guard did not reject the copied native label.'
+  } catch {
+    if (-not $_.Exception.Message.StartsWith('Prefix-only label contains an inactive start:', [StringComparison]::Ordinal)) { throw }
+  }
+  $numbered = "$WorkRoot/default-1-argv/lib-1.pdf"
+  $changed = "$WorkRoot/changed-numbered-start.pdf"
+  & $QpdfExe $numbered --set-page-labels 1:D/999 -- $changed 1> "$WorkRoot/changed-numbered.txt" 2> "$WorkRoot/changed-numbered-error.txt"
+  if ($LASTEXITCODE -ne 0) { throw 'Numbered-start negative control could not be prepared.' }
+  if ((Read-LabelState $numbered $true) -ceq (Read-LabelState $changed $true)) {
+    throw 'Numbered-start comparison failed to distinguish a changed counter.'
+  }
+  Write-Output '[split-labels/negative] inactive managed counters reject; meaningful numeric changes differ'
 } finally { Complete-ReferenceProbe }
