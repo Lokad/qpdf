@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
@@ -66,7 +67,7 @@ public sealed class LabelComparisonStorageTests
         ResourceGovernor governor = new(QpdfLimits.Default, caller ? CancellationToken.None : cancellation.Token);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor); long baseline = governor.Snapshot().LiveMemoryBytes;
         cancellation.Cancel();
-        Assert.ThrowsAny<OperationCanceledException>(() => PageLabelMerge.Merge([(source, 1)], QpdfLimits.Default,
+        Assert.ThrowsAny<OperationCanceledException>(() => PageLabelMerge.Merge([(source, 1)], new Dictionary<int, QpdfObject>(), QpdfLimits.Default,
             governor, caller ? cancellation.Token : CancellationToken.None, memory));
         memory.Discard(); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
@@ -81,7 +82,7 @@ public sealed class LabelComparisonStorageTests
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 8192 }, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         long allocated = GC.GetAllocatedBytesForCurrentThread();
-        Assert.Single(PageLabelMerge.Merge(occurrences, QpdfLimits.Default, governor, CancellationToken.None, memory));
+        Assert.Single(PageLabelMerge.Merge(occurrences, new Dictionary<int, QpdfObject>(), QpdfLimits.Default, governor, CancellationToken.None, memory));
         long bytes = GC.GetAllocatedBytesForCurrentThread() - allocated;
         Assert.True(bytes < 65536L, $"Label merging allocated {bytes} bytes.");
     }
@@ -95,7 +96,7 @@ public sealed class LabelComparisonStorageTests
         var occurrences = new[] { 1, 5, 3, 4, 2, 1 }.Select(page => (source, page)).ToArray();
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        var merged = PageLabelMerge.Merge(occurrences, QpdfLimits.Default, governor, CancellationToken.None, memory);
+        var merged = PageLabelMerge.Merge(occurrences, new Dictionary<int, QpdfObject>(), QpdfLimits.Default, governor, CancellationToken.None, memory);
         Assert.Equal(new[] { 0, 1, 2, 4, 5 }, merged.Select(entry => entry.Index));
         Assert.Equal(new long[] { 10, 7, 20, 11, 10 }, merged.Select(entry =>
         {
@@ -107,23 +108,26 @@ public sealed class LabelComparisonStorageTests
         }));
     }
 
-    [Fact]
-    public void LargeEqualPrefixesCompressWithoutComparisonBuffers()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void LargeEqualPrefixesCompressWithoutComparisonBuffers(bool indirect)
     {
         PdfByteString first = new(new byte[262144], false), second = new(new byte[262144], true);
         PdfName style = PdfName.FromAscii("D");
-        SourceLabels a = new(true, [(0, new(style, first, 1L))]);
-        SourceLabels b = new(true, [(0, new(style, second, 1L))]);
+        Dictionary<int, QpdfObject> pool = new() { [1] = first, [2] = second };
+        SourceLabels a = new(true, [(0, new(style, indirect ? new PdfReference(1, 0) : first, 1L))]);
+        SourceLabels b = new(true, [(0, new(style, indirect ? new PdfReference(2, 0) : second, 1L))]);
         var occurrences = Enumerable.Range(1, 8).Select(i => (i % 2 == 0 ? b : a, i)).ToArray();
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 8192L }, CancellationToken.None) { OwnsDocumentCounters = true };
         PdfDictionary result;
         using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
         {
             long allocated = GC.GetAllocatedBytesForCurrentThread();
-            var merged = PageLabelMerge.Merge(occurrences, QpdfLimits.Default, governor, CancellationToken.None, memory);
+            var merged = PageLabelMerge.Merge(occurrences, pool, QpdfLimits.Default, governor, CancellationToken.None, memory);
             Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 65536L);
             result = Assert.Single(merged).Label;
-            Assert.True(result.TryGet(PdfName.FromAscii("P"), out QpdfObject prefix)); Assert.Same(first, prefix);
+            Assert.True(result.TryGet(PdfName.FromAscii("P"), out QpdfObject prefix)); Assert.Same(a.Entries[0].Entry.Prefix, prefix);
             memory.RetainGraph();
         }
         governor.AcceptDocument(); governor.CompletePrivateStorage();
@@ -133,15 +137,16 @@ public sealed class LabelComparisonStorageTests
     [Fact]
     public void ComparisonPreservesReferenceAndLexicalIdentityAndChecksCancellation()
     {
+        Dictionary<int, QpdfObject> pool = [];
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        Assert.True(PageLabelMerge.SameValue(new PdfReference(7, 0), new PdfReference(7, 0), governor, CancellationToken.None));
-        Assert.False(PageLabelMerge.SameValue(new PdfReference(7, 0), new PdfReference(8, 0), governor, CancellationToken.None));
-        Assert.False(PageLabelMerge.SameValue(new PdfReference(7, 0), PdfName.FromAscii("D"), governor, CancellationToken.None));
-        Assert.False(PageLabelMerge.SameValue(new PdfReal("1.0", 1), new PdfReal("1.00", 1), governor, CancellationToken.None));
-        Assert.True(PageLabelMerge.SameValue(null, PdfNull.Instance, governor, CancellationToken.None));
+        Assert.True(PageLabelMerge.SameValue(new PdfReference(7, 0), new PdfReference(7, 0), pool, false, governor, CancellationToken.None));
+        Assert.False(PageLabelMerge.SameValue(new PdfReference(7, 0), new PdfReference(8, 0), pool, false, governor, CancellationToken.None));
+        Assert.False(PageLabelMerge.SameValue(new PdfReference(7, 0), PdfName.FromAscii("D"), pool, false, governor, CancellationToken.None));
+        Assert.False(PageLabelMerge.SameValue(new PdfReal("1.0", 1), new PdfReal("1.00", 1), pool, false, governor, CancellationToken.None));
+        Assert.True(PageLabelMerge.SameValue(null, PdfNull.Instance, pool, false, governor, CancellationToken.None));
         PdfByteString a = new(new byte[1048576], false), b = new(new byte[1048576], true);
         using CancellationTokenSource cancel = new(); cancel.Cancel();
-        Assert.ThrowsAny<OperationCanceledException>(() => PageLabelMerge.SameValue(a, b, governor, cancel.Token));
+        Assert.ThrowsAny<OperationCanceledException>(() => PageLabelMerge.SameValue(a, b, pool, true, governor, cancel.Token));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
@@ -151,7 +156,38 @@ public sealed class LabelComparisonStorageTests
         SourceLabels source = new(true, [(0, new(PdfName.FromAscii("D"), new PdfByteString(new byte[262144], false), 1L))]);
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 512L }, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor); long baseline = governor.Snapshot().LiveMemoryBytes;
-        Assert.Throws<QpdfLimitException>(() => PageLabelMerge.Merge([(source, 1)], QpdfLimits.Default, governor, CancellationToken.None, memory));
+        Assert.Throws<QpdfLimitException>(() => PageLabelMerge.Merge([(source, 1)], new Dictionary<int, QpdfObject>(), QpdfLimits.Default, governor, CancellationToken.None, memory));
         memory.Discard(); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void ResolvedComparisonChecksEitherCancellationAfterPoolLookup(bool caller, bool prefix)
+    {
+        using CancellationTokenSource cancellation = new();
+        QpdfObject value = prefix ? new PdfByteString("P-"u8.ToArray(), false) : PdfName.FromAscii("D");
+        CancelingObjects pool = new(cancellation.Cancel) { [1] = value };
+        ResourceGovernor governor = new(QpdfLimits.Default, caller ? CancellationToken.None : cancellation.Token);
+        using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
+        {
+            memory.Reserve(128L);
+            long before = governor.Snapshot().LiveMemoryBytes;
+            Assert.ThrowsAny<OperationCanceledException>(() => PageLabelMerge.SameValue(new PdfReference(1, 0), value,
+                pool, prefix, governor, caller ? cancellation.Token : CancellationToken.None));
+            Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    private sealed class CancelingObjects(Action cancel) : Dictionary<int, QpdfObject>, IReadOnlyDictionary<int, QpdfObject>
+    {
+        bool IReadOnlyDictionary<int, QpdfObject>.TryGetValue(int key, [MaybeNullWhen(false)] out QpdfObject value)
+        {
+            bool found = base.TryGetValue(key, out value);
+            cancel(); return found;
+        }
     }
 }

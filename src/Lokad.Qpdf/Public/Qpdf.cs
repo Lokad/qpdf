@@ -528,7 +528,7 @@ public static partial class Qpdf
                             singleOccurrences.Add((singleSource, pageNumber));
                         }
 
-                        List<(int Index, PdfDictionary Label)> singleItems = Content.PageLabelMerge.Merge(singleOccurrences, limits, governor, cancellationToken, copyMemory);
+                        List<(int Index, PdfDictionary Label)> singleItems = Content.PageLabelMerge.Merge(singleOccurrences, copier.CopiedObjects, limits, governor, cancellationToken, copyMemory);
                         singleLabels = singleItems.Count == 0 ? null : NumbersDictionary(singleItems, governor);
                     }
 
@@ -1484,7 +1484,7 @@ public static partial class Qpdf
                     labelOccurrences.Add((part, entry.SourcePage));
                 }
 
-                labelItems = Content.PageLabelMerge.Merge(labelOccurrences, limits, governor, cancellationToken, selectionMemory);
+                labelItems = Content.PageLabelMerge.Merge(labelOccurrences, pool, limits, governor, cancellationToken, selectionMemory);
             }
             else
             {

@@ -9,7 +9,7 @@ namespace Lokad.Qpdf.Content;
 
 /// <summary>
 /// One source number-tree entry with copied values. References use the shared
-/// output pool's identities for both emission and run comparison.
+/// output pool's identities for emission; comparison borrows supported scalars.
 /// </summary>
 internal sealed record SourceLabelEntry(
     QpdfObject? Style,
@@ -120,6 +120,7 @@ internal static class PageLabelMerge
 
     internal static List<(int Index, PdfDictionary Label)> Merge(
         IReadOnlyList<(SourceLabels Source, int Page)> occurrences,
+        IReadOnlyDictionary<int, QpdfObject> pool,
         QpdfLimits limits,
         ResourceGovernor governor,
         CancellationToken cancellationToken,
@@ -153,8 +154,8 @@ internal static class PageLabelMerge
             if (merged.Count > 0)
             {
                 (int lastIndex, PdfDictionary lastLabel) = merged[merged.Count - 1];
-                if (SameValue(LabelValue(lastLabel, "S"u8, governor, cancellationToken), style, governor, cancellationToken)
-                    && SameValue(LabelValue(lastLabel, "P"u8, governor, cancellationToken), prefix, governor, cancellationToken)
+                if (SameValue(LabelValue(lastLabel, "S"u8, governor, cancellationToken), style, pool, false, governor, cancellationToken)
+                    && SameValue(LabelValue(lastLabel, "P"u8, governor, cancellationToken), prefix, pool, true, governor, cancellationToken)
                     && PdfDictionaryLookup.TryGet(lastLabel, "St"u8, governor, cancellationToken, out QpdfObject lastRaw) && lastRaw is PdfInteger lastStart)
                 {
                     bool redundant;
@@ -306,12 +307,21 @@ internal static class PageLabelMerge
             || name.RawSpan.SequenceEqual("Pages"u8) || name.RawSpan.SequenceEqual("Catalog"u8));
     }
 
-    internal static bool SameValue(QpdfObject? left, QpdfObject? right, ResourceGovernor governor, CancellationToken token)
+    internal static bool SameValue(QpdfObject? left, QpdfObject? right, IReadOnlyDictionary<int, QpdfObject> pool,
+        bool prefix, ResourceGovernor governor, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (left is PdfNull) { left = null; }
         if (right is PdfNull) { right = null; }
         if (ReferenceEquals(left, right)) { return true; }
+        // Resolve only the supported value for this role. Emission retains the
+        // original reference, and malformed values keep their prior comparison.
+        if (left is PdfReference leftReference
+            && PdfObjectLookup.TryResolve(leftReference, pool, governor, token, out QpdfObject? resolvedLeft)
+            && (prefix ? resolvedLeft is PdfByteString : resolvedLeft is PdfName)) { left = resolvedLeft; }
+        if (right is PdfReference rightReference
+            && PdfObjectLookup.TryResolve(rightReference, pool, governor, token, out QpdfObject? resolvedRight)
+            && (prefix ? resolvedRight is PdfByteString : resolvedRight is PdfName)) { right = resolvedRight; }
         if (left is null || right is null || left.GetType() != right.GetType()) { return false; }
         return (left, right) switch
         {

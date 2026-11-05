@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Compact equivalent selected/merged page-label runs across direct and indirect
+  style/prefix values. Compare resolved name and string bytes through the copied
+  pool, retaining emitted references, private aliases and whole-file raw trees.
+
 - Use existing byte-key lookup for attachment and appearance queries, avoiding
   temporary PDF names. Keep filename precedence, optional metadata, reference
   handling and diagnostic text unchanged.

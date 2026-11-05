@@ -866,6 +866,12 @@ Additional intentional data differences are:
   splitting retains source labels; native's combined selection-and-split command
   instead applies original label positions. Native selection followed by a
   separate split supplies the managed behavior's reference control.
+- Selected/merged label runs compare resolved style-name bytes and raw prefix
+  string bytes. Equivalent direct and indirect values share a run while emitted
+  references and independent private aliases remain intact. Whole-file rewrites
+  preserve raw trees. Unrecognized values retain their previous treatment. Native
+  qpdf can keep redundant runs; managed output and identifiers can become smaller
+  or change, with the same logical labels and no public signature change.
 - Attachment name-tree keys sort by emitted bytes, including mixed ASCII/UTF-16
   encodings. Native qpdf 12.4.2 shares the former decoded-order defect. Listing
   and request matching continue to use decoded ordinal comparison.
