@@ -207,8 +207,8 @@ source Form's rotation/UserUnit transform before the destination placement.
 Native qpdf 12.4.2 can omit that source frame and move annotations relative to
 the imported page artwork. Private appearance aliases and payload sharing stay
 intact; affected output bytes and identifiers change. This correction covers the
-ordinary annotation frame. Source-page clipping, NoRotate anchor/orientation,
-leader/caption distances and border geometry remain distinct limitations under review.
+ordinary annotation frame. Source-page clipping, NoRotate anchor/orientation and
+border geometry remain distinct limitations under review.
 
 Recognized absolute coordinate arrays also receive the changed page frame:
 Line L, FreeText CL, Link/text-markup QuadPoints, Polygon/PolyLine Vertices and
@@ -227,6 +227,15 @@ borrows the original, and optional null remains absent. Unusable non-null length
 or numbers reject when rotation/scale requires interpreting the insets. This
 changes affected output and identifiers without adding appearance regeneration
 or public signatures. See [PDF 32000-1, tables 174, 177 and 180](https://opensource.adobe.com/dc-acrobat-sdk-docs/pdfstandards/PDF32000_2008.pdf).
+
+Line LL/LLE/LLO distances scale with the source page frame. CO caption offsets
+scale along/across the line when Cap is true; their local axes follow the already
+transformed endpoints. Pure rotation/translation retains these values, as do
+zeros, nulls and unused captions. Unusable meaningful values reject when scaling
+requires interpretation; private aliases stay unchanged. This preserves stored
+geometry without promising viewer appearance regeneration or caption text layout.
+Output and identifiers can change; public signatures do not. See
+[PDF 32000-1, table 175](https://opensource.adobe.com/dc-acrobat-sdk-docs/pdfstandards/PDF32000_2008.pdf).
 
 Appearance transforms apply the existing appearance Matrix before the page-frame
 change, both for rotation baking and placement. Reversing this order can rotate

@@ -12,13 +12,18 @@ internal static class AnnotationCoordinates
         ReadOnlySpan<byte> slot = key.RawSpan;
         if (!slot.SequenceEqual("L"u8) && !slot.SequenceEqual("QuadPoints"u8)
             && !slot.SequenceEqual("Vertices"u8) && !slot.SequenceEqual("InkList"u8)
-            && !slot.SequenceEqual("CL"u8) && !slot.SequenceEqual("RD"u8)) { return raw; }
+            && !slot.SequenceEqual("CL"u8) && !slot.SequenceEqual("RD"u8)
+            && !slot.SequenceEqual("LL"u8) && !slot.SequenceEqual("LLE"u8)
+            && !slot.SequenceEqual("LLO"u8) && !slot.SequenceEqual("CO"u8)) { return raw; }
         ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (!PdfDictionaryLookup.TryGet(annotation, "Subtype"u8, governor, token, out QpdfObject subtypeRaw)
             || CatalogCopy.ResolveValue(subtypeRaw, resolver, governor, token) is not PdfName subtype) { return raw; }
         ReadOnlySpan<byte> type = subtype.RawSpan;
-        bool line = slot.SequenceEqual("L"u8) && type.SequenceEqual("Line"u8);
+        bool lineType = type.SequenceEqual("Line"u8);
+        bool line = slot.SequenceEqual("L"u8) && lineType;
+        bool distance = lineType && (slot.SequenceEqual("LL"u8) || slot.SequenceEqual("LLE"u8) || slot.SequenceEqual("LLO"u8));
+        bool caption = lineType && slot.SequenceEqual("CO"u8);
         bool callout = slot.SequenceEqual("CL"u8) && type.SequenceEqual("FreeText"u8);
         bool vertices = slot.SequenceEqual("Vertices"u8) && (type.SequenceEqual("Polygon"u8) || type.SequenceEqual("PolyLine"u8));
         bool ink = slot.SequenceEqual("InkList"u8) && type.SequenceEqual("Ink"u8);
@@ -27,9 +32,19 @@ internal static class AnnotationCoordinates
         bool quads = slot.SequenceEqual("QuadPoints"u8) && (type.SequenceEqual("Link"u8)
             || type.SequenceEqual("Highlight"u8) || type.SequenceEqual("Underline"u8)
             || type.SequenceEqual("Squiggly"u8) || type.SequenceEqual("StrikeOut"u8));
-        if (!line && !callout && !vertices && !ink && !quads && !insets) { return raw; }
+        if (!line && !callout && !vertices && !ink && !quads && !insets && !distance && !caption) { return raw; }
         // An identity operation borrows the original value without interpreting it.
         if (matrix[0] == 1 && matrix[1] == 0 && matrix[2] == 0 && matrix[3] == 1 && matrix[4] == 0 && matrix[5] == 0) { return raw; }
+        if (distance || caption)
+        {
+            // Page frames use uniform scale and rotation. CO's axes follow the
+            // line itself; neither these offsets nor leader lengths are points.
+            double scale = double.Hypot(matrix[0], matrix[1]);
+            if (scale == 1) { return raw; }
+            if (caption && (!PdfDictionaryLookup.TryGet(annotation, "Cap"u8, governor, token, out QpdfObject cap)
+                || CatalogCopy.ResolveValue(cap, resolver, governor, token) is not PdfBoolean { Value: true })) { return raw; }
+            return TransformDistances(raw, scale, caption, resolver, graph);
+        }
         // Insets are distances between rectangle edges; translation changes neither.
         if (insets && matrix[0] == 1 && matrix[1] == 0 && matrix[2] == 0 && matrix[3] == 1) { return raw; }
         QpdfObject? target = CatalogCopy.ResolveValue(raw, resolver, governor, token);
@@ -50,6 +65,26 @@ internal static class AnnotationCoordinates
             paths[index] = path.Count == 0 ? array[index] : TransformPoints(path, matrix, resolver, graph);
         }
         graph.Memory.Reserve(24L); PdfArray result = PdfArray.FromOwnedItems(paths); graph.Add(24L); return result;
+    }
+
+    private static QpdfObject TransformDistances(QpdfObject raw, double scale, bool caption, PoolResolver resolver, OwnedAllocationBatch graph)
+    {
+        QpdfObject? value = CatalogCopy.ResolveValue(raw, resolver, graph.Governor, graph.Token);
+        if (value is PdfNull) { return raw; }
+        if (!caption)
+        {
+            double number = Number(value, resolver, graph);
+            return number == 0 ? raw : Coordinate(number * scale, graph);
+        }
+        if (value is not PdfArray array || array.Count != 2) { throw Malformed(); }
+        double along = Number(array[0], resolver, graph), across = Number(array[1], resolver, graph);
+        if (along == 0 && across == 0) { return raw; }
+        long bytes = 32L + 2L * IntPtr.Size;
+        graph.Memory.Reserve(bytes); QpdfObject[] items = new QpdfObject[2]; graph.Add(bytes);
+        items[0] = Coordinate(along * scale, graph);
+        graph.Token.ThrowIfCancellationRequested(); graph.Governor.CheckCancellation();
+        items[1] = Coordinate(across * scale, graph);
+        graph.Memory.Reserve(24L); PdfArray result = PdfArray.FromOwnedItems(items); graph.Add(24L); return result;
     }
 
     private static PdfArray TransformInsets(PdfArray source, double[] matrix, PoolResolver resolver, OwnedAllocationBatch graph)
@@ -87,7 +122,7 @@ internal static class AnnotationCoordinates
         graph.Memory.Reserve(24L); PdfArray result = PdfArray.FromOwnedItems(points); graph.Add(24L); return result;
     }
 
-    private static double Number(QpdfObject raw, PoolResolver resolver, OwnedAllocationBatch graph)
+    private static double Number(QpdfObject? raw, PoolResolver resolver, OwnedAllocationBatch graph)
     {
         QpdfObject? value = CatalogCopy.ResolveValue(raw, resolver, graph.Governor, graph.Token);
         double number = value switch { PdfInteger integer => integer.Value, PdfReal real => real.Value, _ => double.NaN };

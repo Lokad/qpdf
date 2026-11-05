@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Scale Line leader lengths, extensions and offsets with imported page units.
+  Scale used caption offsets along/across the line, retaining signs and local
+  axes. Preserve pure rotation, zero/null values and unused/private fields.
+
 - Rotate and scale `RD` inner-rectangle insets for FreeText, Square, Circle and
   Caret annotations. Preserve original private values and translation-only
   identities; reject unusable non-null insets when their linear frame changes.

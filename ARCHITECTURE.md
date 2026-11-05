@@ -112,6 +112,9 @@ and creates only changed role values; independent coordinate aliases stay borrow
 The same helper reorders/scales recognized RD inner-rectangle insets using the
 linear frame. It reads four scalar values without another Rect traversal; pure
 translation and optional nulls retain the original role value.
+Line leader distances and used caption offsets scale in their local line axes;
+rotation alone, zero/null and unused roles borrow the original values. These
+changes describe stored geometry and do not add an appearance generator.
 The first registered page identity remains canonical when a page is repeated;
 later catalog and destination copies cannot retarget it to a duplicate occurrence.
 Serialization authors each page's Parent backlink during the existing header

@@ -20,12 +20,17 @@ public sealed class AnnotationCoordinateFailureTests
             ("FreeText", "CL", "null", false),
             ("Square", "RD", "[1 2]", true), ("Circle", "RD", "[1 /Bad 2 3]", true),
             ("Caret", "RD", "null", false),
+            ("Line", "LL", "/Bad", true), ("Line", "CO", "[1]", true),
+            ("Line", "CO", "[1 /Bad]", true),
             ("Stamp", "L", "[/Private]", false), ("Private", "Vertices", "/Opaque", false),
             ("Link", "QuadPoints", "null", false), ("Ink", "InkList", "[[] [1 2]]", false)];
         foreach (var shape in shapes)
         foreach (string mode in new[] { "flatten", "overlay", "underlay" })
         foreach (bool job in new[] { false, true })
-        { yield return [shape.Subtype, shape.Key, shape.Value, shape.Fails, mode, job]; }
+        {
+            bool scaledDistance = shape.Key is "LL" or "CO";
+            yield return [shape.Subtype, shape.Key, shape.Value, shape.Fails && (!scaledDistance || mode != "flatten"), mode, job];
+        }
     }
 
     [Theory]
@@ -40,8 +45,10 @@ public sealed class AnnotationCoordinateFailureTests
             byte[] source = CheckTests.Assemble([
                 (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
                 (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
-                (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Rotate 90 /Resources << >> /Annots [4 0 R] >>", null),
-                (4, "<< /Type /Annot /Subtype /" + subtype + " /Rect [10 20 40 40] /" + key + " 5 0 R >>", null),
+                (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Rotate 90 "
+                    + (key is "LL" or "CO" ? "/UserUnit 2 " : "") + "/Resources << >> /Annots [4 0 R] >>", null),
+                (4, "<< /Type /Annot /Subtype /" + subtype + " /Rect [10 20 40 40] "
+                    + (key is "CO" ? "/Cap true " : "") + "/" + key + " 5 0 R >>", null),
                 (5, value, null)], 1);
             byte[] target = CheckTests.Assemble([
                 (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
