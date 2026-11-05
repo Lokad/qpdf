@@ -4806,7 +4806,8 @@
           "OverlayTests.MalformedOverlayFlagsFail",
           "OverlayTests.RangedOverlayFlagsFail",
           "OverlayDefaultTests.UnusableDefaultsKeepFallbacksAndLocalOverrides",
-          "OverlayClippingProfileTests.ClippingRequiresRepresentableStaticArtwork"
+          "OverlayClippingProfileTests.ClippingRequiresRepresentableStaticArtwork",
+          "SourceActionFailureTests.PlacementPreservesSemanticFailureCodesWithoutOptionalRecovery"
         ],
         "interaction": [
           "OverlayTests.JobRoundTripMatchesArgv",
@@ -4899,7 +4900,10 @@
           "AdapterTests.ArgvRangeErrorsFail",
           "MergeCommandTests.ArgvMergeErrorsAreExplicit",
           "SignatureSelectionTests.PopulatedSignatureIsExplicitlyUnsupportedAndPreservesPriorOutput",
-          "SignatureSelectionTests.StructuralAndCyclicReferencesStillFailWithoutPublishing"
+          "SignatureSelectionTests.StructuralAndCyclicReferencesStillFailWithoutPublishing",
+          "SourceActionFailureTests.AnUnusableExplicitBaseCannotPublishChangedMeaning",
+          "SourceActionFailureTests.UnresolvedOrMalformedSourceDestinationsCannotPublish",
+          "OptionalContentTests.RequiredOffStateInterpretationKeepsMalformedDataDistinctFromHostFailures"
         ],
         "interaction": [
           "MergeCommandTests.ArgvMultiFileMergesInOrder",
@@ -6630,7 +6634,8 @@
           "AnnotationCoordinateFailureTests.InvalidRecognizedCoordinatesRefusePublicationAndPrivateFieldsStayOpaque",
           "OverlayTests.OverlayPasswordIsCrypto",
           "OverlayDefaultTests.UnusableDefaultsKeepFallbacksAndLocalOverrides",
-          "OverlayClippingProfileTests.ClippingRequiresRepresentableStaticArtwork"
+          "OverlayClippingProfileTests.ClippingRequiresRepresentableStaticArtwork",
+          "SourceActionFailureTests.PlacementPreservesSemanticFailureCodesWithoutOptionalRecovery"
         ],
         "interaction": [
           "OverlayTests.WholeFileJobOverlay",

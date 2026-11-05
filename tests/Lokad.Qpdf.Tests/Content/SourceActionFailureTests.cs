@@ -11,6 +11,50 @@ namespace Lokad.Qpdf.Tests.Content;
 
 public sealed class SourceActionFailureTests
 {
+    public static IEnumerable<object[]> PlacementFailures()
+    {
+        foreach (string feature in new[] { "bad-base", "non-ascii-uri", "missing-destination", "valid-uri", "valid-destination" })
+        foreach (bool underlay in new[] { false, true })
+        foreach (bool job in new[] { false, true }) { yield return [feature, underlay, job]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(PlacementFailures))]
+    public async Task PlacementPreservesSemanticFailureCodesWithoutOptionalRecovery(string feature, bool underlay, bool job)
+    {
+        bool destination = feature.EndsWith("destination", StringComparison.Ordinal), valid = feature.StartsWith("valid", StringComparison.Ordinal);
+        string context = destination ? "/Names << /Dests << /Names [(" + (valid ? "Here" : "Other") + ") [3 0 R /Fit]] >> >>"
+            : "/URI << /Base " + (feature == "bad-base" ? "42" : "(https://source.test/)") + " >>";
+        string action = destination ? "/S /GoTo /D (Here)" : "/S /URI /URI " + (feature == "non-ascii-uri" ? "<e9>" : "(relative.pdf)");
+        byte[] placed = Tests.Inspection.CheckTests.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R " + context + " >>", null),
+            (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [4 0 R] >>", null),
+            (4, "<< /Type /Annot /Subtype /Link /Border [0 0 0] /Rect [10 20 30 40] /A << " + action + " >> >>", null)], 1);
+        RecordingMemoryBudget budget = new(16L << 20);
+        using (IMemoryScope owner = budget.CreateScope())
+        using (InMemoryQpdfHost host = new(QpdfLimits.Default, null, owner))
+        {
+            host.AddInput(Input, Tests.Inspection.CheckTests.Assemble([
+                (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
+                (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null)], 1), QpdfInputOwnership.Transfer);
+            host.AddInput(QpdfPath.From("placed"), placed, QpdfInputOwnership.Transfer); await Seed(host);
+            Dictionary<string, object> request = new() { ["inputFile"] = "input", ["outputFile"] = "output", [underlay ? "underlay" : "overlay"] = new { file = "placed" } };
+            QpdfExecutionResult result = job ? await Qpdf.ExecuteJobAsync(host, System.Text.Json.JsonSerializer.Serialize(request), CancellationToken.None)
+                : await Qpdf.ExecuteAsync(host, new(["input", underlay ? "--underlay" : "--overlay", "placed", "--", "output"]), CancellationToken.None);
+            Assert.Equal(valid ? QpdfExitCode.Success : QpdfExitCode.Error, result.ExitCode);
+            Assert.True(host.TryGetOutput(Output, out byte[] output));
+            if (valid) { Assert.Empty(result.Diagnostics); Assert.NotEqual("prior"u8.ToArray(), output); }
+            else
+            {
+                Assert.Equal("prior"u8.ToArray(), output);
+                Assert.Contains(result.Diagnostics, d => d.Code == (feature == "non-ascii-uri" ? QpdfDiagnosticCode.UnsupportedFeature : QpdfDiagnosticCode.InvalidArguments));
+            }
+            Assert.Equal(0L, host.OpenLeaseCount);
+        }
+        Assert.Equal(0L, budget.ReservedBytes); Assert.Equal(0, budget.LiveReservations);
+    }
+
     private static readonly QpdfPath Input = QpdfPath.From("input"), Output = QpdfPath.From("output");
 
     private static async Task<QpdfExecutionResult?> Run(IQpdfHost host, string route, CancellationToken token)
@@ -29,7 +73,7 @@ public sealed class SourceActionFailureTests
     public static IEnumerable<object[]> InvalidBases()
     {
         foreach (string route in new[] { "typed", "argv", "job" })
-        foreach (string basis in new[] { "42", "(../relative/)", "<feff00680074>", "(D:\\134folder\\134file)" })
+        foreach (string basis in new[] { "42", "(../relative/)", "<feff00680074>", "(D:\\134folder\\134file)", "(https://[invalid/)" })
         { yield return [route, basis]; }
     }
 
@@ -40,9 +84,16 @@ public sealed class SourceActionFailureTests
         RecordingMemoryBudget budget = new(16L << 20); using IMemoryScope owner = budget.CreateScope();
         using InMemoryQpdfHost storage = new(); storage.AddInput(Input, SourceActionRoleTests.Fixture(true, basis + " /Source 1 0 R"), QpdfInputOwnership.Transfer);
         await Seed(storage); View host = new(storage, owner, "ordinary");
-        if (route == "typed") { await Assert.ThrowsAnyAsync<QpdfException>(() => Run(host, route, CancellationToken.None)); }
+        if (route == "typed")
+        {
+            QpdfException error = await Assert.ThrowsAnyAsync<QpdfException>(() => Run(host, route, CancellationToken.None));
+            if (basis == "42") { Assert.IsType<QpdfParseException>(error); } else { Assert.IsType<QpdfUnsupportedFeatureException>(error); }
+        }
         else
-        { QpdfExecutionResult? result = await Run(host, route, CancellationToken.None); Assert.NotNull(result); Assert.Equal(QpdfExitCode.Error, result.ExitCode); }
+        {
+            QpdfExecutionResult? result = await Run(host, route, CancellationToken.None); Assert.NotNull(result); Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+            Assert.Contains(result.Diagnostics, d => d.Code == (basis == "42" ? QpdfDiagnosticCode.InvalidArguments : QpdfDiagnosticCode.UnsupportedFeature));
+        }
         Assert.True(storage.TryGetOutput(Output, out byte[] output)); Assert.Equal("prior"u8.ToArray(), output);
         Assert.Equal(0, host.Created); Assert.Equal(0L, storage.OpenLeaseCount);
         storage.Dispose(); owner.Dispose(); Assert.Equal(0L, budget.ReservedBytes); Assert.Equal(0, budget.LiveReservations);
@@ -58,9 +109,16 @@ public sealed class SourceActionFailureTests
     [InlineData("typed", "odd")]
     [InlineData("argv", "odd")]
     [InlineData("job", "odd")]
+    [InlineData("typed", "key-type")]
+    [InlineData("argv", "key-type")]
+    [InlineData("job", "key-type")]
+    [InlineData("typed", "child-type")]
+    [InlineData("argv", "child-type")]
+    [InlineData("job", "child-type")]
     public async Task UnresolvedOrMalformedSourceDestinationsCannotPublish(string route, string shape)
     {
-        string tree = shape switch { "cycle" => "<< /Kids [6 0 R] /Source 1 0 R >>", "odd" => "<< /Names [(Here)] /Source 1 0 R >>", _ => "<< /Names [(Other) [3 0 R /Fit]] /Source 1 0 R >>" };
+        string tree = shape switch { "cycle" => "<< /Kids [6 0 R] /Source 1 0 R >>", "odd" => "<< /Names [(Here)] /Source 1 0 R >>",
+            "key-type" => "<< /Names [42 [3 0 R /Fit]] /Source 1 0 R >>", "child-type" => "<< /Kids [42] /Source 1 0 R >>", _ => "<< /Names [(Other) [3 0 R /Fit]] /Source 1 0 R >>" };
         byte[] source = Tests.Inspection.CheckTests.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Names << /Dests 6 0 R >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
@@ -70,9 +128,12 @@ public sealed class SourceActionFailureTests
         RecordingMemoryBudget budget = new(16L << 20); using IMemoryScope owner = budget.CreateScope();
         using InMemoryQpdfHost storage = new(); storage.AddInput(Input, source, QpdfInputOwnership.Transfer); await Seed(storage);
         View host = new(storage, owner, "ordinary");
-        if (route == "typed") { await Assert.ThrowsAnyAsync<QpdfException>(() => Run(host, route, CancellationToken.None)); }
+        if (route == "typed") { await Assert.ThrowsAsync<QpdfParseException>(() => Run(host, route, CancellationToken.None)); }
         else
-        { QpdfExecutionResult? result = await Run(host, route, CancellationToken.None); Assert.NotNull(result); Assert.Equal(QpdfExitCode.Error, result.ExitCode); }
+        {
+            QpdfExecutionResult? result = await Run(host, route, CancellationToken.None); Assert.NotNull(result); Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+            Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.InvalidArguments);
+        }
         Assert.Equal(0, host.Created); Assert.Equal(0L, storage.OpenLeaseCount);
         Assert.True(storage.TryGetOutput(Output, out byte[] output)); Assert.Equal("prior"u8.ToArray(), output);
         storage.Dispose(); owner.Dispose(); Assert.Equal(0L, budget.ReservedBytes); Assert.Equal(0, budget.LiveReservations);
@@ -92,7 +153,10 @@ public sealed class SourceActionFailureTests
         await Seed(storage); View host = new(storage, owner, failure);
         if (route == "typed") { await Assert.ThrowsAsync<QpdfHostException>(() => Run(host, route, CancellationToken.None)); }
         else
-        { QpdfExecutionResult? result = await Run(host, route, CancellationToken.None); Assert.NotNull(result); Assert.Equal(QpdfExitCode.Error, result.ExitCode); }
+        {
+            QpdfExecutionResult? result = await Run(host, route, CancellationToken.None); Assert.NotNull(result); Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+            Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.HostOperationFailed);
+        }
         Assert.True(host.Created > 0); Assert.Equal(0L, storage.OpenLeaseCount);
         Assert.True(storage.TryGetOutput(Output, out byte[] output)); Assert.Equal("prior"u8.ToArray(), output);
         storage.Dispose(); owner.Dispose(); Assert.Equal(0L, budget.ReservedBytes); Assert.Equal(0, budget.LiveReservations);

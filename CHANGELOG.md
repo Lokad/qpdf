@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Report required source-action and optional-content refusals as malformed data
+  or unsupported features instead of host failures. Keep the existing exception
+  vocabulary, host-fault handling and pre-publication cleanup.
+
 - Project retained local navigation through rotation-baked page frames, sharing
   the existing role walk and keeping private originals and field identities.
   Read split form membership from final pooled headers. Preserve representable

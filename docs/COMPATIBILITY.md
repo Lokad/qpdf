@@ -86,6 +86,15 @@ keep their existing treatment. Private aliases retain original values; field/CO
 registrations and repeated-page targets retain canonical identities. Malformed
 required operands fail explicitly. No public signature or runtime dependency changes.
 
+Required source-action and optional-content refusals now report their semantic
+cause. Malformed destination indexes, non-string URI bases and non-array OFF
+states use QpdfParseException and the existing InvalidArguments result code.
+Unsupported URI binding or compound optional-content contexts report
+UnsupportedFeature. They previously fell through to HostOperationFailed without
+a host fault. Typed callers can observe the more specific exception subtype;
+QpdfException catches remain valid. Failure messages, prior-output preservation,
+resource/cancellation outcomes and actual host-failure codes retain their treatment.
+
 PDF JSON v2 object strings now use `b:` when Unicode presentation would change
 their bytes on import. For example, `(K)` remains `u:K`, while `<feff004b>` becomes
 `b:feff004b`; these are distinct PDF byte-string keys even though their text is

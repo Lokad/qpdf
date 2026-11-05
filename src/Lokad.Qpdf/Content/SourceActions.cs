@@ -529,7 +529,7 @@ internal static class SourceActions
             else { return raw; }
             found = CatalogCopy.ResolveValue(found, source, _governor, _token);
             if (found is PdfDictionary wrapper) { found = CatalogCopy.ResolveValue(Read(wrapper, "D"u8, _governor, _token), source, _governor, _token); }
-            if (found is not PdfArray) { throw new QpdfException("The retained source-local named destination cannot be resolved."); }
+            if (found is not PdfArray) { throw new QpdfParseException("The retained source-local named destination cannot be resolved.", null, null); }
             sourceCopier.AdvanceNextId(_copier.NextId);
             QpdfObject result = sourceCopier.CopyValue(found, 0); _copier.AdvanceNextId(sourceCopier.NextId);
             return result;
@@ -540,18 +540,18 @@ internal static class SourceActions
             DocumentEngine source = _source ?? throw new InvalidOperationException("Missing source context.");
             Check();
             if (depth > _governor.MaxNestingDepth) { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, _governor.MaxNestingDepth); }
-            if (!ParserContainers.AddSetItem(walk, path, node, IntPtr.Size)) { throw new QpdfException("Source destination name tree contains a cycle."); }
+            if (!ParserContainers.AddSetItem(walk, path, node, IntPtr.Size)) { throw new QpdfParseException("Source destination name tree contains a cycle.", null, null); }
             try
             {
                 if (CatalogCopy.ResolveValue(Read(node, "Names"u8, _governor, _token), source, _governor, _token) is PdfArray names)
                 {
-                    if (names.Count % 2 != 0) { throw new QpdfException("Source destination names must contain pairs."); }
+                    if (names.Count % 2 != 0) { throw new QpdfParseException("Source destination names must contain pairs.", null, null); }
                     int low = 0, high = names.Count / 2;
                     while (low < high)
                     {
                         Check(); int middle = low + (high - low) / 2;
                         if (CatalogCopy.ResolveValue(names[middle * 2], source, _governor, _token) is not PdfByteString candidate)
-                        { throw new QpdfException("Source destination keys must be strings."); }
+                        { throw new QpdfParseException("Source destination keys must be strings.", null, null); }
                         int comparison = Compare(candidate.ValueMemory.Span, key.Span);
                         if (comparison == 0) { return names[middle * 2 + 1]; }
                         if (comparison < 0) { low = middle + 1; } else { high = middle; }
@@ -562,7 +562,7 @@ internal static class SourceActions
                     for (int index = 0; index < kids.Count; index++)
                     {
                         Check(); PdfDictionary? child = CatalogCopy.ResolveDictionary(kids[index], source, _governor, _token);
-                        if (child is null) { throw new QpdfException("Source destination child must be a dictionary."); }
+                        if (child is null) { throw new QpdfParseException("Source destination child must be a dictionary.", null, null); }
                         if (CatalogCopy.ResolveValue(Read(child, "Limits"u8, _governor, _token), source, _governor, _token) is PdfArray { Count: 2 } limits
                             && CatalogCopy.ResolveValue(limits[0], source, _governor, _token) is PdfByteString first
                             && CatalogCopy.ResolveValue(limits[1], source, _governor, _token) is PdfByteString last
@@ -591,8 +591,8 @@ internal static class SourceActions
             PdfDictionary? uri = CatalogCopy.ResolveDictionary(Read(catalog, "URI"u8, _governor, _token), source, _governor, _token);
             QpdfObject? rawBase = uri is null ? null : CatalogCopy.ResolveValue(Read(uri, "Base"u8, _governor, _token), source, _governor, _token);
             if (rawBase is null or PdfNull) { return raw; }
-            if (rawBase is not PdfByteString baseValue) { throw new QpdfException("Source URI bases must be strings."); }
-            if (!Absolute(baseValue.ValueSpan)) { throw new QpdfException("Source URI bases must be absolute URI strings."); }
+            if (rawBase is not PdfByteString baseValue) { throw new QpdfParseException("Source URI bases must be strings.", null, null); }
+            if (!Absolute(baseValue.ValueSpan)) { throw new QpdfUnsupportedFeatureException("Source URI bases must be absolute URI strings."); }
             using ParserMemoryScope text = ParserMemoryScope.Create(_governor);
             // URI parsing is a BCL boundary. Fund its transient strings/parts
             // coarsely, and keep only the authored PDF byte string afterward.
@@ -600,7 +600,7 @@ internal static class SourceActions
             string basis = Ascii(baseValue.ValueMemory), relative = Ascii(value.ValueMemory);
             Check();
             if (!Uri.TryCreate(basis, UriKind.Absolute, out Uri? absoluteBase) || !Uri.TryCreate(absoluteBase, relative, out Uri? absolute))
-            { throw new QpdfException("The retained URI action's explicit source base cannot be resolved."); }
+            { throw new QpdfUnsupportedFeatureException("The retained URI action's explicit source base cannot be resolved."); }
             string result = absolute.AbsoluteUri; Check();
             long bytes = checked(64L + result.Length); Graph.Memory.Reserve(bytes);
             byte[] encoded = new byte[result.Length];
@@ -615,7 +615,7 @@ internal static class SourceActions
                 {
                     if ((index & 255) == 0) { state.Item2.Check(); }
                     byte unit = state.value.Span[index];
-                    if (unit is < 32 or >= 127 or (byte)'\\') { throw new QpdfException("Source URI action binding requires ASCII URI strings."); }
+                    if (unit is < 32 or >= 127 or (byte)'\\') { throw new QpdfUnsupportedFeatureException("Source URI action binding requires ASCII URI strings."); }
                     target[index] = (char)unit;
                 }
             });

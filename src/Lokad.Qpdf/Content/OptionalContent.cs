@@ -47,7 +47,7 @@ internal static class OptionalContent
         {
             QpdfObject? rawOff = CatalogCopy.ResolveValue(Read(defaults, "OFF"u8, governor, token), engine, governor, token);
             if (rawOff is not null and not PdfNull && rawOff is not PdfArray)
-            { throw new QpdfException("Optional-content OFF states must be an array."); }
+            { throw new QpdfParseException("Optional-content OFF states must be an array.", null, null); }
             if (rawOff is PdfArray disabled)
             {
                 for (int index = 0; index < disabled.Count; index++)
@@ -123,7 +123,7 @@ internal static class OptionalContent
         PdfDictionary? primaryDefaults = primary is null ? null : CatalogCopy.ResolveDictionary(Read(primary, "D"u8, governor, token), resolver, governor, token);
         if (!Simple(primaryDefaults, resolver, governor, token) || primary is not null && !NoAlternates(primary, resolver, governor, token)
             || contributions.Exists(static source => !source.CanCombine))
-        { throw new QpdfException("Combining optional-content defaults with automatic states, alternate configurations or non-View intents is outside the supported profile."); }
+        { throw new QpdfUnsupportedFeatureException("Combining optional-content defaults with automatic states, alternate configurations or non-View intents is outside the supported profile."); }
         List<QpdfObject> members = ParserContainers.CreateList<QpdfObject>(scratch);
         List<QpdfObject> off = ParserContainers.CreateList<QpdfObject>(scratch);
         HashSet<int> groupIds = ParserContainers.CreateSet<int>(scratch), offIds = ParserContainers.CreateSet<int>(scratch);
@@ -143,7 +143,7 @@ internal static class OptionalContent
             PdfDictionary? defaults = CatalogCopy.ResolveDictionary(Read(properties, "D"u8, governor, token), resolver, governor, token);
             QpdfObject? rawOff = defaults is null ? null : CatalogCopy.ResolveValue(Read(defaults, "OFF"u8, governor, token), resolver, governor, token);
             if (rawOff is not null and not PdfNull && rawOff is not PdfArray)
-            { throw new QpdfException("Optional-content OFF states must be an array."); }
+            { throw new QpdfParseException("Optional-content OFF states must be an array.", null, null); }
             if (rawOff is PdfArray disabled)
             {
                 for (int index = 0; index < disabled.Count; index++)

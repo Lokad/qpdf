@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
@@ -221,6 +222,9 @@ public sealed class OptionalContentTests
     [InlineData("job", "intent")]
     [InlineData("argv", "alternate")]
     [InlineData("job", "alternate")]
+    [InlineData("typed", "automatic")]
+    [InlineData("typed", "intent")]
+    [InlineData("typed", "alternate")]
     public async Task UnsupportedCombinedStatesRefuseBeforePublication(string route, string policy)
     {
         using InMemoryQpdfHost host = new();
@@ -230,10 +234,62 @@ public sealed class OptionalContentTests
         { await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None); await prior.CommitAsync(CancellationToken.None); }
         string[] argv = ["input", "--pages", ".", "1", "source", "1", "--", "output"];
         string job = "{\"inputFile\":\"input\",\"outputFile\":\"output\",\"pages\":[{\"file\":\".\",\"range\":\"1\"},{\"file\":\"source\",\"range\":\"1\"}]}";
-        QpdfExecutionResult result = route == "argv" ? await Qpdf.ExecuteAsync(host, new(argv), CancellationToken.None)
-            : await Qpdf.ExecuteJobAsync(host, job, CancellationToken.None);
-        Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+        if (route == "typed")
+        {
+            await Assert.ThrowsAsync<QpdfUnsupportedFeatureException>(() => Qpdf.SelectPagesAsync(host,
+                [new(QpdfPath.From("input"), new(1)), new(QpdfPath.From("source"), new(1))], QpdfPath.From("output"), new PdfPageMergeOptions(), CancellationToken.None).AsTask());
+        }
+        else
+        {
+            QpdfExecutionResult result = route == "argv" ? await Qpdf.ExecuteAsync(host, new(argv), CancellationToken.None)
+                : await Qpdf.ExecuteJobAsync(host, job, CancellationToken.None);
+            Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+            Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.UnsupportedFeature);
+        }
         Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output)); Assert.Equal("prior"u8.ToArray(), output);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    public static IEnumerable<object[]> OffStateCases()
+    {
+        foreach (string route in new[] { "typed", "argv", "job" })
+        foreach (bool retained in new[] { false, true })
+        foreach (bool malformed in new[] { false, true }) { yield return [route, retained, malformed]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(OffStateCases))]
+    public async Task RequiredOffStateInterpretationKeepsMalformedDataDistinctFromHostFailures(string route, bool retained, bool malformed)
+    {
+        byte[] States(bool indirect, bool bad) => CheckTests.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R /OCProperties " + (indirect ? "6 0 R" : "<< /OCGs [5 0 R] /D << /BaseState /ON /OFF " + (bad ? "42" : "[5 0 R]") + " >> >>") + " >>", null),
+            (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << /Properties << /L 5 0 R >> " + (indirect ? "/Private 6 0 R" : "") + " >> /Contents 4 0 R >>", null),
+            (4, "<< /Length " + "/OC /L BDC 0 0 20 20 re f EMC"u8.Length + " >>", "/OC /L BDC 0 0 20 20 re f EMC"u8.ToArray()),
+            (5, "<< /Type /OCG /Name (layer) >>", null),
+            (6, "<< /OCGs [5 0 R] /D << /BaseState /ON /OFF " + (bad ? "42" : "[5 0 R]") + " >> >>", null)], 1);
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), States(retained, retained && malformed), QpdfInputOwnership.Transfer);
+        host.AddInput(QpdfPath.From("source"), States(false, !retained && malformed), QpdfInputOwnership.Transfer);
+        await using (IQpdfOutputTransaction prior = await host.CreateOutputAsync(QpdfPath.From("output"), CancellationToken.None))
+        { await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None); await prior.CommitAsync(CancellationToken.None); }
+        if (route == "typed")
+        {
+            Task<PdfMultiPageSelectionResult> Run() => Qpdf.SelectPagesAsync(host,
+                [new(QpdfPath.From("input"), new(1)), new(QpdfPath.From("source"), new(1))], QpdfPath.From("output"), new PdfPageMergeOptions(), CancellationToken.None).AsTask();
+            if (malformed) { await Assert.ThrowsAsync<QpdfParseException>(Run); } else { _ = await Run(); }
+        }
+        else
+        {
+            QpdfExecutionResult result = route == "argv"
+                ? await Qpdf.ExecuteAsync(host, new(["input", "--pages", ".", "1", "source", "1", "--", "output"]), CancellationToken.None)
+                : await Qpdf.ExecuteJobAsync(host, "{\"inputFile\":\"input\",\"outputFile\":\"output\",\"pages\":[{\"file\":\".\",\"range\":\"1\"},{\"file\":\"source\",\"range\":\"1\"}]}", CancellationToken.None);
+            Assert.Equal(malformed ? QpdfExitCode.Error : QpdfExitCode.Success, result.ExitCode);
+            if (malformed) { Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.InvalidArguments); }
+        }
+        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output));
+        if (malformed) { Assert.Equal("prior"u8.ToArray(), output); }
+        else { Assert.NotEqual("prior"u8.ToArray(), output); }
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 }
