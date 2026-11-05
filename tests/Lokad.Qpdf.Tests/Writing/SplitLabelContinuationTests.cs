@@ -41,7 +41,7 @@ public sealed class SplitLabelContinuationTests
         "boundary" when page <= 2 => ("D", null, page + 4L),
         "boundary" when page <= 4 => ("R", null, page + 6L),
         "boundary" => ("a", null, page - 2L),
-        "prefix" => (null, "Prefix-", page),
+        "prefix" => (null, "Prefix-", 1L),
         _ => throw new InvalidOperationException("Unknown label fixture.")
     };
 
@@ -101,7 +101,10 @@ public sealed class SplitLabelContinuationTests
                 int key = checked((int)Assert.IsType<PdfInteger>(numbers[entry]).Value);
                 PdfDictionary label = Assert.IsType<PdfDictionary>(Resolve(document, numbers[entry + 1]));
                 var expected = Expected(fixture, pages[page - 1]);
-                Assert.Equal(expected.Start, Assert.IsType<PdfInteger>(Value(document, label, "St")).Value + position - key);
+                if (expected.Style is null)
+                { Assert.Null(Value(document, label, "St")); }
+                else
+                { Assert.Equal(expected.Start, Assert.IsType<PdfInteger>(Value(document, label, "St")).Value + position - key); }
                 escaped.Add((Value(document, label, "S") as PdfName, Value(document, label, "P") as PdfByteString, expected.Style, expected.Prefix));
             }
         }

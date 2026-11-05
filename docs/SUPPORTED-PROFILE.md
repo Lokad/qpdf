@@ -274,7 +274,11 @@ toward the configured selection ceiling.
   The bare argv output separator is optional.
 - Merge options interleave per-source groups (collation), rotate, and emit explicit
   page labels or merge source label trees with page-index offsets (unlabeled pages
-  fabricate continuations, runs compress using copied identities). Indirect tree
+  carry no numeric portion, runs compress using copied identities). Absent/null
+  numbering styles use only the prefix; their starts are not interpreted or
+  incremented. Authored/derived prefix-only entries omit `St`, and equal prefix
+  runs compact through selection and splitting. Numbered styles retain checked
+  counter arithmetic. Indirect tree
   arrays, keys and starts retain their direct-value semantics. Optional Names/Nums/
   Kids arrays resolve explicit null references as absent; interpreted trees retain
   their failure policy for malformed required values and unresolved references.

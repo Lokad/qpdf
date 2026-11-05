@@ -495,7 +495,8 @@ public sealed class LabelTests
         Assert.Equal("R", LabelStyle(dicts[1]));
         Assert.Equal(3L, LabelStart(dicts[1]));
         Assert.Equal("none", LabelStyle(dicts[2]));
-        Assert.Equal(3L, LabelStart(dicts[2]));
+        Assert.False(dicts[2].TryGet(PdfName.FromAscii("St"), out _));
+        Assert.False(dicts[2].TryGet(PdfName.FromAscii("P"), out _));
     }
 
     [Fact]
@@ -534,7 +535,8 @@ public sealed class LabelTests
         (List<long> keys, List<PdfDictionary> dicts) = ReadNums(ReadLabels(output));
         Assert.Equal([0L, 1L], keys);
         Assert.Equal("none", LabelStyle(dicts[0]));
-        Assert.Equal(1L, LabelStart(dicts[0]));
+        Assert.False(dicts[0].TryGet(PdfName.FromAscii("St"), out _));
+        Assert.False(dicts[0].TryGet(PdfName.FromAscii("P"), out _));
         Assert.Equal("D", LabelStyle(dicts[1]));
         Assert.Equal(1L, LabelStart(dicts[1]));
     }

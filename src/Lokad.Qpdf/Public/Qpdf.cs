@@ -2256,7 +2256,9 @@ public static partial class Qpdf
         }
         (int Index, PdfDictionary Label) carry = items[Math.Max(0, low - 1)];
         PdfDictionary firstLabel = carry.Label;
-        if (carry.Index < firstIndex)
+        if (carry.Index < firstIndex
+            && PdfDictionaryLookup.TryGet(carry.Label, "S"u8, governor, governor.CancellationToken, out QpdfObject style)
+            && style is not PdfNull)
         {
             long start = PdfDictionaryLookup.TryGet(carry.Label, "St"u8, governor, governor.CancellationToken, out QpdfObject rawStart)
                 && rawStart is PdfInteger number ? number.Value : 1L;
@@ -2264,7 +2266,7 @@ public static partial class Qpdf
             catch (OverflowException ex)
             { throw new QpdfParseException("Page-label start overflows its output position.", null, null, ex); }
             firstLabel = Content.PageLabelStorage.Merged(
-                PdfDictionaryLookup.TryGet(carry.Label, "S"u8, governor, governor.CancellationToken, out QpdfObject style) ? style : null,
+                style,
                 PdfDictionaryLookup.TryGet(carry.Label, "P"u8, governor, governor.CancellationToken, out QpdfObject prefix) ? prefix : null,
                 start, governor, governor.CancellationToken);
         }

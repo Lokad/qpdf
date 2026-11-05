@@ -52,6 +52,7 @@ public sealed record PdfPageLabel
     public PdfPageLabelStyle? Style { get; }
 
     /// <summary>Gets the starting value, or null for the default of 1.</summary>
+    /// <remarks>Only numbering styles use this value; prefix-only labels omit it.</remarks>
     public int? Start { get; }
 
     /// <summary>Gets the prepended prefix, or null for none.</summary>

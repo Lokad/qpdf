@@ -911,6 +911,14 @@ Additional intentional data differences are:
   Unrecognized compared values retain their previous treatment. Native
   qpdf can keep redundant runs; managed output and identifiers can become smaller
   or change, with the same logical labels and no public signature change.
+- Absent/null label numbering styles have no numeric portion. Selection, merge
+  and split ignore their inactive `St` fields, compact equal prefix-only runs
+  and omit `St` from authored/derived prefix-only entries. Native qpdf can still
+  overflow those unused counters; managed output deliberately admits these cases.
+  Numbered styles retain their checked arithmetic and overflow rejection. Raw
+  whole-file trees and independent counter/prefix aliases keep their original
+  values. Output bytes/identifiers can change; public signatures and validation
+  of supplied authored starts remain unchanged.
 - Attachment name-tree keys sort by emitted bytes, including mixed ASCII/UTF-16
   encodings. Native qpdf 12.4.2 shares the former decoded-order defect. Listing
   and request matching continue to use decoded ordinal comparison.

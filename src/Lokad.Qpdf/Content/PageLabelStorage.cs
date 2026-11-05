@@ -21,7 +21,7 @@ internal static class PageLabelStorage
             PdfPageLabelStyle.LowerAlpha => "a"u8,
             _ => throw new QpdfException($"Unknown page label style {(int)specification.Style.Value}."),
         };
-        bool hasStart = specification.Start.HasValue && specification.Start.Value != 1;
+        bool hasStart = !style.IsEmpty && specification.Start.HasValue && specification.Start.Value != 1;
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         if (!style.IsEmpty) { Assign(graph, entries, "S"u8, PdfDictionaryRebuild.CreateName(graph, style)); }
@@ -38,7 +38,7 @@ internal static class PageLabelStorage
         PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         if (style is not null) { Assign(graph, entries, "S"u8, style); }
         if (prefix is not null) { Assign(graph, entries, "P"u8, prefix); }
-        Assign(graph, entries, "St"u8, Integer(graph, start));
+        if (style is not null) { Assign(graph, entries, "St"u8, Integer(graph, start)); }
         PdfDictionary result = PdfDictionaryRebuild.Complete(graph, entries, allocation);
         graph.Retain(); return result;
     }

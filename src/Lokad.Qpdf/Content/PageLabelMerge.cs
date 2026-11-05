@@ -22,11 +22,11 @@ internal sealed record SourceLabelEntry(
 internal sealed record SourceLabels(bool HasTree, (int Index, SourceLabelEntry Entry)[] Entries);
 
 /// <summary>
-/// Source page-label preservation through the shared copy engine, mirroring
-/// the reference merge behavior: per-output-page label resolution over each
+/// Source page-label preservation through the shared copy engine:
+/// per-output-page label resolution over each
 /// source number tree in output order, with fabricated continuation entries
 /// for pages without a covering entry, run compression against the previous
-/// entry, and explicit starts on every computed entry. Whole-file rewrites
+/// entry, and explicit starts on numbered entries. Whole-file rewrites
 /// instead carry the source tree verbatim.
 /// </summary>
 internal static class PageLabelMerge
@@ -150,20 +150,22 @@ internal static class PageLabelMerge
             governor.NoteOperation();
             (SourceLabels source, int page) = occurrences[k];
             int index = page - 1;
-            (long start, QpdfObject? style, QpdfObject? prefix) = Peek(source.Entries, index, k, governor, cancellationToken);
+            (long start, QpdfObject? style, QpdfObject? prefix) = Peek(source.Entries, index, governor, cancellationToken);
             if (merged.Count > 0)
             {
                 (int lastIndex, PdfDictionary lastLabel) = merged[merged.Count - 1];
                 if (SameValue(LabelValue(lastLabel, "S"u8, governor, cancellationToken), style, pool, false, governor, cancellationToken)
-                    && SameValue(LabelValue(lastLabel, "P"u8, governor, cancellationToken), prefix, pool, true, governor, cancellationToken)
-                    && PdfDictionaryLookup.TryGet(lastLabel, "St"u8, governor, cancellationToken, out QpdfObject lastRaw) && lastRaw is PdfInteger lastStart)
+                    && SameValue(LabelValue(lastLabel, "P"u8, governor, cancellationToken), prefix, pool, true, governor, cancellationToken))
                 {
+                    // Prefix-only labels do not have a counter or a page delta.
+                    if (style is null) { continue; }
                     bool redundant;
                     try
                     {
                         checked
                         {
-                            redundant = start - lastStart.Value == (long)k - (long)lastIndex;
+                            redundant = PdfDictionaryLookup.TryGet(lastLabel, "St"u8, governor, cancellationToken, out QpdfObject lastRaw)
+                                && lastRaw is PdfInteger lastStart && start - lastStart.Value == (long)k - lastIndex;
                         }
                     }
                     catch (OverflowException ex)
@@ -188,7 +190,6 @@ internal static class PageLabelMerge
     private static (long Start, QpdfObject? Style, QpdfObject? Prefix) Peek(
         (int Index, SourceLabelEntry Entry)[] entries,
         int pageIndex,
-        int outputIndex,
         ResourceGovernor governor,
         CancellationToken token)
     {
@@ -203,9 +204,9 @@ internal static class PageLabelMerge
         int key = low == 0 ? -1 : entries[low - 1].Index;
         SourceLabelEntry? covering = low == 0 ? null : entries[low - 1].Entry;
 
-        if (covering is null)
+        if (covering?.Style is null)
         {
-            return (1L + outputIndex, null, null);
+            return (1L, null, covering?.Prefix);
         }
 
         long start;
@@ -248,7 +249,7 @@ internal static class PageLabelMerge
         QpdfObject? style = CopyLabelValue(resolver, copier, dictionary, "S", governor, cancellationToken);
         QpdfObject? prefix = CopyLabelValue(resolver, copier, dictionary, "P", governor, cancellationToken);
         long start = 1L;
-        if (dictionary.TryGet(PdfName.FromAscii("St"), out QpdfObject? rawStart))
+        if (style is not null && dictionary.TryGet(PdfName.FromAscii("St"), out QpdfObject? rawStart))
         {
             if (rawStart is PdfReference startReference)
             { PdfObjectLookup.TryResolve(startReference, resolver, governor, cancellationToken, out rawStart); }

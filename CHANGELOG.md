@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Treat absent/null page-label numbering styles as prefix-only. Skip inactive
+  counters, omit them from authored/derived labels, and compact equal prefix runs
+  through selection and splitting while retaining private original values.
+
 - Copy preserved whole-file page-label trees without building a discarded
   per-page model. Keep raw values, aliases and integer spelling, including large
   starts; retain graph guards and semantic validation when labels are interpreted.
