@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Keep temporary filter names scoped to private image, attachment, appearance and
+  JSON descriptor consumers. Retain full names when results or errors can escape;
+  preserve output bytes while refunding names after private plans close.
+
 - Release raw object-stream assembly storage after successful compression, keeping
   the stored buffer funded through writing. Preserve ordinary, QDF and linearized
   output bytes and cleanup on cancellation or allocation refusal.

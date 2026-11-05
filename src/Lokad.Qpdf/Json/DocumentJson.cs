@@ -696,7 +696,7 @@ internal static class DocumentJson
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
-        using FilterPlan stages = FilterChain.Resolve(detail.Stream.Dictionary, (IIndirectResolver)engine, governor, cancellationToken);
+        using FilterPlan stages = FilterChain.ResolveScoped(detail.Stream.Dictionary, (IIndirectResolver)engine, governor, cancellationToken);
         builder.Append("{\"bitspercomponent\": ");
         AppendImageValue(builder, detail.Stream.Dictionary, "BitsPerComponent"u8, request, limits, governor, cancellationToken);
         builder.Append(",\"colorspace\": ");

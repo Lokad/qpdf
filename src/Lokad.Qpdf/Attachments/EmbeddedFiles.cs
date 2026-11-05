@@ -170,7 +170,7 @@ internal static class EmbeddedFiles
         FilterChain.RequireEmbeddedData(stream, engine, governor, cancellationToken);
         try
         {
-            using FilterPlan stages = FilterChain.Resolve(stream.Dictionary, (IIndirectResolver)engine, governor, cancellationToken);
+            using FilterPlan stages = FilterChain.ResolveScoped(stream.Dictionary, (IIndirectResolver)engine, governor, cancellationToken);
             // The open document funds raw storage until the caller consumes it.
             if (stages.Count == 0) { return stream.RawMemory; }
             byte[] raw = stream.ArrayData(memory, governor, cancellationToken);

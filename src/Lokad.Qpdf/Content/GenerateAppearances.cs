@@ -824,7 +824,7 @@ internal static class GenerateAppearances
         FilterPlan stages;
         try
         {
-            stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, cancellationToken);
+            stages = FilterChain.ResolveScoped(stream.Dictionary, resolver, governor, cancellationToken);
         }
         catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {

@@ -181,7 +181,7 @@ internal static class ImageOptimizer
         FilterPlan stages;
         try
         {
-            stages = FilterChain.Resolve(image.Dictionary, resolver, governor, cancellationToken);
+            stages = FilterChain.ResolveScoped(image.Dictionary, resolver, governor, cancellationToken);
         }
         catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
