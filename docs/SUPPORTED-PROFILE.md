@@ -276,8 +276,11 @@ toward the configured selection ceiling.
   page labels or merge source label trees with page-index offsets (unlabeled pages
   fabricate continuations, runs compress using copied identities). Indirect tree
   arrays, keys and starts retain their direct-value semantics. Optional Names/Nums/
-  Kids arrays resolve explicit null references as absent; malformed required values
-  and unresolved references retain their failure policy. An optional split group size partitions
+  Kids arrays resolve explicit null references as absent; interpreted trees retain
+  their failure policy for malformed required values and unresolved references.
+  Unchanged whole-file label trees are copied opaquely without deriving counters
+  or validating number-tree semantics; ordinary graph and parser guards still apply.
+  An optional split group size partitions
   output through the same engine. Explicit labels override source labels in
   assembled output order before splitting, including reordered/duplicate pages.
   Each split file retains references only to its

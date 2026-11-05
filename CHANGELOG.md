@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Copy preserved whole-file page-label trees without building a discarded
+  per-page model. Keep raw values, aliases and integer spelling, including large
+  starts; retain graph guards and semantic validation when labels are interpreted.
+
 - Apply explicit output page labels before splitting, consistently across typed,
   argv and job routes. Preserve output-order continuations and private source
   aliases without interpreting the source labels they replace.

@@ -904,7 +904,11 @@ Additional intentional data differences are:
 - Selected/merged label runs compare resolved style-name bytes and raw prefix
   string bytes. Equivalent direct and indirect values share a run while emitted
   references and independent private aliases remain intact. Whole-file rewrites
-  preserve raw trees. Unrecognized values retain their previous treatment. Native
+  preserve raw trees without computing source counters or validating number-tree
+  semantics. Opaque or malformed label structures can therefore remain unchanged;
+  selection, splitting and label inspection still validate the trees they interpret.
+  Syntax, graph resolution, profile, resource and cancellation guards remain binding.
+  Unrecognized compared values retain their previous treatment. Native
   qpdf can keep redundant runs; managed output and identifiers can become smaller
   or change, with the same logical labels and no public signature change.
 - Attachment name-tree keys sort by emitted bytes, including mixed ASCII/UTF-16

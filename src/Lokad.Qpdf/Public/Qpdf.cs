@@ -1023,7 +1023,7 @@ public static partial class Qpdf
         List<Content.CopiedForm?> multiForms = ParserContainers.CreateList<Content.CopiedForm?>(selectionMemory, documentCount, IntPtr.Size);
         List<Content.CopiedForm?> gateForms = ParserContainers.CreateList<Content.CopiedForm?>(selectionMemory, documentCount, IntPtr.Size);
         QpdfObject? verbatimCopied = null;
-        bool needSourceLabels = !settings.RemoveLabels && settings.Labels.Count == 0;
+        bool needSourceLabels = !settings.RemoveLabels && settings.Labels.Count == 0 && verbatimLabels is null;
         selectionMemory.Reserve(96L);
         SortedDictionary<string, AttachmentReference> primaryExisting = new(StringComparer.Ordinal);
         QpdfObject? primaryPageMode = null;
