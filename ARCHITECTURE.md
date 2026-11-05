@@ -115,6 +115,9 @@ translation and optional nulls retain the original role value.
 Line leader distances and used caption offsets scale in their local line axes;
 rotation alone, zero/null and unused roles borrow the original values. These
 changes describe stored geometry and do not add an appearance generator.
+NoRotate annotations retain their upper-left anchor and unrotated appearance
+frame. Placements still bind inherited source resources; the existing appearance
+memo distinguishes changed frames while equivalent frames retain sharing.
 The first registered page identity remains canonical when a page is repeated;
 later catalog and destination copies cannot retarget it to a duplicate occurrence.
 Serialization authors each page's Parent backlink during the existing header

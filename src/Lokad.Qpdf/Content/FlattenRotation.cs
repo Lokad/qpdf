@@ -402,9 +402,10 @@ internal static class FlattenRotation
             { ParserContainers.AddItem(appearanceMemory, linked, popupRef, IntPtr.Size); }
             double[]? rect = ReadBox(annot, Rect, resolver);
             if (rect is null) { skipped = true; continue; }
-            PdfArray moved = NumberArray(TransformRect(rect, matrix), graph);
+            bool preserveFrame = AnnotationCoordinates.SelectNoRotateFrame(annot, rect, matrix, resolver, governor, token, out double[] frame);
+            PdfArray moved = NumberArray(TransformRect(rect, frame), graph);
             QpdfObject? appearance = null;
-            if (annot.TryGet(PdfName.FromAscii("AP"), out QpdfObject apRaw)
+            if (!preserveFrame && annot.TryGet(PdfName.FromAscii("AP"), out QpdfObject apRaw)
                 && (apRaw is PdfReference apLink ? ResolveOrNull(resolver, apLink) : apRaw) is PdfDictionary ap)
             {
                 appearance = CopyAppearanceDictionary(copier, ap, false, matrix, copies, appearanceMemory, graph, ref allocator);
@@ -422,7 +423,7 @@ internal static class FlattenRotation
                     PdfName key = source.Current.Key; QpdfObject value = source.Current.Value;
                     if (key.RawSpan.SequenceEqual("Rect"u8)) { value = moved; }
                     else if (appearance is not null && key.RawSpan.SequenceEqual("AP"u8)) { value = appearance; }
-                    else { value = AnnotationCoordinates.TransformEntry(annot, key, value, matrix, resolver, graph); }
+                    else { value = AnnotationCoordinates.TransformEntry(annot, key, value, frame, resolver, graph); }
                     entries.Assign(graph.Memory, governor, key, value, token);
                 }
             }

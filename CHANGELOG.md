@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Preserve NoRotate annotation anchors and orientation during rotation baking
+  and overlay/underlay placement. Keep equivalent appearance frames shared and
+  bind inherited source resources without rotating the preserved appearance.
+  Private aliases and appearance payloads remain intact.
+
 - Scale Line leader lengths, extensions and offsets with imported page units.
   Scale used caption offsets along/across the line, retaining signs and local
   axes. Preserve pure rotation, zero/null values and unused/private fields.

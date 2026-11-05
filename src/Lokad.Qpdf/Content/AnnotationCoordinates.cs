@@ -6,6 +6,25 @@ namespace Lokad.Qpdf.Content;
 
 internal static class AnnotationCoordinates
 {
+    // Returns true when NoRotate removes a rotation. The caller's fixed
+    // geometry scratch funds the optional six-value frame.
+    internal static bool SelectNoRotateFrame(PdfDictionary annotation, double[] rectangle, double[] matrix,
+        PoolResolver resolver, ResourceGovernor governor, CancellationToken token, out double[] frame)
+    {
+        frame = matrix;
+        if (!PdfDictionaryLookup.TryGet(annotation, "F"u8, governor, token, out QpdfObject raw)
+            || CatalogCopy.ResolveValue(raw, resolver, governor, token) is not PdfInteger flags
+            || (flags.Value & 16L) == 0L) { return false; }
+        double scale = double.Hypot(matrix[0], matrix[1]);
+        // Equivalent frames keep the existing appearance-sharing path.
+        if (matrix[0] == scale && matrix[1] == 0 && matrix[2] == 0 && matrix[3] == scale) { return false; }
+        double left = Math.Min(rectangle[0], rectangle[2]), top = Math.Max(rectangle[1], rectangle[3]);
+        frame = [scale, 0, 0, scale,
+            matrix[0] * left + matrix[2] * top + matrix[4] - scale * left,
+            matrix[1] * left + matrix[3] * top + matrix[5] - scale * top];
+        return true;
+    }
+
     internal static QpdfObject TransformEntry(PdfDictionary annotation, PdfName key,
         QpdfObject raw, double[] matrix, PoolResolver resolver, OwnedAllocationBatch graph)
     {

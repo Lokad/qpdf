@@ -1315,7 +1315,8 @@ internal static class Overlays
         // Only the original prefix belongs in Annots. Reuse the scratch queue
         // for linked-only popups instead of allocating another root list.
         int listedCount = fresh.Count;
-        Dictionary<(int Id, bool States), PdfReference> appearances = ParserContainers.CreateDictionary<(int, bool), PdfReference>(traversal);
+        // The frame bit distinguishes shared AP uses within this placement.
+        Dictionary<(int Id, bool States, bool PreserveFrame), PdfReference> appearances = ParserContainers.CreateDictionary<(int, bool, bool), PdfReference>(traversal);
         using OwnedAllocationBatch appearanceGraph = OwnedAllocationBatch.Create(governor, cancellationToken);
         for (int index = 0; index < fresh.Count; index++)
         {
@@ -1327,8 +1328,9 @@ internal static class Overlays
                 && PdfDictionaryLookup.TryGet(dictionary, "Popup"u8, governor, cancellationToken, out QpdfObject popup)
                 && popup is PdfReference popupReference && !transformed.Contains(popupReference.ObjectNumber))
             { ParserContainers.AddItem(scratch, fresh, popupReference, IntPtr.Size); }
-            TransformOverlayRect(destCopier, annotation.ObjectNumber, cm, governor, ownership, cancellationToken);
-            CopyOverlayAppearances(destCopier, annotation.ObjectNumber, cm, appearanceResources, appearances, traversal, appearanceGraph, diagnostics, ref allocator);
+            bool preserveFrame = TransformOverlayRect(destCopier, annotation.ObjectNumber, cm, governor, ownership, cancellationToken);
+            CopyOverlayAppearances(destCopier, annotation.ObjectNumber, preserveFrame ? null : cm,
+                appearanceResources, appearances, traversal, appearanceGraph, diagnostics, ref allocator);
         }
         appearanceGraph.Memory.TransferTo(ownership, appearanceGraph.Bytes);
 
@@ -1751,18 +1753,19 @@ internal static class Overlays
         return new PdfReference(nullId, 0);
     }
 
-    internal static void TransformOverlayRect(GraphCopier destCopier, int annotId, double[] cm,
+    internal static bool TransformOverlayRect(GraphCopier destCopier, int annotId, double[] cm,
         ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation(); ownership.CheckOwner(governor);
-        if (!destCopier.CopiedObjects.TryGetValue(annotId, out QpdfObject? raw) || raw is not PdfDictionary annot) { return; }
+        if (!destCopier.CopiedObjects.TryGetValue(annotId, out QpdfObject? raw) || raw is not PdfDictionary annot) { return false; }
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
         scratch.Reserve(512L); // Fixed resolver, coordinate arrays and transform state.
         PoolResolver pool = new(destCopier.CopiedObjects);
         double[] rect = ReadOverlayNumbers(annot, "Rect", 4, pool) ?? new double[4];
         (rect[0], rect[2]) = (Math.Min(rect[0], rect[2]), Math.Max(rect[0], rect[2]));
         (rect[1], rect[3]) = (Math.Min(rect[1], rect[3]), Math.Max(rect[1], rect[3]));
-        double[] moved = FromArray(cm).TransformRect(rect);
+        bool preserveFrame = AnnotationCoordinates.SelectNoRotateFrame(annot, rect, cm, pool, governor, token, out double[] frame);
+        double[] moved = FromArray(frame).TransformRect(rect);
         if (!IsFiniteRect(moved)) { moved = new double[4]; }
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         long before = graph.Memory.ReservedBytes;
@@ -1776,7 +1779,7 @@ internal static class Overlays
                 PdfName key = source.Current.Key; QpdfObject value = source.Current.Value;
                 if (value is null) { continue; }
                 if (key.RawSpan.SequenceEqual("Rect"u8)) { value = values; sawRect = true; }
-                else { value = AnnotationCoordinates.TransformEntry(annot, key, value, cm, pool, graph); }
+                else { value = AnnotationCoordinates.TransformEntry(annot, key, value, frame, pool, graph); }
                 entries.Assign(graph.Memory, governor, key, value, token);
             }
         }
@@ -1784,10 +1787,11 @@ internal static class Overlays
         PdfDictionary result = PdfDictionaryRebuild.Complete(graph, entries, allocation);
         destCopier.ValidateReplacement(annotId); graph.Memory.TransferTo(ownership, graph.Bytes);
         destCopier.ReplaceCopiedObject(annotId, result);
+        return preserveFrame;
     }
 
-    private static void CopyOverlayAppearances(GraphCopier copier, int annotId, double[] cm,
-        QpdfObject? pageResources, Dictionary<(int Id, bool States), PdfReference> copies,
+    private static void CopyOverlayAppearances(GraphCopier copier, int annotId, double[]? cm,
+        QpdfObject? pageResources, Dictionary<(int Id, bool States, bool PreserveFrame), PdfReference> copies,
         ParserMemoryScope traversal, OwnedAllocationBatch graph, DiagnosticBag diagnostics, ref int allocator)
     {
         ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
@@ -1801,14 +1805,14 @@ internal static class Overlays
     }
 
     private static QpdfObject CopyOverlayAppearanceDictionary(GraphCopier copier, QpdfObject raw, bool states,
-        double[] cm, QpdfObject? pageResources, Dictionary<(int Id, bool States), PdfReference> copies,
+        double[]? cm, QpdfObject? pageResources, Dictionary<(int Id, bool States, bool PreserveFrame), PdfReference> copies,
         ParserMemoryScope traversal, OwnedAllocationBatch graph, DiagnosticBag diagnostics, ref int allocator)
     {
         ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
         PoolResolver pool = new(copier.CopiedObjects);
         if (CatalogCopy.ResolveValue(raw, pool, governor, token) is not PdfDictionary dictionary) { return raw; }
         PdfReference? reference = raw as PdfReference;
-        if (reference is not null && copies.TryGetValue((reference.ObjectNumber, states), out PdfReference? cached)) { return cached; }
+        if (reference is not null && copies.TryGetValue((reference.ObjectNumber, states, cm is null), out PdfReference? cached)) { return cached; }
         PdfNameTable<QpdfObject>? entries = null; long allocation = 0L;
         using PdfDictionary.EntryEnumerator source = dictionary.GetEntryEnumerator();
         while (source.MoveNext(governor, token))
@@ -1820,11 +1824,11 @@ internal static class Overlays
             QpdfObject? target = CatalogCopy.ResolveValue(value, pool, governor, token);
             if (value is PdfReference streamReference && target is PdfStream)
             {
-                if (!copies.TryGetValue((streamReference.ObjectNumber, false), out PdfReference? placed))
+                if (!copies.TryGetValue((streamReference.ObjectNumber, false, cm is null), out PdfReference? placed))
                 {
                     placed = CopyOverlayAppearanceStream(copier, streamReference, cm, pageResources, graph, diagnostics, ref allocator);
                     ParserContainers.EnsureEntryCapacity(traversal, copies, 2L * sizeof(int) + IntPtr.Size);
-                    copies.Add((streamReference.ObjectNumber, false), placed);
+                    copies.Add((streamReference.ObjectNumber, false, cm is null), placed);
                 }
                 replacement = placed;
             }
@@ -1853,39 +1857,44 @@ internal static class Overlays
         if (reference is not null)
         {
             ParserContainers.EnsureEntryCapacity(traversal, copies, 2L * sizeof(int) + IntPtr.Size);
-            copies.Add((reference.ObjectNumber, states), (PdfReference)result);
+            copies.Add((reference.ObjectNumber, states, cm is null), (PdfReference)result);
         }
         return result;
     }
 
     internal static PdfReference CopyOverlayAppearanceStream(GraphCopier copier, PdfReference reference,
-        double[] cm, QpdfObject? pageResources, OwnedAllocationBatch graph, DiagnosticBag diagnostics, ref int allocator)
+        double[]? cm, QpdfObject? pageResources, OwnedAllocationBatch graph, DiagnosticBag diagnostics, ref int allocator)
     {
         ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (!copier.CopiedObjects.TryGetValue(reference.ObjectNumber, out QpdfObject? raw) || raw is not PdfStream stream) { return reference; }
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor); scratch.Reserve(256L);
         PoolResolver pool = new(copier.CopiedObjects);
-        PdfDictionaryLookup.TryGet(stream.Dictionary, "Matrix"u8, governor, token, out QpdfObject matrixRaw);
-        QpdfObject matrixValue = CatalogCopy.ResolveValue(matrixRaw, pool, governor, token) ?? matrixRaw;
-        bool present = matrixValue is not PdfNull;
+        bool present = false;
         double[]? next = null;
-        if (present && matrixValue is not PdfArray)
+        // A null frame requests source-resource binding with the AP frame intact.
+        if (cm is not null)
         {
-            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning,
-                "Kept a non-array appearance Matrix unchanged during placement.");
-        }
-        else
-        {
-            // Malformed arrays retain the existing native-compatible zero fallback.
-            double[]? matrix = matrixValue is PdfArray array ? ReadOverlayMatrix(array, pool)
-                : [1, 0, 0, 1, 0, 0];
-            if (matrix is null) { next = new double[6]; }
+            PdfDictionaryLookup.TryGet(stream.Dictionary, "Matrix"u8, governor, token, out QpdfObject matrixRaw);
+            QpdfObject matrixValue = CatalogCopy.ResolveValue(matrixRaw, pool, governor, token) ?? matrixRaw;
+            present = matrixValue is not PdfNull;
+            if (present && matrixValue is not PdfArray)
+            {
+                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning,
+                    "Kept a non-array appearance Matrix unchanged during placement.");
+            }
             else
             {
-                // The appearance maps its own coordinates before page placement.
-                ContentMatrix work = FromArray(cm); work.Concat(FromArray(matrix));
-                next = work.ToArray();
+                // Malformed arrays retain the existing native-compatible zero fallback.
+                double[]? matrix = matrixValue is PdfArray array ? ReadOverlayMatrix(array, pool)
+                    : [1, 0, 0, 1, 0, 0];
+                if (matrix is null) { next = new double[6]; }
+                else
+                {
+                    // The appearance maps its own coordinates before page placement.
+                    ContentMatrix work = FromArray(cm); work.Concat(FromArray(matrix));
+                    next = work.ToArray();
+                }
             }
         }
         bool bindResources = pageResources is not null && AppearanceResources.UsesPageResources(stream, pool, governor, token);

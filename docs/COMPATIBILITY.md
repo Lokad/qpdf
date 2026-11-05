@@ -207,8 +207,20 @@ source Form's rotation/UserUnit transform before the destination placement.
 Native qpdf 12.4.2 can omit that source frame and move annotations relative to
 the imported page artwork. Private appearance aliases and payload sharing stay
 intact; affected output bytes and identifiers change. This correction covers the
-ordinary annotation frame. Source-page clipping, NoRotate anchor/orientation and
-border geometry remain distinct limitations under review.
+ordinary annotation frame. Source-page clipping and border geometry remain
+distinct limitations under review.
+
+NoRotate annotations now keep their transformed upper-left anchor and upright
+orientation during rotation baking and overlay/underlay placement. Direct and
+indirect flags behave alike. The preserved appearance frame still receives its
+source resources during placement; ordinary and NoRotate uses split shared
+appearance headers only when their effective frames differ. Independent private
+aliases and payload bytes remain unchanged. Native qpdf 12.4.2 can rotate or
+misplace these appearances in the qualified cases; this intentionally corrects
+their output and identifiers without changing public signatures. This describes
+stored geometry and static appearances, not general viewer zoom, popup UI or
+appearance regeneration. See the
+[PDF reference, section 8.4.2](https://opensource.adobe.com/dc-acrobat-sdk-docs/pdfstandards/pdfreference1.6.pdf).
 
 Recognized absolute coordinate arrays also receive the changed page frame:
 Line L, FreeText CL, Link/text-markup QuadPoints, Polygon/PolyLine Vertices and
