@@ -391,6 +391,16 @@ toward the configured selection ceiling.
   fallback. Warning overflow rejects before commit; suppressed warnings consume
   no diagnostic quota under the existing warning policy.
 - --flatten-rotation bakes page rotation into content: boxes rotate per the page angle, a counter-transform wraps the content streams, /Rotate is dropped, and annotation rectangles move with the page. Appearance headers are copied per transformed page while payload bytes remain shared; untouched pages retain their original appearances. Direct and indirect appearance-state dictionaries and matrices are equivalent.
+  Retained local XYZ/FitR destinations follow the actual baked frame through
+  OpenAction, links/outlines, GoTo chains, named indexes and field events. XYZ
+  zoom zero/null remains unchanged. Fit/FitB keeps its whole-page meaning;
+  H/V/BH/BV at 180 degrees keeps its mode with an updated coordinate. Nullable
+  positions and quarter-turn axis fits requiring viewer/window state fail as
+  UnsupportedFeature before publication. Unchanged/omitted targets and discarded
+  catalog extras are not interpreted. Remote/private data stays opaque; original
+  aliases and canonical field/repeated-page identities remain intact.
+  Placement imports retain the primary document's calculation order; imported
+  fields do not add a source calculation order, matching native qpdf.
   Only N/R/D appearance slots and their one-level states receive rotation matrices;
   private AP streams and dictionaries keep their identities and matrices.
   Shared annotation identities are isolated before rotation, including duplicated

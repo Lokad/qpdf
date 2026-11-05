@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Project retained local navigation through rotation-baked page frames, sharing
+  the existing role walk and keeping private originals and field identities.
+  Read split form membership from final pooled headers. Preserve representable
+  destination modes/zoom and refuse affected viewer-state or quarter-turn axis
+  fits before publication; unchanged and discarded targets retain their treatment.
+
 - Keep source-action replacements separate from opaque event data when equal or
   shared dictionaries serve different roles. Preserve genuine action cycles and
   widget registrations, and use identity lookups to avoid quadratic allocation

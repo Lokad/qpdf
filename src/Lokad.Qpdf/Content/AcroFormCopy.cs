@@ -1525,35 +1525,40 @@ internal static class AcroFormCopy
             {
                 throw new ArgumentException("Occurrences must not contain null copiers.", nameof(occurrences));
             }
-
-            if (!copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? raw) || raw is not PdfDictionary page)
-            {
-                continue;
-            }
-
-            if (!page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject? annotsRaw) || annotsRaw is null || annotsRaw is PdfNull)
-            {
-                continue;
-            }
-
-            PdfArray? annots = ResolvePoolArray(copier.CopiedObjects, annotsRaw);
-            if (annots is null)
-            {
-                continue;
-            }
-
-            for (int i = 0; i < annots.Count; i++)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                governor.NoteOperation();
-                if (annots[i] is PdfReference reference)
-                {
-                    ParserContainers.AddSetItem(result, found, reference.ObjectNumber, sizeof(int));
-                }
-            }
+            AddAnnotRefs(copier.CopiedObjects, pageId, found, governor, result, cancellationToken);
         }
 
         result.TransferTo(ownership); return found;
+    }
+
+    // After assembly, page headers and field identities live in the final pool.
+    // Source copier snapshots no longer describe the surviving annotations.
+    internal static HashSet<int> CollectAnnotRefs(IReadOnlyDictionary<int, QpdfObject> pool, ReadOnlySpan<PdfReference> pages,
+        ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(pool); ArgumentNullException.ThrowIfNull(governor);
+        ownership.CheckOwner(governor);
+        using ParserMemoryScope result = ParserMemoryScope.Create(governor);
+        HashSet<int> found = ParserContainers.CreateSet<int>(result);
+        foreach (PdfReference page in pages)
+        {
+            token.ThrowIfCancellationRequested(); governor.NoteOperation();
+            AddAnnotRefs(pool, page.ObjectNumber, found, governor, result, token);
+        }
+        result.TransferTo(ownership); return found;
+    }
+
+    private static void AddAnnotRefs(IReadOnlyDictionary<int, QpdfObject> pool, int pageId, HashSet<int> found,
+        ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
+    {
+        if (!pool.TryGetValue(pageId, out QpdfObject? raw) || raw is not PdfDictionary page
+            || !page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject? annotsRaw) || annotsRaw is null or PdfNull
+            || ResolvePoolArray(pool, annotsRaw) is not PdfArray annots) { return; }
+        for (int i = 0; i < annots.Count; i++)
+        {
+            token.ThrowIfCancellationRequested(); governor.NoteOperation();
+            if (annots[i] is PdfReference reference) { ParserContainers.AddSetItem(memory, found, reference.ObjectNumber, sizeof(int)); }
+        }
     }
 
     internal static PdfDictionary? BuildCatalogForm(

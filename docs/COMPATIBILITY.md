@@ -72,6 +72,20 @@ when both roles share one object. Genuine action aliases, cycles and widget fiel
 registrations retain sharing. Output bytes/identifiers can change; no public
 signature changes.
 
+Rotation baking now updates retained local navigation: explicit XYZ/FitR targets,
+OpenAction, local GoTo actions, link/outline destinations, named indexes and field
+events follow the actual baked page frame. Native qpdf 12.4.2 can retain stale
+coordinates. Whole-page Fit/FitB stays unchanged; at 180 degrees H/V/BH/BV keeps
+its mode with the projected coordinate. XYZ zoom zero/null retains its meaning.
+Nullable positions depend on prior viewer state, and quarter-turn axis fits cannot
+generally preserve both position and window-dependent magnification in a destination
+array. A retained target requiring either transformation reports UnsupportedFeature
+before publication. This intentional combination limit replaces incorrect output.
+Unbaked/omitted targets, discarded catalog extras, remote actions and opaque data
+keep their existing treatment. Private aliases retain original values; field/CO
+registrations and repeated-page targets retain canonical identities. Malformed
+required operands fail explicitly. No public signature or runtime dependency changes.
+
 PDF JSON v2 object strings now use `b:` when Unicode presentation would change
 their bytes on import. For example, `(K)` remains `u:K`, while `<feff004b>` becomes
 `b:feff004b`; these are distinct PDF byte-string keys even though their text is
@@ -1039,9 +1053,10 @@ Physical output can also differ while preserving PDF meaning:
 
 The canonical [option inventory](../tests/Compatibility/options.json) records
 forms, contexts, choices, JSON mappings, scope, remaining gaps and executable
-evidence. It contains 140 flags in 157 option/context entries: 106 required
-entries complete, 49 crypto exclusions complete, and two explicit partial entries
-(`--optimize-images` for CMYK and `--zopfli`). These counts describe the current
+evidence. It contains 140 flags in 157 option/context entries: 105 required
+entries complete, 49 crypto exclusions complete, and three explicit partial entries
+(`--optimize-images` for CMYK, `--flatten-rotation` for viewer-dependent navigation,
+and `--zopfli`). These counts describe the current
 inventory, not test or release quotas. Completion of parsing alone is insufficient.
 The fix-qdf/zlib-flate companions are additional contracts outside the flag count.
 

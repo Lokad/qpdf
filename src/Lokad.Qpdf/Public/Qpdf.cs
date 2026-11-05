@@ -457,6 +457,7 @@ public static partial class Qpdf
                         document.Engine, copier, singleForm, singleForm, singleExtras, true, singleOutlines, governor, copyMemory, cancellationToken);
                     singleExtras = boundExtras ?? singleExtras;
                     IReadOnlyList<(GraphCopier Copier, Content.CopiedForm Part, int Occurrence)> rotationFields = Array.Empty<(GraphCopier, Content.CopiedForm, int)>();
+                    IReadOnlyDictionary<int, double[]>? rotationFrames = null;
                     flattenAllocator = Math.Max(flattenAllocator, copier.NextId);
                     if (settings.GenerateAppearances && needAppearances)
                     {
@@ -492,7 +493,7 @@ public static partial class Qpdf
                         { duplicateFields = Content.AnnotationCopies.Isolate(occurrences, forms, true, governor, copyMemory, cancellationToken, ref flattenAllocator); }
                         if (settings.FlattenRotation)
                         {
-                            (flattenAllocator, rotationFields) = Content.FlattenRotation.Apply(occurrences, forms, singleCompress, singleLevel,
+                            (flattenAllocator, rotationFields, rotationFrames) = Content.FlattenRotation.Apply(occurrences, forms, singleCompress, singleLevel,
                                 limits, governor, diagnostics, cancellationToken, flattenAllocator, copyMemory);
                         }
                     }
@@ -589,6 +590,12 @@ public static partial class Qpdf
                     }
                     FinishContentTransforms(singlePool, occurrences, singleTransforms, singlePruneSources, processedContentForms,
                         settings.Optimize, limits, governor, diagnostics, cancellationToken);
+                    if (rotationFrames is not null)
+                    {
+                        (_, singleAcroForm, IReadOnlyDictionary<PdfName, QpdfObject>? rotatedExtras, singleOutlines) = Content.SourceActions.BindRotation(
+                            copier, singlePool, kids, rotationFrames, null, singleAcroForm, singleExtras, singleOutlines, governor, copyMemory, cancellationToken);
+                        singleExtras = rotatedExtras ?? singleExtras;
+                    }
                     QpdfObject? singleOptionalContent = Content.OptionalContent.Combine(copier, Array.Empty<GraphCopier>(), overlayApplied.Copiers, singleExtras, singlePool, governor, cancellationToken);
                     if (singleOptionalContent is not null && settings.ForceVersion is null)
                     { IncludeVersionRequirement(ref negotiated, ref negotiatedExtension, new QpdfDocument.VersionParts(1, 5), 0, governor); }
@@ -1036,7 +1043,6 @@ public static partial class Qpdf
         PdfReference? primaryStructTree = null;
         QpdfObject? primaryMarkInfo = null;
         IReadOnlyDictionary<PdfName, QpdfObject>? primaryExtras = null;
-        HashSet<int> catalogExtraIds = ParserContainers.CreateSet<int>(selectionMemory);
         long selected = 0L;
         (bool multiCompress, string multiDecode, int? multiLevel) = ResolveCompression(settings.Compression, settings.Qdf.Enabled);
         Content.ContentTransformRequest? finalTransforms = null;
@@ -1178,29 +1184,6 @@ public static partial class Qpdf
                     primaryOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, settings.PreserveCatalog, settings.Linearize, governor, cancellationToken);
                     (primaryStructTree, primaryMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, settings.PreserveCatalog, settings.RemoveStructure, governor, cancellationToken);
                     (primaryPageMode, primaryExtras) = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, settings.PreserveCatalog, settings.RemoveAcroform, governor, selectionMemory, cancellationToken);
-                    if (primaryInfo is not null)
-                    {
-                        ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryInfo.ObjectNumber, sizeof(int));
-                    }
-
-                    if (primaryMetadata is not null)
-                    {
-                        ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryMetadata.ObjectNumber, sizeof(int));
-                    }
-                    if (primaryOutlines is not null)
-                    {
-                        ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryOutlines.ObjectNumber, sizeof(int));
-                    }
-
-                    if (primaryStructTree is not null)
-                    {
-                        ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryStructTree.ObjectNumber, sizeof(int));
-                    }
-
-                    if (primaryMarkInfo is PdfReference primaryMarkRef)
-                    {
-                        ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryMarkRef.ObjectNumber, sizeof(int));
-                    }
 
                     primaryExisting = PreserveExistingAttachments(copier, document.Engine, settings.Edits, limits, governor, diagnostics, selectionMemory, cancellationToken);
                 }
@@ -1244,7 +1227,6 @@ public static partial class Qpdf
                 if (s == primaryIdx)
                 {
                     primaryExtras = boundExtras; primaryOutlines = boundOutlines;
-                    if (primaryOutlines is not null) { ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryOutlines.ObjectNumber, sizeof(int)); }
                 }
                 Content.OptionalContent.Capture(document.Engine, copier, s == primaryIdx ? primaryExtras : null, selectionMemory, governor, cancellationToken);
                 nextId = copier.NextId;
@@ -1320,6 +1302,7 @@ public static partial class Qpdf
         }
 
         IReadOnlyList<(GraphCopier Copier, Content.CopiedForm Part, int Occurrence)> rotationFields = Array.Empty<(GraphCopier, Content.CopiedForm, int)>();
+        IReadOnlyDictionary<int, double[]>? rotationFrames = null;
         IReadOnlyList<(GraphCopier Copier, Content.CopiedForm Part, int Occurrence)> duplicateFields = Array.Empty<(GraphCopier, Content.CopiedForm, int)>();
         List<Content.CopiedForm?> renameForms = multiForms;
         List<GraphCopier> renameCopiers = copiers;
@@ -1337,7 +1320,7 @@ public static partial class Qpdf
             { duplicateFields = Content.AnnotationCopies.Isolate(occurrences, forms, true, governor, selectionMemory, cancellationToken, ref multiFlattenAllocator); }
             if (settings.FlattenRotation)
             {
-                (nextId, rotationFields) = Content.FlattenRotation.Apply(occurrences, forms, multiCompress, multiLevel,
+                (nextId, rotationFields, rotationFrames) = Content.FlattenRotation.Apply(occurrences, forms, multiCompress, multiLevel,
                     limits, governor, diagnostics, cancellationToken, multiFlattenAllocator, selectionMemory);
             }
             if (duplicateFields.Count > 0)
@@ -1552,7 +1535,7 @@ public static partial class Qpdf
             : Content.AcroFormCopy.BuildCatalogForm(
                 multiCombined,
                 pool,
-                Content.AcroFormCopy.CollectAnnotRefs(occurrences, governor, selectionMemory, cancellationToken),
+                Content.AcroFormCopy.CollectAnnotRefs(pool, CollectionsMarshal.AsSpan(kids), governor, selectionMemory, cancellationToken),
                 pruneUnreachableFields,
                 limits,
                 governor,
@@ -1565,6 +1548,13 @@ public static partial class Qpdf
         FinishContentTransforms(pool, occurrences, finalTransforms, pruneSources, processedContentForms,
             settings.Optimize, limits, governor, diagnostics, cancellationToken);
 
+        if (rotationFrames is not null)
+        {
+            (multiCombined, multiAcroForm, IReadOnlyDictionary<PdfName, QpdfObject>? rotatedExtras, primaryOutlines) = Content.SourceActions.BindRotation(
+                copiers[0], pool, kids, rotationFrames, multiCombined, multiAcroForm, splitPages.HasValue ? null : primaryExtras, primaryOutlines,
+                governor, selectionMemory, cancellationToken);
+            if (!splitPages.HasValue) { primaryExtras = rotatedExtras; }
+        }
         GraphCopier? primaryOptionalCopier = primaryIdx >= 0 && primaryIdx < copiers.Count ? copiers[primaryIdx] : null;
         QpdfObject? optionalContent = Content.OptionalContent.Combine(primaryOptionalCopier, copiers, overlayApplied.Copiers, primaryExtras, pool, governor, cancellationToken);
         if (optionalContent is not null && settings.ForceVersion is null)
@@ -1641,6 +1631,14 @@ public static partial class Qpdf
                 ParserContainers.AddSetItem(selectionMemory, pageNumbers, page.Id, sizeof(int));
             }
         }
+        // Split roots must use the final role identities, after source binding
+        // and rotation. Earlier root snapshots can retain obsolete outlines.
+        HashSet<int> catalogExtraIds = ParserContainers.CreateSet<int>(selectionMemory);
+        if (primaryInfo is not null) { ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryInfo.ObjectNumber, sizeof(int)); }
+        if (primaryMetadata is not null) { ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryMetadata.ObjectNumber, sizeof(int)); }
+        if (primaryOutlines is not null) { ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryOutlines.ObjectNumber, sizeof(int)); }
+        if (primaryStructTree is not null) { ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryStructTree.ObjectNumber, sizeof(int)); }
+        if (primaryMarkInfo is PdfReference primaryMarkRef) { ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryMarkRef.ObjectNumber, sizeof(int)); }
         using PreparedSplitPublications preparation = PreparedSplitPublications.Create(governor);
         ParserMemoryScope presentationMemory = preparation.Memory;
         List<PreparedSplitPublication> prepared = preparation.Items;
@@ -1661,14 +1659,8 @@ public static partial class Qpdf
             PdfDictionary? groupAcroForm = null;
             if (multiCombined is not null)
             {
-                List<(GraphCopier Copier, int Id)> groupOccurrences = ParserContainers.CreateList<(GraphCopier, int)>(groupMemory);
-                for (int slot = first - 1; slot < last; slot++)
-                {
-                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                    ParserContainers.AddItem(groupMemory, groupOccurrences, (occurrences[slot].Copier, occurrences[slot].Id), 16L);
-                }
-
-                HashSet<int> groupAnnots = Content.AcroFormCopy.CollectAnnotRefs(groupOccurrences, governor, groupMemory, cancellationToken);
+                HashSet<int> groupAnnots = Content.AcroFormCopy.CollectAnnotRefs(pool,
+                    CollectionsMarshal.AsSpan(kids).Slice(first - 1, last - first + 1), governor, groupMemory, cancellationToken);
                 groupAcroForm = Content.AcroFormCopy.BuildCatalogForm(multiCombined, pool, groupAnnots, pruneUnreachableFields, limits, governor, cancellationToken);
                 if (multiGenerated)
                 {

@@ -1,7 +1,11 @@
 using System.Diagnostics.CodeAnalysis;
+using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.TestSupport;
+using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -147,6 +151,50 @@ public sealed class SourceActionFailureTests
         storage.Dispose(); owner.Dispose(); Assert.Equal(0L, budget.ReservedBytes); Assert.Equal(0, budget.LiveReservations);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task BothTokensCancelDestinationBindingAfterAdmissionWithoutPublishingHeaders(bool caller)
+    {
+        string actions = string.Join(" ", Enumerable.Range(0, 512).Select(i => "<< /S /GoTo /D [3 0 R /XYZ " + i + " 60 1] >>"));
+        byte[] source = Tests.Inspection.CheckTests.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R /OpenAction 4 0 R >>", null),
+            (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [10 20 110 220] /Resources << >> /Rotate 90 >>", null),
+            (4, "<< /S /GoTo /D [3 0 R /XYZ 25 60 1] /Next [" + actions + "] >>", null)], 1);
+        RecordingMemoryBudget root = new(64L << 20);
+        using (IMemoryScope owner = root.CreateScope())
+        using (CancellationTokenSource cancellation = new())
+        using (InMemoryQpdfHost storage = new())
+        {
+            storage.AddInput(Input, source, QpdfInputOwnership.Transfer);
+            CancelBudget budget = new(owner, cancellation.Cancel) { Armed = false };
+            View host = new(storage, budget, "ordinary");
+            ResourceGovernor governor = new(QpdfLimits.Default, caller ? CancellationToken.None : cancellation.Token, host);
+            await using (QpdfDocument document = await QpdfDocument.OpenAsync(storage, Input, CancellationToken.None))
+            using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
+            {
+                GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, QpdfLimits.Default, 3, memory);
+                var page = document.PageReferences[0]; copier.RegisterPageRoot(page.Source?.ObjectNumber);
+                var copied = copier.CopyPageRoot(page.Page, page.Source?.ObjectNumber, new Dictionary<PdfName, QpdfObject>(), false, null);
+                var catalog = CatalogCopy.TryCopyExtras(document.Engine, copier, true, false, governor, memory, CancellationToken.None);
+                var forms = ParserContainers.CreateDictionary<GraphCopier, CopiedForm?>(memory);
+                var rotated = FlattenRotation.Apply([(copier, copied.Id)], forms, false, null, QpdfLimits.Default, governor, new(governor), CancellationToken.None, copier.NextId, memory);
+                Assert.NotNull(rotated.Frames);
+                Dictionary<int, QpdfObject> pool = ParserContainers.CreateDictionary<int, QpdfObject>(memory);
+                foreach (var pair in copier.CopiedObjects) { ParserContainers.EnsureEntryCapacity(memory, pool, IntPtr.Size); pool.Add(pair.Key, pair.Value); }
+                QpdfObject original = pool[copied.Id]; int count = pool.Count;
+                budget.Armed = true;
+                Assert.ThrowsAny<OperationCanceledException>(() => SourceActions.BindRotation(copier, pool, [new(copied.Id, 0)], rotated.Frames,
+                    null, null, catalog.Extras, null, governor, memory, caller ? cancellation.Token : CancellationToken.None));
+                Assert.True(budget.Triggered); Assert.Same(original, pool[copied.Id]); Assert.Equal(count, pool.Count); Assert.Equal(0, host.Created);
+            }
+            governor.CompletePrivateStorage(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+            Assert.Equal(0L, storage.OpenLeaseCount);
+        }
+        Assert.Equal(0L, root.ReservedBytes); Assert.Equal(0, root.LiveReservations);
+    }
+
     [Fact]
     public async Task AuthoredUriBytesRemainFundedAfterDocumentAndHostClose()
     {
@@ -192,8 +240,9 @@ public sealed class SourceActionFailureTests
     private sealed class CancelBudget(IMemoryBudget inner, Action cancel) : IMemoryBudget
     {
         internal bool Triggered { get; private set; }
+        internal bool Armed { get; set; } = true;
         public IMemoryScope CreateScope() => inner.CreateScope();
-        private void Observe(long bytes) { if (!Triggered && bytes >= 128L * 1024L) { Triggered = true; cancel(); } }
+        private void Observe(long bytes) { if (Armed && !Triggered && bytes >= 128L * 1024L) { Triggered = true; cancel(); } }
         public bool TryReserve(long bytes, [NotNullWhen(true)] out IMemoryReservation? reservation)
         {
             if (!inner.TryReserve(bytes, out IMemoryReservation? admitted)) { reservation = null; return false; }

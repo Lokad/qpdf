@@ -142,6 +142,13 @@ The action walk keys objects by reference identity, object number and effective
 role. A shared dictionary can therefore retain opaque event data independently
 of an action replacement. Genuine widget field/annotation roles remain unified;
 same-role aliases and action cycles retain sharing.
+Rotation baking retains only the actual successful page matrices in the selection
+owner. After form assembly, the same role walk projects retained local destinations
+through those frames, including named indexes and field events. Split form closure
+reads final pooled page headers through a borrowed page span, rather than stale
+source-copier snapshots. Private destination aliases retain their original values.
+Viewer-state positions and quarter-turn axis fits that cannot preserve the requested
+view fail before publication; no second navigation model or source registry is used.
 Optional-content capture examines the source's declared groups through the existing
 copy map. Ordinary documents need no pool scan, and existing catalog properties are
 borrowed directly. A sole complex configuration stays intact; multiple static View

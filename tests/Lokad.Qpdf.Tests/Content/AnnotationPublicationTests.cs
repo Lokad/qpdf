@@ -34,7 +34,8 @@ public sealed class AnnotationPublicationTests
     private static async Task<InMemoryQpdfHost> Storage(string mode)
     {
         InMemoryQpdfHost host = new();
-        byte[] input = mode.StartsWith("overlay-clip", StringComparison.Ordinal) ? OverlayAnnotationClippingTests.Target()
+        byte[] input = mode.StartsWith("navigation", StringComparison.Ordinal) ? RotationDestinationContextTests.Source("explicit")
+            : mode.StartsWith("overlay-clip", StringComparison.Ordinal) ? OverlayAnnotationClippingTests.Target()
             : mode.StartsWith("labels-split", StringComparison.Ordinal)
             ? File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "labels-split-start.pdf"))
             : mode.StartsWith("split-membership", StringComparison.Ordinal) ? SplitPageMembershipTests.Fixture("shared", true)
@@ -104,6 +105,8 @@ public sealed class AnnotationPublicationTests
             : mode.StartsWith("form-indirect", StringComparison.Ordinal) ? Qpdf.ExecuteJobAsync(host, mode == "form-indirect-both"
             ? """{"inputFile":"input","outputFile":"output","generateAppearances":true,"flattenAnnotations":"all"}"""
             : """{"inputFile":"input","outputFile":"output","generateAppearances":true}""", token)
+            : mode == "navigation-job" ? Qpdf.ExecuteJobAsync(host, "{\"inputFile\":\"input\",\"outputFile\":\"output\",\"flattenRotation\":true}", token)
+            : mode == "navigation" ? Qpdf.ExecuteAsync(host, new(["input", "--flatten-rotation", "output"]), token)
             : mode.StartsWith("rotation", StringComparison.Ordinal) ? RotationAppearanceTests.Run(host, mode == "rotation-job" ? "job" : "argv", token)
             : mode == "attachment-copy-job" ? Qpdf.ExecuteJobAsync(host,
             """{"inputFile":"input","outputFile":"output","copyAttachmentsFrom":[{"file":"source","prefix":"copy-"}]}""", token)
@@ -209,6 +212,8 @@ public sealed class AnnotationPublicationTests
     [InlineData("generate-array-job")]
     [InlineData("generate-parent")]
     [InlineData("generate-parent-job")]
+    [InlineData("navigation")]
+    [InlineData("navigation-job")]
     [InlineData("rotation")]
     [InlineData("rotation-job")]
     [InlineData("labels-split")]
@@ -493,6 +498,16 @@ public sealed class AnnotationPublicationTests
     [InlineData("commit", "attachment-copy-job")]
     [InlineData("cancel", "attachment-copy-job")]
     [InlineData("close", "attachment-copy-job")]
+    [InlineData("create", "navigation")]
+    [InlineData("write", "navigation")]
+    [InlineData("commit", "navigation")]
+    [InlineData("cancel", "navigation")]
+    [InlineData("close", "navigation")]
+    [InlineData("create", "navigation-job")]
+    [InlineData("write", "navigation-job")]
+    [InlineData("commit", "navigation-job")]
+    [InlineData("cancel", "navigation-job")]
+    [InlineData("close", "navigation-job")]
     [InlineData("create", "rotation")]
     [InlineData("write", "rotation")]
     [InlineData("commit", "rotation")]

@@ -3141,9 +3141,11 @@
           "source": "manual/cli.rst:1580"
         }
       ],
-      "status": "complete",
+      "status": "partial",
       "defaultReview": "reviewed",
-      "remainingGaps": [],
+      "remainingGaps": [
+        "Retained destinations to baked pages with nullable positions or quarter-turn H/V/BH/BV fit modes cannot generally preserve arbitrary prior viewer/window state in a destination array. This supported-profile combination limit is intentional: fail UnsupportedFeature before publication rather than emit changed navigation."
+      ],
       "evidence": {
         "positive": [
           "FlattenRotationTests.Flatten90RotatesBoxesAndWrapsContent",
@@ -3159,20 +3161,29 @@
           "FlattenRotationTests.DirectUserUnitSurvivesRotation",
           "FlattenRotationTests.MarkupAppearanceRotates",
           "RotationAppearanceTests.DirectAndIndirectAppearanceValuesAreEquivalent",
-          "RotationAppearanceTests.SharedAppearancesStayLocalToTheirPageAndKeepFieldIdentities"
+          "RotationAppearanceTests.SharedAppearancesStayLocalToTheirPageAndKeepFieldIdentities",
+          "RotationDestinationTests.RetainedDestinationRolesFollowTheActualBakedFrame"
         ],
         "negative": [
           "FlattenRotationTests.MalformedFlattenFlagsFail",
           "RotationAppearanceTests.DamagedAppearanceReferencesStayBounded",
-          "AnnotationCoordinateFailureTests.InvalidRecognizedCoordinatesRefusePublicationAndPrivateFieldsStayOpaque"
+          "AnnotationCoordinateFailureTests.InvalidRecognizedCoordinatesRefusePublicationAndPrivateFieldsStayOpaque",
+          "RotationDestinationProfileTests.OnlyRetainedDestinationsToActuallyBakedPagesRequireProjection"
         ],
         "interaction": [
           "FlattenRotationTests.JobRoundTripMatchesArgv",
-          "AppearanceRoleTests.RotationTransformsActualAppearancesAndKeepsPrivateAPValuesOpaque"
+          "AppearanceRoleTests.RotationTransformsActualAppearancesAndKeepsPrivateAPValuesOpaque",
+          "RotationDestinationContextTests.FieldRegistrationsAndCanonicalTargetsSurviveAssemblyAndSplit",
+          "RotationDestinationProfileTests.SplitDoesNotInterpretNavigationInDiscardedCatalogExtras",
+          "RotationDestinationProfileTests.UriActionExtrasRemainOpaqueEvenWhenTheyLookLikeLocalDestinations",
+          "RotationDestinationContextTests.PlacementDestinationsStayPrunedWhileTargetNavigationAndFieldsFollowBaking"
         ],
         "resource": [
           "ResourceEnforcementTests.FlattenRotationYieldsToExhaustedBudget",
-          "AnnotationCoordinateFailureTests.PointArraysAdmitBeforeAllocatingAndHonorBothCancellationRoutes"
+          "AnnotationCoordinateFailureTests.PointArraysAdmitBeforeAllocatingAndHonorBothCancellationRoutes",
+          "SourceActionFailureTests.BothTokensCancelDestinationBindingAfterAdmissionWithoutPublishingHeaders",
+          "AnnotationPublicationTests.EverySharedGrowthCanRefuseWithoutPublishing",
+          "AnnotationPublicationTests.OutputFaultsRefundOwnersAndRespectCommit"
         ],
         "oracle": [
           "diff:flatten-rotation"

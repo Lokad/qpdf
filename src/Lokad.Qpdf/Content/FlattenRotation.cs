@@ -15,7 +15,7 @@ internal static class FlattenRotation
     ];
     private static readonly PdfName Rect = PdfName.FromAscii("Rect");
 
-    internal static (int NextId, IReadOnlyList<(GraphCopier Copier, CopiedForm Part, int Occurrence)> FieldCopies) Apply(
+    internal static (int NextId, IReadOnlyList<(GraphCopier Copier, CopiedForm Part, int Occurrence)> FieldCopies, IReadOnlyDictionary<int, double[]>? Frames) Apply(
         IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
         IReadOnlyDictionary<GraphCopier, CopiedForm?> forms,
         bool compress,
@@ -51,6 +51,7 @@ internal static class FlattenRotation
         ownership.CheckOwner(governor);
         IReadOnlyList<(GraphCopier Copier, CopiedForm Part, int Occurrence)> fieldCopies = AnnotationCopies.Isolate(
             occurrences, forms, false, governor, ownership, cancellationToken, ref allocator);
+        Dictionary<int, double[]>? frames = null;
         foreach ((GraphCopier copier, int pageId) in occurrences)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -148,11 +149,15 @@ internal static class FlattenRotation
                 rebuilt.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "Annots"u8), annots ?? annotsRaw, cancellationToken);
             }
             PdfDictionary result = PdfDictionaryRebuild.Complete(graph, rebuilt, allocation);
+            frames ??= ParserContainers.CreateDictionary<int, double[]>(ownership);
+            ownership.Reserve(80L); // Retain the actual six-value matrix after page scratch closes.
+            ParserContainers.EnsureEntryCapacity(ownership, frames, IntPtr.Size);
+            frames.Add(pageId, matrix);
             copier.ReplaceCopiedObject(pageId, result); graph.Retain();
         }
 
         // Retire obsolete headers only after catalog and form roots are assembled.
-        return (allocator, fieldCopies);
+        return (allocator, fieldCopies, frames);
     }
 
     internal static bool CanFlatten(PdfDictionary page, PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
@@ -373,6 +378,7 @@ internal static class FlattenRotation
         GraphCopier copier, QpdfObject annotsRaw, double[] matrix,
         OwnedAllocationBatch graph, DiagnosticBag diagnostics, ref int allocator)
     {
+        Span<double> movedRect = stackalloc double[4];
         ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
         PoolResolver resolver = new(copier.CopiedObjects);
         QpdfObject target = annotsRaw is PdfReference link ? ResolveOrNull(resolver, link) ?? annotsRaw : annotsRaw;
@@ -403,7 +409,8 @@ internal static class FlattenRotation
             double[]? rect = ReadBox(annot, Rect, resolver);
             if (rect is null) { skipped = true; continue; }
             bool preserveFrame = AnnotationCoordinates.SelectNoRotateFrame(annot, rect, matrix, resolver, governor, token, out double[] frame);
-            PdfArray moved = NumberArray(TransformRect(rect, frame), graph);
+            TransformRect(rect, frame, movedRect);
+            PdfArray moved = NumberArray(movedRect, graph);
             QpdfObject? appearance = null;
             if (!preserveFrame && annot.TryGet(PdfName.FromAscii("AP"), out QpdfObject apRaw)
                 && (apRaw is PdfReference apLink ? ResolveOrNull(resolver, apLink) : apRaw) is PdfDictionary ap)
@@ -439,7 +446,7 @@ internal static class FlattenRotation
         graph.Memory.Reserve(24L); PdfArray result = PdfArray.FromOwnedItems(items); graph.Add(24L); return result;
     }
 
-    private static double[] TransformRect(double[] rect, double[] matrix)
+    internal static void TransformRect(ReadOnlySpan<double> rect, ReadOnlySpan<double> matrix, Span<double> result)
     {
         double x0 = (matrix[0] * rect[0]) + (matrix[2] * rect[1]) + matrix[4];
         double y0 = (matrix[1] * rect[0]) + (matrix[3] * rect[1]) + matrix[5];
@@ -465,10 +472,10 @@ internal static class FlattenRotation
         if (y1 > ury) ury = y1;
         if (y2 > ury) ury = y2;
         if (y3 > ury) ury = y3;
-        return [llx, lly, urx, ury];
+        result[0] = llx; result[1] = lly; result[2] = urx; result[3] = ury;
     }
 
-    private static PdfArray NumberArray(double[] values, OwnedAllocationBatch graph)
+    private static PdfArray NumberArray(ReadOnlySpan<double> values, OwnedAllocationBatch graph)
     {
         long bytes = checked(32L + IntPtr.Size * (long)values.Length);
         graph.Memory.Reserve(bytes); QpdfObject[] items = new QpdfObject[values.Length]; graph.Add(bytes);
