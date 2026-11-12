@@ -109,7 +109,9 @@ parser and finite raster controls; syntax alone is not a semantic oracle, and
 lossy JPEGs need appropriate comparisons. No timing gate or general rendering
 equivalence is claimed. The security matrix compares R2–R6 query exits and
 classic, object-stream, QDF, linearized and decrypted outputs through argv and
-job JSON. Native checks authenticate both roles and verify policy; decrypted
+job JSON. It also compares fresh AES-256, independent templates, raw/UTF-8/
+PDFDocEncoding passwords, host password files and non-secret reports. Native
+checks authenticate both roles and verify policy; decrypted
 controls compare page/metadata payloads and independent-reader page counts.
 Reference jobs fail when tools are missing.
 

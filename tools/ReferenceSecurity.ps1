@@ -9,7 +9,8 @@ function Invoke-SecurityManaged {
   if ($status.Count -ne 1) { throw "Security probe returned no unique status: $($result.StandardOutput)" }
   $textLine = @($lines | Where-Object { $_.StartsWith('emit: text ') })
   $text = if ($textLine.Count -eq 1) { ConvertFrom-Json -InputObject $textLine[0].Substring(11) } else { $null }
-  return [pscustomobject]@{ PageCount = @($lines | Select-String -Pattern '^emit: diagnostic PageCount Info inputs/a.pdf: 1$').Count; Status = $status[0].Matches[0].Groups[1].Value; ExitCode = [int]$status[0].Matches[0].Groups[2].Value; Text = $text }
+  $report = @($lines | Select-String -Pattern '^emit: diagnostic EncryptionReport \w+ (.*)$' | ForEach-Object { $_.Matches[0].Groups[1].Value })
+  return [pscustomobject]@{ Report = $report; PageCount = @($lines | Select-String -Pattern '^emit: diagnostic PageCount Info inputs/a.pdf: 1$').Count; Status = $status[0].Matches[0].Groups[1].Value; ExitCode = [int]$status[0].Matches[0].Groups[2].Value; Text = $text }
 }
 
 function Assert-SecurityPair {

@@ -568,7 +568,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
+        "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
       ],
       "currentRejection": true,
       "evidence": {
@@ -591,7 +591,9 @@
           "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
           "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-create"
+        ]
       }
     },
     {
@@ -654,7 +656,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
+        "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
       ],
       "currentRejection": true,
       "evidence": {
@@ -677,7 +679,9 @@
           "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
           "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-create"
+        ]
       }
     },
     {
@@ -706,7 +710,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
+        "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
       ],
       "currentRejection": true,
       "evidence": {
@@ -729,7 +733,9 @@
           "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
           "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-create"
+        ]
       }
     },
     {
@@ -752,7 +758,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
+        "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
       ],
       "currentRejection": true,
       "evidence": {
@@ -775,7 +781,9 @@
           "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
           "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-create"
+        ]
       }
     },
     {
@@ -804,7 +812,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
+        "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
       ],
       "currentRejection": true,
       "evidence": {
@@ -827,7 +835,9 @@
           "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
           "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-create"
+        ]
       }
     },
     {
@@ -890,7 +900,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
+        "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
       ],
       "currentRejection": true,
       "evidence": {
@@ -913,7 +923,9 @@
           "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
           "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-create"
+        ]
       }
     },
     {
@@ -948,7 +960,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
+        "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
       ],
       "currentRejection": true,
       "evidence": {
@@ -971,7 +983,9 @@
           "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
           "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-create"
+        ]
       }
     },
     {
@@ -1000,7 +1014,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
+        "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
       ],
       "currentRejection": true,
       "evidence": {
@@ -1023,7 +1037,9 @@
           "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
           "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-create"
+        ]
       }
     },
     {
@@ -1054,7 +1070,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
+        "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
       ],
       "currentRejection": true,
       "evidence": {
@@ -1077,7 +1093,9 @@
           "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
           "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-create"
+        ]
       }
     },
     {
@@ -2907,7 +2925,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "R2–R6 template copying supports independent credentials, writer modes, empty-primary/split output and native policy-setter ordering. Canonical native-reference qualification remains pending."
+        "Template copying has native coverage. The legacy crypto-option classification still needs reconciliation with supported parser contexts."
       ],
       "currentRejection": true,
       "evidence": {
@@ -2927,7 +2945,9 @@
         "resource": [
           "EncryptionTemplateCommandTests.EveryEmptyPrimaryTemplateAdmissionRefusalRefundsBeforeSplitPublication"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-template"
+        ]
       }
     },
     {
@@ -3179,7 +3199,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
+        "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
       ],
       "currentRejection": true,
       "evidence": {
@@ -3202,7 +3222,9 @@
           "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
           "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-create"
+        ]
       }
     },
     {
@@ -3225,7 +3247,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Independent R2–R6 template credentials support global password modes, recovery settings and empty passwords. Broader encoding recovery and canonical native-reference qualification remains pending."
+        "Independent R2–R6 template credentials and empty passwords have native coverage. Broader encoding recovery remains pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -3243,7 +3265,9 @@
         "resource": [
           "EncryptionTemplateCommandTests.EveryEmptyPrimaryTemplateAdmissionRefusalRefundsBeforeSplitPublication"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-template"
+        ]
       }
     },
     {
@@ -4077,7 +4101,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Authenticated R2–R6 JSON reports non-secret facts and decrypted values. Canonical native-reference qualification remains pending."
+        "Authenticated R2–R6 JSON facts have native coverage. Canonical encrypted stream/sidecar export qualification remains pending."
       ],
       "evidence": {
         "positive": [
@@ -4101,7 +4125,8 @@
         "oracle": [
           "diff:json-pages",
           "diff:json-structure",
-          "diff:json-images"
+          "diff:json-images",
+          "diff:security-encoding"
         ]
       }
     },
@@ -5318,7 +5343,8 @@
         ],
         "oracle": [
           "diff:security-query",
-          "diff:security-preserve"
+          "diff:security-preserve",
+          "diff:security-encoding"
         ]
       }
     },
@@ -5372,7 +5398,9 @@
           "ExtractionPasswordTests.EveryExtractionAdmissionRefusalRefundsBeforePublication",
           "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-encoding"
+        ]
       }
     },
     {
@@ -5455,7 +5483,9 @@
         "resource": [
           "PasswordModeTests.LongHexInputStillHonorsConfigurationLimits"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-encoding"
+        ]
       }
     },
     {
@@ -6420,11 +6450,9 @@
           "source": "manual/cli.rst:3417"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "R2–R6 reports are supported without secrets. Canonical native-reference qualification remains pending; explicit output paths are rejected."
-      ],
+      "remainingGaps": [],
       "currentRejection": false,
       "evidence": {
         "positive": [
@@ -6441,7 +6469,9 @@
           "EncryptionReportTests.ReportDiagnosticLimitsRemainBinding",
           "EncryptionInspectionTests.EveryProbeAdmissionFailureIsTerminalAndRefunded"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-report"
+        ]
       }
     },
     {

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Extend native security qualification to fresh AES-256, copied templates,
+  password encodings, host password files and non-secret reports.
+
 - Match native legacy encryption reports: R2/R3 omit per-filter cipher lines.
 
 - Add canonical R2–R6 native comparisons for predicates, authenticated reading,
