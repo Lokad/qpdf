@@ -13,7 +13,7 @@ public sealed class SignedAppearanceTests
     public static IEnumerable<object[]> Selections()
     {
         foreach (string fixture in new[] { "signature-visible", "signature-incremental", "signature-private-alias", "signature-shared-branch" })
-        foreach (string route in new[] { "typed", "argv", "job" })
+        foreach (string route in new[] { "typed", "argv", "job", "argv-restrictions", "job-restrictions" })
         foreach (bool preview in new[] { false, true }) { yield return [fixture, route, preview]; }
     }
 
@@ -34,11 +34,15 @@ public sealed class SignedAppearanceTests
         }
         else
         {
-            QpdfExecutionResult result = route == "argv"
-                ? await Qpdf.ExecuteAsync(host, new(["input.pdf", "--pages", ".", range, "--", "output.pdf"]), CancellationToken.None)
-                : await Qpdf.ExecuteJobAsync(host, System.Text.Json.JsonSerializer.Serialize(new
-                { inputFile = "input.pdf", outputFile = "output.pdf", pages = new[] { new { file = ".", range } } }), CancellationToken.None);
-            Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+            List<string> argv = ["input.pdf", "--pages", ".", range, "--", "output.pdf"];
+            Dictionary<string, object> fields = new()
+            { ["inputFile"] = "input.pdf", ["outputFile"] = "output.pdf", ["pages"] = new[] { new { file = ".", range } } };
+            if (route.EndsWith("-restrictions", StringComparison.Ordinal))
+            { argv.Add("--remove-restrictions"); fields["removeRestrictions"] = ""; }
+            QpdfExecutionResult result = route.StartsWith("argv", StringComparison.Ordinal)
+                ? await Qpdf.ExecuteAsync(host, new(argv), CancellationToken.None)
+                : await Qpdf.ExecuteJobAsync(host, System.Text.Json.JsonSerializer.Serialize(fields), CancellationToken.None);
+            Assert.True(result.Status == QpdfExecutionStatus.Completed, string.Join("; ", result.Diagnostics.Select(item => item.Message)));
         }
         Assert.Equal(original, input);
         Assert.Equal(0, host.OpenLeaseCount);

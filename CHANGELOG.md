@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Accept `--remove-restrictions` and job `removeRestrictions` for PDF publication,
+  reusing the default signature-disabling policy and preserving stored appearances.
+  Read-only inspections and JSON exports reject this mutation request explicitly.
+
 - Qualify every AES-256 permission choice and argv/job setter ordering against
   native qpdf, including both credentials and decrypted-content controls.
 

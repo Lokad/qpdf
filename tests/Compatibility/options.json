@@ -5998,21 +5998,27 @@
           "source": "manual/cli.rst:757"
         }
       ],
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
-      ],
+      "remainingGaps": [],
       "cryptoSyntax": true,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+        "positive": [
+          "SignedAppearanceTests.SelectionPreservesMarksAndDisablesOnlyTheFieldRole"
         ],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "negative": [
+          "RemoveRestrictionsTests.InvalidOrReadOnlyCombinationsRejectBeforeHostAccess",
+          "RemoveRestrictionsTests.JobRejectsMalformedOrReadOnlySettings"
+        ],
+        "interaction": [
+          "SignedAppearanceTests.WholeDocumentAndMergeKeepOrdinaryForms"
+        ],
+        "resource": [
+          "RemoveRestrictionsTests.CancellationAndBudgetFailurePreservePriorOutput"
+        ],
+        "oracle": [
+          "tools/ReferenceSecurityRestrictions.ps1: Invoke-ReferenceSecurityRestrictions"
+        ]
       }
     },
     {

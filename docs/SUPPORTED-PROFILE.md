@@ -10,6 +10,7 @@ credentials, including empty passwords. UTF-8 text is not normalized; R2–R4 re
 PDFDocEncoding when representable. Raw bytes are borrowed until opening completes
 and never reinterpreted. R2–R4 use the first 32 bytes and R5/R6 use 127. Missing credentials try
 empty; a failed absent password is distinct from a failed supplied password.
+`--remove-restrictions`/`removeRestrictions` explicitly selects the default signature-disabling PDF publication policy. Inspections and JSON exports reject that setting; input signature values remain available for read-only inspection.
 Standalone `--show-crypto` reports `managed` through the result diagnostics; it takes no other arguments or job JSON key.
 Encryption facts expose permissions and authentication status without passwords
 or keys. Typed `SelectPageAsync` authenticates with the same password values and

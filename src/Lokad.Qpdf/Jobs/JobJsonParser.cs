@@ -47,6 +47,7 @@ internal static partial class JobJsonParser
             bool requiresPassword = false;
             bool showEncryption = false;
             bool decrypt = false;
+            bool removeRestrictions = false;
             string? copyEncryption = null, encryptionFilePassword = null;
             bool encrypt = false;
             string encryptionUser = string.Empty, encryptionOwner = string.Empty;
@@ -228,10 +229,14 @@ internal static partial class JobJsonParser
             foreach (JsonProperty property in properties)
             {
                 governor.CheckCancellation();
-                if (IsCryptoKey(property.Name) && property.Name is not ("password" or "passwordFile" or "passwordMode" or "suppressPasswordRecovery" or "decrypt" or "encrypt" or "copyEncryption" or "encryptionFilePassword"))
+                if (IsCryptoKey(property.Name) && property.Name is not ("password" or "passwordFile" or "passwordMode" or "suppressPasswordRecovery" or "decrypt" or "encrypt" or "copyEncryption" or "encryptionFilePassword" or "removeRestrictions"))
                 { throw new QpdfCryptoException(property.Name); }
                 switch (property.Name)
                 {
+                    case "removeRestrictions":
+                        // Every PDF publication already disables active signatures.
+                        removeRestrictions = RequireBareFlag(property.Value, "removeRestrictions", textStorage);
+                        break;
                     case "decrypt":
                         decrypt = RequireBareFlag(property.Value, "decrypt", textStorage);
                         if (decrypt) { encrypt = false; copyEncryption = null; }
@@ -1230,6 +1235,13 @@ internal static partial class JobJsonParser
                     NoDefaultLimits = noDefaultLimits,
                     NoWarn = noWarn,
                 };
+            }
+
+            if (removeRestrictions && (seenJson || seenJsonOutput || check || showEncryption
+                || showAttachment is not null || showObject is not null || showNpages || showPages
+                || showXref || listAttachments || checkLinearization || showLinearization))
+            {
+                throw new QpdfParseException("removeRestrictions requires PDF publication; inspections retain original signature values.", 0L, null);
             }
 
             bool wantAttachments = listAttachments || showAttachment is not null;

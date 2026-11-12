@@ -47,7 +47,6 @@ public sealed class CryptoExclusionTests
     [InlineData("--modify=y")]
     [InlineData("--print=y")]
     [InlineData("--show-encryption-key")]
-    [InlineData("--remove-restrictions")]
     public async Task ArgvCryptoFlagsFailWithoutOutput(string flag)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
@@ -62,7 +61,6 @@ public sealed class CryptoExclusionTests
     [InlineData("allowWeakCrypto")]
     [InlineData("showEncryptionKey")]
     [InlineData("staticAesIv")]
-    [InlineData("removeRestrictions")]
     public async Task JobCryptoKeysFailWithoutOutput(string key)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");

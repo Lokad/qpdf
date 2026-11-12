@@ -78,7 +78,7 @@ internal static class ArgvParser
                 continue;
             }
             if (token is not null && token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2
-                && IsCryptoOption(OptionName(token)) && !(supportedSecurityOptions && OptionName(token) is "password" or "password-file" or "password-mode" or "suppress-password-recovery" or "decrypt" or "copy-encryption" or "encryption-file-password"))
+                && IsCryptoOption(OptionName(token)) && !(supportedSecurityOptions && OptionName(token) is "password" or "password-file" or "password-mode" or "suppress-password-recovery" or "decrypt" or "copy-encryption" or "encryption-file-password" or "remove-restrictions"))
             {
                 throw new QpdfCryptoException($"--{OptionName(token)}");
             }

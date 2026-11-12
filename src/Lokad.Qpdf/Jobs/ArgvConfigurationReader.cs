@@ -244,7 +244,7 @@ internal static partial class ArgvConfigurationReader
             or "ignore-xref-streams" or "json-input" or "keep-inline-images" or "linearize" or "list-attachments"
             or "newline-before-endstream" or "no-original-object-ids" or "no-warn" or "optimize-images"
             or "preserve-unreferenced" or "preserve-unreferenced-resources" or "progress" or "qdf" or "raw-stream-data"
-            or "recompress-flate" or "remove-acroform" or "remove-info" or "remove-metadata" or "remove-page-labels"
+            or "recompress-flate" or "remove-restrictions" or "remove-acroform" or "remove-info" or "remove-metadata" or "remove-page-labels"
             or "remove-structure" or "replace-input" or "report-memory-usage" or "show-linearization" or "show-npages"
             or "show-pages" or "show-xref" or "static-id" or "suppress-recovery" or "test-json-schema"
             or "verbose" or "warning-exit-0" or "with-images";

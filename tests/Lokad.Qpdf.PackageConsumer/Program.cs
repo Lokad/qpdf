@@ -1205,9 +1205,9 @@ internal static class Program
             else
             {
                 QpdfExecutionResult result = route == "argv"
-                    ? await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["input.pdf", "--pages", ".", "1", "--", "output.pdf"]), CancellationToken.None)
+                    ? await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["input.pdf", "--remove-restrictions", "--pages", ".", "1", "--", "output.pdf"]), CancellationToken.None)
                     : await Qpdf.ExecuteJobAsync(host,
-                        """{"inputFile":"input.pdf","outputFile":"output.pdf","pages":[{"file":".","range":"1"}]}""", CancellationToken.None);
+                        """{"inputFile":"input.pdf","outputFile":"output.pdf","removeRestrictions":"","pages":[{"file":".","range":"1"}]}""", CancellationToken.None);
                 Check(result.Status == QpdfExecutionStatus.Completed, "signature copy status through " + route);
             }
             Check(host.OpenLeaseCount == 0L && host.TryGetOutput(output, out _), "signature operation closes leases and preserves publication");

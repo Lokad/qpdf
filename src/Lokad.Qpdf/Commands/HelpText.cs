@@ -18,6 +18,7 @@ internal static class HelpText
           --password-file=path  first password line from a host input (- is host-mapped)
           --password-mode=mode  auto, bytes, unicode, or hex-bytes for passwords
           --decrypt             remove protection after authenticating the input
+          --remove-restrictions  disable signatures while retaining stored marks in PDF output (already the default)
           --copy-encryption=file  copy protection from an independently authenticated template
           --encryption-file-password=text  template password (absent tries empty)
           --encrypt user owner 256 [options] --  create fresh AES-256 R6 protection
@@ -209,7 +210,7 @@ internal static class HelpText
         Usage:
           qpdf --job-json-file file
         Top-level keys:
-          inputFile, outputFile, password, passwordFile, decrypt, encrypt, copyEncryption, encryptionFilePassword, passwordMode, suppressPasswordRecovery, isEncrypted, requiresPassword, showEncryption, pages:[{file, range, password}, ...], collate, replaceInput, splitPages, rotate, setPageLabels,
+          inputFile, outputFile, password, passwordFile, decrypt, encrypt, removeRestrictions, copyEncryption, encryptionFilePassword, passwordMode, suppressPasswordRecovery, isEncrypted, requiresPassword, showEncryption, pages:[{file, range, password}, ...], collate, replaceInput, splitPages, rotate, setPageLabels,
           removePageLabels, minVersion, forceVersion, deterministicId, staticId,
           newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData,
           compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo,
@@ -236,6 +237,7 @@ internal static class HelpText
         passwordFile reads the first line of a host file; empty files retain the previous password.
         passwordMode accepts auto, bytes, unicode or hex-bytes; only hex-bytes changes input byte decoding.
         suppressPasswordRecovery takes "" and disables alternate-encoding attempts.
+        removeRestrictions explicitly requests the default PDF signature-disabling policy; inspections reject it.
         decrypt takes "" or a boolean and removes protection from PDF output after authentication.
         encrypt takes {userPassword,ownerPassword,"256bit":{}} for new AES-256 R6 output.
         copyEncryption names a template; encryptionFilePassword independently authenticates it.
