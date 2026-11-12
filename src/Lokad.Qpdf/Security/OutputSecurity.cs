@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.Security.Cryptography;
+using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Security;
 
@@ -72,6 +74,52 @@ internal sealed class OutputSecurity : IDisposable
         memory.CheckOwner(governor);
         byte[] key = _key ?? throw new ObjectDisposedException(nameof(OutputSecurity));
         return PdfAesCipher.Encrypt(value, key, owner, governor);
+    }
+
+    internal QpdfObject EncryptObject(QpdfObject value, bool rootMetadata, IIndirectResolver resolver,
+        ParserMemoryScope destination, ResourceGovernor governor)
+    {
+        ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(OutputSecurity));
+        memory.CheckOwner(governor); destination.CheckOwner(governor); governor.CheckCancellation();
+        byte[] key = _key ?? throw new ObjectDisposedException(nameof(OutputSecurity));
+        if (ReferenceEquals(value, Dictionary) || value is not (PdfByteString or PdfArray or PdfDictionary or PdfStream)) { return value; }
+        if (value is PdfStream xref && PdfStringCrypt.HasType(xref.Dictionary, "XRef"u8, governor)) { return value; }
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, governor.CancellationToken);
+        QpdfObject result;
+        if (value is PdfStream stream)
+        {
+            using (FilterPlan filters = FilterChain.ResolveScoped(stream.Dictionary, resolver, governor, graph.Token))
+            {
+                for (int index = 0; index < filters.Count; index++)
+                {
+                    governor.CheckCancellation();
+                    if (filters[index].Name == "Crypt")
+                    { throw new QpdfUnsupportedFeatureException("Explicit stream Crypt filters are not supported for this output."); }
+                }
+            }
+            bool identity = rootMetadata && !EncryptMetadata || FilterChain.HasExternalData(stream, resolver, governor, graph.Token);
+            PdfDictionary header = PdfStringCrypt.Dictionary(stream.Dictionary, graph, 0, key, true);
+            if (identity)
+            {
+                graph.Memory.Reserve(32L); graph.Add(32L); result = stream.WithDictionary(header);
+            }
+            else
+            {
+                byte[] bytes = PdfStringCrypt.Bytes(stream.RawMemory.Span, graph, key, true);
+                PdfInteger length;
+                if (bytes.Length < PdfInteger.SharedValueCount) { length = PdfInteger.GetSharedValue(bytes.Length); }
+                else
+                {
+                    graph.Memory.Reserve(88L); graph.Add(88L);
+                    length = new(bytes.Length.ToString(CultureInfo.InvariantCulture), bytes.Length);
+                }
+                header = PdfDictionaryRebuild.ReplaceEntry(graph, header, "Length"u8, length);
+                graph.Memory.Reserve(32L); graph.Add(32L); result = PdfStream.FromOwnedData(header, bytes);
+            }
+        }
+        else { result = PdfStringCrypt.Value(value, graph, 0, key, true); }
+        graph.Memory.TransferTo(destination, graph.Bytes);
+        return result;
     }
 
     public void Dispose()

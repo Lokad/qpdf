@@ -67,6 +67,9 @@ A prepared output security owner holds the generated key and admitted encryption
 dictionary, clears the key on disposal and funds ciphertext under the caller's owner.
 Reading and output preparation share direct-string traversal, preserving signature
 Contents and leaving indirect references for their physical object boundaries.
+Internal output-object preparation encrypts encoded stream payloads and repairs
+their lengths, with metadata, external-stream and xref exceptions. Unconsumed
+explicit Crypt stages fail until their output semantics are integrated.
 The internal reader owns one authenticated key and decrypts physical objects
 before caching them; object-stream members are parsed only after their container
 decrypts. It consumes explicit Crypt stages and respects separate string, stream
