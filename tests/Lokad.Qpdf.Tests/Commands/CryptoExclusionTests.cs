@@ -27,11 +27,7 @@ public sealed class CryptoExclusionTests
     }
 
     [Theory]
-    [InlineData("--password=x")]
-    [InlineData("--password-file=x")]
-    [InlineData("--password-mode=x")]
     [InlineData("--password-is-hex-key")]
-    [InlineData("--suppress-password-recovery")]
     [InlineData("--encryption-file-password=x")]
     [InlineData("--user-password=x")]
     [InlineData("--owner-password=x")]
@@ -67,8 +63,6 @@ public sealed class CryptoExclusionTests
     }
 
     [Theory]
-    [InlineData("password")]
-    [InlineData("passwordFile")]
     [InlineData("passwordIsHexKey")]
     [InlineData("encryptionFilePassword")]
     [InlineData("allowWeakCrypto")]
@@ -111,7 +105,7 @@ public sealed class CryptoExclusionTests
     public async Task ArgvCopyAttachmentsPasswordFails()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", "--copy-attachments-from", "inputs/a.pdf", "--password=y", "--", "outputs/a.pdf" };
+        List<string> argv = new() { "inputs/a.pdf", "--copy-attachments-from", "inputs/a.pdf", "--password=y", "--", "--pages", ".", "1", "--", "outputs/a.pdf" };
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
         SingleCryptoError(result, "outputs/a.pdf");
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));

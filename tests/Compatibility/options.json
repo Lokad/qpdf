@@ -5079,25 +5079,27 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary text passwords are supported for AES R4/R6 inspections and JSON export. Encrypted PDF transformations, legacy handlers and secondary credentials remain pending."
+        "Primary text passwords support AES R4/R6 inspections, JSON export and protection-preserving PDF transformations. Legacy handlers, secondary credentials and encrypted JSON updates remain pending."
       ],
       "currentRejection": true,
       "evidence": {
         "positive": [
-          "PasswordInspectionTests.ArgvAndJobsInspectAuthenticatedPrimaryInputs"
+          "PasswordInspectionTests.ArgvAndJobsInspectAuthenticatedPrimaryInputs",
+          "PasswordTransformationTests.CommandsAndJobsPreservePrimaryProtectionThroughSharedWriters"
         ],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput",
-          "PasswordInspectionTests.PasswordFailuresHaveDistinctSecretFreeDiagnostics"
+          "PasswordInspectionTests.PasswordFailuresHaveDistinctSecretFreeDiagnostics",
+          "PasswordTransformationTests.WrongPasswordAndIncompatibleVersionNeverPublish"
         ],
         "interaction": [
           "PasswordInspectionTests.LaterCredentialSettersReplaceEarlierOnes",
-          "PasswordInspectionTests.ExplicitStreamInspectionExportsDecryptedDecodedBytes"
+          "PasswordInspectionTests.ExplicitStreamInspectionExportsDecryptedDecodedBytes",
+          "PasswordTransformationTests.UnselectedPrimaryStillControlsProtection"
         ],
         "resource": [
           "PasswordCheckTests.AuthenticationFailuresAndCancellationCloseInputsAndRefundMemory",
-          "EncryptedReaderTests.EveryReaderAdmissionFailureRefundsTheDocumentAndSecurityContext"
+          "EncryptedReaderTests.EveryReaderAdmissionFailureRefundsTheDocumentAndSecurityContext",
+          "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication"
         ],
         "oracle": []
       }
@@ -5122,16 +5124,15 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary host-file credentials support AES R4/R6 inspections and JSON export with first-line and ordered-setter semantics. Descriptor input, broader encoding recovery, secondary credentials and encrypted transformations remain pending."
+        "Primary host-file credentials support AES R4/R6 inspections, JSON export and protection-preserving PDF transformations with first-line and ordered-setter semantics. Descriptor input, broader encoding recovery, secondary credentials and encrypted JSON updates remain pending."
       ],
       "currentRejection": true,
       "evidence": {
         "positive": [
-          "PasswordFileTests.ArgvAndJobsUseFirstLineBytesForInspectionsAndJson"
+          "PasswordFileTests.ArgvAndJobsUseFirstLineBytesForInspectionsAndJson",
+          "PasswordTransformationTests.PasswordFileAndHexModeRemainOwnedThroughTransformPublication"
         ],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput",
           "PasswordFileTests.InvalidOperationsRejectBeforePasswordFileAccess",
           "PasswordFileTests.OverwrittenMissingFileStillFailsWithoutOpeningThePdf"
         ],
@@ -5144,7 +5145,8 @@
         "resource": [
           "PasswordFileTests.EveryAdmissionRefusalClosesFilesAndRefundsTheOperation",
           "PasswordFileReaderTests.ReaderStorageStaysAdmittedUntilAsynchronousCloseCompletes",
-          "PasswordFileReaderTests.InputLimitsAndCancellationLeaveNoOpenReader"
+          "PasswordFileReaderTests.InputLimitsAndCancellationLeaveNoOpenReader",
+          "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication"
         ],
         "oracle": []
       }
@@ -5212,15 +5214,15 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary inspections/JSON accept input modes and native hex decoding, with the supported R4 UTF-8 recovery. Other recovery encodings, legacy handlers, secondary credentials and output password conversion remain pending."
+        "Primary inspections, JSON export and PDF transformations accept input modes and native hex decoding, with the supported R4 UTF-8 recovery. Other recovery encodings, legacy handlers, secondary credentials and output password conversion remain pending."
       ],
       "currentRejection": true,
       "evidence": {
         "positive": [
-          "PasswordModeTests.InputModesMatchNativeDecodingAndRecovery"
+          "PasswordModeTests.InputModesMatchNativeDecodingAndRecovery",
+          "PasswordTransformationTests.PasswordFileAndHexModeRemainOwnedThroughTransformPublication"
         ],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
           "PasswordModeTests.InvalidModesAndUnsupportedTransformsFailBeforeInputAccess"
         ],
         "interaction": [
@@ -6670,16 +6672,16 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary inspections and JSON export can disable the supported R4 encoding retry. Other recovery encodings, legacy handlers, secondary credentials and transformations remain pending."
+        "Primary inspections, JSON export and PDF transformations can disable the supported R4 encoding retry. Other recovery encodings, legacy handlers, secondary credentials and encrypted JSON updates remain pending."
       ],
       "currentRejection": true,
       "evidence": {
         "positive": [
-          "PasswordRecoveryOptionTests.SuppressionUsesOnlyTheSuppliedEncoding"
+          "PasswordRecoveryOptionTests.SuppressionUsesOnlyTheSuppliedEncoding",
+          "PasswordTransformationTests.PasswordFileAndHexModeRemainOwnedThroughTransformPublication"
         ],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "PasswordRecoveryOptionTests.SuppressionDoesNotEnableEncryptedTransformations"
+          "PasswordRecoveryOptionTests.SuppressionDoesNotEnableEncryptedJsonUpdates"
         ],
         "interaction": [
           "PasswordRecoveryOptionTests.PasswordQueriesHonorSuppressionWithoutTurningItIntoAnError"

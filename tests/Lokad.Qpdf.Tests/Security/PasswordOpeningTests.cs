@@ -141,21 +141,18 @@ public sealed class PasswordOpeningTests
         if (route == "typed")
         {
             _ = await Qpdf.SelectPageAsync(host, input, output, new PdfPageSelectionOptions(1), CancellationToken.None);
-            Assert.True(host.TryGetOutput(output, out byte[] bytes));
-            QpdfPath copied = QpdfPath.From("copied.pdf"); host.AddInput(copied, bytes, QpdfInputOwnership.Copy);
-            await using QpdfDocument document = await QpdfDocument.OpenAsync(host, copied, CancellationToken.None);
-            Assert.Equal(1, document.PageCount); Assert.NotNull(document.Encryption);
-            return;
         }
         else
         {
             QpdfExecutionResult result = route == "argv"
                 ? await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation([input.Value, output.Value]), CancellationToken.None)
                 : await Qpdf.ExecuteJobAsync(host, "{\"inputFile\":\"" + file + "\",\"outputFile\":\"output.pdf\"}", CancellationToken.None);
-            Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-            Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.UnsupportedCryptoOperation);
+            Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
         }
-        Assert.False(host.TryGetOutput(output, out _));
+        Assert.True(host.TryGetOutput(output, out byte[] bytes));
+        QpdfPath copied = QpdfPath.From("copied.pdf"); host.AddInput(copied, bytes, QpdfInputOwnership.Copy);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, copied, CancellationToken.None);
+        Assert.Equal(1, document.PageCount); Assert.NotNull(document.Encryption);
     }
 
     [Theory]

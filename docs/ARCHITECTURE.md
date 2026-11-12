@@ -79,7 +79,9 @@ failure. Multi-source copying retains the primary's independent security owner
 after its reader closes. Repeated logical sources validate credential consistency
 before opening; secondary sources authenticate independently. Split preparation
 encrypts each final remapped model before publication, using a fresh key per output
-when new protection is requested. Command/job transformation routes remain pending.
+when new protection is requested. Argv/job PDF transformations use the same owner
+and preserve the primary's protection. Host-file password storage stays alive
+through reader closure, output preparation and publication. JSON updates remain pending.
 Reading and output preparation share direct-string traversal, preserving signature
 Contents and leaving indirect references for their physical object boundaries.
 Internal output-object preparation encrypts encoded stream payloads and repairs
@@ -114,13 +116,13 @@ They verify newest-object selection while older encrypted stream payloads remain
 Native R4/R6 linearized fixtures also cover decrypted page contents, object streams,
 shared-resource hints and physical linearization checks with either password.
 `QpdfDocument.OpenAsync` and typed structural checks use this authenticated reader
-with per-input text or raw credentials and non-secret encryption facts. Output-free
-argv/job inspections pass the primary text or host-file credential to the same reader.
+with per-input text or raw credentials and non-secret encryption facts. Argv/job
+inspections and PDF transformations pass the primary text or host-file credential to the same reader.
 JSON inspection uses the same authenticated reader and non-secret permission
 projection before existing text/sidecar preparation. Typed page selection
 authenticates before copying, preserves supported protection, and negotiates its
 required PDF version. Selective encrypted reads retry on the same stable lease
-with complete admitted input. Other transformation routes retain their refusal.
+with complete admitted input. Encrypted JSON updates retain their refusal.
 Security parameters and authentication status are separate values. Internal
 security inspection can read declared facts without traversing pages; it releases
 the key, input lease and working storage before returning those non-secret values.

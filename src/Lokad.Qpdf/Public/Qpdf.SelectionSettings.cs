@@ -87,8 +87,10 @@ public static partial class Qpdf
             Prune = new(false, null),
         };
 
-        internal static SelectionSettings FromPlan(JobPlan plan, bool pruneEnabled) => new()
+        internal static SelectionSettings FromPlan(JobPlan plan, bool pruneEnabled, QpdfPassword? password) => new()
         {
+            AuthenticatePrimary = true,
+            PrimaryPassword = password,
             Rotations = plan.Rotations,
             Labels = plan.Labels,
             RemoveLabels = plan.RemoveLabels,

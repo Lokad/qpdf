@@ -4129,6 +4129,7 @@ public static partial class Qpdf
     private static async ValueTask<(MultiPageSelectionOutcome Result, int AttachmentCount)> WholeFileCoreAsync(
         IQpdfHost host,
         WholeFilePlan plan,
+        QpdfPassword? password,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
@@ -4139,7 +4140,9 @@ public static partial class Qpdf
             throw new ArgumentNullException(nameof(plan));
         }
 
-        await using QpdfDocument document = await OpenPlanInputAsync(host, plan.Input, plan.EmptyDocument, limits, governor, diagnostics, plan.Recovery, cancellationToken, false).ConfigureAwait(false);
+        await using QpdfDocument document = plan.EmptyDocument
+            ? await QpdfDocument.OpenEmptyDocument(plan.Input, limits, governor, diagnostics, plan.Recovery, cancellationToken, false).ConfigureAwait(false)
+            : await QpdfDocument.OpenInspectionCore(host, plan.Input, password, limits, governor, diagnostics, plan.Recovery, cancellationToken).ConfigureAwait(false);
         int total = document.PageReferences.Count;
         if ((long)total > limits.MaxContainerSize)
         {
@@ -4148,7 +4151,7 @@ public static partial class Qpdf
 
         List<PdfPageSource> solo = new(1)
         {
-            new PdfPageSource(plan.Input, PdfPageSelectionOptions.FromRange(null)),
+            new PdfPageSource(plan.Input, PdfPageSelectionOptions.FromRange(null), password),
         };
         QpdfObject? verbatimTree = plan.Labels.Count == 0 && !plan.RemoveLabels && !plan.SplitPages.HasValue
             ? Content.PageLabelMerge.TryGetRawTree(document.Engine)
@@ -4163,7 +4166,7 @@ public static partial class Qpdf
             pruneUnreachableFields: false,
             limits: limits,
             recovery: plan.Recovery,
-            settings: SelectionSettings.FromPlan(plan, pruneEnabled: plan.SplitPages.HasValue),
+            settings: SelectionSettings.FromPlan(plan, pruneEnabled: plan.SplitPages.HasValue, password: password),
             collation: null,
             verbatimLabels: verbatimTree,
             splitPages: plan.SplitPages,
@@ -4674,7 +4677,7 @@ public static partial class Qpdf
                     AttachmentsToCopy = copies is null ? [] : copies,
                 };
                 DiagnosticBag diagnostics = new(governor);
-                (result, attachmentCount) = await WholeFileCoreAsync(host, plan, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                (result, attachmentCount) = await WholeFileCoreAsync(host, plan, null, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
             }
             QpdfAttachmentEditResult edited = new(attachmentCount, result.Warnings, governor.TypedCounters, true);
             governor.AcceptTypedResult(); governor.FinishTypedCounters(); return edited;
@@ -5267,12 +5270,10 @@ public static partial class Qpdf
         }
 
         if (JobJsonLoader.HasJobFile(expanded)
-            || (expanded.Any(token => token == "--password" || token.StartsWith("--password=", StringComparison.Ordinal)
+            || expanded.Any(token => token == "--password" || token.StartsWith("--password=", StringComparison.Ordinal)
                     || token == "--password-mode" || token.StartsWith("--password-mode=", StringComparison.Ordinal)
                     || token == "--password-file" || token.StartsWith("--password-file=", StringComparison.Ordinal)
                     || token == "--suppress-password-recovery" || token.StartsWith("--suppress-password-recovery=", StringComparison.Ordinal))
-                && expanded.Any(token => token == "--json" || token.StartsWith("--json=", StringComparison.Ordinal)
-                    || token == "--json-output" || token.StartsWith("--json-output=", StringComparison.Ordinal)))
             || expanded.Any(token => token == "--check" || token.StartsWith("--check=", StringComparison.Ordinal)
                 || token == "--is-encrypted" || token.StartsWith("--is-encrypted=", StringComparison.Ordinal)
                 || token == "--requires-password" || token.StartsWith("--requires-password=", StringComparison.Ordinal)
@@ -5692,11 +5693,12 @@ public static partial class Qpdf
         }
 
         ValidateFirstPassInputs(plan, governor, cancellationToken);
+        QpdfPassword? transformationPassword = suppliedPassword is null ? plan.TransformationPassword : suppliedPassword.Password;
         if (plan is WholeFilePlan whole)
         {
             try
             {
-                await WholeFileCoreAsync(host, whole, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                await WholeFileCoreAsync(host, whole, transformationPassword, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
                 return CompleteWithPresentation(governor);
             }
             catch (QpdfException ex)
@@ -5724,7 +5726,8 @@ public static partial class Qpdf
                     foreach (PdfPageSource source in merge.Sources)
                     {
                         QpdfPath path = source.Input.Value == "." ? merge.Input : source.Input;
-                        resolved.Add(new PdfPageSource(path, source.Selection));
+                        resolved.Add(new PdfPageSource(path, source.Selection,
+                            path == merge.Input ? transformationPassword : source.Password));
                     }
 
                     await SelectPagesCoreAsync(
@@ -5735,7 +5738,7 @@ public static partial class Qpdf
                         pruneUnreachableFields: true,
                         limits: limits,
                         recovery: merge.Recovery,
-                        settings: SelectionSettings.FromPlan(merge, pruneEnabled: true),
+                        settings: SelectionSettings.FromPlan(merge, pruneEnabled: true, password: transformationPassword),
                         collation: merge.Collation,
                         verbatimLabels: null,
                         splitPages: merge.SplitPages,
@@ -5769,7 +5772,7 @@ public static partial class Qpdf
                 {
                     List<PdfPageSource> solo = new(1)
                     {
-                        new PdfPageSource(selection.Input, new PdfPageSelectionOptions(selection.Page)),
+                        new PdfPageSource(selection.Input, new PdfPageSelectionOptions(selection.Page), transformationPassword),
                     };
                     QpdfPath target = selection.ReplaceInput ? selection.Input : selection.Output;
                     await SelectPagesCoreAsync(
@@ -5780,7 +5783,7 @@ public static partial class Qpdf
                         pruneUnreachableFields: true,
                         limits: limits,
                         recovery: selection.Recovery,
-                        settings: SelectionSettings.FromPlan(selection, pruneEnabled: true),
+                        settings: SelectionSettings.FromPlan(selection, pruneEnabled: true, password: transformationPassword),
                         collation: null,
                         verbatimLabels: null,
                         splitPages: selection.SplitPages,
@@ -5814,7 +5817,7 @@ public static partial class Qpdf
                 options: new PdfPageSelectionOptions(selection.Page),
                 limits: limits,
                 recovery: selection.Recovery,
-                settings: SelectionSettings.FromPlan(selection, pruneEnabled: true),
+                settings: SelectionSettings.FromPlan(selection, pruneEnabled: true, password: transformationPassword),
                 governor: governor,
                 diagnostics: diagnostics,
                 cancellationToken: cancellationToken).ConfigureAwait(false);

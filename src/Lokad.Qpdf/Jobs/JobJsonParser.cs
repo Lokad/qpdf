@@ -8,7 +8,7 @@ namespace Lokad.Qpdf.Jobs;
 
 /// <summary>
 /// Job-JSON parser covering selection, writer, content, overlay, attachment, inspection,
-/// and linearization keys with upstream field names. Primary passwords support inspection;
+/// and linearization keys with upstream field names. Primary passwords support inspection and PDF transformations;
 /// other unimplemented cryptographic keys reject as crypto;
 /// everything outside the supported subset fails explicitly.
 /// </summary>
@@ -1270,7 +1270,8 @@ internal static class JobJsonParser
                 };
             }
 
-            if ((password is not null || passwordFiles is not null || passwordMode is not null || suppressPasswordRecovery) && (!(seenJson || seenJsonOutput) || jsonInput || seenUpdateFromJson))
+            if ((password is not null || passwordFiles is not null || passwordMode is not null || suppressPasswordRecovery)
+                && (jsonInput || seenUpdateFromJson || wantAttachments || showObject is not null))
             { throw new QpdfCryptoException(passwordFiles is not null ? "passwordFile" : password is not null ? "password" : passwordMode is not null ? "passwordMode" : "suppressPasswordRecovery"); }
 
             if (wantAttachments && hasPages)
@@ -1584,6 +1585,8 @@ internal static class JobJsonParser
                     : SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null));
                 return new WholeFilePlan(wholeInput, SelectionPlan.CheckedPath(output), recovery) with
                 {
+                    TransformationPassword = password,
+                    PasswordFiles = passwordFiles,
                     EmptyDocument = empty,
                     ReplaceInput = replaceInput,
                     Rotations = rotations,
@@ -1679,6 +1682,8 @@ internal static class JobJsonParser
                 int page = SelectionPlan.ParsePageNumber(entries[0].Range);
                 return new SelectionPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output ?? input), page, recovery) with
                 {
+                    TransformationPassword = password,
+                    PasswordFiles = passwordFiles,
                     ReplaceInput = replaceInput,
                     Rotations = rotations,
                     Labels = labels,
@@ -1746,6 +1751,8 @@ internal static class JobJsonParser
             string primary = input ?? entries[0].File;
             return new MergePlan(SelectionPlan.CheckedPath(primary), SelectionPlan.CheckedPath(output ?? primary), sources, collation, recovery) with
             {
+                TransformationPassword = password,
+                PasswordFiles = passwordFiles,
                 EmptyInput = empty,
                 ReplaceInput = replaceInput,
                 Rotations = rotations,

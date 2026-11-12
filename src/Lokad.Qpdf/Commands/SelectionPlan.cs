@@ -5,6 +5,7 @@ internal abstract record JobPlan(QpdfPath Input)
 {
     internal CollationPreparation? CollationStorage { get; init; }
     internal Security.CommandPasswordFiles? PasswordFiles { get; init; }
+    internal QpdfPassword? TransformationPassword { get; init; }
     /// <summary>Input token standing in for the synthetic zero-page document.</summary>
     internal const string EmptyDocumentInput = "--empty";
 

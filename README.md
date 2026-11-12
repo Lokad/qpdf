@@ -116,10 +116,12 @@ await Qpdf.SelectPagesAsync(host,
     output, new PdfPageMergeOptions { OutputEncryption = protection }, CancellationToken.None);
 ```
 
-Output-free argv/job inspections also accept a primary-input text password:
+Argv/job inspections also accept a primary-input text password:
 `input.pdf --password=reader --check --show-npages`, or the job JSON key `"password":"reader"`.
-Missing and incorrect credentials have distinct diagnostic codes. Encrypted command/job
-transformations and command/job secondary-input passwords remain unsupported. `--password-file=path` (job key
+Missing and incorrect credentials have distinct diagnostic codes. PDF transformations
+also accept these primary credentials and preserve supported input protection:
+`input.pdf output.pdf --password=reader --linearize`. The primary document controls
+protection even when a pages block selects only other inputs. `--password-file=path` (job key
 `passwordFile`) reads the first line through the host; descriptor input is unavailable.
 `--is-encrypted` and `--requires-password` provide native predicate exit codes;
 see the [supported profile](docs/SUPPORTED-PROFILE.md) for their `Completed` result semantics.
@@ -136,8 +138,10 @@ for buffer ownership, cancellation and resource admission.
 
 ## Limitations
 
-Encrypted command/job transformations remain unsupported.
 Typed page selection, merging and splitting preserve/remove AES R4/R6 protection or create AES-256 R6.
+Argv/job PDF transformations preserve primary protection; command output policies,
+secondary credentials, password descriptors and encrypted JSON updates remain unsupported.
+Typed attachment edits preserve supported empty-password input protection.
 Rendering, OCR and
 text extraction are outside the library's scope.
 Copying or rewriting signed, unencrypted PDFs preserves stored annotation appearances

@@ -25,16 +25,21 @@ secondary sources cannot replace it. `PdfPageMergeOptions.OutputEncryption`
 sets an explicit policy, including for split output. Newly encrypted split outputs
 use separate keys. Repeated paths share one opened document and require equal
 credential values and representations, including absent versus explicit passwords;
-conflicts fail before opening inputs. RC4 inputs, R5 and encrypted command/job
-transformations remain unsupported.
+conflicts fail before opening inputs. RC4 inputs and R5 remain unsupported.
 
 Typed `Qpdf.CheckAsync` accepts the same credentials in `QpdfCheckOptions.Password`
 and runs structural checks over the decrypted graph. Its existing skipped-stage
 reporting and partial-check contract still apply.
-Output-free argv/job inspections accept a primary text password through
+Argv/job inspections and PDF transformations accept a primary text password through
 `--password`/`password`, or the first line of a host file through
 `--password-file`/`passwordFile`. Command/job secondary credentials remain unsupported.
 Missing and supplied-but-invalid credentials have distinct diagnostic codes.
+PDF rewrites, page selection/merging/splitting, object streams, QDF, linearization
+and attachment edits preserve supported primary protection, including when none
+of its pages is selected. A forced version incompatible with that protection fails
+before publication. Typed attachment edits use the same path for empty-password
+inputs. Explicit command output policies and encrypted JSON updates remain
+unsupported; secondary command credentials and password descriptors remain pending.
 File setters retain native order: a zero-byte file leaves the previous password
 unchanged, while a blank first line supplies an empty password. Spaces are retained;
 CR is stripped only before LF, and NUL terminates the password. Additional lines

@@ -112,10 +112,11 @@ internal static class HelpText
         Binary inspection without an output path returns QpdfExecutionResult.OutputBytes.
         Explicit output paths use the host's staged transactions.
         Derived PDFs keep stored signature marks but disable signature fields and certification restrictions.
-        Output-free inspections accept AES-128 R4 and AES-256 R6 passwords, including empty passwords.
+        Inspections and PDF transformations accept primary AES-128 R4 and AES-256 R6 passwords, including empty passwords.
         Encryption predicates are mutually exclusive, return no ordinary output, and ignore other inspections.
         Their completed query codes 2 and 3 are not errors or warnings; --warning-exit-0 does not change them.
-        Encrypted transformations, password files and secondary-input passwords remain unsupported.
+        PDF transformations preserve primary protection; --password-file reads a host file's first line.
+        Encrypted JSON updates, password descriptors and secondary-input passwords remain unsupported.
         Signing and signature validation are unsupported.
         """;
 
@@ -205,13 +206,13 @@ internal static class HelpText
         (non-negative error count, default 15; "0" removes the threshold), and noDefaultLimits
         ("" lifts unspecified parser defaults; explicit invocation and host limits remain binding).
         Other global keys fail.
-        password accepts text (including "") for the primary input in inspection and JSON export.
+        password accepts text (including "") for the primary input in inspection, JSON export and PDF transformations.
         passwordFile reads the first line of a host file; empty files retain the previous password.
         passwordMode accepts auto, bytes, unicode or hex-bytes; only hex-bytes changes input byte decoding.
         suppressPasswordRecovery takes "" and disables alternate-encoding attempts.
         isEncrypted and requiresPassword take "" and return the native query exit codes described by --help.
         showEncryption takes "" and reports declared settings without passwords or keys.
-        Encrypted transformations, password descriptors and nested passwords remain unsupported.
+        PDF transformations preserve primary protection. Encrypted JSON updates, password descriptors and nested passwords remain unsupported.
         Other crypto keys are rejected with UnsupportedCryptoOperation. See --help for the argv surface.
         """;
 

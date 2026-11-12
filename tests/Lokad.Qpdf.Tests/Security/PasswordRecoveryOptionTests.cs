@@ -56,11 +56,11 @@ public sealed class PasswordRecoveryOptionTests
     }
 
     [Fact]
-    public async Task SuppressionDoesNotEnableEncryptedTransformations()
+    public async Task SuppressionDoesNotEnableEncryptedJsonUpdates()
     {
         using InMemoryQpdfHost host = new();
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host,
-            """{"inputFile":"missing.pdf","outputFile":"out.pdf","suppressPasswordRecovery":""}""", CancellationToken.None);
+            """{"inputFile":"missing.pdf","outputFile":"out.pdf","updateFromJson":"update.json","suppressPasswordRecovery":""}""", CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         Assert.Equal(QpdfDiagnosticCode.UnsupportedCryptoOperation, Assert.Single(result.Diagnostics).Code);
         Assert.Equal(0, result.Counters.HostOperations);

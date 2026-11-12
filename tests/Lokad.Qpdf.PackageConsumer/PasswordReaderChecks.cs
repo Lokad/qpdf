@@ -121,6 +121,14 @@ internal static class PasswordReaderChecks
         Check(fromFile.Status == QpdfExecutionStatus.Completed && fromFile.ExitCode == QpdfExitCode.Success
             && fromFile.Diagnostics.Any(item => item.Code == QpdfDiagnosticCode.PasswordFileNote)
             && fromFile.Diagnostics.Any(item => item.Code == QpdfDiagnosticCode.PageCount), "host password file and non-secret multiline note");
+        QpdfExecutionResult transformed = await Qpdf.ExecuteAsync(host, new(
+            [encrypted.Value, "command-output.pdf", "--password-file=password", "--linearize", "--object-streams=generate"]), CancellationToken.None);
+        Check(transformed.Status == QpdfExecutionStatus.Completed, "authenticated command transformation");
+        Check(host.TryGetOutput(QpdfPath.From("command-output.pdf"), out byte[] commandBytes), "protected command publication");
+        host.AddInput(QpdfPath.From("command-copy.pdf"), commandBytes, QpdfInputOwnership.Copy);
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("command-copy.pdf"),
+            QpdfPassword.FromBytes(ownerBytes), QpdfLimits.Default, CancellationToken.None))
+        { Check(document.PageCount == 1 && document.Encryption?.Revision == 6, "command preservation with original owner password"); }
         QpdfExecutionResult report = await Qpdf.ExecuteJobAsync(host,
             """{"inputFile":"security-r6-ascii.pdf","showEncryption":"","password":"consumer-secret","check":""}""", CancellationToken.None);
         Check(report.Status == QpdfExecutionStatus.Completed && report.ExitCode == QpdfExitCode.Success

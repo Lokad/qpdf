@@ -23,7 +23,13 @@
   passwords, permissions and metadata treatment. Typed merging/splitting accepts
   per-source credentials and uses the first source's protection by default;
   repeated paths require consistent credentials, and newly encrypted split outputs
-  receive independent keys. Encrypted command/job transformations remain unsupported.
+  receive independent keys.
+- Accept primary text/host-file credentials for argv/job PDF transformations and
+  preserve supported primary protection through selection, merge/split, compression,
+  object streams, QDF, linearization and attachment edits. Retain protection when
+  the primary contributes no selected pages. Shared typed attachment edits also
+  preserve empty-password inputs. Command output policies, secondary credentials
+  and encrypted JSON updates remain unsupported.
 - Add `--is-encrypted` and `--requires-password` (and job JSON equivalents) for
   supported handlers, retaining native query exit codes independently of warning presentation.
 - Add `--show-encryption` / `showEncryption` for supported handlers, reporting
