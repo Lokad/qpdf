@@ -183,7 +183,7 @@ Typed attachment listing, extraction and edits accept primary credentials with
 explicit limits. Edits also accept preserve/remove/create/template output policies.
 Rendering, OCR and
 text extraction are outside the library's scope.
-Copying or rewriting signed, unencrypted PDFs preserves stored annotation appearances
+Copying or rewriting supported signed PDFs preserves stored annotation appearances
 and disables the active signature fields and certification restrictions. A derived
 PDF does not preserve signature validity. Blank signature fields are also disabled;
 read-only inspection retains source values. Signing and signature validation are excluded.

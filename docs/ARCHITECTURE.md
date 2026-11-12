@@ -52,154 +52,72 @@ appearance/resource payloads and private aliases use the ordinary graph mapping.
 Placement and JSON publication reuse this policy. Reading and inspection retain
 the original immutable values and do not validate signatures.
 
-Password recovery reuses the PDF text encodings used by appearances.
-The shared reader tries the supplied bytes first, then at most nine distinct
-UTF-8/PDFDoc/WinAnsi/MacRoman prefixes; BOM-marked UTF-16 can recover to the
-single-byte encodings. All scratch is bounded and cleared; typed raw
-bytes bypass recovery, and command suppression applies before input authentication.
+## Password security
 
-The internal revision 6 authentication primitive uses system AES/SHA and bounded,
-cleared derivation scratch, checked against recorded native keys and the
-[ISO 32000-2 algorithm errata](https://pdf-issues.pdfa.org/32000-2-2020/clause07.html#7.6.4.3.4).
-The AES payload primitive checks padding before allocating an exact plaintext
-buffer and uses bounded CBC calls so cancellation can interrupt large payloads.
-Its internal encryption counterpart admits exact ciphertext storage, generates a
-fresh random IV for each payload and continues CBC across bounded calls. This is
-the same primitive that serves new protection and authenticated preservation.
-Internal R6 entry creation generates a fresh file key and salts, wraps the key for
-both passwords and encrypts permissions. Recorded native randomness reproduces all
-five dictionary entries exactly; failure clears both caller-owned destinations.
-A prepared output security owner holds the generated key and admitted encryption
-dictionary, clears the key on disposal and funds ciphertext under the caller's owner.
-R5 authentication shares the AES-256 key and permission checks, using the bounded
-SHA-256 password hash from [Adobe ExtensionLevel 3](https://pdfa.org/resource/pdf-specification-archive/).
-R5 input and preserved/copied output use the same reader and writers; new encryption
-still creates R6. Preserved R5 output requires PDF 1.7 extension level 3.
-An authenticated R2–R6 reader can also prepare an independent output owner, copying
-the first identifier and both password entries without retaining either password.
-The copied key and dictionary survive source disposal; V4/V5 crypt filters normalize
-to AES for output, matching pinned qpdf. R2/R3 retain RC4 and their key lengths.
-Writers reject a changed first identifier before emission. R2–R4 derive temporary
-keys from final output numbers, including
-renumbered QDF objects, object-stream containers and linearization hints; each
-derived key is cleared after preparing its ciphertext. Typed page selection
-prepares this owner from its explicit preserve/remove/AES-256 request. New requests
-encode both borrowed credentials in bounded, cleared scratch and validate R6
-permission bits; output publication never falls back to plaintext on an encryption
-failure. Multi-source copying retains the primary's independent security owner
-after its reader closes. Repeated logical sources validate credential consistency
-before opening; secondary sources authenticate independently. Split preparation
-encrypts each final remapped model before publication, using a fresh key per output
-when new protection is requested. Argv/job PDF transformations use the same owner
-and preserve the primary's protection unless an explicit decrypt/encrypt request selects
-the shared removal or AES-256 policy. The argv adapter translates encryption blocks
-into the job parser, preserving permission-setter order without a second writer.
-Empty-primary merges prepare their requested key before split preparation.
-Page-block credentials become the same per-source password values used by typed
-merging. Transformed inspections authenticate secondary readers and copy their
-payloads before closing those readers. Primary page entries reuse the already
-authenticated primary; repeated secondary paths validate credential consistency.
-Attachment-copy sources use the same authenticated reader with independent
-payload storage. Copied attachment objects join the ordinary output graph before
-the source reader and key are disposed; their protection follows the output owner.
-Typed attachment listing and extraction authenticate the primary reader too.
-Command binary extraction uses that reader with primary text or host-file credentials,
-retaining the credential lease through staged payload publication.
-Typed edits pass the primary credential and output policy to the same whole-file
-transformation core, retaining independent credentials for copied sources.
-Placement readers authenticate independently too. Their cache keys include the
-credential representation and value, so reusing a path cannot bypass a later
-password check. Their copied payloads survive source-reader closure.
-Typed and command template policies prepare the same independent output owner from a separate
-authenticated reader and copy its first identifier into operation-owned storage.
-The template closes before publication; a close failure disposes the prepared key.
-Host-file password storage stays alive
-through reader closure, output preparation and publication. Typed JSON updates
-authenticate the original graph, remove its active encryption trailer reference,
-apply plaintext object patches and prepare the selected independent output owner.
-Final numbering binds both the encryption dictionary and catalog metadata stream.
-Preservation validates a repeated handler reference and dictionary against the
-authenticated original with bounded, cancellable value comparisons. Explicit
-remove/create/template policies discard JSON encryption declarations and prepare
-their output security independently; JSON data never supplies an authenticated key.
-Typed JSON creation prepares the same owner from a new-protection request or
-authenticated template after parsing plaintext objects. Preserve/Remove have no
-input protection to carry forward. Version negotiation precedes graph renumbering.
-Command JSON creation passes the same policy and the template's recovery mode;
-primary password files retain their shared resolution and disposal lifetime.
-Reading and output preparation share direct-string traversal, preserving signature
-Contents and leaving indirect references for their physical object boundaries.
-Internal output-object preparation encrypts encoded stream payloads and repairs
-their lengths, with metadata, external-stream and xref exceptions. Unconsumed
-explicit Crypt stages fail until their output semantics are integrated.
-The internal classic serializer can emit these protected objects and the matching
-trailer reference. Hexadecimal ciphertext strings keep counted lengths stable
-across fresh IVs, and temporary ciphertext stays admitted through sink awaits.
-Object-stream serialization encrypts each complete container after compression,
-without encrypting its members again. Counting includes the IV and padding;
-xref streams remain clear and carry the encryption reference. Encryption and
-signature dictionaries stay outside encrypted containers. Classic QDF preserves
-indirect stream-length objects with ciphertext sizes and remapped security references.
-It always separates encrypted payloads from endstream, keeping counted framing
-stable across IVs. QDF object streams retain their plaintext member comments and
-offset table inside one encrypted container; their xref stream stays clear.
-Linearized classification can place the encryption dictionary at the end of the
-first document section, before hints, while keeping it and signatures uncompressed.
-The two-pass writers bind encryption and metadata to their remapped
-numbers, encrypt hints after compression and count ciphertext lengths and offsets.
-Only the first trailer carries the encryption reference; hint framing stays stable
-across fresh IVs, including when the optional first-pass capture is enabled.
-Linearized object streams reuse the same container-encryption boundary, while
-both xref streams remain clear and only the first carries the encryption reference.
-The internal reader owns one authenticated key and decrypts physical objects
-before caching them; object-stream members are parsed only after their container
-decrypts. It consumes explicit Crypt stages and respects separate string, stream
-and embedded-file filters, document metadata, xref and signature exceptions.
-Recorded encrypted fixtures cover classic/streamed xrefs, hybrid supplements,
-incremental replacement of strings, and an incremental update over a hybrid file.
-They verify newest-object selection while older encrypted stream payloads remain readable.
-Native R4/R6 linearized fixtures also cover decrypted page contents, object streams,
-shared-resource hints and physical linearization checks with either password.
-`QpdfDocument.OpenAsync` and typed structural checks use this authenticated reader
-with per-input text or raw credentials and non-secret encryption facts. Argv/job
-inspections and PDF transformations pass the primary text or host-file credential to the same reader.
-JSON inspection uses the same authenticated reader and non-secret permission
-projection before existing text/sidecar preparation. Typed page selection
-authenticates before copying, preserves supported protection, and negotiates its
-required PDF version. Selective encrypted reads retry on the same stable lease
-with complete admitted input. Command JSON updates pass their primary text/host-file credential and output policy to the same core.
-Security parameters and authentication status are separate values. Internal
-security inspection can read declared facts without traversing pages; it releases
-the key, input lease and working storage before returning those non-secret values.
-Combined encryption reports and content inspections share the admitted input and
-authentication. Only a matching password permits page traversal; report-only
-requests close the reader after collecting declared settings.
-R4 authentication uses system MD5 and a bounded, owned RC4 primitive, checked
-against native keys and [independent RFC 6229 vectors](https://www.rfc-editor.org/rfc/rfc6229.txt).
-The shared legacy authenticator also covers R2's 40-bit derivation and
-R3's 40..128-bit keys. Short R3 owner keys check the full-digest convention from
-[ISO 32000-1, algorithm 3](https://opensource.adobe.com/dc-acrobat-sdk-docs/standards/pdfstandards/pdf/PDF32000_2008.pdf)
-and the key-length convention used by pinned qpdf and Poppler, with at most two
-owner derivations. Recorded fixtures distinguish those results. R2/R3 documents
-use the same authenticated graph, credentials and output policies. Their writers
-preserve RC4 and account for unchanged payload lengths, including object streams
-and linearization. Pre-V4 crypt-filter and metadata fields are inactive.
-R4 RC4 and AES-128 use temporary per-object keys including number and generation.
-Only AES appends the salt suffix. Strings and streams select their keys independently,
-including mixed crypt filters; RC4 payload copies retain exact length and admitted
-ownership through cancellable processing. Native fixtures and RFC vectors cover
-this path. Preserved/copied R4 output normalizes to AES-128 and requires PDF 1.6;
-object-stream members reuse their container's plaintext. Text and command
-credentials use the bounded encoding recovery described above; typed raw bytes
-stay exact. The password-file reader retains a 512-byte recovery prefix using
-cleared 512-byte host-read scratch. It preserves first-line byte semantics and keeps storage admitted through
-asynchronous input close. Validated inspection plans resolve file/text setters in
-order, retaining owned password bytes until inspection and cleanup finish. File
-credentials use the same bounded encoding recovery; typed raw credentials stay exact.
-The descriptor spelling `--password-file=-` opens the logical host input `"-"`.
-The host supplies stable bytes, length and identity under the ordinary input lease
-contract, including any descriptor snapshot and its storage. No separate reader or
-ambient console access is needed in core.
+One security handler serves the shared reader and all entry points. The reader
+validates the encryption dictionary before traversing encrypted objects, then
+owns one authenticated file key. Physical strings and streams decrypt before
+caching; object streams decrypt once, before their members parse. Xref data,
+encryption dictionaries and signature Contents remain clear. Metadata follows
+its encryption flag, explicit Crypt stages are consumed once, and external-file
+streams stay opaque without opening their referenced paths.
+
+| Handler | Authentication and payload handling |
+| --- | --- |
+| R2/R3 | MD5/password padding and owned RC4; 40-bit R2 and 40..128-bit R3 keys. Short R3 owner keys accept the two documented full-digest/key-length conventions. |
+| R4 | Legacy authentication with independent per-object keys for RC4/AES-128 strings, streams and embedded files. AES includes its object-key salt. |
+| R5 | SHA-256 authentication and AES-256 payloads; preserved/copied output retains revision 5. |
+| R6 | Bounded AES/SHA derivation and AES-256 payloads; all newly created protection uses revision 6. |
+
+AES, hashes and randomness use .NET system cryptography. The owned RC4 primitive
+is checked against [RFC 6229](https://www.rfc-editor.org/rfc/rfc6229.txt);
+R6 derivation follows the
+[ISO algorithm errata](https://pdf-issues.pdfa.org/32000-2-2020/clause07.html#7.6.4.3.4).
+Recorded native keys and dictionary entries supplement roundtrip tests.
+Payload AES checks padding before allocating exact plaintext, processes bounded
+CBC chunks for cancellation and admits exact ciphertext including IV/padding.
+Key and derivation buffers remain owned and clear when their lifetimes end.
+
+Credentials belong to each input. Typed raw bytes stay exact and borrowed;
+text and command credentials try the supplied representation first, then at most
+nine distinct UTF-8/PDFDoc/WinAnsi/MacRoman alternatives. Well-formed BOM-marked
+UTF-16 can recover to a single-byte encoding. Recovery shares the appearance
+text tables, uses bounded cleared scratch and can be suppressed globally by
+commands. Authentication consumes at most 32 legacy or 127 modern bytes.
+Password files retain a 512-byte recovery prefix and 512-byte read scratch,
+funded through asynchronous close. Separate setter candidates preserve the
+previous credential for an empty file. The logical descriptor `-` uses the
+ordinary stable host lease; core never reads ambient stdin.
+
+The output policy prepares an independent key/dictionary owner before writing.
+Preservation and authenticated templates copy both password entries and the first
+file identifier without retaining either password. R2/R3 keep RC4; R4 normalizes
+to AES-128; R5/R6 retain their revision. New R6 creates a random file key, salts
+and password entries, with explicit permissions and metadata treatment. Output
+version negotiation enforces the chosen handler's PDF version/extension. Failure
+never falls back to plaintext. Freshly protected split files get independent keys.
+
+The primary input controls preservation; page, attachment, placement and template
+sources authenticate independently. Copied objects outlive their source readers
+and receive the output owner's protection. Repeated sources validate credential
+consistency. Typed operations, argv and job JSON use this same ownership path;
+argv encryption blocks translate through the job parser and preserve setter order.
+
+Writers encrypt after compression and final object numbering. R2–R4 per-object
+keys use the final number/generation and clear after ciphertext preparation.
+Object-stream members reuse the container boundary, while xref streams and
+security exceptions stay clear. Classic, QDF and two-pass linearized writers
+count IVs, padding and encoded lengths before publication. Prepared buffers stay
+admitted through pending host writes; copied keys survive source-reader disposal.
+
+Authenticated JSON exports plaintext values and non-secret encryption facts.
+Updates authenticate the source PDF before applying a plaintext patch and an
+explicit output policy. JSON creation requires remove/create/template handling
+for an encryption declaration; JSON alone cannot authenticate a key. Reports and
+predicates may inspect declared settings without traversing pages, but content
+operations require successful authentication. See the
+[supported profile](SUPPORTED-PROFILE.md) for public contracts and
+[compatibility](COMPATIBILITY.md) for named native differences.
 
 ## Storage and ownership
 
