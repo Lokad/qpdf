@@ -60,6 +60,9 @@ buffer and uses bounded CBC calls so cancellation can interrupt large payloads.
 Its internal encryption counterpart admits exact ciphertext storage, generates a
 fresh random IV for each payload and continues CBC across bounded calls. This is
 a writer primitive; public output protection still awaits policy integration.
+Internal R6 entry creation generates a fresh file key and salts, wraps the key for
+both passwords and encrypts permissions. Recorded native randomness reproduces all
+five dictionary entries exactly; failure clears both caller-owned destinations.
 The internal reader owns one authenticated key and decrypts physical objects
 before caching them; object-stream members are parsed only after their container
 decrypts. It consumes explicit Crypt stages and respects separate string, stream

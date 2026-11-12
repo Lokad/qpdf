@@ -12,7 +12,7 @@ internal enum PasswordAuthentication : byte { None, User, Owner }
 // ISO 32000-2 algorithms 2.A, 2.B and 13, including the published 2.B/ECB errata.
 // Password encoding belongs to the entry point. These routines consume bytes,
 // truncate to 127 bytes, and never normalize or retain the caller's password.
-internal static class Revision6Encryption
+internal static partial class Revision6Encryption
 {
     internal static PasswordAuthentication Authenticate(PdfDictionary encryption,
         ReadOnlySpan<byte> password, Span<byte> fileKey, ResourceGovernor governor)
