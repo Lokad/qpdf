@@ -59,7 +59,11 @@ public interface IQpdfOutputTransaction : IAsyncDisposable
 public interface IQpdfHost
 {
     /// <summary>Opens a stable input lease for a logical path.</summary>
-    /// <remarks>Acquire the content once; replacement of the logical path cannot change opened bytes.</remarks>
+    /// <remarks>
+    /// Acquire the content once; replacement of the logical path cannot change opened bytes.
+    /// Password-file requests using "-" open that logical path. A host may map it to a
+    /// descriptor snapshot satisfying the same stable input contract; core never reads ambient stdin.
+    /// </remarks>
     ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken cancellationToken);
 
     /// <summary>Creates a staged-output transaction for a logical path.</summary>

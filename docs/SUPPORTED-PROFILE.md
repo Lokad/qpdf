@@ -61,8 +61,7 @@ cleartext metadata are supported; accessibility remains enabled for R6. Argv
 permission setters retain their order; job JSON applies keys in lexical order.
 Encryption/decryption setters replace the preceding output policy. Split outputs
 receive independent keys, including with an empty primary document. New encryption
-cannot combine with deterministic IDs. Legacy creation, force-R5, allow-insecure
-and password descriptors
+cannot combine with deterministic IDs. Legacy creation, force-R5 and allow-insecure
 remain unsupported.
 Attachment-copy sources accept independent text credentials inside their argv/job
 blocks, including the global password mode and recovery settings. Typed
@@ -112,8 +111,11 @@ File setters retain native order: a zero-byte file leaves the previous password
 unchanged, while a blank first line supplies an empty password. Spaces are retained;
 CR is stripped only before LF, and NUL terminates the password. Additional lines
 produce a non-secret informational note without changing the exit code. File bytes
-stay in bounded owned storage and are cleared after the operation. Descriptor input
-(`--password-file=-`) is unavailable in this host profile.
+stay in bounded owned storage and are cleared after the operation. For descriptor
+input (`--password-file=-`), the host opens the logical path `"-"` as a stable
+`IQpdfInput` lease with the same limits and first-line semantics. The host owns
+descriptor acquisition and any snapshot storage; core never reads ambient stdin.
+An unmapped descriptor fails through the host before opening the PDF.
 `--suppress-password-recovery` / `suppressPasswordRecovery` disables the R4
 PDFDocEncoding retry for primary inspection and JSON credentials. It leaves raw
 bytes, absent passwords and successful first attempts unchanged.

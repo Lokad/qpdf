@@ -5325,18 +5325,21 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary host-file credentials support AES R4/R6 inspections, JSON export and protection-preserving PDF transformations with first-line and ordered-setter semantics. Descriptor input, broader encoding recovery, secondary host-file credentials and canonical encrypted JSON reference coverage remain pending."
+        "Primary host-file credentials, including host-mapped descriptor input '-', support AES R4/R6 inspections, JSON export and PDF transformations with first-line and ordered-setter semantics. Broader encoding recovery, secondary host-file credentials and canonical encrypted JSON reference coverage remain pending."
       ],
       "currentRejection": true,
       "evidence": {
         "positive": [
           "PasswordFileTests.ArgvAndJobsUseFirstLineBytesForInspectionsAndJson",
+          "PasswordDescriptorTests.HostDescriptorUsesTheSameFirstLineAndPasswordModes",
+          "PasswordDescriptorTests.DescriptorCredentialsReachExistingAuthenticatedOperations",
           "PasswordTransformationTests.PasswordFileAndHexModeRemainOwnedThroughTransformPublication",
           "ExtractionPasswordTests.FileAndHexOwnerCredentialsRemainOwnedThroughExtraction"
         ],
         "negative": [
           "PasswordFileTests.InvalidOperationsRejectBeforePasswordFileAccess",
-          "PasswordFileTests.OverwrittenMissingFileStillFailsWithoutOpeningThePdf"
+          "PasswordFileTests.OverwrittenMissingFileStillFailsWithoutOpeningThePdf",
+          "PasswordDescriptorTests.UnmappedDescriptorsFailThroughTheHostBeforeOpeningThePdf"
         ],
         "interaction": [
           "PasswordFileTests.SettersKeepOrderAndEmptyFilesKeepThePreviousPassword",
@@ -5346,6 +5349,7 @@
         ],
         "resource": [
           "PasswordFileTests.EveryAdmissionRefusalClosesFilesAndRefundsTheOperation",
+          "PasswordDescriptorTests.EveryDescriptorAdmissionRefusalClosesAndRefundsTheOperation",
           "PasswordFileReaderTests.ReaderStorageStaysAdmittedUntilAsynchronousCloseCompletes",
           "PasswordFileReaderTests.InputLimitsAndCancellationLeaveNoOpenReader",
           "ExtractionPasswordTests.EveryExtractionAdmissionRefusalRefundsBeforePublication",

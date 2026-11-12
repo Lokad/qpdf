@@ -15,7 +15,7 @@ internal static class HelpText
         Options:
           --suppress-recovery   fail on damaged cross-references instead of bounded repair
           --password=text       primary-input password
-          --password-file=path  first password line from a host file
+          --password-file=path  first password line from a host input (- is host-mapped)
           --password-mode=mode  auto, bytes, unicode, or hex-bytes for passwords
           --decrypt             remove protection after authenticating the input
           --copy-encryption=file  copy protection from an independently authenticated template
@@ -125,7 +125,7 @@ internal static class HelpText
         Their completed query codes 2 and 3 are not errors or warnings; --warning-exit-0 does not change them.
         PDF transformations preserve primary protection unless --decrypt or --encrypt is supplied.
         JSON updates accept primary credentials and output encryption policies.
-        JSON handler declarations require authenticated preservation or an explicit output policy; password descriptors remain unsupported.
+        JSON handler declarations require authenticated preservation or an explicit output policy; password-file=- uses the host's logical "-" input.
         Signing and signature validation are unsupported.
         """;
 
@@ -232,7 +232,7 @@ internal static class HelpText
         copyAttachmentsFrom[].password authenticates the attachment source independently.
         overlay[].password and underlay[].password authenticate each placement source independently.
         JSON updates accept primary credentials and output encryption policies.
-        JSON handler declarations require authenticated preservation or an explicit output policy; legacy creation and password descriptors remain unsupported.
+        JSON handler declarations require authenticated preservation or an explicit output policy; legacy creation remains unsupported.
         Other crypto keys are rejected with UnsupportedCryptoOperation. See --help for the argv surface.
         """;
 

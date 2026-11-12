@@ -71,6 +71,11 @@ internal static class PasswordReaderChecks
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, plainInput, CancellationToken.None))
         { Check(document.PageCount == 1 && document.Encryption is null, "explicitly removed protection"); }
         QpdfPath attachmentSource = Add("security-r4-attachment.pdf");
+        host.AddInput(QpdfPath.From("-"), "reader\r\n"u8.ToArray(), QpdfInputOwnership.Copy);
+        QpdfExecutionResult descriptor = await Qpdf.ExecuteAsync(host,
+            new([encrypted.Value, "--password-file=-", "--show-npages"]), CancellationToken.None);
+        Check(descriptor.Status == QpdfExecutionStatus.Completed && descriptor.Counters.OpenHandles == 0,
+            "host-mapped password descriptor");
         QpdfExecutionResult binaryAttachment = await Qpdf.ExecuteAsync(host, new([attachmentSource.Value, "--password=café•",
             "--show-attachment=private.bin", "--", "authenticated-payload.bin"]), CancellationToken.None);
         Check(binaryAttachment.Status == QpdfExecutionStatus.Completed

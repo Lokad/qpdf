@@ -266,8 +266,6 @@ internal static partial class JobJsonParser
                         break;
                     case "passwordFile":
                         string passwordFile = RequireString(property.Value, "passwordFile", textStorage);
-                        if (passwordFile == "-")
-                        { throw new QpdfUnsupportedFeatureException("Password input from a descriptor is unavailable in this host profile."); }
                         _ = SelectionPlan.CheckedPath(passwordFile);
                         if (passwordAssignments is null)
                         {

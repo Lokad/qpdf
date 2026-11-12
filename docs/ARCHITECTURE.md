@@ -173,6 +173,10 @@ scratch. It preserves first-line byte semantics and keeps storage admitted throu
 asynchronous input close. Validated inspection plans resolve file/text setters in
 order, retaining owned password bytes until inspection and cleanup finish. File
 credentials use the same bounded encoding recovery; typed raw credentials stay exact.
+The descriptor spelling `--password-file=-` opens the logical host input `"-"`.
+The host supplies stable bytes, length and identity under the ordinary input lease
+contract, including any descriptor snapshot and its storage. No separate reader or
+ambient console access is needed in core.
 
 ## Storage and ownership
 

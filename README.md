@@ -122,7 +122,8 @@ Missing and incorrect credentials have distinct diagnostic codes. PDF transforma
 also accept these primary credentials and preserve supported input protection:
 `input.pdf output.pdf --password=reader --linearize`. The primary document controls
 protection even when a pages block selects only other inputs. `--password-file=path` (job key
-`passwordFile`) reads the first line through the host; descriptor input is unavailable.
+`passwordFile`) reads the first line through the host. For `--password-file=-`,
+the host supplies the logical `"-"` input; it can map a descriptor to a stable lease.
 Page-source passwords can follow each file inside `--pages`, for example
 `--pages other.pdf --password=reader 1 --`; job entries use `pages[].password`.
 They also work for transformed inspections. The primary input still uses its main
@@ -176,7 +177,7 @@ for buffer ownership, cancellation and resource admission.
 
 Typed page selection, merging and splitting preserve/remove AES R4/R6 protection or create AES-256 R6.
 Argv/job PDF transformations preserve/remove primary protection or create AES-256 R6;
-legacy encryption creation and password descriptors remain unsupported.
+legacy encryption creation remains unsupported.
 Typed attachment listing, extraction and edits accept primary credentials with
 explicit limits. Edits also accept preserve/remove/create/template output policies.
 Rendering, OCR and

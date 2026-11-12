@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Resolve `--password-file=-` through the host's logical `"-"` input, sharing
+  bounded first-line decoding, credential ownership and cancellation with files.
 - Authenticate argv/job attachment and raw/filtered stream extraction with explicit
   output paths, including host password files, hex mode and recovery controls.
 - Accept primary text/raw credentials for typed attachment listing, extraction
