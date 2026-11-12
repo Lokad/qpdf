@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
+using static Lokad.Qpdf.Security.EncryptionDictionary;
 
 namespace Lokad.Qpdf.Security;
 
@@ -88,8 +89,7 @@ internal sealed partial class DocumentSecurity : IDisposable
             key = new byte[32];
             PasswordAuthentication match = Revision6Encryption.Authenticate(encryption, password, key, governor);
             if (match == PasswordAuthentication.None) { return match; }
-            bool metadata = !PdfDictionaryLookup.TryGet(encryption, "EncryptMetadata"u8, governor, governor.CancellationToken, out QpdfObject flag)
-                || flag is not PdfBoolean boolean || boolean.Value;
+            bool metadata = ReadMetadata(encryption, governor);
             security = new(governor, memory, key, filters, strings, streams, files, metadata, ReadInteger(encryption, "P"u8, governor), match);
             accepted = true;
             return match;
@@ -112,20 +112,6 @@ internal sealed partial class DocumentSecurity : IDisposable
         if (filter.EmbeddedOnly && !embeddedFile)
         { throw new QpdfParseException("An embedded-file crypt filter cannot encrypt ordinary objects.", null, null); }
         return filter.Cipher;
-    }
-
-    private static PdfName ReadName(PdfDictionary dictionary, ReadOnlySpan<byte> key, PdfName fallback, ResourceGovernor governor)
-    {
-        if (!PdfDictionaryLookup.TryGet(dictionary, key, governor, governor.CancellationToken, out QpdfObject raw) || raw is PdfNull) { return fallback; }
-        return raw as PdfName ?? throw new QpdfParseException("An encryption name must be a direct name.", null, null);
-    }
-
-    private static int ReadInteger(PdfDictionary dictionary, ReadOnlySpan<byte> key, ResourceGovernor governor)
-    {
-        if (!PdfDictionaryLookup.TryGet(dictionary, key, governor, governor.CancellationToken, out QpdfObject raw)
-            || raw is not PdfInteger integer || integer.Value < int.MinValue || integer.Value > int.MaxValue)
-        { throw new QpdfParseException("An encryption integer must be a direct 32-bit integer.", null, null); }
-        return (int)integer.Value;
     }
 
     internal void CheckOwner(ResourceGovernor governor)

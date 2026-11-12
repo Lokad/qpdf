@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
+using static Lokad.Qpdf.Security.EncryptionDictionary;
 
 namespace Lokad.Qpdf.Security;
 
@@ -24,17 +25,8 @@ internal static class Revision6Encryption
         ReadOnlySpan<byte> userKey = ReadBytes(encryption, "UE"u8, 32, governor);
         ReadOnlySpan<byte> ownerKey = ReadBytes(encryption, "OE"u8, 32, governor);
         ReadOnlySpan<byte> permissions = ReadBytes(encryption, "Perms"u8, 16, governor);
-        if (!PdfDictionaryLookup.TryGet(encryption, "P"u8, governor, governor.CancellationToken, out QpdfObject rawPermissions)
-            || rawPermissions is not PdfInteger integer || integer.Value < int.MinValue || integer.Value > int.MaxValue)
-        { throw new QpdfParseException("Invalid encryption permissions integer.", null, null); }
-        bool metadata = true;
-        if (PdfDictionaryLookup.TryGet(encryption, "EncryptMetadata"u8, governor, governor.CancellationToken, out QpdfObject rawMetadata)
-            && rawMetadata is not PdfNull)
-        {
-            if (rawMetadata is not PdfBoolean boolean)
-            { throw new QpdfParseException("Invalid encryption metadata flag.", null, null); }
-            metadata = boolean.Value;
-        }
+        int permissionsValue = ReadInteger(encryption, "P"u8, governor);
+        bool metadata = ReadMetadata(encryption, governor);
 
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
         scratch.Reserve(4096L); // System AES state and fixed key/permissions scratch.
@@ -65,7 +57,7 @@ internal static class Revision6Encryption
             _ = aes.DecryptCbc(encryptedKey, iv, fileKey, PaddingMode.None);
             aes.SetKey(fileKey);
             _ = aes.DecryptEcb(permissions, clearPermissions, PaddingMode.None);
-            if (BinaryPrimitives.ReadInt32LittleEndian(clearPermissions) != (int)integer.Value
+            if (BinaryPrimitives.ReadInt32LittleEndian(clearPermissions) != permissionsValue
                 || BinaryPrimitives.ReadUInt32LittleEndian(clearPermissions[4..]) != uint.MaxValue
                 || clearPermissions[8] != (metadata ? (byte)'T' : (byte)'F')
                 || !clearPermissions.Slice(9, 3).SequenceEqual("adb"u8))
@@ -138,11 +130,4 @@ internal static class Revision6Encryption
         }
     }
 
-    private static ReadOnlySpan<byte> ReadBytes(PdfDictionary encryption, ReadOnlySpan<byte> key, int length, ResourceGovernor governor)
-    {
-        if (!PdfDictionaryLookup.TryGet(encryption, key, governor, governor.CancellationToken, out QpdfObject raw)
-            || raw is not PdfByteString bytes || bytes.ValueMemory.Length != length)
-        { throw new QpdfParseException("Invalid revision 6 encryption byte string.", null, null); }
-        return bytes.ValueMemory.Span;
-    }
 }

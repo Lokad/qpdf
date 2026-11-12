@@ -1,0 +1,92 @@
+[
+  {
+    "file": "security-r4-ascii.pdf",
+    "userHex": "726561646572",
+    "ownerHex": "666978747572652D6F776E6572",
+    "fileKeyHex": "2ea22e5d4118231a8fda14bae89b4759",
+    "dictionary": "<< /CF << /StdCF << /AuthEvent /DocOpen /CFM /AESV2 /Length 16 >> >> /Filter /Standard /Length 128 /O <5542f08f051ee578162ca000260299801d5976f62e4bbd695bbcdff80cfd4408> /OE () /P -3388 /R 4 /StmF /StdCF /StrF /StdCF /U <de84a275bbcb267dd22999d9bba0e37b0021446990b9e4114071a4d9104984c1> /UE () /V 4 >>",
+    "streams": [
+      {
+        "number": 3,
+        "plainBase64": "eJyzsa8oSEzOTi1RSEpNz8yzVapQsrezqbCqyC3ITS1JtPMFEjb6CD4Am7ERDQ=="
+      },
+      {
+        "number": 6,
+        "plainBase64": "eJxzClHQCEhMT9VUCMlScA0BACBvBBw="
+      }
+    ],
+    "idHex": "a86cf4429fbb618de7eb27405eefbf50"
+  },
+  {
+    "file": "security-r4-empty.pdf",
+    "userHex": "",
+    "ownerHex": "666978747572652D6F776E6572",
+    "fileKeyHex": "1f7edb6039fbeaf38b88cea157346d6f",
+    "dictionary": "<< /CF << /StdCF << /AuthEvent /DocOpen /CFM /AESV2 /Length 16 >> >> /EncryptMetadata false /Filter /Standard /Length 128 /O <0f98dfb52e1947863c72a02353b9fc887d2189baff2badc77406a66e562e027e> /OE () /P -3388 /R 4 /StmF /StdCF /StrF /StdCF /U <44ebc55cd113570c8126aac5b7af15220021446990b9e4114071a4d9104984c1> /UE () /V 4 >>",
+    "streams": [
+      {
+        "number": 2,
+        "plainBase64": "eJxNjD0LwkAQRHt/xZSmuo9cDEq4QtNJIAQrxeIwiwQkJ7kLxH/vJiq4U2wxb14KCQNjkEGl2aooIA5+7CMUxLFrAy5cSzS4QpxeT4Ko3Z0CrP2yfaQ+BuQLJCpqO7f3E88kZ6M08q2ex7UbGET64RoKfhxuLGKLtf/un7rybekiYV3utNRGKs5y54TxLj64Wt6JppjMqzf0HTXG"
+      },
+      {
+        "number": 7,
+        "plainBase64": "eJxzClHQCEhMT9VUCMlScA0BACBvBBw="
+      }
+    ],
+    "idHex": "8fe008e961fb0662b075fa92e52936ec"
+  },
+  {
+    "file": "security-r4-pdfdoc.pdf",
+    "userHex": "636166E980",
+    "ownerHex": "6F776E6572E991",
+    "fileKeyHex": "f31cc5e98bc2926d8ce64d656c7c8d86",
+    "dictionary": "<< /CF << /StdCF << /AuthEvent /DocOpen /CFM /AESV2 /Length 16 >> >> /Filter /Standard /Length 128 /O <bbd21f1f127d936668616a49ce83a6c4c62cb54e319691300d718b52825921ed> /OE () /P -3388 /R 4 /StmF /StdCF /StrF /StdCF /U <b5d9c6116c1dc8d79cc837ddc5582d9f0021446990b9e4114071a4d9104984c1> /UE () /V 4 >>",
+    "streams": [
+      {
+        "number": 2,
+        "plainBase64": "eJxNjD0LwkAQRHt/xZSmuo9cDEq4QtNJIAQrxeIwiwQkJ7kLxH/vJiq4U2wxb14KCQNjkEGl2aooIA5+7CMUxLFrAy5cSzS4QpxeT4Ko3Z0CrP2yfaQ+BuQLJCpqO7f3E88kZ6M08q2ex7UbGET64RoKfhxuLGKLtf/un7rybekiYV3utNRGKs5y54TxLj64Wt6JppjMqzf0HTXG"
+      },
+      {
+        "number": 6,
+        "plainBase64": "eJyzsa8oSEzOTi1RSEpNz8yzVapQsrezqbCqyC3ITS1JtPMFEjb6CD4Am7ERDQ=="
+      },
+      {
+        "number": 7,
+        "plainBase64": "eJxzClHQCEhMT9VUCMlScA0BACBvBBw="
+      }
+    ],
+    "idHex": "73f181f8ad98671e0fd50ed69635d999"
+  },
+  {
+    "file": "security-r4-utf8.pdf",
+    "userHex": "636166C3A9",
+    "ownerHex": "70726F707269C3A97461697265",
+    "fileKeyHex": "1ac3f2f7b97227af19f7d47c536ec820",
+    "dictionary": "<< /CF << /StdCF << /AuthEvent /DocOpen /CFM /AESV2 /Length 16 >> >> /Filter /Standard /Length 128 /O <f1bb6a843cf1e8fdb49fdd53c8c817a2aa04ada81444653355da830f68202db4> /OE () /P -3388 /R 4 /StmF /StdCF /StrF /StdCF /U <bc47f6d9148db6a17f7575a81efef0180021446990b9e4114071a4d9104984c1> /UE () /V 4 >>",
+    "streams": [
+      {
+        "number": 3,
+        "plainBase64": "eJyzsa8oSEzOTi1RSEpNz8yzVapQsrezqbCqyC3ITS1JtPMFEjb6CD4Am7ERDQ=="
+      },
+      {
+        "number": 6,
+        "plainBase64": "eJxzClHQCEhMT9VUCMlScA0BACBvBBw="
+      }
+    ],
+    "idHex": "bb40913d1ec4decb110f1cb462b09acb"
+  },
+  {
+    "file": "security-r4-truncated.pdf",
+    "userHex": "757365722D757365722D757365722D757365722D757365722D757365722D757365722D757365722D757365722D757365722D",
+    "ownerHex": "6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D",
+    "fileKeyHex": "1c2f1401d6c4f3fc2ffc46206dc3dccc",
+    "dictionary": "<< /CF << /StdCF << /AuthEvent /DocOpen /CFM /AESV2 /Length 16 >> >> /EncryptMetadata false /Filter /Standard /Length 128 /O <82a9d65a2ebb66f5566b2d8273b42cb3659c979a7c7e9e6939a3b7147b36d2f9> /OE () /P -3388 /R 4 /StmF /StdCF /StrF /StdCF /U <5690267b86a61f6589986541736d94440021446990b9e4114071a4d9104984c1> /UE () /V 4 >>",
+    "streams": [
+      {
+        "number": 6,
+        "plainBase64": "eJxzClHQCEhMT9VUCMlScA0BACBvBBw="
+      }
+    ],
+    "idHex": "5eeb8ddbe5858c5401ee48f2cce0ac38"
+  }
+]

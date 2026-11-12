@@ -62,6 +62,9 @@ and embedded-file filters, document metadata, xref and signature exceptions.
 `QpdfDocument.OpenAsync` uses this authenticated reader with per-input text or raw
 credentials and non-secret encryption facts. Transformation and argv/job entry
 points retain their encrypted-input refusal pending output-protection integration.
+The internal R4 authenticator uses system MD5 and a bounded, owned RC4 primitive,
+checked against native keys and independent RFC 6229 vectors. R4 reader integration
+is pending; this does not expand the public handler contract yet.
 
 ## Storage and ownership
 
