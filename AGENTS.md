@@ -50,7 +50,11 @@ version-specific package commands when changing the project version.
   development-only codecs and fixtures; never add it to the core package.
 - Runtime storage, descriptors, environment and publication must be host-mediated.
   Physical filesystem/process adapters belong in development tools or hosts.
-- Passwords and crypto are excluded, including empty-password encrypted inputs.
+- Password-based PDF encryption/decryption and signed-page extraction are approved
+  roadmap scope in the ignored PLAN.md. Current support is defined by the tested
+  implementation and compatibility docs, not by roadmap entries. Use .NET system
+  cryptography; no runtime crypto dependency or custom native interop. Signing,
+  signature validation and certificate/public-key encryption remain out of scope.
 - All exposed execution paths need bounded allocations/work and cancellation.
 - Search existing code before adding logic. Share the reader, object graph,
   filters and writer across typed, argv and job JSON entry points.
