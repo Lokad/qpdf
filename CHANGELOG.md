@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Match native legacy encryption reports: R2/R3 omit per-filter cipher lines.
+
 - Add canonical R2–R6 native comparisons for predicates, authenticated reading,
   preservation and decryption across argv/job routes and writer modes.
 

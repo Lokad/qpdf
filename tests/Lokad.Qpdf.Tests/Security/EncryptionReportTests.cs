@@ -27,6 +27,14 @@ public sealed class EncryptionReportTests
     }
 
     [Theory]
+    [InlineData("security-r2-ascii.pdf", null, 2, null)]
+    [InlineData("security-r2-ascii.pdf", "reader", 2, "user")]
+    [InlineData("security-r2-ascii.pdf", "fixture-owner", 2, "owner")]
+    [InlineData("security-r2-empty.pdf", null, 2, "user")]
+    [InlineData("security-r3-ascii.pdf", null, 3, null)]
+    [InlineData("security-r3-ascii.pdf", "reader", 3, "user")]
+    [InlineData("security-r3-ascii.pdf", "fixture-owner", 3, "owner")]
+    [InlineData("security-r3-empty.pdf", null, 3, "user")]
     [InlineData("security-r4-ascii.pdf", null, 4, null)]
     [InlineData("security-r4-ascii.pdf", "reader", 4, "user")]
     [InlineData("security-r4-ascii.pdf", "fixture-owner", 4, "owner")]
@@ -46,15 +54,15 @@ public sealed class EncryptionReportTests
             string cipher = revision == 4 ? "AESv2" : "AESv3";
             List<string> expected = [];
             if (role is null) { expected.Add("Incorrect password supplied"); }
-            expected.AddRange(["R = " + revision, "P = -3388"]);
+            expected.AddRange(["R = " + revision, "P = " + (revision == 2 ? -64 : -3388)]);
             if (role is not null) { expected.Add("Supplied password is " + role + " password"); }
             // Captured from qpdf 12.4.2 for the fixture's low-print-only restrictions.
             expected.AddRange([
-                "extract for accessibility: allowed", "extract for any purpose: not allowed",
-                "print low resolution: allowed", "print high resolution: not allowed",
+                "extract for accessibility: " + (revision == 2 ? "not allowed" : "allowed"), "extract for any purpose: not allowed",
+                "print low resolution: " + (revision == 2 ? "not allowed" : "allowed"), "print high resolution: not allowed",
                 "modify document assembly: not allowed", "modify forms: not allowed",
-                "modify annotations: not allowed", "modify other: not allowed", "modify anything: not allowed",
-                "stream encryption method: " + cipher, "string encryption method: " + cipher, "file encryption method: " + cipher]);
+                "modify annotations: not allowed", "modify other: not allowed", "modify anything: not allowed"]);
+            if (revision >= 4) { expected.AddRange(["stream encryption method: " + cipher, "string encryption method: " + cipher, "file encryption method: " + cipher]); }
             Assert.Equal(expected, lines);
             Assert.All(result.Diagnostics, diagnostic => Assert.Equal(QpdfDiagnosticCode.EncryptionReport, diagnostic.Code));
             Assert.DoesNotContain(lines, line => line.Contains("User password =", StringComparison.Ordinal)

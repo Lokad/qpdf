@@ -33,12 +33,15 @@ public static partial class Qpdf
         Permission("modify annotations: ", permissions.Annotations);
         Permission("modify other: ", permissions.ModifyOther);
         Permission("modify anything: ", permissions.ModifyAll);
-        diagnostics.AddParts(QpdfDiagnosticCode.EncryptionReport, QpdfDiagnosticSeverity.Info,
-            ["stream encryption method: ", EncryptionParameters.CipherName(parameters.Streams)]);
-        diagnostics.AddParts(QpdfDiagnosticCode.EncryptionReport, QpdfDiagnosticSeverity.Info,
-            ["string encryption method: ", EncryptionParameters.CipherName(parameters.Strings)]);
-        diagnostics.AddParts(QpdfDiagnosticCode.EncryptionReport, QpdfDiagnosticSeverity.Info,
-            ["file encryption method: ", EncryptionParameters.CipherName(parameters.Files)]);
+        if (parameters.Version >= 4)
+        {
+            diagnostics.AddParts(QpdfDiagnosticCode.EncryptionReport, QpdfDiagnosticSeverity.Info,
+                ["stream encryption method: ", EncryptionParameters.CipherName(parameters.Streams)]);
+            diagnostics.AddParts(QpdfDiagnosticCode.EncryptionReport, QpdfDiagnosticSeverity.Info,
+                ["string encryption method: ", EncryptionParameters.CipherName(parameters.Strings)]);
+            diagnostics.AddParts(QpdfDiagnosticCode.EncryptionReport, QpdfDiagnosticSeverity.Info,
+                ["file encryption method: ", EncryptionParameters.CipherName(parameters.Files)]);
+        }
 
         void Permission(string label, bool allowed) => diagnostics.AddParts(QpdfDiagnosticCode.EncryptionReport,
             QpdfDiagnosticSeverity.Info, [label, allowed ? "allowed" : "not allowed"]);
