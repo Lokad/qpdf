@@ -1,5 +1,6 @@
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Security;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Writing;
 
@@ -94,7 +95,8 @@ public static partial class Qpdf
         List<NumberedObject> model, IReadOnlyList<IReadOnlyList<int>>? objectStreams, bool compressStreams,
         int? compressionLevel, int? infoRef, byte[]? originalId, bool staticId, bool newlineBeforeEndstream,
         QdfOptions qdf, IReadOnlyDictionary<int, int>? originalIds, bool linearize, QpdfPath? pass1, QpdfPath path,
-        QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
+        QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken,
+        OutputSecurity? security, int encryptionObject, int metadataObject)
     {
         PreparedSplitPublication publication = PreparedSplitPublication.Create(limits, governor, path, linearize ? pass1 : null, cancellationToken);
         try
@@ -106,13 +108,15 @@ public static partial class Qpdf
                 using IdentifierHashSink placeholder = IdentifierHashSink.Create(limits, governor, cancellationToken);
                 await SerializePresentationOutputAsync(version, model, objectStreams, compressStreams, compressionLevel,
                     infoRef, originalId ?? PlaceholderIdBytes, PlaceholderIdBytes, newlineBeforeEndstream, qdf,
-                    originalIds, linearize, placeholder, null, limits, governor, cancellationToken).ConfigureAwait(false);
+                    originalIds, linearize, placeholder, null, limits, governor, cancellationToken,
+                    security, encryptionObject, metadataObject).ConfigureAwait(false);
                 ids.Reserve(40L);
                 id2 = placeholder.Complete(cancellationToken);
             }
             await SerializePresentationOutputAsync(version, model, objectStreams, compressStreams, compressionLevel,
                 infoRef, originalId ?? id2, id2, newlineBeforeEndstream, qdf, originalIds, linearize,
-                publication.Main, publication.Pass1, limits, governor, cancellationToken).ConfigureAwait(false);
+                publication.Main, publication.Pass1, limits, governor, cancellationToken,
+                security, encryptionObject, metadataObject).ConfigureAwait(false);
             governor.ChargeOutputBytes(checked(publication.Main.Length + (publication.Pass1?.Length ?? 0L)));
             return publication;
         }
@@ -123,7 +127,8 @@ public static partial class Qpdf
         List<NumberedObject> model, IReadOnlyList<IReadOnlyList<int>>? objectStreams, bool compressStreams,
         int? compressionLevel, int? infoRef, byte[] id1, byte[] id2, bool newlineBeforeEndstream,
         QdfOptions qdf, IReadOnlyDictionary<int, int>? originalIds, bool linearize, IByteSink counter, IByteSink? firstPass,
-        QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
+        QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken,
+        OutputSecurity? security, int encryptionObject, int metadataObject)
     {
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         // Two counters and the serializer/writer wrappers; the shared writers own
@@ -134,7 +139,8 @@ public static partial class Qpdf
             : BatchingSink.Create(firstPass, limits, governor, cancellationToken);
         if (linearize)
         {
-            LinearizedWriter writer = new(limits, governor);
+            LinearizedWriter writer = security is null ? new(limits, governor)
+                : new(limits, governor, security, encryptionObject, metadataObject);
             if (objectStreams is not null && objectStreams.Count > 0)
             {
                 await writer.WriteLinearizedStreamedAsync(version, model, objectStreams, infoRef, id1, id2,
@@ -148,7 +154,7 @@ public static partial class Qpdf
         }
         else
         {
-            PdfSerializer serializer = new(limits, governor);
+            PdfSerializer serializer = CreatePublicationSerializer(limits, governor, model, security, encryptionObject, metadataObject, memory);
             if (qdf.Enabled)
             { await serializer.SerializeQdfAsync(version, model, objectStreams, originalIds, infoRef, id1, id2,
                 qdf, newlineBeforeEndstream, buffered, cancellationToken).ConfigureAwait(false); }

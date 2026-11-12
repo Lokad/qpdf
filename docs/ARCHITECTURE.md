@@ -71,11 +71,15 @@ The copied key and dictionary survive source disposal; crypt filters normalize t
 AES for output, matching pinned qpdf. Writers reject a changed first identifier
 before emission. R4 derives temporary keys from final output numbers, including
 renumbered QDF objects, object-stream containers and linearization hints; each
-derived key is cleared after preparing its ciphertext. Typed single-source selection
+derived key is cleared after preparing its ciphertext. Typed page selection
 prepares this owner from its explicit preserve/remove/AES-256 request. New requests
 encode both borrowed credentials in bounded, cleared scratch and validate R6
 permission bits; output publication never falls back to plaintext on an encryption
-failure. Other transformation routes remain pending.
+failure. Multi-source copying retains the primary's independent security owner
+after its reader closes. Repeated logical sources validate credential consistency
+before opening; secondary sources authenticate independently. Split preparation
+encrypts each final remapped model before publication, using a fresh key per output
+when new protection is requested. Command/job transformation routes remain pending.
 Reading and output preparation share direct-string traversal, preserving signature
 Contents and leaving indirect references for their physical object boundaries.
 Internal output-object preparation encrypts encoded stream payloads and repairs
@@ -113,7 +117,7 @@ shared-resource hints and physical linearization checks with either password.
 with per-input text or raw credentials and non-secret encryption facts. Output-free
 argv/job inspections pass the primary text or host-file credential to the same reader.
 JSON inspection uses the same authenticated reader and non-secret permission
-projection before existing text/sidecar preparation. Typed single-source selection
+projection before existing text/sidecar preparation. Typed page selection
 authenticates before copying, preserves supported protection, and negotiates its
 required PDF version. Selective encrypted reads retry on the same stable lease
 with complete admitted input. Other transformation routes retain their refusal.

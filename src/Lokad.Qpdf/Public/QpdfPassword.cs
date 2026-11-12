@@ -41,6 +41,32 @@ public sealed class QpdfPassword
     /// <summary>Returns a redacted description.</summary>
     public override string ToString() => "QpdfPassword [redacted]";
 
+    internal bool HasSameInput(QpdfPassword other, ResourceGovernor governor)
+    {
+        if (ReferenceEquals(this, other)) { return true; }
+        if (_allowRecovery != other._allowRecovery || _hexEncoded != other._hexEncoded
+            || (_text is null) != (other._text is null)) { return false; }
+        if (_text is string text && other._text is string otherText)
+        {
+            if (text.Length != otherText.Length) { return false; }
+            for (int offset = 0; offset < text.Length; offset += Math.Min(32768, text.Length - offset))
+            {
+                governor.CheckCancellation();
+                int count = Math.Min(32768, text.Length - offset);
+                if (!text.AsSpan(offset, count).SequenceEqual(otherText.AsSpan(offset, count))) { return false; }
+            }
+            return true;
+        }
+        if (_bytes.Length != other._bytes.Length) { return false; }
+        for (int offset = 0; offset < _bytes.Length; offset += Math.Min(65536, _bytes.Length - offset))
+        {
+            governor.CheckCancellation();
+            int count = Math.Min(65536, _bytes.Length - offset);
+            if (!_bytes.Span.Slice(offset, count).SequenceEqual(other._bytes.Span.Slice(offset, count))) { return false; }
+        }
+        return true;
+    }
+
     internal bool TryWritePdfDocBytes(ReadOnlySpan<byte> utf8Prefix, Span<byte> destination, out int count)
     {
         count = 0;

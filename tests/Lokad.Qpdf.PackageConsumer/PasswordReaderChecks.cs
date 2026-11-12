@@ -85,6 +85,18 @@ internal static class PasswordReaderChecks
                 && document.Encryption?.Permissions == -3388 && document.Encryption?.EncryptMetadata == false,
                 "new protection passwords, permissions and clear metadata");
         }
+        PdfMultiPageSelectionResult merged = await Qpdf.SelectPagesAsync(host,
+            [new(legacy, new(1), QpdfPassword.FromText("café•")), new(encrypted, new(1), QpdfPassword.FromText("reader"))],
+            QpdfPath.From("merged.pdf"), new PdfPageMergeOptions { SplitPages = 1, OutputEncryption = newProtection }, CancellationToken.None);
+        Check(merged.PageCount == 2 && merged.OutputPaths.Count == 2, "independent source credentials and encrypted splitting");
+        foreach (QpdfPath path in merged.OutputPaths)
+        {
+            Check(host.TryGetOutput(path, out byte[] output), "encrypted split publication");
+            QpdfPath reopened = QpdfPath.From("reopened-" + path.Value); host.AddInput(reopened, output, QpdfInputOwnership.Copy);
+            await using QpdfDocument document = await QpdfDocument.OpenAsync(host, reopened,
+                QpdfPassword.FromText("writer-owner"), QpdfLimits.Default, CancellationToken.None);
+            Check(document.PageCount == 1 && document.Encryption?.Revision == 6, "protected split consumer result");
+        }
         QpdfExecutionResult command = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(
             [encrypted.Value, "--password=reader", "--check", "--show-npages"]), CancellationToken.None);
         Check(command.Status == QpdfExecutionStatus.Completed && command.Diagnostics.Any(item => item.Code == QpdfDiagnosticCode.PageCount), "password command inspection");

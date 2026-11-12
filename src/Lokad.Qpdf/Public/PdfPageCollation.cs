@@ -50,6 +50,11 @@ public sealed record PdfPageCollation
 /// <summary>Combined options for multi-source page selection.</summary>
 public sealed record PdfPageMergeOptions
 {
+    /// <summary>Gets the output encryption policy. By default the first source's
+    /// protection is preserved, even when its pages are excluded by collation.
+    /// Each split output requesting new protection receives a fresh key.</summary>
+    public QpdfOutputEncryption OutputEncryption { get; init; } = QpdfOutputEncryption.Preserve;
+
     /// <summary>Gets the collation policy, or null to concatenate sources in order.</summary>
     public PdfPageCollation? Collation { get; init; }
 

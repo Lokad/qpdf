@@ -15,13 +15,15 @@
   R4 text passwords can retry PDFDocEncoding; raw passwords remain exact bytes.
   Typed structural checks accept `QpdfCheckOptions.Password` and inspect the decrypted graph.
   Output-free argv/job inspections accept primary text passwords with distinct missing/invalid
-  credential diagnostics. Secondary credentials remain unsupported.
+  credential diagnostics. Command/job secondary credentials remain unsupported.
 - Preserve AES R4/R6 protection during typed single-source page selection, with
   text/raw user or owner credentials, empty passwords, repeated pages and rotations.
   Derived output retains both passwords, permissions and metadata policy. Explicit
   output policies can remove protection or create fresh AES-256 R6 with chosen
-  passwords, permissions and metadata treatment. Encrypted command/job and
-  multisource transformations remain unsupported.
+  passwords, permissions and metadata treatment. Typed merging/splitting accepts
+  per-source credentials and uses the first source's protection by default;
+  repeated paths require consistent credentials, and newly encrypted split outputs
+  receive independent keys. Encrypted command/job transformations remain unsupported.
 - Add `--is-encrypted` and `--requires-password` (and job JSON equivalents) for
   supported handlers, retaining native query exit codes independently of warning presentation.
 - Add `--show-encryption` / `showEncryption` for supported handlers, reporting

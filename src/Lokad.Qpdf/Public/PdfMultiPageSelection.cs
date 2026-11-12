@@ -7,15 +7,23 @@ namespace Lokad.Qpdf;
 /// Repeated groups using the same logical path share one opened document and
 /// its selected object identities. Group order and source mapping remain separate.
 /// Different logical paths remain separate inputs even when their bytes match.
+/// Repeated paths must supply the same password value and representation, including
+/// absent versus explicit passwords. The first source controls preserved output encryption.
 /// </remarks>
 public sealed record PdfPageSource
 {
     /// <summary>Creates a page source.</summary>
     /// <exception cref="ArgumentNullException">The selection is null.</exception>
     public PdfPageSource(QpdfPath input, PdfPageSelectionOptions selection)
+        : this(input, selection, null)
+    { }
+
+    /// <summary>Creates a page source with a borrowed input credential.</summary>
+    public PdfPageSource(QpdfPath input, PdfPageSelectionOptions selection, QpdfPassword? password)
     {
         Input = input;
         Selection = selection ?? throw new ArgumentNullException(nameof(selection));
+        Password = password;
     }
 
     /// <summary>Gets the source document path.</summary>
@@ -23,6 +31,9 @@ public sealed record PdfPageSource
 
     /// <summary>Gets the source page selection.</summary>
     public PdfPageSelectionOptions Selection { get; }
+
+    /// <summary>Gets the input credential, or null to attempt an empty password.</summary>
+    public QpdfPassword? Password { get; }
 }
 
 /// <summary>Maps one output page back to its source document and page.</summary>

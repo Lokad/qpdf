@@ -104,10 +104,22 @@ await Qpdf.SelectPageAsync(host, input, output, new PdfPageSelectionOptions(1),
     QpdfPassword.FromText("reader"), protection, CancellationToken.None);
 ```
 
+Multi-source selection accepts a credential on each `PdfPageSource` and uses the
+first source's protection by default, including when collation omits its pages.
+Set `PdfPageMergeOptions.OutputEncryption` to remove or replace that protection;
+each split output requesting new encryption receives a fresh key. Repeated logical
+paths share one input and must use the same password value and representation.
+
+```csharp
+await Qpdf.SelectPagesAsync(host,
+    [new PdfPageSource(input, new PdfPageSelectionOptions(1), QpdfPassword.FromText("reader"))],
+    output, new PdfPageMergeOptions { OutputEncryption = protection }, CancellationToken.None);
+```
+
 Output-free argv/job inspections also accept a primary-input text password:
 `input.pdf --password=reader --check --show-npages`, or the job JSON key `"password":"reader"`.
 Missing and incorrect credentials have distinct diagnostic codes. Encrypted command/job
-transformations and secondary-input passwords remain unsupported. `--password-file=path` (job key
+transformations and command/job secondary-input passwords remain unsupported. `--password-file=path` (job key
 `passwordFile`) reads the first line through the host; descriptor input is unavailable.
 `--is-encrypted` and `--requires-password` provide native predicate exit codes;
 see the [supported profile](docs/SUPPORTED-PROFILE.md) for their `Completed` result semantics.
@@ -124,8 +136,8 @@ for buffer ownership, cancellation and resource admission.
 
 ## Limitations
 
-Encrypted multisource and command/job transformations remain unsupported.
-Typed single-source selection preserves/removes AES R4/R6 protection or creates AES-256 R6.
+Encrypted command/job transformations remain unsupported.
+Typed page selection, merging and splitting preserve/remove AES R4/R6 protection or create AES-256 R6.
 Rendering, OCR and
 text extraction are outside the library's scope.
 Copying or rewriting signed, unencrypted PDFs preserves stored annotation appearances

@@ -18,15 +18,22 @@ credentials try empty. An explicit `QpdfOutputEncryption` policy can preserve,
 remove or replace protection with fresh AES-256 R6. Creation uses UTF-8 or exact
 password bytes, fresh keys/salts/IVs, the requested permission word and metadata
 policy. Reserved permission bits and accessibility must have their R6 values;
-nonempty user passwords require nonempty owner passwords. RC4 inputs, R5 and
-encrypted multisource/command/job transformations remain unsupported.
+nonempty user passwords require nonempty owner passwords.
+Typed `SelectPagesAsync` accepts credentials on each `PdfPageSource`. The first
+source controls preserved output protection, even if collation omits its pages;
+secondary sources cannot replace it. `PdfPageMergeOptions.OutputEncryption`
+sets an explicit policy, including for split output. Newly encrypted split outputs
+use separate keys. Repeated paths share one opened document and require equal
+credential values and representations, including absent versus explicit passwords;
+conflicts fail before opening inputs. RC4 inputs, R5 and encrypted command/job
+transformations remain unsupported.
 
 Typed `Qpdf.CheckAsync` accepts the same credentials in `QpdfCheckOptions.Password`
 and runs structural checks over the decrypted graph. Its existing skipped-stage
 reporting and partial-check contract still apply.
 Output-free argv/job inspections accept a primary text password through
 `--password`/`password`, or the first line of a host file through
-`--password-file`/`passwordFile`. Secondary credentials remain unsupported.
+`--password-file`/`passwordFile`. Command/job secondary credentials remain unsupported.
 Missing and supplied-but-invalid credentials have distinct diagnostic codes.
 File setters retain native order: a zero-byte file leaves the previous password
 unchanged, while a blank first line supplies an empty password. Spaces are retained;

@@ -94,6 +94,73 @@ public static partial class Qpdf
         return security.PrepareOutput(identifier);
     }
 
+    // Multi-source copying closes each reader before publication. This owner
+    // retains only the independently prepared output key and dictionary.
+    private sealed class SelectionSecurity : IDisposable
+    {
+        private ParserMemoryScope? _memory;
+        internal OutputSecurity? Value { get; private set; }
+        private SelectionSecurity(ParserMemoryScope memory) { _memory = memory; }
+
+        internal static SelectionSecurity Create(ResourceGovernor governor)
+        {
+            ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+            try { memory.Reserve(32L); return new(memory); }
+            catch { memory.Dispose(); throw; }
+        }
+
+        internal void Prepare(QpdfOutputEncryption policy, QpdfDocument document, ref byte[]? identifier,
+            ParserMemoryScope memory, ResourceGovernor governor)
+        { Value = PrepareOutputSecurity(policy, document, ref identifier, memory, governor); }
+
+        public void Dispose()
+        {
+            Value?.Dispose(); Value = null;
+            ParserMemoryScope? memory = _memory; _memory = null; memory?.Dispose();
+        }
+    }
+
+    private static void RequireEncryptionVersion(OutputSecurity? security, ref PdfVersion version, ref int extension,
+        string? forcedVersion, ResourceGovernor governor)
+    {
+        if (security is null) { return; }
+        int minor = security.Revision == 6 ? 7 : 6;
+        int requiredExtension = security.Revision == 6 ? 8 : 0;
+        int order = PdfVersion.CompareParts(version.Major, version.Minor, 1, minor);
+        if (forcedVersion is not null && (order < 0 || order == 0 && extension < requiredExtension))
+        { throw new QpdfUnsupportedFeatureException("The forced PDF version cannot support the requested output encryption."); }
+        IncludeVersionRequirement(ref version, ref extension, new QpdfDocument.VersionParts(1, minor), requiredExtension, governor);
+    }
+
+    private static int AddEncryptionObject(List<NumberedObject> model, OutputSecurity? security,
+        ParserMemoryScope memory, ResourceGovernor governor)
+    {
+        if (security is null) { return 0; }
+        int number = 0;
+        foreach (NumberedObject item in model)
+        { governor.CheckCancellation(); number = Math.Max(number, item.Number); }
+        number = checked(number + 1);
+        ParserContainers.AddItem(memory, model, new NumberedObject(number, security.Dictionary), 16L);
+        return number;
+    }
+
+    private static void ValidateSourceCredentials(IReadOnlyList<PdfPageSource> sources,
+        Dictionary<string, List<int>> groups, ResourceGovernor governor)
+    {
+        foreach (List<int> indices in groups.Values)
+        {
+            QpdfPassword? first = sources[indices[0]].Password;
+            foreach (int index in indices)
+            {
+                governor.CheckCancellation();
+                QpdfPassword? password = sources[index].Password;
+                if (ReferenceEquals(first, password)) { continue; }
+                if (first is null || password is null || !first.HasSameInput(password, governor))
+                { throw new ArgumentException("Repeated page sources must use the same credential value and representation.", nameof(sources)); }
+            }
+        }
+    }
+
     private static PdfSerializer CreatePublicationSerializer(QpdfLimits limits, ResourceGovernor governor,
         List<NumberedObject> model, OutputSecurity? security, int encryptionObject, int metadataObject,
         ParserMemoryScope? memory)
