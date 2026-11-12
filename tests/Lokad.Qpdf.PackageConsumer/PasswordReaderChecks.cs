@@ -164,6 +164,18 @@ internal static class PasswordReaderChecks
         QpdfPath reopenedJson = QpdfPath.From("reopened-json.pdf"); host.AddInput(reopenedJson, createdJsonBytes, QpdfInputOwnership.Copy);
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, reopenedJson, QpdfPassword.FromText("writer-owner"), QpdfLimits.Default, CancellationToken.None))
         { Check(document.PageCount == 1 && document.Encryption is { Revision: 6, Permissions: -3388, EncryptMetadata: false }, "JSON creation password and metadata policy"); }
+        foreach (bool jobCreate in new[] { false, true })
+        {
+            QpdfPath target = QpdfPath.From(jobCreate ? "job-created.pdf" : "argv-created.pdf");
+            QpdfExecutionResult creation = jobCreate ? await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new
+                { inputFile = creationInput.Value, outputFile = target.Value, jsonInput = "", copyEncryption = legacy.Value, encryptionFilePassword = "café•" }), CancellationToken.None)
+                : await Qpdf.ExecuteAsync(host, new([creationInput.Value, target.Value, "--json-input", "--copy-encryption=" + legacy.Value, "--encryption-file-password=café•"]), CancellationToken.None);
+            Check(creation.Status == QpdfExecutionStatus.Completed, "command JSON creation with template protection");
+            Check(host.TryGetOutput(target, out byte[] creationOutput), "protected command creation bytes");
+            QpdfPath reopened = QpdfPath.From("reopened-" + target.Value); host.AddInput(reopened, creationOutput, QpdfInputOwnership.Copy);
+            await using QpdfDocument document = await QpdfDocument.OpenAsync(host, reopened, QpdfPassword.FromBytes(Convert.FromHexString("6f776e6572e991")), QpdfLimits.Default, CancellationToken.None);
+            Check(document.PageCount == 1 && document.Encryption is { Revision: 4, Permissions: -3388, EncryptMetadata: true }, "command JSON creation retains both template passwords");
+        }
         QpdfPath created = QpdfPath.From("created.pdf");
         _ = await Qpdf.SelectPageAsync(host, plainInput, created, new PdfPageSelectionOptions(1), null,
             newProtection, QpdfLimits.Default, CancellationToken.None);

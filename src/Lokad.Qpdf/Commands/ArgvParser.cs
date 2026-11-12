@@ -2436,7 +2436,7 @@ internal static class ArgvParser
         }
 
         string output = ParseOutputArea(argv, cursor, null);
-        return new JsonInputPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output)) with
+        return new JsonInputPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), recovery) with
         {
             WarningExitZero = globals.WarningExitZero,
             Verbose = globals.Verbose,

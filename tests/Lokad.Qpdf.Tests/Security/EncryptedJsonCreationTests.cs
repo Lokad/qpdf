@@ -8,7 +8,7 @@ namespace Lokad.Qpdf.Tests.Security;
 public sealed class EncryptedJsonCreationTests
 {
     private static readonly QpdfPath Json = QpdfPath.From("input.json"), Output = QpdfPath.From("output.pdf"), Template = QpdfPath.From("template.pdf");
-    private const string Source = """
+    internal const string Source = """
         {"qpdf":[{"jsonversion":2,"pdfversion":"1.4"},{
           "obj:1 0 R":{"value":{"/Type":"/Catalog","/Pages":"2 0 R","/Metadata":"10 0 R"}},
           "obj:2 0 R":{"value":{"/Type":"/Pages","/Count":1,"/Kids":["3 0 R"]}},

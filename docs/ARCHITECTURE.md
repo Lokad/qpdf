@@ -106,6 +106,8 @@ Incoming replacement trailers cannot supply their own encryption handler.
 Typed JSON creation prepares the same owner from a new-protection request or
 authenticated template after parsing plaintext objects. Preserve/Remove have no
 input protection to carry forward. Version negotiation precedes graph renumbering.
+Command JSON creation passes the same policy and the template's recovery mode;
+primary password files retain their shared resolution and disposal lifetime.
 Reading and output preparation share direct-string traversal, preserving signature
 Contents and leaving indirect references for their physical object boundaries.
 Internal output-object preparation encrypts encoded stream payloads and repairs

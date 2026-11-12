@@ -1310,8 +1310,6 @@ internal static partial class JobJsonParser
                 };
             }
 
-            if ((decrypt || encrypt || copyEncryption is not null) && jsonInput)
-            { throw new QpdfCryptoException(copyEncryption is not null ? "copyEncryption" : encrypt ? "encrypt" : "decrypt"); }
             QpdfOutputEncryption? outputEncryption = decrypt ? QpdfOutputEncryption.Remove : null;
             if (copyEncryption is not null)
             {
@@ -1328,7 +1326,7 @@ internal static partial class JobJsonParser
                 outputEncryption = QpdfOutputEncryption.CreateAes256(user, owner, encryptionPermissions, encryptMetadata);
             }
             if ((password is not null || passwordFiles is not null || passwordMode is not null || suppressPasswordRecovery)
-                && (jsonInput || wantAttachments || showObject is not null))
+                && (wantAttachments || showObject is not null))
             { throw new QpdfCryptoException(passwordFiles is not null ? "passwordFile" : password is not null ? "password" : passwordMode is not null ? "passwordMode" : "suppressPasswordRecovery"); }
 
             if (wantAttachments && hasPages)
@@ -1508,8 +1506,10 @@ internal static partial class JobJsonParser
                     throw new QpdfParseException("Job JSON requires \"outputFile\" with \"jsonInput\".", 0L, null);
                 }
 
-                return new JsonInputPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output)) with
+                return new JsonInputPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output), recovery) with
                 {
+                    PasswordFiles = passwordFiles,
+                    OutputEncryption = outputEncryption,
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
                     Verbose = verbose,

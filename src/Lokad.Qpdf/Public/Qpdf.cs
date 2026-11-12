@@ -4448,7 +4448,7 @@ public static partial class Qpdf
         {
             DiagnosticBag diagnostics = new(governor);
             JsonImportOutcome result = await ImportCreateCoreAsync(host, jsonPath, outputPath, null, null, false, false,
-                outputEncryption, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                outputEncryption, QpdfRecoveryMode.Strict, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
             QpdfJsonImportResult presented = result.Present(governor);
             governor.FinishTypedCounters();
             return presented;
@@ -4961,6 +4961,7 @@ public static partial class Qpdf
         bool staticId,
         bool newlineBeforeEndstream,
         QpdfOutputEncryption outputEncryption,
+        QpdfRecoveryMode recovery,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
@@ -4978,7 +4979,7 @@ public static partial class Qpdf
         {
             Json.ImportedModel model = await Json.JsonImport.BuildCreateModelAsync(host, parsed, limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
             var preparedSecurity = await PrepareOutputSecurityAsync(host, outputEncryption, null, null, importMemory,
-                governor, limits, diagnostics, QpdfRecoveryMode.Strict, cancellationToken).ConfigureAwait(false);
+                governor, limits, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
             using OutputSecurity? security = preparedSecurity.Security;
             (model, PdfVersion effective) = PrepareImportedVersion(model, minVersion, forceVersion, security, governor, cancellationToken);
             Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, diagnostics, importMemory, cancellationToken);
@@ -5697,7 +5698,8 @@ public static partial class Qpdf
                     jsonInput.ForceVersion,
                     jsonInput.StaticId,
                     jsonInput.NewlineBeforeEndstream,
-                    QpdfOutputEncryption.Preserve,
+                    jsonInput.OutputEncryption ?? QpdfOutputEncryption.Preserve,
+                    jsonInput.Recovery,
                     limits,
                     governor,
                     diagnostics,

@@ -130,7 +130,7 @@ public sealed class PasswordFileTests
     }
 
     [Theory]
-    [InlineData("{\"inputFile\":\"missing.json\",\"passwordFile\":\"secret\",\"outputFile\":\"out.pdf\",\"jsonInput\":\"\"}", QpdfDiagnosticCode.UnsupportedCryptoOperation)]
+    [InlineData("{\"inputFile\":\"missing.json\",\"passwordFile\":\"secret\",\"outputFile\":\"out.pdf\",\"jsonInput\":\"\",\"qdf\":\"\"}", QpdfDiagnosticCode.InvalidArguments)]
     [InlineData("{\"inputFile\":\"missing.pdf\",\"passwordFile\":\"secret\",\"showNpages\":\"\",\"outputFile\":\"out.pdf\",\"check\":\"\"}", QpdfDiagnosticCode.InvalidArguments)]
     [InlineData("{\"inputFile\":\"missing.pdf\",\"passwordFile\":\"-\",\"showNpages\":\"\"}", QpdfDiagnosticCode.UnsupportedFeature)]
     public async Task InvalidOperationsRejectBeforePasswordFileAccess(string json, QpdfDiagnosticCode code)

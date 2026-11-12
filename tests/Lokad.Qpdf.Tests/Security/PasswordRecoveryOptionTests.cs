@@ -59,10 +59,12 @@ public sealed class PasswordRecoveryOptionTests
     public async Task SuppressionDoesNotEnableEncryptedJsonInput()
     {
         using InMemoryQpdfHost host = new();
+        string json = EncryptedJsonCreationTests.Source.Replace("\"/Info\":\"21 0 R\"", "\"/Info\":\"21 0 R\",\"/Encrypt\":\"21 0 R\"", StringComparison.Ordinal);
+        host.AddInput(QpdfPath.From("input.json"), System.Text.Encoding.UTF8.GetBytes(json), QpdfInputOwnership.Copy);
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host,
-            """{"inputFile":"missing.json","outputFile":"out.pdf","jsonInput":"","suppressPasswordRecovery":""}""", CancellationToken.None);
+            """{"inputFile":"input.json","outputFile":"out.pdf","jsonInput":"","suppressPasswordRecovery":""}""", CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         Assert.Equal(QpdfDiagnosticCode.UnsupportedCryptoOperation, Assert.Single(result.Diagnostics).Code);
-        Assert.Equal(0, result.Counters.HostOperations);
+        Assert.False(host.TryGetOutput(QpdfPath.From("out.pdf"), out _)); Assert.Equal(0, host.OpenLeaseCount);
     }
 }
