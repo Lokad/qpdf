@@ -2393,7 +2393,7 @@
           "JobCheckTests.InvalidFlagValuesFailBeforeOpening",
           "JobCheckTests.InvalidOutputModesDoNotOpenOrPublish",
           "JobCheckTests.CryptoKeysRejectBeforeHostAccessWithoutEchoingValues",
-          "JobCheckTests.EncryptedBytesRejectThroughTheCheckerRoute",
+          "JobCheckTests.UnsupportedSecurityHandlerRejectsThroughTheCheckerRoute",
           "BinaryInspectionTests.CheckerOutputPathRejectsBeforePdfAccess",
           "BinaryInspectionTests.FatalCheckingOfAnUnextractedStreamStopsAttachmentOutput",
           "CheckTransformationTests.RangeBoundsReturnExplicitFailureAfterInputWork",
@@ -5066,20 +5066,29 @@
           "source": "manual/cli.rst:390"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "Primary text passwords are supported for output-free AES R4/R6 inspections. Encrypted PDF transformations, JSON export, legacy handlers and secondary credentials remain pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
+        "positive": [
+          "PasswordInspectionTests.ArgvAndJobsInspectAuthenticatedPrimaryInputs"
+        ],
         "negative": [
           "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput",
+          "PasswordInspectionTests.PasswordFailuresHaveDistinctSecretFreeDiagnostics"
         ],
-        "interaction": [],
-        "resource": [],
+        "interaction": [
+          "PasswordInspectionTests.LaterCredentialSettersReplaceEarlierOnes",
+          "PasswordInspectionTests.ExplicitStreamInspectionExportsDecryptedDecodedBytes"
+        ],
+        "resource": [
+          "PasswordCheckTests.AuthenticationFailuresAndCancellationCloseInputsAndRefundMemory",
+          "EncryptedReaderTests.EveryReaderAdmissionFailureRefundsTheDocumentAndSecurityContext"
+        ],
         "oracle": []
       }
     },

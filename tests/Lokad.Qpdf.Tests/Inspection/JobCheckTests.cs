@@ -319,8 +319,6 @@ public sealed class JobCheckTests
     }
 
     [Theory]
-    [InlineData("password", false)]
-    [InlineData("password", true)]
     [InlineData("passwordFile", false)]
     [InlineData("passwordFile", true)]
     [InlineData("encrypt", false)]
@@ -340,13 +338,13 @@ public sealed class JobCheckTests
     }
 
     [Fact]
-    public async Task EncryptedBytesRejectThroughTheCheckerRoute()
+    public async Task UnsupportedSecurityHandlerRejectsThroughTheCheckerRoute()
     {
         InMemoryQpdfHost source = Host(Fixture("encrypted-decl.pdf"));
         ObservingHost host = new(source);
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, """{"inputFile":"inputs/a.pdf","check":""}""", CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.UnsupportedCryptoOperation, Assert.Single(result.Diagnostics).Code);
-        Assert.Contains("encrypt", result.Diagnostics[0].Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("security handler", result.Diagnostics[0].Message, StringComparison.OrdinalIgnoreCase);
         Assert.True(host.OpenCalls > 0);
         Assert.Equal(0, host.OutputCalls);
         Assert.Equal(0L, source.OpenLeaseCount);

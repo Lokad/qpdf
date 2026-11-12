@@ -12,7 +12,7 @@ internal static class ArgvConfigurationReader
     {
         argv = ConfigurationText.Wrap(new GovernedArguments(argv, governor), textStorage);
         // Excluded operations reject before any configuration/PDF/password input.
-        ArgvParser.RejectCryptoOptions(argv, governor);
+        ArgvParser.RejectCryptoOptions(argv, governor, true);
         bool gaveInput = false;
         bool gaveOutput = false;
         bool global = false;
@@ -190,7 +190,7 @@ internal static class ArgvConfigurationReader
     private static string Value(IReadOnlyList<string> argv, ref int cursor, string? fallback)
     {
         string token = argv[cursor];
-        bool emptyIdentifier = ArgvParser.OptionName(token) is "show-attachment" or "remove-attachment";
+        bool emptyIdentifier = ArgvParser.OptionName(token) is "show-attachment" or "remove-attachment" or "password";
         int equals = token.IndexOf('=');
         if (equals >= 0)
         {
@@ -231,7 +231,7 @@ internal static class ArgvConfigurationReader
             or "keep-files-open-threshold" or "min-version" or "oi-min-area" or "oi-min-height" or "oi-min-width"
             or "show-attachment" or "show-object" or "linearize-pass1" or "update-from-json" or "json-stream-prefix"
             or "decode-level" or "flatten-annotations" or "json-stream-data"
-            or "normalize-content" or "object-streams" or "remove-unreferenced-resources" or "stream-data";
+            or "normalize-content" or "object-streams" or "remove-unreferenced-resources" or "stream-data" or "password";
 
     private static bool IsBare(ReadOnlySpan<char> name)
         => name is "check" or "check-linearization" or "coalesce-contents" or "deterministic-id"

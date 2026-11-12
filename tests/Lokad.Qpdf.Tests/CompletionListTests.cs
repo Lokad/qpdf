@@ -25,9 +25,17 @@ public sealed class CompletionListTests
         HashSet<string> literals = new(StringComparer.Ordinal);
         foreach (string file in Directory.EnumerateFiles(sources, "*.cs", SearchOption.AllDirectories))
         {
-            foreach (Match match in Regex.Matches(File.ReadAllText(file), "\"(--[a-z0-9][a-z0-9-]*)\""))
+            string source = File.ReadAllText(file);
+            foreach (Match match in Regex.Matches(source, "\"(--[a-z0-9][a-z0-9-]*)\""))
             {
                 literals.Add(match.Groups[1].Value);
+            }
+            // The layered argv reader dispatches on OptionName, which has
+            // already removed the leading dashes.
+            if (Path.GetFileName(file) == "ArgvConfigurationReader.cs")
+            {
+                foreach (Match match in Regex.Matches(source, "\"([a-z][a-z0-9-]*)\""))
+                { literals.Add("--" + match.Groups[1].Value); }
             }
         }
 

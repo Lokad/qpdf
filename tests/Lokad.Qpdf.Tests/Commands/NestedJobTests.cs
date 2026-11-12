@@ -306,7 +306,7 @@ public sealed class NestedJobTests
         InMemoryQpdfHost source = new();
         Add(source, "child.json", outer ? """{"empty":"","showNpages":""}""" : """{"passwordFile":"secret-not-for-diagnostics","inputFile":"inputs/a.pdf","check":""}""");
         TrackingHost host = new(source, "normal");
-        string json = outer ? """{"jobJsonFile":"child.json","password":"secret-not-for-diagnostics"}""" : """{"jobJsonFile":"child.json"}""";
+        string json = outer ? """{"jobJsonFile":"child.json","passwordFile":"secret-not-for-diagnostics"}""" : """{"jobJsonFile":"child.json"}""";
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, json, CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.UnsupportedCryptoOperation, Assert.Single(result.Diagnostics).Code);
         Assert.DoesNotContain("secret-not-for-diagnostics", result.Diagnostics[0].Message, StringComparison.Ordinal);

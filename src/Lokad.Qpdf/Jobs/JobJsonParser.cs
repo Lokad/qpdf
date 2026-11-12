@@ -6,7 +6,8 @@ namespace Lokad.Qpdf.Jobs;
 
 /// <summary>
 /// Job-JSON parser covering selection, writer, content, overlay, attachment, inspection,
-/// and linearization keys with upstream field names. Cryptographic keys reject as crypto;
+/// and linearization keys with upstream field names. Primary passwords support inspection;
+/// other unimplemented cryptographic keys reject as crypto;
 /// everything outside the supported subset fails explicitly.
 /// </summary>
 internal static class JobJsonParser
@@ -36,6 +37,7 @@ internal static class JobJsonParser
         ResourceGovernor governor, ConfigurationText textStorage)
     {
             string? input = null;
+            QpdfPassword? password = null;
             bool empty = false;
             bool seenEmpty = false;
             bool seenInput = false;
@@ -212,9 +214,13 @@ internal static class JobJsonParser
             foreach (JsonProperty property in properties)
             {
                 governor.CheckCancellation();
-                if (IsCryptoKey(property.Name)) { throw new QpdfCryptoException(property.Name); }
+                if (IsCryptoKey(property.Name) && property.Name != "password") { throw new QpdfCryptoException(property.Name); }
                 switch (property.Name)
                 {
+                    case "password":
+                        textStorage.Memory.Reserve(40L);
+                        password = QpdfPassword.FromText(RequireString(property.Value, "password", textStorage));
+                        break;
                     case "empty":
                         if (seenEmpty && !configurationLayers)
                         {
@@ -1154,6 +1160,7 @@ internal static class JobJsonParser
                 (QpdfPath checkInput, bool checkEmpty) = ResolveInspectionInput(input, empty, "check");
                 return new CheckPlan(checkInput, recovery)
                 {
+                    Password = password,
                     EmptyDocument = checkEmpty,
                     Sources = inspectionSources,
                     Collation = inspectionCollation,
@@ -1187,6 +1194,8 @@ internal static class JobJsonParser
                     NormalizeContent = normalizeContent || (qdf && !seenNormalizeContent),
                 };
             }
+
+            if (password is not null) { throw new QpdfCryptoException("password"); }
 
             if (wantAttachments && hasPages)
             {

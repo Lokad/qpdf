@@ -249,6 +249,8 @@ internal sealed record ShowObjectPlan(QpdfPath Input, QpdfRecoveryMode Recovery,
 /// <summary>Validated structural inspection.</summary>
 internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input)
 {
+    public QpdfPassword? Password { get; init; }
+
     public IReadOnlyList<PdfPageSource> Sources { get; init; } = [];
 
     public PdfPageCollation? Collation { get; init; }

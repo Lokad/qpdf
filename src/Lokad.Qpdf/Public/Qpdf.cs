@@ -5865,6 +5865,16 @@ public static partial class Qpdf
             return Failed(QpdfDiagnosticCode.UnsupportedCryptoOperation, ex.Message);
         }
 
+        if (ex is QpdfSecurityException security)
+        {
+            return Failed(security.Reason switch
+            {
+                QpdfSecurityFailure.PasswordRequired => QpdfDiagnosticCode.PasswordRequired,
+                QpdfSecurityFailure.InvalidPassword => QpdfDiagnosticCode.InvalidPassword,
+                _ => QpdfDiagnosticCode.UnsupportedCryptoOperation,
+            }, security.Message);
+        }
+
         if (ex is QpdfLimitException or QpdfMemoryAdmissionException)
         {
             return Failed(QpdfDiagnosticCode.BudgetExceeded, ex.Message);

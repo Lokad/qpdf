@@ -41,6 +41,12 @@ internal static class PasswordReaderChecks
             Check(inspection.Checks.Single(check => check.Name == "trailer").Detail.Contains("password authentication", StringComparison.Ordinal), "authenticated trailer reporting");
         }
         Check(ownerBytes.AsSpan().SequenceEqual("fixture-owner"u8), "borrowed password remains caller-owned");
+        QpdfExecutionResult command = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(
+            [encrypted.Value, "--password=reader", "--check", "--show-npages"]), CancellationToken.None);
+        Check(command.Status == QpdfExecutionStatus.Completed && command.Diagnostics.Any(item => item.Code == QpdfDiagnosticCode.PageCount), "password command inspection");
+        QpdfExecutionResult missing = await Qpdf.ExecuteJobAsync(host,
+            """{"inputFile":"security-r6-ascii.pdf","check":""}""", CancellationToken.None);
+        Check(missing.Diagnostics.Single().Code == QpdfDiagnosticCode.PasswordRequired, "password-required command diagnostic");
         await Failure(null, QpdfSecurityFailure.PasswordRequired);
         await Failure(QpdfPassword.FromText(""), QpdfSecurityFailure.InvalidPassword);
         await Failure(QpdfPassword.FromText("consumer-secret"), QpdfSecurityFailure.InvalidPassword);

@@ -89,6 +89,12 @@ public enum QpdfDiagnosticCode
     FormStructureWarning = 22,
     /// <summary>Object syntax was repaired, or a damaged object was replaced with null.</summary>
     RepairedObject = 23,
+
+    /// <summary>The encrypted input requires a password.</summary>
+    PasswordRequired = 24,
+
+    /// <summary>The supplied password did not authenticate the input.</summary>
+    InvalidPassword = 25,
 }
 
 /// <summary>A single structured diagnostic entry.</summary>

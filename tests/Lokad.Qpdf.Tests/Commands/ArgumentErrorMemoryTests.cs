@@ -131,7 +131,7 @@ public sealed class ArgumentErrorMemoryTests
         Assert.InRange(failure.Message.Length, 1, 512);
         Assert.Contains("(offset 1)", failure.Message, StringComparison.Ordinal);
         QpdfExecutionResult crypto = await Qpdf.ExecuteAsync(host,
-            new QpdfCommandInvocation([.. argv, "--password=" + new string('s', 1048576)]), CancellationToken.None);
+            new QpdfCommandInvocation([.. argv, "--password-file=" + new string('s', 1048576)]), CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.UnsupportedCryptoOperation, Assert.Single(crypto.Diagnostics).Code);
         Assert.Equal(0L, crypto.Counters.HostOperations);
         Assert.Equal(0, host.OpenLeaseCount);

@@ -84,6 +84,11 @@ Structural checks use the same credentials through
 `Qpdf.CheckAsync`. They inspect decrypted objects and streams and report authentication
 without exposing the password. Borrowed password bytes remain stable until the check completes.
 
+Output-free argv/job inspections also accept a primary-input text password:
+`input.pdf --password=reader --check --show-npages`, or the job JSON key `"password":"reader"`.
+Missing and incorrect credentials have distinct diagnostic codes. Encrypted PDF transformations,
+JSON export, secondary-input passwords and password-file/mode options remain unsupported.
+
 JPEG decoding and recompression use the optional `IQpdfJpegCodec` interface.
 Supply your implementation with `new InMemoryQpdfHost(QpdfLimits.Default, codec)`;
 custom hosts expose it through `IQpdfJpegCodecHost`. Existing JPEGs can pass through
@@ -92,8 +97,8 @@ for buffer ownership, cancellation and resource admission.
 
 ## Limitations
 
-Encrypted transformations, output encryption and argv/job password options remain
-unsupported; authenticated opening currently supports AES R4 and R6. Rendering, OCR and
+Encrypted transformations, output encryption and encrypted JSON export remain
+unsupported; authenticated reading/inspection supports AES R4 and R6. Rendering, OCR and
 text extraction are outside the library's scope.
 Copying or rewriting signed, unencrypted PDFs preserves stored annotation appearances
 and disables the active signature fields and certification restrictions. A derived

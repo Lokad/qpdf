@@ -11,7 +11,7 @@ not establish implemented behavior. Development changes are in the
 
 | Boundary | Contract |
 | --- | --- |
-| Password security | `QpdfDocument.OpenAsync` and typed `Qpdf.CheckAsync` accept AES-128 R4 and AES-256 R6 with user/owner text or raw credentials, including empty passwords. RC4 inputs, R5, encrypted transformations, output encryption and argv/job password options remain unsupported. Signing and signature validation are excluded. |
+| Password security | Typed opening/checks and output-free argv/job inspections accept AES-128 R4 and AES-256 R6, including empty passwords. Typed credentials can be text or raw bytes; commands/jobs accept primary text credentials. RC4 inputs, R5, encrypted transformations, output encryption, encrypted JSON export, password files/modes and secondary credentials remain unsupported. Signing and signature validation are excluded. |
 | Signed inputs | Selection, rewrite, placement and JSON publication retain stored appearances but disable active signature field attributes and catalog certification restrictions. Blank signature fields are disabled too. Rewriting never preserves signature validity; read-only inspection keeps original values. |
 | JPEG | Decoding/recompression needs a caller-supplied codec. Gray/RGB is supported; CMYK/YCCK stays opaque and is ineligible for optimization. |
 | Zopfli | Unavailable; requests fail with exit 2. Ordinary Flate works. `QPDF_ZOPFLI` is treated as unset. |
@@ -23,8 +23,9 @@ not establish implemented behavior. Development changes are in the
 The inventory has 140 flags in 157 context entries. It separates implemented
 behavior from planned requirements, deferred legacy-output options and explicit
 exclusions. Security rejection tests establish current refusal only; they do not
-establish password-security support. `currentRejection` tracks that refusal
-independently of scope. Incomplete entries retain concrete gaps; exclusions have
+establish password-security support. `currentRejection` tracks remaining crypto
+refusals, including options with supported subsets, independently of scope.
+Incomplete entries retain concrete gaps; exclusions have
 reasons. Companion fix-qdf/zlib-flate operations are additional contracts.
 
 ## Entry-point defaults

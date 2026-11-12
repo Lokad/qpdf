@@ -11,12 +11,15 @@ PDFDocEncoding when representable. Raw bytes are borrowed until opening complete
 and never reinterpreted. R4 uses the first 32 bytes and R6 uses 127. Missing credentials try
 empty; a failed absent password is distinct from a failed supplied password.
 Encryption facts expose permissions and authentication status without passwords
-or keys. RC4 inputs, R5, encrypted transforms, output encryption and argv/job
-password options remain unsupported.
+or keys. RC4 inputs, R5, encrypted transforms, output encryption and encrypted JSON
+export remain unsupported.
 
 Typed `Qpdf.CheckAsync` accepts the same credentials in `QpdfCheckOptions.Password`
 and runs structural checks over the decrypted graph. Its existing skipped-stage
 reporting and partial-check contract still apply.
+Output-free argv/job inspections accept a primary text password through
+`--password`/`password`. Password files/modes and secondary credentials remain
+unsupported. Missing and supplied-but-invalid credentials have distinct diagnostic codes.
 
 Signed, unencrypted pages can be copied, merged, placed and rewritten.
 Stored signature appearances survive; active signature field attributes and document

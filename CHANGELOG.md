@@ -12,7 +12,8 @@
   Distinguish missing/invalid credentials, unsupported handlers and malformed data.
   R4 text passwords can retry PDFDocEncoding; raw passwords remain exact bytes.
   Typed structural checks accept `QpdfCheckOptions.Password` and inspect the decrypted graph.
-  Encrypted transformations and argv/job password options remain unsupported.
+  Output-free argv/job inspections accept primary text passwords with distinct missing/invalid
+  credential diagnostics. Encrypted transformations, JSON export and secondary credentials remain unsupported.
 - Start development version 0.2.0-dev.1.
 - Separate planned password-security requirements, deferred legacy-output options
   and explicit raw-key/static-IV exclusions in the compatibility inventory.
