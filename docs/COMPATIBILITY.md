@@ -54,6 +54,7 @@ are generally not compatibility guarantees.
 
 | Area | Managed behavior |
 | --- | --- |
+| QDF encryption | Preserve primary protection by default, including QDF. Native qpdf clears default protection in QDF mode unless an explicit encryption or template policy reapplies it. |
 | Publication | Single-target commit is transactional. Failed/canceled preparation publishes no partial stdout payload. Split/sidecar targets commit sequentially; earlier successes survive a later failure. |
 | Primary document | Its attachment collection survives selection even if none of its pages is selected. Secondary collections need explicit import; page-reachable files still copy. Explicit empty primary differs from a real zero-page input. |
 | Split | Retain final document attachments and explicitly preserved unreferenced roots. Foreign page references become null. Explicit/derived labels follow assembled output order before splitting. |
@@ -106,7 +107,11 @@ output faults. Locked Release/package/isolated-consumer gates protect the public
 surface and dependency boundary. Explicit reference jobs add native differential,
 parser and finite raster controls; syntax alone is not a semantic oracle, and
 lossy JPEGs need appropriate comparisons. No timing gate or general rendering
-equivalence is claimed. Reference jobs fail when tools are missing.
+equivalence is claimed. The security matrix compares R2–R6 query exits and
+classic, object-stream, QDF, linearized and decrypted outputs through argv and
+job JSON. Native checks authenticate both roles and verify policy; decrypted
+controls compare page/metadata payloads and independent-reader page counts.
+Reference jobs fail when tools are missing.
 
 The pinned source commit is `4eba95899886e851cc41d76886483b347612f2a8`.
 Inventory hashes normalize CRLF to LF; reference metadata changes require review.

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add canonical R2–R6 native comparisons for predicates, authenticated reading,
+  preservation and decryption across argv/job routes and writer modes.
+
 - Read and preserve RC4 R2/R3 inputs through typed, argv and job operations,
   including historical key lengths and both bounded short-key owner-hash conventions.
   Reuse shared JSON, attachment, selection, template and writer paths; new encryption

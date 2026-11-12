@@ -3051,7 +3051,10 @@
         "resource": [
           "OutputDecryptionTests.DecryptionDoesNotBypassPasswordsOrCanceledPublication"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-query",
+          "diff:security-preserve"
+        ]
       }
     },
     {
@@ -3761,11 +3764,9 @@
           "source": "manual/cli.rst:3291"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Native query semantics are supported for R2–R6 and plain inputs. Canonical native-reference qualification remains pending."
-      ],
+      "remainingGaps": [],
       "currentRejection": false,
       "evidence": {
         "positive": [
@@ -3781,7 +3782,9 @@
         "resource": [
           "EncryptionInspectionTests.EveryProbeAdmissionFailureIsTerminalAndRefunded"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-query"
+        ]
       }
     },
     {
@@ -5313,7 +5316,10 @@
           "PrimaryAttachmentPasswordTests.EveryPrimaryAttachmentAdmissionRefusalRefundsAndClosesInputs",
           "Revision5EncryptionTests.EveryPublicAdmissionRefusalClosesInputsAndRefundsSecurity"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-query",
+          "diff:security-preserve"
+        ]
       }
     },
     {
@@ -6186,11 +6192,9 @@
           "source": "manual/cli.rst:3328"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Native query semantics are supported for R2–R6 and plain inputs. Canonical native-reference qualification remains pending."
-      ],
+      "remainingGaps": [],
       "currentRejection": false,
       "evidence": {
         "positive": [
@@ -6206,7 +6210,9 @@
         "resource": [
           "EncryptionInspectionTests.EveryProbeAdmissionFailureIsTerminalAndRefunded"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-query"
+        ]
       }
     },
     {

@@ -50,8 +50,13 @@ public sealed class CompatibilityInventoryTests
         Assert.All(entries, entry =>
         {
             Assert.Equal("required", entry.GetProperty("scope").GetString());
-            Assert.NotEqual("complete", entry.GetProperty("status").GetString());
-            Assert.NotEmpty(entry.GetProperty("remainingGaps").EnumerateArray());
+            if (entry.GetProperty("status").GetString() == "complete")
+            {
+                Assert.False(entry.GetProperty("currentRejection").GetBoolean());
+                Assert.NotEmpty(entry.GetProperty("evidence").GetProperty("positive").EnumerateArray());
+                Assert.NotEmpty(entry.GetProperty("evidence").GetProperty("oracle").EnumerateArray());
+            }
+            else { Assert.NotEmpty(entry.GetProperty("remainingGaps").EnumerateArray()); }
         });
     }
 
