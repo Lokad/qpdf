@@ -11,10 +11,23 @@ internal static class EncryptionDictionary
         { throw new QpdfParseException("An encryption dictionary requires a security-handler name.", null, null); }
         if (!handler.RawSpan.SequenceEqual("Standard"u8)) { throw new QpdfSecurityException(QpdfSecurityFailure.UnsupportedHandler); }
         int version = ReadInteger(dictionary, "V"u8, governor);
-        if (version is not (4 or 5)) { throw new QpdfSecurityException(QpdfSecurityFailure.UnsupportedHandler); }
+        if (version is not (1 or 2 or 4 or 5)) { throw new QpdfSecurityException(QpdfSecurityFailure.UnsupportedHandler); }
         int revision = ReadInteger(dictionary, "R"u8, governor);
-        if ((version == 4 && revision == 4) || (version == 5 && revision is 5 or 6)) { return revision; }
+        if ((version == 1 && revision is 2 or 3) || (version == 2 && revision == 3)
+            || (version == 4 && revision == 4) || (version == 5 && revision is 5 or 6)) { return revision; }
         throw new QpdfSecurityException(QpdfSecurityFailure.UnsupportedHandler);
+    }
+
+    internal static int ReadKeyLength(PdfDictionary dictionary, ResourceGovernor governor)
+    {
+        int version = ReadInteger(dictionary, "V"u8, governor);
+        if (version == 1) { return 40; }
+        int expected = version == 2 ? 40 : version == 4 ? 128 : 256;
+        if (!PdfDictionaryLookup.TryGet(dictionary, "Length"u8, governor, governor.CancellationToken, out QpdfObject raw) || raw is PdfNull)
+        { return expected; }
+        if (raw is not PdfInteger bits || (version == 2 ? bits.Value is < 40 or > 128 || bits.Value % 8 != 0 : bits.Value != expected))
+        { throw new QpdfParseException("Invalid encryption key length for this security version.", null, null); }
+        return (int)bits.Value;
     }
 
     internal static ReadOnlySpan<byte> ReadIdentifier(PdfDictionary trailer, ResourceGovernor governor)

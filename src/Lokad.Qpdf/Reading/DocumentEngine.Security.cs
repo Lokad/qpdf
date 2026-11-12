@@ -44,7 +44,7 @@ internal sealed partial class DocumentEngine
     {
         PdfDictionary encryption = ReadEncryptionDictionary(declaration);
         int revision = EncryptionDictionary.ReadSupportedRevision(encryption, _governor);
-        ReadOnlySpan<byte> identifier = revision == 4 ? EncryptionDictionary.ReadIdentifier(Trailer, _governor) : [];
+        ReadOnlySpan<byte> identifier = revision <= 4 ? EncryptionDictionary.ReadIdentifier(Trailer, _governor) : [];
         PasswordAuthentication authentication = DocumentSecurity.TryCreate(encryption, identifier, password, _governor, out DocumentSecurity? security, out parameters);
         if (authentication == PasswordAuthentication.None) { return authentication; }
         _security = security ?? throw new InvalidOperationException("Authentication did not produce a security context.");

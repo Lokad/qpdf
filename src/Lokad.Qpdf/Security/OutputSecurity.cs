@@ -17,6 +17,7 @@ internal sealed partial class OutputSecurity : IDisposable
     private byte[]? _preservedIdentifier;
     internal bool EncryptMetadata { get; }
     internal int Revision { get; }
+    private PdfCipher Cipher => Revision < 4 ? PdfCipher.Rc4 : Revision == 4 ? PdfCipher.Aes128 : PdfCipher.Aes256;
 
     private OutputSecurity(ParserMemoryScope memory, byte[] key, PdfDictionary dictionary, int revision, bool metadata, byte[]? identifier)
     { _memory = memory; _key = key; _dictionary = dictionary; Revision = revision; EncryptMetadata = metadata; _preservedIdentifier = identifier; }
@@ -43,30 +44,33 @@ internal sealed partial class OutputSecurity : IDisposable
             memory.Reserve(160L); // Context, fixed construction state and the file-key array.
             key = new byte[32];
             Aes256Encryption.Generate(userPassword, ownerPassword, permissions, metadata, key, values, governor);
-            PdfDictionary dictionary = BuildDictionary(values, 6, permissions, metadata, memory, governor);
+            PdfDictionary dictionary = BuildDictionary(values, 5, 6, 256, permissions, metadata, memory, governor);
             governor.CheckCancellation(); return new(memory, key, dictionary, 6, metadata, null);
         }
         catch { if (key is not null) { CryptographicOperations.ZeroMemory(key); } memory.Dispose(); throw; }
         finally { CryptographicOperations.ZeroMemory(values); }
     }
 
-    private static PdfDictionary BuildDictionary(ReadOnlySpan<byte> values, int revision, int permissions, bool metadata,
+    private static PdfDictionary BuildDictionary(ReadOnlySpan<byte> values, int version, int revision, int keyBits, int permissions, bool metadata,
         ParserMemoryScope memory, ResourceGovernor governor)
     {
         bool modern = revision >= 5;
-        PdfNameTable<QpdfObject> filter = Table();
-        Add(filter, "CFM", Name(modern ? "AESV3" : "AESV2")); Add(filter, "AuthEvent", Name("DocOpen"));
-        Add(filter, "Length", PdfInteger.GetSharedValue(modern ? 32 : 16));
-        PdfNameTable<QpdfObject> filters = Table(); Add(filters, "StdCF", Complete(filter));
         PdfNameTable<QpdfObject> root = Table();
-        Add(root, "Filter", Name("Standard")); Add(root, "V", PdfInteger.GetSharedValue(modern ? 5 : 4));
+        Add(root, "Filter", Name("Standard")); Add(root, "V", PdfInteger.GetSharedValue(version));
         Add(root, "R", PdfInteger.GetSharedValue(revision));
         memory.Reserve(136L); // Two integer objects and their bounded decimal text.
-        Add(root, "Length", modern ? new PdfInteger("256", 256) : new PdfInteger("128", 128));
+        Add(root, "Length", new PdfInteger(keyBits.ToString(CultureInfo.InvariantCulture), keyBits));
         Add(root, "P", new PdfInteger(permissions.ToString(CultureInfo.InvariantCulture), permissions));
-        Add(root, "EncryptMetadata", metadata ? PdfBoolean.True : PdfBoolean.False);
-        Add(root, "CF", Complete(filters));
-        PdfName selected = Name("StdCF"); Add(root, "StmF", selected); Add(root, "StrF", selected);
+        if (revision >= 4)
+        {
+            PdfNameTable<QpdfObject> filter = Table();
+            Add(filter, "CFM", Name(modern ? "AESV3" : "AESV2")); Add(filter, "AuthEvent", Name("DocOpen"));
+            Add(filter, "Length", PdfInteger.GetSharedValue(keyBits / 8));
+            PdfNameTable<QpdfObject> filters = Table(); Add(filters, "StdCF", Complete(filter));
+            Add(root, "EncryptMetadata", metadata ? PdfBoolean.True : PdfBoolean.False);
+            Add(root, "CF", Complete(filters));
+            PdfName selected = Name("StdCF"); Add(root, "StmF", selected); Add(root, "StrF", selected);
+        }
         int entryLength = modern ? 48 : 32;
         Add(root, "U", Bytes(values[..entryLength])); Add(root, "O", Bytes(values.Slice(entryLength, entryLength)));
         if (modern)
@@ -103,8 +107,18 @@ internal sealed partial class OutputSecurity : IDisposable
         ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(OutputSecurity));
         memory.CheckOwner(governor);
         Span<byte> derived = stackalloc byte[16];
-        try { return PdfAesCipher.Encrypt(value, ObjectKey(number, generation, derived, governor), owner, governor); }
+        try
+        {
+            ReadOnlySpan<byte> key = ObjectKey(number, generation, derived, governor);
+            return Cipher == PdfCipher.Rc4 ? PdfRc4Cipher.Copy(value, key, owner, governor) : PdfAesCipher.Encrypt(value, key, owner, governor);
+        }
         finally { CryptographicOperations.ZeroMemory(derived); }
+    }
+
+    internal int EncryptedLength(int length)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(length);
+        return Cipher == PdfCipher.Rc4 ? length : PdfAesCipher.EncryptedLength(length);
     }
 
     internal QpdfObject EncryptObject(QpdfObject value, int number, int generation, bool rootMetadata, IIndirectResolver resolver,
@@ -122,9 +136,9 @@ internal sealed partial class OutputSecurity : IDisposable
     private ReadOnlySpan<byte> ObjectKey(int number, int generation, Span<byte> derived, ResourceGovernor governor)
     {
         byte[] key = _key ?? throw new ObjectDisposedException(nameof(OutputSecurity));
-        if (Revision != 4) { return key; }
-        LegacyEncryption.DeriveObjectKey(key, number, generation, derived, true, governor);
-        return derived;
+        if (Revision >= 5) { return key; }
+        int length = LegacyEncryption.DeriveObjectKey(key, number, generation, derived, Cipher == PdfCipher.Aes128, governor);
+        return derived[..length];
     }
 
     private QpdfObject EncryptObjectCore(QpdfObject value, bool rootMetadata, IIndirectResolver resolver,
@@ -144,14 +158,14 @@ internal sealed partial class OutputSecurity : IDisposable
                 }
             }
             bool identity = rootMetadata && !EncryptMetadata || FilterChain.HasExternalData(stream, resolver, governor, graph.Token);
-            PdfDictionary header = PdfStringCrypt.Dictionary(stream.Dictionary, graph, 0, key, Revision == 4 ? PdfCipher.Aes128 : PdfCipher.Aes256, true);
+            PdfDictionary header = PdfStringCrypt.Dictionary(stream.Dictionary, graph, 0, key, Cipher, true);
             if (identity)
             {
                 graph.Memory.Reserve(32L); graph.Add(32L); result = stream.WithDictionary(header);
             }
             else
             {
-                byte[] bytes = PdfStringCrypt.Bytes(stream.RawMemory.Span, graph, key, Revision == 4 ? PdfCipher.Aes128 : PdfCipher.Aes256, true);
+                byte[] bytes = PdfStringCrypt.Bytes(stream.RawMemory.Span, graph, key, Cipher, true);
                 PdfInteger length;
                 if (bytes.Length < PdfInteger.SharedValueCount) { length = PdfInteger.GetSharedValue(bytes.Length); }
                 else
@@ -163,7 +177,7 @@ internal sealed partial class OutputSecurity : IDisposable
                 graph.Memory.Reserve(32L); graph.Add(32L); result = PdfStream.FromOwnedData(header, bytes);
             }
         }
-        else { result = PdfStringCrypt.Value(value, graph, 0, key, Revision == 4 ? PdfCipher.Aes128 : PdfCipher.Aes256, true); }
+        else { result = PdfStringCrypt.Value(value, graph, 0, key, Cipher, true); }
         graph.Memory.TransferTo(destination, graph.Bytes);
         return result;
     }

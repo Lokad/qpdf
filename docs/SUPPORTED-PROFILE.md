@@ -5,14 +5,14 @@ The [option inventory](../tests/Compatibility/options.json) records exact forms,
 combinations and executable evidence; [compatibility](COMPATIBILITY.md) records
 defaults and intentional differences. Accepted syntax alone does not establish support.
 
-`QpdfDocument.OpenAsync` supports 128-bit RC4/AES R4 and AES-256 R5/R6 with user or owner
-credentials, including empty passwords. UTF-8 text is not normalized; R4 retries
+`QpdfDocument.OpenAsync` supports RC4 R2/R3, 128-bit RC4/AES R4 and AES-256 R5/R6 with user or owner
+credentials, including empty passwords. UTF-8 text is not normalized; R2–R4 retry
 PDFDocEncoding when representable. Raw bytes are borrowed until opening completes
-and never reinterpreted. R4 uses the first 32 bytes and R5/R6 use 127. Missing credentials try
+and never reinterpreted. R2–R4 use the first 32 bytes and R5/R6 use 127. Missing credentials try
 empty; a failed absent password is distinct from a failed supplied password.
 Encryption facts expose permissions and authentication status without passwords
 or keys. Typed `SelectPageAsync` authenticates with the same password values and
-preserves R4/R5/R6 protection, both passwords, permissions and metadata policy. It
+preserves R2–R6 protection, both passwords, permissions and metadata policy. It
 supports ordered/repeated pages, first/last previews and rotations. Missing
 credentials try empty. An explicit `QpdfOutputEncryption` policy can preserve,
 remove or replace protection with fresh AES-256 R6. Creation uses UTF-8 or exact
@@ -25,8 +25,10 @@ secondary sources cannot replace it. `PdfPageMergeOptions.OutputEncryption`
 sets an explicit policy, including for split output. Newly encrypted split outputs
 use separate keys. Repeated paths share one opened document and require equal
 credential values and representations, including absent versus explicit passwords;
-conflicts fail before opening inputs. RC4 R2/R3 inputs remain unsupported.
+conflicts fail before opening inputs. R2 uses 40-bit RC4; R3 accepts 40..128-bit keys in eight-bit steps.
+Preserved/copied R2/R3 output keeps RC4 and requires PDF 1.3/1.4 respectively.
 Preserved/copied R4 output uses AES-128 and requires PDF 1.6, including RC4 inputs.
+Newly selected weak encryption remains unsupported.
 Existing R5 AES-256 inputs can be inspected, transformed, preserved or copied as
 templates. Preservation keeps R5 and requires PDF 1.7 extension level 3; new
 encryption continues to use R6. No fresh R5 creation is exposed.
@@ -80,7 +82,7 @@ before its graph is reused. A missing placement credential does not inherit the
 primary password. Publication and transformed inspections share this reader path.
 Typed page selection, merging and splitting accept
 `QpdfOutputEncryption.CopyFrom(template, password)`. The host authenticates this
-independent R4/R5/R6 input with either password, then copies both password entries,
+independent R2–R6 input with either password, then copies both password entries,
 permissions, metadata policy and the first identifier. Its reader closes before
 publication; split outputs retain the template key. A plaintext template removes
 input protection. Template passwords may be text, raw bytes or absent for empty.
@@ -102,7 +104,7 @@ Argv/job updates use `--update-from-json` / `updateFromJson` with primary text o
 host-file credentials, including password modes and recovery settings. Preserve,
 decrypt, encrypt and template policies use the same version and metadata rules.
 Typed `CreatePdfFromJsonAsync` accepts an output policy with explicit limits.
-Plaintext JSON can produce new AES-256 or copied R4/R5/R6 protection, including the
+Plaintext JSON can produce new AES-256 or copied R2–R6 protection, including the
 chosen metadata policy. Creation has no authenticated PDF input: Preserve produces
 plaintext only when JSON has no `/Encrypt` declaration. Full encrypted exports
 require an explicit remove/create/template policy, which replaces that declaration.

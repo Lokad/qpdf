@@ -483,7 +483,7 @@ internal sealed partial class PdfSerializer
                 long length = checked(first + members.Length);
                 long maximum = Math.Min(_limits.MaxOutputBytes, Array.MaxLength);
                 if (length > maximum) { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), length, maximum); }
-                if (_security is not null) { length = PdfAesCipher.EncryptedLength((int)length); }
+                if (_security is not null) { length = _security.EncryptedLength((int)length); }
                 if (length > maximum) { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), length, maximum); }
                 counter.AppendLength(ObjectStreamHeader.Measure(containerId, group.Count, length, first,
                     false, false, _limits, _governor, cancellationToken), cancellationToken);

@@ -6,7 +6,7 @@ namespace Lokad.Qpdf.Commands;
 internal static class HelpText
 {
     internal const string Help = """
-        Lokad.qpdf: managed PDF structural processor with R4/R5/R6 reading.
+        Lokad.qpdf: managed PDF structural processor with R2–R6 reading.
         Usage:
           qpdf input --pages [--file=]file [--password=text] [--range=]n -- output
           qpdf --empty --pages file n -- output (merge from an empty base)
@@ -131,9 +131,9 @@ internal static class HelpText
         """;
 
     internal const string Copyright = """
-        Lokad.qpdf: managed PDF structural processor with R4/R5/R6 reading.
+        Lokad.qpdf: managed PDF structural processor with R2–R6 reading.
         Copyright (c) 2026 Lokad (MIT License).
-        Compatibility target: qpdf 12.4.2 structural subset with R4/R5/R6 reading.
+        Compatibility target: qpdf 12.4.2 structural subset with R2–R6 reading.
         """;
 
     internal static bool TryMatchCopyright(IReadOnlyList<string> argv, out string text)
@@ -155,7 +155,7 @@ internal static class HelpText
     {
         string version = typeof(HelpText).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
-        return $"Lokad.qpdf {version} (qpdf 12.4.2 structural compatibility target, R4/R5/R6 reading)";
+        return $"Lokad.qpdf {version} (qpdf 12.4.2 structural compatibility target, R2–R6 reading)";
     }
 
     internal static bool TryMatchHelp(IReadOnlyList<string> argv, out string text)

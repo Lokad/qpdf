@@ -81,7 +81,7 @@ public sealed partial class QpdfDocument
             int revision = engine.GetEncryptionRevision(encryption);
             int count = password is null ? 0 : password.WriteModernBytes(bytes, governor);
             PasswordAuthentication authentication = engine.Authenticate(encryption, bytes[..count], out EncryptionParameters parameters);
-            if (authentication == PasswordAuthentication.None && revision == 4 && password is not null
+            if (authentication == PasswordAuthentication.None && revision <= 4 && password is not null
                 && password.TryWritePdfDocBytes(bytes[..count], legacy, out int legacyCount)
                 && !bytes[..Math.Min(count, 32)].SequenceEqual(legacy[..legacyCount]))
             { authentication = engine.Authenticate(encryption, legacy[..legacyCount], out parameters); }

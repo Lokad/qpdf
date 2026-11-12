@@ -156,8 +156,8 @@ public sealed partial class QpdfDocument : IAsyncDisposable
     /// <summary>Opens an input with per-input credentials and explicit budgets.</summary>
     /// <remarks>A null password tries the empty password and reports PasswordRequired
     /// if it fails. An explicitly empty password instead reports InvalidPassword.
-    /// R6 uses the first 127 UTF-8 or raw bytes. R4 uses 32 bytes and can retry
-    /// PDFDocEncoding for text credentials. The reader supports 128-bit RC4/AES R4 and AES-256 R5/R6.</remarks>
+    /// R5/R6 use the first 127 UTF-8 or raw bytes. R2–R4 use 32 bytes and can retry
+    /// PDFDocEncoding for text credentials. The reader supports RC4 R2/R3, 128-bit RC4/AES R4 and AES-256 R5/R6.</remarks>
     /// <exception cref="ArgumentNullException">Host or limits are null.</exception>
     /// <exception cref="QpdfSecurityException">Credentials fail or the security handler is unsupported.</exception>
     /// <exception cref="QpdfParseException">The input or encryption parameters are malformed.</exception>

@@ -51,10 +51,7 @@ internal sealed partial class DocumentSecurity : IDisposable
         parameters = default;
         governor.CheckCancellation();
         int revision = ReadSupportedRevision(encryption, governor);
-        int keyBits = revision >= 5 ? 256 : 128;
-        if (PdfDictionaryLookup.TryGet(encryption, "Length"u8, governor, governor.CancellationToken, out QpdfObject length)
-            && length is not PdfNull && (length is not PdfInteger bits || bits.Value != keyBits))
-        { throw new QpdfParseException("Invalid encryption key length for this security revision.", null, null); }
+        int keyBits = ReadKeyLength(encryption, governor);
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         byte[]? key = null;
         bool accepted = false;
@@ -62,7 +59,7 @@ internal sealed partial class DocumentSecurity : IDisposable
         {
             memory.Reserve(256L); // Context and its owned file key.
             Dictionary<PdfName, CryptFilter> filters = ParserContainers.CreateDictionary<PdfName, CryptFilter>(memory);
-            if (PdfDictionaryLookup.TryGet(encryption, "CF"u8, governor, governor.CancellationToken, out QpdfObject rawFilters)
+            if (revision >= 4 && PdfDictionaryLookup.TryGet(encryption, "CF"u8, governor, governor.CancellationToken, out QpdfObject rawFilters)
                 && rawFilters is not PdfNull)
             {
                 if (rawFilters is not PdfDictionary definitions)
@@ -90,12 +87,12 @@ internal sealed partial class DocumentSecurity : IDisposable
                     filters.Add(name, new(cipher, embeddedOnly));
                 }
             }
-            PdfName streamName = ReadName(encryption, "StmF"u8, IdentityName, governor);
-            PdfCipher streams = Select(filters, streamName, false);
-            PdfCipher strings = Select(filters, ReadName(encryption, "StrF"u8, IdentityName, governor), false);
-            PdfCipher files = Select(filters, ReadName(encryption, "EFF"u8, streamName, governor), true);
-            parameters = new(revision >= 5 ? 5 : 4, revision, keyBits, ReadInteger(encryption, "P"u8, governor),
-                ReadMetadata(encryption, governor), strings, streams, files);
+            PdfName streamName = revision < 4 ? IdentityName : ReadName(encryption, "StmF"u8, IdentityName, governor);
+            PdfCipher streams = revision < 4 ? PdfCipher.Rc4 : Select(filters, streamName, false);
+            PdfCipher strings = revision < 4 ? PdfCipher.Rc4 : Select(filters, ReadName(encryption, "StrF"u8, IdentityName, governor), false);
+            PdfCipher files = revision < 4 ? PdfCipher.Rc4 : Select(filters, ReadName(encryption, "EFF"u8, streamName, governor), true);
+            parameters = new(ReadInteger(encryption, "V"u8, governor), revision, keyBits, ReadInteger(encryption, "P"u8, governor),
+                revision < 4 || ReadMetadata(encryption, governor), strings, streams, files);
             key = new byte[keyBits / 8];
             PasswordAuthentication match = revision >= 5
                 ? Aes256Encryption.Authenticate(encryption, password, key, governor)

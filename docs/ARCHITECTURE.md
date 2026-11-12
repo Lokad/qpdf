@@ -69,11 +69,12 @@ R5 authentication shares the AES-256 key and permission checks, using the bounde
 SHA-256 password hash from [Adobe ExtensionLevel 3](https://pdfa.org/resource/pdf-specification-archive/).
 R5 input and preserved/copied output use the same reader and writers; new encryption
 still creates R6. Preserved R5 output requires PDF 1.7 extension level 3.
-An authenticated R4/R5/R6 reader can also prepare an independent output owner, copying
+An authenticated R2–R6 reader can also prepare an independent output owner, copying
 the first identifier and both password entries without retaining either password.
-The copied key and dictionary survive source disposal; crypt filters normalize to
-AES for output, matching pinned qpdf. Writers reject a changed first identifier
-before emission. R4 derives temporary keys from final output numbers, including
+The copied key and dictionary survive source disposal; V4/V5 crypt filters normalize
+to AES for output, matching pinned qpdf. R2/R3 retain RC4 and their key lengths.
+Writers reject a changed first identifier before emission. R2–R4 derive temporary
+keys from final output numbers, including
 renumbered QDF objects, object-stream containers and linearization hints; each
 derived key is cleared after preparing its ciphertext. Typed page selection
 prepares this owner from its explicit preserve/remove/AES-256 request. New requests
@@ -169,12 +170,14 @@ authentication. Only a matching password permits page traversal; report-only
 requests close the reader after collecting declared settings.
 R4 authentication uses system MD5 and a bounded, owned RC4 primitive, checked
 against native keys and [independent RFC 6229 vectors](https://www.rfc-editor.org/rfc/rfc6229.txt).
-The shared internal legacy authenticator also covers R2's 40-bit derivation and
+The shared legacy authenticator also covers R2's 40-bit derivation and
 R3's 40..128-bit keys. Short R3 owner keys check the full-digest convention from
 [ISO 32000-1, algorithm 3](https://opensource.adobe.com/dc-acrobat-sdk-docs/standards/pdfstandards/pdf/PDF32000_2008.pdf)
 and the key-length convention used by pinned qpdf and Poppler, with at most two
-owner derivations. Recorded fixtures distinguish those results; public R2/R3
-reader/writer integration remains pending.
+owner derivations. Recorded fixtures distinguish those results. R2/R3 documents
+use the same authenticated graph, credentials and output policies. Their writers
+preserve RC4 and account for unchanged payload lengths, including object streams
+and linearization. Pre-V4 crypt-filter and metadata fields are inactive.
 R4 RC4 and AES-128 use temporary per-object keys including number and generation.
 Only AES appends the salt suffix. Strings and streams select their keys independently,
 including mixed crypt filters; RC4 payload copies retain exact length and admitted

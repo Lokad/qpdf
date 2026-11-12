@@ -9,13 +9,14 @@ namespace Lokad.Qpdf.Security;
 internal sealed partial class OutputSecurity
 {
     // Called only with an authenticated document key. The output keeps both
-    // password entries and normalizes crypt filters to AES, as qpdf does.
+    // password entries and normalizes V4/V5 crypt filters to AES, as qpdf does.
     internal static OutputSecurity CopyAuthenticated(PdfDictionary encryption, ReadOnlySpan<byte> fileKey,
         ReadOnlySpan<byte> identifier, EncryptionParameters parameters, ResourceGovernor governor)
     {
         int revision = parameters.Revision;
-        if (revision is not (4 or 5 or 6) || fileKey.Length != (revision >= 5 ? 32 : 16))
-        { throw new ArgumentException("An authenticated AES file key is required."); }
+        if (revision is < 2 or > 6 || fileKey.Length != parameters.KeyLengthBits / 8
+            || (revision == 2 ? fileKey.Length != 5 : revision == 3 ? fileKey.Length is < 5 or > 16 : fileKey.Length != (revision >= 5 ? 32 : 16)))
+        { throw new ArgumentException("An authenticated standard-handler file key is required."); }
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         byte[]? key = null;
         Span<byte> values = stackalloc byte[176];
@@ -41,7 +42,8 @@ internal sealed partial class OutputSecurity
                 ReadBytes(encryption, "OE"u8, 32, governor).CopyTo(values[128..]);
                 ReadBytes(encryption, "Perms"u8, 16, governor).CopyTo(values[160..]);
             }
-            PdfDictionary dictionary = BuildDictionary(values, revision, parameters.Permissions, parameters.EncryptMetadata, memory, governor);
+            PdfDictionary dictionary = BuildDictionary(values, parameters.Version, revision, parameters.KeyLengthBits,
+                parameters.Permissions, parameters.EncryptMetadata, memory, governor);
             governor.CheckCancellation();
             return new(memory, key, dictionary, revision, parameters.EncryptMetadata, copiedIdentifier);
         }

@@ -31,8 +31,8 @@ internal sealed partial class DocumentSecurity
     {
         byte[] key = _key ?? throw new ObjectDisposedException(nameof(DocumentSecurity));
         if (cipher is not (PdfCipher.Rc4 or PdfCipher.Aes128)) { return key; }
-        LegacyEncryption.DeriveObjectKey(key, number, generation, derived, cipher == PdfCipher.Aes128, _governor);
-        return derived;
+        int length = LegacyEncryption.DeriveObjectKey(key, number, generation, derived, cipher == PdfCipher.Aes128, _governor);
+        return derived[..length];
     }
 
     private QpdfObject DecryptObject(QpdfObject value, int number, int generation, bool rootMetadata, IIndirectResolver resolver,
@@ -46,7 +46,7 @@ internal sealed partial class DocumentSecurity
             PdfCipher cipher = embedded ? _files : _streams;
             if (rootMetadata && !EncryptMetadata) { cipher = PdfCipher.Identity; }
             PdfDictionary header = DecryptDictionary(stream.Dictionary, graph, 0, key);
-            header = ReadStreamCipher(header, resolver, embedded, graph, ref cipher);
+            if (Revision >= 4) { header = ReadStreamCipher(header, resolver, embedded, graph, ref cipher); }
             if (FilterChain.HasExternalData(stream, resolver, _governor, graph.Token)) { cipher = PdfCipher.Identity; }
             if (cipher == PdfCipher.Identity)
             {

@@ -33,7 +33,7 @@ internal sealed partial class PdfSerializer
     private async ValueTask AppendObjectStreamPayloadAsync(int number, int count, ObjectStreamPayload payload,
         bool qdf, IByteSink sink, CancellationToken cancellationToken)
     {
-        int length = _security is null ? payload.Data.Length : PdfAesCipher.EncryptedLength(payload.Data.Length);
+        int length = _security is null ? payload.Data.Length : _security.EncryptedLength(payload.Data.Length);
         if (length > _limits.MaxOutputBytes)
         { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), length, _limits.MaxOutputBytes); }
         if (sink is CountingSink counter)

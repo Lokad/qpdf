@@ -114,8 +114,8 @@ public static partial class Qpdf
         if (document.Engine.Security is not DocumentSecurity security) { return null; }
         if (identifier is null)
         {
-            if (security.Revision == 4)
-            { throw new QpdfUnsupportedFeatureException("Preserving AES-128 requires a first document identifier of 1..256 bytes."); }
+            if (security.Revision <= 4)
+            { throw new QpdfUnsupportedFeatureException("Preserving legacy encryption requires a first document identifier of 1..256 bytes."); }
             memory.Reserve(40L);
             identifier = System.Security.Cryptography.RandomNumberGenerator.GetBytes(16);
         }
@@ -158,7 +158,7 @@ public static partial class Qpdf
         string? forcedVersion, ResourceGovernor governor)
     {
         if (security is null) { return; }
-        int minor = security.Revision >= 5 ? 7 : 6;
+        int minor = security.Revision >= 5 ? 7 : security.Revision == 4 ? 6 : security.Revision == 3 ? 4 : 3;
         int requiredExtension = security.Revision == 6 ? 8 : security.Revision == 5 ? 3 : 0;
         int order = PdfVersion.CompareParts(version.Major, version.Minor, 1, minor);
         if (forcedVersion is not null && (order < 0 || order == 0 && extension < requiredExtension))
