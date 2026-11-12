@@ -833,7 +833,6 @@ internal sealed class LinearizedWriter
         IByteSink? pass1Sink,
         CancellationToken cancellationToken)
     {
-        if (_security is not null) { throw new QpdfUnsupportedFeatureException("Encrypted linearized object-stream output is not yet supported."); }
         if (version is null)
         {
             throw new ArgumentNullException(nameof(version));
@@ -875,7 +874,8 @@ internal sealed class LinearizedWriter
         }
 
         using ParserMemoryScope classificationMemory = ParserMemoryScope.Create(_governor);
-        using StreamedParts parts = LinearizedParts.ClassifyStreamed(model, objectStreamGroups, classificationMemory, _governor, cancellationToken);
+        PdfSerializer.ValidateEncryptionModel(model, _security, _encryptionObject, _governor, cancellationToken);
+        using StreamedParts parts = LinearizedParts.ClassifyStreamed(model, objectStreamGroups, _encryptionObject, classificationMemory, _governor, cancellationToken);
         if (parts.Containers.Count == 0)
         {
             parts.Dispose();
@@ -885,6 +885,7 @@ internal sealed class LinearizedWriter
 
         using RemappedModel emitted = RemappedModel.Create(parts.Lookup, parts.Renumber, _governor, cancellationToken);
 
+        PdfSerializer serializer = PrepareSerializer(parts.Renumber, emitted, classificationMemory);
         int? infoNew = null;
         if (infoRef.HasValue)
         {
@@ -922,14 +923,14 @@ internal sealed class LinearizedWriter
         }
 
         using LinearizedLayout counted = await EmitPassStreamedAsync(
-            version, parts, emitted, infoNew, id1, id2, newlineBeforeEndstream, compressStreams, compressionLevel, field1, field2, false, null, null, countingSink, cancellationToken).ConfigureAwait(false);
+            version, parts, emitted, serializer, infoNew, id1, id2, newlineBeforeEndstream, compressStreams, compressionLevel, field1, field2, false, null, null, countingSink, cancellationToken).ConfigureAwait(false);
         using HintPayload hintObject = BuildHintObject(parts, counted, compressStreams, compressionLevel, cancellationToken);
         long hintLength = hintObject.Data.Length;
         if (sink is IOutputCapacityHint staging)
         { staging.EnsureCapacity(checked(counted.FileSize + hintLength), cancellationToken); }
 
         using LinearizedLayout finalLayout = await EmitPassStreamedAsync(
-            version, parts, emitted, infoNew, id1, id2, newlineBeforeEndstream, compressStreams, compressionLevel, field1, field2, true, hintObject, counted, sink, cancellationToken).ConfigureAwait(false);
+            version, parts, emitted, serializer, infoNew, id1, id2, newlineBeforeEndstream, compressStreams, compressionLevel, field1, field2, true, hintObject, counted, sink, cancellationToken).ConfigureAwait(false);
         long written = finalLayout.FileSize;
         if (written != checked(counted.FileSize + hintLength))
         {
@@ -943,6 +944,7 @@ internal sealed class LinearizedWriter
         PdfVersion version,
         StreamedParts parts,
         RemappedModel emitted,
+        PdfSerializer serializer,
         int? infoNew,
         byte[] id1,
         byte[] id2,
@@ -982,7 +984,7 @@ internal sealed class LinearizedWriter
             long? firstPrev = final && counted is not null ? checked(counted.MainXrefTable + HintLength(hintObject)) : 0L;
             await AppendXrefStreamAsync(parts, counted, hintObject, final, parts.XrefFirstNumber, parts.LindictNumber, parts.FirstSize - parts.LindictNumber, parts.FirstSize, catalogNew, infoNew, firstPrev, id1, id2, field1, field2, layout, sink, cancellationToken).ConfigureAwait(false);
 
-            await EmitUnitsAsync(parts, parts.Part4, emitted, newlineBeforeEndstream, compressStreams, compressionLevel, layout, sink, cancellationToken).ConfigureAwait(false);
+            await EmitUnitsAsync(parts, parts.Part4, emitted, serializer, newlineBeforeEndstream, compressStreams, compressionLevel, layout, sink, cancellationToken).ConfigureAwait(false);
             if (hintObject is not null)
             {
                 layout.HintPosition = sink.Length;
@@ -997,15 +999,15 @@ internal sealed class LinearizedWriter
                 layout.RecordLength(parts.HintNumber, 0L);
             }
 
-            await EmitUnitsAsync(parts, parts.Part6, emitted, newlineBeforeEndstream, compressStreams, compressionLevel, layout, sink, cancellationToken).ConfigureAwait(false);
+            await EmitUnitsAsync(parts, parts.Part6, emitted, serializer, newlineBeforeEndstream, compressStreams, compressionLevel, layout, sink, cancellationToken).ConfigureAwait(false);
             layout.Part6End = sink.Length;
             foreach (IReadOnlyList<int> run in parts.Part7)
             {
-                await EmitUnitsAsync(parts, run, emitted, newlineBeforeEndstream, compressStreams, compressionLevel, layout, sink, cancellationToken).ConfigureAwait(false);
+                await EmitUnitsAsync(parts, run, emitted, serializer, newlineBeforeEndstream, compressStreams, compressionLevel, layout, sink, cancellationToken).ConfigureAwait(false);
             }
 
-            await EmitUnitsAsync(parts, parts.Part8, emitted, newlineBeforeEndstream, compressStreams, compressionLevel, layout, sink, cancellationToken).ConfigureAwait(false);
-            await EmitUnitsAsync(parts, parts.Part9, emitted, newlineBeforeEndstream, compressStreams, compressionLevel, layout, sink, cancellationToken).ConfigureAwait(false);
+            await EmitUnitsAsync(parts, parts.Part8, emitted, serializer, newlineBeforeEndstream, compressStreams, compressionLevel, layout, sink, cancellationToken).ConfigureAwait(false);
+            await EmitUnitsAsync(parts, parts.Part9, emitted, serializer, newlineBeforeEndstream, compressStreams, compressionLevel, layout, sink, cancellationToken).ConfigureAwait(false);
 
             await AppendXrefStreamAsync(parts, counted, hintObject, final, parts.XrefMainNumber, 0, parts.MainSize, parts.MainSize, null, null, null, id1, id2, field1, field2, layout, sink, cancellationToken).ConfigureAwait(false);
             layout.MainXrefTable = layout.Starts[parts.XrefMainNumber];
@@ -1022,6 +1024,7 @@ internal sealed class LinearizedWriter
         StreamedParts parts,
         IReadOnlyList<int> olds,
         RemappedModel emitted,
+        PdfSerializer serializer,
         bool newlineBeforeEndstream,
         bool compressStreams,
         int? compressionLevel,
@@ -1041,7 +1044,7 @@ internal sealed class LinearizedWriter
             layout.RecordStart(number, sink.Length);
             if (parts.Containers.Contains(old))
             {
-                await AppendContainerAsync(parts, old, number, emitted, newlineBeforeEndstream, compressStreams, compressionLevel, sink, cancellationToken).ConfigureAwait(false);
+                await AppendContainerAsync(parts, old, number, emitted, serializer, newlineBeforeEndstream, compressStreams, compressionLevel, sink, cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -1050,7 +1053,7 @@ internal sealed class LinearizedWriter
                     throw new QpdfException($"Linearized publication lost object {number}.");
                 }
 
-                await _serializer.AppendNumberedObjectAsync(number, value, sink, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
+                await serializer.AppendNumberedObjectAsync(number, value, sink, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
             }
 
             layout.RecordLength(number, checked(sink.Length - layout.Starts[number]));
@@ -1062,6 +1065,7 @@ internal sealed class LinearizedWriter
         int containerOld,
         int containerNew,
         RemappedModel emitted,
+        PdfSerializer serializer,
         bool newlineBeforeEndstream,
         bool compressStreams,
         int? compressionLevel,
@@ -1089,12 +1093,7 @@ internal sealed class LinearizedWriter
 
         using ObjectStreamPayload payload = ObjectStreamPayload.CreateLinearized(memberOlds, parts.Renumber, members,
             compressStreams, compressionLevel, _limits, _governor, cancellationToken);
-        using (ObjectStreamHeader header = ObjectStreamHeader.Create(containerNew, memberOlds.Count, payload.Data.Length,
-            payload.First, payload.Compressed, false, _limits, _governor, cancellationToken))
-        {
-            await AppendBytesAsync(header.Data, sink, cancellationToken).ConfigureAwait(false);
-        }
-        await AppendBytesAsync(payload.Data, sink, cancellationToken).ConfigureAwait(false);
+        await serializer.AppendObjectStreamPayloadAsync(containerNew, memberOlds.Count, payload, sink, cancellationToken).ConfigureAwait(false);
         if (newlineBeforeEndstream)
         {
             await AppendAsciiAsync("\nendstream", sink, cancellationToken).ConfigureAwait(false);
@@ -1182,6 +1181,9 @@ internal sealed class LinearizedWriter
             WriterPart.Text(rootNew.HasValue ? " /Root " : ""), rootNew.HasValue ? WriterPart.Number(rootNew.Value) : default,
             WriterPart.Text(rootNew.HasValue ? " 0 R" : ""), WriterPart.Text(infoNew.HasValue ? " /Info " : ""),
             infoNew.HasValue ? WriterPart.Number(infoNew.Value) : default, WriterPart.Text(infoNew.HasValue ? " 0 R" : ""),
+            WriterPart.Text(rootNew.HasValue && _security is not null ? " /Encrypt " : ""),
+            rootNew.HasValue && _security is not null ? WriterPart.Number(parts.Renumber[_encryptionObject]) : default,
+            WriterPart.Text(rootNew.HasValue && _security is not null ? " 0 R" : ""),
             WriterPart.Text(" /Size "), WriterPart.Number(size), WriterPart.Text(prevValue.HasValue ? " /Prev " : ""),
             prevValue.HasValue ? WriterPart.RightPaddedNumber(prevValue.Value, PrevFieldWidth) : default,
             WriterPart.Text(" /ID [<"), WriterPart.Hex(id1), WriterPart.Text("><"), WriterPart.Hex(id2),

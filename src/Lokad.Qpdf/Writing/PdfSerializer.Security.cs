@@ -24,7 +24,7 @@ internal sealed partial class PdfSerializer
         if (!found) { throw new QpdfException("Output encryption dictionary is missing from the model."); }
     }
 
-    private async ValueTask AppendObjectStreamPayloadAsync(int number, int count, ObjectStreamPayload payload,
+    internal async ValueTask AppendObjectStreamPayloadAsync(int number, int count, ObjectStreamPayload payload,
         IByteSink sink, CancellationToken cancellationToken)
     {
         int length = _security is null ? payload.Data.Length : PdfAesCipher.EncryptedLength(payload.Data.Length);

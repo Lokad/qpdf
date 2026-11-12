@@ -76,14 +76,16 @@ across fresh IVs, and temporary ciphertext stays admitted through sink awaits.
 Object-stream serialization encrypts each complete container after compression,
 without encrypting its members again. Counting includes the IV and padding;
 xref streams remain clear and carry the encryption reference. Encryption and
-signature dictionaries stay outside encrypted containers. Encrypted QDF and
-linearized object-stream serialization still await integration.
+signature dictionaries stay outside encrypted containers. Encrypted QDF
+serialization still awaits integration.
 Linearized classification can place the encryption dictionary at the end of the
 first document section, before hints, while keeping it and signatures uncompressed.
-The classic two-pass writer binds encryption and metadata to their remapped
+The two-pass writers bind encryption and metadata to their remapped
 numbers, encrypts hints after compression and counts ciphertext lengths and offsets.
 Only the first trailer carries the encryption reference; hint framing stays stable
 across fresh IVs, including when the optional first-pass capture is enabled.
+Linearized object streams reuse the same container-encryption boundary, while
+both xref streams remain clear and only the first carries the encryption reference.
 The internal reader owns one authenticated key and decrypts physical objects
 before caching them; object-stream members are parsed only after their container
 decrypts. It consumes explicit Crypt stages and respects separate string, stream

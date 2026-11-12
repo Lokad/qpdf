@@ -13,15 +13,23 @@ namespace Lokad.Qpdf.Tests.Security;
 public sealed partial class EncryptedSerializerTests
 {
     [Theory]
-    [InlineData(false, false, false)]
-    [InlineData(false, false, true)]
-    [InlineData(false, true, false)]
-    [InlineData(false, true, true)]
-    [InlineData(true, false, false)]
-    [InlineData(true, false, true)]
-    [InlineData(true, true, false)]
-    [InlineData(true, true, true)]
-    public async Task EncryptedClassicLinearizationReplaysExactOffsetsAndAuthenticates(bool metadata, bool compressHints, bool capture)
+    [InlineData(false, false, false, false)]
+    [InlineData(false, false, true, false)]
+    [InlineData(false, true, false, false)]
+    [InlineData(false, true, true, false)]
+    [InlineData(true, false, false, false)]
+    [InlineData(true, false, true, false)]
+    [InlineData(true, true, false, false)]
+    [InlineData(true, true, true, false)]
+    [InlineData(false, false, false, true)]
+    [InlineData(false, false, true, true)]
+    [InlineData(false, true, false, true)]
+    [InlineData(false, true, true, true)]
+    [InlineData(true, false, false, true)]
+    [InlineData(true, false, true, true)]
+    [InlineData(true, true, false, true)]
+    [InlineData(true, true, true, true)]
+    public async Task EncryptedLinearizationReplaysExactOffsetsAndAuthenticates(bool metadata, bool compressHints, bool capture, bool streamed)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         byte[] output;
@@ -32,11 +40,9 @@ public sealed partial class EncryptedSerializerTests
             LinearizedWriter writer = new(QpdfLimits.Default, governor, security, 7, 6);
             long before = governor.Snapshot().LiveMemoryBytes;
             CountingSink counter = new();
-            long expected = await writer.WriteLinearizedAsync(new(2, 0), model, 5, new byte[16], new byte[16],
-                capture, compressHints, null, counter, null, CancellationToken.None);
+            long expected = await WriteLinearized(writer, model, streamed, capture, compressHints, counter, null, CancellationToken.None);
             MemorySink sink = new(); MemorySink? pass1 = capture ? new() : null;
-            Assert.Equal(expected, await writer.WriteLinearizedAsync(new(2, 0), model, 5, new byte[16], new byte[16],
-                capture, compressHints, null, sink, pass1, CancellationToken.None));
+            Assert.Equal(expected, await WriteLinearized(writer, model, streamed, capture, compressHints, sink, pass1, CancellationToken.None));
             if (pass1 is not null) { Assert.InRange(pass1.Length, 1, expected - 1); }
             output = sink.Bytes.ToArray();
             string raw = Encoding.Latin1.GetString(output);
@@ -52,6 +58,7 @@ public sealed partial class EncryptedSerializerTests
             await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, path, QpdfPassword.FromText(password), QpdfLimits.Default, CancellationToken.None))
             {
                 Assert.Equal(2, document.PageCount);
+                Assert.Equal(streamed, document.Engine.XRefEntries.Any(item => item.Value.Kind == XrefEntryKind.Compressed));
                 QpdfObject Get(PdfDictionary dictionary, string name)
                 { Assert.True(dictionary.TryGet(PdfName.FromAscii(name), out QpdfObject value)); return value; }
                 QpdfObject Resolve(QpdfObject value) => value is PdfReference reference ? document.GetObject(reference.ObjectNumber) : value;
@@ -78,10 +85,13 @@ public sealed partial class EncryptedSerializerTests
     }
 
     [Theory]
-    [InlineData("complete")]
-    [InlineData("fault")]
-    [InlineData("cancel")]
-    public async Task ProtectedLinearizationRefundsAfterPendingSinkCompletion(string outcome)
+    [InlineData("complete", false)]
+    [InlineData("fault", false)]
+    [InlineData("cancel", false)]
+    [InlineData("complete", true)]
+    [InlineData("fault", true)]
+    [InlineData("cancel", true)]
+    public async Task ProtectedLinearizationRefundsAfterPendingSinkCompletion(string outcome, bool streamed)
     {
         using CancellationTokenSource cancellation = new();
         ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token);
@@ -90,8 +100,7 @@ public sealed partial class EncryptedSerializerTests
         List<NumberedObject> model = LinearizedModel(governor, source, security);
         LinearizedWriter writer = new(QpdfLimits.Default, governor, security, 7, 6);
         PausedSink sink = new(outcome == "fault"); long before = governor.Snapshot().LiveMemoryBytes;
-        Task<long> running = writer.WriteLinearizedAsync(new(2, 0), model, 5, new byte[16], new byte[16],
-            true, true, null, sink, null, cancellation.Token).AsTask();
+        Task<long> running = WriteLinearized(writer, model, streamed, true, true, sink, null, cancellation.Token).AsTask();
         try
         {
             await sink.Started.Task.WaitAsync(TimeSpan.FromSeconds(10));
@@ -111,9 +120,11 @@ public sealed partial class EncryptedSerializerTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task EveryProtectedLinearizedWriterAdmissionFailureRefunds(bool capture)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task EveryProtectedLinearizedWriterAdmissionFailureRefunds(bool capture, bool streamed)
     {
         (int before, int growths) = await Run(new(16 * 1024 * 1024), false);
         for (int growth = 1; growth <= growths; growth++)
@@ -129,8 +140,7 @@ public sealed partial class EncryptedSerializerTests
             LinearizedWriter writer = new(QpdfLimits.Default, governor, security, 7, 6);
             MemorySink sink = new(); MemorySink? pass1 = capture ? new() : null;
             int initial = budget.GrowthCalls; long reserved = governor.Snapshot().LiveMemoryBytes;
-            Task<long> Write() => writer.WriteLinearizedAsync(new(2, 0), model, 5, new byte[16], new byte[16],
-                true, true, null, sink, pass1, CancellationToken.None).AsTask();
+            Task<long> Write() => WriteLinearized(writer, model, streamed, true, true, sink, pass1, CancellationToken.None).AsTask();
             if (refuses) { await Assert.ThrowsAsync<QpdfMemoryAdmissionException>(Write); }
             else { await Write(); }
             // The shared host reservation retains bounded block slack between
@@ -158,27 +168,54 @@ public sealed partial class EncryptedSerializerTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task UnavailableProtectedLinearizationPathsFailBeforeWriting(bool missingDictionary)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task InvalidProtectedLinearizationModelsFailBeforeWriting(bool missingDictionary, bool streamed)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope source = ParserMemoryScope.Create(governor);
         using OutputSecurity security = OutputSecurity.CreateRevision6([], "owner"u8, -4, true, governor);
         List<NumberedObject> model = LinearizedModel(governor, source, security);
-        LinearizedWriter writer = new(QpdfLimits.Default, governor, security, 7, 6);
+        LinearizedWriter writer = new(QpdfLimits.Default, governor, security, 7, missingDictionary ? 6 : 100);
         MemorySink sink = new();
-        if (missingDictionary)
-        {
-            model.RemoveAll(item => item.Number == 7);
-            await Assert.ThrowsAsync<QpdfException>(() => writer.WriteLinearizedAsync(new(2, 0), model, 5,
-                new byte[16], new byte[16], true, false, null, sink, null, CancellationToken.None).AsTask());
-        }
-        else
-        {
-            await Assert.ThrowsAsync<QpdfUnsupportedFeatureException>(() => writer.WriteLinearizedStreamedAsync(new(2, 0), model,
-                [new[] { 5, 10 }], 5, new byte[16], new byte[16], true, false, null, sink, null, CancellationToken.None).AsTask());
-        }
+        if (missingDictionary) { model.RemoveAll(item => item.Number == 7); }
+        await Assert.ThrowsAsync<QpdfException>(() => WriteLinearized(writer, model, streamed, true, false, sink, null, CancellationToken.None).AsTask());
         Assert.Equal(0, sink.Length);
+    }
+
+    private static ValueTask<long> WriteLinearized(LinearizedWriter writer, List<NumberedObject> model, bool streamed,
+        bool newline, bool compress, IByteSink sink, IByteSink? pass1, CancellationToken token)
+        => streamed
+            ? writer.WriteLinearizedStreamedAsync(new(2, 0), model, [new[] { 5, 10 }], 5,
+                new byte[16], new byte[16], newline, compress, null, sink, pass1, token)
+            : writer.WriteLinearizedAsync(new(2, 0), model, 5, new byte[16], new byte[16],
+                newline, compress, null, sink, pass1, token);
+
+    [Fact]
+    public async Task EmptyProtectedLinearizedGroupsRetainEncryptionDuringClassicFallback()
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        byte[] output;
+        using (ParserMemoryScope source = ParserMemoryScope.Create(governor))
+        using (OutputSecurity security = OutputSecurity.CreateRevision6("reader"u8, "owner"u8, -4, true, governor))
+        {
+            List<NumberedObject> model = LinearizedModel(governor, source, security);
+            LinearizedWriter writer = new(QpdfLimits.Default, governor, security, 7, 6);
+            MemorySink sink = new();
+            await writer.WriteLinearizedStreamedAsync(new(2, 0), model, [new[] { 1, 2, 3, 7, 8 }], 5,
+                new byte[16], new byte[16], true, true, null, sink, null, CancellationToken.None);
+            output = sink.Bytes.ToArray();
+        }
+        Assert.Equal(0, governor.Snapshot().LiveMemoryBytes);
+        Assert.DoesNotContain("private title", Encoding.Latin1.GetString(output), StringComparison.Ordinal);
+        using InMemoryQpdfHost host = new(); QpdfPath path = QpdfPath.From("fallback.pdf");
+        host.AddInput(path, output, QpdfInputOwnership.Transfer);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, path, QpdfPassword.FromText("reader"), QpdfLimits.Default, CancellationToken.None);
+        Assert.Equal(2, document.PageCount); Assert.NotNull(document.Encryption);
+        Assert.DoesNotContain(document.Engine.XRefEntries, item => item.Value.Kind == XrefEntryKind.Compressed);
+        QpdfCheckResult check = await Qpdf.CheckAsync(host, path, new QpdfCheckOptions { Password = QpdfPassword.FromText("reader") }, QpdfLimits.Default, CancellationToken.None);
+        Assert.Equal(QpdfCheckStatus.Passed, Assert.Single(check.Checks, item => item.Name == "linearization").Status);
     }
 }
