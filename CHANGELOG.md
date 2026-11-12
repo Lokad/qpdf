@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Support standalone `--show-crypto`, including host response files, with a truthful
+  managed implementation identifier and native command-form controls.
+
 - Separate security-syntax classification from feature completion in the
   compatibility inventory; retain behavior and native-evidence requirements.
 

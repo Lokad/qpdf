@@ -29,6 +29,7 @@ internal static class HelpText
           --is-encrypted        query encryption: exit 0 encrypted, 2 unencrypted
           --requires-password   query password: exit 0 needed, 2 unencrypted, 3 matched
           --show-encryption     report encryption settings and password match, without secrets
+          --show-crypto         report the managed crypto implementation (standalone)
           --ignore-xref-streams         use classic tables rather than streams
           --warning-exit-0      exit 0 despite warnings
           --no-warn             suppress warning diagnostics
@@ -135,6 +136,21 @@ internal static class HelpText
         Copyright (c) 2026 Lokad (MIT License).
         Compatibility target: qpdf 12.4.2 structural subset with R2–R6 reading.
         """;
+
+    internal static bool TryMatchCrypto(IReadOnlyList<string> argv, out string text)
+    {
+        foreach (string token in IdentityArguments(argv))
+        {
+            if (token != "--show-crypto" && !token.StartsWith("--show-crypto=", StringComparison.Ordinal)) { continue; }
+            if (argv.Count != 1 || token != "--show-crypto")
+            { throw new QpdfParseException("--show-crypto must be used alone without a parameter.", null, null); }
+            text = "managed";
+            return true;
+        }
+
+        text = string.Empty;
+        return false;
+    }
 
     internal static bool TryMatchCopyright(IReadOnlyList<string> argv, out string text)
     {

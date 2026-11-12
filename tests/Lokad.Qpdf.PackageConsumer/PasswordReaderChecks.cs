@@ -9,6 +9,10 @@ internal static class PasswordReaderChecks
     internal static async Task RunAsync()
     {
         using InMemoryQpdfHost host = new();
+        QpdfExecutionResult provider = await Qpdf.ExecuteAsync(host, new(["--show-crypto"]), CancellationToken.None);
+        Check(provider.Status == QpdfExecutionStatus.Completed && provider.ExitCode == QpdfExitCode.Success
+            && provider.Diagnostics.Count == 1 && provider.Diagnostics[0].Message == "managed"
+            && provider.Counters.HostOperations == 0, "standalone managed crypto implementation");
         QpdfPath encrypted = Add("security-r6-ascii.pdf"), empty = Add("security-r6-empty.pdf");
         QpdfPath legacy = Add("security-r4-pdfdoc.pdf"), rc4 = Add("security-r4-rc4-ascii.pdf");
         QpdfPath r2 = Add("security-r2-ascii.pdf"), r3 = Add("security-r3-ascii.pdf");

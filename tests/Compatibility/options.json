@@ -2328,20 +2328,26 @@
           "source": "manual/cli.rst:335"
         }
       ],
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
-      ],
+      "remainingGaps": [],
       "cryptoSyntax": true,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput"
+        "positive": [
+          "CryptoProviderTests.StandaloneQueryReportsManagedImplementation"
         ],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "negative": [
+          "CryptoProviderTests.InvalidFormsFailBeforeHostAccess"
+        ],
+        "interaction": [
+          "CryptoProviderTests.PasswordLiteralDoesNotBecomeAnIdentityCommand"
+        ],
+        "resource": [
+          "CryptoProviderTests.CancellationAndDiagnosticBudgetRemainBinding"
+        ],
+        "oracle": [
+          "tools/ReferenceSecurityReading.ps1: Invoke-ReferenceCryptoProvider"
+        ]
       }
     },
     {

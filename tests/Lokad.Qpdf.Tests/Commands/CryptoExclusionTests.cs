@@ -46,7 +46,6 @@ public sealed class CryptoExclusionTests
     [InlineData("--modify-other=y")]
     [InlineData("--modify=y")]
     [InlineData("--print=y")]
-    [InlineData("--show-crypto")]
     [InlineData("--show-encryption-key")]
     [InlineData("--remove-restrictions")]
     public async Task ArgvCryptoFlagsFailWithoutOutput(string flag)

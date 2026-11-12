@@ -5262,6 +5262,12 @@ public static partial class Qpdf
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {
 
+        if (HelpText.TryMatchCrypto(expanded, out string crypto))
+        {
+            diagnostics.Add(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, crypto);
+            return ExecutionOutcome.Completed(diagnostics.Entries);
+        }
+
         if (HelpText.TryMatchHelp(expanded, out string help))
         {
             return ExecutionOutcome.Completed(

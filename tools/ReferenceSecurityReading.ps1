@@ -32,7 +32,34 @@ function Assert-SecurityJson {
   }
 }
 
+function Invoke-ReferenceCryptoProvider {
+  $case = New-Case 'security-provider'
+  [IO.File]::WriteAllText("$case/inputs/args", "--show-crypto`n", [Text.UTF8Encoding]::new($false))
+  foreach ($option in @('--show-crypto', '@inputs/args')) {
+    $native = Invoke-Oracle $case @($option)
+    $providers = @(Get-Content -LiteralPath "$case/ora-stdout.txt" | Where-Object { $_ -match '^[a-zA-Z0-9_-]+$' })
+    if ($native -ne 0 -or $providers.Count -eq 0) { throw 'Native crypto provider query failed' }
+    $managed = Invoke-SecurityManaged $case @('emit', '--workdir', $case, '--', $option)
+    if ($managed.Status -cne 'Completed' -or $managed.ExitCode -ne 0 -or $managed.Identity.Count -ne 1 -or $managed.Identity[0] -cne 'managed') {
+      throw 'Managed crypto implementation query failed'
+    }
+  }
+  foreach ($options in @(
+    @('--show-crypto=value'), @('--show-crypto', 'missing.pdf', 'out.pdf'),
+    @('missing.pdf', '--show-crypto', 'out.pdf'), @('--version', '--show-crypto'),
+    @('--show-crypto', '--help'), @('--show-crypto', '--show-crypto')
+  )) {
+    $native = Invoke-Oracle $case $options
+    $managed = Invoke-SecurityManaged $case (@('emit', '--workdir', $case, '--') + $options)
+    if ($native -ne 2 -or $managed.Status -cne 'Failed' -or $managed.ExitCode -ne 2 -or (Test-Path -LiteralPath "$case/out.pdf")) {
+      throw 'Invalid crypto provider query did not reject without publication'
+    }
+  }
+  Write-Output '[security-provider] standalone/response-file queries and invalid forms agree; implementation names are build-specific'
+}
+
 function Invoke-ReferenceSecurityReading {
+  Invoke-ReferenceCryptoProvider
   foreach ($prefix in @('r2', 'r3', 'r4', 'r4-rc4', 'r5', 'r6')) {
     $vectors = Get-Content -LiteralPath "$fixtureDir/security-$prefix-vectors.json" -Raw | ConvertFrom-Json
     foreach ($vector in $vectors) {
