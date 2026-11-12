@@ -143,7 +143,7 @@ JSON inspection uses the same authenticated reader and non-secret permission
 projection before existing text/sidecar preparation. Typed page selection
 authenticates before copying, preserves supported protection, and negotiates its
 required PDF version. Selective encrypted reads retry on the same stable lease
-with complete admitted input. Command JSON update credentials remain pending.
+with complete admitted input. Command JSON updates pass their primary text/host-file credential and output policy to the same core.
 Security parameters and authentication status are separate values. Internal
 security inspection can read declared facts without traversing pages; it releases
 the key, input lease and working storage before returning those non-secret values.

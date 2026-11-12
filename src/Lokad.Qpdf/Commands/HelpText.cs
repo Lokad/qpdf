@@ -124,7 +124,8 @@ internal static class HelpText
         Encryption predicates are mutually exclusive, return no ordinary output, and ignore other inspections.
         Their completed query codes 2 and 3 are not errors or warnings; --warning-exit-0 does not change them.
         PDF transformations preserve primary protection unless --decrypt or --encrypt is supplied.
-        Encrypted JSON updates, password descriptors and secondary-input passwords remain unsupported.
+        JSON updates accept primary credentials and output encryption policies.
+        JSON input encryption and password descriptors remain unsupported.
         Signing and signature validation are unsupported.
         """;
 
@@ -230,7 +231,8 @@ internal static class HelpText
         pages[].password authenticates every occurrence of that secondary file; conflicting credentials reject.
         copyAttachmentsFrom[].password authenticates the attachment source independently.
         overlay[].password and underlay[].password authenticate each placement source independently.
-        Encrypted JSON updates, legacy encryption creation and password descriptors remain unsupported.
+        JSON updates accept primary credentials and output encryption policies.
+        JSON input encryption, legacy encryption creation and password descriptors remain unsupported.
         Other crypto keys are rejected with UnsupportedCryptoOperation. See --help for the argv surface.
         """;
 

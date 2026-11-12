@@ -107,13 +107,13 @@ public sealed class OutputDecryptionTests
     }
 
     [Fact]
-    public async Task MalformedDecryptionFlagAndJsonUpdateRejectBeforeHostAccess()
+    public async Task MalformedDecryptionFlagAndJsonInputRejectBeforeHostAccess()
     {
         using InMemoryQpdfHost host = new();
         QpdfExecutionResult argv = await Qpdf.ExecuteAsync(host, new([Input.Value, Output.Value, "--decrypt=yes"]), CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, Assert.Single(argv.Diagnostics).Code); Assert.Equal(0, argv.Counters.HostOperations);
         QpdfExecutionResult json = await Qpdf.ExecuteJobAsync(host,
-            """{"inputFile":"input.pdf","outputFile":"output.pdf","decrypt":"","updateFromJson":"update.json"}""", CancellationToken.None);
+            """{"inputFile":"input.json","outputFile":"output.pdf","decrypt":"","jsonInput":""}""", CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.UnsupportedCryptoOperation, Assert.Single(json.Diagnostics).Code); Assert.Equal(0, json.Counters.HostOperations);
     }
 

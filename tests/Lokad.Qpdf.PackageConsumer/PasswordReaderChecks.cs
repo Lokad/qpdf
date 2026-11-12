@@ -138,6 +138,18 @@ internal static class PasswordReaderChecks
                 remove ? null : QpdfPassword.FromText("fixture-owner"), QpdfLimits.Default, CancellationToken.None);
             Check(document.PageCount == 1 && (remove ? document.Encryption is null : document.Encryption?.Revision == 6), "JSON update output protection");
         }
+        foreach (bool jobUpdate in new[] { false, true })
+        {
+            QpdfPath target = QpdfPath.From(jobUpdate ? "job-update.pdf" : "argv-update.pdf");
+            QpdfExecutionResult updated = jobUpdate ? await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new
+                { inputFile = encrypted.Value, outputFile = target.Value, password = "reader", updateFromJson = updateJson.Value, decrypt = "" }), CancellationToken.None)
+                : await Qpdf.ExecuteAsync(host, new([encrypted.Value, target.Value, "--password=reader", "--update-from-json=" + updateJson.Value, "--decrypt"]), CancellationToken.None);
+            Check(updated.Status == QpdfExecutionStatus.Completed, "authenticated command JSON update");
+            Check(host.TryGetOutput(target, out byte[] updateBytes), "command update bytes");
+            QpdfPath reopened = QpdfPath.From("reopened-" + target.Value); host.AddInput(reopened, updateBytes, QpdfInputOwnership.Copy);
+            await using QpdfDocument document = await QpdfDocument.OpenAsync(host, reopened, CancellationToken.None);
+            Check(document.PageCount == 1 && document.Encryption is null, "command update removes protection explicitly");
+        }
         QpdfOutputEncryption newProtection = QpdfOutputEncryption.CreateAes256(QpdfPassword.FromText("writer-reader"),
             QpdfPassword.FromBytes("writer-owner"u8.ToArray()), -3388, false);
         QpdfPath created = QpdfPath.From("created.pdf");

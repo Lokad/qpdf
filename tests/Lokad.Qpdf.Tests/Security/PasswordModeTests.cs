@@ -61,7 +61,7 @@ public sealed class PasswordModeTests
         Assert.DoesNotContain("private-invalid-mode", invalid.Diagnostics[0].Message, StringComparison.Ordinal);
         Assert.Equal(0, invalid.Counters.HostOperations);
         QpdfExecutionResult transform = await Qpdf.ExecuteJobAsync(host,
-            """{"inputFile":"missing.pdf","outputFile":"out.pdf","updateFromJson":"update.json","passwordMode":"auto"}""", CancellationToken.None);
+            """{"inputFile":"missing.json","outputFile":"out.pdf","jsonInput":"","passwordMode":"auto"}""", CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.UnsupportedCryptoOperation, Assert.Single(transform.Diagnostics).Code);
         Assert.Equal(0, transform.Counters.HostOperations);
     }
