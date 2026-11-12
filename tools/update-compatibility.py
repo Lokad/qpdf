@@ -112,7 +112,7 @@ def main():
                 if raw.startswith("__"):
                     continue
                 name = raw.split(".")[-1].lstrip("_")
-                key = re.sub(r"-([A-Za-z])", lambda match: match[1].upper(), name)
+                key = re.sub(r"-([A-Za-z0-9])", lambda match: match[1].upper(), name)
                 child_path = f"{path}.{key}" if path else key
                 if not raw.startswith("_"):
                     prefix = raw.split(".")[0] if "." in raw else None
@@ -137,7 +137,8 @@ def main():
         row["scope"] = crypto_scope(row["context"], name) if crypto else (
             "documented-host/build-difference" if name == "zopfli" else "required")
         row["choiceScopes"] = {choice: (
-            "required" if name == "json-key" and choice == "encrypt" else row["scope"]
+            "required" if name == "json-key" and choice == "encrypt" else
+            "deferred" if name == "bits" and choice in {"40", "128"} else row["scope"]
         ) for choice in row["choices"]}
         row["manualForms"] = forms[row["flag"]]
         row["status"] = "not-started"

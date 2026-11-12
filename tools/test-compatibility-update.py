@@ -67,6 +67,14 @@ class CompatibilityUpdateTests(unittest.TestCase):
         self.generate(inventory.COMMIT)
         self.assertEqual(before, self.output.read_bytes())
 
+    def test_numeric_json_key_segments_are_camel_case(self):
+        job = {"options": [{"table": "main", "bare": ["warning-exit-0"]}],
+               "choices": {}, "json": {"warning-exit-0": ""}}
+        (self.reference / "job.yml").write_text(json.dumps(job), encoding="utf-8")
+        result = self.generate(inventory.COMMIT)
+        row = next(row for row in result["options"] if row["flag"] == "--warning-exit-0")
+        self.assertEqual(["warningExit0"], row["jobJsonPaths"])
+
     def test_source_hashes_ignore_checkout_newlines_but_preserve_content(self):
         sources = {name: (self.reference / name).read_bytes().replace(b"\r\n", b"\n")
                    for name in ("job.yml", "manual/cli.rst")}
