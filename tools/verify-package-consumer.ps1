@@ -93,7 +93,7 @@ Copy-Item -LiteralPath (Join-Path $consumerSource 'HostLeaseAllocationChecks.cs'
 Copy-Item -LiteralPath (Join-Path $consumerSource 'PasswordReaderChecks.cs') -Destination $projectDirectory
 $fixtureDirectory = Join-Path $runRoot 'Fixtures'
 New-Item -ItemType Directory -Path $fixtureDirectory | Out-Null
-foreach ($name in @('security-r6-ascii.pdf', 'security-r6-empty.pdf', 'security-r5-ascii.pdf', 'security-r4-rc4-ascii.pdf', 'security-r2-ascii.pdf', 'security-r3-ascii.pdf', 'security-r4-pdfdoc.pdf', 'security-r4-attachment.pdf')) {
+foreach ($name in @('security-recovery-r6-macroman.pdf', 'security-recovery-r6-long.pdf', 'security-r6-ascii.pdf', 'security-r6-empty.pdf', 'security-r5-ascii.pdf', 'security-r4-rc4-ascii.pdf', 'security-r2-ascii.pdf', 'security-r3-ascii.pdf', 'security-r4-pdfdoc.pdf', 'security-r4-attachment.pdf')) {
     Copy-Item -LiteralPath (Join-Path $repoRoot ('tests/Fixtures/' + $name)) -Destination $fixtureDirectory
 }
 

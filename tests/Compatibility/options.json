@@ -1540,13 +1540,14 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Independent encrypted-source credentials and output policies have native/independent-reader coverage. Broader encoding recovery remains pending."
+        "Bounded UTF-8 to PDFDoc/WinAnsi/MacRoman recovery now has R4/R6 native and package-consumer evidence through the shared reader. Reverse single-byte conversions, UTF-16 recovery and output password conversion remain unqualified."
       ],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "AttachmentPasswordTests.AttachmentSourcesAuthenticateWithoutChangingPrimaryProtection",
-          "AttachmentPasswordTests.RawAndHexOwnerCredentialsUseTheSharedDecoder"
+          "AttachmentPasswordTests.RawAndHexOwnerCredentialsUseTheSharedDecoder",
+          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords"
         ],
         "negative": [
           "AttachmentPasswordTests.WrongSourcePasswordsPreservePriorOutputAndDoNotLeak",
@@ -1554,13 +1555,16 @@
           "CryptoExclusionTests.ArgvCopyAttachmentsPasswordFails"
         ],
         "interaction": [
-          "AttachmentPasswordTests.CopiedAttachmentsFollowExplicitOutputPoliciesAndLinearization"
+          "AttachmentPasswordTests.CopiedAttachmentsFollowExplicitOutputPoliciesAndLinearization",
+          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes"
         ],
         "resource": [
-          "AttachmentPasswordTests.EveryCopyAdmissionRefusalRefundsBeforeEncryptedPublication"
+          "AttachmentPasswordTests.EveryCopyAdmissionRefusalRefundsBeforeEncryptedPublication",
+          "PasswordEncodingRecoveryTests.EveryRecoveryAdmissionRefusalRefundsOwnedStorage"
         ],
         "oracle": [
-          "diff:security-sources"
+          "diff:security-sources",
+          "diff:security-recovery"
         ]
       }
     },
@@ -3247,27 +3251,31 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Independent R2–R6 template credentials and empty passwords have native coverage. Broader encoding recovery remains pending."
+        "Bounded UTF-8 to PDFDoc/WinAnsi/MacRoman recovery now has R4/R6 native and package-consumer evidence through the shared reader. Reverse single-byte conversions, UTF-16 recovery and output password conversion remain unqualified."
       ],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "EncryptionTemplateCommandTests.CopyPolicyUsesItsOwnCredentialAcrossWriterAndSelectionModes",
-          "EncryptionTemplateCommandTests.HexTemplateOwnerCredentialsUseGlobalPasswordMode"
+          "EncryptionTemplateCommandTests.HexTemplateOwnerCredentialsUseGlobalPasswordMode",
+          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords"
         ],
         "negative": [
           "EncryptionTemplateCommandTests.InvalidTemplatePasswordsDoNotPublishOrLeak"
         ],
         "interaction": [
           "EncryptionTemplateCommandTests.LayeredJobsAcceptASeparateTemplatePasswordSetter",
-          "EncryptionTemplateCommandTests.OutputFreeInspectionDoesNotOpenAnEncryptionTemplate"
+          "EncryptionTemplateCommandTests.OutputFreeInspectionDoesNotOpenAnEncryptionTemplate",
+          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes"
         ],
         "resource": [
-          "EncryptionTemplateCommandTests.EveryEmptyPrimaryTemplateAdmissionRefusalRefundsBeforeSplitPublication"
+          "EncryptionTemplateCommandTests.EveryEmptyPrimaryTemplateAdmissionRefusalRefundsBeforeSplitPublication",
+          "PasswordEncodingRecoveryTests.EveryRecoveryAdmissionRefusalRefundsOwnedStorage"
         ],
         "oracle": [
           "diff:security-template",
-          "diff:security-sources"
+          "diff:security-sources",
+          "diff:security-recovery"
         ]
       }
     },
@@ -5306,7 +5314,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "R2–R6 primary credentials, transforms and encrypted JSON have native coverage. Broader encoding recovery remains pending."
+        "Bounded UTF-8 to PDFDoc/WinAnsi/MacRoman recovery now has R4/R6 native and package-consumer evidence through the shared reader. Reverse single-byte conversions, UTF-16 recovery and output password conversion remain unqualified."
       ],
       "cryptoSyntax": true,
       "evidence": {
@@ -5319,7 +5327,8 @@
           "Revision4Rc4Tests.CommandsPreservePasswordsAndNormalizeRevision4ToAes",
           "Revision4Rc4Tests.NativeCheckedMixedFiltersDecryptAndNormalizeThroughTheCommonWriter",
           "LegacyDocumentTests.ReadersAuthenticateBothRolesAndExposeNativePlaintext",
-          "LegacyDocumentTests.SharedWritersPreserveLegacyKeysAndPasswords"
+          "LegacyDocumentTests.SharedWritersPreserveLegacyKeysAndPasswords",
+          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords"
         ],
         "negative": [
           "PasswordInspectionTests.PasswordFailuresHaveDistinctSecretFreeDiagnostics",
@@ -5335,20 +5344,23 @@
           "PrimaryAttachmentPasswordTests.TypedListingAndExtractionAuthenticateEitherPassword",
           "PrimaryAttachmentPasswordTests.TypedEditsUsePrimaryCredentialsAndExplicitOutputPolicies",
           "Revision5EncryptionTests.TypedSelectionUsesExistingOutputPolicies",
-          "Revision5EncryptionTests.FullJsonUpdatesPreserveTheAuthenticatedRevision5Handler"
+          "Revision5EncryptionTests.FullJsonUpdatesPreserveTheAuthenticatedRevision5Handler",
+          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes"
         ],
         "resource": [
           "PasswordCheckTests.AuthenticationFailuresAndCancellationCloseInputsAndRefundMemory",
           "EncryptedReaderTests.EveryReaderAdmissionFailureRefundsTheDocumentAndSecurityContext",
           "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
           "PrimaryAttachmentPasswordTests.EveryPrimaryAttachmentAdmissionRefusalRefundsAndClosesInputs",
-          "Revision5EncryptionTests.EveryPublicAdmissionRefusalClosesInputsAndRefundsSecurity"
+          "Revision5EncryptionTests.EveryPublicAdmissionRefusalClosesInputsAndRefundsSecurity",
+          "PasswordEncodingRecoveryTests.EveryRecoveryAdmissionRefusalRefundsOwnedStorage"
         ],
         "oracle": [
           "diff:security-query",
           "diff:security-preserve",
           "diff:security-encoding",
-          "diff:security-json"
+          "diff:security-json",
+          "diff:security-recovery"
         ]
       }
     },
@@ -5372,7 +5384,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary host-file credentials, including the host-mapped descriptor, have native reference coverage for first-line reads and encrypted JSON/source workflows. Broader encoding recovery remains pending."
+        "Bounded UTF-8 to PDFDoc/WinAnsi/MacRoman recovery now has R4/R6 native and package-consumer evidence through the shared reader. Reverse single-byte conversions, UTF-16 recovery and output password conversion remain unqualified."
       ],
       "cryptoSyntax": true,
       "evidence": {
@@ -5381,7 +5393,8 @@
           "PasswordDescriptorTests.HostDescriptorUsesTheSameFirstLineAndPasswordModes",
           "PasswordDescriptorTests.DescriptorCredentialsReachExistingAuthenticatedOperations",
           "PasswordTransformationTests.PasswordFileAndHexModeRemainOwnedThroughTransformPublication",
-          "ExtractionPasswordTests.FileAndHexOwnerCredentialsRemainOwnedThroughExtraction"
+          "ExtractionPasswordTests.FileAndHexOwnerCredentialsRemainOwnedThroughExtraction",
+          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords"
         ],
         "negative": [
           "PasswordFileTests.InvalidOperationsRejectBeforePasswordFileAccess",
@@ -5392,7 +5405,8 @@
           "PasswordFileTests.SettersKeepOrderAndEmptyFilesKeepThePreviousPassword",
           "PasswordFileTests.SortedJobKeysAndNestedConfigurationKeepNativeSetterOrder",
           "PasswordFileTests.FileEncodingRecoveryCanBeSuppressed",
-          "PasswordFileTests.MultipleLinesProduceANonSecretNoteWithoutChangingNativeExitCodes"
+          "PasswordFileTests.MultipleLinesProduceANonSecretNoteWithoutChangingNativeExitCodes",
+          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes"
         ],
         "resource": [
           "PasswordFileTests.EveryAdmissionRefusalClosesFilesAndRefundsTheOperation",
@@ -5400,10 +5414,12 @@
           "PasswordFileReaderTests.ReaderStorageStaysAdmittedUntilAsynchronousCloseCompletes",
           "PasswordFileReaderTests.InputLimitsAndCancellationLeaveNoOpenReader",
           "ExtractionPasswordTests.EveryExtractionAdmissionRefusalRefundsBeforePublication",
-          "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication"
+          "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
+          "PasswordEncodingRecoveryTests.EveryRecoveryAdmissionRefusalRefundsOwnedStorage"
         ],
         "oracle": [
-          "diff:security-encoding"
+          "diff:security-encoding",
+          "diff:security-recovery"
         ]
       }
     },
@@ -5470,25 +5486,29 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary inspections, JSON export and PDF transformations accept input modes and native hex decoding, with the supported R2–R4 UTF-8 recovery. Other recovery encodings and output password conversion remain pending."
+        "Bounded UTF-8 to PDFDoc/WinAnsi/MacRoman recovery now has R4/R6 native and package-consumer evidence through the shared reader. Reverse single-byte conversions, UTF-16 recovery and output password conversion remain unqualified."
       ],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "PasswordModeTests.InputModesMatchNativeDecodingAndRecovery",
-          "PasswordTransformationTests.PasswordFileAndHexModeRemainOwnedThroughTransformPublication"
+          "PasswordTransformationTests.PasswordFileAndHexModeRemainOwnedThroughTransformPublication",
+          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords"
         ],
         "negative": [
           "PasswordModeTests.InvalidModesAndUnsupportedTransformsFailBeforeInputAccess"
         ],
         "interaction": [
-          "PasswordModeTests.HexRecoveryCanBeSuppressed"
+          "PasswordModeTests.HexRecoveryCanBeSuppressed",
+          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes"
         ],
         "resource": [
-          "PasswordModeTests.LongHexInputStillHonorsConfigurationLimits"
+          "PasswordModeTests.LongHexInputStillHonorsConfigurationLimits",
+          "PasswordEncodingRecoveryTests.EveryRecoveryAdmissionRefusalRefundsOwnedStorage"
         ],
         "oracle": [
-          "diff:security-encoding"
+          "diff:security-encoding",
+          "diff:security-recovery"
         ]
       }
     },
@@ -6937,24 +6957,29 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary inspections, JSON export and PDF transformations can disable the supported R2–R4 encoding retry. Other recovery encodings and canonical reference qualification remains pending."
+        "Bounded UTF-8 to PDFDoc/WinAnsi/MacRoman recovery now has R4/R6 native and package-consumer evidence through the shared reader. Reverse single-byte conversions, UTF-16 recovery and output password conversion remain unqualified."
       ],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "PasswordRecoveryOptionTests.SuppressionUsesOnlyTheSuppliedEncoding",
-          "PasswordTransformationTests.PasswordFileAndHexModeRemainOwnedThroughTransformPublication"
+          "PasswordTransformationTests.PasswordFileAndHexModeRemainOwnedThroughTransformPublication",
+          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords"
         ],
         "negative": [
           "PasswordRecoveryOptionTests.SuppressionDoesNotEnableEncryptedJsonInput"
         ],
         "interaction": [
-          "PasswordRecoveryOptionTests.PasswordQueriesHonorSuppressionWithoutTurningItIntoAnError"
+          "PasswordRecoveryOptionTests.PasswordQueriesHonorSuppressionWithoutTurningItIntoAnError",
+          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes"
         ],
         "resource": [
-          "PasswordRecoveryOptionTests.SuppressionUsesOnlyTheSuppliedEncoding"
+          "PasswordRecoveryOptionTests.SuppressionUsesOnlyTheSuppliedEncoding",
+          "PasswordEncodingRecoveryTests.EveryRecoveryAdmissionRefusalRefundsOwnedStorage"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-recovery"
+        ]
       }
     },
     {
@@ -7386,14 +7411,15 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Independent encrypted-source credentials and output policies have native/independent-reader coverage. Broader encoding recovery remains pending."
+        "Bounded UTF-8 to PDFDoc/WinAnsi/MacRoman recovery now has R4/R6 native and package-consumer evidence through the shared reader. Reverse single-byte conversions, UTF-16 recovery and output password conversion remain unqualified."
       ],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "PagePasswordCommandTests.EachPageSourceAuthenticatesWithoutReplacingOutputPolicy",
           "PagePasswordCommandTests.SecondaryHexPasswordsUseTheSharedInputDecoder",
-          "PagePasswordCommandTests.APasswordSpecifiedOnceAppliesToEveryOccurrenceOfThatFile"
+          "PagePasswordCommandTests.APasswordSpecifiedOnceAppliesToEveryOccurrenceOfThatFile",
+          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords"
         ],
         "negative": [
           "PagePasswordCommandTests.WrongSecondaryPasswordDoesNotPublishOrLeak",
@@ -7403,13 +7429,16 @@
         "interaction": [
           "PagePasswordCommandTests.TransformedInspectionAuthenticatesSecondaryPages",
           "PagePasswordCommandTests.RepeatedSecondaryCredentialsMustBeConsistent",
-          "PagePasswordCommandTests.PagePasswordsDoNotSubstituteForThePrimaryCredential"
+          "PagePasswordCommandTests.PagePasswordsDoNotSubstituteForThePrimaryCredential",
+          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes"
         ],
         "resource": [
-          "PagePasswordCommandTests.EverySecondaryAdmissionRefusalRefundsBeforeOutput"
+          "PagePasswordCommandTests.EverySecondaryAdmissionRefusalRefundsBeforeOutput",
+          "PasswordEncodingRecoveryTests.EveryRecoveryAdmissionRefusalRefundsOwnedStorage"
         ],
         "oracle": [
-          "diff:security-sources"
+          "diff:security-sources",
+          "diff:security-recovery"
         ]
       }
     },
@@ -7707,14 +7736,15 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Independent encrypted-source credentials and output policies have native/independent-reader coverage. Broader encoding recovery remains pending."
+        "Bounded UTF-8 to PDFDoc/WinAnsi/MacRoman recovery now has R4/R6 native and package-consumer evidence through the shared reader. Reverse single-byte conversions, UTF-16 recovery and output password conversion remain unqualified."
       ],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "OverlayPasswordTests.PlacementCredentialsKeepTheRequestedOutputProtection",
           "OverlayPasswordTests.HexOwnerPasswordsUseTheSharedDecoder",
-          "OverlayPasswordTests.AbsentCredentialsOpenEmptyPasswordPlacementSources"
+          "OverlayPasswordTests.AbsentCredentialsOpenEmptyPasswordPlacementSources",
+          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords"
         ],
         "negative": [
           "CryptoExclusionTests.JobNestedPasswordsFail",
@@ -7722,13 +7752,16 @@
         ],
         "interaction": [
           "OverlayPasswordTests.RepeatedSourcesAuthenticateEachDistinctCredential",
-          "OverlayPasswordTests.TransformedInspectionAuthenticatesPlacementSources"
+          "OverlayPasswordTests.TransformedInspectionAuthenticatesPlacementSources",
+          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes"
         ],
         "resource": [
-          "OverlayPasswordTests.EveryPlacementAdmissionRefusalRefundsBeforeEncryptedPublication"
+          "OverlayPasswordTests.EveryPlacementAdmissionRefusalRefundsBeforeEncryptedPublication",
+          "PasswordEncodingRecoveryTests.EveryRecoveryAdmissionRefusalRefundsOwnedStorage"
         ],
         "oracle": [
-          "diff:security-sources"
+          "diff:security-sources",
+          "diff:security-recovery"
         ]
       }
     },

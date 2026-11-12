@@ -2854,6 +2854,8 @@ Invoke-ReferenceSecurityPolicies
 Invoke-ReferenceSecurityPermissions
 . (Join-Path $repoRoot 'tools/ReferenceSecurityReading.ps1')
 Invoke-ReferenceSecurityReading
+. (Join-Path $repoRoot 'tools/ReferenceSecurityRecovery.ps1')
+Invoke-ReferenceSecurityRecovery
 . (Join-Path $repoRoot 'tools/ReferenceSecurityJson.ps1')
 Invoke-ReferenceSecurityJson
 . (Join-Path $repoRoot 'tools/ReferenceSecuritySources.ps1')

@@ -12,7 +12,8 @@ internal static class PasswordFileReader
     internal static async ValueTask<PasswordFileLine> ReadAsync(IQpdfHost host, QpdfPath path,
         Memory<byte> destination, bool hex, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
-        if (destination.Length != 127) { throw new ArgumentException("Password prefix storage must hold 127 bytes.", nameof(destination)); }
+        if (destination.Length is not (127 or QpdfPassword.RecoveryPrefixBytes))
+        { throw new ArgumentException("Password prefix storage has an unsupported size.", nameof(destination)); }
         CryptographicOperations.ZeroMemory(destination.Span);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         byte[]? scratch = null;

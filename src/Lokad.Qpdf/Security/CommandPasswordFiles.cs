@@ -26,14 +26,14 @@ internal sealed class CommandPasswordLease : IDisposable
     internal QpdfPassword? Password { get; private set; }
 
     private CommandPasswordLease(ParserMemoryScope memory)
-    { _memory = memory; _prefix = new byte[127]; _candidate = new byte[127]; }
+    { _memory = memory; _prefix = new byte[QpdfPassword.RecoveryPrefixBytes]; _candidate = new byte[QpdfPassword.RecoveryPrefixBytes]; }
 
     internal static async ValueTask<CommandPasswordLease> ResolveAsync(IQpdfHost host, CommandPasswordFiles files,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         CommandPasswordLease result;
-        try { memory.Reserve(96L + 2L * (127L + 32L)); result = new(memory); }
+        try { memory.Reserve(96L + 2L * (QpdfPassword.RecoveryPrefixBytes + 32L)); result = new(memory); }
         catch { memory.Dispose(); throw; }
         try
         {

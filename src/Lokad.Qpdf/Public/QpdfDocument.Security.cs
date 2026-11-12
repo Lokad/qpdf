@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Lokad.Qpdf.Attachments;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
@@ -73,20 +74,31 @@ public sealed partial class QpdfDocument
         if (engine.HasSelectiveInput) { throw new CompleteInputRequiredException(); }
         if (explicitNull) { throw new QpdfParseException("Incremental trailers disagree about encryption.", null, null); }
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
-        scratch.Reserve(1024L); // Bounded text encoding and password prefix.
+        scratch.Reserve(2048L); // Bounded input/candidate prefixes and encoding scratch.
         Span<byte> bytes = stackalloc byte[127];
-        Span<byte> legacy = stackalloc byte[32];
+        Span<byte> alternatives = stackalloc byte[3 * 127];
+        Span<int> lengths = stackalloc int[3];
+        lengths.Clear();
         try
         {
             int revision = engine.GetEncryptionRevision(encryption);
             int count = password is null ? 0 : password.WriteModernBytes(bytes, governor);
             PasswordAuthentication authentication = engine.Authenticate(encryption, bytes[..count], out EncryptionParameters parameters);
-            if (authentication == PasswordAuthentication.None && revision <= 4 && password is not null
-                && password.TryWritePdfDocBytes(bytes[..count], legacy, out int legacyCount)
-                && !bytes[..Math.Min(count, 32)].SequenceEqual(legacy[..legacyCount]))
-            { authentication = engine.Authenticate(encryption, legacy[..legacyCount], out parameters); }
+            int maximum = revision <= 4 ? 32 : 127;
+            for (int index = 0; authentication == PasswordAuthentication.None && password is not null && index < 3; index++)
+            {
+                governor.CheckCancellation();
+                Span<byte> candidate = alternatives.Slice(index * 127, maximum);
+                if (!password.TryWriteAlternativeBytes(candidate, (PdfSingleByteEncoding)index, governor, out int length))
+                { continue; }
+                lengths[index] = length;
+                bool duplicate = bytes[..Math.Min(count, maximum)].SequenceEqual(candidate[..length]);
+                for (int previous = 0; !duplicate && previous < index; previous++)
+                { duplicate = alternatives.Slice(previous * 127, lengths[previous]).SequenceEqual(candidate[..length]); }
+                if (!duplicate) { authentication = engine.Authenticate(encryption, candidate[..length], out parameters); }
+            }
             return new(parameters, authentication);
         }
-        finally { CryptographicOperations.ZeroMemory(bytes); CryptographicOperations.ZeroMemory(legacy); }
+        finally { CryptographicOperations.ZeroMemory(bytes); CryptographicOperations.ZeroMemory(alternatives); }
     }
 }

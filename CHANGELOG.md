@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Extend bounded UTF-8 password recovery to PDFDoc, WinAnsi and MacRoman across
+  R2–R6, sharing existing text mappings and preserving exact typed raw credentials.
+  Retain enough host-file prefix bytes for recovered 127-byte modern passwords.
+
 - Qualify named encryption credentials/key-size arguments against native qpdf;
   reconcile obsolete credential, codec and help coverage notes.
 

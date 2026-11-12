@@ -9,7 +9,7 @@ namespace Lokad.Qpdf.Attachments;
 /// otherwise PDFDocEncoding. Mirrors the reference
 /// mapping (low range, high range with undefined slots, lonely 0xAD).
 /// </summary>
-internal static class PdfText
+internal static partial class PdfText
 {
     private static readonly int[] LowTable = [0x02D8, 0x02C7, 0x02C6, 0x02D9, 0x02DD, 0x02DB, 0x02DA, 0x02DC];
 

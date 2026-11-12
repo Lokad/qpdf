@@ -1296,6 +1296,60 @@
       "headerVersion": "1.5",
       "valid": true,
       "description": "Native qpdf 12.4.2 attachment derivative of security-r3-pdfdoc.pdf, retaining its public credentials and metadata policy. Embedded private.bin contains UTF-8 Private attachment payload. followed by LF. Object streams are generated. Produced by tools/build-security-fixtures.ps1 -Attachments; randomized ciphertext is recorded for offline composition tests."
+    },
+    {
+      "file": "security-recovery-r4-winansi.pdf",
+      "sha256": "312f2f6405d82c2e8fcb73d6517b25f0ce00d19abfb2e458f41dd1d4017b4aa6",
+      "bytes": 1278,
+      "expectedNpages": 1,
+      "headerVersion": "1.6",
+      "valid": true,
+      "description": "Native qpdf 12.4.2 R4 AES encryption of authored meta-1page.pdf, with winansi password bytes and generated object streams. Public credentials are in security-recovery-vectors.json. Produced by tools/build-password-recovery-fixtures.ps1; native exact-byte and text-recovery controls pass for both passwords."
+    },
+    {
+      "file": "security-recovery-r4-macroman.pdf",
+      "sha256": "c28d02ed2991904249d063c7dea80618c95246468b8dbb2f8de0e5e13972fcde",
+      "bytes": 1278,
+      "expectedNpages": 1,
+      "headerVersion": "1.6",
+      "valid": true,
+      "description": "Native qpdf 12.4.2 R4 AES encryption of authored meta-1page.pdf, with macroman password bytes and generated object streams. Public credentials are in security-recovery-vectors.json. Produced by tools/build-password-recovery-fixtures.ps1; native exact-byte and text-recovery controls pass for both passwords."
+    },
+    {
+      "file": "security-recovery-r6-pdfdoc.pdf",
+      "sha256": "db52aeeb8616c159fc90f37fbeb09901dd7756b6082121910563a7a44e6178d4",
+      "bytes": 1579,
+      "expectedNpages": 1,
+      "headerVersion": "1.7",
+      "valid": true,
+      "description": "Native qpdf 12.4.2 R6 AES encryption of authored meta-1page.pdf, with pdfdoc password bytes and generated object streams. Public credentials are in security-recovery-vectors.json. Produced by tools/build-password-recovery-fixtures.ps1; native exact-byte and text-recovery controls pass for both passwords."
+    },
+    {
+      "file": "security-recovery-r6-winansi.pdf",
+      "sha256": "eb7294c5fe0f2a968bccc775720ef897d6d549a380738c90c6dd32a0dd734928",
+      "bytes": 1579,
+      "expectedNpages": 1,
+      "headerVersion": "1.7",
+      "valid": true,
+      "description": "Native qpdf 12.4.2 R6 AES encryption of authored meta-1page.pdf, with winansi password bytes and generated object streams. Public credentials are in security-recovery-vectors.json. Produced by tools/build-password-recovery-fixtures.ps1; native exact-byte and text-recovery controls pass for both passwords."
+    },
+    {
+      "file": "security-recovery-r6-macroman.pdf",
+      "sha256": "6d3872fa9b13910a2020d4cb738e11654be270372ea2069ab65b49d45f40e2c6",
+      "bytes": 1579,
+      "expectedNpages": 1,
+      "headerVersion": "1.7",
+      "valid": true,
+      "description": "Native qpdf 12.4.2 R6 AES encryption of authored meta-1page.pdf, with macroman password bytes and generated object streams. Public credentials are in security-recovery-vectors.json. Produced by tools/build-password-recovery-fixtures.ps1; native exact-byte and text-recovery controls pass for both passwords."
+    },
+    {
+      "file": "security-recovery-r6-long.pdf",
+      "sha256": "2262d5d066b22e8e53f74b6144a9d091b2b3dc06d67835577e8de243d21dfce7",
+      "bytes": 1579,
+      "expectedNpages": 1,
+      "headerVersion": "1.7",
+      "valid": true,
+      "description": "Native qpdf 12.4.2 R6 AES encryption of authored meta-1page.pdf, with long password bytes and generated object streams. Public credentials are in security-recovery-vectors.json. Produced by tools/build-password-recovery-fixtures.ps1; native exact-byte and text-recovery controls pass for both passwords."
     }
   ]
 }

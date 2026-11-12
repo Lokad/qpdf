@@ -52,6 +52,11 @@ appearance/resource payloads and private aliases use the ordinary graph mapping.
 Placement and JSON publication reuse this policy. Reading and inspection retain
 the original immutable values and do not validate signatures.
 
+UTF-8 password recovery reuses the PDF text encodings used by appearances.
+The shared reader tries the supplied bytes first, then at most three distinct
+PDFDoc/WinAnsi/MacRoman prefixes. All scratch is bounded and cleared; typed raw
+bytes bypass recovery, and command suppression applies before input authentication.
+
 The internal revision 6 authentication primitive uses system AES/SHA and bounded,
 cleared derivation scratch, checked against recorded native keys and the
 [ISO 32000-2 algorithm errata](https://pdf-issues.pdfa.org/32000-2-2020/clause07.html#7.6.4.3.4).

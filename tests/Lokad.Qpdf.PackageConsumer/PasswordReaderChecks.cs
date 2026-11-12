@@ -13,6 +13,18 @@ internal static class PasswordReaderChecks
         Check(provider.Status == QpdfExecutionStatus.Completed && provider.ExitCode == QpdfExitCode.Success
             && provider.Diagnostics.Count == 1 && provider.Diagnostics[0].Message == "managed"
             && provider.Counters.HostOperations == 0, "standalone managed crypto implementation");
+        foreach ((string file, string text) in new[]
+        { ("security-recovery-r6-macroman.pdf", "café•"), ("security-recovery-r6-long.pdf", new string('é', 127)) })
+        {
+            QpdfPath path = Add(file);
+            await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, path, QpdfPassword.FromText(text), QpdfLimits.Default, CancellationToken.None))
+            { Check(document.PageCount == 1 && document.Encryption?.Revision == 6, "bounded single-byte password recovery"); }
+            string passwordFile = file + ".password";
+            host.AddInput(QpdfPath.From(passwordFile), Encoding.UTF8.GetBytes(text + "\n"), QpdfInputOwnership.Copy);
+            QpdfExecutionResult recovered = await Qpdf.ExecuteAsync(host,
+                new([path.Value, "--password-file=" + passwordFile, "--show-npages"]), CancellationToken.None);
+            Check(recovered.Status == QpdfExecutionStatus.Completed, "host-file recovery retains the required UTF-8 prefix");
+        }
         QpdfPath encrypted = Add("security-r6-ascii.pdf"), empty = Add("security-r6-empty.pdf");
         QpdfPath legacy = Add("security-r4-pdfdoc.pdf"), rc4 = Add("security-r4-rc4-ascii.pdf");
         QpdfPath r2 = Add("security-r2-ascii.pdf"), r3 = Add("security-r3-ascii.pdf");
