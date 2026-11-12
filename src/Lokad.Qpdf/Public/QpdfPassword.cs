@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Lokad.Qpdf.Attachments;
 
 namespace Lokad.Qpdf;
 
@@ -14,7 +15,7 @@ public sealed class QpdfPassword
 
     private QpdfPassword(string? text, ReadOnlyMemory<byte> bytes) { _text = text; _bytes = bytes; }
 
-    /// <summary>Uses UTF-8 without Unicode normalization for modern encryption.</summary>
+    /// <summary>Uses UTF-8 without normalization, with a bounded PDFDocEncoding fallback for R4.</summary>
     /// <exception cref="ArgumentNullException">The text is null.</exception>
     public static QpdfPassword FromText(string text)
     { ArgumentNullException.ThrowIfNull(text); return new(text, default); }
@@ -24,6 +25,16 @@ public sealed class QpdfPassword
 
     /// <summary>Returns a redacted description.</summary>
     public override string ToString() => "QpdfPassword [redacted]";
+
+    internal bool TryWritePdfDocBytes(Span<byte> destination, out int count)
+    {
+        count = 0;
+        if (_text is null) { return false; }
+        int length = Math.Min(_text.Length, destination.Length);
+        for (int index = 0; index < length; index++)
+        { if (!PdfText.TryEncodePdfDocByte(_text[index], out destination[index])) { return false; } }
+        count = length; return true;
+    }
 
     internal int WriteModernBytes(Span<byte> destination)
     {

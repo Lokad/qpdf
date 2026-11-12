@@ -84,3 +84,4 @@ foreach ($case in $cases) {
 }
 [IO.File]::WriteAllText((Join-Path $fixtures "security-r$Revision-vectors.json"), (($vectors.ToArray() | ConvertTo-Json -Depth 5) + "`n"))
 [IO.File]::WriteAllText($manifestPath, (($manifest | ConvertTo-Json -Depth 20) + "`n"))
+if ($Revision -eq 4) { & (Join-Path $PSScriptRoot 'build-security-generation-fixture.ps1') -QpdfExe $QpdfExe }

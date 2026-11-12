@@ -88,5 +88,23 @@
       }
     ],
     "idHex": "5eeb8ddbe5858c5401ee48f2cce0ac38"
+  },
+  {
+    "streams": [
+      {
+        "number": 3,
+        "plainBase64": "eJyzsa8oSEzOTi1RSEpNz8yzVapQsrezqbCqyC3ITS1JtPMFEjb6CD4Am7ERDQ=="
+      },
+      {
+        "number": 6,
+        "plainBase64": "eJxzClHQCEhMT9VUCMlScA0BACBvBBw="
+      }
+    ],
+    "ownerHex": "666978747572652D6F776E6572",
+    "fileKeyHex": "2ea22e5d4118231a8fda14bae89b4759",
+    "dictionary": "<< /CF << /StdCF << /AuthEvent /DocOpen /CFM /AESV2 /Length 16 >> >> /Filter /Standard /Length 128 /O <5542f08f051ee578162ca000260299801d5976f62e4bbd695bbcdff80cfd4408> /OE () /P -3388 /R 4 /StmF /StdCF /StrF /StdCF /U <de84a275bbcb267dd22999d9bba0e37b0021446990b9e4114071a4d9104984c1> /UE () /V 4 >>",
+    "file": "security-r4-generations.pdf",
+    "userHex": "726561646572",
+    "idHex": "a86cf4429fbb618de7eb27405eefbf50"
   }
 ]

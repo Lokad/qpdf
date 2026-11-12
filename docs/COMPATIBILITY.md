@@ -1,6 +1,6 @@
 # Compatibility
 
-Lokad.qpdf targets **qpdf 12.4.2** structural operations, with R6 password-aware document opening.
+Lokad.qpdf targets **qpdf 12.4.2** structural operations, with AES R4/R6 password-aware document opening.
 The [supported profile](SUPPORTED-PROFILE.md) defines the current contract;
 the [option inventory](../tests/Compatibility/options.json) records forms, JSON
 mappings, remaining gaps and executable evidence. An accepted option alone does
@@ -11,7 +11,7 @@ not establish implemented behavior. Development changes are in the
 
 | Boundary | Contract |
 | --- | --- |
-| Password security | `QpdfDocument.OpenAsync` accepts AES-256 R6 with user/owner text or raw credentials, including empty passwords. Other revisions, encrypted transformations, output encryption and argv/job password options remain unsupported. Signing and signature validation are excluded. |
+| Password security | `QpdfDocument.OpenAsync` accepts AES-128 R4 and AES-256 R6 with user/owner text or raw credentials, including empty passwords. RC4 inputs, R5, encrypted transformations, output encryption and argv/job password options remain unsupported. Signing and signature validation are excluded. |
 | Signed inputs | Selection, rewrite, placement and JSON publication retain stored appearances but disable active signature field attributes and catalog certification restrictions. Blank signature fields are disabled too. Rewriting never preserves signature validity; read-only inspection keeps original values. |
 | JPEG | Decoding/recompression needs a caller-supplied codec. Gray/RGB is supported; CMYK/YCCK stays opaque and is ineligible for optimization. |
 | Zopfli | Unavailable; requests fail with exit 2. Ordinary Flate works. `QPDF_ZOPFLI` is treated as unset. |

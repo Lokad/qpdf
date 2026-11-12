@@ -9,13 +9,16 @@ internal static class PasswordReaderChecks
     {
         using InMemoryQpdfHost host = new();
         QpdfPath encrypted = Add("security-r6-ascii.pdf"), empty = Add("security-r6-empty.pdf");
+        QpdfPath legacy = Add("security-r4-pdfdoc.pdf");
         byte[] ownerBytes = Encoding.ASCII.GetBytes("fixture-owner");
         PdfName titleName = new("Title"u8.ToArray());
-        foreach ((QpdfPath path, QpdfPassword? password, bool owner) in new[]
+        foreach ((QpdfPath path, QpdfPassword? password, bool owner, int revision) in new[]
         {
-            (encrypted, QpdfPassword.FromText("reader"), false),
-            (encrypted, QpdfPassword.FromBytes(ownerBytes), true),
-            (empty, (QpdfPassword?)null, false),
+            (encrypted, QpdfPassword.FromText("reader"), false, 6),
+            (encrypted, QpdfPassword.FromBytes(ownerBytes), true, 6),
+            (empty, (QpdfPassword?)null, false, 6),
+            (legacy, QpdfPassword.FromText("café•"), false, 4),
+            (legacy, QpdfPassword.FromBytes(Convert.FromHexString("6F776E6572E991")), true, 4),
         })
         {
             PdfByteString? title = null;
@@ -23,8 +26,8 @@ internal static class PasswordReaderChecks
             {
                 Check(document.PageCount == 1, "authenticated page tree");
                 QpdfEncryptionInfo info = document.Encryption ?? throw new InvalidOperationException("Missing encryption facts.");
-                Check(info.Revision == 6 && info.KeyLengthBits == 256 && info.Permissions == -3388, "non-secret encryption facts");
-                Check(info.OwnerPasswordMatched == owner && info.EncryptMetadata == (path == encrypted), "authentication and metadata facts");
+                Check(info.Revision == revision && info.KeyLengthBits == (revision == 6 ? 256 : 128) && info.Permissions == -3388, "non-secret encryption facts");
+                Check(info.OwnerPasswordMatched == owner && info.EncryptMetadata == (path != empty), "authentication and metadata facts");
                 for (int number = 1; number < 8; number++)
                 {
                     if (document.GetObject(number) is PdfDictionary dictionary && dictionary.TryGet(titleName, out QpdfObject value))
@@ -38,7 +41,7 @@ internal static class PasswordReaderChecks
         await Failure(null, QpdfSecurityFailure.PasswordRequired);
         await Failure(QpdfPassword.FromText(""), QpdfSecurityFailure.InvalidPassword);
         await Failure(QpdfPassword.FromText("consumer-secret"), QpdfSecurityFailure.InvalidPassword);
-        Console.WriteLine("PASS public R6 reader, per-input text/raw credentials, empty password, non-secret facts and retained plaintext");
+        Console.WriteLine("PASS public R4/R6 reader, per-input text/raw credentials, empty password, non-secret facts and retained plaintext");
 
         QpdfPath Add(string file)
         {

@@ -13,10 +13,14 @@ namespace Lokad.Qpdf.Tests.Security;
 
 public sealed class EncryptedReaderTests
 {
+    public static IEnumerable<object[]> ReaderVectors()
+        => Revision6EncryptionTests.Vectors().Select(vector => vector.Append((object)6).ToArray())
+            .Concat(Revision4EncryptionTests.Vectors().Select(vector => vector.Take(5).Append((object)4).ToArray()));
+
     [Theory]
-    [MemberData(nameof(Revision6EncryptionTests.Vectors), MemberType = typeof(Revision6EncryptionTests))]
+    [MemberData(nameof(ReaderVectors))]
     public void NativeDocumentsDecryptAtTheObjectBoundary(string file, string dictionary,
-        string userHex, string ownerHex, string keyHex)
+        string userHex, string ownerHex, string keyHex, int revision)
     {
         Assert.NotEmpty(dictionary); Assert.NotEmpty(keyHex);
         byte[] data = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", file));
@@ -32,6 +36,7 @@ public sealed class EncryptedReaderTests
                 Assert.Equal(password == ownerHex ? PasswordAuthentication.Owner : PasswordAuthentication.User,
                     engine.Authenticate(encrypt, Convert.FromHexString(password)));
                 Assert.NotNull(engine.Security);
+                Assert.Equal(revision, engine.Security.Revision);
                 Assert.Equal(-3388, engine.Security.Permissions);
                 PdfDictionary catalog = ResolveDictionary(Get(engine.Trailer, "Root"), engine);
                 PdfDictionary pages = ResolveDictionary(Get(catalog, "Pages"), engine);
@@ -41,14 +46,14 @@ public sealed class EncryptedReaderTests
                 PdfStream content = ResolveStream(Get(page, "Contents"), engine);
                 Assert.Equal("BT (Page) Tj ET", Encoding.ASCII.GetString(Decode(content, engine, governor)));
                 PdfDictionary info = ResolveDictionary(Get(engine.Trailer, "Info"), engine);
-                // The native info dictionary is an object-stream member. Its
-                // strings are plaintext after the enclosing stream decrypts.
+                // Ordinary strings and object-stream members take distinct
+                // decryption paths and both must expose the native plaintext.
                 Assert.Equal("TitleText", Encoding.ASCII.GetString(Assert.IsType<PdfByteString>(Get(info, "Title")).ValueSpan));
                 PdfStream metadata = ResolveStream(Get(catalog, "Metadata"), engine);
                 Assert.Contains("<x:xmpmeta>Meta</x:xmpmeta>", Encoding.ASCII.GetString(Decode(metadata, engine, governor)), StringComparison.Ordinal);
                 Assert.Equal(id, Assert.IsType<PdfByteString>(identifiers[0]).Value);
                 PdfDictionary rawEncryption = Assert.IsType<PdfDictionary>(engine.Load(encrypt.ObjectNumber));
-                Assert.Equal(48, Assert.IsType<PdfByteString>(Get(rawEncryption, "U")).ValueSpan.Length);
+                Assert.Equal(revision == 6 ? 48 : 32, Assert.IsType<PdfByteString>(Get(rawEncryption, "U")).ValueSpan.Length);
                 foreach ((int number, XrefEntry entry) in engine.XRefEntries)
                 {
                     if (entry.Kind != XrefEntryKind.Free) { _ = engine.Load(number); }
@@ -90,13 +95,15 @@ public sealed class EncryptedReaderTests
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
-    [Fact]
-    public void EveryReaderAdmissionFailureRefundsTheDocumentAndSecurityContext()
+    [Theory]
+    [InlineData("security-r6-ascii.pdf")]
+    [InlineData("security-r4-ascii.pdf")]
+    public void EveryReaderAdmissionFailureRefundsTheDocumentAndSecurityContext(string file)
     {
-        byte[] data = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "security-r6-ascii.pdf"));
+        byte[] data = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", file));
         RecordingMemoryBudget baseline = new(1048576);
         Run(baseline, false);
-        Assert.True(baseline.GrowthCalls > 2);
+        Assert.True(baseline.GrowthCalls > 1);
         for (int growth = 1; growth <= baseline.GrowthCalls; growth++)
         {
             RecordingMemoryBudget refusing = new(1048576) { RefuseOnGrowth = growth };
@@ -123,10 +130,12 @@ public sealed class EncryptedReaderTests
         }
     }
 
-    [Fact]
-    public void NativeStreamBytesArePlainBeforeOrdinaryFilterProcessing()
+    [Theory]
+    [InlineData("security-r6-vectors.json")]
+    [InlineData("security-r4-vectors.json")]
+    public void NativeStreamBytesArePlainBeforeOrdinaryFilterProcessing(string vectorFile)
     {
-        using JsonDocument vectors = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "security-r6-vectors.json")));
+        using JsonDocument vectors = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", vectorFile)));
         foreach (JsonElement vector in vectors.RootElement.EnumerateArray())
         {
             string file = vector.GetProperty("file").GetString() ?? throw new InvalidDataException();

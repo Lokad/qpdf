@@ -56,6 +56,34 @@ internal static class Revision4Encryption
         }
     }
 
+    internal static void DeriveObjectKey(ReadOnlySpan<byte> fileKey, int number, int generation,
+        Span<byte> objectKey, ResourceGovernor governor)
+    {
+        if (fileKey.Length != 16 || objectKey.Length != 16) { throw new ArgumentException("AES-128 object keys require 16 bytes."); }
+        objectKey.Clear(); governor.CheckCancellation();
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(number);
+        ArgumentOutOfRangeException.ThrowIfNegative(generation);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(generation, 65535);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        memory.Reserve(4096L);
+        Span<byte> material = stackalloc byte[25];
+        bool accepted = false;
+        try
+        {
+            fileKey.CopyTo(material);
+            material[16] = (byte)number; material[17] = (byte)(number >> 8); material[18] = (byte)(number >> 16);
+            material[19] = (byte)generation; material[20] = (byte)(generation >> 8);
+            "sAlT"u8.CopyTo(material[21..]);
+            _ = MD5.HashData(material, objectKey);
+            governor.CheckCancellation(); accepted = true;
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(material);
+            if (!accepted) { CryptographicOperations.ZeroMemory(objectKey); }
+        }
+    }
+
     private static bool AuthenticateUser(ReadOnlySpan<byte> padded, ReadOnlySpan<byte> owner, ReadOnlySpan<byte> user,
         ReadOnlySpan<byte> identifier, int permissions, bool metadata, Span<byte> fileKey, ResourceGovernor governor)
     {

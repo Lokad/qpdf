@@ -14,7 +14,7 @@ see [compatibility](docs/COMPATIBILITY.md) for supported behavior and difference
 - Extract, reorder, duplicate, merge, split and rotate pages.
 - Extract previews from signed, unencrypted PDFs, retaining stored signature marks.
 - Inspect document structure, check PDFs, and manage attachments and metadata.
-- Open AES-256 R6 inputs through `QpdfDocument`, using user or owner credentials.
+- Open AES-128 R4 and AES-256 R6 inputs through `QpdfDocument`, using user or owner credentials.
 - Rewrite PDFs with compression, object streams and linearization for web delivery.
 - Apply overlays and underlays, generate form appearances, flatten annotations,
   and process grayscale/RGB JPEG images with a caller-supplied codec.
@@ -62,7 +62,7 @@ current boundary between engine estimates and host-private storage.
 For existing qpdf workflows, `Qpdf.ExecuteAsync` accepts a `QpdfCommandInvocation`,
 and `Qpdf.ExecuteJobAsync` accepts job JSON.
 
-For authenticated reading of an AES-256 R6 input:
+For authenticated reading of an AES-128 R4 or AES-256 R6 input:
 
 ```csharp
 await using QpdfDocument document = await QpdfDocument.OpenAsync(
@@ -72,8 +72,9 @@ Console.WriteLine(document.PageCount);
 Console.WriteLine(document.Encryption); // Non-secret facts only.
 ```
 
-`FromText` uses UTF-8 without normalization; `FromBytes` borrows exact bytes.
-R6 uses the first 127 bytes. Keep borrowed bytes stable until opening completes.
+`FromText` uses UTF-8 without normalization; R4 can retry PDFDocEncoding when
+the text is representable. `FromBytes` borrows exact bytes without encoding recovery.
+R4 uses the first 32 bytes; R6 uses 127. Keep borrowed bytes stable until opening completes.
 Omitting credentials tries an empty password. `QpdfSecurityException.Reason`
 distinguishes a required password, an invalid supplied password and an unsupported
 handler; malformed parameters throw `QpdfParseException`.
@@ -87,7 +88,7 @@ for buffer ownership, cancellation and resource admission.
 ## Limitations
 
 Encrypted transformations, output encryption and argv/job password options remain
-unsupported; authenticated opening currently supports R6 only. Rendering, OCR and
+unsupported; authenticated opening currently supports AES R4 and R6. Rendering, OCR and
 text extraction are outside the library's scope.
 Copying or rewriting signed, unencrypted PDFs preserves stored annotation appearances
 and disables the active signature fields and certification restrictions. A derived

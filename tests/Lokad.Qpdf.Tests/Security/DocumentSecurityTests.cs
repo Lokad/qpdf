@@ -20,7 +20,7 @@ public sealed class DocumentSecurityTests
             byte[] encoded = Encrypt("ordinary field"u8, key);
             string ciphertext = Convert.ToHexString(encoded);
             PdfDictionary source = Parse($"<< {signatureEntries} /Contents <01020304> /Reason <{ciphertext}> /Other [<{ciphertext}> << /Contents <{ciphertext}> >>] >>", governor, memory);
-            PdfDictionary result = Assert.IsType<PdfDictionary>(security.Decrypt(source, false, new NoResolver(), memory));
+            PdfDictionary result = Assert.IsType<PdfDictionary>(security.Decrypt(source, 1, 0, false, new NoResolver(), memory));
             Assert.Equal(new byte[] { 1, 2, 3, 4 }, Assert.IsType<PdfByteString>(Get(result, "Contents")).Value);
             Assert.Equal("ordinary field", Text(Get(result, "Reason")));
             PdfArray other = Assert.IsType<PdfArray>(Get(result, "Other"));
@@ -41,7 +41,7 @@ public sealed class DocumentSecurityTests
         {
             byte[] plain = "encoded stream bytes"u8.ToArray();
             PdfStream stream = new(Parse($"<< {entries} >>", governor, memory), encrypted ? Encrypt(plain, key) : plain);
-            PdfStream result = Assert.IsType<PdfStream>(security.Decrypt(stream, false, new NoResolver(), memory));
+            PdfStream result = Assert.IsType<PdfStream>(security.Decrypt(stream, 1, 0, false, new NoResolver(), memory));
             Assert.Equal(plain, result.Data);
             if (entries.Contains("FlateDecode", StringComparison.Ordinal))
             {
@@ -64,7 +64,7 @@ public sealed class DocumentSecurityTests
         {
             PdfStream stream = new(Parse($"<< {entries} >>", governor, memory), Encrypt("data"u8, key));
             long before = memory.ReservedBytes;
-            Assert.Throws<QpdfParseException>(() => security.Decrypt(stream, false, new NoResolver(), memory));
+            Assert.Throws<QpdfParseException>(() => security.Decrypt(stream, 1, 0, false, new NoResolver(), memory));
             Assert.Equal(before, memory.ReservedBytes);
         });
     }
@@ -76,7 +76,7 @@ public sealed class DocumentSecurityTests
         {
             PdfStream stream = new(Parse("<< /Filter /Crypt /DecodeParms << /Name /Unknown >> >>", governor, memory), Encrypt("data"u8, key));
             Assert.Equal(QpdfSecurityFailure.UnsupportedHandler,
-                Assert.Throws<QpdfSecurityException>(() => security.Decrypt(stream, false, new NoResolver(), memory)).Reason);
+                Assert.Throws<QpdfSecurityException>(() => security.Decrypt(stream, 1, 0, false, new NoResolver(), memory)).Reason);
         });
     }
 
@@ -89,10 +89,10 @@ public sealed class DocumentSecurityTests
             byte[] plain = "<metadata/>"u8.ToArray();
             PdfDictionary header = Parse("<< /Type /Metadata >>", governor, memory);
             PdfStream root = new(header, plain), component = new(header, Encrypt(plain, key));
-            Assert.Equal(plain, Assert.IsType<PdfStream>(security.Decrypt(root, true, new NoResolver(), memory)).Data);
-            Assert.Equal(plain, Assert.IsType<PdfStream>(security.Decrypt(component, false, new NoResolver(), memory)).Data);
+            Assert.Equal(plain, Assert.IsType<PdfStream>(security.Decrypt(root, 1, 0, true, new NoResolver(), memory)).Data);
+            Assert.Equal(plain, Assert.IsType<PdfStream>(security.Decrypt(component, 1, 0, false, new NoResolver(), memory)).Data);
             PdfStream explicitStream = new(Parse("<< /Type /Metadata /Filter /Crypt /DecodeParms << /Name /StdCF >> >>", governor, memory), Encrypt(plain, key));
-            Assert.Equal(plain, Assert.IsType<PdfStream>(security.Decrypt(explicitStream, true, new NoResolver(), memory)).Data);
+            Assert.Equal(plain, Assert.IsType<PdfStream>(security.Decrypt(explicitStream, 1, 0, true, new NoResolver(), memory)).Data);
         });
     }
 
@@ -104,12 +104,12 @@ public sealed class DocumentSecurityTests
             byte[] plain = "attachment data"u8.ToArray();
             string encryptedName = Convert.ToHexString(Encrypt("filename.txt"u8, key));
             PdfStream embedded = new(Parse($"<< /Type /EmbeddedFile /Private <{encryptedName}> >>", governor, memory), Encrypt(plain, key));
-            PdfStream result = Assert.IsType<PdfStream>(security.Decrypt(embedded, false, new NoResolver(), memory));
+            PdfStream result = Assert.IsType<PdfStream>(security.Decrypt(embedded, 1, 0, false, new NoResolver(), memory));
             Assert.Equal(plain, result.Data); Assert.Equal("filename.txt", Text(Get(result.Dictionary, "Private")));
             PdfStream ordinary = new(Parse("<< >>", governor, memory), plain);
-            Assert.Equal(plain, Assert.IsType<PdfStream>(security.Decrypt(ordinary, false, new NoResolver(), memory)).Data);
+            Assert.Equal(plain, Assert.IsType<PdfStream>(security.Decrypt(ordinary, 1, 0, false, new NoResolver(), memory)).Data);
             PdfStream xref = new(Parse("<< /Type /XRef /ID [<01020304> <05060708>] >>", governor, memory), plain);
-            Assert.Same(xref, security.Decrypt(xref, false, new NoResolver(), memory));
+            Assert.Same(xref, security.Decrypt(xref, 1, 0, false, new NoResolver(), memory));
         });
     }
 
@@ -119,7 +119,7 @@ public sealed class DocumentSecurityTests
         WithContext(0, static text => text.Replace("/StmF /StdCF", "/StmF /Identity /EFF /StdCF", StringComparison.Ordinal), (security, key, governor, memory) =>
         {
             PdfStream stream = new(Parse("<< /Type 1 0 R >>", governor, memory), Encrypt("attachment"u8, key));
-            PdfStream result = Assert.IsType<PdfStream>(security.Decrypt(stream, false, new EmbeddedTypeResolver(), memory));
+            PdfStream result = Assert.IsType<PdfStream>(security.Decrypt(stream, 1, 0, false, new EmbeddedTypeResolver(), memory));
             Assert.Equal("attachment", Encoding.ASCII.GetString(result.Data));
         });
     }
@@ -131,7 +131,7 @@ public sealed class DocumentSecurityTests
         {
             string encryptedPath = Convert.ToHexString(Encrypt("unopened.bin"u8, key));
             PdfStream stream = new(Parse($"<< /F <{encryptedPath}> >>", governor, memory), [1, 2, 3]);
-            PdfStream result = Assert.IsType<PdfStream>(security.Decrypt(stream, false, new NoResolver(), memory));
+            PdfStream result = Assert.IsType<PdfStream>(security.Decrypt(stream, 1, 0, false, new NoResolver(), memory));
             Assert.Equal(new byte[] { 1, 2, 3 }, result.Data);
             Assert.Equal("unopened.bin", Text(Get(result.Dictionary, "F")));
         });
@@ -151,7 +151,7 @@ public sealed class DocumentSecurityTests
         PdfDictionary dictionary = Parse(((string)vector[1]).Replace(original, replacement, StringComparison.Ordinal), governor, memory);
         long baseline = governor.Snapshot().LiveMemoryBytes;
         Assert.Equal(QpdfSecurityFailure.UnsupportedHandler,
-            Assert.Throws<QpdfSecurityException>(() => DocumentSecurity.TryCreate(dictionary, "reader"u8, governor, out _)).Reason);
+            Assert.Throws<QpdfSecurityException>(() => DocumentSecurity.TryCreate(dictionary, [], "reader"u8, governor, out _)).Reason);
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 
@@ -167,7 +167,7 @@ public sealed class DocumentSecurityTests
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         PdfDictionary dictionary = Parse(((string)vector[1]).Replace(original, replacement, StringComparison.Ordinal), governor, memory);
         long baseline = governor.Snapshot().LiveMemoryBytes;
-        Assert.Throws<QpdfParseException>(() => DocumentSecurity.TryCreate(dictionary, "reader"u8, governor, out _));
+        Assert.Throws<QpdfParseException>(() => DocumentSecurity.TryCreate(dictionary, [], "reader"u8, governor, out _));
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 
@@ -180,11 +180,11 @@ public sealed class DocumentSecurityTests
         {
             PdfDictionary dictionary = Parse((string)vector[1], governor, memory);
             long baseline = governor.Snapshot().LiveMemoryBytes;
-            Assert.Equal(PasswordAuthentication.None, DocumentSecurity.TryCreate(dictionary, "wrong"u8, governor, out DocumentSecurity? wrong));
+            Assert.Equal(PasswordAuthentication.None, DocumentSecurity.TryCreate(dictionary, [], "wrong"u8, governor, out DocumentSecurity? wrong));
             Assert.Null(wrong); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
-            Assert.Equal(PasswordAuthentication.User, DocumentSecurity.TryCreate(dictionary, Convert.FromHexString((string)vector[2]), governor, out DocumentSecurity? security));
+            Assert.Equal(PasswordAuthentication.User, DocumentSecurity.TryCreate(dictionary, [], Convert.FromHexString((string)vector[2]), governor, out DocumentSecurity? security));
             Assert.NotNull(security); security.Dispose(); security.Dispose();
-            Assert.Throws<ObjectDisposedException>(() => security.Decrypt(PdfNull.Instance, false, new NoResolver(), memory));
+            Assert.Throws<ObjectDisposedException>(() => security.Decrypt(PdfNull.Instance, 1, 0, false, new NoResolver(), memory));
             Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
         }
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
@@ -197,7 +197,7 @@ public sealed class DocumentSecurityTests
         using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
         {
             PdfDictionary dictionary = Parse(edit((string)vector[1]), governor, memory);
-            Assert.Equal(PasswordAuthentication.User, DocumentSecurity.TryCreate(dictionary, Convert.FromHexString((string)vector[2]), governor, out DocumentSecurity? security));
+            Assert.Equal(PasswordAuthentication.User, DocumentSecurity.TryCreate(dictionary, [], Convert.FromHexString((string)vector[2]), governor, out DocumentSecurity? security));
             Assert.NotNull(security);
             using (security) { check(security, Convert.FromHexString((string)vector[4]), governor, memory); }
         }

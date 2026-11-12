@@ -8,6 +8,38 @@ namespace Lokad.Qpdf.Tests.Security;
 public sealed class PasswordOpeningTests
 {
     [Theory]
+    [MemberData(nameof(Revision4EncryptionTests.Vectors), MemberType = typeof(Revision4EncryptionTests))]
+    public async Task R4OpeningSupportsExactBytesAndBoundedTextEncodingRecovery(string file, string dictionary,
+        string userHex, string ownerHex, string keyHex, string idHex)
+    {
+        Assert.NotEmpty(dictionary); Assert.NotEmpty(keyHex); Assert.NotEmpty(idHex);
+        using InMemoryQpdfHost host = new(); QpdfPath path = Add(host, file);
+        foreach ((string hex, bool owner) in new[] { (userHex, false), (ownerHex, true) })
+        {
+            byte[] bytes = Convert.FromHexString(hex);
+            string text = file == "security-r4-pdfdoc.pdf" ? owner ? "owneré‚" : "café•" : Encoding.UTF8.GetString(bytes);
+            foreach (QpdfPassword password in new[] { QpdfPassword.FromBytes(bytes), QpdfPassword.FromText(text) })
+            {
+                await using QpdfDocument document = await QpdfDocument.OpenAsync(host, path, password, QpdfLimits.Default, CancellationToken.None);
+                Assert.Equal(1, document.PageCount);
+                QpdfEncryptionInfo info = Assert.IsType<QpdfEncryptionInfo>(document.Encryption);
+                Assert.Equal(4, info.Revision); Assert.Equal(128, info.KeyLengthBits);
+                Assert.Equal(-3388, info.Permissions); Assert.Equal(owner, info.OwnerPasswordMatched);
+            }
+            Assert.Equal(Convert.FromHexString(hex), bytes);
+        }
+    }
+
+    [Fact]
+    public async Task LegacyRawBytesNeverParticipateInTextEncodingRecovery()
+    {
+        using InMemoryQpdfHost host = new(); QpdfPath path = Add(host, "security-r4-pdfdoc.pdf");
+        QpdfPassword raw = QpdfPassword.FromBytes(Encoding.UTF8.GetBytes("café•"));
+        QpdfSecurityException failure = await Assert.ThrowsAsync<QpdfSecurityException>(() => QpdfDocument.OpenAsync(host, path, raw, QpdfLimits.Default, CancellationToken.None).AsTask());
+        Assert.Equal(QpdfSecurityFailure.InvalidPassword, failure.Reason);
+    }
+
+    [Theory]
     [MemberData(nameof(Revision6EncryptionTests.Vectors), MemberType = typeof(Revision6EncryptionTests))]
     public async Task PublicOpeningAcceptsTextAndRawUserAndOwnerPasswords(string file, string dictionary,
         string userHex, string ownerHex, string keyHex)
@@ -41,6 +73,8 @@ public sealed class PasswordOpeningTests
         QpdfPath empty = Add(host, "security-r6-empty.pdf"), protectedPath = Add(host, "security-r6-ascii.pdf");
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, empty, CancellationToken.None))
         { Assert.Equal(1, document.PageCount); Assert.False(document.Encryption?.EncryptMetadata); }
+        await using (QpdfDocument legacy = await QpdfDocument.OpenAsync(host, Add(host, "security-r4-empty.pdf"), CancellationToken.None))
+        { Assert.Equal(1, legacy.PageCount); Assert.False(legacy.Encryption?.EncryptMetadata); }
         QpdfSecurityException required = await Assert.ThrowsAsync<QpdfSecurityException>(() => QpdfDocument.OpenAsync(host, protectedPath, CancellationToken.None).AsTask());
         Assert.Equal(QpdfSecurityFailure.PasswordRequired, required.Reason);
         foreach (QpdfPassword password in new[] { QpdfPassword.FromText(""), QpdfPassword.FromBytes("wrong-secret"u8.ToArray()) })
@@ -94,12 +128,15 @@ public sealed class PasswordOpeningTests
     }
 
     [Theory]
-    [InlineData("typed")]
-    [InlineData("argv")]
-    [InlineData("job")]
-    public async Task TransformationRoutesNeverPublishPlaintextByAccident(string route)
+    [InlineData("typed", "security-r6-empty.pdf")]
+    [InlineData("argv", "security-r6-empty.pdf")]
+    [InlineData("job", "security-r6-empty.pdf")]
+    [InlineData("typed", "security-r4-empty.pdf")]
+    [InlineData("argv", "security-r4-empty.pdf")]
+    [InlineData("job", "security-r4-empty.pdf")]
+    public async Task TransformationRoutesNeverPublishPlaintextByAccident(string route, string file)
     {
-        using InMemoryQpdfHost host = new(); QpdfPath input = Add(host, "security-r6-empty.pdf");
+        using InMemoryQpdfHost host = new(); QpdfPath input = Add(host, file);
         QpdfPath output = QpdfPath.From("output.pdf");
         if (route == "typed")
         {
@@ -110,19 +147,21 @@ public sealed class PasswordOpeningTests
         {
             QpdfExecutionResult result = route == "argv"
                 ? await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation([input.Value, output.Value]), CancellationToken.None)
-                : await Qpdf.ExecuteJobAsync(host, "{\"inputFile\":\"security-r6-empty.pdf\",\"outputFile\":\"output.pdf\"}", CancellationToken.None);
+                : await Qpdf.ExecuteJobAsync(host, "{\"inputFile\":\"" + file + "\",\"outputFile\":\"output.pdf\"}", CancellationToken.None);
             Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
             Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.UnsupportedCryptoOperation);
         }
         Assert.False(host.TryGetOutput(output, out _));
     }
 
-    [Fact]
-    public async Task FailedAuthenticationRefundsBorrowedHostMemoryAndCancellationIsTerminal()
+    [Theory]
+    [InlineData("security-r6-ascii.pdf")]
+    [InlineData("security-r4-ascii.pdf")]
+    public async Task FailedAuthenticationRefundsBorrowedHostMemoryAndCancellationIsTerminal(string file)
     {
         RecordingMemoryBudget budget = new(1048576);
         using InMemoryQpdfHost host = new(QpdfLimits.Default, null, budget);
-        QpdfPath path = Add(host, "security-r6-ascii.pdf");
+        QpdfPath path = Add(host, file);
         long baseline = budget.ReservedBytes;
         QpdfPassword password = QpdfPassword.FromText("wrong-secret");
         await Assert.ThrowsAsync<QpdfSecurityException>(() => QpdfDocument.OpenAsync(host, path, password, QpdfLimits.Default, CancellationToken.None).AsTask());

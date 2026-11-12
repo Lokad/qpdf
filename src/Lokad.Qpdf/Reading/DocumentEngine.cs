@@ -492,7 +492,7 @@ internal sealed partial class DocumentEngine : IStreamRecoveryResolver, IDisposa
                 }
 
                 if (_security is not null && number != _encryptionNumber)
-                { value = _security.Decrypt(value, number == _rootMetadataNumber, this, memory); }
+                { value = _security.Decrypt(value, number, foundGeneration, number == _rootMetadataNumber, this, memory); }
                 StoreCached(number, value, memory, true);
                 return value;
             }

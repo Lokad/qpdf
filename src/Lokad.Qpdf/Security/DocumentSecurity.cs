@@ -6,7 +6,7 @@ using static Lokad.Qpdf.Security.EncryptionDictionary;
 
 namespace Lokad.Qpdf.Security;
 
-internal enum PdfCipher : byte { Identity, Aes256, Unsupported }
+internal enum PdfCipher : byte { Identity, Aes128, Aes256, Unsupported }
 
 // One document owns the authenticated key. Parsed encryption parameters are
 // borrowed from that document; passwords are used only during construction.
@@ -24,31 +24,30 @@ internal sealed partial class DocumentSecurity : IDisposable
 
     private DocumentSecurity(ResourceGovernor governor, ParserMemoryScope ownership, byte[] key,
         Dictionary<PdfName, CryptFilter> filters, PdfCipher strings, PdfCipher streams, PdfCipher files,
-        bool metadata, int permissions, PasswordAuthentication authentication)
+        bool metadata, int permissions, PasswordAuthentication authentication, int revision)
     {
         _governor = governor; _ownership = ownership; _key = key; _filters = filters;
         _strings = strings; _streams = streams; _files = files;
         EncryptMetadata = metadata; Permissions = permissions; Authentication = authentication;
+        Revision = revision;
     }
 
     internal bool EncryptMetadata { get; }
     internal int Permissions { get; }
     internal PasswordAuthentication Authentication { get; }
+    internal int Revision { get; }
+    internal int KeyLengthBits => Revision == 6 ? 256 : 128;
 
-    internal static PasswordAuthentication TryCreate(PdfDictionary encryption, ReadOnlySpan<byte> password,
+    internal static PasswordAuthentication TryCreate(PdfDictionary encryption, ReadOnlySpan<byte> identifier, ReadOnlySpan<byte> password,
         ResourceGovernor governor, out DocumentSecurity? security)
     {
         security = null;
         governor.CheckCancellation();
-        if (!PdfDictionaryLookup.TryGet(encryption, "Filter"u8, governor, governor.CancellationToken, out QpdfObject handler)
-            || handler is not PdfName handlerName)
-        { throw new QpdfParseException("An encryption dictionary requires a security-handler name.", null, null); }
-        if (handlerName.RawSpan.SequenceEqual("Standard"u8) is false
-            || ReadInteger(encryption, "V"u8, governor) != 5 || ReadInteger(encryption, "R"u8, governor) != 6)
-        { throw new QpdfSecurityException(QpdfSecurityFailure.UnsupportedHandler); }
+        int revision = ReadSupportedRevision(encryption, governor);
+        int keyBits = revision == 6 ? 256 : 128;
         if (PdfDictionaryLookup.TryGet(encryption, "Length"u8, governor, governor.CancellationToken, out QpdfObject length)
-            && length is not PdfNull && (length is not PdfInteger bits || bits.Value != 256))
-        { throw new QpdfParseException("Invalid revision 6 encryption key length.", null, null); }
+            && length is not PdfNull && (length is not PdfInteger bits || bits.Value != keyBits))
+        { throw new QpdfParseException("Invalid encryption key length for this security revision.", null, null); }
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         byte[]? key = null;
         bool accepted = false;
@@ -70,10 +69,11 @@ internal sealed partial class DocumentSecurity : IDisposable
                     { throw new QpdfParseException("A crypt filter must be a direct dictionary.", null, null); }
                     PdfName method = ReadName(definition, "CFM"u8, PdfName.FromAscii("None"), governor);
                     PdfCipher cipher = method.RawSpan.SequenceEqual("None"u8) ? PdfCipher.Identity
-                        : method.RawSpan.SequenceEqual("AESV3"u8) ? PdfCipher.Aes256 : PdfCipher.Unsupported;
-                    if (cipher == PdfCipher.Aes256 && PdfDictionaryLookup.TryGet(definition, "Length"u8, governor, governor.CancellationToken, out QpdfObject size)
-                        && size is not PdfNull && (size is not PdfInteger count || count.Value != 32))
-                    { throw new QpdfParseException("Invalid AES-256 crypt-filter key length.", null, null); }
+                        : revision == 6 && method.RawSpan.SequenceEqual("AESV3"u8) ? PdfCipher.Aes256
+                        : revision == 4 && method.RawSpan.SequenceEqual("AESV2"u8) ? PdfCipher.Aes128 : PdfCipher.Unsupported;
+                    if (cipher is PdfCipher.Aes128 or PdfCipher.Aes256 && PdfDictionaryLookup.TryGet(definition, "Length"u8, governor, governor.CancellationToken, out QpdfObject size)
+                        && size is not PdfNull && (size is not PdfInteger count || count.Value != keyBits / 8))
+                    { throw new QpdfParseException("Invalid AES crypt-filter key length.", null, null); }
                     PdfName authEvent = ReadName(definition, "AuthEvent"u8, PdfName.FromAscii("DocOpen"), governor);
                     bool embeddedOnly = authEvent.RawSpan.SequenceEqual("EFOpen"u8);
                     if (!embeddedOnly && !authEvent.RawSpan.SequenceEqual("DocOpen"u8))
@@ -86,11 +86,13 @@ internal sealed partial class DocumentSecurity : IDisposable
             PdfCipher streams = Select(filters, streamName, false);
             PdfCipher strings = Select(filters, ReadName(encryption, "StrF"u8, IdentityName, governor), false);
             PdfCipher files = Select(filters, ReadName(encryption, "EFF"u8, streamName, governor), true);
-            key = new byte[32];
-            PasswordAuthentication match = Revision6Encryption.Authenticate(encryption, password, key, governor);
+            key = new byte[keyBits / 8];
+            PasswordAuthentication match = revision == 6
+                ? Revision6Encryption.Authenticate(encryption, password, key, governor)
+                : Revision4Encryption.Authenticate(encryption, identifier, password, key, governor);
             if (match == PasswordAuthentication.None) { return match; }
             bool metadata = ReadMetadata(encryption, governor);
-            security = new(governor, memory, key, filters, strings, streams, files, metadata, ReadInteger(encryption, "P"u8, governor), match);
+            security = new(governor, memory, key, filters, strings, streams, files, metadata, ReadInteger(encryption, "P"u8, governor), match, revision);
             accepted = true;
             return match;
         }

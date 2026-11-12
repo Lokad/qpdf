@@ -5,6 +5,26 @@ namespace Lokad.Qpdf.Security;
 
 internal static class EncryptionDictionary
 {
+    internal static int ReadSupportedRevision(PdfDictionary dictionary, ResourceGovernor governor)
+    {
+        if (!PdfDictionaryLookup.TryGet(dictionary, "Filter"u8, governor, governor.CancellationToken, out QpdfObject raw) || raw is not PdfName handler)
+        { throw new QpdfParseException("An encryption dictionary requires a security-handler name.", null, null); }
+        if (!handler.RawSpan.SequenceEqual("Standard"u8)) { throw new QpdfSecurityException(QpdfSecurityFailure.UnsupportedHandler); }
+        int version = ReadInteger(dictionary, "V"u8, governor);
+        if (version is not (4 or 5)) { throw new QpdfSecurityException(QpdfSecurityFailure.UnsupportedHandler); }
+        int revision = ReadInteger(dictionary, "R"u8, governor);
+        if ((version == 4 && revision == 4) || (version == 5 && revision == 6)) { return revision; }
+        throw new QpdfSecurityException(QpdfSecurityFailure.UnsupportedHandler);
+    }
+
+    internal static ReadOnlySpan<byte> ReadIdentifier(PdfDictionary trailer, ResourceGovernor governor)
+    {
+        if (!PdfDictionaryLookup.TryGet(trailer, "ID"u8, governor, governor.CancellationToken, out QpdfObject raw)
+            || raw is not PdfArray { Count: 2 } array || array[0] is not PdfByteString identifier || array[1] is not PdfByteString)
+        { throw new QpdfParseException("Encrypted inputs require a direct two-string identifier array.", null, null); }
+        return identifier.ValueSpan;
+    }
+
     internal static ReadOnlySpan<byte> ReadBytes(PdfDictionary dictionary, ReadOnlySpan<byte> key, int length, ResourceGovernor governor)
     {
         if (!PdfDictionaryLookup.TryGet(dictionary, key, governor, governor.CancellationToken, out QpdfObject raw)

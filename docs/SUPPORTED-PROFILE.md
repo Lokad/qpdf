@@ -5,12 +5,13 @@ The [option inventory](../tests/Compatibility/options.json) records exact forms,
 combinations and executable evidence; [compatibility](COMPATIBILITY.md) records
 defaults and intentional differences. Accepted syntax alone does not establish support.
 
-`QpdfDocument.OpenAsync` supports AES-256 R6 reading with user or owner credentials,
-including empty passwords. UTF-8 text is not normalized; raw bytes are borrowed
-until opening completes. Both use the first 127 bytes. Missing credentials try
+`QpdfDocument.OpenAsync` supports AES-128 R4 and AES-256 R6 with user or owner
+credentials, including empty passwords. UTF-8 text is not normalized; R4 retries
+PDFDocEncoding when representable. Raw bytes are borrowed until opening completes
+and never reinterpreted. R4 uses the first 32 bytes and R6 uses 127. Missing credentials try
 empty; a failed absent password is distinct from a failed supplied password.
 Encryption facts expose permissions and authentication status without passwords
-or keys. Other revisions, encrypted transforms, output encryption and argv/job
+or keys. RC4 inputs, R5, encrypted transforms, output encryption and argv/job
 password options remain unsupported.
 
 Signed, unencrypted pages can be copied, merged, placed and rewritten.

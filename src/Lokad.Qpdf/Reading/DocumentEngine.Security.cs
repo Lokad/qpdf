@@ -14,7 +14,7 @@ internal sealed partial class DocumentEngine
 
     // Authenticate before loading content. Encryption dictionaries cannot be
     // compressed, and their strings must never pass through ordinary decryption.
-    internal PasswordAuthentication Authenticate(QpdfObject declaration, ReadOnlySpan<byte> password)
+    private PdfDictionary ReadEncryptionDictionary(QpdfObject declaration)
     {
         _governor.CheckCancellation();
         if (_security is not null) { throw new InvalidOperationException("Document security is already installed."); }
@@ -31,10 +31,21 @@ internal sealed partial class DocumentEngine
         }
         if (raw is not PdfDictionary encryption)
         { throw new QpdfParseException("Encrypt must be a dictionary.", null, null); }
-        PasswordAuthentication authentication = DocumentSecurity.TryCreate(encryption, password, _governor, out DocumentSecurity? security);
+        return encryption;
+    }
+
+    internal int GetEncryptionRevision(QpdfObject declaration)
+        => EncryptionDictionary.ReadSupportedRevision(ReadEncryptionDictionary(declaration), _governor);
+
+    internal PasswordAuthentication Authenticate(QpdfObject declaration, ReadOnlySpan<byte> password)
+    {
+        PdfDictionary encryption = ReadEncryptionDictionary(declaration);
+        int revision = EncryptionDictionary.ReadSupportedRevision(encryption, _governor);
+        ReadOnlySpan<byte> identifier = revision == 4 ? EncryptionDictionary.ReadIdentifier(Trailer, _governor) : [];
+        PasswordAuthentication authentication = DocumentSecurity.TryCreate(encryption, identifier, password, _governor, out DocumentSecurity? security);
         if (authentication == PasswordAuthentication.None) { return authentication; }
         _security = security ?? throw new InvalidOperationException("Authentication did not produce a security context.");
-        _encryptionNumber = number;
+        _encryptionNumber = declaration is PdfReference source ? source.ObjectNumber : 0;
         // The exception is for document-level metadata, not every /Metadata
         // stream. Resolve the catalog while other payloads still use defaults.
         if (!_security.EncryptMetadata

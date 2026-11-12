@@ -78,7 +78,7 @@ public sealed partial class QpdfDocument : IAsyncDisposable
 
     /// <summary>Gets non-secret encryption facts, or null for an unencrypted input.</summary>
     public QpdfEncryptionInfo? Encryption => Engine.Security is DocumentSecurity security
-        ? new(6, 256, security.Permissions, security.EncryptMetadata, security.Authentication == PasswordAuthentication.Owner) : null;
+        ? new(security.Revision, security.KeyLengthBits, security.Permissions, security.EncryptMetadata, security.Authentication == PasswordAuthentication.Owner) : null;
 
     /// <summary>Gets an immutable snapshot of the job counters and memory estimates.</summary>
     /// <remarks>The current implementation charges snapshot creation to the document's
@@ -156,8 +156,8 @@ public sealed partial class QpdfDocument : IAsyncDisposable
     /// <summary>Opens an input with per-input credentials and explicit budgets.</summary>
     /// <remarks>A null password tries the empty password and reports PasswordRequired
     /// if it fails. An explicitly empty password instead reports InvalidPassword.
-    /// Modern passwords use UTF-8 or raw bytes, truncated to the first 127 bytes.
-    /// The current authenticated reader supports AES-256 revision 6.</remarks>
+    /// R6 uses the first 127 UTF-8 or raw bytes. R4 uses 32 bytes and can retry
+    /// PDFDocEncoding for text credentials. The reader supports AES-128 R4 and AES-256 R6.</remarks>
     /// <exception cref="ArgumentNullException">Host or limits are null.</exception>
     /// <exception cref="QpdfSecurityException">Credentials fail or the security handler is unsupported.</exception>
     /// <exception cref="QpdfParseException">The input or encryption parameters are malformed.</exception>
