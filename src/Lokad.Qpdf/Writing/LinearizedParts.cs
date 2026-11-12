@@ -656,7 +656,7 @@ internal sealed class LinearizedParts : IDisposable
         for (int i = 0; i < thumbImages.Count; i++)
         {
             GovernedIntSet thumbClosure = GovernedIntSet.Create(temporary, governor, cancellationToken);
-            if (thumbImages[i] > 0 && lookup.TryGetValue(thumbImages[i], out QpdfObject? image) && image is not null)
+            if (thumbImages[i] > 0 && lookup.TryGetValue(thumbImages[i], out QpdfObject? image) && image is not (null or PdfNull))
             {
                 GovernedCollections.AddNumber(temporary, governor, thumbClosure, thumbImages[i]);
                 WalkSubtree(lookup, image, false, thumbClosure, owners, temporary, governor, cancellationToken);
@@ -902,7 +902,7 @@ internal sealed class LinearizedParts : IDisposable
             stack.RemoveAt(stack.Count - 1);
             if (current is PdfReference reference)
             {
-                if (!lookup.TryGetValue(reference.ObjectNumber, out QpdfObject? target) || target is null)
+                if (!lookup.TryGetValue(reference.ObjectNumber, out QpdfObject? target) || target is null or PdfNull)
                 {
                     continue;
                 }
@@ -1061,7 +1061,7 @@ internal sealed class LinearizedParts : IDisposable
             stack.RemoveAt(stack.Count - 1);
             if (current is PdfReference reference)
             {
-                if (!lookup.TryGetValue(reference.ObjectNumber, out QpdfObject? target))
+                if (!lookup.TryGetValue(reference.ObjectNumber, out QpdfObject? target) || target is null or PdfNull)
                 {
                     continue;
                 }

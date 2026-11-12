@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Exclude indirect null values from linearized page and document dependencies,
+  preserving correct hint counts while retaining their physical objects.
 - Copy pages from signed, unencrypted PDFs, including incremental updates, shared
   fields and repeated pages. Retain stored signature appearances, unrelated forms
   and private graph roles while disabling active signature semantics and document
