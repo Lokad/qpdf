@@ -50,6 +50,11 @@ appearance/resource payloads and private aliases use the ordinary graph mapping.
 Placement and JSON publication reuse this policy. Reading and inspection retain
 the original immutable values and do not validate signatures.
 
+The internal revision 6 authentication primitive uses system AES/SHA and bounded,
+cleared derivation scratch, checked against recorded native keys and the
+[ISO 32000-2 algorithm errata](https://pdf-issues.pdfa.org/32000-2-2020/clause07.html#7.6.4.3.4).
+Reader integration is pending; public operations still reject encrypted inputs.
+
 ## Storage and ownership
 
 `IQpdfHost` supplies stable input leases and staged output transactions. Paths are
