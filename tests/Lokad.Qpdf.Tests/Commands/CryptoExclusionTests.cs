@@ -117,10 +117,12 @@ public sealed class CryptoExclusionTests
     public async Task JobNestedPasswordsFail(string section)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        string nested = "{\"file\": \"inputs/a.pdf\", \"password\": \"x\"}";
+        host.AddInput(QpdfPath.From("source.pdf"), await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), "security-r6-ascii.pdf")), QpdfInputOwnership.Copy);
+        string nested = "{\"file\": \"source.pdf\", \"password\": \"x\"}";
         string job = "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"" + section + "\": [" + nested + "]}";
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, job, CancellationToken.None);
-        SingleCryptoError(result, "outputs/a.pdf");
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfDiagnosticCode.InvalidPassword, Assert.Single(result.Diagnostics).Code);
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
     }
 

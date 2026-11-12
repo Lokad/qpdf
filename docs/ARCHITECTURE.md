@@ -59,7 +59,7 @@ The AES payload primitive checks padding before allocating an exact plaintext
 buffer and uses bounded CBC calls so cancellation can interrupt large payloads.
 Its internal encryption counterpart admits exact ciphertext storage, generates a
 fresh random IV for each payload and continues CBC across bounded calls. This is
-the same primitive serves new protection and authenticated preservation.
+the same primitive that serves new protection and authenticated preservation.
 Internal R6 entry creation generates a fresh file key and salts, wraps the key for
 both passwords and encrypts permissions. Recorded native randomness reproduces all
 five dictionary entries exactly; failure clears both caller-owned destinations.
@@ -91,6 +91,9 @@ authenticated primary; repeated secondary paths validate credential consistency.
 Attachment-copy sources use the same authenticated reader with independent
 payload storage. Copied attachment objects join the ordinary output graph before
 the source reader and key are disposed; their protection follows the output owner.
+Placement readers authenticate independently too. Their cache keys include the
+credential representation and value, so reusing a path cannot bypass a later
+password check. Their copied payloads survive source-reader closure.
 Host-file password storage stays alive
 through reader closure, output preparation and publication. JSON updates remain pending.
 Reading and output preparation share direct-string traversal, preserving signature

@@ -63,8 +63,8 @@ internal static class HelpText
           --preserve-unreferenced-resources   keep page resources (same as --remove-unreferenced-resources=no)
           --externalize-inline-images       lift large inline images to XObjects
           --ii-min-bytes=size-in-bytes      inline-image threshold (default 1024)
-          --overlay file [--to=range] [--from=range] [--repeat=range] --  stamp pages on top
-          --underlay file [--to=range] [--from=range] [--repeat=range] --  stamp pages below
+          --overlay file [--password=text] [--to=range] [--from=range] [--repeat=range] --  stamp pages on top
+          --underlay file [--password=text] [--to=range] [--from=range] [--repeat=range] --  stamp pages below
           --flatten-rotation                  bake page rotation into content
           --flatten-annotations=all|print|screen  push annotations into content
           --generate-appearances              regenerate widget appearances
@@ -225,7 +225,8 @@ internal static class HelpText
         PDF transformations preserve primary protection unless decrypt/encrypt selects another policy.
         pages[].password authenticates every occurrence of that secondary file; conflicting credentials reject.
         copyAttachmentsFrom[].password authenticates the attachment source independently.
-        Encrypted JSON updates, legacy encryption creation, password descriptors and overlay passwords remain unsupported.
+        overlay[].password and underlay[].password authenticate each placement source independently.
+        Encrypted JSON updates, legacy encryption creation and password descriptors remain unsupported.
         Other crypto keys are rejected with UnsupportedCryptoOperation. See --help for the argv surface.
         """;
 

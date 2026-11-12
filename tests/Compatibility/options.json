@@ -5250,7 +5250,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary text passwords support AES R4/R6 inspections, JSON export and protection-preserving PDF transformations. Legacy handlers, overlay credentials and encrypted JSON updates remain pending."
+        "Primary text passwords support AES R4/R6 inspections, JSON export and protection-preserving PDF transformations. Legacy handlers and encrypted JSON updates remain pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -5385,7 +5385,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary inspections, JSON export and PDF transformations accept input modes and native hex decoding, with the supported R4 UTF-8 recovery. Other recovery encodings, legacy handlers, overlay credentials and output password conversion remain pending."
+        "Primary inspections, JSON export and PDF transformations accept input modes and native hex decoding, with the supported R4 UTF-8 recovery. Other recovery encodings, legacy handlers and output password conversion remain pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -7010,7 +7010,7 @@
           "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
           "SignedAppearanceTests.PlacementKeepsSignatureArtworkAndTheSharedOrdinaryField",
           "AnnotationCoordinateFailureTests.InvalidRecognizedCoordinatesRefusePublicationAndPrivateFieldsStayOpaque",
-          "OverlayTests.OverlayPasswordIsCrypto",
+          "OverlayPasswordTests.PrimaryPlacementRequiresItsOwnCredential",
           "OverlayDefaultTests.UnusableDefaultsKeepFallbacksAndLocalOverrides",
           "OverlayClippingProfileTests.ClippingRequiresRepresentableStaticArtwork",
           "SourceActionFailureTests.PlacementPreservesSemanticFailureCodesWithoutOptionalRecovery"
@@ -7599,20 +7599,29 @@
           "source": "manual/cli.rst:390"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "AES R4/R6 placement credentials support transformations and transformed inspections, including global password modes and independent authentication of distinct credentials for repeated paths. Legacy handlers, broader encoding recovery and canonical native-reference qualification remain pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobNestedPasswordsFail"
+        "positive": [
+          "OverlayPasswordTests.PlacementCredentialsKeepTheRequestedOutputProtection",
+          "OverlayPasswordTests.HexOwnerPasswordsUseTheSharedDecoder",
+          "OverlayPasswordTests.AbsentCredentialsOpenEmptyPasswordPlacementSources"
         ],
-        "interaction": [],
-        "resource": [],
+        "negative": [
+          "CryptoExclusionTests.JobNestedPasswordsFail",
+          "OverlayPasswordTests.PrimaryPlacementRequiresItsOwnCredential"
+        ],
+        "interaction": [
+          "OverlayPasswordTests.RepeatedSourcesAuthenticateEachDistinctCredential",
+          "OverlayPasswordTests.TransformedInspectionAuthenticatesPlacementSources"
+        ],
+        "resource": [
+          "OverlayPasswordTests.EveryPlacementAdmissionRefusalRefundsBeforeEncryptedPublication"
+        ],
         "oracle": []
       }
     },

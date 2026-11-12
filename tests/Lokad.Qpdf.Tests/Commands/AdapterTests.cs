@@ -232,12 +232,13 @@ public sealed class AdapterTests
             CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.UnsupportedCryptoOperation, SingleError(encrypt).Code);
 
+        host.AddInput(QpdfPath.From("protected.pdf"), await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), "security-r6-ascii.pdf")), QpdfInputOwnership.Copy);
         QpdfExecutionResult password = await Qpdf.ExecuteJobAsync(
             host,
-            """{"inputFile": "inputs/a.pdf", "outputFile": "o.pdf", "overlay": [{"file": "inputs/a.pdf", "password": "s3cret"}]}""",
+            """{"inputFile": "inputs/a.pdf", "outputFile": "o.pdf", "overlay": [{"file": "protected.pdf", "password": "s3cret"}]}""",
             CancellationToken.None);
         QpdfDiagnostic diagnostic = SingleError(password);
-        Assert.Equal(QpdfDiagnosticCode.UnsupportedCryptoOperation, diagnostic.Code);
+        Assert.Equal(QpdfDiagnosticCode.InvalidPassword, diagnostic.Code);
         Assert.DoesNotContain("s3cret", diagnostic.Message, StringComparison.Ordinal);
     }
 

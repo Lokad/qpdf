@@ -2579,6 +2579,7 @@ internal static class ArgvParser
         string? to = null;
         string? from = null;
         string? repeat = null;
+        string? password = null;
         bool seenFile = false;
         bool seenTo = false;
         bool seenFrom = false;
@@ -2590,6 +2591,15 @@ internal static class ArgvParser
             {
                 throw new QpdfParseException("Null argument.", cursor, null);
             }
+
+            if (token.StartsWith("--password=", StringComparison.Ordinal))
+            {
+                password = ConfigurationText.Slice(argv, token, "--password=".Length);
+                cursor++;
+                continue;
+            }
+            if (token == "--password")
+            { throw new QpdfParseException("Option --password requires =password.", cursor, null); }
 
             if (token == "--file")
             {
@@ -2694,7 +2704,7 @@ internal static class ArgvParser
         }
 
         cursor += 1;
-        return new OverlaySpec(file, to, from, repeat);
+        return new OverlaySpec(file, to, from, repeat) { PasswordText = password };
     }
 
     private static string TakeOverlayRange(IReadOnlyList<string> argv, ref int cursor)

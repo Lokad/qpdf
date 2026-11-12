@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Accept independent AES R4/R6 credentials for overlay/underlay sources in argv
+  and job JSON, including transformed inspections and global password modes.
+  Authenticate distinct credentials for repeated files before reusing placement
+  graphs; preserve the requested primary/output protection.
 - Exclude indirect null values from linearized page and document dependencies,
   preserving correct hint counts while retaining their physical objects.
 - Copy pages from signed, unencrypted PDFs, including incremental updates, shared
@@ -15,7 +19,7 @@
   R4 text passwords can retry PDFDocEncoding; raw passwords remain exact bytes.
   Typed structural checks accept `QpdfCheckOptions.Password` and inspect the decrypted graph.
   Output-free argv/job inspections accept primary text passwords with distinct missing/invalid
-  credential diagnostics. Overlay credentials remain unsupported.
+  credential diagnostics.
 - Preserve AES R4/R6 protection during typed single-source page selection, with
   text/raw user or owner credentials, empty passwords, repeated pages and rotations.
   Derived output retains both passwords, permissions and metadata policy. Explicit
@@ -28,7 +32,7 @@
   preserve supported primary protection through selection, merge/split, compression,
   object streams, QDF, linearization and attachment edits. Retain protection when
   the primary contributes no selected pages. Shared typed attachment edits also
-  preserve empty-password inputs. Template copying, overlay credentials
+  preserve empty-password inputs. Template copying
   and encrypted JSON updates remain unsupported.
 - Add `--decrypt` / `decrypt` for authenticated AES R4/R6 PDF transformations,
   including split and linearized output. Preserve prior output on authentication

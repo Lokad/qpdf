@@ -85,7 +85,8 @@ internal static class Overlays
         }
 
         using ParserMemoryScope planning = ParserMemoryScope.Create(governor);
-        Dictionary<string, OverlaySource> sources = ParserContainers.CreateDictionary<string, OverlaySource>(planning);
+        planning.Reserve(120L);
+        Dictionary<SourceKey, OverlaySource> sources = new(new SourceComparer(governor));
         try
         {
             int allocator = nextId;
@@ -218,7 +219,7 @@ internal static class Overlays
         }
     }
 
-    private static int MaxAllocator(int allocator, Dictionary<string, OverlaySource> sources)
+    private static int MaxAllocator(int allocator, Dictionary<SourceKey, OverlaySource> sources)
     {
         foreach (OverlaySource source in sources.Values)
         {
@@ -232,6 +233,20 @@ internal static class Overlays
     }
 
     internal sealed record OverlaySource(QpdfDocument Document, GraphCopier Copier, int PageCount, AcroFormCopy.OverlaySourceForm? FormInfo, HashSet<string> ImportNotes);
+
+    private readonly record struct SourceKey(string Path, QpdfPassword? Password);
+
+    // Reuse only the same logical input and credential. A second credential must
+    // authenticate independently, even when an earlier placement opened this file.
+    private sealed class SourceComparer(ResourceGovernor governor) : IEqualityComparer<SourceKey>
+    {
+        public bool Equals(SourceKey left, SourceKey right)
+            => StringComparer.Ordinal.Equals(left.Path, right.Path)
+                && (ReferenceEquals(left.Password, right.Password)
+                    || (left.Password is not null && right.Password is not null
+                        && left.Password.HasSameInput(right.Password, governor)));
+        public int GetHashCode(SourceKey key) => StringComparer.Ordinal.GetHashCode(key.Path);
+    }
 
     private sealed record PageBundle(QpdfObject? Resources, QpdfObject? Group, QpdfObject BoxObject, double[] Box, byte[] Content, long Rotate, double UserUnit, bool HasTransform, bool DeferredCopy);
 
@@ -297,7 +312,7 @@ internal static class Overlays
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
-        Dictionary<string, OverlaySource> sources,
+        Dictionary<SourceKey, OverlaySource> sources,
         GovernedIntDictionary<List<OverlayPlacement>> pages,
         ParserMemoryScope planning,
         ParserMemoryScope ownership,
@@ -310,9 +325,11 @@ internal static class Overlays
         }
 
         QpdfPath path = spec.File == "." ? primaryInput : SelectionPlan.CheckedPath(spec.File);
-        if (!sources.TryGetValue(path.Value, out OverlaySource? source))
+        SourceKey key = new(path.Value, spec.Password);
+        if (!sources.TryGetValue(key, out OverlaySource? source))
         {
-            QpdfDocument opened = await QpdfDocument.OpenCore(host, path, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
+            QpdfDocument opened = await QpdfDocument.OpenInspectionCore(host, path, spec.Password,
+                limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
             try
             {
                 int count = opened.PageReferences.Count;
@@ -332,9 +349,9 @@ internal static class Overlays
 
                 GraphCopier copier = GraphCopier.CreateOwned(opened.Engine, governor, limits, firstId, ownership);
                 planning.Reserve(160L);
-                ParserContainers.EnsureEntryCapacity(planning, sources, IntPtr.Size);
+                ParserContainers.EnsureEntryCapacity(planning, sources, 2L * IntPtr.Size);
                 source = new OverlaySource(opened, copier, count, null, new HashSet<string>(StringComparer.Ordinal));
-                sources[path.Value] = source;
+                sources[key] = source;
             }
             catch
             {
@@ -367,7 +384,7 @@ internal static class Overlays
                 { diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Info, "Ignoring a direct object as a field or annotation while importing overlay form fields."); }
                 planning.Reserve(64L);
                 source = source with { FormInfo = formInfo };
-                sources[path.Value] = source;
+                sources[key] = source;
             }
         }
 

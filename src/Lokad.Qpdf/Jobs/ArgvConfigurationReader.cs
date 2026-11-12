@@ -82,6 +82,7 @@ internal static partial class ArgvConfigurationReader
                     Optional(overlayFields, "to", overlay.To);
                     Optional(overlayFields, "from", overlay.From);
                     Optional(overlayFields, "repeat", overlay.Repeat);
+                    Optional(overlayFields, "password", overlay.PasswordText);
                     setting(name is "underlay" ? "underlay" : "overlay", new[] { overlayFields });
                     continue;
                 case "add-attachment":

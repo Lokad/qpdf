@@ -1194,6 +1194,8 @@ internal static partial class JobJsonParser
             }
             if (isEncrypted && requiresPassword)
             { throw new QpdfParseException("isEncrypted and requiresPassword are mutually exclusive.", 0L, null); }
+            PrepareOverlayPasswords(overlays, passwordMode, suppressPasswordRecovery, textStorage, governor);
+            PrepareOverlayPasswords(underlays, passwordMode, suppressPasswordRecovery, textStorage, governor);
             for (int index = 0; index < attachmentsToCopy.Count; index++)
             {
                 governor.CheckCancellation();
@@ -2565,6 +2567,7 @@ internal static partial class JobJsonParser
         string? to = null;
         string? from = null;
         string? repeat = null;
+        string? password = null;
         foreach (JsonProperty property in EffectiveProperties(entry))
         {
             switch (property.Name)
@@ -2585,7 +2588,8 @@ internal static partial class JobJsonParser
                     OverlayRanges.ValidateSyntax(repeat, "--repeat", 0L);
                     break;
                 case "password":
-                    throw new QpdfCryptoException("password");
+                    password = RequireString(property.Value, role + ".password", textStorage);
+                    break;
                 default:
                     throw new QpdfParseException("Unsupported overlay key.", 0L, null);
             }
@@ -2596,7 +2600,20 @@ internal static partial class JobJsonParser
             throw new QpdfParseException("Job overlay entries require file.", 0L, null);
         }
 
-        return new OverlaySpec(file, to, from, repeat);
+        return new OverlaySpec(file, to, from, repeat) { PasswordText = password };
+    }
+
+    private static void PrepareOverlayPasswords(List<OverlaySpec> specs, string? mode, bool suppressRecovery,
+        ConfigurationText textStorage, ResourceGovernor governor)
+    {
+        for (int index = 0; index < specs.Count; index++)
+        {
+            governor.CheckCancellation();
+            OverlaySpec spec = specs[index];
+            if (spec.PasswordText is not string password) { continue; }
+            textStorage.Memory.Reserve(64L);
+            specs[index] = spec with { PasswordText = null, Password = ParseSourcePassword(password, mode, suppressRecovery, textStorage) };
+        }
     }
 
     private static List<PdfPageSource> ParsePageSources(List<(string File, string? Range, string? Password)> entries,

@@ -697,24 +697,29 @@ QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvoca
 Assert.Equal(QpdfDiagnosticCode.HostOperationFailed, SingleError(result).Code);
 }
 [Fact]
-public async Task OverlayPasswordIsCrypto()
+public async Task OverlayPasswordIsIgnoredForPlaintextSources()
 {
 byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
 byte[] overlay = BuildPdf(new List<string> { "BT (Stamp) Tj ET" });
 InMemoryQpdfHost host = HostWithTwo(primary, overlay);
 List<string> argv = new() { "inputs/a.pdf", "--overlay", "inputs/o.pdf", "--password=secret", "--", "--", "outputs/a.pdf" };
 QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
-Assert.Equal(QpdfDiagnosticCode.UnsupportedCryptoOperation, SingleError(result).Code);
+Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+Assert.Equal(new HashSet<string>(["Stamp"]), await OverlayMarkersOnPageAsync(pdf, 0));
 }
 
 [Fact]
-public async Task JobOverlayPasswordIsCrypto()
+public async Task JobOverlayPasswordIsIgnoredForPlaintextSources()
 {
 byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
 byte[] overlay = BuildPdf(new List<string> { "BT (Stamp) Tj ET" });
 string job = """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "overlay": [{"file": "inputs/o.pdf", "password": "x"}]}""";
-QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(HostWithTwo(primary, overlay), job, CancellationToken.None);
-Assert.Equal(QpdfDiagnosticCode.UnsupportedCryptoOperation, SingleError(result).Code);
+InMemoryQpdfHost host = HostWithTwo(primary, overlay);
+QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, job, CancellationToken.None);
+Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+Assert.Equal(new HashSet<string>(["Stamp"]), await OverlayMarkersOnPageAsync(pdf, 0));
 }
 
 [Fact]

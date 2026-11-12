@@ -2,7 +2,12 @@ using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Commands;
 
-internal sealed record OverlaySpec(string File, string? To, string? From, string? Repeat);
+internal sealed record OverlaySpec(string File, string? To, string? From, string? Repeat)
+{
+    internal string? PasswordText { get; init; }
+    internal QpdfPassword? Password { get; init; }
+    public override string ToString() => "OverlaySpec [credential redacted]";
+}
 
 internal static class OverlayRanges
 {

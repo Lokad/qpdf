@@ -79,6 +79,28 @@ internal static class PasswordReaderChecks
         _ = await Qpdf.ExtractAttachmentAsync(host, QpdfPath.From("attachment-copy-input.pdf"), "copy-private.bin", QpdfPath.From("copied-payload.bin"), CancellationToken.None);
         Check(host.TryGetOutput(QpdfPath.From("copied-payload.bin"), out byte[] copiedPayload)
             && copiedPayload.AsSpan().SequenceEqual("Private attachment payload.\n"u8), "independently encrypted attachment payload");
+        QpdfExecutionResult placement = await Qpdf.ExecuteAsync(host, new([encrypted.Value, "placement.pdf", "--password=reader",
+            "--overlay", legacy.Value, "--password=café•", "--", "--linearize", "--object-streams=generate"]), CancellationToken.None);
+        Check(placement.Status == QpdfExecutionStatus.Completed, "independent placement credentials");
+        Check(host.TryGetOutput(QpdfPath.From("placement.pdf"), out byte[] placementBytes), "protected placement publication");
+        QpdfPath placedInput = QpdfPath.From("placed-input.pdf"); host.AddInput(placedInput, placementBytes, QpdfInputOwnership.Copy);
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, placedInput, QpdfPassword.FromText("fixture-owner"), QpdfLimits.Default, CancellationToken.None))
+        { Check(document.PageCount == 1 && document.Encryption?.Revision == 6, "placement preserves primary protection"); }
+        QpdfExecutionResult placedJson = await Qpdf.ExecuteAsync(host, new([placedInput.Value, "--password=reader", "--json", "--json-key=qpdf",
+            "--json-stream-data=inline", "--", "placed.json"]), CancellationToken.None);
+        Check(placedJson.Status == QpdfExecutionStatus.Completed && host.TryGetOutput(QpdfPath.From("placed.json"), out _), "placement content inspection");
+        Check(host.TryGetOutput(QpdfPath.From("placed.json"), out byte[] placedJsonBytes), "placement JSON publication");
+        using (JsonDocument document = JsonDocument.Parse(placedJsonBytes))
+        {
+            int forms = 0;
+            foreach (JsonProperty property in document.RootElement.GetProperty("qpdf")[1].EnumerateObject())
+            {
+                if (!property.Value.TryGetProperty("stream", out JsonElement stream)
+                    || !stream.GetProperty("dict").TryGetProperty("/Subtype", out JsonElement subtype) || subtype.GetString() != "/Form") { continue; }
+                forms++; Check(Encoding.ASCII.GetString(Convert.FromBase64String(stream.GetProperty("data").GetString() ?? "")).Contains("(Page)", StringComparison.Ordinal), "decrypted placement payload");
+            }
+            Check(forms == 2, "primary and placement forms retained");
+        }
         QpdfOutputEncryption newProtection = QpdfOutputEncryption.CreateAes256(QpdfPassword.FromText("writer-reader"),
             QpdfPassword.FromBytes("writer-owner"u8.ToArray()), -3388, false);
         QpdfPath created = QpdfPath.From("created.pdf");
