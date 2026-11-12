@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Read and preserve legacy AES-256 R5 inputs with user or owner passwords, including
+  empty, non-ASCII and truncated credentials. Reuse shared AES payload handling,
+  template copying and writers; newly requested encryption remains R6.
 - Resolve `--password-file=-` through the host's logical `"-"` input, sharing
   bounded first-line decoding, credential ownership and cancellation with files.
 - Authenticate argv/job attachment and raw/filtered stream extraction with explicit

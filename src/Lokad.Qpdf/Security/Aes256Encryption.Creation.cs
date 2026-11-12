@@ -4,7 +4,7 @@ using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Security;
 
-internal static partial class Revision6Encryption
+internal static partial class Aes256Encryption
 {
     // Entries are U (48), O (48), UE (32), OE (32), Perms (16). The caller
     // admits and owns both destinations; no password or scratch escapes.
@@ -44,12 +44,12 @@ internal static partial class Revision6Encryption
             Span<byte> user = entries[..48], owner = entries.Slice(48, 48);
             randomness.Slice(32, 16).CopyTo(user[32..]);
             randomness.Slice(48, 16).CopyTo(owner[32..]);
-            Hash(userPassword, user.Slice(32, 8), [], user[..32], governor);
-            Hash(userPassword, user.Slice(40, 8), [], hash, governor);
+            HashRevision6(userPassword, user.Slice(32, 8), [], user[..32], governor);
+            HashRevision6(userPassword, user.Slice(40, 8), [], hash, governor);
             using Aes aes = Aes.Create(); aes.SetKey(hash);
             _ = aes.EncryptCbc(fileKey, iv, entries.Slice(96, 32), PaddingMode.None);
-            Hash(ownerPassword, owner.Slice(32, 8), user, owner[..32], governor);
-            Hash(ownerPassword, owner.Slice(40, 8), user, hash, governor);
+            HashRevision6(ownerPassword, owner.Slice(32, 8), user, owner[..32], governor);
+            HashRevision6(ownerPassword, owner.Slice(40, 8), user, hash, governor);
             aes.SetKey(hash);
             _ = aes.EncryptCbc(fileKey, iv, entries.Slice(128, 32), PaddingMode.None);
             BinaryPrimitives.WriteInt32LittleEndian(clearPermissions, permissions);

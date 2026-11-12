@@ -158,8 +158,8 @@ public static partial class Qpdf
         string? forcedVersion, ResourceGovernor governor)
     {
         if (security is null) { return; }
-        int minor = security.Revision == 6 ? 7 : 6;
-        int requiredExtension = security.Revision == 6 ? 8 : 0;
+        int minor = security.Revision >= 5 ? 7 : 6;
+        int requiredExtension = security.Revision == 6 ? 8 : security.Revision == 5 ? 3 : 0;
         int order = PdfVersion.CompareParts(version.Major, version.Minor, 1, minor);
         if (forcedVersion is not null && (order < 0 || order == 0 && extension < requiredExtension))
         { throw new QpdfUnsupportedFeatureException("The forced PDF version cannot support the requested output encryption."); }

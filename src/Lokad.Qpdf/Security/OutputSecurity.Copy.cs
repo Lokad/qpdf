@@ -14,7 +14,7 @@ internal sealed partial class OutputSecurity
         ReadOnlySpan<byte> identifier, EncryptionParameters parameters, ResourceGovernor governor)
     {
         int revision = parameters.Revision;
-        if (revision is not (4 or 6) || fileKey.Length != (revision == 6 ? 32 : 16))
+        if (revision is not (4 or 5 or 6) || fileKey.Length != (revision >= 5 ? 32 : 16))
         { throw new ArgumentException("An authenticated AES file key is required."); }
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         byte[]? key = null;
@@ -32,10 +32,10 @@ internal sealed partial class OutputSecurity
                 identifier.Slice(offset, count).CopyTo(copiedIdentifier.AsSpan(offset, count));
                 offset += count;
             }
-            int entryLength = revision == 6 ? 48 : 32;
+            int entryLength = revision >= 5 ? 48 : 32;
             ReadBytes(encryption, "U"u8, entryLength, governor).CopyTo(values);
             ReadBytes(encryption, "O"u8, entryLength, governor).CopyTo(values[entryLength..]);
-            if (revision == 6)
+            if (revision >= 5)
             {
                 ReadBytes(encryption, "UE"u8, 32, governor).CopyTo(values[96..]);
                 ReadBytes(encryption, "OE"u8, 32, governor).CopyTo(values[128..]);

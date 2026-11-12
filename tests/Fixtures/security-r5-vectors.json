@@ -1,0 +1,78 @@
+[
+  {
+    "file": "security-r5-ascii.pdf",
+    "userHex": "726561646572",
+    "ownerHex": "666978747572652D6F776E6572",
+    "fileKeyHex": "e545a89f57b6e2d42ca9eb7bd00578aa5f8e1c6e0bed1b16bdfc9b1f63de300b",
+    "dictionary": "<< /CF << /StdCF << /AuthEvent /DocOpen /CFM /AESV3 /Length 32 >> >> /Filter /Standard /Length 256 /O <e2a253b267af84051a5a1d714037942b28db133e10be0583e5076f01f5c86ef28c6c81863018532a536850d93d2868b6> /OE <ec84b086fa4ccaa6602a82ae391e38f38d1fc7a82fca95401a16b5499c273a2a> /P -3388 /Perms <cda22ce836eba4ee1f73550aa26590a9> /R 5 /StmF /StdCF /StrF /StdCF /U <67b5229d22c019b7f5872a8a5443b1836a03996db831b8f8b38202b9434643655c16f41115ce2e04be7dc50116916970> /UE <49daaad45298389e9286eea58c3d06649cc832e22cfce6959011e730c6a7fcda> /V 5 >>",
+    "streams": [
+      {
+        "number": 2,
+        "plainBase64": "eJxNjD0LwkAQRHt/xZSmuo9cDEq4QtNJIAQrxeIwiwQkJ7kLxH/vJiq4U2wxb14KCQNjkEGl2aooIA5+7CMUxLFrAy5cSzS4QpxeT4Ko3Z0CrP2yfaQ+BuQLJCpqO7f3E88kZ6M08q2ex7UbGET64RoKfhxuLGKLtf/un7rybekiYV3utNRGKs5y54TxLj64Wt6JppjMqzf0HTXG"
+      },
+      {
+        "number": 6,
+        "plainBase64": "eJyzsa8oSEzOTi1RSEpNz8yzVapQsrezqbCqyC3ITS1JtPMFEjb6CD4Am7ERDQ=="
+      },
+      {
+        "number": 7,
+        "plainBase64": "eJxzClHQCEhMT9VUCMlScA0BACBvBBw="
+      }
+    ]
+  },
+  {
+    "file": "security-r5-empty.pdf",
+    "userHex": "",
+    "ownerHex": "666978747572652D6F776E6572",
+    "fileKeyHex": "12ef3e704517662c238e4a90f561db0911862217df2504bd517b3f61497c0777",
+    "dictionary": "<< /CF << /StdCF << /AuthEvent /DocOpen /CFM /AESV3 /Length 32 >> >> /EncryptMetadata false /Filter /Standard /Length 256 /O <1b06c639171480b9d0d243cff847ec901886001f4e5f4f72d48a85e07b44f56a35277d738acbc74db880b70dccd25d1e> /OE <d3da34b49360e4beb050bae8bff0e5279726e31938c752d90ef51a11974f48d5> /P -3388 /Perms <dfac7bca0f4239fbd5806b28ebd76b78> /R 5 /StmF /StdCF /StrF /StdCF /U <8a05cdc78232918579312d7ce6a7e447a6bea47427c39b6c3a7bfc5cd797332f83fc584a2b836c6c62aa8002624e5e9b> /UE <f9c09b0a0fd5f03255632870889ee471ea0f5f201be5e9dc2aeee2564559d67b> /V 5 >>",
+    "streams": [
+      {
+        "number": 2,
+        "plainBase64": "eJxNjD0LwkAQRHt/xZSmuo9cDEq4QtNJIAQrxeIwiwQkJ7kLxH/vJiq4U2wxb14KCQNjkEGl2aooIA5+7CMUxLFrAy5cSzS4QpxeT4Ko3Z0CrP2yfaQ+BuQLJCpqO7f3E88kZ6M08q2ex7UbGET64RoKfhxuLGKLtf/un7rybekiYV3utNRGKs5y54TxLj64Wt6JppjMqzf0HTXG"
+      },
+      {
+        "number": 7,
+        "plainBase64": "eJxzClHQCEhMT9VUCMlScA0BACBvBBw="
+      }
+    ]
+  },
+  {
+    "file": "security-r5-utf8.pdf",
+    "userHex": "636166C3A92DCF802DE5AF86E7A2BC",
+    "ownerHex": "70726F707269C3A974616972652DCE94",
+    "fileKeyHex": "6cd2f56567f6634509c43f8505010d4405d5daea74d3ccbe0f039e3bedcd52c8",
+    "dictionary": "<< /CF << /StdCF << /AuthEvent /DocOpen /CFM /AESV3 /Length 32 >> >> /Filter /Standard /Length 256 /O <86152c294e938e65244ca29b8acd75d2315ed92ebf079a2758533b8ae9b481c89c44d19ac32e2911793abe8255d07eb0> /OE <aa27e3d796479b2d3be948641c23f5ece4ce0ebfd42a3e3907463c84a8e117d7> /P -3388 /Perms <b2cc473c09543ba73c64eaaa4a492443> /R 5 /StmF /StdCF /StrF /StdCF /U <99fb148254415fd2fca7c8dab1ba374a3964a864a6e3133f7fd567a6a2401b3573d4becedb8130b3cf662d708e6d0627> /UE <770f85b037797a9a27b5e82d1d3058dde93fcd8913fa622a7443f10c8da5e0bc> /V 5 >>",
+    "streams": [
+      {
+        "number": 2,
+        "plainBase64": "eJxNjD0LwkAQRHt/xZSmuo9cDEq4QtNJIAQrxeIwiwQkJ7kLxH/vJiq4U2wxb14KCQNjkEGl2aooIA5+7CMUxLFrAy5cSzS4QpxeT4Ko3Z0CrP2yfaQ+BuQLJCpqO7f3E88kZ6M08q2ex7UbGET64RoKfhxuLGKLtf/un7rybekiYV3utNRGKs5y54TxLj64Wt6JppjMqzf0HTXG"
+      },
+      {
+        "number": 6,
+        "plainBase64": "eJyzsa8oSEzOTi1RSEpNz8yzVapQsrezqbCqyC3ITS1JtPMFEjb6CD4Am7ERDQ=="
+      },
+      {
+        "number": 7,
+        "plainBase64": "eJxzClHQCEhMT9VUCMlScA0BACBvBBw="
+      }
+    ]
+  },
+  {
+    "file": "security-r5-truncated.pdf",
+    "userHex": "787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878C3A92D656E64696E67",
+    "ownerHex": "6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D",
+    "fileKeyHex": "abc999554fc4d4d4f7270e5a2a0674e64155c87f66fa6eee7f965ad5d1288b0b",
+    "dictionary": "<< /CF << /StdCF << /AuthEvent /DocOpen /CFM /AESV3 /Length 32 >> >> /EncryptMetadata false /Filter /Standard /Length 256 /O <556a9d212434fb3b27a4b5d80fced18dcb6e8a4f1b11d19461770fd888c99fad6c57e9506037ddea83e915f758e1f842> /OE <54a3752b5ecdb390767731fc66c7d0e1544ebe6161b44ed63edf9557dd5aa201> /P -3388 /Perms <7419781671a6e925461231f5509d8112> /R 5 /StmF /StdCF /StrF /StdCF /U <b398bd755db41a542de005f5baefd0fca7e0dbb2705d7f7c9ebe972030a90ca35534e38c98066bd9db396bac961ffa40> /UE <2df9915dff0d49cb3b572b548cf379d9d31bf6ddad377b772a1767347d62dca2> /V 5 >>",
+    "streams": [
+      {
+        "number": 2,
+        "plainBase64": "eJxNjD0LwkAQRHt/xZSmuo9cDEq4QtNJIAQrxeIwiwQkJ7kLxH/vJiq4U2wxb14KCQNjkEGl2aooIA5+7CMUxLFrAy5cSzS4QpxeT4Ko3Z0CrP2yfaQ+BuQLJCpqO7f3E88kZ6M08q2ex7UbGET64RoKfhxuLGKLtf/un7rybekiYV3utNRGKs5y54TxLj64Wt6JppjMqzf0HTXG"
+      },
+      {
+        "number": 7,
+        "plainBase64": "eJxzClHQCEhMT9VUCMlScA0BACBvBBw="
+      }
+    ]
+  }
+]

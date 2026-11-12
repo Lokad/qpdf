@@ -13,7 +13,7 @@ internal static class EncryptionDictionary
         int version = ReadInteger(dictionary, "V"u8, governor);
         if (version is not (4 or 5)) { throw new QpdfSecurityException(QpdfSecurityFailure.UnsupportedHandler); }
         int revision = ReadInteger(dictionary, "R"u8, governor);
-        if ((version == 4 && revision == 4) || (version == 5 && revision == 6)) { return revision; }
+        if ((version == 4 && revision == 4) || (version == 5 && revision is 5 or 6)) { return revision; }
         throw new QpdfSecurityException(QpdfSecurityFailure.UnsupportedHandler);
     }
 

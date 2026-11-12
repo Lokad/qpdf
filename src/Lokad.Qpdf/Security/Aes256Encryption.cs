@@ -9,10 +9,11 @@ namespace Lokad.Qpdf.Security;
 
 internal enum PasswordAuthentication : byte { None, User, Owner }
 
-// ISO 32000-2 algorithms 2.A, 2.B and 13, including the published 2.B/ECB errata.
+// R5 follows Adobe ExtensionLevel 3; R6 follows ISO 32000-2 algorithms
+// 2.A, 2.B and 13, including the published 2.B/ECB errata.
 // Password encoding belongs to the entry point. These routines consume bytes,
 // truncate to 127 bytes, and never normalize or retain the caller's password.
-internal static partial class Revision6Encryption
+internal static partial class Aes256Encryption
 {
     internal static PasswordAuthentication Authenticate(PdfDictionary encryption,
         ReadOnlySpan<byte> password, Span<byte> fileKey, ResourceGovernor governor)
@@ -20,6 +21,8 @@ internal static partial class Revision6Encryption
         if (fileKey.Length != 32) { throw new ArgumentException("A 256-bit key destination is required.", nameof(fileKey)); }
         fileKey.Clear();
         governor.CheckCancellation();
+        int revision = ReadInteger(encryption, "R"u8, governor);
+        if (revision is not (5 or 6)) { throw new QpdfSecurityException(QpdfSecurityFailure.UnsupportedHandler); }
         ReadOnlySpan<byte> user = ReadBytes(encryption, "U"u8, 48, governor);
         ReadOnlySpan<byte> owner = ReadBytes(encryption, "O"u8, 48, governor);
         ReadOnlySpan<byte> userKey = ReadBytes(encryption, "UE"u8, 32, governor);
@@ -36,20 +39,20 @@ internal static partial class Revision6Encryption
         bool accepted = false;
         try
         {
-            Hash(password, owner.Slice(32, 8), user, hash, governor);
+            Hash(password, owner.Slice(32, 8), user, hash, revision, governor);
             PasswordAuthentication match;
             ReadOnlySpan<byte> encryptedKey;
             if (CryptographicOperations.FixedTimeEquals(hash, owner[..32]))
             {
                 match = PasswordAuthentication.Owner; encryptedKey = ownerKey;
-                Hash(password, owner.Slice(40, 8), user, hash, governor);
+                Hash(password, owner.Slice(40, 8), user, hash, revision, governor);
             }
             else
             {
-                Hash(password, user.Slice(32, 8), [], hash, governor);
+                Hash(password, user.Slice(32, 8), [], hash, revision, governor);
                 if (!CryptographicOperations.FixedTimeEquals(hash, user[..32])) { return PasswordAuthentication.None; }
                 match = PasswordAuthentication.User; encryptedKey = userKey;
-                Hash(password, user.Slice(40, 8), [], hash, governor);
+                Hash(password, user.Slice(40, 8), [], hash, revision, governor);
             }
             governor.CheckCancellation();
             using Aes aes = Aes.Create();
@@ -75,7 +78,25 @@ internal static partial class Revision6Encryption
         }
     }
 
-    internal static void Hash(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt,
+    private static void Hash(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt,
+        ReadOnlySpan<byte> user, Span<byte> destination, int revision, ResourceGovernor governor)
+    {
+        if (revision == 6) { HashRevision6(password, salt, user, destination, governor); return; }
+        // Authentication already funds system hash state. These spans have fixed
+        // lengths from the validated U/O entries; no password-sized allocation.
+        governor.CheckCancellation();
+        password = password[..Math.Min(password.Length, 127)];
+        Span<byte> seed = stackalloc byte[127 + 8 + 48];
+        try
+        {
+            password.CopyTo(seed); salt.CopyTo(seed[password.Length..]); user.CopyTo(seed[(password.Length + salt.Length)..]);
+            _ = SHA256.HashData(seed[..(password.Length + salt.Length + user.Length)], destination);
+            governor.CheckCancellation();
+        }
+        finally { CryptographicOperations.ZeroMemory(seed); }
+    }
+
+    private static void HashRevision6(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt,
         ReadOnlySpan<byte> user, Span<byte> destination, ResourceGovernor governor)
     {
         if (salt.Length != 8 || (user.Length != 0 && user.Length != 48) || destination.Length != 32)

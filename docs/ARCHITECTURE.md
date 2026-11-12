@@ -65,7 +65,11 @@ both passwords and encrypts permissions. Recorded native randomness reproduces a
 five dictionary entries exactly; failure clears both caller-owned destinations.
 A prepared output security owner holds the generated key and admitted encryption
 dictionary, clears the key on disposal and funds ciphertext under the caller's owner.
-An authenticated R4/R6 reader can also prepare an independent output owner, copying
+R5 authentication shares the AES-256 key and permission checks, using the bounded
+SHA-256 password hash from [Adobe ExtensionLevel 3](https://pdfa.org/resource/pdf-specification-archive/).
+R5 input and preserved/copied output use the same reader and writers; new encryption
+still creates R6. Preserved R5 output requires PDF 1.7 extension level 3.
+An authenticated R4/R5/R6 reader can also prepare an independent output owner, copying
 the first identifier and both password entries without retaining either password.
 The copied key and dictionary survive source disposal; crypt filters normalize to
 AES for output, matching pinned qpdf. Writers reject a changed first identifier

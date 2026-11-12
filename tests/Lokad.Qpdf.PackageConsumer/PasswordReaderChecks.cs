@@ -71,6 +71,16 @@ internal static class PasswordReaderChecks
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, plainInput, CancellationToken.None))
         { Check(document.PageCount == 1 && document.Encryption is null, "explicitly removed protection"); }
         QpdfPath attachmentSource = Add("security-r4-attachment.pdf");
+        QpdfPath revision5 = Add("security-r5-ascii.pdf");
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, revision5, QpdfPassword.FromText("reader"), QpdfLimits.Default, CancellationToken.None))
+        { Check(document.PageCount == 1 && document.Encryption?.Revision == 5, "legacy AES-256 opening"); }
+        QpdfPath revision5Output = QpdfPath.From("revision5-template.pdf");
+        _ = await Qpdf.SelectPageAsync(host, plainInput, revision5Output, new PdfPageSelectionOptions(1), null,
+            QpdfOutputEncryption.CopyFrom(revision5, QpdfPassword.FromText("reader")), CancellationToken.None);
+        Check(host.TryGetOutput(revision5Output, out byte[] revision5Bytes), "legacy AES-256 template publication");
+        QpdfPath revision5Copy = QpdfPath.From("revision5-copy.pdf"); host.AddInput(revision5Copy, revision5Bytes, QpdfInputOwnership.Copy);
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, revision5Copy, QpdfPassword.FromText("fixture-owner"), QpdfLimits.Default, CancellationToken.None))
+        { Check(document.PageCount == 1 && document.Encryption?.Revision == 5, "legacy AES-256 template preservation"); }
         host.AddInput(QpdfPath.From("-"), "reader\r\n"u8.ToArray(), QpdfInputOwnership.Copy);
         QpdfExecutionResult descriptor = await Qpdf.ExecuteAsync(host,
             new([encrypted.Value, "--password-file=-", "--show-npages"]), CancellationToken.None);

@@ -33,7 +33,7 @@ public sealed class OutputSecurityTests
         bool xref = fields.Contains("XRef", StringComparison.Ordinal);
         Assert.Equal(xref, ReferenceEquals(stream, written));
         byte[] key = new byte[32];
-        Assert.Equal(PasswordAuthentication.User, Revision6Encryption.Authenticate(security.Dictionary, "reader"u8, key, governor));
+        Assert.Equal(PasswordAuthentication.User, Aes256Encryption.Authenticate(security.Dictionary, "reader"u8, key, governor));
         using Aes aes = Aes.Create(); aes.SetKey(key);
         if (encrypted)
         {
@@ -115,7 +115,7 @@ public sealed class OutputSecurityTests
                 Assert.NotNull(reader); Assert.Equal(6, reader.Revision); Assert.Equal(metadata, reader.EncryptMetadata);
                 Assert.Equal(-3388, reader.Permissions);
             }
-            Assert.Equal(PasswordAuthentication.Owner, Revision6Encryption.Authenticate(security.Dictionary, "owner"u8, key, governor));
+            Assert.Equal(PasswordAuthentication.Owner, Aes256Encryption.Authenticate(security.Dictionary, "owner"u8, key, governor));
             encrypted = security.Encrypt("stored content"u8, 4, 0, payload, governor);
             security.Dispose();
             Assert.Throws<ObjectDisposedException>(() => security.Dictionary);

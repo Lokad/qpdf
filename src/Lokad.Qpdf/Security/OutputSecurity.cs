@@ -42,7 +42,7 @@ internal sealed partial class OutputSecurity : IDisposable
         {
             memory.Reserve(160L); // Context, fixed construction state and the file-key array.
             key = new byte[32];
-            Revision6Encryption.Generate(userPassword, ownerPassword, permissions, metadata, key, values, governor);
+            Aes256Encryption.Generate(userPassword, ownerPassword, permissions, metadata, key, values, governor);
             PdfDictionary dictionary = BuildDictionary(values, 6, permissions, metadata, memory, governor);
             governor.CheckCancellation(); return new(memory, key, dictionary, 6, metadata, null);
         }
@@ -53,7 +53,7 @@ internal sealed partial class OutputSecurity : IDisposable
     private static PdfDictionary BuildDictionary(ReadOnlySpan<byte> values, int revision, int permissions, bool metadata,
         ParserMemoryScope memory, ResourceGovernor governor)
     {
-        bool modern = revision == 6;
+        bool modern = revision >= 5;
         PdfNameTable<QpdfObject> filter = Table();
         Add(filter, "CFM", Name(modern ? "AESV3" : "AESV2")); Add(filter, "AuthEvent", Name("DocOpen"));
         Add(filter, "Length", PdfInteger.GetSharedValue(modern ? 32 : 16));

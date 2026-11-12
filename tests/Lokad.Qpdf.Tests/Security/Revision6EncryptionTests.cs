@@ -31,7 +31,7 @@ public sealed class Revision6EncryptionTests
         int permissions = EncryptionDictionary.ReadInteger(native, "P"u8, governor);
         bool metadata = EncryptionDictionary.ReadMetadata(native, governor);
         long baseline = governor.Snapshot().LiveMemoryBytes;
-        Revision6Encryption.CreateEntries(Convert.FromHexString(userHex), Convert.FromHexString(ownerHex), permissions,
+        Aes256Encryption.CreateEntries(Convert.FromHexString(userHex), Convert.FromHexString(ownerHex), permissions,
             metadata, randomness, key, entries, governor);
         Assert.Equal(expectedKey, key);
         Assert.Equal([.. user, .. owner, .. Bytes(native, "UE"), .. Bytes(native, "OE"), .. perms], entries);
@@ -52,8 +52,8 @@ public sealed class Revision6EncryptionTests
         byte[] key = new byte[32], entries = new byte[176], secondKey = new byte[32], secondEntries = new byte[176];
         int permissions = EncryptionDictionary.ReadInteger(template, "P"u8, governor);
         bool metadata = EncryptionDictionary.ReadMetadata(template, governor);
-        Revision6Encryption.Generate(user, owner, permissions, metadata, key, entries, governor);
-        Revision6Encryption.Generate(user, owner, permissions, metadata, secondKey, secondEntries, governor);
+        Aes256Encryption.Generate(user, owner, permissions, metadata, key, entries, governor);
+        Aes256Encryption.Generate(user, owner, permissions, metadata, secondKey, secondEntries, governor);
         Assert.False(key.AsSpan().SequenceEqual(secondKey)); Assert.False(entries.AsSpan().SequenceEqual(secondEntries));
         Dictionary<PdfName, QpdfObject> values = template.Keys.ToDictionary(name => name, name =>
         { Assert.True(template.TryGet(name, out QpdfObject value)); return value; });
@@ -61,9 +61,9 @@ public sealed class Revision6EncryptionTests
         { values[PdfName.FromAscii(name)] = new PdfByteString(entries.AsSpan(offset, count).ToArray(), true); }
         PdfDictionary created = new(values);
         byte[] recovered = new byte[32];
-        Assert.Equal(PasswordAuthentication.User, Revision6Encryption.Authenticate(created, user, recovered, governor)); Assert.Equal(key, recovered);
-        Assert.Equal(PasswordAuthentication.Owner, Revision6Encryption.Authenticate(created, owner, recovered, governor)); Assert.Equal(key, recovered);
-        Assert.Equal(PasswordAuthentication.None, Revision6Encryption.Authenticate(created, "wrong"u8, recovered, governor));
+        Assert.Equal(PasswordAuthentication.User, Aes256Encryption.Authenticate(created, user, recovered, governor)); Assert.Equal(key, recovered);
+        Assert.Equal(PasswordAuthentication.Owner, Aes256Encryption.Authenticate(created, owner, recovered, governor)); Assert.Equal(key, recovered);
+        Assert.Equal(PasswordAuthentication.None, Aes256Encryption.Authenticate(created, "wrong"u8, recovered, governor));
         Assert.All(recovered, value => Assert.Equal(0, value)); Assert.Equal(userOriginal, user); Assert.Equal(ownerOriginal, owner);
     }
 
@@ -76,7 +76,7 @@ public sealed class Revision6EncryptionTests
         using CancellationTokenSource cancellation = new(); cancellation.Cancel();
         ResourceGovernor canceled = new(QpdfLimits.Default, cancellation.Token);
         byte[] key = new byte[32], entries = new byte[176]; Array.Fill(key, (byte)99); Array.Fill(entries, (byte)99);
-        Assert.Throws<OperationCanceledException>(() => Revision6Encryption.Generate("reader"u8, "owner"u8, -4, true, key, entries, canceled));
+        Assert.Throws<OperationCanceledException>(() => Aes256Encryption.Generate("reader"u8, "owner"u8, -4, true, key, entries, canceled));
         Assert.All(key, value => Assert.Equal(0, value)); Assert.All(entries, value => Assert.Equal(0, value));
 
         static void Run(RecordingMemoryBudget budget, bool refuses)
@@ -86,10 +86,10 @@ public sealed class Revision6EncryptionTests
             byte[] key = new byte[32], entries = new byte[176]; Array.Fill(key, (byte)99); Array.Fill(entries, (byte)99);
             if (refuses)
             {
-                Assert.Throws<QpdfMemoryAdmissionException>(() => Revision6Encryption.Generate("reader"u8, "owner"u8, -4, false, key, entries, governor));
+                Assert.Throws<QpdfMemoryAdmissionException>(() => Aes256Encryption.Generate("reader"u8, "owner"u8, -4, false, key, entries, governor));
                 Assert.All(key, value => Assert.Equal(0, value)); Assert.All(entries, value => Assert.Equal(0, value));
             }
-            else { Revision6Encryption.Generate("reader"u8, "owner"u8, -4, false, key, entries, governor); }
+            else { Aes256Encryption.Generate("reader"u8, "owner"u8, -4, false, key, entries, governor); }
             Assert.Equal(0, budget.ReservedBytes);
         }
     }
@@ -127,7 +127,7 @@ public sealed class Revision6EncryptionTests
             byte[] password = Convert.FromHexString(hex);
             byte[] original = (byte[])password.Clone();
             key.AsSpan().Fill(0xA5);
-            Assert.Equal(expected, Revision6Encryption.Authenticate(encryption, password, key, governor));
+            Assert.Equal(expected, Aes256Encryption.Authenticate(encryption, password, key, governor));
             Assert.Equal(expected == PasswordAuthentication.None ? new byte[32] : Convert.FromHexString(keyHex), key);
             Assert.Equal(original, password);
             Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
@@ -161,7 +161,7 @@ public sealed class Revision6EncryptionTests
         PdfDictionary damaged = new(entries);
         byte[] key = Enumerable.Repeat((byte)0xA5, 32).ToArray();
         long baseline = governor.Snapshot().LiveMemoryBytes;
-        Assert.Throws<QpdfParseException>(() => Revision6Encryption.Authenticate(damaged, Convert.FromHexString((string)vector[2]), key, governor));
+        Assert.Throws<QpdfParseException>(() => Aes256Encryption.Authenticate(damaged, Convert.FromHexString((string)vector[2]), key, governor));
         Assert.Equal(new byte[32], key);
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
@@ -177,13 +177,13 @@ public sealed class Revision6EncryptionTests
         byte[] key = new byte[32];
         ResourceGovernor limited = new(QpdfLimits.Default with { MaxMemoryBytes = 8192 }, CancellationToken.None);
         key.AsSpan().Fill(0xA5);
-        Assert.Throws<QpdfLimitException>(() => Revision6Encryption.Authenticate(encryption, password, key, limited));
+        Assert.Throws<QpdfLimitException>(() => Aes256Encryption.Authenticate(encryption, password, key, limited));
         Assert.Equal(new byte[32], key);
         Assert.Equal(0L, limited.Snapshot().LiveMemoryBytes);
         using CancellationTokenSource cancellation = new(); cancellation.Cancel();
         ResourceGovernor canceled = new(QpdfLimits.Default, cancellation.Token);
         key.AsSpan().Fill(0xA5);
-        Assert.Throws<OperationCanceledException>(() => Revision6Encryption.Authenticate(encryption, password, key, canceled));
+        Assert.Throws<OperationCanceledException>(() => Aes256Encryption.Authenticate(encryption, password, key, canceled));
         Assert.Equal(new byte[32], key);
     }
 
@@ -218,10 +218,10 @@ public sealed class Revision6EncryptionTests
             byte[] key = new byte[32]; key.AsSpan().Fill(0xA5);
             if (refuses)
             {
-                Assert.Throws<QpdfMemoryAdmissionException>(() => Revision6Encryption.Authenticate(encryption, password, key, governor));
+                Assert.Throws<QpdfMemoryAdmissionException>(() => Aes256Encryption.Authenticate(encryption, password, key, governor));
                 Assert.Equal(new byte[32], key);
             }
-            else { Assert.Equal(PasswordAuthentication.User, Revision6Encryption.Authenticate(encryption, password, key, governor)); }
+            else { Assert.Equal(PasswordAuthentication.User, Aes256Encryption.Authenticate(encryption, password, key, governor)); }
             Assert.Equal(0L, budget.ReservedBytes);
         }
     }

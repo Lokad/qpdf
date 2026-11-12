@@ -1531,7 +1531,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES R4/R6 attachment sources authenticate independently through typed/text/raw and argv/job text/hex credentials; copied content follows the destination output policy. Legacy handlers, broader encoding recovery and canonical reference-suite coverage remain pending."
+        "AES R4/R5/R6 attachment sources authenticate independently through typed/text/raw and argv/job text/hex credentials; copied content follows the destination output policy. Legacy handlers, broader encoding recovery and canonical reference-suite coverage remain pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -2907,7 +2907,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES R4/R6 template copying supports independent credentials, writer modes, empty-primary/split output and native policy-setter ordering. Legacy handlers and canonical native-reference qualification remain pending."
+        "AES R4/R5/R6 template copying supports independent credentials, writer modes, empty-primary/split output and native policy-setter ordering. Legacy handlers and canonical native-reference qualification remain pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -3033,7 +3033,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Explicit decryption supports AES R4/R6 PDF transformations and is ignored by output-free inspections. Legacy handlers and canonical encrypted JSON reference coverage remain pending."
+        "Explicit decryption supports AES R4/R5/R6 PDF transformations and is ignored by output-free inspections. Legacy handlers and canonical encrypted JSON reference coverage remain pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -3222,7 +3222,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Independent AES R4/R6 template credentials support global password modes, recovery settings and empty passwords. Legacy handlers, broader encoding recovery and canonical native-reference qualification remain pending."
+        "Independent AES R4/R5/R6 template credentials support global password modes, recovery settings and empty passwords. Legacy handlers, broader encoding recovery and canonical native-reference qualification remain pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -3764,7 +3764,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Native query semantics are supported for AES R4/R6 and plain inputs. Legacy R2/R3/RC4/R5 handler support remains pending."
+        "Native query semantics are supported for AES R4/R5/R6 and plain inputs. Legacy R2/R3/RC4 handler support remains pending."
       ],
       "currentRejection": false,
       "evidence": {
@@ -4074,7 +4074,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Authenticated AES R4/R6 JSON reports non-secret facts and decrypted values. Legacy R2/R3/RC4/R5 handlers remain pending."
+        "Authenticated AES R4/R5/R6 JSON reports non-secret facts and decrypted values. Legacy R2/R3/RC4 handlers remain pending."
       ],
       "evidence": {
         "positive": [
@@ -5275,32 +5275,39 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary text passwords support AES R4/R6 inspections, JSON export and protection-preserving PDF transformations. Legacy handlers and canonical encrypted JSON reference coverage remain pending."
+        "Primary text passwords support AES R4/R5/R6 inspections, JSON export and protection-preserving PDF transformations. Legacy handlers and canonical encrypted JSON reference coverage remain pending."
       ],
       "currentRejection": true,
       "evidence": {
         "positive": [
           "PasswordInspectionTests.ArgvAndJobsInspectAuthenticatedPrimaryInputs",
           "PasswordTransformationTests.CommandsAndJobsPreservePrimaryProtectionThroughSharedWriters",
-          "ExtractionPasswordTests.ExplicitOutputsContainAuthenticatedPlaintext"
+          "ExtractionPasswordTests.ExplicitOutputsContainAuthenticatedPlaintext",
+          "Revision5EncryptionTests.TypedReadersExposeNativePlaintextWithEitherPassword",
+          "Revision5EncryptionTests.CommandsPreserveRevision5AcrossSharedWriters"
         ],
         "negative": [
           "PasswordInspectionTests.PasswordFailuresHaveDistinctSecretFreeDiagnostics",
           "PasswordTransformationTests.WrongPasswordAndIncompatibleVersionNeverPublish",
-          "ExtractionPasswordTests.InvalidCredentialsPreservePriorBinaryOutput"
+          "ExtractionPasswordTests.InvalidCredentialsPreservePriorBinaryOutput",
+          "Revision5EncryptionTests.DamagedParametersNeverExposeAKey",
+          "Revision5EncryptionTests.MissingAndWrongCredentialsRemainDistinct"
         ],
         "interaction": [
           "PasswordInspectionTests.LaterCredentialSettersReplaceEarlierOnes",
           "PasswordInspectionTests.ExplicitStreamInspectionExportsDecryptedDecodedBytes",
           "PasswordTransformationTests.UnselectedPrimaryStillControlsProtection",
           "PrimaryAttachmentPasswordTests.TypedListingAndExtractionAuthenticateEitherPassword",
-          "PrimaryAttachmentPasswordTests.TypedEditsUsePrimaryCredentialsAndExplicitOutputPolicies"
+          "PrimaryAttachmentPasswordTests.TypedEditsUsePrimaryCredentialsAndExplicitOutputPolicies",
+          "Revision5EncryptionTests.TypedSelectionUsesExistingOutputPolicies",
+          "Revision5EncryptionTests.FullJsonUpdatesPreserveTheAuthenticatedRevision5Handler"
         ],
         "resource": [
           "PasswordCheckTests.AuthenticationFailuresAndCancellationCloseInputsAndRefundMemory",
           "EncryptedReaderTests.EveryReaderAdmissionFailureRefundsTheDocumentAndSecurityContext",
           "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
-          "PrimaryAttachmentPasswordTests.EveryPrimaryAttachmentAdmissionRefusalRefundsAndClosesInputs"
+          "PrimaryAttachmentPasswordTests.EveryPrimaryAttachmentAdmissionRefusalRefundsAndClosesInputs",
+          "Revision5EncryptionTests.EveryPublicAdmissionRefusalClosesInputsAndRefundsSecurity"
         ],
         "oracle": []
       }
@@ -5325,7 +5332,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary host-file credentials, including host-mapped descriptor input '-', support AES R4/R6 inspections, JSON export and PDF transformations with first-line and ordered-setter semantics. Broader encoding recovery, secondary host-file credentials and canonical encrypted JSON reference coverage remain pending."
+        "Primary host-file credentials, including host-mapped descriptor input '-', support AES R4/R5/R6 inspections, JSON export and PDF transformations with first-line and ordered-setter semantics. Broader encoding recovery, secondary host-file credentials and canonical encrypted JSON reference coverage remain pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -6178,7 +6185,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Native query semantics are supported for AES R4/R6 and plain inputs. Legacy R2/R3/RC4/R5 handler support remains pending."
+        "Native query semantics are supported for AES R4/R5/R6 and plain inputs. Legacy R2/R3/RC4 handler support remains pending."
       ],
       "currentRejection": false,
       "evidence": {
@@ -6406,7 +6413,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES R4/R6 reports are supported without secrets. Legacy R2/R3/RC4/R5 handlers remain pending; explicit output paths are rejected."
+        "AES R4/R5/R6 reports are supported without secrets. Legacy R2/R3/RC4 handlers remain pending; explicit output paths are rejected."
       ],
       "currentRejection": false,
       "evidence": {
@@ -7101,7 +7108,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Typed AES R4/R6 object updates accept independent input credentials and preserve/remove/create/template output policies. Argv/job updates share primary text/host-file credentials and output policies. Preservation validates repeated handlers; explicit policies replace JSON declarations. Canonical encrypted native-reference coverage remains pending."
+        "Typed AES R4/R5/R6 object updates accept independent input credentials and preserve/remove/create/template output policies. Argv/job updates share primary text/host-file credentials and output policies. Preservation validates repeated handlers; explicit policies replace JSON declarations. Canonical encrypted native-reference coverage remains pending."
       ],
       "evidence": {
         "positive": [
@@ -7329,7 +7336,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES R4/R6 per-file credentials support transformations and transformed inspections; global password modes apply, one supplied password serves repeated occurrences, contradictory nonempty setters reject, and primary page entries use the main credential. Legacy handlers and broader encoding recovery remain pending."
+        "AES R4/R5/R6 per-file credentials support transformations and transformed inspections; global password modes apply, one supplied password serves repeated occurrences, contradictory nonempty setters reject, and primary page entries use the main credential. Legacy handlers and broader encoding recovery remain pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -7648,7 +7655,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES R4/R6 placement credentials support transformations and transformed inspections, including global password modes and independent authentication of distinct credentials for repeated paths. Legacy handlers, broader encoding recovery and canonical native-reference qualification remain pending."
+        "AES R4/R5/R6 placement credentials support transformations and transformed inspections, including global password modes and independent authentication of distinct credentials for repeated paths. Legacy handlers, broader encoding recovery and canonical native-reference qualification remain pending."
       ],
       "currentRejection": true,
       "evidence": {

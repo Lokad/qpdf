@@ -115,7 +115,7 @@ public sealed partial class EncryptedSerializerTests
         {
             Assert.False(running.IsCompleted); Assert.True(governor.Snapshot().LiveMemoryBytes > before);
             byte[] key = new byte[32];
-            Assert.Equal(PasswordAuthentication.Owner, Revision6Encryption.Authenticate(security.Dictionary, "owner"u8, key, governor));
+            Assert.Equal(PasswordAuthentication.Owner, Aes256Encryption.Authenticate(security.Dictionary, "owner"u8, key, governor));
             using System.Security.Cryptography.Aes aes = System.Security.Cryptography.Aes.Create(); aes.SetKey(key);
             Assert.Equal("q Q\n"u8.ToArray(), aes.DecryptCbc(sink.Ciphertext.Span[16..], sink.Ciphertext.Span[..16], System.Security.Cryptography.PaddingMode.PKCS7));
             System.Security.Cryptography.CryptographicOperations.ZeroMemory(key);
