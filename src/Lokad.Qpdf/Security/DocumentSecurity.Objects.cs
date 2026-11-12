@@ -16,7 +16,7 @@ internal sealed partial class DocumentSecurity
         CheckOwner(_governor); destination.CheckOwner(_governor);
         _governor.CheckCancellation();
         if (value is not (PdfByteString or PdfArray or PdfDictionary or PdfStream)) { return value; }
-        if (value is PdfStream xref && HasType(xref.Dictionary, "XRef"u8)) { return value; }
+        if (value is PdfStream xref && PdfStringCrypt.HasType(xref.Dictionary, "XRef"u8, _governor)) { return value; }
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(_governor, _governor.CancellationToken);
         Span<byte> derived = stackalloc byte[16];
         try
@@ -68,70 +68,19 @@ internal sealed partial class DocumentSecurity
     }
 
     private byte[] DecryptBytes(ReadOnlySpan<byte> value, OwnedAllocationBatch graph, ReadOnlySpan<byte> key)
-    {
-        byte[] bytes = PdfAesCipher.Decrypt(value, key, graph.Memory, _governor);
-        graph.Add(bytes.Length == 0 ? 0L : bytes.Length + GovernedBufferStream.ArrayOverheadBytes);
-        return bytes;
-    }
+        => PdfStringCrypt.Bytes(value, graph, key, false);
 
     private QpdfObject DecryptValue(QpdfObject value, OwnedAllocationBatch graph, int depth, ReadOnlySpan<byte> key)
     {
-        _governor.CheckCancellation();
-        if (depth > _governor.MaxNestingDepth)
-        { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, _governor.MaxNestingDepth); }
         if (_strings == PdfCipher.Identity) { return value; }
-        if (value is PdfByteString text)
-        {
-            byte[] bytes = DecryptBytes(text.ValueSpan, graph, key);
-            graph.Memory.Reserve(32L); graph.Add(32L);
-            return PdfByteString.FromOwnedBytes(bytes, text.Hex);
-        }
-        if (value is PdfDictionary dictionary) { return DecryptDictionary(dictionary, graph, depth, key); }
-        if (value is not PdfArray array) { return value; }
-        QpdfObject[]? items = null;
-        for (int index = 0; index < array.Count; index++)
-        {
-            QpdfObject next = DecryptValue(array[index], graph, depth + 1, key);
-            if (items is null && !ReferenceEquals(next, array[index]))
-            {
-                long size = checked(56L + (long)array.Count * IntPtr.Size);
-                graph.Memory.Reserve(size); graph.Add(size);
-                items = new QpdfObject[array.Count];
-                for (int prefix = 0; prefix < index; prefix++)
-                { _governor.NoteOperation(); items[prefix] = array[prefix]; }
-            }
-            if (items is not null) { items[index] = next; }
-        }
-        return items is null ? array : PdfArray.FromOwnedItems(items);
+        return PdfStringCrypt.Value(value, graph, depth, key, false);
     }
 
     private PdfDictionary DecryptDictionary(PdfDictionary dictionary, OwnedAllocationBatch graph, int depth, ReadOnlySpan<byte> key)
     {
         if (_strings == PdfCipher.Identity) { return dictionary; }
-        bool signature = IsSignature(dictionary);
-        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
-        using PdfDictionary.EntryEnumerator iterator = dictionary.GetEntryEnumerator();
-        while (iterator.MoveNext(_governor, graph.Token))
-        {
-            (PdfName name, QpdfObject value) = iterator.Current;
-            bool contents = signature && name.RawSpan.SequenceEqual("Contents"u8) && value is PdfByteString { Hex: true };
-            entries.Assign(graph.Memory, _governor, name, contents ? value : DecryptValue(value, graph, depth + 1, key), graph.Token);
-        }
-        return PdfDictionaryRebuild.Complete(graph, entries, allocation);
+        return PdfStringCrypt.Dictionary(dictionary, graph, depth, key, false);
     }
-
-    private bool IsSignature(PdfDictionary dictionary)
-    {
-        if (HasType(dictionary, "Sig"u8) || HasType(dictionary, "DocTimeStamp"u8)) { return true; }
-        // Type is optional in signature dictionaries. The required signature
-        // handler and byte-range shape distinguish them from page Contents.
-        return (!TryGet(dictionary, "Type"u8, out QpdfObject type) || type is PdfNull)
-            && TryGet(dictionary, "Filter"u8, out QpdfObject filter) && filter is PdfName
-            && TryGet(dictionary, "ByteRange"u8, out QpdfObject range) && range is PdfArray;
-    }
-
-    private bool HasType(PdfDictionary dictionary, ReadOnlySpan<byte> type)
-        => TryGet(dictionary, "Type"u8, out QpdfObject value) && value is PdfName name && name.RawSpan.SequenceEqual(type);
 
     private bool TryGet(PdfDictionary dictionary, ReadOnlySpan<byte> name, out QpdfObject value)
         => PdfDictionaryLookup.TryGet(dictionary, name, _governor, _governor.CancellationToken, out value);

@@ -65,6 +65,8 @@ both passwords and encrypts permissions. Recorded native randomness reproduces a
 five dictionary entries exactly; failure clears both caller-owned destinations.
 A prepared output security owner holds the generated key and admitted encryption
 dictionary, clears the key on disposal and funds ciphertext under the caller's owner.
+Reading and output preparation share direct-string traversal, preserving signature
+Contents and leaving indirect references for their physical object boundaries.
 The internal reader owns one authenticated key and decrypts physical objects
 before caching them; object-stream members are parsed only after their container
 decrypts. It consumes explicit Crypt stages and respects separate string, stream
