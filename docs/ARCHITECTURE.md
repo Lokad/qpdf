@@ -59,7 +59,7 @@ The AES payload primitive checks padding before allocating an exact plaintext
 buffer and uses bounded CBC calls so cancellation can interrupt large payloads.
 Its internal encryption counterpart admits exact ciphertext storage, generates a
 fresh random IV for each payload and continues CBC across bounded calls. This is
-a writer primitive; public output protection still awaits policy integration.
+a writer primitive; creating new public output protection still awaits policy integration.
 Internal R6 entry creation generates a fresh file key and salts, wraps the key for
 both passwords and encrypts permissions. Recorded native randomness reproduces all
 five dictionary entries exactly; failure clears both caller-owned destinations.
@@ -71,8 +71,8 @@ The copied key and dictionary survive source disposal; crypt filters normalize t
 AES for output, matching pinned qpdf. Writers reject a changed first identifier
 before emission. R4 derives temporary keys from final output numbers, including
 renumbered QDF objects, object-stream containers and linearization hints; each
-derived key is cleared after preparing its ciphertext. Public preservation policy
-remains pending.
+derived key is cleared after preparing its ciphertext. Typed single-source selection
+uses this owner through output publication; other transformation routes remain pending.
 Reading and output preparation share direct-string traversal, preserving signature
 Contents and leaving indirect references for their physical object boundaries.
 Internal output-object preparation encrypts encoded stream payloads and repairs
@@ -110,8 +110,10 @@ shared-resource hints and physical linearization checks with either password.
 with per-input text or raw credentials and non-secret encryption facts. Output-free
 argv/job inspections pass the primary text or host-file credential to the same reader.
 JSON inspection uses the same authenticated reader and non-secret permission
-projection before existing text/sidecar preparation. PDF transformations retain
-their encrypted-input refusal pending output-protection integration.
+projection before existing text/sidecar preparation. Typed single-source selection
+authenticates before copying, preserves supported protection, and negotiates its
+required PDF version. Selective encrypted reads retry on the same stable lease
+with complete admitted input. Other transformation routes retain their refusal.
 Security parameters and authentication status are separate values. Internal
 security inspection can read declared facts without traversing pages; it releases
 the key, input lease and working storage before returning those non-secret values.

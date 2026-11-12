@@ -84,10 +84,19 @@ Structural checks use the same credentials through
 `Qpdf.CheckAsync`. They inspect decrypted objects and streams and report authentication
 without exposing the password. Borrowed password bytes remain stable until the check completes.
 
+Typed single-source page selection preserves AES R4/R6 protection, including both
+passwords, permissions and metadata treatment. Its password overload accepts the
+same credentials; keep borrowed bytes stable until selection completes:
+
+```csharp
+await Qpdf.SelectPageAsync(host, input, output, PdfPageSelectionOptions.FirstAndLast(2),
+    QpdfPassword.FromText("reader"), CancellationToken.None);
+```
+
 Output-free argv/job inspections also accept a primary-input text password:
 `input.pdf --password=reader --check --show-npages`, or the job JSON key `"password":"reader"`.
-Missing and incorrect credentials have distinct diagnostic codes. Encrypted PDF transformations,
-secondary-input passwords remain unsupported. `--password-file=path` (job key
+Missing and incorrect credentials have distinct diagnostic codes. Encrypted command/job
+transformations and secondary-input passwords remain unsupported. `--password-file=path` (job key
 `passwordFile`) reads the first line through the host; descriptor input is unavailable.
 `--is-encrypted` and `--requires-password` provide native predicate exit codes;
 see the [supported profile](docs/SUPPORTED-PROFILE.md) for their `Completed` result semantics.
@@ -104,8 +113,9 @@ for buffer ownership, cancellation and resource admission.
 
 ## Limitations
 
-Encrypted transformations and output encryption remain
-unsupported; authenticated reading/inspection supports AES R4 and R6. Rendering, OCR and
+Encrypted multisource and command/job transformations, explicit decryption and new
+output encryption remain unsupported. Typed single-source selection preserves AES R4/R6.
+Rendering, OCR and
 text extraction are outside the library's scope.
 Copying or rewriting signed, unencrypted PDFs preserves stored annotation appearances
 and disables the active signature fields and certification restrictions. A derived

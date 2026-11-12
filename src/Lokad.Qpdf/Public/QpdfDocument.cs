@@ -320,8 +320,13 @@ public sealed partial class QpdfDocument : IAsyncDisposable
     internal static ValueTask<QpdfDocument> OpenSelectionInputAsync(IQpdfInput input, QpdfPath path,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, QpdfRecoveryMode recovery, bool selective,
         CancellationToken cancellationToken)
+        => OpenSelectionInputAsync(input, path, limits, governor, diagnostics, recovery, selective, cancellationToken, null, false);
+
+    internal static ValueTask<QpdfDocument> OpenSelectionInputAsync(IQpdfInput input, QpdfPath path,
+        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, QpdfRecoveryMode recovery, bool selective,
+        CancellationToken cancellationToken, QpdfPassword? password, bool authenticateEncrypted)
         => OpenInputDocument(input, path, limits, governor, diagnostics, recovery,
-            cancellationToken, false, false, true, selective, null, false);
+            cancellationToken, false, false, true, selective, password, authenticateEncrypted);
 
     // A multisource copy closes each source before publication. During a
     // speculative attempt the caller keeps its lease for fallback; once all

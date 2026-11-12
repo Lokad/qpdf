@@ -42,6 +42,27 @@ internal static class PasswordReaderChecks
             Check(inspection.Checks.Single(check => check.Name == "trailer").Detail.Contains("password authentication", StringComparison.Ordinal), "authenticated trailer reporting");
         }
         Check(ownerBytes.AsSpan().SequenceEqual("fixture-owner"u8), "borrowed password remains caller-owned");
+        foreach ((QpdfPath source, QpdfPassword? user, QpdfPassword owner) in new[]
+        {
+            (encrypted, QpdfPassword.FromText("reader"), QpdfPassword.FromBytes(ownerBytes)),
+            (empty, (QpdfPassword?)null, QpdfPassword.FromBytes(ownerBytes)),
+            (legacy, QpdfPassword.FromText("café•"), QpdfPassword.FromBytes(Convert.FromHexString("6F776E6572E991"))),
+        })
+        {
+            QpdfPath selected = QpdfPath.From("selected-" + source.Value);
+            PdfPageSelectionResult selection = await Qpdf.SelectPageAsync(host, source, selected,
+                PdfPageSelectionOptions.FromPages([1, 1]), user, CancellationToken.None);
+            Check(selection.PageCount == 2, "password-aware repeated page selection");
+            Check(host.TryGetOutput(selected, out byte[] output), "protected selection publication");
+            QpdfPath reopened = QpdfPath.From("reopened-" + source.Value);
+            host.AddInput(reopened, output, QpdfInputOwnership.Copy);
+            foreach (QpdfPassword? credential in new[] { user, owner })
+            {
+                await using QpdfDocument document = await QpdfDocument.OpenAsync(host, reopened, credential, QpdfLimits.Default, CancellationToken.None);
+                Check(document.PageCount == 2 && document.Encryption?.Permissions == -3388
+                    && document.Encryption?.EncryptMetadata == (source != empty), "preserved user/owner passwords and policy");
+            }
+        }
         QpdfExecutionResult command = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(
             [encrypted.Value, "--password=reader", "--check", "--show-npages"]), CancellationToken.None);
         Check(command.Status == QpdfExecutionStatus.Completed && command.Diagnostics.Any(item => item.Code == QpdfDiagnosticCode.PageCount), "password command inspection");

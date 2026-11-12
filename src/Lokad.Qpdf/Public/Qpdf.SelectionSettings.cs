@@ -67,6 +67,8 @@ public static partial class Qpdf
         internal bool PreserveCatalog { get; init; }
         internal bool Linearize { get; init; }
         internal QpdfPath? LinearizePass1 { get; init; }
+        internal bool AuthenticatePrimary { get; init; }
+        internal QpdfPassword? PrimaryPassword { get; init; }
 
         // Typed selection preserves opaque streams and omits command-only
         // catalog/resource defaults. All references here are process-lifetime values.

@@ -11,7 +11,11 @@ PDFDocEncoding when representable. Raw bytes are borrowed until opening complete
 and never reinterpreted. R4 uses the first 32 bytes and R6 uses 127. Missing credentials try
 empty; a failed absent password is distinct from a failed supplied password.
 Encryption facts expose permissions and authentication status without passwords
-or keys. RC4 inputs, R5, encrypted transforms and output encryption remain unsupported.
+or keys. Typed `SelectPageAsync` authenticates with the same password values and
+preserves R4/R6 protection, both passwords, permissions and metadata policy. It
+supports ordered/repeated pages, first/last previews and rotations. Missing
+credentials try empty. RC4 inputs, R5, encrypted multisource and command/job
+transformations, explicit decryption and new output encryption remain unsupported.
 
 Typed `Qpdf.CheckAsync` accepts the same credentials in `QpdfCheckOptions.Password`
 and runs structural checks over the decrypted graph. Its existing skipped-stage

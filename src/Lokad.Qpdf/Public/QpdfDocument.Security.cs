@@ -68,6 +68,9 @@ public sealed partial class QpdfDocument
             encryption ??= raw;
         }
         if (encryption is null) { return default; }
+        // Authentication may load streams outside the selected page ranges.
+        // Retry on the same stable lease with the complete admitted input.
+        if (engine.HasSelectiveInput) { throw new CompleteInputRequiredException(); }
         if (explicitNull) { throw new QpdfParseException("Incremental trailers disagree about encryption.", null, null); }
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
         scratch.Reserve(1024L); // Bounded text encoding and password prefix.

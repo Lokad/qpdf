@@ -6,6 +6,7 @@ using Lokad.Qpdf.Commands;
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Jobs;
 using Lokad.Qpdf.Reading;
+using Lokad.Qpdf.Security;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Writing;
@@ -55,52 +56,14 @@ public static partial class Qpdf
     /// </summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A page exceeds the count.</exception>
-    public static async ValueTask<PdfPageSelectionResult> SelectPageAsync(
+    public static ValueTask<PdfPageSelectionResult> SelectPageAsync(
         IQpdfHost host,
         QpdfPath inputPath,
         QpdfPath outputPath,
         PdfPageSelectionOptions options,
         QpdfLimits limits,
         CancellationToken cancellationToken)
-    {
-        if (host is null)
-        {
-            throw new ArgumentNullException(nameof(host));
-        }
-
-        if (options is null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
-
-        if (limits is null)
-        {
-            throw new ArgumentNullException(nameof(limits));
-        }
-
-        limits.Validate();
-        ResourceGovernor governor = new(limits, cancellationToken, host);
-        governor.PrepareTypedResult(PdfPageSelectionResult.StorageBytes);
-        try
-        {
-            DiagnosticBag diagnostics = new(governor);
-            PageSelectionOutcome result = await SelectPageCoreAsync(
-                host: host,
-                inputPath: inputPath,
-                outputPath: outputPath,
-                options: options,
-                limits: limits,
-                recovery: QpdfRecoveryMode.Strict,
-                settings: SelectionSettings.Typed,
-                governor: governor,
-                diagnostics: diagnostics,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-            PdfPageSelectionResult presented = result.Present(governor);
-            governor.FinishTypedCounters();
-            return presented;
-        }
-        finally { governor.AbandonTypedCounters(); }
-    }
+        => SelectPageAsync(host, inputPath, outputPath, options, (QpdfPassword?)null, limits, cancellationToken);
 
     /// <summary>
     /// Copies the selected pages into a standalone PDF, rotating output
@@ -123,7 +86,7 @@ public static partial class Qpdf
     /// </summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A page exceeds the count.</exception>
-    public static async ValueTask<PdfPageSelectionResult> SelectPageAsync(
+    public static ValueTask<PdfPageSelectionResult> SelectPageAsync(
         IQpdfHost host,
         QpdfPath inputPath,
         QpdfPath outputPath,
@@ -131,49 +94,7 @@ public static partial class Qpdf
         IReadOnlyList<PdfPageRotation> rotations,
         QpdfLimits limits,
         CancellationToken cancellationToken)
-    {
-        if (host is null)
-        {
-            throw new ArgumentNullException(nameof(host));
-        }
-
-        if (options is null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
-
-        if (limits is null)
-        {
-            throw new ArgumentNullException(nameof(limits));
-        }
-
-        limits.Validate();
-        ArgumentNullException.ThrowIfNull(rotations);
-        ResourceGovernor governor = new(limits, cancellationToken, host);
-        governor.PrepareTypedResult(PdfPageSelectionResult.StorageBytes);
-        try
-        {
-            using TypedSelectionPreparation preparation = TypedSelectionPreparation.Create(governor);
-            preparation.ConvertRotations(rotations);
-            DiagnosticBag diagnostics = new(governor);
-            PageSelectionOutcome result = await SelectPageCoreAsync(
-                host: host,
-                inputPath: inputPath,
-                outputPath: outputPath,
-                options: options,
-                limits: limits,
-                recovery: QpdfRecoveryMode.Strict,
-                settings: SelectionSettings.Typed with { Rotations = preparation.Rotations },
-                governor: governor,
-                diagnostics: diagnostics,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-            preparation.Dispose();
-            PdfPageSelectionResult presented = result.Present(governor);
-            governor.FinishTypedCounters();
-            return presented;
-        }
-        finally { governor.AbandonTypedCounters(); }
-    }
+        => SelectPageAsync(host, inputPath, outputPath, options, rotations, null, limits, cancellationToken);
 
     /// <summary>
     /// Collects the destination widget identifiers that stay reachable from the copied form
@@ -350,9 +271,11 @@ public static partial class Qpdf
                     if (selectiveCandidate && stableInput is null)
                     { stableInput = await GovernedHost.OpenInputAsync(host, inputPath, governor, cancellationToken).ConfigureAwait(false); }
                     await using QpdfDocument document = stableInput is null
-                        ? await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false)
+                        ? settings.AuthenticatePrimary
+                            ? await QpdfDocument.OpenInspectionCore(host, inputPath, settings.PrimaryPassword, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false)
+                            : await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false)
                         : await QpdfDocument.OpenSelectionInputAsync(stableInput, inputPath, limits, governor, diagnostics,
-                            recovery, attempt == 0, cancellationToken).ConfigureAwait(false);
+                            recovery, attempt == 0, cancellationToken, settings.PrimaryPassword, settings.AuthenticatePrimary).ConfigureAwait(false);
                     // This private reader remains alive through publication.
                     document.Engine.BorrowImmutableStreamData = !document.Engine.HasSelectiveInput;
                     retryParse = document.Engine.HasSelectiveInput;
@@ -561,6 +484,16 @@ public static partial class Qpdf
                         }
                     }
                     byte[]? originalId = TryGetOriginalId(document.Engine);
+                    using OutputSecurity? outputSecurity = PreserveInputSecurity(document, ref originalId, copyMemory, governor);
+                    if (outputSecurity is not null)
+                    {
+                        int minor = outputSecurity.Revision == 6 ? 7 : 6;
+                        int requiredExtension = outputSecurity.Revision == 6 ? 8 : 0;
+                        int order = PdfVersion.CompareParts(negotiated.Major, negotiated.Minor, 1, minor);
+                        if (settings.ForceVersion is not null && (order < 0 || order == 0 && negotiatedExtension < requiredExtension))
+                        { throw new QpdfUnsupportedFeatureException("The forced PDF version cannot preserve the input encryption."); }
+                        IncludeVersionRequirement(ref negotiated, ref negotiatedExtension, new QpdfDocument.VersionParts(1, minor), requiredExtension, governor);
+                    }
                     PdfDictionary? singleAcroForm = settings.RemoveAcroform
                         ? null
                         : Content.AcroFormCopy.BuildSingle(
@@ -616,7 +549,8 @@ public static partial class Qpdf
 
                     PdfDictionary catalog = NewCatalog(singleLabels, effective, extensionLevel, singleMetadata, singleAttached.NamesRef, singlePageMode ?? (singleAttached.Inserted ? UseAttachmentsPageMode : null), singleOutlines, singleAcroForm, singleStructTree, singleMarkInfo, singleExtras, singleOptionalContent, singlePool, governor, cancellationToken);
                     PdfDictionary pages = PagesNode(kids, copyMemory, governor, cancellationToken);
-                    int modelCount = checked(singlePool.Count + 2);
+                    int modelCount = checked(singlePool.Count + 2 + (outputSecurity is null ? 0 : 1));
+                    int lastNumber = 2;
                     copyMemory.Reserve(checked(64L + 16L * modelCount));
                     List<NumberedObject> model = new(modelCount)
                     {
@@ -626,11 +560,18 @@ public static partial class Qpdf
                     foreach (KeyValuePair<int, QpdfObject> entry in singlePool)
                     {
                         model.Add(new NumberedObject(entry.Key, entry.Value));
+                        lastNumber = Math.Max(lastNumber, entry.Key);
                     }
                     if ((singleAttached.Replaced || copier.HasReplacedObjects
                         || overlayApplied.Copiers.Exists(static item => item.HasReplacedObjects)) && !settings.PreserveUnreferenced)
                     {
                         PruneOutputModel(model, singlePool, singleCompressed, singleInfo, governor, cancellationToken);
+                    }
+                    int encryptionNumber = 0;
+                    if (outputSecurity is not null)
+                    {
+                        encryptionNumber = checked(lastNumber + 1);
+                        model.Add(new(encryptionNumber, outputSecurity.Dictionary));
                     }
                     GovernedSort.Sort(CollectionsMarshal.AsSpan(model)[2..], new WriterObjectOrder(), governor, cancellationToken);
 
@@ -655,7 +596,7 @@ public static partial class Qpdf
                     // immutable prepared graph, so fallback cannot follow publication.
                     document.Engine.AcceptSelectiveInput();
                     retryParse = false;
-                    await PublishModelAsync(host, effective, model, singleStreams, singleCompress, singleLevel, singleInfo?.ObjectNumber, originalId, settings.StaticId, settings.NewlineBeforeEndstream, settings.Qdf, singleOriginalIds, settings.Linearize, settings.LinearizePass1, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
+                    await PublishModelAsync(host, effective, model, singleStreams, singleCompress, singleLevel, singleInfo?.ObjectNumber, originalId, settings.StaticId, settings.NewlineBeforeEndstream, settings.Qdf, singleOriginalIds, settings.Linearize, settings.LinearizePass1, outputPath, limits, governor, cancellationToken, outputSecurity, encryptionNumber, singleMetadata?.ObjectNumber ?? 0).ConfigureAwait(false);
                     return new PageSelectionOutcome(total, sourcePages, kids.Count, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
                 }
                 catch (CompleteInputRequiredException) when (attempt == 0 && stableInput is not null) { }
@@ -2706,7 +2647,7 @@ public static partial class Qpdf
         }
     }
 
-    private static async ValueTask PublishModelAsync(
+    private static ValueTask PublishModelAsync(
         IQpdfHost host,
         PdfVersion version,
         List<NumberedObject> model,
@@ -2725,6 +2666,29 @@ public static partial class Qpdf
         QpdfLimits limits,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
+        => PublishModelAsync(host, version, model, objectStreamGroups, compressStreams, compressionLevel, infoRef,
+            originalId1, staticId, newlineBeforeEndstream, qdf, originalIds, linearize, linearizePass1, path,
+            limits, governor, cancellationToken, null, 0, 0);
+
+    private static async ValueTask PublishModelAsync(
+        IQpdfHost host,
+        PdfVersion version,
+        List<NumberedObject> model,
+        IReadOnlyList<IReadOnlyList<int>>? objectStreamGroups,
+        bool compressStreams,
+        int? compressionLevel,
+        int? infoRef,
+        byte[]? originalId1,
+        bool staticId,
+        bool newlineBeforeEndstream,
+        Writing.QdfOptions qdf,
+        IReadOnlyDictionary<int, int>? originalIds,
+        bool linearize,
+        QpdfPath? linearizePass1,
+        QpdfPath path,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken, OutputSecurity? security, int encryptionObject, int metadataObject)
     {
         if (version is null)
         {
@@ -2738,17 +2702,19 @@ public static partial class Qpdf
 
         if (linearize)
         {
-            await PublishLinearizedAsync(host, version, model, objectStreamGroups, infoRef, originalId1, staticId, newlineBeforeEndstream, compressStreams, compressionLevel, linearizePass1, path, limits, governor, cancellationToken).ConfigureAwait(false);
+            await PublishLinearizedAsync(host, version, model, objectStreamGroups, infoRef, originalId1, staticId, newlineBeforeEndstream, compressStreams, compressionLevel, linearizePass1, path, limits, governor, cancellationToken, security, encryptionObject, metadataObject).ConfigureAwait(false);
             return;
         }
 
+        using ParserMemoryScope? bindingMemory = security is null ? null : ParserMemoryScope.Create(governor);
+        PdfSerializer serializer = CreatePublicationSerializer(limits, governor, model, security, encryptionObject, metadataObject, bindingMemory);
         byte[] id1;
         byte[] id2;
         if (staticId)
         {
             id2 = (byte[])StaticIdBytes.Clone();
             id1 = originalId1 is null ? (byte[])id2.Clone() : (byte[])originalId1.Clone();
-            await PublishWithIdsAsync(host, version, model, objectStreamGroups, compressStreams, compressionLevel, infoRef, id1, id2, newlineBeforeEndstream, qdf, originalIds, path, limits, governor, cancellationToken, null, false).ConfigureAwait(false);
+            await PublishWithIdsAsync(host, version, model, objectStreamGroups, compressStreams, compressionLevel, infoRef, id1, id2, newlineBeforeEndstream, qdf, originalIds, path, limits, governor, cancellationToken, null, false, serializer).ConfigureAwait(false);
             return;
         }
 
@@ -2760,10 +2726,10 @@ public static partial class Qpdf
             identifiers.AdmitOutputMirror();
             await PublishWithIdsAsync(host, version, model, objectStreamGroups, compressStreams, compressionLevel,
                 infoRef, placeholderId1, placeholderId2, newlineBeforeEndstream, qdf, originalIds, path, limits,
-                governor, cancellationToken, identifiers, originalId1 is null).ConfigureAwait(false);
+                governor, cancellationToken, identifiers, originalId1 is null, serializer).ConfigureAwait(false);
             return;
         }
-        PdfSerializer probe = new(limits, governor);
+        PdfSerializer probe = serializer;
         using IdentifierHashSink memory = IdentifierHashSink.Create(limits, governor, cancellationToken);
         using BatchingSink hashed = BatchingSink.Create(memory, limits, governor, cancellationToken);
         if (qdf.Enabled)
@@ -2784,7 +2750,7 @@ public static partial class Qpdf
         memory.Dispose();
         id2 = digest;
         id1 = originalId1 is null ? (byte[])id2.Clone() : (byte[])originalId1.Clone();
-        await PublishWithIdsAsync(host, version, model, objectStreamGroups, compressStreams, compressionLevel, infoRef, id1, id2, newlineBeforeEndstream, qdf, originalIds, path, limits, governor, cancellationToken, null, false).ConfigureAwait(false);
+        await PublishWithIdsAsync(host, version, model, objectStreamGroups, compressStreams, compressionLevel, infoRef, id1, id2, newlineBeforeEndstream, qdf, originalIds, path, limits, governor, cancellationToken, null, false, serializer).ConfigureAwait(false);
     }
 
     private static async ValueTask PublishLinearizedAsync(
@@ -2802,14 +2768,15 @@ public static partial class Qpdf
         QpdfPath path,
         QpdfLimits limits,
         ResourceGovernor governor,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, OutputSecurity? security, int encryptionObject, int metadataObject)
     {
         if (linearizePass1 == path)
         {
             throw new QpdfParseException("The first-pass output must differ from every main PDF output.", null, null);
         }
 
-        Writing.LinearizedWriter writer = new(limits, governor);
+        Writing.LinearizedWriter writer = security is null ? new(limits, governor)
+            : new(limits, governor, security, encryptionObject, metadataObject);
         byte[] id1;
         byte[] id2;
         if (staticId)
@@ -2821,7 +2788,7 @@ public static partial class Qpdf
         {
             byte[] placeholderId1 = originalId1 is null ? (byte[])PlaceholderIdBytes.Clone() : (byte[])originalId1.Clone();
             byte[] placeholderId2 = (byte[])PlaceholderIdBytes.Clone();
-            Writing.LinearizedWriter probe = new(limits, governor);
+            Writing.LinearizedWriter probe = writer;
             using IdentifierHashSink memory = IdentifierHashSink.Create(limits, governor, cancellationToken);
             using BatchingSink hashed = BatchingSink.Create(memory, limits, governor, cancellationToken);
             if (objectStreamGroups is not null && objectStreamGroups.Count > 0)
@@ -2899,9 +2866,8 @@ public static partial class Qpdf
         ResourceGovernor governor,
         CancellationToken cancellationToken,
         IdentifierHashSink? identifiers,
-        bool deriveFirstId)
+        bool deriveFirstId, PdfSerializer serializer)
     {
-        PdfSerializer serializer = new(limits, governor);
         CountingSink counter = new();
         long counted;
         if (qdf.Enabled)

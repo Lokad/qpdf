@@ -140,8 +140,12 @@ public sealed class PasswordOpeningTests
         QpdfPath output = QpdfPath.From("output.pdf");
         if (route == "typed")
         {
-            await Assert.ThrowsAsync<QpdfEncryptedInputException>(() => Qpdf.SelectPageAsync(host, input, output,
-                new PdfPageSelectionOptions(1), CancellationToken.None).AsTask());
+            _ = await Qpdf.SelectPageAsync(host, input, output, new PdfPageSelectionOptions(1), CancellationToken.None);
+            Assert.True(host.TryGetOutput(output, out byte[] bytes));
+            QpdfPath copied = QpdfPath.From("copied.pdf"); host.AddInput(copied, bytes, QpdfInputOwnership.Copy);
+            await using QpdfDocument document = await QpdfDocument.OpenAsync(host, copied, CancellationToken.None);
+            Assert.Equal(1, document.PageCount); Assert.NotNull(document.Encryption);
+            return;
         }
         else
         {

@@ -8,7 +8,7 @@ using Lokad.Qpdf.Security;
 namespace Lokad.Qpdf;
 
 /// <summary>A per-input password represented as text or borrowed raw bytes.</summary>
-/// <remarks>Keep borrowed bytes stable until the opening operation completes.
+/// <remarks>Keep borrowed bytes stable until the operation using this credential completes.
 /// The library clears its temporary password buffers, but does not clear caller
 /// storage or immutable strings. String formatting never reveals the password.</remarks>
 public sealed class QpdfPassword
