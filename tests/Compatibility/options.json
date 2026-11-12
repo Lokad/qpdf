@@ -5243,7 +5243,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary text passwords support AES R4/R6 inspections, JSON export and protection-preserving PDF transformations. Legacy handlers, secondary credentials and encrypted JSON updates remain pending."
+        "Primary text passwords support AES R4/R6 inspections, JSON export and protection-preserving PDF transformations. Legacy handlers, overlay/attachment-source credentials and encrypted JSON updates remain pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -5378,7 +5378,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary inspections, JSON export and PDF transformations accept input modes and native hex decoding, with the supported R4 UTF-8 recovery. Other recovery encodings, legacy handlers, secondary credentials and output password conversion remain pending."
+        "Primary inspections, JSON export and PDF transformations accept input modes and native hex decoding, with the supported R4 UTF-8 recovery. Other recovery encodings, legacy handlers, overlay/attachment-source credentials and output password conversion remain pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -6836,7 +6836,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary inspections, JSON export and PDF transformations can disable the supported R4 encoding retry. Other recovery encodings, legacy handlers, secondary credentials and encrypted JSON updates remain pending."
+        "Primary inspections, JSON export and PDF transformations can disable the supported R4 encoding retry. Other recovery encodings, legacy handlers, overlay/attachment-source credentials and encrypted JSON updates remain pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -7273,20 +7273,31 @@
           "source": "manual/cli.rst:390"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "AES R4/R6 per-file credentials support transformations and transformed inspections; global password modes apply, one supplied password serves repeated occurrences, contradictory nonempty setters reject, and primary page entries use the main credential. Legacy handlers and broader encoding recovery remain pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobNestedPasswordsFail"
+        "positive": [
+          "PagePasswordCommandTests.EachPageSourceAuthenticatesWithoutReplacingOutputPolicy",
+          "PagePasswordCommandTests.SecondaryHexPasswordsUseTheSharedInputDecoder",
+          "PagePasswordCommandTests.APasswordSpecifiedOnceAppliesToEveryOccurrenceOfThatFile"
         ],
-        "interaction": [],
-        "resource": [],
+        "negative": [
+          "PagePasswordCommandTests.WrongSecondaryPasswordDoesNotPublishOrLeak",
+          "PagePasswordCommandTests.InvalidPagePasswordSyntaxRejectsBeforeHostAccess",
+          "PagePasswordCommandTests.ASecondArgvPasswordSetterForOneEntryFailsWithoutEchoingEitherValue"
+        ],
+        "interaction": [
+          "PagePasswordCommandTests.TransformedInspectionAuthenticatesSecondaryPages",
+          "PagePasswordCommandTests.RepeatedSecondaryCredentialsMustBeConsistent",
+          "PagePasswordCommandTests.PagePasswordsDoNotSubstituteForThePrimaryCredential"
+        ],
+        "resource": [
+          "PagePasswordCommandTests.EverySecondaryAdmissionRefusalRefundsBeforeOutput"
+        ],
         "oracle": []
       }
     },

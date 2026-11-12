@@ -44,14 +44,15 @@ internal static class PagesArgumentBlock
     internal static void CheckToken(string token, int index)
     {
         if (token is null) { throw new QpdfParseException("Null argument.", index, null); }
-        if (token is "--file" or "--range")
+        if (token is "--file" or "--range" or "--password")
         {
-            string parameter = token == "--file" ? "file" : "page-range";
+            string parameter = token == "--file" ? "file" : token == "--password" ? "password" : "page-range";
             throw new QpdfParseException($"{token} must be given as {token}={parameter}.", index, null);
         }
         if (!token.StartsWith("--", StringComparison.Ordinal)
             || token.StartsWith("--file=", StringComparison.Ordinal)
-            || token.StartsWith("--range=", StringComparison.Ordinal)) { return; }
+            || token.StartsWith("--range=", StringComparison.Ordinal)
+            || token.StartsWith("--password=", StringComparison.Ordinal)) { return; }
         ReadOnlySpan<char> name = ArgvParser.OptionName(token);
         if (ArgvParser.IsCryptoOption(name)) { throw new QpdfCryptoException($"--{name}"); }
         throw new QpdfParseException(

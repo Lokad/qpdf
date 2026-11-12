@@ -126,7 +126,6 @@ public sealed class AdapterTests
     }
 
     [Theory]
-    [InlineData("--password=s3cret-value")]
     [InlineData("--password-file=pw.txt")]
     [InlineData("--decrypt")]
     [InlineData("--encrypt", "u", "o", "128", "--")]
@@ -210,7 +209,7 @@ public sealed class AdapterTests
 
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "o.pdf", "pages": [{"range": "1"}]}""")]
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "o.pdf", "pages": [{"file": ".", "range": 1}]}""")]
-    [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "o.pdf", "pages": [{"file": ".", "range": "1", "password": "x"}]}""")]
+    [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "o.pdf", "pages": [{"file": ".", "range": "1", "password": 1}]}""")]
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "-", "pages": [{"file": ".", "range": "1"}]}""")]
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "o.pdf", "unknown": 1, "pages": [{"file": ".", "range": "1"}]}""")]
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "o.pdf", "pages": [{"file": ".", "range": "1", "collate": 1}]}""")]
@@ -235,7 +234,7 @@ public sealed class AdapterTests
 
         QpdfExecutionResult password = await Qpdf.ExecuteJobAsync(
             host,
-            """{"inputFile": "inputs/a.pdf", "outputFile": "o.pdf", "pages": [{"file": ".", "range": "1", "password": "s3cret"}]}""",
+            """{"inputFile": "inputs/a.pdf", "outputFile": "o.pdf", "overlay": [{"file": "inputs/a.pdf", "password": "s3cret"}]}""",
             CancellationToken.None);
         QpdfDiagnostic diagnostic = SingleError(password);
         Assert.Equal(QpdfDiagnosticCode.UnsupportedCryptoOperation, diagnostic.Code);

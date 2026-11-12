@@ -2942,6 +2942,7 @@ internal static class ArgvParser
     {
         List<PageGroup> groups = new();
         string? file = null;
+        string? pagePassword = null;
         bool namedFile = false;
         int i = pagesAt + 1;
         while (i < terminatorAt)
@@ -2957,6 +2958,23 @@ internal static class ArgvParser
             if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2)
             {
                 ReadOnlySpan<char> name = OptionName(token);
+                if (name is "password")
+                {
+                    string value = ConfigurationText.Slice(argv, token, token.IndexOf('=') + 1);
+                    if (file is not null)
+                    {
+                        if (pagePassword is not null) { throw new QpdfParseException("Page password already specified for this file entry.", i, null); }
+                        pagePassword = value;
+                    }
+                    else if (groups.Count > 0)
+                    {
+                        if (groups[^1].Password is not null) { throw new QpdfParseException("Page password already specified for this file entry.", i, null); }
+                        groups[^1] = groups[^1] with { Password = value };
+                    }
+                    else { throw new QpdfParseException("In pages, --password must follow a file name.", i, null); }
+                    i++;
+                    continue;
+                }
                 if (IsCryptoOption(name))
                 {
                     throw new QpdfCryptoException($"--{name}");
@@ -2966,10 +2984,11 @@ internal static class ArgvParser
                 {
                     if (file is not null)
                     {
-                        groups.Add(new PageGroup(file, null));
+                        groups.Add(new PageGroup(file, null) { Password = pagePassword });
                     }
 
                     file = TakeParameter(argv, terminatorAt, ref i, "--file");
+                    pagePassword = null;
                     namedFile = true;
                     continue;
                 }
@@ -2982,8 +3001,9 @@ internal static class ArgvParser
                     }
 
                     string range = TakeParameter(argv, terminatorAt, ref i, "--range");
-                    groups.Add(new PageGroup(file, range));
+                    groups.Add(new PageGroup(file, range) { Password = pagePassword });
                     file = null;
+                    pagePassword = null;
                     continue;
                 }
 
@@ -2993,18 +3013,21 @@ internal static class ArgvParser
             if (file is null)
             {
                 file = token;
+                pagePassword = null;
                 namedFile = false;
             }
             else if (namedFile)
             {
-                groups.Add(new PageGroup(file, null));
+                groups.Add(new PageGroup(file, null) { Password = pagePassword });
                 file = token;
+                pagePassword = null;
                 namedFile = false;
             }
             else
             {
-                groups.Add(new PageGroup(file, token));
+                groups.Add(new PageGroup(file, token) { Password = pagePassword });
                 file = null;
+                pagePassword = null;
             }
 
             i += 1;
@@ -3012,7 +3035,7 @@ internal static class ArgvParser
 
         if (file is not null)
         {
-            groups.Add(new PageGroup(file, null));
+            groups.Add(new PageGroup(file, null) { Password = pagePassword });
         }
 
         if (groups.Count == 0)

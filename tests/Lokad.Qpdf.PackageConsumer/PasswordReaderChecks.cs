@@ -136,6 +136,13 @@ internal static class PasswordReaderChecks
         host.AddInput(QpdfPath.From("decrypted-command-copy.pdf"), decryptedBytes, QpdfInputOwnership.Copy);
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("decrypted-command-copy.pdf"), CancellationToken.None))
         { Check(document.PageCount == 1 && document.Encryption is null, "command removal policy"); }
+        QpdfExecutionResult pageCredentials = await Qpdf.ExecuteAsync(host, new(["--empty", "page-passwords.pdf", "--pages",
+            legacy.Value, "--password=café•", "1", encrypted.Value, "1", "--password=reader", "--"]), CancellationToken.None);
+        Check(pageCredentials.Status == QpdfExecutionStatus.Completed, "independent command page credentials");
+        Check(host.TryGetOutput(QpdfPath.From("page-passwords.pdf"), out byte[] pageCredentialBytes), "page credential publication");
+        host.AddInput(QpdfPath.From("page-passwords-copy.pdf"), pageCredentialBytes, QpdfInputOwnership.Copy);
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("page-passwords-copy.pdf"), CancellationToken.None))
+        { Check(document.PageCount == 2 && document.Encryption is null, "empty-primary command merge remains plaintext"); }
         QpdfExecutionResult createdCommand = await Qpdf.ExecuteAsync(host, new(["decrypted-command-copy.pdf", "created-command.pdf",
             "--encrypt", "--user-password=consumer-reader", "--owner-password=consumer-owner", "--bits=256", "--modify=none", "--cleartext-metadata", "--"]), CancellationToken.None);
         Check(createdCommand.Status == QpdfExecutionStatus.Completed, "command AES-256 creation");

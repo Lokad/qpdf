@@ -32,7 +32,14 @@ and runs structural checks over the decrypted graph. Its existing skipped-stage
 reporting and partial-check contract still apply.
 Argv/job inspections and PDF transformations accept a primary text password through
 `--password`/`password`, or the first line of a host file through
-`--password-file`/`passwordFile`. Command/job secondary credentials remain unsupported.
+`--password-file`/`passwordFile`. Page sources accept `--password=...` after their
+file specification inside `--pages`, or `pages[].password` in job JSON. This applies
+to PDF transformations and transformed inspections, including empty-password inputs.
+Global password-mode and recovery settings apply to these credentials. A password
+specified on any occurrence applies to all occurrences of that file; contradictory
+nonempty setters reject before opening inputs. Primary-page password setters are ignored
+because the primary document uses its main credential. With an empty primary,
+secondary protection is removed unless an explicit new output policy is requested.
 Missing and supplied-but-invalid credentials have distinct diagnostic codes.
 PDF rewrites, page selection/merging/splitting, object streams, QDF, linearization
 and attachment edits preserve supported primary protection, including when none
@@ -50,7 +57,7 @@ Encryption/decryption setters replace the preceding output policy. Split outputs
 receive independent keys, including with an empty primary document. New encryption
 cannot combine with deterministic IDs. Legacy creation, force-R5, allow-insecure,
 encryption-template copying and encrypted JSON updates remain unsupported;
-secondary command credentials and password descriptors remain pending.
+overlay/attachment-source credentials and password descriptors remain pending.
 File setters retain native order: a zero-byte file leaves the previous password
 unchanged, while a blank first line supplies an empty password. Spaces are retained;
 CR is stripped only before LF, and NUL terminates the password. Additional lines

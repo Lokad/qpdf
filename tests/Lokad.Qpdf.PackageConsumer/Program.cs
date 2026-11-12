@@ -839,7 +839,7 @@ internal static class Program
         InMemoryQpdfHost cryptoHost = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult crypto = await Qpdf.ExecuteAsync(
             cryptoHost,
-            new QpdfCommandInvocation(["inputs/in.pdf", "--pages", ".", "1", "--password=s3cret", "--", "outputs/x.pdf"]),
+            new QpdfCommandInvocation(["inputs/in.pdf", "--pages", ".", "1", "--password-file=s3cret", "--", "outputs/x.pdf"]),
             CancellationToken.None);
         Check(crypto.Status == QpdfExecutionStatus.Failed && crypto.ExitCode == QpdfExitCode.Error, "crypto rejection");
         Check(crypto.Diagnostics.Count == 1 && crypto.Diagnostics[0].Code == QpdfDiagnosticCode.UnsupportedCryptoOperation, "crypto diagnostic code");

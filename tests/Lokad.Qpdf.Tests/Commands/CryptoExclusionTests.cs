@@ -108,16 +108,13 @@ public sealed class CryptoExclusionTests
     }
 
     [Theory]
-    [InlineData("pages")]
     [InlineData("overlay")]
     [InlineData("underlay")]
     public async Task JobNestedPasswordsFail(string section)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         string nested = "{\"file\": \"inputs/a.pdf\", \"password\": \"x\"}";
-        string job = section == "pages"
-            ? "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\", \"password\": \"x\"}]}"
-            : "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"" + section + "\": [" + nested + "]}";
+        string job = "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"" + section + "\": [" + nested + "]}";
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, job, CancellationToken.None);
         SingleCryptoError(result, "outputs/a.pdf");
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));

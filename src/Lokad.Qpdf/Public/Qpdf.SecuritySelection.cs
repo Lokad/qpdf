@@ -152,15 +152,20 @@ public static partial class Qpdf
     {
         foreach (List<int> indices in groups.Values)
         {
-            QpdfPassword? first = sources[indices[0]].Password;
-            foreach (int index in indices)
-            {
-                governor.CheckCancellation();
-                QpdfPassword? password = sources[index].Password;
-                if (ReferenceEquals(first, password)) { continue; }
-                if (first is null || password is null || !first.HasSameInput(password, governor))
-                { throw new ArgumentException("Repeated page sources must use the same credential value and representation.", nameof(sources)); }
-            }
+            ValidateSourceCredentials(sources, indices, governor);
+        }
+    }
+
+    private static void ValidateSourceCredentials(IReadOnlyList<PdfPageSource> sources, List<int> indices, ResourceGovernor governor)
+    {
+        QpdfPassword? first = sources[indices[0]].Password;
+        foreach (int index in indices)
+        {
+            governor.CheckCancellation();
+            QpdfPassword? password = sources[index].Password;
+            if (ReferenceEquals(first, password)) { continue; }
+            if (first is null || password is null || !first.HasSameInput(password, governor))
+            { throw new ArgumentException("Repeated page sources must use the same credential value and representation.", nameof(sources)); }
         }
     }
 

@@ -8,7 +8,7 @@ internal static class HelpText
     internal const string Help = """
         Lokad.qpdf: managed PDF structural processor with AES R4/R6 reading.
         Usage:
-          qpdf input --pages [--file=]file [--range=]n -- output
+          qpdf input --pages [--file=]file [--password=text] [--range=]n -- output
           qpdf --empty --pages file n -- output (merge from an empty base)
           qpdf input --check
           qpdf --job-json-file file
@@ -189,7 +189,7 @@ internal static class HelpText
         Usage:
           qpdf --job-json-file file
         Top-level keys:
-          inputFile, outputFile, password, passwordFile, decrypt, encrypt, passwordMode, suppressPasswordRecovery, isEncrypted, requiresPassword, showEncryption, pages:[{file, range}, ...], collate, replaceInput, splitPages, rotate, setPageLabels,
+          inputFile, outputFile, password, passwordFile, decrypt, encrypt, passwordMode, suppressPasswordRecovery, isEncrypted, requiresPassword, showEncryption, pages:[{file, range, password}, ...], collate, replaceInput, splitPages, rotate, setPageLabels,
           removePageLabels, minVersion, forceVersion, deterministicId, staticId,
           newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData,
           compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo,
@@ -223,7 +223,8 @@ internal static class HelpText
         isEncrypted and requiresPassword take "" and return the native query exit codes described by --help.
         showEncryption takes "" and reports declared settings without passwords or keys.
         PDF transformations preserve primary protection unless decrypt/encrypt selects another policy.
-        Encrypted JSON updates, legacy encryption creation, password descriptors and nested passwords remain unsupported.
+        pages[].password authenticates every occurrence of that secondary file; conflicting credentials reject.
+        Encrypted JSON updates, legacy encryption creation, password descriptors and overlay/attachment passwords remain unsupported.
         Other crypto keys are rejected with UnsupportedCryptoOperation. See --help for the argv surface.
         """;
 

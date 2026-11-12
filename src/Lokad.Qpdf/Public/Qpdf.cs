@@ -5730,7 +5730,7 @@ public static partial class Qpdf
                     {
                         QpdfPath path = source.Input.Value == "." ? merge.Input : source.Input;
                         resolved.Add(new PdfPageSource(path, source.Selection,
-                            path == merge.Input ? transformationPassword : source.Password));
+                            !merge.EmptyInput && path == merge.Input ? transformationPassword : source.Password));
                     }
 
                     await SelectPagesCoreAsync(
@@ -5761,6 +5761,11 @@ public static partial class Qpdf
                 {
                     return ExecutionOutcome.Failed(
                         [new QpdfDiagnostic(QpdfDiagnosticCode.InvalidArguments, QpdfDiagnosticSeverity.Error, ex.Message)]);
+                }
+                catch (ArgumentException ex) when (ex.ParamName == "sources")
+                {
+                    return ExecutionOutcome.Failed([new QpdfDiagnostic(QpdfDiagnosticCode.InvalidArguments,
+                        QpdfDiagnosticSeverity.Error, "Repeated page sources must use the same credential value and representation.")]);
                 }
                 catch (OperationCanceledException)
                 {

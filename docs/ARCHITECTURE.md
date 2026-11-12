@@ -84,6 +84,10 @@ and preserve the primary's protection unless an explicit decrypt/encrypt request
 the shared removal or AES-256 policy. The argv adapter translates encryption blocks
 into the job parser, preserving permission-setter order without a second writer.
 Empty-primary merges prepare their requested key before split preparation.
+Page-block credentials become the same per-source password values used by typed
+merging. Transformed inspections authenticate secondary readers and copy their
+payloads before closing those readers. Primary page entries reuse the already
+authenticated primary; repeated secondary paths validate credential consistency.
 Host-file password storage stays alive
 through reader closure, output preparation and publication. JSON updates remain pending.
 Reading and output preparation share direct-string traversal, preserving signature

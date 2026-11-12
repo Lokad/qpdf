@@ -269,7 +269,7 @@ internal static class JobJsonLoader
                 {
                     throw new QpdfParseException("Job JSON must be an object.", 0L, null);
                 }
-                Validate(document.RootElement, true);
+                Validate(document.RootElement, true, null);
                 Documents.Add(document);
             }
             catch (InvalidOperationException ex)
@@ -280,7 +280,7 @@ internal static class JobJsonLoader
             catch { document.Dispose(); throw; }
         }
 
-        private void Validate(JsonElement value, bool root)
+        private void Validate(JsonElement value, bool root, string? context)
         {
             _governor.CheckCancellation();
             if (value.ValueKind == JsonValueKind.Object)
@@ -289,16 +289,16 @@ internal static class JobJsonLoader
                 {
                     _governor.NoteOperation();
                     if ((root && JobJsonParser.IsCryptoKey(property.Name) && property.Name is not ("password" or "passwordFile" or "passwordMode" or "suppressPasswordRecovery" or "decrypt" or "encrypt"))
-                        || (!root && property.Name == "password"))
+                        || (!root && property.Name == "password" && context != "pages"))
                     {
                         throw new QpdfCryptoException(property.Name);
                     }
-                    Validate(property.Value, false);
+                    Validate(property.Value, false, root ? property.Name : null);
                 }
             }
             else if (value.ValueKind == JsonValueKind.Array)
             {
-                foreach (JsonElement item in value.EnumerateArray()) { Validate(item, false); }
+                foreach (JsonElement item in value.EnumerateArray()) { Validate(item, false, context); }
             }
             else if (value.ValueKind == JsonValueKind.String)
             {

@@ -123,6 +123,12 @@ also accept these primary credentials and preserve supported input protection:
 `input.pdf output.pdf --password=reader --linearize`. The primary document controls
 protection even when a pages block selects only other inputs. `--password-file=path` (job key
 `passwordFile`) reads the first line through the host; descriptor input is unavailable.
+Page-source passwords can follow each file inside `--pages`, for example
+`--pages other.pdf --password=reader 1 --`; job entries use `pages[].password`.
+They also work for transformed inspections. The primary input still uses its main
+credential; one per-file password applies to all its occurrences, and conflicting
+nonempty credentials reject. An empty primary
+leaves output unencrypted unless new encryption is explicitly requested.
 Add `--decrypt` (job key `"decrypt":""`) to publish an unencrypted PDF after
 authenticating its input. It also applies to split outputs; output-free inspections
 ignore this output policy.
@@ -146,9 +152,9 @@ for buffer ownership, cancellation and resource admission.
 ## Limitations
 
 Typed page selection, merging and splitting preserve/remove AES R4/R6 protection or create AES-256 R6.
-Argv/job PDF transformations preserve primary protection or explicitly remove it;
+Argv/job PDF transformations preserve/remove primary protection or create AES-256 R6;
 legacy encryption creation and template copying,
-secondary credentials, password descriptors and encrypted JSON updates remain unsupported.
+overlay/attachment-source credentials, password descriptors and encrypted JSON updates remain unsupported.
 Typed attachment edits preserve supported empty-password input protection.
 Rendering, OCR and
 text extraction are outside the library's scope.

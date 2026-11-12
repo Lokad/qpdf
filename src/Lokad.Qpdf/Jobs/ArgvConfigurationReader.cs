@@ -70,8 +70,8 @@ internal static partial class ArgvConfigurationReader
                     _ = Bare(token, cursor);
                     int end = PagesArgumentBlock.FindEnd(argv, cursor, governor);
                     var pages = ArgvParser.ParsePagesArea(argv, cursor, end);
-                    setting("pages", pages.Select(group => Optional(
-                        new Dictionary<string, object> { ["file"] = group.File }, "range", group.Range)).ToArray());
+                    setting("pages", pages.Select(group => Optional(Optional(
+                        new Dictionary<string, object> { ["file"] = group.File }, "range", group.Range), "password", group.Password)).ToArray());
                     cursor = end + 1;
                     continue;
                 case "overlay":

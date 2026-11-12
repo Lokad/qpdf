@@ -270,10 +270,16 @@ public static partial class Qpdf
         }
         foreach (KeyValuePair<string, List<int>> source in sources)
         {
+            if (!string.Equals(source.Key, plan.Input.Value, StringComparison.Ordinal))
+            { ValidateSourceCredentials(plan.Sources, source.Value, governor); }
+        }
+        foreach (KeyValuePair<string, List<int>> source in sources)
+        {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             bool primary = string.Equals(source.Key, plan.Input.Value, StringComparison.Ordinal);
-            await using QpdfDocument? secondary = primary ? null : await QpdfDocument.OpenCore(host,
-                QpdfPath.From(source.Key), limits, governor, diagnostics, plan.Recovery, token, false).ConfigureAwait(false);
+            await using QpdfDocument? secondary = primary ? null : await QpdfDocument.OpenInspectionCore(host,
+                QpdfPath.From(source.Key), plan.Sources[source.Value[0]].Password,
+                limits, governor, diagnostics, plan.Recovery, token, false).ConfigureAwait(false);
             QpdfDocument reader = secondary ?? document;
             GraphCopier copier = primary ? pool : GraphCopier.CreateOwned(reader.Engine, governor, limits, pool.NextId, memory);
             using ParserMemoryScope ranges = ParserMemoryScope.Create(governor);

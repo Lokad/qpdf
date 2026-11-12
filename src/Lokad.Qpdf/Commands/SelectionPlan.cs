@@ -326,7 +326,11 @@ internal sealed record JsonInputPlan(QpdfPath Input, QpdfPath Output) : JobPlan(
 internal sealed record JsonUpdatePlan(QpdfPath Input, QpdfPath JsonPath, QpdfPath Output, QpdfRecoveryMode Recovery) : JobPlan(Input);
 
 /// <summary>One multi-source group: a raw file token plus its range text.</summary>
-internal sealed record PageGroup(string File, string? Range);
+internal sealed record PageGroup(string File, string? Range)
+{
+    internal string? Password { get; init; }
+    public override string ToString() => "PageGroup [credential redacted]";
+}
 
 /// <summary>One attachment to embed: a host file plus display metadata.</summary>
 internal sealed record AttachmentAdd(

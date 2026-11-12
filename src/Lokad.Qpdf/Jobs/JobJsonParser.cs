@@ -1231,11 +1231,12 @@ internal static partial class JobJsonParser
                 List<PdfPageSource> inspectionSources = new();
                 if (hasPages)
                 {
-                    foreach ((string file, string? range) in ParsePagesEntries(pages, textStorage))
+                    List<(string File, string? Range, string? Password)> inspectionEntries = ParsePagesEntries(pages, textStorage);
+                    foreach ((string file, string? _, string? _) in inspectionEntries)
                     {
                         if (empty && file == ".") { throw new QpdfParseException("Cannot select from '.' with empty input.", 0L, null); }
-                        inspectionSources.Add(new PdfPageSource(SelectionPlan.CheckedPath(file), PdfPageSelectionOptions.FromRange(range)));
                     }
+                    inspectionSources = ParsePageSources(inspectionEntries, input, passwordMode, suppressPasswordRecovery, textStorage, governor);
                 }
                 PdfPageCollation? inspectionCollation = null;
                 if (seenCollate && hasPages)
@@ -1679,7 +1680,7 @@ internal static partial class JobJsonParser
                 throw new QpdfParseException("Job \"setPageLabels\" cannot be combined with \"removePageLabels\".", 0L, null);
             }
 
-            List<(string File, string? Range)> entries = ParsePagesEntries(pages, textStorage);
+            List<(string File, string? Range, string? Password)> entries = ParsePagesEntries(pages, textStorage);
             PdfPageCollation? collation = null;
             if (seenCollate)
             {
@@ -1693,7 +1694,7 @@ internal static partial class JobJsonParser
             }
             if (empty)
             {
-                foreach ((string file, string? _) in entries)
+                foreach ((string file, string? _, string? _) in entries)
                 {
                     if (file == ".")
                     {
@@ -1770,11 +1771,7 @@ internal static partial class JobJsonParser
                 };
             }
 
-            List<PdfPageSource> sources = new(entries.Count);
-            foreach ((string file, string? range) in entries)
-            {
-                sources.Add(new PdfPageSource(SelectionPlan.CheckedPath(file), PdfPageSelectionOptions.FromRange(range)));
-            }
+            List<PdfPageSource> sources = ParsePageSources(entries, input, passwordMode, suppressPasswordRecovery, textStorage, governor);
 
             string primary = input ?? entries[0].File;
             return new MergePlan(SelectionPlan.CheckedPath(primary), SelectionPlan.CheckedPath(output ?? primary), sources, collation, recovery) with
@@ -2591,7 +2588,37 @@ internal static partial class JobJsonParser
         return new OverlaySpec(file, to, from, repeat);
     }
 
-    private static List<(string File, string? Range)> ParsePagesEntries(JsonElement pages, ConfigurationText textStorage)
+    private static List<PdfPageSource> ParsePageSources(List<(string File, string? Range, string? Password)> entries,
+        string? primary, string? mode, bool suppressRecovery, ConfigurationText textStorage, ResourceGovernor governor)
+    {
+        Dictionary<string, (QpdfPassword Password, bool Empty)> passwords = ParserContainers.CreateDictionary<string, (QpdfPassword, bool)>(textStorage.Memory);
+        foreach ((string file, string? _, string? text) in entries)
+        {
+            governor.CheckCancellation();
+            if (text is null) { continue; }
+            string path = file == "." ? primary ?? file : file;
+            textStorage.Memory.Reserve(48L);
+            QpdfPassword password = mode == "hex-bytes" ? QpdfPassword.FromHexText(text, !suppressRecovery) : QpdfPassword.FromText(text, !suppressRecovery);
+            if (passwords.TryGetValue(path, out var previous))
+            {
+                if (!previous.Empty && !previous.Password.HasSameInput(password, governor))
+                { throw new QpdfParseException("Different page passwords were specified for the same file.", 0L, null); }
+            }
+            else { ParserContainers.EnsureEntryCapacity(textStorage.Memory, passwords, 16L); }
+            passwords[path] = (password, text.Length == 0);
+        }
+        List<PdfPageSource> sources = new(entries.Count);
+        foreach ((string file, string? range, string? _) in entries)
+        {
+            governor.CheckCancellation();
+            string path = file == "." ? primary ?? file : file;
+            QpdfPassword? password = passwords.TryGetValue(path, out var provided) ? provided.Password : null;
+            sources.Add(new PdfPageSource(SelectionPlan.CheckedPath(file), PdfPageSelectionOptions.FromRange(range), password));
+        }
+        return sources;
+    }
+
+    private static List<(string File, string? Range, string? Password)> ParsePagesEntries(JsonElement pages, ConfigurationText textStorage)
     {
         if (pages.ValueKind != JsonValueKind.Array)
         {
@@ -2603,7 +2630,7 @@ internal static partial class JobJsonParser
             throw new QpdfParseException("Job \"pages\" must hold at least one entry.", 0L, null);
         }
 
-        List<(string File, string? Range)> entries = new();
+        List<(string File, string? Range, string? Password)> entries = new();
         foreach (JsonElement entry in pages.EnumerateArray())
         {
             if (entry.ValueKind != JsonValueKind.Object)
@@ -2617,10 +2644,11 @@ internal static partial class JobJsonParser
         return entries;
     }
 
-    private static (string File, string? Range) ParsePagesEntry(JsonElement entry, ConfigurationText textStorage)
+    private static (string File, string? Range, string? Password) ParsePagesEntry(JsonElement entry, ConfigurationText textStorage)
     {
         string? file = null;
         string? range = null;
+        string? password = null;
         foreach (JsonProperty property in EffectiveProperties(entry))
         {
             switch (property.Name)
@@ -2640,7 +2668,8 @@ internal static partial class JobJsonParser
                     range = RequireString(property.Value, "pages[].range", textStorage);
                     break;
                 case "password":
-                    throw new QpdfCryptoException("password");
+                    password = RequireString(property.Value, "pages[].password", textStorage);
+                    break;
                 default:
                     throw new QpdfParseException($"Unsupported pages key '{ArgvParser.ErrorPreview(property.Name)}' in the narrow selection profile.", 0L, null);
             }
@@ -2651,7 +2680,7 @@ internal static partial class JobJsonParser
             throw new QpdfParseException("Job pages entries require \"file\".", 0L, null);
         }
 
-        return (file, range);
+        return (file, range, password);
     }
 
     private static string RequireString(JsonElement element, string role, ConfigurationText textStorage)
