@@ -52,6 +52,10 @@ internal static class PasswordReaderChecks
             [encrypted.Value, "--password=reader", "--requires-password", "--warning-exit-0"]), CancellationToken.None);
         Check(query.Status == QpdfExecutionStatus.Completed && (int)query.ExitCode == 3 && query.Diagnostics.Count == 0,
             "native password predicate status independent of warnings");
+        QpdfExecutionResult exact = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(
+            [legacy.Value, "--password=café•", "--suppress-password-recovery", "--show-npages"]), CancellationToken.None);
+        Check(exact.Status == QpdfExecutionStatus.Failed && exact.Diagnostics.Single().Code == QpdfDiagnosticCode.InvalidPassword,
+            "password recovery suppression honors the supplied UTF-8 bytes");
         QpdfExecutionResult report = await Qpdf.ExecuteJobAsync(host,
             """{"inputFile":"security-r6-ascii.pdf","showEncryption":"","password":"consumer-secret","check":""}""", CancellationToken.None);
         Check(report.Status == QpdfExecutionStatus.Completed && report.ExitCode == QpdfExitCode.Success

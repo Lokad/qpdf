@@ -37,7 +37,8 @@ internal static class JobJsonParser
         ResourceGovernor governor, ConfigurationText textStorage)
     {
             string? input = null;
-            QpdfPassword? password = null;
+            string? passwordText = null;
+            bool suppressPasswordRecovery = false;
             bool isEncrypted = false;
             bool requiresPassword = false;
             bool showEncryption = false;
@@ -217,7 +218,8 @@ internal static class JobJsonParser
             foreach (JsonProperty property in properties)
             {
                 governor.CheckCancellation();
-                if (IsCryptoKey(property.Name) && property.Name != "password") { throw new QpdfCryptoException(property.Name); }
+                if (IsCryptoKey(property.Name) && property.Name is not ("password" or "suppressPasswordRecovery"))
+                { throw new QpdfCryptoException(property.Name); }
                 switch (property.Name)
                 {
                     case "isEncrypted":
@@ -227,8 +229,10 @@ internal static class JobJsonParser
                         requiresPassword = RequireBareFlag(property.Value, "requiresPassword", textStorage);
                         break;
                     case "password":
-                        textStorage.Memory.Reserve(40L);
-                        password = QpdfPassword.FromText(RequireString(property.Value, "password", textStorage));
+                        passwordText = RequireString(property.Value, "password", textStorage);
+                        break;
+                    case "suppressPasswordRecovery":
+                        suppressPasswordRecovery = RequireBareFlag(property.Value, "suppressPasswordRecovery", textStorage);
                         break;
                     case "showEncryption":
                         showEncryption = RequireBareFlag(property.Value, "showEncryption", textStorage);
@@ -1134,6 +1138,12 @@ internal static class JobJsonParser
                 throw new QpdfParseException("Job \"empty\" cannot be combined with \"inputFile\".", 0L, null);
             }
 
+            QpdfPassword? password = null;
+            if (passwordText is not null)
+            {
+                textStorage.Memory.Reserve(48L);
+                password = QpdfPassword.FromText(passwordText, !suppressPasswordRecovery);
+            }
             if (isEncrypted && requiresPassword)
             { throw new QpdfParseException("isEncrypted and requiresPassword are mutually exclusive.", 0L, null); }
             if (isEncrypted || requiresPassword)
@@ -1227,8 +1237,8 @@ internal static class JobJsonParser
                 };
             }
 
-            if (password is not null && (!(seenJson || seenJsonOutput) || jsonInput || seenUpdateFromJson))
-            { throw new QpdfCryptoException("password"); }
+            if ((password is not null || suppressPasswordRecovery) && (!(seenJson || seenJsonOutput) || jsonInput || seenUpdateFromJson))
+            { throw new QpdfCryptoException(password is null ? "suppressPasswordRecovery" : "password"); }
 
             if (wantAttachments && hasPages)
             {

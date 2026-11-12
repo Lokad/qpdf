@@ -15,6 +15,7 @@ internal static class HelpText
         Options:
           --suppress-recovery   fail on damaged cross-references instead of bounded repair
           --password=text       primary-input password for inspection or JSON export
+          --suppress-password-recovery  use only the supplied password encoding
           --is-encrypted        query encryption: exit 0 encrypted, 2 unencrypted
           --requires-password   query password: exit 0 needed, 2 unencrypted, 3 matched
           --show-encryption     report encryption settings and password match, without secrets
@@ -179,7 +180,7 @@ internal static class HelpText
         Usage:
           qpdf --job-json-file file
         Top-level keys:
-          inputFile, outputFile, password, isEncrypted, requiresPassword, showEncryption, pages:[{file, range}, ...], collate, replaceInput, splitPages, rotate, setPageLabels,
+          inputFile, outputFile, password, suppressPasswordRecovery, isEncrypted, requiresPassword, showEncryption, pages:[{file, range}, ...], collate, replaceInput, splitPages, rotate, setPageLabels,
           removePageLabels, minVersion, forceVersion, deterministicId, staticId,
           newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData,
           compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo,
@@ -203,6 +204,7 @@ internal static class HelpText
         ("" lifts unspecified parser defaults; explicit invocation and host limits remain binding).
         Other global keys fail.
         password accepts text (including "") for the primary input in inspection and JSON export.
+        suppressPasswordRecovery takes "" and disables alternate-encoding attempts.
         isEncrypted and requiresPassword take "" and return the native query exit codes described by --help.
         showEncryption takes "" and reports declared settings without passwords or keys.
         Encrypted transformations, passwordFile/passwordMode and nested passwords remain unsupported.
@@ -225,11 +227,11 @@ internal static class HelpText
     }
 
     internal const string JsonHelpV2 = """
-        {"version": "JSON format version (2)", "parameters": "decode and stream-data parameters for this inspection", "pages": "per-page descriptors with object, contents, label, outlines, pageposfrom1 and images", "pagelabels": "explicit page labels", "attachments": "embedded-file entries", "encrypt": "unencrypted sentinel", "outlines": "explicit-destination outline entries", "acroform": "form fields with inherited types, names, values and annotations", "qpdf": "object table (version 2)"}
+        {"version": "JSON format version (2)", "parameters": "decode and stream-data parameters for this inspection", "pages": "per-page descriptors with object, contents, label, outlines, pageposfrom1 and images", "pagelabels": "explicit page labels", "attachments": "embedded-file entries", "encrypt": "non-secret encryption facts; password/key fields stay null", "outlines": "explicit-destination outline entries", "acroform": "form fields with inherited types, names, values and annotations", "qpdf": "object table (version 2)"}
         """;
 
     internal const string JsonHelpV1 = """
-        {"version": "JSON format version (1)", "parameters": "decode and stream-data parameters for this inspection", "pages": "per-page descriptors with object, contents, label, outlines, pageposfrom1 and images", "pagelabels": "explicit page labels", "attachments": "embedded-file entries", "encrypt": "unencrypted sentinel", "outlines": "explicit-destination outline entries", "acroform": "form fields with inherited types, names, values and annotations", "objects": "object table keyed by full references such as 3 0 R (version 1)", "objectinfo": "object metadata keyed by the same full references (version 1)"}
+        {"version": "JSON format version (1)", "parameters": "decode and stream-data parameters for this inspection", "pages": "per-page descriptors with object, contents, label, outlines, pageposfrom1 and images", "pagelabels": "explicit page labels", "attachments": "embedded-file entries", "encrypt": "non-secret encryption facts; password/key fields stay null", "outlines": "explicit-destination outline entries", "acroform": "form fields with inherited types, names, values and annotations", "objects": "object table keyed by full references such as 3 0 R (version 1)", "objectinfo": "object metadata keyed by the same full references (version 1)"}
         """;
 
     internal static bool TryMatchJsonHelp(IReadOnlyList<string> argv, out string text)
@@ -253,7 +255,7 @@ internal static class HelpText
         return false;
     }
 
-    internal const string CompletionFlags = "--show-encryption --is-encrypted --requires-password --password --suppress-recovery --warning-exit-0 --no-warn --rotate --split-pages --replace-input --collate --set-page-labels --min-version --force-version --deterministic-id --static-id --newline-before-endstream --object-streams --preserve-unreferenced --stream-data --compress-streams --decode-level --recompress-flate --compression-level --remove-info --remove-metadata --coalesce-contents --normalize-content --remove-unreferenced-resources --preserve-unreferenced-resources --externalize-inline-images --ii-min-bytes --overlay --underlay --flatten-rotation --flatten-annotations --generate-appearances --remove-acroform --remove-structure --qdf --no-original-object-ids --linearize --linearize-pass1 --optimize-images --oi-min-width --oi-min-height --oi-min-area --keep-inline-images --jpeg-quality --list-attachments --show-attachment --add-attachment --remove-attachment --copy-attachments-from --max-stream-filters --parser-max-nesting --parser-max-container-size --parser-max-container-size-damaged --parser-max-errors --no-default-limits --global --ignore-xref-streams --empty --json --json-help --json-object --json-stream-data --json-stream-prefix --json-output --json-input --update-from-json --check-linearization --show-npages --show-pages --with-images --show-object --raw-stream-data --filtered-stream-data --show-xref --show-linearization --remove-page-labels --help --version --copyright --job-json-help --completion-bash --completion-zsh --check --pages --job-json-file --json-key --test-json-schema --report-memory-usage --verbose --progress --keep-files-open --keep-files-open-threshold";
+    internal const string CompletionFlags = "--suppress-password-recovery --show-encryption --is-encrypted --requires-password --password --suppress-recovery --warning-exit-0 --no-warn --rotate --split-pages --replace-input --collate --set-page-labels --min-version --force-version --deterministic-id --static-id --newline-before-endstream --object-streams --preserve-unreferenced --stream-data --compress-streams --decode-level --recompress-flate --compression-level --remove-info --remove-metadata --coalesce-contents --normalize-content --remove-unreferenced-resources --preserve-unreferenced-resources --externalize-inline-images --ii-min-bytes --overlay --underlay --flatten-rotation --flatten-annotations --generate-appearances --remove-acroform --remove-structure --qdf --no-original-object-ids --linearize --linearize-pass1 --optimize-images --oi-min-width --oi-min-height --oi-min-area --keep-inline-images --jpeg-quality --list-attachments --show-attachment --add-attachment --remove-attachment --copy-attachments-from --max-stream-filters --parser-max-nesting --parser-max-container-size --parser-max-container-size-damaged --parser-max-errors --no-default-limits --global --ignore-xref-streams --empty --json --json-help --json-object --json-stream-data --json-stream-prefix --json-output --json-input --update-from-json --check-linearization --show-npages --show-pages --with-images --show-object --raw-stream-data --filtered-stream-data --show-xref --show-linearization --remove-page-labels --help --version --copyright --job-json-help --completion-bash --completion-zsh --check --pages --job-json-file --json-key --test-json-schema --report-memory-usage --verbose --progress --keep-files-open --keep-files-open-threshold";
 
     internal static string BashCompletion()
     {

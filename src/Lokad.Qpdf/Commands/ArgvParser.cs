@@ -72,7 +72,7 @@ internal static class ArgvParser
             governor.CheckCancellation();
             governor.NoteOperation();
             if (token is not null && token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2
-                && IsCryptoOption(OptionName(token)) && !(inspectionPassword && OptionName(token) is "password"))
+                && IsCryptoOption(OptionName(token)) && !(inspectionPassword && OptionName(token) is "password" or "suppress-password-recovery"))
             {
                 throw new QpdfCryptoException($"--{OptionName(token)}");
             }

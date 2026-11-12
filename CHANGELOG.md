@@ -22,6 +22,8 @@
 - Authenticate JSON inspection through typed `QpdfJsonOptions.Password` and primary
   argv/job credentials. Export decrypted graphs and stream data, and report non-secret
   encryption facts in JSON versions 1 and 2; password/key fields remain null.
+- Support `--suppress-password-recovery` / `suppressPasswordRecovery` for primary
+  inspections and JSON export, disabling alternate password-encoding attempts.
 - Start development version 0.2.0-dev.1.
 - Separate planned password-security requirements, deferred legacy-output options
   and explicit raw-key/static-IV exclusions in the compatibility inventory.

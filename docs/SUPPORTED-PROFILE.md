@@ -19,6 +19,9 @@ reporting and partial-check contract still apply.
 Output-free argv/job inspections accept a primary text password through
 `--password`/`password`. Password files/modes and secondary credentials remain
 unsupported. Missing and supplied-but-invalid credentials have distinct diagnostic codes.
+`--suppress-password-recovery` / `suppressPasswordRecovery` disables the R4
+PDFDocEncoding retry for primary inspection and JSON credentials. It leaves raw
+bytes, absent passwords and successful first attempts unchanged.
 
 `--is-encrypted` returns 0 for supported encrypted inputs and 2 for plain inputs.
 `--requires-password` returns 0 when credentials do not match, 2 for plain inputs,

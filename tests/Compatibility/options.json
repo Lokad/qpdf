@@ -6648,20 +6648,26 @@
           "source": "manual/cli.rst:604"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "Primary inspections and JSON export can disable the supported R4 encoding retry. Other recovery encodings, legacy handlers, secondary credentials and transformations remain pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
+        "positive": [
+          "PasswordRecoveryOptionTests.SuppressionUsesOnlyTheSuppliedEncoding"
+        ],
         "negative": [
           "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+          "PasswordRecoveryOptionTests.SuppressionDoesNotEnableEncryptedTransformations"
         ],
-        "interaction": [],
-        "resource": [],
+        "interaction": [
+          "PasswordRecoveryOptionTests.PasswordQueriesHonorSuppressionWithoutTurningItIntoAnError"
+        ],
+        "resource": [
+          "PasswordRecoveryOptionTests.SuppressionUsesOnlyTheSuppliedEncoding"
+        ],
         "oracle": []
       }
     },

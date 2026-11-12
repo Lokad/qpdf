@@ -5291,7 +5291,8 @@ public static partial class Qpdf
         }
 
         if (JobJsonLoader.HasJobFile(expanded)
-            || (expanded.Any(token => token == "--password" || token.StartsWith("--password=", StringComparison.Ordinal))
+            || (expanded.Any(token => token == "--password" || token.StartsWith("--password=", StringComparison.Ordinal)
+                    || token == "--suppress-password-recovery" || token.StartsWith("--suppress-password-recovery=", StringComparison.Ordinal))
                 && expanded.Any(token => token == "--json" || token.StartsWith("--json=", StringComparison.Ordinal)
                     || token == "--json-output" || token.StartsWith("--json-output=", StringComparison.Ordinal)))
             || expanded.Any(token => token == "--check" || token.StartsWith("--check=", StringComparison.Ordinal)
