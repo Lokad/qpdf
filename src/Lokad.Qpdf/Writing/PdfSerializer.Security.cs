@@ -26,8 +26,12 @@ internal sealed partial class PdfSerializer
         if (!found) { throw new QpdfException("Output encryption dictionary is missing from the model."); }
     }
 
-    internal async ValueTask AppendObjectStreamPayloadAsync(int number, int count, ObjectStreamPayload payload,
+    internal ValueTask AppendObjectStreamPayloadAsync(int number, int count, ObjectStreamPayload payload,
         IByteSink sink, CancellationToken cancellationToken)
+        => AppendObjectStreamPayloadAsync(number, count, payload, false, sink, cancellationToken);
+
+    private async ValueTask AppendObjectStreamPayloadAsync(int number, int count, ObjectStreamPayload payload,
+        bool qdf, IByteSink sink, CancellationToken cancellationToken)
     {
         int length = _security is null ? payload.Data.Length : PdfAesCipher.EncryptedLength(payload.Data.Length);
         if (length > _limits.MaxOutputBytes)
@@ -35,7 +39,7 @@ internal sealed partial class PdfSerializer
         if (sink is CountingSink counter)
         {
             counter.AppendLength(ObjectStreamHeader.Measure(number, count, length, payload.First,
-                payload.Compressed, false, _limits, _governor, cancellationToken), cancellationToken);
+                payload.Compressed, qdf, _limits, _governor, cancellationToken), cancellationToken);
             counter.AppendLength(length, cancellationToken);
             return;
         }
@@ -45,7 +49,7 @@ internal sealed partial class PdfSerializer
         ReadOnlyMemory<byte> data = encrypted is null ? payload.Data
             : (_security ?? throw new InvalidOperationException("Missing output security.")).Encrypt(payload.Data.Span, encrypted, _governor);
         using (ObjectStreamHeader header = ObjectStreamHeader.Create(number, count, length, payload.First,
-            payload.Compressed, false, _limits, _governor, cancellationToken))
+            payload.Compressed, qdf, _limits, _governor, cancellationToken))
         {
             await AppendBytesAsync(header.Data, sink, cancellationToken).ConfigureAwait(false);
         }

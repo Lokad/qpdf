@@ -33,7 +33,6 @@ internal sealed partial class PdfSerializer
         ValidateEncryptionModel(model, cancellationToken);
         if (objectStreamGroups is not null && objectStreamGroups.Count > 0)
         {
-            if (_security is not null) { throw new QpdfUnsupportedFeatureException("Encrypted QDF object-stream output is not yet supported."); }
             return await SerializeQdfStreamedAsync(version, model, objectStreamGroups, originalIds, infoRef, id1, id2, qdf, newlineBeforeEndstream, sink, cancellationToken).ConfigureAwait(false);
         }
 
@@ -250,6 +249,14 @@ internal sealed partial class PdfSerializer
             {
                 throw new QpdfException("Object-stream groups must hold 1..100 members.");
             }
+            if (_security is not null)
+            {
+                foreach (int number in group)
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+                    _ = ReadObjectStreamMember(lookup, number);
+                }
+            }
         }
 
         using WriterIndex<byte> members = WriterIndex<byte>.Create(sizeof(byte), _governor, cancellationToken);
@@ -328,6 +335,8 @@ internal sealed partial class PdfSerializer
         }
 
         int xrefNumber = next;
+        int encryptionNumber = _security is null ? 0 : MapSecurityObject(_encryptionObject, combined);
+        if (_security is not null) { _ = MapSecurityObject(_metadataObject, combined); }
         next = checked(next + 1);
         int size = xrefNumber + 1;
         using WriterIndex<QdfMark> marks = QdfPageMarksSorted(lookup, combined, cancellationToken);
@@ -340,9 +349,12 @@ internal sealed partial class PdfSerializer
         {
             cancellationToken.ThrowIfCancellationRequested();
             _governor.NoteOperation();
-            using WriterValue remapped = value is PdfStream originalStream
+            using ParserMemoryScope? encrypted = _security is null || old == _encryptionObject ? null : ParserMemoryScope.Create(_governor);
+            QpdfObject emitted = encrypted is null ? value : (_security ?? throw new InvalidOperationException("Missing output security.")).EncryptObject(
+                value, old == _metadataObject, _securityResolver ?? throw new InvalidOperationException("Missing output resolver."), encrypted, _governor);
+            using WriterValue remapped = emitted is PdfStream originalStream
                 ? WriterValue.StreamHeader(originalStream.Dictionary, number + 1, combined, _governor, cancellationToken)
-                : WriterValue.Remap(value, combined, _governor, cancellationToken);
+                : WriterValue.Remap(emitted, combined, _governor, cancellationToken);
             if (marks.TryGetValue(number, out QdfMark mark))
             {
                 await AppendQdfMarkAsync(mark, sink, cancellationToken).ConfigureAwait(false);
@@ -355,7 +367,7 @@ internal sealed partial class PdfSerializer
 
             offsets.Add(number, sink.Length);
             await AppendFormattedAsync([WriterPart.Number(number), WriterPart.Text(" 0 obj\n")], sink, cancellationToken).ConfigureAwait(false);
-            if (value is PdfStream stream)
+            if (emitted is PdfStream stream)
             {
                 int lengthNumber = number + 1;
                 await AppendQdfDictionaryAsync(AssertDictionary(remapped.Value), sink, 0, cancellationToken).ConfigureAwait(false);
@@ -363,7 +375,7 @@ internal sealed partial class PdfSerializer
                 ReadOnlyMemory<byte> data = stream.RawMemory;
                 await AppendAsciiAsync("\nstream\n", sink, cancellationToken).ConfigureAwait(false);
                 await AppendStreamPayloadAsync(stream, sink, cancellationToken).ConfigureAwait(false);
-                bool addedNewline = newlineBeforeEndstream || data.Length == 0 || data.Span[data.Length - 1] != 0x0A;
+                bool addedNewline = _security is not null || newlineBeforeEndstream || data.Length == 0 || data.Span[data.Length - 1] != 0x0A;
                 if (addedNewline)
                 {
                     await AppendAsciiAsync("\nendstream", sink, cancellationToken).ConfigureAwait(false);
@@ -429,13 +441,8 @@ internal sealed partial class PdfSerializer
             using ObjectStreamPayload payload = ObjectStreamPayload.CreateQdfIndexed(group, combined, headers, bodies,
                 _limits, _governor, cancellationToken);
             offsets.Add(container, sink.Length);
-            using (ObjectStreamHeader header = ObjectStreamHeader.Create(container, group.Count, payload.Data.Length,
-                payload.First, false, true, _limits, _governor, cancellationToken))
-            {
-                await AppendBytesAsync(header.Data, sink, cancellationToken).ConfigureAwait(false);
-            }
-            await AppendBytesAsync(payload.Data, sink, cancellationToken).ConfigureAwait(false);
-            if (newlineBeforeEndstream)
+            await AppendObjectStreamPayloadAsync(container, group.Count, payload, true, sink, cancellationToken).ConfigureAwait(false);
+            if (_security is not null || newlineBeforeEndstream)
             {
                 await AppendAsciiAsync("\nendstream", sink, cancellationToken).ConfigureAwait(false);
             }
@@ -528,6 +535,11 @@ internal sealed partial class PdfSerializer
         }
 
         combined.Dispose();
+        if (_security is not null)
+        {
+            await AppendFormattedAsync([WriterPart.Text("  /Encrypt "), WriterPart.Number(encryptionNumber),
+                WriterPart.Text(" 0 R\n")], sink, cancellationToken).ConfigureAwait(false);
+        }
         await AppendFormattedAsync([WriterPart.Text("  /ID [<"), WriterPart.Hex(id1), WriterPart.Text("><"), WriterPart.Hex(id2), WriterPart.Text(">]\n")], sink, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync(">>\nstream\n", sink, cancellationToken).ConfigureAwait(false);
         await AppendBytesAsync(xref.Data, sink, cancellationToken).ConfigureAwait(false);

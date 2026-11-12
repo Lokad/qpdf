@@ -82,7 +82,7 @@ public sealed partial class EncryptedSerializerTests
     }
 
     [Fact]
-    public async Task UnintegratedQdfObjectStreamWriterRejectsBeforeOutput()
+    public async Task QdfEncryptionDictionaryCannotBeCompressed()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope source = ParserMemoryScope.Create(governor);
@@ -90,8 +90,8 @@ public sealed partial class EncryptedSerializerTests
         List<NumberedObject> model = Model(governor, source, security);
         PdfSerializer serializer = Serializer(governor, security, model);
         MemorySink sink = new();
-        await Assert.ThrowsAsync<QpdfUnsupportedFeatureException>(() => serializer.SerializeQdfAsync(new(2, 0), model,
-            [new[] { 5 }], null, 5, new byte[16], new byte[16], new(true, false), true, sink, CancellationToken.None).AsTask());
+        await Assert.ThrowsAsync<QpdfException>(() => serializer.SerializeQdfAsync(new(2, 0), model,
+            [new[] { 7 }], null, 5, new byte[16], new byte[16], new(true, false), true, sink, CancellationToken.None).AsTask());
         Assert.Equal(0, sink.Length);
     }
 

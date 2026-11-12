@@ -79,7 +79,8 @@ xref streams remain clear and carry the encryption reference. Encryption and
 signature dictionaries stay outside encrypted containers. Classic QDF preserves
 indirect stream-length objects with ciphertext sizes and remapped security references.
 It always separates encrypted payloads from endstream, keeping counted framing
-stable across IVs. Encrypted QDF object-stream serialization still awaits integration.
+stable across IVs. QDF object streams retain their plaintext member comments and
+offset table inside one encrypted container; their xref stream stays clear.
 Linearized classification can place the encryption dictionary at the end of the
 first document section, before hints, while keeping it and signatures uncompressed.
 The two-pass writers bind encryption and metadata to their remapped
