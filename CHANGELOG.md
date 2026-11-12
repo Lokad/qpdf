@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Separate planned password-security requirements, deferred legacy-output options
+  and explicit raw-key/static-IV exclusions in the compatibility inventory.
+  Existing rejection coverage remains current behavior, not implementation evidence.
+
 ## 0.1.0 (2026-11-05)
 
 First release published on NuGet.

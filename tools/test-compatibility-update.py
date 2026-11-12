@@ -48,7 +48,7 @@ class CompatibilityUpdateTests(unittest.TestCase):
 
     def test_initial_generation_keeps_companion_requirements(self):
         result = self.generate(inventory.COMMIT)
-        self.assertEqual(["--json-key=encrypt is excluded", "fix-qdf companion", "zlib-flate companion"],
+        self.assertEqual(["--json-key=encrypt must report non-secret encryption facts", "fix-qdf companion", "zlib-flate companion"],
                          result["supplementalRequirements"])
         self.assertEqual(140, len(result["options"]))
         self.assertEqual("12.4.2", result["reference"]["version"])

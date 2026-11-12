@@ -19,10 +19,12 @@ not establish implemented behavior. Development changes are in the
 | Resource limits | Host ceilings remain binding under `--no-default-limits`. Memory admission bounds an estimated working set, not CLR heap or process RSS. See [ownership](MEMORY.md). |
 | Scope | Rendering, OCR, text extraction/layout, general authoring and PDF/A/X/UA conformance are outside the target. |
 
-The inventory has 140 flags in 157 context entries: 105 required complete,
-49 crypto exclusions complete and three explicit partials (`--optimize-images`,
-`--flatten-rotation`, `--zopfli`). Companion fix-qdf/zlib-flate operations are
-additional contracts. These counts describe evidence, not release/test quotas.
+The inventory has 140 flags in 157 context entries. It separates implemented
+behavior from planned requirements, deferred legacy-output options and explicit
+exclusions. Security rejection tests establish current refusal only; they do not
+establish password-security support. `currentRejection` tracks that refusal
+independently of scope. Incomplete entries retain concrete gaps; exclusions have
+reasons. Companion fix-qdf/zlib-flate operations are additional contracts.
 
 ## Entry-point defaults
 

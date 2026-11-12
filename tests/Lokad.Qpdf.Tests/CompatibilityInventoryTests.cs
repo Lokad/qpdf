@@ -23,9 +23,9 @@ public sealed class CompatibilityInventoryTests
         Assert.All(entries, entry =>
         {
             Assert.Contains(entry.GetProperty("scope").GetString(),
-                new[] { "required", "excluded-crypto", "documented-host/build-difference" });
+                new[] { "required", "deferred", "excluded", "documented-host/build-difference" });
             Assert.Contains(entry.GetProperty("status").GetString(),
-                new[] { "not-started", "partial", "complete" });
+                new[] { "not-started", "partial", "complete", "excluded" });
             Assert.NotEmpty(entry.GetProperty("manualForms").EnumerateArray());
         });
     }
@@ -41,13 +41,18 @@ public sealed class CompatibilityInventoryTests
     [InlineData("--is-encrypted")]
     [InlineData("--requires-password")]
     [InlineData("--remove-restrictions")]
-    public void CryptoOperationsAreExcludedInEveryContext(string flag)
+    public void RequiredSecurityOperationsAreNotCountedAsImplementedRejections(string flag)
     {
         using var inventory = ReadInventory();
         var entries = inventory.RootElement.GetProperty("options").EnumerateArray()
             .Where(entry => entry.GetProperty("flag").GetString() == flag).ToArray();
         Assert.NotEmpty(entries);
-        Assert.All(entries, entry => Assert.Equal("excluded-crypto", entry.GetProperty("scope").GetString()));
+        Assert.All(entries, entry =>
+        {
+            Assert.Equal("required", entry.GetProperty("scope").GetString());
+            Assert.NotEqual("complete", entry.GetProperty("status").GetString());
+            Assert.NotEmpty(entry.GetProperty("remainingGaps").EnumerateArray());
+        });
     }
 
     [Fact]
@@ -72,13 +77,14 @@ public sealed class CompatibilityInventoryTests
     }
 
     [Fact]
-    public void EncryptionJsonKeyIsExcludedWithoutExcludingOtherJsonKeys()
+    public void EncryptionJsonKeyKeepsItsUnimplementedBehaviorVisible()
     {
         using var inventory = ReadInventory();
         var entry = Assert.Single(inventory.RootElement.GetProperty("options").EnumerateArray(),
             option => option.GetProperty("flag").GetString() == "--json-key");
         Assert.Equal("required", entry.GetProperty("scope").GetString());
-        Assert.Equal("excluded-crypto", entry.GetProperty("choiceScopes").GetProperty("encrypt").GetString());
+        Assert.Equal("required", entry.GetProperty("choiceScopes").GetProperty("encrypt").GetString());
+        Assert.Equal("partial", entry.GetProperty("status").GetString());
     }
 
     [Fact]
@@ -132,15 +138,20 @@ public sealed class CompatibilityInventoryTests
         Assert.Empty(missing);
     }
     [Fact]
-    public void PartialEntriesKeepVisibleGaps()
+    public void IncompleteEntriesKeepVisibleGapsAndExclusionsHaveReasons()
     {
         using var inventory = ReadInventory();
         foreach (var entry in inventory.RootElement.GetProperty("options").EnumerateArray())
         {
-            if (entry.GetProperty("status").GetString() != "partial")
-                continue;
-
-            Assert.NotEmpty(entry.GetProperty("remainingGaps").EnumerateArray());
+            string? status = entry.GetProperty("status").GetString();
+            if (status is "partial" or "not-started")
+            { Assert.NotEmpty(entry.GetProperty("remainingGaps").EnumerateArray()); }
+            if (entry.GetProperty("scope").GetString() == "excluded")
+            {
+                Assert.Equal("excluded", status);
+                Assert.False(string.IsNullOrWhiteSpace(entry.GetProperty("exclusionReason").GetString()));
+                Assert.NotEmpty(entry.GetProperty("evidence").GetProperty("negative").EnumerateArray());
+            }
         }
     }
 
@@ -223,8 +234,10 @@ public sealed class CompatibilityInventoryTests
             string? flag = entry.GetProperty("flag").GetString();
             if (!string.IsNullOrEmpty(flag) && flag.StartsWith("--", StringComparison.Ordinal))
             {
-                bool excluded = entry.GetProperty("scope").GetString() == "excluded-crypto";
-                Assert.Equal(excluded, ArgvParser.IsCryptoOption(flag.AsSpan(2)));
+                bool rejected = entry.TryGetProperty("currentRejection", out JsonElement rejection) && rejection.GetBoolean();
+                Assert.Equal(rejected, ArgvParser.IsCryptoOption(flag.AsSpan(2)));
+                if (rejected && entry.GetProperty("scope").GetString() != "excluded")
+                { Assert.NotEqual("complete", entry.GetProperty("status").GetString()); }
             }
         }
         Assert.False(ArgvParser.IsCryptoOption("passwordx"));

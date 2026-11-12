@@ -25,6 +25,23 @@ GROUPS = (
     "required_choices", "optional_choices",
 )
 
+def crypto_scope(context, name):
+    if name in {"password-is-hex-key", "show-encryption-key", "static-aes-iv"}:
+        return "excluded"
+    if context in {"40-bit-encryption", "128-bit-encryption"} or name in {
+        "allow-weak-crypto", "allow-insecure", "force-R5", "force-V4", "use-aes"
+    }:
+        return "deferred"
+    return "required"
+
+
+def crypto_gap(scope):
+    if scope == "excluded":
+        return "Specialist raw-key and static-IV switches are outside the supported target."
+    if scope == "deferred":
+        return "New weak encryption, forced legacy output and insecure password combinations are deferred; reading and preserving existing protection are separate requirements."
+    return "Password-security behavior is not implemented; current evidence establishes rejection only."
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reference", required=True, type=Path)
@@ -106,7 +123,7 @@ def main():
 
     visit_json(job["json"], "")
     previous = {}
-    supplemental_requirements = ["--json-key=encrypt is excluded", "fix-qdf companion", "zlib-flate companion"]
+    supplemental_requirements = ["--json-key=encrypt must report non-secret encryption facts", "fix-qdf companion", "zlib-flate companion"]
     if args.output.exists():
         old = json.loads(args.output.read_text(encoding="utf-8"))
         if old["reference"]["commit"] != COMMIT:
@@ -117,24 +134,30 @@ def main():
     for row in rows:
         name = row["flag"][2:]
         crypto = name in CRYPTO or "encryption" in row["context"]
-        row["scope"] = "excluded-crypto" if crypto else (
+        row["scope"] = crypto_scope(row["context"], name) if crypto else (
             "documented-host/build-difference" if name == "zopfli" else "required")
         row["choiceScopes"] = {choice: (
-            "excluded-crypto" if name == "json-key" and choice == "encrypt" else row["scope"]
+            "required" if name == "json-key" and choice == "encrypt" else row["scope"]
         ) for choice in row["choices"]}
         row["manualForms"] = forms[row["flag"]]
         row["status"] = "not-started"
         row["defaultReview"] = "pending"
-        row["remainingGaps"] = ["Runtime rejection not implemented." if crypto else "Behavior review and implementation pending."]
+        row["remainingGaps"] = [crypto_gap(row["scope"]) if crypto else "Behavior review and implementation pending."]
+        if crypto:
+            row["currentRejection"] = True
+            if row["scope"] == "excluded":
+                row["status"] = "excluded"
+                row["exclusionReason"] = crypto_gap(row["scope"])
+                row["remainingGaps"] = []
         row["evidence"] = {kind: [] for kind in ("positive", "negative", "interaction", "resource", "oracle")}
         row["jobJsonPaths"] = sorted(set(row["jobJsonPaths"]))
         old = previous.get((row["context"], row["flag"]), {})
-        for field in ("status", "defaultReview", "remainingGaps", "evidence"):
+        for field in ("scope", "choiceScopes", "status", "defaultReview", "remainingGaps", "evidence", "currentRejection", "exclusionReason"):
             if field in old:
                 row[field] = old[field]
 
     result = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "reference": {
             "repository": "https://github.com/qpdf/qpdf", "version": VERSION,
             "commit": COMMIT, "documentedFlagCount": len(forms),
