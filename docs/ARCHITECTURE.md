@@ -62,7 +62,7 @@ and embedded-file filters, document metadata, xref and signature exceptions.
 Recorded encrypted fixtures cover classic/streamed xrefs, hybrid supplements,
 incremental replacement of strings, and an incremental update over a hybrid file.
 They verify newest-object selection while older encrypted stream payloads remain readable.
-`QpdfDocument.OpenAsync` uses this authenticated reader with per-input text or raw
+`QpdfDocument.OpenAsync` and typed structural checks use this authenticated reader with per-input text or raw
 credentials and non-secret encryption facts. Transformation and argv/job entry
 points retain their encrypted-input refusal pending output-protection integration.
 R4 authentication uses system MD5 and a bounded, owned RC4 primitive, checked

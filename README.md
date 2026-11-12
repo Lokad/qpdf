@@ -79,6 +79,11 @@ Omitting credentials tries an empty password. `QpdfSecurityException.Reason`
 distinguishes a required password, an invalid supplied password and an unsupported
 handler; malformed parameters throw `QpdfParseException`.
 
+Structural checks use the same credentials through
+`new QpdfCheckOptions { Password = QpdfPassword.FromText("reader") }` passed to
+`Qpdf.CheckAsync`. They inspect decrypted objects and streams and report authentication
+without exposing the password. Borrowed password bytes remain stable until the check completes.
+
 JPEG decoding and recompression use the optional `IQpdfJpegCodec` interface.
 Supply your implementation with `new InMemoryQpdfHost(QpdfLimits.Default, codec)`;
 custom hosts expose it through `IQpdfJpegCodecHost`. Existing JPEGs can pass through

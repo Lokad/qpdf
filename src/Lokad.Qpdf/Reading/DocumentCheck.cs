@@ -63,7 +63,8 @@ internal static class DocumentCheck
         AddItem(outcomeMemory, governor, outcomes, CheckOutcome.Create(governor, "cross-reference", QpdfCheckStatus.Passed,
             [engine.XRefEntries.Count, " entries cover the effective size."]), IntPtr.Size);
         AddItem(outcomeMemory, governor, outcomes, CheckOutcome.Literal(governor, "trailer", QpdfCheckStatus.Passed,
-            "Catalog root is reachable and input is unencrypted."), IntPtr.Size);
+            engine.Security is null ? "Catalog root is reachable and input is unencrypted."
+                : "Catalog root is reachable after password authentication."), IntPtr.Size);
         AddItem(outcomeMemory, governor, outcomes, document.PageCount == 0
             ? CheckOutcome.Literal(governor, "page-tree", QpdfCheckStatus.Failed, "File does not contain any pages.")
             : CheckOutcome.Create(governor, "page-tree", QpdfCheckStatus.Passed, [document.PageCount, " pages traversed."]), IntPtr.Size);

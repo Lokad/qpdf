@@ -14,6 +14,10 @@ Encryption facts expose permissions and authentication status without passwords
 or keys. RC4 inputs, R5, encrypted transforms, output encryption and argv/job
 password options remain unsupported.
 
+Typed `Qpdf.CheckAsync` accepts the same credentials in `QpdfCheckOptions.Password`
+and runs structural checks over the decrypted graph. Its existing skipped-stage
+reporting and partial-check contract still apply.
+
 Signed, unencrypted pages can be copied, merged, placed and rewritten.
 Stored signature appearances survive; active signature field attributes and document
 certification restrictions are disabled, including blank signature fields. Derived

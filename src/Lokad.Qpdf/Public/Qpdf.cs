@@ -4250,7 +4250,7 @@ public static partial class Qpdf
         try
         {
             DiagnosticBag diagnostics = new(governor);
-            TypedCheckOutcome result = await CheckCoreAsync(host, inputPath, options, limits, QpdfRecoveryMode.Strict, false, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+            TypedCheckOutcome result = await CheckCoreAsync(host, inputPath, options, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
             QpdfCheckResult presented = result.Present(governor);
             governor.FinishTypedCounters();
             return presented;
@@ -5043,9 +5043,6 @@ public static partial class Qpdf
         QpdfPath inputPath,
         QpdfCheckOptions options,
         QpdfLimits limits,
-        QpdfRecoveryMode recovery,
-        bool emptyDocument,
-        bool showNpages,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
@@ -5056,15 +5053,12 @@ public static partial class Qpdf
         List<QpdfCheckOutcome> checks;
         int pageCount;
         QpdfDocument.VersionParts versionParts;
-        await using (QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false))
+        await using (QpdfDocument document = await QpdfDocument.OpenInspectionCore(host, inputPath, options.Password,
+            limits, governor, diagnostics, QpdfRecoveryMode.Strict, cancellationToken).ConfigureAwait(false))
         {
             checks = DocumentCheck.Run(document, options, limits, governor, diagnostics, false, cancellationToken);
             pageCount = document.PageCount;
             versionParts = document.EffectiveVersionParts;
-            if (showNpages && !checks.Exists(static outcome => outcome.Status == QpdfCheckStatus.Failed))
-            {
-                AddPageCountDiagnostic(document, inputPath, diagnostics);
-            }
         }
         using OwnedAllocationBatch resultStorage = OwnedAllocationBatch.Create(governor, cancellationToken);
         resultStorage.Memory.Reserve(PdfVersion.StorageBytes);

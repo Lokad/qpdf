@@ -36,6 +36,9 @@ internal static class PasswordReaderChecks
                 Check(password is null || password.ToString() == "QpdfPassword [redacted]", "redacted password formatting");
             }
             Check(title is not null && Encoding.ASCII.GetString(title.Value) == "TitleText", "decrypted value survives input disposal");
+            QpdfCheckResult inspection = await Qpdf.CheckAsync(host, path, new QpdfCheckOptions { Password = password }, QpdfLimits.Default, CancellationToken.None);
+            Check(inspection.PageCount == 1 && inspection.Checks.All(check => check.Status != QpdfCheckStatus.Failed), "authenticated structural checks");
+            Check(inspection.Checks.Single(check => check.Name == "trailer").Detail.Contains("password authentication", StringComparison.Ordinal), "authenticated trailer reporting");
         }
         Check(ownerBytes.AsSpan().SequenceEqual("fixture-owner"u8), "borrowed password remains caller-owned");
         await Failure(null, QpdfSecurityFailure.PasswordRequired);
