@@ -1,0 +1,100 @@
+[
+  {
+    "file": "security-r2-ascii.pdf",
+    "userHex": "726561646572",
+    "ownerHex": "666978747572652D6F776E6572",
+    "fileKeyHex": "66f11eb16e",
+    "dictionary": "<< /Filter /Standard /Length 40 /O <ac04f7d1bf4f1dcf1d5a39f0f4503add5a42254ec41f4915abd7fc67fc8303ba> /P -64 /R 2 /U <5e8ec61b319737846e912bab5a729bdf6433388795c5a728427146c2bfb47736> /V 1 >>",
+    "streams": [
+      {
+        "number": 3,
+        "plainBase64": "eJyzsa8oSEzOTi1RSEpNz8yzVapQsrezqbCqyC3ITS1JtPMFEjb6CD4Am7ERDQ=="
+      },
+      {
+        "number": 6,
+        "plainBase64": "eJxzClHQCEhMT9VUCMlScA0BACBvBBw="
+      }
+    ],
+    "idHex": "ee6ef0df538495fdea343f4d48fc74f5"
+  },
+  {
+    "file": "security-r2-empty.pdf",
+    "userHex": "",
+    "ownerHex": "666978747572652D6F776E6572",
+    "fileKeyHex": "f6c1597ebb",
+    "dictionary": "<< /Filter /Standard /Length 40 /O <f6ded8eb9448bf31370439d381eb5fd53a3ada02157f59bb846d85f1a65045cc> /P -64 /R 2 /U <7eea096879f9af29d951c4087fd5a910be8339fa953ba4cb52b450ed0219ce8a> /V 1 >>",
+    "streams": [
+      {
+        "number": 2,
+        "plainBase64": "eJxNjD0LwkAQRHt/xZSmuo9cDEq4QtNJIAQrxeIwiwQkJ7kLxH/vJiq4U2wxb14KCQNjkEGl2aooIA5+7CMUxLFrAy5cSzS4QpxeT4Ko3Z0CrP2yfaQ+BuQLJCpqO7f3E88kZ6M08q2ex7UbGET64RoKfhxuLGKLtf/un7rybekiYV3utNRGKs5y54TxLj64Wt6JppjMqzf0HTXG"
+      },
+      {
+        "number": 6,
+        "plainBase64": "eJyzsa8oSEzOTi1RSEpNz8yzVapQsrezqbCqyC3ITS1JtPMFEjb6CD4Am7ERDQ=="
+      },
+      {
+        "number": 7,
+        "plainBase64": "eJxzClHQCEhMT9VUCMlScA0BACBvBBw="
+      }
+    ],
+    "idHex": "ed3a789fd71680bad1db20b89e3517e5"
+  },
+  {
+    "file": "security-r2-pdfdoc.pdf",
+    "userHex": "636166E980",
+    "ownerHex": "6F776E6572E991",
+    "fileKeyHex": "a948fbe8eb",
+    "dictionary": "<< /Filter /Standard /Length 40 /O <89f41730696c732bd46f7fbb46810f429beaec3ab7d7634ad515642c7690e2c4> /P -64 /R 2 /U <6cdb09a2c4876908e94dff8a25583fc57d34c63c816436df6f693787286b2088> /V 1 >>",
+    "streams": [
+      {
+        "number": 2,
+        "plainBase64": "eJxNjD0LwkAQRHt/xZSmuo9cDEq4QtNJIAQrxeIwiwQkJ7kLxH/vJiq4U2wxb14KCQNjkEGl2aooIA5+7CMUxLFrAy5cSzS4QpxeT4Ko3Z0CrP2yfaQ+BuQLJCpqO7f3E88kZ6M08q2ex7UbGET64RoKfhxuLGKLtf/un7rybekiYV3utNRGKs5y54TxLj64Wt6JppjMqzf0HTXG"
+      },
+      {
+        "number": 6,
+        "plainBase64": "eJyzsa8oSEzOTi1RSEpNz8yzVapQsrezqbCqyC3ITS1JtPMFEjb6CD4Am7ERDQ=="
+      },
+      {
+        "number": 7,
+        "plainBase64": "eJxzClHQCEhMT9VUCMlScA0BACBvBBw="
+      }
+    ],
+    "idHex": "64202a19c8e3246f1ad845d4b60049c9"
+  },
+  {
+    "file": "security-r2-utf8.pdf",
+    "userHex": "636166C3A9",
+    "ownerHex": "70726F707269C3A97461697265",
+    "fileKeyHex": "174609f223",
+    "dictionary": "<< /Filter /Standard /Length 40 /O <f7c0c1cd96df82afa8ad40e9ae97e9918c6670a15efce0f104754861e0840a34> /P -64 /R 2 /U <4c001e8128881c2ab1cebdb5af2fac68e324a4d2ceae8ac81dec6245efac6454> /V 1 >>",
+    "streams": [
+      {
+        "number": 3,
+        "plainBase64": "eJyzsa8oSEzOTi1RSEpNz8yzVapQsrezqbCqyC3ITS1JtPMFEjb6CD4Am7ERDQ=="
+      },
+      {
+        "number": 6,
+        "plainBase64": "eJxzClHQCEhMT9VUCMlScA0BACBvBBw="
+      }
+    ],
+    "idHex": "d573c7905e07f99b1e07bafd99b1e536"
+  },
+  {
+    "file": "security-r2-truncated.pdf",
+    "userHex": "757365722D757365722D757365722D757365722D757365722D757365722D757365722D757365722D757365722D757365722D",
+    "ownerHex": "6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D6F776E65722D",
+    "fileKeyHex": "5219a1cad0",
+    "dictionary": "<< /Filter /Standard /Length 40 /O <18ec752fa3370a538e0ef0c1df128273cd946d9d0ecf9519c2e37f44bf4d7508> /P -64 /R 2 /U <19693004b6ac2165a93bd714e209b83fb45f8792003bb2f7e88ce53643e5c587> /V 1 >>",
+    "streams": [
+      {
+        "number": 3,
+        "plainBase64": "eJyzsa8oSEzOTi1RSEpNz8yzVapQsrezqbCqyC3ITS1JtPMFEjb6CD4Am7ERDQ=="
+      },
+      {
+        "number": 6,
+        "plainBase64": "eJxzClHQCEhMT9VUCMlScA0BACBvBBw="
+      }
+    ],
+    "idHex": "a6ec50999b7d42a67a897878ee6226d9"
+  }
+]

@@ -123,7 +123,7 @@ internal sealed partial class OutputSecurity : IDisposable
     {
         byte[] key = _key ?? throw new ObjectDisposedException(nameof(OutputSecurity));
         if (Revision != 4) { return key; }
-        Revision4Encryption.DeriveObjectKey(key, number, generation, derived, true, governor);
+        LegacyEncryption.DeriveObjectKey(key, number, generation, derived, true, governor);
         return derived;
     }
 

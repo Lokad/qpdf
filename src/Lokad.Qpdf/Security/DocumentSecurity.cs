@@ -99,7 +99,7 @@ internal sealed partial class DocumentSecurity : IDisposable
             key = new byte[keyBits / 8];
             PasswordAuthentication match = revision >= 5
                 ? Aes256Encryption.Authenticate(encryption, password, key, governor)
-                : Revision4Encryption.Authenticate(encryption, identifier, password, key, governor);
+                : LegacyEncryption.Authenticate(encryption, identifier, password, key, governor);
             if (match == PasswordAuthentication.None) { return match; }
             security = new(governor, memory, key, filters, strings, streams, files, parameters, match, encryption);
             accepted = true;

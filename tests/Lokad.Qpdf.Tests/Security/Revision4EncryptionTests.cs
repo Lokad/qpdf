@@ -43,12 +43,12 @@ public sealed class Revision4EncryptionTests
         {
             byte[] password = Convert.FromHexString(passwordHex), original = (byte[])Convert.FromHexString(passwordHex).Clone();
             key.AsSpan().Fill(0xA5);
-            Assert.Equal(match, Revision4Encryption.Authenticate(encryption, id, password, key, governor));
+            Assert.Equal(match, LegacyEncryption.Authenticate(encryption, id, password, key, governor));
             Assert.Equal(match == PasswordAuthentication.None ? new byte[16] : Convert.FromHexString(keyHex), key);
             Assert.Equal(original, password); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
         }
         id[0] ^= 1;
-        Assert.Equal(PasswordAuthentication.None, Revision4Encryption.Authenticate(encryption, id, Convert.FromHexString(userHex), key, governor));
+        Assert.Equal(PasswordAuthentication.None, LegacyEncryption.Authenticate(encryption, id, Convert.FromHexString(userHex), key, governor));
         Assert.Equal(new byte[16], key);
     }
 
@@ -68,7 +68,7 @@ public sealed class Revision4EncryptionTests
         }
         using CancellationTokenSource cancellation = new(); cancellation.Cancel();
         byte[] canceledKey = Enumerable.Repeat((byte)0xA5, 16).ToArray();
-        Assert.Throws<OperationCanceledException>(() => Revision4Encryption.Authenticate(dictionary, id, password, canceledKey, new(QpdfLimits.Default, cancellation.Token)));
+        Assert.Throws<OperationCanceledException>(() => LegacyEncryption.Authenticate(dictionary, id, password, canceledKey, new(QpdfLimits.Default, cancellation.Token)));
         Assert.Equal(new byte[16], canceledKey);
 
         void Run(RecordingMemoryBudget budget, bool refuses)
@@ -78,10 +78,10 @@ public sealed class Revision4EncryptionTests
             byte[] key = Enumerable.Repeat((byte)0xA5, 16).ToArray();
             if (refuses)
             {
-                Assert.Throws<QpdfMemoryAdmissionException>(() => Revision4Encryption.Authenticate(dictionary, id, password, key, governor));
+                Assert.Throws<QpdfMemoryAdmissionException>(() => LegacyEncryption.Authenticate(dictionary, id, password, key, governor));
                 Assert.Equal(new byte[16], key);
             }
-            else { Assert.Equal(PasswordAuthentication.User, Revision4Encryption.Authenticate(dictionary, id, password, key, governor)); }
+            else { Assert.Equal(PasswordAuthentication.User, LegacyEncryption.Authenticate(dictionary, id, password, key, governor)); }
             Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, budget.ReservedBytes);
         }
     }

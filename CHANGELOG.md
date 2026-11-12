@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Extend the internal legacy authenticator to R2/R3, with native key fixtures,
+  historical key lengths and bounded compatibility for short R3 owner hashes.
+  Public R2/R3 document operations remain pending.
 - Read 128-bit RC4 revision 4 inputs, including mixed RC4/AES/Identity crypt filters.
   Preservation and template copying keep passwords, permissions and metadata policy
   while normalizing R4 output to AES-128, matching native qpdf.

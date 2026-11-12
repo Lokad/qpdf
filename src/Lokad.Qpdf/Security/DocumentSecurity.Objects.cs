@@ -31,7 +31,7 @@ internal sealed partial class DocumentSecurity
     {
         byte[] key = _key ?? throw new ObjectDisposedException(nameof(DocumentSecurity));
         if (cipher is not (PdfCipher.Rc4 or PdfCipher.Aes128)) { return key; }
-        Revision4Encryption.DeriveObjectKey(key, number, generation, derived, cipher == PdfCipher.Aes128, _governor);
+        LegacyEncryption.DeriveObjectKey(key, number, generation, derived, cipher == PdfCipher.Aes128, _governor);
         return derived;
     }
 

@@ -1,0 +1,226 @@
+[
+  {
+    "userHex": "726561646572",
+    "ownerHex": "666978747572652d6f776e6572",
+    "fileKeyHex": "ec91624b4b",
+    "idHex": "000102030405060708090a0b0c0d0e0f",
+    "dictionary": "<< /Filter /Standard /V 2 /R 3 /Length 40 /P -4 /O <d8f444105bfba3f077370d4920985adc94ac29aeceb44310be77f4edcfc52131> /U <004ddcbf9aeb8f5a3906fe473eb3328e00000000000000000000000000000000> >>",
+    "streams": [
+      {
+        "number": 4,
+        "plainBase64": "QlQgKExlZ2FjeSkgVGogRVQ="
+      }
+    ],
+    "objectKeyHex": "b6b7d1fd141587fd5b88",
+    "nativeOwnerMatches": true,
+    "file": "security-r3-key40-short-digest.pdf"
+  },
+  {
+    "userHex": "726561646572",
+    "ownerHex": "666978747572652d6f776e6572",
+    "fileKeyHex": "37de84812368",
+    "idHex": "000102030405060708090a0b0c0d0e0f",
+    "dictionary": "<< /Filter /Standard /V 2 /R 3 /Length 48 /P -4 /O <6effcdcff963d3e2822315ded14e6d6693fa7fc05b304536df881cc7f24fde72> /U <9f59ba86d776f853facd3190e6ef039700000000000000000000000000000000> >>",
+    "streams": [
+      {
+        "number": 4,
+        "plainBase64": "QlQgKExlZ2FjeSkgVGogRVQ="
+      }
+    ],
+    "objectKeyHex": "68a614dfdf667cd90b4df6",
+    "nativeOwnerMatches": true,
+    "file": "security-r3-key48-short-digest.pdf"
+  },
+  {
+    "userHex": "726561646572",
+    "ownerHex": "666978747572652d6f776e6572",
+    "fileKeyHex": "67854064ca15bf",
+    "idHex": "000102030405060708090a0b0c0d0e0f",
+    "dictionary": "<< /Filter /Standard /V 2 /R 3 /Length 56 /P -4 /O <d50863560ef14e138964395d8c035b0d927440ec42cb5b24ba47f37e3955d45a> /U <39032e9dce0f0dc49bc0214996c33d4b00000000000000000000000000000000> >>",
+    "streams": [
+      {
+        "number": 4,
+        "plainBase64": "QlQgKExlZ2FjeSkgVGogRVQ="
+      }
+    ],
+    "objectKeyHex": "92f88eaf8d2a9fd783027826",
+    "nativeOwnerMatches": true,
+    "file": "security-r3-key56-short-digest.pdf"
+  },
+  {
+    "userHex": "726561646572",
+    "ownerHex": "666978747572652d6f776e6572",
+    "fileKeyHex": "ec159fbd8006581e",
+    "idHex": "000102030405060708090a0b0c0d0e0f",
+    "dictionary": "<< /Filter /Standard /V 2 /R 3 /Length 64 /P -4 /O <1ccdce39e83d0218aa5dd4aa91354be35974d651b7c2e5f1c623316c83ed20f6> /U <7a2e9442464651b0e6252cbb69e6c7fb00000000000000000000000000000000> >>",
+    "streams": [
+      {
+        "number": 4,
+        "plainBase64": "QlQgKExlZ2FjeSkgVGogRVQ="
+      }
+    ],
+    "objectKeyHex": "6049cd98e62a55823423acec21",
+    "nativeOwnerMatches": true,
+    "file": "security-r3-key64-short-digest.pdf"
+  },
+  {
+    "userHex": "726561646572",
+    "ownerHex": "666978747572652d6f776e6572",
+    "fileKeyHex": "69b50d0703e8a722b5",
+    "idHex": "000102030405060708090a0b0c0d0e0f",
+    "dictionary": "<< /Filter /Standard /V 2 /R 3 /Length 72 /P -4 /O <6b3d49fea3f922d1a09096cf4cb271ce4351be1525c946b9d20398ee3744b5a2> /U <7f270a5e4d3a16a13dbc822b5a84900d00000000000000000000000000000000> >>",
+    "streams": [
+      {
+        "number": 4,
+        "plainBase64": "QlQgKExlZ2FjeSkgVGogRVQ="
+      }
+    ],
+    "objectKeyHex": "eccd87d726f3a1943414e547eeb9",
+    "nativeOwnerMatches": true,
+    "file": "security-r3-key72-short-digest.pdf"
+  },
+  {
+    "userHex": "726561646572",
+    "ownerHex": "666978747572652d6f776e6572",
+    "fileKeyHex": "00f2951794629c733f16",
+    "idHex": "000102030405060708090a0b0c0d0e0f",
+    "dictionary": "<< /Filter /Standard /V 2 /R 3 /Length 80 /P -4 /O <c455ab5aacba581fe7802dfc232d24d15bf939b23e06d74d890629689a5ac427> /U <abc7916c40526be625cf218f9ffa914300000000000000000000000000000000> >>",
+    "streams": [
+      {
+        "number": 4,
+        "plainBase64": "QlQgKExlZ2FjeSkgVGogRVQ="
+      }
+    ],
+    "objectKeyHex": "9be628fee811b5ce3ebb41f2b76a7c",
+    "nativeOwnerMatches": true,
+    "file": "security-r3-key80-short-digest.pdf"
+  },
+  {
+    "userHex": "726561646572",
+    "ownerHex": "666978747572652d6f776e6572",
+    "fileKeyHex": "11909b66a96f785bb2fe53",
+    "idHex": "000102030405060708090a0b0c0d0e0f",
+    "dictionary": "<< /Filter /Standard /V 2 /R 3 /Length 88 /P -4 /O <47914db5e24df842c99b35623c3b6e3768a57e9289c3eacdb82a35ba00f28c75> /U <d8dd7abe9e3082b1929b840ee39cb3f300000000000000000000000000000000> >>",
+    "streams": [
+      {
+        "number": 4,
+        "plainBase64": "QlQgKExlZ2FjeSkgVGogRVQ="
+      }
+    ],
+    "objectKeyHex": "32eb1861d4c223b0d856b5b372c9594a",
+    "nativeOwnerMatches": true,
+    "file": "security-r3-key88-short-digest.pdf"
+  },
+  {
+    "userHex": "726561646572",
+    "ownerHex": "666978747572652d6f776e6572",
+    "fileKeyHex": "740f80f5997dbbcf0ca31ea7",
+    "idHex": "000102030405060708090a0b0c0d0e0f",
+    "dictionary": "<< /Filter /Standard /V 2 /R 3 /Length 96 /P -4 /O <d89658dce7f82288612ee55cc3db1827ef94ae0a1d9be1dc518b1357931cd15b> /U <6a246838d01524f0c6b2c3f789c1e18f00000000000000000000000000000000> >>",
+    "streams": [
+      {
+        "number": 4,
+        "plainBase64": "QlQgKExlZ2FjeSkgVGogRVQ="
+      }
+    ],
+    "objectKeyHex": "d32d2f03f03b0236186d2f3f846c134d",
+    "nativeOwnerMatches": true,
+    "file": "security-r3-key96-short-digest.pdf"
+  },
+  {
+    "userHex": "726561646572",
+    "ownerHex": "666978747572652d6f776e6572",
+    "fileKeyHex": "c8a2849088d373c718359999b4",
+    "idHex": "000102030405060708090a0b0c0d0e0f",
+    "dictionary": "<< /Filter /Standard /V 2 /R 3 /Length 104 /P -4 /O <3f013c8f97052acf26b578c655582fff797a3e57ebfaf46717c91551a64b4ac1> /U <655c55d9a5ec4cc0f2e1385da9b01c8b00000000000000000000000000000000> >>",
+    "streams": [
+      {
+        "number": 4,
+        "plainBase64": "QlQgKExlZ2FjeSkgVGogRVQ="
+      }
+    ],
+    "objectKeyHex": "dca24cc5d476c43b1fc6ab09ce0d05e7",
+    "nativeOwnerMatches": true,
+    "file": "security-r3-key104-short-digest.pdf"
+  },
+  {
+    "userHex": "726561646572",
+    "ownerHex": "666978747572652d6f776e6572",
+    "fileKeyHex": "ac88567d99cf1925ecfb77e72dbc",
+    "idHex": "000102030405060708090a0b0c0d0e0f",
+    "dictionary": "<< /Filter /Standard /V 2 /R 3 /Length 112 /P -4 /O <559e1b22e7a76e65e9558b437eb8f772469bc33cc06253ebdede6883e311ef54> /U <3ef52dc5e15f77498e58195ed8f2515500000000000000000000000000000000> >>",
+    "streams": [
+      {
+        "number": 4,
+        "plainBase64": "QlQgKExlZ2FjeSkgVGogRVQ="
+      }
+    ],
+    "objectKeyHex": "af7973b81feb89a77d1a290c264454a3",
+    "nativeOwnerMatches": true,
+    "file": "security-r3-key112-short-digest.pdf"
+  },
+  {
+    "userHex": "726561646572",
+    "ownerHex": "666978747572652d6f776e6572",
+    "fileKeyHex": "62cd19b7aa7e708d8558a5531b6704",
+    "idHex": "000102030405060708090a0b0c0d0e0f",
+    "dictionary": "<< /Filter /Standard /V 2 /R 3 /Length 120 /P -4 /O <2097d3b80caffabd6ea09d7bfbfad20972a41ef8bd6aa4c4dcbf1b76cd9fca8a> /U <c964ea4ba4182be27c9b0f5c9831d5e400000000000000000000000000000000> >>",
+    "streams": [
+      {
+        "number": 4,
+        "plainBase64": "QlQgKExlZ2FjeSkgVGogRVQ="
+      }
+    ],
+    "objectKeyHex": "27bc366831b5e2951ecf0fd72cc2cf00",
+    "nativeOwnerMatches": true,
+    "file": "security-r3-key120-short-digest.pdf"
+  },
+  {
+    "userHex": "726561646572",
+    "ownerHex": "666978747572652d6f776e6572",
+    "fileKeyHex": "dd78ff41baa91ebd118b056dca06ee34",
+    "idHex": "000102030405060708090a0b0c0d0e0f",
+    "dictionary": "<< /Filter /Standard /V 2 /R 3 /Length 128 /P -4 /O <5542f08f051ee578162ca000260299801d5976f62e4bbd695bbcdff80cfd4408> /U <dccce9d699a9a227e6f82f7bbd98f5f000000000000000000000000000000000> >>",
+    "streams": [
+      {
+        "number": 4,
+        "plainBase64": "QlQgKExlZ2FjeSkgVGogRVQ="
+      }
+    ],
+    "objectKeyHex": "af339ae47e6ad033a6097bba28767ca1",
+    "nativeOwnerMatches": true,
+    "file": "security-r3-key128-short-digest.pdf"
+  },
+  {
+    "userHex": "726561646572",
+    "ownerHex": "666978747572652d6f776e6572",
+    "fileKeyHex": "5efd684d30",
+    "idHex": "000102030405060708090a0b0c0d0e0f",
+    "dictionary": "<< /Filter /Standard /V 2 /R 3 /Length 40 /P -4 /O <7b8d42dcb47f687d2314eca8100a4c2eddc9bfbbff46f06628666c1bb7d95048> /U <e95982e53fc0a96563211e67187c7d9900000000000000000000000000000000> >>",
+    "streams": [
+      {
+        "number": 4,
+        "plainBase64": "QlQgKExlZ2FjeSkgVGogRVQ="
+      }
+    ],
+    "objectKeyHex": "760c37d6c988ff990b4c",
+    "nativeOwnerMatches": false,
+    "file": "security-r3-key40-full-digest.pdf"
+  },
+  {
+    "userHex": "726561646572",
+    "ownerHex": "666978747572652d6f776e6572",
+    "fileKeyHex": "e8c039542ba57cdfc945b6eb",
+    "idHex": "000102030405060708090a0b0c0d0e0f",
+    "dictionary": "<< /Filter /Standard /V 2 /R 3 /Length 96 /P -4 /O <4e00ef58d8b976545dcd7ecc430efde920ac73f55b835ded68adac067291ae66> /U <b059ca23f915256ae1a49a4b509663d100000000000000000000000000000000> >>",
+    "streams": [
+      {
+        "number": 4,
+        "plainBase64": "QlQgKExlZ2FjeSkgVGogRVQ="
+      }
+    ],
+    "objectKeyHex": "35ca1299615262baadbfc405da11e5fa",
+    "nativeOwnerMatches": false,
+    "file": "security-r3-key96-full-digest.pdf"
+  }
+]

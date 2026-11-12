@@ -169,6 +169,12 @@ authentication. Only a matching password permits page traversal; report-only
 requests close the reader after collecting declared settings.
 R4 authentication uses system MD5 and a bounded, owned RC4 primitive, checked
 against native keys and [independent RFC 6229 vectors](https://www.rfc-editor.org/rfc/rfc6229.txt).
+The shared internal legacy authenticator also covers R2's 40-bit derivation and
+R3's 40..128-bit keys. Short R3 owner keys check the full-digest convention from
+[ISO 32000-1, algorithm 3](https://opensource.adobe.com/dc-acrobat-sdk-docs/standards/pdfstandards/pdf/PDF32000_2008.pdf)
+and the key-length convention used by pinned qpdf and Poppler, with at most two
+owner derivations. Recorded fixtures distinguish those results; public R2/R3
+reader/writer integration remains pending.
 R4 RC4 and AES-128 use temporary per-object keys including number and generation.
 Only AES appends the salt suffix. Strings and streams select their keys independently,
 including mixed crypt filters; RC4 payload copies retain exact length and admitted
