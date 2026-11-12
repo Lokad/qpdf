@@ -6171,20 +6171,27 @@
           "source": "manual/cli.rst:3417"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "AES R4/R6 reports are supported without secrets. Legacy R2/R3/RC4/R5 handlers remain pending; explicit output paths are rejected."
       ],
-      "currentRejection": true,
+      "currentRejection": false,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+        "positive": [
+          "EncryptionReportTests.ArgvAndJobReportsMatchNonSecretNativeFacts",
+          "EncryptionReportTests.PlainReportsDoNotTraversePages"
         ],
-        "interaction": [],
-        "resource": [],
+        "negative": [
+          "EncryptionReportTests.InvalidOrExcludedCombinationsFailBeforeInputAccess"
+        ],
+        "interaction": [
+          "EncryptionReportTests.CombinedInspectionsRequireSuccessfulAuthentication"
+        ],
+        "resource": [
+          "EncryptionReportTests.ReportDiagnosticLimitsRemainBinding",
+          "EncryptionInspectionTests.EveryProbeAdmissionFailureIsTerminalAndRefunded"
+        ],
         "oracle": []
       }
     },

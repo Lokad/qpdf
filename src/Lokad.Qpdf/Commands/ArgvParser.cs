@@ -18,7 +18,7 @@ internal static class ArgvParser
             or "owner-password" or "bits" or "allow-weak-crypto" or "allow-insecure" or "use-aes"
             or "force-V4" or "force-R5" or "cleartext-metadata" or "static-aes-iv"
             or "accessibility" or "annotate" or "assemble" or "extract" or "form" or "modify-other"
-            or "modify" or "print" or "show-crypto" or "show-encryption" or "show-encryption-key"
+            or "modify" or "print" or "show-crypto" or "show-encryption-key"
             or "remove-restrictions" or "encrypt"
             or "decrypt" or "copy-encryption";
 

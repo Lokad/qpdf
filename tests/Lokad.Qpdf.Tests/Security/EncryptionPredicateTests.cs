@@ -68,7 +68,7 @@ public sealed class EncryptionPredicateTests
         using InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("in.pdf"), File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "security-r6-ascii.pdf")), QpdfInputOwnership.Transfer);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(
-            ["in.pdf", "--is-encrypted", "--show-npages", "out.pdf"]), CancellationToken.None);
+            ["in.pdf", "--is-encrypted", "--show-npages", "--show-encryption", "out.pdf"]), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Empty(result.Diagnostics);
         Assert.False(host.TryGetOutput(QpdfPath.From("out.pdf"), out _));
     }

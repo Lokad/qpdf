@@ -51,6 +51,13 @@ internal static class PasswordReaderChecks
             [encrypted.Value, "--password=reader", "--requires-password", "--warning-exit-0"]), CancellationToken.None);
         Check(query.Status == QpdfExecutionStatus.Completed && (int)query.ExitCode == 3 && query.Diagnostics.Count == 0,
             "native password predicate status independent of warnings");
+        QpdfExecutionResult report = await Qpdf.ExecuteJobAsync(host,
+            """{"inputFile":"security-r6-ascii.pdf","showEncryption":"","password":"consumer-secret","check":""}""", CancellationToken.None);
+        Check(report.Status == QpdfExecutionStatus.Completed && report.ExitCode == QpdfExitCode.Success
+            && report.Diagnostics.Any(item => item.Code == QpdfDiagnosticCode.EncryptionReport && item.Message == "R = 6")
+            && report.Diagnostics.Any(item => item.Code == QpdfDiagnosticCode.CheckSkipped)
+            && report.Diagnostics.All(item => !item.Message.Contains("consumer-secret", StringComparison.Ordinal)),
+            "secret-free report with unauthenticated checks skipped");
         await Failure(null, QpdfSecurityFailure.PasswordRequired);
         await Failure(QpdfPassword.FromText(""), QpdfSecurityFailure.InvalidPassword);
         await Failure(QpdfPassword.FromText("consumer-secret"), QpdfSecurityFailure.InvalidPassword);

@@ -95,6 +95,9 @@ public enum QpdfDiagnosticCode
 
     /// <summary>The supplied password did not authenticate the input.</summary>
     InvalidPassword = 25,
+
+    /// <summary>Non-secret encryption settings or password authentication status.</summary>
+    EncryptionReport = 26,
 }
 
 /// <summary>A single structured diagnostic entry.</summary>

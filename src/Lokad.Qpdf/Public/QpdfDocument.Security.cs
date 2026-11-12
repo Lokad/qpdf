@@ -19,10 +19,39 @@ public sealed partial class QpdfDocument
         QpdfPassword? password, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
         QpdfRecoveryMode recovery, CancellationToken cancellationToken)
     {
-        await using IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
-        (DocumentEngine engine, _) = await ReadInputEngine(input, limits, governor, diagnostics, recovery,
-            cancellationToken, false, false, false).ConfigureAwait(false);
-        using (engine) { return InspectSecurity(engine, password, governor); }
+        (_, EncryptionInspection security) = await OpenSecurityInspectionCore(host, path, password, limits,
+            governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
+        return security;
+    }
+
+    internal static async ValueTask<(QpdfDocument? Document, EncryptionInspection Security)> OpenSecurityInspectionCore(
+        IQpdfHost host, QpdfPath path, QpdfPassword? password, QpdfLimits limits, ResourceGovernor governor,
+        DiagnosticBag diagnostics, QpdfRecoveryMode recovery, CancellationToken cancellationToken, bool needsDocument)
+    {
+        IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
+        DocumentEngine? engine = null;
+        bool transferred = false;
+        try
+        {
+            (DocumentEngine loaded, VersionParts header) = await ReadInputEngine(input, limits, governor, diagnostics,
+                recovery, cancellationToken, false, false, false).ConfigureAwait(false);
+            engine = loaded;
+            EncryptionInspection security = InspectSecurity(engine, password, governor);
+            if (!needsDocument || security.Parameters is not null && security.Authentication == PasswordAuthentication.None)
+            { return (null, security); }
+            QpdfDocument document = CompleteDocumentOpen(input, path, engine, header, limits, governor,
+                diagnostics, cancellationToken, false, false);
+            transferred = true;
+            return (document, security);
+        }
+        finally
+        {
+            if (!transferred)
+            {
+                try { engine?.Dispose(); }
+                finally { await input.DisposeAsync().ConfigureAwait(false); }
+            }
+        }
     }
 
     private static EncryptionInspection InspectSecurity(DocumentEngine engine, QpdfPassword? password, ResourceGovernor governor)

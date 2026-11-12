@@ -2,6 +2,7 @@ using Lokad.Qpdf.Attachments;
 using Lokad.Qpdf.Commands;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Security;
 
 namespace Lokad.Qpdf;
 
@@ -18,11 +19,22 @@ public static partial class Qpdf
             // Checking and all following inspections use this same document.
             // Native reports declared counts separately from quiet traversal.
             diagnostics.ReportPageCountMismatch = false;
-            await using (QpdfDocument document = plan.EmptyDocument
-                ? await QpdfDocument.OpenEmptyDocument(plan.Input, limits, governor, diagnostics, plan.Recovery, cancellationToken, false).ConfigureAwait(false)
-                : await QpdfDocument.OpenInspectionCore(host, plan.Input, plan.Password,
-                    limits, governor, diagnostics, plan.Recovery, cancellationToken).ConfigureAwait(false))
+            (QpdfDocument? opened, EncryptionInspection security) = plan.ShowEncryption && !plan.EmptyDocument
+                ? await QpdfDocument.OpenSecurityInspectionCore(host, plan.Input, plan.Password, limits, governor,
+                    diagnostics, plan.Recovery, cancellationToken, plan.NeedsDocument).ConfigureAwait(false)
+                : (plan.EmptyDocument
+                    ? await QpdfDocument.OpenEmptyDocument(plan.Input, limits, governor, diagnostics, plan.Recovery, cancellationToken, false).ConfigureAwait(false)
+                    : await QpdfDocument.OpenInspectionCore(host, plan.Input, plan.Password,
+                        limits, governor, diagnostics, plan.Recovery, cancellationToken).ConfigureAwait(false), default);
+            await using (QpdfDocument? document = opened)
             {
+                if (document is null)
+                {
+                    ShowEncryption(security, diagnostics);
+                    if (plan.NeedsDocument)
+                    { diagnostics.Add(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Info, "Other inspections were skipped because the password did not authenticate."); }
+                    return CompleteWithPresentation(governor);
+                }
                 using InspectionGraph? inspection = await PrepareInspectionGraphAsync(host, document, plan,
                     limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
                 List<QpdfCheckOutcome> checks = plan.RunCheck
@@ -32,12 +44,13 @@ public static partial class Qpdf
                 {
                     // This order is independent of argv position and JSON key order.
                     if (plan.ShowNpages) { AddPageCountDiagnostic(document, plan.Input, diagnostics); }
+                    if (plan.ShowEncryption) { ShowEncryption(security, diagnostics); }
                     if (plan.CheckLinearization) { InspectLinearization(document, plan.Input, limits, governor, diagnostics, cancellationToken); }
                     if (plan.ShowLinearization) { ShowLinearization(document, plan.Input, limits, governor, diagnostics, cancellationToken); }
                     if (plan.ShowXref) { ShowXref(document, governor, diagnostics, cancellationToken); }
                     if (plan.ObjectSelector is not null)
                     {
-                        bool priorInfo = plan.RunCheck || plan.ShowNpages || plan.CheckLinearization || plan.ShowLinearization || plan.ShowXref;
+                        bool priorInfo = plan.RunCheck || plan.ShowNpages || plan.ShowEncryption || plan.CheckLinearization || plan.ShowLinearization || plan.ShowXref;
                         using ParserMemoryScope objectMemory = ParserMemoryScope.Create(governor);
                         ReadOnlyMemory<byte>? payload = await ShowObjectAsync(host, document, new ShowObjectPlan(plan.Input, plan.Recovery, plan.ObjectSelector)
                         {

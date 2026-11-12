@@ -90,6 +90,8 @@ Missing and incorrect credentials have distinct diagnostic codes. Encrypted PDF 
 JSON export, secondary-input passwords and password-file/mode options remain unsupported.
 `--is-encrypted` and `--requires-password` provide native predicate exit codes;
 see the [supported profile](docs/SUPPORTED-PROFILE.md) for their `Completed` result semantics.
+`--show-encryption` reports declared permissions, cipher methods and password-match
+status without passwords or keys. Wrong credentials skip combined content inspections.
 
 JPEG decoding and recompression use the optional `IQpdfJpegCodec` interface.
 Supply your implementation with `new InMemoryQpdfHost(QpdfLimits.Default, codec)`;

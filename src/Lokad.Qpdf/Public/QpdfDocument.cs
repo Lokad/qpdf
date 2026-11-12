@@ -339,8 +339,6 @@ public sealed partial class QpdfDocument : IAsyncDisposable
         QpdfPassword? password, bool authenticateEncrypted)
     {
         DocumentEngine? engine = null;
-        ParserMemoryScope? pageStorage = null;
-        List<PageLocation>? pages = null;
         try
         {
             (DocumentEngine loaded, VersionParts headerParts) = await ReadInputEngine(input, limits, governor,
@@ -350,12 +348,33 @@ public sealed partial class QpdfDocument : IAsyncDisposable
             // their per-input credentials and output-protection policy land.
             if (authenticateEncrypted) { AuthenticateEncrypted(engine, password, governor); }
             else { RejectEncrypted(path, engine); }
+            return CompleteDocumentOpen(input, path, engine, headerParts, limits, governor,
+                diagnostics, cancellationToken, valuesEscape, leaveInputOpen);
+        }
+        catch (Exception error)
+        {
+            bool retry = error is QpdfParseException && diagnostics.ReadingPartialInput;
+            engine?.Dispose();
+            if (!leaveInputOpen) { await input.DisposeAsync().ConfigureAwait(false); }
+            if (retry) { throw new CompleteInputRequiredException(); }
+            throw;
+        }
+    }
+
+    // The caller owns the engine and input until the document accepts them.
+    private static QpdfDocument CompleteDocumentOpen(IQpdfInput input, QpdfPath path,
+        DocumentEngine engine, VersionParts headerParts, QpdfLimits limits, ResourceGovernor governor,
+        DiagnosticBag diagnostics, CancellationToken cancellationToken, bool valuesEscape, bool leaveInputOpen)
+    {
+        ParserMemoryScope? pageStorage = null;
+        try
+        {
             VersionParts? catalogParts = ReadCatalogVersion(engine, governor, cancellationToken);
             VersionParts effectiveParts = catalogParts is { } catalog
                 && (catalog.Major > headerParts.Major || catalog.Major == headerParts.Major && catalog.Minor > headerParts.Minor)
                 ? catalog : headerParts;
             pageStorage = ParserMemoryScope.Create(governor);
-            pages = PageTree.Read(engine, ReadRootObject(engine), diagnostics, governor, limits, pageStorage, cancellationToken);
+            List<PageLocation> pages = PageTree.Read(engine, ReadRootObject(engine), diagnostics, governor, limits, pageStorage, cancellationToken);
             // Exclusive JSON emits components as text and never exports this
             // document or a version alias. Public/shared readers own carriers.
             PdfVersion? headerVersion = valuesEscape ? governor.OwnVersion(headerParts.Major, headerParts.Minor) : null;
@@ -366,16 +385,7 @@ public sealed partial class QpdfDocument : IAsyncDisposable
             pageStorage = null;
             return document;
         }
-        catch (Exception error)
-        {
-            bool retry = error is QpdfParseException && diagnostics.ReadingPartialInput;
-            pages = null;
-            pageStorage?.Dispose();
-            engine?.Dispose();
-            if (!leaveInputOpen) { await input.DisposeAsync().ConfigureAwait(false); }
-            if (retry) { throw new CompleteInputRequiredException(); }
-            throw;
-        }
+        finally { pageStorage?.Dispose(); }
     }
 
     /// <summary>

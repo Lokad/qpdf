@@ -16,6 +16,9 @@
   credential diagnostics. Encrypted transformations, JSON export and secondary credentials remain unsupported.
 - Add `--is-encrypted` and `--requires-password` (and job JSON equivalents) for
   supported handlers, retaining native query exit codes independently of warning presentation.
+- Add `--show-encryption` / `showEncryption` for supported handlers, reporting
+  declared permissions, cipher methods and password-match status without secrets.
+  Wrong credentials skip combined content inspections while allowing this report.
 - Start development version 0.2.0-dev.1.
 - Separate planned password-security requirements, deferred legacy-output options
   and explicit raw-key/static-IV exclusions in the compatibility inventory.

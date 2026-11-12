@@ -5291,6 +5291,7 @@ public static partial class Qpdf
             || expanded.Any(token => token == "--check" || token.StartsWith("--check=", StringComparison.Ordinal)
                 || token == "--is-encrypted" || token.StartsWith("--is-encrypted=", StringComparison.Ordinal)
                 || token == "--requires-password" || token.StartsWith("--requires-password=", StringComparison.Ordinal)
+                || token == "--show-encryption" || token.StartsWith("--show-encryption=", StringComparison.Ordinal)
                 || token == "--raw-stream-data" || token.StartsWith("--raw-stream-data=", StringComparison.Ordinal)
                 || token == "--filtered-stream-data" || token.StartsWith("--filtered-stream-data=", StringComparison.Ordinal)
                 || token == "--show-attachment" || token.StartsWith("--show-attachment=", StringComparison.Ordinal)

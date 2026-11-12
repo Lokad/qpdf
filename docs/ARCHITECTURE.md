@@ -71,6 +71,9 @@ Transformations and JSON export retain their encrypted-input refusal pending int
 Security parameters and authentication status are separate values. Internal
 security inspection can read declared facts without traversing pages; it releases
 the key, input lease and working storage before returning those non-secret values.
+Combined encryption reports and content inspections share the admitted input and
+authentication. Only a matching password permits page traversal; report-only
+requests close the reader after collecting declared settings.
 R4 authentication uses system MD5 and a bounded, owned RC4 primitive, checked
 against native keys and [independent RFC 6229 vectors](https://www.rfc-editor.org/rfc/rfc6229.txt).
 AES-128 uses a temporary per-object key including its number and generation;

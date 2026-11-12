@@ -255,6 +255,11 @@ internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : Jo
 {
     public QpdfPassword? Password { get; init; }
 
+    public bool ShowEncryption { get; init; }
+
+    public bool NeedsDocument => RunCheck || ShowNpages || ShowPages || ShowXref || ObjectSelector is not null
+        || ListAttachments || AttachmentKey is not null || CheckLinearization || ShowLinearization;
+
     public IReadOnlyList<PdfPageSource> Sources { get; init; } = [];
 
     public PdfPageCollation? Collation { get; init; }

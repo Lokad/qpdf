@@ -40,6 +40,7 @@ internal static class JobJsonParser
             QpdfPassword? password = null;
             bool isEncrypted = false;
             bool requiresPassword = false;
+            bool showEncryption = false;
             bool empty = false;
             bool seenEmpty = false;
             bool seenInput = false;
@@ -228,6 +229,9 @@ internal static class JobJsonParser
                     case "password":
                         textStorage.Memory.Reserve(40L);
                         password = QpdfPassword.FromText(RequireString(property.Value, "password", textStorage));
+                        break;
+                    case "showEncryption":
+                        showEncryption = RequireBareFlag(property.Value, "showEncryption", textStorage);
                         break;
                     case "empty":
                         if (seenEmpty && !configurationLayers)
@@ -1150,7 +1154,7 @@ internal static class JobJsonParser
             }
 
             bool wantAttachments = listAttachments || showAttachment is not null;
-            if (check || (output is null && (showAttachment is not null || showObject is not null
+            if (check || showEncryption || (output is null && (showAttachment is not null || showObject is not null
                 || showNpages || showPages || showXref || listAttachments || checkLinearization || showLinearization)))
             {
                 if (output is not null || seenReplaceInput || seenSplitPages
@@ -1188,6 +1192,7 @@ internal static class JobJsonParser
                 return new CheckPlan(checkInput, recovery)
                 {
                     Password = password,
+                    ShowEncryption = showEncryption,
                     EmptyDocument = checkEmpty,
                     Sources = inspectionSources,
                     Collation = inspectionCollation,
@@ -1756,7 +1761,7 @@ internal static class JobJsonParser
     }
 
     internal static bool IsCryptoKey(string name)
-        => name is "encrypt" or "decrypt" or "password" or "passwordFile" or "passwordMode" or "passwordIsHexKey" or "suppressPasswordRecovery" or "encryptionFilePassword" or "allowWeakCrypto" or "copyEncryption" or "showEncryption" or "showEncryptionKey" or "staticAesIv" or "removeRestrictions";
+        => name is "encrypt" or "decrypt" or "password" or "passwordFile" or "passwordMode" or "passwordIsHexKey" or "suppressPasswordRecovery" or "encryptionFilePassword" or "allowWeakCrypto" or "copyEncryption" or "showEncryptionKey" or "staticAesIv" or "removeRestrictions";
 
     internal static IEnumerable<JsonProperty> EffectiveProperties(JsonElement value)
     {

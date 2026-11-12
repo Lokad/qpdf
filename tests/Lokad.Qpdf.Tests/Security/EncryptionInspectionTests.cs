@@ -35,9 +35,11 @@ public sealed class EncryptionInspectionTests
     }
 
     [Theory]
-    [InlineData("reader")]
-    [InlineData("wrong-secret")]
-    public async Task EveryProbeAdmissionFailureIsTerminalAndRefunded(string password)
+    [InlineData("reader", false)]
+    [InlineData("wrong-secret", false)]
+    [InlineData("reader", true)]
+    [InlineData("wrong-secret", true)]
+    public async Task EveryProbeAdmissionFailureIsTerminalAndRefunded(string password, bool needsDocument)
     {
         RecordingMemoryBudget baseline = new(1048576);
         await Run(baseline, false);
@@ -53,11 +55,19 @@ public sealed class EncryptionInspectionTests
             using InMemoryQpdfHost source = new(); QpdfPath path = Add(source, "security-r6-ascii.pdf");
             ProbeHost host = new(source, budget);
             ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None, host);
-            Task<EncryptionInspection> Inspect() => QpdfDocument.InspectSecurityAsync(host, path,
-                QpdfPassword.FromText(password), QpdfLimits.Default, governor, new(governor),
-                QpdfRecoveryMode.Strict, CancellationToken.None).AsTask();
+            async Task Inspect()
+            {
+                (QpdfDocument? document, _) = await QpdfDocument.OpenSecurityInspectionCore(host, path,
+                    QpdfPassword.FromText(password), QpdfLimits.Default, governor, new(governor),
+                    QpdfRecoveryMode.Strict, CancellationToken.None, needsDocument);
+                await using (document)
+                {
+                    Assert.Equal(needsDocument && password == "reader", document is not null);
+                    if (document is not null) { Assert.Equal(1, document.PageCount); }
+                }
+            }
             if (refuses) { await Assert.ThrowsAsync<QpdfMemoryAdmissionException>(Inspect); }
-            else { _ = await Inspect(); }
+            else { await Inspect(); }
             Assert.Equal(0, source.OpenLeaseCount); Assert.Equal(0L, budget.ReservedBytes);
             Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         }

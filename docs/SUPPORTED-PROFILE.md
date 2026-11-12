@@ -28,6 +28,12 @@ and `requiresPassword`. These mutually exclusive predicates return `Completed`
 with no ordinary output; `--warning-exit-0` does not alter their query codes.
 Malformed or unsupported security handlers fail explicitly.
 
+`--show-encryption` / `showEncryption` reports declared permissions, cipher methods
+and password-match status for supported handlers. Incorrect credentials still allow
+this report and skip combined content inspections; the report does not validate
+encrypted payloads. Passwords and keys are never included, even when native qpdf
+would print a recovered password. Explicit output paths are rejected.
+
 Signed, unencrypted pages can be copied, merged, placed and rewritten.
 Stored signature appearances survive; active signature field attributes and document
 certification restrictions are disabled, including blank signature fields. Derived
