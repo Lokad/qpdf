@@ -157,7 +157,9 @@ JSON inspection also accepts primary credentials (`QpdfJsonOptions.Password` for
 calls), exports decrypted values and keeps password/key fields null.
 Typed `UpdatePdfFromJsonAsync` accepts an input password and output encryption policy.
 Object patches contain plaintext values and stream data; the writer applies the
-chosen protection. Replacement JSON trailers declaring `/Encrypt` remain unsupported.
+chosen protection. Full exports may repeat the authenticated input's unchanged
+encryption handler. Creating a PDF from a JSON `/Encrypt` declaration requires
+an explicit remove, new-encryption or template policy.
 Commands use `--update-from-json=patch.json` with the primary password and the
 usual output policy; job JSON uses `updateFromJson`.
 Typed `CreatePdfFromJsonAsync` also accepts an output policy and explicit limits

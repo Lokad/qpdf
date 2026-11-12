@@ -66,10 +66,10 @@ public sealed class EncryptedJsonCreationTests
     }
 
     [Fact]
-    public async Task DeclaredJsonEncryptionCannotOverrideAnExplicitPolicy()
+    public async Task DeclaredJsonEncryptionRequiresAnExplicitPolicy()
     {
         using InMemoryQpdfHost host = new(); AddJson(host, Source.Replace("\"/Info\":\"21 0 R\"", "\"/Info\":\"21 0 R\",\"/Encrypt\":\"21 0 R\"", StringComparison.Ordinal));
-        await Assert.ThrowsAsync<QpdfCryptoException>(() => Qpdf.CreatePdfFromJsonAsync(host, Json, Output, NewProtection(false), QpdfLimits.Default, CancellationToken.None).AsTask());
+        await Assert.ThrowsAsync<QpdfCryptoException>(() => Qpdf.CreatePdfFromJsonAsync(host, Json, Output, QpdfOutputEncryption.Preserve, QpdfLimits.Default, CancellationToken.None).AsTask());
         Assert.False(host.TryGetOutput(Output, out _)); Assert.Equal(0, host.OpenLeaseCount);
     }
 

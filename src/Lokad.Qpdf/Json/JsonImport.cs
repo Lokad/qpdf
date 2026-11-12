@@ -174,6 +174,7 @@ internal static partial class JsonImport
         IQpdfHost host,
         JsonDocument document,
         QpdfDocument pdf,
+        bool preserveEncryption,
         QpdfLimits limits,
         ResourceGovernor governor,
         ParserMemoryScope memory,
@@ -252,13 +253,12 @@ internal static partial class JsonImport
 
         PdfDictionary trailer = (PdfDictionary)Writing.ObjectRemap.NormalizeSource(engine.Trailer, engine.XRefEntries,
             memory, governor, cancellationToken);
-        if (engine.Security is not null)
+        PdfDictionary originalTrailer = trailer;
+        QpdfObject originalEncryption = PdfNull.Instance;
+        if (engine.Security is not null && PdfDictionaryLookup.TryGet(trailer, "Encrypt"u8, governor, cancellationToken, out QpdfObject declaration))
         {
-            // The authenticated reader supplies output protection separately.
-            // JSON replacements may not introduce an unauthenticated handler.
-            using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
-            trailer = PdfDictionaryRebuild.RemoveEntry(graph, trailer, "Encrypt"u8);
-            graph.Retain();
+            originalEncryption = declaration is PdfReference reference
+                ? merged.GetValueOrDefault(reference.ObjectNumber, PdfNull.Instance) : declaration;
         }
         foreach (JsonProperty property in qpdf[1].EnumerateObject())
         {
@@ -282,7 +282,9 @@ internal static partial class JsonImport
         }
 
         QpdfDocument.VersionParts header = pdf.HeaderVersionParts;
-        return new ImportedModel(updateVersion ?? governor.PrivateVersion(header.Major, header.Minor), merged, trailer);
+        ImportedModel result = new(updateVersion ?? governor.PrivateVersion(header.Major, header.Minor), merged, trailer);
+        return PrepareUpdateEncryption(result, originalTrailer, originalEncryption, engine.Security is not null,
+            preserveEncryption, governor, cancellationToken);
     }
 
     private static PdfVersion? ReadUpdateMeta(JsonElement meta, ResourceGovernor governor)

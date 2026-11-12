@@ -4424,8 +4424,9 @@ public static partial class Qpdf
         => CreatePdfFromJsonAsync(host, jsonPath, outputPath, QpdfOutputEncryption.Preserve, limits, cancellationToken);
 
     /// <summary>Creates a PDF from plaintext qpdf JSON with explicit protection and budgets.</summary>
-    /// <remarks>Preserve and Remove produce plaintext without a PDF input. JSON trailers declaring
-    /// /Encrypt remain unsupported; template protection uses an independently authenticated PDF.
+    /// <remarks>Preserve produces plaintext only when JSON has no /Encrypt declaration. An encrypted
+    /// JSON export requires an explicit Remove, CreateAes256 or CopyFrom policy. Its values are plaintext;
+    /// template protection uses an independently authenticated PDF.
     /// Credentials are borrowed until completion.</remarks>
     public static async ValueTask<QpdfJsonImportResult> CreatePdfFromJsonAsync(IQpdfHost host, QpdfPath jsonPath,
         QpdfPath outputPath, QpdfOutputEncryption outputEncryption, QpdfLimits limits, CancellationToken cancellationToken)
@@ -4485,7 +4486,8 @@ public static partial class Qpdf
 
     /// <summary>Updates an authenticated PDF from qpdf JSON with an explicit output protection policy.</summary>
     /// <remarks>A null password tries empty. JSON object values and stream data are plaintext;
-    /// replacement trailers declaring /Encrypt remain unsupported. Credentials are borrowed until completion.</remarks>
+    /// preservation validates any repeated /Encrypt declaration against the authenticated input.
+    /// Explicit output policies replace that declaration. Credentials are borrowed until completion.</remarks>
     public static ValueTask<QpdfJsonImportResult> UpdatePdfFromJsonAsync(IQpdfHost host, QpdfPath inputPath,
         QpdfPath jsonPath, QpdfPath outputPath, QpdfPassword? password, QpdfOutputEncryption outputEncryption,
         CancellationToken cancellationToken)
@@ -4978,6 +4980,7 @@ public static partial class Qpdf
         using (parsed)
         {
             Json.ImportedModel model = await Json.JsonImport.BuildCreateModelAsync(host, parsed, limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
+            if (!outputEncryption.PreservesInput) { model = Json.JsonImport.RemoveEncryptionDeclaration(model, governor, cancellationToken); }
             var preparedSecurity = await PrepareOutputSecurityAsync(host, outputEncryption, null, null, importMemory,
                 governor, limits, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
             using OutputSecurity? security = preparedSecurity.Security;
@@ -5024,7 +5027,8 @@ public static partial class Qpdf
         System.Text.Json.JsonDocument parsed = await Json.JsonImport.ReadJsonAsync(host, jsonPath, limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
         using (parsed)
         {
-            Json.ImportedModel model = await Json.JsonImport.BuildUpdateModelAsync(host, parsed, document, limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
+            Json.ImportedModel model = await Json.JsonImport.BuildUpdateModelAsync(host, parsed, document, outputEncryption.PreservesInput,
+                limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
             var preparedSecurity = await PrepareOutputSecurityAsync(host, outputEncryption, document, TryGetOriginalId(document.Engine),
                 importMemory, governor, limits, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
             using OutputSecurity? security = preparedSecurity.Security;

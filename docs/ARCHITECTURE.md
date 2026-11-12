@@ -102,7 +102,10 @@ through reader closure, output preparation and publication. Typed JSON updates
 authenticate the original graph, remove its active encryption trailer reference,
 apply plaintext object patches and prepare the selected independent output owner.
 Final numbering binds both the encryption dictionary and catalog metadata stream.
-Incoming replacement trailers cannot supply their own encryption handler.
+Preservation validates a repeated handler reference and dictionary against the
+authenticated original with bounded, cancellable value comparisons. Explicit
+remove/create/template policies discard JSON encryption declarations and prepare
+their output security independently; JSON data never supplies an authenticated key.
 Typed JSON creation prepares the same owner from a new-protection request or
 authenticated template after parsing plaintext objects. Preserve/Remove have no
 input protection to carry forward. Version negotiation precedes graph renumbering.

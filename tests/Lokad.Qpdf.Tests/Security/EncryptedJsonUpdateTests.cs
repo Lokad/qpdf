@@ -70,7 +70,7 @@ public sealed class EncryptedJsonUpdateTests
     public async Task ReplacementTrailersCannotInjectEncryptionHandlers()
     {
         using InMemoryQpdfHost host = new(); Add(host, Input, "security-r6-ascii.pdf");
-        host.AddInput(Patch, """{"qpdf":[{"jsonversion":2},{"trailer":{"value":{"/Root":"1 0 R","/Encrypt":"8 0 R"}}}]}"""u8.ToArray(), QpdfInputOwnership.Copy);
+        host.AddInput(Patch, """{"qpdf":[{"jsonversion":2},{"trailer":{"value":{"/Root":"1 0 R","/Encrypt":"1 0 R"}}}]}"""u8.ToArray(), QpdfInputOwnership.Copy);
         await Assert.ThrowsAsync<QpdfCryptoException>(() => Qpdf.UpdatePdfFromJsonAsync(host, Input, Patch, Output,
             QpdfPassword.FromText("reader"), QpdfOutputEncryption.Preserve, CancellationToken.None).AsTask());
         Assert.False(host.TryGetOutput(Output, out _)); Assert.Equal(0, host.OpenLeaseCount);

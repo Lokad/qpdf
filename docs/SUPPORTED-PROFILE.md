@@ -86,15 +86,18 @@ Typed `UpdatePdfFromJsonAsync` accepts an input password and the same explicit
 preserve/remove/create/template output policies. Its existing overloads try an
 empty password and preserve supported protection. JSON object patches supply
 plaintext strings and stream data, including catalog metadata; protection is
-applied after final numbering. Replacement trailers declaring `/Encrypt` still
-fail before publication. JSON creation from such trailers is also unsupported.
+applied after final numbering. Full exports may repeat the authenticated input's
+unchanged `/Encrypt` reference and dictionary. Preservation rejects handler edits;
+use an explicit remove/create/template policy to define different output protection.
 Argv/job updates use `--update-from-json` / `updateFromJson` with primary text or
 host-file credentials, including password modes and recovery settings. Preserve,
 decrypt, encrypt and template policies use the same version and metadata rules.
 Typed `CreatePdfFromJsonAsync` accepts an output policy with explicit limits.
 Plaintext JSON can produce new AES-256 or copied R4/R6 protection, including the
-chosen metadata policy. Preserve and Remove produce plaintext because creation
-has no PDF input. The writer raises the PDF version when required by protection.
+chosen metadata policy. Creation has no authenticated PDF input: Preserve produces
+plaintext only when JSON has no `/Encrypt` declaration. Full encrypted exports
+require an explicit remove/create/template policy, which replaces that declaration.
+The writer raises the PDF version when required by protection.
 Argv/job `--json-input` / `jsonInput` accepts the same output policies and global
 password modes. Primary text passwords are ignored for plaintext JSON; password
 files are still read through the host, and missing files fail. Template inputs

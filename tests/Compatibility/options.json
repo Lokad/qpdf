@@ -568,7 +568,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and JSON trailers declaring /Encrypt remain unsupported. Canonical reference-suite coverage is still pending."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -654,7 +654,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and JSON trailers declaring /Encrypt remain unsupported. Canonical reference-suite coverage is still pending."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -706,7 +706,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and JSON trailers declaring /Encrypt remain unsupported. Canonical reference-suite coverage is still pending."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -752,7 +752,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and JSON trailers declaring /Encrypt remain unsupported. Canonical reference-suite coverage is still pending."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -804,7 +804,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and JSON trailers declaring /Encrypt remain unsupported. Canonical reference-suite coverage is still pending."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -890,7 +890,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and JSON trailers declaring /Encrypt remain unsupported. Canonical reference-suite coverage is still pending."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -948,7 +948,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and JSON trailers declaring /Encrypt remain unsupported. Canonical reference-suite coverage is still pending."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -1000,7 +1000,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and JSON trailers declaring /Encrypt remain unsupported. Canonical reference-suite coverage is still pending."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -1054,7 +1054,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and JSON trailers declaring /Encrypt remain unsupported. Canonical reference-suite coverage is still pending."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -1618,7 +1618,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and JSON trailers declaring /Encrypt remain unsupported. Canonical reference-suite coverage is still pending."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -1664,7 +1664,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and JSON trailers declaring /Encrypt remain unsupported. Canonical reference-suite coverage is still pending."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -1710,7 +1710,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and JSON trailers declaring /Encrypt remain unsupported. Canonical reference-suite coverage is still pending."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -2907,7 +2907,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES R4/R6 template copying supports independent credentials, writer modes, empty-primary/split output and native policy-setter ordering. Legacy handlers, JSON trailers declaring /Encrypt and canonical native-reference qualification remain pending."
+        "AES R4/R6 template copying supports independent credentials, writer modes, empty-primary/split output and native policy-setter ordering. Legacy handlers and canonical native-reference qualification remain pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -3033,7 +3033,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Explicit decryption supports AES R4/R6 PDF transformations and is ignored by output-free inspections. Legacy handlers and JSON trailers declaring /Encrypt remain pending."
+        "Explicit decryption supports AES R4/R6 PDF transformations and is ignored by output-free inspections. Legacy handlers and canonical encrypted JSON reference coverage remain pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -3176,7 +3176,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and JSON trailers declaring /Encrypt remain unsupported. Canonical reference-suite coverage is still pending."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -3993,7 +3993,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Typed/command plaintext JSON creation can request fresh AES-256 or copied R4/R6 protection. JSON trailers declaring /Encrypt and canonical encrypted native-reference coverage remain pending."
+        "Typed/command JSON creation accepts explicit output policies. Full exports declaring /Encrypt require an explicit remove/create/template policy because JSON alone cannot authenticate a key. Canonical encrypted native-reference coverage remains pending."
       ],
       "evidence": {
         "positive": [
@@ -4017,7 +4017,9 @@
           "EncryptedJsonCreationTests.TypedCreationProtectsStringsStreamsAndFinalCatalogMetadata",
           "EncryptedJsonCreationCommandTests.CommandsCreatePlaintextJsonWithTheSelectedProtection",
           "EncryptedJsonCreationCommandTests.PrimaryPasswordFilesAreReadWithoutAuthenticatingPlaintextJson",
-          "EncryptedJsonCreationTests.DeclaredJsonEncryptionCannotOverrideAnExplicitPolicy",
+          "EncryptedJsonCreationTests.DeclaredJsonEncryptionRequiresAnExplicitPolicy",
+          "EncryptedJsonRoundTripTests.FullAuthenticatedExportsRoundTripThroughExplicitOutputPolicies",
+          "EncryptedJsonRoundTripTests.CreationCannotInferProtectionFromUnauthenticatedJson",
           "JsonImportTests.JobUpdateRoundTrip",
           "JsonImportTests.TypedUpdateRoundTrip",
           "PublicationProfileTests.JsonPublicationUsesTheCopyProfile"
@@ -5273,7 +5275,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary text passwords support AES R4/R6 inspections, JSON export and protection-preserving PDF transformations. Legacy handlers and JSON trailers declaring /Encrypt remain pending."
+        "Primary text passwords support AES R4/R6 inspections, JSON export and protection-preserving PDF transformations. Legacy handlers and canonical encrypted JSON reference coverage remain pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -5318,7 +5320,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary host-file credentials support AES R4/R6 inspections, JSON export and protection-preserving PDF transformations with first-line and ordered-setter semantics. Descriptor input, broader encoding recovery, secondary host-file credentials and JSON trailers declaring /Encrypt remain pending."
+        "Primary host-file credentials support AES R4/R6 inspections, JSON export and protection-preserving PDF transformations with first-line and ordered-setter semantics. Descriptor input, broader encoding recovery, secondary host-file credentials and canonical encrypted JSON reference coverage remain pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -6866,7 +6868,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary inspections, JSON export and PDF transformations can disable the supported R4 encoding retry. Other recovery encodings, legacy handlers, JSON trailers declaring /Encrypt and canonical reference qualification remain pending."
+        "Primary inspections, JSON export and PDF transformations can disable the supported R4 encoding retry. Other recovery encodings, legacy handlers, canonical reference qualification remain pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -7088,7 +7090,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Typed AES R4/R6 object updates accept independent input credentials and preserve/remove/create/template output policies. Argv/job updates share primary text/host-file credentials and output policies. Replacement trailers declaring /Encrypt and canonical encrypted native-reference coverage remain pending."
+        "Typed AES R4/R6 object updates accept independent input credentials and preserve/remove/create/template output policies. Argv/job updates share primary text/host-file credentials and output policies. Preservation validates repeated handlers; explicit policies replace JSON declarations. Canonical encrypted native-reference coverage remains pending."
       ],
       "evidence": {
         "positive": [
@@ -7117,10 +7119,13 @@
           "EncryptedJsonUpdateCommandTests.CommandsApplyPlaintextPatchesWithTheChosenProtection",
           "EncryptedJsonUpdateCommandTests.UpdatesSharePrimaryPasswordFilesModesAndRecovery",
           "EncryptedJsonUpdateTests.ReplacementTrailersCannotInjectEncryptionHandlers",
+          "EncryptedJsonRoundTripTests.FullAuthenticatedExportsRoundTripThroughExplicitOutputPolicies",
+          "EncryptedJsonRoundTripTests.PreservationRejectsEditedHandlersBeforePublication",
           "PublicationProfileTests.JsonPublicationUsesTheCopyProfile"
         ],
         "resource": [
           "JsonImportTests.UpdateYieldsToExhaustedBudget",
+          "EncryptedJsonRoundTripTests.EveryFullUpdateAdmissionRefusalRefundsBeforePublication",
           "EncryptedJsonUpdateTests.EveryUpdateAdmissionRefusalRefundsBeforeEncryptedPublication"
         ],
         "oracle": [

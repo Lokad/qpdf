@@ -2,15 +2,17 @@
 
 ## Unreleased
 
+- Round-trip full authenticated JSON exports through updates and explicit output
+  policies. Preserve verifies repeated handler declarations; creation from a
+  declared JSON handler requires explicit removal, new encryption or a template.
 - Protect typed JSON creation with fresh AES-256 or an authenticated R4/R6 template,
   including metadata policy and the required PDF version. Preserve/Remove keep
-  plaintext JSON creation unencrypted; JSON `/Encrypt` trailers still reject.
+  undeclared plaintext JSON creation unencrypted.
   Argv/job JSON creation shares these policies, output password modes and template
   credentials; primary text passwords are ignored while host password files are read.
 - Authenticate typed JSON updates with AES R4/R6 credentials and preserve, remove,
   replace or copy output protection. Encrypt patched strings and streams after
-  renumbering, honoring the final catalog metadata policy. Replacement JSON
-  trailers declaring `/Encrypt` remain unsupported.
+  renumbering, honoring the final catalog metadata policy.
   Argv/job updates accept primary text/host-file credentials, password modes,
   recovery settings and the same output policies.
 - Copy AES R4/R6 protection from an independent template through typed page

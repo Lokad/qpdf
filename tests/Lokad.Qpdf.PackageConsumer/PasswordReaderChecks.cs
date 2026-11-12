@@ -176,6 +176,22 @@ internal static class PasswordReaderChecks
             await using QpdfDocument document = await QpdfDocument.OpenAsync(host, reopened, QpdfPassword.FromBytes(Convert.FromHexString("6f776e6572e991")), QpdfLimits.Default, CancellationToken.None);
             Check(document.PageCount == 1 && document.Encryption is { Revision: 4, Permissions: -3388, EncryptMetadata: true }, "command JSON creation retains both template passwords");
         }
+        QpdfPath fullJson = QpdfPath.From("full-encrypted-export.json");
+        _ = await Qpdf.GetDocumentJsonAsync(host, encrypted, fullJson,
+            new QpdfJsonOptions(2, ["qpdf"], "inline", null, [], true) { Password = QpdfPassword.FromText("reader") }, CancellationToken.None);
+        Check(host.TryGetOutput(fullJson, out byte[] fullJsonBytes), "full encrypted JSON export");
+        QpdfPath fullJsonInput = QpdfPath.From("full-encrypted-input.json"); host.AddInput(fullJsonInput, fullJsonBytes, QpdfInputOwnership.Copy);
+        foreach (bool createFromFull in new[] { false, true })
+        {
+            QpdfPath target = QpdfPath.From(createFromFull ? "full-created.pdf" : "full-updated.pdf");
+            if (createFromFull) { _ = await Qpdf.CreatePdfFromJsonAsync(host, fullJsonInput, target, QpdfOutputEncryption.Remove, QpdfLimits.Default, CancellationToken.None); }
+            else { _ = await Qpdf.UpdatePdfFromJsonAsync(host, encrypted, fullJsonInput, target, QpdfPassword.FromText("reader"), QpdfOutputEncryption.Preserve, CancellationToken.None); }
+            Check(host.TryGetOutput(target, out byte[] fullOutput), "full encrypted JSON round trip");
+            QpdfPath reopened = QpdfPath.From("reopened-" + target.Value); host.AddInput(reopened, fullOutput, QpdfInputOwnership.Copy);
+            await using QpdfDocument document = await QpdfDocument.OpenAsync(host, reopened,
+                createFromFull ? null : QpdfPassword.FromText("fixture-owner"), QpdfLimits.Default, CancellationToken.None);
+            Check(document.PageCount == 1 && (createFromFull ? document.Encryption is null : document.Encryption?.Revision == 6), "full JSON declared handler follows explicit policy");
+        }
         QpdfPath created = QpdfPath.From("created.pdf");
         _ = await Qpdf.SelectPageAsync(host, plainInput, created, new PdfPageSelectionOptions(1), null,
             newProtection, QpdfLimits.Default, CancellationToken.None);
