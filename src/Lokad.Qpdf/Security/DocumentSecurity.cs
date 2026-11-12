@@ -132,9 +132,7 @@ internal sealed partial class DocumentSecurity : IDisposable
         CheckOwner(_governor); _governor.CheckCancellation();
         byte[] key = _key ?? throw new ObjectDisposedException(nameof(DocumentSecurity));
         PdfDictionary encryption = _encryption ?? throw new ObjectDisposedException(nameof(DocumentSecurity));
-        if (Revision != 6)
-        { throw new QpdfUnsupportedFeatureException("Preserving this security revision is not supported for output."); }
-        return OutputSecurity.CopyRevision6(encryption, key, identifier, Parameters, _governor);
+        return OutputSecurity.CopyAuthenticated(encryption, key, identifier, Parameters, _governor);
     }
 
     public void Dispose()

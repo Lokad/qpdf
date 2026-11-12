@@ -158,6 +158,7 @@ internal sealed partial class PdfSerializer
             throw new ArgumentOutOfRangeException(nameof(id2), "Document identifiers must hold 1..256 bytes.");
         }
 
+        _security?.ValidateIdentifier(id1, _governor);
         (int size, long xrefOffset) = await SerializeClassicBodyAsync(version, objects,
             newlineBeforeEndstream, sink, cancellationToken).ConfigureAwait(false);
         await AppendClassicTrailerAsync(size, infoRef, id1, id2, xrefOffset, sink, cancellationToken).ConfigureAwait(false);
@@ -304,7 +305,7 @@ internal sealed partial class PdfSerializer
 
         using ParserMemoryScope? encrypted = _security is null || number == _encryptionObject ? null : ParserMemoryScope.Create(_governor);
         QpdfObject emitted = encrypted is null ? value : (_security ?? throw new InvalidOperationException("Missing output security.")).EncryptObject(
-            value, number == _metadataObject, _securityResolver ?? throw new InvalidOperationException("Missing output resolver."), encrypted, _governor);
+            value, number, 0, number == _metadataObject, _securityResolver ?? throw new InvalidOperationException("Missing output resolver."), encrypted, _governor);
         await AppendFormattedAsync([WriterPart.Number(number), WriterPart.Text(" 0 obj\n")], sink, cancellationToken).ConfigureAwait(false);
         await AppendValueAsync(emitted, sink, 0, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync("\nendobj\n", sink, cancellationToken).ConfigureAwait(false);
@@ -376,6 +377,7 @@ internal sealed partial class PdfSerializer
         }
 
         ValidateEncryptionModel(objects, cancellationToken);
+        _security?.ValidateIdentifier(id1, _governor);
         using WriterIndex<QpdfObject> lookup = WriterIndex<QpdfObject>.Create(objects.Count, IntPtr.Size, _governor, cancellationToken);
         int maxNumber = 0;
         foreach (NumberedObject numbered in objects)

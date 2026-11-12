@@ -65,10 +65,14 @@ both passwords and encrypts permissions. Recorded native randomness reproduces a
 five dictionary entries exactly; failure clears both caller-owned destinations.
 A prepared output security owner holds the generated key and admitted encryption
 dictionary, clears the key on disposal and funds ciphertext under the caller's owner.
-An authenticated R6 reader can also prepare an independent output owner, copying
+An authenticated R4/R6 reader can also prepare an independent output owner, copying
 the first identifier and both password entries without retaining either password.
 The copied key and dictionary survive source disposal; crypt filters normalize to
-AES for output, matching pinned qpdf. Public preservation policy remains pending.
+AES for output, matching pinned qpdf. Writers reject a changed first identifier
+before emission. R4 derives temporary keys from final output numbers, including
+renumbered QDF objects, object-stream containers and linearization hints; each
+derived key is cleared after preparing its ciphertext. Public preservation policy
+remains pending.
 Reading and output preparation share direct-string traversal, preserving signature
 Contents and leaving indirect references for their physical object boundaries.
 Internal output-object preparation encrypts encoded stream payloads and repairs

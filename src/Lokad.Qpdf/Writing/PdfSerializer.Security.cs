@@ -47,7 +47,7 @@ internal sealed partial class PdfSerializer
         // then encrypt it once and keep its owner alive through the sink await.
         using ParserMemoryScope? encrypted = _security is null ? null : ParserMemoryScope.Create(_governor);
         ReadOnlyMemory<byte> data = encrypted is null ? payload.Data
-            : (_security ?? throw new InvalidOperationException("Missing output security.")).Encrypt(payload.Data.Span, encrypted, _governor);
+            : (_security ?? throw new InvalidOperationException("Missing output security.")).Encrypt(payload.Data.Span, number, 0, encrypted, _governor);
         using (ObjectStreamHeader header = ObjectStreamHeader.Create(number, count, length, payload.First,
             payload.Compressed, qdf, _limits, _governor, cancellationToken))
         {
@@ -56,10 +56,10 @@ internal sealed partial class PdfSerializer
         await AppendBytesAsync(data, sink, cancellationToken).ConfigureAwait(false);
     }
 
-    private QpdfObject EncryptQdfValue(QpdfObject value, bool rootMetadata, IIndirectResolver resolver, ParserMemoryScope memory)
+    private QpdfObject EncryptQdfValue(QpdfObject value, int number, bool rootMetadata, IIndirectResolver resolver, ParserMemoryScope memory)
     {
         QpdfObject result = (_security ?? throw new InvalidOperationException("Missing output security.")).EncryptObject(
-            value, rootMetadata, resolver, memory, _governor);
+            value, number, 0, rootMetadata, resolver, memory, _governor);
         if (value is PdfStream original && result is PdfStream encrypted
             && PdfDictionaryLookup.TryGet(original.Dictionary, "Length"u8, _governor, _governor.CancellationToken, out QpdfObject length)
             && length is PdfReference)

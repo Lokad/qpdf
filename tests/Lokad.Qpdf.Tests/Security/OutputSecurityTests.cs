@@ -29,7 +29,7 @@ public sealed class OutputSecurityTests
             "<< " + fields + " /Length 13 /Note (header text) >>")), 0, source));
         PdfStream stream = new(header, "payload bytes"u8.ToArray());
         using OutputSecurity security = OutputSecurity.CreateRevision6("reader"u8, "owner"u8, -4, false, governor);
-        PdfStream written = Assert.IsType<PdfStream>(security.EncryptObject(stream, rootMetadata, new NullResolver(), destination, governor));
+        PdfStream written = Assert.IsType<PdfStream>(security.EncryptObject(stream, 4, 0, rootMetadata, new NullResolver(), destination, governor));
         bool xref = fields.Contains("XRef", StringComparison.Ordinal);
         Assert.Equal(xref, ReferenceEquals(stream, written));
         byte[] key = new byte[32];
@@ -47,7 +47,7 @@ public sealed class OutputSecurityTests
         byte[] note = Assert.IsType<PdfByteString>(rawNote).Value;
         Assert.Equal("header text"u8.ToArray(), xref ? note : aes.DecryptCbc(note.AsSpan(16), note.AsSpan(0, 16), PaddingMode.PKCS7));
         Assert.Equal("payload bytes"u8.ToArray(), stream.Data);
-        Assert.Same(security.Dictionary, security.EncryptObject(security.Dictionary, false, new NullResolver(), destination, governor));
+        Assert.Same(security.Dictionary, security.EncryptObject(security.Dictionary, 7, 0, false, new NullResolver(), destination, governor));
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public sealed class OutputSecurityTests
         PdfStream stream = new(header, "opaque"u8.ToArray());
         using OutputSecurity security = OutputSecurity.CreateRevision6([], "owner"u8, -4, true, governor);
         long before = governor.Snapshot().LiveMemoryBytes;
-        Assert.Throws<QpdfUnsupportedFeatureException>(() => security.EncryptObject(stream, false, new NullResolver(), destination, governor));
+        Assert.Throws<QpdfUnsupportedFeatureException>(() => security.EncryptObject(stream, 4, 0, false, new NullResolver(), destination, governor));
         Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0, destination.ReservedBytes);
     }
 
@@ -87,10 +87,10 @@ public sealed class OutputSecurityTests
             int before = budget.GrowthCalls; long reserved = budget.ReservedBytes;
             if (refuses)
             {
-                Assert.Throws<QpdfMemoryAdmissionException>(() => security.EncryptObject(stream, false, new NullResolver(), destination, governor));
+                Assert.Throws<QpdfMemoryAdmissionException>(() => security.EncryptObject(stream, 4, 0, false, new NullResolver(), destination, governor));
                 Assert.Equal(0, destination.ReservedBytes); Assert.Equal(reserved, budget.ReservedBytes);
             }
-            else { _ = security.EncryptObject(stream, false, new NullResolver(), destination, governor); }
+            else { _ = security.EncryptObject(stream, 4, 0, false, new NullResolver(), destination, governor); }
             int growths = budget.GrowthCalls - before;
             destination.Dispose(); security.Dispose(); Assert.Equal(0, budget.ReservedBytes);
             return (before, growths);
@@ -116,10 +116,10 @@ public sealed class OutputSecurityTests
                 Assert.Equal(-3388, reader.Permissions);
             }
             Assert.Equal(PasswordAuthentication.Owner, Revision6Encryption.Authenticate(security.Dictionary, "owner"u8, key, governor));
-            encrypted = security.Encrypt("stored content"u8, payload, governor);
+            encrypted = security.Encrypt("stored content"u8, 4, 0, payload, governor);
             security.Dispose();
             Assert.Throws<ObjectDisposedException>(() => security.Dictionary);
-            Assert.Throws<ObjectDisposedException>(() => security.Encrypt([], payload, governor));
+            Assert.Throws<ObjectDisposedException>(() => security.Encrypt([], 4, 0, payload, governor));
         }
         Assert.Equal(before + payload.ReservedBytes, governor.Snapshot().LiveMemoryBytes);
         using Aes aes = Aes.Create(); aes.SetKey(key);

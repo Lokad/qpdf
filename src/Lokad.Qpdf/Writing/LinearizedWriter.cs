@@ -106,6 +106,7 @@ internal sealed class LinearizedWriter
 
         using ParserMemoryScope classificationMemory = ParserMemoryScope.Create(_governor);
         PdfSerializer.ValidateEncryptionModel(model, _security, _encryptionObject, _governor, cancellationToken);
+        _security?.ValidateIdentifier(id1, _governor);
         using LinearizedParts parts = LinearizedParts.Classify(model, _encryptionObject, classificationMemory, _governor, cancellationToken);
         using RemappedModel emitted = RemappedModel.Create(parts.Lookup, parts.Renumber, _governor, cancellationToken);
         PdfSerializer serializer = PrepareSerializer(parts.Renumber, emitted, classificationMemory);
@@ -504,7 +505,7 @@ internal sealed class LinearizedWriter
         {
             data = FlateFilter.Encode(tables.Bytes, compressionLevel, _limits, _governor, scratch, cancellationToken);
         }
-        if (_security is not null) { data = _security.Encrypt(data, scratch, _governor); }
+        if (_security is not null) { data = _security.Encrypt(data, hintNumber, 0, scratch, _governor); }
 
         using WriterFormatting head = WriterFormatting.Create([WriterPart.Number(hintNumber), WriterPart.Text(" 0 obj\n<<"),
             WriterPart.Text(flate ? " /Filter /FlateDecode" : ""), WriterPart.Text(" /S "), WriterPart.Number(sharedAt),
@@ -875,6 +876,7 @@ internal sealed class LinearizedWriter
 
         using ParserMemoryScope classificationMemory = ParserMemoryScope.Create(_governor);
         PdfSerializer.ValidateEncryptionModel(model, _security, _encryptionObject, _governor, cancellationToken);
+        _security?.ValidateIdentifier(id1, _governor);
         using StreamedParts parts = LinearizedParts.ClassifyStreamed(model, objectStreamGroups, _encryptionObject, classificationMemory, _governor, cancellationToken);
         if (parts.Containers.Count == 0)
         {

@@ -10,11 +10,12 @@ internal sealed partial class OutputSecurity
 {
     // Called only with an authenticated document key. The output keeps both
     // password entries and normalizes crypt filters to AES, as qpdf does.
-    internal static OutputSecurity CopyRevision6(PdfDictionary encryption, ReadOnlySpan<byte> fileKey,
+    internal static OutputSecurity CopyAuthenticated(PdfDictionary encryption, ReadOnlySpan<byte> fileKey,
         ReadOnlySpan<byte> identifier, EncryptionParameters parameters, ResourceGovernor governor)
     {
-        if (parameters.Revision != 6 || fileKey.Length != 32)
-        { throw new ArgumentException("An authenticated revision 6 key is required."); }
+        int revision = parameters.Revision;
+        if (revision is not (4 or 6) || fileKey.Length != (revision == 6 ? 32 : 16))
+        { throw new ArgumentException("An authenticated AES file key is required."); }
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         byte[]? key = null;
         Span<byte> values = stackalloc byte[176];
@@ -31,14 +32,18 @@ internal sealed partial class OutputSecurity
                 identifier.Slice(offset, count).CopyTo(copiedIdentifier.AsSpan(offset, count));
                 offset += count;
             }
-            ReadBytes(encryption, "U"u8, 48, governor).CopyTo(values);
-            ReadBytes(encryption, "O"u8, 48, governor).CopyTo(values[48..]);
-            ReadBytes(encryption, "UE"u8, 32, governor).CopyTo(values[96..]);
-            ReadBytes(encryption, "OE"u8, 32, governor).CopyTo(values[128..]);
-            ReadBytes(encryption, "Perms"u8, 16, governor).CopyTo(values[160..]);
-            PdfDictionary dictionary = BuildRevision6Dictionary(values, parameters.Permissions, parameters.EncryptMetadata, memory, governor);
+            int entryLength = revision == 6 ? 48 : 32;
+            ReadBytes(encryption, "U"u8, entryLength, governor).CopyTo(values);
+            ReadBytes(encryption, "O"u8, entryLength, governor).CopyTo(values[entryLength..]);
+            if (revision == 6)
+            {
+                ReadBytes(encryption, "UE"u8, 32, governor).CopyTo(values[96..]);
+                ReadBytes(encryption, "OE"u8, 32, governor).CopyTo(values[128..]);
+                ReadBytes(encryption, "Perms"u8, 16, governor).CopyTo(values[160..]);
+            }
+            PdfDictionary dictionary = BuildDictionary(values, revision, parameters.Permissions, parameters.EncryptMetadata, memory, governor);
             governor.CheckCancellation();
-            return new(memory, key, dictionary, parameters.EncryptMetadata, copiedIdentifier);
+            return new(memory, key, dictionary, revision, parameters.EncryptMetadata, copiedIdentifier);
         }
         catch { if (key is not null) { CryptographicOperations.ZeroMemory(key); } memory.Dispose(); throw; }
         finally { CryptographicOperations.ZeroMemory(values); }

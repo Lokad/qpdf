@@ -61,7 +61,7 @@ public sealed class OutputSecurityCopyTests
                         Assert.Equal(PdfCipher.Aes256, reopened.Parameters.Files);
                     }
                 }
-                byte[] ciphertext = output.Encrypt("copied protection"u8, payload, governor);
+                byte[] ciphertext = output.Encrypt("copied protection"u8, 4, 0, payload, governor);
                 using Aes aes = Aes.Create(); aes.SetKey(Convert.FromHexString(keyHex));
                 Assert.Equal("copied protection"u8.ToArray(), aes.DecryptCbc(ciphertext.AsSpan(16), ciphertext.AsSpan(0, 16), PaddingMode.PKCS7));
             }

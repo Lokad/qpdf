@@ -31,6 +31,7 @@ internal sealed partial class PdfSerializer
     {
         ArgumentNullException.ThrowIfNull(model);
         ValidateEncryptionModel(model, cancellationToken);
+        _security?.ValidateIdentifier(id1, _governor);
         if (objectStreamGroups is not null && objectStreamGroups.Count > 0)
         {
             return await SerializeQdfStreamedAsync(version, model, objectStreamGroups, originalIds, infoRef, id1, id2, qdf, newlineBeforeEndstream, sink, cancellationToken).ConfigureAwait(false);
@@ -162,7 +163,7 @@ internal sealed partial class PdfSerializer
             using ParserMemoryScope? encrypted = _security is null || emission.Number == encryptionNumber
                 ? null : ParserMemoryScope.Create(_governor);
             QpdfObject? value = encrypted is null ? emission.Value : EncryptQdfValue(
-                emission.Value ?? throw new QpdfException("QDF emission lost its value."), emission.Number == metadataNumber, emissions, encrypted);
+                emission.Value ?? throw new QpdfException("QDF emission lost its value."), emission.Number, emission.Number == metadataNumber, emissions, encrypted);
             offsets.Add(sink.Length);
             await AppendFormattedAsync([WriterPart.Number(emission.Number), WriterPart.Text(" 0 obj\n")], sink, cancellationToken).ConfigureAwait(false);
             if (value is PdfStream stream)
@@ -351,7 +352,7 @@ internal sealed partial class PdfSerializer
             _governor.NoteOperation();
             using ParserMemoryScope? encrypted = _security is null || old == _encryptionObject ? null : ParserMemoryScope.Create(_governor);
             QpdfObject emitted = encrypted is null ? value : (_security ?? throw new InvalidOperationException("Missing output security.")).EncryptObject(
-                value, old == _metadataObject, _securityResolver ?? throw new InvalidOperationException("Missing output resolver."), encrypted, _governor);
+                value, number, 0, old == _metadataObject, _securityResolver ?? throw new InvalidOperationException("Missing output resolver."), encrypted, _governor);
             using WriterValue remapped = emitted is PdfStream originalStream
                 ? WriterValue.StreamHeader(originalStream.Dictionary, number + 1, combined, _governor, cancellationToken)
                 : WriterValue.Remap(emitted, combined, _governor, cancellationToken);
