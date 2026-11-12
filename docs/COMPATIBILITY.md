@@ -77,8 +77,34 @@ are generally not compatibility guarantees.
 | Parser | Integer scalars cover signed 64-bit values. Strict input rejects bare-reference object bodies; repair replaces them with null. Configured nesting/container exhaustion remains a resource failure and cannot silently discard retained metadata. |
 | Filters | Flate ends at the first complete zlib frame; RunLength ends at its first end marker. Truncation/checksum failures still reject. Compression write failures abort the destination before codec cleanup, preserving the original error without retrying memory admission. External-file streams remain opaque; no referenced path/URL is opened. |
 | Checking | Skipped coverage stays visible. Inspection does not apply every writer removal setting or establish rendering/conformance. Physical linearization defects can fail where native warns. |
-| IDs / compression | Default IDs are deterministic content hashes; static IDs use the native test constant. BCL Flate levels map 1/2Ã¢â‚¬â€œ8/9 to fastest/optimal/smallest. JPEG quality is 0Ã¢â‚¬â€œ100 (development adapter maps 0 to 1). Numbering, packing, predictors and hint bytes may differ. |
+| IDs / compression | Default IDs are deterministic content hashes; static IDs use the native test constant. BCL Flate levels map 1/2..8/9 to fastest/optimal/smallest. JPEG quality is 0..100 (development adapter maps 0 to 1); equal settings across codecs need not produce equivalent quality. Numbering, packing, predictors and hint bytes may differ. |
 | Companions | Fix-QDF requires LF outer syntax, sequential numbering and consistent stream/length framing; ambiguous marker payloads reject. Zlib-flate rejects truncation rather than returning partial output. |
+
+Rotation destination limits follow the viewer-dependent semantics in
+[ISO 32000-1, 12.3.2.2 and Table 151](https://opensource.adobe.com/dc-acrobat-sdk-docs/standards/pdfstandards/pdf/PDF32000_2008.pdf).
+A null position retains a prior viewer coordinate; it is not zero. For example,
+the tested 90-degree transform maps `y' = 120 - x`. Prior horizontal positions
+25 and 75 require new vertical positions 95 and 45. Neither a constant nor a
+null retaining the old vertical position expresses that dependency. Numeric
+XYZ/FitR values can be projected directly.
+
+Changing an axis-fit destination from FitH to FitV also changes its zoom rule.
+For a 200-by-100 page in a 600-by-400 window, width fit gives zoom 3 while
+height fit gives zoom 4. A quarter-turn conversion cannot generally preserve
+both the requested coordinate and the original fit rule for arbitrary windows.
+The existing fixtures therefore retain explicit refusals for these cases,
+while covering numeric destinations, Fit/FitB, 180-degree axis fits and
+navigation discarded by splitting. Raster checks establish page appearance,
+not interactive viewer navigation.
+
+JPEG quality is a codec setting, not a cross-encoder equivalence guarantee.
+The development adapter passes quality 1..100 to Lokad.Image 0.2.0, whose color
+quantizers differ from native qpdf's libjpeg quantizers. The authored RGB-noise
+case at quality 75 has normalized cross-encoder mean error 0.052373, exceeding
+the existing 0.04 comparison limit. Both outputs pass the unchanged comparison
+against the original image. The visual report records this as
+`documented-codec-difference`, not a passing native comparison, and requires
+a missing-image negative control to fail those original-image bounds.
 
 ## Resource API and behavior changes
 

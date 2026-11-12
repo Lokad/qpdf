@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Record the development JPEG encoder's RGB quality difference explicitly in
+  visual reports, retaining original-image bounds and adding a missing-image
+  control. Explain the viewer-state limits of rotation destination projection.
+
 - Allow host codecs to opt into CMYK/YCCK decoding as raw PDF samples through
   `SupportsCmykDecoding`, preserving color space, Decode arrays and admitted
   buffer ownership. Existing codecs remain compatible; CMYK encoding stays unavailable.

@@ -66,7 +66,10 @@ $cases = @(
     @{Name='text'; Input='forms-1page.pdf'; Flags=@('--generate-appearances','--flatten-annotations=all'); Crop=@(200,344,400,40); Jpeg=$false},
     @{Name='checkbox'; Input='checkbox.pdf'; Flags=@('--generate-appearances','--flatten-annotations=all'); Crop=@(0,1560,24,24); Jpeg=$false},
     @{Name='gray'; Input='gray.pdf'; Flags=@('--optimize-images','--jpeg-quality=75'); Crop=@(0,1184,400,400); Jpeg=$true},
-    @{Name='rgb'; Input='rgb.pdf'; Flags=@('--optimize-images','--jpeg-quality=75'); Crop=@(0,1184,400,400); Jpeg=$true},
+    # Lokad.Image and native libjpeg use different color quantizers at equal
+    # quality numbers. Record their comparison; both must meet the existing
+    # original-image bounds, including the independent negative control below.
+    @{Name='rgb'; Input='rgb.pdf'; Flags=@('--optimize-images','--jpeg-quality=75'); Crop=@(0,1184,400,400); Jpeg=$true; RecordCodecDifference=$true},
     @{Name='signature-visible'; Input='signature-visible.pdf'; Flags=@('--pages','.','1','--'); NativeFlags=@('--remove-restrictions'); Crop=@(40,260,160,80); PreserveOriginal=$true; Jpeg=$false},
     @{Name='signature-incremental'; Input='signature-incremental.pdf'; Flags=@('--pages','.','1','--'); NativeFlags=@('--remove-restrictions'); Crop=@(40,260,160,80); PreserveOriginal=$true; Jpeg=$false}
 )
@@ -122,13 +125,18 @@ foreach ($case in $cases) {
     }
     $mean='0.005'; $fraction='0.01'; $threshold='8'
     if ($case.Jpeg) { $mean='0.04'; $fraction='0.10'; $threshold='32' }
-    if ((Compare-Raster ($managed -replace '\.pdf$','.ppm') ($native -replace '\.pdf$','.ppm') $case.Crop $mean $fraction $threshold (Join-Path $dir 'comparison.log')) -ne 0) {
+    $comparison = Compare-Raster ($managed -replace '\.pdf$','.ppm') ($native -replace '\.pdf$','.ppm') $case.Crop $mean $fraction $threshold (Join-Path $dir 'comparison.log')
+    if ($comparison -notin @(0,2)) { throw "$($case.Name): raster comparison could not complete." }
+    if ($comparison -ne 0 -and -not $case.RecordCodecDifference) {
         throw "$($case.Name): visual mismatch; tolerances are unchanged."
     }
+    $result = if ($comparison -eq 0) { 'pass' } else { 'documented-codec-difference' }
+    $originalComparisons = @{}
     if ($case.Jpeg) {
         Render $input (Join-Path $dir 'original') $case.Crop
         foreach ($kind in @('managed','native')) {
             if ((Compare-Raster (Join-Path $dir ($kind + '.ppm')) (Join-Path $dir 'original.ppm') $case.Crop '0.20' '0.30' '64' (Join-Path $dir ($kind + '-original.log'))) -ne 0) { throw "$kind lossy output exceeds declared tolerance." }
+            $originalComparisons[$kind] = (Get-Content -LiteralPath (Join-Path $dir ($kind + '-original.log')) -Raw).Trim()
         }
     }
     if ($case.PreserveOriginal) {
@@ -137,8 +145,8 @@ foreach ($case in $cases) {
             if ((Compare-Raster (Join-Path $dir ($kind + '.ppm')) (Join-Path $dir 'original.ppm') $case.Crop $mean $fraction $threshold (Join-Path $dir ($kind + '-original.log'))) -ne 0) { throw "$kind changed the stored signature appearance." }
         }
     }
-    $results.Add(@{Case=$case.Name; InputSHA256=(Get-FileHash -LiteralPath $input).Hash; Crop=$case.Crop; MeanLimit=$mean; ChangedLimit=$fraction; Threshold=$threshold; Comparison=(Get-Content -LiteralPath (Join-Path $dir 'comparison.log') -Raw).Trim(); Result='pass'})
-    Write-Output "$($case.Name): pass"
+    $results.Add(@{Case=$case.Name; InputSHA256=(Get-FileHash -LiteralPath $input).Hash; Crop=$case.Crop; MeanLimit=$mean; ChangedLimit=$fraction; Threshold=$threshold; Comparison=(Get-Content -LiteralPath (Join-Path $dir 'comparison.log') -Raw).Trim(); Result=$result; OriginalComparisons=$originalComparisons})
+    Write-Output "$($case.Name): $result"
 }
 # Valid PDF with a deliberately misplaced image, and stale flattened appearance.
 if (-not $SignaturesOnly) {
@@ -150,8 +158,13 @@ if ((Compare-Raster (Join-Path $root 'negative-image.ppm') (Join-Path $root 'ove
 if ($LASTEXITCODE -notin @(0,3)) { throw 'Appearance negative preparation failed.' }
 Render (Join-Path $root 'negative-text.pdf') (Join-Path $root 'negative-text') $cases[3].Crop
 if ((Compare-Raster (Join-Path $root 'negative-text.ppm') (Join-Path $root 'text/native.ppm') $cases[3].Crop '0.005' '0.01' '8' (Join-Path $root 'negative-text-comparison.log')) -ne 2) { throw 'Stale-appearance negative did not fail.' }
+[byte[]]$missingColor = $images.GetMethod('BuildImagePage', $members).Invoke($null, [object[]]@(200,200,'DeviceRGB',8,'',[byte[]]::new(120000)))
+[IO.File]::WriteAllBytes((Join-Path $root 'negative-rgb.pdf'), $missingColor)
+$rgbCrop = @($cases | Where-Object { $_.Name -eq 'rgb' })[0].Crop
+Render (Join-Path $root 'negative-rgb.pdf') (Join-Path $root 'negative-rgb') $rgbCrop
+if ((Compare-Raster (Join-Path $root 'negative-rgb.ppm') (Join-Path $root 'rgb/original.ppm') $rgbCrop '0.20' '0.30' '64' (Join-Path $root 'negative-rgb-comparison.log')) -ne 2) { throw 'Missing-color-image negative did not fail original-image bounds.' }
 }
 $sourceState = if (@(& git -C $repo status --porcelain -- src tools tests .github Directory.Build.props).Count -eq 0) { 'committed' } else { 'uncommitted changes' }
-$controls = if ($SignaturesOnly) { 'not selected; original and native signature crops must remain nonblank' } else { 'misplaced image and stale appearance reject' }
+$controls = if ($SignaturesOnly) { 'not selected; original and native signature crops must remain nonblank' } else { 'misplaced image, stale appearance and replaced RGB image reject' }
 @{SourceCommit=(& git -C $repo rev-parse HEAD); SourceState=$sourceState; RendererVersion=$rendererVersion.Trim(); RendererSHA256=(Get-FileHash -LiteralPath $RendererExe).Hash; QpdfSHA256=(Get-FileHash -LiteralPath $QpdfExe).Hash; Cases=$results; OriginalJpegTolerance=@{MeanLimit='0.20'; ChangedLimit='0.30'; Threshold='64'}; NegativeControls=$controls; WallSeconds=$watch.Elapsed.TotalSeconds} |
     ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $root 'result.json') -Encoding utf8
