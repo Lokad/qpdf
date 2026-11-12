@@ -2,6 +2,7 @@ using System.Buffers.Text;
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Security;
 using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Reading;
@@ -14,7 +15,7 @@ namespace Lokad.Qpdf.Reading;
 /// decode their object stream once and cache every contained object whose
 /// xref entry points back at that stream.
 /// </summary>
-internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
+internal sealed partial class DocumentEngine : IStreamRecoveryResolver, IDisposable
 {
     // A cache receipt owns only this parsed subtree. Nested resolver loads have
     // independent receipts. Reads protect values that may outlive replacement.
@@ -211,6 +212,8 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
         _idleTokenizer = null;
         _idleMemory?.Dispose();
         _idleMemory = null;
+        _security?.Dispose();
+        _security = null;
         _data = default;
         _selectiveInput?.Dispose();
         _selectiveInput = null;
@@ -488,6 +491,8 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
                     throw new QpdfParseException($"Object header contradicts its xref entry for object {number}.", entry.First, number);
                 }
 
+                if (_security is not null && number != _encryptionNumber)
+                { value = _security.Decrypt(value, number == _rootMetadataNumber, this, memory); }
                 StoreCached(number, value, memory, true);
                 return value;
             }

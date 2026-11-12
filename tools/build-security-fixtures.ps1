@@ -2,7 +2,8 @@
 .SYNOPSIS
   Generate offline encryption fixtures from authored input using pinned qpdf.
   Passwords and keys are public test data. Native randomness is retained: a
-  regeneration intentionally changes ciphertext, hashes and recorded vectors.+#>
+  regeneration intentionally changes ciphertext, hashes and recorded vectors.
+#>
 param([Parameter(Mandatory = $true)] [string] $QpdfExe)
 $ErrorActionPreference = 'Stop'
 $QpdfExe = (Resolve-Path -LiteralPath $QpdfExe).Path

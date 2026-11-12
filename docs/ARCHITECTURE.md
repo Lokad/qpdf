@@ -53,9 +53,14 @@ the original immutable values and do not validate signatures.
 The internal revision 6 authentication primitive uses system AES/SHA and bounded,
 cleared derivation scratch, checked against recorded native keys and the
 [ISO 32000-2 algorithm errata](https://pdf-issues.pdfa.org/32000-2-2020/clause07.html#7.6.4.3.4).
-Reader integration is pending; public operations still reject encrypted inputs.
 The AES payload primitive checks padding before allocating an exact plaintext
 buffer and uses bounded CBC calls so cancellation can interrupt large payloads.
+The internal reader owns one authenticated key and decrypts physical objects
+before caching them; object-stream members are parsed only after their container
+decrypts. It consumes explicit Crypt stages and respects separate string, stream
+and embedded-file filters, document metadata, xref and signature exceptions.
+Public password/operation integration is pending; public operations still reject
+encrypted inputs.
 
 ## Storage and ownership
 
