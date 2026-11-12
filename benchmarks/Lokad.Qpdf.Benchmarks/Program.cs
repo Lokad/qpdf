@@ -15,6 +15,12 @@ internal static class Program
 
         try
         {
+#if !QPDF_MEMORY_BASELINE
+            if (args.Length == 2 && args[0] == "--security-inputs")
+            {
+                return SecurityWorkloads.GenerateAsync(args[1]).GetAwaiter().GetResult();
+            }
+#endif
             if (args.Length == 2 && args[0] == "--comparison-inputs")
             {
                 return ComparisonWorkloads.Generate(args[1]);
@@ -48,6 +54,9 @@ internal static class Program
         Console.WriteLine("  Lokad.Qpdf.Benchmarks --counter-report [scenario names...]");
         Console.WriteLine("  Lokad.Qpdf.Benchmarks --memory-report <disabled|enabled> <warmups> <samples> <batch-size> [scenario names...]");
         Console.WriteLine("  Lokad.Qpdf.Benchmarks --comparison-inputs <fresh-directory>");
+#if !QPDF_MEMORY_BASELINE
+        Console.WriteLine("  Lokad.Qpdf.Benchmarks --security-inputs <fresh-directory>");
+#endif
         Console.WriteLine("  Lokad.Qpdf.Benchmarks --filter <BenchmarkDotNet filter>");
     }
 }

@@ -140,3 +140,42 @@ and residuals; owner closure must refund to zero without forced collection.
 Allocation/admission evidence remains useful under load. Interpret small elapsed
 differences only after representative interleaved A/A controls; see the
 [memory contract](MEMORY.md) for what the estimates cover.
+
+## Password-security workloads
+
+The same memory-report runner also accepts
+`security-{plain|r4|r6}-{auth|open|rewrite|select}`. Prepare its six inputs once;
+keep the exact files across workers so randomized salts and password-derivation
+work do not change between samples. The manifest records public credentials,
+revisions, sizes and hashes. R4 preparation copies the recorded development
+template; R6 preparation uses fresh public AES-256 creation.
+
+```powershell
+dotnet benchmarks/Lokad.Qpdf.Benchmarks/bin/Release/net11.0/Lokad.Qpdf.Benchmarks.dll --security-inputs artifacts/security-inputs
+$env:QPDF_SECURITY_ROOT = (Resolve-Path artifacts/security-inputs).Path
+dotnet benchmarks/Lokad.Qpdf.Benchmarks/bin/Release/net11.0/Lokad.Qpdf.Benchmarks.dll --memory-report enabled 30 7 32 security-plain-rewrite security-r4-rewrite security-r6-rewrite
+```
+
+Authentication uses the public password predicate on a one-page input. It
+isolates authentication from bulk page/stream work but includes input copying,
+handler parsing and cleanup; it is not a pure key-derivation microbenchmark.
+Opening counts 500 pages. Rewrite preserves their protection and approximately
+5 MiB of stream data; selection retains pages 1, 250 and 500. All measured jobs
+include fresh host input copies, execution and disposal. Preparation and output
+validation stay outside capture and verify page counts, protection and selected
+content. Full output operations retain their authentication cost.
+
+Use .NET 11 memory reports for primary measurements and .NET 10 for compatibility.
+`SecurityBenchmarks` exposes the same twelve workloads to BenchmarkDotNet. The
+pinned BenchmarkDotNet version does not automatically recognize the .NET 11
+preview runtime; its .NET 10 dry run is a harness check, not timing evidence:
+
+```powershell
+dotnet benchmarks/Lokad.Qpdf.Benchmarks/bin/Release/net10.0/Lokad.Qpdf.Benchmarks.dll --filter '*SecurityBenchmarks*' --job Dry
+```
+
+Recording-budget smoke runs cover all twelve workloads on both frameworks and
+require every caller owner to refund to zero. Pinned qpdf independently checks
+all six prepared inputs with both recorded credentials. Compare elapsed results
+only with quiet-host and repeated same-input controls; these workloads do not
+extend the historical native timing table above.

@@ -14,7 +14,10 @@ namespace Lokad.Qpdf.Benchmarks;
 // and JSON serialization stay outside capture. No forced GC in command loops.
 internal static class MemoryReport
 {
-    private sealed record Scenario(string Name, byte[][] Inputs, string[] Arguments);
+    private sealed record Scenario(string Name, byte[][] Inputs, string[] Arguments)
+    {
+        internal QpdfExitCode ExpectedExitCode { get; init; } = QpdfExitCode.Success;
+    }
     private sealed record Sample(int Index, double Milliseconds, long AllocatedBytes,
         int Gen0, int Gen1, int Gen2, long JitMethods, double JitMilliseconds,
         long LocalPeakBytes, long LocalResultBytes, long? RootPeakBytes,
@@ -129,7 +132,7 @@ internal static class MemoryReport
 #endif
         QpdfExecutionResult? result = await Qpdf.ExecuteAsync(view,
             new QpdfCommandInvocation(scenario.Arguments), CancellationToken.None).ConfigureAwait(false);
-        if (result.Status != QpdfExecutionStatus.Completed || result.ExitCode != QpdfExitCode.Success)
+        if (result.Status != QpdfExecutionStatus.Completed || result.ExitCode != scenario.ExpectedExitCode)
         { throw new InvalidOperationException(scenario.Name + " failed: " + string.Join("; ", result.Diagnostics.Select(diagnostic => diagnostic.Message))); }
         long localPeak = result.Counters.PeakMemoryBytes, localResult = result.Counters.LiveMemoryBytes;
 #if !QPDF_MEMORY_BASELINE
@@ -159,6 +162,14 @@ internal static class MemoryReport
 
     private static Scenario Create(string name)
     {
+#if !QPDF_MEMORY_BASELINE
+        if (name.StartsWith("security-", StringComparison.Ordinal))
+        {
+            SecurityWorkload workload = SecurityWorkloads.Load(name);
+            SecurityWorkloads.ValidateAsync(workload).GetAwaiter().GetResult();
+            return new(name, [workload.Input], workload.Arguments) { ExpectedExitCode = workload.ExpectedExitCode };
+        }
+#endif
         if (name == "config-argv")
         {
             return new(name, [PdfScenarioBuilder.BuildTextDocument(1), "{}"u8.ToArray()],

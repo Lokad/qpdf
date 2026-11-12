@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add prepared plaintext/R4/R6 authentication, opening, rewrite and selection
+  workloads to the existing memory and BenchmarkDotNet runners, with stable
+  input hashes and public-operation validation outside timing.
+
 - Record the development JPEG encoder's RGB quality difference explicitly in
   visual reports, retaining original-image bounds and adding a missing-image
   control. Explain the viewer-state limits of rotation destination projection.
