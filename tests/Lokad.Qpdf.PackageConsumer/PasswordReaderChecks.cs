@@ -60,6 +60,12 @@ internal static class PasswordReaderChecks
             [legacy.Value, "--password=636166e980", "--password-mode=hex-bytes", "--show-npages"]), CancellationToken.None);
         Check(hex.Status == QpdfExecutionStatus.Completed && hex.Diagnostics.Any(item => item.Code == QpdfDiagnosticCode.PageCount),
             "hex password mode accepts raw PDFDocEncoding bytes");
+        host.AddInput(QpdfPath.From("password"), "reader\nignored\n"u8.ToArray(), QpdfInputOwnership.Copy);
+        QpdfExecutionResult fromFile = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(
+            [encrypted.Value, "--password-file=password", "--show-npages"]), CancellationToken.None);
+        Check(fromFile.Status == QpdfExecutionStatus.Completed && fromFile.ExitCode == QpdfExitCode.Success
+            && fromFile.Diagnostics.Any(item => item.Code == QpdfDiagnosticCode.PasswordFileNote)
+            && fromFile.Diagnostics.Any(item => item.Code == QpdfDiagnosticCode.PageCount), "host password file and non-secret multiline note");
         QpdfExecutionResult report = await Qpdf.ExecuteJobAsync(host,
             """{"inputFile":"security-r6-ascii.pdf","showEncryption":"","password":"consumer-secret","check":""}""", CancellationToken.None);
         Check(report.Status == QpdfExecutionStatus.Completed && report.ExitCode == QpdfExitCode.Success

@@ -304,9 +304,9 @@ public sealed class NestedJobTests
     public async Task CryptoDeclarationsRejectBeforePdfOrPasswordAccess(bool outer)
     {
         InMemoryQpdfHost source = new();
-        Add(source, "child.json", outer ? """{"empty":"","showNpages":""}""" : """{"passwordFile":"secret-not-for-diagnostics","inputFile":"inputs/a.pdf","check":""}""");
+        Add(source, "child.json", outer ? """{"empty":"","showNpages":""}""" : """{"encryptionFilePassword":"secret-not-for-diagnostics","inputFile":"inputs/a.pdf","check":""}""");
         TrackingHost host = new(source, "normal");
-        string json = outer ? """{"jobJsonFile":"child.json","passwordFile":"secret-not-for-diagnostics"}""" : """{"jobJsonFile":"child.json"}""";
+        string json = outer ? """{"jobJsonFile":"child.json","encryptionFilePassword":"secret-not-for-diagnostics"}""" : """{"jobJsonFile":"child.json"}""";
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, json, CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.UnsupportedCryptoOperation, Assert.Single(result.Diagnostics).Code);
         Assert.DoesNotContain("secret-not-for-diagnostics", result.Diagnostics[0].Message, StringComparison.Ordinal);

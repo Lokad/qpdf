@@ -17,8 +17,15 @@ Typed `Qpdf.CheckAsync` accepts the same credentials in `QpdfCheckOptions.Passwo
 and runs structural checks over the decrypted graph. Its existing skipped-stage
 reporting and partial-check contract still apply.
 Output-free argv/job inspections accept a primary text password through
-`--password`/`password`. Password files and secondary credentials remain
-unsupported. Missing and supplied-but-invalid credentials have distinct diagnostic codes.
+`--password`/`password`, or the first line of a host file through
+`--password-file`/`passwordFile`. Secondary credentials remain unsupported.
+Missing and supplied-but-invalid credentials have distinct diagnostic codes.
+File setters retain native order: a zero-byte file leaves the previous password
+unchanged, while a blank first line supplies an empty password. Spaces are retained;
+CR is stripped only before LF, and NUL terminates the password. Additional lines
+produce a non-secret informational note without changing the exit code. File bytes
+stay in bounded owned storage and are cleared after the operation. Descriptor input
+(`--password-file=-`) is unavailable in this host profile.
 `--suppress-password-recovery` / `suppressPasswordRecovery` disables the R4
 PDFDocEncoding retry for primary inspection and JSON credentials. It leaves raw
 bytes, absent passwords and successful first attempts unchanged.

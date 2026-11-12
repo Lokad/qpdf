@@ -26,6 +26,9 @@
   inspections and JSON export, disabling alternate password-encoding attempts.
 - Support primary input password modes in inspections and JSON export, including
   bounded hex decoding and the supported R4 recovery path for UTF-8 hex passwords.
+- Support primary password files for inspections and JSON export through host
+  inputs, with bounded cleared storage and native first-line/setter semantics.
+  Descriptor input and secondary credentials remain unsupported.
 - Start development version 0.2.0-dev.1.
 - Separate planned password-security requirements, deferred legacy-output options
   and explicit raw-key/static-IV exclusions in the compatibility inventory.

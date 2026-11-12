@@ -15,6 +15,7 @@ internal static class HelpText
         Options:
           --suppress-recovery   fail on damaged cross-references instead of bounded repair
           --password=text       primary-input password for inspection or JSON export
+          --password-file=path  first password line from a host file for inspection
           --password-mode=mode  auto, bytes, unicode, or hex-bytes for inspection
           --suppress-password-recovery  use only the supplied password encoding
           --is-encrypted        query encryption: exit 0 encrypted, 2 unencrypted
@@ -181,7 +182,7 @@ internal static class HelpText
         Usage:
           qpdf --job-json-file file
         Top-level keys:
-          inputFile, outputFile, password, passwordMode, suppressPasswordRecovery, isEncrypted, requiresPassword, showEncryption, pages:[{file, range}, ...], collate, replaceInput, splitPages, rotate, setPageLabels,
+          inputFile, outputFile, password, passwordFile, passwordMode, suppressPasswordRecovery, isEncrypted, requiresPassword, showEncryption, pages:[{file, range}, ...], collate, replaceInput, splitPages, rotate, setPageLabels,
           removePageLabels, minVersion, forceVersion, deterministicId, staticId,
           newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData,
           compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo,
@@ -205,11 +206,12 @@ internal static class HelpText
         ("" lifts unspecified parser defaults; explicit invocation and host limits remain binding).
         Other global keys fail.
         password accepts text (including "") for the primary input in inspection and JSON export.
+        passwordFile reads the first line of a host file; empty files retain the previous password.
         passwordMode accepts auto, bytes, unicode or hex-bytes; only hex-bytes changes input byte decoding.
         suppressPasswordRecovery takes "" and disables alternate-encoding attempts.
         isEncrypted and requiresPassword take "" and return the native query exit codes described by --help.
         showEncryption takes "" and reports declared settings without passwords or keys.
-        Encrypted transformations, passwordFile and nested passwords remain unsupported.
+        Encrypted transformations, password descriptors and nested passwords remain unsupported.
         Other crypto keys are rejected with UnsupportedCryptoOperation. See --help for the argv surface.
         """;
 

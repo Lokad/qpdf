@@ -5119,20 +5119,33 @@
           "source": "manual/cli.rst:412"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "Primary host-file credentials support AES R4/R6 inspections and JSON export with first-line and ordered-setter semantics. Descriptor input, broader encoding recovery, secondary credentials and encrypted transformations remain pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
+        "positive": [
+          "PasswordFileTests.ArgvAndJobsUseFirstLineBytesForInspectionsAndJson"
+        ],
         "negative": [
           "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput",
+          "PasswordFileTests.InvalidOperationsRejectBeforePasswordFileAccess",
+          "PasswordFileTests.OverwrittenMissingFileStillFailsWithoutOpeningThePdf"
         ],
-        "interaction": [],
-        "resource": [],
+        "interaction": [
+          "PasswordFileTests.SettersKeepOrderAndEmptyFilesKeepThePreviousPassword",
+          "PasswordFileTests.SortedJobKeysAndNestedConfigurationKeepNativeSetterOrder",
+          "PasswordFileTests.FileEncodingRecoveryCanBeSuppressed",
+          "PasswordFileTests.MultipleLinesProduceANonSecretNoteWithoutChangingNativeExitCodes"
+        ],
+        "resource": [
+          "PasswordFileTests.EveryAdmissionRefusalClosesFilesAndRefundsTheOperation",
+          "PasswordFileReaderTests.ReaderStorageStaysAdmittedUntilAsynchronousCloseCompletes",
+          "PasswordFileReaderTests.InputLimitsAndCancellationLeaveNoOpenReader"
+        ],
         "oracle": []
       }
     },

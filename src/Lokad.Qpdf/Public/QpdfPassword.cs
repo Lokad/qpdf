@@ -35,14 +35,17 @@ public sealed class QpdfPassword
     /// <summary>Borrows exact password bytes, including an explicitly empty password.</summary>
     public static QpdfPassword FromBytes(ReadOnlyMemory<byte> bytes) => new(null, bytes, false, false);
 
+    internal static QpdfPassword FromCommandBytes(ReadOnlyMemory<byte> bytes, bool allowRecovery)
+        => new(null, bytes, allowRecovery, false);
+
     /// <summary>Returns a redacted description.</summary>
     public override string ToString() => "QpdfPassword [redacted]";
 
     internal bool TryWritePdfDocBytes(ReadOnlySpan<byte> utf8Prefix, Span<byte> destination, out int count)
     {
         count = 0;
-        if (_text is null || !_allowRecovery) { return false; }
-        if (_hexEncoded)
+        if (!_allowRecovery) { return false; }
+        if (_text is null || _hexEncoded)
         {
             while (!utf8Prefix.IsEmpty && count < destination.Length)
             {

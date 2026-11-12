@@ -231,7 +231,7 @@ internal static class ArgvConfigurationReader
             or "keep-files-open-threshold" or "min-version" or "oi-min-area" or "oi-min-height" or "oi-min-width"
             or "show-attachment" or "show-object" or "linearize-pass1" or "update-from-json" or "json-stream-prefix"
             or "decode-level" or "flatten-annotations" or "json-stream-data"
-            or "normalize-content" or "object-streams" or "remove-unreferenced-resources" or "stream-data" or "password" or "password-mode";
+            or "normalize-content" or "object-streams" or "remove-unreferenced-resources" or "stream-data" or "password" or "password-file" or "password-mode";
 
     private static bool IsBare(ReadOnlySpan<char> name)
         => name is "check" or "check-linearization" or "is-encrypted" or "requires-password" or "show-encryption" or "suppress-password-recovery" or "coalesce-contents" or "deterministic-id"

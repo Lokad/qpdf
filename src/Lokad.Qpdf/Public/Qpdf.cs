@@ -5293,6 +5293,7 @@ public static partial class Qpdf
         if (JobJsonLoader.HasJobFile(expanded)
             || (expanded.Any(token => token == "--password" || token.StartsWith("--password=", StringComparison.Ordinal)
                     || token == "--password-mode" || token.StartsWith("--password-mode=", StringComparison.Ordinal)
+                    || token == "--password-file" || token.StartsWith("--password-file=", StringComparison.Ordinal)
                     || token == "--suppress-password-recovery" || token.StartsWith("--suppress-password-recovery=", StringComparison.Ordinal))
                 && expanded.Any(token => token == "--json" || token.StartsWith("--json=", StringComparison.Ordinal)
                     || token == "--json-output" || token.StartsWith("--json-output=", StringComparison.Ordinal)))
@@ -5561,6 +5562,8 @@ public static partial class Qpdf
     private static async ValueTask<ExecutionOutcome> RunPlanCoreAsync(IQpdfHost host, JobPlan plan,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {
+        using Security.CommandPasswordLease? suppliedPassword = plan.PasswordFiles is null ? null
+            : await Security.CommandPasswordLease.ResolveAsync(host, plan.PasswordFiles, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
         if (plan.IgnoreXrefStreams)
         {
             limits = limits with { IgnoreXrefStreams = true };
@@ -5568,12 +5571,14 @@ public static partial class Qpdf
 
         if (plan is SecurityPlan security)
         {
-            return await RunSecurityPlanAsync(host, security, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+            return await RunSecurityPlanAsync(host, security, suppliedPassword is null ? security.Password : suppliedPassword.Password,
+                limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
         }
 
         if (plan is CheckPlan check)
         {
-            return await RunCheckPlanAsync(host, check, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+            return await RunCheckPlanAsync(host, check, suppliedPassword is null ? check.Password : suppliedPassword.Password,
+                limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
         }
 
         if (plan is ShowObjectPlan showObject)
@@ -5626,7 +5631,7 @@ public static partial class Qpdf
             try
             {
                 Commands.JsonInspection inspection = new(json.Version, json.Keys, json.DecodeLevel, json.StreamDataMode, json.StreamPrefix, json.Objects, json.MinimalOutput)
-                { Password = json.Password };
+                { Password = suppliedPassword is null ? json.Password : suppliedPassword.Password };
                 JsonInspectionOutcome inspected = await JsonCoreAsync(
                     host,
                     json.Input,

@@ -66,7 +66,7 @@ incremental replacement of strings, and an incremental update over a hybrid file
 They verify newest-object selection while older encrypted stream payloads remain readable.
 `QpdfDocument.OpenAsync` and typed structural checks use this authenticated reader
 with per-input text or raw credentials and non-secret encryption facts. Output-free
-argv/job inspections pass the primary text credential to the same reader.
+argv/job inspections pass the primary text or host-file credential to the same reader.
 JSON inspection uses the same authenticated reader and non-secret permission
 projection before existing text/sidecar preparation. PDF transformations retain
 their encrypted-input refusal pending output-protection integration.
@@ -81,9 +81,11 @@ against native keys and [independent RFC 6229 vectors](https://www.rfc-editor.or
 AES-128 uses a temporary per-object key including its number and generation;
 object-stream members reuse their container's plaintext. Text credentials try
 UTF-8 and then a bounded PDFDocEncoding alternative; raw bytes never take that path.
-The internal password-file reader retains a 127-byte prefix using cleared 512-byte
-host-read scratch. It preserves first-line byte semantics and keeps storage admitted
-through asynchronous input close; command/file setter integration remains separate.
+The password-file reader retains a 127-byte prefix using cleared 512-byte host-read
+scratch. It preserves first-line byte semantics and keeps storage admitted through
+asynchronous input close. Validated inspection plans resolve file/text setters in
+order, retaining owned password bytes until inspection and cleanup finish. File
+credentials use the same bounded encoding recovery; typed raw credentials stay exact.
 
 ## Storage and ownership
 

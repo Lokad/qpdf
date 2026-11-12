@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Lokad.Qpdf.Commands;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Security;
+using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Jobs;
 
@@ -38,6 +40,7 @@ internal static class JobJsonParser
     {
             string? input = null;
             string? passwordText = null;
+            List<PasswordAssignment>? passwordAssignments = null;
             string? passwordMode = null;
             bool suppressPasswordRecovery = false;
             bool isEncrypted = false;
@@ -219,7 +222,7 @@ internal static class JobJsonParser
             foreach (JsonProperty property in properties)
             {
                 governor.CheckCancellation();
-                if (IsCryptoKey(property.Name) && property.Name is not ("password" or "passwordMode" or "suppressPasswordRecovery"))
+                if (IsCryptoKey(property.Name) && property.Name is not ("password" or "passwordFile" or "passwordMode" or "suppressPasswordRecovery"))
                 { throw new QpdfCryptoException(property.Name); }
                 switch (property.Name)
                 {
@@ -231,6 +234,21 @@ internal static class JobJsonParser
                         break;
                     case "password":
                         passwordText = RequireString(property.Value, "password", textStorage);
+                        if (passwordAssignments is not null)
+                        { ParserContainers.AddItem(textStorage.Memory, passwordAssignments, new(passwordText, false), 16L); }
+                        break;
+                    case "passwordFile":
+                        string passwordFile = RequireString(property.Value, "passwordFile", textStorage);
+                        if (passwordFile == "-")
+                        { throw new QpdfUnsupportedFeatureException("Password input from a descriptor is unavailable in this host profile."); }
+                        _ = SelectionPlan.CheckedPath(passwordFile);
+                        if (passwordAssignments is null)
+                        {
+                            passwordAssignments = ParserContainers.CreateList<PasswordAssignment>(textStorage.Memory);
+                            if (passwordText is not null)
+                            { ParserContainers.AddItem(textStorage.Memory, passwordAssignments, new(passwordText, false), 16L); }
+                        }
+                        ParserContainers.AddItem(textStorage.Memory, passwordAssignments, new(passwordFile, true), 16L);
                         break;
                     case "suppressPasswordRecovery":
                         suppressPasswordRecovery = RequireBareFlag(property.Value, "suppressPasswordRecovery", textStorage);
@@ -1145,7 +1163,13 @@ internal static class JobJsonParser
             }
 
             QpdfPassword? password = null;
-            if (passwordText is not null)
+            CommandPasswordFiles? passwordFiles = null;
+            if (passwordAssignments is not null)
+            {
+                textStorage.Memory.Reserve(32L);
+                passwordFiles = new(passwordAssignments, passwordMode == "hex-bytes", !suppressPasswordRecovery);
+            }
+            else if (passwordText is not null)
             {
                 textStorage.Memory.Reserve(48L);
                 password = passwordMode == "hex-bytes" ? QpdfPassword.FromHexText(passwordText, !suppressPasswordRecovery)
@@ -1158,6 +1182,7 @@ internal static class JobJsonParser
                 (QpdfPath securityInput, bool securityEmpty) = ResolveInspectionInput(input, empty, "security inspection");
                 return new SecurityPlan(securityInput, recovery, requiresPassword, password)
                 {
+                    PasswordFiles = passwordFiles,
                     EmptyDocument = securityEmpty,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     MaxStreamFilters = maxStreamFilters,
@@ -1208,6 +1233,7 @@ internal static class JobJsonParser
                 (QpdfPath checkInput, bool checkEmpty) = ResolveInspectionInput(input, empty, "check");
                 return new CheckPlan(checkInput, recovery)
                 {
+                    PasswordFiles = passwordFiles,
                     Password = password,
                     ShowEncryption = showEncryption,
                     EmptyDocument = checkEmpty,
@@ -1244,8 +1270,8 @@ internal static class JobJsonParser
                 };
             }
 
-            if ((password is not null || passwordMode is not null || suppressPasswordRecovery) && (!(seenJson || seenJsonOutput) || jsonInput || seenUpdateFromJson))
-            { throw new QpdfCryptoException(password is not null ? "password" : passwordMode is not null ? "passwordMode" : "suppressPasswordRecovery"); }
+            if ((password is not null || passwordFiles is not null || passwordMode is not null || suppressPasswordRecovery) && (!(seenJson || seenJsonOutput) || jsonInput || seenUpdateFromJson))
+            { throw new QpdfCryptoException(passwordFiles is not null ? "passwordFile" : password is not null ? "password" : passwordMode is not null ? "passwordMode" : "suppressPasswordRecovery"); }
 
             if (wantAttachments && hasPages)
             {
@@ -1513,6 +1539,7 @@ internal static class JobJsonParser
                 (QpdfPath inspectionInput, bool emptyDocument) = ResolveInspectionInput(input, empty, "json inspection");
                 return new JsonPlan(inspectionInput, output is null ? null : SelectionPlan.CheckedPath(output), jsonNumber, effectiveKeys, recovery) with
                 {
+                    PasswordFiles = passwordFiles,
                     Password = password,
                     EmptyDocument = emptyDocument,
                     DecodeLevel = jsonDecode,

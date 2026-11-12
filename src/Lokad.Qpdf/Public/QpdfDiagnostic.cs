@@ -98,6 +98,9 @@ public enum QpdfDiagnosticCode
 
     /// <summary>Non-secret encryption settings or password authentication status.</summary>
     EncryptionReport = 26,
+
+    /// <summary>A non-secret note about password-file input.</summary>
+    PasswordFileNote = 27,
 }
 
 /// <summary>A single structured diagnostic entry.</summary>

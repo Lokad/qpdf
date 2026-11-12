@@ -319,8 +319,8 @@ public sealed class JobCheckTests
     }
 
     [Theory]
-    [InlineData("passwordFile", false)]
-    [InlineData("passwordFile", true)]
+    [InlineData("encryptionFilePassword", false)]
+    [InlineData("encryptionFilePassword", true)]
     [InlineData("encrypt", false)]
     [InlineData("encrypt", true)]
     [InlineData("copyEncryption", false)]

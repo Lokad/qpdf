@@ -45,10 +45,10 @@ public static partial class Qpdf
     }
 
     private static async ValueTask<ExecutionOutcome> RunSecurityPlanAsync(IQpdfHost host, SecurityPlan plan,
-        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
+        QpdfPassword? password, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {
         EncryptionInspection inspection = plan.EmptyDocument ? default
-            : await QpdfDocument.InspectSecurityAsync(host, plan.Input, plan.Password, limits, governor,
+            : await QpdfDocument.InspectSecurityAsync(host, plan.Input, password, limits, governor,
                 diagnostics, plan.Recovery, cancellationToken).ConfigureAwait(false);
         ExecutionOutcome result = CompleteWithPresentation(governor);
         if (result.Status != QpdfExecutionStatus.Completed) { return result; }

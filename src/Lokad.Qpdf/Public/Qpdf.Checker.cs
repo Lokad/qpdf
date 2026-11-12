@@ -9,7 +9,7 @@ namespace Lokad.Qpdf;
 public static partial class Qpdf
 {
     private static async ValueTask<ExecutionOutcome> RunCheckPlanAsync(
-        IQpdfHost host, CheckPlan plan, QpdfLimits limits, ResourceGovernor governor,
+        IQpdfHost host, CheckPlan plan, QpdfPassword? password, QpdfLimits limits, ResourceGovernor governor,
         DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {
         try
@@ -20,11 +20,11 @@ public static partial class Qpdf
             // Native reports declared counts separately from quiet traversal.
             diagnostics.ReportPageCountMismatch = false;
             (QpdfDocument? opened, EncryptionInspection security) = plan.ShowEncryption && !plan.EmptyDocument
-                ? await QpdfDocument.OpenSecurityInspectionCore(host, plan.Input, plan.Password, limits, governor,
+                ? await QpdfDocument.OpenSecurityInspectionCore(host, plan.Input, password, limits, governor,
                     diagnostics, plan.Recovery, cancellationToken, plan.NeedsDocument).ConfigureAwait(false)
                 : (plan.EmptyDocument
                     ? await QpdfDocument.OpenEmptyDocument(plan.Input, limits, governor, diagnostics, plan.Recovery, cancellationToken, false).ConfigureAwait(false)
-                    : await QpdfDocument.OpenInspectionCore(host, plan.Input, plan.Password,
+                    : await QpdfDocument.OpenInspectionCore(host, plan.Input, password,
                         limits, governor, diagnostics, plan.Recovery, cancellationToken).ConfigureAwait(false), default);
             await using (QpdfDocument? document = opened)
             {

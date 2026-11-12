@@ -8,6 +8,28 @@ namespace Lokad.Qpdf.Tests.Security;
 
 public sealed class PasswordFileReaderTests
 {
+    [Fact]
+    public async Task CommandLeaseClearsOwnedCredentialsAfterUseWithoutChangingHostBytes()
+    {
+        using InMemoryQpdfHost storage = new();
+        byte[] source = "reader\n"u8.ToArray();
+        storage.AddInput(QpdfPath.From("password"), source, QpdfInputOwnership.Copy);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        CommandPasswordFiles files = new([new("password", true)], false, true);
+        using CommandPasswordLease lease = await CommandPasswordLease.ResolveAsync(storage, files, QpdfLimits.Default,
+            governor, new(governor), CancellationToken.None);
+        QpdfPassword password = Assert.IsType<QpdfPassword>(lease.Password);
+        byte[] prefix = new byte[127];
+        Assert.Equal(6, password.WriteModernBytes(prefix, governor));
+        Assert.Equal("reader"u8.ToArray(), prefix[..6]);
+        Assert.Equal(0, storage.OpenLeaseCount); Assert.True(governor.Snapshot().LiveMemoryBytes > 0);
+        lease.Dispose(); Array.Clear(prefix);
+        Assert.Equal(6, password.WriteModernBytes(prefix, governor));
+        Assert.All(prefix, value => Assert.Equal(0, value));
+        Assert.Null(lease.Password); Assert.Equal(0, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal("reader\n"u8.ToArray(), source);
+    }
+
     [Theory]
     [InlineData("", false, false, "", false)]
     [InlineData("\n", false, true, "", false)]

@@ -107,6 +107,10 @@ admitted and cleared. A document owns its authenticated file key and clears it o
 disposal or failed opening. Plaintext PDF values follow ordinary graph ownership
 and may outlive the document; they are not zeroed while retained callers use them.
 Caller-owned bytes and immutable password strings are never claimed to be erased.
+Command password files use a 127-byte owned prefix and bounded read scratch;
+scratch remains admitted through input close. Ordered setters use a separate
+candidate prefix so an empty file preserves the previous credential. Owned
+prefixes are cleared before the operation releases their storage.
 
 Parsing, copying, filters, images, JSON, writer passes and inspection admit major
 buffers/container capacity before construction. Immutable streams/keys are borrowed
