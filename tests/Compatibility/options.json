@@ -138,8 +138,8 @@
       "evidence": {
         "positive": [],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+          "SecurityRejectionTests.OutOfContextOrExcludedArgvOptionsDoNotPublish",
+          "SecurityRejectionTests.NewWeakEncryptionDoesNotPublish"
         ],
         "interaction": [],
         "resource": [],
@@ -178,8 +178,8 @@
       "evidence": {
         "positive": [],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+          "SecurityRejectionTests.OutOfContextOrExcludedArgvOptionsDoNotPublish",
+          "SecurityRejectionTests.NewWeakEncryptionDoesNotPublish"
         ],
         "interaction": [],
         "resource": [],
@@ -218,8 +218,8 @@
       "evidence": {
         "positive": [],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+          "SecurityRejectionTests.OutOfContextOrExcludedArgvOptionsDoNotPublish",
+          "SecurityRejectionTests.NewWeakEncryptionDoesNotPublish"
         ],
         "interaction": [],
         "resource": [],
@@ -252,8 +252,8 @@
       "evidence": {
         "positive": [],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+          "SecurityRejectionTests.OutOfContextOrExcludedArgvOptionsDoNotPublish",
+          "SecurityRejectionTests.NewWeakEncryptionDoesNotPublish"
         ],
         "interaction": [],
         "resource": [],
@@ -292,8 +292,8 @@
       "evidence": {
         "positive": [],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+          "SecurityRejectionTests.OutOfContextOrExcludedArgvOptionsDoNotPublish",
+          "SecurityRejectionTests.NewWeakEncryptionDoesNotPublish"
         ],
         "interaction": [],
         "resource": [],
@@ -326,8 +326,8 @@
       "evidence": {
         "positive": [],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+          "SecurityRejectionTests.OutOfContextOrExcludedArgvOptionsDoNotPublish",
+          "SecurityRejectionTests.NewWeakEncryptionDoesNotPublish"
         ],
         "interaction": [],
         "resource": [],
@@ -366,8 +366,8 @@
       "evidence": {
         "positive": [],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+          "SecurityRejectionTests.OutOfContextOrExcludedArgvOptionsDoNotPublish",
+          "SecurityRejectionTests.NewWeakEncryptionDoesNotPublish"
         ],
         "interaction": [],
         "resource": [],
@@ -412,8 +412,8 @@
       "evidence": {
         "positive": [],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+          "SecurityRejectionTests.OutOfContextOrExcludedArgvOptionsDoNotPublish",
+          "SecurityRejectionTests.NewWeakEncryptionDoesNotPublish"
         ],
         "interaction": [],
         "resource": [],
@@ -452,8 +452,8 @@
       "evidence": {
         "positive": [],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+          "SecurityRejectionTests.OutOfContextOrExcludedArgvOptionsDoNotPublish",
+          "SecurityRejectionTests.NewWeakEncryptionDoesNotPublish"
         ],
         "interaction": [],
         "resource": [],
@@ -494,8 +494,8 @@
       "evidence": {
         "positive": [],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+          "SecurityRejectionTests.OutOfContextOrExcludedArgvOptionsDoNotPublish",
+          "SecurityRejectionTests.NewWeakEncryptionDoesNotPublish"
         ],
         "interaction": [],
         "resource": [],
@@ -534,8 +534,8 @@
       "evidence": {
         "positive": [],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+          "SecurityRejectionTests.OutOfContextOrExcludedArgvOptionsDoNotPublish",
+          "SecurityRejectionTests.NewWeakEncryptionDoesNotPublish"
         ],
         "interaction": [],
         "resource": [],
@@ -621,8 +621,8 @@
       "evidence": {
         "positive": [],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+          "SecurityRejectionTests.OutOfContextOrExcludedArgvOptionsDoNotPublish",
+          "SecurityRejectionTests.NewWeakEncryptionDoesNotPublish"
         ],
         "interaction": [],
         "resource": [],
@@ -861,8 +861,8 @@
       "evidence": {
         "positive": [],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+          "SecurityRejectionTests.OutOfContextOrExcludedArgvOptionsDoNotPublish",
+          "SecurityRejectionTests.NewWeakEncryptionDoesNotPublish"
         ],
         "interaction": [],
         "resource": [],
@@ -1121,8 +1121,8 @@
       "evidence": {
         "positive": [],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+          "SecurityRejectionTests.OutOfContextOrExcludedArgvOptionsDoNotPublish",
+          "SecurityRejectionTests.NewWeakEncryptionDoesNotPublish"
         ],
         "interaction": [],
         "resource": [],
@@ -1161,8 +1161,8 @@
       "evidence": {
         "positive": [],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+          "SecurityRejectionTests.OutOfContextOrExcludedArgvOptionsDoNotPublish",
+          "SecurityRejectionTests.NewWeakEncryptionDoesNotPublish"
         ],
         "interaction": [],
         "resource": [],
@@ -1201,8 +1201,8 @@
       "evidence": {
         "positive": [],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+          "SecurityRejectionTests.OutOfContextOrExcludedArgvOptionsDoNotPublish",
+          "SecurityRejectionTests.NewWeakEncryptionDoesNotPublish"
         ],
         "interaction": [],
         "resource": [],
@@ -1241,8 +1241,8 @@
       "evidence": {
         "positive": [],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+          "SecurityRejectionTests.OutOfContextOrExcludedArgvOptionsDoNotPublish",
+          "SecurityRejectionTests.NewWeakEncryptionDoesNotPublish"
         ],
         "interaction": [],
         "resource": [],
@@ -1550,8 +1550,8 @@
         ],
         "negative": [
           "AttachmentPasswordTests.WrongSourcePasswordsPreservePriorOutputAndDoNotLeak",
-          "CryptoExclusionTests.JobCopyAttachmentsPasswordFails",
-          "CryptoExclusionTests.ArgvCopyAttachmentsPasswordFails",
+          "SecurityRejectionTests.WrongJobAttachmentPasswordDoesNotPublish",
+          "SecurityRejectionTests.WrongArgvAttachmentPasswordDoesNotPublish",
           "PasswordReverseRecoveryTests.MalformedUtf16NeverRecoversByDiscardingBytes"
         ],
         "interaction": [
@@ -2508,8 +2508,8 @@
       "evidence": {
         "positive": [],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+          "SecurityRejectionTests.OutOfContextOrExcludedArgvOptionsDoNotPublish",
+          "SecurityRejectionTests.ExcludedJobKeysDoNotPublish"
         ],
         "interaction": [],
         "resource": [],
@@ -5456,8 +5456,8 @@
       "evidence": {
         "positive": [],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+          "SecurityRejectionTests.OutOfContextOrExcludedArgvOptionsDoNotPublish",
+          "SecurityRejectionTests.ExcludedJobKeysDoNotPublish"
         ],
         "interaction": [],
         "resource": [],
@@ -6539,8 +6539,8 @@
       "evidence": {
         "positive": [],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+          "SecurityRejectionTests.OutOfContextOrExcludedArgvOptionsDoNotPublish",
+          "SecurityRejectionTests.ExcludedJobKeysDoNotPublish"
         ],
         "interaction": [],
         "resource": [],
@@ -6849,8 +6849,8 @@
       "evidence": {
         "positive": [],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+          "SecurityRejectionTests.OutOfContextOrExcludedArgvOptionsDoNotPublish",
+          "SecurityRejectionTests.ExcludedJobKeysDoNotPublish"
         ],
         "interaction": [],
         "resource": [],
@@ -7758,7 +7758,7 @@
           "PasswordReverseRecoveryTests.CommandsRecoverRecordedRepresentationsWhileTypedBytesStayExact"
         ],
         "negative": [
-          "CryptoExclusionTests.JobNestedPasswordsFail",
+          "SecurityRejectionTests.WrongPlacementPasswordDoesNotPublish",
           "OverlayPasswordTests.PrimaryPlacementRequiresItsOwnCredential",
           "PasswordReverseRecoveryTests.MalformedUtf16NeverRecoversByDiscardingBytes"
         ],
