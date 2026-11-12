@@ -21,6 +21,13 @@ Output-free argv/job inspections accept a primary text password through
 `--password`/`password`. Password files/modes and secondary credentials remain
 unsupported. Missing and supplied-but-invalid credentials have distinct diagnostic codes.
 
+`--is-encrypted` returns 0 for supported encrypted inputs and 2 for plain inputs.
+`--requires-password` returns 0 when credentials do not match, 2 for plain inputs,
+and 3 when the supplied or empty password matches. Job JSON uses `isEncrypted`
+and `requiresPassword`. These mutually exclusive predicates return `Completed`
+with no ordinary output; `--warning-exit-0` does not alter their query codes.
+Malformed or unsupported security handlers fail explicitly.
+
 Signed, unencrypted pages can be copied, merged, placed and rewritten.
 Stored signature appearances survive; active signature field attributes and document
 certification restrictions are disabled, including blank signature fields. Derived

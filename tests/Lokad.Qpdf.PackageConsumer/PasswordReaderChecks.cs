@@ -47,6 +47,10 @@ internal static class PasswordReaderChecks
         QpdfExecutionResult missing = await Qpdf.ExecuteJobAsync(host,
             """{"inputFile":"security-r6-ascii.pdf","check":""}""", CancellationToken.None);
         Check(missing.Diagnostics.Single().Code == QpdfDiagnosticCode.PasswordRequired, "password-required command diagnostic");
+        QpdfExecutionResult query = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(
+            [encrypted.Value, "--password=reader", "--requires-password", "--warning-exit-0"]), CancellationToken.None);
+        Check(query.Status == QpdfExecutionStatus.Completed && (int)query.ExitCode == 3 && query.Diagnostics.Count == 0,
+            "native password predicate status independent of warnings");
         await Failure(null, QpdfSecurityFailure.PasswordRequired);
         await Failure(QpdfPassword.FromText(""), QpdfSecurityFailure.InvalidPassword);
         await Failure(QpdfPassword.FromText("consumer-secret"), QpdfSecurityFailure.InvalidPassword);

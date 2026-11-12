@@ -246,6 +246,10 @@ internal sealed record ShowObjectPlan(QpdfPath Input, QpdfRecoveryMode Recovery,
     public QpdfPath? Output { get; init; }
 }
 
+/// <summary>Validated encryption-status predicate.</summary>
+internal sealed record SecurityPlan(QpdfPath Input, QpdfRecoveryMode Recovery, bool RequiresPassword,
+    QpdfPassword? Password) : JobPlan(Input);
+
 /// <summary>Validated structural inspection.</summary>
 internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input)
 {

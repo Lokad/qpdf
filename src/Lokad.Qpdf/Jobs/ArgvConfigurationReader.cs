@@ -234,7 +234,7 @@ internal static class ArgvConfigurationReader
             or "normalize-content" or "object-streams" or "remove-unreferenced-resources" or "stream-data" or "password";
 
     private static bool IsBare(ReadOnlySpan<char> name)
-        => name is "check" or "check-linearization" or "coalesce-contents" or "deterministic-id"
+        => name is "check" or "check-linearization" or "is-encrypted" or "requires-password" or "coalesce-contents" or "deterministic-id"
             or "externalize-inline-images" or "filtered-stream-data" or "flatten-rotation" or "generate-appearances"
             or "ignore-xref-streams" or "json-input" or "keep-inline-images" or "linearize" or "list-attachments"
             or "newline-before-endstream" or "no-original-object-ids" or "no-warn" or "optimize-images"

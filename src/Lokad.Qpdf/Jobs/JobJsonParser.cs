@@ -38,6 +38,8 @@ internal static class JobJsonParser
     {
             string? input = null;
             QpdfPassword? password = null;
+            bool isEncrypted = false;
+            bool requiresPassword = false;
             bool empty = false;
             bool seenEmpty = false;
             bool seenInput = false;
@@ -217,6 +219,12 @@ internal static class JobJsonParser
                 if (IsCryptoKey(property.Name) && property.Name != "password") { throw new QpdfCryptoException(property.Name); }
                 switch (property.Name)
                 {
+                    case "isEncrypted":
+                        isEncrypted = RequireBareFlag(property.Value, "isEncrypted", textStorage);
+                        break;
+                    case "requiresPassword":
+                        requiresPassword = RequireBareFlag(property.Value, "requiresPassword", textStorage);
+                        break;
                     case "password":
                         textStorage.Memory.Reserve(40L);
                         password = QpdfPassword.FromText(RequireString(property.Value, "password", textStorage));
@@ -1122,6 +1130,25 @@ internal static class JobJsonParser
                 throw new QpdfParseException("Job \"empty\" cannot be combined with \"inputFile\".", 0L, null);
             }
 
+            if (isEncrypted && requiresPassword)
+            { throw new QpdfParseException("isEncrypted and requiresPassword are mutually exclusive.", 0L, null); }
+            if (isEncrypted || requiresPassword)
+            {
+                (QpdfPath securityInput, bool securityEmpty) = ResolveInspectionInput(input, empty, "security inspection");
+                return new SecurityPlan(securityInput, recovery, requiresPassword, password)
+                {
+                    EmptyDocument = securityEmpty,
+                    IgnoreXrefStreams = ignoreXrefStreams,
+                    MaxStreamFilters = maxStreamFilters,
+                    ParserMaxNesting = parserMaxNesting,
+                    MaxContainerSize = maxContainerSize,
+                    MaxContainerSizeDamaged = maxContainerSizeDamaged,
+                    ParserMaxErrors = parserMaxErrors,
+                    NoDefaultLimits = noDefaultLimits,
+                    NoWarn = noWarn,
+                };
+            }
+
             bool wantAttachments = listAttachments || showAttachment is not null;
             if (check || (output is null && (showAttachment is not null || showObject is not null
                 || showNpages || showPages || showXref || listAttachments || checkLinearization || showLinearization)))
@@ -1729,7 +1756,7 @@ internal static class JobJsonParser
     }
 
     internal static bool IsCryptoKey(string name)
-        => name is "encrypt" or "decrypt" or "password" or "passwordFile" or "passwordMode" or "passwordIsHexKey" or "suppressPasswordRecovery" or "encryptionFilePassword" or "allowWeakCrypto" or "copyEncryption" or "isEncrypted" or "requiresPassword" or "showEncryption" or "showEncryptionKey" or "staticAesIv" or "removeRestrictions";
+        => name is "encrypt" or "decrypt" or "password" or "passwordFile" or "passwordMode" or "passwordIsHexKey" or "suppressPasswordRecovery" or "encryptionFilePassword" or "allowWeakCrypto" or "copyEncryption" or "showEncryption" or "showEncryptionKey" or "staticAesIv" or "removeRestrictions";
 
     internal static IEnumerable<JsonProperty> EffectiveProperties(JsonElement value)
     {

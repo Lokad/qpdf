@@ -19,7 +19,7 @@ internal static class ArgvParser
             or "force-V4" or "force-R5" or "cleartext-metadata" or "static-aes-iv"
             or "accessibility" or "annotate" or "assemble" or "extract" or "form" or "modify-other"
             or "modify" or "print" or "show-crypto" or "show-encryption" or "show-encryption-key"
-            or "is-encrypted" or "requires-password" or "remove-restrictions" or "encrypt"
+            or "remove-restrictions" or "encrypt"
             or "decrypt" or "copy-encryption";
 
     internal static JobPlan Parse(IReadOnlyList<string> argv, Runtime.ResourceGovernor governor)

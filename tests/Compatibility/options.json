@@ -3574,20 +3574,26 @@
           "source": "manual/cli.rst:3291"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "Native query semantics are supported for AES R4/R6 and plain inputs. Legacy R2/R3/RC4/R5 handler support remains pending."
       ],
-      "currentRejection": true,
+      "currentRejection": false,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+        "positive": [
+          "EncryptionPredicateTests.ArgvAndJobPredicatesMatchNativeExitSemantics"
         ],
-        "interaction": [],
-        "resource": [],
+        "negative": [
+          "EncryptionPredicateTests.PredicateModesAreMutuallyExclusiveBeforeInputAccess",
+          "EncryptionPredicateTests.UnsupportedHandlersDoNotBecomeSuccessfulQueries"
+        ],
+        "interaction": [
+          "EncryptionPredicateTests.QueriesIgnoreOtherInspectionsAndNeverPublishPdfOutput"
+        ],
+        "resource": [
+          "EncryptionInspectionTests.EveryProbeAdmissionFailureIsTerminalAndRefunded"
+        ],
         "oracle": []
       }
     },
@@ -5937,20 +5943,26 @@
           "source": "manual/cli.rst:3328"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "Native query semantics are supported for AES R4/R6 and plain inputs. Legacy R2/R3/RC4/R5 handler support remains pending."
       ],
-      "currentRejection": true,
+      "currentRejection": false,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+        "positive": [
+          "EncryptionPredicateTests.ArgvAndJobPredicatesMatchNativeExitSemantics"
         ],
-        "interaction": [],
-        "resource": [],
+        "negative": [
+          "EncryptionPredicateTests.PredicateModesAreMutuallyExclusiveBeforeInputAccess",
+          "EncryptionPredicateTests.UnsupportedHandlersDoNotBecomeSuccessfulQueries"
+        ],
+        "interaction": [
+          "EncryptionPredicateTests.QueriesIgnoreOtherInspectionsAndNeverPublishPdfOutput"
+        ],
+        "resource": [
+          "EncryptionInspectionTests.EveryProbeAdmissionFailureIsTerminalAndRefunded"
+        ],
         "oracle": []
       }
     },

@@ -14,6 +14,8 @@
   Typed structural checks accept `QpdfCheckOptions.Password` and inspect the decrypted graph.
   Output-free argv/job inspections accept primary text passwords with distinct missing/invalid
   credential diagnostics. Encrypted transformations, JSON export and secondary credentials remain unsupported.
+- Add `--is-encrypted` and `--requires-password` (and job JSON equivalents) for
+  supported handlers, retaining native query exit codes independently of warning presentation.
 - Start development version 0.2.0-dev.1.
 - Separate planned password-security requirements, deferred legacy-output options
   and explicit raw-key/static-IV exclusions in the compatibility inventory.

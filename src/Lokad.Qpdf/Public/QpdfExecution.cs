@@ -18,6 +18,9 @@ public enum QpdfExecutionStatus
 /// <summary>
 /// Process exit code for command adapters. The library never uses 1 as an
 /// ordinary processing result; cancellation stays a distinct status.
+/// Encryption predicates use native query semantics: 2 means unencrypted;
+/// requires-password returns 3 when the supplied or empty password matches.
+/// Such predicate results have Completed status and need not contain diagnostics.
 /// </summary>
 public enum QpdfExitCode
 {
