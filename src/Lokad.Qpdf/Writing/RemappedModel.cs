@@ -1,11 +1,12 @@
 using System.Diagnostics.CodeAnalysis;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Writing;
 
 /// <summary>Owns rebuilt metadata while borrowing immutable source payloads.</summary>
-internal sealed class RemappedModel : IDisposable
+internal sealed class RemappedModel : IDisposable, IIndirectResolver
 {
     private ParserMemoryScope? _memory;
     private GovernedIntDictionary<QpdfObject>? _objects;
@@ -55,6 +56,13 @@ internal sealed class RemappedModel : IDisposable
     {
         ObjectDisposedException.ThrowIf(_objects is null, this);
         return _objects.TryGetValue(number, out value);
+    }
+
+    public bool TryResolve(PdfReference reference, out QpdfObject? value)
+    {
+        ObjectDisposedException.ThrowIf(_objects is null, this);
+        if (reference.Generation != 0) { value = null; return false; }
+        return TryGetValue(reference.ObjectNumber, out value);
     }
 
     public void Dispose()

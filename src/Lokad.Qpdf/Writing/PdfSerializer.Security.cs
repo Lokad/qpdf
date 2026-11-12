@@ -6,14 +6,18 @@ namespace Lokad.Qpdf.Writing;
 internal sealed partial class PdfSerializer
 {
     private void ValidateEncryptionModel(IReadOnlyList<NumberedObject> objects, CancellationToken cancellationToken)
+        => ValidateEncryptionModel(objects, _security, _encryptionObject, _governor, cancellationToken);
+
+    internal static void ValidateEncryptionModel(IReadOnlyList<NumberedObject> objects, OutputSecurity? security,
+        int encryptionObject, ResourceGovernor governor, CancellationToken cancellationToken)
     {
-        if (_security is null) { return; }
+        if (security is null) { return; }
         bool found = false;
         foreach (NumberedObject item in objects)
         {
-            cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
-            if (item.Number != _encryptionObject) { continue; }
-            if (found || !ReferenceEquals(item.Value, _security.Dictionary))
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (item.Number != encryptionObject) { continue; }
+            if (found || !ReferenceEquals(item.Value, security.Dictionary))
             { throw new QpdfException("Output encryption dictionary does not match its physical object."); }
             found = true;
         }

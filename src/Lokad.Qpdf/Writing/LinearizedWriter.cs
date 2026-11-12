@@ -1,6 +1,7 @@
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Security;
 using Lokad.Qpdf.Syntax;
 using System.Runtime.InteropServices;
 
@@ -24,12 +25,35 @@ internal sealed class LinearizedWriter
     private readonly QpdfLimits _limits;
     private readonly ResourceGovernor _governor;
     private readonly PdfSerializer _serializer;
+    private readonly OutputSecurity? _security;
+    private readonly int _encryptionObject;
+    private readonly int _metadataObject;
+
+    internal LinearizedWriter(QpdfLimits limits, ResourceGovernor governor, OutputSecurity security,
+        int encryptionObject, int metadataObject) : this(limits, governor)
+    {
+        _security = security ?? throw new ArgumentNullException(nameof(security));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(encryptionObject);
+        ArgumentOutOfRangeException.ThrowIfNegative(metadataObject);
+        _encryptionObject = encryptionObject; _metadataObject = metadataObject;
+    }
 
     internal LinearizedWriter(QpdfLimits limits, ResourceGovernor governor)
     {
         _limits = limits ?? throw new ArgumentNullException(nameof(limits));
         _governor = governor ?? throw new ArgumentNullException(nameof(governor));
         _serializer = new PdfSerializer(limits, governor);
+    }
+
+    private PdfSerializer PrepareSerializer(GovernedIntDictionary<int> renumber, RemappedModel emitted, ParserMemoryScope memory)
+    {
+        if (_security is null) { return _serializer; }
+        int metadata = 0;
+        if (!renumber.TryGetValue(_encryptionObject, out int encryption)
+            || (_metadataObject != 0 && !renumber.TryGetValue(_metadataObject, out metadata)))
+        { throw new QpdfException("Linearized output lost an encryption or metadata object."); }
+        memory.Reserve(64L);
+        return new PdfSerializer(_limits, _governor, _security, encryption, metadata, emitted);
     }
 
     internal async ValueTask<long> WriteLinearizedAsync(
@@ -81,8 +105,10 @@ internal sealed class LinearizedWriter
         }
 
         using ParserMemoryScope classificationMemory = ParserMemoryScope.Create(_governor);
-        using LinearizedParts parts = LinearizedParts.Classify(model, classificationMemory, _governor, cancellationToken);
+        PdfSerializer.ValidateEncryptionModel(model, _security, _encryptionObject, _governor, cancellationToken);
+        using LinearizedParts parts = LinearizedParts.Classify(model, _encryptionObject, classificationMemory, _governor, cancellationToken);
         using RemappedModel emitted = RemappedModel.Create(parts.Lookup, parts.Renumber, _governor, cancellationToken);
+        PdfSerializer serializer = PrepareSerializer(parts.Renumber, emitted, classificationMemory);
         int? infoNew = null;
         if (infoRef.HasValue)
         {
@@ -102,14 +128,14 @@ internal sealed class LinearizedWriter
         }
 
         using LinearizedLayout counted = await EmitPassAsync(
-            version, parts, emitted, infoNew, id1, id2, newlineBeforeEndstream, false, null, null, countingSink, cancellationToken).ConfigureAwait(false);
+            version, parts, emitted, serializer, infoNew, id1, id2, newlineBeforeEndstream, false, null, null, countingSink, cancellationToken).ConfigureAwait(false);
         using HintPayload hintObject = BuildHintObject(parts, counted, compressHints, compressionLevel, cancellationToken);
         long hintLength = hintObject.Data.Length;
         if (sink is IOutputCapacityHint staging)
         { staging.EnsureCapacity(checked(counted.FileSize + hintLength), cancellationToken); }
 
         using LinearizedLayout finalLayout = await EmitPassAsync(
-            version, parts, emitted, infoNew, id1, id2, newlineBeforeEndstream, true, hintObject, counted, sink, cancellationToken).ConfigureAwait(false);
+            version, parts, emitted, serializer, infoNew, id1, id2, newlineBeforeEndstream, true, hintObject, counted, sink, cancellationToken).ConfigureAwait(false);
         long written = finalLayout.FileSize;
         if (written != checked(counted.FileSize + hintLength))
         {
@@ -143,6 +169,7 @@ internal sealed class LinearizedWriter
         PdfVersion version,
         LinearizedParts parts,
         RemappedModel emitted,
+        PdfSerializer serializer,
         int? infoNew,
         byte[] id1,
         byte[] id2,
@@ -196,10 +223,16 @@ internal sealed class LinearizedWriter
                 await AppendFormattedAsync([WriterPart.Text(" /Info "), WriterPart.Number(infoNew.Value), WriterPart.Text(" 0 R")], sink, cancellationToken).ConfigureAwait(false);
             }
 
+            if (_security is not null)
+            {
+                await AppendFormattedAsync([WriterPart.Text(" /Encrypt "), WriterPart.Number(parts.Renumber[_encryptionObject]),
+                    WriterPart.Text(" 0 R")], sink, cancellationToken).ConfigureAwait(false);
+            }
+
             await AppendFormattedAsync([WriterPart.Text(" /ID [<"), WriterPart.Hex(id1), WriterPart.Text("><"), WriterPart.Hex(id2), WriterPart.Text(">] >>\n")], sink, cancellationToken).ConfigureAwait(false);
             await AppendAsciiAsync("startxref\n0\n%%EOF\n", sink, cancellationToken).ConfigureAwait(false);
 
-            await EmitObjectsAsync(parts, parts.Part4, emitted, newlineBeforeEndstream, layout, sink, cancellationToken).ConfigureAwait(false);
+            await EmitObjectsAsync(parts, parts.Part4, emitted, serializer, newlineBeforeEndstream, layout, sink, cancellationToken).ConfigureAwait(false);
             if (hintObject is not null)
             {
                 layout.HintPosition = sink.Length;
@@ -214,15 +247,15 @@ internal sealed class LinearizedWriter
                 layout.RecordLength(parts.HintNumber, 0L);
             }
 
-            await EmitObjectsAsync(parts, parts.Part6, emitted, newlineBeforeEndstream, layout, sink, cancellationToken).ConfigureAwait(false);
+            await EmitObjectsAsync(parts, parts.Part6, emitted, serializer, newlineBeforeEndstream, layout, sink, cancellationToken).ConfigureAwait(false);
             layout.Part6End = sink.Length;
             foreach (IReadOnlyList<int> run in parts.Part7)
             {
-                await EmitObjectsAsync(parts, run, emitted, newlineBeforeEndstream, layout, sink, cancellationToken).ConfigureAwait(false);
+                await EmitObjectsAsync(parts, run, emitted, serializer, newlineBeforeEndstream, layout, sink, cancellationToken).ConfigureAwait(false);
             }
 
-            await EmitObjectsAsync(parts, parts.Part8, emitted, newlineBeforeEndstream, layout, sink, cancellationToken).ConfigureAwait(false);
-            await EmitObjectsAsync(parts, parts.Part9, emitted, newlineBeforeEndstream, layout, sink, cancellationToken).ConfigureAwait(false);
+            await EmitObjectsAsync(parts, parts.Part8, emitted, serializer, newlineBeforeEndstream, layout, sink, cancellationToken).ConfigureAwait(false);
+            await EmitObjectsAsync(parts, parts.Part9, emitted, serializer, newlineBeforeEndstream, layout, sink, cancellationToken).ConfigureAwait(false);
 
             layout.MainXrefTable = sink.Length;
             await AppendFormattedAsync([WriterPart.Text("xref\n0 "), WriterPart.Number(parts.LindictNumber)], sink, cancellationToken).ConfigureAwait(false);
@@ -287,6 +320,7 @@ internal sealed class LinearizedWriter
         LinearizedParts parts,
         IReadOnlyList<int> olds,
         RemappedModel emitted,
+        PdfSerializer serializer,
         bool newlineBeforeEndstream,
         LinearizedLayout layout,
         IByteSink sink,
@@ -307,7 +341,7 @@ internal sealed class LinearizedWriter
             }
 
             layout.RecordStart(number, sink.Length);
-            await _serializer.AppendNumberedObjectAsync(number, value, sink, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
+            await serializer.AppendNumberedObjectAsync(number, value, sink, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
             layout.RecordLength(number, checked(sink.Length - layout.Starts[number]));
         }
     }
@@ -470,6 +504,7 @@ internal sealed class LinearizedWriter
         {
             data = FlateFilter.Encode(tables.Bytes, compressionLevel, _limits, _governor, scratch, cancellationToken);
         }
+        if (_security is not null) { data = _security.Encrypt(data, scratch, _governor); }
 
         using WriterFormatting head = WriterFormatting.Create([WriterPart.Number(hintNumber), WriterPart.Text(" 0 obj\n<<"),
             WriterPart.Text(flate ? " /Filter /FlateDecode" : ""), WriterPart.Text(" /S "), WriterPart.Number(sharedAt),
@@ -478,7 +513,7 @@ internal sealed class LinearizedWriter
             WriterPart.Text(" /Length "), WriterPart.Number(data.Length), WriterPart.Text(" >>\nstream\n")],
             _limits, _governor, cancellationToken);
         ReadOnlyMemory<byte> prefix = head.Data;
-        ReadOnlySpan<byte> tail = data.Length == 0 || data[data.Length - 1] != 10
+        ReadOnlySpan<byte> tail = _security is not null || data.Length == 0 || data[data.Length - 1] != 10
             ? "\nendstream\nendobj\n"u8 : "endstream\nendobj\n"u8;
         HintPayload hintObject = HintPayload.Create(checked(prefix.Length + data.Length + tail.Length), _limits, _governor, cancellationToken);
         try
@@ -798,6 +833,7 @@ internal sealed class LinearizedWriter
         IByteSink? pass1Sink,
         CancellationToken cancellationToken)
     {
+        if (_security is not null) { throw new QpdfUnsupportedFeatureException("Encrypted linearized object-stream output is not yet supported."); }
         if (version is null)
         {
             throw new ArgumentNullException(nameof(version));
