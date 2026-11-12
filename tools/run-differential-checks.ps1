@@ -97,6 +97,26 @@ function New-Case {
   return $d
 }
 
+# Signed previews preserve stored appearances while disabling obsolete fields.
+foreach ($fixture in @('signature-visible', 'signature-incremental')) {
+  $case = New-Case $fixture
+  Copy-Item -LiteralPath "$fixtureDir/$fixture.pdf" -Destination "$case/inputs/a.pdf"
+  $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '3,1,3', '--', 'outputs/a.pdf')
+  if ($code -ne 0) { throw "$fixture managed selection failed ($code)" }
+  $code = Invoke-Oracle $case @('inputs/a.pdf', '--remove-restrictions', '--pages', '.', '3,1,3', '--', "$case/ora.pdf")
+  if ($code -ne 0) { throw "$fixture native selection failed ($code)" }
+  Assert-Trio $fixture "$case/lib.pdf" "$case/ora.pdf" 3
+  $managedContent = Read-ReferenceContent $QpdfExe "$case/lib.pdf"
+  $nativeContent = Read-ReferenceContent $QpdfExe "$case/ora.pdf"
+  if ($managedContent.PageText -cne $nativeContent.PageText) { throw "$fixture decoded page content differs" }
+  Assert-ReferencePageText $probeDll "$case/lib.pdf" "$case/ora.pdf"
+  # Native output is a page/content oracle. The managed policy additionally
+  # unregisters all obsolete signature fields, including uncertified signatures.
+  $json = & $QpdfExe --json --json-key=qpdf "$case/lib.pdf"
+  if ($LASTEXITCODE -ne 0) { throw "$fixture inspection failed" }
+  if (($json -join "`n") -match '"/ByteRange"|"/FT": "/Sig"|"/Perms"') { throw "$fixture retains obsolete signature semantics" }
+}
+
 # --- case: select (last and first pages) ---
 $case = New-Case 'select'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"

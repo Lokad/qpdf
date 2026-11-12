@@ -1,12 +1,13 @@
 <#
 .SYNOPSIS
-  Seven finite development-only visual comparisons, using existing authored
+  Finite development-only visual comparisons, using existing authored
   fixtures/builders, pinned qpdf and an explicitly identified pdftoppm renderer.
 #>
 param(
     [Parameter(Mandatory = $true)] [string] $QpdfExe,
     [Parameter(Mandatory = $true)] [string] $RendererExe,
-    [Parameter(Mandatory = $true)] [string] $WorkRoot
+    [Parameter(Mandatory = $true)] [string] $WorkRoot,
+    [switch] $SignaturesOnly
 )
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
@@ -16,7 +17,10 @@ $root = [IO.Path]::GetFullPath($WorkRoot)
 if (Test-Path -LiteralPath $root) { throw "Visual workspace already exists: $root" }
 if ([Environment]::Version.Major -lt 10) { throw 'Fixture reuse requires PowerShell running on .NET 10.' }
 $probe = Join-Path $repo 'tools/QpdfProbe/bin/Release/net11.0/QpdfProbe.dll'
-$bin = Join-Path $repo 'tests/Lokad.Qpdf.Tests/bin/Release/net11.0'
+# Fixture builders load inside PowerShell; use its compatible target. The probe
+# still runs out of process on the primary .NET 11 target.
+$fixtureTarget = if ([Environment]::Version.Major -ge 11) { 'net11.0' } else { 'net10.0' }
+$bin = Join-Path $repo "tests/Lokad.Qpdf.Tests/bin/Release/$fixtureTarget"
 foreach ($file in @($probe, (Join-Path $bin 'Lokad.Qpdf.Tests.dll'))) {
     if (!(Test-Path -LiteralPath $file)) { throw 'Build the Release solution before visual checks.' }
 }
@@ -37,7 +41,7 @@ foreach ($color in @('gray','rgb')) {
     [byte[]]$pdf = $images.GetMethod('BuildImagePage', $members).Invoke($null, [object[]]@(200,200,$space,8,'',$samples))
     [IO.File]::WriteAllBytes((Join-Path $root ('inputs/' + $color + '.pdf')), $pdf)
 }
-foreach ($name in @('photo-1page.pdf','rotated-ap-1page.pdf','forms-1page.pdf')) {
+foreach ($name in @('photo-1page.pdf','rotated-ap-1page.pdf','forms-1page.pdf','signature-visible.pdf','signature-incremental.pdf')) {
     Copy-Item -LiteralPath (Join-Path $repo ('tests/Fixtures/' + $name)) -Destination (Join-Path $root ('inputs/' + $name))
 }
 $appearances = $tests.GetType('Lokad.Qpdf.Tests.Content.GenerateAppearancesTests')
@@ -62,8 +66,14 @@ $cases = @(
     @{Name='text'; Input='forms-1page.pdf'; Flags=@('--generate-appearances','--flatten-annotations=all'); Crop=@(200,344,400,40); Jpeg=$false},
     @{Name='checkbox'; Input='checkbox.pdf'; Flags=@('--generate-appearances','--flatten-annotations=all'); Crop=@(0,1560,24,24); Jpeg=$false},
     @{Name='gray'; Input='gray.pdf'; Flags=@('--optimize-images','--jpeg-quality=75'); Crop=@(0,1184,400,400); Jpeg=$true},
-    @{Name='rgb'; Input='rgb.pdf'; Flags=@('--optimize-images','--jpeg-quality=75'); Crop=@(0,1184,400,400); Jpeg=$true}
+    @{Name='rgb'; Input='rgb.pdf'; Flags=@('--optimize-images','--jpeg-quality=75'); Crop=@(0,1184,400,400); Jpeg=$true},
+    @{Name='signature-visible'; Input='signature-visible.pdf'; Flags=@('--pages','.','1','--'); NativeFlags=@('--remove-restrictions'); Crop=@(40,260,160,80); PreserveOriginal=$true; Jpeg=$false},
+    @{Name='signature-incremental'; Input='signature-incremental.pdf'; Flags=@('--pages','.','1','--'); NativeFlags=@('--remove-restrictions'); Crop=@(40,260,160,80); PreserveOriginal=$true; Jpeg=$false}
 )
+if ($SignaturesOnly) {
+    $cases = @($cases | Where-Object { $_.Name -like 'signature-*' })
+    Write-Output 'Running the two signature appearance cases only.'
+}
 $results = [Collections.Generic.List[object]]::new()
 function Render([string] $Pdf, [string] $Prefix, [int[]] $Crop) {
     & $RendererExe -f 1 -l 1 -singlefile -r 144 -x $Crop[0] -y $Crop[1] -W $Crop[2] -H $Crop[3] $Pdf $Prefix *> ($Prefix + '.log')
@@ -101,7 +111,8 @@ foreach ($case in $cases) {
     $flags = @($case.Flags | ForEach-Object { if ($_ -like 'inputs/*') { Join-Path $root $_ } else { $_ } })
     & dotnet $probe emit --workdir $root --out ('output.pdf=' + $managed) -- ('inputs/' + $case.Input) @($case.Flags) output.pdf *> (Join-Path $dir 'managed.log')
     if ($LASTEXITCODE -ne 0) { throw "$($case.Name): managed operation failed." }
-    & $QpdfExe $input @flags $native *> (Join-Path $dir 'native.log')
+    $nativeFlags = @($case.NativeFlags | Where-Object { $_ })
+    & $QpdfExe $input @flags @nativeFlags $native *> (Join-Path $dir 'native.log')
     if ($LASTEXITCODE -notin @(0,3)) { throw "$($case.Name): native operation failed." }
     foreach ($pair in @(@('managed',$managed),@('native',$native))) {
         & dotnet $probe compare --qpdf-exe $QpdfExe --input $pair[1] --expected-npages 1 *> (Join-Path $dir ($pair[0] + '-validity.log'))
@@ -120,10 +131,17 @@ foreach ($case in $cases) {
             if ((Compare-Raster (Join-Path $dir ($kind + '.ppm')) (Join-Path $dir 'original.ppm') $case.Crop '0.20' '0.30' '64' (Join-Path $dir ($kind + '-original.log'))) -ne 0) { throw "$kind lossy output exceeds declared tolerance." }
         }
     }
+    if ($case.PreserveOriginal) {
+        Render $input (Join-Path $dir 'original') $case.Crop
+        foreach ($kind in @('managed','native')) {
+            if ((Compare-Raster (Join-Path $dir ($kind + '.ppm')) (Join-Path $dir 'original.ppm') $case.Crop $mean $fraction $threshold (Join-Path $dir ($kind + '-original.log'))) -ne 0) { throw "$kind changed the stored signature appearance." }
+        }
+    }
     $results.Add(@{Case=$case.Name; InputSHA256=(Get-FileHash -LiteralPath $input).Hash; Crop=$case.Crop; MeanLimit=$mean; ChangedLimit=$fraction; Threshold=$threshold; Comparison=(Get-Content -LiteralPath (Join-Path $dir 'comparison.log') -Raw).Trim(); Result='pass'})
     Write-Output "$($case.Name): pass"
 }
 # Valid PDF with a deliberately misplaced image, and stale flattened appearance.
+if (-not $SignaturesOnly) {
 & $QpdfExe (Join-Path $root 'overlay/native.pdf') --rotate=180 (Join-Path $root 'negative-image.pdf') *> (Join-Path $root 'negative-image.log')
 if ($LASTEXITCODE -notin @(0,3)) { throw 'Image negative preparation failed.' }
 Render (Join-Path $root 'negative-image.pdf') (Join-Path $root 'negative-image') $cases[0].Crop
@@ -132,6 +150,8 @@ if ((Compare-Raster (Join-Path $root 'negative-image.ppm') (Join-Path $root 'ove
 if ($LASTEXITCODE -notin @(0,3)) { throw 'Appearance negative preparation failed.' }
 Render (Join-Path $root 'negative-text.pdf') (Join-Path $root 'negative-text') $cases[3].Crop
 if ((Compare-Raster (Join-Path $root 'negative-text.ppm') (Join-Path $root 'text/native.ppm') $cases[3].Crop '0.005' '0.01' '8' (Join-Path $root 'negative-text-comparison.log')) -ne 2) { throw 'Stale-appearance negative did not fail.' }
+}
 $sourceState = if (@(& git -C $repo status --porcelain -- src tools tests .github Directory.Build.props).Count -eq 0) { 'committed' } else { 'uncommitted changes' }
-@{SourceCommit=(& git -C $repo rev-parse HEAD); SourceState=$sourceState; RendererVersion=$rendererVersion.Trim(); RendererSHA256=(Get-FileHash -LiteralPath $RendererExe).Hash; QpdfSHA256=(Get-FileHash -LiteralPath $QpdfExe).Hash; Cases=$results; OriginalJpegTolerance=@{MeanLimit='0.20'; ChangedLimit='0.30'; Threshold='64'}; NegativeControls='misplaced image and stale appearance reject'; WallSeconds=$watch.Elapsed.TotalSeconds} |
+$controls = if ($SignaturesOnly) { 'not selected; original and native signature crops must remain nonblank' } else { 'misplaced image and stale appearance reject' }
+@{SourceCommit=(& git -C $repo rev-parse HEAD); SourceState=$sourceState; RendererVersion=$rendererVersion.Trim(); RendererSHA256=(Get-FileHash -LiteralPath $RendererExe).Hash; QpdfSHA256=(Get-FileHash -LiteralPath $QpdfExe).Hash; Cases=$results; OriginalJpegTolerance=@{MeanLimit='0.20'; ChangedLimit='0.30'; Threshold='64'}; NegativeControls=$controls; WallSeconds=$watch.Elapsed.TotalSeconds} |
     ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $root 'result.json') -Encoding utf8

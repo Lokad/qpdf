@@ -74,6 +74,11 @@ function Assert-ReferenceContent {
   if ($leftContent.Signature -cne $rightContent.Signature) {
     throw "Decoded stream bytes or logical page content differ: $Left / $Right"
   }
+  Assert-ReferencePageText $ProbeDll $Left $Right
+}
+
+function Assert-ReferencePageText {
+  param([string]$ProbeDll, [string]$Left, [string]$Right)
   $leftText = Invoke-ReferenceProbe -Arguments @($ProbeDll, 'page-text', '--input', $Left) 2>&1 | Out-String
   if ($LASTEXITCODE -ne 0) { throw "Independent page-text inspection failed: $Left; $leftText" }
   $rightText = Invoke-ReferenceProbe -Arguments @($ProbeDll, 'page-text', '--input', $Right) 2>&1 | Out-String
