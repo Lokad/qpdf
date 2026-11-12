@@ -57,6 +57,9 @@ cleared derivation scratch, checked against recorded native keys and the
 [ISO 32000-2 algorithm errata](https://pdf-issues.pdfa.org/32000-2-2020/clause07.html#7.6.4.3.4).
 The AES payload primitive checks padding before allocating an exact plaintext
 buffer and uses bounded CBC calls so cancellation can interrupt large payloads.
+Its internal encryption counterpart admits exact ciphertext storage, generates a
+fresh random IV for each payload and continues CBC across bounded calls. This is
+a writer primitive; public output protection still awaits policy integration.
 The internal reader owns one authenticated key and decrypts physical objects
 before caching them; object-stream members are parsed only after their container
 decrypts. It consumes explicit Crypt stages and respects separate string, stream

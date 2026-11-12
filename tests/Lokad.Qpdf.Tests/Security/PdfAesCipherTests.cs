@@ -11,6 +11,71 @@ namespace Lokad.Qpdf.Tests.Security;
 
 public sealed class PdfAesCipherTests
 {
+    [Theory]
+    [InlineData(0, 16)]
+    [InlineData(1, 32)]
+    [InlineData(15, 16)]
+    [InlineData(16, 32)]
+    [InlineData(65535, 32)]
+    [InlineData(65536, 16)]
+    [InlineData(65537, 32)]
+    [InlineData(131072, 32)]
+    public void EncryptionUsesFreshIvsAndProducesStandardCbcPayloads(int length, int keyLength)
+    {
+        byte[] key = Enumerable.Range(1, keyLength).Select(value => (byte)value).ToArray();
+        byte[] originalKey = (byte[])key.Clone();
+        byte[] plain = Enumerable.Range(0, length).Select(value => (byte)(value % 251)).ToArray();
+        byte[] originalPlain = (byte[])plain.Clone();
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using (ParserMemoryScope owner = ParserMemoryScope.Create(governor))
+        {
+            byte[] first = PdfAesCipher.Encrypt(plain, key, owner, governor);
+            byte[] second = PdfAesCipher.Encrypt(plain, key, owner, governor);
+            Assert.False(first.AsSpan(0, 16).SequenceEqual(second.AsSpan(0, 16)));
+            Assert.Equal(16 + ((length / 16) + 1) * 16, first.Length);
+            Assert.Equal(2L * (first.Length + 32L), owner.ReservedBytes);
+            using Aes aes = Aes.Create(); aes.SetKey(key);
+            Assert.Equal(plain, aes.DecryptCbc(first.AsSpan(16), first.AsSpan(0, 16), PaddingMode.PKCS7));
+            Assert.Equal(plain, aes.DecryptCbc(second.AsSpan(16), second.AsSpan(0, 16), PaddingMode.PKCS7));
+        }
+        Assert.Equal(originalKey, key); Assert.Equal(originalPlain, plain);
+        Assert.Equal(0, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Fact]
+    public void EncryptionChecksCapacityCancellationAndEveryAdmissionBeforeTransferringStorage()
+    {
+        Assert.Throws<QpdfLimitException>(() => PdfAesCipher.EncryptedLength(int.MaxValue));
+        using CancellationTokenSource cancellation = new();
+        ResourceGovernor canceled = new(QpdfLimits.Default, cancellation.Token);
+        using (ParserMemoryScope owner = ParserMemoryScope.Create(canceled))
+        {
+            cancellation.Cancel();
+            Assert.ThrowsAny<OperationCanceledException>(() => PdfAesCipher.Encrypt([], new byte[32], owner, canceled));
+            Assert.Equal(0, owner.ReservedBytes);
+        }
+        RecordingMemoryBudget baseline = new(1048576);
+        Run(baseline, 0);
+        for (int refusal = 2; refusal <= baseline.GrowthCalls; refusal++)
+        { Run(new(1048576) { RefuseOnGrowth = refusal }, refusal); }
+
+        static void Run(RecordingMemoryBudget budget, int refusal)
+        {
+            using InMemoryQpdfHost host = new(QpdfLimits.Default, null, budget);
+            ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None, host);
+            using (ParserMemoryScope owner = ParserMemoryScope.Create(governor))
+            {
+                if (refusal == 0) { _ = PdfAesCipher.Encrypt(new byte[131072], new byte[32], owner, governor); }
+                else
+                {
+                    Assert.Throws<QpdfMemoryAdmissionException>(() => PdfAesCipher.Encrypt(new byte[131072], new byte[32], owner, governor));
+                    Assert.Equal(0, owner.ReservedBytes); Assert.Equal(refusal, budget.GrowthCalls);
+                }
+            }
+            Assert.Equal(0, budget.ReservedBytes);
+        }
+    }
+
     [Fact]
     public void NativeEncryptedStreamsMatchNativePlaintextBeforeFilterDecoding()
     {
