@@ -220,7 +220,7 @@ public sealed class ImageOptimizeTests
         return output;
     }
 
-    private static async Task<PdfStream> OutputImageAsync(InMemoryQpdfHost host, byte[] pdf)
+    internal static async Task<PdfStream> OutputImageAsync(InMemoryQpdfHost host, byte[] pdf)
     {
         QpdfPath reread = QpdfPath.From("inputs/reread.pdf");
         host.AddInput(reread, pdf, QpdfInputOwnership.Copy);
@@ -392,7 +392,7 @@ public sealed class ImageOptimizeTests
     public async Task TrueCmykDctStaysUntouched()
     {
         // Even forced recompression cannot touch genuine four-component DCT:
-        // decode fails explicitly inside the optimizer, so the bytes survive.
+        // the encoder has no four-component capability, so eligibility preserves it.
         byte[] jpeg = Tests.Filters.CmykJpegBuilder.Build(new[] { 10, -20, 30, -40 }, null);
         byte[] input = BuildImagePage(8, 8, "DeviceCMYK", 8, " /Filter /DCTDecode", jpeg);
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);

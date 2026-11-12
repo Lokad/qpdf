@@ -70,6 +70,19 @@ internal static class Program
             => throw new NotSupportedException("This consumer fixture exercises decoding only.");
     }
 
+    private sealed class CmykSampleCodec : IQpdfJpegCodec
+    {
+        public bool SupportsCmykDecoding => true;
+        public void Decode(Stream encoded, QpdfJpegFrame frame, Memory<byte> samples, QpdfJpegCodecContext context)
+        {
+            context.CheckCancellation();
+            Check(frame.Width == 1 && frame.Height == 1 && frame.Components == 4 && samples.Length == 4, "CMYK sample descriptor");
+            new byte[] { 7, 19, 41, 83 }.CopyTo(samples);
+        }
+        public void Encode(ReadOnlyMemory<byte> samples, QpdfJpegFrame frame, int quality, Stream encoded, QpdfJpegCodecContext context)
+            => throw new NotSupportedException();
+    }
+
     private static async Task VerifyCodecContractAsync()
     {
         // A synthetic frame header and mock samples prove injection, not JPEG decoding fidelity.
@@ -110,6 +123,20 @@ internal static class Program
                     shared ? "shared codec refusal permits fallback and output" : "local codec refusal permits fallback and output");
             }
             Check(root.ReservedBytes == 0L, "codec fallback refunds invocation and durable host storage");
+        }
+        Check(!((IQpdfJpegCodec)codec).SupportsCmykDecoding, "existing codecs default to no CMYK capability");
+        const string cmykFrame = "FFD8FFC00014080001000104011100021100031100041100FFD9>";
+        byte[] cmykPdf = TwoPagePdf("<< /Length " + cmykFrame.Length + " /Filter [/ASCIIHexDecode /DCTDecode] >>\nstream\n" + cmykFrame + "\nendstream");
+        foreach (IQpdfJpegCodec selectedCodec in new IQpdfJpegCodec[] { codec, new CmykSampleCodec() })
+        {
+            using InMemoryQpdfHost cmykHost = new(QpdfLimits.Default, selectedCodec);
+            cmykHost.AddInput(QpdfPath.From("cmyk.pdf"), cmykPdf, QpdfInputOwnership.Copy);
+            QpdfExecutionResult result = await Qpdf.ExecuteAsync(cmykHost,
+                new(["cmyk.pdf", "--show-object=8", "--filtered-stream-data"]), CancellationToken.None);
+            Check(result.Status == (selectedCodec.SupportsCmykDecoding ? QpdfExecutionStatus.Completed : QpdfExecutionStatus.Failed), "CMYK decoding requires explicit host capability");
+            if (selectedCodec.SupportsCmykDecoding)
+            { Check(result.OutputBytes.GetValueOrDefault().Span.SequenceEqual(new byte[] { 7, 19, 41, 83 }), "CMYK samples retain channel order and polarity"); }
+            Check(cmykHost.OpenLeaseCount == 0, "CMYK consumer input cleanup");
         }
         Console.WriteLine("PASS dependency-free consumer with caller-supplied JPEG codec and explicit codec-free checks");
     }

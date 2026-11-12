@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Allow host codecs to opt into CMYK/YCCK decoding as raw PDF samples through
+  `SupportsCmykDecoding`, preserving color space, Decode arrays and admitted
+  buffer ownership. Existing codecs remain compatible; CMYK encoding stays unavailable.
 - Add bounded reverse single-byte and BOM-marked UTF-16 password recovery.
   Keep malformed UTF-16 invalid and use the standard WinAnsi tilde mapping;
   recorded controls document both native differences.

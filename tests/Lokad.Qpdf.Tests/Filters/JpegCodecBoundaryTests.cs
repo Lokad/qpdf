@@ -11,6 +11,7 @@ public sealed class JpegCodecBoundaryTests
 {
     private sealed class BorrowCheckingCodec(byte[] expected) : IQpdfJpegCodec
     {
+        public bool SupportsCmykDecoding => true;
         public void Decode(Stream encoded, QpdfJpegFrame frame, Memory<byte> samples, QpdfJpegCodecContext context)
         {
             Assert.False(encoded.CanWrite);
@@ -28,9 +29,11 @@ public sealed class JpegCodecBoundaryTests
     [Theory]
     [InlineData(1)]
     [InlineData(3)]
+    [InlineData(4)]
     public void CoreJpegInputBorrowsAdmittedBackingWithinTightAllowance(int components)
     {
-        byte[] original = JpegFixtures.Encode(17, 11, components, 75, (_, _, _) => 128);
+        byte[] original = components == 4 ? CmykJpegBuilder.Build([0, 0, 0, 0], null)
+            : JpegFixtures.Encode(17, 11, components, 75, (_, _, _) => 128);
         // Valid, ignored APP15 segments make encoded backing dominate this fixture.
         byte[] jpeg = new byte[original.Length + 16 * 65537];
         original.AsSpan(0, 2).CopyTo(jpeg);
@@ -48,7 +51,7 @@ public sealed class JpegCodecBoundaryTests
         using ParserMemoryScope inputOwner = ParserMemoryScope.Create(governor);
         inputOwner.Reserve(jpeg.LongLength + 32L);
         byte[] decoded = DctFilter.Decode(jpeg, limits, governor);
-        Assert.Equal(17 * 11 * components, decoded.Length);
+        Assert.Equal((components == 4 ? 64 : 17 * 11) * components, decoded.Length);
         Assert.All(decoded, sample => Assert.Equal((byte)128, sample));
         Assert.Equal(before, jpeg);
         governor.ReleaseMemory(decoded.LongLength + JpegCodec.SampleArrayOverheadBytes);
@@ -208,17 +211,21 @@ public sealed class JpegCodecBoundaryTests
     }
 
     [Theory]
-    [InlineData(false, false, false)]
-    [InlineData(false, false, true)]
-    [InlineData(false, true, false)]
-    [InlineData(false, true, true)]
-    [InlineData(true, false, false)]
-    [InlineData(true, false, true)]
-    [InlineData(true, true, false)]
-    [InlineData(true, true, true)]
-    public void NestedCodecFailuresPreserveLocalAndSharedRefusal(bool decode, bool shared, bool growth)
+    [InlineData(false, false, false, false)]
+    [InlineData(false, false, true, false)]
+    [InlineData(false, true, false, false)]
+    [InlineData(false, true, true, false)]
+    [InlineData(true, false, false, false)]
+    [InlineData(true, false, true, false)]
+    [InlineData(true, true, false, false)]
+    [InlineData(true, true, true, false)]
+    [InlineData(true, false, false, true)]
+    [InlineData(true, false, true, true)]
+    [InlineData(true, true, false, true)]
+    [InlineData(true, true, true, true)]
+    public void NestedCodecFailuresPreserveLocalAndSharedRefusal(bool decode, bool shared, bool growth, bool cmyk)
     {
-        byte[] jpeg = DctDecodeTests.EncodeGrayJpeg(8, 8);
+        byte[] jpeg = cmyk ? CmykJpegBuilder.Build([0, 0, 0, 0], 2) : DctDecodeTests.EncodeGrayJpeg(8, 8);
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = shared ? 100000L : 16000L };
         RecordingMemoryBudget root = new(shared ? 16000L : 100000L);
         using InMemoryQpdfHost host = new(limits, new RefusingCodec(growth), root);
@@ -254,6 +261,7 @@ public sealed class JpegCodecBoundaryTests
 
     private sealed class RefusingCodec(bool growth) : IQpdfJpegCodec
     {
+        public bool SupportsCmykDecoding => true;
         public void Decode(Stream encoded, QpdfJpegFrame frame, Memory<byte> samples, QpdfJpegCodecContext context) => Fail(context);
         public void Encode(ReadOnlyMemory<byte> samples, QpdfJpegFrame frame, int quality, Stream encoded, QpdfJpegCodecContext context) => Fail(context);
         private void Fail(QpdfJpegCodecContext context)

@@ -8,6 +8,9 @@ public sealed class LokadImageJpegCodec : IQpdfJpegCodec
     /// <summary>Gets a stateless implementation with independent per-call storage.</summary>
     public static LokadImageJpegCodec Instance { get; } = new();
 
+    /// <inheritdoc />
+    public bool SupportsCmykDecoding => true;
+
     internal static int MapQuality(int quality)
     {
         if (quality is < 0 or > 100) { throw new ArgumentOutOfRangeException(nameof(quality)); }
@@ -27,7 +30,7 @@ public sealed class LokadImageJpegCodec : IQpdfJpegCodec
         if (header.Width != frame.Width || header.Height != frame.Height || header.SourceComponentCount != frame.Components)
         { throw new InvalidDataException("Encoded JPEG does not match the admitted frame."); }
         ImageInfo decoded = ImageCodec.DecodeJpeg(input.Memory.Span, samples.Span, (JpegSampleFormat)frame.Components,
-            options: new JpegDecodeOptions { Limits = limits, ApplyOrientation = false },
+            options: new JpegDecodeOptions { Limits = limits, ApplyOrientation = false, CmykInversion = JpegCmykInversion.None },
             cancellationToken: context.CancellationToken);
         if (decoded.Width != frame.Width || decoded.Height != frame.Height || decoded.SourceComponentCount != frame.Components)
         { throw new InvalidDataException("Decoded JPEG does not match the admitted frame."); }
@@ -37,6 +40,7 @@ public sealed class LokadImageJpegCodec : IQpdfJpegCodec
     /// <inheritdoc />
     public void Encode(ReadOnlyMemory<byte> samples, QpdfJpegFrame frame, int quality, Stream encoded, QpdfJpegCodecContext context)
     {
+        if (frame.Components == 4) { throw new NotSupportedException("CMYK JPEG encoding is unavailable."); }
         ValidateSamples(frame, samples.Length);
         int mapped = MapQuality(quality);
         JpegMemoryBudget budget = new(context.MemoryBudget);
@@ -49,9 +53,9 @@ public sealed class LokadImageJpegCodec : IQpdfJpegCodec
 
     private static void ValidateSamples(QpdfJpegFrame frame, int length)
     {
-        if (frame.Width < 1 || frame.Height < 1 || frame.Components is not (1 or 3)
+        if (frame.Width < 1 || frame.Height < 1 || frame.Components is not (1 or 3 or 4)
             || checked((long)frame.Width * frame.Height * frame.Components) != length)
-        { throw new ArgumentException("Packed Gray/RGB samples must match the admitted frame.", nameof(frame)); }
+        { throw new ArgumentException("Packed Gray/RGB/CMYK samples must match the admitted frame.", nameof(frame)); }
     }
 
     private static ImageLimits Limits(QpdfJpegFrame frame, JpegMemoryBudget budget) => new()

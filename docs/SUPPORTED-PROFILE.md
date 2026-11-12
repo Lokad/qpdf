@@ -186,7 +186,7 @@ options and combinations fail explicitly. Execution reports exit 0/2/3 and diagn
 | Xrefs | Classic, streamed, hybrid and incremental chains; compressed objects, generations and extents validate. |
 | Values | Byte-preserving names, strings and numbers; signed 64-bit integers; bounded malformed-input recovery. |
 | Streams | Declared binary extents; bounded repair where enabled. External-file descriptors stay opaque and are never opened. |
-| Filters | Flate/LZW with predictors, ASCIIHex/ASCII85 and RunLength. Gray/RGB DCT decoding requires a host codec. Zopfli is unavailable. |
+| Filters | Flate/LZW with predictors, ASCIIHex/ASCII85 and RunLength. DCT decoding requires a host codec; CMYK/YCCK also requires its explicit four-component capability. Zopfli is unavailable. |
 
 Unavailable optional decoding can warn and preserve encoded bytes. Structural
 budget exhaustion remains a resource failure, never permission to discard retained data.
@@ -225,7 +225,13 @@ viewer-dependent meaning cannot be preserved; see [navigation differences](COMPA
 
 Image optimization handles eligible 8-bit DeviceGray/DeviceRGB images through a
 host JPEG codec and keeps recompressed output only when smaller. Explicit quality
-enables DCT recompression. CMYK/YCCK decoding and color-key-mask optimization remain unavailable.
+enables DCT recompression. CMYK/YCCK recompression and color-key-mask optimization remain unavailable.
+A codec can opt into four-component decoding with `SupportsCmykDecoding`.
+It returns tightly packed C/M/Y/K samples, converts YCCK using JPEG markers,
+and applies no Adobe sample inversion, ICC conversion, PDF Decode array or
+orientation. The writer retains the PDF color space and Decode array.
+Existing codecs default to no four-component capability; unsupported decoding
+preserves opaque streams with an explicit warning or skipped check.
 
 ## Inspection profile
 

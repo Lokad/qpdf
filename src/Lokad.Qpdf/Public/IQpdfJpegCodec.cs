@@ -3,12 +3,12 @@ namespace Lokad.Qpdf;
 /// <summary>JPEG frame dimensions and raw sample layout: eight-bit samples in tightly packed, top-to-bottom rows.</summary>
 public sealed record QpdfJpegFrame
 {
-    /// <summary>Creates a positive-size grayscale (one component) or interleaved RGB (three components) frame.</summary>
+    /// <summary>Creates a positive-size grayscale, interleaved RGB or interleaved CMYK frame.</summary>
     public QpdfJpegFrame(int width, int height, int components)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
-        if (components is not (1 or 3)) { throw new ArgumentOutOfRangeException(nameof(components)); }
+        if (components is not (1 or 3 or 4)) { throw new ArgumentOutOfRangeException(nameof(components)); }
         Width = width; Height = height; Components = components;
     }
 
@@ -16,7 +16,7 @@ public sealed record QpdfJpegFrame
     public int Width { get; }
     /// <summary>Gets the pixel height.</summary>
     public int Height { get; }
-    /// <summary>Gets one for grayscale or three for interleaved RGB samples.</summary>
+    /// <summary>Gets one for grayscale, three for RGB or four for CMYK samples, in that channel order.</summary>
     public int Components { get; }
 }
 
@@ -33,11 +33,20 @@ public sealed record QpdfJpegFrame
 /// </remarks>
 public interface IQpdfJpegCodec
 {
+    /// <summary>Gets whether decoding supports four-component JPEGs as raw PDF CMYK samples.</summary>
+    /// <remarks>
+    /// Decode YCCK to CMYK using the JPEG color transform, without applying Adobe
+    /// sample inversion, PDF Decode arrays, ICC conversion or image orientation.
+    /// This capability does not enable CMYK encoding. Existing codecs default to false.
+    /// </remarks>
+    bool SupportsCmykDecoding => false;
+
     /// <summary>Decodes one frame into the complete, exactly sized raw sample destination (width × height × components bytes).</summary>
     /// <remarks>Reject corrupt input or a frame/layout mismatch; do not silently convert color models.</remarks>
     void Decode(Stream encoded, QpdfJpegFrame frame, Memory<byte> samples, QpdfJpegCodecContext context);
 
     /// <summary>Encodes raw samples to the bounded destination, with qpdf quality in the inclusive range 0..100.</summary>
+    /// <remarks>Core requests encoding only for grayscale and RGB frames.</remarks>
     void Encode(ReadOnlyMemory<byte> samples, QpdfJpegFrame frame, int quality, Stream encoded, QpdfJpegCodecContext context);
 }
 

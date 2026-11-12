@@ -35,16 +35,19 @@ public sealed class CodecProbeTests
     }
 
     [Fact]
-    public void UpstreamCmykSamplesDoNotExpandThePdfPolicy()
+    public void CmykCapabilityRetainsUninvertedSamples()
     {
         byte[] jpeg = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "cmyk-8x8.jpg"));
         byte[] samples = new byte[8 * 8 * 4];
-        Lokad.Image.ImageInfo info = Lokad.Image.ImageCodec.DecodeJpeg(jpeg, samples, Lokad.Image.JpegSampleFormat.Cmyk);
+        Lokad.Image.ImageInfo info = Lokad.Image.ImageCodec.DecodeJpeg(jpeg, samples, Lokad.Image.JpegSampleFormat.Cmyk,
+            options: new Lokad.Image.JpegDecodeOptions { CmykInversion = Lokad.Image.JpegCmykInversion.None });
         Assert.Equal(8, info.Width); Assert.Equal(8, info.Height);
         Assert.Equal(4, info.SourceComponentCount);
-        QpdfFilterException failure = Assert.Throws<QpdfFilterException>(() => DctFilter.Decode(jpeg, QpdfLimits.Default,
-            new ResourceGovernor(QpdfLimits.Default, CancellationToken.None) { JpegCodec = LokadImageJpegCodec.Instance }));
-        Assert.Equal(QpdfFilterFailureReason.UnsupportedFilter, failure.Reason);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None) { JpegCodec = LokadImageJpegCodec.Instance };
+        byte[] decoded = DctFilter.Decode(jpeg, QpdfLimits.Default, governor);
+        Assert.Equal(samples, decoded);
+        governor.ReleaseMemory(decoded.LongLength + JpegCodec.SampleArrayOverheadBytes);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]

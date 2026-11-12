@@ -258,18 +258,18 @@ public sealed class CheckTests
     [Fact]
     public async Task UnavailableFilterSkipsStreamsWithWarning()
     {
-        // Four-component JPEGs have no raw-sample path through the approved codec, so DCTDecode
-        // stays genuinely unavailable for this input and the check skips instead of failing.
+        // The host has not supplied a codec, so its DCT stream check must be explicit.
         byte[] jpeg = CmykJpeg();
         List<(int, string, byte[]?)> objects = SinglePage("<< /Length 37 >>", HelloContents());
         objects.Add((6, "<< /Filter /DCTDecode /Length " + jpeg.Length.ToString() + " >>", jpeg));
         byte[] bytes = Assemble(objects, 1);
-        InMemoryQpdfHost host = HostWith("inputs/dct.pdf", bytes);
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("inputs/dct.pdf"), bytes, QpdfInputOwnership.Transfer);
         QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/dct.pdf"), CancellationToken.None);
         QpdfCheckOutcome streams = SingleOutcome(result, "streams");
         Assert.Equal(QpdfCheckStatus.Skipped, streams.Status);
         Assert.Contains("DCTDecode", streams.Detail, StringComparison.Ordinal);
-        Assert.Contains("grayscale/RGB", streams.Detail, StringComparison.Ordinal);
+        Assert.Contains("requires a host codec", streams.Detail, StringComparison.Ordinal);
         Assert.DoesNotContain(result.Diagnostics, item => item.Message.Contains("milestone", StringComparison.Ordinal));
         Assert.True(result.Passed);
         Assert.True(result.HasSkipped);
@@ -291,11 +291,8 @@ public sealed class CheckTests
     }
 
     [Fact]
-    public async Task TrueCmykSkipsStreamsWithWarning()
+    public async Task TrueCmykPassesWithCapableHostCodec()
     {
-        // A genuine four-component JPEG (known DC-only samples): the streams check
-        // skips DCTDecode for it exactly like the labeled variant, since no CMYK
-        // pixel path exists in the approved codec.
         byte[] jpeg = Lokad.Qpdf.Tests.Filters.CmykJpegBuilder.Build(new[] { 10, -20, 30, -40 }, null);
         List<(int, string, byte[]?)> objects = SinglePage("<< /Length 37 >>", HelloContents());
         objects.Add((6, "<< /Filter /DCTDecode /Length " + jpeg.Length.ToString() + " >>", jpeg));
@@ -303,11 +300,10 @@ public sealed class CheckTests
         InMemoryQpdfHost host = HostWith("inputs/dct.pdf", bytes);
         QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/dct.pdf"), CancellationToken.None);
         QpdfCheckOutcome streams = SingleOutcome(result, "streams");
-        Assert.Equal(QpdfCheckStatus.Skipped, streams.Status);
-        Assert.Contains("DCTDecode", streams.Detail, StringComparison.Ordinal);
+        Assert.Equal(QpdfCheckStatus.Passed, streams.Status);
         Assert.True(result.Passed);
-        Assert.True(result.HasSkipped);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.CheckSkipped && diagnostic.Severity == QpdfDiagnosticSeverity.Warning);
+        Assert.False(result.HasSkipped);
+        Assert.Empty(result.Diagnostics);
     }
     [Fact]
     public async Task ValidDctPassesStreamsCheck()

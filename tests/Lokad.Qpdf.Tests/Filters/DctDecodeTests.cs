@@ -218,25 +218,15 @@ public sealed class DctDecodeTests
     }
 
     [Fact]
-    public async Task CmykLabeledJpegStaysOpaque()
+    public async Task StoredCmykJpegDecodesThroughTheHostCapability()
     {
         byte[] jpeg = CmykJpeg();
-        Assert.True(DctFilter.TryParseFrame(jpeg, new ResourceGovernor(QpdfLimits.Default, CancellationToken.None), out int width, out int height, out int components));
-        Assert.Equal(4, components);
-        Assert.Equal(8, width);
-        Assert.Equal(8, height);
-        InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildDctPage(jpeg));
-        List<string> argv = new() { "inputs/a.pdf", "--decode-level=all", "--pages", ".", "1", "--", "outputs/a.pdf" };
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
-        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
-        QpdfDiagnostic warning = Assert.Single(result.Diagnostics);
-        Assert.Equal(QpdfDiagnosticCode.UnsupportedFeature, warning.Code);
-        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        using InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildDctPage(jpeg));
+        byte[] pdf = await SelectAsync(host, "inputs/a.pdf", "outputs/a.pdf", "--decode-level=all");
         PdfStream stream = await OutputContentsAsync(host, pdf);
-        Assert.True(stream.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject raw));
-        PdfName name = Assert.IsType<PdfName>(raw);
-        Assert.Equal("DCTDecode", name.DisplayText);
-        Assert.Equal(jpeg, stream.Data);
+        Assert.True(stream.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject filter));
+        Assert.Equal("FlateDecode", Assert.IsType<PdfName>(filter).DisplayText);
+        Assert.Equal(256, Writing.StreamObservation.Decode(stream).Length);
     }
     [Fact]
     public async Task FourComponentFrameStaysOpaque()
@@ -262,54 +252,23 @@ public sealed class DctDecodeTests
     }
 
 
-    [Fact]
-    public async Task TrueCmykJpegStaysOpaque()
+    [Theory]
+    [InlineData(-1, 138, 108, 158, 88)]
+    [InlineData(0, 138, 108, 158, 88)]
+    [InlineData(2, 75, 132, 152, 88)]
+    public void FourComponentSamplesMatchRecordedNativeValues(int transform, int cyan, int magenta, int yellow, int black)
     {
-        // A genuine four-component JPEG with known samples (8x8, DC-only blocks):
-        // the approved codec has no CMYK pixel type, so decode must fail explicitly
-        // instead of reducing to color-converted RGB.
-        byte[] jpeg = CmykJpegBuilder.Build(new[] { 10, -20, 30, -40 }, null);
-        Assert.True(DctFilter.TryParseFrame(jpeg, new ResourceGovernor(QpdfLimits.Default, CancellationToken.None), out int width, out int height, out int components));
-        Assert.Equal(4, components);
-        Assert.Equal(8, width);
-        Assert.Equal(8, height);
-        QpdfFilterException failure = Assert.Throws<QpdfFilterException>(() => DctFilter.Decode(jpeg, QpdfLimits.Default, new ResourceGovernor(QpdfLimits.Default, CancellationToken.None)));
-        Assert.Equal(QpdfFilterFailureReason.UnsupportedFilter, failure.Reason);
-        InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildDctPage(jpeg));
-        List<string> argv = new() { "inputs/a.pdf", "--decode-level=all", "--pages", ".", "1", "--", "outputs/a.pdf" };
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
-        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
-        QpdfDiagnostic warning = Assert.Single(result.Diagnostics);
-        Assert.Equal(QpdfDiagnosticCode.UnsupportedFeature, warning.Code);
-        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
-        PdfStream stream = await OutputContentsAsync(host, pdf);
-        Assert.True(stream.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject raw));
-        PdfName name = Assert.IsType<PdfName>(raw);
-        Assert.Equal("DCTDecode", name.DisplayText);
-        Assert.Equal(jpeg, stream.Data);
-    }
-    [Fact]
-    public async Task YcckJpegStaysOpaque()
-    {
-        // Same boundary for Adobe YCCK input: the oracle converts to CMYK on decode,
-        // which the approved codec cannot reproduce, so it stays opaque as well.
-        byte[] jpeg = CmykJpegBuilder.Build(new[] { 10, -20, 30, -40 }, 2);
-        Assert.True(DctFilter.TryParseFrame(jpeg, new ResourceGovernor(QpdfLimits.Default, CancellationToken.None), out int width, out int height, out int components));
-        Assert.Equal(4, components);
-        Assert.Equal(8, width);
-        Assert.Equal(8, height);
-        InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildDctPage(jpeg));
-        List<string> argv = new() { "inputs/a.pdf", "--decode-level=all", "--pages", ".", "1", "--", "outputs/a.pdf" };
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
-        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
-        QpdfDiagnostic warning = Assert.Single(result.Diagnostics);
-        Assert.Equal(QpdfDiagnosticCode.UnsupportedFeature, warning.Code);
-        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
-        PdfStream stream = await OutputContentsAsync(host, pdf);
-        Assert.True(stream.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject raw));
-        PdfName name = Assert.IsType<PdfName>(raw);
-        Assert.Equal("DCTDecode", name.DisplayText);
-        Assert.Equal(jpeg, stream.Data);
+        byte[] jpeg = CmykJpegBuilder.Build([10, -20, 30, -40], transform < 0 ? null : transform);
+        byte[] original = (byte[])jpeg.Clone();
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None) { JpegCodec = LokadImageJpegCodec.Instance };
+        byte[] decoded = DctFilter.Decode(jpeg, QpdfLimits.Default, governor);
+        Assert.Equal(256, decoded.Length);
+        byte[] pixel = [(byte)cyan, (byte)magenta, (byte)yellow, (byte)black];
+        for (int offset = 0; offset < decoded.Length; offset += 4) { Assert.Equal(pixel, decoded.AsSpan(offset, 4).ToArray()); }
+        Assert.Equal(original, jpeg);
+        Assert.Equal(decoded.LongLength + JpegCodec.SampleArrayOverheadBytes, governor.Snapshot().LiveMemoryBytes);
+        governor.ReleaseMemory(decoded.LongLength + JpegCodec.SampleArrayOverheadBytes);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
     [Fact]
     public void CancelledDecodeFailsFast()

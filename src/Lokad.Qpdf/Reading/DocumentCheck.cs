@@ -335,8 +335,8 @@ internal static class DocumentCheck
             if (ContainsUnavailable(governor, unavailable, DctFilter.FilterName))
             {
                 detail.AppendText(governor.JpegCodec is null
-                    ? " JPEG decoding requires a host codec and supports grayscale/RGB samples only."
-                    : " JPEG decoding supports grayscale/RGB samples only.");
+                    ? " JPEG decoding requires a host codec."
+                    : " The host codec does not support this JPEG sample layout.");
                 detail.AppendText(" DCTDecode DecodeParms are unsupported.");
             }
             QpdfCheckOutcome outcome = FinishOutcome(governor, "streams", QpdfCheckStatus.Skipped, detail);

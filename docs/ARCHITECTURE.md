@@ -229,7 +229,11 @@ cumulative CPU fuel. Diagnostics have bounded storage and explicit overflow.
 
 The core has no runtime NuGet dependencies. Hosts supply JPEG codecs through
 `IQpdfJpegCodecHost`; calls borrow the execution budget and cancellation token.
-The nonpackable Lokad.Image adapter supplies development codecs.
+Four-component decoding requires the codec's `SupportsCmykDecoding` opt-in;
+its C/M/Y/K samples retain PDF polarity and share the existing admitted decode
+buffer. The nonpackable Lokad.Image adapter supplies development codecs and
+uses explicit non-inverting CMYK decoding. Image optimization still admits only
+Gray/RGB encoding.
 
 Physical I/O adapters, native qpdf, renderers and PdfPig belong to development
 tools and tests. Ordinary tests work without native tools; explicit reference

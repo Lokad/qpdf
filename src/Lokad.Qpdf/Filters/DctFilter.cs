@@ -41,15 +41,18 @@ internal static class DctFilter
         { throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, FilterName, "JPEG input holds no bytes."); }
         if (!TryParseFrame(input, governor, out int width, out int height, out int components))
         { throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, FilterName, "JPEG input has no readable frame header."); }
-        if (components is not (1 or 3))
-        { throw new QpdfFilterException(QpdfFilterFailureReason.UnsupportedFilter, FilterName, "Only grayscale and RGB JPEG samples are supported."); }
+        if (components is not (1 or 3 or 4))
+        { throw new QpdfFilterException(QpdfFilterFailureReason.UnsupportedFilter, FilterName, "JPEG samples must be grayscale, RGB or CMYK."); }
+        IQpdfJpegCodec? codec = governor.JpegCodec;
+        if (components == 4 && (codec is null || !codec.SupportsCmykDecoding))
+        { throw new QpdfFilterException(QpdfFilterFailureReason.UnsupportedFilter, FilterName, "CMYK JPEG decoding requires a capable host codec."); }
         long pixels = (long)width * height;
         long expected = pixels * components;
         long maximum = Math.Min(limits.MaxDecodedBytes, Array.MaxLength);
         if (expected > maximum) { throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), expected, maximum); }
         governor.CheckDecodedBytes(expected);
-        IQpdfJpegCodec codec = governor.JpegCodec ?? throw new QpdfFilterException(QpdfFilterFailureReason.UnsupportedFilter,
-            FilterName, "JPEG decoding requires a codec supplied by the host.");
+        if (codec is null) { throw new QpdfFilterException(QpdfFilterFailureReason.UnsupportedFilter,
+            FilterName, "JPEG decoding requires a codec supplied by the host."); }
         governor.NoteOperation();
         long reserved = checked(expected + JpegCodec.SampleArrayOverheadBytes);
         QpdfJpegCodecContext context = new(governor);

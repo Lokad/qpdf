@@ -187,8 +187,8 @@ Copying or rewriting signed, unencrypted PDFs preserves stored annotation appear
 and disables the active signature fields and certification restrictions. A derived
 PDF does not preserve signature validity. Blank signature fields are also disabled;
 read-only inspection retains source values. Signing and signature validation are excluded.
-CMYK/YCCK JPEG images remain opaque when decoding is requested; Zopfli compression
-is unavailable. See the [supported profile](docs/SUPPORTED-PROFILE.md) for details.
+CMYK/YCCK JPEG decoding requires a host codec with `SupportsCmykDecoding`;
+four-component recompression and Zopfli compression are unavailable. See the [supported profile](docs/SUPPORTED-PROFILE.md) for details.
 
 ## Build from source
 

@@ -2541,7 +2541,7 @@
           "CheckTests.ValidDocumentReportsExpectedOutcomes",
           "CheckTests.ArgvCheckSucceedsWithoutOutput",
           "CheckTests.UnavailableFilterSkipsStreamsWithWarning",
-          "CheckTests.TrueCmykSkipsStreamsWithWarning",
+          "CheckTests.TrueCmykPassesWithCapableHostCodec",
           "CheckTests.UnreachableWidgetWarnsOnCheck",
           "CheckTests.WellFormedParentStaysSilentOnCheck",
           "CheckTests.DirectFieldNodeWarnsAndStaysIgnoredOnCheck",
@@ -2993,22 +2993,23 @@
           "DctDecodeTests.GrayJpegDecodesAtAll",
           "DctDecodeTests.RgbJpegDecodesAtAll",
           "DctDecodeTests.ChainedFlateDctDecodesAtAll",
-          "ProgressiveJpegTests.PublicRewritePreservesExactProgressiveSamples"
+          "ProgressiveJpegTests.PublicRewritePreservesExactProgressiveSamples",
+          "DctDecodeTests.StoredCmykJpegDecodesThroughTheHostCapability",
+          "DctDecodeTests.FourComponentSamplesMatchRecordedNativeValues"
         ],
         "negative": [
           "DctDecodeTests.FourComponentFrameStaysOpaque",
-          "DctDecodeTests.CmykLabeledJpegStaysOpaque",
-          "DctDecodeTests.TrueCmykJpegStaysOpaque",
-          "DctDecodeTests.YcckJpegStaysOpaque",
           "DctDecodeTests.SpecializedLevelKeepsDctOpaqueSilently",
           "DctDecodeTests.TruncatedJpegAtAllWarnsAndStaysOpaque",
-          "DctDecodeTests.TwoComponentFrameStaysOpaque"
+          "DctDecodeTests.TwoComponentFrameStaysOpaque",
+          "CmykJpegTests.ExistingCodecsDeclineBeforeSampleAllocation"
         ],
         "interaction": [
           "CompressionTests.DctBeyondLevelStaysOpaque",
           "CompressionTests.DctAtAllWarnsAndStaysOpaque",
           "DctDecodeTests.JobParityHoldsForDecodeAll",
-          "CheckTests.ValidDctPassesStreamsCheck"
+          "CheckTests.ValidDctPassesStreamsCheck",
+          "CmykJpegTests.DecodingPreservesPdfColorSpaceAndDecodeArray"
         ],
         "resource": [
           "JpegCodecBoundaryTests.CoreJpegInputBorrowsAdmittedBackingWithinTightAllowance",
@@ -3030,7 +3031,9 @@
           "FlateDecodedBudgetTests.PngSelectorsDoNotConsumeTheSampleBudget",
           "DctDecodeTests.AggregateBudgetRejectsBeforeAllocatingAnotherFrame",
           "ProgressiveJpegTests.ProgressiveSamplesAndOwnersMatchAuthoredFrame",
-          "ProgressiveJpegTests.ProgressiveCoefficientBudgetFailureDisposesOwners"
+          "ProgressiveJpegTests.ProgressiveCoefficientBudgetFailureDisposesOwners",
+          "CmykJpegTests.FourComponentDecodeHonorsLimitsAndCancellation",
+          "JpegCodecBoundaryTests.NestedCodecFailuresPreserveLocalAndSharedRefusal"
         ],
         "oracle": [
           "diff:uncompress-payloads",
@@ -5036,7 +5039,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "CMYK/YCCK recompression remains ineligible: the pinned development codec can decode four-component samples but cannot encode them. Core decode integration and raw PDF sample qualification remain pending separately."
+        "CMYK/YCCK recompression remains ineligible: the pinned development codec can decode four-component samples but cannot encode them. Decoding is separately qualified through an explicit host capability that preserves raw PDF samples."
       ],
       "evidence": {
         "positive": [
