@@ -13,6 +13,38 @@ namespace Lokad.Qpdf.Tests.Security;
 
 public sealed class EncryptedReaderTests
 {
+    [Theory]
+    [InlineData("security-r4-linearized.pdf")]
+    [InlineData("security-r6-linearized.pdf")]
+    public void NativeLinearizedFilesDecryptPageContentsAndHintTables(string file)
+    {
+        byte[] data = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", file));
+        byte[] original = (byte[])data.Clone();
+        foreach (string password in new[] { "reader", "fixture-owner" })
+        {
+            ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+            using (DocumentEngine engine = Open(data, governor))
+            {
+                PdfReference encrypt = Assert.IsType<PdfReference>(Get(engine.Trailer, "Encrypt"));
+                Assert.NotEqual(PasswordAuthentication.None, engine.Authenticate(encrypt, Encoding.ASCII.GetBytes(password)));
+                Assert.Contains(engine.XRefEntries, entry => entry.Value.Kind == XrefEntryKind.Compressed);
+                PdfDictionary catalog = ResolveDictionary(Get(engine.Trailer, "Root"), engine);
+                PdfDictionary pages = ResolveDictionary(Get(catalog, "Pages"), engine);
+                PdfArray children = Assert.IsType<PdfArray>(Get(pages, "Kids")); Assert.Equal(2, children.Count);
+                for (int index = 0; index < 2; index++)
+                {
+                    PdfDictionary page = ResolveDictionary(children[index], engine);
+                    byte[] content = Decode(ResolveStream(Get(page, "Contents"), engine), engine, governor);
+                    Assert.Equal("BT /F1 24 Tf 100 700 Td (" + (index == 0 ? "First" : "Second") + ") Tj ET",
+                        Encoding.ASCII.GetString(content).Trim());
+                }
+                LinearizationInspection inspection = LinearizationCheck.Inspect(engine, 2, QpdfLimits.Default, governor, CancellationToken.None);
+                Assert.Equal(LinearizationStatus.Valid, inspection.Status); Assert.True(inspection.SharedGroups > 0);
+            }
+            Assert.Equal(0, governor.Snapshot().LiveMemoryBytes); Assert.Equal(original, data);
+        }
+    }
+
     public static IEnumerable<object[]> ReaderVectors()
         => Revision6EncryptionTests.Vectors().Select(vector => vector.Append((object)6).ToArray())
             .Concat(Revision4EncryptionTests.Vectors().Select(vector => vector.Take(5).Append((object)4).ToArray()));

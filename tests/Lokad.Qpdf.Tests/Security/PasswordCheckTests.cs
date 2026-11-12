@@ -6,6 +6,27 @@ namespace Lokad.Qpdf.Tests.Security;
 public sealed class PasswordCheckTests
 {
     [Theory]
+    [InlineData("security-r4-linearized.pdf", "reader")]
+    [InlineData("security-r4-linearized.pdf", "fixture-owner")]
+    [InlineData("security-r6-linearized.pdf", "reader")]
+    [InlineData("security-r6-linearized.pdf", "fixture-owner")]
+    public async Task EncryptedLinearizedFilesPassTypedAndCommandChecks(string file, string password)
+    {
+        using InMemoryQpdfHost host = new(); QpdfPath path = Add(host, file);
+        QpdfCheckResult typed = await Qpdf.CheckAsync(host, path,
+            new QpdfCheckOptions { Password = QpdfPassword.FromText(password) }, QpdfLimits.Default, CancellationToken.None);
+        Assert.Equal(2, typed.PageCount);
+        Assert.DoesNotContain(typed.Checks, check => check.Status == QpdfCheckStatus.Failed);
+        QpdfCheckOutcome linearization = Assert.Single(typed.Checks, check => check.Name == "linearization");
+        Assert.Equal(QpdfCheckStatus.Passed, linearization.Status); Assert.Contains("hint tables valid", linearization.Detail, StringComparison.Ordinal);
+        QpdfExecutionResult command = await Qpdf.ExecuteAsync(host,
+            new([file, "--password=" + password, "--check-linearization", "--show-npages"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, command.Status); Assert.Equal(QpdfExitCode.Success, command.ExitCode);
+        Assert.Contains(command.Diagnostics, item => item.Code == QpdfDiagnosticCode.LinearizationReport && item.Message.EndsWith("no linearization errors", StringComparison.Ordinal));
+        Assert.Equal(0, host.OpenLeaseCount);
+    }
+
+    [Theory]
     [InlineData("security-r4-ascii.pdf", "reader")]
     [InlineData("security-r6-ascii.pdf", "fixture-owner")]
     [InlineData("security-r4-empty.pdf", null)]

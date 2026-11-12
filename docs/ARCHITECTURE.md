@@ -64,6 +64,8 @@ and embedded-file filters, document metadata, xref and signature exceptions.
 Recorded encrypted fixtures cover classic/streamed xrefs, hybrid supplements,
 incremental replacement of strings, and an incremental update over a hybrid file.
 They verify newest-object selection while older encrypted stream payloads remain readable.
+Native R4/R6 linearized fixtures also cover decrypted page contents, object streams,
+shared-resource hints and physical linearization checks with either password.
 `QpdfDocument.OpenAsync` and typed structural checks use this authenticated reader
 with per-input text or raw credentials and non-secret encryption facts. Output-free
 argv/job inspections pass the primary text or host-file credential to the same reader.
