@@ -11,8 +11,9 @@ function ConvertTo-SecurityFacts {
 }
 
 function Assert-SecurityJson {
-  param([string] $Case, [string] $Name, [string[]] $Options, [hashtable] $Fields)
-  $native = Invoke-Oracle $Case (@('inputs/a.pdf', '--json', '--json-key=encrypt') + $Options)
+  param([string] $Case, [string] $Name, [string[]] $Options, [hashtable] $Fields, [string[]] $NativeOptions)
+  $oracleOptions = if ($null -eq $NativeOptions -or $NativeOptions.Count -eq 0) { $Options } else { $NativeOptions }
+  $native = Invoke-Oracle $Case (@('inputs/a.pdf', '--json', '--json-key=encrypt') + $oracleOptions)
   if ($native -ne 0) { throw "$Name native JSON inspection failed ($native)" }
   $reference = Get-Content -LiteralPath "$Case/ora-stdout.txt" -Raw | ConvertFrom-Json -AsHashtable
   $expected = ConvertTo-SecurityFacts $reference.encrypt

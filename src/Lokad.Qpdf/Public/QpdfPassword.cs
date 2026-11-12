@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.Security.Cryptography;
 using System.Text;
 using Lokad.Qpdf.Attachments;
@@ -21,7 +20,7 @@ public sealed class QpdfPassword
     private QpdfPassword(string? text, ReadOnlyMemory<byte> bytes, bool allowRecovery, bool hexEncoded)
     { _text = text; _bytes = bytes; _allowRecovery = allowRecovery; _hexEncoded = hexEncoded; }
 
-    /// <summary>Uses UTF-8 without normalization, with bounded PDFDoc, WinAnsi and MacRoman encoding recovery.</summary>
+    /// <summary>Uses UTF-8 without normalization, with bounded UTF-8, PDFDoc, WinAnsi and MacRoman encoding recovery.</summary>
     /// <exception cref="ArgumentNullException">The text is null.</exception>
     public static QpdfPassword FromText(string text)
     { ArgumentNullException.ThrowIfNull(text); return new(text, default, true, false); }
@@ -69,7 +68,7 @@ public sealed class QpdfPassword
 
     internal const int RecoveryPrefixBytes = 512;
 
-    internal bool TryWriteAlternativeBytes(Span<byte> destination, PdfSingleByteEncoding encoding,
+    internal bool TryWriteAlternativeBytes(Span<byte> destination, int candidate,
         ResourceGovernor governor, out int count)
     {
         count = 0;
@@ -77,11 +76,12 @@ public sealed class QpdfPassword
         governor.CheckCancellation();
         if (_text is string text && !_hexEncoded)
         {
+            if (candidate >= 3) { return false; }
             int length = Math.Min(text.Length, destination.Length);
             for (int index = 0; index < length; index++)
             {
                 governor.CheckCancellation();
-                if (!PdfText.TryEncodeSingleByte(text[index], encoding, out destination[index])) { return false; }
+                if (!PdfText.TryEncodeSingleByte(text[index], (PdfSingleByteEncoding)candidate, out destination[index])) { return false; }
             }
             count = length; return true;
         }
@@ -95,15 +95,7 @@ public sealed class QpdfPassword
                 length = Math.Min(_bytes.Length, prefix.Length);
                 _bytes.Span[..length].CopyTo(prefix);
             }
-            ReadOnlySpan<byte> utf8 = prefix[..length];
-            while (!utf8.IsEmpty && count < destination.Length)
-            {
-                governor.CheckCancellation();
-                if (Rune.DecodeFromUtf8(utf8, out Rune rune, out int consumed) != OperationStatus.Done
-                    || !PdfText.TryEncodeSingleByte(rune.Value, encoding, out destination[count])) { return false; }
-                utf8 = utf8[consumed..]; count++;
-            }
-            return true;
+            return PasswordEncodingRecovery.TryConvert(prefix[..length], destination, candidate, governor, out count);
         }
         finally { CryptographicOperations.ZeroMemory(prefix); }
     }

@@ -37,4 +37,53 @@ function Invoke-ReferenceSecurityRecovery {
     }
     Write-Output "[$name] argv/job/text/file/hex recovery and suppression agree with native"
   }
+  Invoke-ReferenceReverseSecurityRecovery
+}
+
+function Invoke-ReferenceReverseSecurityRecovery {
+  $vectors = Get-Content -LiteralPath "$fixtureDir/security-reverse-vectors.json" -Raw | ConvertFrom-Json
+  foreach ($vector in $vectors) {
+    $revision = if ($vector.file.Contains('-r4-')) { 'r4' } else { 'r6' }
+    $name = "security-reverse-$revision-$($vector.name)"
+    $case = New-Case $name
+    Copy-Item -LiteralPath "$fixtureDir/$($vector.file)" -Destination "$case/inputs/a.pdf"
+    $options = @('--password-mode=hex-bytes', "--password=$($vector.suppliedHex)")
+    $native = Invoke-Oracle $case (@('inputs/a.pdf', '--requires-password') + $options)
+    $expected = if ($vector.nativeMatched) { 3 } else { 0 }
+    if ($native -ne $expected) { throw "$name native recovery outcome changed" }
+    # WinAnsi 0x98 is U+02DC; pinned qpdf maps it to U+0303 on reverse recovery.
+    # Compare the managed correction against the native exact UTF-8 credential.
+    $nativeOptions = if ($vector.nativeMatched) { @() } else {
+      @('--password-mode=hex-bytes', "--password=$($vector.exactHex)", '--suppress-password-recovery')
+    }
+    Assert-SecurityJson $case $name $options @{ passwordMode = 'hex-bytes'; password = $vector.suppliedHex } $nativeOptions
+    [IO.File]::WriteAllBytes("$case/inputs/password.bin", [byte[]](@([Convert]::FromHexString($vector.suppliedHex)) + @(10)))
+    Assert-SecurityJson $case "$name/file" @('--password-file=inputs/password.bin') @{ passwordFile = 'inputs/password.bin' } $nativeOptions
+    $native = Invoke-Oracle $case (@('inputs/a.pdf', '--requires-password', '--suppress-password-recovery') + $options)
+    if ($native -ne 0) { throw "$name native suppression authenticated a converted credential" }
+    foreach ($route in @('argv', 'job')) {
+      if ($route -eq 'argv') {
+        $command = @('emit', '--workdir', $case, '--', 'inputs/a.pdf', '--requires-password', '--suppress-password-recovery') + $options
+      }
+      else {
+        @{ inputFile = 'inputs/a.pdf'; requiresPassword = ''; passwordMode = 'hex-bytes'; password = $vector.suppliedHex; suppressPasswordRecovery = '' } |
+          ConvertTo-Json | Set-Content -LiteralPath "$case/suppressed.json" -Encoding utf8NoBOM
+        $command = @('emit-job', '--workdir', $case, '--job', "$case/suppressed.json")
+      }
+      $managed = Invoke-SecurityManaged $case $command
+      if ($managed.Status -cne 'Completed' -or $managed.ExitCode -ne 0) { throw "$name/$route suppression differs" }
+    }
+    Write-Output "[$name] recovered facts and suppression pass; native recovery matched=$($vector.nativeMatched)"
+  }
+  foreach ($hex in @('FEFFD8010152', 'FEFF0152FF')) {
+    $case = New-Case "security-reverse-malformed-$hex"
+    Copy-Item -LiteralPath "$fixtureDir/security-recovery-r6-ligatures.pdf" -Destination "$case/inputs/a.pdf"
+    $options = @('inputs/a.pdf', '--password-mode=hex-bytes', "--password=$hex", '--requires-password')
+    $native = Invoke-Oracle $case $options
+    $managed = Invoke-SecurityManaged $case (@('emit', '--workdir', $case, '--') + $options)
+    if ($native -ne 3 -or $managed.Status -cne 'Completed' -or $managed.ExitCode -ne 0) {
+      throw 'Malformed UTF-16 control changed: native drops bytes; managed refuses recovery'
+    }
+    Write-Output '[security-reverse/malformed] strict managed UTF-16 and native byte-discarding difference verified'
+  }
 }

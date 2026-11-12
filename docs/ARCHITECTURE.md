@@ -52,9 +52,10 @@ appearance/resource payloads and private aliases use the ordinary graph mapping.
 Placement and JSON publication reuse this policy. Reading and inspection retain
 the original immutable values and do not validate signatures.
 
-UTF-8 password recovery reuses the PDF text encodings used by appearances.
-The shared reader tries the supplied bytes first, then at most three distinct
-PDFDoc/WinAnsi/MacRoman prefixes. All scratch is bounded and cleared; typed raw
+Password recovery reuses the PDF text encodings used by appearances.
+The shared reader tries the supplied bytes first, then at most nine distinct
+UTF-8/PDFDoc/WinAnsi/MacRoman prefixes; BOM-marked UTF-16 can recover to the
+single-byte encodings. All scratch is bounded and cleared; typed raw
 bytes bypass recovery, and command suppression applies before input authentication.
 
 The internal revision 6 authentication primitive uses system AES/SHA and bounded,
@@ -188,10 +189,10 @@ Only AES appends the salt suffix. Strings and streams select their keys independ
 including mixed crypt filters; RC4 payload copies retain exact length and admitted
 ownership through cancellable processing. Native fixtures and RFC vectors cover
 this path. Preserved/copied R4 output normalizes to AES-128 and requires PDF 1.6;
-object-stream members reuse their container's plaintext. Text credentials try
-UTF-8 and then a bounded PDFDocEncoding alternative; raw bytes never take that path.
-The password-file reader retains a 127-byte prefix using cleared 512-byte host-read
-scratch. It preserves first-line byte semantics and keeps storage admitted through
+object-stream members reuse their container's plaintext. Text and command
+credentials use the bounded encoding recovery described above; typed raw bytes
+stay exact. The password-file reader retains a 512-byte recovery prefix using
+cleared 512-byte host-read scratch. It preserves first-line byte semantics and keeps storage admitted through
 asynchronous input close. Validated inspection plans resolve file/text setters in
 order, retaining owned password bytes until inspection and cleanup finish. File
 credentials use the same bounded encoding recovery; typed raw credentials stay exact.

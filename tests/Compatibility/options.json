@@ -1537,26 +1537,27 @@
           "source": "manual/cli.rst:390"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Bounded UTF-8 to PDFDoc/WinAnsi/MacRoman recovery now has R4/R6 native and package-consumer evidence through the shared reader. Reverse single-byte conversions, UTF-16 recovery and output password conversion remain unqualified."
-      ],
+      "remainingGaps": [],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "AttachmentPasswordTests.AttachmentSourcesAuthenticateWithoutChangingPrimaryProtection",
           "AttachmentPasswordTests.RawAndHexOwnerCredentialsUseTheSharedDecoder",
-          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords"
+          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords",
+          "PasswordReverseRecoveryTests.CommandsRecoverRecordedRepresentationsWhileTypedBytesStayExact"
         ],
         "negative": [
           "AttachmentPasswordTests.WrongSourcePasswordsPreservePriorOutputAndDoNotLeak",
           "CryptoExclusionTests.JobCopyAttachmentsPasswordFails",
-          "CryptoExclusionTests.ArgvCopyAttachmentsPasswordFails"
+          "CryptoExclusionTests.ArgvCopyAttachmentsPasswordFails",
+          "PasswordReverseRecoveryTests.MalformedUtf16NeverRecoversByDiscardingBytes"
         ],
         "interaction": [
           "AttachmentPasswordTests.CopiedAttachmentsFollowExplicitOutputPoliciesAndLinearization",
-          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes"
+          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes",
+          "PasswordReverseRecoveryTests.HostFileBytesUseTheSameRecoveryPolicy"
         ],
         "resource": [
           "AttachmentPasswordTests.EveryCopyAdmissionRefusalRefundsBeforeEncryptedPublication",
@@ -3248,25 +3249,26 @@
           "source": "manual/cli.rst:798"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Bounded UTF-8 to PDFDoc/WinAnsi/MacRoman recovery now has R4/R6 native and package-consumer evidence through the shared reader. Reverse single-byte conversions, UTF-16 recovery and output password conversion remain unqualified."
-      ],
+      "remainingGaps": [],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "EncryptionTemplateCommandTests.CopyPolicyUsesItsOwnCredentialAcrossWriterAndSelectionModes",
           "EncryptionTemplateCommandTests.HexTemplateOwnerCredentialsUseGlobalPasswordMode",
-          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords"
+          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords",
+          "PasswordReverseRecoveryTests.CommandsRecoverRecordedRepresentationsWhileTypedBytesStayExact"
         ],
         "negative": [
-          "EncryptionTemplateCommandTests.InvalidTemplatePasswordsDoNotPublishOrLeak"
+          "EncryptionTemplateCommandTests.InvalidTemplatePasswordsDoNotPublishOrLeak",
+          "PasswordReverseRecoveryTests.MalformedUtf16NeverRecoversByDiscardingBytes"
         ],
         "interaction": [
           "EncryptionTemplateCommandTests.LayeredJobsAcceptASeparateTemplatePasswordSetter",
           "EncryptionTemplateCommandTests.OutputFreeInspectionDoesNotOpenAnEncryptionTemplate",
-          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes"
+          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes",
+          "PasswordReverseRecoveryTests.HostFileBytesUseTheSameRecoveryPolicy"
         ],
         "resource": [
           "EncryptionTemplateCommandTests.EveryEmptyPrimaryTemplateAdmissionRefusalRefundsBeforeSplitPublication",
@@ -3275,7 +3277,8 @@
         "oracle": [
           "diff:security-template",
           "diff:security-sources",
-          "diff:security-recovery"
+          "diff:security-recovery",
+          "diff:security-policy"
         ]
       }
     },
@@ -5311,11 +5314,9 @@
           "source": "manual/cli.rst:390"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Bounded UTF-8 to PDFDoc/WinAnsi/MacRoman recovery now has R4/R6 native and package-consumer evidence through the shared reader. Reverse single-byte conversions, UTF-16 recovery and output password conversion remain unqualified."
-      ],
+      "remainingGaps": [],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
@@ -5328,14 +5329,16 @@
           "Revision4Rc4Tests.NativeCheckedMixedFiltersDecryptAndNormalizeThroughTheCommonWriter",
           "LegacyDocumentTests.ReadersAuthenticateBothRolesAndExposeNativePlaintext",
           "LegacyDocumentTests.SharedWritersPreserveLegacyKeysAndPasswords",
-          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords"
+          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords",
+          "PasswordReverseRecoveryTests.CommandsRecoverRecordedRepresentationsWhileTypedBytesStayExact"
         ],
         "negative": [
           "PasswordInspectionTests.PasswordFailuresHaveDistinctSecretFreeDiagnostics",
           "PasswordTransformationTests.WrongPasswordAndIncompatibleVersionNeverPublish",
           "ExtractionPasswordTests.InvalidCredentialsPreservePriorBinaryOutput",
           "Revision5EncryptionTests.DamagedParametersNeverExposeAKey",
-          "Revision5EncryptionTests.MissingAndWrongCredentialsRemainDistinct"
+          "Revision5EncryptionTests.MissingAndWrongCredentialsRemainDistinct",
+          "PasswordReverseRecoveryTests.MalformedUtf16NeverRecoversByDiscardingBytes"
         ],
         "interaction": [
           "PasswordInspectionTests.LaterCredentialSettersReplaceEarlierOnes",
@@ -5345,7 +5348,8 @@
           "PrimaryAttachmentPasswordTests.TypedEditsUsePrimaryCredentialsAndExplicitOutputPolicies",
           "Revision5EncryptionTests.TypedSelectionUsesExistingOutputPolicies",
           "Revision5EncryptionTests.FullJsonUpdatesPreserveTheAuthenticatedRevision5Handler",
-          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes"
+          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes",
+          "PasswordReverseRecoveryTests.HostFileBytesUseTheSameRecoveryPolicy"
         ],
         "resource": [
           "PasswordCheckTests.AuthenticationFailuresAndCancellationCloseInputsAndRefundMemory",
@@ -5381,11 +5385,9 @@
           "source": "manual/cli.rst:412"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Bounded UTF-8 to PDFDoc/WinAnsi/MacRoman recovery now has R4/R6 native and package-consumer evidence through the shared reader. Reverse single-byte conversions, UTF-16 recovery and output password conversion remain unqualified."
-      ],
+      "remainingGaps": [],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
@@ -5394,19 +5396,22 @@
           "PasswordDescriptorTests.DescriptorCredentialsReachExistingAuthenticatedOperations",
           "PasswordTransformationTests.PasswordFileAndHexModeRemainOwnedThroughTransformPublication",
           "ExtractionPasswordTests.FileAndHexOwnerCredentialsRemainOwnedThroughExtraction",
-          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords"
+          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords",
+          "PasswordReverseRecoveryTests.CommandsRecoverRecordedRepresentationsWhileTypedBytesStayExact"
         ],
         "negative": [
           "PasswordFileTests.InvalidOperationsRejectBeforePasswordFileAccess",
           "PasswordFileTests.OverwrittenMissingFileStillFailsWithoutOpeningThePdf",
-          "PasswordDescriptorTests.UnmappedDescriptorsFailThroughTheHostBeforeOpeningThePdf"
+          "PasswordDescriptorTests.UnmappedDescriptorsFailThroughTheHostBeforeOpeningThePdf",
+          "PasswordReverseRecoveryTests.MalformedUtf16NeverRecoversByDiscardingBytes"
         ],
         "interaction": [
           "PasswordFileTests.SettersKeepOrderAndEmptyFilesKeepThePreviousPassword",
           "PasswordFileTests.SortedJobKeysAndNestedConfigurationKeepNativeSetterOrder",
           "PasswordFileTests.FileEncodingRecoveryCanBeSuppressed",
           "PasswordFileTests.MultipleLinesProduceANonSecretNoteWithoutChangingNativeExitCodes",
-          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes"
+          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes",
+          "PasswordReverseRecoveryTests.HostFileBytesUseTheSameRecoveryPolicy"
         ],
         "resource": [
           "PasswordFileTests.EveryAdmissionRefusalClosesFilesAndRefundsTheOperation",
@@ -5483,24 +5488,25 @@
           "source": "manual/cli.rst:617"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Bounded UTF-8 to PDFDoc/WinAnsi/MacRoman recovery now has R4/R6 native and package-consumer evidence through the shared reader. Reverse single-byte conversions, UTF-16 recovery and output password conversion remain unqualified."
-      ],
+      "remainingGaps": [],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "PasswordModeTests.InputModesMatchNativeDecodingAndRecovery",
           "PasswordTransformationTests.PasswordFileAndHexModeRemainOwnedThroughTransformPublication",
-          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords"
+          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords",
+          "PasswordReverseRecoveryTests.CommandsRecoverRecordedRepresentationsWhileTypedBytesStayExact"
         ],
         "negative": [
-          "PasswordModeTests.InvalidModesAndUnsupportedTransformsFailBeforeInputAccess"
+          "PasswordModeTests.InvalidModesAndUnsupportedTransformsFailBeforeInputAccess",
+          "PasswordReverseRecoveryTests.MalformedUtf16NeverRecoversByDiscardingBytes"
         ],
         "interaction": [
           "PasswordModeTests.HexRecoveryCanBeSuppressed",
-          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes"
+          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes",
+          "PasswordReverseRecoveryTests.HostFileBytesUseTheSameRecoveryPolicy"
         ],
         "resource": [
           "PasswordModeTests.LongHexInputStillHonorsConfigurationLimits",
@@ -5508,7 +5514,8 @@
         ],
         "oracle": [
           "diff:security-encoding",
-          "diff:security-recovery"
+          "diff:security-recovery",
+          "diff:security-policy"
         ]
       }
     },
@@ -6954,24 +6961,25 @@
           "source": "manual/cli.rst:604"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Bounded UTF-8 to PDFDoc/WinAnsi/MacRoman recovery now has R4/R6 native and package-consumer evidence through the shared reader. Reverse single-byte conversions, UTF-16 recovery and output password conversion remain unqualified."
-      ],
+      "remainingGaps": [],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "PasswordRecoveryOptionTests.SuppressionUsesOnlyTheSuppliedEncoding",
           "PasswordTransformationTests.PasswordFileAndHexModeRemainOwnedThroughTransformPublication",
-          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords"
+          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords",
+          "PasswordReverseRecoveryTests.CommandsRecoverRecordedRepresentationsWhileTypedBytesStayExact"
         ],
         "negative": [
-          "PasswordRecoveryOptionTests.SuppressionDoesNotEnableEncryptedJsonInput"
+          "PasswordRecoveryOptionTests.SuppressionDoesNotEnableEncryptedJsonInput",
+          "PasswordReverseRecoveryTests.MalformedUtf16NeverRecoversByDiscardingBytes"
         ],
         "interaction": [
           "PasswordRecoveryOptionTests.PasswordQueriesHonorSuppressionWithoutTurningItIntoAnError",
-          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes"
+          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes",
+          "PasswordReverseRecoveryTests.HostFileBytesUseTheSameRecoveryPolicy"
         ],
         "resource": [
           "PasswordRecoveryOptionTests.SuppressionUsesOnlyTheSuppliedEncoding",
@@ -7408,29 +7416,30 @@
           "source": "manual/cli.rst:390"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Bounded UTF-8 to PDFDoc/WinAnsi/MacRoman recovery now has R4/R6 native and package-consumer evidence through the shared reader. Reverse single-byte conversions, UTF-16 recovery and output password conversion remain unqualified."
-      ],
+      "remainingGaps": [],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "PagePasswordCommandTests.EachPageSourceAuthenticatesWithoutReplacingOutputPolicy",
           "PagePasswordCommandTests.SecondaryHexPasswordsUseTheSharedInputDecoder",
           "PagePasswordCommandTests.APasswordSpecifiedOnceAppliesToEveryOccurrenceOfThatFile",
-          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords"
+          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords",
+          "PasswordReverseRecoveryTests.CommandsRecoverRecordedRepresentationsWhileTypedBytesStayExact"
         ],
         "negative": [
           "PagePasswordCommandTests.WrongSecondaryPasswordDoesNotPublishOrLeak",
           "PagePasswordCommandTests.InvalidPagePasswordSyntaxRejectsBeforeHostAccess",
-          "PagePasswordCommandTests.ASecondArgvPasswordSetterForOneEntryFailsWithoutEchoingEitherValue"
+          "PagePasswordCommandTests.ASecondArgvPasswordSetterForOneEntryFailsWithoutEchoingEitherValue",
+          "PasswordReverseRecoveryTests.MalformedUtf16NeverRecoversByDiscardingBytes"
         ],
         "interaction": [
           "PagePasswordCommandTests.TransformedInspectionAuthenticatesSecondaryPages",
           "PagePasswordCommandTests.RepeatedSecondaryCredentialsMustBeConsistent",
           "PagePasswordCommandTests.PagePasswordsDoNotSubstituteForThePrimaryCredential",
-          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes"
+          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes",
+          "PasswordReverseRecoveryTests.HostFileBytesUseTheSameRecoveryPolicy"
         ],
         "resource": [
           "PagePasswordCommandTests.EverySecondaryAdmissionRefusalRefundsBeforeOutput",
@@ -7733,27 +7742,28 @@
           "source": "manual/cli.rst:390"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Bounded UTF-8 to PDFDoc/WinAnsi/MacRoman recovery now has R4/R6 native and package-consumer evidence through the shared reader. Reverse single-byte conversions, UTF-16 recovery and output password conversion remain unqualified."
-      ],
+      "remainingGaps": [],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "OverlayPasswordTests.PlacementCredentialsKeepTheRequestedOutputProtection",
           "OverlayPasswordTests.HexOwnerPasswordsUseTheSharedDecoder",
           "OverlayPasswordTests.AbsentCredentialsOpenEmptyPasswordPlacementSources",
-          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords"
+          "PasswordEncodingRecoveryTests.TextAndExactBytesOpenRecordedSingleBytePasswords",
+          "PasswordReverseRecoveryTests.CommandsRecoverRecordedRepresentationsWhileTypedBytesStayExact"
         ],
         "negative": [
           "CryptoExclusionTests.JobNestedPasswordsFail",
-          "OverlayPasswordTests.PrimaryPlacementRequiresItsOwnCredential"
+          "OverlayPasswordTests.PrimaryPlacementRequiresItsOwnCredential",
+          "PasswordReverseRecoveryTests.MalformedUtf16NeverRecoversByDiscardingBytes"
         ],
         "interaction": [
           "OverlayPasswordTests.RepeatedSourcesAuthenticateEachDistinctCredential",
           "OverlayPasswordTests.TransformedInspectionAuthenticatesPlacementSources",
-          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes"
+          "PasswordEncodingRecoveryTests.CommandCredentialsRecoverAndSuppressionKeepsExactBytes",
+          "PasswordReverseRecoveryTests.HostFileBytesUseTheSameRecoveryPolicy"
         ],
         "resource": [
           "OverlayPasswordTests.EveryPlacementAdmissionRefusalRefundsBeforeEncryptedPublication",

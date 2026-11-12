@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add bounded reverse single-byte and BOM-marked UTF-16 password recovery.
+  Keep malformed UTF-16 invalid and use the standard WinAnsi tilde mapping;
+  recorded controls document both native differences.
+
 - Extend bounded UTF-8 password recovery to PDFDoc, WinAnsi and MacRoman across
   R2–R6, sharing existing text mappings and preserving exact typed raw credentials.
   Retain enough host-file prefix bytes for recovered 127-byte modern passwords.

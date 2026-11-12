@@ -1,0 +1,146 @@
+[
+  {
+    "file": "security-r4-utf8.pdf",
+    "name": "win-to-utf8",
+    "suppliedHex": "636166E9",
+    "owner": false,
+    "nativeMatched": true,
+    "exactHex": "636166C3A9"
+  },
+  {
+    "file": "security-r4-utf8.pdf",
+    "name": "mac-to-utf8",
+    "suppliedHex": "6361668E",
+    "owner": false,
+    "nativeMatched": true,
+    "exactHex": "636166C3A9"
+  },
+  {
+    "file": "security-recovery-r6-utf8.pdf",
+    "name": "pdfdoc-to-utf8",
+    "suppliedHex": "636166E980",
+    "owner": false,
+    "nativeMatched": true,
+    "exactHex": "636166C3A9E280A2"
+  },
+  {
+    "file": "security-recovery-r6-utf8.pdf",
+    "name": "win-to-utf8",
+    "suppliedHex": "636166E995",
+    "owner": false,
+    "nativeMatched": true,
+    "exactHex": "636166C3A9E280A2"
+  },
+  {
+    "file": "security-recovery-r6-utf8.pdf",
+    "name": "mac-to-utf8",
+    "suppliedHex": "6361668EA5",
+    "owner": false,
+    "nativeMatched": true,
+    "exactHex": "636166C3A9E280A2"
+  },
+  {
+    "file": "security-recovery-r6-utf8.pdf",
+    "name": "owner-win-to-utf8",
+    "suppliedHex": "6F776EE97295",
+    "owner": true,
+    "nativeMatched": true,
+    "exactHex": "6F776EC3A972E280A2"
+  },
+  {
+    "file": "security-recovery-r6-utf8.pdf",
+    "name": "owner-mac-to-utf8",
+    "suppliedHex": "6F776E8E72A5",
+    "owner": true,
+    "nativeMatched": true,
+    "exactHex": "6F776EC3A972E280A2"
+  },
+  {
+    "file": "security-recovery-r6-pdfdoc.pdf",
+    "name": "win-to-pdfdoc",
+    "suppliedHex": "636166E995",
+    "owner": false,
+    "nativeMatched": true,
+    "exactHex": "636166E980"
+  },
+  {
+    "file": "security-recovery-r6-pdfdoc.pdf",
+    "name": "mac-to-pdfdoc",
+    "suppliedHex": "6361668EA5",
+    "owner": false,
+    "nativeMatched": true,
+    "exactHex": "636166E980"
+  },
+  {
+    "file": "security-recovery-r6-winansi.pdf",
+    "name": "pdfdoc-to-win",
+    "suppliedHex": "636166E9A0",
+    "owner": false,
+    "nativeMatched": true,
+    "exactHex": "636166E980"
+  },
+  {
+    "file": "security-recovery-r6-macroman.pdf",
+    "name": "pdfdoc-to-mac",
+    "suppliedHex": "636166E980",
+    "owner": false,
+    "nativeMatched": true,
+    "exactHex": "6361668EA5"
+  },
+  {
+    "file": "security-recovery-r6-macroman.pdf",
+    "name": "win-to-mac",
+    "suppliedHex": "636166E995",
+    "owner": false,
+    "nativeMatched": true,
+    "exactHex": "6361668EA5"
+  },
+  {
+    "file": "security-recovery-r6-long.pdf",
+    "name": "long-mac-to-pdfdoc",
+    "suppliedHex": "8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E8E",
+    "owner": false,
+    "nativeMatched": true,
+    "exactHex": "E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9E9"
+  },
+  {
+    "file": "security-recovery-r6-ligatures.pdf",
+    "name": "utf16-be",
+    "suppliedHex": "FEFF0152",
+    "owner": false,
+    "nativeMatched": true,
+    "exactHex": "96"
+  },
+  {
+    "file": "security-recovery-r6-ligatures.pdf",
+    "name": "utf16-le",
+    "suppliedHex": "FFFE5201",
+    "owner": false,
+    "nativeMatched": true,
+    "exactHex": "96"
+  },
+  {
+    "file": "security-recovery-r6-ligatures.pdf",
+    "name": "owner-utf16-be",
+    "suppliedHex": "FEFF0160",
+    "owner": true,
+    "nativeMatched": true,
+    "exactHex": "97"
+  },
+  {
+    "file": "security-recovery-r6-ligatures.pdf",
+    "name": "owner-utf16-le",
+    "suppliedHex": "FFFE6001",
+    "owner": true,
+    "nativeMatched": true,
+    "exactHex": "97"
+  },
+  {
+    "file": "security-recovery-r6-tilde.pdf",
+    "name": "win-tilde-correction",
+    "suppliedHex": "98",
+    "owner": false,
+    "nativeMatched": false,
+    "exactHex": "CB9C"
+  }
+]

@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using Lokad.Qpdf.Attachments;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
@@ -74,10 +73,10 @@ public sealed partial class QpdfDocument
         if (engine.HasSelectiveInput) { throw new CompleteInputRequiredException(); }
         if (explicitNull) { throw new QpdfParseException("Incremental trailers disagree about encryption.", null, null); }
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
-        scratch.Reserve(2048L); // Bounded input/candidate prefixes and encoding scratch.
+        scratch.Reserve(4096L); // Bounded input/candidate prefixes and encoding scratch.
         Span<byte> bytes = stackalloc byte[127];
-        Span<byte> alternatives = stackalloc byte[3 * 127];
-        Span<int> lengths = stackalloc int[3];
+        Span<byte> alternatives = stackalloc byte[PasswordEncodingRecovery.MaximumCandidates * 127];
+        Span<int> lengths = stackalloc int[PasswordEncodingRecovery.MaximumCandidates];
         lengths.Clear();
         try
         {
@@ -85,11 +84,11 @@ public sealed partial class QpdfDocument
             int count = password is null ? 0 : password.WriteModernBytes(bytes, governor);
             PasswordAuthentication authentication = engine.Authenticate(encryption, bytes[..count], out EncryptionParameters parameters);
             int maximum = revision <= 4 ? 32 : 127;
-            for (int index = 0; authentication == PasswordAuthentication.None && password is not null && index < 3; index++)
+            for (int index = 0; authentication == PasswordAuthentication.None && password is not null && index < PasswordEncodingRecovery.MaximumCandidates; index++)
             {
                 governor.CheckCancellation();
                 Span<byte> candidate = alternatives.Slice(index * 127, maximum);
-                if (!password.TryWriteAlternativeBytes(candidate, (PdfSingleByteEncoding)index, governor, out int length))
+                if (!password.TryWriteAlternativeBytes(candidate, index, governor, out int length))
                 { continue; }
                 lengths[index] = length;
                 bool duplicate = bytes[..Math.Min(count, maximum)].SequenceEqual(candidate[..length]);

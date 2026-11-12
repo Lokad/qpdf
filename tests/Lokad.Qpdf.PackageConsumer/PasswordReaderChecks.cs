@@ -25,6 +25,16 @@ internal static class PasswordReaderChecks
                 new([path.Value, "--password-file=" + passwordFile, "--show-npages"]), CancellationToken.None);
             Check(recovered.Status == QpdfExecutionStatus.Completed, "host-file recovery retains the required UTF-8 prefix");
         }
+        foreach ((string file, string recoveryHex, bool owner) in new[]
+        { ("security-recovery-r6-utf8.pdf", "6361668EA5", false), ("security-recovery-r6-ligatures.pdf", "FFFE6001", true) })
+        {
+            QpdfPath path = Add(file);
+            QpdfExecutionResult recovered = await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new
+            { inputFile = path.Value, json = "2", jsonKey = new[] { "encrypt" }, passwordMode = "hex-bytes", password = recoveryHex }), CancellationToken.None);
+            Check(recovered.Status == QpdfExecutionStatus.Completed, "reverse/UTF-16 command recovery");
+            using JsonDocument facts = JsonDocument.Parse(recovered.OutputText ?? throw new InvalidOperationException("Missing recovery facts."));
+            Check(facts.RootElement.GetProperty("encrypt").GetProperty("ownerpasswordmatched").GetBoolean() == owner, "recovered credential role");
+        }
         QpdfPath encrypted = Add("security-r6-ascii.pdf"), empty = Add("security-r6-empty.pdf");
         QpdfPath legacy = Add("security-r4-pdfdoc.pdf"), rc4 = Add("security-r4-rc4-ascii.pdf");
         QpdfPath r2 = Add("security-r2-ascii.pdf"), r3 = Add("security-r3-ascii.pdf");

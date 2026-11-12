@@ -72,8 +72,9 @@ Console.WriteLine(document.PageCount);
 Console.WriteLine(document.Encryption); // Non-secret facts only.
 ```
 
-`FromText` uses UTF-8 without normalization; R2–R4 can retry PDFDocEncoding when
-the text is representable. `FromBytes` borrows exact bytes without encoding recovery.
+`FromText` uses UTF-8 without normalization; R2–R6 can retry PDFDoc, WinAnsi and
+MacRoman when the bounded prefix is representable. Commands can also recover
+single-byte and well-formed UTF-16 credentials through these encodings. `FromBytes` borrows exact bytes without encoding recovery.
 R2–R4 use the first 32 bytes; R5/R6 use 127. Keep borrowed bytes stable until opening completes.
 Omitting credentials tries an empty password. `QpdfSecurityException.Reason`
 distinguishes a required password, an invalid supplied password and an unsupported

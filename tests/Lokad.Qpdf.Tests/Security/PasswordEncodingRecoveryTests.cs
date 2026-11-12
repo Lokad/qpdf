@@ -87,22 +87,24 @@ public sealed class PasswordEncodingRecoveryTests
         }
     }
 
-    [Fact]
-    public async Task EveryRecoveryAdmissionRefusalRefundsOwnedStorage()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task EveryRecoveryAdmissionRefusalRefundsOwnedStorage(bool reverse)
     {
-        RecordingMemoryBudget baseline = new(4194304); await Run(baseline, false);
+        RecordingMemoryBudget baseline = new(4194304); await Run(baseline, false, reverse);
         Assert.True(baseline.GrowthCalls > 0);
         for (int growth = 1; growth <= baseline.GrowthCalls; growth++)
-        { await Run(new(4194304) { RefuseOnGrowth = growth }, true); }
+        { await Run(new(4194304) { RefuseOnGrowth = growth }, true, reverse); }
 
-        static async Task Run(RecordingMemoryBudget budget, bool refuses)
+        static async Task Run(RecordingMemoryBudget budget, bool refuses, bool reverse)
         {
-            using InMemoryQpdfHost storage = new(); Add(storage, "security-recovery-r6-macroman.pdf");
+            using InMemoryQpdfHost storage = new(); Add(storage, reverse ? "security-recovery-r6-utf8.pdf" : "security-recovery-r6-macroman.pdf");
             using IMemoryScope caller = budget.CreateScope(); BudgetHost host = new(storage, caller);
             async Task Open()
             {
                 await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input.pdf"),
-                    QpdfPassword.FromText("café•"), QpdfLimits.Default, CancellationToken.None);
+                    reverse ? QpdfPassword.FromHexText("6361668EA5", true) : QpdfPassword.FromText("café•"), QpdfLimits.Default, CancellationToken.None);
                 Assert.Equal(1, document.PageCount);
             }
             if (refuses) { await Assert.ThrowsAsync<QpdfMemoryAdmissionException>(Open); }

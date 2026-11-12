@@ -21,6 +21,35 @@ function Invoke-ReferenceSecurityPolicies {
   Invoke-SecurityPolicyCase $case 'security-create-named' 'argv' @{ inputFile = 'inputs/a.pdf'; outputFile = 'outputs/a.pdf' } @(
     '--encrypt', '--user-password=reader', '--owner-password=owner', '--bits=256', '--'
   ) 'reader' 'owner' 6 256 -4 $true
+  foreach ($mode in @('auto', 'bytes', 'unicode', 'hex-bytes')) {
+    foreach ($route in @('argv', 'job')) {
+      $name = "security-output-password-$mode-$route"
+      $case = New-Case $name
+      Copy-Item -LiteralPath "$fixtureDir/meta-1page.pdf" -Destination "$case/inputs/a.pdf"
+      $userHex = if ($mode -eq 'hex-bytes') { '636166E980' } else { '636166C3A9E280A2' }
+      $ownerHex = if ($mode -eq 'hex-bytes') { '6F776EE97280' } else { '6F776EC3A972E280A2' }
+      $user = if ($mode -eq 'hex-bytes') { $userHex } else { 'café•' }
+      $owner = if ($mode -eq 'hex-bytes') { $ownerHex } else { 'ownér•' }
+      $fields = @{ inputFile = 'inputs/a.pdf'; outputFile = 'outputs/a.pdf'; passwordMode = $mode;
+        encrypt = @{ userPassword = $user; ownerPassword = $owner; '256bit' = @{} } }
+      Invoke-SecurityPolicyCase $case $name $route $fields @("--password-mode=$mode", '--encrypt', $user, $owner, '256', '--') 'café•' 'ownér•' 6 256 -4 $true
+      foreach ($side in @('lib', 'ora')) {
+        foreach ($hex in @($userHex, $ownerHex)) {
+          $code = Invoke-Oracle $case @('--password-mode=hex-bytes', "--password=$hex", '--suppress-password-recovery', '--check', "$case/$side.pdf")
+          if ($code -ne 0) { throw "$name/$side output changed the requested password bytes" }
+        }
+      }
+    }
+  }
+  foreach ($route in @('argv', 'job')) {
+    $name = "security-template-recovery-$route"
+    $case = New-Case $name
+    Copy-Item -LiteralPath "$fixtureDir/security-r6-ascii.pdf" -Destination "$case/inputs/a.pdf"
+    Copy-Item -LiteralPath "$fixtureDir/security-recovery-r6-macroman.pdf" -Destination "$case/inputs/template.pdf"
+    $fields = @{ inputFile = 'inputs/a.pdf'; outputFile = 'outputs/a.pdf'; password = 'reader';
+      copyEncryption = 'inputs/template.pdf'; encryptionFilePassword = 'ownér•' }
+    Invoke-SecurityPolicyCase $case $name $route $fields @('--password=reader', '--copy-encryption=inputs/template.pdf', '--encryption-file-password=ownér•') 'café•' 'ownér•' 6 256 -4 $true
+  }
   foreach ($mode in @('classic', 'objects', 'qdf', 'linearized')) {
     foreach ($route in @('argv', 'job')) {
       $name = "security-create-$mode-$route"

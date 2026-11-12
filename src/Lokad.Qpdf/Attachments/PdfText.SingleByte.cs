@@ -25,6 +25,24 @@ internal static partial class PdfText
         return false;
     }
 
+    internal static char DecodeSingleByte(byte value, PdfSingleByteEncoding encoding)
+    {
+        if (encoding == PdfSingleByteEncoding.PdfDoc) { return DecodePdfDocByte(value); }
+        if (value < 128) { return (char)value; }
+        if (encoding == PdfSingleByteEncoding.WinAnsi)
+        {
+            if (value >= 160) { return (char)value; }
+            foreach ((int code, byte encoded) in WinAnsiSpecial)
+            { if (encoded == value) { return (char)code; } }
+        }
+        else if (encoding == PdfSingleByteEncoding.MacRoman)
+        {
+            foreach ((int code, byte encoded) in MacRomanTable)
+            { if (encoded == value) { return (char)code; } }
+        }
+        return '\uFFFD';
+    }
+
     private static readonly Dictionary<int, byte> WinAnsiSpecial = new()
     {
         [0x20AC] = 0x80,

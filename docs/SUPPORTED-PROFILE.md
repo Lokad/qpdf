@@ -8,7 +8,11 @@ defaults and intentional differences. Accepted syntax alone does not establish s
 `QpdfDocument.OpenAsync` supports RC4 R2/R3, 128-bit RC4/AES R4 and AES-256 R5/R6 with user or owner
 credentials, including empty passwords. UTF-8 text is not normalized. Failed text
 authentication can retry PDFDoc, WinAnsi and MacRoman encodings for R2–R6 when
-the bounded password prefix is representable. Each distinct candidate is tried once. Raw bytes are borrowed until opening completes
+the bounded password prefix is representable. Command byte credentials can
+also convert among UTF-8/PDFDoc/WinAnsi/MacRoman or from well-formed BOM-marked
+UTF-16 to the single-byte encodings. At most nine distinct alternatives are tried,
+using a 512-byte source prefix and the revision's 32/127-byte result limit.
+Typed raw bytes are borrowed until opening completes
 and never reinterpreted. R2–R4 use the first 32 bytes and R5/R6 use 127. Missing credentials try
 empty; a failed absent password is distinct from a failed supplied password.
 `--remove-restrictions`/`removeRestrictions` explicitly selects the default signature-disabling PDF publication policy. Inspections and JSON exports reject that setting; input signature values remain available for read-only inspection.
@@ -125,8 +129,8 @@ input (`--password-file=-`), the host opens the logical path `"-"` as a stable
 `IQpdfInput` lease with the same limits and first-line semantics. The host owns
 descriptor acquisition and any snapshot storage; core never reads ambient stdin.
 An unmapped descriptor fails through the host before opening the PDF.
-`--suppress-password-recovery` / `suppressPasswordRecovery` disables UTF-8 to
-PDFDoc/WinAnsi/MacRoman retries across password-bearing operations. Host-file
+`--suppress-password-recovery` / `suppressPasswordRecovery` disables encoding
+retries across password-bearing operations. Host-file
 credentials retain at most 512 source bytes for these bounded conversions. It leaves raw
 bytes, absent passwords and successful first attempts unchanged.
 Input `--password-mode` / `passwordMode` accepts `auto`, `bytes`, `unicode` and
