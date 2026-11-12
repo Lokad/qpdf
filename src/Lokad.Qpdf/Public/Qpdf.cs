@@ -5855,7 +5855,7 @@ public static partial class Qpdf
         QpdfDiagnostic diagnostic = new(
             QpdfDiagnosticCode.UnsupportedCryptoOperation,
             QpdfDiagnosticSeverity.Error,
-            $"Cryptographic option '{option}' is permanently out of scope.");
+            $"Cryptographic option '{option}' is not supported.");
         return ExecutionOutcome.Failed([diagnostic]);
     }
 

@@ -18,7 +18,8 @@ internal sealed partial class DocumentSecurity
         QpdfObject result;
         if (value is PdfStream stream)
         {
-            bool embedded = HasType(stream.Dictionary, "EmbeddedFile"u8);
+            bool embedded = TryGet(stream.Dictionary, "Type"u8, out QpdfObject rawType)
+                && Resolve(rawType, resolver) is PdfName type && type.RawSpan.SequenceEqual("EmbeddedFile"u8);
             PdfCipher cipher = embedded ? _files : _streams;
             if (rootMetadata && !EncryptMetadata) { cipher = PdfCipher.Identity; }
             PdfDictionary header = DecryptDictionary(stream.Dictionary, graph, 0);

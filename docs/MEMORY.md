@@ -101,6 +101,13 @@ or blanket workspace charge. The core has no runtime codec dependency.
 
 ## Engine guarantees and limits
 
+Authenticated document opening borrows caller password text/bytes only until the
+open operation completes. Bounded encoding, derivation and cipher scratch are
+admitted and cleared. A document owns its authenticated file key and clears it on
+disposal or failed opening. Plaintext PDF values follow ordinary graph ownership
+and may outlive the document; they are not zeroed while retained callers use them.
+Caller-owned bytes and immutable password strings are never claimed to be erased.
+
 Parsing, copying, filters, images, JSON, writer passes and inspection admit major
 buffers/container capacity before construction. Immutable streams/keys are borrowed
 when possible; actual copies have their own owner. Phase scratch refunds after

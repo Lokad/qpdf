@@ -75,7 +75,8 @@ public sealed class DocumentSecurityTests
         WithContext(0, static text => text, (security, key, governor, memory) =>
         {
             PdfStream stream = new(Parse("<< /Filter /Crypt /DecodeParms << /Name /Unknown >> >>", governor, memory), Encrypt("data"u8, key));
-            Assert.Throws<QpdfCryptoException>(() => security.Decrypt(stream, false, new NoResolver(), memory));
+            Assert.Equal(QpdfSecurityFailure.UnsupportedHandler,
+                Assert.Throws<QpdfSecurityException>(() => security.Decrypt(stream, false, new NoResolver(), memory)).Reason);
         });
     }
 
@@ -113,6 +114,17 @@ public sealed class DocumentSecurityTests
     }
 
     [Fact]
+    public void IndirectEmbeddedFileTypesStillSelectEff()
+    {
+        WithContext(0, static text => text.Replace("/StmF /StdCF", "/StmF /Identity /EFF /StdCF", StringComparison.Ordinal), (security, key, governor, memory) =>
+        {
+            PdfStream stream = new(Parse("<< /Type 1 0 R >>", governor, memory), Encrypt("attachment"u8, key));
+            PdfStream result = Assert.IsType<PdfStream>(security.Decrypt(stream, false, new EmbeddedTypeResolver(), memory));
+            Assert.Equal("attachment", Encoding.ASCII.GetString(result.Data));
+        });
+    }
+
+    [Fact]
     public void ExternalPayloadsStayOpaqueWhileTheirDictionaryStringsDecrypt()
     {
         WithContext(0, static text => text, (security, key, governor, memory) =>
@@ -138,7 +150,8 @@ public sealed class DocumentSecurityTests
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         PdfDictionary dictionary = Parse(((string)vector[1]).Replace(original, replacement, StringComparison.Ordinal), governor, memory);
         long baseline = governor.Snapshot().LiveMemoryBytes;
-        Assert.Throws<QpdfCryptoException>(() => DocumentSecurity.TryCreate(dictionary, "reader"u8, governor, out _));
+        Assert.Equal(QpdfSecurityFailure.UnsupportedHandler,
+            Assert.Throws<QpdfSecurityException>(() => DocumentSecurity.TryCreate(dictionary, "reader"u8, governor, out _)).Reason);
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 
@@ -207,5 +220,11 @@ public sealed class DocumentSecurityTests
     {
         public bool TryResolve(PdfReference reference, out QpdfObject? value)
         { value = null; return false; }
+    }
+
+    private sealed class EmbeddedTypeResolver : IIndirectResolver
+    {
+        public bool TryResolve(PdfReference reference, out QpdfObject? value)
+        { value = reference.ObjectNumber == 1 ? PdfName.FromAscii("EmbeddedFile") : null; return value is not null; }
     }
 }

@@ -1,12 +1,19 @@
 # Supported profile
 
-Lokad.qpdf targets qpdf 12.4.2's non-cryptographic structural operations.
+Lokad.qpdf targets qpdf 12.4.2's structural operations.
 The [option inventory](../tests/Compatibility/options.json) records exact forms,
 combinations and executable evidence; [compatibility](COMPATIBILITY.md) records
 defaults and intentional differences. Accepted syntax alone does not establish support.
 
-Encryption/passwords remain unsupported; encrypted inputs reject even with an
-empty password. Signed, unencrypted pages can be copied, merged, placed and rewritten.
+`QpdfDocument.OpenAsync` supports AES-256 R6 reading with user or owner credentials,
+including empty passwords. UTF-8 text is not normalized; raw bytes are borrowed
+until opening completes. Both use the first 127 bytes. Missing credentials try
+empty; a failed absent password is distinct from a failed supplied password.
+Encryption facts expose permissions and authentication status without passwords
+or keys. Other revisions, encrypted transforms, output encryption and argv/job
+password options remain unsupported.
+
+Signed, unencrypted pages can be copied, merged, placed and rewritten.
 Stored signature appearances survive; active signature field attributes and document
 certification restrictions are disabled, including blank signature fields. Derived
 output does not preserve signature validity. Read-only inspection retains source

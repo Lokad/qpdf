@@ -2,6 +2,7 @@ using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Security;
 
 namespace Lokad.Qpdf;
 
@@ -11,7 +12,7 @@ namespace Lokad.Qpdf;
 /// disposed; always dispose (leases close and budgets release even on failure paths).
 /// Handles are single-owner and not thread-safe; concurrent calls need separate handles.
 /// </summary>
-public sealed class QpdfDocument : IAsyncDisposable
+public sealed partial class QpdfDocument : IAsyncDisposable
 {
     private static readonly PdfName RootKey = PdfName.FromAscii("Root");
     private IQpdfInput? _input;
@@ -74,6 +75,10 @@ public sealed class QpdfDocument : IAsyncDisposable
 
     /// <summary>Gets the page count from page-tree traversal.</summary>
     public int PageCount => _inspectionPages?.Count ?? _pageCount;
+
+    /// <summary>Gets non-secret encryption facts, or null for an unencrypted input.</summary>
+    public QpdfEncryptionInfo? Encryption => Engine.Security is DocumentSecurity security
+        ? new(6, 256, security.Permissions, security.EncryptMetadata, security.Authentication == PasswordAuthentication.Owner) : null;
 
     /// <summary>Gets an immutable snapshot of the job counters and memory estimates.</summary>
     /// <remarks>The current implementation charges snapshot creation to the document's
@@ -141,11 +146,23 @@ public sealed class QpdfDocument : IAsyncDisposable
 
     /// <summary>Opens a document with explicit budgets.</summary>
     /// <exception cref="ArgumentNullException">Host or limits are null.</exception>
-    public static async ValueTask<QpdfDocument> OpenAsync(
+    public static ValueTask<QpdfDocument> OpenAsync(
         IQpdfHost host,
         QpdfPath path,
         QpdfLimits limits,
         CancellationToken cancellationToken)
+        => OpenAsync(host, path, null, limits, cancellationToken);
+
+    /// <summary>Opens an input with per-input credentials and explicit budgets.</summary>
+    /// <remarks>A null password tries the empty password and reports PasswordRequired
+    /// if it fails. An explicitly empty password instead reports InvalidPassword.
+    /// Modern passwords use UTF-8 or raw bytes, truncated to the first 127 bytes.
+    /// The current authenticated reader supports AES-256 revision 6.</remarks>
+    /// <exception cref="ArgumentNullException">Host or limits are null.</exception>
+    /// <exception cref="QpdfSecurityException">Credentials fail or the security handler is unsupported.</exception>
+    /// <exception cref="QpdfParseException">The input or encryption parameters are malformed.</exception>
+    public static async ValueTask<QpdfDocument> OpenAsync(
+        IQpdfHost host, QpdfPath path, QpdfPassword? password, QpdfLimits limits, CancellationToken cancellationToken)
     {
         if (host is null)
         {
@@ -162,7 +179,9 @@ public sealed class QpdfDocument : IAsyncDisposable
         DiagnosticBag diagnostics = new(governor);
         try
         {
-            QpdfDocument document = await OpenCore(host, path, limits, governor, diagnostics, QpdfRecoveryMode.Strict, cancellationToken).ConfigureAwait(false);
+            IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
+            QpdfDocument document = await OpenInputDocument(input, path, limits, governor, diagnostics,
+                QpdfRecoveryMode.Strict, cancellationToken, true, false, false, false, password, true).ConfigureAwait(false);
             governor.AcceptDocument();
             return document;
         }
@@ -286,13 +305,13 @@ public sealed class QpdfDocument : IAsyncDisposable
         bool valuesEscape,
         bool borrowInputStreams)
         => OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken,
-            valuesEscape, borrowInputStreams, false, false);
+            valuesEscape, borrowInputStreams, false, false, null, false);
 
     internal static ValueTask<QpdfDocument> OpenSelectionInputAsync(IQpdfInput input, QpdfPath path,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, QpdfRecoveryMode recovery, bool selective,
         CancellationToken cancellationToken)
         => OpenInputDocument(input, path, limits, governor, diagnostics, recovery,
-            cancellationToken, false, false, true, selective);
+            cancellationToken, false, false, true, selective, null, false);
 
     // A multisource copy closes each source before publication. During a
     // speculative attempt the caller keeps its lease for fallback; once all
@@ -306,7 +325,8 @@ public sealed class QpdfDocument : IAsyncDisposable
     private static async ValueTask<QpdfDocument> OpenInputDocument(
         IQpdfInput input, QpdfPath path, QpdfLimits limits, ResourceGovernor governor,
         DiagnosticBag diagnostics, QpdfRecoveryMode recovery, CancellationToken cancellationToken,
-        bool valuesEscape, bool borrowInputStreams, bool leaveInputOpen, bool allowSelectiveInput)
+        bool valuesEscape, bool borrowInputStreams, bool leaveInputOpen, bool allowSelectiveInput,
+        QpdfPassword? password, bool authenticateEncrypted)
     {
         DocumentEngine? engine = null;
         XRefTable? table = null;
@@ -376,7 +396,10 @@ public sealed class QpdfDocument : IAsyncDisposable
             table = null;
             reservedInput = 0L;
             cancellationToken.ThrowIfCancellationRequested();
-            RejectEncrypted(path, engine);
+            // Transformation entry points retain their existing refusal until
+            // their per-input credentials and output-protection policy land.
+            if (authenticateEncrypted) { AuthenticateEncrypted(engine, password, governor); }
+            else { RejectEncrypted(path, engine); }
             VersionParts? catalogParts = ReadCatalogVersion(engine, governor, cancellationToken);
             VersionParts effectiveParts = catalogParts is { } catalog
                 && (catalog.Major > headerParts.Major || catalog.Major == headerParts.Major && catalog.Minor > headerParts.Minor)

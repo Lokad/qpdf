@@ -90,6 +90,12 @@ Copy-Item -LiteralPath (Join-Path $consumerSource 'Lokad.Qpdf.PackageConsumer.cs
 Copy-Item -LiteralPath (Join-Path $consumerSource 'Program.cs') -Destination $projectDirectory
 Copy-Item -LiteralPath (Join-Path $consumerSource 'RecordingMemoryBudget.cs') -Destination $projectDirectory
 Copy-Item -LiteralPath (Join-Path $consumerSource 'HostLeaseAllocationChecks.cs') -Destination $projectDirectory
+Copy-Item -LiteralPath (Join-Path $consumerSource 'PasswordReaderChecks.cs') -Destination $projectDirectory
+$fixtureDirectory = Join-Path $runRoot 'Fixtures'
+New-Item -ItemType Directory -Path $fixtureDirectory | Out-Null
+foreach ($name in @('security-r6-ascii.pdf', 'security-r6-empty.pdf')) {
+    Copy-Item -LiteralPath (Join-Path $repoRoot ('tests/Fixtures/' + $name)) -Destination $fixtureDirectory
+}
 
 $configPath = Join-Path $runRoot 'nuget.config'
 $escapedFeed = [System.Security.SecurityElement]::Escape($feedDirectory)

@@ -59,8 +59,9 @@ The internal reader owns one authenticated key and decrypts physical objects
 before caching them; object-stream members are parsed only after their container
 decrypts. It consumes explicit Crypt stages and respects separate string, stream
 and embedded-file filters, document metadata, xref and signature exceptions.
-Public password/operation integration is pending; public operations still reject
-encrypted inputs.
+`QpdfDocument.OpenAsync` uses this authenticated reader with per-input text or raw
+credentials and non-secret encryption facts. Transformation and argv/job entry
+points retain their encrypted-input refusal pending output-protection integration.
 
 ## Storage and ownership
 

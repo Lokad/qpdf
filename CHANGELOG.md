@@ -7,7 +7,11 @@
   and private graph roles while disabling active signature semantics and document
   certification restrictions. Apply the same policy to placement and JSON publication;
   derived output does not preserve signature validity.
-- Start development version 0.2.0-dev.1; encrypted inputs still reject.
+- Add AES-256 R6 opening through `QpdfDocument`, per-input UTF-8/raw credentials,
+  user/owner authentication, empty passwords and non-secret encryption facts.
+  Distinguish missing/invalid credentials, unsupported handlers and malformed data.
+  Encrypted transformations and argv/job password options remain unsupported.
+- Start development version 0.2.0-dev.1.
 - Separate planned password-security requirements, deferred legacy-output options
   and explicit raw-key/static-IV exclusions in the compatibility inventory.
   Existing rejection coverage remains current behavior, not implementation evidence.

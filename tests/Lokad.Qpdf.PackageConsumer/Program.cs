@@ -116,6 +116,7 @@ internal static class Program
 
     private static async Task RunAsync()
     {
+        await PasswordReaderChecks.RunAsync();
         await VerifyMemoryContractAsync();
         await VerifyHostMemoryContractAsync();
         await VerifyPublicCopyMemoryAsync();

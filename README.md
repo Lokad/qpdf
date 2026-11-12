@@ -1,8 +1,8 @@
 # Lokad.qpdf
 
 Lokad.qpdf is a .NET 10 and .NET 11 library for splitting, merging, reordering, checking and
-rewriting PDF documents. It implements qpdf's non-cryptographic operations in
-managed C#, with no native qpdf installation required at runtime.
+rewriting PDF documents, with password-aware document opening. It implements
+qpdf-style operations in managed C#, with no native qpdf installation required at runtime.
 The core package has no runtime NuGet dependencies.
 
 Use typed C# methods, qpdf-style arguments or job JSON from your application.
@@ -14,6 +14,7 @@ see [compatibility](docs/COMPATIBILITY.md) for supported behavior and difference
 - Extract, reorder, duplicate, merge, split and rotate pages.
 - Extract previews from signed, unencrypted PDFs, retaining stored signature marks.
 - Inspect document structure, check PDFs, and manage attachments and metadata.
+- Open AES-256 R6 inputs through `QpdfDocument`, using user or owner credentials.
 - Rewrite PDFs with compression, object streams and linearization for web delivery.
 - Apply overlays and underlays, generate form appearances, flatten annotations,
   and process grayscale/RGB JPEG images with a caller-supplied codec.
@@ -61,6 +62,22 @@ current boundary between engine estimates and host-private storage.
 For existing qpdf workflows, `Qpdf.ExecuteAsync` accepts a `QpdfCommandInvocation`,
 and `Qpdf.ExecuteJobAsync` accepts job JSON.
 
+For authenticated reading of an AES-256 R6 input:
+
+```csharp
+await using QpdfDocument document = await QpdfDocument.OpenAsync(
+    host, input, QpdfPassword.FromText("reader"), QpdfLimits.Default,
+    CancellationToken.None);
+Console.WriteLine(document.PageCount);
+Console.WriteLine(document.Encryption); // Non-secret facts only.
+```
+
+`FromText` uses UTF-8 without normalization; `FromBytes` borrows exact bytes.
+R6 uses the first 127 bytes. Keep borrowed bytes stable until opening completes.
+Omitting credentials tries an empty password. `QpdfSecurityException.Reason`
+distinguishes a required password, an invalid supplied password and an unsupported
+handler; malformed parameters throw `QpdfParseException`.
+
 JPEG decoding and recompression use the optional `IQpdfJpegCodec` interface.
 Supply your implementation with `new InMemoryQpdfHost(QpdfLimits.Default, codec)`;
 custom hosts expose it through `IQpdfJpegCodecHost`. Existing JPEGs can pass through
@@ -69,8 +86,9 @@ for buffer ownership, cancellation and resource admission.
 
 ## Limitations
 
-Encrypted PDFs (including empty-password inputs), passwords and encryption/decryption
-remain unsupported. Rendering, OCR and text extraction are outside the library's scope.
+Encrypted transformations, output encryption and argv/job password options remain
+unsupported; authenticated opening currently supports R6 only. Rendering, OCR and
+text extraction are outside the library's scope.
 Copying or rewriting signed, unencrypted PDFs preserves stored annotation appearances
 and disables the active signature fields and certification restrictions. A derived
 PDF does not preserve signature validity. Blank signature fields are also disabled;

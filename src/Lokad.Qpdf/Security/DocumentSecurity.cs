@@ -39,9 +39,12 @@ internal sealed partial class DocumentSecurity : IDisposable
     {
         security = null;
         governor.CheckCancellation();
-        if (ReadName(encryption, "Filter"u8, IdentityName, governor).RawSpan.SequenceEqual("Standard"u8) is false
+        if (!PdfDictionaryLookup.TryGet(encryption, "Filter"u8, governor, governor.CancellationToken, out QpdfObject handler)
+            || handler is not PdfName handlerName)
+        { throw new QpdfParseException("An encryption dictionary requires a security-handler name.", null, null); }
+        if (handlerName.RawSpan.SequenceEqual("Standard"u8) is false
             || ReadInteger(encryption, "V"u8, governor) != 5 || ReadInteger(encryption, "R"u8, governor) != 6)
-        { throw new QpdfCryptoException("unsupported PDF security handler"); }
+        { throw new QpdfSecurityException(QpdfSecurityFailure.UnsupportedHandler); }
         if (PdfDictionaryLookup.TryGet(encryption, "Length"u8, governor, governor.CancellationToken, out QpdfObject length)
             && length is not PdfNull && (length is not PdfInteger bits || bits.Value != 256))
         { throw new QpdfParseException("Invalid revision 6 encryption key length.", null, null); }
@@ -73,7 +76,7 @@ internal sealed partial class DocumentSecurity : IDisposable
                     PdfName authEvent = ReadName(definition, "AuthEvent"u8, PdfName.FromAscii("DocOpen"), governor);
                     bool embeddedOnly = authEvent.RawSpan.SequenceEqual("EFOpen"u8);
                     if (!embeddedOnly && !authEvent.RawSpan.SequenceEqual("DocOpen"u8))
-                    { throw new QpdfCryptoException("unsupported crypt-filter authentication event"); }
+                    { throw new QpdfSecurityException(QpdfSecurityFailure.UnsupportedHandler); }
                     ParserContainers.EnsureEntryCapacity(memory, filters, 8L);
                     filters.Add(name, new(cipher, embeddedOnly));
                 }
@@ -105,7 +108,7 @@ internal sealed partial class DocumentSecurity : IDisposable
     {
         if (name.Equals(IdentityName)) { return PdfCipher.Identity; }
         if (!filters.TryGetValue(name, out CryptFilter filter) || filter.Cipher == PdfCipher.Unsupported)
-        { throw new QpdfCryptoException("unsupported PDF crypt filter"); }
+        { throw new QpdfSecurityException(QpdfSecurityFailure.UnsupportedHandler); }
         if (filter.EmbeddedOnly && !embeddedFile)
         { throw new QpdfParseException("An embedded-file crypt filter cannot encrypt ordinary objects.", null, null); }
         return filter.Cipher;

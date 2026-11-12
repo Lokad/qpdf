@@ -193,8 +193,8 @@ public sealed class DocumentTests
     [Fact]
     public async Task EncryptedDeclarationIsRejectedWithoutSecrets()
     {
-        QpdfEncryptedInputException ex = await Assert.ThrowsAsync<QpdfEncryptedInputException>(() => OpenFile("encrypted-decl.pdf"));
-        Assert.Equal("inputs/encrypted-decl.pdf", ex.Path.Value);
+        QpdfSecurityException ex = await Assert.ThrowsAsync<QpdfSecurityException>(() => OpenFile("encrypted-decl.pdf"));
+        Assert.Equal(QpdfSecurityFailure.UnsupportedHandler, ex.Reason);
         Assert.DoesNotContain("password", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 

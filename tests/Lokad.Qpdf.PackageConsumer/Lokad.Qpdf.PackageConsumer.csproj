@@ -19,5 +19,7 @@
 
   <ItemGroup>
     <PackageReference Include="Lokad.qpdf" />
+    <EmbeddedResource Include="../Fixtures/security-r6-ascii.pdf" LogicalName="Fixtures.security-r6-ascii.pdf" />
+    <EmbeddedResource Include="../Fixtures/security-r6-empty.pdf" LogicalName="Fixtures.security-r6-empty.pdf" />
   </ItemGroup>
 </Project>
