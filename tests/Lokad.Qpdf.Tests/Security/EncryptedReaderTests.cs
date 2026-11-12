@@ -96,8 +96,43 @@ public sealed class EncryptedReaderTests
     }
 
     [Theory]
+    [InlineData("security-r4-incremental.pdf", 4, "UpdatedTitle")]
+    [InlineData("security-r6-incremental.pdf", 6, "UpdatedTitle")]
+    [InlineData("security-r6-hybrid.pdf", 6, "TitleText")]
+    [InlineData("security-r6-hybrid-incremental.pdf", 6, "UpdatedTitle")]
+    public async Task CrossReferenceRevisionsUseNewestPlaintextAndOriginalEncryptedStreams(string file, int revision, string title)
+    {
+        byte[] data = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", file));
+        byte[] original = (byte[])data.Clone();
+        foreach (string password in new[] { "reader", "fixture-owner" })
+        {
+            using InMemoryQpdfHost host = new();
+            QpdfPath path = QpdfPath.From(file); host.AddInput(path, data, QpdfInputOwnership.Transfer);
+            await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, path,
+                QpdfPassword.FromText(password), QpdfLimits.Default, CancellationToken.None))
+            {
+                Assert.Equal(1, document.PageCount); Assert.Empty(document.Warnings);
+                Assert.Equal(revision, Assert.IsType<QpdfEncryptionInfo>(document.Encryption).Revision);
+                DocumentEngine engine = document.Engine;
+                PdfDictionary info = ResolveDictionary(Get(engine.Trailer, "Info"), engine);
+                Assert.Equal(title, Encoding.ASCII.GetString(Assert.IsType<PdfByteString>(Get(info, "Title")).ValueSpan));
+                if (title == "UpdatedTitle") { Assert.Equal(2L, Assert.IsType<PdfInteger>(Get(info, "Revision")).Value); }
+                ResourceGovernor decoding = new(QpdfLimits.Default, CancellationToken.None);
+                PdfStream content = ResolveStream(Get(document.PageReferences[0].Page, "Contents"), engine);
+                Assert.Equal("BT (Page) Tj ET", Encoding.ASCII.GetString(Decode(content, engine, decoding)));
+                Assert.Equal(0L, decoding.Snapshot().LiveMemoryBytes);
+                foreach ((int number, XrefEntry entry) in engine.XRefEntries)
+                { if (entry.Kind != XrefEntryKind.Free) { _ = document.GetObject(number); } }
+            }
+            Assert.Equal(original, data);
+        }
+    }
+
+    [Theory]
     [InlineData("security-r6-ascii.pdf")]
     [InlineData("security-r4-ascii.pdf")]
+    [InlineData("security-r4-incremental.pdf")]
+    [InlineData("security-r6-hybrid-incremental.pdf")]
     public void EveryReaderAdmissionFailureRefundsTheDocumentAndSecurityContext(string file)
     {
         byte[] data = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", file));
