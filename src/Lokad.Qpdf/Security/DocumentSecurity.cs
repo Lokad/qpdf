@@ -24,24 +24,29 @@ internal sealed partial class DocumentSecurity : IDisposable
 
     private DocumentSecurity(ResourceGovernor governor, ParserMemoryScope ownership, byte[] key,
         Dictionary<PdfName, CryptFilter> filters, PdfCipher strings, PdfCipher streams, PdfCipher files,
-        bool metadata, int permissions, PasswordAuthentication authentication, int revision)
+        EncryptionParameters parameters, PasswordAuthentication authentication)
     {
         _governor = governor; _ownership = ownership; _key = key; _filters = filters;
         _strings = strings; _streams = streams; _files = files;
-        EncryptMetadata = metadata; Permissions = permissions; Authentication = authentication;
-        Revision = revision;
+        Parameters = parameters; Authentication = authentication;
     }
 
-    internal bool EncryptMetadata { get; }
-    internal int Permissions { get; }
+    internal EncryptionParameters Parameters { get; }
+    internal bool EncryptMetadata => Parameters.EncryptMetadata;
+    internal int Permissions => Parameters.Permissions;
     internal PasswordAuthentication Authentication { get; }
-    internal int Revision { get; }
-    internal int KeyLengthBits => Revision == 6 ? 256 : 128;
+    internal int Revision => Parameters.Revision;
+    internal int KeyLengthBits => Parameters.KeyLengthBits;
 
     internal static PasswordAuthentication TryCreate(PdfDictionary encryption, ReadOnlySpan<byte> identifier, ReadOnlySpan<byte> password,
         ResourceGovernor governor, out DocumentSecurity? security)
+        => TryCreate(encryption, identifier, password, governor, out security, out _);
+
+    internal static PasswordAuthentication TryCreate(PdfDictionary encryption, ReadOnlySpan<byte> identifier, ReadOnlySpan<byte> password,
+        ResourceGovernor governor, out DocumentSecurity? security, out EncryptionParameters parameters)
     {
         security = null;
+        parameters = default;
         governor.CheckCancellation();
         int revision = ReadSupportedRevision(encryption, governor);
         int keyBits = revision == 6 ? 256 : 128;
@@ -86,13 +91,14 @@ internal sealed partial class DocumentSecurity : IDisposable
             PdfCipher streams = Select(filters, streamName, false);
             PdfCipher strings = Select(filters, ReadName(encryption, "StrF"u8, IdentityName, governor), false);
             PdfCipher files = Select(filters, ReadName(encryption, "EFF"u8, streamName, governor), true);
+            parameters = new(revision == 6 ? 5 : 4, revision, keyBits, ReadInteger(encryption, "P"u8, governor),
+                ReadMetadata(encryption, governor), strings, streams, files);
             key = new byte[keyBits / 8];
             PasswordAuthentication match = revision == 6
                 ? Revision6Encryption.Authenticate(encryption, password, key, governor)
                 : Revision4Encryption.Authenticate(encryption, identifier, password, key, governor);
             if (match == PasswordAuthentication.None) { return match; }
-            bool metadata = ReadMetadata(encryption, governor);
-            security = new(governor, memory, key, filters, strings, streams, files, metadata, ReadInteger(encryption, "P"u8, governor), match, revision);
+            security = new(governor, memory, key, filters, strings, streams, files, parameters, match);
             accepted = true;
             return match;
         }

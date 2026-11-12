@@ -10,6 +10,23 @@ public sealed partial class QpdfDocument
 {
     private static void AuthenticateEncrypted(DocumentEngine engine, QpdfPassword? password, ResourceGovernor governor)
     {
+        EncryptionInspection inspection = InspectSecurity(engine, password, governor);
+        if (inspection.Parameters is not null && inspection.Authentication == PasswordAuthentication.None)
+        { throw new QpdfSecurityException(password is null ? QpdfSecurityFailure.PasswordRequired : QpdfSecurityFailure.InvalidPassword); }
+    }
+
+    internal static async ValueTask<EncryptionInspection> InspectSecurityAsync(IQpdfHost host, QpdfPath path,
+        QpdfPassword? password, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
+        QpdfRecoveryMode recovery, CancellationToken cancellationToken)
+    {
+        await using IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
+        (DocumentEngine engine, _) = await ReadInputEngine(input, limits, governor, diagnostics, recovery,
+            cancellationToken, false, false, false).ConfigureAwait(false);
+        using (engine) { return InspectSecurity(engine, password, governor); }
+    }
+
+    private static EncryptionInspection InspectSecurity(DocumentEngine engine, QpdfPassword? password, ResourceGovernor governor)
+    {
         QpdfObject? encryption = null;
         bool explicitNull = false;
         foreach (PdfDictionary trailer in engine.Trailers)
@@ -21,7 +38,7 @@ public sealed partial class QpdfDocument
             // trailers may repeat an equivalent direct dictionary or reference.
             encryption ??= raw;
         }
-        if (encryption is null) { return; }
+        if (encryption is null) { return default; }
         if (explicitNull) { throw new QpdfParseException("Incremental trailers disagree about encryption.", null, null); }
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
         scratch.Reserve(1024L); // Bounded text encoding and password prefix.
@@ -31,13 +48,12 @@ public sealed partial class QpdfDocument
         {
             int revision = engine.GetEncryptionRevision(encryption);
             int count = password is null ? 0 : password.WriteModernBytes(bytes);
-            PasswordAuthentication authentication = engine.Authenticate(encryption, bytes[..count]);
+            PasswordAuthentication authentication = engine.Authenticate(encryption, bytes[..count], out EncryptionParameters parameters);
             if (authentication == PasswordAuthentication.None && revision == 4 && password is not null
                 && password.TryWritePdfDocBytes(legacy, out int legacyCount)
                 && !bytes[..Math.Min(count, 32)].SequenceEqual(legacy[..legacyCount]))
-            { authentication = engine.Authenticate(encryption, legacy[..legacyCount]); }
-            if (authentication == PasswordAuthentication.None)
-            { throw new QpdfSecurityException(password is null ? QpdfSecurityFailure.PasswordRequired : QpdfSecurityFailure.InvalidPassword); }
+            { authentication = engine.Authenticate(encryption, legacy[..legacyCount], out parameters); }
+            return new(parameters, authentication);
         }
         finally { CryptographicOperations.ZeroMemory(bytes); CryptographicOperations.ZeroMemory(legacy); }
     }

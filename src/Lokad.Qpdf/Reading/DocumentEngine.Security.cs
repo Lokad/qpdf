@@ -38,11 +38,14 @@ internal sealed partial class DocumentEngine
         => EncryptionDictionary.ReadSupportedRevision(ReadEncryptionDictionary(declaration), _governor);
 
     internal PasswordAuthentication Authenticate(QpdfObject declaration, ReadOnlySpan<byte> password)
+        => Authenticate(declaration, password, out _);
+
+    internal PasswordAuthentication Authenticate(QpdfObject declaration, ReadOnlySpan<byte> password, out EncryptionParameters parameters)
     {
         PdfDictionary encryption = ReadEncryptionDictionary(declaration);
         int revision = EncryptionDictionary.ReadSupportedRevision(encryption, _governor);
         ReadOnlySpan<byte> identifier = revision == 4 ? EncryptionDictionary.ReadIdentifier(Trailer, _governor) : [];
-        PasswordAuthentication authentication = DocumentSecurity.TryCreate(encryption, identifier, password, _governor, out DocumentSecurity? security);
+        PasswordAuthentication authentication = DocumentSecurity.TryCreate(encryption, identifier, password, _governor, out DocumentSecurity? security, out parameters);
         if (authentication == PasswordAuthentication.None) { return authentication; }
         _security = security ?? throw new InvalidOperationException("Authentication did not produce a security context.");
         _encryptionNumber = declaration is PdfReference source ? source.ObjectNumber : 0;
