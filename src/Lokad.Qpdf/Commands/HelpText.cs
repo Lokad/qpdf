@@ -84,7 +84,7 @@ internal static class HelpText
           --show-attachment=key         extract attachment bytes (optional output path)
           --add-attachment file [options] --  embed host files
           --remove-attachment=key       drop an embedded file
-          --copy-attachments-from file [--prefix=] --  copy embedded files
+          --copy-attachments-from file [--password=text] [--prefix=] --  copy embedded files
           --json[=1|2|latest] [--json-key=key] --  write document JSON
           --json-help[=1|2|latest]  show JSON format
           --test-json-schema            validate JSON output against its format description
@@ -224,7 +224,8 @@ internal static class HelpText
         showEncryption takes "" and reports declared settings without passwords or keys.
         PDF transformations preserve primary protection unless decrypt/encrypt selects another policy.
         pages[].password authenticates every occurrence of that secondary file; conflicting credentials reject.
-        Encrypted JSON updates, legacy encryption creation, password descriptors and overlay/attachment passwords remain unsupported.
+        copyAttachmentsFrom[].password authenticates the attachment source independently.
+        Encrypted JSON updates, legacy encryption creation, password descriptors and overlay passwords remain unsupported.
         Other crypto keys are rejected with UnsupportedCryptoOperation. See --help for the argv surface.
         """;
 

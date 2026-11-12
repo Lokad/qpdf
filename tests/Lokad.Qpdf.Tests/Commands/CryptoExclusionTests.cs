@@ -91,9 +91,11 @@ public sealed class CryptoExclusionTests
     public async Task JobCopyAttachmentsPasswordFails()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        string job = "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"copyAttachmentsFrom\": [{\"file\": \"inputs/a.pdf\", \"password\": \"x\"}]}";
+        host.AddInput(QpdfPath.From("source.pdf"), await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), "security-r4-attachment.pdf")), QpdfInputOwnership.Copy);
+        string job = "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"copyAttachmentsFrom\": [{\"file\": \"source.pdf\", \"password\": \"x\"}]}";
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, job, CancellationToken.None);
-        SingleCryptoError(result, "outputs/a.pdf");
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfDiagnosticCode.InvalidPassword, Assert.Single(result.Diagnostics).Code);
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
     }
 
@@ -101,9 +103,11 @@ public sealed class CryptoExclusionTests
     public async Task ArgvCopyAttachmentsPasswordFails()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        List<string> argv = new() { "inputs/a.pdf", "--copy-attachments-from", "inputs/a.pdf", "--password=y", "--", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        host.AddInput(QpdfPath.From("source.pdf"), await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), "security-r4-attachment.pdf")), QpdfInputOwnership.Copy);
+        List<string> argv = new() { "inputs/a.pdf", "--copy-attachments-from", "source.pdf", "--password=y", "--", "--pages", ".", "1", "--", "outputs/a.pdf" };
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
-        SingleCryptoError(result, "outputs/a.pdf");
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfDiagnosticCode.InvalidPassword, Assert.Single(result.Diagnostics).Code);
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
     }
 

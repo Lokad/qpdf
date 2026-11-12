@@ -4,7 +4,7 @@
   Passwords and keys are public test data. Native randomness is retained: a
   regeneration intentionally changes ciphertext, hashes and recorded vectors.
 #>
-param([Parameter(Mandatory = $true)] [string] $QpdfExe, [ValidateSet(4, 6)] [int] $Revision)
+param([Parameter(Mandatory = $true)] [string] $QpdfExe, [ValidateSet(4, 6)] [int] $Revision, [switch] $Attachments)
 $ErrorActionPreference = 'Stop'
 if ($Revision -eq 0) { $Revision = 6 }
 $QpdfExe = (Resolve-Path -LiteralPath $QpdfExe).Path
@@ -17,6 +17,31 @@ if ($manifest.generation -notmatch 'Security fixtures') {
     $manifest.generation += ' Security fixtures record randomized native encryption of authored inputs; their individual descriptions identify generation and public test credentials.'
 }
 $vectors = [Collections.Generic.List[object]]::new()
+if ($Attachments) {
+    # Derive only these composition fixtures; leave existing vectors untouched.
+    $scratch = Join-Path $repo 'artifacts/security-attachment-fixtures'
+    [IO.Directory]::CreateDirectory($scratch) | Out-Null
+    $payload = Join-Path $scratch 'private.bin'
+    [IO.File]::WriteAllBytes($payload, [Text.Encoding]::UTF8.GetBytes("Private attachment payload.`n"))
+    $seed = if ($Revision -eq 4) { 'security-r4-pdfdoc.pdf' } else { 'security-r6-empty.pdf' }
+    $password = if ($Revision -eq 4) { '636166e980' } else { '' }
+    $filename = "security-r$Revision-attachment.pdf"
+    $output = Join-Path $fixtures $filename
+    & $QpdfExe '--password-mode=hex-bytes' "--password=$password" (Join-Path $fixtures $seed) `
+        '--add-attachment' $payload '--key=private.bin' '--filename=private.bin' `
+        '--mimetype=application/octet-stream' '--description=Public synthetic attachment.' '--' `
+        '--object-streams=generate' $output
+    if ($LASTEXITCODE -ne 0) { throw 'Native attachment fixture creation failed.' }
+    & $QpdfExe '--password-mode=hex-bytes' "--password=$password" '--check' $output | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw 'Native attachment fixture validation failed.' }
+    $manifest.fixtures = @($manifest.fixtures | Where-Object { $_.file -cne $filename }) + @([ordered]@{
+        file=$filename; sha256=(Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash.ToLowerInvariant()
+        bytes=(Get-Item -LiteralPath $output).Length; expectedNpages=1; headerVersion=$(if ($Revision -eq 4) { '1.6' } else { '1.7' }); valid=$true
+        description="Native qpdf 12.4.2 attachment derivative of $seed, retaining its public credentials and metadata policy. Embedded private.bin contains UTF-8 Private attachment payload. followed by LF. Object streams are generated. Produced by tools/build-security-fixtures.ps1 -Attachments; randomized ciphertext is recorded for offline composition tests."
+    })
+    [IO.File]::WriteAllText($manifestPath, (($manifest | ConvertTo-Json -Depth 20) + "`n"))
+    return
+}
 $cases = @(
     @{ Name='ascii'; User='reader'; Owner='fixture-owner'; Metadata=$true },
     @{ Name='empty'; User=''; Owner='fixture-owner'; Metadata=$false },

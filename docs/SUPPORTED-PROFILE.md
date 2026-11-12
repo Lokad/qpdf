@@ -57,7 +57,13 @@ Encryption/decryption setters replace the preceding output policy. Split outputs
 receive independent keys, including with an empty primary document. New encryption
 cannot combine with deterministic IDs. Legacy creation, force-R5, allow-insecure,
 encryption-template copying and encrypted JSON updates remain unsupported;
-overlay/attachment-source credentials and password descriptors remain pending.
+overlay credentials and password descriptors remain pending.
+Attachment-copy sources accept independent text credentials inside their argv/job
+blocks, including the global password mode and recovery settings. Typed
+`QpdfAttachmentCopy` accepts `QpdfPassword` text/raw credentials. These readers close
+after copying their plaintext graph; the primary's output policy protects the
+result. A source credential is required independently even when the copy source
+names the primary file. Missing credentials try empty passwords.
 File setters retain native order: a zero-byte file leaves the previous password
 unchanged, while a blank first line supplies an empty password. Spaces are retained;
 CR is stripped only before LF, and NUL terminates the password. Additional lines

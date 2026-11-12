@@ -3877,7 +3877,8 @@ public static partial class Qpdf
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
-            await using QpdfDocument source = await QpdfDocument.OpenCore(host, SelectionPlan.CheckedPath(copy.File), limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
+            await using QpdfDocument source = await QpdfDocument.OpenInspectionCore(host, SelectionPlan.CheckedPath(copy.File), copy.Password,
+                limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
             Content.CatalogCopy.IncludeSourceVersion(ref copyVersion, ref copyExtension, source, governor, cancellationToken);
             using ParserMemoryScope entriesMemory = ParserMemoryScope.Create(governor);
             List<EmbeddedFileEntry> found = EmbeddedFiles.ReadEntries(source.Engine, [], limits, governor, ownership, entriesMemory, cancellationToken);
@@ -4661,7 +4662,7 @@ public static partial class Qpdf
                 if (sources is not null)
                 {
                     int count = sources.Count;
-                    requests.Reserve(checked(64L + 40L * count));
+                    requests.Reserve(checked(64L + 56L * count));
                     cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                     copies = new(count);
                     for (int index = 0; index < count; index++)
@@ -4669,7 +4670,7 @@ public static partial class Qpdf
                         cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                         QpdfAttachmentCopy source = sources[index];
                         if (source is null) { throw new ArgumentException("Attachment sources must not contain null entries.", nameof(sources)); }
-                        copies.Add(new AttachmentCopy(source.Input.Value, source.Prefix));
+                        copies.Add(new AttachmentCopy(source.Input.Value, source.Prefix) { Password = source.Password });
                     }
                 }
                 WholeFilePlan plan = new(inputPath, outputPath, QpdfRecoveryMode.Strict)

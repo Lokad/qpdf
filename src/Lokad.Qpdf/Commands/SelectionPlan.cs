@@ -344,7 +344,12 @@ internal sealed record AttachmentAdd(
     bool Replace);
 
 /// <summary>One attachment source to copy: a document plus a key prefix.</summary>
-internal sealed record AttachmentCopy(string File, string? Prefix);
+internal sealed record AttachmentCopy(string File, string? Prefix)
+{
+    internal string? PasswordText { get; init; }
+    internal QpdfPassword? Password { get; init; }
+    public override string ToString() => "AttachmentCopy [credential redacted]";
+}
 
 /// <summary>Attachment edits applied to the output model.</summary>
 internal sealed record AttachmentEdits(

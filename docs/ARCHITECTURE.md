@@ -88,6 +88,9 @@ Page-block credentials become the same per-source password values used by typed
 merging. Transformed inspections authenticate secondary readers and copy their
 payloads before closing those readers. Primary page entries reuse the already
 authenticated primary; repeated secondary paths validate credential consistency.
+Attachment-copy sources use the same authenticated reader with independent
+payload storage. Copied attachment objects join the ordinary output graph before
+the source reader and key are disposed; their protection follows the output owner.
 Host-file password storage stays alive
 through reader closure, output preparation and publication. JSON updates remain pending.
 Reading and output preparation share direct-string traversal, preserving signature

@@ -289,7 +289,7 @@ internal static class JobJsonLoader
                 {
                     _governor.NoteOperation();
                     if ((root && JobJsonParser.IsCryptoKey(property.Name) && property.Name is not ("password" or "passwordFile" or "passwordMode" or "suppressPasswordRecovery" or "decrypt" or "encrypt"))
-                        || (!root && property.Name == "password" && context != "pages"))
+                        || (!root && property.Name == "password" && context is not ("pages" or "copyAttachmentsFrom")))
                     {
                         throw new QpdfCryptoException(property.Name);
                     }

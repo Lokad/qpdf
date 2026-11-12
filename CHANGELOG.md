@@ -15,7 +15,7 @@
   R4 text passwords can retry PDFDocEncoding; raw passwords remain exact bytes.
   Typed structural checks accept `QpdfCheckOptions.Password` and inspect the decrypted graph.
   Output-free argv/job inspections accept primary text passwords with distinct missing/invalid
-  credential diagnostics. Overlay/attachment-source credentials remain unsupported.
+  credential diagnostics. Overlay credentials remain unsupported.
 - Preserve AES R4/R6 protection during typed single-source page selection, with
   text/raw user or owner credentials, empty passwords, repeated pages and rotations.
   Derived output retains both passwords, permissions and metadata policy. Explicit
@@ -28,7 +28,7 @@
   preserve supported primary protection through selection, merge/split, compression,
   object streams, QDF, linearization and attachment edits. Retain protection when
   the primary contributes no selected pages. Shared typed attachment edits also
-  preserve empty-password inputs. Template copying, overlay/attachment-source credentials
+  preserve empty-password inputs. Template copying, overlay credentials
   and encrypted JSON updates remain unsupported.
 - Add `--decrypt` / `decrypt` for authenticated AES R4/R6 PDF transformations,
   including split and linearized output. Preserve prior output on authentication
@@ -41,6 +41,10 @@
   `pages[].password`, sharing typed merge and inspection readers. Keep the primary's
   output policy, share credentials across repeated secondary paths, reject conflicts, and
   apply global password modes to each source. Empty-primary merges default to plaintext.
+- Authenticate attachment-copy sources through typed `QpdfAttachmentCopy` and
+  argv/job source credentials, including text/raw/hex input and empty passwords.
+  Preserve the destination's output policy and retain copied payloads after the
+  source closes. Record independent R4/R6 attachment fixtures for offline tests.
 - Add `--is-encrypted` and `--requires-password` (and job JSON equivalents) for
   supported handlers, retaining native query exit codes independently of warning presentation.
 - Add `--show-encryption` / `showEncryption` for supported handlers, reporting

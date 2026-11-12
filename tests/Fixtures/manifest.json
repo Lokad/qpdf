@@ -927,6 +927,24 @@
       "headerVersion": "1.7",
       "valid": true,
       "description": "Native qpdf 12.4.2 AES-256 R6 linearization of authored minimal-2page.pdf with generated object streams. Public user/owner credentials are reader/fixture-owner. Generated and checked by tools/build-security-linearized-fixtures.ps1; randomized ciphertext is retained for offline tests."
+    },
+    {
+      "file": "security-r4-attachment.pdf",
+      "sha256": "68e14c715390983a400124ea463b7a04f00c12b31559ab6518daca20b36771bd",
+      "bytes": 1988,
+      "expectedNpages": 1,
+      "headerVersion": "1.6",
+      "valid": true,
+      "description": "Native qpdf 12.4.2 attachment derivative of security-r4-pdfdoc.pdf, retaining its public credentials and metadata policy. Embedded private.bin contains UTF-8 Private attachment payload. followed by LF. Object streams are generated. Produced by tools/build-security-fixtures.ps1 -Attachments; randomized ciphertext is recorded for offline composition tests."
+    },
+    {
+      "file": "security-r6-attachment.pdf",
+      "sha256": "c3b62b328df8a444f60a41d5bdf9a7bfed35b21e3cb39b27bf490b1210711232",
+      "bytes": 2275,
+      "expectedNpages": 1,
+      "headerVersion": "1.7",
+      "valid": true,
+      "description": "Native qpdf 12.4.2 attachment derivative of security-r6-empty.pdf, retaining its public credentials and metadata policy. Embedded private.bin contains UTF-8 Private attachment payload. followed by LF. Object streams are generated. Produced by tools/build-security-fixtures.ps1 -Attachments; randomized ciphertext is recorded for offline composition tests."
     }
   ]
 }

@@ -154,9 +154,15 @@ public sealed record QpdfAttachmentCopy
     /// <summary>Creates an attachment copy source.</summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     public QpdfAttachmentCopy(QpdfPath input, string? prefix)
+        : this(input, prefix, null) { }
+
+    /// <summary>Creates an attachment copy source with an input credential.</summary>
+    /// <remarks>The credential is borrowed until the copy operation completes.</remarks>
+    public QpdfAttachmentCopy(QpdfPath input, string? prefix, QpdfPassword? password)
     {
         Input = input;
         Prefix = prefix;
+        Password = password;
     }
 
     /// <summary>Gets the source document path.</summary>
@@ -164,6 +170,9 @@ public sealed record QpdfAttachmentCopy
 
     /// <summary>Gets the key prefix, which must be well-formed UTF-16 when supplied.</summary>
     public string? Prefix { get; }
+
+    /// <summary>Gets the source password; absent credentials try an empty password.</summary>
+    public QpdfPassword? Password { get; }
 }
 
 /// <summary>Outcome of an attachment edit.</summary>

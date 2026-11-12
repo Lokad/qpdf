@@ -1528,21 +1528,28 @@
           "source": "manual/cli.rst:390"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "AES R4/R6 attachment sources authenticate independently through typed/text/raw and argv/job text/hex credentials; copied content follows the destination output policy. Legacy handlers, broader encoding recovery and canonical reference-suite coverage remain pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
+        "positive": [
+          "AttachmentPasswordTests.AttachmentSourcesAuthenticateWithoutChangingPrimaryProtection",
+          "AttachmentPasswordTests.RawAndHexOwnerCredentialsUseTheSharedDecoder"
+        ],
         "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "AttachmentPasswordTests.WrongSourcePasswordsPreservePriorOutputAndDoNotLeak",
           "CryptoExclusionTests.JobCopyAttachmentsPasswordFails",
           "CryptoExclusionTests.ArgvCopyAttachmentsPasswordFails"
         ],
-        "interaction": [],
-        "resource": [],
+        "interaction": [
+          "AttachmentPasswordTests.CopiedAttachmentsFollowExplicitOutputPoliciesAndLinearization"
+        ],
+        "resource": [
+          "AttachmentPasswordTests.EveryCopyAdmissionRefusalRefundsBeforeEncryptedPublication"
+        ],
         "oracle": []
       }
     },
@@ -5243,7 +5250,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary text passwords support AES R4/R6 inspections, JSON export and protection-preserving PDF transformations. Legacy handlers, overlay/attachment-source credentials and encrypted JSON updates remain pending."
+        "Primary text passwords support AES R4/R6 inspections, JSON export and protection-preserving PDF transformations. Legacy handlers, overlay credentials and encrypted JSON updates remain pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -5378,7 +5385,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary inspections, JSON export and PDF transformations accept input modes and native hex decoding, with the supported R4 UTF-8 recovery. Other recovery encodings, legacy handlers, overlay/attachment-source credentials and output password conversion remain pending."
+        "Primary inspections, JSON export and PDF transformations accept input modes and native hex decoding, with the supported R4 UTF-8 recovery. Other recovery encodings, legacy handlers, overlay credentials and output password conversion remain pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -6836,7 +6843,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary inspections, JSON export and PDF transformations can disable the supported R4 encoding retry. Other recovery encodings, legacy handlers, overlay/attachment-source credentials and encrypted JSON updates remain pending."
+        "Primary inspections, JSON export and PDF transformations can disable the supported R4 encoding retry. Other recovery encodings, legacy handlers, overlay credentials and encrypted JSON updates remain pending."
       ],
       "currentRejection": true,
       "evidence": {

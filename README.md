@@ -136,6 +136,10 @@ Use `--encrypt user owner 256 --` to create fresh AES-256 R6 protection. The nam
 form accepts `--user-password=... --owner-password=... --bits=256` inside the block.
 Job JSON uses `"encrypt":{"userPassword":"...","ownerPassword":"...","256bit":{}}`.
 Permission and metadata options are described in the [supported profile](docs/SUPPORTED-PROFILE.md).
+Attachment-copy sources accept their own credentials through
+`--copy-attachments-from source.pdf --password=reader --`, job
+`copyAttachmentsFrom[].password`, or `new QpdfAttachmentCopy(source, prefix, password)`.
+Source protection does not replace the destination's output policy.
 `--is-encrypted` and `--requires-password` provide native predicate exit codes;
 see the [supported profile](docs/SUPPORTED-PROFILE.md) for their `Completed` result semantics.
 `--show-encryption` reports declared permissions, cipher methods and password-match
@@ -154,7 +158,7 @@ for buffer ownership, cancellation and resource admission.
 Typed page selection, merging and splitting preserve/remove AES R4/R6 protection or create AES-256 R6.
 Argv/job PDF transformations preserve/remove primary protection or create AES-256 R6;
 legacy encryption creation and template copying,
-overlay/attachment-source credentials, password descriptors and encrypted JSON updates remain unsupported.
+overlay credentials, password descriptors and encrypted JSON updates remain unsupported.
 Typed attachment edits preserve supported empty-password input protection.
 Rendering, OCR and
 text extraction are outside the library's scope.

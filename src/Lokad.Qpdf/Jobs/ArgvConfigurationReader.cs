@@ -100,7 +100,7 @@ internal static partial class ArgvConfigurationReader
                 case "copy-attachments-from":
                     _ = Bare(token, cursor);
                     AttachmentCopy copy = ArgvParser.ParseCopyBlock(argv, ref cursor);
-                    setting("copyAttachmentsFrom", new[] { Optional(new Dictionary<string, object> { ["file"] = copy.File }, "prefix", copy.Prefix) });
+                    setting("copyAttachmentsFrom", new[] { Optional(Optional(new Dictionary<string, object> { ["file"] = copy.File }, "prefix", copy.Prefix), "password", copy.PasswordText) });
                     continue;
                 case "set-page-labels":
                     _ = Bare(token, cursor);

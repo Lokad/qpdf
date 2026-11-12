@@ -2726,6 +2726,7 @@ internal static class ArgvParser
 
         cursor += 1;
         string? prefix = null;
+        string? copyPassword = null;
         while (cursor < argv.Count && argv[cursor] != "--")
         {
             string token = argv[cursor];
@@ -2737,6 +2738,14 @@ internal static class ArgvParser
             if (token == "--prefix" || token.StartsWith("--prefix=", StringComparison.Ordinal))
             {
                 prefix = TakeParameter(argv, argv.Count, ref cursor, "--prefix");
+                continue;
+            }
+
+            if (token == "--password") { throw new QpdfParseException("Attachment password must use --password=value.", cursor, null); }
+            if (token.StartsWith("--password=", StringComparison.Ordinal))
+            {
+                copyPassword = ConfigurationText.Slice(argv, token, token.IndexOf('=') + 1);
+                cursor++;
                 continue;
             }
 
@@ -2760,7 +2769,7 @@ internal static class ArgvParser
         }
 
         cursor += 1;
-        return new AttachmentCopy(file, prefix is null || prefix.Length == 0 ? null : prefix);
+        return new AttachmentCopy(file, prefix is null || prefix.Length == 0 ? null : prefix) { PasswordText = copyPassword };
     }
 
     internal static AttachmentAdd ParseAddBlock(IReadOnlyList<string> argv, ref int cursor)

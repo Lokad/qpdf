@@ -1194,6 +1194,15 @@ internal static partial class JobJsonParser
             }
             if (isEncrypted && requiresPassword)
             { throw new QpdfParseException("isEncrypted and requiresPassword are mutually exclusive.", 0L, null); }
+            for (int index = 0; index < attachmentsToCopy.Count; index++)
+            {
+                governor.CheckCancellation();
+                AttachmentCopy copy = attachmentsToCopy[index];
+                if (copy.PasswordText is not string sourcePassword) { continue; }
+                textStorage.Memory.Reserve(48L);
+                attachmentsToCopy[index] = copy with { PasswordText = null,
+                    Password = ParseSourcePassword(sourcePassword, passwordMode, suppressPasswordRecovery, textStorage) };
+            }
             if (isEncrypted || requiresPassword)
             {
                 (QpdfPath securityInput, bool securityEmpty) = ResolveInspectionInput(input, empty, "security inspection");
@@ -2095,6 +2104,7 @@ internal static partial class JobJsonParser
     {
         string? file = null;
         string? prefix = null;
+        string? password = null;
         foreach (JsonProperty property in EffectiveProperties(entry))
         {
             switch (property.Name)
@@ -2116,7 +2126,8 @@ internal static partial class JobJsonParser
                     prefix = RequireString(property.Value, "copyAttachmentsFrom-prefix", textStorage);
                     break;
                 case "password":
-                    throw new QpdfCryptoException("password");
+                    password = RequireString(property.Value, "copyAttachmentsFrom-password", textStorage);
+                    break;
                 default:
                     throw new QpdfParseException("Unsupported copyAttachmentsFrom key.", 0L, null);
             }
@@ -2127,7 +2138,7 @@ internal static partial class JobJsonParser
             throw new QpdfParseException("Job copyAttachmentsFrom entries require a file.", 0L, null);
         }
 
-        return new AttachmentCopy(file, prefix is null || prefix.Length == 0 ? null : prefix);
+        return new AttachmentCopy(file, prefix is null || prefix.Length == 0 ? null : prefix) { PasswordText = password };
     }
 
     private static string ParseJsonVersion(JsonElement value, ConfigurationText textStorage)
@@ -2597,8 +2608,7 @@ internal static partial class JobJsonParser
             governor.CheckCancellation();
             if (text is null) { continue; }
             string path = file == "." ? primary ?? file : file;
-            textStorage.Memory.Reserve(48L);
-            QpdfPassword password = mode == "hex-bytes" ? QpdfPassword.FromHexText(text, !suppressRecovery) : QpdfPassword.FromText(text, !suppressRecovery);
+            QpdfPassword password = ParseSourcePassword(text, mode, suppressRecovery, textStorage);
             if (passwords.TryGetValue(path, out var previous))
             {
                 if (!previous.Empty && !previous.Password.HasSameInput(password, governor))
@@ -2616,6 +2626,12 @@ internal static partial class JobJsonParser
             sources.Add(new PdfPageSource(SelectionPlan.CheckedPath(file), PdfPageSelectionOptions.FromRange(range), password));
         }
         return sources;
+    }
+
+    private static QpdfPassword ParseSourcePassword(string text, string? mode, bool suppressRecovery, ConfigurationText textStorage)
+    {
+        textStorage.Memory.Reserve(48L);
+        return mode == "hex-bytes" ? QpdfPassword.FromHexText(text, !suppressRecovery) : QpdfPassword.FromText(text, !suppressRecovery);
     }
 
     private static List<(string File, string? Range, string? Password)> ParsePagesEntries(JsonElement pages, ConfigurationText textStorage)

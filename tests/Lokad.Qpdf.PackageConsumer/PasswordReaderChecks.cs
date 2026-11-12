@@ -70,6 +70,15 @@ internal static class PasswordReaderChecks
         QpdfPath plainInput = QpdfPath.From("plain-input.pdf"); host.AddInput(plainInput, plain, QpdfInputOwnership.Copy);
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, plainInput, CancellationToken.None))
         { Check(document.PageCount == 1 && document.Encryption is null, "explicitly removed protection"); }
+        QpdfPath attachmentSource = Add("security-r4-attachment.pdf");
+        QpdfAttachmentEditResult authenticatedCopy = await Qpdf.CopyAttachmentsAsync(host, plainInput, QpdfPath.From("attachment-copy.pdf"),
+            [new QpdfAttachmentCopy(attachmentSource, "copy-", QpdfPassword.FromText("café•"))], CancellationToken.None);
+        Check(authenticatedCopy.AttachmentCount == 1, "typed authenticated attachment source");
+        Check(host.TryGetOutput(QpdfPath.From("attachment-copy.pdf"), out byte[] attachmentCopyBytes), "authenticated attachment publication");
+        host.AddInput(QpdfPath.From("attachment-copy-input.pdf"), attachmentCopyBytes, QpdfInputOwnership.Copy);
+        _ = await Qpdf.ExtractAttachmentAsync(host, QpdfPath.From("attachment-copy-input.pdf"), "copy-private.bin", QpdfPath.From("copied-payload.bin"), CancellationToken.None);
+        Check(host.TryGetOutput(QpdfPath.From("copied-payload.bin"), out byte[] copiedPayload)
+            && copiedPayload.AsSpan().SequenceEqual("Private attachment payload.\n"u8), "independently encrypted attachment payload");
         QpdfOutputEncryption newProtection = QpdfOutputEncryption.CreateAes256(QpdfPassword.FromText("writer-reader"),
             QpdfPassword.FromBytes("writer-owner"u8.ToArray()), -3388, false);
         QpdfPath created = QpdfPath.From("created.pdf");

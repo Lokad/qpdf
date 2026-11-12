@@ -253,7 +253,7 @@ public sealed class AttachmentCopyTests
     }
 
     [Fact]
-    public async Task CopyNestedPasswordIsCrypto()
+    public async Task CopyPasswordIsIgnoredForPlaintextSources()
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
         host.AddInput(QpdfPath.From("inputs/s.pdf"), SourceFixture(), QpdfInputOwnership.Copy);
@@ -261,7 +261,10 @@ public sealed class AttachmentCopyTests
             host,
             new QpdfCommandInvocation(["inputs/a.pdf", "--copy-attachments-from", "inputs/s.pdf", "--password=x", "--", "--", "outputs/a.pdf"]),
             CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.UnsupportedCryptoOperation, SingleError(result).Code);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] bytes));
+        host.AddInput(QpdfPath.From("copy.pdf"), bytes, QpdfInputOwnership.Copy);
+        Assert.Equal(2, (await ListAsync(host, "copy.pdf")).Count);
     }
 
     [Fact]
@@ -344,7 +347,7 @@ public sealed class AttachmentCopyTests
     }
 
     [Fact]
-    public async Task JobCopyPasswordIsCrypto()
+    public async Task JobCopyPasswordIsIgnoredForPlaintextSources()
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
         host.AddInput(QpdfPath.From("inputs/s.pdf"), SourceFixture(), QpdfInputOwnership.Copy);
@@ -352,7 +355,10 @@ public sealed class AttachmentCopyTests
             host,
             "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"copyAttachmentsFrom\": [{\"file\": \"inputs/s.pdf\", \"password\": \"x\"}]}",
             CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.UnsupportedCryptoOperation, SingleError(result).Code);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] bytes));
+        host.AddInput(QpdfPath.From("copy.pdf"), bytes, QpdfInputOwnership.Copy);
+        Assert.Equal(2, (await ListAsync(host, "copy.pdf")).Count);
     }
 
     [Fact]
