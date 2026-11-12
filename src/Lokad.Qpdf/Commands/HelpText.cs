@@ -122,7 +122,7 @@ internal static class HelpText
         Binary inspection without an output path returns QpdfExecutionResult.OutputBytes.
         Explicit output paths use the host's staged transactions.
         Derived PDFs keep stored signature marks but disable signature fields and certification restrictions.
-        Inspections and PDF transformations accept primary 128-bit RC4/AES R4 and AES-256 R5/R6 passwords, including empty passwords.
+        Inspections and PDF transformations accept RC4 R2/R3, 128-bit RC4/AES R4 and AES-256 R5/R6 passwords, including empty passwords.
         Preserved/copied revision 4 output uses AES-128, including RC4 inputs, and requires PDF 1.6.
         Encryption predicates are mutually exclusive, return no ordinary output, and ignore other inspections.
         Their completed query codes 2 and 3 are not errors or warnings; --warning-exit-0 does not change them.

@@ -16,6 +16,11 @@ function Invoke-SecurityPolicyCase {
 }
 
 function Invoke-ReferenceSecurityPolicies {
+  $case = New-Case 'security-create-named'
+  Copy-Item -LiteralPath "$fixtureDir/meta-1page.pdf" -Destination "$case/inputs/a.pdf"
+  Invoke-SecurityPolicyCase $case 'security-create-named' 'argv' @{ inputFile = 'inputs/a.pdf'; outputFile = 'outputs/a.pdf' } @(
+    '--encrypt', '--user-password=reader', '--owner-password=owner', '--bits=256', '--'
+  ) 'reader' 'owner' 6 256 -4 $true
   foreach ($mode in @('classic', 'objects', 'qdf', 'linearized')) {
     foreach ($route in @('argv', 'job')) {
       $name = "security-create-$mode-$route"

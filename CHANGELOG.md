@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Qualify named encryption credentials/key-size arguments against native qpdf;
+  reconcile obsolete credential, codec and help coverage notes.
+
 - Accept `--remove-restrictions` and job `removeRestrictions` for PDF publication,
   reusing the default signature-disabling policy and preserving stored appearances.
   Read-only inspections and JSON exports reject this mutation request explicitly.
