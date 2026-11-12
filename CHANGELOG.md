@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Qualify every AES-256 permission choice and argv/job setter ordering against
+  native qpdf, including both credentials and decrypted-content controls.
+
 - Support standalone `--show-crypto`, including host response files, with a truthful
   managed implementation identifier and native command-form controls.
 

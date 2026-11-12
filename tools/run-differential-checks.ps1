@@ -2850,6 +2850,8 @@ else { Write-Output '[extends] trio ok with matching font object 6' }
 Invoke-ReferenceSecurity
 . (Join-Path $repoRoot 'tools/ReferenceSecurityPolicies.ps1')
 Invoke-ReferenceSecurityPolicies
+. (Join-Path $repoRoot 'tools/ReferenceSecurityPermissions.ps1')
+Invoke-ReferenceSecurityPermissions
 . (Join-Path $repoRoot 'tools/ReferenceSecurityReading.ps1')
 Invoke-ReferenceSecurityReading
 . (Join-Path $repoRoot 'tools/ReferenceSecurityJson.ps1')

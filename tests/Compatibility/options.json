@@ -565,11 +565,9 @@
           "source": "manual/cli.rst:2305"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
-      ],
+      "remainingGaps": [],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
@@ -592,7 +590,8 @@
           "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
         ],
         "oracle": [
-          "diff:security-create"
+          "diff:security-create",
+          "diff:security-permission"
         ]
       }
     },
@@ -653,11 +652,9 @@
           "source": "manual/cli.rst:2324"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
-      ],
+      "remainingGaps": [],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
@@ -680,7 +677,8 @@
           "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
         ],
         "oracle": [
-          "diff:security-create"
+          "diff:security-create",
+          "diff:security-permission"
         ]
       }
     },
@@ -707,11 +705,9 @@
           "source": "manual/cli.rst:2339"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
-      ],
+      "remainingGaps": [],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
@@ -734,7 +730,8 @@
           "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
         ],
         "oracle": [
-          "diff:security-create"
+          "diff:security-create",
+          "diff:security-permission"
         ]
       }
     },
@@ -755,11 +752,9 @@
           "source": "manual/cli.rst:2494"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
-      ],
+      "remainingGaps": [],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
@@ -782,7 +777,8 @@
           "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
         ],
         "oracle": [
-          "diff:security-create"
+          "diff:security-create",
+          "diff:security-permission"
         ]
       }
     },
@@ -809,11 +805,9 @@
           "source": "manual/cli.rst:2351"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
-      ],
+      "remainingGaps": [],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
@@ -836,7 +830,8 @@
           "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
         ],
         "oracle": [
-          "diff:security-create"
+          "diff:security-create",
+          "diff:security-permission"
         ]
       }
     },
@@ -897,11 +892,9 @@
           "source": "manual/cli.rst:2361"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
-      ],
+      "remainingGaps": [],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
@@ -924,7 +917,8 @@
           "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
         ],
         "oracle": [
-          "diff:security-create"
+          "diff:security-create",
+          "diff:security-permission"
         ]
       }
     },
@@ -957,11 +951,9 @@
           "source": "manual/cli.rst:2392"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
-      ],
+      "remainingGaps": [],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
@@ -984,7 +976,8 @@
           "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
         ],
         "oracle": [
-          "diff:security-create"
+          "diff:security-create",
+          "diff:security-permission"
         ]
       }
     },
@@ -1011,11 +1004,9 @@
           "source": "manual/cli.rst:2375"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
-      ],
+      "remainingGaps": [],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
@@ -1038,7 +1029,8 @@
           "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
         ],
         "oracle": [
-          "diff:security-create"
+          "diff:security-create",
+          "diff:security-permission"
         ]
       }
     },
@@ -1067,11 +1059,9 @@
           "source": "manual/cli.rst:2462"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
-      ],
+      "remainingGaps": [],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
@@ -1094,7 +1084,8 @@
           "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
         ],
         "oracle": [
-          "diff:security-create"
+          "diff:security-create",
+          "diff:security-permission"
         ]
       }
     },
@@ -3203,11 +3194,9 @@
           "source": "manual/cli.rst:732"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
-      ],
+      "remainingGaps": [],
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
@@ -3230,7 +3219,8 @@
           "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
         ],
         "oracle": [
-          "diff:security-create"
+          "diff:security-create",
+          "diff:security-permission"
         ]
       }
     },
