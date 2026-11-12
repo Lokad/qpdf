@@ -59,7 +59,7 @@ internal static class PdfStringCrypt
         return PdfDictionaryRebuild.Complete(graph, entries, allocation);
     }
 
-    private static bool IsSignature(PdfDictionary dictionary, ResourceGovernor governor)
+    internal static bool IsSignature(PdfDictionary dictionary, ResourceGovernor governor)
     {
         if (HasType(dictionary, "Sig"u8, governor) || HasType(dictionary, "DocTimeStamp"u8, governor)) { return true; }
         // Type is optional; handler and byte-range shape distinguish signatures

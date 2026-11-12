@@ -9,12 +9,20 @@ using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Security;
 
-public sealed class EncryptedSerializerTests
+public sealed partial class EncryptedSerializerTests
 {
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task ClassicOutputCountsExactlyAndAuthenticatesBothPasswords(bool metadata)
+    [InlineData(true, false, false, true)]
+    [InlineData(false, false, false, true)]
+    [InlineData(true, true, false, false)]
+    [InlineData(false, true, false, false)]
+    [InlineData(true, true, true, false)]
+    [InlineData(false, true, true, false)]
+    [InlineData(true, true, false, true)]
+    [InlineData(false, true, false, true)]
+    [InlineData(true, true, true, true)]
+    [InlineData(false, true, true, true)]
+    public async Task OutputCountsExactlyAndAuthenticatesBothPasswords(bool metadata, bool streamed, bool compress, bool newline)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         byte[] output;
@@ -23,9 +31,12 @@ public sealed class EncryptedSerializerTests
         {
             List<NumberedObject> model = Model(governor, source, security);
             PdfSerializer serializer = Serializer(governor, security, model);
-            CountingSink counter = new(); long expected = await Write(serializer, model, counter);
+            ValueTask<long> Serialize(IByteSink target) => streamed
+                ? WriteStreamed(serializer, model, target, compress, newline, CancellationToken.None)
+                : Write(serializer, model, target);
+            CountingSink counter = new(); long expected = await Serialize(counter);
             long before = governor.Snapshot().LiveMemoryBytes;
-            MemorySink sink = new(); Assert.Equal(expected, await Write(serializer, model, sink)); output = sink.Bytes.ToArray();
+            MemorySink sink = new(); Assert.Equal(expected, await Serialize(sink)); output = sink.Bytes.ToArray();
             Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
             string raw = Encoding.Latin1.GetString(output);
             Assert.DoesNotContain("private title", raw, StringComparison.Ordinal);
@@ -42,6 +53,10 @@ public sealed class EncryptedSerializerTests
                 PdfDictionary info = Assert.IsType<PdfDictionary>(document.GetObject(5));
                 Assert.True(info.TryGet(PdfName.FromAscii("Title"), out QpdfObject title));
                 Assert.Equal("private title", Encoding.ASCII.GetString(Assert.IsType<PdfByteString>(title).Value));
+                Assert.True(info.TryGet(PdfName.FromAscii("Nested"), out QpdfObject nested));
+                PdfArray values = Assert.IsType<PdfArray>(nested);
+                Assert.Equal("inner"u8.ToArray(), Assert.IsType<PdfByteString>(values[0]).Value);
+                Assert.Equal(new byte[] { 0, 255, 16 }, Assert.IsType<PdfByteString>(values[1]).Value);
                 Assert.Equal("q Q\n"u8.ToArray(), Assert.IsType<PdfStream>(document.GetObject(4)).Data);
                 Assert.Equal("private metadata"u8.ToArray(), Assert.IsType<PdfStream>(document.GetObject(6)).Data);
             }
@@ -66,10 +81,8 @@ public sealed class EncryptedSerializerTests
         Assert.Equal(0, sink.Length);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task UnintegratedWriterModesRejectBeforeOutput(bool qdf)
+    [Fact]
+    public async Task UnintegratedQdfWriterRejectsBeforeOutput()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope source = ParserMemoryScope.Create(governor);
@@ -77,16 +90,8 @@ public sealed class EncryptedSerializerTests
         List<NumberedObject> model = Model(governor, source, security);
         PdfSerializer serializer = Serializer(governor, security, model);
         MemorySink sink = new();
-        if (qdf)
-        {
-            await Assert.ThrowsAsync<QpdfUnsupportedFeatureException>(() => serializer.SerializeQdfAsync(new(2, 0), model,
-                null, null, 5, new byte[16], new byte[16], new(true, false), true, sink, CancellationToken.None).AsTask());
-        }
-        else
-        {
-            await Assert.ThrowsAsync<QpdfUnsupportedFeatureException>(() => serializer.SerializeStreamedAsync(new(2, 0), model,
-                [new[] { 5 }], true, null, 5, new byte[16], new byte[16], true, sink, CancellationToken.None).AsTask());
-        }
+        await Assert.ThrowsAsync<QpdfUnsupportedFeatureException>(() => serializer.SerializeQdfAsync(new(2, 0), model,
+            null, null, 5, new byte[16], new byte[16], new(true, false), true, sink, CancellationToken.None).AsTask());
         Assert.Equal(0, sink.Length);
     }
 
@@ -162,7 +167,7 @@ public sealed class EncryptedSerializerTests
             new(2, Dictionary("<< /Type /Pages /Kids [3 0 R] /Count 1 >>")),
             new(3, Dictionary("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R /Resources << >> >>")),
             new(4, new PdfStream(Dictionary("<< >>"), "q Q\n"u8.ToArray())),
-            new(5, Dictionary("<< /Title (private title) >>")),
+            new(5, Dictionary("<< /Title (private title) /Nested [(inner) <00ff10>] >>")),
             new(6, new PdfStream(Dictionary("<< /Type /Metadata /Subtype /XML >>"), "private metadata"u8.ToArray())),
             new(7, security.Dictionary)
         ];
