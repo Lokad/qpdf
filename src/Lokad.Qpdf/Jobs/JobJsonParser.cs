@@ -12,7 +12,7 @@ namespace Lokad.Qpdf.Jobs;
 /// other unimplemented cryptographic keys reject as crypto;
 /// everything outside the supported subset fails explicitly.
 /// </summary>
-internal static class JobJsonParser
+internal static partial class JobJsonParser
 {
     // JSON objects keep the last value per key. Configuration layers repeat
     // setters; exclusive input/output/page declarations still reject.
@@ -47,6 +47,10 @@ internal static class JobJsonParser
             bool requiresPassword = false;
             bool showEncryption = false;
             bool decrypt = false;
+            bool encrypt = false;
+            string encryptionUser = string.Empty, encryptionOwner = string.Empty;
+            int encryptionPermissions = -4;
+            bool encryptMetadata = true;
             bool empty = false;
             bool seenEmpty = false;
             bool seenInput = false;
@@ -223,12 +227,20 @@ internal static class JobJsonParser
             foreach (JsonProperty property in properties)
             {
                 governor.CheckCancellation();
-                if (IsCryptoKey(property.Name) && property.Name is not ("password" or "passwordFile" or "passwordMode" or "suppressPasswordRecovery" or "decrypt"))
+                if (IsCryptoKey(property.Name) && property.Name is not ("password" or "passwordFile" or "passwordMode" or "suppressPasswordRecovery" or "decrypt" or "encrypt"))
                 { throw new QpdfCryptoException(property.Name); }
                 switch (property.Name)
                 {
                     case "decrypt":
                         decrypt = RequireBareFlag(property.Value, "decrypt", textStorage);
+                        if (decrypt) { encrypt = false; }
+                        break;
+                    case "encrypt":
+                        if (seenDeterministic) { throw new QpdfParseException("Deterministic IDs cannot be combined with new encryption.", 0L, null); }
+                        ParseEncryption(property.Value, ref encryptionUser, ref encryptionOwner,
+                            ref encryptionPermissions, ref encryptMetadata, governor, textStorage);
+                        encrypt = true;
+                        decrypt = false;
                         break;
                     case "isEncrypted":
                         isEncrypted = RequireBareFlag(property.Value, "isEncrypted", textStorage);
@@ -387,6 +399,7 @@ internal static class JobJsonParser
                         forceVersion = RequireString(property.Value, "forceVersion", textStorage);
                         break;
                     case "deterministicId":
+                        if (encrypt) { throw new QpdfParseException("Deterministic IDs cannot be combined with new encryption.", 0L, null); }
                         if (seenDeterministic && !configurationLayers)
                         {
                             throw new QpdfParseException("Duplicate job key \u0027deterministicId\u0027.", 0L, null);
@@ -1274,7 +1287,15 @@ internal static class JobJsonParser
                 };
             }
 
-            if (decrypt && (jsonInput || seenUpdateFromJson)) { throw new QpdfCryptoException("decrypt"); }
+            if ((decrypt || encrypt) && (jsonInput || seenUpdateFromJson)) { throw new QpdfCryptoException(encrypt ? "encrypt" : "decrypt"); }
+            QpdfOutputEncryption? outputEncryption = decrypt ? QpdfOutputEncryption.Remove : null;
+            if (encrypt)
+            {
+                textStorage.Memory.Reserve(160L);
+                QpdfPassword user = passwordMode == "hex-bytes" ? QpdfPassword.FromHexText(encryptionUser, false) : QpdfPassword.FromText(encryptionUser, false);
+                QpdfPassword owner = passwordMode == "hex-bytes" ? QpdfPassword.FromHexText(encryptionOwner, false) : QpdfPassword.FromText(encryptionOwner, false);
+                outputEncryption = QpdfOutputEncryption.CreateAes256(user, owner, encryptionPermissions, encryptMetadata);
+            }
             if ((password is not null || passwordFiles is not null || passwordMode is not null || suppressPasswordRecovery)
                 && (jsonInput || seenUpdateFromJson || wantAttachments || showObject is not null))
             { throw new QpdfCryptoException(passwordFiles is not null ? "passwordFile" : password is not null ? "password" : passwordMode is not null ? "passwordMode" : "suppressPasswordRecovery"); }
@@ -1592,7 +1613,7 @@ internal static class JobJsonParser
                 {
                     TransformationPassword = password,
                     PasswordFiles = passwordFiles,
-                    OutputEncryption = decrypt ? QpdfOutputEncryption.Remove : null,
+                    OutputEncryption = outputEncryption,
                     EmptyDocument = empty,
                     ReplaceInput = replaceInput,
                     Rotations = rotations,
@@ -1690,7 +1711,7 @@ internal static class JobJsonParser
                 {
                     TransformationPassword = password,
                     PasswordFiles = passwordFiles,
-                    OutputEncryption = decrypt ? QpdfOutputEncryption.Remove : null,
+                    OutputEncryption = outputEncryption,
                     ReplaceInput = replaceInput,
                     Rotations = rotations,
                     Labels = labels,
@@ -1760,7 +1781,7 @@ internal static class JobJsonParser
             {
                 TransformationPassword = password,
                 PasswordFiles = passwordFiles,
-                OutputEncryption = decrypt ? QpdfOutputEncryption.Remove : null,
+                OutputEncryption = outputEncryption,
                 EmptyInput = empty,
                 ReplaceInput = replaceInput,
                 Rotations = rotations,

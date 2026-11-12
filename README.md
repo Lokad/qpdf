@@ -126,6 +126,10 @@ protection even when a pages block selects only other inputs. `--password-file=p
 Add `--decrypt` (job key `"decrypt":""`) to publish an unencrypted PDF after
 authenticating its input. It also applies to split outputs; output-free inspections
 ignore this output policy.
+Use `--encrypt user owner 256 --` to create fresh AES-256 R6 protection. The named
+form accepts `--user-password=... --owner-password=... --bits=256` inside the block.
+Job JSON uses `"encrypt":{"userPassword":"...","ownerPassword":"...","256bit":{}}`.
+Permission and metadata options are described in the [supported profile](docs/SUPPORTED-PROFILE.md).
 `--is-encrypted` and `--requires-password` provide native predicate exit codes;
 see the [supported profile](docs/SUPPORTED-PROFILE.md) for their `Completed` result semantics.
 `--show-encryption` reports declared permissions, cipher methods and password-match
@@ -143,7 +147,7 @@ for buffer ownership, cancellation and resource admission.
 
 Typed page selection, merging and splitting preserve/remove AES R4/R6 protection or create AES-256 R6.
 Argv/job PDF transformations preserve primary protection or explicitly remove it;
-new command encryption and template copying,
+legacy encryption creation and template copying,
 secondary credentials, password descriptors and encrypted JSON updates remain unsupported.
 Typed attachment edits preserve supported empty-password input protection.
 Rendering, OCR and

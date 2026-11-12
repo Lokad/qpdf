@@ -67,10 +67,16 @@ internal static class ArgvParser
 
     internal static void RejectCryptoOptions(IReadOnlyList<string> argv, Runtime.ResourceGovernor governor, bool supportedSecurityOptions)
     {
-        foreach (string token in argv)
+        for (int index = 0; index < argv.Count; index++)
         {
             governor.CheckCancellation();
             governor.NoteOperation();
+            string token = argv[index];
+            if (supportedSecurityOptions && token == "--encrypt")
+            {
+                index = EncryptionArgumentBlock.FindEnd(argv, index, governor);
+                continue;
+            }
             if (token is not null && token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2
                 && IsCryptoOption(OptionName(token)) && !(supportedSecurityOptions && OptionName(token) is "password" or "password-file" or "password-mode" or "suppress-password-recovery" or "decrypt"))
             {

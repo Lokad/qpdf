@@ -328,7 +328,9 @@ public sealed class JobCheckTests
     public async Task CryptoKeysRejectBeforeHostAccessWithoutEchoingValues(string key, bool first)
     {
         ObservingHost host = new(new());
-        string crypto = "\"" + key + "\":\"secret-not-for-diagnostics\"";
+        string crypto = key == "encrypt"
+            ? "\"encrypt\":{\"userPassword\":\"secret-not-for-diagnostics\",\"128bit\":{}}"
+            : "\"" + key + "\":\"secret-not-for-diagnostics\"";
         string check = "\"inputFile\":\"inputs/a.pdf\",\"check\":\"\"";
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, "{" + (first ? crypto + "," + check : check + "," + crypto) + "}", CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.UnsupportedCryptoOperation, Assert.Single(result.Diagnostics).Code);

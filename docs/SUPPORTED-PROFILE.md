@@ -40,8 +40,17 @@ of its pages is selected. A forced version incompatible with that protection fai
 before publication. Typed attachment edits use the same path for empty-password
 inputs. `--decrypt` / `decrypt` explicitly removes protection after authentication,
 including from split outputs. Output-free inspections ignore this output policy.
-New command encryption, encryption-template copying and encrypted JSON updates
-remain unsupported; secondary command credentials and password descriptors remain pending.
+`--encrypt user owner 256 [options] --` creates fresh AES-256 R6 protection, as
+does the named form `--encrypt --user-password=... --owner-password=... --bits=256 --`.
+The job equivalent is `"encrypt":{"userPassword":"...","ownerPassword":"...","256bit":{}}`.
+Print, modification, extraction, annotation, form and assembly permissions and
+cleartext metadata are supported; accessibility remains enabled for R6. Argv
+permission setters retain their order; job JSON applies keys in lexical order.
+Encryption/decryption setters replace the preceding output policy. Split outputs
+receive independent keys, including with an empty primary document. New encryption
+cannot combine with deterministic IDs. Legacy creation, force-R5, allow-insecure,
+encryption-template copying and encrypted JSON updates remain unsupported;
+secondary command credentials and password descriptors remain pending.
 File setters retain native order: a zero-byte file leaves the previous password
 unchanged, while a blank first line supplies an empty password. Spaces are retained;
 CR is stripped only before LF, and NUL terminates the password. Additional lines
@@ -56,6 +65,8 @@ Input `--password-mode` / `passwordMode` accepts `auto`, `bytes`, `unicode` and
 Hex mode ignores non-hex characters, pads an odd nibble and ends at the first
 decoded NUL; supported encoding recovery still applies unless suppressed.
 Typed raw-byte credentials always remain exact and never take this recovery path.
+For new R6 output, auto, bytes and unicode encode the managed text as UTF-8;
+hex-bytes uses the same bounded hex decoder. Both output passwords use this mode.
 
 `--is-encrypted` returns 0 for supported encrypted inputs and 2 for plain inputs.
 `--requires-password` returns 0 when credentials do not match, 2 for plain inputs,

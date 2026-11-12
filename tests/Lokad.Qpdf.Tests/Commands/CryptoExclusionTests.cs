@@ -50,7 +50,6 @@ public sealed class CryptoExclusionTests
     [InlineData("--show-crypto")]
     [InlineData("--show-encryption-key")]
     [InlineData("--remove-restrictions")]
-    [InlineData("--encrypt")]
     [InlineData("--copy-encryption")]
     public async Task ArgvCryptoFlagsFailWithoutOutput(string flag)
     {
@@ -69,7 +68,6 @@ public sealed class CryptoExclusionTests
     [InlineData("showEncryptionKey")]
     [InlineData("staticAesIv")]
     [InlineData("removeRestrictions")]
-    [InlineData("encrypt")]
     public async Task JobCryptoKeysFailWithoutOutput(string key)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
@@ -83,7 +81,7 @@ public sealed class CryptoExclusionTests
     public async Task JobEncryptBlockFails()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        string job = "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"encrypt\": {\"userPassword\": \"x\"}}";
+        string job = "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"encrypt\": {\"userPassword\": \"x\",\"40bit\":{}}}";
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, job, CancellationToken.None);
         SingleCryptoError(result, "outputs/a.pdf");
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));

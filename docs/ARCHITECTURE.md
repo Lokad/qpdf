@@ -80,8 +80,11 @@ after its reader closes. Repeated logical sources validate credential consistenc
 before opening; secondary sources authenticate independently. Split preparation
 encrypts each final remapped model before publication, using a fresh key per output
 when new protection is requested. Argv/job PDF transformations use the same owner
-and preserve the primary's protection unless an explicit decryption request selects
-the shared removal policy. Host-file password storage stays alive
+and preserve the primary's protection unless an explicit decrypt/encrypt request selects
+the shared removal or AES-256 policy. The argv adapter translates encryption blocks
+into the job parser, preserving permission-setter order without a second writer.
+Empty-primary merges prepare their requested key before split preparation.
+Host-file password storage stays alive
 through reader closure, output preparation and publication. JSON updates remain pending.
 Reading and output preparation share direct-string traversal, preserving signature
 Contents and leaving indirect references for their physical object boundaries.

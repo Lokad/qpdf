@@ -1027,7 +1027,7 @@ public static partial class Qpdf
                 else if (sourceVersion == version)
                 { inputExtension = Math.Max(inputExtension, Content.CatalogCopy.ReadExtensionLevel(document.Engine, governor, cancellationToken)); }
 
-                if (s == primaryIdx)
+                if (s == primaryIdx && !emptyPrimary)
                 {
                     originalId1 = TryGetOriginalId(document.Engine);
                     securityOwner?.Prepare(settings.OutputEncryption ?? QpdfOutputEncryption.Preserve, document,
@@ -1438,6 +1438,7 @@ public static partial class Qpdf
         PdfVersion inputMax = version ?? governor.PrivateVersion(1, 4);
         IncludeVersionRequirement(ref inputMax, ref inputExtension, overlayApplied.Version, overlayApplied.ExtensionLevel, governor);
         (PdfVersion negotiatedMulti, int negotiatedMultiExtension) = NegotiateVersion(inputMax, inputExtension, settings.MinVersion, settings.ForceVersion, governor);
+        if (emptyPrimary) { securityOwner?.PrepareEmpty(settings.OutputEncryption ?? QpdfOutputEncryption.Preserve, governor); }
         OutputSecurity? outputSecurity = securityOwner?.Value;
         RequireEncryptionVersion(outputSecurity, ref negotiatedMulti, ref negotiatedMultiExtension, settings.ForceVersion, governor);
         if (settings.ForceVersion is null)
@@ -5274,7 +5275,8 @@ public static partial class Qpdf
                     || token == "--password-mode" || token.StartsWith("--password-mode=", StringComparison.Ordinal)
                     || token == "--password-file" || token.StartsWith("--password-file=", StringComparison.Ordinal)
                     || token == "--suppress-password-recovery" || token.StartsWith("--suppress-password-recovery=", StringComparison.Ordinal)
-                    || token == "--decrypt" || token.StartsWith("--decrypt=", StringComparison.Ordinal))
+                    || token == "--decrypt" || token.StartsWith("--decrypt=", StringComparison.Ordinal)
+                    || token == "--encrypt" || token.StartsWith("--encrypt=", StringComparison.Ordinal))
             || expanded.Any(token => token == "--check" || token.StartsWith("--check=", StringComparison.Ordinal)
                 || token == "--is-encrypted" || token.StartsWith("--is-encrypted=", StringComparison.Ordinal)
                 || token == "--requires-password" || token.StartsWith("--requires-password=", StringComparison.Ordinal)

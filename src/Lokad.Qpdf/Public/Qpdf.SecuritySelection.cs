@@ -113,6 +113,9 @@ public static partial class Qpdf
             ParserMemoryScope memory, ResourceGovernor governor)
         { Value = PrepareOutputSecurity(policy, document, ref identifier, memory, governor); }
 
+        internal void PrepareEmpty(QpdfOutputEncryption policy, ResourceGovernor governor)
+        { Value = policy.CreateOutput(governor); }
+
         public void Dispose()
         {
             Value?.Dispose(); Value = null;

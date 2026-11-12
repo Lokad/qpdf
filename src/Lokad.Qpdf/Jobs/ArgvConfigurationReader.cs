@@ -4,7 +4,7 @@ using Lokad.Qpdf.Runtime;
 namespace Lokad.Qpdf.Jobs;
 
 /// <summary>Reads argv syntax as ordered setters for the shared operation parser.</summary>
-internal static class ArgvConfigurationReader
+internal static partial class ArgvConfigurationReader
 {
     internal static async ValueTask ReadAsync(
         IReadOnlyList<string> argv, Action<string, object> setting,
@@ -47,6 +47,10 @@ internal static class ArgvConfigurationReader
             }
             switch (name)
             {
+                case "encrypt":
+                    _ = Bare(token, cursor);
+                    setting("encrypt", ReadEncryption(argv, ref cursor, governor));
+                    continue;
                 case "global":
                     _ = Bare(token, cursor);
                     global = true;

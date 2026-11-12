@@ -139,8 +139,11 @@ public sealed class PasswordTransformationTests
         Assert.Equal(1, document.PageCount);
     }
 
-    [Fact]
-    public async Task EveryTransformAdmissionRefusalRefundsBeforePublication()
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task EveryTransformAdmissionRefusalRefundsBeforePublication(bool newEncryption, bool emptyPrimary)
     {
         RecordingMemoryBudget baseline = new(4194304); await Run(baseline, false); Assert.True(baseline.GrowthCalls > 0);
         for (int growth = 1; growth <= baseline.GrowthCalls; growth++) { await Run(new(4194304) { RefuseOnGrowth = growth }, true); }
@@ -149,10 +152,22 @@ public sealed class PasswordTransformationTests
             using InMemoryQpdfHost host = new(); Add(host, Input, "security-r6-ascii.pdf");
             host.AddInput(QpdfPath.From("password"), "reader\n"u8.ToArray(), QpdfInputOwnership.Copy);
             using IMemoryScope caller = budget.CreateScope();
-            QpdfExecutionResult result = await Qpdf.ExecuteAsync(new BudgetHost(host, caller), new([Input.Value, Output.Value, "--password-file=password", "--linearize", "--object-streams=generate"]), CancellationToken.None);
+            List<string> argv = [Input.Value, Output.Value, "--password-file=password", "--linearize", "--object-streams=generate"];
+            if (emptyPrimary)
+            {
+                Add(host, QpdfPath.From("other.pdf"), "meta-1page.pdf");
+                argv = ["--empty", Output.Value, "--pages", "other.pdf", "1,1", "--", "--split-pages=1", "--object-streams=generate"];
+            }
+            if (newEncryption) { argv.AddRange(["--encrypt", "new-user", "new-owner", "256", "--modify=none", "--"]); }
+            QpdfExecutionResult result = await Qpdf.ExecuteAsync(new BudgetHost(host, caller), new(argv), CancellationToken.None);
             Assert.Equal(refuses ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed, result.Status);
             if (refuses)
-            { Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.BudgetExceeded); Assert.False(host.TryGetOutput(Output, out _)); }
+            {
+                Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.BudgetExceeded);
+                Assert.False(host.TryGetOutput(Output, out _));
+                Assert.False(host.TryGetOutput(QpdfPath.From("output-1.pdf"), out _));
+                Assert.False(host.TryGetOutput(QpdfPath.From("output-2.pdf"), out _));
+            }
             Assert.Equal(0, host.OpenLeaseCount); Assert.Equal(0, result.Counters.OpenHandles);
             caller.Dispose(); Assert.Equal(0, budget.ReservedBytes);
         }

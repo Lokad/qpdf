@@ -136,6 +136,15 @@ internal static class PasswordReaderChecks
         host.AddInput(QpdfPath.From("decrypted-command-copy.pdf"), decryptedBytes, QpdfInputOwnership.Copy);
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("decrypted-command-copy.pdf"), CancellationToken.None))
         { Check(document.PageCount == 1 && document.Encryption is null, "command removal policy"); }
+        QpdfExecutionResult createdCommand = await Qpdf.ExecuteAsync(host, new(["decrypted-command-copy.pdf", "created-command.pdf",
+            "--encrypt", "--user-password=consumer-reader", "--owner-password=consumer-owner", "--bits=256", "--modify=none", "--cleartext-metadata", "--"]), CancellationToken.None);
+        Check(createdCommand.Status == QpdfExecutionStatus.Completed, "command AES-256 creation");
+        Check(host.TryGetOutput(QpdfPath.From("created-command.pdf"), out byte[] createdBytes), "created command publication");
+        host.AddInput(QpdfPath.From("created-command-copy.pdf"), createdBytes, QpdfInputOwnership.Copy);
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("created-command-copy.pdf"),
+            QpdfPassword.FromText("consumer-owner"), QpdfLimits.Default, CancellationToken.None))
+        { Check(document.PageCount == 1 && document.Encryption is { Revision: 6, Permissions: -1324, EncryptMetadata: false },
+            "command new policy with requested permissions and metadata"); }
         QpdfExecutionResult report = await Qpdf.ExecuteJobAsync(host,
             """{"inputFile":"security-r6-ascii.pdf","showEncryption":"","password":"consumer-secret","check":""}""", CancellationToken.None);
         Check(report.Status == QpdfExecutionStatus.Completed && report.ExitCode == QpdfExitCode.Success

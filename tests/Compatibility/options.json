@@ -565,20 +565,32 @@
           "source": "manual/cli.rst:2305"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and encrypted JSON updates remain unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+        "positive": [
+          "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
+          "OutputEncryptionCommandTests.OutputPasswordsHonorTheSelectedRepresentation",
+          "OutputEncryptionCommandTests.PermissionChoicesReachTheAuthenticatedDictionary"
         ],
-        "interaction": [],
-        "resource": [],
+        "negative": [
+          "OutputEncryptionCommandTests.UnsupportedOrMalformedPoliciesNeverExposeSecretsOrOpenInputs",
+          "OutputEncryptionCommandTests.FailedEncryptionPreservesPriorOutput"
+        ],
+        "interaction": [
+          "OutputEncryptionCommandTests.ArgvPermissionSettersRetainTheirOrder",
+          "OutputEncryptionCommandTests.JobPermissionKeysUseNativeLexicalOrderAndEncryptionWinsOverDecryption",
+          "OutputEncryptionCommandTests.PositionalOwnerPasswordsAreNeverInterpretedAsOptions",
+          "OutputEncryptionCommandTests.TheLastOutputPolicySetterWins"
+        ],
+        "resource": [
+          "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
+          "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
+        ],
         "oracle": []
       }
     },
@@ -639,20 +651,32 @@
           "source": "manual/cli.rst:2324"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and encrypted JSON updates remain unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+        "positive": [
+          "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
+          "OutputEncryptionCommandTests.OutputPasswordsHonorTheSelectedRepresentation",
+          "OutputEncryptionCommandTests.PermissionChoicesReachTheAuthenticatedDictionary"
         ],
-        "interaction": [],
-        "resource": [],
+        "negative": [
+          "OutputEncryptionCommandTests.UnsupportedOrMalformedPoliciesNeverExposeSecretsOrOpenInputs",
+          "OutputEncryptionCommandTests.FailedEncryptionPreservesPriorOutput"
+        ],
+        "interaction": [
+          "OutputEncryptionCommandTests.ArgvPermissionSettersRetainTheirOrder",
+          "OutputEncryptionCommandTests.JobPermissionKeysUseNativeLexicalOrderAndEncryptionWinsOverDecryption",
+          "OutputEncryptionCommandTests.PositionalOwnerPasswordsAreNeverInterpretedAsOptions",
+          "OutputEncryptionCommandTests.TheLastOutputPolicySetterWins"
+        ],
+        "resource": [
+          "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
+          "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
+        ],
         "oracle": []
       }
     },
@@ -679,20 +703,32 @@
           "source": "manual/cli.rst:2339"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and encrypted JSON updates remain unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+        "positive": [
+          "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
+          "OutputEncryptionCommandTests.OutputPasswordsHonorTheSelectedRepresentation",
+          "OutputEncryptionCommandTests.PermissionChoicesReachTheAuthenticatedDictionary"
         ],
-        "interaction": [],
-        "resource": [],
+        "negative": [
+          "OutputEncryptionCommandTests.UnsupportedOrMalformedPoliciesNeverExposeSecretsOrOpenInputs",
+          "OutputEncryptionCommandTests.FailedEncryptionPreservesPriorOutput"
+        ],
+        "interaction": [
+          "OutputEncryptionCommandTests.ArgvPermissionSettersRetainTheirOrder",
+          "OutputEncryptionCommandTests.JobPermissionKeysUseNativeLexicalOrderAndEncryptionWinsOverDecryption",
+          "OutputEncryptionCommandTests.PositionalOwnerPasswordsAreNeverInterpretedAsOptions",
+          "OutputEncryptionCommandTests.TheLastOutputPolicySetterWins"
+        ],
+        "resource": [
+          "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
+          "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
+        ],
         "oracle": []
       }
     },
@@ -713,20 +749,32 @@
           "source": "manual/cli.rst:2494"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and encrypted JSON updates remain unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+        "positive": [
+          "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
+          "OutputEncryptionCommandTests.OutputPasswordsHonorTheSelectedRepresentation",
+          "OutputEncryptionCommandTests.PermissionChoicesReachTheAuthenticatedDictionary"
         ],
-        "interaction": [],
-        "resource": [],
+        "negative": [
+          "OutputEncryptionCommandTests.UnsupportedOrMalformedPoliciesNeverExposeSecretsOrOpenInputs",
+          "OutputEncryptionCommandTests.FailedEncryptionPreservesPriorOutput"
+        ],
+        "interaction": [
+          "OutputEncryptionCommandTests.ArgvPermissionSettersRetainTheirOrder",
+          "OutputEncryptionCommandTests.JobPermissionKeysUseNativeLexicalOrderAndEncryptionWinsOverDecryption",
+          "OutputEncryptionCommandTests.PositionalOwnerPasswordsAreNeverInterpretedAsOptions",
+          "OutputEncryptionCommandTests.TheLastOutputPolicySetterWins"
+        ],
+        "resource": [
+          "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
+          "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
+        ],
         "oracle": []
       }
     },
@@ -753,20 +801,32 @@
           "source": "manual/cli.rst:2351"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and encrypted JSON updates remain unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+        "positive": [
+          "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
+          "OutputEncryptionCommandTests.OutputPasswordsHonorTheSelectedRepresentation",
+          "OutputEncryptionCommandTests.PermissionChoicesReachTheAuthenticatedDictionary"
         ],
-        "interaction": [],
-        "resource": [],
+        "negative": [
+          "OutputEncryptionCommandTests.UnsupportedOrMalformedPoliciesNeverExposeSecretsOrOpenInputs",
+          "OutputEncryptionCommandTests.FailedEncryptionPreservesPriorOutput"
+        ],
+        "interaction": [
+          "OutputEncryptionCommandTests.ArgvPermissionSettersRetainTheirOrder",
+          "OutputEncryptionCommandTests.JobPermissionKeysUseNativeLexicalOrderAndEncryptionWinsOverDecryption",
+          "OutputEncryptionCommandTests.PositionalOwnerPasswordsAreNeverInterpretedAsOptions",
+          "OutputEncryptionCommandTests.TheLastOutputPolicySetterWins"
+        ],
+        "resource": [
+          "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
+          "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
+        ],
         "oracle": []
       }
     },
@@ -827,20 +887,32 @@
           "source": "manual/cli.rst:2361"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and encrypted JSON updates remain unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+        "positive": [
+          "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
+          "OutputEncryptionCommandTests.OutputPasswordsHonorTheSelectedRepresentation",
+          "OutputEncryptionCommandTests.PermissionChoicesReachTheAuthenticatedDictionary"
         ],
-        "interaction": [],
-        "resource": [],
+        "negative": [
+          "OutputEncryptionCommandTests.UnsupportedOrMalformedPoliciesNeverExposeSecretsOrOpenInputs",
+          "OutputEncryptionCommandTests.FailedEncryptionPreservesPriorOutput"
+        ],
+        "interaction": [
+          "OutputEncryptionCommandTests.ArgvPermissionSettersRetainTheirOrder",
+          "OutputEncryptionCommandTests.JobPermissionKeysUseNativeLexicalOrderAndEncryptionWinsOverDecryption",
+          "OutputEncryptionCommandTests.PositionalOwnerPasswordsAreNeverInterpretedAsOptions",
+          "OutputEncryptionCommandTests.TheLastOutputPolicySetterWins"
+        ],
+        "resource": [
+          "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
+          "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
+        ],
         "oracle": []
       }
     },
@@ -873,20 +945,32 @@
           "source": "manual/cli.rst:2392"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and encrypted JSON updates remain unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+        "positive": [
+          "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
+          "OutputEncryptionCommandTests.OutputPasswordsHonorTheSelectedRepresentation",
+          "OutputEncryptionCommandTests.PermissionChoicesReachTheAuthenticatedDictionary"
         ],
-        "interaction": [],
-        "resource": [],
+        "negative": [
+          "OutputEncryptionCommandTests.UnsupportedOrMalformedPoliciesNeverExposeSecretsOrOpenInputs",
+          "OutputEncryptionCommandTests.FailedEncryptionPreservesPriorOutput"
+        ],
+        "interaction": [
+          "OutputEncryptionCommandTests.ArgvPermissionSettersRetainTheirOrder",
+          "OutputEncryptionCommandTests.JobPermissionKeysUseNativeLexicalOrderAndEncryptionWinsOverDecryption",
+          "OutputEncryptionCommandTests.PositionalOwnerPasswordsAreNeverInterpretedAsOptions",
+          "OutputEncryptionCommandTests.TheLastOutputPolicySetterWins"
+        ],
+        "resource": [
+          "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
+          "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
+        ],
         "oracle": []
       }
     },
@@ -913,20 +997,32 @@
           "source": "manual/cli.rst:2375"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and encrypted JSON updates remain unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+        "positive": [
+          "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
+          "OutputEncryptionCommandTests.OutputPasswordsHonorTheSelectedRepresentation",
+          "OutputEncryptionCommandTests.PermissionChoicesReachTheAuthenticatedDictionary"
         ],
-        "interaction": [],
-        "resource": [],
+        "negative": [
+          "OutputEncryptionCommandTests.UnsupportedOrMalformedPoliciesNeverExposeSecretsOrOpenInputs",
+          "OutputEncryptionCommandTests.FailedEncryptionPreservesPriorOutput"
+        ],
+        "interaction": [
+          "OutputEncryptionCommandTests.ArgvPermissionSettersRetainTheirOrder",
+          "OutputEncryptionCommandTests.JobPermissionKeysUseNativeLexicalOrderAndEncryptionWinsOverDecryption",
+          "OutputEncryptionCommandTests.PositionalOwnerPasswordsAreNeverInterpretedAsOptions",
+          "OutputEncryptionCommandTests.TheLastOutputPolicySetterWins"
+        ],
+        "resource": [
+          "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
+          "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
+        ],
         "oracle": []
       }
     },
@@ -955,20 +1051,32 @@
           "source": "manual/cli.rst:2462"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and encrypted JSON updates remain unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+        "positive": [
+          "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
+          "OutputEncryptionCommandTests.OutputPasswordsHonorTheSelectedRepresentation",
+          "OutputEncryptionCommandTests.PermissionChoicesReachTheAuthenticatedDictionary"
         ],
-        "interaction": [],
-        "resource": [],
+        "negative": [
+          "OutputEncryptionCommandTests.UnsupportedOrMalformedPoliciesNeverExposeSecretsOrOpenInputs",
+          "OutputEncryptionCommandTests.FailedEncryptionPreservesPriorOutput"
+        ],
+        "interaction": [
+          "OutputEncryptionCommandTests.ArgvPermissionSettersRetainTheirOrder",
+          "OutputEncryptionCommandTests.JobPermissionKeysUseNativeLexicalOrderAndEncryptionWinsOverDecryption",
+          "OutputEncryptionCommandTests.PositionalOwnerPasswordsAreNeverInterpretedAsOptions",
+          "OutputEncryptionCommandTests.TheLastOutputPolicySetterWins"
+        ],
+        "resource": [
+          "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
+          "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
+        ],
         "oracle": []
       }
     },
@@ -1500,19 +1608,32 @@
           "source": "manual/cli.rst:2294"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and encrypted JSON updates remain unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput"
+        "positive": [
+          "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
+          "OutputEncryptionCommandTests.OutputPasswordsHonorTheSelectedRepresentation",
+          "OutputEncryptionCommandTests.PermissionChoicesReachTheAuthenticatedDictionary"
         ],
-        "interaction": [],
-        "resource": [],
+        "negative": [
+          "OutputEncryptionCommandTests.UnsupportedOrMalformedPoliciesNeverExposeSecretsOrOpenInputs",
+          "OutputEncryptionCommandTests.FailedEncryptionPreservesPriorOutput"
+        ],
+        "interaction": [
+          "OutputEncryptionCommandTests.ArgvPermissionSettersRetainTheirOrder",
+          "OutputEncryptionCommandTests.JobPermissionKeysUseNativeLexicalOrderAndEncryptionWinsOverDecryption",
+          "OutputEncryptionCommandTests.PositionalOwnerPasswordsAreNeverInterpretedAsOptions",
+          "OutputEncryptionCommandTests.TheLastOutputPolicySetterWins"
+        ],
+        "resource": [
+          "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
+          "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
+        ],
         "oracle": []
       }
     },
@@ -1533,20 +1654,32 @@
           "source": "manual/cli.rst:2284"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and encrypted JSON updates remain unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+        "positive": [
+          "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
+          "OutputEncryptionCommandTests.OutputPasswordsHonorTheSelectedRepresentation",
+          "OutputEncryptionCommandTests.PermissionChoicesReachTheAuthenticatedDictionary"
         ],
-        "interaction": [],
-        "resource": [],
+        "negative": [
+          "OutputEncryptionCommandTests.UnsupportedOrMalformedPoliciesNeverExposeSecretsOrOpenInputs",
+          "OutputEncryptionCommandTests.FailedEncryptionPreservesPriorOutput"
+        ],
+        "interaction": [
+          "OutputEncryptionCommandTests.ArgvPermissionSettersRetainTheirOrder",
+          "OutputEncryptionCommandTests.JobPermissionKeysUseNativeLexicalOrderAndEncryptionWinsOverDecryption",
+          "OutputEncryptionCommandTests.PositionalOwnerPasswordsAreNeverInterpretedAsOptions",
+          "OutputEncryptionCommandTests.TheLastOutputPolicySetterWins"
+        ],
+        "resource": [
+          "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
+          "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
+        ],
         "oracle": []
       }
     },
@@ -1567,20 +1700,32 @@
           "source": "manual/cli.rst:2275"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and encrypted JSON updates remain unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+        "positive": [
+          "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
+          "OutputEncryptionCommandTests.OutputPasswordsHonorTheSelectedRepresentation",
+          "OutputEncryptionCommandTests.PermissionChoicesReachTheAuthenticatedDictionary"
         ],
-        "interaction": [],
-        "resource": [],
+        "negative": [
+          "OutputEncryptionCommandTests.UnsupportedOrMalformedPoliciesNeverExposeSecretsOrOpenInputs",
+          "OutputEncryptionCommandTests.FailedEncryptionPreservesPriorOutput"
+        ],
+        "interaction": [
+          "OutputEncryptionCommandTests.ArgvPermissionSettersRetainTheirOrder",
+          "OutputEncryptionCommandTests.JobPermissionKeysUseNativeLexicalOrderAndEncryptionWinsOverDecryption",
+          "OutputEncryptionCommandTests.PositionalOwnerPasswordsAreNeverInterpretedAsOptions",
+          "OutputEncryptionCommandTests.TheLastOutputPolicySetterWins"
+        ],
+        "resource": [
+          "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
+          "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
+        ],
         "oracle": []
       }
     },
@@ -3012,20 +3157,32 @@
           "source": "manual/cli.rst:732"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation and encrypted JSON updates remain unsupported. Canonical reference-suite coverage is still pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobEncryptBlockFails"
+        "positive": [
+          "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
+          "OutputEncryptionCommandTests.OutputPasswordsHonorTheSelectedRepresentation",
+          "OutputEncryptionCommandTests.PermissionChoicesReachTheAuthenticatedDictionary"
         ],
-        "interaction": [],
-        "resource": [],
+        "negative": [
+          "OutputEncryptionCommandTests.UnsupportedOrMalformedPoliciesNeverExposeSecretsOrOpenInputs",
+          "OutputEncryptionCommandTests.FailedEncryptionPreservesPriorOutput"
+        ],
+        "interaction": [
+          "OutputEncryptionCommandTests.ArgvPermissionSettersRetainTheirOrder",
+          "OutputEncryptionCommandTests.JobPermissionKeysUseNativeLexicalOrderAndEncryptionWinsOverDecryption",
+          "OutputEncryptionCommandTests.PositionalOwnerPasswordsAreNeverInterpretedAsOptions",
+          "OutputEncryptionCommandTests.TheLastOutputPolicySetterWins"
+        ],
+        "resource": [
+          "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
+          "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
+        ],
         "oracle": []
       }
     },

@@ -229,7 +229,7 @@ public sealed class AdapterTests
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult encrypt = await Qpdf.ExecuteJobAsync(
             host,
-            """{"inputFile": "inputs/a.pdf", "outputFile": "o.pdf", "encrypt": {}, "pages": [{"file": ".", "range": "1"}]}""",
+            """{"inputFile": "inputs/a.pdf", "outputFile": "o.pdf", "encrypt": {"128bit":{}}, "pages": [{"file": ".", "range": "1"}]}""",
             CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.UnsupportedCryptoOperation, SingleError(encrypt).Code);
 

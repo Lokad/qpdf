@@ -416,7 +416,7 @@ public sealed class InvocationTests
             Assert.Contains(flag, bashScript.Message, StringComparison.Ordinal);
         }
 
-        Assert.DoesNotContain("--encrypt", bashScript.Message, StringComparison.Ordinal);
+        Assert.Contains("--encrypt ", bashScript.Message, StringComparison.Ordinal);
         Assert.Contains("--password ", bashScript.Message, StringComparison.Ordinal);
         Assert.Contains("--password-file ", bashScript.Message, StringComparison.Ordinal);
         Assert.Contains("--decrypt ", bashScript.Message, StringComparison.Ordinal);
