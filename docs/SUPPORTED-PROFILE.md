@@ -5,9 +5,12 @@ The [option inventory](../tests/Compatibility/options.json) records exact forms,
 combinations and executable evidence; [compatibility](COMPATIBILITY.md) records
 defaults and intentional differences. Accepted syntax alone does not establish support.
 
-Encryption/passwords, signing and signature validation are excluded. Encrypted
-inputs reject even with an empty password. Populated signature copying rejects;
-blank fields and read-only inspection remain available. Rendering, OCR, text
+Encryption/passwords remain unsupported; encrypted inputs reject even with an
+empty password. Signed, unencrypted pages can be copied, merged, placed and rewritten.
+Stored signature appearances survive; active signature field attributes and document
+certification restrictions are disabled, including blank signature fields. Derived
+output does not preserve signature validity. Read-only inspection retains source
+values. Signing and signature validation are excluded. Rendering, OCR, text
 extraction/layout, general authoring and PDF/A/X/UA conformance are outside scope.
 
 ## Entry paths

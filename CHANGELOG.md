@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Copy pages from signed, unencrypted PDFs, including incremental updates, shared
+  fields and repeated pages. Retain stored signature appearances, unrelated forms
+  and private graph roles while disabling active signature semantics and document
+  certification restrictions. Apply the same policy to placement and JSON publication;
+  derived output does not preserve signature validity.
+- Start development version 0.2.0-dev.1; encrypted inputs still reject.
 - Separate planned password-security requirements, deferred legacy-output options
   and explicit raw-key/static-IV exclusions in the compatibility inventory.
   Existing rejection coverage remains current behavior, not implementation evidence.

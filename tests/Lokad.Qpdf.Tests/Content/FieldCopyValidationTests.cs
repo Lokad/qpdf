@@ -58,17 +58,17 @@ public sealed class FieldCopyValidationTests
         {
             GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, limits, 1000, owner);
             // Start at the deepest field to exercise one long inherited lookup.
-            copier.SignaturePolicy.ValidateField(new PdfReference(count + 3, 0));
+            copier.SignaturePolicy.IsSignatureField((PdfDictionary)fields[count + 3]);
             Assert.True(fields.Reads <= 4 * count, $"Unexpected repeated ancestry lookups: {fields.Reads}");
             int before = fields.Reads;
-            for (int i = 0; i < count; i++) { copier.SignaturePolicy.ValidateField(new PdfReference(i + 4, 0)); }
-            Assert.Equal(count, fields.Reads - before);
+            for (int i = 0; i < count; i++) { copier.SignaturePolicy.IsSignatureField((PdfDictionary)fields[i + 4]); }
+            Assert.Equal(0, fields.Reads - before);
         }
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]
-    public async Task FieldContextStillValidatesAnAlreadyCopiedObject()
+    public async Task FieldContextDisablesASignatureWithoutChangingAPrivateCopy()
     {
         using InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("input"), Input(), QpdfInputOwnership.Transfer);
@@ -80,9 +80,12 @@ public sealed class FieldCopyValidationTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope owner = ParserMemoryScope.Create(governor);
         GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, QpdfLimits.Default, 100, owner);
-        Assert.IsType<PdfReference>(copier.CopyValue(new PdfReference(4, 0), 0));
-        Assert.Throws<QpdfCryptoException>(() => copier.SignaturePolicy.ValidateField(new PdfReference(4, 0)));
-        Assert.Throws<QpdfCryptoException>(() => copier.SignaturePolicy.ValidateField(new PdfReference(4, 0)));
+        PdfReference original = Assert.IsType<PdfReference>(copier.CopyValue(new PdfReference(4, 0), 0));
+        PdfReference disabled = Assert.IsType<PdfReference>(copier.CopyFieldValue(new PdfReference(4, 0), 0));
+        Assert.NotEqual(original, disabled);
+        Assert.True(((PdfDictionary)copier.CopiedObjects[original.ObjectNumber]).TryGet(PdfName.FromAscii("V"), out _));
+        Assert.False(((PdfDictionary)copier.CopiedObjects[disabled.ObjectNumber]).TryGet(PdfName.FromAscii("V"), out _));
+        Assert.Equal(disabled, copier.CopyFieldValue(new PdfReference(4, 0), 0));
     }
 
     [Theory]
@@ -107,12 +110,12 @@ public sealed class FieldCopyValidationTests
         {
             GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, limits, 100, owner);
             // Warm an ancestor first: a cached type must not bypass the depth limit.
-            copier.SignaturePolicy.ValidateField(new PdfReference(4, 0));
+            copier.SignaturePolicy.IsSignatureField((PdfDictionary)fields[4]);
             if (outcome == "cancel") { fields.OnRead = () => { if (fields.Reads == 6) { cancellation.Cancel(); } }; }
             IMemoryReservation? blocker = null;
             if (outcome == "refuse")
             { Assert.True(invocation.TryReserve(root.LimitBytes - root.ReservedBytes, out blocker)); }
-            Action validate = () => copier.SignaturePolicy.ValidateField(new PdfReference(35, 0));
+            Action validate = () => copier.SignaturePolicy.IsSignatureField((PdfDictionary)fields[35]);
             using (blocker)
             {
                 if (outcome == "cancel") { Assert.ThrowsAny<OperationCanceledException>(validate); }

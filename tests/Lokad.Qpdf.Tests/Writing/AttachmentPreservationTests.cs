@@ -86,21 +86,21 @@ public sealed class AttachmentPreservationTests
 
     [Theory]
     [MemberData(nameof(ProfileCases))]
-    public async Task RetainedProfileErrorsPropagateDespiteWarningSuppression(string root, string route)
+    public async Task PrivateSignatureMetadataSurvivesAttachmentEdits(string root, string route)
     {
         using InMemoryQpdfHost host = Host(Fixture(root, "none", "(K)", "", false)); await Seed(host);
         if (route == "typed")
         {
-            await Assert.ThrowsAsync<QpdfCryptoException>(() => Qpdf.AddAttachmentsAsync(host, QpdfPath.From("input"), QpdfPath.From("output"),
-                [new("added", "extra", null, null, null, null, null, false)], CancellationToken.None).AsTask());
+            await Qpdf.AddAttachmentsAsync(host, QpdfPath.From("input"), QpdfPath.From("output"),
+                [new("added", "extra", null, null, null, null, null, false)], CancellationToken.None);
         }
         else
         {
             QpdfExecutionResult result = await Run(host, "add", route == "job", true, QpdfLimits.Default);
-            Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-            Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.UnsupportedCryptoOperation);
+            Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+            Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.UnsupportedCryptoOperation);
         }
-        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] prior)); Assert.Equal("prior"u8.ToArray(), prior);
+        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] prior)); Assert.True(prior.AsSpan().IndexOf("/Sig"u8) >= 0);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
@@ -119,9 +119,9 @@ public sealed class AttachmentPreservationTests
         { Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Empty(result.Diagnostics); await AssertPayload(host, "N"); }
         else
         {
-            Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-            Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.UnsupportedCryptoOperation);
-            Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] prior)); Assert.Equal("prior"u8.ToArray(), prior);
+            Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+            Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.UnsupportedCryptoOperation);
+            Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] prior)); Assert.True(prior.AsSpan().IndexOf("/Sig"u8) >= 0);
         }
         Assert.Equal(0L, host.OpenLeaseCount);
     }
@@ -180,7 +180,7 @@ public sealed class AttachmentPreservationTests
     [InlineData(true, false)]
     [InlineData(false, true)]
     [InlineData(true, true)]
-    public async Task OrdinarySelectionRetainsPrimaryProfileObligations(bool job, bool provider)
+    public async Task OrdinarySelectionRetainsPrimarySignatureMetadata(bool job, bool provider)
     {
         using InMemoryQpdfHost host = Host(Fixture("filespec", "none", "(K)", "", false)); await Seed(host);
         string file = provider ? "base" : ".";
@@ -188,19 +188,19 @@ public sealed class AttachmentPreservationTests
             ? await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new { inputFile = "input", outputFile = "output", noWarn = true, warningExit0 = true,
                 pages = new[] { new { file, range = "1" } } }), CancellationToken.None)
             : await Qpdf.ExecuteAsync(host, new(["input", "--pages", file, "1", "--", "--no-warn", "--warning-exit-0", "output"]), CancellationToken.None);
-        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.UnsupportedCryptoOperation);
-        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] prior)); Assert.Equal("prior"u8.ToArray(), prior);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.UnsupportedCryptoOperation);
+        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] prior)); Assert.True(prior.AsSpan().IndexOf("/Sig"u8) >= 0);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Fact]
-    public async Task TypedOrdinarySelectionRetainsPrimaryProfileObligations()
+    public async Task TypedOrdinarySelectionRetainsPrimarySignatureMetadata()
     {
         using InMemoryQpdfHost host = Host(Fixture("filespec", "none", "(K)", "", false)); await Seed(host);
-        await Assert.ThrowsAsync<QpdfCryptoException>(() => Qpdf.SelectPageAsync(host, QpdfPath.From("input"), QpdfPath.From("output"),
-            new PdfPageSelectionOptions(1), CancellationToken.None).AsTask());
-        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] prior)); Assert.Equal("prior"u8.ToArray(), prior);
+        await Qpdf.SelectPageAsync(host, QpdfPath.From("input"), QpdfPath.From("output"),
+            new PdfPageSelectionOptions(1), CancellationToken.None);
+        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] prior)); Assert.True(prior.AsSpan().IndexOf("/Sig"u8) >= 0);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
@@ -220,19 +220,18 @@ public sealed class AttachmentPreservationTests
             Task<PdfMultiPageSelectionResult> RunTyped() => Qpdf.SelectPagesAsync(host,
                 [new(QpdfPath.From("input"), new PdfPageSelectionOptions(1)), new(QpdfPath.From("secondary"), new PdfPageSelectionOptions(1))],
                 QpdfPath.From("output"), CancellationToken.None).AsTask();
-            if (pageFile) { await Assert.ThrowsAsync<QpdfCryptoException>(RunTyped); }
-            else { Assert.Empty((await RunTyped()).Warnings); }
+            Assert.Empty((await RunTyped()).Warnings);
         }
         else
         {
             QpdfExecutionResult result = route == "job"
                 ? await Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","pages":[{"file":".","range":"1"},{"file":"secondary","range":"1"}]}""", CancellationToken.None)
                 : await Qpdf.ExecuteAsync(host, new(["input", "--pages", ".", "1", "secondary", "1", "--", "output"]), CancellationToken.None);
-            Assert.Equal(pageFile ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed, result.Status);
-            if (pageFile) { Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.UnsupportedCryptoOperation); }
+            Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+            if (pageFile) { Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.UnsupportedCryptoOperation); }
         }
         if (pageFile)
-        { Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] prior)); Assert.Equal("prior"u8.ToArray(), prior); }
+        { Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] prior)); Assert.True(prior.AsSpan().IndexOf("/Sig"u8) >= 0); }
         else
         {
             await AssertPayload(host, "A");

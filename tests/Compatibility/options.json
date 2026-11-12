@@ -4862,6 +4862,7 @@
       "evidence": {
         "positive": [
           "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
+          "SignedAppearanceTests.PlacementKeepsSignatureArtworkAndTheSharedOrdinaryField",
           "OverlayTests.OverlayStacksStampOnTop",
           "OverlayScalarTests.IndirectStampScalarsMatchDirectTransforms",
           "OverlayAnnotationFrameTests.SourceRotationAndUnitMatchIndependentlyBakedAnnotationFrames",
@@ -4915,6 +4916,7 @@
         ],
         "negative": [
           "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
+          "SignedAppearanceTests.PlacementKeepsSignatureArtworkAndTheSharedOrdinaryField",
           "AnnotationCoordinateFailureTests.InvalidRecognizedCoordinatesRefusePublicationAndPrivateFieldsStayOpaque",
           "OverlayTests.MalformedOverlayFlagsFail",
           "OverlayTests.RangedOverlayFlagsFail",
@@ -5007,12 +5009,16 @@
           "AcroFormPreservationTests.UnnamedContainerKidRenames",
           "AcroFormPreservationTests.ReverseOrderRenamesFlatCounterpart",
           "AcroFormPreservationTests.ThreeLevelTopAncestorRenames",
-          "SignatureSelectionTests.EmptySignatureFieldsRemainCopyable"
+          "SignatureSelectionTests.EmptySignatureFieldsRemainCopyable",
+          "SignatureSelectionTests.PopulatedSignatureBecomesAnAppearanceWithoutActiveSignatureValues",
+          "SignedAppearanceTests.SelectionPreservesMarksAndDisablesOnlyTheFieldRole",
+          "SignedAppearanceTests.WholeDocumentAndMergeKeepOrdinaryForms",
+          "SignedAppearanceTests.SelectionPreservesMarksAndDisablesOnlyTheFieldRole",
+          "SignedAppearanceTests.WholeDocumentAndMergeKeepOrdinaryForms"
         ],
         "negative": [
           "AdapterTests.ArgvRangeErrorsFail",
           "MergeCommandTests.ArgvMergeErrorsAreExplicit",
-          "SignatureSelectionTests.PopulatedSignatureIsExplicitlyUnsupportedAndPreservesPriorOutput",
           "SignatureSelectionTests.StructuralAndCyclicReferencesStillFailWithoutPublishing",
           "SourceActionFailureTests.AnUnusableExplicitBaseCannotPublishChangedMeaning",
           "SourceActionFailureTests.UnresolvedOrMalformedSourceDestinationsCannotPublish",
@@ -5226,13 +5232,13 @@
           "PreserveUnreferencedTests.JobJsonInvalidValueFails",
           "PreservationAdmissionTests.CopyCollectionsRefuseBeforeLargeUnadmittedGrowth",
           "PreservationAdmissionTests.EitherCancellationTokenStopsAfterResolvingTheLastCandidate",
-          "PublicationProfileTests.ExplicitLoosePreservationPropagatesExcludedOutcomes"
+          "PublicationProfileTests.ExplicitLoosePreservationKeepsInactiveSignatureData"
         ],
         "interaction": [
           "PreserveUnreferencedTests.PreserveSkipsRebuiltRoots",
           "PreserveUnreferencedTests.PreserveSkipsUnpreservableWithWarning",
           "PreserveUnreferencedTests.JobJsonParityHolds",
-          "PublicationProfileTests.ExplicitLoosePreservationPropagatesExcludedOutcomes"
+          "PublicationProfileTests.ExplicitLoosePreservationKeepsInactiveSignatureData"
         ],
         "resource": [
           "PreserveUnreferencedTests.PreserveFailsOnExhaustedOutputBudget",
@@ -6737,6 +6743,7 @@
       "evidence": {
         "positive": [
           "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
+          "SignedAppearanceTests.PlacementKeepsSignatureArtworkAndTheSharedOrdinaryField",
           "OverlayTests.UnderlayGoesBelowOriginal",
           "OverlayScalarTests.IndirectStampScalarsMatchDirectTransforms",
           "OverlayAnnotationFrameTests.SourceRotationAndUnitMatchIndependentlyBakedAnnotationFrames",
@@ -6771,6 +6778,7 @@
         ],
         "negative": [
           "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
+          "SignedAppearanceTests.PlacementKeepsSignatureArtworkAndTheSharedOrdinaryField",
           "AnnotationCoordinateFailureTests.InvalidRecognizedCoordinatesRefusePublicationAndPrivateFieldsStayOpaque",
           "OverlayTests.OverlayPasswordIsCrypto",
           "OverlayDefaultTests.UnusableDefaultsKeepFallbacksAndLocalOverrides",

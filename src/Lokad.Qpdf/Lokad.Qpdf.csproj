@@ -8,16 +8,16 @@
     <Authors>Lokad</Authors>
     <Company>Lokad</Company>
     <Copyright>Copyright (c) 2026 Lokad</Copyright>
-    <Version>0.1.0</Version>
-    <AssemblyVersion>0.1.0.0</AssemblyVersion>
-    <FileVersion>0.1.0.0</FileVersion>
+    <Version>0.2.0-dev.1</Version>
+    <AssemblyVersion>0.2.0.0</AssemblyVersion>
+    <FileVersion>0.2.0.0</FileVersion>
     <RootNamespace>Lokad.Qpdf</RootNamespace>
     <AssemblyName>Lokad.Qpdf</AssemblyName>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>Managed non-cryptographic PDF operations targeting qpdf 12.4.2. JPEG processing requires a caller-supplied codec; the core has no runtime package dependencies. CMYK/YCCK decoding and Zopfli remain unavailable; see the included docs/SUPPORTED-PROFILE.md and docs/COMPATIBILITY.md.</PackageReleaseNotes>
+    <PackageReleaseNotes>Development release: extract and rewrite signed, unencrypted pages while retaining stored appearances and disabling obsolete signature semantics. Signature validity is not preserved. Password encryption remains unsupported. No runtime package dependencies; JPEG processing uses a caller-supplied codec. See docs/SUPPORTED-PROFILE.md and docs/COMPATIBILITY.md.</PackageReleaseNotes>
     <PackageTags>pdf;qpdf;structural-processing;embedding;managed</PackageTags>
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>

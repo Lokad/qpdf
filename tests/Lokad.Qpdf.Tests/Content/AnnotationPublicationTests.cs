@@ -34,7 +34,8 @@ public sealed class AnnotationPublicationTests
     private static async Task<InMemoryQpdfHost> Storage(string mode)
     {
         InMemoryQpdfHost host = new();
-        byte[] input = mode.StartsWith("navigation", StringComparison.Ordinal) ? RotationDestinationContextTests.Source("explicit")
+        byte[] input = mode == "signature" ? File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "signature-incremental.pdf"))
+            : mode.StartsWith("navigation", StringComparison.Ordinal) ? RotationDestinationContextTests.Source("explicit")
             : mode.StartsWith("overlay-clip", StringComparison.Ordinal) ? OverlayAnnotationClippingTests.Target()
             : mode.StartsWith("labels-split", StringComparison.Ordinal)
             ? File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "labels-split-start.pdf"))
@@ -87,7 +88,8 @@ public sealed class AnnotationPublicationTests
     }
 
     private static ValueTask<QpdfExecutionResult> Run(Host host, string mode, CancellationToken token)
-        => mode == "zero-collation-job" ? Qpdf.ExecuteJobAsync(host,
+        => mode == "signature" ? Qpdf.ExecuteAsync(host, new(["input", "--pages", ".", "3,1,3", "--", "output"]), token)
+            : mode == "zero-collation-job" ? Qpdf.ExecuteJobAsync(host,
             """{"inputFile":"input","outputFile":"output","collate":"1,0","pages":[{"file":".","range":"1,2"},{"file":".","range":"3"}]}""", token)
             : mode == "zero-collation" ? Qpdf.ExecuteAsync(host, new(["input", "--collate=1,0", "--pages", ".", "1,2", ".", "3", "--", "output"]), token)
             : mode == "split-membership-job" ? Qpdf.ExecuteJobAsync(host,
@@ -157,6 +159,7 @@ public sealed class AnnotationPublicationTests
     }
 
     [Theory]
+    [InlineData("signature")]
     [InlineData("source-groups")]
     [InlineData("source-groups-job")]
     [InlineData("source-groups-linear")]
@@ -259,6 +262,11 @@ public sealed class AnnotationPublicationTests
     }
 
     [Theory]
+    [InlineData("create", "signature")]
+    [InlineData("write", "signature")]
+    [InlineData("commit", "signature")]
+    [InlineData("cancel", "signature")]
+    [InlineData("close", "signature")]
     [InlineData("create", "source-groups")]
     [InlineData("write", "source-groups")]
     [InlineData("commit", "source-groups")]

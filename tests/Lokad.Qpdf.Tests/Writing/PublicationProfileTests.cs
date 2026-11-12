@@ -22,7 +22,6 @@ public sealed class PublicationProfileTests
         host.AddInput(QpdfPath.From("json"), JsonFixture(kind), QpdfInputOwnership.Transfer);
         host.AddInput(QpdfPath.From("input"), PdfFixture("ordinary", false), QpdfInputOwnership.Transfer);
         await Seed(host);
-        bool excluded = kind is not ("blank" or "private" or "ordinary");
         if (route == "typed")
         {
             async Task Run()
@@ -30,8 +29,7 @@ public sealed class PublicationProfileTests
                 if (update) { await Qpdf.UpdatePdfFromJsonAsync(host, QpdfPath.From("input"), QpdfPath.From("json"), QpdfPath.From("output"), CancellationToken.None); }
                 else { await Qpdf.CreatePdfFromJsonAsync(host, QpdfPath.From("json"), QpdfPath.From("output"), CancellationToken.None); }
             }
-            if (excluded) { Assert.Equal("/Sig", (await Assert.ThrowsAsync<QpdfCryptoException>(Run)).Option); }
-            else { await Run(); }
+            await Run();
         }
         else
         {
@@ -47,14 +45,12 @@ public sealed class PublicationProfileTests
                 string[] args = update ? ["input", "--update-from-json=json", "--", "output"] : ["json", "--json-input", "--", "output"];
                 result = await Qpdf.ExecuteAsync(host, new(args), CancellationToken.None);
             }
-            Assert.Equal(excluded ? QpdfExitCode.Error : QpdfExitCode.Success, result.ExitCode);
-            if (excluded) { Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.UnsupportedCryptoOperation); }
-            else { Assert.Empty(result.Diagnostics); }
+            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+            Assert.Empty(result.Diagnostics);
         }
         Assert.Equal(0, host.OpenLeaseCount);
         Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] bytes));
-        if (excluded) { Assert.Equal("prior"u8.ToArray(), bytes); }
-        else { Assert.True(bytes.AsSpan().StartsWith("%PDF-"u8)); }
+        Assert.True(bytes.AsSpan().StartsWith("%PDF-"u8));
     }
 
     public static IEnumerable<object[]> LooseCases()
@@ -68,7 +64,7 @@ public sealed class PublicationProfileTests
 
     [Theory]
     [MemberData(nameof(LooseCases))]
-    public async Task ExplicitLoosePreservationPropagatesExcludedOutcomes(string kind, bool preserve, bool reachable, bool job)
+    public async Task ExplicitLoosePreservationKeepsInactiveSignatureData(string kind, bool preserve, bool reachable, bool job)
     {
         using InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("input"), PdfFixture(kind, reachable), QpdfInputOwnership.Transfer);
@@ -80,14 +76,11 @@ public sealed class PublicationProfileTests
         QpdfExecutionResult result = job
             ? await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(fields), CancellationToken.None)
             : await Qpdf.ExecuteAsync(host, new(args), CancellationToken.None);
-        bool excluded = (preserve || reachable) && kind is "signature" or "indirect" or "nested" or "widget";
-        Assert.Equal(excluded ? QpdfExitCode.Error : QpdfExitCode.Success, result.ExitCode);
-        if (excluded) { Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.UnsupportedCryptoOperation); }
-        else { Assert.Empty(result.Diagnostics); }
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Empty(result.Diagnostics);
         Assert.Equal(0, host.OpenLeaseCount);
         Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] bytes));
-        if (excluded) { Assert.Equal("prior"u8.ToArray(), bytes); }
-        else { Assert.True(bytes.AsSpan().StartsWith("%PDF-"u8)); }
+        Assert.True(bytes.AsSpan().StartsWith("%PDF-"u8));
     }
 
     private static async Task Seed(InMemoryQpdfHost host)

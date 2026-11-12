@@ -43,6 +43,13 @@ metadata and attachments are independent of selected page sources.
 Final-root reachability retires superseded graphs; failed copy attempts roll back
 new objects and mappings without disturbing earlier shared copies.
 
+Signed inputs use a separate field-role mapping within the same copier. Annotation
+and AcroForm edges unregister signature fields and disable their attributes before
+following their values. Former widgets become static stamp annotations;
+appearance/resource payloads and private aliases use the ordinary graph mapping.
+Placement and JSON publication reuse this policy. Reading and inspection retain
+the original immutable values and do not validate signatures.
+
 ## Storage and ownership
 
 `IQpdfHost` supplies stable input leases and staged output transactions. Paths are

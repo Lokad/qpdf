@@ -25,6 +25,12 @@ namespace Lokad.Qpdf;
 /// independently; a later output or post-commit cleanup failure does not undo
 /// an earlier publication. The host defines each transaction's guarantees.
 /// </summary>
+/// <remarks>
+/// Derived PDFs retain stored signature appearances but disable active signature
+/// field attributes and certification restrictions. They do not preserve source
+/// signature validity. Read-only inspection retains the original values; this
+/// library does not sign or validate signatures.
+/// </remarks>
 public static partial class Qpdf
     // Command adapters: argv and job JSON converge on the typed selection plan.
 {

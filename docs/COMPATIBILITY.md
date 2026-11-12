@@ -11,7 +11,8 @@ not establish implemented behavior. Development changes are in the
 
 | Boundary | Contract |
 | --- | --- |
-| Crypto | Encrypted inputs, including empty-password PDFs, passwords, encryption/decryption, permission operations, signing and signature validation are excluded. Populated signature copying rejects; blank fields and read-only inspection remain available. |
+| Password security | Encrypted inputs, including empty-password PDFs, passwords, encryption/decryption and explicit permission options remain unsupported. Signing and signature validation are excluded. |
+| Signed inputs | Selection, rewrite, placement and JSON publication retain stored appearances but disable active signature field attributes and catalog certification restrictions. Blank signature fields are disabled too. Rewriting never preserves signature validity; read-only inspection keeps original values. |
 | JPEG | Decoding/recompression needs a caller-supplied codec. Gray/RGB is supported; CMYK/YCCK stays opaque and is ineligible for optimization. |
 | Zopfli | Unavailable; requests fail with exit 2. Ordinary Flate works. `QPDF_ZOPFLI` is treated as unset. |
 | Rotation baking | Numeric XYZ/FitR destinations follow the baked frame; Fit/FitB stays unchanged and 180-degree axis fits project their coordinate. Affected nullable positions and quarter-turn H/V/BH/BV fits fail UnsupportedFeature before publication because their general viewer/window state cannot be preserved. |
@@ -53,6 +54,7 @@ are generally not compatibility guarantees.
 | Split | Retain final document attachments and explicitly preserved unreferenced roots. Foreign page references become null. Explicit/derived labels follow assembled output order before splitting. |
 | Graph identity | Preserve same-role sharing/cycles while isolating role-specific replacements from private aliases. Equal contents are not identity. Duplicate pages/widgets have independent headers; distinct pages can retain shared field branches. |
 | Catalog and forms | Rebuild page ancestry and required Parent links. Some malformed/unresolvable extras or structure drop under bounded recovery. Combined form dictionaries/children can remain direct. General malformed-field parity is not claimed. |
+| Signature fields | Unregister signature fields and turn their widgets into static stamp annotations with the stored appearance (empty when absent). Remove signature types, values, defaults, seed constraints, locks and calculation-order entries, catalog Perms and AcroForm SigFlags. Independent private aliases retain their data; these are not active signatures. |
 | Source context | Bind retained secondary/placement URI bases, named destinations and static View optional-content defaults before source cleanup. Same-named layers remain distinct. Unsupported compound layer contexts refuse before output. |
 | Navigation | First registered repeated page is canonical. Rotation baking corrects stale target coordinates that native can retain; remote/private roles and unchanged/omitted targets keep their treatment. |
 | Annotations | Stored geometry and supported appearances follow page frames, units and NoRotate anchors. Static placement clips to the source page. Popup/reply links stay occurrence-local. This is not a general interactive appearance generator; damaged optional paths can warn/skip. |

@@ -19,7 +19,7 @@ namespace Lokad.Qpdf.Writing;
 /// preserve the form. Page-tree (`/Pages`) and catalog
 /// references stay structural errors and fail loudly.
 /// </summary>
-internal sealed class GraphCopier
+internal sealed partial class GraphCopier
 {
     private static readonly PdfName ParentKey = PdfName.FromAscii("Parent");
     private static readonly PdfName LengthKey = PdfName.FromAscii("Length");
@@ -47,11 +47,12 @@ internal sealed class GraphCopier
 
     private GraphCopier(DocumentEngine engine, ResourceGovernor governor, QpdfLimits limits, int firstId,
         ParserMemoryScope ownership)
+        : this(engine, engine.XRefEntries.Count, governor, limits, firstId, ownership) { }
+
+    private GraphCopier(IIndirectResolver resolver, int sourceObjectCount, ResourceGovernor governor,
+        QpdfLimits limits, int firstId, ParserMemoryScope ownership)
     {
-        if (engine is null)
-        {
-            throw new ArgumentNullException(nameof(engine));
-        }
+        ArgumentNullException.ThrowIfNull(resolver);
 
         if (limits is null)
         {
@@ -59,8 +60,8 @@ internal sealed class GraphCopier
         }
 
         limits.Validate();
-        _resolver = (IIndirectResolver)engine;
-        _sourceObjectCount = engine.XRefEntries.Count;
+        _resolver = resolver;
+        _sourceObjectCount = sourceObjectCount;
         _governor = governor ?? throw new ArgumentNullException(nameof(governor));
         _limits = limits;
         if (firstId <= 0)
@@ -134,6 +135,17 @@ internal sealed class GraphCopier
         {
             token.ThrowIfCancellationRequested(); _governor.CheckCancellation();
             _copied.Remove(id);
+        }
+        if (_fieldCopies is not null)
+        {
+            using ParserMemoryScope scratch = ParserMemoryScope.Create(_governor);
+            List<int> removed = ParserContainers.CreateList<int>(scratch);
+            foreach (KeyValuePair<int, PdfReference> entry in _fieldCopies)
+            {
+                token.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+                if (entry.Value.ObjectNumber >= firstId) { ParserContainers.AddItem(scratch, removed, entry.Key, sizeof(int)); }
+            }
+            foreach (int number in removed) { _governor.CheckCancellation(); _fieldCopies.Remove(number); }
         }
         _nextId = firstId;
     }
@@ -483,7 +495,8 @@ internal sealed class GraphCopier
                 // Rebuilt page roots have a canonical type for writer planning.
                 // Read-only inspection keeps the source's original reference.
                 QpdfObject copiedValue = retainSourceObjects ? value
-                    : key.Equals(TypeKey) && value is PdfReference && SignaturePolicy.ReadType(page) == "Page" ? PageType : CopyValue(value, 0);
+                    : key.Equals(TypeKey) && value is PdfReference && SignaturePolicy.ReadType(page) == "Page" ? PageType
+                    : key.RawSpan.SequenceEqual("Annots"u8) ? CopyFieldValue(value, 0) : CopyValue(value, 0);
                 entries.Assign(_ownership, _governor, key, copiedValue, _governor.CancellationToken);
             }
         }
@@ -650,7 +663,6 @@ internal sealed class GraphCopier
 
     private PdfDictionary CopyDictionary(PdfDictionary dictionary, int depth, PdfInteger? streamLength)
     {
-        SignaturePolicy.RejectDictionary(dictionary);
         bool addLength = streamLength is not null && !dictionary.TryGet(LengthKey, out _);
         PdfNameTable<QpdfObject>? entries = null;
         int processed = 0;

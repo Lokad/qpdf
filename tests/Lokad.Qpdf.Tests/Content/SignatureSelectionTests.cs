@@ -78,7 +78,7 @@ public sealed class SignatureSelectionTests
         return CheckTests.Assemble(objects, 1);
     }
 
-    public static IEnumerable<object[]> RejectionCases()
+    public static IEnumerable<object[]> SelectionCases()
     {
         foreach (string route in new[] { "typed", "argv", "job" })
         foreach (string kind in new[] { "reference", "bare", "typeless", "inherited", "indirect", "direct", "metadata", "metadata-indirect", "nonwidget" })
@@ -86,28 +86,27 @@ public sealed class SignatureSelectionTests
     }
 
     [Theory]
-    [MemberData(nameof(RejectionCases))]
-    public async Task PopulatedSignatureIsExplicitlyUnsupportedAndPreservesPriorOutput(string route, string kind)
+    [MemberData(nameof(SelectionCases))]
+    public async Task PopulatedSignatureBecomesAnAppearanceWithoutActiveSignatureValues(string route, string kind)
     {
         using InMemoryQpdfHost host = new();
-        host.AddInput(Input, Fixture(kind, kind != "bare"), QpdfInputOwnership.Transfer);
+        host.AddInput(Input, Fixture(kind, kind is not ("bare" or "metadata" or "metadata-indirect")), QpdfInputOwnership.Transfer);
         await using (IQpdfOutputTransaction prior = await host.CreateOutputAsync(Output, CancellationToken.None))
         { await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None); await prior.CommitAsync(CancellationToken.None); }
         if (route == "typed")
         {
-            QpdfCryptoException failure = await Assert.ThrowsAsync<QpdfCryptoException>(() =>
-                Qpdf.SelectPageAsync(host, Input, Output, PdfPageSelectionOptions.FromPages([1]), CancellationToken.None).AsTask());
-            Assert.Equal("/Sig", failure.Option);
+            await Qpdf.SelectPageAsync(host, Input, Output, PdfPageSelectionOptions.FromPages([1]), CancellationToken.None);
         }
         else
         {
             QpdfExecutionResult result = await Execute(host, route, CancellationToken.None);
-            Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-            Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.UnsupportedCryptoOperation && d.Message.Contains("/Sig", StringComparison.Ordinal));
-            Assert.DoesNotContain(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.InvalidArguments);
+            Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
         }
         Assert.Equal(0L, host.OpenLeaseCount);
-        Assert.True(host.TryGetOutput(Output, out byte[] bytes)); Assert.Equal("prior"u8.ToArray(), bytes);
+        Assert.True(host.TryGetOutput(Output, out byte[] bytes));
+        Assert.True(bytes.AsSpan().StartsWith("%PDF-"u8));
+        if (kind is not ("metadata" or "metadata-indirect" or "nonwidget"))
+        { Assert.True(bytes.AsSpan().IndexOf("/ByteRange"u8) < 0); }
     }
 
     [Theory]
@@ -126,6 +125,14 @@ public sealed class SignatureSelectionTests
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("reread.pdf"), CancellationToken.None);
         Assert.Equal(1, document.PageCount);
         Assert.True(bytes.AsSpan().IndexOf("/ByteRange"u8) < 0);
+        QpdfObject Resolve(QpdfObject value) => value is PdfReference reference ? document.GetObject(reference.ObjectNumber) : value;
+        Assert.True(document.PageReferences[0].Page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject annotations));
+        PdfDictionary annotation = Assert.IsType<PdfDictionary>(Resolve(Assert.Single(Assert.IsType<PdfArray>(Resolve(annotations)).Items)));
+        Assert.True(annotation.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject subtype));
+        Assert.Equal(PdfName.FromAscii("Stamp"), subtype);
+        Assert.True(annotation.TryGet(PdfName.FromAscii("AP"), out QpdfObject appearances));
+        Assert.True(Assert.IsType<PdfDictionary>(Resolve(appearances)).TryGet(PdfName.FromAscii("N"), out QpdfObject normal));
+        Assert.Empty(Assert.IsType<PdfStream>(Resolve(normal)).Data);
     }
 
     public static IEnumerable<object[]> OverlayCases()
@@ -149,22 +156,12 @@ public sealed class SignatureSelectionTests
             ? await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["input.pdf", "--" + side, "source.pdf", "--", "output.pdf"]), CancellationToken.None)
             : await Qpdf.ExecuteJobAsync(host, System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object>
             { ["inputFile"] = "input.pdf", ["outputFile"] = "output.pdf", [side] = new { file = "source.pdf" } }), CancellationToken.None);
-        bool populated = kind is not ("unsigned" or "null" or "indirect-null");
-        Assert.Equal(populated ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
         Assert.Equal(0L, host.OpenLeaseCount);
         Assert.True(host.TryGetOutput(Output, out byte[] bytes));
-        if (populated)
-        {
-            Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.UnsupportedCryptoOperation);
-            Assert.Equal("prior"u8.ToArray(), bytes);
-        }
-        else
-        {
-            Assert.True(bytes.AsSpan().IndexOf("/ByteRange"u8) < 0);
-            host.AddInput(QpdfPath.From("reread.pdf"), bytes, QpdfInputOwnership.Transfer);
-            QpdfCheckResult check = await Qpdf.CheckAsync(host, QpdfPath.From("reread.pdf"), CancellationToken.None);
-            Assert.All(check.Checks, x => Assert.NotEqual(QpdfCheckStatus.Failed, x.Status));
-        }
+        host.AddInput(QpdfPath.From("reread.pdf"), bytes, QpdfInputOwnership.Transfer);
+        QpdfCheckResult check = await Qpdf.CheckAsync(host, QpdfPath.From("reread.pdf"), CancellationToken.None);
+        Assert.All(check.Checks, x => Assert.NotEqual(QpdfCheckStatus.Failed, x.Status));
     }
 
     [Theory]
@@ -209,7 +206,6 @@ public sealed class SignatureSelectionTests
     }
 
     [Theory]
-    [InlineData("reject")]
     [InlineData("refuse")]
     [InlineData("cancel")]
     public async Task FailedCopyRefundsStorageAndPreservesPriorOutput(string outcome)
@@ -228,8 +224,7 @@ public sealed class SignatureSelectionTests
             IMemoryBudget budget = outcome == "cancel" ? new CancelingBudget(invocation, cancellation) : invocation;
             Exception? failure = await Record.ExceptionAsync(() => Qpdf.SelectPageAsync(new BudgetHost(host, budget),
                 Input, Output, PdfPageSelectionOptions.FromPages([1]), cancellation.Token).AsTask());
-            if (outcome == "reject") { Assert.IsType<QpdfCryptoException>(failure); }
-            else if (outcome == "refuse") { Assert.IsType<QpdfMemoryAdmissionException>(failure); }
+            if (outcome == "refuse") { Assert.IsType<QpdfMemoryAdmissionException>(failure); }
             else { Assert.IsAssignableFrom<OperationCanceledException>(failure); Assert.True(cancellation.IsCancellationRequested); }
             Assert.Equal(4096L, root.ReservedBytes); Assert.Equal(4096L, held.Bytes);
             Assert.Equal(0L, host.OpenLeaseCount);
@@ -261,7 +256,6 @@ public sealed class SignatureSelectionTests
     [Theory]
     [InlineData("catalog-only")]
     [InlineData("parent-cycle")]
-    [InlineData("value-cycle")]
     public async Task StructuralAndCyclicReferencesStillFailWithoutPublishing(string kind)
     {
         using InMemoryQpdfHost host = new();
@@ -270,7 +264,6 @@ public sealed class SignatureSelectionTests
             QpdfLimits.Default with { MaxNestingDepth = 16L }, CancellationToken.None).AsTask();
         QpdfException failure = await Assert.ThrowsAsync<QpdfParseException>(select);
         if (kind == "catalog-only") { Assert.Contains("/Catalog", failure.Message, StringComparison.Ordinal); }
-        if (kind == "value-cycle") { Assert.Contains("indirect reference", failure.Message, StringComparison.Ordinal); }
         Assert.Equal(0L, host.OpenLeaseCount); Assert.False(host.TryGetOutput(Output, out _));
     }
 

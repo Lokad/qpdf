@@ -104,6 +104,8 @@ internal static class HelpText
           --completion-zsh      output a zsh completion command
         Binary inspection without an output path returns QpdfExecutionResult.OutputBytes.
         Explicit output paths use the host's staged transactions.
+        Derived PDFs keep stored signature marks but disable signature fields and certification restrictions.
+        Signing and signature validation are unsupported; encrypted inputs still reject.
         """;
 
     internal const string Copyright = """

@@ -1191,21 +1191,15 @@ internal static class Program
             string widget = "<< /Type /Annot /Subtype /Widget /FT /Sig /P 3 0 R /Rect [0 0 50 20]"
                 + (populated ? " /V 9 0 R" : "") + " >>";
             string signature = "<< /Type /Sig /Contents <00> /ByteRange [0 0 0 0] /Reference [<< /Type /SigRef /Data 1 0 R >>] >>";
-            using InMemoryQpdfHost host = NewHost("input.pdf", TwoPagePdfWithAuditObjects([widget, signature]));
+            using InMemoryQpdfHost host = NewHost("input.pdf", TwoPagePdfWithAuditObjects([widget, signature], true));
             QpdfPath output = QpdfPath.From("output.pdf");
             await using (IQpdfOutputTransaction prior = await host.CreateOutputAsync(output, CancellationToken.None))
             { await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None); await prior.CommitAsync(CancellationToken.None); }
             if (route == "typed")
             {
-                bool rejected = false;
-                try
-                {
-                    PdfPageSelectionResult selected = await Qpdf.SelectPageAsync(host, QpdfPath.From("input.pdf"), output,
-                        PdfPageSelectionOptions.FromPages([1]), CancellationToken.None);
-                    Check(selected.PageCount == 1, "blank signature field selection");
-                }
-                catch (QpdfCryptoException failure) { rejected = failure.Option == "/Sig"; }
-                Check(rejected == populated, "typed signature copy policy is explicit");
+                PdfPageSelectionResult selected = await Qpdf.SelectPageAsync(host, QpdfPath.From("input.pdf"), output,
+                    PdfPageSelectionOptions.FromPages([1]), CancellationToken.None);
+                Check(selected.PageCount == 1, "signed page selection");
             }
             else
             {
@@ -1213,14 +1207,13 @@ internal static class Program
                     ? await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["input.pdf", "--pages", ".", "1", "--", "output.pdf"]), CancellationToken.None)
                     : await Qpdf.ExecuteJobAsync(host,
                         """{"inputFile":"input.pdf","outputFile":"output.pdf","pages":[{"file":".","range":"1"}]}""", CancellationToken.None);
-                Check(result.Status == (populated ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed), "signature copy status through " + route);
-                if (populated) { Check(result.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.UnsupportedCryptoOperation), "signature failure category"); }
+                Check(result.Status == QpdfExecutionStatus.Completed, "signature copy status through " + route);
             }
             Check(host.OpenLeaseCount == 0L && host.TryGetOutput(output, out _), "signature operation closes leases and preserves publication");
-            if (populated) { Check(Published(host, "output.pdf").AsSpan().SequenceEqual("prior"u8), "signature rejection leaves prior output intact"); }
-            else { await CheckOutputAsync(host, "output.pdf", "First"); }
+            Check(Published(host, "output.pdf").AsSpan().IndexOf("/ByteRange"u8) < 0, "obsolete signature value is removed");
+            await CheckOutputAsync(host, "output.pdf", "First");
         }
-        Console.WriteLine("PASS explicit signature-copy exclusion and blank fields through typed/argv/job APIs");
+        Console.WriteLine("PASS signed page selection and disabled fields through typed/argv/job APIs");
         foreach (bool populated in new[] { false, true })
         foreach (string route in new[] { "argv", "job" })
         foreach (string side in new[] { "overlay", "underlay" })
@@ -1234,14 +1227,9 @@ internal static class Program
                 ? await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["input.pdf", "--" + side, "source.pdf", "--", "output.pdf"]), CancellationToken.None)
                 : await Qpdf.ExecuteJobAsync(host, System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object>
                 { ["inputFile"] = "input.pdf", ["outputFile"] = "output.pdf", [side] = new { file = "source.pdf" } }), CancellationToken.None);
-            Check(result.Status == (populated ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed), "signature policy for " + side + " through " + route);
+            Check(result.Status == QpdfExecutionStatus.Completed, "signature policy for " + side + " through " + route);
             Check(host.OpenLeaseCount == 0L, "overlay signature policy closes source leases");
-            if (populated)
-            {
-                Check(result.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.UnsupportedCryptoOperation), "overlay signature failure category");
-                Check(Published(host, "output.pdf").AsSpan().SequenceEqual("prior"u8), "overlay signature rejection preserves prior output");
-            }
-            else { await CheckOutputAsync(host, "output.pdf", "First", 2); }
+            await CheckOutputAsync(host, "output.pdf", "First", 2);
         }
         Console.WriteLine("PASS inherited typeless signatures and blank fields through overlay/underlay package APIs");
     }
@@ -1684,6 +1672,9 @@ internal static class Program
     }
 
     private static byte[] TwoPagePdfWithAuditObjects(IReadOnlyList<string> auditBodies)
+        => TwoPagePdfWithAuditObjects(auditBodies, false);
+
+    private static byte[] TwoPagePdfWithAuditObjects(IReadOnlyList<string> auditBodies, bool annotations)
     {
         Encoding ascii = Encoding.ASCII;
         byte[] first = ascii.GetBytes("BT /F1 24 Tf 100 700 Td (First) Tj ET");
@@ -1706,7 +1697,7 @@ internal static class Program
 
         AddObject(1, ascii.GetBytes("<< /Type /Catalog /Pages 2 0 R >>"));
         AddObject(2, ascii.GetBytes("<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>"));
-        string audit = auditBodies.Count == 0 ? "" : " /Audit 8 0 R";
+        string audit = auditBodies.Count == 0 ? "" : annotations ? " /Annots [8 0 R]" : " /Audit 8 0 R";
         AddObject(3, ascii.GetBytes("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 7 0 R >> >>" + audit + " >>"));
         AddObject(4, ascii.GetBytes("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 6 0 R /Resources << /Font << /F1 7 0 R >> >> >>"));
         AddObject(5, Concat(ascii.GetBytes("<< /Length " + first.Length + " >>\nstream\n"), first, ascii.GetBytes("\nendstream")));

@@ -115,10 +115,10 @@ internal static class AcroFormCopy
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
-            if (!retainSourceObjects) { copier.SignaturePolicy.ValidateField(entry); }
+            if (!retainSourceObjects && copier.IsSignatureField(entry)) { continue; }
             if (entry is PdfReference)
             {
-                if ((retainSourceObjects ? copier.RetainSourceValue(entry) : copier.CopyValue(entry, 0)) is PdfReference copiedReference)
+                if ((retainSourceObjects ? copier.RetainSourceValue(entry) : copier.CopyFieldValue(entry, 0)) is PdfReference copiedReference)
                 {
                     ParserContainers.AddItem(result, copiedFields, copiedReference, IntPtr.Size);
                 }
@@ -128,7 +128,7 @@ internal static class AcroFormCopy
 
             PdfReference link = retainSourceObjects
                 ? copier.AddIndirectObjectWithId(copier.RetainSourceValue(entry), copier.NextId)
-                : copier.AddIndirectObject(entry) ?? throw new QpdfException("Form field copy pruned unexpectedly.");
+                : copier.AddIndirectObjectWithId(copier.CopyFieldValue(entry, 0), copier.NextId);
             ParserContainers.AddItem(result, copiedFields, link, IntPtr.Size);
         }
         bool hasNeed = false;
@@ -143,7 +143,7 @@ internal static class AcroFormCopy
             PdfName key = sourceEntries.Current.Key;
             QpdfObject raw = sourceEntries.Current.Value;
             ReadOnlySpan<byte> text = key.RawSpan;
-            if (text.SequenceEqual("Fields"u8))
+            if (text.SequenceEqual("Fields"u8) || (!retainSourceObjects && text.SequenceEqual("SigFlags"u8)))
             {
                 continue;
             }
@@ -161,7 +161,8 @@ internal static class AcroFormCopy
                 continue;
             }
 
-            QpdfObject copied = retainSourceObjects ? copier.RetainSourceValue(raw) : copier.CopyValue(raw, 0);
+            QpdfObject copied = retainSourceObjects ? copier.RetainSourceValue(raw)
+                : text.SequenceEqual("CO"u8) ? copier.CopyRegisteredFields(raw, 0) : copier.CopyValue(raw, 0);
             if (text.SequenceEqual("DR"u8))
             {
                 resources = copied;

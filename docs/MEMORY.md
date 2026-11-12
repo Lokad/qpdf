@@ -31,6 +31,10 @@ disk, drop optional data or wait for memory. Construction failure rolls back its
 fresh ownership; retained source/result storage stays funded. Conservative graph
 charges can outlive individual objects without per-object lifetime tracking.
 
+Signature disabling funds its field-role maps and replacement headers under the
+existing graph owner. Stored appearance payloads keep their ordinary sharing;
+private aliases retain their original values under the same lifetime rules.
+
 ## Input leases
 
 `QpdfPath` is a logical key; `IQpdfHost` owns access and replacement policy.

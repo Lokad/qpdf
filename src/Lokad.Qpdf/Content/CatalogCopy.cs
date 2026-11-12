@@ -323,6 +323,7 @@ internal static class CatalogCopy
             || name.SequenceEqual("StructTreeRoot"u8)
             || name.SequenceEqual("MarkInfo"u8)
             || name.SequenceEqual("Metadata"u8)
+            || name.SequenceEqual("Perms"u8)
             || name.SequenceEqual("Version"u8);
     }
 

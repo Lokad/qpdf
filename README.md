@@ -6,12 +6,13 @@ managed C#, with no native qpdf installation required at runtime.
 The core package has no runtime NuGet dependencies.
 
 Use typed C# methods, qpdf-style arguments or job JSON from your application.
-Version 0.1.0 targets compatibility with qpdf 12.4.2;
+The development version targets compatibility with qpdf 12.4.2;
 see [compatibility](docs/COMPATIBILITY.md) for supported behavior and differences.
 
 ## What you can do
 
 - Extract, reorder, duplicate, merge, split and rotate pages.
+- Extract previews from signed, unencrypted PDFs, retaining stored signature marks.
 - Inspect document structure, check PDFs, and manage attachments and metadata.
 - Rewrite PDFs with compression, object streams and linearization for web delivery.
 - Apply overlays and underlays, generate form appearances, flatten annotations,
@@ -68,11 +69,12 @@ for buffer ownership, cancellation and resource admission.
 
 ## Limitations
 
-Encrypted PDFs, passwords, encryption/decryption and signature processing are
-unsupported. Rendering, OCR and text extraction are outside the library's scope.
-Page copying rejects populated signature values with `QpdfCryptoException`
-(`/Sig`); argv/job JSON report `UnsupportedCryptoOperation`. Empty signature
-fields and read-only inspection remain available; signatures are never verified.
+Encrypted PDFs (including empty-password inputs), passwords and encryption/decryption
+remain unsupported. Rendering, OCR and text extraction are outside the library's scope.
+Copying or rewriting signed, unencrypted PDFs preserves stored annotation appearances
+and disables the active signature fields and certification restrictions. A derived
+PDF does not preserve signature validity. Blank signature fields are also disabled;
+read-only inspection retains source values. Signing and signature validation are excluded.
 CMYK/YCCK JPEG images remain opaque when decoding is requested; Zopfli compression
 is unavailable. See the [supported profile](docs/SUPPORTED-PROFILE.md) for details.
 

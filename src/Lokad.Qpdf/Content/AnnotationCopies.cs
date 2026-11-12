@@ -57,7 +57,8 @@ internal static class AnnotationCopies
                 // Widget copies need their page-local popup/reply bundle too.
                 // Retain ordinary annotation sharing when no widget is shared.
                 sharedChange |= use.Changed && (!duplicateWidgets
-                    || PdfDictionaryLookup.HasName(annotation, "Subtype"u8, "Widget"u8, resolver, governor, token));
+                    || PdfDictionaryLookup.HasName(annotation, "Subtype"u8, "Widget"u8, resolver, governor, token)
+                    || copier.IsDisabledSignatureWidget(annotation));
             }
         }
         if (!sharedChange) { return Array.Empty<(GraphCopier, CopiedForm, int)>(); }
