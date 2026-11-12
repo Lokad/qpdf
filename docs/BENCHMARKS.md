@@ -1,10 +1,11 @@
 # Benchmarks
 
-**.NET 11 is the performance baseline.** These measurements use SDK
+**.NET 11 is the performance baseline.** The historical plaintext/native tables use SDK
 11.0.100-rc.3.26522.148 / runtime 11.0.0-rc.3.26522.148, code `33456c3`,
-measured 2026-11-05. The package also targets .NET 10.
+measured 2026-11-05. Password-security observations appear separately below.
+The package also targets .NET 10.
 
-The measurements below use a dedicated quiet VM. Six pre/postflight idle gates
+Those measurements used a dedicated quiet VM. Six pre/postflight idle gates
 passed; same-build A/A medians differed by up to 2.3% below. Treat differences
 within that variability cautiously. These measurements do not isolate a .NET 11
 speedup over .NET 10: older records used different code and hardware and remain
@@ -159,6 +160,8 @@ dotnet benchmarks/Lokad.Qpdf.Benchmarks/bin/Release/net11.0/Lokad.Qpdf.Benchmark
 Authentication uses the public password predicate on a one-page input. It
 isolates authentication from bulk page/stream work but includes input copying,
 handler parsing and cleanup; it is not a pure key-derivation microbenchmark.
+The small and bulk encrypted inputs have different salts, so subtracting their
+medians does not isolate a cipher's cost.
 Opening counts 500 pages. Rewrite preserves their protection and approximately
 5 MiB of stream data; selection retains pages 1, 250 and 500. All measured jobs
 include fresh host input copies, execution and disposal. Preparation and output
@@ -179,3 +182,40 @@ require every caller owner to refund to zero. Pinned qpdf independently checks
 all six prepared inputs with both recorded credentials. Compare elapsed results
 only with quiet-host and repeated same-input controls; these workloads do not
 extend the historical native timing table above.
+
+### Local observations, 2026-11-12
+
+These Windows/.NET 11 RC 3 measurements use candidate code `755b70d9` and
+published-source baseline `32a6117d`. The host failed its initial idle gate;
+only 10 of 120 later idle samples reached 95%. Elapsed values are **provisional**.
+Each range spans medians from two separate workers, with seven batches per
+worker and identical input hashes. They are not confidence intervals or native
+speed ratios.
+
+| Complete operation | Plain ms | R4 ms | R6 ms |
+| --- | ---: | ---: | ---: |
+| Authenticate, one page | 0.0037–0.0043 | 0.0747–0.0750 | 1.405–1.430 |
+| Open/count, 500 pages | 0.899–0.901 | 1.332–1.837 | 2.696–2.830 |
+| Preserve/rewrite, 500 pages | 9.94–10.67 | 20.10–22.78 | 23.52–27.27 |
+| Select 3 of 500 pages | 0.966–0.976 | 1.572–1.760 | 2.912–3.407 |
+
+Cumulative managed allocation excludes preparation and uses ordinary local
+admission, without the recording root's instrumentation. MB means 1,000,000 bytes.
+
+| Complete operation | Plain MB/job | R4 MB/job | R6 MB/job |
+| --- | ---: | ---: | ---: |
+| Authenticate, one page | 0.0104 | 0.0211 | 0.1532 |
+| Open/count, 500 pages | 5.816 | 6.355 | 6.458 |
+| Preserve/rewrite, 500 pages | 11.916 | 30.683 | 30.627 |
+| Select 3 of 500 pages | 5.870 | 6.545 | 6.649 |
+
+Interleaved 0.1.0 controls use identical `tiny`, `rewrite-objects` and
+`select-sparse` inputs. Candidate allocation increases stay below 800 bytes/job
+in these three cases. Same-build elapsed medians vary by up to 33%, so this run
+does not establish a plaintext throughput change. Separate recording-budget
+checks on both frameworks return every owner to zero.
+
+The source checkout retains input manifests, engine hashes, all samples, idle
+observations and recording-budget results in
+`benchmarks/results/2026-11-12-security-local.json.gz`. Qualified throughput
+comparisons still require a quiet host; no timing threshold gates CI.
