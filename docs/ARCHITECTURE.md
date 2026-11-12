@@ -78,6 +78,8 @@ without encrypting its members again. Counting includes the IV and padding;
 xref streams remain clear and carry the encryption reference. Encryption and
 signature dictionaries stay outside encrypted containers. Encrypted QDF and
 linearized serialization still await integration.
+Linearized classification can place the encryption dictionary at the end of the
+first document section, before hints, while keeping it and signatures uncompressed.
 The internal reader owns one authenticated key and decrypts physical objects
 before caching them; object-stream members are parsed only after their container
 decrypts. It consumes explicit Crypt stages and respects separate string, stream

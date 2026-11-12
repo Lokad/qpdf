@@ -1,5 +1,6 @@
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Security;
 using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Writing;
@@ -233,6 +234,10 @@ internal sealed class LinearizedParts : IDisposable
 
     internal static LinearizedParts Classify(List<NumberedObject> model, ParserMemoryScope memory,
         ResourceGovernor governor, CancellationToken cancellationToken)
+        => Classify(model, 0, memory, governor, cancellationToken);
+
+    internal static LinearizedParts Classify(List<NumberedObject> model, int encryptionObject, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(governor);
@@ -240,7 +245,11 @@ internal sealed class LinearizedParts : IDisposable
         cancellationToken.ThrowIfCancellationRequested();
         using ParserMemoryScope retained = ParserMemoryScope.Create(governor);
         GovernedIntDictionary<QpdfObject> lookup = ModelLookup(model, retained, governor, cancellationToken);
-        using ClassifiedGraph graph = ClassifyGraph(lookup, 1, retained, governor, cancellationToken);
+        using ParserMemoryScope temporary = ParserMemoryScope.Create(governor);
+        GovernedIntDictionary<int> owners = GovernedIntDictionary<int>.Create(temporary, governor, sizeof(int), cancellationToken);
+        using ClassifiedGraph graph = ClassifyGraphCore(lookup, 1, owners, Array.Empty<int>(), encryptionObject,
+            retained, governor, cancellationToken);
+        temporary.Dispose();
         GovernedIntDictionary<int> renumber = AssignNumbers(graph.Part7, graph.Part8, graph.Part9, graph.Part4,
             graph.Part6, retained, governor, cancellationToken, out int lindictNumber, out int hintNumber);
         if (renumber.Count != lookup.Count)
@@ -257,6 +266,11 @@ internal sealed class LinearizedParts : IDisposable
     internal static StreamedParts ClassifyStreamed(List<NumberedObject> model,
         IReadOnlyList<IReadOnlyList<int>> groups, ParserMemoryScope memory,
         ResourceGovernor governor, CancellationToken cancellationToken)
+        => ClassifyStreamed(model, groups, 0, memory, governor, cancellationToken);
+
+    internal static StreamedParts ClassifyStreamed(List<NumberedObject> model,
+        IReadOnlyList<IReadOnlyList<int>> groups, int encryptionObject, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(groups);
@@ -272,9 +286,10 @@ internal sealed class LinearizedParts : IDisposable
         }
         List<int> pages = CollectPages(catalog, lookup, temporary, governor, cancellationToken);
         if (pages.Count == 0) { throw new QpdfParseException("Linearized output needs at least one page.", null, 1); }
-        PlanContainers(lookup, pages, groups, retained, temporary, governor, cancellationToken,
+        PlanContainers(lookup, pages, groups, encryptionObject, retained, temporary, governor, cancellationToken,
             out List<int> containers, out GovernedIntDictionary<int> owners, out GovernedIntDictionary<List<int>> containerMembers);
-        using ClassifiedGraph graph = ClassifyGraph(lookup, 1, owners, containers, retained, governor, cancellationToken);
+        using ClassifiedGraph graph = ClassifyGraphCore(lookup, 1, owners, containers, encryptionObject,
+            retained, governor, cancellationToken);
         AssignStreamedNumbers(graph, containerMembers, retained, governor, cancellationToken,
             out GovernedIntDictionary<int> renumber, out GovernedIntDictionary<(int Container, int Index)> members,
             out int lindictNumber, out int hintNumber, out int xrefFirstNumber, out int xrefMainNumber,
@@ -320,7 +335,7 @@ internal sealed class LinearizedParts : IDisposable
     }
 
     private static void PlanContainers(GovernedIntDictionary<QpdfObject> lookup, IReadOnlyList<int> pages,
-        IReadOnlyList<IReadOnlyList<int>> groups, ParserMemoryScope memory, ParserMemoryScope temporary,
+        IReadOnlyList<IReadOnlyList<int>> groups, int encryptionObject, ParserMemoryScope memory, ParserMemoryScope temporary,
         ResourceGovernor governor, CancellationToken cancellationToken, out List<int> containers,
         out GovernedIntDictionary<int> owners, out GovernedIntDictionary<List<int>> containerMembers)
     {
@@ -351,6 +366,8 @@ internal sealed class LinearizedParts : IDisposable
                 int member = group[memberIndex];
                 if (!lookup.TryGetValue(member, out QpdfObject? value) || value is null
                     || member == 1 || member == 2 || pageSet.Contains(member) || value is PdfStream || owners.ContainsKey(member)) { continue; }
+                if (encryptionObject != 0 && (member == encryptionObject
+                    || value is PdfDictionary dictionary && PdfStringCrypt.IsSignature(dictionary, governor))) { continue; }
                 Add(groupMemory, governor, kept, member);
             }
             if (kept.Count == 0) { continue; }
@@ -391,6 +408,17 @@ internal sealed class LinearizedParts : IDisposable
         int catalogNumber,
         GovernedIntDictionary<int> owners,
         IReadOnlyList<int> extraIds,
+        ParserMemoryScope memory,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+        => ClassifyGraphCore(lookup, catalogNumber, owners, extraIds, 0, memory, governor, cancellationToken);
+
+    private static ClassifiedGraph ClassifyGraphCore(
+        GovernedIntDictionary<QpdfObject> lookup,
+        int catalogNumber,
+        GovernedIntDictionary<int> owners,
+        IReadOnlyList<int> extraIds,
+        int encryptionObject,
         ParserMemoryScope memory,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
@@ -460,6 +488,13 @@ internal sealed class LinearizedParts : IDisposable
 
         GovernedIntSet openDocuments = CollectOpenDocuments(lookup, catalog, owners, temporary, governor, cancellationToken);
         GovernedIntSet pageSet = CopySet(pages, temporary, governor, cancellationToken);
+        if (encryptionObject != 0)
+        {
+            if (encryptionObject <= 2 || pageSet.Contains(encryptionObject) || owners.ContainsKey(encryptionObject)
+                || !lookup.TryGetValue(encryptionObject, out QpdfObject? encryption) || encryption is not PdfDictionary)
+            { throw new QpdfException("Linearized output needs a separate, uncompressed encryption dictionary."); }
+            GovernedCollections.AddNumber(temporary, governor, openDocuments, encryptionObject);
+        }
         List<int> tree = CollectTree(catalog, lookup, pageSet, owners, temporary, governor, cancellationToken);
         GovernedCollections.SortNumbers(temporary, governor, tree);
         int treeCount = 0;
@@ -494,11 +529,15 @@ internal sealed class LinearizedParts : IDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
-            if (number != catalogNumber && !owners.ContainsKey(number) && openDocuments.Contains(number))
+            if (number != catalogNumber && number != encryptionObject && !owners.ContainsKey(number) && openDocuments.Contains(number))
             {
                 Add(retained, governor, part4, number);
             }
         }
+
+        // The encryption dictionary closes part 4, before the encrypted hints
+        // and first page. Its reference is available in the first trailer.
+        if (encryptionObject != 0) { Add(retained, governor, part4, encryptionObject); }
 
         List<int> part6 = ParserContainers.CreateList<int>(retained);
         Add(retained, governor, part6, pages[0]);
