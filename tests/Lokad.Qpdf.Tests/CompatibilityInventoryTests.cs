@@ -52,7 +52,6 @@ public sealed class CompatibilityInventoryTests
             Assert.Equal("required", entry.GetProperty("scope").GetString());
             if (entry.GetProperty("status").GetString() == "complete")
             {
-                Assert.False(entry.GetProperty("currentRejection").GetBoolean());
                 Assert.NotEmpty(entry.GetProperty("evidence").GetProperty("positive").EnumerateArray());
                 Assert.NotEmpty(entry.GetProperty("evidence").GetProperty("oracle").EnumerateArray());
             }
@@ -235,7 +234,7 @@ public sealed class CompatibilityInventoryTests
     }
 
     [Fact]
-    public void CryptoOptionsMatchInventory()
+    public void CryptoSyntaxMatchesParserClassification()
     {
         using var inventory = ReadInventory();
         foreach (var entry in inventory.RootElement.GetProperty("options").EnumerateArray())
@@ -243,10 +242,8 @@ public sealed class CompatibilityInventoryTests
             string? flag = entry.GetProperty("flag").GetString();
             if (!string.IsNullOrEmpty(flag) && flag.StartsWith("--", StringComparison.Ordinal))
             {
-                bool rejected = entry.TryGetProperty("currentRejection", out JsonElement rejection) && rejection.GetBoolean();
-                Assert.Equal(rejected, ArgvParser.IsCryptoOption(flag.AsSpan(2)));
-                if (rejected && entry.GetProperty("scope").GetString() != "excluded")
-                { Assert.NotEqual("complete", entry.GetProperty("status").GetString()); }
+                bool cryptoSyntax = entry.TryGetProperty("cryptoSyntax", out JsonElement classification) && classification.GetBoolean();
+                Assert.Equal(cryptoSyntax, ArgvParser.IsCryptoOption(flag.AsSpan(2)));
             }
         }
         Assert.False(ArgvParser.IsCryptoOption("passwordx"));

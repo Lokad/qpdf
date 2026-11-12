@@ -27,8 +27,10 @@ not establish implemented behavior. Development changes are in the
 The inventory has 140 flags in 157 context entries. It separates implemented
 behavior from planned requirements, deferred legacy-output options and explicit
 exclusions. Security rejection tests establish current refusal only; they do not
-establish password-security support. `currentRejection` tracks remaining crypto
-refusals, including options with supported subsets, independently of scope.
+establish password-security support. `cryptoSyntax` identifies security option
+names used for parser diagnostics;
+it does not indicate support or rejection. Completion requires positive behavior,
+resource/failure controls and native evidence, independently of that syntax marker.
 Incomplete entries retain concrete gaps; exclusions have
 reasons. Companion fix-qdf/zlib-flate operations are additional contracts.
 

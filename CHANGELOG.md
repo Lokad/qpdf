@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Separate security-syntax classification from feature completion in the
+  compatibility inventory; retain behavior and native-evidence requirements.
+
 - Add native and independent-reader evidence for encrypted page, placement,
   attachment and template sources, including split output and wrong credentials.
 

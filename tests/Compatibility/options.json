@@ -134,7 +134,7 @@
       "remainingGaps": [
         "New weak encryption, forced legacy output and insecure password combinations are deferred; reading and preserving existing protection are separate requirements."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [],
         "negative": [
@@ -174,7 +174,7 @@
       "remainingGaps": [
         "New weak encryption, forced legacy output and insecure password combinations are deferred; reading and preserving existing protection are separate requirements."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [],
         "negative": [
@@ -214,7 +214,7 @@
       "remainingGaps": [
         "New weak encryption, forced legacy output and insecure password combinations are deferred; reading and preserving existing protection are separate requirements."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [],
         "negative": [
@@ -248,7 +248,7 @@
       "remainingGaps": [
         "New weak encryption, forced legacy output and insecure password combinations are deferred; reading and preserving existing protection are separate requirements."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [],
         "negative": [
@@ -288,7 +288,7 @@
       "remainingGaps": [
         "New weak encryption, forced legacy output and insecure password combinations are deferred; reading and preserving existing protection are separate requirements."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [],
         "negative": [
@@ -322,7 +322,7 @@
       "remainingGaps": [
         "New weak encryption, forced legacy output and insecure password combinations are deferred; reading and preserving existing protection are separate requirements."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [],
         "negative": [
@@ -362,7 +362,7 @@
       "remainingGaps": [
         "New weak encryption, forced legacy output and insecure password combinations are deferred; reading and preserving existing protection are separate requirements."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [],
         "negative": [
@@ -408,7 +408,7 @@
       "remainingGaps": [
         "New weak encryption, forced legacy output and insecure password combinations are deferred; reading and preserving existing protection are separate requirements."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [],
         "negative": [
@@ -448,7 +448,7 @@
       "remainingGaps": [
         "New weak encryption, forced legacy output and insecure password combinations are deferred; reading and preserving existing protection are separate requirements."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [],
         "negative": [
@@ -490,7 +490,7 @@
       "remainingGaps": [
         "New weak encryption, forced legacy output and insecure password combinations are deferred; reading and preserving existing protection are separate requirements."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [],
         "negative": [
@@ -530,7 +530,7 @@
       "remainingGaps": [
         "New weak encryption, forced legacy output and insecure password combinations are deferred; reading and preserving existing protection are separate requirements."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [],
         "negative": [
@@ -570,7 +570,7 @@
       "remainingGaps": [
         "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
@@ -618,7 +618,7 @@
       "remainingGaps": [
         "New weak encryption, forced legacy output and insecure password combinations are deferred; reading and preserving existing protection are separate requirements."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [],
         "negative": [
@@ -658,7 +658,7 @@
       "remainingGaps": [
         "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
@@ -712,7 +712,7 @@
       "remainingGaps": [
         "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
@@ -760,7 +760,7 @@
       "remainingGaps": [
         "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
@@ -814,7 +814,7 @@
       "remainingGaps": [
         "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
@@ -862,7 +862,7 @@
       "remainingGaps": [
         "New weak encryption, forced legacy output and insecure password combinations are deferred; reading and preserving existing protection are separate requirements."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [],
         "negative": [
@@ -902,7 +902,7 @@
       "remainingGaps": [
         "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
@@ -962,7 +962,7 @@
       "remainingGaps": [
         "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
@@ -1016,7 +1016,7 @@
       "remainingGaps": [
         "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
@@ -1072,7 +1072,7 @@
       "remainingGaps": [
         "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
@@ -1126,7 +1126,7 @@
       "remainingGaps": [
         "New weak encryption, forced legacy output and insecure password combinations are deferred; reading and preserving existing protection are separate requirements."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [],
         "negative": [
@@ -1166,7 +1166,7 @@
       "remainingGaps": [
         "New weak encryption, forced legacy output and insecure password combinations are deferred; reading and preserving existing protection are separate requirements."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [],
         "negative": [
@@ -1206,7 +1206,7 @@
       "remainingGaps": [
         "New weak encryption, forced legacy output and insecure password combinations are deferred; reading and preserving existing protection are separate requirements."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [],
         "negative": [
@@ -1246,7 +1246,7 @@
       "remainingGaps": [
         "New weak encryption, forced legacy output and insecure password combinations are deferred; reading and preserving existing protection are separate requirements."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [],
         "negative": [
@@ -1551,7 +1551,7 @@
       "remainingGaps": [
         "Independent encrypted-source credentials and output policies have native/independent-reader coverage. Broader encoding recovery remains pending."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "AttachmentPasswordTests.AttachmentSourcesAuthenticateWithoutChangingPrimaryProtection",
@@ -1640,7 +1640,7 @@
       "remainingGaps": [
         "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
@@ -1686,7 +1686,7 @@
       "remainingGaps": [
         "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
@@ -1732,7 +1732,7 @@
       "remainingGaps": [
         "AES-256 R6 command/job creation uses the shared writer, permission setters and metadata policy; legacy creation remains unsupported. Canonical reference-suite coverage is still pending."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
@@ -2333,7 +2333,7 @@
       "remainingGaps": [
         "Password-security behavior is not implemented; current evidence establishes rejection only."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [],
         "negative": [
@@ -2499,7 +2499,7 @@
       "remainingGaps": [
         "New weak encryption, forced legacy output and insecure password combinations are deferred; reading and preserving existing protection are separate requirements."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [],
         "negative": [
@@ -2925,12 +2925,10 @@
           "source": "manual/cli.rst:773"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Template copying has native coverage. The legacy crypto-option classification still needs reconciliation with supported parser contexts."
-      ],
-      "currentRejection": true,
+      "remainingGaps": [],
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "EncryptionTemplateCommandTests.CopyPolicyUsesItsOwnCredentialAcrossWriterAndSelectionModes"
@@ -3054,12 +3052,10 @@
           "source": "manual/cli.rst:741"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "R2–R6 reading, transforms and encrypted JSON have native coverage. The legacy crypto-option classification still needs reconciliation with supported parser contexts."
-      ],
-      "currentRejection": true,
+      "remainingGaps": [],
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "OutputDecryptionTests.ExplicitDecryptionWritesUsablePlaintextAcrossWriterPaths"
@@ -3206,7 +3202,7 @@
       "remainingGaps": [
         "Fresh AES-256 R6 writer and metadata policies have native coverage. Canonical permission-choice and setter-order controls remain pending; new legacy algorithms are deferred separately."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
@@ -3254,7 +3250,7 @@
       "remainingGaps": [
         "Independent R2–R6 template credentials and empty passwords have native coverage. Broader encoding recovery remains pending."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "EncryptionTemplateCommandTests.CopyPolicyUsesItsOwnCredentialAcrossWriterAndSelectionModes",
@@ -3797,7 +3793,7 @@
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
-      "currentRejection": false,
+      "cryptoSyntax": false,
       "evidence": {
         "positive": [
           "EncryptionPredicateTests.ArgvAndJobPredicatesMatchNativeExitSemantics"
@@ -5311,9 +5307,9 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "R2–R6 reading, transforms and encrypted JSON have native coverage. The legacy crypto-option classification still needs reconciliation with supported parser contexts."
+        "R2–R6 primary credentials, transforms and encrypted JSON have native coverage. Broader encoding recovery remains pending."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "PasswordInspectionTests.ArgvAndJobsInspectAuthenticatedPrimaryInputs",
@@ -5379,7 +5375,7 @@
       "remainingGaps": [
         "Primary host-file credentials, including host-mapped descriptor input '-', support R2–R6 inspections, JSON export and PDF transformations with first-line and ordered-setter semantics. Broader encoding recovery, secondary host-file credentials and canonical encrypted JSON reference coverage remains pending."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "PasswordFileTests.ArgvAndJobsUseFirstLineBytesForInspectionsAndJson",
@@ -5432,7 +5428,7 @@
       "status": "excluded",
       "defaultReview": "reviewed",
       "remainingGaps": [],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "exclusionReason": "Specialist raw-key and static-IV switches are outside the supported target.",
       "evidence": {
         "positive": [],
@@ -5477,7 +5473,7 @@
       "remainingGaps": [
         "Primary inspections, JSON export and PDF transformations accept input modes and native hex decoding, with the supported R2–R4 UTF-8 recovery. Other recovery encodings and output password conversion remain pending."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "PasswordModeTests.InputModesMatchNativeDecodingAndRecovery",
@@ -6011,7 +6007,7 @@
       "remainingGaps": [
         "Password-security behavior is not implemented; current evidence establishes rejection only."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [],
         "negative": [
@@ -6234,7 +6230,7 @@
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
-      "currentRejection": false,
+      "cryptoSyntax": false,
       "evidence": {
         "positive": [
           "EncryptionPredicateTests.ArgvAndJobPredicatesMatchNativeExitSemantics"
@@ -6462,7 +6458,7 @@
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
-      "currentRejection": false,
+      "cryptoSyntax": false,
       "evidence": {
         "positive": [
           "EncryptionReportTests.ArgvAndJobReportsMatchNonSecretNativeFacts",
@@ -6503,7 +6499,7 @@
       "status": "excluded",
       "defaultReview": "reviewed",
       "remainingGaps": [],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "exclusionReason": "Specialist raw-key and static-IV switches are outside the supported target.",
       "evidence": {
         "positive": [],
@@ -6813,7 +6809,7 @@
       "status": "excluded",
       "defaultReview": "reviewed",
       "remainingGaps": [],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "exclusionReason": "Specialist raw-key and static-IV switches are outside the supported target.",
       "evidence": {
         "positive": [],
@@ -6938,7 +6934,7 @@
       "remainingGaps": [
         "Primary inspections, JSON export and PDF transformations can disable the supported R2–R4 encoding retry. Other recovery encodings and canonical reference qualification remains pending."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "PasswordRecoveryOptionTests.SuppressionUsesOnlyTheSuppliedEncoding",
@@ -7387,7 +7383,7 @@
       "remainingGaps": [
         "Independent encrypted-source credentials and output policies have native/independent-reader coverage. Broader encoding recovery remains pending."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "PagePasswordCommandTests.EachPageSourceAuthenticatesWithoutReplacingOutputPolicy",
@@ -7708,7 +7704,7 @@
       "remainingGaps": [
         "Independent encrypted-source credentials and output policies have native/independent-reader coverage. Broader encoding recovery remains pending."
       ],
-      "currentRejection": true,
+      "cryptoSyntax": true,
       "evidence": {
         "positive": [
           "OverlayPasswordTests.PlacementCredentialsKeepTheRequestedOutputProtection",
