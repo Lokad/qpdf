@@ -195,7 +195,7 @@ internal static partial class ArgvConfigurationReader
     private static string Value(IReadOnlyList<string> argv, ref int cursor, string? fallback)
     {
         string token = argv[cursor];
-        bool emptyIdentifier = ArgvParser.OptionName(token) is "show-attachment" or "remove-attachment" or "password";
+        bool emptyIdentifier = ArgvParser.OptionName(token) is "show-attachment" or "remove-attachment" or "password" or "encryption-file-password";
         int equals = token.IndexOf('=');
         if (equals >= 0)
         {
@@ -236,7 +236,7 @@ internal static partial class ArgvConfigurationReader
             or "keep-files-open-threshold" or "min-version" or "oi-min-area" or "oi-min-height" or "oi-min-width"
             or "show-attachment" or "show-object" or "linearize-pass1" or "update-from-json" or "json-stream-prefix"
             or "decode-level" or "flatten-annotations" or "json-stream-data"
-            or "normalize-content" or "object-streams" or "remove-unreferenced-resources" or "stream-data" or "password" or "password-file" or "password-mode";
+            or "normalize-content" or "object-streams" or "remove-unreferenced-resources" or "stream-data" or "password" or "password-file" or "password-mode" or "copy-encryption" or "encryption-file-password";
 
     private static bool IsBare(ReadOnlySpan<char> name)
         => name is "check" or "check-linearization" or "is-encrypted" or "requires-password" or "show-encryption" or "suppress-password-recovery" or "decrypt" or "coalesce-contents" or "deterministic-id"

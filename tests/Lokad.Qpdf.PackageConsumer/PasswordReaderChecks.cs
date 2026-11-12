@@ -107,6 +107,20 @@ internal static class PasswordReaderChecks
         QpdfPath templateCopy = QpdfPath.From("template-copy.pdf"); host.AddInput(templateCopy, templateBytes, QpdfInputOwnership.Copy);
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, templateCopy, QpdfPassword.FromBytes(Convert.FromHexString("6f776e6572e991")), QpdfLimits.Default, CancellationToken.None))
         { Check(document.PageCount == 1 && document.Encryption is { Revision: 4, Permissions: -3388, EncryptMetadata: true }, "template retains the other password and permissions"); }
+        foreach (bool jobTemplate in new[] { false, true })
+        {
+            string target = jobTemplate ? "job-template.pdf" : "argv-template.pdf";
+            QpdfExecutionResult copiedTemplate = jobTemplate ? await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new
+                { inputFile = encrypted.Value, outputFile = target, password = "reader", copyEncryption = empty.Value,
+                    encryptionFilePassword = "", linearize = "", objectStreams = "generate" }), CancellationToken.None)
+                : await Qpdf.ExecuteAsync(host, new([encrypted.Value, target, "--password=reader", "--copy-encryption=" + empty.Value,
+                    "--encryption-file-password=", "--linearize", "--object-streams=generate"]), CancellationToken.None);
+            Check(copiedTemplate.Status == QpdfExecutionStatus.Completed, "command template copy");
+            Check(host.TryGetOutput(QpdfPath.From(target), out byte[] copiedTemplateBytes), "command template publication");
+            QpdfPath reopened = QpdfPath.From("reopened-" + target); host.AddInput(reopened, copiedTemplateBytes, QpdfInputOwnership.Copy);
+            await using QpdfDocument document = await QpdfDocument.OpenAsync(host, reopened, CancellationToken.None);
+            Check(document.PageCount == 1 && document.Encryption is { Revision: 6, Permissions: -3388, EncryptMetadata: false }, "template overrides primary protection");
+        }
         QpdfOutputEncryption newProtection = QpdfOutputEncryption.CreateAes256(QpdfPassword.FromText("writer-reader"),
             QpdfPassword.FromBytes("writer-owner"u8.ToArray()), -3388, false);
         QpdfPath created = QpdfPath.From("created.pdf");

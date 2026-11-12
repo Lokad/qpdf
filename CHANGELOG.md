@@ -5,6 +5,8 @@
 - Copy AES R4/R6 protection from an independent template through typed page
   output policies, retaining both password entries, permissions, metadata policy
   and identifiers after template closure. Plaintext templates remove protection.
+  Argv/job `copyEncryption` and independent `encryptionFilePassword` use the same
+  policy, including password modes, output-policy ordering and empty-primary splits.
 - Accept independent AES R4/R6 credentials for overlay/underlay sources in argv
   and job JSON, including transformed inspections and global password modes.
   Authenticate distinct credentials for repeated files before reusing placement
@@ -35,8 +37,7 @@
   preserve supported primary protection through selection, merge/split, compression,
   object streams, QDF, linearization and attachment edits. Retain protection when
   the primary contributes no selected pages. Shared typed attachment edits also
-  preserve empty-password inputs. Command template copying
-  and encrypted JSON updates remain unsupported.
+  preserve empty-password inputs. Encrypted JSON updates remain unsupported.
 - Add `--decrypt` / `decrypt` for authenticated AES R4/R6 PDF transformations,
   including split and linearized output. Preserve prior output on authentication
   failure or pre-publication cancellation; output-free inspections ignore the policy.

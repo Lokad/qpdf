@@ -319,12 +319,12 @@ public sealed class JobCheckTests
     }
 
     [Theory]
-    [InlineData("encryptionFilePassword", false)]
-    [InlineData("encryptionFilePassword", true)]
+    [InlineData("passwordIsHexKey", false)]
+    [InlineData("passwordIsHexKey", true)]
     [InlineData("encrypt", false)]
     [InlineData("encrypt", true)]
-    [InlineData("copyEncryption", false)]
-    [InlineData("copyEncryption", true)]
+    [InlineData("staticAesIv", false)]
+    [InlineData("staticAesIv", true)]
     public async Task CryptoKeysRejectBeforeHostAccessWithoutEchoingValues(string key, bool first)
     {
         ObservingHost host = new(new());

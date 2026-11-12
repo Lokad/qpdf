@@ -56,7 +56,7 @@ permission setters retain their order; job JSON applies keys in lexical order.
 Encryption/decryption setters replace the preceding output policy. Split outputs
 receive independent keys, including with an empty primary document. New encryption
 cannot combine with deterministic IDs. Legacy creation, force-R5, allow-insecure,
-command encryption-template copying, encrypted JSON updates and password descriptors
+encrypted JSON updates and password descriptors
 remain unsupported.
 Attachment-copy sources accept independent text credentials inside their argv/job
 blocks, including the global password mode and recovery settings. Typed
@@ -75,6 +75,13 @@ independent R4/R6 input with either password, then copies both password entries,
 permissions, metadata policy and the first identifier. Its reader closes before
 publication; split outputs retain the template key. A plaintext template removes
 input protection. Template passwords may be text, raw bytes or absent for empty.
+Argv/job operations use the same policy through `--copy-encryption=file` /
+`copyEncryption`, with `--encryption-file-password=text` / `encryptionFilePassword`.
+The credential follows global password-mode and recovery settings. Copy, decrypt
+and encrypt setters replace one another in argv order or job lexical-key order.
+Output-free inspections do not open the template. Copied encryption cannot combine
+with deterministic IDs or an insufficient forced version; it never falls back to
+plaintext after such a failure.
 File setters retain native order: a zero-byte file leaves the previous password
 unchanged, while a blank first line supplies an empty password. Spaces are retained;
 CR is stripped only before LF, and NUL terminates the password. Additional lines

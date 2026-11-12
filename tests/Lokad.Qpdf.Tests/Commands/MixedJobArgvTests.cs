@@ -158,8 +158,8 @@ public sealed class MixedJobArgvTests
     public async Task ArgvCryptoRejectsBeforeConfigurationAccess(bool first)
     {
         string[] argv = first
-            ? ["--encryption-file-password=secret-must-not-echo", "--job-json-file=input.json", "--check"]
-            : ["--job-json-file=input.json", "--check", "--encryption-file-password=secret-must-not-echo"];
+            ? ["--password-is-hex-key=secret-must-not-echo", "--job-json-file=input.json", "--check"]
+            : ["--job-json-file=input.json", "--check", "--password-is-hex-key=secret-must-not-echo"];
         InMemoryQpdfHost host = Host();
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.UnsupportedCryptoOperation, Assert.Single(result.Diagnostics).Code);

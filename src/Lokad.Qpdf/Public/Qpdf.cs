@@ -5281,6 +5281,8 @@ public static partial class Qpdf
                     || token == "--password-file" || token.StartsWith("--password-file=", StringComparison.Ordinal)
                     || token == "--suppress-password-recovery" || token.StartsWith("--suppress-password-recovery=", StringComparison.Ordinal)
                     || token == "--decrypt" || token.StartsWith("--decrypt=", StringComparison.Ordinal)
+                    || token == "--copy-encryption" || token.StartsWith("--copy-encryption=", StringComparison.Ordinal)
+                    || token == "--encryption-file-password" || token.StartsWith("--encryption-file-password=", StringComparison.Ordinal)
                     || token == "--encrypt" || token.StartsWith("--encrypt=", StringComparison.Ordinal))
             || expanded.Any(token => token == "--check" || token.StartsWith("--check=", StringComparison.Ordinal)
                 || token == "--is-encrypted" || token.StartsWith("--is-encrypted=", StringComparison.Ordinal)

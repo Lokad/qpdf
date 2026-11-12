@@ -2904,20 +2904,29 @@
           "source": "manual/cli.rst:773"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Typed template copying supports AES R4/R6 through the shared output policy; this command adapter and its qualification remain pending."
+        "AES R4/R6 template copying supports independent credentials, writer modes, empty-primary/split output and native policy-setter ordering. Legacy handlers, encrypted JSON updates and canonical native-reference qualification remain pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+        "positive": [
+          "EncryptionTemplateCommandTests.CopyPolicyUsesItsOwnCredentialAcrossWriterAndSelectionModes"
         ],
-        "interaction": [],
-        "resource": [],
+        "negative": [
+          "EncryptionTemplateCommandTests.InvalidTemplatePasswordsDoNotPublishOrLeak",
+          "EncryptionTemplateCommandTests.DeterministicIdsRejectEitherSetterOrderBeforeOpening",
+          "EncryptionTemplateCommandTests.ForcedOldVersionsDoNotSilentlyDropTemplateProtection"
+        ],
+        "interaction": [
+          "EncryptionTemplateCommandTests.ArgvOutputPolicyUsesTheLastSetter",
+          "EncryptionTemplateCommandTests.JobPoliciesFollowNativeLexicalKeyOrder",
+          "EncryptionTemplateCommandTests.OutputFreeInspectionDoesNotOpenAnEncryptionTemplate"
+        ],
+        "resource": [
+          "EncryptionTemplateCommandTests.EveryEmptyPrimaryTemplateAdmissionRefusalRefundsBeforeSplitPublication"
+        ],
         "oracle": []
       }
     },
@@ -3210,20 +3219,27 @@
           "source": "manual/cli.rst:798"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Typed template credentials support AES R4/R6; this command adapter and its qualification remain pending."
+        "Independent AES R4/R6 template credentials support global password modes, recovery settings and empty passwords. Legacy handlers, broader encoding recovery and canonical native-reference qualification remain pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+        "positive": [
+          "EncryptionTemplateCommandTests.CopyPolicyUsesItsOwnCredentialAcrossWriterAndSelectionModes",
+          "EncryptionTemplateCommandTests.HexTemplateOwnerCredentialsUseGlobalPasswordMode"
         ],
-        "interaction": [],
-        "resource": [],
+        "negative": [
+          "EncryptionTemplateCommandTests.InvalidTemplatePasswordsDoNotPublishOrLeak"
+        ],
+        "interaction": [
+          "EncryptionTemplateCommandTests.LayeredJobsAcceptASeparateTemplatePasswordSetter",
+          "EncryptionTemplateCommandTests.OutputFreeInspectionDoesNotOpenAnEncryptionTemplate"
+        ],
+        "resource": [
+          "EncryptionTemplateCommandTests.EveryEmptyPrimaryTemplateAdmissionRefusalRefundsBeforeSplitPublication"
+        ],
         "oracle": []
       }
     },

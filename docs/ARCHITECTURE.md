@@ -94,7 +94,7 @@ the source reader and key are disposed; their protection follows the output owne
 Placement readers authenticate independently too. Their cache keys include the
 credential representation and value, so reusing a path cannot bypass a later
 password check. Their copied payloads survive source-reader closure.
-Typed template policies prepare the same independent output owner from a separate
+Typed and command template policies prepare the same independent output owner from a separate
 authenticated reader and copy its first identifier into operation-owned storage.
 The template closes before publication; a close failure disposes the prepared key.
 Host-file password storage stays alive

@@ -288,7 +288,7 @@ internal static class JobJsonLoader
                 foreach (JsonProperty property in value.EnumerateObject())
                 {
                     _governor.NoteOperation();
-                    if ((root && JobJsonParser.IsCryptoKey(property.Name) && property.Name is not ("password" or "passwordFile" or "passwordMode" or "suppressPasswordRecovery" or "decrypt" or "encrypt"))
+                    if ((root && JobJsonParser.IsCryptoKey(property.Name) && property.Name is not ("password" or "passwordFile" or "passwordMode" or "suppressPasswordRecovery" or "decrypt" or "encrypt" or "copyEncryption" or "encryptionFilePassword"))
                         || (!root && property.Name == "password" && context is not ("pages" or "copyAttachmentsFrom" or "overlay" or "underlay")))
                     {
                         throw new QpdfCryptoException(property.Name);

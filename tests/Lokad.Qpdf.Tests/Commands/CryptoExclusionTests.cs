@@ -28,7 +28,6 @@ public sealed class CryptoExclusionTests
 
     [Theory]
     [InlineData("--password-is-hex-key")]
-    [InlineData("--encryption-file-password=x")]
     [InlineData("--user-password=x")]
     [InlineData("--owner-password=x")]
     [InlineData("--bits=128")]
@@ -50,7 +49,6 @@ public sealed class CryptoExclusionTests
     [InlineData("--show-crypto")]
     [InlineData("--show-encryption-key")]
     [InlineData("--remove-restrictions")]
-    [InlineData("--copy-encryption")]
     public async Task ArgvCryptoFlagsFailWithoutOutput(string flag)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
@@ -62,9 +60,7 @@ public sealed class CryptoExclusionTests
 
     [Theory]
     [InlineData("passwordIsHexKey")]
-    [InlineData("encryptionFilePassword")]
     [InlineData("allowWeakCrypto")]
-    [InlineData("copyEncryption")]
     [InlineData("showEncryptionKey")]
     [InlineData("staticAesIv")]
     [InlineData("removeRestrictions")]

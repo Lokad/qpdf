@@ -47,6 +47,7 @@ internal static partial class JobJsonParser
             bool requiresPassword = false;
             bool showEncryption = false;
             bool decrypt = false;
+            string? copyEncryption = null, encryptionFilePassword = null;
             bool encrypt = false;
             string encryptionUser = string.Empty, encryptionOwner = string.Empty;
             int encryptionPermissions = -4;
@@ -227,13 +228,13 @@ internal static partial class JobJsonParser
             foreach (JsonProperty property in properties)
             {
                 governor.CheckCancellation();
-                if (IsCryptoKey(property.Name) && property.Name is not ("password" or "passwordFile" or "passwordMode" or "suppressPasswordRecovery" or "decrypt" or "encrypt"))
+                if (IsCryptoKey(property.Name) && property.Name is not ("password" or "passwordFile" or "passwordMode" or "suppressPasswordRecovery" or "decrypt" or "encrypt" or "copyEncryption" or "encryptionFilePassword"))
                 { throw new QpdfCryptoException(property.Name); }
                 switch (property.Name)
                 {
                     case "decrypt":
                         decrypt = RequireBareFlag(property.Value, "decrypt", textStorage);
-                        if (decrypt) { encrypt = false; }
+                        if (decrypt) { encrypt = false; copyEncryption = null; }
                         break;
                     case "encrypt":
                         if (seenDeterministic) { throw new QpdfParseException("Deterministic IDs cannot be combined with new encryption.", 0L, null); }
@@ -241,6 +242,16 @@ internal static partial class JobJsonParser
                             ref encryptionPermissions, ref encryptMetadata, governor, textStorage);
                         encrypt = true;
                         decrypt = false;
+                        copyEncryption = null;
+                        break;
+                    case "copyEncryption":
+                        if (seenDeterministic) { throw new QpdfParseException("Deterministic IDs cannot be combined with copied encryption.", 0L, null); }
+                        copyEncryption = RequireString(property.Value, "copyEncryption", textStorage);
+                        _ = SelectionPlan.CheckedPath(copyEncryption);
+                        encrypt = false; decrypt = false;
+                        break;
+                    case "encryptionFilePassword":
+                        encryptionFilePassword = RequireString(property.Value, "encryptionFilePassword", textStorage);
                         break;
                     case "isEncrypted":
                         isEncrypted = RequireBareFlag(property.Value, "isEncrypted", textStorage);
@@ -399,7 +410,7 @@ internal static partial class JobJsonParser
                         forceVersion = RequireString(property.Value, "forceVersion", textStorage);
                         break;
                     case "deterministicId":
-                        if (encrypt) { throw new QpdfParseException("Deterministic IDs cannot be combined with new encryption.", 0L, null); }
+                        if (encrypt || copyEncryption is not null) { throw new QpdfParseException("Deterministic IDs cannot be combined with new or copied encryption.", 0L, null); }
                         if (seenDeterministic && !configurationLayers)
                         {
                             throw new QpdfParseException("Duplicate job key \u0027deterministicId\u0027.", 0L, null);
@@ -1299,8 +1310,16 @@ internal static partial class JobJsonParser
                 };
             }
 
-            if ((decrypt || encrypt) && (jsonInput || seenUpdateFromJson)) { throw new QpdfCryptoException(encrypt ? "encrypt" : "decrypt"); }
+            if ((decrypt || encrypt || copyEncryption is not null) && (jsonInput || seenUpdateFromJson))
+            { throw new QpdfCryptoException(copyEncryption is not null ? "copyEncryption" : encrypt ? "encrypt" : "decrypt"); }
             QpdfOutputEncryption? outputEncryption = decrypt ? QpdfOutputEncryption.Remove : null;
+            if (copyEncryption is not null)
+            {
+                textStorage.Memory.Reserve(64L);
+                QpdfPassword? templatePassword = encryptionFilePassword is null ? null
+                    : ParseSourcePassword(encryptionFilePassword, passwordMode, suppressPasswordRecovery, textStorage);
+                outputEncryption = QpdfOutputEncryption.CopyFrom(SelectionPlan.CheckedPath(copyEncryption), templatePassword);
+            }
             if (encrypt)
             {
                 textStorage.Memory.Reserve(160L);
