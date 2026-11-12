@@ -87,11 +87,13 @@ without exposing the password. Borrowed password bytes remain stable until the c
 Output-free argv/job inspections also accept a primary-input text password:
 `input.pdf --password=reader --check --show-npages`, or the job JSON key `"password":"reader"`.
 Missing and incorrect credentials have distinct diagnostic codes. Encrypted PDF transformations,
-JSON export, secondary-input passwords and password-file/mode options remain unsupported.
+secondary-input passwords and password-file/mode options remain unsupported.
 `--is-encrypted` and `--requires-password` provide native predicate exit codes;
 see the [supported profile](docs/SUPPORTED-PROFILE.md) for their `Completed` result semantics.
 `--show-encryption` reports declared permissions, cipher methods and password-match
 status without passwords or keys. Wrong credentials skip combined content inspections.
+JSON inspection also accepts primary credentials (`QpdfJsonOptions.Password` for typed
+calls), exports decrypted values and keeps password/key fields null.
 
 JPEG decoding and recompression use the optional `IQpdfJpegCodec` interface.
 Supply your implementation with `new InMemoryQpdfHost(QpdfLimits.Default, codec)`;
@@ -101,7 +103,7 @@ for buffer ownership, cancellation and resource admission.
 
 ## Limitations
 
-Encrypted transformations, output encryption and encrypted JSON export remain
+Encrypted transformations and output encryption remain
 unsupported; authenticated reading/inspection supports AES R4 and R6. Rendering, OCR and
 text extraction are outside the library's scope.
 Copying or rewriting signed, unencrypted PDFs preserves stored annotation appearances

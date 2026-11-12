@@ -4402,7 +4402,8 @@ public static partial class Qpdf
             using (ConfigurationText? textStorage = options.Objects.Count == 0 ? null : ConfigurationText.Create(governor))
             {
                 HashSet<(bool Trailer, int Number, int Generation)>? wanted = ValidateJsonObjects(options.Objects, 0L, textStorage);
-                Commands.JsonInspection inspection = new(options.Version, options.Keys, null, options.StreamData, options.StreamPrefix, wanted, options.MinimalOutput);
+                Commands.JsonInspection inspection = new(options.Version, options.Keys, null, options.StreamData, options.StreamPrefix, wanted, options.MinimalOutput)
+                { Password = options.Password };
                 result = await JsonCoreAsync(host, inputPath, outputPath, inspection, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, false, true, cancellationToken).ConfigureAwait(false);
             }
             QpdfJsonResult presented = result.Present(governor);
@@ -4889,7 +4890,9 @@ public static partial class Qpdf
 
         // JSON emits text and copied sidecar bytes. Its reader values remain
         // exclusive to this document until serialization completes.
-        await using QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
+        await using QpdfDocument document = emptyDocument
+            ? await QpdfDocument.OpenEmptyDocument(inputPath, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false)
+            : await QpdfDocument.OpenInspectionCore(host, inputPath, inspection.Password, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
         Json.JsonRequest request = new(inspection.Version, inspection.Keys, decodeLevel, inspection.StreamData, prefix, wanted, inspection.MinimalOutput);
         using Json.PreparedJsonOutput output = Json.PreparedJsonOutput.Create(governor);
         long mainBytes;
@@ -5288,6 +5291,9 @@ public static partial class Qpdf
         }
 
         if (JobJsonLoader.HasJobFile(expanded)
+            || (expanded.Any(token => token == "--password" || token.StartsWith("--password=", StringComparison.Ordinal))
+                && expanded.Any(token => token == "--json" || token.StartsWith("--json=", StringComparison.Ordinal)
+                    || token == "--json-output" || token.StartsWith("--json-output=", StringComparison.Ordinal)))
             || expanded.Any(token => token == "--check" || token.StartsWith("--check=", StringComparison.Ordinal)
                 || token == "--is-encrypted" || token.StartsWith("--is-encrypted=", StringComparison.Ordinal)
                 || token == "--requires-password" || token.StartsWith("--requires-password=", StringComparison.Ordinal)
@@ -5617,7 +5623,8 @@ public static partial class Qpdf
         {
             try
             {
-                Commands.JsonInspection inspection = new(json.Version, json.Keys, json.DecodeLevel, json.StreamDataMode, json.StreamPrefix, json.Objects, json.MinimalOutput);
+                Commands.JsonInspection inspection = new(json.Version, json.Keys, json.DecodeLevel, json.StreamDataMode, json.StreamPrefix, json.Objects, json.MinimalOutput)
+                { Password = json.Password };
                 JsonInspectionOutcome inspected = await JsonCoreAsync(
                     host,
                     json.Input,

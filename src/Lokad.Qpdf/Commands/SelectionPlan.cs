@@ -292,6 +292,8 @@ internal sealed record AttachmentPlan(QpdfPath Input, QpdfPath? Output, string? 
 /// <summary>Validated JSON inspection.</summary>
 internal sealed record JsonPlan(QpdfPath Input, QpdfPath? Output, int Version, IReadOnlyList<string> Keys, QpdfRecoveryMode Recovery) : JobPlan(Input)
 {
+    public QpdfPassword? Password { get; init; }
+
     public string StreamDataMode { get; init; } = "none";
 
     public string? StreamPrefix { get; init; }
@@ -309,7 +311,10 @@ internal sealed record JsonInspection(
     string StreamData,
     string? StreamPrefix,
     HashSet<(bool Trailer, int Number, int Generation)>? Objects,
-    bool MinimalOutput);
+    bool MinimalOutput)
+{
+    internal QpdfPassword? Password { get; init; }
+}
 
 /// <summary>Validated JSON import: a qpdf JSON file converted to PDF.</summary>
 internal sealed record JsonInputPlan(QpdfPath Input, QpdfPath Output) : JobPlan(Input);

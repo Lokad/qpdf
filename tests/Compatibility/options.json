@@ -3878,22 +3878,26 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Encryption inspection currently reports only unencrypted inputs; encrypted input and non-secret security facts remain unimplemented."
+        "Authenticated AES R4/R6 JSON reports non-secret facts and decrypted values. Legacy R2/R3/RC4/R5 handlers remain pending."
       ],
       "evidence": {
         "positive": [
           "JsonInspectionTests.KeySelectionLimitsOutput",
+          "EncryptedJsonTests.TypedArgvAndJobExportAuthenticatedFacts",
           "JsonModesTests.AcroformReportsFields"
         ],
         "negative": [
-          "JsonInspectionTests.BadKeyFails"
+          "JsonInspectionTests.BadKeyFails",
+          "EncryptedJsonTests.FailedPasswordsPublishNeitherJsonNorSidecars"
         ],
         "interaction": [
           "JsonInspectionTests.JobRoundTripMatchesArgv",
+          "EncryptedJsonTests.JsonStreamModesExportDecryptedPayloads",
           "JsonModesTests.JobModesRoundTrip"
         ],
         "resource": [
-          "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
+          "EncryptedJsonTests.EveryJsonAdmissionRefusalRefundsStorageBeforePublication"
         ],
         "oracle": [
           "diff:json-pages",
@@ -5075,7 +5079,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary text passwords are supported for output-free AES R4/R6 inspections. Encrypted PDF transformations, JSON export, legacy handlers and secondary credentials remain pending."
+        "Primary text passwords are supported for AES R4/R6 inspections and JSON export. Encrypted PDF transformations, legacy handlers and secondary credentials remain pending."
       ],
       "currentRejection": true,
       "evidence": {

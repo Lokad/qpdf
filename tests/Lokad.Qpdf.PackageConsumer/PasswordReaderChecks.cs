@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using Lokad.Qpdf;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
@@ -58,6 +59,15 @@ internal static class PasswordReaderChecks
             && report.Diagnostics.Any(item => item.Code == QpdfDiagnosticCode.CheckSkipped)
             && report.Diagnostics.All(item => !item.Message.Contains("consumer-secret", StringComparison.Ordinal)),
             "secret-free report with unauthenticated checks skipped");
+        QpdfJsonResult exported = await Qpdf.GetDocumentJsonAsync(host, encrypted, QpdfPath.From("security.json"),
+            new QpdfJsonOptions(2, ["encrypt"]) { Password = QpdfPassword.FromBytes(ownerBytes) }, CancellationToken.None);
+        using (JsonDocument json = JsonDocument.Parse(exported.Json))
+        {
+            JsonElement facts = json.RootElement.GetProperty("encrypt");
+            Check(facts.GetProperty("encrypted").GetBoolean() && facts.GetProperty("ownerpasswordmatched").GetBoolean()
+                && facts.GetProperty("recovereduserpassword").ValueKind == JsonValueKind.Null
+                && facts.GetProperty("parameters").GetProperty("key").ValueKind == JsonValueKind.Null, "authenticated non-secret JSON facts");
+        }
         await Failure(null, QpdfSecurityFailure.PasswordRequired);
         await Failure(QpdfPassword.FromText(""), QpdfSecurityFailure.InvalidPassword);
         await Failure(QpdfPassword.FromText("consumer-secret"), QpdfSecurityFailure.InvalidPassword);

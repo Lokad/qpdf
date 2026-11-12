@@ -1227,7 +1227,8 @@ internal static class JobJsonParser
                 };
             }
 
-            if (password is not null) { throw new QpdfCryptoException("password"); }
+            if (password is not null && (!(seenJson || seenJsonOutput) || jsonInput || seenUpdateFromJson))
+            { throw new QpdfCryptoException("password"); }
 
             if (wantAttachments && hasPages)
             {
@@ -1495,6 +1496,7 @@ internal static class JobJsonParser
                 (QpdfPath inspectionInput, bool emptyDocument) = ResolveInspectionInput(input, empty, "json inspection");
                 return new JsonPlan(inspectionInput, output is null ? null : SelectionPlan.CheckedPath(output), jsonNumber, effectiveKeys, recovery) with
                 {
+                    Password = password,
                     EmptyDocument = emptyDocument,
                     DecodeLevel = jsonDecode,
                     ReportMemoryUsage = reportMemoryUsage,

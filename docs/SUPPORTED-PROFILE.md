@@ -11,8 +11,7 @@ PDFDocEncoding when representable. Raw bytes are borrowed until opening complete
 and never reinterpreted. R4 uses the first 32 bytes and R6 uses 127. Missing credentials try
 empty; a failed absent password is distinct from a failed supplied password.
 Encryption facts expose permissions and authentication status without passwords
-or keys. RC4 inputs, R5, encrypted transforms, output encryption and encrypted JSON
-export remain unsupported.
+or keys. RC4 inputs, R5, encrypted transforms and output encryption remain unsupported.
 
 Typed `Qpdf.CheckAsync` accepts the same credentials in `QpdfCheckOptions.Password`
 and runs structural checks over the decrypted graph. Its existing skipped-stage
@@ -33,6 +32,12 @@ and password-match status for supported handlers. Incorrect credentials still al
 this report and skip combined content inspections; the report does not validate
 encrypted payloads. Passwords and keys are never included, even when native qpdf
 would print a recovered password. Explicit output paths are rejected.
+
+JSON inspection accepts the same primary credential, including raw bytes through
+`QpdfJsonOptions.Password`. Both JSON versions report encryption facts and export
+the decrypted graph; selected stream data is decrypted before decoding or sidecar
+publication. `recovereduserpassword` and encryption `key` stay null. JSON with
+an `/Encrypt` trailer entry still cannot be imported as a new PDF.
 
 Signed, unencrypted pages can be copied, merged, placed and rewritten.
 Stored signature appearances survive; active signature field attributes and document

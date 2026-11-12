@@ -34,20 +34,15 @@ public static partial class Qpdf
         Permission("modify other: ", permissions.ModifyOther);
         Permission("modify anything: ", permissions.ModifyAll);
         diagnostics.AddParts(QpdfDiagnosticCode.EncryptionReport, QpdfDiagnosticSeverity.Info,
-            ["stream encryption method: ", CipherName(parameters.Streams)]);
+            ["stream encryption method: ", EncryptionParameters.CipherName(parameters.Streams)]);
         diagnostics.AddParts(QpdfDiagnosticCode.EncryptionReport, QpdfDiagnosticSeverity.Info,
-            ["string encryption method: ", CipherName(parameters.Strings)]);
+            ["string encryption method: ", EncryptionParameters.CipherName(parameters.Strings)]);
         diagnostics.AddParts(QpdfDiagnosticCode.EncryptionReport, QpdfDiagnosticSeverity.Info,
-            ["file encryption method: ", CipherName(parameters.Files)]);
+            ["file encryption method: ", EncryptionParameters.CipherName(parameters.Files)]);
 
         void Permission(string label, bool allowed) => diagnostics.AddParts(QpdfDiagnosticCode.EncryptionReport,
             QpdfDiagnosticSeverity.Info, [label, allowed ? "allowed" : "not allowed"]);
     }
-
-    private static string CipherName(PdfCipher cipher) => cipher switch
-    {
-        PdfCipher.Identity => "none", PdfCipher.Aes128 => "AESv2", PdfCipher.Aes256 => "AESv3", _ => "unknown",
-    };
 
     private static async ValueTask<ExecutionOutcome> RunSecurityPlanAsync(IQpdfHost host, SecurityPlan plan,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)

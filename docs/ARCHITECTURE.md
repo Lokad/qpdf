@@ -67,7 +67,9 @@ They verify newest-object selection while older encrypted stream payloads remain
 `QpdfDocument.OpenAsync` and typed structural checks use this authenticated reader
 with per-input text or raw credentials and non-secret encryption facts. Output-free
 argv/job inspections pass the primary text credential to the same reader.
-Transformations and JSON export retain their encrypted-input refusal pending integration.
+JSON inspection uses the same authenticated reader and non-secret permission
+projection before existing text/sidecar preparation. PDF transformations retain
+their encrypted-input refusal pending output-protection integration.
 Security parameters and authentication status are separate values. Internal
 security inspection can read declared facts without traversing pages; it releases
 the key, input lease and working storage before returning those non-secret values.

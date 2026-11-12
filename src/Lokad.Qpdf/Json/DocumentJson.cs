@@ -6,6 +6,7 @@ using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Security;
 using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Json;
@@ -96,7 +97,7 @@ internal static class DocumentJson
             if (request.Wants("encrypt"))
             {
                 AppendKey(builder, ref firstKey, "encrypt");
-                AppendEncrypt(builder, request.Version);
+                AppendEncrypt(builder, request.Version, engine.Security);
             }
 
             if (request.Wants("outlines"))
@@ -916,19 +917,39 @@ internal static class DocumentJson
         builder.Append((char)93);
     }
 
-    private static void AppendEncrypt(DisplayBuffer builder, int version)
+    private static void AppendEncrypt(DisplayBuffer builder, int version, DocumentSecurity? security)
     {
+        EncryptionParameters parameters = security?.Parameters ?? default;
+        PasswordAuthentication authentication = security?.Authentication ?? PasswordAuthentication.None;
+        EncryptionPermissions permissions = new(parameters.Revision, security is null ? -1 : parameters.Permissions);
         string modifyKey = version == 1 ? "moddifyannotations" : "modifyannotations";
-        builder.Append("{\"encrypted\": false,\"userpasswordmatched\": false,");
-        builder.Append("\"ownerpasswordmatched\": false,\"recovereduserpassword\": null,");
-        builder.Append("\"capabilities\": {\"accessibility\": true,\"extract\": true,");
-        builder.Append("\"printlow\": true,\"printhigh\": true,\"modifyassembly\": true,");
-        builder.Append("\"modifyforms\": true,\"");
-        builder.Append(modifyKey);
-        builder.Append("\": true,\"modifyother\": true,\"modify\": true},");
-        builder.Append("\"parameters\": {\"R\": 0,\"V\": 0,\"P\": 0,\"bits\": 0,");
-        builder.Append("\"key\": null,\"method\": \"none\",\"streammethod\": \"none\",");
-        builder.Append("\"stringmethod\": \"none\",\"filemethod\": \"none\"}}");
+        builder.Append('{');
+        AppendBooleanProperty(builder, "encrypted", security is not null);
+        builder.Append(','); AppendBooleanProperty(builder, "userpasswordmatched", authentication == PasswordAuthentication.User);
+        builder.Append(','); AppendBooleanProperty(builder, "ownerpasswordmatched", authentication == PasswordAuthentication.Owner);
+        // Inspection never discloses passwords or the file encryption key.
+        builder.Append(",\"recovereduserpassword\": null,\"capabilities\": {");
+        AppendBooleanProperty(builder, "accessibility", permissions.Accessibility);
+        builder.Append(','); AppendBooleanProperty(builder, "extract", permissions.Extract);
+        builder.Append(','); AppendBooleanProperty(builder, "printlow", permissions.PrintLow);
+        builder.Append(','); AppendBooleanProperty(builder, "printhigh", permissions.PrintHigh);
+        builder.Append(','); AppendBooleanProperty(builder, "modifyassembly", permissions.Assemble);
+        builder.Append(','); AppendBooleanProperty(builder, "modifyforms", permissions.Forms);
+        builder.Append(','); AppendBooleanProperty(builder, modifyKey, permissions.Annotations);
+        builder.Append(','); AppendBooleanProperty(builder, "modifyother", permissions.ModifyOther);
+        builder.Append(','); AppendBooleanProperty(builder, "modify", permissions.ModifyAll);
+        builder.AppendParts(["},\"parameters\": {\"R\": ", parameters.Revision, ",\"V\": ", parameters.Version,
+            ",\"P\": ", parameters.Permissions, ",\"bits\": ", parameters.KeyLengthBits]);
+        string streams = EncryptionParameters.CipherName(parameters.Streams);
+        string strings = EncryptionParameters.CipherName(parameters.Strings);
+        string files = EncryptionParameters.CipherName(parameters.Files);
+        builder.AppendParts([",\"key\": null,\"method\": \"", streams == strings && streams == files ? streams : "mixed",
+            "\",\"streammethod\": \"", streams, "\",\"stringmethod\": \"", strings, "\",\"filemethod\": \"", files, "\"}}"]);
+    }
+
+    private static void AppendBooleanProperty(DisplayBuffer builder, string name, bool value)
+    {
+        PdfJsonWriter.AppendJsonString(builder, name); builder.Append(value ? ": true" : ": false");
     }
     private static void AppendAttachments(
         DisplayBuffer builder,

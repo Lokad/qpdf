@@ -13,12 +13,15 @@
   R4 text passwords can retry PDFDocEncoding; raw passwords remain exact bytes.
   Typed structural checks accept `QpdfCheckOptions.Password` and inspect the decrypted graph.
   Output-free argv/job inspections accept primary text passwords with distinct missing/invalid
-  credential diagnostics. Encrypted transformations, JSON export and secondary credentials remain unsupported.
+  credential diagnostics. Encrypted transformations and secondary credentials remain unsupported.
 - Add `--is-encrypted` and `--requires-password` (and job JSON equivalents) for
   supported handlers, retaining native query exit codes independently of warning presentation.
 - Add `--show-encryption` / `showEncryption` for supported handlers, reporting
   declared permissions, cipher methods and password-match status without secrets.
   Wrong credentials skip combined content inspections while allowing this report.
+- Authenticate JSON inspection through typed `QpdfJsonOptions.Password` and primary
+  argv/job credentials. Export decrypted graphs and stream data, and report non-secret
+  encryption facts in JSON versions 1 and 2; password/key fields remain null.
 - Start development version 0.2.0-dev.1.
 - Separate planned password-security requirements, deferred legacy-output options
   and explicit raw-key/static-IV exclusions in the compatibility inventory.

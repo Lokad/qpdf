@@ -14,7 +14,7 @@ internal static class HelpText
           qpdf --job-json-file file
         Options:
           --suppress-recovery   fail on damaged cross-references instead of bounded repair
-          --password=text       primary-input password for output-free inspection
+          --password=text       primary-input password for inspection or JSON export
           --is-encrypted        query encryption: exit 0 encrypted, 2 unencrypted
           --requires-password   query password: exit 0 needed, 2 unencrypted, 3 matched
           --show-encryption     report encryption settings and password match, without secrets
@@ -112,7 +112,7 @@ internal static class HelpText
         Output-free inspections accept AES-128 R4 and AES-256 R6 passwords, including empty passwords.
         Encryption predicates are mutually exclusive, return no ordinary output, and ignore other inspections.
         Their completed query codes 2 and 3 are not errors or warnings; --warning-exit-0 does not change them.
-        Encrypted transformations, JSON export, password files/modes and secondary-input passwords remain unsupported.
+        Encrypted transformations, password files/modes and secondary-input passwords remain unsupported.
         Signing and signature validation are unsupported.
         """;
 
@@ -202,10 +202,10 @@ internal static class HelpText
         (non-negative error count, default 15; "0" removes the threshold), and noDefaultLimits
         ("" lifts unspecified parser defaults; explicit invocation and host limits remain binding).
         Other global keys fail.
-        password accepts text (including "") for the primary input in output-free inspection.
+        password accepts text (including "") for the primary input in inspection and JSON export.
         isEncrypted and requiresPassword take "" and return the native query exit codes described by --help.
         showEncryption takes "" and reports declared settings without passwords or keys.
-        Encrypted transformations, JSON export, passwordFile/passwordMode and nested passwords remain unsupported.
+        Encrypted transformations, passwordFile/passwordMode and nested passwords remain unsupported.
         Other crypto keys are rejected with UnsupportedCryptoOperation. See --help for the argv surface.
         """;
 

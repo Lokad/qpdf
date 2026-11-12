@@ -5,6 +5,9 @@ namespace Lokad.Qpdf;
 /// <summary>JSON inspection options: format version plus key filter.</summary>
 public sealed record QpdfJsonOptions
 {
+    /// <summary>Gets the input credential; null tries an empty password. Raw bytes are borrowed until inspection completes.</summary>
+    public QpdfPassword? Password { get; init; }
+
     /// <summary>Creates JSON inspection options.</summary>
     /// <exception cref="ArgumentOutOfRangeException">The version is not 1 or 2.</exception>
     /// <exception cref="ArgumentNullException">Keys is null.</exception>

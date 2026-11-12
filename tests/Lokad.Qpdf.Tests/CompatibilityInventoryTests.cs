@@ -77,7 +77,7 @@ public sealed class CompatibilityInventoryTests
     }
 
     [Fact]
-    public void EncryptionJsonKeyKeepsItsUnimplementedBehaviorVisible()
+    public void EncryptionJsonKeyKeepsRemainingHandlerGapsVisible()
     {
         using var inventory = ReadInventory();
         var entry = Assert.Single(inventory.RootElement.GetProperty("options").EnumerateArray(),
