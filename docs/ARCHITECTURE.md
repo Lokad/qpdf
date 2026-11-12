@@ -81,6 +81,9 @@ against native keys and [independent RFC 6229 vectors](https://www.rfc-editor.or
 AES-128 uses a temporary per-object key including its number and generation;
 object-stream members reuse their container's plaintext. Text credentials try
 UTF-8 and then a bounded PDFDocEncoding alternative; raw bytes never take that path.
+The internal password-file reader retains a 127-byte prefix using cleared 512-byte
+host-read scratch. It preserves first-line byte semantics and keeps storage admitted
+through asynchronous input close; command/file setter integration remains separate.
 
 ## Storage and ownership
 

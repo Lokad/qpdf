@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Lokad.Qpdf.Attachments;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Security;
 
 namespace Lokad.Qpdf;
 
@@ -82,25 +83,13 @@ public sealed class QpdfPassword
 
     private static int WriteHexBytes(string text, Span<byte> destination, ResourceGovernor governor)
     {
-        int count = 0, high = -1;
+        PasswordPrefixDecoder decoder = new(true);
         for (int index = 0; index < text.Length; index++)
         {
             if ((index & 255) == 0) { governor.CheckCancellation(); }
-            char value = text[index];
-            int digit = value is >= '0' and <= '9' ? value - '0'
-                : value is >= 'A' and <= 'F' ? value - 'A' + 10
-                : value is >= 'a' and <= 'f' ? value - 'a' + 10 : -1;
-            if (digit < 0) { continue; }
-            if (high < 0) { high = digit; continue; }
-            byte decoded = (byte)((high << 4) | digit);
-            // Native command passwords end at their first NUL. Ignore non-hex
-            // characters and pad an odd final nibble, as qpdf's hex mode does.
-            if (decoded == 0) { return count; }
-            destination[count++] = decoded;
-            if (count == destination.Length) { return count; }
-            high = -1;
+            decoder.Push(text[index], destination);
+            if (decoder.Complete(destination.Length)) { break; }
         }
-        if (high > 0) { destination[count++] = (byte)(high << 4); }
-        return count;
+        return decoder.Finish(destination, text.Length, false);
     }
 }
