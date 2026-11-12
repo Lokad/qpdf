@@ -37,7 +37,7 @@ foreach ($case in $cases) {
     if ($LASTEXITCODE -ne 0) { throw "Encryption fixture generation failed: $filename" }
     & $QpdfExe --password-mode=hex-bytes "--password=$ownerHex" --check $output | Out-Host
     if ($LASTEXITCODE -ne 0) { throw "Encryption fixture check failed: $filename" }
-    $inspection = & $QpdfExe --password-mode=hex-bytes "--password=$ownerHex" --json --json-key=qpdf $output
+    $inspection = & $QpdfExe --password-mode=hex-bytes "--password=$ownerHex" --json --json-key=qpdf --json-stream-data=inline --decode-level=none $output
     if ($LASTEXITCODE -ne 0) { throw 'Encryption dictionary inspection failed.' }
     $objects = ($inspection -join "`n" | ConvertFrom-Json -AsHashtable).qpdf[1]
     $reference = $objects.trailer.value['/Encrypt']
@@ -48,7 +48,13 @@ foreach ($case in $cases) {
     if ($LASTEXITCODE -ne 0) { throw 'Fixture key inspection failed.' }
     $key = [regex]::Match(($keyDisplay -join "`n"), '(?im)^encryption key = ([0-9a-f]{64})$')
     if (-not $key.Success) { throw 'Expected a 256-bit native fixture key.' }
-    $vectors.Add([ordered]@{ file=$filename; userHex=$userHex; ownerHex=$ownerHex; fileKeyHex=$key.Groups[1].Value; dictionary=($dictionary -join "`n") })
+    $streams = @($objects.GetEnumerator() | Where-Object {
+        $_.Value.ContainsKey('stream') -and $_.Value.stream.dict['/Type'] -ne '/XRef' -and
+        ($case.Metadata -or $_.Value.stream.dict['/Type'] -ne '/Metadata')
+    } | Sort-Object Name | ForEach-Object {
+        [ordered]@{ number=[int](($_.Key -replace '^obj:', '') -split ' ')[0]; plainBase64=$_.Value.stream.data }
+    })
+    $vectors.Add([ordered]@{ file=$filename; userHex=$userHex; ownerHex=$ownerHex; fileKeyHex=$key.Groups[1].Value; dictionary=($dictionary -join "`n"); streams=$streams })
     $manifest.fixtures = @($manifest.fixtures | Where-Object { $_.file -cne $filename }) + @([ordered]@{
         file=$filename; sha256=(Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash.ToLowerInvariant()
         bytes=(Get-Item -LiteralPath $output).Length; expectedNpages=1; headerVersion='1.7'; valid=$true
