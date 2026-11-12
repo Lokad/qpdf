@@ -63,6 +63,28 @@ internal static class PasswordReaderChecks
                     && document.Encryption?.EncryptMetadata == (source != empty), "preserved user/owner passwords and policy");
             }
         }
+        QpdfPath removed = QpdfPath.From("removed.pdf");
+        _ = await Qpdf.SelectPageAsync(host, encrypted, removed, new PdfPageSelectionOptions(1),
+            QpdfPassword.FromText("reader"), QpdfOutputEncryption.Remove, CancellationToken.None);
+        Check(host.TryGetOutput(removed, out byte[] plain), "explicit decryption publication");
+        QpdfPath plainInput = QpdfPath.From("plain-input.pdf"); host.AddInput(plainInput, plain, QpdfInputOwnership.Copy);
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, plainInput, CancellationToken.None))
+        { Check(document.PageCount == 1 && document.Encryption is null, "explicitly removed protection"); }
+        QpdfOutputEncryption newProtection = QpdfOutputEncryption.CreateAes256(QpdfPassword.FromText("writer-reader"),
+            QpdfPassword.FromBytes("writer-owner"u8.ToArray()), -3388, false);
+        QpdfPath created = QpdfPath.From("created.pdf");
+        _ = await Qpdf.SelectPageAsync(host, plainInput, created, new PdfPageSelectionOptions(1), null,
+            newProtection, QpdfLimits.Default, CancellationToken.None);
+        Check(host.TryGetOutput(created, out byte[] protectedBytes), "new encryption publication");
+        QpdfPath protectedInput = QpdfPath.From("protected-input.pdf"); host.AddInput(protectedInput, protectedBytes, QpdfInputOwnership.Copy);
+        foreach (string credential in new[] { "writer-reader", "writer-owner" })
+        {
+            await using QpdfDocument document = await QpdfDocument.OpenAsync(host, protectedInput,
+                QpdfPassword.FromText(credential), QpdfLimits.Default, CancellationToken.None);
+            Check(document.PageCount == 1 && document.Encryption?.Revision == 6
+                && document.Encryption?.Permissions == -3388 && document.Encryption?.EncryptMetadata == false,
+                "new protection passwords, permissions and clear metadata");
+        }
         QpdfExecutionResult command = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(
             [encrypted.Value, "--password=reader", "--check", "--show-npages"]), CancellationToken.None);
         Check(command.Status == QpdfExecutionStatus.Completed && command.Diagnostics.Any(item => item.Code == QpdfDiagnosticCode.PageCount), "password command inspection");

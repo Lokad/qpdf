@@ -14,8 +14,12 @@ Encryption facts expose permissions and authentication status without passwords
 or keys. Typed `SelectPageAsync` authenticates with the same password values and
 preserves R4/R6 protection, both passwords, permissions and metadata policy. It
 supports ordered/repeated pages, first/last previews and rotations. Missing
-credentials try empty. RC4 inputs, R5, encrypted multisource and command/job
-transformations, explicit decryption and new output encryption remain unsupported.
+credentials try empty. An explicit `QpdfOutputEncryption` policy can preserve,
+remove or replace protection with fresh AES-256 R6. Creation uses UTF-8 or exact
+password bytes, fresh keys/salts/IVs, the requested permission word and metadata
+policy. Reserved permission bits and accessibility must have their R6 values;
+nonempty user passwords require nonempty owner passwords. RC4 inputs, R5 and
+encrypted multisource/command/job transformations remain unsupported.
 
 Typed `Qpdf.CheckAsync` accepts the same credentials in `QpdfCheckOptions.Password`
 and runs structural checks over the decrypted graph. Its existing skipped-stage

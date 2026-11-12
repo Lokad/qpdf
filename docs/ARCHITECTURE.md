@@ -59,7 +59,7 @@ The AES payload primitive checks padding before allocating an exact plaintext
 buffer and uses bounded CBC calls so cancellation can interrupt large payloads.
 Its internal encryption counterpart admits exact ciphertext storage, generates a
 fresh random IV for each payload and continues CBC across bounded calls. This is
-a writer primitive; creating new public output protection still awaits policy integration.
+the same primitive serves new protection and authenticated preservation.
 Internal R6 entry creation generates a fresh file key and salts, wraps the key for
 both passwords and encrypts permissions. Recorded native randomness reproduces all
 five dictionary entries exactly; failure clears both caller-owned destinations.
@@ -72,7 +72,10 @@ AES for output, matching pinned qpdf. Writers reject a changed first identifier
 before emission. R4 derives temporary keys from final output numbers, including
 renumbered QDF objects, object-stream containers and linearization hints; each
 derived key is cleared after preparing its ciphertext. Typed single-source selection
-uses this owner through output publication; other transformation routes remain pending.
+prepares this owner from its explicit preserve/remove/AES-256 request. New requests
+encode both borrowed credentials in bounded, cleared scratch and validate R6
+permission bits; output publication never falls back to plaintext on an encryption
+failure. Other transformation routes remain pending.
 Reading and output preparation share direct-string traversal, preserving signature
 Contents and leaving indirect references for their physical object boundaries.
 Internal output-object preparation encrypts encoded stream payloads and repairs

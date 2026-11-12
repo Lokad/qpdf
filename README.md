@@ -93,6 +93,17 @@ await Qpdf.SelectPageAsync(host, input, output, PdfPageSelectionOptions.FirstAnd
     QpdfPassword.FromText("reader"), CancellationToken.None);
 ```
 
+Pass `QpdfOutputEncryption.Remove` after the input credential to decrypt explicitly,
+or use `CreateAes256` for fresh protection. The permission word `-4` allows all
+operations; `encryptMetadata` controls document-level metadata:
+
+```csharp
+QpdfOutputEncryption protection = QpdfOutputEncryption.CreateAes256(
+    QpdfPassword.FromText("new-reader"), QpdfPassword.FromText("new-owner"), -4, true);
+await Qpdf.SelectPageAsync(host, input, output, new PdfPageSelectionOptions(1),
+    QpdfPassword.FromText("reader"), protection, CancellationToken.None);
+```
+
 Output-free argv/job inspections also accept a primary-input text password:
 `input.pdf --password=reader --check --show-npages`, or the job JSON key `"password":"reader"`.
 Missing and incorrect credentials have distinct diagnostic codes. Encrypted command/job
@@ -113,8 +124,8 @@ for buffer ownership, cancellation and resource admission.
 
 ## Limitations
 
-Encrypted multisource and command/job transformations, explicit decryption and new
-output encryption remain unsupported. Typed single-source selection preserves AES R4/R6.
+Encrypted multisource and command/job transformations remain unsupported.
+Typed single-source selection preserves/removes AES R4/R6 protection or creates AES-256 R6.
 Rendering, OCR and
 text extraction are outside the library's scope.
 Copying or rewriting signed, unencrypted PDFs preserves stored annotation appearances

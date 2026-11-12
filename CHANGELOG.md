@@ -18,9 +18,10 @@
   credential diagnostics. Secondary credentials remain unsupported.
 - Preserve AES R4/R6 protection during typed single-source page selection, with
   text/raw user or owner credentials, empty passwords, repeated pages and rotations.
-  Derived output retains both passwords, permissions and metadata policy. Encrypted
-  command/job and multisource transformations, explicit decryption and new output
-  encryption remain unsupported.
+  Derived output retains both passwords, permissions and metadata policy. Explicit
+  output policies can remove protection or create fresh AES-256 R6 with chosen
+  passwords, permissions and metadata treatment. Encrypted command/job and
+  multisource transformations remain unsupported.
 - Add `--is-encrypted` and `--requires-password` (and job JSON equivalents) for
   supported handlers, retaining native query exit codes independently of warning presentation.
 - Add `--show-encryption` / `showEncryption` for supported handlers, reporting

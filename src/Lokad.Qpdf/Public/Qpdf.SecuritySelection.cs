@@ -28,12 +28,37 @@ public static partial class Qpdf
         => SelectPageAsync(host, inputPath, outputPath, options, rotations, password, QpdfLimits.Default, cancellationToken);
 
     /// <summary>Copies and rotates selected pages with explicit budgets and preserves supported input encryption.</summary>
-    public static async ValueTask<PdfPageSelectionResult> SelectPageAsync(IQpdfHost host, QpdfPath inputPath,
+    public static ValueTask<PdfPageSelectionResult> SelectPageAsync(IQpdfHost host, QpdfPath inputPath,
         QpdfPath outputPath, PdfPageSelectionOptions options, IReadOnlyList<PdfPageRotation> rotations,
         QpdfPassword? password, QpdfLimits limits, CancellationToken cancellationToken)
+        => SelectPageAsync(host, inputPath, outputPath, options, rotations, password, QpdfOutputEncryption.Preserve, limits, cancellationToken);
+
+    /// <summary>Copies selected pages with an input credential and explicit output encryption policy.</summary>
+    public static ValueTask<PdfPageSelectionResult> SelectPageAsync(IQpdfHost host, QpdfPath inputPath,
+        QpdfPath outputPath, PdfPageSelectionOptions options, QpdfPassword? password,
+        QpdfOutputEncryption outputEncryption, CancellationToken cancellationToken)
+        => SelectPageAsync(host, inputPath, outputPath, options, password, outputEncryption, QpdfLimits.Default, cancellationToken);
+
+    /// <summary>Copies selected pages with explicit budgets, input credential and output encryption policy.</summary>
+    public static ValueTask<PdfPageSelectionResult> SelectPageAsync(IQpdfHost host, QpdfPath inputPath,
+        QpdfPath outputPath, PdfPageSelectionOptions options, QpdfPassword? password,
+        QpdfOutputEncryption outputEncryption, QpdfLimits limits, CancellationToken cancellationToken)
+        => SelectPageAsync(host, inputPath, outputPath, options, Array.Empty<PdfPageRotation>(), password, outputEncryption, limits, cancellationToken);
+
+    /// <summary>Copies and rotates selected pages with an explicit output encryption policy.</summary>
+    public static ValueTask<PdfPageSelectionResult> SelectPageAsync(IQpdfHost host, QpdfPath inputPath,
+        QpdfPath outputPath, PdfPageSelectionOptions options, IReadOnlyList<PdfPageRotation> rotations,
+        QpdfPassword? password, QpdfOutputEncryption outputEncryption, CancellationToken cancellationToken)
+        => SelectPageAsync(host, inputPath, outputPath, options, rotations, password, outputEncryption, QpdfLimits.Default, cancellationToken);
+
+    /// <summary>Copies and rotates selected pages with explicit budgets and output encryption policy.</summary>
+    public static async ValueTask<PdfPageSelectionResult> SelectPageAsync(IQpdfHost host, QpdfPath inputPath,
+        QpdfPath outputPath, PdfPageSelectionOptions options, IReadOnlyList<PdfPageRotation> rotations,
+        QpdfPassword? password, QpdfOutputEncryption outputEncryption, QpdfLimits limits, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(host); ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(rotations); ArgumentNullException.ThrowIfNull(limits);
+        ArgumentNullException.ThrowIfNull(outputEncryption);
         limits.Validate();
         ResourceGovernor governor = new(limits, cancellationToken, host);
         governor.PrepareTypedResult(PdfPageSelectionResult.StorageBytes);
@@ -44,7 +69,8 @@ public static partial class Qpdf
             DiagnosticBag diagnostics = new(governor);
             PageSelectionOutcome result = await SelectPageCoreAsync(host, inputPath, outputPath, options, limits,
                 QpdfRecoveryMode.Strict, SelectionSettings.Typed with
-                { Rotations = preparation?.Rotations ?? Array.Empty<OutputRotation>(), AuthenticatePrimary = true, PrimaryPassword = password },
+                { Rotations = preparation?.Rotations ?? Array.Empty<OutputRotation>(), AuthenticatePrimary = true,
+                    PrimaryPassword = password, OutputEncryption = outputEncryption },
                 governor, diagnostics, cancellationToken).ConfigureAwait(false);
             preparation?.Dispose();
             PdfPageSelectionResult presented = result.Present(governor);
@@ -53,9 +79,10 @@ public static partial class Qpdf
         finally { governor.AbandonTypedCounters(); }
     }
 
-    private static OutputSecurity? PreserveInputSecurity(QpdfDocument document, ref byte[]? identifier,
+    private static OutputSecurity? PrepareOutputSecurity(QpdfOutputEncryption policy, QpdfDocument document, ref byte[]? identifier,
         ParserMemoryScope memory, ResourceGovernor governor)
     {
+        if (!policy.PreservesInput) { return policy.CreateOutput(governor); }
         if (document.Engine.Security is not DocumentSecurity security) { return null; }
         if (identifier is null)
         {

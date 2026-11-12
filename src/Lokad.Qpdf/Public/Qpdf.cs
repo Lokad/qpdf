@@ -484,14 +484,15 @@ public static partial class Qpdf
                         }
                     }
                     byte[]? originalId = TryGetOriginalId(document.Engine);
-                    using OutputSecurity? outputSecurity = PreserveInputSecurity(document, ref originalId, copyMemory, governor);
+                    using OutputSecurity? outputSecurity = PrepareOutputSecurity(settings.OutputEncryption ?? QpdfOutputEncryption.Preserve,
+                        document, ref originalId, copyMemory, governor);
                     if (outputSecurity is not null)
                     {
                         int minor = outputSecurity.Revision == 6 ? 7 : 6;
                         int requiredExtension = outputSecurity.Revision == 6 ? 8 : 0;
                         int order = PdfVersion.CompareParts(negotiated.Major, negotiated.Minor, 1, minor);
                         if (settings.ForceVersion is not null && (order < 0 || order == 0 && negotiatedExtension < requiredExtension))
-                        { throw new QpdfUnsupportedFeatureException("The forced PDF version cannot preserve the input encryption."); }
+                        { throw new QpdfUnsupportedFeatureException("The forced PDF version cannot support the requested output encryption."); }
                         IncludeVersionRequirement(ref negotiated, ref negotiatedExtension, new QpdfDocument.VersionParts(1, minor), requiredExtension, governor);
                     }
                     PdfDictionary? singleAcroForm = settings.RemoveAcroform
