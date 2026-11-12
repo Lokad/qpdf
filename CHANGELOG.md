@@ -24,6 +24,8 @@
   encryption facts in JSON versions 1 and 2; password/key fields remain null.
 - Support `--suppress-password-recovery` / `suppressPasswordRecovery` for primary
   inspections and JSON export, disabling alternate password-encoding attempts.
+- Support primary input password modes in inspections and JSON export, including
+  bounded hex decoding and the supported R4 recovery path for UTF-8 hex passwords.
 - Start development version 0.2.0-dev.1.
 - Separate planned password-security requirements, deferred legacy-output options
   and explicit raw-key/static-IV exclusions in the compatibility inventory.

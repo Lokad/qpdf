@@ -87,7 +87,7 @@ without exposing the password. Borrowed password bytes remain stable until the c
 Output-free argv/job inspections also accept a primary-input text password:
 `input.pdf --password=reader --check --show-npages`, or the job JSON key `"password":"reader"`.
 Missing and incorrect credentials have distinct diagnostic codes. Encrypted PDF transformations,
-secondary-input passwords and password-file/mode options remain unsupported.
+secondary-input passwords and password-file options remain unsupported.
 `--is-encrypted` and `--requires-password` provide native predicate exit codes;
 see the [supported profile](docs/SUPPORTED-PROFILE.md) for their `Completed` result semantics.
 `--show-encryption` reports declared permissions, cipher methods and password-match

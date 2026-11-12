@@ -17,11 +17,16 @@ Typed `Qpdf.CheckAsync` accepts the same credentials in `QpdfCheckOptions.Passwo
 and runs structural checks over the decrypted graph. Its existing skipped-stage
 reporting and partial-check contract still apply.
 Output-free argv/job inspections accept a primary text password through
-`--password`/`password`. Password files/modes and secondary credentials remain
+`--password`/`password`. Password files and secondary credentials remain
 unsupported. Missing and supplied-but-invalid credentials have distinct diagnostic codes.
 `--suppress-password-recovery` / `suppressPasswordRecovery` disables the R4
 PDFDocEncoding retry for primary inspection and JSON credentials. It leaves raw
 bytes, absent passwords and successful first attempts unchanged.
+Input `--password-mode` / `passwordMode` accepts `auto`, `bytes`, `unicode` and
+`hex-bytes`. As in native qpdf, the first three leave input decoding unchanged.
+Hex mode ignores non-hex characters, pads an odd nibble and ends at the first
+decoded NUL; supported encoding recovery still applies unless suppressed.
+Typed raw-byte credentials always remain exact and never take this recovery path.
 
 `--is-encrypted` returns 0 for supported encrypted inputs and 2 for plain inputs.
 `--requires-password` returns 0 when credentials do not match, 2 for plain inputs,

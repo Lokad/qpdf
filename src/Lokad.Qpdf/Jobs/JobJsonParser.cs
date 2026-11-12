@@ -38,6 +38,7 @@ internal static class JobJsonParser
     {
             string? input = null;
             string? passwordText = null;
+            string? passwordMode = null;
             bool suppressPasswordRecovery = false;
             bool isEncrypted = false;
             bool requiresPassword = false;
@@ -218,7 +219,7 @@ internal static class JobJsonParser
             foreach (JsonProperty property in properties)
             {
                 governor.CheckCancellation();
-                if (IsCryptoKey(property.Name) && property.Name is not ("password" or "suppressPasswordRecovery"))
+                if (IsCryptoKey(property.Name) && property.Name is not ("password" or "passwordMode" or "suppressPasswordRecovery"))
                 { throw new QpdfCryptoException(property.Name); }
                 switch (property.Name)
                 {
@@ -233,6 +234,11 @@ internal static class JobJsonParser
                         break;
                     case "suppressPasswordRecovery":
                         suppressPasswordRecovery = RequireBareFlag(property.Value, "suppressPasswordRecovery", textStorage);
+                        break;
+                    case "passwordMode":
+                        passwordMode = RequireString(property.Value, "passwordMode", textStorage);
+                        if (passwordMode is not ("auto" or "bytes" or "unicode" or "hex-bytes"))
+                        { throw new QpdfParseException("Password mode must be auto, bytes, unicode or hex-bytes.", 0L, null); }
                         break;
                     case "showEncryption":
                         showEncryption = RequireBareFlag(property.Value, "showEncryption", textStorage);
@@ -1142,7 +1148,8 @@ internal static class JobJsonParser
             if (passwordText is not null)
             {
                 textStorage.Memory.Reserve(48L);
-                password = QpdfPassword.FromText(passwordText, !suppressPasswordRecovery);
+                password = passwordMode == "hex-bytes" ? QpdfPassword.FromHexText(passwordText, !suppressPasswordRecovery)
+                    : QpdfPassword.FromText(passwordText, !suppressPasswordRecovery);
             }
             if (isEncrypted && requiresPassword)
             { throw new QpdfParseException("isEncrypted and requiresPassword are mutually exclusive.", 0L, null); }
@@ -1237,8 +1244,8 @@ internal static class JobJsonParser
                 };
             }
 
-            if ((password is not null || suppressPasswordRecovery) && (!(seenJson || seenJsonOutput) || jsonInput || seenUpdateFromJson))
-            { throw new QpdfCryptoException(password is null ? "suppressPasswordRecovery" : "password"); }
+            if ((password is not null || passwordMode is not null || suppressPasswordRecovery) && (!(seenJson || seenJsonOutput) || jsonInput || seenUpdateFromJson))
+            { throw new QpdfCryptoException(password is not null ? "password" : passwordMode is not null ? "passwordMode" : "suppressPasswordRecovery"); }
 
             if (wantAttachments && hasPages)
             {

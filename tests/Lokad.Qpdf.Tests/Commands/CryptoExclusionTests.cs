@@ -69,7 +69,6 @@ public sealed class CryptoExclusionTests
     [Theory]
     [InlineData("password")]
     [InlineData("passwordFile")]
-    [InlineData("passwordMode")]
     [InlineData("passwordIsHexKey")]
     [InlineData("encryptionFilePassword")]
     [InlineData("allowWeakCrypto")]

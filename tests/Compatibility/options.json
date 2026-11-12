@@ -5196,20 +5196,26 @@
           "source": "manual/cli.rst:617"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "Primary inspections/JSON accept input modes and native hex decoding, with the supported R4 UTF-8 recovery. Other recovery encodings, legacy handlers, secondary credentials and output password conversion remain pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
+        "positive": [
+          "PasswordModeTests.InputModesMatchNativeDecodingAndRecovery"
+        ],
         "negative": [
           "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+          "PasswordModeTests.InvalidModesAndUnsupportedTransformsFailBeforeInputAccess"
         ],
-        "interaction": [],
-        "resource": [],
+        "interaction": [
+          "PasswordModeTests.HexRecoveryCanBeSuppressed"
+        ],
+        "resource": [
+          "PasswordModeTests.LongHexInputStillHonorsConfigurationLimits"
+        ],
         "oracle": []
       }
     },

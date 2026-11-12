@@ -56,6 +56,10 @@ internal static class PasswordReaderChecks
             [legacy.Value, "--password=café•", "--suppress-password-recovery", "--show-npages"]), CancellationToken.None);
         Check(exact.Status == QpdfExecutionStatus.Failed && exact.Diagnostics.Single().Code == QpdfDiagnosticCode.InvalidPassword,
             "password recovery suppression honors the supplied UTF-8 bytes");
+        QpdfExecutionResult hex = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(
+            [legacy.Value, "--password=636166e980", "--password-mode=hex-bytes", "--show-npages"]), CancellationToken.None);
+        Check(hex.Status == QpdfExecutionStatus.Completed && hex.Diagnostics.Any(item => item.Code == QpdfDiagnosticCode.PageCount),
+            "hex password mode accepts raw PDFDocEncoding bytes");
         QpdfExecutionResult report = await Qpdf.ExecuteJobAsync(host,
             """{"inputFile":"security-r6-ascii.pdf","showEncryption":"","password":"consumer-secret","check":""}""", CancellationToken.None);
         Check(report.Status == QpdfExecutionStatus.Completed && report.ExitCode == QpdfExitCode.Success
