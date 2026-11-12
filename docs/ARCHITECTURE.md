@@ -20,6 +20,8 @@ Argv and job JSON produce operation plans; typed methods call the same cores.
 The reader resolves classic, streamed, hybrid and incremental xrefs into immutable
 PDF values. Eligible selections read bounded ranges from classic-xref inputs,
 falling back to a complete read on the same lease when necessary.
+Input admission and xref parsing form one stage before authentication and page
+traversal; callers retain host-lease ownership through success and cleanup.
 The writer prepares numbering, lengths, offsets and identifiers before publication;
 linearization uses two passes.
 
