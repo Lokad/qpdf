@@ -5281,11 +5281,13 @@
       "evidence": {
         "positive": [
           "PasswordInspectionTests.ArgvAndJobsInspectAuthenticatedPrimaryInputs",
-          "PasswordTransformationTests.CommandsAndJobsPreservePrimaryProtectionThroughSharedWriters"
+          "PasswordTransformationTests.CommandsAndJobsPreservePrimaryProtectionThroughSharedWriters",
+          "ExtractionPasswordTests.ExplicitOutputsContainAuthenticatedPlaintext"
         ],
         "negative": [
           "PasswordInspectionTests.PasswordFailuresHaveDistinctSecretFreeDiagnostics",
-          "PasswordTransformationTests.WrongPasswordAndIncompatibleVersionNeverPublish"
+          "PasswordTransformationTests.WrongPasswordAndIncompatibleVersionNeverPublish",
+          "ExtractionPasswordTests.InvalidCredentialsPreservePriorBinaryOutput"
         ],
         "interaction": [
           "PasswordInspectionTests.LaterCredentialSettersReplaceEarlierOnes",
@@ -5329,7 +5331,8 @@
       "evidence": {
         "positive": [
           "PasswordFileTests.ArgvAndJobsUseFirstLineBytesForInspectionsAndJson",
-          "PasswordTransformationTests.PasswordFileAndHexModeRemainOwnedThroughTransformPublication"
+          "PasswordTransformationTests.PasswordFileAndHexModeRemainOwnedThroughTransformPublication",
+          "ExtractionPasswordTests.FileAndHexOwnerCredentialsRemainOwnedThroughExtraction"
         ],
         "negative": [
           "PasswordFileTests.InvalidOperationsRejectBeforePasswordFileAccess",
@@ -5345,6 +5348,7 @@
           "PasswordFileTests.EveryAdmissionRefusalClosesFilesAndRefundsTheOperation",
           "PasswordFileReaderTests.ReaderStorageStaysAdmittedUntilAsynchronousCloseCompletes",
           "PasswordFileReaderTests.InputLimitsAndCancellationLeaveNoOpenReader",
+          "ExtractionPasswordTests.EveryExtractionAdmissionRefusalRefundsBeforePublication",
           "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication"
         ],
         "oracle": []

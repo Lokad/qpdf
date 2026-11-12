@@ -48,6 +48,9 @@ before publication. Typed attachment listing/extraction accepts primary credenti
 with explicit limits; extraction publishes plaintext attachment bytes. Typed
 add/remove/copy edits accept primary credentials and an explicit output policy.
 Their existing overloads try empty passwords and preserve supported protection.
+Argv/job attachment and object-stream extraction also accept primary credentials
+when an explicit output path is supplied. Extracted payloads are plaintext;
+raw stream mode retains compression, while filtered mode decodes it.
 `--decrypt` / `decrypt` explicitly removes protection after authentication,
 including from split outputs. Output-free inspections ignore this output policy.
 `--encrypt user owner 256 [options] --` creates fresh AES-256 R6 protection, as

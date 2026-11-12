@@ -92,6 +92,8 @@ Attachment-copy sources use the same authenticated reader with independent
 payload storage. Copied attachment objects join the ordinary output graph before
 the source reader and key are disposed; their protection follows the output owner.
 Typed attachment listing and extraction authenticate the primary reader too.
+Command binary extraction uses that reader with primary text or host-file credentials,
+retaining the credential lease through staged payload publication.
 Typed edits pass the primary credential and output policy to the same whole-file
 transformation core, retaining independent credentials for copied sources.
 Placement readers authenticate independently too. Their cache keys include the

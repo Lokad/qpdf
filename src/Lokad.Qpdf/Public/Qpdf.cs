@@ -4081,57 +4081,6 @@ public static partial class Qpdf
         }
     }
 
-    private static ValueTask<QpdfDocument> OpenPlanInputAsync(
-        IQpdfHost host,
-        QpdfPath input,
-        bool emptyDocument,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
-        QpdfRecoveryMode recovery,
-        CancellationToken cancellationToken)
-        => OpenPlanInputAsync(host, input, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken, true);
-
-    private static ValueTask<QpdfDocument> OpenPlanInputAsync(
-        IQpdfHost host,
-        QpdfPath input,
-        bool emptyDocument,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
-        QpdfRecoveryMode recovery,
-        CancellationToken cancellationToken,
-        bool valuesEscape)
-    {
-        if (host is null)
-        {
-            throw new ArgumentNullException(nameof(host));
-        }
-
-        if (limits is null)
-        {
-            throw new ArgumentNullException(nameof(limits));
-        }
-
-        if (governor is null)
-        {
-            throw new ArgumentNullException(nameof(governor));
-        }
-
-        if (diagnostics is null)
-        {
-            throw new ArgumentNullException(nameof(diagnostics));
-        }
-
-        limits.Validate();
-        if (emptyDocument)
-        {
-            return QpdfDocument.OpenEmptyDocument(input, limits, governor, diagnostics, recovery, cancellationToken, valuesEscape);
-        }
-
-        return QpdfDocument.OpenCore(host, input, limits, governor, diagnostics, recovery, cancellationToken, valuesEscape);
-    }
-
     private static async ValueTask<(MultiPageSelectionOutcome Result, int AttachmentCount)> WholeFileCoreAsync(
         IQpdfHost host,
         WholeFilePlan plan,
@@ -5590,12 +5539,15 @@ public static partial class Qpdf
     private static async ValueTask ShowObjectCoreAsync(
         IQpdfHost host,
         ShowObjectPlan showObject,
+        QpdfPassword? password,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        await using QpdfDocument document = await OpenPlanInputAsync(host, showObject.Input, showObject.EmptyDocument, limits, governor, diagnostics, showObject.Recovery, cancellationToken).ConfigureAwait(false);
+        await using QpdfDocument document = showObject.EmptyDocument
+            ? await QpdfDocument.OpenEmptyDocument(showObject.Input, limits, governor, diagnostics, showObject.Recovery, cancellationToken, true).ConfigureAwait(false)
+            : await QpdfDocument.OpenInspectionCore(host, showObject.Input, password, limits, governor, diagnostics, showObject.Recovery, cancellationToken).ConfigureAwait(false);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         await ShowObjectAsync(host, document, showObject, limits, governor, diagnostics, memory, cancellationToken).ConfigureAwait(false);
     }
@@ -5659,7 +5611,8 @@ public static partial class Qpdf
         {
             try
             {
-                await ShowObjectCoreAsync(host, showObject, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                await ShowObjectCoreAsync(host, showObject, suppliedPassword is null ? showObject.TransformationPassword : suppliedPassword.Password,
+                    limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
                 return CompleteWithPresentation(governor);
             }
             catch (QpdfException ex)
@@ -5677,15 +5630,16 @@ public static partial class Qpdf
         {
             try
             {
+                QpdfPassword? password = suppliedPassword is null ? attachments.TransformationPassword : suppliedPassword.Password;
                 if (attachments.List)
                 {
-                    await ListAttachmentsCoreAsync(host, attachments.Input, null, limits, attachments.Recovery, attachments.EmptyDocument, governor, diagnostics, false, cancellationToken).ConfigureAwait(false);
+                    await ListAttachmentsCoreAsync(host, attachments.Input, password, limits, attachments.Recovery, attachments.EmptyDocument, governor, diagnostics, false, cancellationToken).ConfigureAwait(false);
                 }
 
                 if (attachments.Key is not null)
                 {
                     QpdfPath output = attachments.Output ?? throw new QpdfParseException("An output file is required after --.", 0L, null);
-                    await ExtractAttachmentCoreAsync(host, attachments.Input, attachments.Key, output, null, limits, attachments.Recovery, attachments.EmptyDocument, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                    await ExtractAttachmentCoreAsync(host, attachments.Input, attachments.Key, output, password, limits, attachments.Recovery, attachments.EmptyDocument, governor, diagnostics, cancellationToken).ConfigureAwait(false);
                 }
 
                 return CompleteWithPresentation(governor);

@@ -1325,10 +1325,6 @@ internal static partial class JobJsonParser
                 QpdfPassword owner = passwordMode == "hex-bytes" ? QpdfPassword.FromHexText(encryptionOwner, false) : QpdfPassword.FromText(encryptionOwner, false);
                 outputEncryption = QpdfOutputEncryption.CreateAes256(user, owner, encryptionPermissions, encryptMetadata);
             }
-            if ((password is not null || passwordFiles is not null || passwordMode is not null || suppressPasswordRecovery)
-                && (wantAttachments || showObject is not null))
-            { throw new QpdfCryptoException(passwordFiles is not null ? "passwordFile" : password is not null ? "password" : passwordMode is not null ? "passwordMode" : "suppressPasswordRecovery"); }
-
             if (wantAttachments && hasPages)
             {
                 throw new QpdfParseException("Job attachment keys cannot be combined with \"pages\".", 0L, null);
@@ -1344,6 +1340,8 @@ internal static partial class JobJsonParser
                 (QpdfPath attachmentInput, bool attachmentEmpty) = ResolveInspectionInput(input, empty, "attachment inspection");
                 return new AttachmentPlan(attachmentInput, SelectionPlan.CheckedPath(attachmentOutput), showAttachment, listAttachments, recovery)
                 {
+                    TransformationPassword = password,
+                    PasswordFiles = passwordFiles,
                     EmptyDocument = attachmentEmpty,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     ReportMemoryUsage = reportMemoryUsage,
@@ -1401,6 +1399,8 @@ internal static partial class JobJsonParser
                 (QpdfPath inspectionInput, bool emptyDocument) = ResolveInspectionInput(input, empty, "showObject");
                 return new ShowObjectPlan(inspectionInput, recovery, showObject)
                 {
+                    TransformationPassword = password,
+                    PasswordFiles = passwordFiles,
                     EmptyDocument = emptyDocument,
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,

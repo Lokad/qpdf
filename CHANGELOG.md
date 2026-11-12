@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Authenticate argv/job attachment and raw/filtered stream extraction with explicit
+  output paths, including host password files, hex mode and recovery controls.
 - Accept primary text/raw credentials for typed attachment listing, extraction
   and add/remove/copy edits. Edits share preserve/remove/create/template output
   policies; extraction publishes plaintext payloads through the host transaction.

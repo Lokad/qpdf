@@ -71,6 +71,18 @@ internal static class PasswordReaderChecks
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, plainInput, CancellationToken.None))
         { Check(document.PageCount == 1 && document.Encryption is null, "explicitly removed protection"); }
         QpdfPath attachmentSource = Add("security-r4-attachment.pdf");
+        QpdfExecutionResult binaryAttachment = await Qpdf.ExecuteAsync(host, new([attachmentSource.Value, "--password=café•",
+            "--show-attachment=private.bin", "--", "authenticated-payload.bin"]), CancellationToken.None);
+        Check(binaryAttachment.Status == QpdfExecutionStatus.Completed
+            && host.TryGetOutput(QpdfPath.From("authenticated-payload.bin"), out byte[] authenticatedPayload)
+            && authenticatedPayload.AsSpan().SequenceEqual("Private attachment payload.\n"u8), "authenticated binary attachment command");
+        host.AddInput(QpdfPath.From("extraction-password"), "6f776e6572e991\n"u8.ToArray(), QpdfInputOwnership.Copy);
+        QpdfExecutionResult binaryStream = await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new
+            { inputFile = attachmentSource.Value, outputFile = "authenticated-stream.bin", passwordFile = "extraction-password",
+                passwordMode = "hex-bytes", showObject = "9", filteredStreamData = "" }), CancellationToken.None);
+        Check(binaryStream.Status == QpdfExecutionStatus.Completed
+            && host.TryGetOutput(QpdfPath.From("authenticated-stream.bin"), out byte[] authenticatedStream)
+            && authenticatedStream.AsSpan().SequenceEqual("BT (Page) Tj ET"u8), "authenticated binary stream job");
         QpdfAttachmentEditResult authenticatedCopy = await Qpdf.CopyAttachmentsAsync(host, plainInput, QpdfPath.From("attachment-copy.pdf"),
             [new QpdfAttachmentCopy(attachmentSource, "copy-", QpdfPassword.FromText("café•"))], CancellationToken.None);
         Check(authenticatedCopy.AttachmentCount == 1, "typed authenticated attachment source");
