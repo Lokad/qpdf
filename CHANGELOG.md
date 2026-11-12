@@ -28,8 +28,11 @@
   preserve supported primary protection through selection, merge/split, compression,
   object streams, QDF, linearization and attachment edits. Retain protection when
   the primary contributes no selected pages. Shared typed attachment edits also
-  preserve empty-password inputs. Command output policies, secondary credentials
+  preserve empty-password inputs. New command encryption, template copying, secondary credentials
   and encrypted JSON updates remain unsupported.
+- Add `--decrypt` / `decrypt` for authenticated AES R4/R6 PDF transformations,
+  including split and linearized output. Preserve prior output on authentication
+  failure or pre-publication cancellation; output-free inspections ignore the policy.
 - Add `--is-encrypted` and `--requires-password` (and job JSON equivalents) for
   supported handlers, retaining native query exit codes independently of warning presentation.
 - Add `--show-encryption` / `showEncryption` for supported handlers, reporting

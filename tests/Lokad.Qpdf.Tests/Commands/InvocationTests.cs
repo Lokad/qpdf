@@ -418,7 +418,8 @@ public sealed class InvocationTests
 
         Assert.DoesNotContain("--encrypt", bashScript.Message, StringComparison.Ordinal);
         Assert.Contains("--password ", bashScript.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain("--password-file", bashScript.Message, StringComparison.Ordinal);
+        Assert.Contains("--password-file ", bashScript.Message, StringComparison.Ordinal);
+        Assert.Contains("--decrypt ", bashScript.Message, StringComparison.Ordinal);
 
         QpdfExecutionResult zsh = await Qpdf.ExecuteAsync(
             host, new QpdfCommandInvocation(["--completion-zsh"]), CancellationToken.None);

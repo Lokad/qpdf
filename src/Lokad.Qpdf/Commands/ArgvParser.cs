@@ -65,14 +65,14 @@ internal static class ArgvParser
     internal static void RejectCryptoOptions(IReadOnlyList<string> argv, Runtime.ResourceGovernor governor)
         => RejectCryptoOptions(argv, governor, false);
 
-    internal static void RejectCryptoOptions(IReadOnlyList<string> argv, Runtime.ResourceGovernor governor, bool inspectionPassword)
+    internal static void RejectCryptoOptions(IReadOnlyList<string> argv, Runtime.ResourceGovernor governor, bool supportedSecurityOptions)
     {
         foreach (string token in argv)
         {
             governor.CheckCancellation();
             governor.NoteOperation();
             if (token is not null && token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2
-                && IsCryptoOption(OptionName(token)) && !(inspectionPassword && OptionName(token) is "password" or "password-file" or "password-mode" or "suppress-password-recovery"))
+                && IsCryptoOption(OptionName(token)) && !(supportedSecurityOptions && OptionName(token) is "password" or "password-file" or "password-mode" or "suppress-password-recovery" or "decrypt"))
             {
                 throw new QpdfCryptoException($"--{OptionName(token)}");
             }

@@ -91,6 +91,7 @@ public static partial class Qpdf
         {
             AuthenticatePrimary = true,
             PrimaryPassword = password,
+            OutputEncryption = plan.OutputEncryption,
             Rotations = plan.Rotations,
             Labels = plan.Labels,
             RemoveLabels = plan.RemoveLabels,

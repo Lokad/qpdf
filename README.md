@@ -123,6 +123,9 @@ also accept these primary credentials and preserve supported input protection:
 `input.pdf output.pdf --password=reader --linearize`. The primary document controls
 protection even when a pages block selects only other inputs. `--password-file=path` (job key
 `passwordFile`) reads the first line through the host; descriptor input is unavailable.
+Add `--decrypt` (job key `"decrypt":""`) to publish an unencrypted PDF after
+authenticating its input. It also applies to split outputs; output-free inspections
+ignore this output policy.
 `--is-encrypted` and `--requires-password` provide native predicate exit codes;
 see the [supported profile](docs/SUPPORTED-PROFILE.md) for their `Completed` result semantics.
 `--show-encryption` reports declared permissions, cipher methods and password-match
@@ -139,7 +142,8 @@ for buffer ownership, cancellation and resource admission.
 ## Limitations
 
 Typed page selection, merging and splitting preserve/remove AES R4/R6 protection or create AES-256 R6.
-Argv/job PDF transformations preserve primary protection; command output policies,
+Argv/job PDF transformations preserve primary protection or explicitly remove it;
+new command encryption and template copying,
 secondary credentials, password descriptors and encrypted JSON updates remain unsupported.
 Typed attachment edits preserve supported empty-password input protection.
 Rendering, OCR and

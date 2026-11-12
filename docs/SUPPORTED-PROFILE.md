@@ -38,8 +38,10 @@ PDF rewrites, page selection/merging/splitting, object streams, QDF, linearizati
 and attachment edits preserve supported primary protection, including when none
 of its pages is selected. A forced version incompatible with that protection fails
 before publication. Typed attachment edits use the same path for empty-password
-inputs. Explicit command output policies and encrypted JSON updates remain
-unsupported; secondary command credentials and password descriptors remain pending.
+inputs. `--decrypt` / `decrypt` explicitly removes protection after authentication,
+including from split outputs. Output-free inspections ignore this output policy.
+New command encryption, encryption-template copying and encrypted JSON updates
+remain unsupported; secondary command credentials and password descriptors remain pending.
 File setters retain native order: a zero-byte file leaves the previous password
 unchanged, while a blank first line supplies an empty password. Spaces are retained;
 CR is stripped only before LF, and NUL terminates the password. Additional lines

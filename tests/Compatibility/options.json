@@ -2869,20 +2869,27 @@
           "source": "manual/cli.rst:741"
         }
       ],
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "Explicit decryption supports AES R4/R6 PDF transformations and is ignored by output-free inspections. Legacy handlers and encrypted JSON updates remain pending."
       ],
       "currentRejection": true,
       "evidence": {
-        "positive": [],
-        "negative": [
-          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
-          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+        "positive": [
+          "OutputDecryptionTests.ExplicitDecryptionWritesUsablePlaintextAcrossWriterPaths"
         ],
-        "interaction": [],
-        "resource": [],
+        "negative": [
+          "OutputDecryptionTests.DecryptionDoesNotBypassPasswordsOrCanceledPublication",
+          "OutputDecryptionTests.MalformedDecryptionFlagAndJsonUpdateRejectBeforeHostAccess"
+        ],
+        "interaction": [
+          "OutputDecryptionTests.OutputFreeInspectionIgnoresTheOutputPolicy",
+          "OutputDecryptionTests.AFalseDecryptionSetterRestoresPreservation"
+        ],
+        "resource": [
+          "OutputDecryptionTests.DecryptionDoesNotBypassPasswordsOrCanceledPublication"
+        ],
         "oracle": []
       }
     },

@@ -129,6 +129,13 @@ internal static class PasswordReaderChecks
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("command-copy.pdf"),
             QpdfPassword.FromBytes(ownerBytes), QpdfLimits.Default, CancellationToken.None))
         { Check(document.PageCount == 1 && document.Encryption?.Revision == 6, "command preservation with original owner password"); }
+        QpdfExecutionResult decrypted = await Qpdf.ExecuteJobAsync(host,
+            """{"inputFile":"security-r6-ascii.pdf","outputFile":"decrypted-command.pdf","password":"reader","decrypt":""}""", CancellationToken.None);
+        Check(decrypted.Status == QpdfExecutionStatus.Completed, "explicit command decryption");
+        Check(host.TryGetOutput(QpdfPath.From("decrypted-command.pdf"), out byte[] decryptedBytes), "decrypted command publication");
+        host.AddInput(QpdfPath.From("decrypted-command-copy.pdf"), decryptedBytes, QpdfInputOwnership.Copy);
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("decrypted-command-copy.pdf"), CancellationToken.None))
+        { Check(document.PageCount == 1 && document.Encryption is null, "command removal policy"); }
         QpdfExecutionResult report = await Qpdf.ExecuteJobAsync(host,
             """{"inputFile":"security-r6-ascii.pdf","showEncryption":"","password":"consumer-secret","check":""}""", CancellationToken.None);
         Check(report.Status == QpdfExecutionStatus.Completed && report.ExitCode == QpdfExitCode.Success

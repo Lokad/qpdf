@@ -46,6 +46,7 @@ internal static class JobJsonParser
             bool isEncrypted = false;
             bool requiresPassword = false;
             bool showEncryption = false;
+            bool decrypt = false;
             bool empty = false;
             bool seenEmpty = false;
             bool seenInput = false;
@@ -222,10 +223,13 @@ internal static class JobJsonParser
             foreach (JsonProperty property in properties)
             {
                 governor.CheckCancellation();
-                if (IsCryptoKey(property.Name) && property.Name is not ("password" or "passwordFile" or "passwordMode" or "suppressPasswordRecovery"))
+                if (IsCryptoKey(property.Name) && property.Name is not ("password" or "passwordFile" or "passwordMode" or "suppressPasswordRecovery" or "decrypt"))
                 { throw new QpdfCryptoException(property.Name); }
                 switch (property.Name)
                 {
+                    case "decrypt":
+                        decrypt = RequireBareFlag(property.Value, "decrypt", textStorage);
+                        break;
                     case "isEncrypted":
                         isEncrypted = RequireBareFlag(property.Value, "isEncrypted", textStorage);
                         break;
@@ -1270,6 +1274,7 @@ internal static class JobJsonParser
                 };
             }
 
+            if (decrypt && (jsonInput || seenUpdateFromJson)) { throw new QpdfCryptoException("decrypt"); }
             if ((password is not null || passwordFiles is not null || passwordMode is not null || suppressPasswordRecovery)
                 && (jsonInput || seenUpdateFromJson || wantAttachments || showObject is not null))
             { throw new QpdfCryptoException(passwordFiles is not null ? "passwordFile" : password is not null ? "password" : passwordMode is not null ? "passwordMode" : "suppressPasswordRecovery"); }
@@ -1587,6 +1592,7 @@ internal static class JobJsonParser
                 {
                     TransformationPassword = password,
                     PasswordFiles = passwordFiles,
+                    OutputEncryption = decrypt ? QpdfOutputEncryption.Remove : null,
                     EmptyDocument = empty,
                     ReplaceInput = replaceInput,
                     Rotations = rotations,
@@ -1684,6 +1690,7 @@ internal static class JobJsonParser
                 {
                     TransformationPassword = password,
                     PasswordFiles = passwordFiles,
+                    OutputEncryption = decrypt ? QpdfOutputEncryption.Remove : null,
                     ReplaceInput = replaceInput,
                     Rotations = rotations,
                     Labels = labels,
@@ -1753,6 +1760,7 @@ internal static class JobJsonParser
             {
                 TransformationPassword = password,
                 PasswordFiles = passwordFiles,
+                OutputEncryption = decrypt ? QpdfOutputEncryption.Remove : null,
                 EmptyInput = empty,
                 ReplaceInput = replaceInput,
                 Rotations = rotations,
