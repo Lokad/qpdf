@@ -82,14 +82,18 @@ public sealed class CompatibilityInventoryTests
     }
 
     [Fact]
-    public void EncryptionJsonKeyKeepsRemainingHandlerGapsVisible()
+    public void EncryptionJsonKeyRequiresAuthenticatedBehaviorAndNativeEvidence()
     {
         using var inventory = ReadInventory();
         var entry = Assert.Single(inventory.RootElement.GetProperty("options").EnumerateArray(),
             option => option.GetProperty("flag").GetString() == "--json-key");
         Assert.Equal("required", entry.GetProperty("scope").GetString());
         Assert.Equal("required", entry.GetProperty("choiceScopes").GetProperty("encrypt").GetString());
-        Assert.Equal("partial", entry.GetProperty("status").GetString());
+        Assert.Equal("complete", entry.GetProperty("status").GetString());
+        Assert.Contains(entry.GetProperty("evidence").GetProperty("positive").EnumerateArray(),
+            evidence => evidence.GetString() == "EncryptedJsonTests.TypedArgvAndJobExportAuthenticatedFacts");
+        Assert.Contains(entry.GetProperty("evidence").GetProperty("oracle").EnumerateArray(),
+            evidence => evidence.GetString() == "diff:security-json");
     }
 
     [Fact]

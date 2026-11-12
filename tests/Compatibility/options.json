@@ -3053,7 +3053,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Explicit decryption supports R2–R6 PDF transformations and is ignored by output-free inspections. Canonical encrypted JSON reference coverage remains pending."
+        "R2–R6 reading, transforms and encrypted JSON have native coverage. The legacy crypto-option classification still needs reconciliation with supported parser contexts."
       ],
       "currentRejection": true,
       "evidence": {
@@ -3073,7 +3073,8 @@
         ],
         "oracle": [
           "diff:security-query",
-          "diff:security-preserve"
+          "diff:security-preserve",
+          "diff:security-json"
         ]
       }
     },
@@ -4017,11 +4018,9 @@
           "source": "manual/cli.rst:3771"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Typed/command JSON creation accepts explicit output policies. Full exports declaring /Encrypt require an explicit remove/create/template policy because JSON alone cannot authenticate a key. Canonical encrypted native-reference coverage remains pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "JsonImportTests.CreateFromMinimalJson",
@@ -4057,7 +4056,8 @@
           "JsonNumberTests.ExpansionRefusalReleasesSharedAdmissionAndPreservesOutput"
         ],
         "oracle": [
-          "diff:json-import"
+          "diff:json-import",
+          "diff:security-json"
         ]
       }
     },
@@ -4098,11 +4098,9 @@
           "source": "manual/cli.rst:3669"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Authenticated R2–R6 JSON facts have native coverage. Canonical encrypted stream/sidecar export qualification remains pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "JsonInspectionTests.KeySelectionLimitsOutput",
@@ -4126,7 +4124,8 @@
           "diff:json-pages",
           "diff:json-structure",
           "diff:json-images",
-          "diff:security-encoding"
+          "diff:security-encoding",
+          "diff:security-json"
         ]
       }
     },
@@ -4224,7 +4223,8 @@
           "JsonValueOwnershipTests.FailedOrCanceledJsonClosesReaderAndPreservesPriorOutput"
         ],
         "oracle": [
-          "diff:json-output"
+          "diff:json-output",
+          "diff:security-json"
         ]
       }
     },
@@ -4281,7 +4281,8 @@
           "JsonSidecarNameTests.NameChecksAndAdmissionPrecedeLargePayloadCopies"
         ],
         "oracle": [
-          "diff:json-stream-data"
+          "diff:json-stream-data",
+          "diff:security-json"
         ]
       }
     },
@@ -4327,7 +4328,8 @@
           "JsonSidecarNameTests.NameChecksAndAdmissionPrecedeLargePayloadCopies"
         ],
         "oracle": [
-          "diff:json-prefix"
+          "diff:json-prefix",
+          "diff:security-json"
         ]
       }
     },
@@ -5303,7 +5305,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Primary text passwords support R2–R6 inspections, JSON export and protection-preserving PDF transformations. Canonical encrypted JSON reference coverage remains pending."
+        "R2–R6 reading, transforms and encrypted JSON have native coverage. The legacy crypto-option classification still needs reconciliation with supported parser contexts."
       ],
       "currentRejection": true,
       "evidence": {
@@ -5344,7 +5346,8 @@
         "oracle": [
           "diff:security-query",
           "diff:security-preserve",
-          "diff:security-encoding"
+          "diff:security-encoding",
+          "diff:security-json"
         ]
       }
     },
@@ -7145,11 +7148,9 @@
           "source": "manual/cli.rst:3785"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Typed R2–R6 object updates accept independent input credentials and preserve/remove/create/template output policies. Argv/job updates share primary text/host-file credentials and output policies. Preservation validates repeated handlers; explicit policies replace JSON declarations. Canonical encrypted native-reference coverage remains pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "JsonImportTests.UpdateChangesValues",
@@ -7187,7 +7188,8 @@
           "EncryptedJsonUpdateTests.EveryUpdateAdmissionRefusalRefundsBeforeEncryptedPublication"
         ],
         "oracle": [
-          "diff:json-update"
+          "diff:json-update",
+          "diff:security-json"
         ]
       }
     },

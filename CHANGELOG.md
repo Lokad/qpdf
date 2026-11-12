@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Qualify encrypted inline/sidecar JSON exports, updates and creation against
+  native qpdf across R2–R6 and explicit output policies.
+
 - Extend native security qualification to fresh AES-256, copied templates,
   password encodings, host password files and non-secret reports.
 

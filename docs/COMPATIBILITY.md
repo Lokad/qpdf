@@ -111,7 +111,9 @@ equivalence is claimed. The security matrix compares R2–R6 query exits and
 classic, object-stream, QDF, linearized and decrypted outputs through argv and
 job JSON. It also compares fresh AES-256, independent templates, raw/UTF-8/
 PDFDocEncoding passwords, host password files and non-secret reports. Native
-checks authenticate both roles and verify policy; decrypted
+checks authenticate both roles and verify policy. Encrypted inline/sidecar JSON
+exports cross into native and managed update/creation with changed values and
+explicit preserve/remove/new/template policies; decrypted
 controls compare page/metadata payloads and independent-reader page counts.
 Reference jobs fail when tools are missing.
 
