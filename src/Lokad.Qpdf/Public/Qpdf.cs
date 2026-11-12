@@ -483,9 +483,10 @@ public static partial class Qpdf
                             singlePool.Add(overlayEntry.Key, overlayEntry.Value);
                         }
                     }
-                    byte[]? originalId = TryGetOriginalId(document.Engine);
-                    using OutputSecurity? outputSecurity = PrepareOutputSecurity(settings.OutputEncryption ?? QpdfOutputEncryption.Preserve,
-                        document, ref originalId, copyMemory, governor);
+                    var preparedSecurity = await PrepareOutputSecurityAsync(host, settings.OutputEncryption ?? QpdfOutputEncryption.Preserve,
+                        document, TryGetOriginalId(document.Engine), copyMemory, governor, limits, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
+                    using OutputSecurity? outputSecurity = preparedSecurity.Security;
+                    byte[]? originalId = preparedSecurity.Identifier;
                     RequireEncryptionVersion(outputSecurity, ref negotiated, ref negotiatedExtension, settings.ForceVersion, governor);
                     PdfDictionary? singleAcroForm = settings.RemoveAcroform
                         ? null
@@ -1030,8 +1031,9 @@ public static partial class Qpdf
                 if (s == primaryIdx && !emptyPrimary)
                 {
                     originalId1 = TryGetOriginalId(document.Engine);
-                    securityOwner?.Prepare(settings.OutputEncryption ?? QpdfOutputEncryption.Preserve, document,
-                        ref originalId1, selectionMemory, governor);
+                    if (securityOwner is not null)
+                    { originalId1 = await securityOwner.PrepareAsync(host, settings.OutputEncryption ?? QpdfOutputEncryption.Preserve,
+                        document, originalId1, selectionMemory, governor, limits, diagnostics, recovery, cancellationToken).ConfigureAwait(false); }
                 }
 
                 sourceCompressed.Add(CollectCompressedOriginals(document.Engine, settings.ObjectStreams is not ("disable" or "generate"), selectionMemory, governor, cancellationToken));
@@ -1438,7 +1440,9 @@ public static partial class Qpdf
         PdfVersion inputMax = version ?? governor.PrivateVersion(1, 4);
         IncludeVersionRequirement(ref inputMax, ref inputExtension, overlayApplied.Version, overlayApplied.ExtensionLevel, governor);
         (PdfVersion negotiatedMulti, int negotiatedMultiExtension) = NegotiateVersion(inputMax, inputExtension, settings.MinVersion, settings.ForceVersion, governor);
-        if (emptyPrimary) { securityOwner?.PrepareEmpty(settings.OutputEncryption ?? QpdfOutputEncryption.Preserve, governor); }
+        if (emptyPrimary && securityOwner is not null)
+        { originalId1 = await securityOwner.PrepareAsync(host, settings.OutputEncryption ?? QpdfOutputEncryption.Preserve,
+            null, originalId1, selectionMemory, governor, limits, diagnostics, recovery, cancellationToken).ConfigureAwait(false); }
         OutputSecurity? outputSecurity = securityOwner?.Value;
         RequireEncryptionVersion(outputSecurity, ref negotiatedMulti, ref negotiatedMultiExtension, settings.ForceVersion, governor);
         if (settings.ForceVersion is null)

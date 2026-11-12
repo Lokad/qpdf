@@ -9,21 +9,29 @@ namespace Lokad.Qpdf;
 /// request holds no encryption key. Formatting never reveals its passwords.</remarks>
 public sealed class QpdfOutputEncryption
 {
-    private enum Policy : byte { Preserve, Remove, Aes256 }
+    private enum Policy : byte { Preserve, Remove, Aes256, Template }
     private readonly Policy _policy;
     private readonly QpdfPassword? _userPassword;
     private readonly QpdfPassword? _ownerPassword;
     private readonly int _permissions;
     private readonly bool _encryptMetadata;
+    private readonly QpdfPath? _templateInput;
 
-    private QpdfOutputEncryption(Policy policy, QpdfPassword? user, QpdfPassword? owner, int permissions, bool metadata)
-    { _policy = policy; _userPassword = user; _ownerPassword = owner; _permissions = permissions; _encryptMetadata = metadata; }
+    private QpdfOutputEncryption(Policy policy, QpdfPassword? user, QpdfPassword? owner, int permissions, bool metadata, QpdfPath? templateInput)
+    { _policy = policy; _userPassword = user; _ownerPassword = owner; _permissions = permissions; _encryptMetadata = metadata; _templateInput = templateInput; }
 
     /// <summary>Retains supported input protection, or leaves an unencrypted input unencrypted.</summary>
-    public static QpdfOutputEncryption Preserve { get; } = new(Policy.Preserve, null, null, -4, true);
+    public static QpdfOutputEncryption Preserve { get; } = new(Policy.Preserve, null, null, -4, true, null);
 
     /// <summary>Writes an unencrypted PDF after authenticating the input when necessary.</summary>
-    public static QpdfOutputEncryption Remove { get; } = new(Policy.Remove, null, null, -4, true);
+    public static QpdfOutputEncryption Remove { get; } = new(Policy.Remove, null, null, -4, true, null);
+
+    /// <summary>Copies supported protection from an independently authenticated template document.</summary>
+    /// <remarks>Either valid template password retains both password entries, permissions and
+    /// metadata policy. A plaintext template removes protection. An absent password tries empty.
+    /// The host opens the template, and its reader closes before output publication.</remarks>
+    public static QpdfOutputEncryption CopyFrom(QpdfPath input, QpdfPassword? password)
+        => new(Policy.Template, password, null, -4, true, input);
 
     /// <summary>Creates fresh AES-256 revision 6 protection using both supplied passwords.</summary>
     /// <param name="userPassword">The user password, encoded as UTF-8 or exact supplied bytes, limited to 127 bytes.</param>
@@ -41,7 +49,7 @@ public sealed class QpdfOutputEncryption
         // high-quality printing. Accessibility (bit 10) stays enabled for R6.
         if ((permissions & ~0x0d3c) != unchecked((int)0xfffff2c0))
         { throw new ArgumentOutOfRangeException(nameof(permissions), "Invalid revision 6 permission bits."); }
-        return new(Policy.Aes256, userPassword, ownerPassword, permissions, encryptMetadata);
+        return new(Policy.Aes256, userPassword, ownerPassword, permissions, encryptMetadata, null);
     }
 
     /// <summary>Returns a description without credentials.</summary>
@@ -49,10 +57,13 @@ public sealed class QpdfOutputEncryption
     {
         Policy.Preserve => "QpdfOutputEncryption [preserve]",
         Policy.Remove => "QpdfOutputEncryption [remove]",
+        Policy.Template => "QpdfOutputEncryption [template; password redacted]",
         _ => "QpdfOutputEncryption [AES-256; passwords redacted]",
     };
 
     internal bool PreservesInput => _policy == Policy.Preserve;
+    internal QpdfPath? TemplateInput => _templateInput;
+    internal QpdfPassword? TemplatePassword => _policy == Policy.Template ? _userPassword : null;
 
     internal OutputSecurity? CreateOutput(ResourceGovernor governor)
     {

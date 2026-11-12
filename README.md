@@ -140,6 +140,9 @@ Attachment-copy sources accept their own credentials through
 `--copy-attachments-from source.pdf --password=reader --`, job
 `copyAttachmentsFrom[].password`, or `new QpdfAttachmentCopy(source, prefix, password)`.
 Source protection does not replace the destination's output policy.
+Typed page operations can copy protection from an independent template with
+`QpdfOutputEncryption.CopyFrom(template, password)`. Either valid template password
+retains both password entries and permissions; a plaintext template removes protection.
 Overlay and underlay blocks likewise accept `--password=...`, or job
 `overlay[].password` / `underlay[].password`. Each distinct source credential
 authenticates independently, including when the source names the primary input.
@@ -160,7 +163,7 @@ for buffer ownership, cancellation and resource admission.
 
 Typed page selection, merging and splitting preserve/remove AES R4/R6 protection or create AES-256 R6.
 Argv/job PDF transformations preserve/remove primary protection or create AES-256 R6;
-legacy encryption creation and template copying,
+legacy encryption creation and command template copying,
 password descriptors and encrypted JSON updates remain unsupported.
 Typed attachment edits preserve supported empty-password input protection.
 Rendering, OCR and

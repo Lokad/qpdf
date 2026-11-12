@@ -56,7 +56,7 @@ permission setters retain their order; job JSON applies keys in lexical order.
 Encryption/decryption setters replace the preceding output policy. Split outputs
 receive independent keys, including with an empty primary document. New encryption
 cannot combine with deterministic IDs. Legacy creation, force-R5, allow-insecure,
-encryption-template copying, encrypted JSON updates and password descriptors
+command encryption-template copying, encrypted JSON updates and password descriptors
 remain unsupported.
 Attachment-copy sources accept independent text credentials inside their argv/job
 blocks, including the global password mode and recovery settings. Typed
@@ -69,6 +69,12 @@ including the global mode and recovery settings. The same file can use different
 valid credentials in separate placements; each distinct credential authenticates
 before its graph is reused. A missing placement credential does not inherit the
 primary password. Publication and transformed inspections share this reader path.
+Typed page selection, merging and splitting accept
+`QpdfOutputEncryption.CopyFrom(template, password)`. The host authenticates this
+independent R4/R6 input with either password, then copies both password entries,
+permissions, metadata policy and the first identifier. Its reader closes before
+publication; split outputs retain the template key. A plaintext template removes
+input protection. Template passwords may be text, raw bytes or absent for empty.
 File setters retain native order: a zero-byte file leaves the previous password
 unchanged, while a blank first line supplies an empty password. Spaces are retained;
 CR is stripped only before LF, and NUL terminates the password. Additional lines

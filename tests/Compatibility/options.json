@@ -2907,7 +2907,7 @@
       "status": "not-started",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "Typed template copying supports AES R4/R6 through the shared output policy; this command adapter and its qualification remain pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -3213,7 +3213,7 @@
       "status": "not-started",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Password-security behavior is not implemented; current evidence establishes rejection only."
+        "Typed template credentials support AES R4/R6; this command adapter and its qualification remain pending."
       ],
       "currentRejection": true,
       "evidence": {

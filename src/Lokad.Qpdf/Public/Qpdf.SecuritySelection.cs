@@ -79,10 +79,38 @@ public static partial class Qpdf
         finally { governor.AbandonTypedCounters(); }
     }
 
-    private static OutputSecurity? PrepareOutputSecurity(QpdfOutputEncryption policy, QpdfDocument document, ref byte[]? identifier,
+    private static async ValueTask<(OutputSecurity? Security, byte[]? Identifier)> PrepareOutputSecurityAsync(
+        IQpdfHost host, QpdfOutputEncryption policy, QpdfDocument? document, byte[]? identifier,
+        ParserMemoryScope memory, ResourceGovernor governor, QpdfLimits limits, DiagnosticBag diagnostics,
+        QpdfRecoveryMode recovery, CancellationToken cancellationToken)
+    {
+        if (policy.TemplateInput is QpdfPath input)
+        {
+            OutputSecurity? prepared = null;
+            try
+            {
+                await using (QpdfDocument template = await QpdfDocument.OpenInspectionCore(host, input, policy.TemplatePassword,
+                    limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false))
+                {
+                    if (template.Engine.Security is not null)
+                    {
+                        memory.Reserve(288L); // Bounded independent first-identifier storage.
+                        identifier = TryGetOriginalId(template.Engine);
+                        prepared = PreparePreservedSecurity(template, ref identifier, memory, governor);
+                    }
+                }
+                return (prepared, identifier);
+            }
+            catch { prepared?.Dispose(); throw; }
+        }
+        if (!policy.PreservesInput) { return (policy.CreateOutput(governor), identifier); }
+        OutputSecurity? preserved = document is null ? null : PreparePreservedSecurity(document, ref identifier, memory, governor);
+        return (preserved, identifier);
+    }
+
+    private static OutputSecurity? PreparePreservedSecurity(QpdfDocument document, ref byte[]? identifier,
         ParserMemoryScope memory, ResourceGovernor governor)
     {
-        if (!policy.PreservesInput) { return policy.CreateOutput(governor); }
         if (document.Engine.Security is not DocumentSecurity security) { return null; }
         if (identifier is null)
         {
@@ -109,12 +137,15 @@ public static partial class Qpdf
             catch { memory.Dispose(); throw; }
         }
 
-        internal void Prepare(QpdfOutputEncryption policy, QpdfDocument document, ref byte[]? identifier,
-            ParserMemoryScope memory, ResourceGovernor governor)
-        { Value = PrepareOutputSecurity(policy, document, ref identifier, memory, governor); }
-
-        internal void PrepareEmpty(QpdfOutputEncryption policy, ResourceGovernor governor)
-        { Value = policy.CreateOutput(governor); }
+        internal async ValueTask<byte[]?> PrepareAsync(IQpdfHost host, QpdfOutputEncryption policy, QpdfDocument? document,
+            byte[]? identifier, ParserMemoryScope memory, ResourceGovernor governor, QpdfLimits limits,
+            DiagnosticBag diagnostics, QpdfRecoveryMode recovery, CancellationToken cancellationToken)
+        {
+            var prepared = await PrepareOutputSecurityAsync(host, policy, document, identifier, memory, governor,
+                limits, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
+            Value = prepared.Security;
+            return prepared.Identifier;
+        }
 
         public void Dispose()
         {

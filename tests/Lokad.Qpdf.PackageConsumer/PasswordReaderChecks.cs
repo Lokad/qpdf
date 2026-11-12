@@ -101,6 +101,12 @@ internal static class PasswordReaderChecks
             }
             Check(forms == 2, "primary and placement forms retained");
         }
+        _ = await Qpdf.SelectPageAsync(host, plainInput, QpdfPath.From("from-template.pdf"), new PdfPageSelectionOptions(1), null,
+            QpdfOutputEncryption.CopyFrom(legacy, QpdfPassword.FromText("café•")), CancellationToken.None);
+        Check(host.TryGetOutput(QpdfPath.From("from-template.pdf"), out byte[] templateBytes), "typed template publication");
+        QpdfPath templateCopy = QpdfPath.From("template-copy.pdf"); host.AddInput(templateCopy, templateBytes, QpdfInputOwnership.Copy);
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, templateCopy, QpdfPassword.FromBytes(Convert.FromHexString("6f776e6572e991")), QpdfLimits.Default, CancellationToken.None))
+        { Check(document.PageCount == 1 && document.Encryption is { Revision: 4, Permissions: -3388, EncryptMetadata: true }, "template retains the other password and permissions"); }
         QpdfOutputEncryption newProtection = QpdfOutputEncryption.CreateAes256(QpdfPassword.FromText("writer-reader"),
             QpdfPassword.FromBytes("writer-owner"u8.ToArray()), -3388, false);
         QpdfPath created = QpdfPath.From("created.pdf");
