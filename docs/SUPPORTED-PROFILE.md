@@ -56,7 +56,7 @@ permission setters retain their order; job JSON applies keys in lexical order.
 Encryption/decryption setters replace the preceding output policy. Split outputs
 receive independent keys, including with an empty primary document. New encryption
 cannot combine with deterministic IDs. Legacy creation, force-R5, allow-insecure,
-encrypted JSON updates and password descriptors
+explicit credentials for command JSON updates and password descriptors
 remain unsupported.
 Attachment-copy sources accept independent text credentials inside their argv/job
 blocks, including the global password mode and recovery settings. Typed
@@ -82,6 +82,12 @@ and encrypt setters replace one another in argv order or job lexical-key order.
 Output-free inspections do not open the template. Copied encryption cannot combine
 with deterministic IDs or an insufficient forced version; it never falls back to
 plaintext after such a failure.
+Typed `UpdatePdfFromJsonAsync` accepts an input password and the same explicit
+preserve/remove/create/template output policies. Its existing overloads try an
+empty password and preserve supported protection. JSON object patches supply
+plaintext strings and stream data, including catalog metadata; protection is
+applied after final numbering. Replacement trailers declaring `/Encrypt` still
+fail before publication. JSON creation from such trailers is also unsupported.
 File setters retain native order: a zero-byte file leaves the previous password
 unchanged, while a blank first line supplies an empty password. Spaces are retained;
 CR is stripped only before LF, and NUL terminates the password. Additional lines

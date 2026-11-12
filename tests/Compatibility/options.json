@@ -7078,9 +7078,11 @@
           "source": "manual/cli.rst:3785"
         }
       ],
-      "status": "complete",
+      "status": "partial",
       "defaultReview": "reviewed",
-      "remainingGaps": [],
+      "remainingGaps": [
+        "Typed AES R4/R6 object updates accept independent input credentials and preserve/remove/create/template output policies. Command update credentials, replacement trailers declaring /Encrypt and canonical encrypted native-reference coverage remain pending."
+      ],
       "evidence": {
         "positive": [
           "JsonImportTests.UpdateChangesValues",
@@ -7104,10 +7106,13 @@
           "JsonImportTests.JobUpdateMalformedFails",
           "JsonImportTests.TypedUpdateRoundTrip",
           "JsonImportTests.TypedUpdateValidation",
+          "EncryptedJsonUpdateTests.TypedUpdatesProtectChangedStringsStreamsAndMetadata",
+          "EncryptedJsonUpdateTests.ReplacementTrailersCannotInjectEncryptionHandlers",
           "PublicationProfileTests.JsonPublicationUsesTheCopyProfile"
         ],
         "resource": [
-          "JsonImportTests.UpdateYieldsToExhaustedBudget"
+          "JsonImportTests.UpdateYieldsToExhaustedBudget",
+          "EncryptedJsonUpdateTests.EveryUpdateAdmissionRefusalRefundsBeforeEncryptedPublication"
         ],
         "oracle": [
           "diff:json-update"

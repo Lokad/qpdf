@@ -121,6 +121,23 @@ internal static class PasswordReaderChecks
             await using QpdfDocument document = await QpdfDocument.OpenAsync(host, reopened, CancellationToken.None);
             Check(document.PageCount == 1 && document.Encryption is { Revision: 6, Permissions: -3388, EncryptMetadata: false }, "template overrides primary protection");
         }
+        QpdfPath updateJson = QpdfPath.From("encrypted-update.json");
+        host.AddInput(updateJson, """{"qpdf":[{"jsonversion":2},{}]}"""u8.ToArray(), QpdfInputOwnership.Copy);
+        foreach (bool remove in new[] { false, true })
+        {
+            QpdfPath updated = QpdfPath.From(remove ? "updated-plain.pdf" : "updated-protected.pdf");
+            QpdfJsonImportResult update = remove
+                ? await Qpdf.UpdatePdfFromJsonAsync(host, encrypted, updateJson, updated, QpdfPassword.FromText("reader"),
+                    QpdfOutputEncryption.Remove, QpdfLimits.Default, CancellationToken.None)
+                : await Qpdf.UpdatePdfFromJsonAsync(host, encrypted, updateJson, updated, QpdfPassword.FromText("reader"),
+                    QpdfOutputEncryption.Preserve, CancellationToken.None);
+            Check(update.PageCount == 1 && host.TryGetOutput(updated, out _), "authenticated JSON update publication");
+            Check(host.TryGetOutput(updated, out byte[] updateBytes), "updated PDF bytes");
+            QpdfPath reopened = QpdfPath.From("reopened-" + updated.Value); host.AddInput(reopened, updateBytes, QpdfInputOwnership.Copy);
+            await using QpdfDocument document = await QpdfDocument.OpenAsync(host, reopened,
+                remove ? null : QpdfPassword.FromText("fixture-owner"), QpdfLimits.Default, CancellationToken.None);
+            Check(document.PageCount == 1 && (remove ? document.Encryption is null : document.Encryption?.Revision == 6), "JSON update output protection");
+        }
         QpdfOutputEncryption newProtection = QpdfOutputEncryption.CreateAes256(QpdfPassword.FromText("writer-reader"),
             QpdfPassword.FromBytes("writer-owner"u8.ToArray()), -3388, false);
         QpdfPath created = QpdfPath.From("created.pdf");

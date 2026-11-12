@@ -252,6 +252,14 @@ internal static partial class JsonImport
 
         PdfDictionary trailer = (PdfDictionary)Writing.ObjectRemap.NormalizeSource(engine.Trailer, engine.XRefEntries,
             memory, governor, cancellationToken);
+        if (engine.Security is not null)
+        {
+            // The authenticated reader supplies output protection separately.
+            // JSON replacements may not introduce an unauthenticated handler.
+            using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
+            trailer = PdfDictionaryRebuild.RemoveEntry(graph, trailer, "Encrypt"u8);
+            graph.Retain();
+        }
         foreach (JsonProperty property in qpdf[1].EnumerateObject())
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -867,6 +875,7 @@ internal static partial class JsonImport
     internal sealed record RenumberedModel(
         List<Writing.NumberedObject> Model,
         int? InfoNumber,
+        int MetadataNumber,
         int PageCount);
 
     internal static RenumberedModel Renumber(
@@ -1022,7 +1031,10 @@ internal static partial class JsonImport
         }
 
         int pages = PageTree.Read(resolver, mapped[1], diagnostics, governor, limits, pageMemory, cancellationToken).Count;
-        return new RenumberedModel(ordered, infoNew, pages);
+        PdfDictionary catalog = (PdfDictionary)mapped[1];
+        int metadata = catalog.TryGet(PdfName.FromAscii("Metadata"), out QpdfObject metadataValue) && metadataValue is PdfReference metadataReference
+            ? metadataReference.ObjectNumber : 0;
+        return new RenumberedModel(ordered, infoNew, metadata, pages);
     }
 
     private static void ValidateCatalogVersion(PdfDictionary root, Syntax.IIndirectResolver resolver,

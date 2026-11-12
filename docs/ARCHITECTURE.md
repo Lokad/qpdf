@@ -98,7 +98,11 @@ Typed and command template policies prepare the same independent output owner fr
 authenticated reader and copy its first identifier into operation-owned storage.
 The template closes before publication; a close failure disposes the prepared key.
 Host-file password storage stays alive
-through reader closure, output preparation and publication. JSON updates remain pending.
+through reader closure, output preparation and publication. Typed JSON updates
+authenticate the original graph, remove its active encryption trailer reference,
+apply plaintext object patches and prepare the selected independent output owner.
+Final numbering binds both the encryption dictionary and catalog metadata stream.
+Incoming replacement trailers cannot supply their own encryption handler.
 Reading and output preparation share direct-string traversal, preserving signature
 Contents and leaving indirect references for their physical object boundaries.
 Internal output-object preparation encrypts encoded stream payloads and repairs
@@ -139,7 +143,7 @@ JSON inspection uses the same authenticated reader and non-secret permission
 projection before existing text/sidecar preparation. Typed page selection
 authenticates before copying, preserves supported protection, and negotiates its
 required PDF version. Selective encrypted reads retry on the same stable lease
-with complete admitted input. Encrypted JSON updates retain their refusal.
+with complete admitted input. Command JSON update credentials remain pending.
 Security parameters and authentication status are separate values. Internal
 security inspection can read declared facts without traversing pages; it releases
 the key, input lease and working storage before returning those non-secret values.

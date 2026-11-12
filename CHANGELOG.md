@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Authenticate typed JSON updates with AES R4/R6 credentials and preserve, remove,
+  replace or copy output protection. Encrypt patched strings and streams after
+  renumbering, honoring the final catalog metadata policy. Replacement JSON
+  trailers declaring `/Encrypt` remain unsupported.
 - Copy AES R4/R6 protection from an independent template through typed page
   output policies, retaining both password entries, permissions, metadata policy
   and identifiers after template closure. Plaintext templates remove protection.
@@ -37,7 +41,7 @@
   preserve supported primary protection through selection, merge/split, compression,
   object streams, QDF, linearization and attachment edits. Retain protection when
   the primary contributes no selected pages. Shared typed attachment edits also
-  preserve empty-password inputs. Encrypted JSON updates remain unsupported.
+  preserve empty-password inputs. Explicit credentials for command JSON updates remain pending.
 - Add `--decrypt` / `decrypt` for authenticated AES R4/R6 PDF transformations,
   including split and linearized output. Preserve prior output on authentication
   failure or pre-publication cancellation; output-free inspections ignore the policy.
