@@ -56,7 +56,7 @@ permission setters retain their order; job JSON applies keys in lexical order.
 Encryption/decryption setters replace the preceding output policy. Split outputs
 receive independent keys, including with an empty primary document. New encryption
 cannot combine with deterministic IDs. Legacy creation, force-R5, allow-insecure,
-JSON input encryption and password descriptors
+command JSON input encryption and password descriptors
 remain unsupported.
 Attachment-copy sources accept independent text credentials inside their argv/job
 blocks, including the global password mode and recovery settings. Typed
@@ -91,6 +91,10 @@ fail before publication. JSON creation from such trailers is also unsupported.
 Argv/job updates use `--update-from-json` / `updateFromJson` with primary text or
 host-file credentials, including password modes and recovery settings. Preserve,
 decrypt, encrypt and template policies use the same version and metadata rules.
+Typed `CreatePdfFromJsonAsync` accepts an output policy with explicit limits.
+Plaintext JSON can produce new AES-256 or copied R4/R6 protection, including the
+chosen metadata policy. Preserve and Remove produce plaintext because creation
+has no PDF input. The writer raises the PDF version when required by protection.
 File setters retain native order: a zero-byte file leaves the previous password
 unchanged, while a blank first line supplies an empty password. Spaces are retained;
 CR is stripped only before LF, and NUL terminates the password. Additional lines

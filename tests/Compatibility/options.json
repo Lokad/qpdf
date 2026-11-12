@@ -3990,9 +3990,11 @@
           "source": "manual/cli.rst:3771"
         }
       ],
-      "status": "complete",
+      "status": "partial",
       "defaultReview": "reviewed",
-      "remainingGaps": [],
+      "remainingGaps": [
+        "Typed plaintext JSON creation can request fresh AES-256 or copied R4/R6 protection. Command output policies, JSON trailers declaring /Encrypt and canonical encrypted native-reference coverage remain pending."
+      ],
       "evidence": {
         "positive": [
           "JsonImportTests.CreateFromMinimalJson",
@@ -4012,12 +4014,15 @@
         "interaction": [
           "JsonImportTests.JobCreateRoundTrip",
           "JsonImportTests.TypedCreateRoundTrip",
+          "EncryptedJsonCreationTests.TypedCreationProtectsStringsStreamsAndFinalCatalogMetadata",
+          "EncryptedJsonCreationTests.DeclaredJsonEncryptionCannotOverrideAnExplicitPolicy",
           "JsonImportTests.JobUpdateRoundTrip",
           "JsonImportTests.TypedUpdateRoundTrip",
           "PublicationProfileTests.JsonPublicationUsesTheCopyProfile"
         ],
         "resource": [
           "JsonImportTests.CreateYieldsToExhaustedBudget",
+          "EncryptedJsonCreationTests.EveryProtectedCreationAdmissionRefusalRefundsBeforePublication",
           "JsonNumberTests.ExpansionRefusalReleasesSharedAdmissionAndPreservesOutput"
         ],
         "oracle": [

@@ -152,6 +152,18 @@ internal static class PasswordReaderChecks
         }
         QpdfOutputEncryption newProtection = QpdfOutputEncryption.CreateAes256(QpdfPassword.FromText("writer-reader"),
             QpdfPassword.FromBytes("writer-owner"u8.ToArray()), -3388, false);
+        QpdfPath creationJson = QpdfPath.From("creation.json");
+        _ = await Qpdf.GetDocumentJsonAsync(host, plainInput, creationJson,
+            new QpdfJsonOptions(2, ["qpdf"], "inline", null, [], true), CancellationToken.None);
+        Check(host.TryGetOutput(creationJson, out byte[] creationBytes), "plaintext JSON for protected creation");
+        QpdfPath creationInput = QpdfPath.From("creation-input.json"); host.AddInput(creationInput, creationBytes, QpdfInputOwnership.Copy);
+        QpdfPath fromJson = QpdfPath.From("created-from-json.pdf");
+        QpdfJsonImportResult createdJson = await Qpdf.CreatePdfFromJsonAsync(host, creationInput, fromJson, newProtection, QpdfLimits.Default, CancellationToken.None);
+        Check(createdJson.PageCount == 1 && host.TryGetOutput(fromJson, out _), "protected JSON creation");
+        Check(host.TryGetOutput(fromJson, out byte[] createdJsonBytes), "protected JSON creation bytes");
+        QpdfPath reopenedJson = QpdfPath.From("reopened-json.pdf"); host.AddInput(reopenedJson, createdJsonBytes, QpdfInputOwnership.Copy);
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, reopenedJson, QpdfPassword.FromText("writer-owner"), QpdfLimits.Default, CancellationToken.None))
+        { Check(document.PageCount == 1 && document.Encryption is { Revision: 6, Permissions: -3388, EncryptMetadata: false }, "JSON creation password and metadata policy"); }
         QpdfPath created = QpdfPath.From("created.pdf");
         _ = await Qpdf.SelectPageAsync(host, plainInput, created, new PdfPageSelectionOptions(1), null,
             newProtection, QpdfLimits.Default, CancellationToken.None);

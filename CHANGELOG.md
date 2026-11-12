@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Protect typed JSON creation with fresh AES-256 or an authenticated R4/R6 template,
+  including metadata policy and the required PDF version. Preserve/Remove keep
+  plaintext JSON creation unencrypted; JSON `/Encrypt` trailers still reject.
 - Authenticate typed JSON updates with AES R4/R6 credentials and preserve, remove,
   replace or copy output protection. Encrypt patched strings and streams after
   renumbering, honoring the final catalog metadata policy. Replacement JSON

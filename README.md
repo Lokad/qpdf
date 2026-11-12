@@ -160,6 +160,8 @@ Object patches contain plaintext values and stream data; the writer applies the
 chosen protection. Replacement JSON trailers declaring `/Encrypt` remain unsupported.
 Commands use `--update-from-json=patch.json` with the primary password and the
 usual output policy; job JSON uses `updateFromJson`.
+Typed `CreatePdfFromJsonAsync` also accepts an output policy and explicit limits
+to protect plaintext JSON using fresh AES-256 or an authenticated template.
 
 JPEG decoding and recompression use the optional `IQpdfJpegCodec` interface.
 Supply your implementation with `new InMemoryQpdfHost(QpdfLimits.Default, codec)`;
@@ -172,7 +174,7 @@ for buffer ownership, cancellation and resource admission.
 Typed page selection, merging and splitting preserve/remove AES R4/R6 protection or create AES-256 R6.
 Argv/job PDF transformations preserve/remove primary protection or create AES-256 R6;
 legacy encryption creation,
-password descriptors and JSON input encryption remain unsupported.
+password descriptors and command JSON input encryption remain unsupported.
 Typed attachment edits preserve supported empty-password input protection.
 Rendering, OCR and
 text extraction are outside the library's scope.

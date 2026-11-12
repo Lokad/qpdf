@@ -4415,13 +4415,22 @@ public static partial class Qpdf
     /// Creates a PDF document from qpdf JSON with explicit budgets.
     /// </summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public static async ValueTask<QpdfJsonImportResult> CreatePdfFromJsonAsync(
+    public static ValueTask<QpdfJsonImportResult> CreatePdfFromJsonAsync(
         IQpdfHost host,
         QpdfPath jsonPath,
         QpdfPath outputPath,
         QpdfLimits limits,
         CancellationToken cancellationToken)
+        => CreatePdfFromJsonAsync(host, jsonPath, outputPath, QpdfOutputEncryption.Preserve, limits, cancellationToken);
+
+    /// <summary>Creates a PDF from plaintext qpdf JSON with explicit protection and budgets.</summary>
+    /// <remarks>Preserve and Remove produce plaintext without a PDF input. JSON trailers declaring
+    /// /Encrypt remain unsupported; template protection uses an independently authenticated PDF.
+    /// Credentials are borrowed until completion.</remarks>
+    public static async ValueTask<QpdfJsonImportResult> CreatePdfFromJsonAsync(IQpdfHost host, QpdfPath jsonPath,
+        QpdfPath outputPath, QpdfOutputEncryption outputEncryption, QpdfLimits limits, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(outputEncryption);
         if (host is null)
         {
             throw new ArgumentNullException(nameof(host));
@@ -4438,7 +4447,8 @@ public static partial class Qpdf
         try
         {
             DiagnosticBag diagnostics = new(governor);
-            JsonImportOutcome result = await ImportCreateCoreAsync(host, jsonPath, outputPath, null, null, false, false, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+            JsonImportOutcome result = await ImportCreateCoreAsync(host, jsonPath, outputPath, null, null, false, false,
+                outputEncryption, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
             QpdfJsonImportResult presented = result.Present(governor);
             governor.FinishTypedCounters();
             return presented;
@@ -4950,6 +4960,7 @@ public static partial class Qpdf
         string? forceVersion,
         bool staticId,
         bool newlineBeforeEndstream,
+        QpdfOutputEncryption outputEncryption,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
@@ -4966,9 +4977,15 @@ public static partial class Qpdf
         using (parsed)
         {
             Json.ImportedModel model = await Json.JsonImport.BuildCreateModelAsync(host, parsed, limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
-            (model, PdfVersion effective) = PrepareImportedVersion(model, minVersion, forceVersion, null, governor, cancellationToken);
+            var preparedSecurity = await PrepareOutputSecurityAsync(host, outputEncryption, null, null, importMemory,
+                governor, limits, diagnostics, QpdfRecoveryMode.Strict, cancellationToken).ConfigureAwait(false);
+            using OutputSecurity? security = preparedSecurity.Security;
+            (model, PdfVersion effective) = PrepareImportedVersion(model, minVersion, forceVersion, security, governor, cancellationToken);
             Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, diagnostics, importMemory, cancellationToken);
-            await PublishModelAsync(host, effective, renumbered.Model, null, false, null, renumbered.InfoNumber, null, staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, false, null, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
+            int encryptionNumber = AddEncryptionObject(renumbered.Model, security, importMemory, governor);
+            await PublishModelAsync(host, effective, renumbered.Model, null, false, null, renumbered.InfoNumber, preparedSecurity.Identifier,
+                staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, false, null, outputPath, limits, governor, cancellationToken,
+                security, encryptionNumber, renumbered.MetadataNumber).ConfigureAwait(false);
             return new JsonImportOutcome(renumbered.PageCount, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
         }
     }
@@ -5680,6 +5697,7 @@ public static partial class Qpdf
                     jsonInput.ForceVersion,
                     jsonInput.StaticId,
                     jsonInput.NewlineBeforeEndstream,
+                    QpdfOutputEncryption.Preserve,
                     limits,
                     governor,
                     diagnostics,
