@@ -76,12 +76,14 @@ across fresh IVs, and temporary ciphertext stays admitted through sink awaits.
 Object-stream serialization encrypts each complete container after compression,
 without encrypting its members again. Counting includes the IV and padding;
 xref streams remain clear and carry the encryption reference. Encryption and
-signature dictionaries stay outside encrypted containers. Encrypted QDF
-serialization still awaits integration.
+signature dictionaries stay outside encrypted containers. Classic QDF preserves
+indirect stream-length objects with ciphertext sizes and remapped security references.
+It always separates encrypted payloads from endstream, keeping counted framing
+stable across IVs. Encrypted QDF object-stream serialization still awaits integration.
 Linearized classification can place the encryption dictionary at the end of the
 first document section, before hints, while keeping it and signatures uncompressed.
 The two-pass writers bind encryption and metadata to their remapped
-numbers, encrypts hints after compression and counts ciphertext lengths and offsets.
+numbers, encrypt hints after compression and count ciphertext lengths and offsets.
 Only the first trailer carries the encryption reference; hint framing stays stable
 across fresh IVs, including when the optional first-pass capture is enabled.
 Linearized object streams reuse the same container-encryption boundary, while

@@ -29,9 +29,11 @@ internal sealed partial class PdfSerializer
         IByteSink sink,
         CancellationToken cancellationToken)
     {
-        if (_security is not null) { throw new QpdfUnsupportedFeatureException("Encrypted QDF output is not yet supported."); }
+        ArgumentNullException.ThrowIfNull(model);
+        ValidateEncryptionModel(model, cancellationToken);
         if (objectStreamGroups is not null && objectStreamGroups.Count > 0)
         {
+            if (_security is not null) { throw new QpdfUnsupportedFeatureException("Encrypted QDF object-stream output is not yet supported."); }
             return await SerializeQdfStreamedAsync(version, model, objectStreamGroups, originalIds, infoRef, id1, id2, qdf, newlineBeforeEndstream, sink, cancellationToken).ConfigureAwait(false);
         }
 
@@ -104,6 +106,8 @@ internal sealed partial class PdfSerializer
         WriterIndex<int> renumber = emissions.Renumber;
         int lastLengthNumber = emissions.LastLengthNumber;
         int emissionCount = emissions.Count;
+        int encryptionNumber = _security is null ? 0 : MapSecurityObject(_encryptionObject, renumber);
+        int metadataNumber = _security is null ? 0 : MapSecurityObject(_metadataObject, renumber);
 
         using WriterIndex<QpdfObject> classicLookup = WriterIndex<QpdfObject>.Create(sorted.Count, IntPtr.Size, _governor, cancellationToken);
         foreach (NumberedObject numbered in sorted)
@@ -130,6 +134,7 @@ internal sealed partial class PdfSerializer
         await AppendBytesAsync(QdfBinaryLine, sink, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync("%QDF-1.0\n\n", sink, cancellationToken).ConfigureAwait(false);
         using WriterOrder<long> offsets = WriterOrder<long>.Create(emissionCount, sizeof(long), _governor, cancellationToken);
+        long encryptedStreamLength = 0L;
         foreach (QdfEmission emission in emissions)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -138,7 +143,7 @@ internal sealed partial class PdfSerializer
             {
                 offsets.Add(sink.Length);
                 await AppendFormattedAsync([WriterPart.Number(emission.Number), WriterPart.Text(" 0 obj\n")], sink, cancellationToken).ConfigureAwait(false);
-                long lengthValue = emissions.StreamLength(emission);
+                long lengthValue = _security is null ? emissions.StreamLength(emission) : encryptedStreamLength;
                 if (emission.Number == lastLengthNumber) { renumber.Dispose(); }
                 await AppendFormattedAsync([WriterPart.Number(lengthValue)], sink, cancellationToken).ConfigureAwait(false);
                 await AppendAsciiAsync("\nendobj\n\n", sink, cancellationToken).ConfigureAwait(false);
@@ -155,10 +160,15 @@ internal sealed partial class PdfSerializer
                 await AppendFormattedAsync([WriterPart.Text("%% Original object ID: "), WriterPart.Number(emission.OriginalSource.Value), WriterPart.Text(" 0\n")], sink, cancellationToken).ConfigureAwait(false);
             }
 
+            using ParserMemoryScope? encrypted = _security is null || emission.Number == encryptionNumber
+                ? null : ParserMemoryScope.Create(_governor);
+            QpdfObject? value = encrypted is null ? emission.Value : EncryptQdfValue(
+                emission.Value ?? throw new QpdfException("QDF emission lost its value."), emission.Number == metadataNumber, emissions, encrypted);
             offsets.Add(sink.Length);
             await AppendFormattedAsync([WriterPart.Number(emission.Number), WriterPart.Text(" 0 obj\n")], sink, cancellationToken).ConfigureAwait(false);
-            if (emission.Value is PdfStream stream)
+            if (value is PdfStream stream)
             {
+                encryptedStreamLength = stream.RawMemory.Length;
                 bool addedNewline = await AppendQdfStreamAsync(stream, sink, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
                 await AppendAsciiAsync("\nendobj\n\n", sink, cancellationToken).ConfigureAwait(false);
                 if (addedNewline)
@@ -169,7 +179,7 @@ internal sealed partial class PdfSerializer
                 continue;
             }
 
-            if (emission.Value is QpdfObject plain)
+            if (value is QpdfObject plain)
             {
                 await AppendQdfValueAsync(plain, sink, 0, cancellationToken).ConfigureAwait(false);
             }
@@ -198,6 +208,12 @@ internal sealed partial class PdfSerializer
         if (mappedInfo.HasValue)
         {
             await AppendFormattedAsync([WriterPart.Text("  /Info "), WriterPart.Number(mappedInfo.Value), WriterPart.Text(" 0 R\n")], sink, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (_security is not null)
+        {
+            await AppendFormattedAsync([WriterPart.Text("  /Encrypt "), WriterPart.Number(encryptionNumber),
+                WriterPart.Text(" 0 R\n")], sink, cancellationToken).ConfigureAwait(false);
         }
 
         await AppendFormattedAsync([WriterPart.Text("  /ID [<"), WriterPart.Hex(id1), WriterPart.Text("><"), WriterPart.Hex(id2), WriterPart.Text(">]\n")], sink, cancellationToken).ConfigureAwait(false);
@@ -620,7 +636,7 @@ internal sealed partial class PdfSerializer
         await AppendQdfDictionaryAsync(stream.Dictionary, sink, 0, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync("\nstream\n", sink, cancellationToken).ConfigureAwait(false);
         await AppendStreamPayloadAsync(stream, sink, cancellationToken).ConfigureAwait(false);
-        bool addedNewline = newlineBeforeEndstream || data.Length == 0 || data.Span[data.Length - 1] != 0x0A;
+        bool addedNewline = _security is not null || newlineBeforeEndstream || data.Length == 0 || data.Span[data.Length - 1] != 0x0A;
         if (addedNewline)
         {
             await AppendAsciiAsync("\nendstream", sink, cancellationToken).ConfigureAwait(false);

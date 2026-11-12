@@ -1,10 +1,11 @@
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Writing;
 
 /// <summary>Owns classic QDF emission rows and rebuilt graph metadata, borrowing stream bytes.</summary>
-internal sealed class QdfEmissionPlan : IDisposable
+internal sealed class QdfEmissionPlan : IDisposable, IIndirectResolver
 {
     private ParserMemoryScope? _memory;
     private WriterOrder<QdfEmission>? _rows;
@@ -77,6 +78,17 @@ internal sealed class QdfEmissionPlan : IDisposable
             target > 0 && target <= Count && Rows[target - 1].Value is PdfStream stream)
         { return stream.RawMemory.Length; }
         throw new QpdfException("QDF publication lost a length object stream.");
+    }
+
+    // Physical values already use the final numbering. Synthetic length rows
+    // have no value here and are never filter or external-file parameters.
+    public bool TryResolve(PdfReference reference, out QpdfObject? value)
+    {
+        WriterOrder<QdfEmission> rows = Rows;
+        value = null;
+        if (reference.Generation != 0 || reference.ObjectNumber < 1 || reference.ObjectNumber > rows.Count) { return false; }
+        value = rows[reference.ObjectNumber - 1].Value;
+        return value is not null;
     }
 
     public void Dispose()

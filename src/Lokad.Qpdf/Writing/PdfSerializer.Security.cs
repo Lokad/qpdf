@@ -1,5 +1,7 @@
+using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Security;
+using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Writing;
 
@@ -48,5 +50,30 @@ internal sealed partial class PdfSerializer
             await AppendBytesAsync(header.Data, sink, cancellationToken).ConfigureAwait(false);
         }
         await AppendBytesAsync(data, sink, cancellationToken).ConfigureAwait(false);
+    }
+
+    private QpdfObject EncryptQdfValue(QpdfObject value, bool rootMetadata, IIndirectResolver resolver, ParserMemoryScope memory)
+    {
+        QpdfObject result = (_security ?? throw new InvalidOperationException("Missing output security.")).EncryptObject(
+            value, rootMetadata, resolver, memory, _governor);
+        if (value is PdfStream original && result is PdfStream encrypted
+            && PdfDictionaryLookup.TryGet(original.Dictionary, "Length"u8, _governor, _governor.CancellationToken, out QpdfObject length)
+            && length is PdfReference)
+        {
+            // QDF writes the ciphertext length in the following physical object.
+            // Keep that reference while borrowing the already-admitted ciphertext.
+            using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(_governor, _governor.CancellationToken);
+            PdfDictionary header = PdfDictionaryRebuild.ReplaceEntry(graph, encrypted.Dictionary, "Length"u8, length);
+            graph.Memory.Reserve(32L); graph.Add(32L); result = encrypted.WithDictionary(header);
+            graph.Memory.TransferTo(memory, graph.Bytes);
+        }
+        return result;
+    }
+
+    private static int MapSecurityObject(int number, WriterIndex<int> renumber)
+    {
+        if (number == 0) { return 0; }
+        if (renumber.TryGetValue(number, out int mapped)) { return mapped; }
+        throw new QpdfException("QDF output lost an encryption or metadata object.");
     }
 }
