@@ -91,6 +91,9 @@ authenticated primary; repeated secondary paths validate credential consistency.
 Attachment-copy sources use the same authenticated reader with independent
 payload storage. Copied attachment objects join the ordinary output graph before
 the source reader and key are disposed; their protection follows the output owner.
+Typed attachment listing and extraction authenticate the primary reader too.
+Typed edits pass the primary credential and output policy to the same whole-file
+transformation core, retaining independent credentials for copied sources.
 Placement readers authenticate independently too. Their cache keys include the
 credential representation and value, so reusing a path cannot bypass a later
 password check. Their copied payloads survive source-reader closure.

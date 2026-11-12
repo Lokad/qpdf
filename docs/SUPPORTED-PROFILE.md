@@ -44,8 +44,11 @@ Missing and supplied-but-invalid credentials have distinct diagnostic codes.
 PDF rewrites, page selection/merging/splitting, object streams, QDF, linearization
 and attachment edits preserve supported primary protection, including when none
 of its pages is selected. A forced version incompatible with that protection fails
-before publication. Typed attachment edits use the same path for empty-password
-inputs. `--decrypt` / `decrypt` explicitly removes protection after authentication,
+before publication. Typed attachment listing/extraction accepts primary credentials
+with explicit limits; extraction publishes plaintext attachment bytes. Typed
+add/remove/copy edits accept primary credentials and an explicit output policy.
+Their existing overloads try empty passwords and preserve supported protection.
+`--decrypt` / `decrypt` explicitly removes protection after authentication,
 including from split outputs. Output-free inspections ignore this output policy.
 `--encrypt user owner 256 [options] --` creates fresh AES-256 R6 protection, as
 does the named form `--encrypt --user-password=... --owner-password=... --bits=256 --`.

@@ -4258,11 +4258,17 @@ public static partial class Qpdf
     /// Lists the embedded files of a document with explicit budgets.
     /// </summary>
     /// <exception cref="ArgumentNullException">Host or limits are null.</exception>
-    public static async ValueTask<IReadOnlyList<QpdfAttachmentInfo>> ListAttachmentsAsync(
+    public static ValueTask<IReadOnlyList<QpdfAttachmentInfo>> ListAttachmentsAsync(
         IQpdfHost host,
         QpdfPath inputPath,
         QpdfLimits limits,
         CancellationToken cancellationToken)
+        => ListAttachmentsAsync(host, inputPath, null, limits, cancellationToken);
+
+    /// <summary>Lists embedded files after authenticating the input, with explicit budgets.</summary>
+    /// <remarks>A null password tries empty. Credentials are borrowed until completion.</remarks>
+    public static async ValueTask<IReadOnlyList<QpdfAttachmentInfo>> ListAttachmentsAsync(IQpdfHost host,
+        QpdfPath inputPath, QpdfPassword? password, QpdfLimits limits, CancellationToken cancellationToken)
     {
         if (host is null)
         {
@@ -4277,7 +4283,7 @@ public static partial class Qpdf
         limits.Validate();
         ResourceGovernor governor = new(limits, cancellationToken, host);
         DiagnosticBag diagnostics = new(governor);
-        try { return await ListAttachmentsCoreAsync(host, inputPath, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, true, cancellationToken).ConfigureAwait(false); }
+        try { return await ListAttachmentsCoreAsync(host, inputPath, password, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, true, cancellationToken).ConfigureAwait(false); }
         finally { governor.CompleteStorage(); }
     }
 
@@ -4299,12 +4305,19 @@ public static partial class Qpdf
     /// </summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <remarks>An explicitly empty key identifies an existing empty name-tree key.</remarks>
-    public static async ValueTask<QpdfAttachmentExtraction> ExtractAttachmentAsync(
+    public static ValueTask<QpdfAttachmentExtraction> ExtractAttachmentAsync(
         IQpdfHost host,
         QpdfPath inputPath,
         string key,
         QpdfPath outputPath,
         QpdfLimits limits,
+        CancellationToken cancellationToken)
+        => ExtractAttachmentAsync(host, inputPath, key, outputPath, null, limits, cancellationToken);
+
+    /// <summary>Extracts a plaintext embedded file after authenticating the PDF, with explicit budgets.</summary>
+    /// <remarks>A null password tries empty. Credentials are borrowed until completion.</remarks>
+    public static async ValueTask<QpdfAttachmentExtraction> ExtractAttachmentAsync(IQpdfHost host,
+        QpdfPath inputPath, string key, QpdfPath outputPath, QpdfPassword? password, QpdfLimits limits,
         CancellationToken cancellationToken)
     {
         if (host is null)
@@ -4328,7 +4341,7 @@ public static partial class Qpdf
         try
         {
             DiagnosticBag diagnostics = new(governor);
-            AttachmentExtractionOutcome result = await ExtractAttachmentCoreAsync(host, inputPath, key, outputPath, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+            AttachmentExtractionOutcome result = await ExtractAttachmentCoreAsync(host, inputPath, key, outputPath, password, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
             QpdfAttachmentExtraction presented = result.Present(governor);
             governor.FinishTypedCounters();
             return presented;
@@ -4549,10 +4562,17 @@ public static partial class Qpdf
         IReadOnlyList<QpdfAttachmentSpec> attachments,
         QpdfLimits limits,
         CancellationToken cancellationToken)
+        => AddAttachmentsAsync(host, inputPath, outputPath, attachments, null, QpdfOutputEncryption.Preserve, limits, cancellationToken);
+
+    /// <summary>Adds embedded files to an authenticated PDF with explicit output protection and budgets.</summary>
+    /// <remarks>Credentials are borrowed until completion. A null input password tries empty.</remarks>
+    public static ValueTask<QpdfAttachmentEditResult> AddAttachmentsAsync(IQpdfHost host, QpdfPath inputPath,
+        QpdfPath outputPath, IReadOnlyList<QpdfAttachmentSpec> attachments, QpdfPassword? password,
+        QpdfOutputEncryption outputEncryption, QpdfLimits limits, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(attachments);
         if (attachments.Count == 0) { throw new ArgumentException("At least one attachment is required.", nameof(attachments)); }
-        return EditAttachmentsAsync(host, inputPath, outputPath, attachments, null, null, limits, cancellationToken);
+        return EditAttachmentsAsync(host, inputPath, outputPath, attachments, null, null, password, outputEncryption, limits, cancellationToken);
     }
 
     /// <summary>
@@ -4581,6 +4601,13 @@ public static partial class Qpdf
         IReadOnlyList<string> keys,
         QpdfLimits limits,
         CancellationToken cancellationToken)
+        => RemoveAttachmentsAsync(host, inputPath, outputPath, keys, null, QpdfOutputEncryption.Preserve, limits, cancellationToken);
+
+    /// <summary>Removes embedded files from an authenticated PDF with explicit output protection and budgets.</summary>
+    /// <remarks>Credentials are borrowed until completion. A null input password tries empty.</remarks>
+    public static ValueTask<QpdfAttachmentEditResult> RemoveAttachmentsAsync(IQpdfHost host, QpdfPath inputPath,
+        QpdfPath outputPath, IReadOnlyList<string> keys, QpdfPassword? password,
+        QpdfOutputEncryption outputEncryption, QpdfLimits limits, CancellationToken cancellationToken)
     {
         if (keys is null)
         {
@@ -4592,7 +4619,7 @@ public static partial class Qpdf
             throw new ArgumentException("At least one attachment key is required.", nameof(keys));
         }
 
-        return EditAttachmentsAsync(host, inputPath, outputPath, null, keys, null, limits, cancellationToken);
+        return EditAttachmentsAsync(host, inputPath, outputPath, null, keys, null, password, outputEncryption, limits, cancellationToken);
     }
 
     /// <summary>
@@ -4620,6 +4647,13 @@ public static partial class Qpdf
         IReadOnlyList<QpdfAttachmentCopy> sources,
         QpdfLimits limits,
         CancellationToken cancellationToken)
+        => CopyAttachmentsAsync(host, inputPath, outputPath, sources, null, QpdfOutputEncryption.Preserve, limits, cancellationToken);
+
+    /// <summary>Copies embedded files into an authenticated PDF with explicit output protection and budgets.</summary>
+    /// <remarks>Each source keeps its own credential. Credentials are borrowed until completion; a null primary password tries empty.</remarks>
+    public static ValueTask<QpdfAttachmentEditResult> CopyAttachmentsAsync(IQpdfHost host, QpdfPath inputPath,
+        QpdfPath outputPath, IReadOnlyList<QpdfAttachmentCopy> sources, QpdfPassword? password,
+        QpdfOutputEncryption outputEncryption, QpdfLimits limits, CancellationToken cancellationToken)
     {
         if (sources is null)
         {
@@ -4631,7 +4665,7 @@ public static partial class Qpdf
             throw new ArgumentException("At least one attachment source is required.", nameof(sources));
         }
 
-        return EditAttachmentsAsync(host, inputPath, outputPath, null, null, sources, limits, cancellationToken);
+        return EditAttachmentsAsync(host, inputPath, outputPath, null, null, sources, password, outputEncryption, limits, cancellationToken);
     }
 
     private static IReadOnlyList<AttachmentAdd> ToAttachmentAdds(IReadOnlyList<QpdfAttachmentSpec> attachments,
@@ -4663,8 +4697,10 @@ public static partial class Qpdf
     private static async ValueTask<QpdfAttachmentEditResult> EditAttachmentsAsync(
         IQpdfHost host, QpdfPath inputPath, QpdfPath outputPath,
         IReadOnlyList<QpdfAttachmentSpec>? attachments, IReadOnlyList<string>? keys, IReadOnlyList<QpdfAttachmentCopy>? sources,
+        QpdfPassword? password, QpdfOutputEncryption outputEncryption,
         QpdfLimits limits, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(outputEncryption);
         ArgumentNullException.ThrowIfNull(host); ArgumentNullException.ThrowIfNull(limits); limits.Validate();
         ResourceGovernor governor = new(limits, cancellationToken, host);
         try
@@ -4707,11 +4743,12 @@ public static partial class Qpdf
                 }
                 WholeFilePlan plan = new(inputPath, outputPath, QpdfRecoveryMode.Strict)
                 {
+                    OutputEncryption = outputEncryption,
                     AttachmentsToAdd = adds, AttachmentsToRemove = removes is null ? [] : removes,
                     AttachmentsToCopy = copies is null ? [] : copies,
                 };
                 DiagnosticBag diagnostics = new(governor);
-                (result, attachmentCount) = await WholeFileCoreAsync(host, plan, null, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                (result, attachmentCount) = await WholeFileCoreAsync(host, plan, password, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
             }
             QpdfAttachmentEditResult edited = new(attachmentCount, result.Warnings, governor.TypedCounters, true);
             governor.AcceptTypedResult(); governor.FinishTypedCounters(); return edited;
@@ -4724,6 +4761,7 @@ public static partial class Qpdf
         QpdfPath inputPath,
         string key,
         QpdfPath outputPath,
+        QpdfPassword? password,
         QpdfLimits limits,
         QpdfRecoveryMode recovery,
         bool emptyDocument,
@@ -4737,7 +4775,9 @@ public static partial class Qpdf
             throw new QpdfParseException("The output file must differ from the input file.", 0L, null);
         }
 
-        await using QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
+        await using QpdfDocument document = emptyDocument
+            ? await QpdfDocument.OpenEmptyDocument(inputPath, limits, governor, diagnostics, recovery, cancellationToken, true).ConfigureAwait(false)
+            : await QpdfDocument.OpenInspectionCore(host, inputPath, password, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
         using ParserMemoryScope attachmentMemory = ParserMemoryScope.Create(governor);
         ReadOnlyMemory<byte> data = EmbeddedFiles.ExtractAttachment(document.Engine, key, limits, governor, diagnostics, attachmentMemory, cancellationToken);
         if (data.Length > limits.MaxOutputBytes)
@@ -5457,13 +5497,14 @@ public static partial class Qpdf
     }
 
     private static async ValueTask<IReadOnlyList<QpdfAttachmentInfo>> ListAttachmentsCoreAsync(
-        IQpdfHost host, QpdfPath inputPath, QpdfLimits limits, QpdfRecoveryMode recovery, bool emptyDocument,
+        IQpdfHost host, QpdfPath inputPath, QpdfPassword? password, QpdfLimits limits, QpdfRecoveryMode recovery, bool emptyDocument,
         ResourceGovernor governor, DiagnosticBag diagnostics, bool returnMetadata, CancellationToken cancellationToken)
     {
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         using ParserMemoryScope? results = returnMetadata ? ParserMemoryScope.Create(governor) : null;
-        await using QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor,
-            diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
+        await using QpdfDocument document = emptyDocument
+            ? await QpdfDocument.OpenEmptyDocument(inputPath, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false)
+            : await QpdfDocument.OpenInspectionCore(host, inputPath, password, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
         IReadOnlyList<QpdfAttachmentInfo> infos = ListAttachments(document, inputPath, limits, governor, diagnostics,
             memory, results, cancellationToken);
         await document.DisposeAsync().ConfigureAwait(false);
@@ -5638,13 +5679,13 @@ public static partial class Qpdf
             {
                 if (attachments.List)
                 {
-                    await ListAttachmentsCoreAsync(host, attachments.Input, limits, attachments.Recovery, attachments.EmptyDocument, governor, diagnostics, false, cancellationToken).ConfigureAwait(false);
+                    await ListAttachmentsCoreAsync(host, attachments.Input, null, limits, attachments.Recovery, attachments.EmptyDocument, governor, diagnostics, false, cancellationToken).ConfigureAwait(false);
                 }
 
                 if (attachments.Key is not null)
                 {
                     QpdfPath output = attachments.Output ?? throw new QpdfParseException("An output file is required after --.", 0L, null);
-                    await ExtractAttachmentCoreAsync(host, attachments.Input, attachments.Key, output, limits, attachments.Recovery, attachments.EmptyDocument, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                    await ExtractAttachmentCoreAsync(host, attachments.Input, attachments.Key, output, null, limits, attachments.Recovery, attachments.EmptyDocument, governor, diagnostics, cancellationToken).ConfigureAwait(false);
                 }
 
                 return CompleteWithPresentation(governor);

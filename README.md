@@ -177,7 +177,8 @@ for buffer ownership, cancellation and resource admission.
 Typed page selection, merging and splitting preserve/remove AES R4/R6 protection or create AES-256 R6.
 Argv/job PDF transformations preserve/remove primary protection or create AES-256 R6;
 legacy encryption creation and password descriptors remain unsupported.
-Typed attachment edits preserve supported empty-password input protection.
+Typed attachment listing, extraction and edits accept primary credentials with
+explicit limits. Edits also accept preserve/remove/create/template output policies.
 Rendering, OCR and
 text extraction are outside the library's scope.
 Copying or rewriting signed, unencrypted PDFs preserves stored annotation appearances

@@ -5290,12 +5290,15 @@
         "interaction": [
           "PasswordInspectionTests.LaterCredentialSettersReplaceEarlierOnes",
           "PasswordInspectionTests.ExplicitStreamInspectionExportsDecryptedDecodedBytes",
-          "PasswordTransformationTests.UnselectedPrimaryStillControlsProtection"
+          "PasswordTransformationTests.UnselectedPrimaryStillControlsProtection",
+          "PrimaryAttachmentPasswordTests.TypedListingAndExtractionAuthenticateEitherPassword",
+          "PrimaryAttachmentPasswordTests.TypedEditsUsePrimaryCredentialsAndExplicitOutputPolicies"
         ],
         "resource": [
           "PasswordCheckTests.AuthenticationFailuresAndCancellationCloseInputsAndRefundMemory",
           "EncryptedReaderTests.EveryReaderAdmissionFailureRefundsTheDocumentAndSecurityContext",
-          "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication"
+          "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
+          "PrimaryAttachmentPasswordTests.EveryPrimaryAttachmentAdmissionRefusalRefundsAndClosesInputs"
         ],
         "oracle": []
       }

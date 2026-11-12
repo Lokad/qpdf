@@ -152,6 +152,28 @@ internal static class PasswordReaderChecks
         }
         QpdfOutputEncryption newProtection = QpdfOutputEncryption.CreateAes256(QpdfPassword.FromText("writer-reader"),
             QpdfPassword.FromBytes("writer-owner"u8.ToArray()), -3388, false);
+        IReadOnlyList<QpdfAttachmentInfo> primaryAttachments = await Qpdf.ListAttachmentsAsync(host, attachmentSource,
+            QpdfPassword.FromText("café•"), QpdfLimits.Default, CancellationToken.None);
+        Check(primaryAttachments.Count == 1 && primaryAttachments[0].Key == "private.bin", "typed authenticated attachment listing");
+        _ = await Qpdf.ExtractAttachmentAsync(host, attachmentSource, "private.bin", QpdfPath.From("primary-payload.bin"),
+            QpdfPassword.FromBytes(Convert.FromHexString("6f776e6572e991")), QpdfLimits.Default, CancellationToken.None);
+        Check(host.TryGetOutput(QpdfPath.From("primary-payload.bin"), out byte[] primaryPayload)
+            && primaryPayload.AsSpan().SequenceEqual("Private attachment payload.\n"u8), "typed authenticated attachment extraction");
+        host.AddInput(QpdfPath.From("extra.bin"), "Added bytes"u8.ToArray(), QpdfInputOwnership.Copy);
+        QpdfPath addedPrimary = QpdfPath.From("primary-added.pdf");
+        QpdfAttachmentEditResult addedAttachments = await Qpdf.AddAttachmentsAsync(host, attachmentSource, addedPrimary,
+            [new QpdfAttachmentSpec("extra.bin", "extra.bin", "extra.bin", null, null, null, null, false)],
+            QpdfPassword.FromText("café•"), newProtection, QpdfLimits.Default, CancellationToken.None);
+        Check(addedAttachments.AttachmentCount == 2 && host.TryGetOutput(addedPrimary, out _), "typed primary attachment addition and re-encryption");
+        Check(host.TryGetOutput(addedPrimary, out byte[] addedPrimaryBytes), "primary addition bytes");
+        QpdfPath addedPrimaryInput = QpdfPath.From("primary-added-input.pdf"); host.AddInput(addedPrimaryInput, addedPrimaryBytes, QpdfInputOwnership.Copy);
+        QpdfAttachmentEditResult removedAttachments = await Qpdf.RemoveAttachmentsAsync(host, addedPrimaryInput, QpdfPath.From("primary-removed.pdf"), ["extra.bin"],
+            QpdfPassword.FromText("writer-reader"), QpdfOutputEncryption.Preserve, QpdfLimits.Default, CancellationToken.None);
+        Check(removedAttachments.AttachmentCount == 1, "typed primary attachment removal");
+        QpdfAttachmentEditResult copiedAttachments = await Qpdf.CopyAttachmentsAsync(host, addedPrimaryInput, QpdfPath.From("primary-copied.pdf"),
+            [new(attachmentSource, "again-", QpdfPassword.FromText("café•"))], QpdfPassword.FromText("writer-owner"),
+            QpdfOutputEncryption.Remove, QpdfLimits.Default, CancellationToken.None);
+        Check(copiedAttachments.AttachmentCount == 3 && host.TryGetOutput(QpdfPath.From("primary-copied.pdf"), out _), "independent primary/source attachment credentials");
         QpdfPath creationJson = QpdfPath.From("creation.json");
         _ = await Qpdf.GetDocumentJsonAsync(host, plainInput, creationJson,
             new QpdfJsonOptions(2, ["qpdf"], "inline", null, [], true), CancellationToken.None);

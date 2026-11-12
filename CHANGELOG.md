@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Accept primary text/raw credentials for typed attachment listing, extraction
+  and add/remove/copy edits. Edits share preserve/remove/create/template output
+  policies; extraction publishes plaintext payloads through the host transaction.
 - Round-trip full authenticated JSON exports through updates and explicit output
   policies. Preserve verifies repeated handler declarations; creation from a
   declared JSON handler requires explicit removal, new encryption or a template.
