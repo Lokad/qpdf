@@ -54,10 +54,10 @@ are generally not compatibility guarantees.
 
 | Area | Managed behavior |
 | --- | --- |
-| QDF encryption | Preserve primary protection by default, including QDF. Native qpdf clears default protection in QDF mode unless an explicit encryption or template policy reapplies it. |
+| Writer encryption defaults | Preserve primary protection in every writer. Native qpdf clears default protection in QDF and split modes unless an explicit encryption or template policy reapplies it. |
 | Publication | Single-target commit is transactional. Failed/canceled preparation publishes no partial stdout payload. Split/sidecar targets commit sequentially; earlier successes survive a later failure. |
 | Primary document | Its attachment collection survives selection even if none of its pages is selected. Secondary collections need explicit import; page-reachable files still copy. Explicit empty primary differs from a real zero-page input. |
-| Split | Retain final document attachments and explicitly preserved unreferenced roots. Foreign page references become null. Explicit/derived labels follow assembled output order before splitting. |
+| Split | Retain final document attachments and explicitly preserved unreferenced roots; native split output omits the document attachment collection. Foreign page references become null. Explicit/derived labels follow assembled output order before splitting. |
 | Graph identity | Preserve same-role sharing/cycles while isolating role-specific replacements from private aliases. Equal contents are not identity. Duplicate pages/widgets have independent headers; distinct pages can retain shared field branches. |
 | Catalog and forms | Rebuild page ancestry and required Parent links. Some malformed/unresolvable extras or structure drop under bounded recovery. Combined form dictionaries/children can remain direct. General malformed-field parity is not claimed. |
 | Signature fields | Unregister signature fields and turn their widgets into static stamp annotations with the stored appearance (empty when absent). Remove signature types, values, defaults, seed constraints, locks and calculation-order entries, catalog Perms and AcroForm SigFlags. Independent private aliases retain their data; these are not active signatures. |
@@ -115,6 +115,8 @@ checks authenticate both roles and verify policy. Encrypted inline/sidecar JSON
 exports cross into native and managed update/creation with changed values and
 explicit preserve/remove/new/template policies; decrypted
 controls compare page/metadata payloads and independent-reader page counts.
+Source cases use distinct encrypted text and credentials, compare independent
+ordered page text, and reject wrong secondary passwords before managed publication.
 Reference jobs fail when tools are missing.
 
 The pinned source commit is `4eba95899886e851cc41d76886483b347612f2a8`.

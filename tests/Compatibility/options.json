@@ -1549,7 +1549,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "R2–R6 attachment sources authenticate independently through typed/text/raw and argv/job text/hex credentials; copied content follows the destination output policy. Broader encoding recovery and canonical reference-suite coverage remain pending."
+        "Independent encrypted-source credentials and output policies have native/independent-reader coverage. Broader encoding recovery remains pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -1568,7 +1568,9 @@
         "resource": [
           "AttachmentPasswordTests.EveryCopyAdmissionRefusalRefundsBeforeEncryptedPublication"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-sources"
+        ]
       }
     },
     {
@@ -2901,7 +2903,8 @@
           "ZeroPageRewriteTests.EmptyEditsRefundEverySharedAdmissionRefusal"
         ],
         "oracle": [
-          "diff:attachments-copy"
+          "diff:attachments-copy",
+          "diff:security-sources"
         ]
       }
     },
@@ -2946,7 +2949,8 @@
           "EncryptionTemplateCommandTests.EveryEmptyPrimaryTemplateAdmissionRefusalRefundsBeforeSplitPublication"
         ],
         "oracle": [
-          "diff:security-template"
+          "diff:security-template",
+          "diff:security-sources"
         ]
       }
     },
@@ -3267,7 +3271,8 @@
           "EncryptionTemplateCommandTests.EveryEmptyPrimaryTemplateAdmissionRefusalRefundsBeforeSplitPublication"
         ],
         "oracle": [
-          "diff:security-template"
+          "diff:security-template",
+          "diff:security-sources"
         ]
       }
     },
@@ -5193,7 +5198,8 @@
           "diff:overlay-widgets-dr",
           "diff:overlay-widgets-repeat",
           "diff:overlay-generations",
-          "diff:form-defaults"
+          "diff:form-defaults",
+          "diff:security-sources"
         ]
       }
     },
@@ -6782,7 +6788,8 @@
         ],
         "oracle": [
           "diff:split",
-          "diff:split-labels"
+          "diff:split-labels",
+          "diff:security-sources"
         ]
       }
     },
@@ -7378,7 +7385,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "R2–R6 per-file credentials support transformations and transformed inspections; global password modes apply, one supplied password serves repeated occurrences, contradictory nonempty setters reject, and primary page entries use the main credential. Broader encoding recovery remains pending."
+        "Independent encrypted-source credentials and output policies have native/independent-reader coverage. Broader encoding recovery remains pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -7400,7 +7407,9 @@
         "resource": [
           "PagePasswordCommandTests.EverySecondaryAdmissionRefusalRefundsBeforeOutput"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-sources"
+        ]
       }
     },
     {
@@ -7697,7 +7706,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "R2–R6 placement credentials support transformations and transformed inspections, including global password modes and independent authentication of distinct credentials for repeated paths. Broader encoding recovery and canonical native-reference qualification remains pending."
+        "Independent encrypted-source credentials and output policies have native/independent-reader coverage. Broader encoding recovery remains pending."
       ],
       "currentRejection": true,
       "evidence": {
@@ -7717,7 +7726,9 @@
         "resource": [
           "OverlayPasswordTests.EveryPlacementAdmissionRefusalRefundsBeforeEncryptedPublication"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:security-sources"
+        ]
       }
     },
     {

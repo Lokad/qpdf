@@ -13,7 +13,7 @@ function Invoke-SecurityManaged {
   return [pscustomobject]@{ Report = $report; PageCount = @($lines | Select-String -Pattern '^emit: diagnostic PageCount Info inputs/a.pdf: 1$').Count; Status = $status[0].Matches[0].Groups[1].Value; ExitCode = [int]$status[0].Matches[0].Groups[2].Value; Text = $text }
 }
 
-function Assert-SecurityPair {
+function Assert-SecurityProtection {
   param([string] $Case, [string] $Name, [string] $User, [string] $Owner, [int] $Revision, [int] $Bits, [int] $Permissions, [bool] $Metadata)
   foreach ($side in @('lib', 'ora')) {
     $file = "$Case/$side.pdf"
@@ -45,6 +45,11 @@ function Assert-SecurityPair {
     $code = Invoke-Oracle $Case @("--password=$User", '--decrypt', '--object-streams=disable', $file, "$Case/$side-plain.pdf")
     if ($code -ne 0) { throw "$Name/${side}: native decryption failed" }
   }
+}
+
+function Assert-SecurityPair {
+  param([string] $Case, [string] $Name, [string] $User, [string] $Owner, [int] $Revision, [int] $Bits, [int] $Permissions, [bool] $Metadata)
+  Assert-SecurityProtection $Case $Name $User $Owner $Revision $Bits $Permissions $Metadata
   Assert-Trio $Name "$Case/lib-plain.pdf" "$Case/ora-plain.pdf" 1
   $managed = Read-ReferenceContent $QpdfExe "$Case/lib-plain.pdf"
   $native = Read-ReferenceContent $QpdfExe "$Case/ora-plain.pdf"

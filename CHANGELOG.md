@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add native and independent-reader evidence for encrypted page, placement,
+  attachment and template sources, including split output and wrong credentials.
+
 - Qualify encrypted inline/sidecar JSON exports, updates and creation against
   native qpdf across R2–R6 and explicit output policies.
 
