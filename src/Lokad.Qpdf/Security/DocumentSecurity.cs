@@ -6,7 +6,7 @@ using static Lokad.Qpdf.Security.EncryptionDictionary;
 
 namespace Lokad.Qpdf.Security;
 
-internal enum PdfCipher : byte { Identity, Aes128, Aes256, Unsupported }
+internal enum PdfCipher : byte { Identity, Rc4, Aes128, Aes256, Unsupported }
 
 // One document owns the authenticated key. Parsed encryption parameters are
 // borrowed from that document; passwords are used only during construction.
@@ -77,10 +77,11 @@ internal sealed partial class DocumentSecurity : IDisposable
                     PdfName method = ReadName(definition, "CFM"u8, PdfName.FromAscii("None"), governor);
                     PdfCipher cipher = method.RawSpan.SequenceEqual("None"u8) ? PdfCipher.Identity
                         : revision >= 5 && method.RawSpan.SequenceEqual("AESV3"u8) ? PdfCipher.Aes256
-                        : revision == 4 && method.RawSpan.SequenceEqual("AESV2"u8) ? PdfCipher.Aes128 : PdfCipher.Unsupported;
-                    if (cipher is PdfCipher.Aes128 or PdfCipher.Aes256 && PdfDictionaryLookup.TryGet(definition, "Length"u8, governor, governor.CancellationToken, out QpdfObject size)
+                        : revision == 4 && method.RawSpan.SequenceEqual("AESV2"u8) ? PdfCipher.Aes128
+                        : revision == 4 && method.RawSpan.SequenceEqual("V2"u8) ? PdfCipher.Rc4 : PdfCipher.Unsupported;
+                    if (cipher is PdfCipher.Rc4 or PdfCipher.Aes128 or PdfCipher.Aes256 && PdfDictionaryLookup.TryGet(definition, "Length"u8, governor, governor.CancellationToken, out QpdfObject size)
                         && size is not PdfNull && (size is not PdfInteger count || count.Value != keyBits / 8))
-                    { throw new QpdfParseException("Invalid AES crypt-filter key length.", null, null); }
+                    { throw new QpdfParseException("Invalid crypt-filter key length.", null, null); }
                     PdfName authEvent = ReadName(definition, "AuthEvent"u8, PdfName.FromAscii("DocOpen"), governor);
                     bool embeddedOnly = authEvent.RawSpan.SequenceEqual("EFOpen"u8);
                     if (!embeddedOnly && !authEvent.RawSpan.SequenceEqual("DocOpen"u8))

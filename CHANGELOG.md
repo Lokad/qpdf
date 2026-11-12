@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Read 128-bit RC4 revision 4 inputs, including mixed RC4/AES/Identity crypt filters.
+  Preservation and template copying keep passwords, permissions and metadata policy
+  while normalizing R4 output to AES-128, matching native qpdf.
+
 - Read and preserve legacy AES-256 R5 inputs with user or owner passwords, including
   empty, non-ASCII and truncated credentials. Reuse shared AES payload handling,
   template copying and writers; newly requested encryption remains R6.

@@ -8,7 +8,7 @@ internal readonly record struct EncryptionParameters(
 {
     internal static string CipherName(PdfCipher cipher) => cipher switch
     {
-        PdfCipher.Identity => "none", PdfCipher.Aes128 => "AESv2", PdfCipher.Aes256 => "AESv3", _ => "unknown",
+        PdfCipher.Identity => "none", PdfCipher.Rc4 => "RC4", PdfCipher.Aes128 => "AESv2", PdfCipher.Aes256 => "AESv3", _ => "unknown",
     };
 }
 

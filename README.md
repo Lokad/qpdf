@@ -14,7 +14,7 @@ see [compatibility](docs/COMPATIBILITY.md) for supported behavior and difference
 - Extract, reorder, duplicate, merge, split and rotate pages.
 - Extract previews from signed, unencrypted PDFs, retaining stored signature marks.
 - Inspect document structure, check PDFs, and manage attachments and metadata.
-- Open AES-128 R4 and AES-256 R5/R6 inputs through `QpdfDocument`, using user or owner credentials.
+- Open 128-bit RC4/AES R4 and AES-256 R5/R6 inputs through `QpdfDocument`, using user or owner credentials.
 - Rewrite PDFs with compression, object streams and linearization for web delivery.
 - Apply overlays and underlays, generate form appearances, flatten annotations,
   and process grayscale/RGB JPEG images with a caller-supplied codec.
@@ -62,7 +62,7 @@ current boundary between engine estimates and host-private storage.
 For existing qpdf workflows, `Qpdf.ExecuteAsync` accepts a `QpdfCommandInvocation`,
 and `Qpdf.ExecuteJobAsync` accepts job JSON.
 
-For authenticated reading of an AES-128 R4 or AES-256 R5/R6 input:
+For authenticated reading of a 128-bit RC4/AES R4 or AES-256 R5/R6 input:
 
 ```csharp
 await using QpdfDocument document = await QpdfDocument.OpenAsync(
@@ -74,7 +74,7 @@ Console.WriteLine(document.Encryption); // Non-secret facts only.
 
 `FromText` uses UTF-8 without normalization; R4 can retry PDFDocEncoding when
 the text is representable. `FromBytes` borrows exact bytes without encoding recovery.
-R4 uses the first 32 bytes; R6 uses 127. Keep borrowed bytes stable until opening completes.
+R4 uses the first 32 bytes; R5/R6 use 127. Keep borrowed bytes stable until opening completes.
 Omitting credentials tries an empty password. `QpdfSecurityException.Reason`
 distinguishes a required password, an invalid supplied password and an unsupported
 handler; malformed parameters throw `QpdfParseException`.
@@ -84,7 +84,7 @@ Structural checks use the same credentials through
 `Qpdf.CheckAsync`. They inspect decrypted objects and streams and report authentication
 without exposing the password. Borrowed password bytes remain stable until the check completes.
 
-Typed single-source page selection preserves AES R4/R5/R6 protection, including both
+Typed single-source page selection preserves R4/R5/R6 protection, including both
 passwords, permissions and metadata treatment. Its password overload accepts the
 same credentials; keep borrowed bytes stable until selection completes:
 
@@ -175,7 +175,7 @@ for buffer ownership, cancellation and resource admission.
 
 ## Limitations
 
-Typed page selection, merging and splitting preserve/remove AES R4/R5/R6 protection or create AES-256 R6.
+Typed page selection, merging and splitting preserve/remove R4/R5/R6 protection or create AES-256 R6.
 Argv/job PDF transformations preserve/remove primary protection or create AES-256 R6;
 legacy encryption creation remains unsupported.
 Typed attachment listing, extraction and edits accept primary credentials with

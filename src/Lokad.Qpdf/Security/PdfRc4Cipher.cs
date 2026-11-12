@@ -7,6 +7,29 @@ namespace Lokad.Qpdf.Security;
 // The caller owns the in-place payload, including clearing it after a failure.
 internal static class PdfRc4Cipher
 {
+    internal static byte[] Copy(ReadOnlySpan<byte> data, ReadOnlySpan<byte> key, ParserMemoryScope destination, ResourceGovernor governor)
+    {
+        destination.CheckOwner(governor); governor.CheckCancellation();
+        if (key.Length is < 5 or > 16) { throw new ArgumentException("PDF RC4 keys must hold 5 to 16 bytes.", nameof(key)); }
+        if (data.IsEmpty) { return []; }
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        long bytes = checked(data.Length + GovernedBufferStream.ArrayOverheadBytes);
+        memory.Reserve(bytes);
+        byte[] result = new byte[data.Length];
+        bool accepted = false;
+        try
+        {
+            for (int offset = 0; offset < data.Length;)
+            {
+                governor.CheckCancellation(); int count = Math.Min(data.Length - offset, 64 * 1024);
+                data.Slice(offset, count).CopyTo(result.AsSpan(offset, count)); offset += count;
+            }
+            Transform(key, result, governor); memory.TransferTo(destination, bytes); accepted = true;
+            return result;
+        }
+        finally { if (!accepted) { CryptographicOperations.ZeroMemory(result); } }
+    }
+
     internal static void Transform(ReadOnlySpan<byte> key, Span<byte> data, ResourceGovernor governor)
     {
         governor.CheckCancellation();

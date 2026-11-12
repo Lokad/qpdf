@@ -24,7 +24,7 @@ public sealed class PdfStringCryptTests
             "<< " + attributes + " /Contents <0001> /Reason (reason) /Mixed [2 0 R (nested) << /Text <6869> >>] >>")), 0, source));
         using OwnedAllocationBatch encryptedStorage = OwnedAllocationBatch.Create(governor, CancellationToken.None);
         byte[] key = Enumerable.Range(1, 32).Select(value => (byte)value).ToArray();
-        PdfDictionary encrypted = Assert.IsType<PdfDictionary>(PdfStringCrypt.Value(original, encryptedStorage, 0, key, true));
+        PdfDictionary encrypted = Assert.IsType<PdfDictionary>(PdfStringCrypt.Value(original, encryptedStorage, 0, key, PdfCipher.Aes256, true));
         PdfByteString contents = Assert.IsType<PdfByteString>(Get(encrypted, "Contents"));
         Assert.Equal(signature, ReferenceEquals(Get(original, "Contents"), contents));
         PdfByteString reason = Assert.IsType<PdfByteString>(Get(encrypted, "Reason")); Assert.True(reason.Hex);
@@ -33,7 +33,7 @@ public sealed class PdfStringCryptTests
         PdfArray mixed = Assert.IsType<PdfArray>(Get(encrypted, "Mixed"));
         Assert.Same(Assert.IsType<PdfArray>(Get(original, "Mixed"))[0], mixed[0]);
         using OwnedAllocationBatch plainStorage = OwnedAllocationBatch.Create(governor, CancellationToken.None);
-        PdfDictionary plain = Assert.IsType<PdfDictionary>(PdfStringCrypt.Value(encrypted, plainStorage, 0, key, false));
+        PdfDictionary plain = Assert.IsType<PdfDictionary>(PdfStringCrypt.Value(encrypted, plainStorage, 0, key, PdfCipher.Aes256, false));
         Assert.Equal(new byte[] { 0, 1 }, Assert.IsType<PdfByteString>(Get(plain, "Contents")).Value);
         PdfArray restored = Assert.IsType<PdfArray>(Get(plain, "Mixed"));
         Assert.Equal("nested"u8.ToArray(), Assert.IsType<PdfByteString>(restored[1]).Value);
@@ -49,9 +49,9 @@ public sealed class PdfStringCryptTests
         using (OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellation.Token))
         {
             QpdfObject value = new PdfArray([new PdfArray([new PdfArray([new PdfByteString("text"u8.ToArray(), false)])])]);
-            Assert.Throws<QpdfLimitException>(() => PdfStringCrypt.Value(value, graph, 0, new byte[32], true));
+            Assert.Throws<QpdfLimitException>(() => PdfStringCrypt.Value(value, graph, 0, new byte[32], PdfCipher.Aes256, true));
             cancellation.Cancel();
-            Assert.Throws<OperationCanceledException>(() => PdfStringCrypt.Value(value, graph, 0, new byte[32], true));
+            Assert.Throws<OperationCanceledException>(() => PdfStringCrypt.Value(value, graph, 0, new byte[32], PdfCipher.Aes256, true));
         }
         Assert.Equal(0, governor.Snapshot().LiveMemoryBytes);
     }

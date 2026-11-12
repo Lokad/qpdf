@@ -12,8 +12,13 @@ namespace Lokad.Qpdf.Tests.Security;
 public sealed class Revision4EncryptionTests
 {
     public static IEnumerable<object[]> Vectors()
+        => ReadVectors("security-r4-vectors.json");
+
+    public static IEnumerable<object[]> Rc4Vectors() => ReadVectors("security-r4-rc4-vectors.json");
+
+    private static IEnumerable<object[]> ReadVectors(string file)
     {
-        using JsonDocument vectors = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "security-r4-vectors.json")));
+        using JsonDocument vectors = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", file)));
         foreach (JsonElement vector in vectors.RootElement.EnumerateArray())
         {
             string Text(string key) => vector.GetProperty(key).GetString() ?? throw new InvalidDataException(key);
@@ -23,6 +28,7 @@ public sealed class Revision4EncryptionTests
 
     [Theory]
     [MemberData(nameof(Vectors))]
+    [MemberData(nameof(Rc4Vectors))]
     public void NativeUserAndOwnerPasswordsRecoverTheFileKey(string file, string dictionary,
         string userHex, string ownerHex, string keyHex, string idHex)
     {

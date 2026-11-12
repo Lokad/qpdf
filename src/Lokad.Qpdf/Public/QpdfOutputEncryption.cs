@@ -21,6 +21,7 @@ public sealed class QpdfOutputEncryption
     { _policy = policy; _userPassword = user; _ownerPassword = owner; _permissions = permissions; _encryptMetadata = metadata; _templateInput = templateInput; }
 
     /// <summary>Retains supported input protection, or leaves an unencrypted input unencrypted.</summary>
+    /// <remarks>Revision 4 crypt filters normalize to AES-128, including RC4 input.</remarks>
     public static QpdfOutputEncryption Preserve { get; } = new(Policy.Preserve, null, null, -4, true, null);
 
     /// <summary>Writes an unencrypted PDF after authenticating the input when necessary.</summary>
@@ -29,6 +30,7 @@ public sealed class QpdfOutputEncryption
     /// <summary>Copies supported protection from an independently authenticated template document.</summary>
     /// <remarks>Either valid template password retains both password entries, permissions and
     /// metadata policy. A plaintext template removes protection. An absent password tries empty.
+    /// Revision 4 crypt filters normalize to AES-128, including RC4 templates.
     /// The host opens the template, and its reader closes before output publication.</remarks>
     public static QpdfOutputEncryption CopyFrom(QpdfPath input, QpdfPassword? password)
         => new(Policy.Template, password, null, -4, true, input);

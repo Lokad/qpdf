@@ -9,6 +9,7 @@ public sealed class PasswordOpeningTests
 {
     [Theory]
     [MemberData(nameof(Revision4EncryptionTests.Vectors), MemberType = typeof(Revision4EncryptionTests))]
+    [MemberData(nameof(Revision4EncryptionTests.Rc4Vectors), MemberType = typeof(Revision4EncryptionTests))]
     public async Task R4OpeningSupportsExactBytesAndBoundedTextEncodingRecovery(string file, string dictionary,
         string userHex, string ownerHex, string keyHex, string idHex)
     {
@@ -17,7 +18,7 @@ public sealed class PasswordOpeningTests
         foreach ((string hex, bool owner) in new[] { (userHex, false), (ownerHex, true) })
         {
             byte[] bytes = Convert.FromHexString(hex);
-            string text = file == "security-r4-pdfdoc.pdf" ? owner ? "owneré‚" : "café•" : Encoding.UTF8.GetString(bytes);
+            string text = file.EndsWith("-pdfdoc.pdf", StringComparison.Ordinal) ? owner ? "owneré‚" : "café•" : Encoding.UTF8.GetString(bytes);
             foreach (QpdfPassword password in new[] { QpdfPassword.FromBytes(bytes), QpdfPassword.FromText(text) })
             {
                 await using QpdfDocument document = await QpdfDocument.OpenAsync(host, path, password, QpdfLimits.Default, CancellationToken.None);

@@ -169,7 +169,11 @@ authentication. Only a matching password permits page traversal; report-only
 requests close the reader after collecting declared settings.
 R4 authentication uses system MD5 and a bounded, owned RC4 primitive, checked
 against native keys and [independent RFC 6229 vectors](https://www.rfc-editor.org/rfc/rfc6229.txt).
-AES-128 uses a temporary per-object key including its number and generation;
+R4 RC4 and AES-128 use temporary per-object keys including number and generation.
+Only AES appends the salt suffix. Strings and streams select their keys independently,
+including mixed crypt filters; RC4 payload copies retain exact length and admitted
+ownership through cancellable processing. Native fixtures and RFC vectors cover
+this path. Preserved/copied R4 output normalizes to AES-128 and requires PDF 1.6;
 object-stream members reuse their container's plaintext. Text credentials try
 UTF-8 and then a bounded PDFDocEncoding alternative; raw bytes never take that path.
 The password-file reader retains a 127-byte prefix using cleared 512-byte host-read

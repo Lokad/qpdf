@@ -10,12 +10,13 @@ internal static class PasswordReaderChecks
     {
         using InMemoryQpdfHost host = new();
         QpdfPath encrypted = Add("security-r6-ascii.pdf"), empty = Add("security-r6-empty.pdf");
-        QpdfPath legacy = Add("security-r4-pdfdoc.pdf");
+        QpdfPath legacy = Add("security-r4-pdfdoc.pdf"), rc4 = Add("security-r4-rc4-ascii.pdf");
         byte[] ownerBytes = Encoding.ASCII.GetBytes("fixture-owner");
         PdfName titleName = new("Title"u8.ToArray());
         foreach ((QpdfPath path, QpdfPassword? password, bool owner, int revision) in new[]
         {
             (encrypted, QpdfPassword.FromText("reader"), false, 6),
+            (rc4, QpdfPassword.FromText("reader"), false, 4),
             (encrypted, QpdfPassword.FromBytes(ownerBytes), true, 6),
             (empty, (QpdfPassword?)null, false, 6),
             (legacy, QpdfPassword.FromText("café•"), false, 4),
@@ -45,6 +46,7 @@ internal static class PasswordReaderChecks
         foreach ((QpdfPath source, QpdfPassword? user, QpdfPassword owner) in new[]
         {
             (encrypted, QpdfPassword.FromText("reader"), QpdfPassword.FromBytes(ownerBytes)),
+            (rc4, QpdfPassword.FromText("reader"), QpdfPassword.FromBytes(ownerBytes)),
             (empty, (QpdfPassword?)null, QpdfPassword.FromBytes(ownerBytes)),
             (legacy, QpdfPassword.FromText("café•"), QpdfPassword.FromBytes(Convert.FromHexString("6F776E6572E991"))),
         })
@@ -340,7 +342,7 @@ internal static class PasswordReaderChecks
         await Failure(null, QpdfSecurityFailure.PasswordRequired);
         await Failure(QpdfPassword.FromText(""), QpdfSecurityFailure.InvalidPassword);
         await Failure(QpdfPassword.FromText("consumer-secret"), QpdfSecurityFailure.InvalidPassword);
-        Console.WriteLine("PASS public R4/R6 reader, per-input text/raw credentials, empty password, non-secret facts and retained plaintext");
+        Console.WriteLine("PASS public AES/RC4 R4 and AES R6 reader, per-input text/raw credentials, empty password, non-secret facts and retained plaintext");
 
         QpdfPath Add(string file)
         {

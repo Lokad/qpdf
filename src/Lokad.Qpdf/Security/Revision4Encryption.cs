@@ -57,9 +57,9 @@ internal static class Revision4Encryption
     }
 
     internal static void DeriveObjectKey(ReadOnlySpan<byte> fileKey, int number, int generation,
-        Span<byte> objectKey, ResourceGovernor governor)
+        Span<byte> objectKey, bool aes, ResourceGovernor governor)
     {
-        if (fileKey.Length != 16 || objectKey.Length != 16) { throw new ArgumentException("AES-128 object keys require 16 bytes."); }
+        if (fileKey.Length != 16 || objectKey.Length != 16) { throw new ArgumentException("Revision 4 object keys require 16 bytes."); }
         objectKey.Clear(); governor.CheckCancellation();
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(number);
         ArgumentOutOfRangeException.ThrowIfNegative(generation);
@@ -74,7 +74,7 @@ internal static class Revision4Encryption
             material[16] = (byte)number; material[17] = (byte)(number >> 8); material[18] = (byte)(number >> 16);
             material[19] = (byte)generation; material[20] = (byte)(generation >> 8);
             "sAlT"u8.CopyTo(material[21..]);
-            _ = MD5.HashData(material, objectKey);
+            _ = MD5.HashData(material[..(aes ? 25 : 21)], objectKey);
             governor.CheckCancellation(); accepted = true;
         }
         finally

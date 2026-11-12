@@ -21,15 +21,21 @@ internal sealed partial class DocumentSecurity
         Span<byte> derived = stackalloc byte[16];
         try
         {
-            scoped ReadOnlySpan<byte> key = _key ?? throw new ObjectDisposedException(nameof(DocumentSecurity));
-            if (Revision == 4)
-            { Revision4Encryption.DeriveObjectKey(key, objectNumber, generation, derived, _governor); key = derived; }
-            return DecryptObject(value, rootMetadata, resolver, destination, graph, key);
+            ReadOnlySpan<byte> key = ObjectKey(_strings, objectNumber, generation, derived);
+            return DecryptObject(value, objectNumber, generation, rootMetadata, resolver, destination, graph, key);
         }
         finally { CryptographicOperations.ZeroMemory(derived); }
     }
 
-    private QpdfObject DecryptObject(QpdfObject value, bool rootMetadata, IIndirectResolver resolver,
+    private ReadOnlySpan<byte> ObjectKey(PdfCipher cipher, int number, int generation, Span<byte> derived)
+    {
+        byte[] key = _key ?? throw new ObjectDisposedException(nameof(DocumentSecurity));
+        if (cipher is not (PdfCipher.Rc4 or PdfCipher.Aes128)) { return key; }
+        Revision4Encryption.DeriveObjectKey(key, number, generation, derived, cipher == PdfCipher.Aes128, _governor);
+        return derived;
+    }
+
+    private QpdfObject DecryptObject(QpdfObject value, int number, int generation, bool rootMetadata, IIndirectResolver resolver,
         ParserMemoryScope destination, OwnedAllocationBatch graph, ReadOnlySpan<byte> key)
     {
         QpdfObject result;
@@ -49,7 +55,14 @@ internal sealed partial class DocumentSecurity
             }
             else
             {
-                byte[] bytes = DecryptBytes(stream.RawMemory.Span, graph, key);
+                Span<byte> derived = stackalloc byte[16];
+                byte[] bytes;
+                try
+                {
+                    ReadOnlySpan<byte> streamKey = cipher == _strings ? key : ObjectKey(cipher, number, generation, derived);
+                    bytes = PdfStringCrypt.Bytes(stream.RawMemory.Span, graph, streamKey, cipher, false);
+                }
+                finally { CryptographicOperations.ZeroMemory(derived); }
                 PdfInteger length;
                 if (bytes.Length < PdfInteger.SharedValueCount) { length = PdfInteger.GetSharedValue(bytes.Length); }
                 else
@@ -67,19 +80,16 @@ internal sealed partial class DocumentSecurity
         return result;
     }
 
-    private byte[] DecryptBytes(ReadOnlySpan<byte> value, OwnedAllocationBatch graph, ReadOnlySpan<byte> key)
-        => PdfStringCrypt.Bytes(value, graph, key, false);
-
     private QpdfObject DecryptValue(QpdfObject value, OwnedAllocationBatch graph, int depth, ReadOnlySpan<byte> key)
     {
         if (_strings == PdfCipher.Identity) { return value; }
-        return PdfStringCrypt.Value(value, graph, depth, key, false);
+        return PdfStringCrypt.Value(value, graph, depth, key, _strings, false);
     }
 
     private PdfDictionary DecryptDictionary(PdfDictionary dictionary, OwnedAllocationBatch graph, int depth, ReadOnlySpan<byte> key)
     {
         if (_strings == PdfCipher.Identity) { return dictionary; }
-        return PdfStringCrypt.Dictionary(dictionary, graph, depth, key, false);
+        return PdfStringCrypt.Dictionary(dictionary, graph, depth, key, _strings, false);
     }
 
     private bool TryGet(PdfDictionary dictionary, ReadOnlySpan<byte> name, out QpdfObject value)

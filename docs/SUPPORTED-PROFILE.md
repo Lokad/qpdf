@@ -5,7 +5,7 @@ The [option inventory](../tests/Compatibility/options.json) records exact forms,
 combinations and executable evidence; [compatibility](COMPATIBILITY.md) records
 defaults and intentional differences. Accepted syntax alone does not establish support.
 
-`QpdfDocument.OpenAsync` supports AES-128 R4 and AES-256 R5/R6 with user or owner
+`QpdfDocument.OpenAsync` supports 128-bit RC4/AES R4 and AES-256 R5/R6 with user or owner
 credentials, including empty passwords. UTF-8 text is not normalized; R4 retries
 PDFDocEncoding when representable. Raw bytes are borrowed until opening completes
 and never reinterpreted. R4 uses the first 32 bytes and R5/R6 use 127. Missing credentials try
@@ -25,7 +25,8 @@ secondary sources cannot replace it. `PdfPageMergeOptions.OutputEncryption`
 sets an explicit policy, including for split output. Newly encrypted split outputs
 use separate keys. Repeated paths share one opened document and require equal
 credential values and representations, including absent versus explicit passwords;
-conflicts fail before opening inputs. RC4 inputs remain unsupported.
+conflicts fail before opening inputs. RC4 R2/R3 inputs remain unsupported.
+Preserved/copied R4 output uses AES-128 and requires PDF 1.6, including RC4 inputs.
 Existing R5 AES-256 inputs can be inspected, transformed, preserved or copied as
 templates. Preservation keeps R5 and requires PDF 1.7 extension level 3; new
 encryption continues to use R6. No fresh R5 creation is exposed.

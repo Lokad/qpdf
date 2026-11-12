@@ -4,9 +4,12 @@
   Passwords and keys are public test data. Native randomness is retained: a
   regeneration intentionally changes ciphertext, hashes and recorded vectors.
 #>
-param([Parameter(Mandatory = $true)] [string] $QpdfExe, [ValidateSet(4, 5, 6)] [int] $Revision, [switch] $Attachments)
+param([Parameter(Mandatory = $true)] [string] $QpdfExe, [ValidateSet(4, 5, 6)] [int] $Revision, [switch] $Attachments, [switch] $Rc4)
 $ErrorActionPreference = 'Stop'
 if ($Revision -eq 0) { $Revision = 6 }
+if ($Rc4 -and $Revision -ne 4) { throw 'RC4 fixture generation requires revision 4.' }
+$prefix = if ($Rc4) { 'security-r4-rc4' } else { "security-r$Revision" }
+$cipher = if ($Rc4) { 'RC4' } else { 'AES' }
 $QpdfExe = (Resolve-Path -LiteralPath $QpdfExe).Path
 & (Join-Path $PSScriptRoot 'bootstrap-qpdf.ps1') -QpdfExe $QpdfExe | Out-Host
 $repo = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
@@ -23,11 +26,14 @@ if ($Attachments) {
     [IO.Directory]::CreateDirectory($scratch) | Out-Null
     $payload = Join-Path $scratch 'private.bin'
     [IO.File]::WriteAllBytes($payload, [Text.Encoding]::UTF8.GetBytes("Private attachment payload.`n"))
-    $seed = if ($Revision -eq 4) { 'security-r4-pdfdoc.pdf' } else { "security-r$Revision-empty.pdf" }
+    $seed = if ($Revision -eq 4) { "$prefix-pdfdoc.pdf" } else { "$prefix-empty.pdf" }
     $password = if ($Revision -eq 4) { '636166e980' } else { '' }
-    $filename = "security-r$Revision-attachment.pdf"
+    $filename = "$prefix-attachment.pdf"
     $output = Join-Path $fixtures $filename
-    & $QpdfExe '--password-mode=hex-bytes' "--password=$password" (Join-Path $fixtures $seed) `
+    $protection = if ($Rc4) {
+        @('--allow-weak-crypto', '--encrypt', $password, '6F776E6572E991', '128', '--use-aes=n', '--force-V4', '--modify=none', '--print=low', '--extract=n', '--')
+    } else { @() }
+    & $QpdfExe '--password-mode=hex-bytes' "--password=$password" @protection (Join-Path $fixtures $seed) `
         '--add-attachment' $payload '--key=private.bin' '--filename=private.bin' `
         '--mimetype=application/octet-stream' '--description=Public synthetic attachment.' '--' `
         '--object-streams=generate' $output
@@ -36,7 +42,7 @@ if ($Attachments) {
     if ($LASTEXITCODE -ne 0) { throw 'Native attachment fixture validation failed.' }
     $manifest.fixtures = @($manifest.fixtures | Where-Object { $_.file -cne $filename }) + @([ordered]@{
         file=$filename; sha256=(Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash.ToLowerInvariant()
-        bytes=(Get-Item -LiteralPath $output).Length; expectedNpages=1; headerVersion=$(if ($Revision -eq 4) { '1.6' } else { '1.7' }); valid=$true
+        bytes=(Get-Item -LiteralPath $output).Length; expectedNpages=1; headerVersion=$(if ($Rc4) { '1.5' } elseif ($Revision -eq 4) { '1.6' } else { '1.7' }); valid=$true
         description="Native qpdf 12.4.2 attachment derivative of $seed, retaining its public credentials and metadata policy. Embedded private.bin contains UTF-8 Private attachment payload. followed by LF. Object streams are generated. Produced by tools/build-security-fixtures.ps1 -Attachments; randomized ciphertext is recorded for offline composition tests."
     })
     [IO.File]::WriteAllText($manifestPath, (($manifest | ConvertTo-Json -Depth 20) + "`n"))
@@ -59,7 +65,7 @@ if ($Revision -eq 4) {
 }
 $bits = if ($Revision -ge 5) { 256 } else { 128 }
 foreach ($case in $cases) {
-    $filename = 'security-r' + $Revision + '-' + $case.Name + '.pdf'
+    $filename = $prefix + '-' + $case.Name + '.pdf'
     $output = Join-Path $fixtures $filename
     $userHex = if ($case.ContainsKey('UserHex')) { $case.UserHex } else { [Convert]::ToHexString([Text.Encoding]::UTF8.GetBytes($case.User)) }
     $ownerHex = if ($case.ContainsKey('OwnerHex')) { $case.OwnerHex } else { [Convert]::ToHexString([Text.Encoding]::UTF8.GetBytes($case.Owner)) }
@@ -69,7 +75,8 @@ foreach ($case in $cases) {
     $creationUser = $userHex.Substring(0, [Math]::Min($userHex.Length, $maxHex))
     $creationOwner = $ownerHex.Substring(0, [Math]::Min($ownerHex.Length, $maxHex))
     $arguments = @('--password-mode=hex-bytes', '--encrypt', $creationUser, $creationOwner, "$bits", '--modify=none', '--print=low', '--extract=n')
-    if ($Revision -eq 4) { $arguments += '--use-aes=y' }
+    if ($Revision -eq 4) { $arguments += $(if ($Rc4) { @('--use-aes=n', '--force-V4') } else { '--use-aes=y' }) }
+    if ($Rc4) { $arguments = @('--allow-weak-crypto') + $arguments }
     if ($Revision -eq 5) { $arguments += '--force-R5' }
     if (-not $case.Metadata) { $arguments += '--cleartext-metadata' }
     $objectMode = if ($case.ContainsKey('Objects')) { $case.Objects } else { 'generate' }
@@ -104,10 +111,10 @@ foreach ($case in $cases) {
     $vectors.Add($vector)
     $manifest.fixtures = @($manifest.fixtures | Where-Object { $_.file -cne $filename }) + @([ordered]@{
         file=$filename; sha256=(Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash.ToLowerInvariant()
-        bytes=(Get-Item -LiteralPath $output).Length; expectedNpages=1; headerVersion=$(if ($Revision -ge 5) { '1.7' } else { '1.6' }); valid=$true
-        description="Native qpdf 12.4.2 AES-$bits R$Revision encryption of authored meta-1page.pdf, object-stream mode $objectMode. Public credentials/key in security-r$Revision-vectors.json. Generated by tools/build-security-fixtures.ps1; randomized ciphertext is recorded for offline tests."
+        bytes=(Get-Item -LiteralPath $output).Length; expectedNpages=1; headerVersion=$(if ($Revision -ge 5) { '1.7' } elseif ($Rc4) { '1.5' } else { '1.6' }); valid=$true
+        description="Native qpdf 12.4.2 $cipher-$bits R$Revision encryption of authored meta-1page.pdf, object-stream mode $objectMode. Public credentials/key in $prefix-vectors.json. Generated by tools/build-security-fixtures.ps1; randomized ciphertext is recorded for offline tests."
     })
 }
-[IO.File]::WriteAllText((Join-Path $fixtures "security-r$Revision-vectors.json"), (($vectors.ToArray() | ConvertTo-Json -Depth 5) + "`n"))
+[IO.File]::WriteAllText((Join-Path $fixtures "$prefix-vectors.json"), (($vectors.ToArray() | ConvertTo-Json -Depth 5) + "`n"))
 [IO.File]::WriteAllText($manifestPath, (($manifest | ConvertTo-Json -Depth 20) + "`n"))
-if ($Revision -eq 4) { & (Join-Path $PSScriptRoot 'build-security-generation-fixture.ps1') -QpdfExe $QpdfExe }
+if ($Revision -eq 4 -and -not $Rc4) { & (Join-Path $PSScriptRoot 'build-security-generation-fixture.ps1') -QpdfExe $QpdfExe }

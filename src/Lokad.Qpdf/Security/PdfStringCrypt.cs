@@ -7,32 +7,33 @@ namespace Lokad.Qpdf.Security;
 // and object-stream membership belong to the reader/writer object boundary.
 internal static class PdfStringCrypt
 {
-    internal static byte[] Bytes(ReadOnlySpan<byte> value, OwnedAllocationBatch graph, ReadOnlySpan<byte> key, bool encrypt)
+    internal static byte[] Bytes(ReadOnlySpan<byte> value, OwnedAllocationBatch graph, ReadOnlySpan<byte> key, PdfCipher cipher, bool encrypt)
     {
-        byte[] bytes = encrypt ? PdfAesCipher.Encrypt(value, key, graph.Memory, graph.Governor)
+        byte[] bytes = cipher == PdfCipher.Rc4 ? PdfRc4Cipher.Copy(value, key, graph.Memory, graph.Governor)
+            : encrypt ? PdfAesCipher.Encrypt(value, key, graph.Memory, graph.Governor)
             : PdfAesCipher.Decrypt(value, key, graph.Memory, graph.Governor);
         graph.Add(bytes.Length == 0 ? 0L : bytes.Length + GovernedBufferStream.ArrayOverheadBytes);
         return bytes;
     }
 
-    internal static QpdfObject Value(QpdfObject value, OwnedAllocationBatch graph, int depth, ReadOnlySpan<byte> key, bool encrypt)
+    internal static QpdfObject Value(QpdfObject value, OwnedAllocationBatch graph, int depth, ReadOnlySpan<byte> key, PdfCipher cipher, bool encrypt)
     {
         ResourceGovernor governor = graph.Governor; governor.CheckCancellation();
         if (depth > governor.MaxNestingDepth)
         { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, governor.MaxNestingDepth); }
         if (value is PdfByteString text)
         {
-            byte[] bytes = Bytes(text.ValueSpan, graph, key, encrypt);
+            byte[] bytes = Bytes(text.ValueSpan, graph, key, cipher, encrypt);
             graph.Memory.Reserve(32L); graph.Add(32L);
             // Hex output has a fixed length regardless of the randomized bytes.
             return PdfByteString.FromOwnedBytes(bytes, encrypt || text.Hex);
         }
-        if (value is PdfDictionary dictionary) { return Dictionary(dictionary, graph, depth, key, encrypt); }
+        if (value is PdfDictionary dictionary) { return Dictionary(dictionary, graph, depth, key, cipher, encrypt); }
         if (value is not PdfArray array) { return value; }
         QpdfObject[]? items = null;
         for (int index = 0; index < array.Count; index++)
         {
-            QpdfObject next = Value(array[index], graph, depth + 1, key, encrypt);
+            QpdfObject next = Value(array[index], graph, depth + 1, key, cipher, encrypt);
             if (items is null && !ReferenceEquals(next, array[index]))
             {
                 long size = checked(56L + (long)array.Count * IntPtr.Size);
@@ -44,7 +45,7 @@ internal static class PdfStringCrypt
         return items is null ? array : PdfArray.FromOwnedItems(items);
     }
 
-    internal static PdfDictionary Dictionary(PdfDictionary dictionary, OwnedAllocationBatch graph, int depth, ReadOnlySpan<byte> key, bool encrypt)
+    internal static PdfDictionary Dictionary(PdfDictionary dictionary, OwnedAllocationBatch graph, int depth, ReadOnlySpan<byte> key, PdfCipher cipher, bool encrypt)
     {
         ResourceGovernor governor = graph.Governor;
         bool signature = IsSignature(dictionary, governor);
@@ -54,7 +55,7 @@ internal static class PdfStringCrypt
         {
             (PdfName name, QpdfObject value) = iterator.Current;
             bool contents = signature && name.RawSpan.SequenceEqual("Contents"u8) && value is PdfByteString { Hex: true };
-            entries.Assign(graph.Memory, governor, name, contents ? value : Value(value, graph, depth + 1, key, encrypt), graph.Token);
+            entries.Assign(graph.Memory, governor, name, contents ? value : Value(value, graph, depth + 1, key, cipher, encrypt), graph.Token);
         }
         return PdfDictionaryRebuild.Complete(graph, entries, allocation);
     }

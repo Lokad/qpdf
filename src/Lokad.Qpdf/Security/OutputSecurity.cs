@@ -123,7 +123,7 @@ internal sealed partial class OutputSecurity : IDisposable
     {
         byte[] key = _key ?? throw new ObjectDisposedException(nameof(OutputSecurity));
         if (Revision != 4) { return key; }
-        Revision4Encryption.DeriveObjectKey(key, number, generation, derived, governor);
+        Revision4Encryption.DeriveObjectKey(key, number, generation, derived, true, governor);
         return derived;
     }
 
@@ -144,14 +144,14 @@ internal sealed partial class OutputSecurity : IDisposable
                 }
             }
             bool identity = rootMetadata && !EncryptMetadata || FilterChain.HasExternalData(stream, resolver, governor, graph.Token);
-            PdfDictionary header = PdfStringCrypt.Dictionary(stream.Dictionary, graph, 0, key, true);
+            PdfDictionary header = PdfStringCrypt.Dictionary(stream.Dictionary, graph, 0, key, Revision == 4 ? PdfCipher.Aes128 : PdfCipher.Aes256, true);
             if (identity)
             {
                 graph.Memory.Reserve(32L); graph.Add(32L); result = stream.WithDictionary(header);
             }
             else
             {
-                byte[] bytes = PdfStringCrypt.Bytes(stream.RawMemory.Span, graph, key, true);
+                byte[] bytes = PdfStringCrypt.Bytes(stream.RawMemory.Span, graph, key, Revision == 4 ? PdfCipher.Aes128 : PdfCipher.Aes256, true);
                 PdfInteger length;
                 if (bytes.Length < PdfInteger.SharedValueCount) { length = PdfInteger.GetSharedValue(bytes.Length); }
                 else
@@ -163,7 +163,7 @@ internal sealed partial class OutputSecurity : IDisposable
                 graph.Memory.Reserve(32L); graph.Add(32L); result = PdfStream.FromOwnedData(header, bytes);
             }
         }
-        else { result = PdfStringCrypt.Value(value, graph, 0, key, true); }
+        else { result = PdfStringCrypt.Value(value, graph, 0, key, Revision == 4 ? PdfCipher.Aes128 : PdfCipher.Aes256, true); }
         graph.Memory.TransferTo(destination, graph.Bytes);
         return result;
     }

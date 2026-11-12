@@ -47,7 +47,7 @@ public sealed class EncryptedReaderTests
 
     public static IEnumerable<object[]> ReaderVectors()
         => Revision6EncryptionTests.Vectors().Select(vector => vector.Append((object)6).ToArray())
-            .Concat(Revision4EncryptionTests.Vectors().Select(vector => vector.Take(5).Append((object)4).ToArray()));
+            .Concat(Revision4EncryptionTests.Vectors().Concat(Revision4EncryptionTests.Rc4Vectors()).Select(vector => vector.Take(5).Append((object)4).ToArray()));
 
     [Theory]
     [MemberData(nameof(ReaderVectors))]
@@ -200,6 +200,7 @@ public sealed class EncryptedReaderTests
     [Theory]
     [InlineData("security-r6-vectors.json")]
     [InlineData("security-r4-vectors.json")]
+    [InlineData("security-r4-rc4-vectors.json")]
     public void NativeStreamBytesArePlainBeforeOrdinaryFilterProcessing(string vectorFile)
     {
         using JsonDocument vectors = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", vectorFile)));
