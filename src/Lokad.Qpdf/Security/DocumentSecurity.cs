@@ -21,14 +21,16 @@ internal sealed partial class DocumentSecurity : IDisposable
     private readonly PdfCipher _files;
     private ParserMemoryScope? _ownership;
     private byte[]? _key;
+    private PdfDictionary? _encryption;
 
     private DocumentSecurity(ResourceGovernor governor, ParserMemoryScope ownership, byte[] key,
         Dictionary<PdfName, CryptFilter> filters, PdfCipher strings, PdfCipher streams, PdfCipher files,
-        EncryptionParameters parameters, PasswordAuthentication authentication)
+        EncryptionParameters parameters, PasswordAuthentication authentication, PdfDictionary encryption)
     {
         _governor = governor; _ownership = ownership; _key = key; _filters = filters;
         _strings = strings; _streams = streams; _files = files;
         Parameters = parameters; Authentication = authentication;
+        _encryption = encryption;
     }
 
     internal EncryptionParameters Parameters { get; }
@@ -98,7 +100,7 @@ internal sealed partial class DocumentSecurity : IDisposable
                 ? Revision6Encryption.Authenticate(encryption, password, key, governor)
                 : Revision4Encryption.Authenticate(encryption, identifier, password, key, governor);
             if (match == PasswordAuthentication.None) { return match; }
-            security = new(governor, memory, key, filters, strings, streams, files, parameters, match);
+            security = new(governor, memory, key, filters, strings, streams, files, parameters, match, encryption);
             accepted = true;
             return match;
         }
@@ -125,9 +127,19 @@ internal sealed partial class DocumentSecurity : IDisposable
     internal void CheckOwner(ResourceGovernor governor)
         => (_ownership ?? throw new ObjectDisposedException(nameof(DocumentSecurity))).CheckOwner(governor);
 
+    internal OutputSecurity PrepareOutput(ReadOnlySpan<byte> identifier)
+    {
+        CheckOwner(_governor); _governor.CheckCancellation();
+        byte[] key = _key ?? throw new ObjectDisposedException(nameof(DocumentSecurity));
+        PdfDictionary encryption = _encryption ?? throw new ObjectDisposedException(nameof(DocumentSecurity));
+        if (Revision != 6)
+        { throw new QpdfUnsupportedFeatureException("Preserving this security revision is not supported for output."); }
+        return OutputSecurity.CopyRevision6(encryption, key, identifier, Parameters, _governor);
+    }
+
     public void Dispose()
     {
-        byte[]? key = _key; _key = null;
+        byte[]? key = _key; _key = null; _encryption = null;
         if (key is not null) { CryptographicOperations.ZeroMemory(key); }
         ParserMemoryScope? memory = _ownership; _ownership = null;
         _filters.Clear();
