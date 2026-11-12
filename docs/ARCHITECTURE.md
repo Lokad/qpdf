@@ -70,6 +70,10 @@ Contents and leaving indirect references for their physical object boundaries.
 Internal output-object preparation encrypts encoded stream payloads and repairs
 their lengths, with metadata, external-stream and xref exceptions. Unconsumed
 explicit Crypt stages fail until their output semantics are integrated.
+The internal classic serializer can emit these protected objects and the matching
+trailer reference. Hexadecimal ciphertext strings keep counted lengths stable
+across fresh IVs, and temporary ciphertext stays admitted through sink awaits.
+Encrypted object-stream, QDF and linearized serialization still await integration.
 The internal reader owns one authenticated key and decrypts physical objects
 before caching them; object-stream members are parsed only after their container
 decrypts. It consumes explicit Crypt stages and respects separate string, stream

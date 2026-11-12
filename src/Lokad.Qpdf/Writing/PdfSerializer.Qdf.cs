@@ -29,6 +29,7 @@ internal sealed partial class PdfSerializer
         IByteSink sink,
         CancellationToken cancellationToken)
     {
+        if (_security is not null) { throw new QpdfUnsupportedFeatureException("Encrypted QDF output is not yet supported."); }
         if (objectStreamGroups is not null && objectStreamGroups.Count > 0)
         {
             return await SerializeQdfStreamedAsync(version, model, objectStreamGroups, originalIds, infoRef, id1, id2, qdf, newlineBeforeEndstream, sink, cancellationToken).ConfigureAwait(false);

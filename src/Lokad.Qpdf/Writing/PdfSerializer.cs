@@ -2,6 +2,8 @@ using System.Text;
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Security;
+using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Writing;
 
@@ -84,6 +86,20 @@ internal sealed partial class PdfSerializer
 
     private readonly QpdfLimits _limits;
     private readonly ResourceGovernor _governor;
+    private readonly OutputSecurity? _security;
+    private readonly IIndirectResolver? _securityResolver;
+    private readonly int _encryptionObject;
+    private readonly int _metadataObject;
+
+    internal PdfSerializer(QpdfLimits limits, ResourceGovernor governor, OutputSecurity security,
+        int encryptionObject, int metadataObject, IIndirectResolver resolver) : this(limits, governor)
+    {
+        _security = security ?? throw new ArgumentNullException(nameof(security));
+        _securityResolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(encryptionObject);
+        ArgumentOutOfRangeException.ThrowIfNegative(metadataObject);
+        _encryptionObject = encryptionObject; _metadataObject = metadataObject;
+    }
 
     internal PdfSerializer(QpdfLimits limits, ResourceGovernor governor)
     {
@@ -152,6 +168,19 @@ internal sealed partial class PdfSerializer
         IReadOnlyList<NumberedObject> objects, bool newlineBeforeEndstream,
         IByteSink sink, CancellationToken cancellationToken)
     {
+        if (_security is not null)
+        {
+            bool found = false;
+            foreach (NumberedObject item in objects)
+            {
+                cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+                if (item.Number != _encryptionObject) { continue; }
+                if (found || !ReferenceEquals(item.Value, _security.Dictionary))
+                { throw new QpdfException("Output encryption dictionary does not match its physical object."); }
+                found = true;
+            }
+            if (!found) { throw new QpdfException("Output encryption dictionary is missing from the model."); }
+        }
         await AppendFormattedAsync([WriterPart.Text("%PDF-"), WriterPart.Number(version.Major), WriterPart.Text("."), WriterPart.Number(version.Minor), WriterPart.Text("\n")], sink, cancellationToken).ConfigureAwait(false);
         CountingSink? counter = sink as CountingSink;
         bool denseCounting = counter is not null && HasDenseIncreasingNumbers(objects, cancellationToken);
@@ -183,9 +212,14 @@ internal sealed partial class PdfSerializer
                 maxNumber = objects[i].Number;
             }
 
-            await AppendFormattedAsync([WriterPart.Number(objects[i].Number), WriterPart.Text(" 0 obj\n")], sink, cancellationToken).ConfigureAwait(false);
-            await AppendValueAsync(objects[i].Value, sink, 0, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
-            await AppendAsciiAsync("\nendobj\n", sink, cancellationToken).ConfigureAwait(false);
+            if (_security is not null)
+            { await AppendNumberedObjectAsync(objects[i].Number, objects[i].Value, sink, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false); }
+            else
+            {
+                await AppendFormattedAsync([WriterPart.Number(objects[i].Number), WriterPart.Text(" 0 obj\n")], sink, cancellationToken).ConfigureAwait(false);
+                await AppendValueAsync(objects[i].Value, sink, 0, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
+                await AppendAsciiAsync("\nendobj\n", sink, cancellationToken).ConfigureAwait(false);
+            }
         }
 
         long xrefOffset = sink.Length;
@@ -232,7 +266,7 @@ internal sealed partial class PdfSerializer
     internal async ValueTask AppendClassicTrailerAsync(int size, int? infoRef, byte[] id1, byte[] id2,
         long xrefOffset, IByteSink sink, CancellationToken cancellationToken)
     {
-        await AppendFormattedAsync([WriterPart.Text("trailer\n<< /Size "), WriterPart.Number(size), WriterPart.Text(" /Root 1 0 R"), WriterPart.Text(infoRef.HasValue ? " /Info " : ""), infoRef.HasValue ? WriterPart.Number(infoRef.Value) : default, WriterPart.Text(infoRef.HasValue ? " 0 R" : ""), WriterPart.Text(" /ID [<"), WriterPart.Hex(id1), WriterPart.Text("><"), WriterPart.Hex(id2), WriterPart.Text(">] >>\n")], sink, cancellationToken).ConfigureAwait(false);
+        await AppendFormattedAsync([WriterPart.Text("trailer\n<< /Size "), WriterPart.Number(size), WriterPart.Text(" /Root 1 0 R"), WriterPart.Text(infoRef.HasValue ? " /Info " : ""), infoRef.HasValue ? WriterPart.Number(infoRef.Value) : default, WriterPart.Text(infoRef.HasValue ? " 0 R" : ""), WriterPart.Text(_security is not null ? " /Encrypt " : ""), _security is not null ? WriterPart.Number(_encryptionObject) : default, WriterPart.Text(_security is not null ? " 0 R" : ""), WriterPart.Text(" /ID [<"), WriterPart.Hex(id1), WriterPart.Text("><"), WriterPart.Hex(id2), WriterPart.Text(">] >>\n")], sink, cancellationToken).ConfigureAwait(false);
         await AppendFormattedAsync([WriterPart.Text("startxref\n"), WriterPart.Number(xrefOffset), WriterPart.Text("\n%%EOF\n")], sink, cancellationToken).ConfigureAwait(false);
     }
 
@@ -280,8 +314,11 @@ internal sealed partial class PdfSerializer
             throw new ArgumentNullException(nameof(sink));
         }
 
+        using ParserMemoryScope? encrypted = _security is null || number == _encryptionObject ? null : ParserMemoryScope.Create(_governor);
+        QpdfObject emitted = encrypted is null ? value : (_security ?? throw new InvalidOperationException("Missing output security.")).EncryptObject(
+            value, number == _metadataObject, _securityResolver ?? throw new InvalidOperationException("Missing output resolver."), encrypted, _governor);
         await AppendFormattedAsync([WriterPart.Number(number), WriterPart.Text(" 0 obj\n")], sink, cancellationToken).ConfigureAwait(false);
-        await AppendValueAsync(value, sink, 0, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
+        await AppendValueAsync(emitted, sink, 0, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync("\nendobj\n", sink, cancellationToken).ConfigureAwait(false);
     }
 
@@ -305,6 +342,7 @@ internal sealed partial class PdfSerializer
         IByteSink sink,
         CancellationToken cancellationToken)
     {
+        if (_security is not null) { throw new QpdfUnsupportedFeatureException("Encrypted object-stream output is not yet supported."); }
         if (version is null)
         {
             throw new ArgumentNullException(nameof(version));
