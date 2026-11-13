@@ -19,6 +19,10 @@ function Invoke-ColdProbe {
     $start = [Diagnostics.ProcessStartInfo]::new('dotnet')
     $start.UseShellExecute = $false; $start.CreateNoWindow = $true
     $start.RedirectStandardInput = $true; $start.RedirectStandardOutput = $true; $start.RedirectStandardError = $true
+    # The probe protocol is UTF-8 independently of the parent console code page.
+    $start.StandardInputEncoding = [Text.UTF8Encoding]::new($false)
+    $start.StandardOutputEncoding = [Text.UTF8Encoding]::new($false)
+    $start.StandardErrorEncoding = [Text.UTF8Encoding]::new($false)
     $start.WorkingDirectory = $WorkRoot
     $start.ArgumentList.Add($ProbeDll)
     foreach ($argument in $Arguments) { $start.ArgumentList.Add($argument) }
