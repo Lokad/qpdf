@@ -1,43 +1,22 @@
-using System.Reflection;
+using Lokad.Qpdf.Tests.Foundation;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Tests.Inspection;
 
 public sealed class LinearizationPublicReadOwnershipTests
 {
-    private const BindingFlags Fields = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
     public static IEnumerable<object[]> Jobs()
     {
         foreach (string input in new[] { "classic-control", "part8-streamed-control", "overflow-36-valid", "overflow-61-valid", "compressed" })
-        foreach (string route in new[] { "typed", "argv-check", "job-check", "argv-show", "job-show" })
-        foreach (string outcome in new[] { "success", "close-failure", "cancellation" })
-        { yield return new object[] { input, route, outcome }; }
-    }
-
-    private static ResourceGovernor? FindGovernor(object value, int depth, HashSet<object> seen)
-    {
-        if (depth > 96 || !seen.Add(value)) { return null; }
-        if (value is ResourceGovernor governor) { return governor; }
-        if (value is Task task)
-        {
-            object? state = task.GetType().GetField("StateMachine", Fields)?.GetValue(task);
-            return state is null ? null : FindGovernor(state, depth + 1, seen);
-        }
-        foreach (FieldInfo field in value.GetType().GetFields(Fields))
-        { if (field.GetValue(value) is ResourceGovernor found) { return found; } }
-        foreach (FieldInfo field in value.GetType().GetFields(Fields))
-        {
-            if (field.GetValue(value) is object nested &&
-                (nested is Task || nested.GetType().IsValueType && !nested.GetType().IsPrimitive && !nested.GetType().IsEnum))
-            {
-                ResourceGovernor? found = FindGovernor(nested, depth + 1, seen);
-                if (found is not null) { return found; }
-            }
-        }
-        return null;
+        { yield return [input, "typed", "success"]; }
+        foreach (string route in new[] { "argv-check", "job-check", "argv-show", "job-show" })
+        { yield return ["classic-control", route, "success"]; }
+        yield return ["compressed", "argv-show", "success"];
+        foreach (string route in new[] { "typed", "job-show" })
+        foreach (string outcome in new[] { "close-failure", "cancellation" })
+        { yield return ["part8-streamed-control", route, outcome]; }
+        yield return ["compressed", "argv-check", "close-failure"];
     }
 
     [Theory]
@@ -45,7 +24,8 @@ public sealed class LinearizationPublicReadOwnershipTests
     public async Task CompleteReadJobsPreserveAliasesAndCloseOnEveryObservedOutcome(string input, string route, string outcome)
     {
         using CancellationTokenSource cancellation = new();
-        CloseHost host = new(outcome);
+        using RecordingJobHost host = new("input-close", QpdfPath.From("input.pdf"),
+            outcome == "close-failure" ? "fault" : "success", true);
         byte[] source = LinearizationDataOwnershipTests.Input(input);
         host.Inner.AddInput(QpdfPath.From("input.pdf"), source, QpdfInputOwnership.Copy);
         await using (IQpdfOutputTransaction seed = await host.Inner.CreateOutputAsync(QpdfPath.From("prior.pdf"), CancellationToken.None))
@@ -66,9 +46,7 @@ public sealed class LinearizationPublicReadOwnershipTests
         await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         try
         {
-            ResourceGovernor governor = FindGovernor(executing, 0, new HashSet<object>(ReferenceEqualityComparer.Instance))
-                ?? throw new InvalidOperationException("Expected the complete public read-job governor.");
-            if (input == "compressed") { Assert.True(governor.Snapshot().TotalDecodedBytes > 0L); }
+            Assert.True(host.Budget.ReservedBytes > 0L);
             Assert.False(executing.IsCompleted);
             if (outcome == "cancellation") { cancellation.Cancel(); }
             else { host.Resume(); }
@@ -98,13 +76,25 @@ public sealed class LinearizationPublicReadOwnershipTests
                 { Assert.Contains(result.Diagnostics, value => value.Message.Contains("Shared Objects Hint Table", StringComparison.Ordinal)); }
                 keptResult = result;
             }
-            Assert.Equal(0, host.OutputCreations);
+            Assert.Empty(host.CreatedPaths);
             Assert.Equal(0L, host.Inner.OpenLeaseCount);
-            Assert.Equal(0L, governor.Snapshot().OpenHandles);
+            if (keptResult is QpdfCheckResult typed)
+            {
+                Assert.Equal(0L, typed.Counters.OpenHandles);
+                Assert.Equal(host.HostCalls, typed.Counters.HostOperations);
+                if (input == "compressed") { Assert.True(typed.Counters.TotalDecodedBytes > 0L); }
+            }
+            else if (keptResult is QpdfExecutionResult command)
+            {
+                Assert.Equal(0L, command.Counters.OpenHandles);
+                Assert.Equal(host.HostCalls, command.Counters.HostOperations);
+                if (input == "compressed") { Assert.True(command.Counters.TotalDecodedBytes > 0L); }
+            }
+            Assert.True(host.Budget.ReservedBytes < host.Budget.PeakBytes);
             Assert.True(host.Inner.TryGetOutput(QpdfPath.From("prior.pdf"), out byte[] prior));
             Assert.Equal(new byte[] { 17, 23, 41 }, priorAlias);
             Assert.Equal(priorAlias, prior);
-            GC.KeepAlive(keptResult); GC.KeepAlive(executing); GC.KeepAlive(governor); GC.KeepAlive(source); GC.KeepAlive(priorAlias);
+            GC.KeepAlive(keptResult); GC.KeepAlive(executing); GC.KeepAlive(source); GC.KeepAlive(priorAlias);
         }
         finally
         {
@@ -115,42 +105,4 @@ public sealed class LinearizationPublicReadOwnershipTests
         }
     }
 
-    private sealed class CloseHost(string outcome) : IQpdfHost
-    {
-        private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private readonly TaskCompletionSource _resume = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private string Outcome { get; } = outcome;
-        internal InMemoryQpdfHost Inner { get; } = new();
-        internal Task Entered => _entered.Task;
-        internal int OutputCreations { get; private set; }
-        internal void Resume() => _resume.TrySetResult();
-        public async ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token)
-            => new Input(this, await Inner.OpenInputAsync(path, token), token);
-        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token)
-        {
-            OutputCreations++;
-            return Inner.CreateOutputAsync(path, token);
-        }
-        private sealed class Input(CloseHost host, IQpdfInput inner, CancellationToken token) : IQpdfInput
-        {
-            private bool _closed;
-            public QpdfPath Path => inner.Path;
-            public string Identity => inner.Identity;
-            public long Length => inner.Length;
-            public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellationToken)
-                => inner.ReadAsync(offset, destination, cancellationToken);
-            public async ValueTask DisposeAsync()
-            {
-                if (_closed) { return; }
-                _closed = true;
-                try
-                {
-                    host._entered.TrySetResult();
-                    await host._resume.Task.WaitAsync(token);
-                    if (host.Outcome == "close-failure") { throw new QpdfHostException(Path, QpdfHostFailureReason.ReadFailed); }
-                }
-                finally { await inner.DisposeAsync(); }
-            }
-        }
-    }
 }

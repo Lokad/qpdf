@@ -1,4 +1,4 @@
-using System.Reflection;
+using Lokad.Qpdf.Tests.Foundation;
 using System.Runtime.InteropServices;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
@@ -8,52 +8,6 @@ namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class LinearizedXrefBufferOwnershipTests
 {
-    private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
-    private static ParserMemoryScope? FindScope(Task writing, int depth)
-    {
-        if (depth > 8) { return null; }
-        object? state = writing.GetType().GetField("StateMachine", Instance)?.GetValue(writing);
-        if (state is null) { return null; }
-        if (state.GetType().Name.StartsWith("<AppendXrefStreamAsync>", StringComparison.Ordinal))
-        {
-            foreach (FieldInfo field in state.GetType().GetFields(Instance))
-            {
-                if (field.FieldType == typeof(ParserMemoryScope) && field.GetValue(state) is ParserMemoryScope memory)
-                {
-                    return memory;
-                }
-            }
-        }
-        foreach (FieldInfo field in state.GetType().GetFields(Instance))
-        {
-            if (field.Name.StartsWith("<>u__", StringComparison.Ordinal) && field.GetValue(state) is object awaiter)
-            {
-                ParserMemoryScope? found = FindAwaitedScope(awaiter, depth + 1);
-                if (found is not null) { return found; }
-            }
-        }
-        return null;
-    }
-
-    private static ParserMemoryScope? FindAwaitedScope(object value, int depth)
-    {
-        if (depth > 8) { return null; }
-        if (value is Task task) { return FindScope(task, depth + 1); }
-        if (value.GetType().IsValueType && !value.GetType().IsPrimitive && !value.GetType().IsEnum)
-        {
-            foreach (FieldInfo field in value.GetType().GetFields(Instance))
-            {
-                if (field.GetValue(value) is object nested)
-                {
-                    ParserMemoryScope? found = FindAwaitedScope(nested, depth + 1);
-                    if (found is not null) { return found; }
-                }
-            }
-        }
-        return null;
-    }
-
     [Theory]
     [InlineData(false, 1, "success")]
     [InlineData(false, 1, "failure")]
@@ -72,7 +26,8 @@ public sealed class LinearizedXrefBufferOwnershipTests
         List<NumberedObject> model = LinearizedStreamedPartsTests.OnePageModel();
         for (int index = 0; index < 512; index++) { model.Add(new NumberedObject(index + 6, PdfNull.Instance)); }
         QpdfLimits limits = QpdfLimits.Default;
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        using RecordingJobHost host = new(null, null, "success", true);
+        ResourceGovernor governor = new(limits, CancellationToken.None, host);
         LinearizedWriter writer = new(limits, governor);
         using CancellationTokenSource cancellation = new();
         PausedXrefSink paused = new(xref, outcome == "failure");
@@ -85,8 +40,8 @@ public sealed class LinearizedXrefBufferOwnershipTests
         try
         {
             Assert.False(writing.IsCompleted);
-            ParserMemoryScope memory = Assert.IsType<ParserMemoryScope>(FindScope(writing, 0));
-            Assert.True(memory.ReservedBytes >= paused.BufferLength);
+            Assert.True(governor.Snapshot().LiveMemoryBytes >= paused.BufferLength);
+            Assert.True(host.Budget.ReservedBytes >= paused.BufferLength);
             WeakReference buffer = paused.Buffer ?? throw new InvalidOperationException("Expected xref buffer.");
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
             Assert.True(buffer.IsAlive);
@@ -103,12 +58,14 @@ public sealed class LinearizedXrefBufferOwnershipTests
                 Assert.Equal("Authored xref buffer failure.", failure.Message);
             }
             else { await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await writing); }
-            Assert.Equal(0L, memory.ReservedBytes);
-            // Scope cleanup releases its charge on every outcome. This does
-            // not establish physical collection; fixed GC-round retirement of
-            // an individual small buffer is outside the accounting contract.
-            Assert.True(governor.Snapshot().LiveMemoryBytes < 4096L);
-            GC.KeepAlive(writing); GC.KeepAlive(writer); GC.KeepAlive(paused); GC.KeepAlive(memory);
+            governor.CompleteStorage();
+            Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+            Assert.Equal(0L, host.Budget.ReservedBytes);
+            Assert.Empty(host.OpenedPaths); Assert.Empty(host.CreatedPaths);
+            // This asserts admitted storage through a real suspended sink, not
+            // collection timing of a particular small CLR allocation.
+            GC.KeepAlive(writing); GC.KeepAlive(writer); GC.KeepAlive(paused);
+
         }
         finally
         {
