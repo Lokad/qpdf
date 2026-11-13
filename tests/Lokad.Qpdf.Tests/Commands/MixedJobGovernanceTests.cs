@@ -8,7 +8,6 @@ public sealed class MixedJobGovernanceTests
     [Theory]
     [InlineData("bytes")]
     [InlineData("memory")]
-    [InlineData("host")]
     public async Task CumulativeLoadingLimitsPreserveTargetsAndCloseLeases(string budget)
     {
         InMemoryQpdfHost source = MixedJobArgvTests.Host();
@@ -19,8 +18,7 @@ public sealed class MixedJobGovernanceTests
         QpdfLimits limits = budget switch
         {
             "bytes" => QpdfLimits.Default with { MaxInputBytes = 1500L },
-            "memory" => QpdfLimits.Default with { MaxMemoryBytes = 60000L },
-            _ => QpdfLimits.Default with { MaxHostOperations = 2L },
+            _ => QpdfLimits.Default with { MaxMemoryBytes = 60000L },
         };
         QpdfExecutionResult failed = await Qpdf.ExecuteAsync(host,
             new QpdfCommandInvocation(["--job-json-file=first.json", "--job-json-file=second.json"]), new QpdfExecutionOptions(limits), CancellationToken.None);

@@ -276,32 +276,9 @@ internal sealed class ResourceGovernor
 
     internal void NoteHostOperation()
     {
-        if (_publication is PublicationReservation held && !held.Publishing)
-        {
-            if (held.HostOperations == long.MaxValue)
-            { throw new QpdfLimitException(nameof(QpdfLimits.MaxHostOperations), long.MaxValue, _limits.MaxHostOperations); }
-            CheckHostOperationCapacity(held.HostOperations + 1L);
-        }
-        checked
-        {
-            long next = _hostOperations + 1L;
-            if (next > _limits.MaxHostOperations)
-            {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxHostOperations), next, _limits.MaxHostOperations);
-            }
-
-            _hostOperations = next;
-        }
-
+        // Observation only: short reads and host buffering do not consume fuel.
+        if (_hostOperations < long.MaxValue) { _hostOperations++; }
         NoteOperation();
-    }
-
-    internal void CheckHostOperationCapacity(long operations)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegative(operations);
-        if (operations <= _limits.MaxHostOperations - _hostOperations) { return; }
-        long requested = operations > long.MaxValue - _hostOperations ? long.MaxValue : _hostOperations + operations;
-        throw new QpdfLimitException(nameof(QpdfLimits.MaxHostOperations), requested, _limits.MaxHostOperations);
     }
 
     internal void CheckHandleCapacity(long handles)

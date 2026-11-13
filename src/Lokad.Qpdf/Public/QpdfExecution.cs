@@ -78,7 +78,7 @@ public sealed record QpdfExecutionCounters
     /// <summary>Gets charged output bytes, including staged bytes discarded on failure.</summary>
     public long TotalOutputBytes => _totalOutputBytes;
 
-    /// <summary>Gets the host storage calls.</summary>
+    /// <summary>Gets observed host storage calls, independently of resource limits.</summary>
     public long HostOperations => _hostOperations;
 
     /// <summary>Gets the currently open host handles.</summary>

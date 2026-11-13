@@ -117,17 +117,16 @@ public sealed class ClassicContentIdTests
     }
 
     [Fact]
-    public async Task ContentHashFitsTheStaticJobHostOperationCeiling()
+    public async Task ContentHashUsesTheSameHostCallsAsStaticId()
     {
         Host fixedHost = new(Build(3, 0)); fixedHost.Initialize();
         QpdfExecutionResult baseline = await Qpdf.ExecuteAsync(fixedHost,
             new QpdfCommandInvocation(["in.pdf", "--stream-data=preserve", "--static-id", "out.pdf"]), CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, baseline.Status);
         Host contentHost = new(Build(3, 0)); contentHost.Initialize();
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(contentHost, Invocation(false),
-            new QpdfExecutionOptions(QpdfLimits.Default with { MaxHostOperations = baseline.Counters.HostOperations }),
-            CancellationToken.None);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(contentHost, Invocation(false), CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(baseline.Counters.HostOperations, result.Counters.HostOperations);
         Assert.Equal(0L, contentHost.Inner.OpenLeaseCount);
     }
 }

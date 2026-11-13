@@ -20,7 +20,7 @@ internal sealed class PreparedOutputSink : ISynchronousByteSink, IDisposable
     private readonly long _maximum;
     private ParserMemoryScope? _memory;
     private Segment? _head, _tail;
-    private long _length, _segments;
+    private long _length;
 
     private PreparedOutputSink(ResourceGovernor governor, CancellationToken token, long maximum, ParserMemoryScope memory)
     { _governor = governor; _token = token; _maximum = maximum; _memory = memory; }
@@ -35,7 +35,6 @@ internal sealed class PreparedOutputSink : ISynchronousByteSink, IDisposable
 
     private ParserMemoryScope Memory => _memory ?? throw new ObjectDisposedException(nameof(PreparedOutputSink));
     public long Length { get { _ = Memory; return _length; } }
-    internal long SegmentCount { get { _ = Memory; return _segments; } }
     internal Segment? First { get { _ = Memory; return _head; } }
 
     public bool CanAppendSynchronously => true;
@@ -94,7 +93,7 @@ internal sealed class PreparedOutputSink : ISynchronousByteSink, IDisposable
             // remains private, including after growth or canceled appends.
             Segment segment = new(GC.AllocateUninitializedArray<byte>(initial));
             if (_tail is null) { _head = segment; } else { _tail.Next = segment; }
-            _tail = segment; _segments++; return segment;
+            _tail = segment; return segment;
         }
         catch { Memory.Release(reservation); throw; }
     }
@@ -122,7 +121,7 @@ internal sealed class PreparedOutputSink : ISynchronousByteSink, IDisposable
     public void Dispose()
     {
         ParserMemoryScope? memory = _memory;
-        _memory = null; _head = null; _tail = null; _length = 0L; _segments = 0L;
+        _memory = null; _head = null; _tail = null; _length = 0L;
         memory?.Dispose();
     }
 }

@@ -5,6 +5,9 @@
 - Correct package description and release notes to describe the implemented
   password-security, signed-page and host-codec contracts. Package checks reject
   the obsolete blanket security exclusion in the built manifest.
+- Remove `QpdfLimits.MaxHostOperations` and publication call prediction. Host-call
+  counters remain observations; short reads no longer exhaust a cumulative quota.
+  Memory, handle, structural and decoded-output bounds and cancellation remain.
 
 - Support Standard password security R2–R6 through the shared typed, argv and job
   pipelines, including legitimate empty passwords and non-secret encryption facts.

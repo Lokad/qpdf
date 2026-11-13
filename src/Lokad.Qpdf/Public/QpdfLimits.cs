@@ -1,7 +1,7 @@
 namespace Lokad.Qpdf;
 
 /// <summary>
-/// Per-job storage, I/O and structural budgets with cooperative cancellation. Obtain
+/// Per-job storage and structural budgets with cooperative cancellation. Obtain
 /// <see cref="Default" /> and adjust individual properties with object
 /// initializers; call <see cref="Validate" /> before use.
 /// </summary>
@@ -30,9 +30,6 @@ public sealed record QpdfLimits
 
     /// <summary>Maximum cumulative decoded stream bytes charged to the job.</summary>
     public long MaxDecodedBytes { get; init; } = 512L * 1024L * 1024L;
-
-    /// <summary>Maximum host operations (reads, writes, opens) per job.</summary>
-    public long MaxHostOperations { get; init; } = 100_000L;
 
     /// <summary>Maximum concurrently open inputs and staged outputs.</summary>
     public long MaxOpenHandles { get; init; } = 64L;
@@ -102,11 +99,6 @@ public sealed record QpdfLimits
         if (MaxDecodedBytes <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(MaxDecodedBytes), "Budget must be positive.");
-        }
-
-        if (MaxHostOperations <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(MaxHostOperations), "Budget must be positive.");
         }
 
         if (MaxOpenHandles <= 0)

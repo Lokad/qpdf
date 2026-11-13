@@ -141,7 +141,10 @@ One governor spans configuration, reading, transforms, serialization and publica
 It enforces local limits and a host's optional shared memory allowance. Estimates
 describe working storage, not CLR heap or process RSS. Structural, cycle and
 decompression bounds remain independent of cooperative cancellation; there is no
-cumulative CPU fuel. Diagnostics have bounded storage and explicit overflow.
+cumulative CPU fuel or host-call quota. Host-operation counters observe actual
+opens, reads and writes. Publication reserves reusable wrapper/staging storage,
+without predicting how many calls a host needs. Diagnostics have bounded storage
+and explicit overflow.
 
 ## Development
 

@@ -71,8 +71,6 @@ public static partial class Qpdf
 
         internal PreparedOutputSink Main => _main ?? throw new ObjectDisposedException(nameof(PreparedSplitPublication));
         internal PreparedOutputSink? Pass1 => _pass1;
-        internal long PublicationOperations => 1L + Main.SegmentCount
-            + (_pass1 is null ? 0L : 1L + _pass1.SegmentCount);
         internal long PublicationCapacity => Math.Max(Main.Length, _pass1?.Length ?? 0L);
 
         internal async ValueTask PublishAsync(IQpdfHost host, ResourceGovernor governor, CancellationToken token)

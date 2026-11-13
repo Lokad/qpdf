@@ -27,7 +27,7 @@ public sealed class PendingHostLeaseTests
             storage.AddInput(path, [1, 2, 3], QpdfInputOwnership.Copy);
             PendingHost host = new(owner);
             ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None, host);
-            using PublicationReservation? publication = prepaid ? PublicationReservation.Create(governor, 1L) : null;
+            using PublicationReservation? publication = prepaid ? PublicationReservation.Create(governor, true) : null;
             publication?.Begin();
             long retained = governor.Snapshot().LiveMemoryBytes;
             async Task<IAsyncDisposable> Open()

@@ -269,44 +269,6 @@ public sealed class ExecutionCounterTests
         finally { host.Resume(); await executing; }
     }
 
-    public static IEnumerable<object[]> LimitedJobs()
-    {
-        foreach (string route in new[] { "argv-whole", "argv-pages", "job-whole", "mixed-whole", "response-whole",
-            "qdf", "zlib-compress", "zlib-uncompress" })
-        foreach (bool compressed in new[] { false, true })
-        { yield return [route, compressed]; }
-    }
-
-    [Theory]
-    [MemberData(nameof(LimitedJobs))]
-    public async Task RealHostBudgetFailureKeepsTheCompletedRead(string route, bool compressed)
-    {
-        CounterHost host = await Prepare(route, compressed, "read", "success");
-        host.ShortReads = true;
-        QpdfLimits limits = QpdfLimits.Default with { MaxHostOperations = 2L };
-        Task<object> executing = Start(host, route, limits, CancellationToken.None);
-        try
-        {
-            await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
-            ResourceGovernor governor = FindGovernor(executing, 0, new HashSet<object>(ReferenceEqualityComparer.Instance))
-                ?? throw new InvalidOperationException("Expected the actual limited public governor.");
-            Assert.Equal(1L, host.ReadBytes);
-            Assert.Equal(2L, governor.Snapshot().HostOperations);
-            host.Resume();
-            QpdfExecutionResult result = Assert.IsType<QpdfExecutionResult>(await executing.WaitAsync(TimeSpan.FromSeconds(10)));
-            Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-            Assert.Equal(governor.Snapshot(), result.Counters);
-            Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded);
-            Assert.Equal(1L, host.ReadBytes);
-            Assert.Equal(0L, result.Counters.OpenHandles);
-            Assert.Equal(0L, host.Inner.OpenLeaseCount);
-            Assert.True(host.Inner.TryGetOutput(OutputPath, out byte[] kept));
-            Assert.Equal(new byte[] { 17, 23, 41 }, kept);
-            GC.KeepAlive(executing);
-        }
-        finally { host.Resume(); await executing; }
-    }
-
     private sealed class CounterHost(string boundary, string outcome) : IQpdfHost
     {
         private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -316,7 +278,6 @@ public sealed class ExecutionCounterTests
         internal Task Entered => _entered.Task;
         internal int Commits;
         internal long ReadBytes;
-        internal bool ShortReads;
         internal QpdfPath? PausePath;
         internal void Resume() => _resume.TrySetResult();
 
@@ -342,7 +303,7 @@ public sealed class ExecutionCounterTests
             public long Length => inner.Length;
             public async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellationToken)
             {
-                int bytes = await inner.ReadAsync(offset, host.ShortReads ? destination[..Math.Min(destination.Length, 1)] : destination, cancellationToken);
+                int bytes = await inner.ReadAsync(offset, destination, cancellationToken);
                 host.ReadBytes += bytes;
                 await host.Pause("read", Path, cancellationToken);
                 return bytes;

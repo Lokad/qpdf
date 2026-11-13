@@ -1,5 +1,6 @@
 using System.Text;
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
@@ -48,25 +49,19 @@ public sealed class GovernedLeaseTests
         Assert.True(host.HasOutput("out"));
     }
 
-    [Fact]
-    public async Task ShortReadsChargePerCall()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CompleteAndShortReadsHaveNoCumulativeCallAllowance(bool shortReads)
     {
-        CountingHost host = new(Fixture("minimal-1page.pdf")) { ShortReads = true };
-        QpdfLimits limits = QpdfLimits.Default with { MaxHostOperations = 2L };
-        await Assert.ThrowsAsync<QpdfLimitException>(() => QpdfDocument.OpenAsync(host, QpdfPath.From("a"), limits, CancellationToken.None).AsTask());
-        Assert.Equal(1, host.ReadCalls);
-    }
-
-    [Fact]
-    public async Task ResponseBudgetFailureReleasesLease()
-    {
-        InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("args"), Encoding.UTF8.GetBytes("--version"), QpdfInputOwnership.Copy);
-        QpdfLimits limits = QpdfLimits.Default with { MaxHostOperations = 1L };
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["@args", "--version"]), new QpdfExecutionOptions(limits), CancellationToken.None);
-        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, Assert.Single(result.Diagnostics).Code);
-        Assert.Equal(0L, host.OpenLeaseCount);
+        byte[] body = Encoding.ASCII.GetBytes("%" + new string('p', 100_100) + "\n");
+        byte[] pdf = CheckTests.Assemble(CheckTests.SinglePage("<< /Length " + body.Length + " >>", body), 1);
+        CountingHost host = new(pdf) { ShortReads = shortReads };
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("a"), CancellationToken.None))
+        { Assert.Equal(1, document.PageCount); }
+        if (shortReads) { Assert.True(host.ReadCalls > 100_000); }
+        else { Assert.InRange(host.ReadCalls, 1, 10); }
+        Assert.Equal(0L, host.OpenLeases);
     }
 
     [Fact]

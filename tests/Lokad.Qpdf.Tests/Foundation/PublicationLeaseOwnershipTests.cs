@@ -73,20 +73,18 @@ public sealed class PublicationLeaseOwnershipTests
 
     [Theory]
     [InlineData("memory")]
-    [InlineData("host")]
     [InlineData("handles")]
     public void FiniteBatchAdmissionRejectsBeforeBeginning(string exhausted)
     {
         QpdfLimits limits = exhausted switch
         {
             "memory" => QpdfLimits.Default with { MaxMemoryBytes = 151L },
-            "host" => QpdfLimits.Default with { MaxHostOperations = 3L },
             _ => QpdfLimits.Default with { MaxOpenHandles = 1L },
         };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         if (exhausted == "handles") { governor.AcquireHandle(); }
-        QpdfLimitException exception = Assert.Throws<QpdfLimitException>(() => PublicationReservation.Create(governor, 4L));
-        Assert.Equal(exhausted == "memory" ? nameof(QpdfLimits.MaxMemoryBytes) : exhausted == "host" ? nameof(QpdfLimits.MaxHostOperations) : nameof(QpdfLimits.MaxOpenHandles), exception.LimitName);
+        QpdfLimitException exception = Assert.Throws<QpdfLimitException>(() => PublicationReservation.Create(governor, true));
+        Assert.Equal(exhausted == "memory" ? nameof(QpdfLimits.MaxMemoryBytes) : nameof(QpdfLimits.MaxOpenHandles), exception.LimitName);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, governor.Snapshot().HostOperations);
         if (exhausted == "handles") { governor.ReleaseHandle(); }
     }
@@ -97,17 +95,16 @@ public sealed class PublicationLeaseOwnershipTests
     public async Task APrepaidWrapperServesMultipleTransactionsAtAnExactMemoryBudget(bool closeFault)
     {
         LeaseHost host = new(closeFault);
-        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 152L, MaxHostOperations = 6L, MaxOpenHandles = 1L }, CancellationToken.None);
-        using (PublicationReservation publication = PublicationReservation.Create(governor, 6L))
+        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 152L, MaxOpenHandles = 1L }, CancellationToken.None);
+        using (PublicationReservation publication = PublicationReservation.Create(governor, true))
         {
             Assert.Equal(152L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, governor.Snapshot().HostOperations);
-            Assert.Throws<QpdfLimitException>(() => governor.NoteHostOperation());
             publication.Begin();
             for (int index = 0; index < 3; index++)
             {
                 IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, QpdfPath.From("out" + index), governor, CancellationToken.None);
                 Assert.Throws<InvalidOperationException>(() => publication.Dispose());
-await transaction.WriteAsync(new byte[] { 1, 2, 3 }, CancellationToken.None);
+                await transaction.WriteAsync(new byte[] { 1, 2, 3 }, CancellationToken.None);
                 await transaction.CommitAsync(CancellationToken.None);
                 if (closeFault) { await Assert.ThrowsAsync<QpdfHostException>(() => transaction.DisposeAsync().AsTask()); }
                 else { await transaction.DisposeAsync(); }

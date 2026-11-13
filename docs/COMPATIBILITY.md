@@ -108,6 +108,14 @@ a missing-image negative control to fail those original-image bounds.
 
 ## Resource API and behavior changes
 
+The 0.2.0 development candidate removes `QpdfLimits.MaxHostOperations` without a
+replacement property. `QpdfExecutionCounters.HostOperations` observes executed
+opens, reads and writes; it is not an allowance. Short-read hosts can perform more
+calls than complete-read hosts without exhausting a cumulative quota. Publication
+admits actual wrapper/staging storage rather than predicting calls, and selective
+reading depends on input structure and memory. Use cancellation/deadlines for host
+work; input/output, decoded bytes, memory, handles and structural limits still apply.
+
 The development API changed before 0.1.0 without compatibility overloads:
 
 - Inputs implement `ReadAsync(offset, Memory<byte>, token)` and return a count;

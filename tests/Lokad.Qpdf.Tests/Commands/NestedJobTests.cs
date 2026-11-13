@@ -212,19 +212,13 @@ public sealed class NestedJobTests
         Assert.DoesNotContain("child", Encoding.ASCII.GetString(bytes), StringComparison.Ordinal);
     }
 
-    [Theory]
-    [InlineData("memory")]
-    [InlineData("host")]
-    public async Task LoadingBudgetsStopBeforePdfAccess(string budget)
+    [Fact]
+    public async Task LoadingMemoryRefusalStopsBeforePdfAccess()
     {
         InMemoryQpdfHost source = new();
         Add(source, "child.json", """{"empty":"","showNpages":""}""");
         TrackingHost host = new(source, "normal");
-        QpdfLimits limits = budget switch
-        {
-            "memory" => QpdfLimits.Default with { MaxMemoryBytes = 7000L },
-            _ => QpdfLimits.Default with { MaxHostOperations = 1L },
-        };
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 7000L };
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, """{"jobJsonFile":"child.json"}""", new QpdfExecutionOptions(limits), CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, Assert.Single(result.Diagnostics).Code);
         // Loading may now fit further beneath the same ceiling after removing

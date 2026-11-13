@@ -1812,14 +1812,13 @@ public static partial class Qpdf
             catch { publication.Dispose(); throw; }
         }
 
-        long publicationOperations = 0L, publicationCapacity = 0L;
+        long publicationCapacity = 0L;
         foreach (PreparedSplitPublication publication in prepared)
         {
             governor.CheckCancellation();
-            publicationOperations = checked(publicationOperations + publication.PublicationOperations);
             publicationCapacity = Math.Max(publicationCapacity, publication.PublicationCapacity);
         }
-        using PublicationReservation publicationAdmission = PublicationReservation.Create(governor, publicationOperations, publicationCapacity);
+        using PublicationReservation publicationAdmission = PublicationReservation.Create(governor, prepared.Count != 0, publicationCapacity);
         IReadOnlyList<PdfPageSelectionMapping> splitMapping = ResultCollectionStorage.Copy(selectionMemory, mapping, IntPtr.Size, governor, cancellationToken);
         IReadOnlyList<int> splitCounts = ResultCollectionStorage.Copy(selectionMemory, sourceCounts, sizeof(int), governor, cancellationToken);
         List<QpdfPath> outputPaths = ParserContainers.CreateList<QpdfPath>(selectionMemory);
@@ -4918,7 +4917,6 @@ public static partial class Qpdf
         List<Json.JsonPayload> sidecars = output.Sidecars;
 
         long anticipatedBytes = mainBytes;
-        long publicationOperations = outputPath.HasValue ? 1L + (mainBytes + 32767L) / 32768L : 0L;
         foreach (Json.JsonPayload sidecar in sidecars)
         {
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -4927,10 +4925,9 @@ public static partial class Qpdf
             if (string.Equals(sidecar.Name, outputPath?.Value, StringComparison.Ordinal))
             { throw new QpdfParseException("A JSON stream file must differ from the main JSON output.", 0L, null); }
             anticipatedBytes = checked(anticipatedBytes + sidecar.Data.Length);
-            publicationOperations = checked(publicationOperations + 1L + (sidecar.Data.Length + 32767L) / 32768L);
         }
         governor.ChargeOutputBytes(anticipatedBytes);
-        using PublicationReservation publicationAdmission = PublicationReservation.Create(governor, publicationOperations);
+        using PublicationReservation publicationAdmission = PublicationReservation.Create(governor, outputPath.HasValue || sidecars.Count != 0);
         governor.PrepareExecutionPresentation();
         publicationAdmission.Begin();
         if (outputPath.HasValue)
