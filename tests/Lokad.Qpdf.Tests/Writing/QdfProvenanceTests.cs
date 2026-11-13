@@ -1,5 +1,5 @@
+using Lokad.Qpdf.Writing;
 using System.Collections;
-using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
@@ -11,8 +11,7 @@ public sealed class QdfProvenanceTests
 {
     private delegate Dictionary<int, int> InvertCall(IEnumerable<IReadOnlyDictionary<int, int>> maps,
         ParserMemoryScope owner, ResourceGovernor governor, CancellationToken token);
-    private static readonly InvertCall Invert = (typeof(Qpdf).GetMethod("InvertOriginals", BindingFlags.Static | BindingFlags.NonPublic)
-        ?? throw new InvalidOperationException()).CreateDelegate<InvertCall>();
+    private static readonly InvertCall Invert = OriginalObjectIds.InvertOriginals;
 
     [Fact]
     public void LargeInversionRefusesAndRefundsTheCandidate()

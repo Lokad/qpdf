@@ -1,10 +1,10 @@
 using System.Collections;
-using System.Reflection;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Tests.Inspection;
+using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -27,12 +27,10 @@ public sealed class ObjectStreamPlanningTests
     private delegate List<List<int>> GroupCall(HashSet<int> numbers, ParserMemoryScope owner, ResourceGovernor governor, CancellationToken token);
     private delegate HashSet<int> RemapCall(HashSet<int> numbers, Dictionary<int, int> map, ParserMemoryScope owner, ResourceGovernor governor, CancellationToken token);
     private delegate HashSet<int> CollectCall(DocumentEngine engine, bool preserve, ParserMemoryScope owner, ResourceGovernor governor, CancellationToken token);
-    private static T Live<T>(string name) where T : Delegate => (typeof(Qpdf).GetMethod(name, BindingFlags.Static | BindingFlags.NonPublic)
-        ?? throw new InvalidOperationException(name)).CreateDelegate<T>();
-    private static readonly ResolveCall Resolve = Live<ResolveCall>("ResolveCompressedSet");
-    private static readonly GroupCall Group = Live<GroupCall>("PlanObjectStreamGroups");
-    private static readonly RemapCall Remap = Live<RemapCall>("RemapCompressedSet");
-    private static readonly CollectCall Collect = Live<CollectCall>("CollectCompressedOriginals");
+    private static readonly ResolveCall Resolve = ObjectStreamPreparation.ResolveCompressedSet;
+    private static readonly GroupCall Group = OutputModelPreparation.PlanObjectStreamGroups;
+    private static readonly RemapCall Remap = ObjectStreamPreparation.RemapCompressedSet;
+    private static readonly CollectCall Collect = ObjectStreamPreparation.CollectCompressedOriginals;
 
     private static DocumentEngine Engine(int count)
     {

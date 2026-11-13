@@ -1,3 +1,7 @@
+using static Lokad.Qpdf.Writing.OutputVersionPolicy;
+using static Lokad.Qpdf.Writing.ObjectStreamPreparation;
+using static Lokad.Qpdf.Writing.OutputCatalogPreparation;
+using static Lokad.Qpdf.Writing.OriginalObjectIds;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Lokad.Qpdf.Attachments;
@@ -533,56 +537,17 @@ public static partial class Qpdf
                     if (singleOptionalContent is not null && settings.ForceVersion is null)
                     { IncludeVersionRequirement(ref negotiated, ref negotiatedExtension, new QpdfDocument.VersionParts(1, 5), 0, governor); }
                     HashSet<int> singleCompressed = ResolveCompressedSet(streamMode, singlePool, singleSources, copyMemory, governor, cancellationToken);
-                    PdfVersion effective = negotiated;
-                    int extensionLevel = negotiatedExtension;
-                    if (singleCompressed.Count > 0 && PdfVersion.CompareParts(effective.Major, effective.Minor, 1, 5) < 0)
-                    {
-                        effective = governor.PrivateVersion(1, 5);
-                        extensionLevel = 0;
-                    }
+                    (PdfVersion effective, int extensionLevel) = RequireObjectStreamVersion(negotiated, negotiatedExtension, singleCompressed.Count != 0, governor);
 
-                    PdfDictionary catalog = NewCatalog(singleLabels, effective, extensionLevel, singleMetadata, singleAttached.NamesRef, singlePageMode ?? (singleAttached.Inserted ? UseAttachmentsPageMode : null), singleOutlines, singleAcroForm, singleStructTree, singleMarkInfo, singleExtras, singleOptionalContent, singlePool, governor, cancellationToken);
+                    PdfDictionary catalog = NewCatalog(new CatalogContents { PageLabels = singleLabels, Metadata = singleMetadata, Names = singleAttached.NamesRef, PageMode = singlePageMode ?? (singleAttached.Inserted ? UseAttachmentsPageMode : null), Outlines = singleOutlines, AcroForm = singleAcroForm, Structure = singleStructTree, MarkInfo = singleMarkInfo, Extras = singleExtras, OptionalContent = singleOptionalContent }, effective, extensionLevel, singlePool, governor, cancellationToken);
                     PdfDictionary pages = PagesNode(kids, copyMemory, governor, cancellationToken);
-                    int modelCount = checked(singlePool.Count + 2 + (outputSecurity is null ? 0 : 1));
-                    int lastNumber = 2;
-                    copyMemory.Reserve(checked(64L + 16L * modelCount));
-                    List<NumberedObject> model = new(modelCount)
-                    {
-                        new NumberedObject(1, catalog),
-                        new NumberedObject(2, pages),
-                    };
-                    foreach (KeyValuePair<int, QpdfObject> entry in singlePool)
-                    {
-                        model.Add(new NumberedObject(entry.Key, entry.Value));
-                        lastNumber = Math.Max(lastNumber, entry.Key);
-                    }
-                    if ((singleAttached.Replaced || copier.HasReplacedObjects
-                        || overlayApplied.Copiers.Exists(static item => item.HasReplacedObjects)) && !settings.PreserveUnreferenced)
-                    {
-                        PruneOutputModel(model, singlePool, singleCompressed, singleInfo, governor, cancellationToken);
-                    }
-                    int encryptionNumber = 0;
-                    if (outputSecurity is not null)
-                    {
-                        encryptionNumber = checked(lastNumber + 1);
-                        model.Add(new(encryptionNumber, outputSecurity.Dictionary));
-                    }
-                    GovernedSort.Sort(CollectionsMarshal.AsSpan(model)[2..], new WriterObjectOrder(), governor, cancellationToken);
-
-                    List<List<int>> singleGroups = PlanObjectStreamGroups(singleCompressed, copyMemory, governor, cancellationToken);
-                    IReadOnlyList<IReadOnlyList<int>>? singleStreams = singleGroups.Count == 0 ? null : singleGroups;
-                    IReadOnlyDictionary<int, int>? singleOriginalIds = null;
-                    if (settings.Qdf.Enabled && !settings.Qdf.NoOriginalIds)
-                    {
-                        List<IReadOnlyDictionary<int, int>> singleOriginalMaps = ParserContainers.CreateList<IReadOnlyDictionary<int, int>>(copyMemory);
-                        ParserContainers.AddItem(copyMemory, singleOriginalMaps, copier.SourceToDestination, IntPtr.Size);
-                        foreach (GraphCopier overlayCopier in overlayApplied.Copiers)
-                        {
-                            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                            ParserContainers.AddItem(copyMemory, singleOriginalMaps, overlayCopier.SourceToDestination, IntPtr.Size);
-                        }
-                        singleOriginalIds = InvertOriginals(singleOriginalMaps, copyMemory, governor, cancellationToken);
-                    }
+                    PreparedOutputModel preparedModel = OutputModelPreparation.Prepare(
+                        new OutputGraph(catalog, pages, singlePool, singleCompressed, singleInfo,
+                            (singleAttached.Replaced || copier.HasReplacedObjects
+                                || overlayApplied.Copiers.Exists(static item => item.HasReplacedObjects)) && !settings.PreserveUnreferenced,
+                            outputSecurity), copyMemory, governor, cancellationToken);
+                    IReadOnlyDictionary<int, int>? singleOriginalIds = PrepareOriginalIds(settings.Qdf,
+                        copier, overlayApplied.Copiers, copyMemory, governor, cancellationToken);
                     // Metadata admission stays with this operation through publication.
                     // Returned immutable arrays do not retain an execution owner.
                     IReadOnlyList<int> sourcePages = ResultCollectionStorage.Copy(resultStorage, requested, sizeof(int), governor, cancellationToken);
@@ -590,7 +555,7 @@ public static partial class Qpdf
                     // immutable prepared graph, so fallback cannot follow publication.
                     document.Engine.AcceptSelectiveInput();
                     retryParse = false;
-                    await PublishModelAsync(host, effective, model, singleStreams, singleCompress, singleLevel, singleInfo?.ObjectNumber, originalId, settings.StaticId, settings.NewlineBeforeEndstream, settings.Qdf, singleOriginalIds, settings.Linearize, settings.LinearizePass1, outputPath, limits, governor, cancellationToken, outputSecurity, encryptionNumber, singleMetadata?.ObjectNumber ?? 0).ConfigureAwait(false);
+                    await PublishModelAsync(host, effective, preparedModel.Model, preparedModel.ObjectStreams, singleCompress, singleLevel, singleInfo?.ObjectNumber, originalId, settings.StaticId, settings.NewlineBeforeEndstream, settings.Qdf, singleOriginalIds, settings.Linearize, settings.LinearizePass1, outputPath, limits, governor, cancellationToken, outputSecurity, preparedModel.EncryptionObject, singleMetadata?.ObjectNumber ?? 0).ConfigureAwait(false);
                     return new PageSelectionOutcome(total, sourcePages, kids.Count, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
                 }
                 catch (CompleteInputRequiredException) when (attempt == 0 && stableInput is not null) { }
@@ -1458,30 +1423,10 @@ public static partial class Qpdf
         }
 
         HashSet<int> multiCompressed = ResolveCompressedSet(multiStreamMode, pool, multiSources, selectionMemory, governor, cancellationToken);
-        PdfVersion effective = negotiatedMulti;
-        int extensionLevel = negotiatedMultiExtension;
-        if (multiCompressed.Count > 0 && PdfVersion.CompareParts(effective.Major, effective.Minor, 1, 5) < 0)
-        {
-            effective = governor.PrivateVersion(1, 5);
-            extensionLevel = 0;
-        }
+        (PdfVersion effective, int extensionLevel) = RequireObjectStreamVersion(negotiatedMulti, negotiatedMultiExtension, multiCompressed.Count != 0, governor);
 
-        IReadOnlyDictionary<int, int>? multiOriginalIds = null;
-        if (settings.Qdf.Enabled && !settings.Qdf.NoOriginalIds)
-        {
-            List<IReadOnlyDictionary<int, int>> multiOriginalMaps = ParserContainers.CreateList<IReadOnlyDictionary<int, int>>(selectionMemory);
-            foreach (GraphCopier sourceCopier in copiers)
-            {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                ParserContainers.AddItem(selectionMemory, multiOriginalMaps, sourceCopier.SourceToDestination, IntPtr.Size);
-            }
-            foreach (GraphCopier overlayCopier in overlayApplied.Copiers)
-            {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                ParserContainers.AddItem(selectionMemory, multiOriginalMaps, overlayCopier.SourceToDestination, IntPtr.Size);
-            }
-            multiOriginalIds = InvertOriginals(multiOriginalMaps, selectionMemory, governor, cancellationToken);
-        }
+        IReadOnlyDictionary<int, int>? multiOriginalIds = PrepareOriginalIds(settings.Qdf,
+            copiers, overlayApplied.Copiers, selectionMemory, governor, cancellationToken);
         Content.CopiedForm? multiCombined = settings.RemoveAcroform
             ? null
             : Content.AcroFormCopy.Combine(renameForms, renameCopiers, overlayApplied.FieldImports,
@@ -1518,32 +1463,18 @@ public static partial class Qpdf
         if (governor.HasTypedResult) { selectionMemory.PrepareResultStorage(checked(24L * mapping.Count)); }
         if (!splitPages.HasValue)
         {
-            int modelCount = checked(pool.Count + 2);
-            selectionMemory.Reserve(checked(64L + 16L * modelCount));
-            List<NumberedObject> model = new(modelCount)
-            {
-                new NumberedObject(1, NewCatalog(catalogLabels, effective, extensionLevel, primaryMetadata, multiAttached.NamesRef, primaryPageMode ?? (multiAttached.Inserted ? UseAttachmentsPageMode : null), primaryOutlines, multiAcroForm, primaryStructTree, primaryMarkInfo, primaryExtras, optionalContent, pool, governor, cancellationToken)),
-                new NumberedObject(2, PagesNode(kids, selectionMemory, governor, cancellationToken)),
-            };
-            foreach (KeyValuePair<int, QpdfObject> entry in pool)
-            {
-                model.Add(new NumberedObject(entry.Key, entry.Value));
-            }
-            if ((multiAttached.Replaced || copiers.Exists(static item => item.HasReplacedObjects)
-                || overlayApplied.Copiers.Exists(static item => item.HasReplacedObjects)) && !settings.PreserveUnreferenced)
-            {
-                PruneOutputModel(model, pool, multiCompressed, primaryInfo, governor, cancellationToken);
-            }
-            int encryptionObject = AddEncryptionObject(model, outputSecurity, selectionMemory, governor);
-            GovernedSort.Sort(CollectionsMarshal.AsSpan(model)[2..], new WriterObjectOrder(), governor, cancellationToken);
-            List<List<int>> multiGroups = PlanObjectStreamGroups(multiCompressed, selectionMemory, governor, cancellationToken);
-            IReadOnlyList<IReadOnlyList<int>>? multiStreams = multiGroups.Count == 0 ? null : multiGroups;
+            PdfDictionary catalog = NewCatalog(new CatalogContents { PageLabels = catalogLabels, Metadata = primaryMetadata, Names = multiAttached.NamesRef, PageMode = primaryPageMode ?? (multiAttached.Inserted ? UseAttachmentsPageMode : null), Outlines = primaryOutlines, AcroForm = multiAcroForm, Structure = primaryStructTree, MarkInfo = primaryMarkInfo, Extras = primaryExtras, OptionalContent = optionalContent }, effective, extensionLevel, pool, governor, cancellationToken);
+            PreparedOutputModel preparedModel = OutputModelPreparation.Prepare(
+                new OutputGraph(catalog, PagesNode(kids, selectionMemory, governor, cancellationToken), pool, multiCompressed, primaryInfo,
+                    (multiAttached.Replaced || copiers.Exists(static item => item.HasReplacedObjects)
+                        || overlayApplied.Copiers.Exists(static item => item.HasReplacedObjects)) && !settings.PreserveUnreferenced,
+                    outputSecurity), selectionMemory, governor, cancellationToken);
 
             IReadOnlyList<PdfPageSelectionMapping> resultMapping = ResultCollectionStorage.Copy(selectionMemory, mapping, IntPtr.Size, governor, cancellationToken);
             IReadOnlyList<int> resultCounts = ResultCollectionStorage.Copy(selectionMemory, sourceCounts, sizeof(int), governor, cancellationToken);
             IReadOnlyList<QpdfPath> resultPaths = ResultCollectionStorage.Single(selectionMemory, target, IntPtr.Size, governor, cancellationToken);
-            await PublishModelAsync(host, effective, model, multiStreams, multiCompress, multiLevel, primaryInfo?.ObjectNumber, originalId1, settings.StaticId, settings.NewlineBeforeEndstream, settings.Qdf, multiOriginalIds, settings.Linearize, settings.LinearizePass1, target, limits, governor, cancellationToken,
-                outputSecurity, encryptionObject, primaryMetadata?.ObjectNumber ?? 0).ConfigureAwait(false);
+            await PublishModelAsync(host, effective, preparedModel.Model, preparedModel.ObjectStreams, multiCompress, multiLevel, primaryInfo?.ObjectNumber, originalId1, settings.StaticId, settings.NewlineBeforeEndstream, settings.Qdf, multiOriginalIds, settings.Linearize, settings.LinearizePass1, target, limits, governor, cancellationToken,
+                outputSecurity, preparedModel.EncryptionObject, primaryMetadata?.ObjectNumber ?? 0).ConfigureAwait(false);
             return (new MultiPageSelectionOutcome(kids.Count, resultMapping, resultCounts, resultPaths, ResultWarningSnapshot.Read(resultWarnings, diagnostics)), multiAttached.FinalCount);
         }
 
@@ -1773,7 +1704,7 @@ public static partial class Qpdf
             QpdfObject? groupOptionalContent = optionalContent is null ? null
                 : Writing.ObjectRemap.RemapSplit(optionalContent, renumber, pageNumbers, groupMemory, governor, cancellationToken);
             List<NumberedObject> sub = ParserContainers.CreateList<NumberedObject>(groupMemory);
-            NumberedObject groupCatalog = new(1, NewCatalog(remappedLabels, effective, extensionLevel, groupMetadata, groupNames, primaryPageMode as PdfName ?? (multiAttached.Inserted ? UseAttachmentsPageMode : null), groupOutlines, remappedAcroForm, groupStructTree, groupMarkInfo, null, groupOptionalContent, pool, governor, cancellationToken));
+            NumberedObject groupCatalog = new(1, NewCatalog(new CatalogContents { PageLabels = remappedLabels, Metadata = groupMetadata, Names = groupNames, PageMode = primaryPageMode as PdfName ?? (multiAttached.Inserted ? UseAttachmentsPageMode : null), Outlines = groupOutlines, AcroForm = remappedAcroForm, Structure = groupStructTree, MarkInfo = groupMarkInfo, OptionalContent = groupOptionalContent }, effective, extensionLevel, pool, governor, cancellationToken));
             NumberedObject groupPages = new(2, PagesNode(renumberedKids, groupMemory, governor, cancellationToken));
             ParserContainers.AddItem(groupMemory, sub, groupCatalog, 16L);
             ParserContainers.AddItem(groupMemory, sub, groupPages, 16L);
@@ -1785,8 +1716,6 @@ public static partial class Qpdf
 
             QpdfPath path = QpdfPath.From(names[g]);
             HashSet<int> groupCompressed = RemapCompressedSet(multiCompressed, renumber, groupMemory, governor, cancellationToken);
-            List<List<int>> groupGroups = PlanObjectStreamGroups(groupCompressed, groupMemory, governor, cancellationToken);
-            IReadOnlyList<IReadOnlyList<int>>? groupStreams = groupGroups.Count == 0 ? null : groupGroups;
             Dictionary<int, int>? groupOriginalIds = null;
             if (multiOriginalIds is not null)
             {
@@ -1803,11 +1732,11 @@ public static partial class Qpdf
 
             using OutputSecurity? freshSecurity = g == 0 ? null : settings.OutputEncryption?.CreateOutput(governor);
             OutputSecurity? groupSecurity = freshSecurity ?? outputSecurity;
-            int groupEncryption = AddEncryptionObject(sub, groupSecurity, groupMemory, governor);
-            PreparedSplitPublication publication = await PreparePresentationOutputAsync(effective, sub, groupStreams, multiCompress,
+            PreparedOutputModel preparedModel = OutputModelPreparation.Finish(sub, groupCompressed, groupSecurity, groupMemory, governor, cancellationToken);
+            PreparedSplitPublication publication = await PreparePresentationOutputAsync(effective, preparedModel.Model, preparedModel.ObjectStreams, multiCompress,
                 multiLevel, groupInfo, originalId1, settings.StaticId, settings.NewlineBeforeEndstream, settings.Qdf, groupOriginalIds,
                 settings.Linearize, settings.LinearizePass1, path, limits, governor, cancellationToken,
-                groupSecurity, groupEncryption, groupMetadata?.ObjectNumber ?? 0).ConfigureAwait(false);
+                groupSecurity, preparedModel.EncryptionObject, groupMetadata?.ObjectNumber ?? 0).ConfigureAwait(false);
             try { ParserContainers.AddItem(presentationMemory, prepared, publication, IntPtr.Size); }
             catch { publication.Dispose(); throw; }
         }
@@ -2008,135 +1937,6 @@ public static partial class Qpdf
 
     private static readonly byte[] PlaceholderIdBytes = new byte[16];
     private static readonly PdfName UseAttachmentsPageMode = PdfName.FromAscii("UseAttachments");
-
-    private static PdfDictionary NewCatalog(QpdfObject? pageLabels, PdfVersion finalVersion, int extensionLevel, PdfReference? metadataRef, PdfReference? namesRef, QpdfObject? pageMode, PdfReference? outlinesRef, PdfDictionary? acroForm, PdfReference? structTreeRef, QpdfObject? markInfo, IReadOnlyDictionary<PdfName, QpdfObject>? extras, QpdfObject? optionalContent, IReadOnlyDictionary<int, QpdfObject> pool, ResourceGovernor governor, CancellationToken token)
-    {
-        if (finalVersion is null)
-        {
-            throw new ArgumentNullException(nameof(finalVersion));
-        }
-
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
-        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
-        void Set(ReadOnlySpan<byte> key, QpdfObject value)
-            => entries.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, key), value, token);
-        Set("Type"u8, PdfDictionaryRebuild.CreateName(graph, "Catalog"u8));
-        graph.Memory.Reserve(24L); graph.Add(24L);
-        Set("Pages"u8, new PdfReference(2, 0));
-        if (pageLabels is not null)
-        {
-            Set("PageLabels"u8, pageLabels);
-        }
-
-        if (metadataRef is not null)
-        {
-            Set("Metadata"u8, metadataRef);
-        }
-
-        if (namesRef is not null)
-        {
-            Set("Names"u8, namesRef);
-        }
-
-        if (pageMode is not null)
-        {
-            Set("PageMode"u8, pageMode);
-        }
-
-        if (outlinesRef is not null)
-        {
-            Set("Outlines"u8, outlinesRef);
-        }
-
-        if (acroForm is not null)
-        {
-            Set("AcroForm"u8, acroForm);
-        }
-
-        if (structTreeRef is not null)
-        {
-            Set("StructTreeRoot"u8, structTreeRef);
-        }
-
-        if (markInfo is not null && markInfo is not PdfNull)
-        {
-            Set("MarkInfo"u8, markInfo);
-        }
-
-        QpdfObject? originalExtensions = null;
-        if (extras is not null)
-        {
-            foreach (KeyValuePair<PdfName, QpdfObject> extra in extras)
-            {
-                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                // Imported fields replace an opaque primary form, as they do
-                // in the reference; the preserved array must not overwrite it.
-                if (acroForm is not null && extra.Key.RawSpan.SequenceEqual("AcroForm"u8)) { continue; }
-                if (extra.Key.RawSpan.SequenceEqual("Extensions"u8)) { originalExtensions = extra.Value; continue; }
-                if (namesRef is not null && extra.Key.RawSpan.SequenceEqual("Names"u8))
-                {
-                    PdfDictionary names = extra.Value as PdfDictionary ?? throw new InvalidOperationException("Copied name categories must be a dictionary.");
-                    PdfDictionary attachments = pool[namesRef.ObjectNumber] as PdfDictionary ?? throw new InvalidOperationException("Attachment names must be a dictionary.");
-                    if (!PdfDictionaryLookup.TryGet(attachments, "EmbeddedFiles"u8, governor, token, out QpdfObject files))
-                    { throw new InvalidOperationException("Attachment names must contain EmbeddedFiles."); }
-                    Set("Names"u8, PdfDictionaryRebuild.ReplaceEntry(graph, names, "EmbeddedFiles"u8, files));
-                    continue;
-                }
-                entries.Assign(graph.Memory, governor, extra.Key, extra.Value, token);
-            }
-        }
-
-        if (optionalContent is not null) { Set("OCProperties"u8, optionalContent); }
-        if (originalExtensions is not null || extensionLevel > 0)
-        {
-            IIndirectResolver resolver = Content.PoolResolver.Create(graph.Memory, pool);
-            QpdfObject? extensions = PrepareExtensions(originalExtensions, resolver, finalVersion, extensionLevel, graph);
-            if (extensions is not null) { Set("Extensions"u8, extensions); }
-        }
-
-        PdfDictionary catalog = PdfDictionaryRebuild.Complete(graph, entries, allocation);
-        graph.Retain(); return catalog;
-    }
-
-    private static QpdfObject? PrepareExtensions(QpdfObject? original, IIndirectResolver resolver, PdfVersion version, int extensionLevel, OwnedAllocationBatch graph)
-    {
-        ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
-        PdfDictionary? extensions = Content.CatalogCopy.ResolveDictionary(original, resolver, governor, token);
-        QpdfObject raw = PdfNull.Instance;
-        bool hasAdobe = extensions is not null && PdfDictionaryLookup.TryGet(extensions, "ADBE"u8, governor, token, out raw);
-        if (extensionLevel == 0)
-        {
-            if (!hasAdobe) { return original; }
-            PdfDictionary remaining = PdfDictionaryRebuild.RemoveEntry(graph, extensions ?? throw new InvalidOperationException(), "ADBE"u8);
-            return remaining.Count == 0 ? null : remaining;
-        }
-
-        // Keep an unchanged declaration, including private fields and aliases.
-        PdfDictionary? adbe = Content.CatalogCopy.ResolveDictionary(raw, resolver, governor, token);
-        if (adbe is not null
-            && PdfDictionaryLookup.TryGet(adbe, "BaseVersion"u8, governor, token, out QpdfObject baseRaw)
-            && Content.CatalogCopy.ResolveValue(baseRaw, resolver, governor, token) is PdfName baseName
-            && baseName.RawSpan.Length == 3 && baseName.RawSpan[0] == (byte)('0' + version.Major)
-            && baseName.RawSpan[1] == (byte)'.' && baseName.RawSpan[2] == (byte)('0' + version.Minor)
-            && PdfDictionaryLookup.TryGet(adbe, "ExtensionLevel"u8, governor, token, out QpdfObject levelRaw)
-            && Content.CatalogCopy.ResolveValue(levelRaw, resolver, governor, token) is PdfInteger oldLevel && oldLevel.Value == extensionLevel)
-        { return original; }
-
-        graph.Memory.Reserve(512L);
-        string baseVersion = version.Major.ToString(System.Globalization.CultureInfo.InvariantCulture) + "." + version.Minor.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        string levelText = extensionLevel.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        PdfName name = PdfName.FromOwnedBytes(System.Text.Encoding.ASCII.GetBytes(baseVersion));
-        PdfInteger level = new(levelText, extensionLevel);
-        graph.Add(checked(96L + baseVersion.Length + GovernedText.StringBytes(levelText.Length)));
-        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
-        entries.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "BaseVersion"u8), name, token);
-        entries.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "ExtensionLevel"u8), level, token);
-        PdfDictionary replacement = PdfDictionaryRebuild.Complete(graph, entries, allocation);
-        if (extensions is not null) { return PdfDictionaryRebuild.ReplaceEntry(graph, extensions, "ADBE"u8, replacement); }
-        entries = PdfDictionaryRebuild.CreateEntries(graph, out allocation);
-        entries.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "ADBE"u8), replacement, token);
-        return PdfDictionaryRebuild.Complete(graph, entries, allocation);
-    }
 
     private static PdfDictionary? BuildPageLabels(
         IReadOnlyList<PageLabelSpec> labels,
@@ -2443,27 +2243,6 @@ public static partial class Qpdf
             if (_hashing) { hash.Append(chunk.Span, token); }
             return destination.AppendAsync(chunk, token);
         }
-    }
-
-    private static Dictionary<int, int> InvertOriginals(IEnumerable<IReadOnlyDictionary<int, int>> maps,
-        ParserMemoryScope ownership, ResourceGovernor governor, CancellationToken token)
-    {
-        ownership.CheckOwner(governor); token.ThrowIfCancellationRequested();
-        using ParserMemoryScope candidate = ParserMemoryScope.Create(governor);
-        Dictionary<int, int> inverted = ParserContainers.CreateDictionary<int, int>(candidate);
-        foreach (IReadOnlyDictionary<int, int> map in maps)
-        {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            foreach (KeyValuePair<int, int> entry in map)
-            {
-                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                GovernedCollections.Assign(candidate, governor, inverted, entry.Value, entry.Key, sizeof(int));
-            }
-        }
-
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        candidate.TransferTo(ownership);
-        return inverted;
     }
 
     private readonly record struct PageImage(PdfName Name, int Number, int Generation, long Width, long Height);
@@ -2952,136 +2731,6 @@ public static partial class Qpdf
         finally { governor.ReleaseHostMemory(counted); }
     }
 
-    private static (int Major, int Minor, int Extension) ParseWriterVersion(string text, string option)
-    {
-        if (text is null)
-        {
-            throw new ArgumentNullException(nameof(text));
-        }
-
-        // The component bounds below allow at most 4 + 1 + 4 + 1 + 6 characters.
-        if (text.Length > 4 + 1 + 4 + 1 + 6)
-        {
-            throw new QpdfParseException(option + " requires a version such as 1.5.", 0L, null);
-        }
-
-        string[] parts = text.Split((char)46);
-        if (parts.Length < 2 || parts.Length > 3)
-        {
-            throw new QpdfParseException(option + " requires a version such as 1.5.", 0L, null);
-        }
-
-        if (parts[0].Length == 0 || parts[0].Length > 4 || parts[1].Length == 0 || parts[1].Length > 4)
-        {
-            throw new QpdfParseException(option + " requires a version such as 1.5.", 0L, null);
-        }
-
-        int major = ParseVersionComponent(parts[0], option);
-        int minor = ParseVersionComponent(parts[1], option);
-        int extension = 0;
-        if (parts.Length == 3)
-        {
-            if (parts[2].Length == 0 || parts[2].Length > 6)
-            {
-                throw new QpdfParseException(option + " requires a version such as 1.5.", 0L, null);
-            }
-
-            extension = ParseVersionComponent(parts[2], option);
-        }
-
-        bool supported = (major == 1 && minor >= 0 && minor <= 7) || (major == 2 && minor == 0);
-        if (!supported)
-        {
-            throw new QpdfParseException(option + " supports versions 1.0 through 1.7 and 2.0.", 0L, null);
-        }
-
-        if (extension < 0)
-        {
-            throw new QpdfParseException(option + " requires a non-negative extension level.", 0L, null);
-        }
-
-        return (major, minor, extension);
-    }
-
-    private static int ParseVersionComponent(string part, string option)
-    {
-        long value = 0L;
-        foreach (char c in part)
-        {
-            if (c < (char)48 || c > (char)57)
-            {
-                throw new QpdfParseException(option + " requires a version such as 1.5.", 0L, null);
-            }
-
-            value = checked(value * 10L + (c - (char)48));
-        }
-
-        if (value > 999999L)
-        {
-            throw new QpdfParseException(option + " requires a version such as 1.5.", 0L, null);
-        }
-
-        return (int)value;
-    }
-
-    private static QpdfDocument.VersionParts? AuthoredVersionFloor(bool filespec, bool embeddedFiles, bool labels)
-    {
-        int minor = filespec ? 7 : embeddedFiles ? 4 : labels ? 3 : 0;
-        return minor == 0 ? null : new QpdfDocument.VersionParts(1, minor);
-    }
-
-    private static void IncludeVersionRequirement(ref PdfVersion version, ref int extension,
-        QpdfDocument.VersionParts? requirement, int requiredExtension, ResourceGovernor governor)
-    {
-        if (requirement is not QpdfDocument.VersionParts source) { return; }
-        int order = PdfVersion.CompareParts(source.Major, source.Minor, version.Major, version.Minor);
-        if (order > 0)
-        {
-            version = governor.PrivateVersion(source.Major, source.Minor);
-            extension = requiredExtension;
-        }
-        else if (order == 0) { extension = Math.Max(extension, requiredExtension); }
-    }
-
-    private static (PdfVersion Version, int Extension) NegotiateVersion(PdfVersion inputMax, int inputExtension, string? minText, string? forceText, ResourceGovernor governor)
-    {
-        if (inputMax is null)
-        {
-            throw new ArgumentNullException(nameof(inputMax));
-        }
-
-        if (forceText is not null)
-        {
-            (int major, int minor, int ext) = ParseWriterVersion(forceText, "--force-version");
-            return (governor.PrivateVersion(major, minor), ext);
-        }
-
-        // The basic writer uses PDF 1.2 name escaping, compression and layout
-        // syntax. A conservative profile floor avoids classifying opaque graphs.
-        if (PdfVersion.CompareParts(inputMax.Major, inputMax.Minor, 1, 2) < 0)
-        { inputMax = governor.PrivateVersion(1, 2); inputExtension = 0; }
-
-        if (minText is null)
-        {
-            return (inputMax, inputExtension);
-        }
-
-        (int minMajor, int minMinor, int minExt) = ParseWriterVersion(minText, "--min-version");
-        int order = PdfVersion.CompareParts(inputMax.Major, inputMax.Minor, minMajor, minMinor);
-        if (order > 0)
-        {
-            return (inputMax, inputExtension);
-        }
-
-        if (order < 0)
-        {
-            return (governor.PrivateVersion(minMajor, minMinor), minExt);
-        }
-
-        return (inputMax, Math.Max(inputExtension, minExt));
-    }
-
-
     private static byte[]? TryGetOriginalId(DocumentEngine engine)
     {
         if (engine is null)
@@ -3102,235 +2751,6 @@ public static partial class Qpdf
         }
 
         return first.Value;
-    }
-
-    private static string ResolveObjectStreamMode(string? raw)
-    {
-        if (raw is null)
-        {
-            return "preserve";
-        }
-
-        if (raw == "disable" || raw == "preserve" || raw == "generate")
-        {
-            return raw;
-        }
-
-        throw new QpdfParseException("--object-streams mode must be disable, preserve, or generate.", 0L, null);
-    }
-
-    private static HashSet<int> CollectCompressedOriginals(DocumentEngine engine, bool preserve,
-        ParserMemoryScope ownership, ResourceGovernor governor, CancellationToken token)
-    {
-        if (engine is null)
-        {
-            throw new ArgumentNullException(nameof(engine));
-        }
-
-        ownership.CheckOwner(governor); token.ThrowIfCancellationRequested();
-        using ParserMemoryScope candidate = ParserMemoryScope.Create(governor);
-        HashSet<int> compressed = ParserContainers.CreateSet<int>(candidate);
-        if (preserve)
-        {
-            foreach (KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
-            {
-                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                if (entry.Value.Kind == XrefEntryKind.Compressed)
-                {
-                    ParserContainers.AddSetItem(candidate, compressed, entry.Key, sizeof(int));
-                }
-            }
-        }
-
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        candidate.TransferTo(ownership);
-        return compressed;
-    }
-
-    private static bool IsCompressibleValue(int number, QpdfObject value, ResourceGovernor governor, CancellationToken token)
-    {
-        if (number == 1 || number == 2)
-        {
-            return false;
-        }
-
-        if (value is PdfStream)
-        {
-            return false;
-        }
-
-        if (value is PdfDictionary dictionary)
-        {
-            if (PdfDictionaryLookup.TryGet(dictionary, "Type"u8, governor, token, out QpdfObject typeRaw)
-                && typeRaw is PdfName typeName && typeName.RawSpan.SequenceEqual("Sig"u8)
-                && PdfDictionaryLookup.TryGet(dictionary, "ByteRange"u8, governor, token, out QpdfObject byteRange)
-                && byteRange is not PdfNull
-                && PdfDictionaryLookup.TryGet(dictionary, "Contents"u8, governor, token, out QpdfObject contents)
-                && contents is not PdfNull)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static HashSet<int> ResolveCompressedSet(
-        string mode,
-        IReadOnlyDictionary<int, QpdfObject> pool,
-        List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> sources,
-        ParserMemoryScope ownership, ResourceGovernor governor, CancellationToken token)
-    {
-        if (mode is null)
-        {
-            throw new ArgumentNullException(nameof(mode));
-        }
-
-        if (pool is null)
-        {
-            throw new ArgumentNullException(nameof(pool));
-        }
-
-        if (sources is null)
-        {
-            throw new ArgumentNullException(nameof(sources));
-        }
-
-        if (governor is null)
-        {
-            throw new ArgumentNullException(nameof(governor));
-        }
-
-        ownership.CheckOwner(governor); token.ThrowIfCancellationRequested();
-        using ParserMemoryScope candidate = ParserMemoryScope.Create(governor);
-        HashSet<int> compressed = ParserContainers.CreateSet<int>(candidate);
-        if (mode == "disable")
-        {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            candidate.TransferTo(ownership);
-            return compressed;
-        }
-
-        if (mode == "generate")
-        {
-            foreach (KeyValuePair<int, QpdfObject> entry in pool)
-            {
-                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                if (IsCompressibleValue(entry.Key, entry.Value, governor, token))
-                {
-                    ParserContainers.AddSetItem(candidate, compressed, entry.Key, sizeof(int));
-                }
-            }
-
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            candidate.TransferTo(ownership);
-            return compressed;
-        }
-
-        if (mode != "preserve")
-        {
-            throw new QpdfParseException("--object-streams mode must be disable, preserve, or generate.", 0L, null);
-        }
-
-        foreach ((IReadOnlyDictionary<int, int> map, HashSet<int> origs) in sources)
-        {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            foreach (int orig in origs)
-            {
-                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                if (map.TryGetValue(orig, out int dest)
-                    && pool.TryGetValue(dest, out QpdfObject? value)
-                    && value is not null
-                    && IsCompressibleValue(dest, value, governor, token))
-                {
-                    ParserContainers.AddSetItem(candidate, compressed, dest, sizeof(int));
-                }
-            }
-        }
-
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        candidate.TransferTo(ownership);
-        return compressed;
-    }
-
-    private static List<List<int>> PlanObjectStreamGroups(HashSet<int> compressed,
-        ParserMemoryScope ownership, ResourceGovernor governor, CancellationToken token)
-    {
-        if (compressed is null)
-        {
-            throw new ArgumentNullException(nameof(compressed));
-        }
-
-        if (governor is null)
-        {
-            throw new ArgumentNullException(nameof(governor));
-        }
-
-        ownership.CheckOwner(governor); token.ThrowIfCancellationRequested();
-        using ParserMemoryScope candidate = ParserMemoryScope.Create(governor);
-        List<List<int>> groups = ParserContainers.CreateList<List<int>>(candidate);
-        if (compressed.Count == 0)
-        {
-            candidate.TransferTo(ownership);
-            return groups;
-        }
-
-        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
-        scratch.Reserve(64L + sizeof(int) * (long)compressed.Count);
-        List<int> ordered = new(compressed.Count);
-        foreach (int number in compressed)
-        {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); ordered.Add(number);
-        }
-        GovernedSort.Sort(CollectionsMarshal.AsSpan(ordered), new WriterNumberOrder(), governor, token);
-        int streamCount = 1 + (ordered.Count - 1) / 100;
-        int perStream = 1 + (ordered.Count - 1) / streamCount;
-        for (int i = 0; i < ordered.Count; i += perStream)
-        {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            int take = Math.Min(perStream, ordered.Count - i);
-            candidate.Reserve(64L + sizeof(int) * (long)take);
-            List<int> group = new(take);
-            for (int index = i; index < i + take; index++)
-            {
-                token.ThrowIfCancellationRequested(); governor.CheckCancellation(); group.Add(ordered[index]);
-            }
-            ParserContainers.AddItem(candidate, groups, group, IntPtr.Size);
-        }
-
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        candidate.TransferTo(ownership);
-        return groups;
-    }
-
-    private static HashSet<int> RemapCompressedSet(HashSet<int> compressed, Dictionary<int, int> renumber,
-        ParserMemoryScope ownership, ResourceGovernor governor, CancellationToken token)
-    {
-        if (compressed is null)
-        {
-            throw new ArgumentNullException(nameof(compressed));
-        }
-
-        if (renumber is null)
-        {
-            throw new ArgumentNullException(nameof(renumber));
-        }
-
-        ownership.CheckOwner(governor); token.ThrowIfCancellationRequested();
-        using ParserMemoryScope candidate = ParserMemoryScope.Create(governor);
-        HashSet<int> remapped = ParserContainers.CreateSet<int>(candidate);
-        foreach (int id in compressed)
-        {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            if (renumber.TryGetValue(id, out int mapped))
-            {
-                ParserContainers.AddSetItem(candidate, remapped, mapped, sizeof(int));
-            }
-        }
-
-        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        candidate.TransferTo(ownership);
-        return remapped;
     }
 
     private static (bool Compress, string Decode, int? Level) ResolveCompression(CompressionRequest request, bool qdf)
@@ -3669,26 +3089,6 @@ public static partial class Qpdf
 
     private sealed record AttachmentAssembly(PdfReference? NamesRef, bool Inserted, int FinalCount, bool Replaced,
         QpdfDocument.VersionParts? Version, int ExtensionLevel);
-
-    private static void PruneOutputModel(List<NumberedObject> model, Dictionary<int, QpdfObject> pool,
-        HashSet<int> compressed, PdfReference? info, ResourceGovernor governor, CancellationToken token)
-    {
-        // Catalog, page tree and trailer Info are the actual output roots. Keep
-        // shared page/catalog references; replaced-only objects have no root.
-        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
-        scratch.Reserve(96L);
-        PdfArray roots = PdfArray.FromOwnedItems([model[0].Value, model[1].Value, info is null ? PdfNull.Instance : info]);
-        HashSet<int> reachable = GraphReachability.Find(new Content.PoolResolver(pool), roots, scratch, governor);
-        int kept = 2;
-        for (int index = 2; index < model.Count; index++)
-        {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            NumberedObject entry = model[index];
-            if (reachable.Contains(entry.Number)) { model[kept++] = entry; }
-            else { compressed.Remove(entry.Number); }
-        }
-        model.RemoveRange(kept, model.Count - kept);
-    }
 
     private static SortedDictionary<string, AttachmentReference> PreserveExistingAttachments(
         GraphCopier copier,
@@ -4972,7 +4372,7 @@ public static partial class Qpdf
             using OutputSecurity? security = preparedSecurity.Security;
             (model, PdfVersion effective) = PrepareImportedVersion(model, minVersion, forceVersion, security, governor, cancellationToken);
             Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, diagnostics, importMemory, cancellationToken);
-            int encryptionNumber = AddEncryptionObject(renumbered.Model, security, importMemory, governor);
+            int encryptionNumber = OutputModelPreparation.AddEncryptionObject(renumbered.Model, security, importMemory, governor);
             await PublishModelAsync(host, effective, renumbered.Model, null, false, null, renumbered.InfoNumber, preparedSecurity.Identifier,
                 staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, false, null, outputPath, limits, governor, cancellationToken,
                 security, encryptionNumber, renumbered.MetadataNumber).ConfigureAwait(false);
@@ -5020,7 +4420,7 @@ public static partial class Qpdf
             using OutputSecurity? security = preparedSecurity.Security;
             (model, PdfVersion effective) = PrepareImportedVersion(model, minVersion, forceVersion, security, governor, cancellationToken);
             Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, diagnostics, importMemory, cancellationToken);
-            int encryptionNumber = AddEncryptionObject(renumbered.Model, security, importMemory, governor);
+            int encryptionNumber = OutputModelPreparation.AddEncryptionObject(renumbered.Model, security, importMemory, governor);
             await PublishModelAsync(host, effective, renumbered.Model, null, false, null, renumbered.InfoNumber, preparedSecurity.Identifier,
                 staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, false, null, outputPath, limits, governor, cancellationToken,
                 security, encryptionNumber, renumbered.MetadataNumber).ConfigureAwait(false);

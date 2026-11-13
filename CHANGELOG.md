@@ -13,6 +13,9 @@
   Preserve ordered files, credentials, permissions and exclusive declarations;
   accept repeated scalar setters consistently across argv routes. Test syntax
   repetition at the planner and retain representative public/native workflows.
+- Share output model finalization, catalog/version policy and original-ID
+  preparation across selection, merging and splitting. Preserve distinct source
+  roles and independent split encryption while removing parallel writer setup.
 
 - Support Standard password security R2–R6 through the shared typed, argv and job
   pipelines, including legitimate empty passwords and non-secret encryption facts.

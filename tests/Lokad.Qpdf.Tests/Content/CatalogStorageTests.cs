@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Reflection;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
@@ -14,12 +13,14 @@ namespace Lokad.Qpdf.Tests.Content;
 
 public sealed class CatalogStorageTests
 {
-    private delegate PdfDictionary Catalog(QpdfObject? labels, PdfVersion version, int extension,
+    private static PdfDictionary Build(QpdfObject? labels, PdfVersion version, int extension,
         PdfReference? metadata, PdfReference? names, QpdfObject? mode, PdfReference? outlines, PdfDictionary? form,
         PdfReference? structure, QpdfObject? mark, IReadOnlyDictionary<PdfName, QpdfObject>? extras, QpdfObject? optionalContent,
-        IReadOnlyDictionary<int, QpdfObject> pool, ResourceGovernor governor, CancellationToken token);
-    private static readonly Catalog Build = (typeof(Qpdf).GetMethod("NewCatalog", BindingFlags.NonPublic | BindingFlags.Static)
-        ?? throw new InvalidOperationException("Missing live catalog builder.")).CreateDelegate<Catalog>();
+        IReadOnlyDictionary<int, QpdfObject> pool, ResourceGovernor governor, CancellationToken token)
+        => OutputCatalogPreparation.NewCatalog(new CatalogContents {
+            PageLabels = labels, Metadata = metadata, Names = names, PageMode = mode,
+            Outlines = outlines, AcroForm = form, Structure = structure, MarkInfo = mark,
+            Extras = extras, OptionalContent = optionalContent }, version, extension, pool, governor, token);
 
     private static PdfDictionary Dict(params (string Key, QpdfObject Value)[] entries)
         => new(entries.ToDictionary(e => PdfName.FromAscii(e.Key), e => e.Value));

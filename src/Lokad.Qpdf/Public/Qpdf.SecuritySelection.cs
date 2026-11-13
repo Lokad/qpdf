@@ -1,3 +1,7 @@
+using static Lokad.Qpdf.Writing.OutputVersionPolicy;
+using static Lokad.Qpdf.Writing.ObjectStreamPreparation;
+using static Lokad.Qpdf.Writing.OutputCatalogPreparation;
+using static Lokad.Qpdf.Writing.OriginalObjectIds;
 using Lokad.Qpdf.Commands;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
@@ -152,30 +156,6 @@ public static partial class Qpdf
             Value?.Dispose(); Value = null;
             ParserMemoryScope? memory = _memory; _memory = null; memory?.Dispose();
         }
-    }
-
-    private static void RequireEncryptionVersion(OutputSecurity? security, ref PdfVersion version, ref int extension,
-        string? forcedVersion, ResourceGovernor governor)
-    {
-        if (security is null) { return; }
-        int minor = security.Revision >= 5 ? 7 : security.Revision == 4 ? 6 : security.Revision == 3 ? 4 : 3;
-        int requiredExtension = security.Revision == 6 ? 8 : security.Revision == 5 ? 3 : 0;
-        int order = PdfVersion.CompareParts(version.Major, version.Minor, 1, minor);
-        if (forcedVersion is not null && (order < 0 || order == 0 && extension < requiredExtension))
-        { throw new QpdfUnsupportedFeatureException("The forced PDF version cannot support the requested output encryption."); }
-        IncludeVersionRequirement(ref version, ref extension, new QpdfDocument.VersionParts(1, minor), requiredExtension, governor);
-    }
-
-    private static int AddEncryptionObject(List<NumberedObject> model, OutputSecurity? security,
-        ParserMemoryScope memory, ResourceGovernor governor)
-    {
-        if (security is null) { return 0; }
-        int number = 0;
-        foreach (NumberedObject item in model)
-        { governor.CheckCancellation(); number = Math.Max(number, item.Number); }
-        number = checked(number + 1);
-        ParserContainers.AddItem(memory, model, new NumberedObject(number, security.Dictionary), 16L);
-        return number;
     }
 
     private static void ValidateSourceCredentials(IReadOnlyList<PdfPageSource> sources,

@@ -28,6 +28,10 @@ Input admission and xref parsing form one stage before authentication and page
 traversal; callers retain host-lease ownership through success and cleanup.
 The writer prepares numbering, lengths, offsets and identifiers before publication;
 linearization uses two passes.
+`OutputModelPreparation` finalizes assembled and split graphs through shared
+reachability, encryption numbering, ordering and object-stream grouping.
+Catalog contents, version requirements and original-ID inversion have separate
+internal owners; source copying supplies their data without duplicating policy.
 
 ## Component map
 
