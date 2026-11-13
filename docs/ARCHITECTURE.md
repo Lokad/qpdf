@@ -73,6 +73,10 @@ appearance/resource payloads and private aliases use the ordinary graph mapping.
 Placement and JSON publication reuse this policy. Reading and inspection retain
 the original immutable values and do not validate signatures.
 
+Content transforms share rectangle bounds, matrix composition and finite numeric
+array extraction in `PdfGeometry`. Feature callers retain clipping, coordinate
+order, malformed-value diagnostics and degenerate-box fallbacks.
+
 ## Password security
 
 One security handler serves the shared reader and all entry points. The reader

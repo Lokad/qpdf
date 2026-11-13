@@ -20,6 +20,9 @@
   adaptation. Translate command exceptions at the shared presentation boundary
   and call focused internal test owners directly instead of reflecting on facade
   helpers.
+- Share rectangle transforms, matrix composition and finite numeric-array readers
+  across annotation flattening, rotation and placement. Keep feature-specific
+  clipping/fallback rules and use spans for temporary bounds.
 
 - Support Standard password security R2–R6 through the shared typed, argv and job
   pipelines, including legitimate empty passwords and non-secret encryption facts.

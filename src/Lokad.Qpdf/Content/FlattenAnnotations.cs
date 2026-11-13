@@ -411,7 +411,7 @@ internal static class FlattenAnnotations
             QpdfObject matrixTarget = matrixRaw is PdfReference matrixReference
                 ? ResolveOrNull(resolver, matrixReference) ?? matrixRaw
                 : matrixRaw;
-            double[]? parsed = ReadMatrix(matrixTarget, resolver);
+            double[]? parsed = PdfGeometry.ReadFiniteNumbers(matrixTarget, 6, resolver);
             if (parsed is not null)
             {
                 matrix = parsed;
@@ -425,7 +425,8 @@ internal static class FlattenAnnotations
             rect = RotateRect(rect, rotate);
         }
 
-        double[] moved = TransformRect(box, matrix);
+        Span<double> moved = stackalloc double[4];
+        PdfGeometry.TransformRect(box, matrix, moved);
         double movedWidth = moved[2] - moved[0];
         double movedHeight = moved[3] - moved[1];
         if (movedWidth == 0.0 || movedHeight == 0.0)
@@ -507,75 +508,9 @@ internal static class FlattenAnnotations
 
     private static double[] ConcatMatrix(double[] first, double[] second)
     {
-        double a = (first[0] * second[0]) + (first[2] * second[1]);
-        double b = (first[1] * second[0]) + (first[3] * second[1]);
-        double c = (first[0] * second[2]) + (first[2] * second[3]);
-        double d = (first[1] * second[2]) + (first[3] * second[3]);
-        double e = (first[0] * second[4]) + (first[2] * second[5]) + first[4];
-        double f = (first[1] * second[4]) + (first[3] * second[5]) + first[5];
-        return [a, b, c, d, e, f];
-    }
-
-    private static double[] TransformRect(double[] rect, double[] matrix)
-    {
-        double x0 = (matrix[0] * rect[0]) + (matrix[2] * rect[1]) + matrix[4];
-        double y0 = (matrix[1] * rect[0]) + (matrix[3] * rect[1]) + matrix[5];
-        double x1 = (matrix[0] * rect[0]) + (matrix[2] * rect[3]) + matrix[4];
-        double y1 = (matrix[1] * rect[0]) + (matrix[3] * rect[3]) + matrix[5];
-        double x2 = (matrix[0] * rect[2]) + (matrix[2] * rect[1]) + matrix[4];
-        double y2 = (matrix[1] * rect[2]) + (matrix[3] * rect[1]) + matrix[5];
-        double x3 = (matrix[0] * rect[2]) + (matrix[2] * rect[3]) + matrix[4];
-        double y3 = (matrix[1] * rect[2]) + (matrix[3] * rect[3]) + matrix[5];
-        double llx = x0;
-        if (x1 < llx) llx = x1;
-        if (x2 < llx) llx = x2;
-        if (x3 < llx) llx = x3;
-        double lly = y0;
-        if (y1 < lly) lly = y1;
-        if (y2 < lly) lly = y2;
-        if (y3 < lly) lly = y3;
-        double urx = x0;
-        if (x1 > urx) urx = x1;
-        if (x2 > urx) urx = x2;
-        if (x3 > urx) urx = x3;
-        double ury = y0;
-        if (y1 > ury) ury = y1;
-        if (y2 > ury) ury = y2;
-        if (y3 > ury) ury = y3;
-        return [llx, lly, urx, ury];
-    }
-
-    private static double[]? ReadMatrix(QpdfObject value, PoolResolver resolver)
-    {
-        if (value is not PdfArray array || array.Count != 6)
-        {
-            return null;
-        }
-
-        double[] numbers = new double[6];
-        for (int i = 0; i < 6; i++)
-        {
-            QpdfObject? item = array[i] is PdfReference reference ? ResolveOrNull(resolver, reference) : array[i];
-            if (item is PdfInteger integer)
-            {
-                numbers[i] = (double)integer.Value;
-            }
-            else if (item is PdfReal real)
-            {
-                numbers[i] = real.Value;
-            }
-            else
-            {
-                return null;
-            }
-
-            if (!double.IsFinite(numbers[i]))
-            {
-                return null;
-            }
-        }
-
-        return numbers;
+        double[] result = new double[6];
+        PdfGeometry.Concat(first, second, result);
+        return result;
     }
 
     private static double[]? ReadBox(PdfDictionary dictionary, string key, PoolResolver resolver)
@@ -593,41 +528,7 @@ internal static class FlattenAnnotations
             return null;
         }
 
-        double[] numbers = new double[4];
-        for (int i = 0; i < 4; i++)
-        {
-            QpdfObject item = array[i];
-            if (item is PdfReference itemReference)
-            {
-                QpdfObject? resolved = ResolveOrNull(resolver, itemReference);
-                if (resolved is null)
-                {
-                    return null;
-                }
-
-                item = resolved;
-            }
-
-            if (item is PdfInteger integer)
-            {
-                numbers[i] = (double)integer.Value;
-            }
-            else if (item is PdfReal real)
-            {
-                numbers[i] = real.Value;
-            }
-            else
-            {
-                return null;
-            }
-
-            if (!double.IsFinite(numbers[i]))
-            {
-                return null;
-            }
-        }
-
-        return numbers;
+        return PdfGeometry.ReadFiniteNumbers(array, 4, resolver);
     }
 
     private static void AppendAscii(GovernedBufferStream output, string text)

@@ -32,9 +32,9 @@ internal static class DestinationCoordinates
             QpdfObject? zoom = Resolve(source[4]);
             if (zoom is not (null or PdfNull) && Number(zoom) < 0) { throw Malformed(); }
             original[2] = original[0]; original[3] = original[1];
-            FlattenRotation.TransformRect(original, matrix, projected);
+            PdfGeometry.TransformRect(original, matrix, projected);
         }
-        else if (rectangle) { FlattenRotation.TransformRect(original, matrix, projected); }
+        else if (rectangle) { PdfGeometry.TransformRect(original, matrix, projected); }
         else
         {
             if (matrix[1] != 0 || matrix[2] != 0)

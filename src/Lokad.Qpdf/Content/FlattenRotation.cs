@@ -220,45 +220,9 @@ internal static class FlattenRotation
             return null;
         }
 
-        double[] numbers = new double[4];
-        for (int i = 0; i < 4; i++)
-        {
-            QpdfObject item = array[i];
-            if (item is PdfReference itemReference)
-            {
-                QpdfObject? resolved = ResolveOrNull(resolver, itemReference);
-                if (resolved is null)
-                {
-                    return null;
-                }
-
-                item = resolved;
-            }
-
-            if (item is PdfInteger integer)
-            {
-                numbers[i] = (double)integer.Value;
-            }
-            else if (item is PdfReal real)
-            {
-                numbers[i] = real.Value;
-            }
-            else
-            {
-                return null;
-            }
-
-            if (!double.IsFinite(numbers[i]))
-            {
-                return null;
-            }
-        }
-
-        return numbers;
+        return PdfGeometry.ReadFiniteNumbers(array, 4, resolver);
     }
 
-    // Only the AP dictionary and its one level of state dictionaries are
-    // rebuilt. Other values stay borrowed, including malformed cyclic values.
     private static PdfDictionary CopyAppearanceDictionary(
         GraphCopier copier, PdfDictionary source, bool states, double[] matrix,
         Dictionary<(int Id, AnnotationCopyKind Kind, bool Frame), PdfReference> copies, ParserMemoryScope traversal,
@@ -309,11 +273,12 @@ internal static class FlattenRotation
         if (stream.Dictionary.TryGet(PdfName.FromAscii("Matrix"), out QpdfObject? existing))
         {
             QpdfObject? target = existing is PdfReference link ? ResolveOrNull(resolver, link) : existing;
-            double[]? old = target is PdfArray array ? ReadMatrix(array, resolver) : null;
+            double[]? old = target is PdfArray array ? PdfGeometry.ReadFiniteNumbers(array, 6, resolver) : null;
             if (old is not null)
             {
                 // PDF row-vector order: draw the appearance, then change page frame.
-                composed = MultiplyMatrices(old, matrix);
+                composed = new double[6];
+                PdfGeometry.Concat(matrix, old, composed);
             }
         }
 
@@ -326,52 +291,6 @@ internal static class FlattenRotation
         PdfReference copy = copier.AddIndirectObjectWithId(result, allocator); allocator = checked(allocator + 1);
         copies.Add((reference.ObjectNumber, AnnotationCopyKind.Appearance, false), copy);
         return copy;
-    }
-
-    private static double[]? ReadMatrix(PdfArray array, PoolResolver resolver)
-    {
-        if (array.Count != 6)
-        {
-            return null;
-        }
-
-        double[] numbers = new double[6];
-        for (int i = 0; i < 6; i++)
-        {
-            QpdfObject? item = array[i] is PdfReference reference ? ResolveOrNull(resolver, reference) : array[i];
-            if (item is PdfInteger integer)
-            {
-                numbers[i] = (double)integer.Value;
-            }
-            else if (item is PdfReal real)
-            {
-                numbers[i] = real.Value;
-            }
-            else
-            {
-                return null;
-            }
-
-            if (!double.IsFinite(numbers[i]))
-            {
-                return null;
-            }
-        }
-
-        return numbers;
-    }
-
-    private static double[] MultiplyMatrices(double[] first, double[] second)
-    {
-        return
-        [
-            (first[0] * second[0]) + (first[1] * second[2]),
-            (first[0] * second[1]) + (first[1] * second[3]),
-            (first[2] * second[0]) + (first[3] * second[2]),
-            (first[2] * second[1]) + (first[3] * second[3]),
-            (first[4] * second[0]) + (first[5] * second[2]) + second[4],
-            (first[4] * second[1]) + (first[5] * second[3]) + second[5],
-        ];
     }
 
     private static PdfArray? TransformAnnots(
@@ -409,7 +328,7 @@ internal static class FlattenRotation
             double[]? rect = ReadBox(annot, Rect, resolver);
             if (rect is null) { skipped = true; continue; }
             bool preserveFrame = AnnotationCoordinates.SelectNoRotateFrame(annot, rect, matrix, resolver, governor, token, out double[] frame);
-            TransformRect(rect, frame, movedRect);
+            PdfGeometry.TransformRect(rect, frame, movedRect);
             PdfArray moved = NumberArray(movedRect, graph);
             QpdfObject? appearance = null;
             if (!preserveFrame && annot.TryGet(PdfName.FromAscii("AP"), out QpdfObject apRaw)
@@ -444,35 +363,6 @@ internal static class FlattenRotation
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Some annotations could not be rotated; keeping them as is.");
         }
         graph.Memory.Reserve(24L); PdfArray result = PdfArray.FromOwnedItems(items); graph.Add(24L); return result;
-    }
-
-    internal static void TransformRect(ReadOnlySpan<double> rect, ReadOnlySpan<double> matrix, Span<double> result)
-    {
-        double x0 = (matrix[0] * rect[0]) + (matrix[2] * rect[1]) + matrix[4];
-        double y0 = (matrix[1] * rect[0]) + (matrix[3] * rect[1]) + matrix[5];
-        double x1 = (matrix[0] * rect[0]) + (matrix[2] * rect[3]) + matrix[4];
-        double y1 = (matrix[1] * rect[0]) + (matrix[3] * rect[3]) + matrix[5];
-        double x2 = (matrix[0] * rect[2]) + (matrix[2] * rect[1]) + matrix[4];
-        double y2 = (matrix[1] * rect[2]) + (matrix[3] * rect[1]) + matrix[5];
-        double x3 = (matrix[0] * rect[2]) + (matrix[2] * rect[3]) + matrix[4];
-        double y3 = (matrix[1] * rect[2]) + (matrix[3] * rect[3]) + matrix[5];
-        double llx = x0;
-        if (x1 < llx) llx = x1;
-        if (x2 < llx) llx = x2;
-        if (x3 < llx) llx = x3;
-        double lly = y0;
-        if (y1 < lly) lly = y1;
-        if (y2 < lly) lly = y2;
-        if (y3 < lly) lly = y3;
-        double urx = x0;
-        if (x1 > urx) urx = x1;
-        if (x2 > urx) urx = x2;
-        if (x3 > urx) urx = x3;
-        double ury = y0;
-        if (y1 > ury) ury = y1;
-        if (y2 > ury) ury = y2;
-        if (y3 > ury) ury = y3;
-        result[0] = llx; result[1] = lly; result[2] = urx; result[3] = ury;
     }
 
     private static PdfArray NumberArray(ReadOnlySpan<double> values, OwnedAllocationBatch graph)

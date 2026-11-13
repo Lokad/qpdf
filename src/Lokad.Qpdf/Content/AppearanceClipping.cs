@@ -159,7 +159,7 @@ internal static class AppearanceClipping
         { throw new QpdfUnsupportedFeatureException("Source clipping cannot preserve unusable annotation appearance resources."); }
         if (PdfDictionaryLookup.TryGet(stream.Dictionary, "Matrix"u8, governor, token, out QpdfObject matrix)
             && CatalogCopy.ResolveValue(matrix, resolver, governor, token) is QpdfObject resolved && resolved is not PdfNull
-            && (resolved is not PdfArray array || Overlays.ReadOverlayMatrix(array, resolver) is null))
+            && (resolved is not PdfArray array || PdfGeometry.ReadFiniteNumbers(array, 6, resolver) is null))
         { throw new QpdfUnsupportedFeatureException("Source clipping cannot preserve an unusable annotation appearance matrix."); }
         using GovernedBufferStream output = new(governor, limits.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes), token, 256);
         output.Write("q\n"u8, token);

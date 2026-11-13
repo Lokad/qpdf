@@ -597,44 +597,7 @@ internal static class Overlays
             target = resolved;
         }
 
-        if (target is not PdfArray array || array.Count != 4)
-        {
-            return false;
-        }
-
-        for (int i = 0; i < 4; i++)
-        {
-            QpdfObject item = array[i];
-            if (item is PdfReference itemReference)
-            {
-                if (!resolver.TryResolve(itemReference, out QpdfObject? resolvedItem) || resolvedItem is null)
-                {
-                    return false;
-                }
-
-                item = resolvedItem;
-            }
-
-            if (item is PdfInteger integer)
-            {
-                numbers[i] = (double)integer.Value;
-            }
-            else if (item is PdfReal real)
-            {
-                numbers[i] = real.Value;
-            }
-            else
-            {
-                return false;
-            }
-
-            if (!double.IsFinite(numbers[i]))
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return numbers.Length >= 4 && PdfGeometry.TryReadFiniteNumbers(target, resolver, numbers[..4]);
     }
 
     private static (double[] Box, double[] Transform)? ApplyToPage(
@@ -1005,18 +968,9 @@ internal static class Overlays
 
         public void Concat(ContentMatrix other)
         {
-            double a = (A * other.A) + (C * other.B);
-            double b = (B * other.A) + (D * other.B);
-            double c = (A * other.C) + (C * other.D);
-            double d = (B * other.C) + (D * other.D);
-            double e = (A * other.E) + (C * other.F) + E;
-            double f = (B * other.E) + (D * other.F) + F;
-            A = a;
-            B = b;
-            C = c;
-            D = d;
-            E = e;
-            F = f;
+            Span<double> result = stackalloc double[6];
+            PdfGeometry.Concat([A, B, C, D, E, F], [other.A, other.B, other.C, other.D, other.E, other.F], result);
+            A = result[0]; B = result[1]; C = result[2]; D = result[3]; E = result[4]; F = result[5];
         }
 
         public void Scale(double sx, double sy)
@@ -1029,34 +983,8 @@ internal static class Overlays
             Concat(new ContentMatrix(1.0, 0.0, 0.0, 1.0, tx, ty));
         }
 
-        public double[] TransformRect(double[] rect)
-        {
-            double x0 = (A * rect[0]) + (C * rect[1]) + E;
-            double y0 = (B * rect[0]) + (D * rect[1]) + F;
-            double x1 = (A * rect[0]) + (C * rect[3]) + E;
-            double y1 = (B * rect[0]) + (D * rect[3]) + F;
-            double x2 = (A * rect[2]) + (C * rect[1]) + E;
-            double y2 = (B * rect[2]) + (D * rect[1]) + F;
-            double x3 = (A * rect[2]) + (C * rect[3]) + E;
-            double y3 = (B * rect[2]) + (D * rect[3]) + F;
-            double llx = x0;
-            if (x1 < llx) llx = x1;
-            if (x2 < llx) llx = x2;
-            if (x3 < llx) llx = x3;
-            double lly = y0;
-            if (y1 < lly) lly = y1;
-            if (y2 < lly) lly = y2;
-            if (y3 < lly) lly = y3;
-            double urx = x0;
-            if (x1 > urx) urx = x1;
-            if (x2 > urx) urx = x2;
-            if (x3 > urx) urx = x3;
-            double ury = y0;
-            if (y1 > ury) ury = y1;
-            if (y2 > ury) ury = y2;
-            if (y3 > ury) ury = y3;
-            return [llx, lly, urx, ury];
-        }
+        public void TransformRect(ReadOnlySpan<double> rect, Span<double> result)
+            => PdfGeometry.TransformRect(rect, [A, B, C, D, E, F], result);
 
         public double[] ToArray()
         {
@@ -1124,7 +1052,8 @@ internal static class Overlays
             work.Concat(FromArray(formMatrix));
         }
 
-        double[] moved = work.TransformRect(formBox);
+        Span<double> moved = stackalloc double[4];
+        work.TransformRect(formBox, moved);
         double movedWidth = moved[2] - moved[0];
         double movedHeight = moved[3] - moved[1];
         if (movedWidth == 0.0 || movedHeight == 0.0)
@@ -1163,7 +1092,8 @@ internal static class Overlays
             sized.Concat(FromArray(formMatrix));
         }
 
-        double[] fitted = sized.TransformRect(formBox);
+        Span<double> fitted = stackalloc double[4];
+        sized.TransformRect(formBox, fitted);
         double tx = ((destRect[0] + destRect[2]) / 2.0) - ((fitted[0] + fitted[2]) / 2.0);
         double ty = ((destRect[1] + destRect[3]) / 2.0) - ((fitted[1] + fitted[3]) / 2.0);
         ContentMatrix result = ContentMatrix.Identity();
@@ -1178,7 +1108,7 @@ internal static class Overlays
         return new ContentMatrix(values[0], values[1], values[2], values[3], values[4], values[5]);
     }
 
-    private static PdfArray NumberArray(double[] values, ResourceGovernor governor, ParserMemoryScope ownership)
+    private static PdfArray NumberArray(ReadOnlySpan<double> values, ResourceGovernor governor, ParserMemoryScope ownership)
     {
         ownership.Reserve(checked(56L + IntPtr.Size * (long)values.Length));
         QpdfObject[] items = new QpdfObject[values.Length];
@@ -1413,7 +1343,8 @@ internal static class Overlays
 
         if (fresh.Count == 0) { return; }
         scratch.Reserve(64L);
-        double[] sourceClip = FromArray(cm).TransformRect(sourceBox);
+        double[] sourceClip = new double[4];
+        PdfGeometry.TransformRect(sourceBox, cm, sourceClip);
         if (!IsFiniteRect(sourceClip)) { throw new QpdfParseException("Non-finite source appearance clip.", null, null); }
         int destinationRotation = 0;
         if (destCopier.CopiedObjects.TryGetValue(destPageId, out QpdfObject? destinationRaw) && destinationRaw is PdfDictionary destination
@@ -1959,8 +1890,9 @@ internal static class Overlays
         (rect[0], rect[2]) = (Math.Min(rect[0], rect[2]), Math.Max(rect[0], rect[2]));
         (rect[1], rect[3]) = (Math.Min(rect[1], rect[3]), Math.Max(rect[1], rect[3]));
         bool preserveFrame = AnnotationCoordinates.SelectNoRotateFrame(annot, rect, cm, pool, governor, token, out double[] frame);
-        double[] moved = FromArray(frame).TransformRect(rect);
-        if (!IsFiniteRect(moved)) { moved = new double[4]; }
+        Span<double> moved = stackalloc double[4];
+        PdfGeometry.TransformRect(rect, frame, moved);
+        if (!IsFiniteRect(moved)) { moved.Clear(); }
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         long before = graph.Memory.ReservedBytes;
         PdfArray values = NumberArray(moved, governor, graph.Memory); graph.Add(graph.Memory.ReservedBytes - before);
@@ -2081,7 +2013,7 @@ internal static class Overlays
             else
             {
                 // Malformed arrays retain the existing native-compatible zero fallback.
-                double[]? matrix = matrixValue is PdfArray array ? ReadOverlayMatrix(array, pool)
+                double[]? matrix = matrixValue is PdfArray array ? PdfGeometry.ReadFiniteNumbers(array, 6, pool)
                     : [1, 0, 0, 1, 0, 0];
                 if (matrix is null) { next = new double[6]; }
                 else
@@ -2137,85 +2069,7 @@ internal static class Overlays
             return null;
         }
 
-        double[] values = new double[count];
-        for (int i = 0; i < count; i++)
-        {
-            QpdfObject item = array[i];
-            if (item is PdfReference itemReference)
-            {
-                QpdfObject? resolved = ResolveOrNull(pool, itemReference);
-                if (resolved is null)
-                {
-                    return null;
-                }
-
-                item = resolved;
-            }
-
-            if (item is PdfInteger integer)
-            {
-                values[i] = (double)integer.Value;
-            }
-            else if (item is PdfReal real)
-            {
-                values[i] = real.Value;
-            }
-            else
-            {
-                return null;
-            }
-
-            if (!double.IsFinite(values[i]))
-            {
-                return null;
-            }
-        }
-
-        return values;
-    }
-
-    internal static double[]? ReadOverlayMatrix(PdfArray array, PoolResolver pool)
-    {
-        if (array.Count != 6)
-        {
-            return null;
-        }
-
-        double[] values = new double[6];
-        for (int i = 0; i < 6; i++)
-        {
-            QpdfObject item = array[i];
-            if (item is PdfReference itemReference)
-            {
-                QpdfObject? resolved = ResolveOrNull(pool, itemReference);
-                if (resolved is null)
-                {
-                    return null;
-                }
-
-                item = resolved;
-            }
-
-            if (item is PdfInteger integer)
-            {
-                values[i] = (double)integer.Value;
-            }
-            else if (item is PdfReal real)
-            {
-                values[i] = real.Value;
-            }
-            else
-            {
-                return null;
-            }
-
-            if (!double.IsFinite(values[i]))
-            {
-                return null;
-            }
-        }
-
-        return values;
+        return PdfGeometry.ReadFiniteNumbers(array, count, pool);
     }
 
     private static bool IsIdentityMatrix(double[] values)
@@ -2223,7 +2077,7 @@ internal static class Overlays
         return values[0] == 1.0 && values[1] == 0.0 && values[2] == 0.0 && values[3] == 1.0 && values[4] == 0.0 && values[5] == 0.0;
     }
 
-    private static bool IsFiniteRect(double[] rect)
+    private static bool IsFiniteRect(ReadOnlySpan<double> rect)
     {
         return double.IsFinite(rect[0]) && double.IsFinite(rect[1]) && double.IsFinite(rect[2]) && double.IsFinite(rect[3]);
     }
