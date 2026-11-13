@@ -3879,7 +3879,7 @@
           "InvocationTests.JobFileYieldsToExhaustedBudget",
           "NestedJobTests.CumulativeConfigurationBytesAreBounded",
           "NestedJobTests.NestingLimitRejectsBeforeOpeningAnotherFile",
-          "NestedJobTests.LoadingBudgetsStopBeforePdfAccess",
+          "NestedJobTests.LoadingMemoryRefusalStopsBeforePdfAccess",
           "NestedJobTests.HostReadFailuresAndShortReadsCloseLeases",
           "NestedJobTests.DifferentPathsWithTheSameIdentityFormACycle",
           "NestedJobTests.CancellationAfterJobReadStartsPreservesPriorOutput",
