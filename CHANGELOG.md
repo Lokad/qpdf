@@ -1,6 +1,15 @@
 # Changelog
 
-## Unreleased — 0.2.0-dev.4
+## Unreleased — 0.2.0-dev.5
+
+- Reuse shared field-component discovery across page annotation arrays while
+  retaining independent signed/ordinary field roles and stored appearances.
+- Measure encrypted output lengths without discarded ciphertext, object-key
+  derivation or IV generation in size-only passes, including QDF indirect lengths.
+- Share post-overlay appearance completion and content-transform preparation;
+  preserve source-specific binding, pruning and the lightweight single-page path.
+- Focus security tests by primitive, physical writer, source and public wiring;
+  retain independent vectors and ownership/cancellation/publication controls.
 
 - Count pages through typed `CountPagesAsync` and standalone argv/job inspections
   using bounded classic-xref acquisition when supported. Validate the page tree,

@@ -41,6 +41,23 @@ internal static class PdfScenarioBuilder
     internal static byte[] BuildSparseComparisonDocument()
         => BuildComparisonCore(64, 128, "SPARSE64", 64, 16 * 1024 * 1024, 0);
 
+    internal static byte[] BuildCountMetadataDocument(int pages, int unrelatedObjects, int unrelatedStreamBytes)
+    {
+        string kids = string.Join(" ", Enumerable.Range(3, pages).Select(number => number + " 0 R"));
+        List<ObjectSpec> specs =
+        [
+            new("<< /Type /Catalog /Pages 2 0 R >>", null),
+            new("<< /Type /Pages /Count " + pages + " /Kids [" + kids + "] >>", null),
+        ];
+        for (int page = 0; page < pages; page++)
+        { specs.Add(new("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null)); }
+        for (int index = 0; index < unrelatedObjects; index++)
+        { specs.Add(new("<< /Unused (" + new string('x', 128) + ") >>", null)); }
+        if (unrelatedStreamBytes > 0)
+        { specs.Add(new("<< /Length " + unrelatedStreamBytes + " >>", new byte[unrelatedStreamBytes])); }
+        return Assemble(specs);
+    }
+
     private static byte[] BuildComparisonCore(int pages, int contentBytes, string series,
         int? bulkyPage, int bulkyBytes, int graphObjects)
     {

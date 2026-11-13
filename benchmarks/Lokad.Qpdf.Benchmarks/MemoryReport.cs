@@ -17,6 +17,7 @@ internal static class MemoryReport
     private sealed record Scenario(string Name, byte[][] Inputs, string[] Arguments)
     {
         internal QpdfExitCode ExpectedExitCode { get; init; } = QpdfExitCode.Success;
+        internal int? ExpectedPageCount { get; init; }
     }
     private sealed record Sample(int Index, double Milliseconds, long AllocatedBytes,
         int Gen0, int Gen1, int Gen2, long JitMethods, double JitMilliseconds,
@@ -134,6 +135,10 @@ internal static class MemoryReport
             new QpdfCommandInvocation(scenario.Arguments), CancellationToken.None).ConfigureAwait(false);
         if (result.Status != QpdfExecutionStatus.Completed || result.ExitCode != scenario.ExpectedExitCode)
         { throw new InvalidOperationException(scenario.Name + " failed: " + string.Join("; ", result.Diagnostics.Select(diagnostic => diagnostic.Message))); }
+        if (scenario.ExpectedPageCount is int expectedPages
+            && !result.Diagnostics.Any(diagnostic => diagnostic.Code == QpdfDiagnosticCode.PageCount
+                && diagnostic.Message.EndsWith(": " + expectedPages, StringComparison.Ordinal)))
+        { throw new InvalidOperationException(scenario.Name + " returned an unexpected page count."); }
         long localPeak = result.Counters.PeakMemoryBytes, localResult = result.Counters.LiveMemoryBytes;
 #if !QPDF_MEMORY_BASELINE
         long? retained = root?.ReservedBytes;
@@ -219,6 +224,9 @@ internal static class MemoryReport
         }
         byte[] input = name switch
         {
+            "count-large-stream" => PdfScenarioBuilder.BuildCountMetadataDocument(1, 0, 9 * 1024 * 1024),
+            "count-small-objects" => PdfScenarioBuilder.BuildCountMetadataDocument(1, 2048, 0),
+            "count-many-pages" => PdfScenarioBuilder.BuildCountMetadataDocument(2048, 0, 0),
             "select-sparse" => PdfScenarioBuilder.BuildSparseComparisonDocument(),
             "rewrite-objects" => PdfScenarioBuilder.BuildObjectComparisonDocument(),
             "flate" => PdfScenarioBuilder.BuildFilterChain(10),
@@ -227,7 +235,7 @@ internal static class MemoryReport
         };
         string[] arguments = name switch
         {
-            "tiny" => ["input0", "--show-npages"],
+            "tiny" or "count-large-stream" or "count-small-objects" or "count-many-pages" => ["input0", "--show-npages"],
             "rewrite-tiny" => ["input0", "output"],
             "select-one" => ["input0", "--pages", ".", "1", "--", "output"],
             "select-sparse" => ["input0", "--pages", ".", "1-3", "--", "output"],
@@ -240,6 +248,7 @@ internal static class MemoryReport
             "linearize" => ["input0", "--linearize", "output"],
             _ => throw new ArgumentException("Unknown memory-report scenario: " + name),
         };
-        return new(name, name == "merge" ? [input, input] : [input], arguments);
+        return new(name, name == "merge" ? [input, input] : [input], arguments)
+        { ExpectedPageCount = name == "count-many-pages" ? 2048 : name is "count-large-stream" or "count-small-objects" ? 1 : null };
     }
 }

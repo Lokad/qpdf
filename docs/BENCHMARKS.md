@@ -341,3 +341,27 @@ The same .NET 11 RC 3 driver also checks merge and sparse selection, with
 zero owner residuals. Exact binary/input hashes and samples are in the
 [allocation record](https://github.com/Lokad/qpdf/blob/master/benchmarks/results/2026-11-13-appearance-local.json.gz).
 Local timings remain provisional.
+
+## Bounded-count resource shapes, 2026-11-13
+
+The existing memory-report driver adds three strict standalone count
+shapes and validates their returned counts: a 9 MiB unrelated stream,
+2,048 small unrelated objects, and 2,048 pages. .NET 11 RC 3 measurements
+include the standard driver's host input copy in managed bytes/job; the
+job peak is its separate admission estimate. All owners refund to zero.
+
+| Shape | Input bytes | Managed bytes/job | Job peak bytes |
+| --- | ---: | ---: | ---: |
+| count-large-stream | 9,437,609 | 9,448,512 | 10,691 |
+| count-small-objects | 374,041 | 1,190,520 | 665,061 |
+| count-many-pages | 243,802 | 2,600,944 | 1,978,718 |
+
+The reader still sorts xref offsets and prefetches small extents, including
+unrelated objects. Its 256 KiB selected-data and 64 KiB metadata caps can
+require complete acquisition; the small-object shape deliberately exceeds
+the former. Counting retains page locations through the shared page-tree
+walk, so the many-page shape measures that retained metadata. These
+controls describe existing limits. They add no reader or count collector.
+Exact input/library hashes and raw samples are in the
+[resource record](https://github.com/Lokad/qpdf/blob/master/benchmarks/results/2026-11-13-count-shapes-local.json.gz).
+This local allocation/admission run does not qualify quiet-host throughput.
