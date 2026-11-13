@@ -7,25 +7,24 @@ using Lokad.Qpdf.Syntax;
 namespace Lokad.Qpdf.Jobs;
 
 /// <summary>
-/// Job-JSON parser covering selection, writer, content, overlay, attachment, inspection,
+/// Shared semantic planner for selection, writer, content, overlay, attachment, inspection,
 /// and linearization keys with upstream field names. Primary passwords support inspection and PDF transformations;
 /// other unimplemented cryptographic keys reject as crypto;
 /// everything outside the supported subset fails explicitly.
 /// </summary>
-internal static partial class JobJsonParser
+internal static partial class JobPlanner
 {
     // JSON objects keep the last value per key. Configuration layers repeat
     // setters; exclusive input/output/page declarations still reject.
     internal static JobPlan ParseProperties(
-        IEnumerable<JsonProperty> properties,
-        bool configurationLayers,
+        IEnumerable<JobSetting> properties,
         ResourceGovernor governor, ConfigurationText textStorage)
     {
         CollationPreparation storage = CollationPreparation.Create(governor);
         textStorage.Collation = storage;
         try
         {
-            JobPlan plan = ParsePropertiesCore(properties, configurationLayers, governor, textStorage);
+            JobPlan plan = ParsePropertiesCore(properties, governor, textStorage);
             if (!storage.HasStorage) { storage.Dispose(); return plan; }
             return plan with { CollationStorage = storage };
         }
@@ -34,8 +33,7 @@ internal static partial class JobJsonParser
     }
 
     private static JobPlan ParsePropertiesCore(
-        IEnumerable<JsonProperty> properties,
-        bool configurationLayers,
+        IEnumerable<JobSetting> properties,
         ResourceGovernor governor, ConfigurationText textStorage)
     {
             string? input = null;
@@ -54,7 +52,6 @@ internal static partial class JobJsonParser
             int encryptionPermissions = -4;
             bool encryptMetadata = true;
             bool empty = false;
-            bool seenEmpty = false;
             bool seenInput = false;
             bool seenOutput = false;
             bool seenPages = false;
@@ -63,7 +60,7 @@ internal static partial class JobJsonParser
             bool seenReplaceInput = false;
             int? splitPages = null;
             bool seenSplitPages = false;
-            JsonElement pages = default;
+            JobValue pages = default;
             bool hasPages = false;
             string? collate = null;
             List<int>? collationSizes = null;
@@ -96,43 +93,27 @@ internal static partial class JobJsonParser
             bool seenDecodeLevel = false;
             long? maxStreamFilters = null;
             bool noDefaultLimits = false;
-            bool seenNoDefaultLimits = false;
-            bool seenMaxStreamFilters = false;
             bool ignoreXrefStreams = false;
-            bool seenIgnoreXrefStreams = false;
             bool reportMemoryUsage = false;
-            bool seenReportMemoryUsage = false;
             bool verbose = false;
-            bool seenVerbose = false;
             bool progress = false;
-            bool seenProgress = false;
             bool rawStreamData = false;
             bool seenRawStreamData = false;
             bool filteredStreamData = false;
             bool seenFilteredStreamData = false;
-            bool seenKeepFilesOpen = false;
-            bool seenKeepFilesOpenThreshold = false;
             bool testJsonSchema = false;
             bool seenTestJsonSchema = false;
             long? parserMaxNesting = null;
-            bool seenParserMaxNesting = false;
             long? maxContainerSize = null;
-            bool seenMaxContainerSize = false;
             long? maxContainerSizeDamaged = null;
             long? parserMaxErrors = null;
-            bool seenParserMaxErrors = false;
-            bool seenMaxContainerSizeDamaged = false;
-            bool seenGlobal = false;
             bool recompressFlate = false;
             bool seenRecompressFlate = false;
             string? compressionLevel = null;
             bool seenCompressionLevel = false;
             bool warningExit0 = false;
-            bool seenWarningExit0 = false;
             bool noWarn = false;
-            bool seenNoWarn = false;
             bool suppressRecovery = false;
-            bool seenSuppressRecovery = false;
             QpdfRecoveryMode recovery = QpdfRecoveryMode.BoundedRepair;
             bool removeInfo = false;
             bool seenRemoveInfo = false;
@@ -150,7 +131,6 @@ internal static partial class JobJsonParser
             bool seenNormalizeContent = false;
             string? removeUnreferencedResources = null;
             bool seenRemoveUnreferencedResources = false;
-            bool seenPreserveUnreferencedResources = false;
             List<AttachmentAdd> attachmentsToAdd = new();
             bool seenAddAttachment = false;
             List<AttachmentCopy> attachmentsToCopy = new();
@@ -176,7 +156,6 @@ internal static partial class JobJsonParser
             bool checkLinearization = false;
             bool seenCheckLinearization = false;
             bool check = false;
-            bool seenCheck = false;
             bool showLinearization = false;
             bool seenShowLinearization = false;
             bool showNpages = false;
@@ -187,11 +166,8 @@ internal static partial class JobJsonParser
             bool seenWithImages = false;
             string? showObject = null;
             int showObjectGeneration = 0;
-            bool seenShowObject = false;
             bool showXref = false;
             bool seenShowXref = false;
-            bool seenRemoveAcroform = false;
-            bool seenRemoveStructure = false;
             bool noOriginalObjectIds = false;
             bool seenNoOriginalObjectIds = false;
             bool optimizeImages = false;
@@ -225,8 +201,7 @@ internal static partial class JobJsonParser
             bool listAttachments = false;
             bool seenListAttachments = false;
             string? showAttachment = null;
-            bool seenShowAttachment = false;
-            foreach (JsonProperty property in properties)
+            foreach (JobSetting property in properties)
             {
                 governor.CheckCancellation();
                 if (IsCryptoKey(property.Name) && property.Name is not ("password" or "passwordFile" or "passwordMode" or "suppressPasswordRecovery" or "decrypt" or "encrypt" or "copyEncryption" or "encryptionFilePassword" or "removeRestrictions"))
@@ -292,12 +267,6 @@ internal static partial class JobJsonParser
                         showEncryption = RequireBareFlag(property.Value, "showEncryption", textStorage);
                         break;
                     case "empty":
-                        if (seenEmpty && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key empty.", 0L, null);
-                        }
-
-                        seenEmpty = true;
                         empty = RequireBareFlag(property.Value, "empty", textStorage);
                         if (empty && input is not null) { throw new QpdfParseException("Empty input cannot follow an input file.", 0L, null); }
                         break;
@@ -330,11 +299,6 @@ internal static partial class JobJsonParser
                         replaceInput = RequireBareFlag(property.Value, "replaceInput", textStorage);
                         break;
                     case "splitPages":
-                        if (seenSplitPages && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key 'splitPages'.", 0L, null);
-                        }
-
                         seenSplitPages = true;
                         splitPages = Commands.ArgvParser.ParseSplitPagesValue(RequireString(property.Value, "splitPages", textStorage), 0L);
                         break;
@@ -349,21 +313,11 @@ internal static partial class JobJsonParser
                         hasPages = true;
                         break;
                     case "collate":
-                        if (seenCollate && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key 'collate'.", 0L, null);
-                        }
-
                         seenCollate = true;
                         collate = RequireString(property.Value, "collate", textStorage);
                         collationSizes = ArgvParser.ParseCollateValue(collate, 0L, textStorage.Collation ?? throw new InvalidOperationException("Missing collation owner."));
                         break;
                     case "rotate":
-                        if (seenRotate && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key 'rotate'.", 0L, null);
-                        }
-
                         seenRotate = true;
                         foreach (OutputRotation rotation in ParseRotateArray(property.Value, textStorage))
                         {
@@ -371,21 +325,11 @@ internal static partial class JobJsonParser
                         }
                         break;
                     case "setPageLabels":
-                        if (seenLabels && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key 'setPageLabels'.", 0L, null);
-                        }
-
                         seenLabels = true;
-                        if (configurationLayers) { labels.Clear(); }
+                        labels.Clear();
                         labels.AddRange(ParseLabelArray(property.Value, textStorage));
                         break;
                     case "removePageLabels":
-                        if (seenRemoveLabels && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key 'removePageLabels'.", 0L, null);
-                        }
-
                         seenRemoveLabels = true;
                         if (property.Value.ValueKind != JsonValueKind.True && property.Value.ValueKind != JsonValueKind.False)
                         {
@@ -395,167 +339,75 @@ internal static partial class JobJsonParser
                         removeLabels = property.Value.ValueKind == JsonValueKind.True;
                         break;
                     case "minVersion":
-                        if (seenMin && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key \u0027minVersion\u0027.", 0L, null);
-                        }
-
                         seenMin = true;
                         minVersion = RequireString(property.Value, "minVersion", textStorage);
                         break;
                     case "forceVersion":
-                        if (seenForce && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key \u0027forceVersion\u0027.", 0L, null);
-                        }
-
                         seenForce = true;
                         forceVersion = RequireString(property.Value, "forceVersion", textStorage);
                         break;
                     case "deterministicId":
                         if (encrypt || copyEncryption is not null) { throw new QpdfParseException("Deterministic IDs cannot be combined with new or copied encryption.", 0L, null); }
-                        if (seenDeterministic && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key \u0027deterministicId\u0027.", 0L, null);
-                        }
-
                         seenDeterministic = true;
                         RequireBareFlag(property.Value, "deterministicId", textStorage);
                         break;
                     case "staticId":
-                        if (seenStatic && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key \u0027staticId\u0027.", 0L, null);
-                        }
-
                         seenStatic = true;
                         staticId = RequireBareFlag(property.Value, "staticId", textStorage);
                         break;
                     case "newlineBeforeEndstream":
-                        if (seenNewline && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key \u0027newlineBeforeEndstream\u0027.", 0L, null);
-                        }
-
                         seenNewline = true;
                         newlineBeforeEndstream = RequireBareFlag(property.Value, "newlineBeforeEndstream", textStorage);
                         break;
                     case "objectStreams":
-                        if (seenObjectStreams && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key \u0027objectStreams\u0027.", 0L, null);
-                        }
-
                         seenObjectStreams = true;
                         objectStreams = RequireObjectStreams(property.Value, textStorage);
                         break;
                     case "preserveUnreferenced":
-                        if (seenPreserveUnreferenced && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key \u0027preserveUnreferenced\u0027.", 0L, null);
-                        }
-
                         seenPreserveUnreferenced = true;
                         preserveUnreferenced = RequireBareFlag(property.Value, "preserveUnreferenced", textStorage);
                         break;
                     case "streamData":
-                        if (seenStreamData && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key \u0027streamData\u0027.", 0L, null);
-                        }
-
                         seenStreamData = true;
                         streamData = RequireString(property.Value, "streamData", textStorage);
                         compressionSettings = compressionSettings.WithStreamData(streamData);
                         break;
                     case "compressStreams":
-                        if (seenCompressStreams && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key \u0027compressStreams\u0027.", 0L, null);
-                        }
-
                         seenCompressStreams = true;
                         compressStreams = RequireString(property.Value, "compressStreams", textStorage);
                         compressionSettings = compressionSettings.WithCompressStreams(compressStreams);
                         break;
                     case "decodeLevel":
-                        if (seenDecodeLevel && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key \u0027decodeLevel\u0027.", 0L, null);
-                        }
-
                         seenDecodeLevel = true;
                         decodeLevel = RequireString(property.Value, "decodeLevel", textStorage);
                         compressionSettings = compressionSettings.WithDecodeLevel(decodeLevel);
                         break;
                     case "global":
-                        if (seenGlobal && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key \u0027global\u0027.", 0L, null);
-                        }
-
-                        seenGlobal = true;
                         if (property.Value.ValueKind != JsonValueKind.Object)
                         {
                             throw new QpdfParseException("Job \u0027global\u0027 must be an object.", 0L, null);
                         }
 
-                        foreach (JsonProperty globalProperty in EffectiveProperties(property.Value))
+                        foreach (JobSetting globalProperty in EffectiveProperties(property.Value))
                         {
                             switch (globalProperty.Name)
                             {
                                 case "maxStreamFilters":
-                                    if (seenMaxStreamFilters && !configurationLayers)
-                                    {
-                                        throw new QpdfParseException("Duplicate job key \u0027global.maxStreamFilters\u0027.", 0L, null);
-                                    }
-
-                                    seenMaxStreamFilters = true;
                                     maxStreamFilters = RequireMaxStreamFilters(globalProperty.Value, textStorage);
                                     break;
                                 case "parserMaxNesting":
-                                    if (seenParserMaxNesting && !configurationLayers)
-                                    {
-                                        throw new QpdfParseException("Duplicate job key \u0027global.parserMaxNesting\u0027.", 0L, null);
-                                    }
-
-                                    seenParserMaxNesting = true;
                                     parserMaxNesting = RequireParserMaxNesting(globalProperty.Value, textStorage);
                                     break;
                                 case "noDefaultLimits":
-                                    if (seenNoDefaultLimits && !configurationLayers)
-                                    {
-                                        throw new QpdfParseException("Duplicate job key \u0027global.noDefaultLimits\u0027.", 0L, null);
-                                    }
-
-                                    seenNoDefaultLimits = true;
                                     noDefaultLimits = RequireBareFlag(globalProperty.Value, "global.noDefaultLimits", textStorage);
                                     break;
                                 case "parserMaxContainerSize":
-                                    if (seenMaxContainerSize && !configurationLayers)
-                                    {
-                                        throw new QpdfParseException("Duplicate job key \u0027global.parserMaxContainerSize\u0027.", 0L, null);
-                                    }
-
-                                    seenMaxContainerSize = true;
                                     maxContainerSize = RequireContainerSize(globalProperty.Value, "parserMaxContainerSize", textStorage);
                                     break;
                                 case "parserMaxContainerSizeDamaged":
-                                    if (seenMaxContainerSizeDamaged && !configurationLayers)
-                                    {
-                                        throw new QpdfParseException("Duplicate job key \u0027global.parserMaxContainerSizeDamaged\u0027.", 0L, null);
-                                    }
-
-                                    seenMaxContainerSizeDamaged = true;
                                     maxContainerSizeDamaged = RequireContainerSize(globalProperty.Value, "parserMaxContainerSizeDamaged", textStorage);
                                     break;
                                 case "parserMaxErrors":
-                                    if (seenParserMaxErrors && !configurationLayers)
-                                    {
-                                        throw new QpdfParseException("Duplicate job key \u0027global.parserMaxErrors\u0027.", 0L, null);
-                                    }
-
-                                    seenParserMaxErrors = true;
                                     parserMaxErrors = RequireParserMaxErrors(globalProperty.Value, textStorage);
                                     break;
                                 default:
@@ -565,84 +417,39 @@ internal static partial class JobJsonParser
 
                         break;
                     case "recompressFlate":
-                        if (seenRecompressFlate && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key \u0027recompressFlate\u0027.", 0L, null);
-                        }
-
                         seenRecompressFlate = true;
                         recompressFlate = RequireBareFlag(property.Value, "recompressFlate", textStorage);
                         break;
                     case "compressionLevel":
-                        if (seenCompressionLevel && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key \u0027compressionLevel\u0027.", 0L, null);
-                        }
-
                         seenCompressionLevel = true;
                         compressionLevel = RequireString(property.Value, "compressionLevel", textStorage);
                         CompressionRequest.ParseLevel(compressionLevel, "compressionLevel");
                         break;
                     case "removeInfo":
-                        if (seenRemoveInfo && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key \u0027removeInfo\u0027.", 0L, null);
-                        }
-
                         seenRemoveInfo = true;
                         removeInfo = RequireBareFlag(property.Value, "removeInfo", textStorage);
                         break;
                     case "removeMetadata":
-                        if (seenRemoveMetadata && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key \u0027removeMetadata\u0027.", 0L, null);
-                        }
-
                         seenRemoveMetadata = true;
                         removeMetadata = RequireBareFlag(property.Value, "removeMetadata", textStorage);
                         break;
                     case "coalesceContents":
-                        if (seenCoalesceContents && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key \u0027coalesceContents\u0027.", 0L, null);
-                        }
-
                         seenCoalesceContents = true;
                         coalesceContents = RequireBareFlag(property.Value, "coalesceContents", textStorage);
                         break;
                     case "normalizeContent":
-                        if (seenNormalizeContent && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key \u0027normalizeContent\u0027.", 0L, null);
-                        }
-
                         seenNormalizeContent = true;
                         normalizeContent = RequireNormalizeContent(property.Value, textStorage);
                         break;
                     case "externalizeInlineImages":
-                        if (seenExternalizeInlineImages && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key " + (char)39 + "externalizeInlineImages" + (char)39 + ".", 0L, null);
-                        }
-
                         seenExternalizeInlineImages = true;
                         externalizeInlineImages = RequireBareFlag(property.Value, "externalizeInlineImages", textStorage);
                         break;
                     case "iiMinBytes":
-                        if (seenIiMinBytes && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key " + (char)39 + "iiMinBytes" + (char)39 + ".", 0L, null);
-                        }
-
                         seenIiMinBytes = true;
                         iiMinBytes = RequireIiMinBytes(property.Value, textStorage);
                         break;
                     case "removeUnreferencedResources":
-                        if (seenRemoveUnreferencedResources && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key \u0027removeUnreferencedResources\u0027.", 0L, null);
-                        }
-
                         seenRemoveUnreferencedResources = true;
                         removeUnreferencedResources = RequireString(property.Value, "removeUnreferencedResources", textStorage);
                         if (removeUnreferencedResources != "auto" && removeUnreferencedResources != "yes" && removeUnreferencedResources != "no")
@@ -653,12 +460,6 @@ internal static partial class JobJsonParser
                         break;
 
                     case "preserveUnreferencedResources":
-                        if (seenPreserveUnreferencedResources && !configurationLayers)
-                        {
-                                throw new QpdfParseException("Duplicate job key preserveUnreferencedResources.", 0L, null);
-                        }
-
-                        seenPreserveUnreferencedResources = true;
                         if (RequireBareFlag(property.Value, "preserveUnreferencedResources", textStorage))
                         {
                             removeUnreferencedResources = "no";
@@ -666,38 +467,18 @@ internal static partial class JobJsonParser
 
                         break;
                     case "overlay":
-                        if (seenOverlay && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key overlay.", 0L, null);
-                        }
-
                         seenOverlay = true;
                         overlays.AddRange(ParseOverlayArray(property.Value, "overlay", textStorage));
                         break;
                     case "underlay":
-                        if (seenUnderlay && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key underlay.", 0L, null);
-                        }
-
                         seenUnderlay = true;
                         underlays.AddRange(ParseOverlayArray(property.Value, "underlay", textStorage));
                         break;
                     case "flattenRotation":
-                        if (seenFlattenRotation && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key flattenRotation.", 0L, null);
-                        }
-
                         seenFlattenRotation = true;
                         flattenRotation = RequireBareFlag(property.Value, "flattenRotation", textStorage);
                         break;
                     case "flattenAnnotations":
-                        if (seenFlattenAnnotations && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key flattenAnnotations.", 0L, null);
-                        }
-
                         seenFlattenAnnotations = true;
                         flattenAnnotations = RequireString(property.Value, "flattenAnnotations", textStorage);
                         if (flattenAnnotations != "all" && flattenAnnotations != "print" && flattenAnnotations != "screen")
@@ -707,39 +488,19 @@ internal static partial class JobJsonParser
 
                         break;
                     case "generateAppearances":
-                        if (seenGenerateAppearances && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key generateAppearances.", 0L, null);
-                        }
-
                         seenGenerateAppearances = true;
                         generateAppearances = RequireBareFlag(property.Value, "generateAppearances", textStorage);
                         break;
                     case "qdf":
-                        if (seenQdf && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key qdf.", 0L, null);
-                        }
-
                         seenQdf = true;
                         qdf = RequireBareFlag(property.Value, "qdf", textStorage);
                         if (qdf) { compressionSettings = compressionSettings.WithQdf(); }
                         break;
                     case "linearize":
-                        if (seenLinearize && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key linearize.", 0L, null);
-                        }
-
                         seenLinearize = true;
                         linearize = RequireBareFlag(property.Value, "linearize", textStorage);
                         break;
                     case "linearizePass1":
-                        if (seenLinearizePass1 && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key linearizePass1.", 0L, null);
-                        }
-
                         seenLinearizePass1 = true;
                         linearizePass1 = RequireString(property.Value, "linearizePass1", textStorage);
                         if (linearizePass1.Length == 0)
@@ -749,13 +510,7 @@ internal static partial class JobJsonParser
 
                         break;
                     case "check":
-                        if (seenCheck && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key check.", 0L, null);
-                        }
-
-                        seenCheck = true;
-                        if (property.Value.ValueKind != JsonValueKind.String || textStorage.ReadJsonString(property.Value) != string.Empty)
+                        if (property.Value.ValueKind != JsonValueKind.String || property.Value.ReadString(textStorage) != string.Empty)
                         {
                             throw new QpdfParseException("Job check must be an empty string.", 0L, null);
                         }
@@ -763,57 +518,26 @@ internal static partial class JobJsonParser
                         check = true;
                         break;
                     case "checkLinearization":
-                        if (seenCheckLinearization && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key checkLinearization.", 0L, null);
-                        }
-
                         seenCheckLinearization = true;
                         checkLinearization = RequireBareFlag(property.Value, "checkLinearization", textStorage);
                         break;
                     case "showLinearization":
-                        if (seenShowLinearization && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key showLinearization.", 0L, null);
-                        }
-
                         seenShowLinearization = true;
                         showLinearization = RequireBareFlag(property.Value, "showLinearization", textStorage);
                         break;
                     case "showNpages":
-                        if (seenShowNpages && !configurationLayers)
-                        {
-                                throw new QpdfParseException("Duplicate job key showNpages.", 0L, null);
-                        }
-
                         seenShowNpages = true;
                         showNpages = RequireBareFlag(property.Value, "showNpages", textStorage);
                         break;
                     case "showPages":
-                        if (seenShowPages && !configurationLayers)
-                        {
-                                throw new QpdfParseException("Duplicate job key showPages.", 0L, null);
-                        }
-
                         seenShowPages = true;
                         showPages = RequireBareFlag(property.Value, "showPages", textStorage);
                         break;
                     case "withImages":
-                        if (seenWithImages && !configurationLayers)
-                        {
-                                throw new QpdfParseException("Duplicate job key withImages.", 0L, null);
-                        }
-
                         seenWithImages = true;
                         withImages = RequireBareFlag(property.Value, "withImages", textStorage);
                         break;
                     case "showObject":
-                        if (seenShowObject && !configurationLayers)
-                        {
-                                throw new QpdfParseException("Duplicate job key showObject.", 0L, null);
-                        }
-
-                        seenShowObject = true;
                         showObject = RequireString(property.Value, "showObject", textStorage);
                         var selector = SelectionPlan.ParseInspectionSelector(showObject, showObjectGeneration);
                         showObjectGeneration = selector.Generation;
@@ -822,254 +546,105 @@ internal static partial class JobJsonParser
                                 + selector.Generation.ToString(System.Globalization.CultureInfo.InvariantCulture);
                         break;
                     case "showXref":
-                        if (seenShowXref && !configurationLayers)
-                        {
-                                throw new QpdfParseException("Duplicate job key showXref.", 0L, null);
-                        }
-
                         seenShowXref = true;
                         showXref = RequireBareFlag(property.Value, "showXref", textStorage);
                         break;
                     case "removeAcroform":
-                        if (seenRemoveAcroform && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key removeAcroform.", 0L, null);
-                        }
-
-                        seenRemoveAcroform = true;
                         removeAcroform = RequireBareFlag(property.Value, "removeAcroform", textStorage);
                         break;
                     case "removeStructure":
-                        if (seenRemoveStructure && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key removeStructure.", 0L, null);
-                        }
-
-                        seenRemoveStructure = true;
                         removeStructure = RequireBareFlag(property.Value, "removeStructure", textStorage);
                         break;
                     case "noOriginalObjectIds":
-                        if (seenNoOriginalObjectIds && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key noOriginalObjectIds.", 0L, null);
-                        }
-
                         seenNoOriginalObjectIds = true;
                         noOriginalObjectIds = RequireBareFlag(property.Value, "noOriginalObjectIds", textStorage);
                         break;
                     case "optimizeImages":
-                        if (seenOptimizeImages && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key optimizeImages.", 0L, null);
-                        }
-
                         seenOptimizeImages = true;
                         optimizeImages = RequireBareFlag(property.Value, "optimizeImages", textStorage);
                         break;
                     case "oiMinWidth":
-                        if (seenOiMinWidth && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key oiMinWidth.", 0L, null);
-                        }
-
                         seenOiMinWidth = true;
                         oiMinWidth = RequireOiMin(property.Value, "oiMinWidth", textStorage);
                         break;
                     case "oiMinHeight":
-                        if (seenOiMinHeight && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key oiMinHeight.", 0L, null);
-                        }
-
                         seenOiMinHeight = true;
                         oiMinHeight = RequireOiMin(property.Value, "oiMinHeight", textStorage);
                         break;
                     case "oiMinArea":
-                        if (seenOiMinArea && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key oiMinArea.", 0L, null);
-                        }
-
                         seenOiMinArea = true;
                         oiMinArea = RequireOiMin(property.Value, "oiMinArea", textStorage);
                         break;
                     case "keepInlineImages":
-                        if (seenKeepInlineImages && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key keepInlineImages.", 0L, null);
-                        }
-
                         seenKeepInlineImages = true;
                         keepInlineImages = RequireBareFlag(property.Value, "keepInlineImages", textStorage);
                         break;
                     case "jpegQuality":
-                        if (seenJpegQuality && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key jpegQuality.", 0L, null);
-                        }
-
                         seenJpegQuality = true;
                         jpegQuality = RequireJpegQuality(property.Value, textStorage);
                         break;
                     case "listAttachments":
-                        if (seenListAttachments && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key \u0027listAttachments\u0027.", 0L, null);
-                        }
-
                         seenListAttachments = true;
                         listAttachments = RequireBareFlag(property.Value, "listAttachments", textStorage);
                         break;
                     case "ignoreXrefStreams":
-                        if (seenIgnoreXrefStreams && !configurationLayers)
-                        {
-                                throw new QpdfParseException("Duplicate job key ignoreXrefStreams.", 0L, null);
-                        }
-
-                        seenIgnoreXrefStreams = true;
                         ignoreXrefStreams = RequireBareFlag(property.Value, "ignoreXrefStreams", textStorage);
                         break;
                     case "reportMemoryUsage":
-                        if (seenReportMemoryUsage && !configurationLayers)
-                        {
-                                throw new QpdfParseException("Duplicate job key reportMemoryUsage.", 0L, null);
-                        }
-
-                        seenReportMemoryUsage = true;
                         reportMemoryUsage = RequireBareFlag(property.Value, "reportMemoryUsage", textStorage);
                         break;
                     case "verbose":
-                        if (seenVerbose && !configurationLayers)
-                        {
-                                throw new QpdfParseException("Duplicate job key verbose.", 0L, null);
-                        }
-
-                        seenVerbose = true;
                         verbose = RequireBareFlag(property.Value, "verbose", textStorage);
                         break;
                     case "progress":
-                        if (seenProgress && !configurationLayers)
-                        {
-                                throw new QpdfParseException("Duplicate job key progress.", 0L, null);
-                        }
-
-                        seenProgress = true;
                         progress = RequireBareFlag(property.Value, "progress", textStorage);
                         break;
                     case "keepFilesOpen":
-                        if (seenKeepFilesOpen && !configurationLayers)
-                        {
-                                throw new QpdfParseException("Duplicate job key keepFilesOpen.", 0L, null);
-                        }
-
-                        seenKeepFilesOpen = true;
                         ValidateKeepFilesOpen(property.Value, textStorage);
                         break;
                     case "keepFilesOpenThreshold":
-                        if (seenKeepFilesOpenThreshold && !configurationLayers)
-                        {
-                                throw new QpdfParseException("Duplicate job key keepFilesOpenThreshold.", 0L, null);
-                        }
-
-                        seenKeepFilesOpenThreshold = true;
                         ValidateKeepFilesOpenThreshold(property.Value, textStorage);
                         break;
                     case "rawStreamData":
-                        if (seenRawStreamData && !configurationLayers)
-                        {
-                                throw new QpdfParseException("Duplicate job key rawStreamData.", 0L, null);
-                        }
-
                         seenRawStreamData = true;
                         rawStreamData = RequireBareFlag(property.Value, "rawStreamData", textStorage);
                         break;
                     case "filteredStreamData":
-                        if (seenFilteredStreamData && !configurationLayers)
-                        {
-                                throw new QpdfParseException("Duplicate job key filteredStreamData.", 0L, null);
-                        }
-
                         seenFilteredStreamData = true;
                         filteredStreamData = RequireBareFlag(property.Value, "filteredStreamData", textStorage);
                         break;
                     case "testJsonSchema":
-                        if (seenTestJsonSchema && !configurationLayers)
-                        {
-                                throw new QpdfParseException("Duplicate job key testJsonSchema.", 0L, null);
-                        }
-
                         seenTestJsonSchema = true;
                         testJsonSchema = RequireBareFlag(property.Value, "testJsonSchema", textStorage);
                         break;
                     case "showAttachment":
-                        if (seenShowAttachment && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key \u0027showAttachment\u0027.", 0L, null);
-                        }
-
-                        seenShowAttachment = true;
                         showAttachment = RequireString(property.Value, "showAttachment", textStorage);
                         break;
                     case "addAttachment":
-                        if (seenAddAttachment && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key \u0027addAttachment\u0027.", 0L, null);
-                        }
-
                         seenAddAttachment = true;
                         attachmentsToAdd.AddRange(ParseAddAttachmentArray(property.Value, textStorage));
                         break;
                     case "removeAttachment":
-                        if (seenRemoveAttachment && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key \u0027removeAttachment\u0027.", 0L, null);
-                        }
-
                         seenRemoveAttachment = true;
                         attachmentsToRemove.AddRange(ParseRemoveAttachmentArray(property.Value, textStorage));
                         break;
                     case "copyAttachmentsFrom":
-                        if (seenCopyAttachments && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key copyAttachmentsFrom.", 0L, null);
-                        }
-
                         seenCopyAttachments = true;
                         attachmentsToCopy.AddRange(ParseCopyAttachmentsArray(property.Value, textStorage));
                         break;
                     case "json":
-                        if (seenJson && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key 'json'.", 0L, null);
-                        }
-
                         seenJson = true;
                         jsonVersion = ParseJsonVersion(property.Value, textStorage);
                         break;
                     case "jsonKey":
-                        if (seenJsonKey && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key 'jsonKey'.", 0L, null);
-                        }
-
                         seenJsonKey = true;
                         jsonKeys.AddRange(ParseJsonKeyArray(property.Value, textStorage));
                         break;
                     case "jsonObject":
-                        if (seenJsonObject && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key 'jsonObject'.", 0L, null);
-                        }
-
                         seenJsonObject = true;
                         jsonObjects.AddRange(ParseJsonObjectArray(property.Value, textStorage));
                         break;
                     case "jsonStreamData":
-                        if (seenJsonStreamData && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key 'jsonStreamData'.", 0L, null);
-                        }
-
                         seenJsonStreamData = true;
                         jsonStreamData = RequireString(property.Value, "jsonStreamData", textStorage);
                         if (jsonStreamData != "none" && jsonStreamData != "inline" && jsonStreamData != "file")
@@ -1079,11 +654,6 @@ internal static partial class JobJsonParser
 
                         break;
                     case "jsonStreamPrefix":
-                        if (seenJsonStreamPrefix && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key 'jsonStreamPrefix'.", 0L, null);
-                        }
-
                         seenJsonStreamPrefix = true;
                         jsonStreamPrefix = RequireString(property.Value, "jsonStreamPrefix", textStorage);
                         if (jsonStreamPrefix.Length > QpdfPath.MaxLength || jsonStreamPrefix.Contains((char)0))
@@ -1093,29 +663,14 @@ internal static partial class JobJsonParser
 
                         break;
                     case "jsonOutput":
-                        if (seenJsonOutput && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key 'jsonOutput'.", 0L, null);
-                        }
-
                         seenJsonOutput = true;
                         jsonOutput = ParseJsonOutput(property.Value, textStorage);
                         break;
                     case "jsonInput":
-                        if (seenJsonInput && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key 'jsonInput'.", 0L, null);
-                        }
-
                         seenJsonInput = true;
                         jsonInput = RequireBareFlag(property.Value, "jsonInput", textStorage);
                         break;
                     case "updateFromJson":
-                        if (seenUpdateFromJson && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key 'updateFromJson'.", 0L, null);
-                        }
-
                         seenUpdateFromJson = true;
                         updateFromJson = RequireString(property.Value, "updateFromJson", textStorage);
                         if (updateFromJson.Length == 0)
@@ -1125,30 +680,12 @@ internal static partial class JobJsonParser
 
                         break;
                     case "warningExit0":
-                        if (seenWarningExit0 && !configurationLayers)
-                        {
-                                throw new QpdfParseException("Duplicate job key warningExit0.", 0L, null);
-                        }
-
-                        seenWarningExit0 = true;
                         warningExit0 = RequireBareFlag(property.Value, "warningExit0", textStorage);
                         break;
                     case "noWarn":
-                        if (seenNoWarn && !configurationLayers)
-                        {
-                                throw new QpdfParseException("Duplicate job key noWarn.", 0L, null);
-                        }
-
-                        seenNoWarn = true;
                         noWarn = RequireBareFlag(property.Value, "noWarn", textStorage);
                         break;
                     case "suppressRecovery":
-                        if (seenSuppressRecovery && !configurationLayers)
-                        {
-                            throw new QpdfParseException("Duplicate job key suppressRecovery.", 0L, null);
-                        }
-
-                        seenSuppressRecovery = true;
                         suppressRecovery = RequireBareFlag(property.Value, "suppressRecovery", textStorage);
                         recovery = suppressRecovery ? QpdfRecoveryMode.Strict : QpdfRecoveryMode.BoundedRepair;
                         break;
@@ -1885,14 +1422,14 @@ internal static partial class JobJsonParser
     internal static bool IsCryptoKey(string name)
         => name is "encrypt" or "decrypt" or "password" or "passwordFile" or "passwordMode" or "passwordIsHexKey" or "suppressPasswordRecovery" or "encryptionFilePassword" or "allowWeakCrypto" or "copyEncryption" or "showEncryptionKey" or "staticAesIv" or "removeRestrictions";
 
-    internal static IEnumerable<JsonProperty> EffectiveProperties(JsonElement value)
+    internal static IEnumerable<JobSetting> EffectiveProperties(JobValue value)
     {
-        Dictionary<string, JsonProperty> properties = new(StringComparer.Ordinal);
-        foreach (JsonProperty property in value.EnumerateObject()) { properties[property.Name] = property; }
+        Dictionary<string, JobSetting> properties = new(StringComparer.Ordinal);
+        foreach (JobSetting property in value.EnumerateObject()) { properties[property.Name] = property; }
         return properties.Values;
     }
 
-    private static List<OutputRotation> ParseRotateArray(JsonElement value, ConfigurationText textStorage)
+    private static List<OutputRotation> ParseRotateArray(JobValue value, ConfigurationText textStorage)
     {
         if (value.ValueKind != JsonValueKind.Array)
         {
@@ -1900,14 +1437,14 @@ internal static partial class JobJsonParser
         }
 
         List<OutputRotation> rotations = new();
-        foreach (JsonElement entry in value.EnumerateArray())
+        foreach (JobValue entry in value.EnumerateArray())
         {
             if (entry.ValueKind != JsonValueKind.String)
             {
                 throw new QpdfParseException("Job \"rotate\" entries must be strings.", 0L, null);
             }
 
-            string? specification = textStorage.ReadJsonString(entry);
+            string? specification = entry.ReadString(textStorage);
             if (specification is null)
             {
                 throw new QpdfParseException("Job \"rotate\" entries must be strings.", 0L, null);
@@ -1919,7 +1456,7 @@ internal static partial class JobJsonParser
         return rotations;
     }
 
-    private static List<PageLabelSpec> ParseLabelArray(JsonElement value, ConfigurationText textStorage)
+    private static List<PageLabelSpec> ParseLabelArray(JobValue value, ConfigurationText textStorage)
     {
         if (value.ValueKind != JsonValueKind.Array)
         {
@@ -1927,14 +1464,14 @@ internal static partial class JobJsonParser
         }
 
         List<PageLabelSpec> labels = new();
-        foreach (JsonElement entry in value.EnumerateArray())
+        foreach (JobValue entry in value.EnumerateArray())
         {
             if (entry.ValueKind != JsonValueKind.String)
             {
                 throw new QpdfParseException("Job \"setPageLabels\" entries must be strings.", 0L, null);
             }
 
-            string? specification = textStorage.ReadJsonString(entry);
+            string? specification = entry.ReadString(textStorage);
             if (specification is null)
             {
                 throw new QpdfParseException("Job \"setPageLabels\" entries must be strings.", 0L, null);
@@ -1946,7 +1483,7 @@ internal static partial class JobJsonParser
         return labels;
     }
 
-    private static List<AttachmentAdd> ParseAddAttachmentArray(JsonElement value, ConfigurationText textStorage)
+    private static List<AttachmentAdd> ParseAddAttachmentArray(JobValue value, ConfigurationText textStorage)
     {
         if (value.ValueKind != JsonValueKind.Array)
         {
@@ -1959,7 +1496,7 @@ internal static partial class JobJsonParser
         }
 
         List<AttachmentAdd> adds = new();
-        foreach (JsonElement entry in value.EnumerateArray())
+        foreach (JobValue entry in value.EnumerateArray())
         {
             if (entry.ValueKind != JsonValueKind.Object)
             {
@@ -1972,7 +1509,7 @@ internal static partial class JobJsonParser
         return adds;
     }
 
-    private static AttachmentAdd ParseAddAttachmentEntry(JsonElement entry, ConfigurationText textStorage)
+    private static AttachmentAdd ParseAddAttachmentEntry(JobValue entry, ConfigurationText textStorage)
     {
         string? file = null;
         string? key = null;
@@ -1982,7 +1519,7 @@ internal static partial class JobJsonParser
         string? mimeType = null;
         string? description = null;
         bool replace = false;
-        foreach (JsonProperty property in EffectiveProperties(entry))
+        foreach (JobSetting property in EffectiveProperties(entry))
         {
             switch (property.Name)
             {
@@ -2076,7 +1613,7 @@ internal static partial class JobJsonParser
             replace);
     }
 
-    private static List<string> ParseRemoveAttachmentArray(JsonElement value, ConfigurationText textStorage)
+    private static List<string> ParseRemoveAttachmentArray(JobValue value, ConfigurationText textStorage)
     {
         if (value.ValueKind != JsonValueKind.Array)
         {
@@ -2089,14 +1626,14 @@ internal static partial class JobJsonParser
         }
 
         List<string> removes = new();
-        foreach (JsonElement entry in value.EnumerateArray())
+        foreach (JobValue entry in value.EnumerateArray())
         {
             if (entry.ValueKind != JsonValueKind.String)
             {
                 throw new QpdfParseException("Job removeAttachment entries must be strings.", 0L, null);
             }
 
-            string? key = textStorage.ReadJsonString(entry);
+            string? key = entry.ReadString(textStorage);
             if (key is null)
             {
                 throw new QpdfParseException("Job removeAttachment entries must be strings.", 0L, null);
@@ -2108,7 +1645,7 @@ internal static partial class JobJsonParser
         return removes;
     }
 
-    private static List<AttachmentCopy> ParseCopyAttachmentsArray(JsonElement value, ConfigurationText textStorage)
+    private static List<AttachmentCopy> ParseCopyAttachmentsArray(JobValue value, ConfigurationText textStorage)
     {
         if (value.ValueKind != JsonValueKind.Array)
         {
@@ -2121,7 +1658,7 @@ internal static partial class JobJsonParser
         }
 
         List<AttachmentCopy> copies = new();
-        foreach (JsonElement entry in value.EnumerateArray())
+        foreach (JobValue entry in value.EnumerateArray())
         {
             if (entry.ValueKind != JsonValueKind.Object)
             {
@@ -2134,12 +1671,12 @@ internal static partial class JobJsonParser
         return copies;
     }
 
-    private static AttachmentCopy ParseCopyAttachmentsEntry(JsonElement entry, ConfigurationText textStorage)
+    private static AttachmentCopy ParseCopyAttachmentsEntry(JobValue entry, ConfigurationText textStorage)
     {
         string? file = null;
         string? prefix = null;
         string? password = null;
-        foreach (JsonProperty property in EffectiveProperties(entry))
+        foreach (JobSetting property in EffectiveProperties(entry))
         {
             switch (property.Name)
             {
@@ -2175,7 +1712,7 @@ internal static partial class JobJsonParser
         return new AttachmentCopy(file, prefix is null || prefix.Length == 0 ? null : prefix) { PasswordText = password };
     }
 
-    private static string ParseJsonVersion(JsonElement value, ConfigurationText textStorage)
+    private static string ParseJsonVersion(JobValue value, ConfigurationText textStorage)
     {
         if (value.ValueKind == JsonValueKind.Number
             && value.TryGetInt32(out int number)
@@ -2186,7 +1723,7 @@ internal static partial class JobJsonParser
 
         if (value.ValueKind == JsonValueKind.String)
         {
-            string? text = textStorage.ReadJsonString(value);
+            string? text = value.ReadString(textStorage);
             if (text == "1" || text == "2" || text == "latest")
             {
                 return text;
@@ -2196,7 +1733,7 @@ internal static partial class JobJsonParser
         throw new QpdfParseException("Job \"json\" must be one of: 1, 2, latest.", 0L, null);
     }
 
-    private static List<string> ParseJsonKeyArray(JsonElement value, ConfigurationText textStorage)
+    private static List<string> ParseJsonKeyArray(JobValue value, ConfigurationText textStorage)
     {
         if (value.ValueKind != JsonValueKind.Array)
         {
@@ -2204,9 +1741,9 @@ internal static partial class JobJsonParser
         }
 
         List<string> keys = new();
-        foreach (JsonElement entry in value.EnumerateArray())
+        foreach (JobValue entry in value.EnumerateArray())
         {
-            if (entry.ValueKind != JsonValueKind.String || textStorage.ReadJsonString(entry) is not string text)
+            if (entry.ValueKind != JsonValueKind.String || entry.ReadString(textStorage) is not string text)
             {
                 throw new QpdfParseException("Job \"jsonKey\" entries must be strings.", 0L, null);
             }
@@ -2217,7 +1754,7 @@ internal static partial class JobJsonParser
         return keys;
     }
 
-    private static string ParseJsonOutput(JsonElement value, ConfigurationText textStorage)
+    private static string ParseJsonOutput(JobValue value, ConfigurationText textStorage)
     {
         if (value.ValueKind == JsonValueKind.Number
             && value.TryGetInt32(out int number)
@@ -2228,7 +1765,7 @@ internal static partial class JobJsonParser
 
         if (value.ValueKind == JsonValueKind.String)
         {
-            string? text = textStorage.ReadJsonString(value);
+            string? text = value.ReadString(textStorage);
             if (text == "2" || text == "latest")
             {
                 return text;
@@ -2238,7 +1775,7 @@ internal static partial class JobJsonParser
         throw new QpdfParseException("Job \"jsonOutput\" must be one of: 2, latest.", 0L, null);
     }
 
-    private static List<string> ParseJsonObjectArray(JsonElement value, ConfigurationText textStorage)
+    private static List<string> ParseJsonObjectArray(JobValue value, ConfigurationText textStorage)
     {
         if (value.ValueKind != JsonValueKind.Array)
         {
@@ -2246,9 +1783,9 @@ internal static partial class JobJsonParser
         }
 
         List<string> selectors = new();
-        foreach (JsonElement entry in value.EnumerateArray())
+        foreach (JobValue entry in value.EnumerateArray())
         {
-            if (entry.ValueKind != JsonValueKind.String || textStorage.ReadJsonString(entry) is not string text)
+            if (entry.ValueKind != JsonValueKind.String || entry.ReadString(textStorage) is not string text)
             {
                 throw new QpdfParseException("Job \"jsonObject\" entries must be strings.", 0L, null);
             }
@@ -2259,7 +1796,7 @@ internal static partial class JobJsonParser
         return selectors;
     }
 
-    private static long RequireOiMin(JsonElement element, string role, ConfigurationText textStorage)
+    private static long RequireOiMin(JobValue element, string role, ConfigurationText textStorage)
     {
         string? text = null;
         if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out long number))
@@ -2274,7 +1811,7 @@ internal static partial class JobJsonParser
 
         if (element.ValueKind == JsonValueKind.String)
         {
-            text = textStorage.ReadJsonString(element);
+            text = element.ReadString(textStorage);
         }
 
         if (text is null || text.Length == 0 || text.Length > 10)
@@ -2296,14 +1833,14 @@ internal static partial class JobJsonParser
         return size;
     }
 
-    private static int RequireJpegQuality(JsonElement element, ConfigurationText textStorage)
+    private static int RequireJpegQuality(JobValue element, ConfigurationText textStorage)
     {
         long number;
         if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out long direct))
         {
             number = direct;
         }
-        else if (element.ValueKind == JsonValueKind.String && textStorage.ReadJsonString(element) is string text
+        else if (element.ValueKind == JsonValueKind.String && element.ReadString(textStorage) is string text
             && text.Length > 0 && text.Length <= 3)
         {
             number = 0L;
@@ -2329,7 +1866,7 @@ internal static partial class JobJsonParser
 
         return (int)number;
     }
-    private static long RequireIiMinBytes(JsonElement element, ConfigurationText textStorage)
+    private static long RequireIiMinBytes(JobValue element, ConfigurationText textStorage)
     {
         string? text = null;
         if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out long number))
@@ -2344,7 +1881,7 @@ internal static partial class JobJsonParser
 
         if (element.ValueKind == JsonValueKind.String)
         {
-            text = textStorage.ReadJsonString(element);
+            text = element.ReadString(textStorage);
         }
 
         if (text is null || text.Length == 0 || text.Length > 10)
@@ -2366,7 +1903,7 @@ internal static partial class JobJsonParser
         return size;
     }
 
-    private static long RequireContainerSize(JsonElement element, string role, ConfigurationText textStorage)
+    private static long RequireContainerSize(JobValue element, string role, ConfigurationText textStorage)
     {
         string? text = null;
         if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out long number))
@@ -2381,7 +1918,7 @@ internal static partial class JobJsonParser
 
         if (element.ValueKind == JsonValueKind.String)
         {
-            text = textStorage.ReadJsonString(element);
+            text = element.ReadString(textStorage);
         }
 
         if (text is null || text.Length == 0 || text.Length > 10)
@@ -2402,7 +1939,7 @@ internal static partial class JobJsonParser
 
         return count;
     }
-    private static long RequireParserMaxErrors(JsonElement element, ConfigurationText textStorage)
+    private static long RequireParserMaxErrors(JobValue element, ConfigurationText textStorage)
     {
         if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out long number))
         {
@@ -2417,7 +1954,7 @@ internal static partial class JobJsonParser
         string? text = null;
         if (element.ValueKind == JsonValueKind.String)
         {
-            text = textStorage.ReadJsonString(element);
+            text = element.ReadString(textStorage);
         }
 
         if (text is null || text.Length == 0 || text.Length > 10)
@@ -2438,7 +1975,7 @@ internal static partial class JobJsonParser
 
         return count;
     }
-    private static long RequireParserMaxNesting(JsonElement element, ConfigurationText textStorage)
+    private static long RequireParserMaxNesting(JobValue element, ConfigurationText textStorage)
     {
         string? text = null;
         if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out long number))
@@ -2447,7 +1984,7 @@ internal static partial class JobJsonParser
         }
         else if (element.ValueKind == JsonValueKind.String)
         {
-            text = textStorage.ReadJsonString(element);
+            text = element.ReadString(textStorage);
         }
 
         if (text is null || text.Length == 0 || text.Length > 10)
@@ -2473,9 +2010,9 @@ internal static partial class JobJsonParser
 
         return depth;
     }
-    private static void ValidateKeepFilesOpen(JsonElement element, ConfigurationText textStorage)
+    private static void ValidateKeepFilesOpen(JobValue element, ConfigurationText textStorage)
     {
-        if (element.ValueKind == JsonValueKind.String && textStorage.ReadJsonString(element) is string text && (text == "y" || text == "n"))
+        if (element.ValueKind == JsonValueKind.String && element.ReadString(textStorage) is string text && (text == "y" || text == "n"))
         {
             return;
         }
@@ -2483,7 +2020,7 @@ internal static partial class JobJsonParser
         throw new QpdfParseException("Job " + (char)34 + "keepFilesOpen" + (char)34 + " must be \"y\" or \"n\".", 0L, null);
     }
 
-    private static void ValidateKeepFilesOpenThreshold(JsonElement element, ConfigurationText textStorage)
+    private static void ValidateKeepFilesOpenThreshold(JobValue element, ConfigurationText textStorage)
     {
         string? text = null;
         if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out long number))
@@ -2498,7 +2035,7 @@ internal static partial class JobJsonParser
 
         if (element.ValueKind == JsonValueKind.String)
         {
-            text = textStorage.ReadJsonString(element);
+            text = element.ReadString(textStorage);
         }
 
         if (text is null || text.Length == 0 || text.Length > 10)
@@ -2514,7 +2051,7 @@ internal static partial class JobJsonParser
             }
         }
     }
-    private static long RequireMaxStreamFilters(JsonElement element, ConfigurationText textStorage)
+    private static long RequireMaxStreamFilters(JobValue element, ConfigurationText textStorage)
     {
         string? text = null;
         if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out long number))
@@ -2529,7 +2066,7 @@ internal static partial class JobJsonParser
 
         if (element.ValueKind == JsonValueKind.String)
         {
-            text = textStorage.ReadJsonString(element);
+            text = element.ReadString(textStorage);
         }
 
         if (text is null || text.Length == 0 || text.Length > 10)
@@ -2550,9 +2087,9 @@ internal static partial class JobJsonParser
 
         return count;
     }
-    private static bool RequireNormalizeContent(JsonElement element, ConfigurationText textStorage)
+    private static bool RequireNormalizeContent(JobValue element, ConfigurationText textStorage)
     {
-        if (element.ValueKind == JsonValueKind.String && textStorage.ReadJsonString(element) is string text)
+        if (element.ValueKind == JsonValueKind.String && element.ReadString(textStorage) is string text)
         {
             if (text == "y")
             {
@@ -2568,7 +2105,7 @@ internal static partial class JobJsonParser
         throw new QpdfParseException("Job \"normalizeContent\" must be one of: y, n.", 0L, null);
     }
 
-    private static List<OverlaySpec> ParseOverlayArray(JsonElement value, string role, ConfigurationText textStorage)
+    private static List<OverlaySpec> ParseOverlayArray(JobValue value, string role, ConfigurationText textStorage)
     {
         if (value.ValueKind == JsonValueKind.Object)
         {
@@ -2580,7 +2117,7 @@ internal static partial class JobJsonParser
         }
 
         List<OverlaySpec> specs = new();
-        foreach (JsonElement entry in value.EnumerateArray())
+        foreach (JobValue entry in value.EnumerateArray())
         {
             if (entry.ValueKind != JsonValueKind.Object)
             {
@@ -2593,14 +2130,14 @@ internal static partial class JobJsonParser
         return specs;
     }
 
-    private static OverlaySpec ParseOverlayEntry(JsonElement entry, string role, ConfigurationText textStorage)
+    private static OverlaySpec ParseOverlayEntry(JobValue entry, string role, ConfigurationText textStorage)
     {
         string? file = null;
         string? to = null;
         string? from = null;
         string? repeat = null;
         string? password = null;
-        foreach (JsonProperty property in EffectiveProperties(entry))
+        foreach (JobSetting property in EffectiveProperties(entry))
         {
             switch (property.Name)
             {
@@ -2683,7 +2220,7 @@ internal static partial class JobJsonParser
         return mode == "hex-bytes" ? QpdfPassword.FromHexText(text, !suppressRecovery) : QpdfPassword.FromText(text, !suppressRecovery);
     }
 
-    private static List<(string File, string? Range, string? Password)> ParsePagesEntries(JsonElement pages, ConfigurationText textStorage)
+    private static List<(string File, string? Range, string? Password)> ParsePagesEntries(JobValue pages, ConfigurationText textStorage)
     {
         if (pages.ValueKind != JsonValueKind.Array)
         {
@@ -2696,7 +2233,7 @@ internal static partial class JobJsonParser
         }
 
         List<(string File, string? Range, string? Password)> entries = new();
-        foreach (JsonElement entry in pages.EnumerateArray())
+        foreach (JobValue entry in pages.EnumerateArray())
         {
             if (entry.ValueKind != JsonValueKind.Object)
             {
@@ -2709,12 +2246,12 @@ internal static partial class JobJsonParser
         return entries;
     }
 
-    private static (string File, string? Range, string? Password) ParsePagesEntry(JsonElement entry, ConfigurationText textStorage)
+    private static (string File, string? Range, string? Password) ParsePagesEntry(JobValue entry, ConfigurationText textStorage)
     {
         string? file = null;
         string? range = null;
         string? password = null;
-        foreach (JsonProperty property in EffectiveProperties(entry))
+        foreach (JobSetting property in EffectiveProperties(entry))
         {
             switch (property.Name)
             {
@@ -2748,14 +2285,14 @@ internal static partial class JobJsonParser
         return (file, range, password);
     }
 
-    private static string RequireString(JsonElement element, string role, ConfigurationText textStorage)
+    private static string RequireString(JobValue element, string role, ConfigurationText textStorage)
     {
         if (element.ValueKind != JsonValueKind.String)
         {
             throw new QpdfParseException($"Job \"{role}\" must be a string.", 0L, null);
         }
 
-        string? value = textStorage.ReadJsonString(element);
+        string? value = element.ReadString(textStorage);
         if (value is null)
         {
             throw new QpdfParseException($"Job \"{role}\" must be a string.", 0L, null);
@@ -2764,14 +2301,14 @@ internal static partial class JobJsonParser
         return value;
     }
 
-    private static string RequireObjectStreams(JsonElement element, ConfigurationText textStorage)
+    private static string RequireObjectStreams(JobValue element, ConfigurationText textStorage)
     {
         if (element.ValueKind != JsonValueKind.String)
         {
             throw new QpdfParseException("Job \"objectStreams\" must be disable, preserve, or generate.", 0L, null);
         }
 
-        string? value = textStorage.ReadJsonString(element);
+        string? value = element.ReadString(textStorage);
         if (value != "disable" && value != "preserve" && value != "generate")
         {
             throw new QpdfParseException("Job \"objectStreams\" must be disable, preserve, or generate.", 0L, null);
@@ -2800,7 +2337,7 @@ internal static partial class JobJsonParser
         return (SelectionPlan.CheckedPath(input), false);
     }
 
-    private static bool RequireBareFlag(JsonElement element, string role, ConfigurationText textStorage)
+    private static bool RequireBareFlag(JobValue element, string role, ConfigurationText textStorage)
     {
         if (element.ValueKind == JsonValueKind.True)
         {
@@ -2812,7 +2349,7 @@ internal static partial class JobJsonParser
             return false;
         }
 
-        if (element.ValueKind == JsonValueKind.String && textStorage.ReadJsonString(element) == string.Empty)
+        if (element.ValueKind == JsonValueKind.String && element.ReadString(textStorage) == string.Empty)
         {
             return true;
         }

@@ -170,6 +170,11 @@ internal static class MemoryReport
             return new(name, [workload.Input], workload.Arguments) { ExpectedExitCode = workload.ExpectedExitCode };
         }
 #endif
+        if (name == "config-layered")
+        {
+            return new(name, [PdfScenarioBuilder.BuildTextDocument(1), "{\"compressStreams\":\"n\",\"forceVersion\":\"1.6\"}"u8.ToArray()],
+                ["input0", "--job-json-file=input1", "--stream-data=preserve", "output"]);
+        }
         if (name == "config-argv")
         {
             return new(name, [PdfScenarioBuilder.BuildTextDocument(1), "{}"u8.ToArray()],
@@ -209,11 +214,12 @@ internal static class MemoryReport
             "rewrite-objects" => PdfScenarioBuilder.BuildObjectComparisonDocument(),
             "flate" => PdfScenarioBuilder.BuildFilterChain(10),
             "photo" => PdfScenarioBuilder.BuildPhotoDocument(),
-            _ => PdfScenarioBuilder.BuildTextDocument(name is "tiny" or "merge" ? 1 : 10),
+            _ => PdfScenarioBuilder.BuildTextDocument(name is "tiny" or "rewrite-tiny" or "merge" ? 1 : 10),
         };
         string[] arguments = name switch
         {
             "tiny" => ["input0", "--show-npages"],
+            "rewrite-tiny" => ["input0", "output"],
             "select-sparse" => ["input0", "--pages", ".", "1-3", "--", "output"],
             "rewrite-objects" => ["input0", "--stream-data=preserve", "output"],
             "merge" => ["--empty", "--pages", "input0", "1", "input1", "1", "--", "output"],

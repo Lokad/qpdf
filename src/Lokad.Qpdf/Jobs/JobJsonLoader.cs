@@ -19,13 +19,10 @@ internal static class JobJsonLoader
             session.AddText(json);
             await session.LoadChildrenAsync(0, cancellationToken).ConfigureAwait(false);
             session.AppendChainFields(0);
-            return new LoadedJob(session.ParsePlan(false), session);
+            return new LoadedJob(session.ParsePlan(), session);
         }
         catch { session.Dispose(); throw; }
     }
-
-    internal static bool HasJobFile(IReadOnlyList<string> argv)
-        => argv.Any(token => token == "--job-json-file" || token.StartsWith("--job-json-file=", StringComparison.Ordinal));
 
     internal static async ValueTask<LoadedJob> ParseArgvAsync(
         IQpdfHost host, IReadOnlyList<string> argv, QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
@@ -36,8 +33,7 @@ internal static class JobJsonLoader
             session.AdmitArguments(argv);
             await ArgvConfigurationReader.ReadAsync(argv, session.AddSetting,
                 name => session.LoadFileChainAsync(name, cancellationToken), governor, session.TextStorage).ConfigureAwait(false);
-            session.CompleteArguments();
-            return new LoadedJob(session.ParsePlan(true), session);
+            return new LoadedJob(session.ParsePlan(), session);
         }
         catch { session.Dispose(); throw; }
     }
@@ -64,11 +60,10 @@ internal static class JobJsonLoader
         private readonly QpdfLimits _limits;
         private readonly ResourceGovernor _governor;
         private List<JsonDocument>? _documents;
-        private List<JsonProperty>? _fields;
+        private List<JobSetting>? _fields;
         private HashSet<string>? _identities;
         private long _bytes;
         private long _reserved;
-        private long _argumentScratch;
         private ConfigurationText? _textStorage;
 
         private Session(IQpdfHost host, QpdfLimits limits, ResourceGovernor governor)
@@ -78,7 +73,7 @@ internal static class JobJsonLoader
             _governor = governor;
             _reserved = 512L;
             _documents = new List<JsonDocument>();
-            _fields = new List<JsonProperty>();
+            _fields = new List<JobSetting>();
             _identities = new HashSet<string>(StringComparer.Ordinal);
             _textStorage = ConfigurationText.Create(governor);
         }
@@ -115,31 +110,18 @@ internal static class JobJsonLoader
                     throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), bytes, Math.Min(_limits.MaxInputBytes, int.MaxValue));
                 }
             }
-            // Funds the syntax adapter, temporary collections and escaped JSON
-            // before constructing them. Each retained DOM gets its own admission.
-            long scratch = JobJsonMemory.ArgumentScratch(argv, bytes, _governor);
-            long reservation = checked(scratch + argv.Count * 512L + 4096L);
-            ReserveDocument(reservation);
-            _argumentScratch = scratch;
-        }
-
-        internal void CompleteArguments()
-        {
-            // Every setter has finished serialization and all child loads have
-            // completed. Documents and copied text keep their separate owners.
-            long scratch = _argumentScratch;
-            _argumentScratch = 0L;
-            _reserved -= scratch;
-            _governor.ReleaseMemory(scratch);
+            // Coarse storage for the syntax adapter, direct settings and semantic
+            // collections. Borrowed argv strings need no encoded/DOM copy pool;
+            // slices use ConfigurationText's separate admitted owner.
+            ReserveDocument(checked(argv.Count * 512L + 4096L));
+            _bytes = CheckedDocumentTotal(bytes);
         }
 
         internal void AddSetting(string name, object value)
         {
             _governor.CheckCancellation();
-            string json = JsonSerializer.Serialize(new Dictionary<string, object> { [name] = value });
-            AddText(json);
-            List<JsonProperty> fields = _fields ?? throw new ObjectDisposedException(nameof(Session));
-            foreach (JsonProperty property in Documents[^1].RootElement.EnumerateObject()) { fields.Add(property); }
+            List<JobSetting> fields = _fields ?? throw new ObjectDisposedException(nameof(Session));
+            fields.Add(new(name, new(value)));
         }
 
         internal void AddText(string text)
@@ -288,7 +270,7 @@ internal static class JobJsonLoader
                 foreach (JsonProperty property in value.EnumerateObject())
                 {
                     _governor.NoteOperation();
-                    if ((root && JobJsonParser.IsCryptoKey(property.Name) && property.Name is not ("password" or "passwordFile" or "passwordMode" or "suppressPasswordRecovery" or "decrypt" or "encrypt" or "copyEncryption" or "encryptionFilePassword" or "removeRestrictions"))
+                    if ((root && JobPlanner.IsCryptoKey(property.Name) && property.Name is not ("password" or "passwordFile" or "passwordMode" or "suppressPasswordRecovery" or "decrypt" or "encrypt" or "copyEncryption" or "encryptionFilePassword" or "removeRestrictions"))
                         || (!root && property.Name == "password" && context is not ("pages" or "copyAttachmentsFrom" or "overlay" or "underlay")))
                     {
                         throw new QpdfCryptoException(property.Name);
@@ -332,11 +314,11 @@ internal static class JobJsonLoader
             }
         }
 
-        internal JobPlan ParsePlan(bool configurationLayers)
+        internal JobPlan ParsePlan()
         {
             ConfigurationText textStorage = TextStorage;
-            JobPlan plan = JobJsonParser.ParseProperties(_fields ?? throw new ObjectDisposedException(nameof(Session)),
-                configurationLayers || Documents.Count > 1, _governor, textStorage);
+            JobPlan plan = JobPlanner.ParseProperties(_fields ?? throw new ObjectDisposedException(nameof(Session)),
+                _governor, textStorage);
             textStorage.CompleteJsonCopies();
             // LoadedJob owns this session through plan consumption. Its copied
             // text follows that boundary, alongside the retained JSON documents.
@@ -345,21 +327,21 @@ internal static class JobJsonLoader
 
         internal void AppendChainFields(int first)
         {
-            List<JsonProperty> fields = _fields ?? throw new ObjectDisposedException(nameof(Session));
+            List<JobSetting> fields = _fields ?? throw new ObjectDisposedException(nameof(Session));
             // Each document has one include: forward prefixes, then reverse suffixes
             // reproduce native sorted-key traversal without recursive loading.
             for (int index = first; index < Documents.Count; index++) { AddFields(Documents[index], true, fields); }
             for (int index = Documents.Count - 1; index >= first; index--) { AddFields(Documents[index], false, fields); }
         }
 
-        private void AddFields(JsonDocument document, bool prefix, List<JsonProperty> fields)
+        private void AddFields(JsonDocument document, bool prefix, List<JobSetting> fields)
         {
-            List<JsonProperty> sorted = new(JobJsonParser.EffectiveProperties(document.RootElement));
+            List<JobSetting> sorted = new(JobPlanner.EffectiveProperties(new JobValue(document.RootElement)));
             int kept = 0;
             for (int index = 0; index < sorted.Count; index++)
             {
                 _governor.NoteOperation();
-                JsonProperty property = sorted[index];
+                JobSetting property = sorted[index];
                 int order = string.CompareOrdinal(property.Name, FileKey);
                 if (order != 0 && (prefix ? order < 0 : order > 0)) { sorted[kept++] = property; }
             }
@@ -376,7 +358,7 @@ internal static class JobJsonLoader
             {
                 System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ex.InnerException ?? ex).Throw();
             }
-            foreach (JsonProperty property in sorted)
+            foreach (JobSetting property in sorted)
             {
                 _governor.NoteOperation();
                 fields.Add(property);
@@ -397,7 +379,6 @@ internal static class JobJsonLoader
             textStorage?.Dispose();
             _governor.ReleaseMemory(_reserved);
             _reserved = 0L;
-            _argumentScratch = 0L;
         }
     }
 }

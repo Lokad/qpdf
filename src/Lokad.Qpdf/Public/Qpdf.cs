@@ -5313,69 +5313,21 @@ public static partial class Qpdf
                 [new QpdfDiagnostic(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Error, zopfli)]);
         }
 
-        if (JobJsonLoader.HasJobFile(expanded)
-            || expanded.Any(token => token == "--password" || token.StartsWith("--password=", StringComparison.Ordinal)
-                    || token == "--password-mode" || token.StartsWith("--password-mode=", StringComparison.Ordinal)
-                    || token == "--password-file" || token.StartsWith("--password-file=", StringComparison.Ordinal)
-                    || token == "--suppress-password-recovery" || token.StartsWith("--suppress-password-recovery=", StringComparison.Ordinal)
-                    || token == "--remove-restrictions" || token.StartsWith("--remove-restrictions=", StringComparison.Ordinal)
-                    || token == "--decrypt" || token.StartsWith("--decrypt=", StringComparison.Ordinal)
-                    || token == "--copy-encryption" || token.StartsWith("--copy-encryption=", StringComparison.Ordinal)
-                    || token == "--encryption-file-password" || token.StartsWith("--encryption-file-password=", StringComparison.Ordinal)
-                    || token == "--encrypt" || token.StartsWith("--encrypt=", StringComparison.Ordinal))
-            || expanded.Any(token => token == "--check" || token.StartsWith("--check=", StringComparison.Ordinal)
-                || token == "--is-encrypted" || token.StartsWith("--is-encrypted=", StringComparison.Ordinal)
-                || token == "--requires-password" || token.StartsWith("--requires-password=", StringComparison.Ordinal)
-                || token == "--show-encryption" || token.StartsWith("--show-encryption=", StringComparison.Ordinal)
-                || token == "--raw-stream-data" || token.StartsWith("--raw-stream-data=", StringComparison.Ordinal)
-                || token == "--filtered-stream-data" || token.StartsWith("--filtered-stream-data=", StringComparison.Ordinal)
-                || token == "--show-attachment" || token.StartsWith("--show-attachment=", StringComparison.Ordinal)
-                || token == "--show-object" || token.StartsWith("--show-object=", StringComparison.Ordinal)
-                || token == "--show-npages" || token.StartsWith("--show-npages=", StringComparison.Ordinal)
-                || token == "--show-pages" || token.StartsWith("--show-pages=", StringComparison.Ordinal)
-                || token == "--show-xref" || token.StartsWith("--show-xref=", StringComparison.Ordinal)
-                || token == "--list-attachments" || token.StartsWith("--list-attachments=", StringComparison.Ordinal)
-                || token == "--check-linearization" || token.StartsWith("--check-linearization=", StringComparison.Ordinal)
-                || token == "--show-linearization" || token.StartsWith("--show-linearization=", StringComparison.Ordinal)
-                || token == "--set-page-labels" || token.StartsWith("--set-page-labels=", StringComparison.Ordinal)
-                || token == "--remove-page-labels" || token.StartsWith("--remove-page-labels=", StringComparison.Ordinal)))
-        {
-            JobJsonLoader.LoadedJob loaded;
-            try
-            {
-                loaded = await JobJsonLoader.ParseArgvAsync(host, expanded, options.Limits, governor, cancellationToken).ConfigureAwait(false);
-            }
-            catch (QpdfException ex)
-            {
-                ExecutionOutcome failure = ToFailedResult(ex);
-                return failure;
-            }
-            catch (OperationCanceledException)
-            {
-                return ExecutionOutcome.Canceled([]);
-            }
-
-            return await RunLoadedJobAsync(host, loaded, options, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-        }
-
-        JobPlan plan;
+        JobJsonLoader.LoadedJob loaded;
         try
         {
-            plan = ArgvParser.Parse(expanded, governor);
+            loaded = await JobJsonLoader.ParseArgvAsync(host, expanded, options.Limits, governor, cancellationToken).ConfigureAwait(false);
         }
         catch (QpdfException ex)
         {
-            ExecutionOutcome failure = ToFailedResult(ex);
-            return failure;
+            return ToFailedResult(ex);
         }
         catch (OperationCanceledException)
         {
             return ExecutionOutcome.Canceled([]);
         }
 
-        try
-        { return await RunPlanAsync(host, plan, options.Limits, options.ExplicitLimits, governor, diagnostics, cancellationToken).ConfigureAwait(false); }
-        finally { plan.CollationStorage?.Dispose(); }
+        return await RunLoadedJobAsync(host, loaded, options, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Executes a job-JSON invocation with default budgets.</summary>

@@ -807,7 +807,6 @@ Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == Qpdf
 }
 
 [Theory]
-[InlineData("--generate-appearances", "--generate-appearances")]
 [InlineData("--generate-appearances=x")]
 public async Task MalformedGenerateFlagsFail(params string[] flags)
 {

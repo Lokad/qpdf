@@ -198,7 +198,7 @@ public sealed class CompatibilityInventoryTests
         string parser = string.Empty;
         for (int i = 0; i < 8 && directory is not null; i++)
         {
-            string candidate = Path.Combine(directory, "src", "Lokad.Qpdf", "Jobs", "JobJsonParser.cs");
+            string candidate = Path.Combine(directory, "src", "Lokad.Qpdf", "Jobs", "JobPlanner.cs");
             if (File.Exists(candidate))
             {
                 parser = File.ReadAllText(candidate);
@@ -223,7 +223,7 @@ public sealed class CompatibilityInventoryTests
 
                 string leaf = value.Contains('.', StringComparison.Ordinal) ? value.Substring(value.LastIndexOf('.') + 1) : value;
                 if (!parser.Contains("case \"" + leaf + "\":", StringComparison.Ordinal)
-                    && !JobJsonParser.IsCryptoKey(leaf) && leaf != JobJsonLoader.FileKey)
+                    && !JobPlanner.IsCryptoKey(leaf) && leaf != JobJsonLoader.FileKey)
                 {
                     bad.Add(entry.GetProperty("context").GetString() + "/" + entry.GetProperty("flag").GetString() + ": " + value);
                 }

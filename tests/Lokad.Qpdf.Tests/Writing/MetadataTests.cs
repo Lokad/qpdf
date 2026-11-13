@@ -313,20 +313,6 @@ public sealed class MetadataTests
     }
 
     [Theory]
-    [InlineData("--remove-info", "--remove-info")]
-    [InlineData("--remove-metadata", "--remove-metadata")]
-    public async Task DuplicateFlagsFail(params string[] flags)
-    {
-        List<string> argv = new() { "inputs/a.pdf" };
-        argv.AddRange(flags);
-        argv.AddRange(["--pages", ".", "1", "--", "outputs/a.pdf"]);
-        InMemoryQpdfHost host = HostWith("inputs/a.pdf", InfoFixture());
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
-        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
-    }
-
-    [Theory]
     [InlineData("--remove-info=x")]
     [InlineData("--remove-metadata=")]
     public async Task ValuedFlagsFail(params string[] flags)

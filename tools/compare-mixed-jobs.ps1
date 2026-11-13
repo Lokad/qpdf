@@ -21,6 +21,10 @@ New-Item -ItemType Directory -Path $WorkRoot -Force | Out-Null
 Initialize-ReferenceProbe -ProbeDll $ProbeDll -WorkRoot $WorkRoot
 try {
 $cases = @(
+  @{ Name='ordinary-repeat-warning'; Args=@('inputs/a.pdf','--warning-exit-0','--warning-exit-0','outputs/a.pdf'); Version='1.4' },
+  @{ Name='ordinary-repeat-no-warn'; Args=@('inputs/a.pdf','--no-warn','--no-warn','outputs/a.pdf'); Version='1.4' },
+  @{ Name='ordinary-repeat-recovery'; Args=@('inputs/a.pdf','--suppress-recovery','--suppress-recovery','outputs/a.pdf'); Version='1.4' },
+  @{ Name='ordinary-repeat-version'; Args=@('inputs/a.pdf','--force-version=1.5','--force-version=1.7','outputs/a.pdf'); Version='1.7' },
   @{ Name='partial-before'; Args=@('--job-json-file=inputs/settings.json','inputs/a.pdf','outputs/a.pdf'); Version='1.5' },
   @{ Name='partial-between'; Args=@('inputs/a.pdf','--job-json-file=inputs/settings.json','outputs/a.pdf'); Version='1.5' },
   @{ Name='partial-after'; Args=@('inputs/a.pdf','outputs/a.pdf','--job-json-file=inputs/settings.json'); Version='1.5' },

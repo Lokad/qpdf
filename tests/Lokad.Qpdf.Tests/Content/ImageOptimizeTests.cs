@@ -626,26 +626,6 @@ public sealed class ImageOptimizeTests
     }
 
     [Theory]
-    [InlineData("--optimize-images", "--optimize-images")]
-    [InlineData("--jpeg-quality=5", "--jpeg-quality=6")]
-    [InlineData("--oi-min-width=1", "--oi-min-width=2")]
-    [InlineData("--keep-inline-images", "--keep-inline-images")]
-    public async Task DuplicateFlagsFail(params string[] flags)
-    {
-        byte[] raw = NoiseRgb(200, 200);
-        byte[] fixture = BuildImagePage(200, 200, "DeviceRGB", 8, string.Empty, raw);
-        List<string> argv = new() { "inputs/a.pdf" };
-        argv.AddRange(flags);
-        argv.AddRange(["--pages", ".", "1", "--", "outputs/a.pdf"]);
-        InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
-        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-        QpdfDiagnostic error = Assert.Single(result.Diagnostics);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, error.Code);
-        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
-    }
-
-    [Theory]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"jpegQuality\": 101}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"oiMinWidth\": -1}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"optimizeImages\": \"yes\"}")]

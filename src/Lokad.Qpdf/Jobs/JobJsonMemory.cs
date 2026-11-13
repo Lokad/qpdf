@@ -9,29 +9,6 @@ internal static class JobJsonMemory
     internal const int DetailedThreshold = 16384;
     internal const int MaxDepth = 32;
 
-    internal static long ArgumentScratch(IReadOnlyList<string> arguments, long utf8Bytes, ResourceGovernor governor)
-    {
-        long blanket = checked(32L * utf8Bytes);
-        if (utf8Bytes < DetailedThreshold) { return blanket; }
-        long escaped = 0L, characters = 0L;
-        foreach (string argument in arguments)
-        {
-            governor.CheckCancellation();
-            characters = checked(characters + argument.Length);
-            for (int offset = 0; offset < argument.Length; offset++)
-            {
-                if ((offset & 255) == 0) { governor.CheckCancellation(); }
-                char value = argument[offset];
-                // Keep the whitelist deliberately narrow. All other UTF-16
-                // units can expand to six JSON characters, including surrogates.
-                escaped = checked(escaped + (value is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9' or ' ' ? 1L : 6L));
-            }
-        }
-        // Fund serializer buffer growth, its final UTF-16 string and copied
-        // argument text. Escape-heavy input keeps the established broad bound.
-        return Math.Min(blanket, checked(8L * escaped + 2L * characters));
-    }
-
     internal static (long Document, long Copies) Estimate(ReadOnlySpan<byte> json, ResourceGovernor governor)
     {
         governor.CheckCancellation();

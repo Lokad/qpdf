@@ -5,7 +5,26 @@
 measured 2026-11-05. Password-security observations appear separately below.
 The package also targets .NET 10.
 
-Those measurements used a dedicated quiet VM. Six pre/postflight idle gates
+The 2026-11-13 planner consolidation used the existing .NET 11 memory report on
+identical inputs, with two workers per version, seven batches of 32 complete jobs
+and JIT-stable warmups. Median allocated bytes/job were:
+
+| Workload | Before consolidation | Shared planner |
+| --- | ---: | ---: |
+| `rewrite-tiny` (one page) | 31,680 | 32,080 |
+| `tiny` (page-count inspection) | 12,128 | 10,848 |
+| `config-layered` (one small job file) | 26,536 | 24,608 |
+| `security-r6-auth` | 153,208 | 151,128 |
+
+This removes serialized-setting/DOM work from argv. Separate recording-budget
+runs refunded all owners. Local estimated peaks changed from 541,618 to 547,210
+bytes for tiny rewriting, 16,240 to 11,157 for inspection, 29,080 to 20,188 for
+layering and 65,895 to 58,615 for authentication. These are admission estimates,
+not heap measurements. Timing remains provisional on the busy local host; this
+comparison establishes no throughput result. `rewrite-tiny` and `config-layered`
+are additional names accepted by `--memory-report`.
+
+The historical plaintext/native measurements used a dedicated quiet VM. Six pre/postflight idle gates
 passed; same-build A/A medians differed by up to 2.3% below. Treat differences
 within that variability cautiously. These measurements do not isolate a .NET 11
 speedup over .NET 10: older records used different code and hardware and remain

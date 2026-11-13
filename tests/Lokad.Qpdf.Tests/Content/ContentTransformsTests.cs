@@ -648,8 +648,6 @@ public sealed class ContentTransformsTests
     [InlineData("--normalize-content")]
     [InlineData("--normalize-content=x")]
     [InlineData("--remove-unreferenced-resources=x")]
-    [InlineData("--coalesce-contents", "--coalesce-contents")]
-    [InlineData("--normalize-content=y", "--normalize-content=n")]
     public async Task MalformedContentFlagsFail(params string[] flags)
     {
         byte[] fixture = BuildPdf(string.Empty, " /Contents 4 0 R", new List<(string Dict, byte[]? StreamData)>

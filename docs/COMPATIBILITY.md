@@ -51,6 +51,13 @@ and decode setters follow that order; QDF fills unset defaults. Managed extensio
 include separate job-file/JSON/split values and bare compression. Unknown options,
 invalid combinations and excluded crypto fail explicitly.
 
+The 0.2.0 development planner accepts repeated scalar/bare argv setters consistently,
+including warning, recovery, version and keep-open hints. Previously ordinary argv
+could reject repetitions that security, inspection or layered jobs accepted.
+Input/output/pages/replace declarations and repeated `--empty` remain exclusive;
+main-context parser ceilings also remain exclusive. Stream-filter setters and
+`--global` blocks keep setter order. Block-local duplicate rules remain explicit.
+
 ## Known differences from native qpdf
 
 These are intentional current policies; exact object numbers or compressed bytes

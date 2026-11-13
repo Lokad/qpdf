@@ -100,12 +100,6 @@ internal sealed class ConfigurationText : IDisposable
         return new Arguments(values, owner);
     }
 
-    internal static IReadOnlyList<string> Preserve(IReadOnlyList<string> original, IReadOnlyList<string> values)
-        => Wrap(values, (original as Arguments)?.Owner);
-
-    internal static ConfigurationText? OwnerOf(IReadOnlyList<string> arguments)
-        => (arguments as Arguments)?.Owner;
-
     internal static string Slice(ConfigurationText? owner, string source, int start, int length)
         => owner is null ? source.Substring(start, length) : owner.CopySubstring(source, start, length);
 
@@ -124,12 +118,6 @@ internal sealed class ConfigurationText : IDisposable
         public IEnumerator<string> GetEnumerator() => values.GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
-
-    // The standalone parser returns a plan without a component owner. Preserve
-    // only its materialized text under the enclosing execution, not unused
-    // prepaid JSON capacity or the configuration controller itself.
-    internal void RetainForExecution()
-        => Memory.RetainPrivateStorage(checked(Memory.ReservedBytes - _jsonCopies - 64L));
 
     public void Dispose()
     {

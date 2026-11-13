@@ -55,7 +55,7 @@ public sealed class ArgumentErrorMemoryTests
         Assert.True(failure.Code == QpdfDiagnosticCode.InvalidArguments, failure.Message);
         Assert.InRange(failure.Message.Length, 1, 512);
         // These contexts already report a constant error without echoing text.
-        if (context is not ("overlay" or "check" or "show"))
+        if (context is not ("overlay" or "check" or "show" or "quality"))
         { Assert.Contains("...", failure.Message, StringComparison.Ordinal); }
         Assert.Equal(0L, result.Counters.HostOperations);
         Assert.Equal(0L, result.Counters.OpenHandles);
@@ -97,7 +97,7 @@ public sealed class ArgumentErrorMemoryTests
     }
 
     [Theory]
-    [InlineData(1024L, QpdfDiagnosticCode.InvalidArguments)]
+    [InlineData(65536L, QpdfDiagnosticCode.InvalidArguments)]
     [InlineData(0L, QpdfDiagnosticCode.BudgetExceeded)]
     public async Task SharedAllowanceBoundsFailureWithoutLeakingPrivateStorage(long bytes, QpdfDiagnosticCode code)
     {

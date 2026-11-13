@@ -3113,7 +3113,7 @@
         ],
         "negative": [
           "WriterControlsTests.MalformedWriterFlagsFail",
-          "WriterControlsTests.DuplicateWriterFlagsFail"
+          "WriterControlsTests.MalformedWriterFlagsFail"
         ],
         "interaction": [
           "WriterControlsTests.JobJsonWriterControlsParityHolds"
@@ -3888,7 +3888,7 @@
           "MixedJobGovernanceTests.ShortReadsAndIndependentDepthUseSequentialLeases",
           "MixedJobGovernanceTests.WholeRewriteClosesItsPreliminaryLeaseBeforePublication",
           "MixedJobGovernanceTests.CancellationDuringTheSecondFileReleasesLoadedModelsAndLeases",
-          "JobConfigurationOwnershipTests.MixedArgvModelsDropReferencesOnDisposal"
+          "JobConfigurationOwnershipTests.LoadedConfigurationRefundsAdmissionAndClosesItsPublicLifetime"
         ],
         "oracle": [
           "diff:job-file",
@@ -4460,7 +4460,7 @@
           "ImageOptimizeTests.InvalidValuesFail"
         ],
         "interaction": [
-          "ImageOptimizeTests.DuplicateFlagsFail",
+          "ImageOptimizeTests.InvalidValuesFail",
           "ImageOptimizeTests.ThresholdJobParityHolds"
         ],
         "resource": [
@@ -4556,7 +4556,7 @@
         ],
         "negative": [
           "LinearizedWriterTests.Pass1MalformedFormsFail",
-          "LinearizedWriterTests.Pass1DuplicateFails",
+          "LinearizedWriterTests.Pass1MalformedFormsFail",
           "LinearizedWriterTests.Pass1MalformedJobKeysFail",
           "PublicationAdmissionTests.ActiveFirstPassCannotOverwriteAnyMainOutput",
           "PublicationAdmissionTests.FirstPassRejectsInputPathsBeforePublication"
@@ -4695,7 +4695,7 @@
         ],
         "negative": [
           "WriterControlsTests.MalformedWriterFlagsFail",
-          "WriterControlsTests.DuplicateWriterFlagsFail"
+          "WriterControlsTests.MalformedWriterFlagsFail"
         ],
         "interaction": [
           "WriterControlsTests.DefaultStreamHasNoExtraNewline"
@@ -4770,10 +4770,11 @@
       "evidence": {
         "positive": [
           "InvocationTests.NoWarnSuppressesWarnings",
-          "InvocationTests.JobNoWarnMatchesArgv"
+          "InvocationTests.JobNoWarnMatchesArgv",
+          "InvocationTests.WarningFlagsRepeatAsSetters"
         ],
         "negative": [
-          "InvocationTests.WarningFlagsRejectDuplicates"
+          "InvocationTests.WarningFlagsRejectValues"
         ],
         "interaction": [
           "InvocationTests.NoWarnSuppressesWarnings"
@@ -5917,7 +5918,7 @@
         ],
         "negative": [
           "MetadataTests.ValuedFlagsFail",
-          "MetadataTests.DuplicateFlagsFail"
+          "MetadataTests.ValuedFlagsFail"
         ],
         "interaction": [
           "MetadataTests.BothRemovalsDropBoth",
@@ -6884,7 +6885,7 @@
         ],
         "negative": [
           "WriterControlsTests.MalformedWriterFlagsFail",
-          "WriterControlsTests.DuplicateWriterFlagsFail"
+          "WriterControlsTests.MalformedWriterFlagsFail"
         ],
         "interaction": [
           "WriterControlsTests.JobJsonWriterControlsParityHolds"
@@ -7019,10 +7020,11 @@
           "ObjectDefinitionPublicationTests.DefinitionsHaveOnePolicyAcrossStorageAndPublication",
           "ObjectDefinitionPublicationTests.DiagnosticOverflowPreservesThePreviousTarget",
           "ObjectDefinitionPublicationTests.RefusalAndOutputFaultsAfterRepairRetainTheTargetAndRefund",
-          "InvocationTests.JobSuppressRecoveryFailsLikeStrict"
+          "InvocationTests.JobSuppressRecoveryFailsLikeStrict",
+          "InvocationTests.WarningFlagsRepeatAsSetters"
         ],
         "negative": [
-          "InvocationTests.WarningFlagsRejectDuplicates"
+          "InvocationTests.WarningFlagsRejectValues"
         ],
         "interaction": [
           "RecoveryTests.SuppressRecoveryFailsLikeStrict"
@@ -7303,10 +7305,11 @@
       "evidence": {
         "positive": [
           "InvocationTests.WarningExitZeroMapsWarningsToSuccess",
-          "InvocationTests.JobWarningExitZeroMatchesArgv"
+          "InvocationTests.JobWarningExitZeroMatchesArgv",
+          "InvocationTests.WarningFlagsRepeatAsSetters"
         ],
         "negative": [
-          "InvocationTests.WarningFlagsRejectDuplicates"
+          "InvocationTests.WarningFlagsRejectValues"
         ],
         "interaction": [
           "InvocationTests.WarningExitZeroMapsWarningsToSuccess"

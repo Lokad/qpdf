@@ -140,17 +140,4 @@ public sealed class JobJsonMemoryTests
         Assert.Equal(0L, canceled.Snapshot().LiveMemoryBytes);
     }
 
-    [Fact]
-    public void ArgumentScratchAccountsForEscapesWithoutChargingEveryAsciiByteAtTheWorstRate()
-    {
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        foreach (string value in new[] { new string('A', 65536), string.Concat(Enumerable.Repeat("\u0001\\\"\u00e9\ud83d\ude80", 8192)) })
-        {
-            long bytes = Encoding.UTF8.GetByteCount(value);
-            long scratch = JobJsonMemory.ArgumentScratch([value], bytes, governor);
-            Assert.InRange(scratch, 2L * JsonSerializer.Serialize(value).Length, 32L * bytes);
-            if (value[0] == 'A') { Assert.True(scratch < 16L * bytes); }
-        }
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-    }
 }

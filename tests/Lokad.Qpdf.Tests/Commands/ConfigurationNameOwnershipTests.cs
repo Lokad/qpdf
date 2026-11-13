@@ -248,7 +248,7 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task ShortInlineNameAdmissionRejectsBeforePdfOpeningAndBorrowsSeparateNames(bool unicode)
+    public async Task ConfigurationNameRefusalPreservesEveryTarget(bool unicode)
     {
         QpdfPath pass = QpdfPath.From(new string(unicode ? '\u00e9' : 'p', 2048) + ".pdf");
         foreach (bool inline in new[] { true, false })
@@ -261,7 +261,7 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
                 new QpdfExecutionOptions(QpdfLimits.Default with { MaxMemoryBytes = 4096L }), CancellationToken.None);
             Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
             Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded);
-            Assert.Equal(inline ? 0 : 1, host.PdfOpens);
+            Assert.Equal(0, host.PdfOpens);
             Assert.Equal(0L, host.Inner.OpenLeaseCount); Assert.Equal(0L, result.Counters.OpenHandles);
             Assert.True(host.Inner.TryGetOutput(OutputPath, out byte[] prior)); Assert.Equal(Prior, prior);
             Assert.True(host.Inner.TryGetOutput(pass, out byte[] sidecar)); Assert.Equal(Prior, sidecar);

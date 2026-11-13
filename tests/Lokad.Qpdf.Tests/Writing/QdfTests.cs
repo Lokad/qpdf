@@ -300,7 +300,6 @@ public sealed class QdfTests
     [Theory]
     [InlineData("--json", "--qdf")]
     [InlineData("--check", "--qdf")]
-    [InlineData("--qdf", "--qdf")]
     [InlineData("--qdf=x")]
     public async Task MalformedQdfFlagsFail(params string[] flags)
     {
@@ -402,7 +401,6 @@ public sealed class QdfTests
     [Theory]
     [InlineData("--no-original-object-ids=x")]
     [InlineData("--no-original-object-ids=")]
-    [InlineData("--no-original-object-ids", "--no-original-object-ids")]
     public async Task MalformedNoOriginalObjectIdsFlagsFail(params string[] flags)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");

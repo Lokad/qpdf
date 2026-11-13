@@ -619,12 +619,17 @@ public sealed class LinearizedWriterTests
     }
 
     [Fact]
-    public async Task Pass1DuplicateFails()
+    public async Task RepeatedPass1UsesLastPath()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        List<string> argv = new() { "inputs/a.pdf", "--linearize", "--linearize-pass1=a.bin", "--linearize-pass1=b.bin", "--pages", ".", "1", "--", "outputs/a.pdf" };
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
-        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--linearize", "--linearize-pass1=a.bin", "--linearize-pass1=b.bin", "--pages", ".", "1", "--", "outputs/a.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.False(host.TryGetOutput(QpdfPath.From("a.bin"), out _));
+        Assert.True(host.TryGetOutput(QpdfPath.From("b.bin"), out _));
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] output));
+        await CheckLinearizedAsync(output, 1);
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Fact]

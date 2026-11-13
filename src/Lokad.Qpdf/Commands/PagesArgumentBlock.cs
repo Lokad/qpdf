@@ -2,33 +2,9 @@ using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Commands;
 
-/// <summary>Preserves pages context before main options are extracted.</summary>
+/// <summary>Validates the boundaries and tokens of a pages block.</summary>
 internal static class PagesArgumentBlock
 {
-    internal static void Validate(IReadOnlyList<string> argv, ResourceGovernor governor)
-    {
-        for (int index = 0; index < argv.Count; index++)
-        {
-            Visit(governor);
-            string token = argv[index];
-            if (token == "--pages")
-            {
-                index = FindEnd(argv, index, governor);
-            }
-            else if (token is "--global" or "--overlay" or "--underlay"
-                or "--add-attachment" or "--copy-attachments-from" or "--set-page-labels")
-            {
-                // Each of these has its own parser. Its contents cannot open
-                // a main-context pages block, even when that block is invalid.
-                while (++index < argv.Count)
-                {
-                    Visit(governor);
-                    if (argv[index] == "--") { break; }
-                }
-            }
-        }
-    }
-
     internal static int FindEnd(IReadOnlyList<string> argv, int pagesAt, ResourceGovernor governor)
     {
         for (int index = pagesAt + 1; index < argv.Count; index++)

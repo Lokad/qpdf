@@ -8,6 +8,11 @@
 - Remove `QpdfLimits.MaxHostOperations` and publication call prediction. Host-call
   counters remain observations; short reads no longer exhaust a cumulative quota.
   Memory, handle, structural and decoded-output bounds and cancellation remain.
+- Use one semantic planner for argv and job JSON. Adapt argv directly, removing
+  per-setting serialization, synthetic JSON documents and the alternate planner.
+  Preserve ordered files, credentials, permissions and exclusive declarations;
+  accept repeated scalar setters consistently across argv routes. Test syntax
+  repetition at the planner and retain representative public/native workflows.
 
 - Support Standard password security R2–R6 through the shared typed, argv and job
   pipelines, including legitimate empty passwords and non-secret encryption facts.

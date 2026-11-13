@@ -33,14 +33,6 @@ public sealed class ExecutionResultOwnershipTests
         }
     }
 
-    public static IEnumerable<object[]> BudgetAliases()
-    {
-        foreach (string kind in new[] { "result", "counters" })
-        {
-            foreach (long memory in new[] { 2048L, 4096L, 8192L }) { yield return [kind, memory]; }
-        }
-    }
-
     private sealed class Alias(ResourceGovernor governor, object value, WeakReference host,
         WeakReference result, WeakReference counters, CounterState snapshot)
     {
@@ -84,9 +76,10 @@ public sealed class ExecutionResultOwnershipTests
         return new(governor, kind == "result" ? result : result.Counters, new(host), new(result), new(result.Counters), Values(result.Counters));
     }
 
-    private static async Task<Alias> CompleteFileJson(string kind, string route, bool compressed, QpdfLimits limits, bool failure)
+    private static async Task<Alias> CompleteFileJson(string kind, string route, bool compressed, bool failure)
     {
-        object host = await Prepare("argv-json", compressed, "input-close", "success");
+        QpdfLimits limits = QpdfLimits.Default;
+        object host = await Prepare("argv-json", compressed, failure ? "read" : "input-close", "success");
         host.GetType().GetField("PausePath", Members)?.SetValue(host, QpdfPath.From("input.pdf"));
         InMemoryQpdfHost inner = (InMemoryQpdfHost)Read(host, "Inner");
         await using (IQpdfOutputTransaction seed = await inner.CreateOutputAsync(QpdfPath.From("output.json"), CancellationToken.None))
@@ -114,10 +107,19 @@ public sealed class ExecutionResultOwnershipTests
             running = Qpdf.ExecuteAsync((IQpdfHost)host, new QpdfCommandInvocation(argv),
                 new QpdfExecutionOptions(limits), CancellationToken.None).AsTask();
         }
+        ResourceGovernor? pressuredGovernor = null;
+        long pressure = 0L;
         try
         {
             await ((Task)Read(host, "Entered")).WaitAsync(TimeSpan.FromSeconds(10));
             ResourceGovernor governor = FindGovernor(running);
+            if (failure)
+            {
+                // Refuse after a real read, independently of parser/controller
+                // estimates. The pending destination stays admitted until return.
+                pressure = governor.RemainingMemoryBytes;
+                governor.ReserveMemory(pressure); pressuredGovernor = governor;
+            }
             Resume(host);
             QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
             Assert.Equal(failure ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed, result.Status);
@@ -144,7 +146,8 @@ public sealed class ExecutionResultOwnershipTests
         }
         finally
         {
-            Resume(host); await running;
+            try { Resume(host); await running; }
+            finally { pressuredGovernor?.ReleaseMemory(pressure); }
         }
     }
 
@@ -191,17 +194,17 @@ public sealed class ExecutionResultOwnershipTests
     [Trait("Layer", "Contract")]
     public async Task FileJsonResultsPreserveImmutableCounters(string kind, string route, bool compressed)
     {
-        Alias alias = await CompleteFileJson(kind, route, compressed, QpdfLimits.Default, false);
+        Alias alias = await CompleteFileJson(kind, route, compressed, false);
         VerifyAlias(alias, kind);
     }
 
     [Theory]
-    [MemberData(nameof(BudgetAliases))]
+    [InlineData("result")]
+    [InlineData("counters")]
     [Trait("Layer", "Contract")]
-    public async Task AfterReadBudgetFailuresPreserveTargetsAndCounters(string kind, long ceiling)
+    public async Task AfterReadBudgetFailuresPreserveTargetsAndCounters(string kind)
     {
-        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = ceiling };
-        Alias alias = await CompleteFileJson(kind, "argv", false, limits, true);
+        Alias alias = await CompleteFileJson(kind, "argv", false, true);
         VerifyAlias(alias, kind);
     }
 

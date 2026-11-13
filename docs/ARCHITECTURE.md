@@ -16,7 +16,11 @@ flowchart LR
     Writer --> Host[Host commit]
 ```
 
-Argv and job JSON produce operation plans; typed methods call the same cores.
+Argv syntax and job JSON feed one semantic planner; typed methods call the same
+operation cores and validation. Argv supplies direct settings without serialized
+JSON. Actual JSON retains its admitted documents and copied text through plan
+consumption, including ordered nested-file loading. Scoped syntax helpers handle
+page, placement, attachment and encryption blocks.
 The reader resolves classic, streamed, hybrid and incremental xrefs into immutable
 PDF values. Eligible selections read bounded ranges from classic-xref inputs,
 falling back to a complete read on the same lease when necessary.
@@ -101,7 +105,7 @@ The primary input controls preservation; page, attachment, placement and templat
 sources authenticate independently. Copied objects outlive their source readers
 and receive the output owner's protection. Repeated sources validate credential
 consistency. Typed operations, argv and job JSON use this same ownership path;
-argv encryption blocks translate through the job parser and preserve setter order.
+argv encryption blocks feed the shared planner and preserve setter order.
 
 Writers encrypt after compression and final object numbering. R2–R4 per-object
 keys use the final number/generation and clear after ciphertext preparation.

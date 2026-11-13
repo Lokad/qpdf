@@ -294,7 +294,6 @@ Assert.True(result.ExitCode == QpdfExitCode.Success || result.ExitCode == QpdfEx
 Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
 }
 [Theory]
-[InlineData("--flatten-rotation", "--flatten-rotation")]
 [InlineData("--flatten-rotation=x")]
 public async Task MalformedFlattenFlagsFail(params string[] flags)
 {

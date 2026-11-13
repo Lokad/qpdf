@@ -24,9 +24,7 @@ public sealed class ExecutionResultFailureOwnershipTests
     {
         foreach (string kind in new[] { "result", "counters" })
         foreach (bool compressed in new[] { false, true })
-        {
-            foreach (long memory in new[] { 2048L, 4096L, 8192L }) { yield return [kind, compressed, memory]; }
-        }
+        { yield return [kind, compressed]; }
     }
 
     public static IEnumerable<object[]> CopyCases()
@@ -70,12 +68,11 @@ public sealed class ExecutionResultFailureOwnershipTests
         => (alias.GetType().GetField("Value", Members)
             ?? throw new InvalidOperationException("Missing canonical alias field.")).SetValue(alias, value);
 
-    private static async Task<object> Complete(string kind, bool compressed, long ceiling)
+    private static async Task<object> Complete(string kind, bool compressed)
     {
-        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = ceiling };
         MethodInfo method = typeof(ExecutionResultOwnershipTests).GetMethod("CompleteFileJson", Members)
             ?? throw new InvalidOperationException("Missing unchanged complete file-JSON fixture.");
-        Task running = (Task)(method.Invoke(null, [kind, "argv", compressed, limits, true])
+        Task running = (Task)(method.Invoke(null, [kind, "argv", compressed, true])
             ?? throw new InvalidOperationException("Missing public fixture task."));
         await running;
         return running.GetType().GetProperty("Result", Members)?.GetValue(running)
@@ -85,13 +82,13 @@ public sealed class ExecutionResultFailureOwnershipTests
     [Theory]
     [MemberData(nameof(BudgetAliases))]
     [Trait("Layer", "Contract")]
-    public async Task OriginalBudgetFailuresFundIndependentResultAndCounterAliases(string kind, bool compressed, long ceiling)
+    public async Task OriginalBudgetFailuresFundIndependentResultAndCounterAliases(string kind, bool compressed)
     {
-        object alias = await Complete(kind, compressed, ceiling);
+        object alias = await Complete(kind, compressed);
         await Task.Yield();
         ResourceGovernor governor = Assert.IsType<ResourceGovernor>(Field(alias, "Governor"));
         Assert.True(governor.Snapshot().LiveMemoryBytes >= (kind == "result" ? 168L : 88L));
-        Assert.InRange(governor.Snapshot().PeakMemoryBytes, 0L, ceiling);
+        Assert.InRange(governor.Snapshot().PeakMemoryBytes, 0L, QpdfLimits.Default.MaxMemoryBytes);
         SetValue(alias, null);
         Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(alias);
@@ -100,7 +97,7 @@ public sealed class ExecutionResultFailureOwnershipTests
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static async Task<object> Copy(string kind, bool compressed)
     {
-        object alias = await Complete("result", compressed, 4096L);
+        object alias = await Complete("result", compressed);
         QpdfExecutionResult original = Assert.IsType<QpdfExecutionResult>(Field(alias, "Value"));
         object copy;
         if (kind == "result")

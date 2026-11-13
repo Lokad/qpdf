@@ -62,8 +62,7 @@ public sealed class JsonDiagnosticPreviewTests
             Assert.Equal(0L, result.Counters.HostOperations);
         }
         Assert.InRange(message.Length, 1, 256);
-        if (route == "argv") { Assert.Contains("--json-key must be one of:", message); }
-        else if (kind == "short") { Assert.Contains(key, message); Assert.DoesNotContain("...", message); }
+        if (kind == "short") { Assert.Contains(key, message); Assert.DoesNotContain("...", message); }
         else { Assert.Contains(new string('K', 127), message); Assert.Contains("...", message); }
         _ = new UTF8Encoding(false, true).GetBytes(message);
         Assert.Equal(0L, host.OpenLeaseCount);

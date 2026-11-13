@@ -473,17 +473,6 @@ public sealed class ObjectStreamTests
     }
 
     [Fact]
-    public async Task DuplicateModeFails()
-    {
-        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
-            host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--object-streams=disable", "--object-streams=generate", "--pages", ".", "1", "--", "outputs/a.pdf"]),
-            CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
-    }
-
-    [Fact]
     public async Task JobJsonInvalidModeFails()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");

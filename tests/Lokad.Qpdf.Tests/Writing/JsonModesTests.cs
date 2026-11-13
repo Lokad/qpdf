@@ -223,8 +223,6 @@ public sealed class JsonModesTests
 
     [Theory]
     [InlineData("--json-stream-data=banana")]
-    [InlineData("--json-stream-data=inline", "--json-stream-data=file")]
-    [InlineData("--json-stream-prefix=a", "--json-stream-prefix=b")]
     public async Task BadStreamOptionsFail(params string[] flags)
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", StreamFixture());

@@ -375,7 +375,6 @@ Assert.True(result.ExitCode == QpdfExitCode.Success || result.ExitCode == QpdfEx
 Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
 }
 [Theory]
-[InlineData("--externalize-inline-images", "--externalize-inline-images")]
 [InlineData("--externalize-inline-images=1")]
 [InlineData("--ii-min-bytes", "--ii-min-bytes", "--externalize-inline-images")]
 [InlineData("--ii-min-bytes=x", "--externalize-inline-images")]

@@ -387,20 +387,6 @@ public sealed class JsonOutputOwnershipTests
         InMemoryQpdfHost inner = (InMemoryQpdfHost)(original.GetType().GetProperty("Inner", Members)?.GetValue(original)
             ?? throw new InvalidOperationException("Missing input host."));
         byte[][] priorAliases = new byte[2][];
-        if (outcome == "memory" && !compressed)
-        {
-            // A separate, explicit value fixture creates real overlap between
-            // the reader value, JSON chunks and the immutable output copy.
-            byte[] input = CheckTests.Assemble(
-            [
-                (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
-                (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
-                (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Contents 4 0 R /Resources << >> >>", null),
-                (4, "<< /Length 4 >>", "q Q\n"u8.ToArray()),
-                (5, "(" + new string('A', route == "mixed" ? 8192 : 4096) + ")", null),
-            ], 1);
-            inner.AddInput(QpdfPath.From("input.pdf"), input, QpdfInputOwnership.Copy);
-        }
         string[] targets = ["output.json", "side-4"];
         for (int index = 0; index < targets.Length; index++)
         {
@@ -412,7 +398,6 @@ public sealed class JsonOutputOwnershipTests
         QpdfLimits limits = QpdfLimits.Default with { MaxOpenHandles = 1L };
         limits = outcome switch
         {
-            "memory" => limits with { MaxMemoryBytes = compressed ? 140000L : route == "mixed" ? 60000L : 16384L },
             "output-bytes" => limits with { MaxOutputBytes = 128L },
             _ => limits,
         };
@@ -427,42 +412,49 @@ public sealed class JsonOutputOwnershipTests
         Assert.True(governor.Snapshot().HostOperations > 0L);
         Assert.True((long)(original.GetType().GetField("ReadBytes", Members)?.GetValue(original)
             ?? throw new InvalidOperationException("Missing observed read count.")) > 0L);
-        if (outcome == "cancel-input") { cancellation.Cancel(); }
-        original.GetType().GetMethod("Resume", Members)?.Invoke(original, []);
-        object result;
-        if (route == "typed")
+        long pressure = outcome == "memory" ? governor.RemainingMemoryBytes : 0L;
+        governor.ReserveMemory(pressure);
+        try
         {
-            Exception error = await Assert.ThrowsAnyAsync<Exception>(async () => { await running.WaitAsync(TimeSpan.FromSeconds(10)); });
-            if (outcome.StartsWith("cancel", StringComparison.Ordinal)) { Assert.IsAssignableFrom<OperationCanceledException>(error); }
-            else if (budget)
+            if (outcome == "cancel-input") { cancellation.Cancel(); }
+            original.GetType().GetMethod("Resume", Members)?.Invoke(original, []);
+            object result;
+            if (route == "typed")
             {
-                QpdfLimitException limit = Assert.IsType<QpdfLimitException>(error);
-                Assert.Equal(outcome == "memory" ? nameof(QpdfLimits.MaxMemoryBytes)
-                    : nameof(QpdfLimits.MaxOutputBytes), limit.LimitName);
+                Exception error = await Assert.ThrowsAnyAsync<Exception>(async () => { await running.WaitAsync(TimeSpan.FromSeconds(10)); });
+                if (outcome.StartsWith("cancel", StringComparison.Ordinal)) { Assert.IsAssignableFrom<OperationCanceledException>(error); }
+                else if (budget)
+                {
+                    QpdfLimitException limit = Assert.IsType<QpdfLimitException>(error);
+                    Assert.Equal(outcome == "memory" ? nameof(QpdfLimits.MaxMemoryBytes)
+                        : nameof(QpdfLimits.MaxOutputBytes), limit.LimitName);
+                }
+                else { Assert.IsType<QpdfHostException>(error); }
+                result = error;
             }
-            else { Assert.IsType<QpdfHostException>(error); }
-            result = error;
+            else
+            {
+                QpdfExecutionResult execution = Assert.IsType<QpdfExecutionResult>(await running.WaitAsync(TimeSpan.FromSeconds(10)));
+                Assert.Equal(outcome.StartsWith("cancel", StringComparison.Ordinal) ? QpdfExecutionStatus.Canceled : QpdfExecutionStatus.Failed, execution.Status);
+                if (budget) { Assert.Contains(execution.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded); }
+                result = execution;
+            }
+            Assert.Equal(0L, governor.Snapshot().OpenHandles); Assert.Equal(0L, inner.OpenLeaseCount);
+            foreach (byte[] priorAlias in priorAliases) { Assert.Equal(new byte[] { 17, 23, 41 }, priorAlias); }
+            for (int index = 0; index < targets.Length; index++)
+            {
+                Assert.True(inner.TryGetOutput(QpdfPath.From(targets[index]), out byte[] current));
+                if (outcome == "output-close" && index == 0)
+                { using JsonDocument parsed = JsonDocument.Parse(current); Assert.Equal(2, parsed.RootElement.GetProperty("version").GetInt32()); }
+                else { Assert.Equal(priorAliases[index], current); }
+            }
+            if (budget || outcome is "input-close" or "cancel-input" or "create") { Assert.Empty(host.Writes); }
+            ReadOnlyMemory<byte>[] alias = host.Writes.ToArray();
+            long minimum = BufferMinimum(alias);
+            return new(governor, alias, minimum, governor.Snapshot().PeakMemoryBytes);
         }
-        else
-        {
-            QpdfExecutionResult execution = Assert.IsType<QpdfExecutionResult>(await running.WaitAsync(TimeSpan.FromSeconds(10)));
-            Assert.Equal(outcome.StartsWith("cancel", StringComparison.Ordinal) ? QpdfExecutionStatus.Canceled : QpdfExecutionStatus.Failed, execution.Status);
-            if (budget) { Assert.Contains(execution.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded); }
-            result = execution;
-        }
-        Assert.Equal(0L, governor.Snapshot().OpenHandles); Assert.Equal(0L, inner.OpenLeaseCount);
-        foreach (byte[] priorAlias in priorAliases) { Assert.Equal(new byte[] { 17, 23, 41 }, priorAlias); }
-        for (int index = 0; index < targets.Length; index++)
-        {
-            Assert.True(inner.TryGetOutput(QpdfPath.From(targets[index]), out byte[] current));
-            if (outcome == "output-close" && index == 0)
-            { using JsonDocument parsed = JsonDocument.Parse(current); Assert.Equal(2, parsed.RootElement.GetProperty("version").GetInt32()); }
-            else { Assert.Equal(priorAliases[index], current); }
-        }
-        if (budget || outcome is "input-close" or "cancel-input" or "create") { Assert.Empty(host.Writes); }
-        ReadOnlyMemory<byte>[] alias = host.Writes.ToArray();
-        long minimum = BufferMinimum(alias);
-        return new(governor, alias, minimum, governor.Snapshot().PeakMemoryBytes);
+        finally { governor.ReleaseMemory(pressure); }
+
     }
 
     [Theory]

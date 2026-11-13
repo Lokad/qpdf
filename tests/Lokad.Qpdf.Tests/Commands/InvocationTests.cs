@@ -276,15 +276,29 @@ public sealed class InvocationTests
     [InlineData("inputs/a.pdf", "--warning-exit-0", "--warning-exit-0")]
     [InlineData("inputs/a.pdf", "--no-warn", "--no-warn")]
     [InlineData("inputs/a.pdf", "--suppress-recovery", "--suppress-recovery")]
-    public async Task WarningFlagsRejectDuplicates(params string[] flags)
+    public async Task WarningFlagsRepeatAsSetters(params string[] flags)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         List<string> argv = new() { "inputs/a.pdf" };
         argv.AddRange(flags.Skip(1));
         argv.AddRange(["--pages", ".", "1", "--", "outputs/a.pdf"]);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Theory]
+    [InlineData("--warning-exit-0=yes")]
+    [InlineData("--no-warn=")]
+    [InlineData("--suppress-recovery=true")]
+    public async Task WarningFlagsRejectValues(string flag)
+    {
+        using InMemoryQpdfHost host = new();
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["--empty", flag, "outputs/a.pdf"]), CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
-        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+        Assert.Equal(0L, result.Counters.HostOperations);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out _));
     }
 
     [Fact]

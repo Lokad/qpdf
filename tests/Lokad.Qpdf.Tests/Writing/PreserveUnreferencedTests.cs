@@ -324,18 +324,6 @@ public sealed class PreserveUnreferencedTests
         Assert.Equal(a, b);
     }
 
-    [Fact]
-    public async Task DuplicateFlagFails()
-    {
-        InMemoryQpdfHost host = HostWith("inputs/a.pdf", OrphanFixture());
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
-            host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--preserve-unreferenced", "--preserve-unreferenced", "--pages", ".", "1", "--", "outputs/a.pdf"]),
-            CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
-        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
-    }
-
     [Theory]
     [InlineData("--preserve-unreferenced=x")]
     [InlineData("--preserve-unreferenced=")]

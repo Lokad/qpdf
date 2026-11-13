@@ -303,7 +303,7 @@ public sealed class PagesBlockGrammarTests
         using CancellationTokenSource cancellation = new();
         cancellation.Cancel();
         ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token);
-        Assert.Throws<OperationCanceledException>(() => PagesArgumentBlock.Validate(["--pages", ".", "1", "--"], governor));
+        Assert.Throws<OperationCanceledException>(() => PagesArgumentBlock.FindEnd(["--pages", ".", "1", "--"], 0, governor));
         Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);
     }
 
@@ -314,10 +314,16 @@ public sealed class PagesBlockGrammarTests
     [InlineData("--copy-attachments-from")]
     [InlineData("--set-page-labels")]
     [InlineData("--global")]
-    public void OtherBlockContentsCannotOpenPagesContext(string block)
+    public async Task OtherBlockContentsCannotOpenPagesContext(string block)
     {
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        PagesArgumentBlock.Validate([block, "--pages", "--deterministic-id", "--", "inputs/a.pdf"], governor);
+        using InMemoryQpdfHost host = new();
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation([block, "--pages", "--deterministic-id", "--", "inputs/a.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        QpdfDiagnostic diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, diagnostic.Code);
+        Assert.DoesNotContain("pages options", diagnostic.Message, StringComparison.Ordinal);
+        Assert.Equal(0L, result.Counters.HostOperations);
     }
 
     private static async Task<InMemoryQpdfHost> Host()

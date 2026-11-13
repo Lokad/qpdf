@@ -540,22 +540,6 @@ public sealed class WriterControlsTests
     }
 
     [Theory]
-    [InlineData("--min-version=1.5", "--min-version=1.6")]
-    [InlineData("--force-version=1.5", "--force-version=1.6")]
-    [InlineData("--static-id", "--static-id")]
-    [InlineData("--deterministic-id", "--deterministic-id")]
-    [InlineData("--newline-before-endstream", "--newline-before-endstream")]
-    public async Task DuplicateWriterFlagsFail(params string[] flags)
-    {
-        List<string> argv = new() { "inputs/a.pdf" };
-        argv.AddRange(flags);
-        argv.AddRange(["--pages", ".", "1", "--", "outputs/a.pdf"]);
-        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
-    }
-
-    [Theory]
     [InlineData("--deterministic-id=1")]
     [InlineData("--static-id=yes")]
     [InlineData("--newline-before-endstream=n")]

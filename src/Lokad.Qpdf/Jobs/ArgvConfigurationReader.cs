@@ -12,9 +12,10 @@ internal static partial class ArgvConfigurationReader
     {
         argv = ConfigurationText.Wrap(new GovernedArguments(argv, governor), textStorage);
         // Excluded operations reject before any configuration/PDF/password input.
-        ArgvParser.RejectCryptoOptions(argv, governor, true);
+        ArgvParser.RejectCryptoOptions(argv, governor);
         bool gaveInput = false;
         bool gaveOutput = false;
+        bool gaveEmpty = false;
         bool global = false;
         HashSet<string> mainGlobals = new(StringComparer.Ordinal);
         int cursor = 0;
@@ -36,10 +37,10 @@ internal static partial class ArgvConfigurationReader
             if (global && !IsGlobal(name)) { throw Invalid("Only global options may appear in --global.", cursor); }
             if (IsGlobal(name))
             {
-                // The existing main-context extension accepts each global
-                // setting once. Native --global blocks retain setter semantics.
+                // Main-context parser ceilings remain exclusive. Stream-filter
+                // limits and native --global blocks retain setter semantics.
                 string key = Key(name);
-                if (!global && !mainGlobals.Add(key)) { throw Invalid("Duplicate global option outside --global.", cursor); }
+                if (!global && name is not "max-stream-filters" && !mainGlobals.Add(key)) { throw Invalid("Duplicate global option outside --global.", cursor); }
                 object value = name is "no-default-limits" ? Bare(token, cursor) : Value(argv, ref cursor, null);
                 setting("global", new Dictionary<string, object> { [key] = value });
                 cursor++;
@@ -62,6 +63,8 @@ internal static partial class ArgvConfigurationReader
                     cursor++;
                     continue;
                 case "empty":
+                    if (gaveEmpty) { throw Invalid("Duplicate --empty input declaration.", cursor); }
+                    gaveEmpty = true;
                     setting("empty", Bare(token, cursor));
                     gaveInput = true;
                     cursor++;

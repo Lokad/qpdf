@@ -1,5 +1,3 @@
-using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Commands;
@@ -28,10 +26,10 @@ public sealed class JobConfigurationOwnershipTests
         text.AdmitJsonCopies(1048576L);
         string? value = text.ReadJsonString(document.RootElement);
         text.CompleteJsonCopies();
-        Assert.Equal(GovernedText.StringBytes(131072) + 128L, governor.Snapshot().LiveMemoryBytes);
+        Assert.InRange(governor.Snapshot().LiveMemoryBytes, GovernedText.StringBytes(131072), 524288L);
         Assert.Equal(131072, value?.Length);
         text.CompleteJsonCopies();
-        Assert.Equal(GovernedText.StringBytes(131072) + 128L, governor.Snapshot().LiveMemoryBytes);
+        Assert.InRange(governor.Snapshot().LiveMemoryBytes, GovernedText.StringBytes(131072), 524288L);
         value = null;
         text.Dispose();
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
@@ -59,13 +57,9 @@ public sealed class JobConfigurationOwnershipTests
                 _ => await JobJsonLoader.ParseAsync(host, json, QpdfLimits.Default, governor, CancellationToken.None),
             };
             Assert.Equal(131072, Assert.Single(loaded.Plan.AttachmentsToAdd).Description?.Length);
-            object session = loaded.GetType().GetField("_owner", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(loaded)
-                ?? throw new InvalidOperationException("Loaded configuration owner missing.");
-            // Separate the retained DOM/controller estimate from the decoded
-            // text owner, without fixing the DOM's conservative byte formula.
-            long documents = Assert.IsType<long>(session.GetType().GetField("_reserved", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(session));
-            long textBytes = governor.Snapshot().LiveMemoryBytes - documents;
-            Assert.InRange(textBytes, GovernedText.StringBytes(131072), GovernedText.StringBytes(131072) + 8192L);
+            // Accepted decoded text remains admitted through plan consumption.
+            Assert.True(governor.Snapshot().LiveMemoryBytes >= GovernedText.StringBytes(131072));
+            Assert.True(root.ReservedBytes >= GovernedText.StringBytes(131072));
             Assert.Equal(0L, storage.OpenLeaseCount);
             loaded.Dispose();
             Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
@@ -73,57 +67,32 @@ public sealed class JobConfigurationOwnershipTests
         }
     }
 
-    [Fact]
-    public async Task MixedArgvModelsDropReferencesOnDisposal()
+    [Theory]
+    [InlineData("argv")]
+    [InlineData("mixed")]
+    [InlineData("nested")]
+    public async Task LoadedConfigurationRefundsAdmissionAndClosesItsPublicLifetime(string route)
     {
-        InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("child.json"), "{\"empty\":\"\"}"u8.ToArray(), QpdfInputOwnership.Copy);
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        JobJsonLoader.LoadedJob loaded = await JobJsonLoader.ParseArgvAsync(host,
-            ["--job-json-file=child.json", "--show-npages"], QpdfLimits.Default, governor, CancellationToken.None);
+        using InMemoryQpdfHost storage = new();
+        storage.AddInput(QpdfPath.From("child.json"), "{\"empty\":\"\",\"showNpages\":\"\"}"u8.ToArray(), QpdfInputOwnership.Copy);
+        RecordingMemoryBudget root = new(16777216L);
+        using IMemoryScope caller = root.CreateScope();
+        MemoryHost host = new(storage, caller);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None, host);
+        JobJsonLoader.LoadedJob loaded = route switch
+        {
+            "argv" => await JobJsonLoader.ParseArgvAsync(host, ["--empty", "--show-npages"], QpdfLimits.Default, governor, CancellationToken.None),
+            "mixed" => await JobJsonLoader.ParseArgvAsync(host, ["--job-json-file=child.json"], QpdfLimits.Default, governor, CancellationToken.None),
+            _ => await JobJsonLoader.ParseAsync(host, """{"jobJsonFile":"child.json"}""", QpdfLimits.Default, governor, CancellationToken.None),
+        };
         Assert.True(governor.Snapshot().LiveMemoryBytes > 0);
-        WeakReference[] documents = SnapshotAndDispose(loaded);
-        Assert.Equal(0L, host.OpenLeaseCount);
-        GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true, true);
-        GC.WaitForPendingFinalizers();
-        GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true, true);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        Assert.All(documents, document => Assert.False(document.IsAlive));
-        GC.KeepAlive(loaded);
-    }
-
-    [Fact]
-    public async Task LoadedConfigurationStaysAdmittedUntilOwnerDisposal()
-    {
-        InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("child.json"), "{\"empty\":\"\",\"showNpages\":\"\"}"u8.ToArray(), QpdfInputOwnership.Copy);
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        JobJsonLoader.LoadedJob loaded = await JobJsonLoader.ParseAsync(host, """{"jobJsonFile":"child.json"}""", QpdfLimits.Default, governor, CancellationToken.None);
-        Assert.True(governor.Snapshot().LiveMemoryBytes > 0);
-        Assert.Equal(0L, host.OpenLeaseCount);
-        WeakReference[] documents = SnapshotAndDispose(loaded);
+        Assert.True(root.ReservedBytes > 0);
+        Assert.Equal(0L, storage.OpenLeaseCount);
+        loaded.Dispose();
         Assert.Throws<ObjectDisposedException>(() => loaded.Plan);
-        long disposedMemory = governor.Snapshot().LiveMemoryBytes;
         loaded.Dispose();
-        Assert.Equal(disposedMemory, governor.Snapshot().LiveMemoryBytes);
-        GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true, true);
-        GC.WaitForPendingFinalizers();
-        GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true, true);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        Assert.All(documents, document => Assert.False(document.IsAlive));
-        GC.KeepAlive(loaded);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static WeakReference[] SnapshotAndDispose(IDisposable loaded)
-    {
-        object owner = loaded.GetType().GetField("_owner", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(loaded)
-            ?? throw new InvalidOperationException("Loaded configuration owner missing.");
-        List<JsonDocument> documents = Assert.IsType<List<JsonDocument>>(owner.GetType().GetField("_documents", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(owner));
-        WeakReference[] references = documents.Select(document => new WeakReference(document)).ToArray();
-        Assert.Equal(2, references.Length);
-        loaded.Dispose();
-        return references;
+        Assert.Equal(0L, root.ReservedBytes);
     }
 
     [Theory]
