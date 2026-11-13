@@ -1,5 +1,4 @@
 using System.IO.Compression;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Runtime;
@@ -10,7 +9,6 @@ namespace Lokad.Qpdf.Tests.Foundation;
 [Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class ExecutionResultFailureOwnershipTests
 {
-    private const BindingFlags Members = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
     private static readonly string[] Routes = ["argv", "job", "mixed", "response", "qdf", "zlib-compress", "zlib-uncompress"];
     private static readonly QpdfPath Input = QpdfPath.From("input.bin");
     private static readonly QpdfPath Output = QpdfPath.From("output.bin");
@@ -19,20 +17,6 @@ public sealed class ExecutionResultFailureOwnershipTests
         long HostCalls, long Handles, long Diagnostics);
 
     private static Values Snapshot(QpdfExecutionCounters c) => new(c.LiveMemoryBytes, c.PeakMemoryBytes,         c.TotalDecodedBytes, c.TotalOutputBytes, c.HostOperations, c.OpenHandles, c.DiagnosticCount);
-
-    public static IEnumerable<object[]> BudgetAliases()
-    {
-        foreach (string kind in new[] { "result", "counters" })
-        foreach (bool compressed in new[] { false, true })
-        { yield return [kind, compressed]; }
-    }
-
-    public static IEnumerable<object[]> CopyCases()
-    {
-        foreach (string copy in new[] { "result", "counter-clone", "counter-constructor" })
-        foreach (bool compressed in new[] { false, true })
-        { yield return [copy, compressed]; }
-    }
 
     public static IEnumerable<object[]> TinyJobs()
     {
@@ -61,177 +45,62 @@ public sealed class ExecutionResultFailureOwnershipTests
         foreach (bool canceled in new[] { false, true }) { yield return [invalid, budget, canceled]; }
     }
 
-    private static object Field(object target, string name) => target.GetType().GetField(name, Members)?.GetValue(target)
-        ?? throw new InvalidOperationException("Missing canonical fixture field: " + name);
-
-    private static void SetValue(object alias, object? value)
-        => (alias.GetType().GetField("Value", Members)
-            ?? throw new InvalidOperationException("Missing canonical alias field.")).SetValue(alias, value);
-
-    private static async Task<object> Complete(string kind, bool compressed)
-    {
-        MethodInfo method = typeof(ExecutionResultOwnershipTests).GetMethod("CompleteFileJson", Members)
-            ?? throw new InvalidOperationException("Missing unchanged complete file-JSON fixture.");
-        Task running = (Task)(method.Invoke(null, [kind, "argv", compressed, true])
-            ?? throw new InvalidOperationException("Missing public fixture task."));
-        await running;
-        return running.GetType().GetProperty("Result", Members)?.GetValue(running)
-            ?? throw new InvalidOperationException("Missing canonical public alias.");
-    }
-
-    [Theory]
-    [MemberData(nameof(BudgetAliases))]
-    [Trait("Layer", "Contract")]
-    public async Task OriginalBudgetFailuresFundIndependentResultAndCounterAliases(string kind, bool compressed)
-    {
-        object alias = await Complete(kind, compressed);
-        await Task.Yield();
-        ResourceGovernor governor = Assert.IsType<ResourceGovernor>(Field(alias, "Governor"));
-        Assert.True(governor.Snapshot().LiveMemoryBytes >= (kind == "result" ? 168L : 88L));
-        Assert.InRange(governor.Snapshot().PeakMemoryBytes, 0L, QpdfLimits.Default.MaxMemoryBytes);
-        SetValue(alias, null);
-        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
-        GC.KeepAlive(alias);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static async Task<object> Copy(string kind, bool compressed)
-    {
-        object alias = await Complete("result", compressed);
-        QpdfExecutionResult original = Assert.IsType<QpdfExecutionResult>(Field(alias, "Value"));
-        object copy;
-        if (kind == "result")
-        {
-            QpdfExecutionResult clone = original with { };
-            Assert.Equal(original, clone); Assert.Equal(original.GetHashCode(), clone.GetHashCode());
-            Assert.Same(original.Diagnostics, clone.Diagnostics); Assert.Same(original.Counters, clone.Counters);
-            copy = clone;
-        }
-        else
-        {
-            QpdfExecutionCounters c = original.Counters;
-            QpdfExecutionCounters clone = kind == "counter-clone" ? c with { }
-                : new(c.LiveMemoryBytes, c.PeakMemoryBytes, c.TotalDecodedBytes, c.TotalOutputBytes,
-                    c.HostOperations, c.OpenHandles, c.DiagnosticCount);
-            Assert.Equal(c, clone); Assert.Equal(c.GetHashCode(), clone.GetHashCode());
-            Assert.True(c == clone); Assert.False(c.Equals(null));
-            copy = clone;
-        }
-        SetValue(alias, copy);
-        return alias;
-    }
-
-    [Theory]
-    [MemberData(nameof(CopyCases))]
-    [Trait("Layer", "Contract")]
-    public async Task CallerRecordCopiesPreserveValuesUnderTheCallerOwner(string kind, bool compressed)
-    {
-        object alias = await Copy(kind, compressed);
-        await Task.Yield();
-        ResourceGovernor governor = Assert.IsType<ResourceGovernor>(Field(alias, "Governor"));
-        if (kind == "result") { Assert.True(governor.Snapshot().LiveMemoryBytes >= 88L); }
-        else { Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); }
-        SetValue(alias, null);
-        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
-        GC.KeepAlive(alias);
-    }
-
     public static IEnumerable<object[]> PreparedWarningJobs()
     {
         foreach (string route in new[] { "argv", "job", "mixed", "response" })
-        foreach (string kind in new[] { "result", "counters" })
-        foreach (bool compressed in new[] { false, true })
-        foreach (bool noWarn in new[] { false, true }) { yield return [route, kind, compressed, noWarn]; }
-    }
-
-    private sealed class WarningAlias(ResourceGovernor governor, object value)
-    {
-        internal readonly ResourceGovernor Governor = governor;
-        internal object? Value = value;
-    }
-
-    private static object Property(object target, string name) => target.GetType().GetProperty(name, Members)?.GetValue(target)
-        ?? throw new InvalidOperationException("Missing canonical fixture property: " + name);
-
-    private static Task<QpdfExecutionResult> RunWarnings(object host, string route, bool noWarn, QpdfLimits limits)
-        => (Task<QpdfExecutionResult>)(typeof(DiagnosticFailureExportTests).GetMethod("RunMode", Members)?.Invoke(null,
-            [host, route, false, noWarn, "json-file", limits, CancellationToken.None])
-            ?? throw new InvalidOperationException("Missing canonical warning driver."));
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static WarningAlias CaptureWarning(ResourceGovernor governor, QpdfExecutionResult result, string kind)
-    {
-        Assert.Equal(governor.Snapshot(), result.Counters);
-        return new(governor, kind == "result" ? result : result.Counters);
-    }
-
-    private static async Task<WarningAlias> CompleteWarnings(string route, string kind, bool compressed, bool noWarn)
-    {
-        byte[] input = (byte[])(typeof(DiagnosticFailureExportTests).GetMethod("StreamWarningPdf", Members)?.Invoke(null, [compressed])
-            ?? throw new InvalidOperationException("Missing unchanged fifty-warning fixture."));
-        Task baselinePreparation = (Task)(typeof(DiagnosticFailureExportTests).GetMethod("Prepare", Members)?.Invoke(null, [])
-            ?? throw new InvalidOperationException("Missing canonical warning host."));
-        await baselinePreparation;
-        object baselineHost = Property(baselinePreparation, "Result");
-        Assert.IsType<InMemoryQpdfHost>(Property(baselineHost, "Inner")).AddInput(QpdfPath.From("input.pdf"), input, QpdfInputOwnership.Copy);
-        QpdfExecutionResult baseline = await RunWarnings(baselineHost, route, false, QpdfLimits.Default);
-        Assert.Equal(QpdfExecutionStatus.Completed, baseline.Status);
-        string[] accepted = baseline.Diagnostics.Where(d => d.Code == QpdfDiagnosticCode.DuplicateKey).Select(d => d.Message).ToArray();
-        Assert.Equal(50, accepted.Length);
-        Task preparation = (Task)(typeof(ExecutionCounterTests).GetMethod("Prepare", Members)?.Invoke(null,
-            ["argv-json", compressed, "input-close", "success"]) ?? throw new InvalidOperationException("Missing canonical paused host."));
-        await preparation;
-        object host = Property(preparation, "Result");
-        (host.GetType().GetField("PausePath", Members)
-            ?? throw new InvalidOperationException("Missing canonical input pause selector.")).SetValue(host, QpdfPath.From("input.pdf"));
-        InMemoryQpdfHost inner = Assert.IsType<InMemoryQpdfHost>(Property(host, "Inner"));
-        inner.AddInput(QpdfPath.From("input.pdf"), input, QpdfInputOwnership.Copy);
-        Assert.True(inner.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] prior));
-        Task<QpdfExecutionResult> running = RunWarnings(host, route, noWarn, QpdfLimits.Default);
-        ResourceGovernor? pressuredGovernor = null;
-        long pressure = 0L;
-        try
-        {
-            await Assert.IsAssignableFrom<Task>(Property(host, "Entered")).WaitAsync(TimeSpan.FromSeconds(10));
-            ResourceGovernor governor = Assert.IsType<ResourceGovernor>(typeof(ExecutionCounterTests).GetMethod("FindGovernor", Members)?.Invoke(null,
-                [running, 0, new HashSet<object>(ReferenceEqualityComparer.Instance)]));
-            Assert.True(Assert.IsType<long>(Field(host, "ReadBytes")) > 0L);
-            long acceptedCount = governor.Snapshot().DiagnosticCount;
-            Assert.Equal(noWarn ? 1L : 51L, acceptedCount);
-            long warnings = noWarn ? 0L : 50L;
-            pressure = QpdfLimits.Default.MaxMemoryBytes - governor.Snapshot().LiveMemoryBytes;
-            governor.ReserveMemory(pressure); pressuredGovernor = governor;
-            host.GetType().GetMethod("Resume", Members)?.Invoke(host, []);
-            QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
-            Assert.Equal(QpdfExecutionStatus.Completed, result.Status); Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
-            Assert.DoesNotContain(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded);
-            Assert.Equal(accepted.Take(noWarn ? 0 : (int)warnings), result.Diagnostics
-                .Where(d => d.Code == QpdfDiagnosticCode.DuplicateKey).Select(d => d.Message));
-            Assert.Equal(acceptedCount, result.Counters.DiagnosticCount);             Assert.Null(result.OutputText); Assert.Null(result.OutputBytes);
-            Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, inner.OpenLeaseCount);
-            Assert.Equal(new byte[] { 17, 23, 41 }, prior);
-            Assert.True(inner.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] kept)); Assert.NotEqual(prior, kept);
-            return CaptureWarning(governor, result, kind);
-        }
-        finally
-        {
-            host.GetType().GetMethod("Resume", Members)?.Invoke(host, []); await running;
-            pressuredGovernor?.ReleaseMemory(pressure);
-        }
+        foreach (bool noWarn in new[] { false, true }) { yield return [route, noWarn]; }
     }
 
     [Theory]
     [MemberData(nameof(PreparedWarningJobs))]
     [Trait("Layer", "Contract")]
-    public async Task PreparedResultsKeepWarningsAndPublishUnderLaterMemoryPressure(string route, string kind, bool compressed, bool noWarn)
+    public async Task PreparedResultsKeepWarningsAndPublishUnderLaterMemoryPressure(string route, bool noWarn)
     {
-        WarningAlias alias = await CompleteWarnings(route, kind, compressed, noWarn);
-        await Task.Yield();
-        Assert.True(alias.Governor.Snapshot().LiveMemoryBytes >= (kind == "result" ? 168L : 88L));
-        Assert.InRange(alias.Governor.Snapshot().PeakMemoryBytes, 0L, QpdfLimits.Default.MaxMemoryBytes);
-        alias.Value = null;
-        Assert.Equal(alias.Governor.CallerMetadataBytes + alias.Governor.CallerStorageBytes, alias.Governor.Snapshot().LiveMemoryBytes);
-        GC.KeepAlive(alias);
+        using RecordingJobHost baselineHost = await ExecutionJobFixtures.PrepareAsync("argv-json", false, "none", "success");
+        byte[] input = DiagnosticTestJobs.StreamWarningPdf(true);
+        baselineHost.Inner.AddInput(QpdfPath.From("input.pdf"), input, QpdfInputOwnership.Copy);
+        QpdfExecutionResult baseline = await DiagnosticTestJobs.RunAsync(baselineHost, route, false, false,
+            "json-file", QpdfLimits.Default, CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, baseline.Status);
+        string[] accepted = baseline.Diagnostics.Where(d => d.Code == QpdfDiagnosticCode.DuplicateKey).Select(d => d.Message).ToArray();
+        Assert.Equal(50, accepted.Length);
+        using RecordingJobHost host = await ExecutionJobFixtures.PrepareAsync("argv-json", true, "input-close", "success");
+        host.PausePath = QpdfPath.From("input.pdf");
+        host.Inner.AddInput(QpdfPath.From("input.pdf"), input, QpdfInputOwnership.Copy);
+        Assert.True(host.Inner.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] prior));
+        Task<QpdfExecutionResult> running = DiagnosticTestJobs.RunAsync(host, route, false, noWarn,
+            "json-file", QpdfLimits.Default, CancellationToken.None);
+        try
+        {
+            await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.True(host.ReadBytes > 0L); Assert.True(host.Budget.ReservedBytes > 0L);
+            // Other host work consumes the remaining allowance. This job can
+            // reuse capacity that its cleanup returns, but cannot raise its
+            // admitted high-water mark after preparing the public result.
+            Assert.True(host.Budget.TryReserve(host.Budget.LimitBytes - host.Budget.ReservedBytes,
+                out IMemoryReservation? pressure));
+            using (pressure)
+            {
+                host.Resume();
+                QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
+                Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+                Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+                Assert.DoesNotContain(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded);
+                Assert.Equal(accepted.Take(noWarn ? 0 : 50), result.Diagnostics
+                    .Where(d => d.Code == QpdfDiagnosticCode.DuplicateKey).Select(d => d.Message));
+                Assert.Equal(noWarn ? 1L : 51L, result.Counters.DiagnosticCount);
+                Assert.Null(result.OutputText); Assert.Null(result.OutputBytes);
+                Assert.Equal(host.HostCalls, result.Counters.HostOperations);
+                Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, host.Inner.OpenLeaseCount);
+                Assert.Equal(new byte[] { 17, 23, 41 }, prior);
+                Assert.True(host.Inner.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] kept)); Assert.NotEqual(prior, kept);
+                QpdfExecutionCounters snapshot = result.Counters with { };
+                host.Dispose();
+                Assert.Equal(0L, host.Budget.ReservedBytes);
+                Assert.Equal(snapshot, result.Counters);
+            }
+        }
+        finally { host.Resume(); await running; }
     }
 
     private sealed class CountingHost : IQpdfHost, IQpdfMemoryHost

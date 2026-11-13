@@ -18,8 +18,7 @@ public sealed class CheckCollectionOwnershipTests
 
     private static byte[] Fixture(bool compressed, bool failed)
     {
-        byte[] bytes = (byte[])(typeof(PdfVersionOwnershipTests).GetMethod("DocumentBytes", Members)?.Invoke(null,
-            [compressed, "none"]) ?? throw new InvalidOperationException("Missing preserved checker fixture."));
+        byte[] bytes = ExecutionJobFixtures.DocumentBytes(compressed, "none");
         Assert.Equal(compressed ? "188B9906AC757763AD2F807238C8CC94216FD7E019F438F4DEE552113E6B4C0F"
             : "4A615306E948AA4AB466A6B75CDBA752468741AA6703DDAEC2712FB72D356849",
             Convert.ToHexString(SHA256.HashData(bytes)));

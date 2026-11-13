@@ -21,8 +21,7 @@ public sealed class DocumentWarningSnapshotTests
 
     private static byte[] OriginalFixture(bool compressed)
     {
-        byte[] bytes = (byte[])(typeof(PdfVersionOwnershipTests).GetMethod("DocumentBytes", Members)?.Invoke(null,
-            [compressed, "none"]) ?? throw new InvalidOperationException("Missing preserved public fixture."));
+        byte[] bytes = ExecutionJobFixtures.DocumentBytes(compressed, "none");
         ReadOnlySpan<byte> marker = "/Count 1"u8;
         int at = bytes.AsSpan().IndexOf(marker);
         Assert.True(at >= 0);

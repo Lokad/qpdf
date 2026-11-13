@@ -28,8 +28,7 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
 
     private static byte[] Fixture(bool compressed)
     {
-        byte[] bytes = (byte[])(typeof(PdfVersionOwnershipTests).GetMethod("DocumentBytes", Members)?.Invoke(null, [compressed, "none"])
-            ?? throw new InvalidOperationException("Missing preserved selection fixture."));
+        byte[] bytes = ExecutionJobFixtures.DocumentBytes(compressed, "none");
         int at = bytes.AsSpan().IndexOf("/Count 1"u8);
         Assert.True(at >= 0); bytes[at + 7] = (byte)'2';
         Assert.Equal(compressed ? "6CADFAF14B1B13BEAF037018E714711F256561B7A83C36373FCBBEAF81C6987C"
