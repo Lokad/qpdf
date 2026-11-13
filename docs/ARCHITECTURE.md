@@ -51,6 +51,8 @@ coordinates primary-source policy, per-input credentials and split occurrences.
 Page, label and attachment assembly share their graph helpers with inspection
 projection. `OutputPublication` owns identifier preparation, serializers and staged
 captures; split captures finish before any target commits.
+Counting, identifier replay and final bytes share `OutputSerialization` format
+dispatch while keeping their transaction and buffer lifetimes separate.
 Job execution translates exceptions once at its enclosing result/presentation
 boundary. The governor coordinates result admission and completion with the same
 coarse storage owner, keeping all result capacity available before publication.

@@ -135,6 +135,8 @@ internal static class OutputPublication
             throw new QpdfParseException("The first-pass output must differ from every main PDF output.", null, null);
         }
 
+        OutputSerialization serialization = new(version, model, objectStreamGroups, compressHints,
+            compressionLevel, infoRef, newlineBeforeEndstream, QdfOptions.Disabled, null);
         Writing.LinearizedWriter writer = security is null ? new(limits, governor)
             : new(limits, governor, security, encryptionObject, metadataObject);
         byte[] id1;
@@ -151,14 +153,7 @@ internal static class OutputPublication
             Writing.LinearizedWriter probe = writer;
             using IdentifierHashSink memory = IdentifierHashSink.Create(limits, governor, cancellationToken);
             using BatchingSink hashed = BatchingSink.Create(memory, limits, governor, cancellationToken);
-            if (objectStreamGroups is not null && objectStreamGroups.Count > 0)
-            {
-                await probe.WriteLinearizedStreamedAsync(version, model, objectStreamGroups, infoRef, placeholderId1, placeholderId2, newlineBeforeEndstream, compressHints, compressionLevel, hashed, null, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                await probe.WriteLinearizedAsync(version, model, infoRef, placeholderId1, placeholderId2, newlineBeforeEndstream, compressHints, compressionLevel, hashed, null, cancellationToken).ConfigureAwait(false);
-            }
+            await serialization.WriteLinearizedAsync(probe, placeholderId1, placeholderId2, hashed, null, cancellationToken).ConfigureAwait(false);
             await hashed.FlushAsync(cancellationToken).ConfigureAwait(false);
             byte[] digest = memory.Complete(cancellationToken);
             id2 = digest;
@@ -169,30 +164,9 @@ internal static class OutputPublication
         await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
         TransactionSink destination = new(transaction, governor, staging, limits);
         using BatchingSink sink = BatchingSink.Create(destination, limits, governor, cancellationToken);
-        if (objectStreamGroups is not null && objectStreamGroups.Count > 0)
-        {
-            if (linearizePass1 is null)
-            {
-                await writer.WriteLinearizedStreamedAsync(version, model, objectStreamGroups, infoRef, id1, id2, newlineBeforeEndstream, compressHints, compressionLevel, sink, null, cancellationToken).ConfigureAwait(false);
-                await sink.FlushAsync(cancellationToken).ConfigureAwait(false);
-                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-                return;
-            }
-
-            await using IQpdfOutputTransaction streamedPass1 = await GovernedHost.CreateOutputAsync(host, linearizePass1.Value, governor, cancellationToken).ConfigureAwait(false);
-            TransactionSink streamedPass1Destination = new(streamedPass1, governor);
-            using BatchingSink streamedPass1Sink = BatchingSink.Create(streamedPass1Destination, limits, governor, cancellationToken);
-            await writer.WriteLinearizedStreamedAsync(version, model, objectStreamGroups, infoRef, id1, id2, newlineBeforeEndstream, compressHints, compressionLevel, sink, streamedPass1Sink, cancellationToken).ConfigureAwait(false);
-            await sink.FlushAsync(cancellationToken).ConfigureAwait(false);
-            await streamedPass1Sink.FlushAsync(cancellationToken).ConfigureAwait(false);
-            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-            await streamedPass1.CommitAsync(cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
         if (linearizePass1 is null)
         {
-            await writer.WriteLinearizedAsync(version, model, infoRef, id1, id2, newlineBeforeEndstream, compressHints, compressionLevel, sink, null, cancellationToken).ConfigureAwait(false);
+            await serialization.WriteLinearizedAsync(writer, id1, id2, sink, null, cancellationToken).ConfigureAwait(false);
             await sink.FlushAsync(cancellationToken).ConfigureAwait(false);
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
             return;
@@ -201,7 +175,7 @@ internal static class OutputPublication
         await using IQpdfOutputTransaction pass1Transaction = await GovernedHost.CreateOutputAsync(host, linearizePass1.Value, governor, cancellationToken).ConfigureAwait(false);
         TransactionSink pass1Destination = new(pass1Transaction, governor);
         using BatchingSink pass1Sink = BatchingSink.Create(pass1Destination, limits, governor, cancellationToken);
-        await writer.WriteLinearizedAsync(version, model, infoRef, id1, id2, newlineBeforeEndstream, compressHints, compressionLevel, sink, pass1Sink, cancellationToken).ConfigureAwait(false);
+        await serialization.WriteLinearizedAsync(writer, id1, id2, sink, pass1Sink, cancellationToken).ConfigureAwait(false);
         await sink.FlushAsync(cancellationToken).ConfigureAwait(false);
         await pass1Sink.FlushAsync(cancellationToken).ConfigureAwait(false);
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
@@ -228,20 +202,10 @@ internal static class OutputPublication
         IdentifierHashSink? identifiers,
         bool deriveFirstId, PdfSerializer serializer)
     {
+        OutputSerialization serialization = new(version, model, objectStreamGroups, compressStreams,
+            compressionLevel, infoRef, newlineBeforeEndstream, qdf, originalIds);
         CountingSink counter = new();
-        long counted;
-        if (qdf.Enabled)
-        {
-            counted = await serializer.SerializeQdfAsync(version, model, objectStreamGroups, originalIds, infoRef, id1, id2, qdf, newlineBeforeEndstream, counter, cancellationToken).ConfigureAwait(false);
-        }
-        else if (objectStreamGroups is null || objectStreamGroups.Count == 0)
-        {
-            counted = await serializer.SerializeAsync(version, model, infoRef, id1, id2, newlineBeforeEndstream, counter, cancellationToken).ConfigureAwait(false);
-        }
-        else
-        {
-            counted = await serializer.SerializeStreamedAsync(version, model, objectStreamGroups, compressStreams, compressionLevel, infoRef, id1, id2, newlineBeforeEndstream, counter, cancellationToken).ConfigureAwait(false);
-        }
+        long counted = await serialization.WriteAsync(serializer, id1, id2, counter, cancellationToken).ConfigureAwait(false);
         if (counted > limits.MaxOutputBytes)
         {
             throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), counted, limits.MaxOutputBytes);
@@ -275,18 +239,8 @@ internal static class OutputPublication
                     sink, cancellationToken).ConfigureAwait(false);
                 written = sink.Length;
             }
-            else if (qdf.Enabled)
-            {
-                written = await serializer.SerializeQdfAsync(version, model, objectStreamGroups, originalIds, infoRef, id1, id2, qdf, newlineBeforeEndstream, sink, cancellationToken).ConfigureAwait(false);
-            }
-            else if (objectStreamGroups is null || objectStreamGroups.Count == 0)
-            {
-                written = await serializer.SerializeAsync(version, model, infoRef, id1, id2, newlineBeforeEndstream, sink, cancellationToken).ConfigureAwait(false);
-            }
             else
-            {
-                written = await serializer.SerializeStreamedAsync(version, model, objectStreamGroups, compressStreams, compressionLevel, infoRef, id1, id2, newlineBeforeEndstream, sink, cancellationToken).ConfigureAwait(false);
-            }
+            { written = await serialization.WriteAsync(serializer, id1, id2, sink, cancellationToken).ConfigureAwait(false); }
             if (written != counted)
             {
                 throw new QpdfException($"Writer replay mismatch: counted {counted} bytes but wrote {written}.");
@@ -360,18 +314,9 @@ internal static class OutputPublication
         PdfSerializer probe = serializer;
         using IdentifierHashSink memory = IdentifierHashSink.Create(limits, governor, cancellationToken);
         using BatchingSink hashed = BatchingSink.Create(memory, limits, governor, cancellationToken);
-        if (qdf.Enabled)
-        {
-            await probe.SerializeQdfAsync(version, model, objectStreamGroups, originalIds, infoRef, placeholderId1, placeholderId2, qdf, newlineBeforeEndstream, hashed, cancellationToken).ConfigureAwait(false);
-        }
-        else if (objectStreamGroups is null || objectStreamGroups.Count == 0)
-        {
-            await probe.SerializeAsync(version, model, infoRef, placeholderId1, placeholderId2, newlineBeforeEndstream, hashed, cancellationToken).ConfigureAwait(false);
-        }
-        else
-        {
-            await probe.SerializeStreamedAsync(version, model, objectStreamGroups, compressStreams, compressionLevel, infoRef, placeholderId1, placeholderId2, newlineBeforeEndstream, hashed, cancellationToken).ConfigureAwait(false);
-        }
+        OutputSerialization serialization = new(version, model, objectStreamGroups, compressStreams,
+            compressionLevel, infoRef, newlineBeforeEndstream, qdf, originalIds);
+        await serialization.WriteAsync(probe, placeholderId1, placeholderId2, hashed, cancellationToken).ConfigureAwait(false);
         await hashed.FlushAsync(cancellationToken).ConfigureAwait(false);
         hashed.Dispose();
         byte[] digest = memory.Complete(cancellationToken);
@@ -524,35 +469,20 @@ internal static class OutputPublication
         using BatchingSink buffered = BatchingSink.Create(counter, limits, governor, cancellationToken);
         using BatchingSink? bufferedFirstPass = firstPass is null ? null
             : BatchingSink.Create(firstPass, limits, governor, cancellationToken);
+        OutputSerialization serialization = new(version, model, objectStreams, compressStreams,
+            compressionLevel, infoRef, newlineBeforeEndstream, qdf, originalIds);
         if (linearize)
         {
             LinearizedWriter writer = security is null ? new(limits, governor)
                 : new(limits, governor, security, encryptionObject, metadataObject);
-            if (objectStreams is not null && objectStreams.Count > 0)
-            {
-                await writer.WriteLinearizedStreamedAsync(version, model, objectStreams, infoRef, id1, id2,
-                    newlineBeforeEndstream, compressStreams, compressionLevel, buffered, bufferedFirstPass, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                await writer.WriteLinearizedAsync(version, model, infoRef, id1, id2, newlineBeforeEndstream,
-                    compressStreams, compressionLevel, buffered, bufferedFirstPass, cancellationToken).ConfigureAwait(false);
-            }
+            await serialization.WriteLinearizedAsync(writer, id1, id2, buffered, bufferedFirstPass, cancellationToken).ConfigureAwait(false);
         }
         else
         {
             PdfSerializer serializer = CreatePublicationSerializer(limits, governor, model, security, encryptionObject, metadataObject, memory);
-            if (qdf.Enabled)
-            { await serializer.SerializeQdfAsync(version, model, objectStreams, originalIds, infoRef, id1, id2,
-                qdf, newlineBeforeEndstream, buffered, cancellationToken).ConfigureAwait(false); }
-            else if (objectStreams is null || objectStreams.Count == 0)
-            { await serializer.SerializeAsync(version, model, infoRef, id1, id2, newlineBeforeEndstream,
-                buffered, cancellationToken).ConfigureAwait(false); }
-            else
-            { await serializer.SerializeStreamedAsync(version, model, objectStreams, compressStreams,
-                compressionLevel, infoRef, id1, id2, newlineBeforeEndstream, buffered, cancellationToken).ConfigureAwait(false); }
+            await serialization.WriteAsync(serializer, id1, id2, buffered, cancellationToken).ConfigureAwait(false);
         }
-        // Identifiers, publication lengths and segment counts are consumed by
+        // Identifiers and publication lengths are consumed by
         // the caller only after both captures contain their complete bytes.
         await buffered.FlushAsync(cancellationToken).ConfigureAwait(false);
         if (bufferedFirstPass is not null)
