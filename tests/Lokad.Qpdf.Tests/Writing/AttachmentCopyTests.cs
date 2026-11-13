@@ -115,7 +115,7 @@ public sealed class AttachmentCopyTests
         return output;
     }
 
-    private static byte[] SourceFixture()
+    internal static byte[] SourceFixture()
     {
         return BuildPdf(
             " /Names 6 0 R",
