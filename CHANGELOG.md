@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased — 0.2.0-dev.1
+## Unreleased — 0.2.0-dev.2
+
+- Correct package description and release notes to describe the implemented
+  password-security, signed-page and host-codec contracts. Package checks reject
+  the obsolete blanket security exclusion in the built manifest.
 
 - Support Standard password security R2–R6 through the shared typed, argv and job
   pipelines, including legitimate empty passwords and non-secret encryption facts.

@@ -4,17 +4,17 @@
     "net10.0": {
       "Lokad.qpdf": {
         "type": "Direct",
-        "requested": "[0.2.0-dev.1, )",
-        "resolved": "0.2.0-dev.1",
-        "contentHash": "nJ9BYxlhsRPX7lnrobyzpGamEcgGhRAZTW0wOmvFvfTFxtUJZ29PRCRW9yQgF6Jw7FTsS+EZrbepF+05DImCuQ=="
+        "requested": "[0.2.0-dev.2, )",
+        "resolved": "0.2.0-dev.2",
+        "contentHash": "wKLo+o13ef1l8RTmzOchapKxKVviAkFvEFn4L2fxV6aUUydOTpboZD9Of37jYohemzbadt/TlLKj04wKpYGELQ=="
       }
     },
     "net11.0": {
       "Lokad.qpdf": {
         "type": "Direct",
-        "requested": "[0.2.0-dev.1, )",
-        "resolved": "0.2.0-dev.1",
-        "contentHash": "nJ9BYxlhsRPX7lnrobyzpGamEcgGhRAZTW0wOmvFvfTFxtUJZ29PRCRW9yQgF6Jw7FTsS+EZrbepF+05DImCuQ=="
+        "requested": "[0.2.0-dev.2, )",
+        "resolved": "0.2.0-dev.2",
+        "contentHash": "wKLo+o13ef1l8RTmzOchapKxKVviAkFvEFn4L2fxV6aUUydOTpboZD9Of37jYohemzbadt/TlLKj04wKpYGELQ=="
       }
     }
   }

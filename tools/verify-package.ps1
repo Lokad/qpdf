@@ -35,6 +35,10 @@ try {
     try { [xml] $manifest = $reader.ReadToEnd() } finally { $reader.Dispose() }
     $metadata = $manifest.SelectSingleNode('/*[local-name()="package"]/*[local-name()="metadata"]')
     if ($metadata.id -cne 'Lokad.qpdf') { throw 'Incorrect package ID.' }
+    if ($metadata.description -notmatch 'R2.R6' -or $metadata.releaseNotes -notmatch 'AES-256 R6' -or
+        ($metadata.description + ' ' + $metadata.releaseNotes) -match 'non-cryptographic|Password encryption remains unsupported') {
+        throw 'Package metadata must describe supported password security.'
+    }
     $dependencies = @($metadata.SelectNodes('*[local-name()="dependencies"]//*[local-name()="dependency"]'))
     if ($dependencies.Count -ne 0) {
         throw 'The core package must have no runtime package dependencies.'

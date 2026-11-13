@@ -62,6 +62,29 @@ $lock.dependencies.Remove('net11.0')
 [System.IO.File]::WriteAllText($testLockPath, ($lock | ConvertTo-Json -Depth 30) + "`n")
 Assert-Rejection 'missing-framework-lock' 'Expected the reviewed net10.0/net11.0 consumer lock' $verifier $resolvedPackage
 
+# A valid package boundary must not conceal the previous release's false description.
+foreach ($field in @('description', 'releaseNotes')) {
+    $directory = Join-Path $testRoot "stale-$field"
+    New-Item -ItemType Directory -Path $directory | Out-Null
+    $artifact = Join-Path $directory ([IO.Path]::GetFileName($resolvedPackage))
+    Copy-Item -LiteralPath $resolvedPackage -Destination $artifact
+    Copy-Item -LiteralPath ([IO.Path]::ChangeExtension($resolvedPackage, '.snupkg')) `
+        -Destination ([IO.Path]::ChangeExtension($artifact, '.snupkg'))
+    $archive = [IO.Compression.ZipFile]::Open($artifact, [IO.Compression.ZipArchiveMode]::Update)
+    try {
+        $entry = $archive.GetEntry('Lokad.qpdf.nuspec')
+        $reader = [IO.StreamReader]::new($entry.Open())
+        try { [xml] $manifest = $reader.ReadToEnd() } finally { $reader.Dispose() }
+        $node = $manifest.SelectSingleNode("//*[local-name()='metadata']/*[local-name()='$field']")
+        $node.InnerText = if ($field -eq 'description') { 'qpdf non-cryptographic subset' } else { 'Password encryption remains unsupported.' }
+        $entry.Delete()
+        $stream = $archive.CreateEntry('Lokad.qpdf.nuspec').Open()
+        try { $manifest.Save($stream) } finally { $stream.Dispose() }
+    } finally { $archive.Dispose() }
+    Assert-Rejection "stale-$field" 'Package metadata must describe supported password security' `
+        (Join-Path $PSScriptRoot 'verify-package.ps1') $artifact
+}
+
 # NuGet accepts either grouped or flat dependencies. Exercise actual artifacts,
 # independently of the copied-lock controls above, against both manifest guards.
 [System.IO.File]::WriteAllText($testLockPath, $seedText)

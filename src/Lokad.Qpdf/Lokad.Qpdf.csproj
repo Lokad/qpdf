@@ -4,11 +4,11 @@
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <PackageId>Lokad.qpdf</PackageId>
     <Title>Lokad.qpdf</Title>
-    <Description>Managed .NET library for splitting, merging, reordering, checking and rewriting PDFs, with no runtime NuGet dependencies. JPEG processing uses a caller-supplied codec. Compatibility target: qpdf 12.4.2, non-cryptographic subset.</Description>
+    <Description>Managed .NET library for splitting, merging, reordering, checking and rewriting PDFs, including Standard password security R2-R6 and signed-page extraction. No runtime NuGet dependencies; JPEG processing uses a caller-supplied codec. Compatibility target: qpdf 12.4.2 structural operations.</Description>
     <Authors>Lokad</Authors>
     <Company>Lokad</Company>
     <Copyright>Copyright (c) 2026 Lokad</Copyright>
-    <Version>0.2.0-dev.1</Version>
+    <Version>0.2.0-dev.2</Version>
     <AssemblyVersion>0.2.0.0</AssemblyVersion>
     <FileVersion>0.2.0.0</FileVersion>
     <RootNamespace>Lokad.Qpdf</RootNamespace>
@@ -17,7 +17,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>Development release: extract and rewrite signed, unencrypted pages while retaining stored appearances and disabling obsolete signature semantics. Signature validity is not preserved. Password encryption remains unsupported. No runtime package dependencies; JPEG processing uses a caller-supplied codec. See docs/SUPPORTED-PROFILE.md and docs/COMPATIBILITY.md.</PackageReleaseNotes>
+    <PackageReleaseNotes>Development release: read Standard password security R2-R6; preserve or remove supported protection, create AES-256 R6, or copy an authenticated template. Extract and rewrite signed pages while retaining stored appearances and disabling obsolete signature semantics; signature validity is not preserved. Caller codecs supply JPEG processing and may opt into CMYK/YCCK decoding; four-component recompression is unavailable. Signing, signature validation, certificate encryption and newly selected weak encryption are excluded. No runtime package dependencies. See docs/SUPPORTED-PROFILE.md and docs/COMPATIBILITY.md for supported policies and limits.</PackageReleaseNotes>
     <PackageTags>pdf;qpdf;structural-processing;embedding;managed</PackageTags>
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
