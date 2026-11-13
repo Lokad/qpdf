@@ -1,9 +1,9 @@
-using System.Reflection;
-using System.Runtime.CompilerServices;
+using Lokad.Qpdf.Commands;
+using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.TestSupport;
 using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Tests.Foundation;
 using Xunit.Abstractions;
 
@@ -16,15 +16,15 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
     private static readonly QpdfPath Output = QpdfPath.From(new string('o', 1024) + ".pdf");
     private static readonly byte[] Prior = [17, 23, 41];
 
-    private sealed class BoundaryHost(string outcome) : IQpdfHost
+    private sealed class BoundaryHost(string outcome) : IQpdfHost, IQpdfMemoryHost, IDisposable
     {
         private readonly string _outcome = outcome;
         internal readonly InMemoryQpdfHost Inner = new();
         private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource _resume = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        internal ResourceGovernor? Governor;
-        internal long ReadMemory;
-        internal long CloseMemory;
+        internal readonly RecordingMemoryBudget Budget = new(64L << 20);
+        public IMemoryBudget MemoryBudget => Budget;
+        public void Dispose() { Inner.Dispose(); Budget.Dispose(); }
         internal int Reads;
         internal int Closes;
         internal int PdfOpens;
@@ -60,7 +60,6 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
                     host.Reads++;
                     host._entered.TrySetResult();
                     await host._resume.Task.WaitAsync(token);
-                    host.ReadMemory = (host.Governor ?? throw new InvalidOperationException("Missing complete-job governor.")).Snapshot().LiveMemoryBytes;
                     if (host._outcome == "read-fault") { throw new QpdfHostException(Path, QpdfHostFailureReason.ReadFailed); }
                     if (host._outcome == "host-cancel") { throw new OperationCanceledException(new CancellationToken(true)); }
                     if (host._outcome == "no-progress") { return 0; }
@@ -75,7 +74,6 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
                     if (Path == Response)
                     {
                         host.Closes++;
-                        host.CloseMemory = (host.Governor ?? throw new InvalidOperationException("Missing complete-job governor.")).Snapshot().LiveMemoryBytes;
                         if (host._outcome == "close-fault") { throw new QpdfHostException(Path, QpdfHostFailureReason.ReadFailed); }
                     }
                 }
@@ -84,23 +82,16 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
         }
     }
 
-    private static ResourceGovernor FindGovernor(Task running)
+    private static async Task<(BoundaryHost Host, QpdfExecutionResult Result, int Length)> Execute(string outcome, bool unicode, string route, QpdfLimits limits)
     {
-        const BindingFlags members = BindingFlags.Static | BindingFlags.NonPublic;
-        return (ResourceGovernor)(typeof(ExecutionCounterTests).GetMethod("FindGovernor", members)?.Invoke(null,
-            [running, 0, new HashSet<object>(ReferenceEqualityComparer.Instance)])
-            ?? throw new InvalidOperationException("Missing original complete-job governor observer."));
-    }
-
-    private static async Task<(BoundaryHost Host, QpdfExecutionResult Result, ResourceGovernor Governor, int Length)> Execute(string outcome, bool unicode, string route, QpdfLimits limits)
-    {
-        BoundaryHost host = new(outcome);
+        using BoundaryHost host = new(outcome);
         string padding = unicode ? new string('\u00e9', 1024) : new string('o', 1024);
         QpdfPath target = unicode ? QpdfPath.From(padding + ".pdf") : Output;
         host.Inner.AddInput(QpdfPath.From("input.pdf"),
             await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "minimal-1page.pdf")), QpdfInputOwnership.Copy);
         string text = route == "response" ? "input.pdf\n--\n" + target.Value + "\n"
             : JsonSerializer.Serialize(new Dictionary<string, string> { ["inputFile"] = "input.pdf", ["outputFile"] = target.Value });
+        if (outcome == "memory") { text = new string(' ', 65536) + text; }
         byte[] bytes = outcome == "invalid-utf8" ? [0xff, 0xfe]
             : outcome == "empty" ? [] : Encoding.UTF8.GetBytes(text);
         host.Inner.AddInput(Response, bytes, QpdfInputOwnership.Copy);
@@ -116,37 +107,43 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
         Task<QpdfExecutionResult> running = route == "job"
             ? Qpdf.ExecuteJobAsync(host, "{\"jobJsonFile\":\"arguments.txt\"}", new QpdfExecutionOptions(limits), cancellation.Token).AsTask()
             : Qpdf.ExecuteAsync(host, invocation, new QpdfExecutionOptions(limits), cancellation.Token).AsTask();
-        await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
-        ResourceGovernor governor = FindGovernor(running);
-        host.Governor = governor;
-        if (outcome == "cancel") { cancellation.Cancel(); }
-        host.Resume();
-        QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
-        Assert.Equal(caller, invocation.Arguments);
-        Assert.Same(caller[0], invocation.Arguments[0]);
-        Assert.Equal(Prior, prior);
-        // A newly admitted configuration owner may reject before its first
-        // byte read. Keep the same memory limit and before-PDF rejection.
-        if (outcome == "memory") { Assert.InRange(host.Reads, 0, 1); }
-        else { Assert.Equal(outcome == "empty" ? 0 : 1, host.Reads); }
-        Assert.Equal(1, host.Closes);
-        Assert.Equal(0L, host.Inner.OpenLeaseCount); Assert.Equal(0L, result.Counters.OpenHandles);
-        Assert.True(host.Inner.TryGetOutput(target, out byte[] published));
-        if (outcome == "success")
+        try
         {
-            Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
-            InMemoryQpdfHost validation = new();
-            QpdfPath input = QpdfPath.From("published.pdf");
-            validation.AddInput(input, published, QpdfInputOwnership.Copy);
-            QpdfCheckResult check = await Qpdf.CheckAsync(validation, input, CancellationToken.None);
-            Assert.True(check.Passed); Assert.Equal(1, check.PageCount);
+            await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.True(host.Budget.ReservedBytes > 0L);
+            if (outcome == "memory") { host.Budget.RefuseGrowth = true; }
+            if (outcome == "cancel") { cancellation.Cancel(); }
+            host.Resume();
+            QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.Equal(caller, invocation.Arguments);
+            Assert.Same(caller[0], invocation.Arguments[0]);
+            Assert.Equal(Prior, prior);
+            // A newly admitted configuration owner may reject before its first
+            // byte read. Keep the same memory limit and before-PDF rejection.
+            if (outcome == "memory") { Assert.InRange(host.Reads, 0, 1); }
+            else { Assert.Equal(outcome == "empty" ? 0 : 1, host.Reads); }
+            Assert.Equal(1, host.Closes);
+            Assert.Equal(0L, host.Inner.OpenLeaseCount); Assert.Equal(0L, result.Counters.OpenHandles);
+            Assert.True(host.Inner.TryGetOutput(target, out byte[] published));
+            if (outcome == "success")
+            {
+                Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+                InMemoryQpdfHost validation = new();
+                QpdfPath input = QpdfPath.From("published.pdf");
+                validation.AddInput(input, published, QpdfInputOwnership.Copy);
+                QpdfCheckResult check = await Qpdf.CheckAsync(validation, input, CancellationToken.None);
+                Assert.True(check.Passed); Assert.Equal(1, check.PageCount);
+            }
+            else
+            {
+                Assert.Equal(outcome is "cancel" or "host-cancel" ? QpdfExecutionStatus.Canceled : QpdfExecutionStatus.Failed, result.Status);
+                Assert.Equal(prior, published);
+            }
+            Assert.True(host.Budget.ReservedBytes < host.Budget.PeakBytes);
+            return (host, result, text.Length);
         }
-        else
-        {
-            Assert.Equal(outcome is "cancel" or "host-cancel" ? QpdfExecutionStatus.Canceled : QpdfExecutionStatus.Failed, result.Status);
-            Assert.Equal(prior, published);
-        }
-        return (host, result, governor, text.Length);
+        finally { host.Resume(); await running.WaitAsync(TimeSpan.FromSeconds(10)); }
+
     }
 
     [Theory]
@@ -154,18 +151,35 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
     [InlineData(true)]
     public async Task DecodedTextStaysAdmittedThroughResponseInputClose(bool unicode)
     {
-        var job = await Execute("success", unicode, "response", QpdfLimits.Default);
-        Assert.True(job.Host.CloseMemory >= GovernedText.StringBytes(job.Length),
-            "Response close retains decoded text of " + GovernedText.StringBytes(job.Length) +
-            " bytes while the actual job funds only " + job.Host.CloseMemory + ".");
+        using RecordingJobHost host = new("input-close", Response, "success", true);
+        string text = new(unicode ? '\u00e9' : 'o', 1024);
+        host.Inner.AddInput(Response, Encoding.UTF8.GetBytes(text), QpdfInputOwnership.Copy);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None, host);
+        Task<GovernedText> running = ResponseFileExpander.ReadTextFileAsync(host, Response,
+            QpdfLimits.Default, governor, CancellationToken.None).AsTask();
+        try
+        {
+            await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.True(governor.Snapshot().LiveMemoryBytes >= GovernedText.StringBytes(text.Length));
+            host.Resume();
+            using GovernedText decoded = await running.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.Equal(text, decoded.Value);
+        }
+        finally
+        {
+            host.Resume(); (await running.WaitAsync(TimeSpan.FromSeconds(10))).Dispose();
+            governor.CompleteStorage();
+            Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, host.Budget.ReservedBytes);
+        }
+
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task ShortDecodedTextAdmissionRejectsBeforeOpeningThePdf(bool unicode)
+    public async Task ResponseAdmissionRefusalPrecedesOpeningThePdf(bool unicode)
     {
-        var job = await Execute("memory", unicode, "response", QpdfLimits.Default with { MaxMemoryBytes = 3000L });
+        var job = await Execute("memory", unicode, "response", QpdfLimits.Default);
         Assert.Contains(job.Result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded);
         Assert.Equal(0, job.Host.PdfOpens);
     }
@@ -177,27 +191,27 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
         ObserveReadAttempts(jobs);
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private async Task<List<(BoundaryHost Host, QpdfExecutionResult Result, ResourceGovernor Governor, int Length)>> CompleteReadAttempts()
+    private async Task<List<(BoundaryHost Host, QpdfExecutionResult Result, int Length)>> CompleteReadAttempts()
     {
-        List<(BoundaryHost Host, QpdfExecutionResult Result, ResourceGovernor Governor, int Length)> jobs = [];
+        List<(BoundaryHost Host, QpdfExecutionResult Result, int Length)> jobs = [];
         foreach (string route in new[] { "response", "job", "mixed" })
-        foreach (string outcome in new[] { "success", "read-fault", "close-fault", "invalid-utf8", "cancel", "host-cancel", "no-progress", "empty" })
-        {
-            jobs.Add(await Execute(outcome, false, route, QpdfLimits.Default));
-            output.WriteLine("CONFIGURATION CONTROL PASS {0}|{1}", route, outcome);
-        }
+        { jobs.Add(await Execute("success", false, route, QpdfLimits.Default)); }
+        foreach (string outcome in new[] { "read-fault", "close-fault", "invalid-utf8", "cancel", "host-cancel", "no-progress", "empty" })
+        { jobs.Add(await Execute(outcome, false, "response", QpdfLimits.Default)); }
+        foreach (string outcome in new[] { "invalid-utf8", "empty" })
+        { jobs.Add(await Execute(outcome, false, "job", QpdfLimits.Default)); }
+        jobs.Add(await Execute("cancel", false, "mixed", QpdfLimits.Default));
+        output.WriteLine("CONFIGURATION CONTROLS {0}", jobs.Count);
         return jobs;
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void ObserveReadAttempts(List<(BoundaryHost Host, QpdfExecutionResult Result, ResourceGovernor Governor, int Length)> jobs)
+    private static void ObserveReadAttempts(List<(BoundaryHost Host, QpdfExecutionResult Result, int Length)> jobs)
     {
-            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
         foreach (var job in jobs)
         {
-            Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes);
-            Assert.Equal(0L, job.Governor.Snapshot().OpenHandles);
+            Assert.Equal(0L, job.Host.Budget.ReservedBytes);
+            Assert.Equal(0, job.Host.Budget.LiveReservations);
+            Assert.Equal(0L, job.Result.Counters.OpenHandles);
             Assert.Equal(0L, job.Host.Inner.OpenLeaseCount);
         }
         GC.KeepAlive(jobs);
