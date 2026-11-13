@@ -134,6 +134,41 @@ public sealed class SignedAppearanceTests
         AssertDisabled(document, signed);
     }
 
+    [Fact]
+    public async Task SharedOrdinaryWidgetsKeepTheirFieldAndAppearanceAcrossPages()
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(Input, File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "ordinary-shared-widgets.pdf")), QpdfInputOwnership.Transfer);
+        await Qpdf.SelectPageAsync(host, Input, Output,
+            PdfPageSelectionOptions.FromPages(Enumerable.Range(1, 128).ToArray()), CancellationToken.None);
+        Assert.Equal(0, host.OpenLeaseCount);
+        Assert.True(host.TryGetOutput(Output, out byte[] output));
+        using (var independent = UglyToad.PdfPig.PdfDocument.Open(output))
+        { Assert.Equal(128, independent.NumberOfPages); }
+        host.AddInput(QpdfPath.From("again"), output, QpdfInputOwnership.Transfer);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("again"), CancellationToken.None);
+        PdfDictionary form = Dict(document, Get(Dict(document, Get(document.Engine.Trailer, "Root")), "AcroForm"));
+        PdfReference fieldRef = Assert.IsType<PdfReference>(Assert.Single(Assert.IsType<PdfArray>(Resolve(document, Get(form, "Fields"))).Items));
+        PdfDictionary field = Dict(document, fieldRef);
+        Assert.Equal(PdfName.FromAscii("Tx"), Get(field, "FT"));
+        Assert.Equal("Keep me", Encoding.ASCII.GetString(Assert.IsType<PdfByteString>(Get(field, "V")).Value));
+        PdfArray kids = Assert.IsType<PdfArray>(Resolve(document, Get(field, "Kids")));
+        Assert.Equal(128, kids.Count);
+        PdfStream? sharedAppearance = null;
+        foreach (var page in document.PageReferences)
+        {
+            PdfReference widgetRef = Assert.IsType<PdfReference>(Assert.Single(Assert.IsType<PdfArray>(Resolve(document, Get(page.Page, "Annots"))).Items));
+            Assert.Contains(widgetRef, kids.Items);
+            PdfDictionary widget = Dict(document, widgetRef);
+            Assert.Equal(PdfName.FromAscii("Widget"), Get(widget, "Subtype"));
+            Assert.Equal(fieldRef, Get(widget, "Parent"));
+            PdfStream appearance = Assert.IsType<PdfStream>(Resolve(document, Get(Dict(document, Get(widget, "AP")), "N")));
+            Assert.Equal("BT /F1 12 Tf 2 4 Td (Keep me) Tj ET", Decode(appearance));
+            if (sharedAppearance is not null) { Assert.Same(sharedAppearance, appearance); }
+            sharedAppearance = appearance;
+        }
+    }
+
     private static void AssertDisabled(QpdfDocument document, PdfDictionary field)
     {
         Assert.Equal(PdfName.FromAscii("Stamp"), Get(field, "Subtype"));

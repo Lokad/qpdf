@@ -135,6 +135,7 @@ internal sealed partial class GraphCopier
 
     internal bool NeedsSignatureCopy(QpdfObject root)
     {
+        _governor.CheckCancellation();
         if (_signatureBranches is null)
         { _ownership.Reserve(96L); _signatureBranches = new(ReferenceEqualityComparer.Instance); }
         QpdfObject resolved = ResolveFieldNode(root);
@@ -158,6 +159,13 @@ internal sealed partial class GraphCopier
             }
             else if (current is PdfDictionary dictionary && !SignaturePolicy.IsPageTreeNode(dictionary))
             {
+                // An annotation/field array joins independent field components.
+                // Discover each component through its dictionary entry so its
+                // result is reusable by other arrays without sharing their union.
+                // This adds only one call level: dictionary discovery walks its
+                // Parent/Kids closure iteratively, including any nested arrays.
+                if (resolved is PdfArray)
+                { signed |= NeedsSignatureCopy(dictionary); continue; }
                 // Non-widget annotation Parent links (for example popups) do not
                 // establish a field hierarchy.
                 if (dictionary.TryGet(FieldSubtypeKey, out QpdfObject subtype)

@@ -11,6 +11,7 @@
     <None Include="../Fixtures/security-r3-*" Link="Fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/security-r4-*" Link="Fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/signature-*.pdf" Link="Fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/ordinary-shared-widgets.pdf" Link="Fixtures/ordinary-shared-widgets.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/cmyk-8x8.jpg" Link="Fixtures/cmyk-8x8.jpg" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="../Lokad.Qpdf.PackageConsumer/RecordingMemoryBudget.cs" Link="Support/RecordingMemoryBudget.cs" />
     <EmbeddedResource Include="Content/InlineImageNativeCases.json" />

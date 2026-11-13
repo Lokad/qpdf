@@ -80,6 +80,9 @@ following their values. Former widgets become static stamp annotations;
 appearance/resource payloads and private aliases use the ordinary graph mapping.
 Placement and JSON publication reuse this policy. Reading and inspection retain
 the original immutable values and do not validate signatures.
+Signature discovery caches each field's Parent/Kids component independently,
+including when entered through distinct annotation arrays. Array results combine
+those components without marking an unrelated ordinary field as signed.
 
 Content transforms share rectangle bounds, matrix composition and finite numeric
 array extraction in `PdfGeometry`. Feature callers retain clipping, coordinate

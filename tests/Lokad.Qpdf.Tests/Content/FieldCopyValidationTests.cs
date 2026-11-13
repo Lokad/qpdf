@@ -68,6 +68,65 @@ public sealed class FieldCopyValidationTests
     }
 
     [Fact]
+    public async Task AnnotationArraysReuseIndependentFieldComponents()
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), Input(), QpdfInputOwnership.Transfer);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input"), CancellationToken.None);
+        CountingObjects fields = Fields(1);
+        fields[5] = new PdfDictionary(new Dictionary<PdfName, QpdfObject>
+        { [PdfName.FromAscii("FT")] = PdfName.FromAscii("Sig") });
+        document.Engine.SetInspectionObjects(fields);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using (ParserMemoryScope owner = ParserMemoryScope.Create(governor))
+        {
+            GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, QpdfLimits.Default, 100, owner);
+            Assert.True(copier.NeedsSignatureCopy(new PdfArray([
+                new PdfArray([new PdfReference(5, 0)]), new PdfReference(4, 0)])));
+            Assert.False(copier.NeedsSignatureCopy(new PdfArray([new PdfReference(4, 0)])));
+            Assert.True(copier.NeedsSignatureCopy(new PdfArray([new PdfReference(5, 0)])));
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Theory]
+    [InlineData(16)]
+    [InlineData(32)]
+    [InlineData(64)]
+    [InlineData(128)]
+    public async Task CopyingDistinctAnnotationArraysVisitsSharedWidgetsLinearly(int count)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), Input(), QpdfInputOwnership.Transfer);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input"), CancellationToken.None);
+        CountingObjects fields = new();
+        fields[4] = new PdfDictionary(new Dictionary<PdfName, QpdfObject>
+        {
+            [PdfName.FromAscii("FT")] = PdfName.FromAscii("Tx"),
+            [PdfName.FromAscii("Kids")] = new PdfArray(Enumerable.Range(0, count)
+                .Select(index => (QpdfObject)new PdfReference(index + 5, 0)).ToArray()),
+        });
+        for (int index = 0; index < count; index++)
+        {
+            fields[index + 5] = new PdfDictionary(new Dictionary<PdfName, QpdfObject>
+            {
+                [PdfName.FromAscii("Subtype")] = PdfName.FromAscii("Widget"),
+                [PdfName.FromAscii("Parent")] = new PdfReference(4, 0),
+            });
+        }
+        document.Engine.SetInspectionObjects(fields);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using (ParserMemoryScope owner = ParserMemoryScope.Create(governor))
+        {
+            GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, QpdfLimits.Default, 1000, owner);
+            for (int index = 0; index < count; index++)
+            { _ = copier.CopyFieldValue(new PdfArray([new PdfReference(index + 5, 0)]), 0); }
+            Assert.True(fields.Reads <= 16 * count, $"Repeated component discovery: {fields.Reads} reads for {count} widgets.");
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Fact]
     public async Task FieldContextDisablesASignatureWithoutChangingAPrivateCopy()
     {
         using InMemoryQpdfHost host = new();

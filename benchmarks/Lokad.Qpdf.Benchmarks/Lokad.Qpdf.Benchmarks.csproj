@@ -18,6 +18,7 @@
   <ItemGroup Condition="'$(QpdfMemoryBaseline)' != 'true'">
     <Compile Include="../../tests/Lokad.Qpdf.PackageConsumer/RecordingMemoryBudget.cs" Link="RecordingMemoryBudget.cs" />
     <EmbeddedResource Include="../../tests/Fixtures/security-r4-ascii.pdf" LogicalName="security-r4-ascii.pdf" />
+    <EmbeddedResource Include="../../tests/Fixtures/ordinary-shared-widgets.pdf" LogicalName="ordinary-shared-widgets.pdf" />
   </ItemGroup>
 
   <ItemGroup>

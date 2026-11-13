@@ -163,6 +163,15 @@ internal static class MemoryReport
     private static Scenario Create(string name)
     {
 #if !QPDF_MEMORY_BASELINE
+        if (name.StartsWith("shared-widgets-", StringComparison.Ordinal)
+            && int.TryParse(name.AsSpan("shared-widgets-".Length), out int widgets)
+            && widgets is 16 or 32 or 64 or 128)
+        {
+            using Stream resource = typeof(MemoryReport).Assembly.GetManifestResourceStream("ordinary-shared-widgets.pdf")
+                ?? throw new InvalidOperationException("Missing shared-widget fixture.");
+            using MemoryStream bytes = new(); resource.CopyTo(bytes);
+            return new(name, [bytes.ToArray()], ["input0", "--pages", ".", "1-" + widgets, "--", "output"]);
+        }
         if (name.StartsWith("security-", StringComparison.Ordinal))
         {
             SecurityWorkload workload = SecurityWorkloads.Load(name);

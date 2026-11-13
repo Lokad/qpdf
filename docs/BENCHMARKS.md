@@ -284,3 +284,25 @@ The source checkout retains input manifests, engine hashes, all samples, idle
 observations and recording-budget results in
 `benchmarks/results/2026-11-12-security-local.json.gz`. Qualified throughput
 comparisons still require a quiet host; no timing threshold gates CI.
+
+## Shared-widget discovery, 2026-11-13
+
+The existing memory-report harness adds `shared-widgets-16`, `-32`, `-64` and
+`-128` scenarios. Each selects that many pages from the same valid 128-page
+ordinary-field fixture; parsing the full input contributes a fixed cost.
+The same driver compares the qualified dev.4 DLL with the component-cache
+change, on .NET 11 RC 3. Median ordinary-admission allocations are bytes/job:
+
+| Selected widgets | dev.4 | Component reuse |
+| ---: | ---: | ---: |
+| 16 | 973,560 | 824,696 |
+| 32 | 1,151,152 | 853,424 |
+| 64 | 1,515,112 | 919,656 |
+| 128 | 2,286,128 | 1,095,216 |
+
+Deterministic internal copy-entry resolver reads fall from 608/2,240/8,576/33,536
+to 128/256/512/1,024 at the same sizes. Discovery alone uses 64/128/256/512
+reads. All measured recording-budget owners refund to zero. The
+[allocation record](https://github.com/Lokad/qpdf/blob/master/benchmarks/results/2026-11-13-shared-widgets-local.json.gz)
+retains library/input hashes, candidate patch hash and raw samples. Local
+elapsed times remain provisional; quiet-host throughput is deferred.
