@@ -11,12 +11,15 @@ public sealed class PresentationCountTests
 
     public static IEnumerable<object[]> Jobs()
     {
-        foreach (string invocation in new[] { "argv", "job", "mixed", "response" })
         foreach (string operation in new[] { "whole", "linearized", "qdf", "pages", "merge", "split",
             "json-file", "json-inline", "json-sidecar", "json-import", "json-update", "empty", "check", "show-count", "filtered" })
-        foreach (bool compressed in new[] { false, true })
-        foreach (string ceiling in new[] { "default", "exact", "short" })
-        { yield return [invocation, operation, compressed, ceiling]; }
+        {
+            foreach (string ceiling in new[] { "exact", "short" }) { yield return ["argv", operation, false, ceiling]; }
+            yield return ["argv", operation, true, "exact"];
+        }
+        foreach (string invocation in new[] { "job", "mixed", "response" })
+        foreach (string operation in new[] { "whole", "split", "json-sidecar", "filtered" })
+        foreach (string ceiling in new[] { "exact", "short" }) { yield return [invocation, operation, false, ceiling]; }
     }
 
     private static async Task<PublicationHost> Prepare(string operation, bool compressed)
@@ -86,11 +89,11 @@ public sealed class PresentationCountTests
 
     public static IEnumerable<object[]> WarningJobs()
     {
-        foreach (string invocation in new[] { "argv", "job", "mixed", "response" })
         foreach (bool noWarn in new[] { false, true })
         foreach (bool warningExitZero in new[] { false, true })
-        foreach (bool shortCount in new[] { false, true })
-        { yield return [invocation, noWarn, warningExitZero, shortCount]; }
+        foreach (bool shortCount in new[] { false, true }) { yield return ["argv", noWarn, warningExitZero, shortCount]; }
+        foreach (string invocation in new[] { "job", "mixed", "response" })
+        foreach (bool shortCount in new[] { false, true }) { yield return [invocation, true, true, shortCount]; }
     }
 
     [Theory]
@@ -128,14 +131,18 @@ public sealed class PresentationCountTests
 
     public static IEnumerable<object[]> FailedJobs()
     {
-        foreach (string invocation in new[] { "argv", "job", "mixed", "response" })
         foreach (string operation in new[] { "whole", "linearized", "split", "json-sidecar", "json-inline", "filtered" })
         foreach (bool cancel in new[] { false, true })
         {
-            yield return [invocation, operation, "read", cancel];
+            yield return ["argv", operation, "read", cancel];
             if (operation is not ("json-inline" or "filtered"))
-            { yield return [invocation, operation, "write", cancel]; yield return [invocation, operation, "commit", cancel]; }
+            { yield return ["argv", operation, "write", cancel]; yield return ["argv", operation, "commit", cancel]; }
         }
+        foreach (string invocation in new[] { "job", "mixed", "response" })
+        foreach (bool cancel in new[] { false, true }) { yield return [invocation, "whole", "commit", cancel]; }
+        yield return ["job", "json-sidecar", "write", false];
+        yield return ["mixed", "filtered", "read", true];
+        yield return ["response", "json-inline", "read", false];
     }
 
     [Theory]

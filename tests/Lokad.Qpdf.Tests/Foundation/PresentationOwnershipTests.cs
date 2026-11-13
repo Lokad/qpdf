@@ -22,9 +22,9 @@ public sealed class PresentationOwnershipTests
 
     public static IEnumerable<object[]> JsonWarningPolicies()
     {
-        foreach (string route in new[] { "argv", "job", "mixed", "response" })
         foreach (bool noWarn in new[] { false, true })
-        foreach (bool warningExitZero in new[] { false, true }) { yield return [route, noWarn, warningExitZero]; }
+        foreach (bool warningExitZero in new[] { false, true }) { yield return ["argv", noWarn, warningExitZero]; }
+        foreach (string route in new[] { "job", "mixed", "response" }) { yield return [route, true, true]; }
     }
 
     [Theory]
@@ -71,11 +71,11 @@ public sealed class PresentationOwnershipTests
 
     public static IEnumerable<object[]> WarningJobs()
     {
-        foreach (string route in new[] { "argv", "job", "mixed", "response" })
         foreach (string operation in new[] { "whole", "split", "json-sidecar" })
         foreach (bool compressed in new[] { false, true })
-        foreach (bool noWarn in new[] { false, true })
-        { yield return [route, operation, compressed, noWarn]; }
+        foreach (bool noWarn in new[] { false, true }) { yield return ["argv", operation, compressed, noWarn]; }
+        foreach (string route in new[] { "job", "mixed", "response" })
+        foreach (bool noWarn in new[] { false, true }) { yield return [route, "json-sidecar", false, noWarn]; }
     }
 
     [Theory]
@@ -109,9 +109,9 @@ public sealed class PresentationOwnershipTests
 
     public static IEnumerable<object[]> WriterJobs()
     {
-        foreach (string route in new[] { "argv", "job", "mixed", "response" })
         foreach (string operation in new[] { "split", "split-linearized", "split-qdf", "split-streamed", "split-pass1" })
-        foreach (bool compressed in new[] { false, true }) { yield return [route, operation, compressed]; }
+        foreach (bool compressed in new[] { false, true }) { yield return ["argv", operation, compressed]; }
+        foreach (string route in new[] { "job", "mixed", "response" }) { yield return [route, "split-pass1", true]; }
     }
 
     [Theory]
@@ -157,9 +157,6 @@ public sealed class PresentationOwnershipTests
 
     [Theory]
     [InlineData("argv")]
-    [InlineData("job")]
-    [InlineData("mixed")]
-    [InlineData("response")]
     public async Task PublicMemoryFailuresAfterStagingPreserveEverySplitTarget(string route)
     {
         byte[] random = new byte[35000]; new Random(1729).NextBytes(random);

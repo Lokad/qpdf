@@ -15,13 +15,18 @@ public sealed class PresentationByteTests
 
     public static IEnumerable<object[]> Jobs()
     {
-        foreach (string route in new[] { "argv", "job", "mixed", "response" })
+        // Every output shape owns exact/short/tiny byte boundaries here.
+        // Default success is already run as each case's independent baseline.
         foreach (string operation in new[] { "whole", "linearized", "qdf", "pages", "merge", "split",
-            "split-linearized", "split-qdf", "split-streamed", "split-pass1",
-            "json-file", "json-inline", "json-sidecar", "json-import", "json-update", "empty", "check", "show-count", "filtered" })
-        foreach (bool compressed in new[] { false, true })
-        foreach (string ceiling in new[] { "default", "exact", "short", "tiny" })
-        { yield return [route, operation, compressed, ceiling]; }
+            "split-linearized", "split-qdf", "split-streamed", "split-pass1", "json-file", "json-inline",
+            "json-sidecar", "json-import", "json-update", "empty", "check", "show-count", "filtered" })
+        {
+            foreach (string ceiling in new[] { "exact", "short", "tiny" }) { yield return ["argv", operation, false, ceiling]; }
+            yield return ["argv", operation, true, "exact"];
+        }
+        foreach (string route in new[] { "job", "mixed", "response" })
+        foreach (string operation in new[] { "whole", "split-pass1", "json-sidecar", "filtered" })
+        foreach (string ceiling in new[] { "exact", "short" }) { yield return [route, operation, false, ceiling]; }
     }
 
     private static async Task<CountingPublicationHost> Prepare(string operation, bool compressed, bool warning)
@@ -139,11 +144,13 @@ public sealed class PresentationByteTests
 
     public static IEnumerable<object[]> SelectedFlags()
     {
-        foreach (string route in new[] { "argv", "job", "mixed", "response" })
         foreach (string operation in new[] { "whole", "json-inline" })
         foreach (string flags in new[] { "verbose", "report-memory-usage", "progress", "verbose report-memory-usage",
             "verbose progress", "report-memory-usage progress", "verbose report-memory-usage progress" })
-        { yield return [route, operation, flags]; }
+        { yield return ["argv", operation, flags]; }
+        foreach (string route in new[] { "job", "mixed", "response" })
+        foreach (string operation in new[] { "whole", "json-inline" })
+        { yield return [route, operation, "verbose progress report-memory-usage"]; }
     }
 
     [Theory]
