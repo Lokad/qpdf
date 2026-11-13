@@ -189,6 +189,7 @@ internal static class Program
         await VerifyJobFileReadsAsync();
         await VerifySignatureCopyPolicyAsync();
         await VerifySelectionRecoveryAsync();
+        await PageCountChecks.RunAsync(TwoPagePdf("(" + new string('A', 1048576) + ")"));
         byte[] input = TwoPagePdf();
         InMemoryQpdfHost typedHost = NewHost("inputs/in.pdf", input);
         PdfPageSelectionResult typed = await Qpdf.SelectPageAsync(

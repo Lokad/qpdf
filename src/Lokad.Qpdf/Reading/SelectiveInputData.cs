@@ -4,7 +4,8 @@ using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Reading;
 
-// A bounded strict prefetch for private selections. Consumers stay synchronous:
+// A bounded strict prefetch for private selections and page-count inspections.
+// Consumers stay synchronous:
 // missing ranges or uncertain parsing retry the complete reader with the job's
 // requested recovery policy, on the same lease and before publication.
 internal sealed class SelectiveInputData : IDisposable
@@ -24,10 +25,19 @@ internal sealed class SelectiveInputData : IDisposable
         DiagnosticBag diagnostics, ResourceGovernor governor)
     { _ranges = ranges; _table = table; _memory = memory; _diagnostics = diagnostics; _governor = governor; }
 
-    internal static async ValueTask<SelectiveInputData?> TryCreateAsync(IQpdfInput input,
+    internal static ValueTask<SelectiveInputData?> TryCreateAsync(IQpdfInput input,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+        => TryCreateAsync(input, limits, governor, diagnostics, false, token);
+
+    internal static ValueTask<SelectiveInputData?> TryCreateForPageCountAsync(IQpdfInput input,
+        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+        => TryCreateAsync(input, limits, governor, diagnostics, true, token);
+
+    private static async ValueTask<SelectiveInputData?> TryCreateAsync(IQpdfInput input,
+        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, bool pageCountOnly, CancellationToken token)
     {
-        if (input.Length < 8L * 1048576L || governor.RemainingMemoryBytes < MaximumMetadata * 4L)
+        if (pageCountOnly ? input.Length < 2L * MaximumMetadata
+            : input.Length < 8L * 1048576L || governor.RemainingMemoryBytes < MaximumMetadata * 4L)
         { return null; }
         if (diagnostics.ReadingPartialInput) { throw new InvalidOperationException("Input prefetch cannot be nested."); }
         diagnostics.ReadingPartialInput = true;
@@ -62,13 +72,16 @@ internal sealed class SelectiveInputData : IDisposable
             List<Plan> plans = ParserContainers.CreateList<Plan>(scratch);
             long total = 0L;
             bool omitted = false;
-            int allowance = (int)Math.Min(MaximumPrefetch, governor.RemainingMemoryBytes / 4L);
+            // Counting selects ranges from layout alone. Admission of those
+            // ranges can fail, but must not redirect the job to a full read.
+            int allowance = pageCountOnly ? MaximumPrefetch
+                : (int)Math.Min(MaximumPrefetch, governor.RemainingMemoryBytes / 4L);
             for (int index = 0; index + 1 < offsets.Count; index++)
             {
                 governor.CheckCancellation();
                 int start = offsets[index], length = offsets[index + 1] - start;
                 if (length == 0) { continue; }
-                if (length > LargeExtent)
+                if (length > (pageCountOnly ? MaximumMetadata : LargeExtent))
                 {
                     omitted = true;
                     if (start != 0) { continue; }

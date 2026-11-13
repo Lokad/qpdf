@@ -2,6 +2,10 @@
 
 ## Unreleased — 0.2.0-dev.4
 
+- Count pages through typed `CountPagesAsync` and standalone argv/job inspections
+  using bounded classic-xref acquisition when supported. Validate the page tree,
+  preserve opened-lease identity, and keep explicit complete-input fallback for
+  other layouts, protection and uncertain counts without retrying memory refusal.
 - Let typed single-input extraction and first/last previews choose bounded recovery
   through explicit `QpdfRecoveryMode` overloads. Keep strict defaults, opaque stream
   copying, stored appearances, credentials and publication/cleanup guarantees.

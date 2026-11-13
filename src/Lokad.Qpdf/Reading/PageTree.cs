@@ -173,7 +173,9 @@ internal static class PageTree
         if (ReadCount(resolver, node, governor, cancellationToken) is PdfInteger declared)
         {
             long total = collector.Count - before;
-            if (declared.Value != total && diagnostics.ReportPageCountMismatch)
+            // A partial walk must validate every declaration before acceptance,
+            // even when the complete native-style inspection suppresses warnings.
+            if (declared.Value != total && (diagnostics.ReportPageCountMismatch || diagnostics.ReadingPartialInput))
             {
                 diagnostics.AddParts(
                     QpdfDiagnosticCode.PageCountMismatch,

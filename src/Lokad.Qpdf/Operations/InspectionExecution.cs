@@ -153,8 +153,10 @@ internal static class InspectionExecution
     }
 
     internal static void AddPageCountDiagnostic(QpdfDocument document, QpdfPath input, DiagnosticBag diagnostics)
+        => AddPageCountDiagnostic(document.ReadDeclaredPageCount(), input, diagnostics);
+
+    private static void AddPageCountDiagnostic(long count, QpdfPath input, DiagnosticBag diagnostics)
     {
-        long count = document.ReadDeclaredPageCount();
         diagnostics.AddParts(QpdfDiagnosticCode.PageCount, QpdfDiagnosticSeverity.Info, [input.Value, ": ", DiagnosticPart.Invariant(count)]);
     }
 
@@ -537,11 +539,22 @@ internal static class InspectionExecution
     {
         try
         {
+            // Native reports declared counts separately from quiet traversal.
+            // Partial counting validates declarations before accepting ranges.
+            diagnostics.ReportPageCountMismatch = false;
+            if (plan.ShowNpages && !plan.EmptyDocument && !plan.RunCheck && !plan.ShowEncryption
+                && !plan.ShowPages && !plan.ShowXref && plan.ObjectSelector is null && !plan.ListAttachments
+                && plan.AttachmentKey is null && !plan.CheckLinearization && !plan.ShowLinearization
+                && plan.Sources.Count == 0 && plan.Rotations.Count == 0 && plan.Overlays.Count == 0 && plan.Underlays.Count == 0)
+            {
+                long count = await PageCountInspection.ReadAsync(host, plan.Input, password, plan.Recovery, limits,
+                    governor, diagnostics, true, cancellationToken).ConfigureAwait(false);
+                AddPageCountDiagnostic(count, plan.Input, diagnostics);
+                return CompleteWithPresentation(governor);
+            }
             using GovernedBufferStream output = new(governor, limits.MaxOutputBytes, nameof(QpdfLimits.MaxOutputBytes));
             bool hasPayload = false;
             // Checking and all following inspections use this same document.
-            // Native reports declared counts separately from quiet traversal.
-            diagnostics.ReportPageCountMismatch = false;
             (QpdfDocument? opened, EncryptionInspection security) = plan.ShowEncryption && !plan.EmptyDocument
                 ? await QpdfDocument.OpenSecurityInspectionCore(host, plan.Input, password, limits, governor,
                     diagnostics, plan.Recovery, cancellationToken, plan.NeedsDocument).ConfigureAwait(false)

@@ -27,6 +27,11 @@ through the existing result snapshot and publication owner.
 The reader resolves classic, streamed, hybrid and incremental xrefs into immutable
 PDF values. Eligible selections read bounded ranges from classic-xref inputs,
 falling back to a complete read on the same lease when necessary.
+Standalone page-count inspection shares this bounded prefetch and page-tree walk;
+`CountPagesAsync` returns only the validated count, warnings and final counters.
+Public document objects continue to use complete input so their synchronous object
+resolver remains available after opening. Mixed inspections and transformed counts
+retain their complete graph preparation.
 Input admission and xref parsing form one stage before authentication and page
 traversal; callers retain host-lease ownership through success and cleanup.
 The writer prepares numbering, lengths, offsets and identifiers before publication;

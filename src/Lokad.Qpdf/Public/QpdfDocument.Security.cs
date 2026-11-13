@@ -34,7 +34,7 @@ public sealed partial class QpdfDocument
         try
         {
             (DocumentEngine loaded, VersionParts header) = await ReadInputEngine(input, limits, governor, diagnostics,
-                recovery, cancellationToken, false, false, false).ConfigureAwait(false);
+                recovery, cancellationToken, false, false, InputReadMode.Complete).ConfigureAwait(false);
             engine = loaded;
             EncryptionInspection security = InspectSecurity(engine, password, governor);
             if (!needsDocument || security.Parameters is not null && security.Authentication == PasswordAuthentication.None)

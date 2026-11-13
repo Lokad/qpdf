@@ -5,12 +5,14 @@ namespace Lokad.Qpdf;
 
 public sealed partial class QpdfDocument
 {
+    private enum InputReadMode { Complete, Selection, PageCount }
+
     // The caller owns the host lease. This shared first stage admits bytes and
     // xrefs before either security inspection or ordinary document traversal.
     private static async ValueTask<(DocumentEngine Engine, VersionParts Header)> ReadInputEngine(
         IQpdfInput input, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
         QpdfRecoveryMode recovery, CancellationToken cancellationToken, bool valuesEscape,
-        bool borrowInputStreams, bool allowSelectiveInput)
+        bool borrowInputStreams, InputReadMode readMode)
     {
         DocumentEngine? engine = null;
         XRefTable? table = null;
@@ -27,10 +29,11 @@ public sealed partial class QpdfDocument
             if (input.Length > int.MaxValue)
             { throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, int.MaxValue); }
             if (input.Length == 0L) { throw new QpdfParseException("Input is empty.", 0L, null); }
-            if (allowSelectiveInput)
+            if (readMode != InputReadMode.Complete)
             {
-                selectiveInput = await SelectiveInputData.TryCreateAsync(input, limits, governor,
-                    diagnostics, cancellationToken).ConfigureAwait(false);
+                selectiveInput = readMode == InputReadMode.PageCount
+                    ? await SelectiveInputData.TryCreateForPageCountAsync(input, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false)
+                    : await SelectiveInputData.TryCreateAsync(input, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
             }
             if (selectiveInput is not null)
             {

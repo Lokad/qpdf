@@ -101,6 +101,21 @@ or blanket workspace charge. The core has no runtime codec dependency.
 
 ## Engine guarantees and limits
 
+Standalone page counts can read compact classic-xref metadata and bounded object
+extents through the opened input lease. Inputs below 128 KiB use the complete
+reader; larger candidates require at most 64 KiB of xref/trailer data and 256 KiB
+of prefetched extents, plus a 256-byte EOF probe. Extents above 64 KiB are omitted
+until required by validation. Actual metadata, parsed containers and traversal
+still need their own admission; these constants are acquisition bounds, not a
+guaranteed minimum job allowance.
+
+Encrypted, incremental, hybrid/xref-stream, oversized-metadata and uncertain
+inputs use complete acquisition on the same lease. Missing required extents,
+reader warnings or inconsistent declared counts can require that fallback. A
+refused local/shared memory reservation fails immediately; it never selects
+another storage strategy. Pending reads finish before their buffers or leases
+retire. Selection keeps its existing prefetch profile and fallback rules.
+
 Authenticated document opening borrows caller password text/bytes only until the
 open operation completes. Bounded encoding, derivation and cipher scratch are
 admitted and cleared. A document owns its authenticated file key and clears it on

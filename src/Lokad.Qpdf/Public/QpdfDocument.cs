@@ -181,7 +181,7 @@ public sealed partial class QpdfDocument : IAsyncDisposable
         {
             IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
             QpdfDocument document = await OpenInputDocument(input, path, limits, governor, diagnostics,
-                QpdfRecoveryMode.Strict, cancellationToken, true, false, false, false, password, true).ConfigureAwait(false);
+                QpdfRecoveryMode.Strict, cancellationToken, true, false, false, InputReadMode.Complete, password, true).ConfigureAwait(false);
             governor.AcceptDocument();
             return document;
         }
@@ -307,7 +307,7 @@ public sealed partial class QpdfDocument : IAsyncDisposable
     {
         IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
         return await OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken,
-            false, borrowInputStreams && host is Hosting.InMemoryQpdfHost, false, false, password, true).ConfigureAwait(false);
+            false, borrowInputStreams && host is Hosting.InMemoryQpdfHost, false, InputReadMode.Complete, password, true).ConfigureAwait(false);
     }
 
     private static ValueTask<QpdfDocument> OpenInputDocument(
@@ -321,7 +321,7 @@ public sealed partial class QpdfDocument : IAsyncDisposable
         bool valuesEscape,
         bool borrowInputStreams)
         => OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken,
-            valuesEscape, borrowInputStreams, false, false, null, false);
+            valuesEscape, borrowInputStreams, false, InputReadMode.Complete, null, false);
 
     internal static ValueTask<QpdfDocument> OpenSelectionInputAsync(IQpdfInput input, QpdfPath path,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, QpdfRecoveryMode recovery, bool selective,
@@ -332,7 +332,13 @@ public sealed partial class QpdfDocument : IAsyncDisposable
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, QpdfRecoveryMode recovery, bool selective,
         CancellationToken cancellationToken, QpdfPassword? password, bool authenticateEncrypted)
         => OpenInputDocument(input, path, limits, governor, diagnostics, recovery,
-            cancellationToken, false, false, true, selective, password, authenticateEncrypted);
+            cancellationToken, false, false, true, selective ? InputReadMode.Selection : InputReadMode.Complete, password, authenticateEncrypted);
+
+    internal static ValueTask<QpdfDocument> OpenPageCountInputAsync(IQpdfInput input, QpdfPath path,
+        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, QpdfRecoveryMode recovery,
+        bool selective, QpdfPassword? password, CancellationToken cancellationToken)
+        => OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken,
+            false, false, true, selective ? InputReadMode.PageCount : InputReadMode.Complete, password, true);
 
     // A multisource copy closes each source before publication. During a
     // speculative attempt the caller keeps its lease for fallback; once all
@@ -346,17 +352,17 @@ public sealed partial class QpdfDocument : IAsyncDisposable
     private static async ValueTask<QpdfDocument> OpenInputDocument(
         IQpdfInput input, QpdfPath path, QpdfLimits limits, ResourceGovernor governor,
         DiagnosticBag diagnostics, QpdfRecoveryMode recovery, CancellationToken cancellationToken,
-        bool valuesEscape, bool borrowInputStreams, bool leaveInputOpen, bool allowSelectiveInput,
+        bool valuesEscape, bool borrowInputStreams, bool leaveInputOpen, InputReadMode readMode,
         QpdfPassword? password, bool authenticateEncrypted)
     {
         DocumentEngine? engine = null;
         try
         {
             (DocumentEngine loaded, VersionParts headerParts) = await ReadInputEngine(input, limits, governor,
-                diagnostics, recovery, cancellationToken, valuesEscape, borrowInputStreams, allowSelectiveInput).ConfigureAwait(false);
+                diagnostics, recovery, cancellationToken, valuesEscape, borrowInputStreams, readMode).ConfigureAwait(false);
             engine = loaded;
-            // Transformation entry points retain their existing refusal until
-            // their per-input credentials and output-protection policy land.
+            // Authenticate operations that supply a credential policy; other
+            // internal readers retain their explicit protected-input refusal.
             if (authenticateEncrypted) { AuthenticateEncrypted(engine, password, governor); }
             else { RejectEncrypted(path, engine); }
             return CompleteDocumentOpen(input, path, engine, headerParts, limits, governor,
@@ -610,6 +616,12 @@ public sealed partial class QpdfDocument : IAsyncDisposable
         }
         _diagnostics.Add(QpdfDiagnosticCode.PageCountMismatch, QpdfDiagnosticSeverity.Warning, "/Pages /Count is not an integer; reporting zero.");
         return 0L;
+    }
+
+    internal bool HasConsistentDeclaredPageCount()
+    {
+        PdfDictionary pages = PageTree.ReadRoot(Engine, ReadRootObject(Engine), _governor, _governor.CancellationToken);
+        return PageTree.ReadCount(Engine, pages, _governor, _governor.CancellationToken)?.Value == PageCount;
     }
 
     private static QpdfObject ReadRootObject(DocumentEngine engine)

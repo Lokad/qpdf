@@ -6615,16 +6615,20 @@
       "evidence": {
         "positive": [
           "ShowNpagesTests.ReportsPageCounts",
-          "ShowNpagesTests.JobShowNpagesMatchesArgv"
+          "ShowNpagesTests.JobShowNpagesMatchesArgv",
+          "BoundedPageCountTests.ValidCountsSkipUnrelatedPayloadUnderSmallerLocalAndSharedAllowances"
         ],
         "negative": [
-          "ShowNpagesTests.RejectsCombinationsAndValuedForm"
+          "ShowNpagesTests.RejectsCombinationsAndValuedForm",
+          "BoundedPageCountTests.UnvalidatedPageTreesNeverReturnADeclaredCount"
         ],
         "interaction": [
-          "ShowNpagesTests.JobShowNpagesMatchesArgv"
+          "ShowNpagesTests.JobShowNpagesMatchesArgv",
+          "BoundedPageCountTests.UncertainDeclarationsRequireCompleteInputAndKeepExistingCommandPolicy"
         ],
         "resource": [
-          "ShowNpagesTests.FailsOnExhaustedInputBudget"
+          "ShowNpagesTests.FailsOnExhaustedInputBudget",
+          "BoundedPageCountTests.PendingIoAndCleanupRetainTheirActualOwners"
         ],
         "oracle": [
           "diff:show-npages"

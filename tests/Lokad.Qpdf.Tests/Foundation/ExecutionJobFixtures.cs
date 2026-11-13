@@ -127,6 +127,7 @@ internal static class ExecutionJobFixtures
         PdfPageSelectionResult r => r.Counters,
         PdfMultiPageSelectionResult r => r.Counters,
         QpdfCheckResult r => r.Counters,
+        QpdfPageCountResult r => r.Counters,
         QpdfJsonResult r => r.Counters,
         QpdfJsonImportResult r => r.Counters,
         QpdfAttachmentExtraction r => r.Counters,

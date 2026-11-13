@@ -79,6 +79,7 @@ are generally not compatibility guarantees.
 
 | Area | Managed behavior |
 | --- | --- |
+| Page counts | Typed `CountPagesAsync` returns the traversed page count and reader warnings. Commands retain native-style declared `/Count` reporting, including existing malformed-count behavior after complete acquisition. Standalone bounded counting accepts a declaration only after page-tree validation; combined inspections and transforms keep their complete-input path. |
 | Writer encryption defaults | Preserve primary protection in every writer. Native qpdf clears default protection in QDF and split modes unless an explicit encryption or template policy reapplies it. |
 | Publication | Single-target commit is transactional. Failed/canceled preparation publishes no partial stdout payload. Split/sidecar targets commit sequentially; earlier successes survive a later failure. |
 | Primary document | Its attachment collection survives selection even if none of its pages is selected. Secondary collections need explicit import; page-reachable files still copy. Explicit empty primary differs from a real zero-page input. |
@@ -128,6 +129,20 @@ against the original image. The visual report records this as
 a missing-image negative control to fail those original-image bounds.
 
 ## Resource API and behavior changes
+
+`CountPagesAsync` provides a typed count without exposing a document or object
+resolver. Existing document opening still acquires complete input. The new count
+API and standalone `--show-npages` / `showNpages` share bounded acquisition for
+compact classic-xref PDFs with large unrelated objects. The page tree is traversed;
+reading `/Count` alone is insufficient. This validates count metadata, rather than
+every unrelated object or content stream.
+
+Small inputs, protected documents, incremental/hybrid/streamed xrefs, oversized
+metadata and uncertain required ranges use complete acquisition on the same
+opened lease. Declared-count mismatches also require complete input before the
+command's existing reporting policy applies. Short reads and path replacement
+retain their lease semantics. Memory refusal fails without retrying another
+storage strategy. See [memory bounds](MEMORY.md#engine-guarantees-and-limits).
 
 The 0.2.0 development candidate removes `QpdfLimits.MaxHostOperations` without a
 replacement property. `QpdfExecutionCounters.HostOperations` observes executed

@@ -46,6 +46,13 @@ encryption continues to use R6. No fresh R5 creation is exposed.
 Typed `Qpdf.CheckAsync` accepts the same credentials in `QpdfCheckOptions.Password`
 and runs structural checks over the decrypted graph. Its existing skipped-stage
 reporting and partial-check contract still apply.
+Typed `Qpdf.CountPagesAsync` traverses the page tree and returns its count, warnings
+and final counters after input cleanup. Strict parsing is the default; the explicit
+credential/recovery/limits overload can request bounded repair. Standalone counts
+can omit large unrelated payloads in compact classic-xref inputs. Other layouts,
+protected inputs and uncertain validation use complete acquisition on the same
+lease; memory refusal remains a failure. Document opening and combined inspection
+retain their separate complete-input contracts.
 Argv/job inspections and PDF transformations accept a primary text password through
 `--password`/`password`, or the first line of a host file through
 `--password-file`/`passwordFile`. Page sources accept `--password=...` after their
