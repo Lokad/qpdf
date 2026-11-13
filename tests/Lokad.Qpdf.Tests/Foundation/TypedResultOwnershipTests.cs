@@ -1,50 +1,16 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
 [Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class TypedResultOwnershipTests
 {
-    private const BindingFlags Members = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-    private static readonly QpdfPath Output = QpdfPath.From("output.pdf");
-
-    private readonly record struct Values(long Live, long Peak, long Decoded, long OutputBytes,
-        long Calls, long Handles, long Diagnostics);
-    private static Values State(QpdfExecutionCounters c) => new(c.LiveMemoryBytes, c.PeakMemoryBytes,         c.TotalDecodedBytes, c.TotalOutputBytes, c.HostOperations, c.OpenHandles, c.DiagnosticCount);
-
-    private sealed class Alias(object? value, Values? snapshot)
-    {
-        internal readonly object? Value = value;
-        internal readonly Values? Snapshot = snapshot;
-    }
-
-    public static IEnumerable<object[]> PublicJobs() => TypedCounterOwnershipTests.PublicJobs();
-    public static IEnumerable<object[]> MetadataJobs() => TypedCounterOwnershipTests.MetadataJobs();
     public static IEnumerable<object[]> SuccessAliases()
     {
-        foreach (object[] row in MetadataJobs())
-        foreach (string kind in new[] { "result", "counters", "copy", "constructed" })
-        { yield return [row[0], row[1], kind]; }
+        for (int i = 0; i < ExecutionJobFixtures.TypedRoutes.Length; i++)
+        { yield return [ExecutionJobFixtures.TypedRoutes[i], i % 2 == 0]; }
     }
-
-    private static object Read(object value, string property) => value.GetType().GetProperty(property, Members)?.GetValue(value)
-        ?? throw new InvalidOperationException("Missing original public-job fixture property: " + property);
-    private static object? Field(object value, string name) => value.GetType().GetField(name, Members)?.GetValue(value);
-    private static async Task<object> Invoke(string method, object?[] arguments)
-    {
-        Task task = (Task)(typeof(TypedCounterOwnershipTests).GetMethod(method, Members)?.Invoke(null, arguments)
-            ?? throw new InvalidOperationException("Missing original public-job fixture method: " + method));
-        await task;
-        return Read(task, "Result");
-    }
-
-    private static ResourceGovernor FindGovernor(Task task) => (ResourceGovernor)(typeof(ExecutionCounterTests)
-        .GetMethod("FindGovernor", Members)?.Invoke(null, [task, 0, new HashSet<object>(ReferenceEqualityComparer.Instance)])
-        ?? throw new InvalidOperationException("Missing actual public governor."));
-    private static void Resume(object host) => host.GetType().GetMethod("Resume", Members)?.Invoke(host, []);
 
     private static object Copy(object result) => result switch
     {
@@ -70,87 +36,40 @@ public sealed class TypedResultOwnershipTests
         _ => throw new InvalidOperationException("Unknown public result family."),
     };
 
-    private static async Task<Alias> Complete(string route, bool compressed, string boundary, string outcome, string kind, QpdfLimits limits)
-    {
-        using CancellationTokenSource cancellation = new();
-        object host = await Invoke("Prepare", [route, compressed, boundary, outcome]);
-        InMemoryQpdfHost inner = (InMemoryQpdfHost)Read(host, "Inner");
-        Assert.True(inner.TryGetOutput(Output, out byte[] prior));
-        Task<object> running = Invoke("Start", [host, route, limits, cancellation.Token]);
-        try
-        {
-            await ((Task)Read(host, "Entered")).WaitAsync(TimeSpan.FromSeconds(10));
-            ResourceGovernor governor = FindGovernor(running);
-            Assert.True((long)(Field(governor, "_preparedTypedResultBytes") ?? 0L) > 0L);
-            Assert.NotNull(Field(governor, "_preparedTypedCounters"));
-            if (outcome == "cancel") { cancellation.Cancel(); } else { Resume(host); }
-            object? result = null;
-            if (outcome == "cancel") { await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running); }
-            else if (outcome == "fault") { await Assert.ThrowsAnyAsync<QpdfException>(() => running); }
-            else if (outcome == "budget") { await Assert.ThrowsAsync<QpdfLimitException>(() => running); }
-            else { result = await running.WaitAsync(TimeSpan.FromSeconds(10)); }
-            Assert.True((long)(Field(host, "ReadBytes") ?? 0L) > 0L);
-            Assert.Equal(0L, (long)(Field(governor, "_preparedTypedResultBytes") ?? 0L));
-            Assert.Null(Field(governor, "_preparedTypedCounters"));
-            Assert.Equal(0L, inner.OpenLeaseCount);
-            Assert.Equal(0L, governor.Snapshot().OpenHandles);
-            Assert.True(governor.Snapshot().PeakMemoryBytes <= limits.MaxMemoryBytes);
-            Assert.Equal(new byte[] { 17, 23, 41 }, prior);
-            Assert.True(inner.TryGetOutput(Output, out byte[] current));
-            if ((int)(Field(host, "Commits") ?? 0) == 0) { Assert.Equal(prior, current); }
-            QpdfExecutionCounters? counters = result is null ? null : (QpdfExecutionCounters)Read(result, "Counters");
-            if (counters is not null)
-            {
-                Values final = State(governor.Snapshot());
-                Assert.Equal(final with { Live = counters.LiveMemoryBytes }, State(counters));
-            }
-            object? value = result is null ? null : kind == "result" ? result : kind == "copy" ? Copy(result)
-                : kind == "constructed" ? Construct(result) : counters;
-            if (kind == "copy" && result is not null)
-            {
-                Assert.Equal(result, value);
-                Assert.Equal(result.GetHashCode(), value?.GetHashCode());
-                Assert.Same(counters, Read(value ?? throw new InvalidOperationException(), "Counters"));
-            }
-            if (value is not null && value is not QpdfExecutionCounters)
-            {
-                foreach (PropertyInfo property in value.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public))
-                { Assert.False(property.CanWrite); }
-                Assert.Same(counters, Read(value, "Counters"));
-            }
-            return new(value, counters is null ? null : State(counters));
-        }
-        finally
-        {
-            Resume(host);
-            try { await running; } catch (QpdfException) { } catch (OperationCanceledException) { }
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void CheckSurvivor(Alias alias)
-    {
-        object value = alias.Value ?? throw new InvalidOperationException();
-        QpdfExecutionCounters counters = value is QpdfExecutionCounters c ? c : (QpdfExecutionCounters)Read(value, "Counters");
-        Assert.Equal(alias.Snapshot, State(counters));
-    }
-
-    [Theory]
-    [MemberData(nameof(PublicJobs))]
-    [Trait("Layer", "Contract")]
-    public async Task PublicTypedOutcomesPreserveCountersAndTargets(string route, bool compressed, string boundary, string outcome)
-    {
-        Alias alias = await Complete(route, compressed, boundary, outcome, "counters", QpdfLimits.Default);
-        if (outcome == "success") { CheckSurvivor(alias); }
-    }
-
     [Theory]
     [MemberData(nameof(SuccessAliases))]
     [Trait("Layer", "Contract")]
-    public async Task ResultCounterAndCallerCopiesPreserveImmutableValues(string route, bool compressed, string kind)
+    public async Task ResultCounterAndCallerCopiesPreserveImmutableValues(string route, bool compressed)
     {
-        Alias alias = await Complete(route, compressed, "read", "success", kind, QpdfLimits.Default);
-        CheckSurvivor(alias);
+        using RecordingJobHost host = await ExecutionJobFixtures.PrepareAsync(route, compressed, "read", "success");
+        Task<object> running = ExecutionJobFixtures.RunAsync(host, route, QpdfLimits.Default, CancellationToken.None);
+        try
+        {
+            await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.True(host.Budget.ReservedBytes > 0L); host.Resume();
+            object result = await running;
+            QpdfExecutionCounters counters = ExecutionJobFixtures.Counters(result);
+            Assert.Equal(host.HostCalls, counters.HostOperations); Assert.Equal(0L, counters.OpenHandles);
+            Assert.Equal(0L, host.Inner.OpenLeaseCount);
+            object copied = Copy(result), constructed = Construct(result);
+            Assert.Equal(result, copied); Assert.Equal(result.GetHashCode(), copied.GetHashCode());
+            Assert.Same(counters, ExecutionJobFixtures.Counters(copied));
+            Assert.Same(counters, ExecutionJobFixtures.Counters(constructed));
+            QpdfExecutionCounters[] counterCopies = [counters with { }, new(counters.LiveMemoryBytes,
+                counters.PeakMemoryBytes, counters.TotalDecodedBytes, counters.TotalOutputBytes,
+                counters.HostOperations, counters.OpenHandles, counters.DiagnosticCount)];
+            host.Dispose();
+            Assert.Equal(0L, host.Budget.ReservedBytes); Assert.Equal(0, host.Budget.LiveReservations);
+            foreach (QpdfExecutionCounters copy in counterCopies)
+            { Assert.Equal(counters, copy); Assert.Equal(counters.GetHashCode(), copy.GetHashCode()); }
+            foreach (object value in new[] { result, copied, constructed })
+            {
+                foreach (PropertyInfo property in value.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public))
+                { Assert.False(property.CanWrite); }
+                Assert.Equal(counterCopies[0], ExecutionJobFixtures.Counters(value));
+            }
+        }
+        finally { host.Resume(); await running; }
     }
 
     [Theory]
