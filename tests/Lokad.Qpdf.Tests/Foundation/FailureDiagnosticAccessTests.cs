@@ -33,7 +33,11 @@ public sealed class FailureDiagnosticAccessTests
     {
         ReadMeter meter = new(); meter.Reset(int.MaxValue);
         List<(FieldInfo Field, IReadOnlyList<QpdfDiagnostic> Original)> fields = [];
-        foreach (FieldInfo field in view.GetType().GetFields(BindingFlags.Instance | BindingFlags.NonPublic))
+        // Only the core's borrowed failure projection needs instrumentation.
+        // Array/BCL views keep their public access behavior without probing layout.
+        FieldInfo[] candidates = view.GetType().Assembly == typeof(Qpdf).Assembly
+            ? view.GetType().GetFields(BindingFlags.Instance | BindingFlags.NonPublic) : [];
+        foreach (FieldInfo field in candidates)
         {
             if (field.FieldType == typeof(IReadOnlyList<QpdfDiagnostic>)
                 && field.GetValue(view) is IReadOnlyList<QpdfDiagnostic> source)

@@ -191,3 +191,15 @@ source roles and API wiring. Preserved physical-layout fixtures each reach their
 validator; classic/streamed, valid/invalid and opaque-stream controls cover route
 adaptation. Graph/content, writer layout, ownership/publication, native/visual
 evidence and installed consumers retain their separate guarantees.
+
+Presentation count/byte boundaries cover every output shape at a primary route;
+selected flag combinations and decimal/culture boundaries have their own controls.
+Route wiring does not replay every quota, compression and failure combination.
+Publication ownership exhausts shared host boundaries, then covers additional
+sources, splits, sidecars, encryption and committed outputs explicitly.
+
+Recording hosts and caller budgets observe actual suspended I/O, admission,
+refunds and immutable exported counters. Focused internal owners test exact
+reservation/refusal behavior and warning preparation. A few isolated weak-reference
+controls check CLR retention that admission alone cannot prove; they inspect core
+owners, without traversing compiler frames or private BCL collection fields.

@@ -25,18 +25,6 @@ public sealed class TypedWarningOwnershipTests
         _ => throw new InvalidOperationException("Unknown typed warning result."),
     };
 
-    private static void Closed(RecordingJobHost host, object? result)
-    {
-        Assert.Equal(0L, host.Inner.OpenLeaseCount);
-        QpdfExecutionCounters? counters = result is null ? null : ExecutionJobFixtures.Counters(result);
-        QpdfExecutionCounters? snapshot = counters is null ? null : counters with { };
-        if (counters is not null)
-        { Assert.Equal(0L, counters.OpenHandles); Assert.Equal(host.HostCalls, counters.HostOperations); }
-        host.Dispose();
-        Assert.Equal(0L, host.Budget.ReservedBytes); Assert.Equal(0, host.Budget.LiveReservations);
-        Assert.Equal(snapshot, counters);
-    }
-
     private static async Task<RecordingJobHost> Prepare(string route, bool compressed, string boundary, string outcome)
     {
         string originalRoute = route is "typed-split" ? "typed-pages-options"
@@ -96,7 +84,7 @@ public sealed class TypedWarningOwnershipTests
             QpdfDiagnostic element = warnings[0], recordCopy = element with { };
             QpdfPath path = result is PdfMultiPageSelectionResult multiple ? Assert.Single(multiple.OutputPaths) : Output;
             Assert.True(host.Inner.TryGetOutput(path, out byte[] output));
-            Closed(host, result);
+            ExecutionJobFixtures.AssertClosed(host, result);
             Assert.Equal(copy, warnings); Assert.Same(element, warnings[0]);
             Assert.Equal(element, recordCopy); Assert.Same(element.Message, recordCopy.Message);
             Assert.All(copy, x => Assert.False(string.IsNullOrEmpty(x.Message)));
@@ -145,7 +133,7 @@ public sealed class TypedWarningOwnershipTests
             else if (route == "typed-extract") { Assert.Equal("q Q\n"u8.ToArray(), output); }
             else if (route == "typed-json") { Assert.StartsWith("{", Encoding.UTF8.GetString(output).TrimStart()); }
             else { Assert.True(output.AsSpan().StartsWith("%PDF-"u8)); }
-            Closed(host, null);
+            ExecutionJobFixtures.AssertClosed(host, null);
         }
         finally { host.Resume(); try { await task; } catch (QpdfException) { } catch (OperationCanceledException) { } }
     }
@@ -161,7 +149,7 @@ public sealed class TypedWarningOwnershipTests
         {
             await host.Entered.WaitAsync(TimeSpan.FromSeconds(10)); host.Resume();
             object result = await task;
-            Assert.Same(Array.Empty<QpdfDiagnostic>(), Warnings(result)); Closed(host, result);
+            Assert.Same(Array.Empty<QpdfDiagnostic>(), Warnings(result)); ExecutionJobFixtures.AssertClosed(host, result);
         }
         finally { host.Resume(); await task; }
     }
@@ -203,7 +191,7 @@ public sealed class TypedWarningOwnershipTests
                 Assert.Equal(1, independent.NumberOfPages);
             }
             if (result is not null) { Assert.True(ExecutionJobFixtures.Counters(result).PeakMemoryBytes <= limits.MaxMemoryBytes); }
-            Closed(host, result);
+            ExecutionJobFixtures.AssertClosed(host, result);
             Assert.Equal(0L, host.Inner.OpenLeaseCount);
         }
         finally
@@ -248,7 +236,7 @@ public sealed class TypedWarningOwnershipTests
             await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
             Assert.True(host.Budget.ReservedBytes > 0L); host.Resume();
             object result = await task;
-            Assert.True(cancellation.IsCancellationRequested); Assert.NotEmpty(Warnings(result)); Closed(host, result);
+            Assert.True(cancellation.IsCancellationRequested); Assert.NotEmpty(Warnings(result)); ExecutionJobFixtures.AssertClosed(host, result);
         }
         finally { host.Resume(); try { await task; } catch (OperationCanceledException) { } }
     }

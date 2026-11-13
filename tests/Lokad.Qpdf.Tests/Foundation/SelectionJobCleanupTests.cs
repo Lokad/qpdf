@@ -44,15 +44,8 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
 
     private static void Refund(RecordingJobHost host, object? result)
     {
-        QpdfExecutionCounters? counters = result is null ? null : ExecutionJobFixtures.Counters(result);
-        QpdfExecutionCounters? snapshot = counters is null ? null : counters with { };
-        if (counters is not null)
-        { Assert.Equal(0L, counters.OpenHandles); Assert.Equal(host.HostCalls, counters.HostOperations); }
-        Assert.Equal(0L, host.Inner.OpenLeaseCount);
         Assert.True(host.Budget.ReservedBytes < host.Budget.PeakBytes);
-        host.Dispose();
-        Assert.Equal(0L, host.Budget.ReservedBytes); Assert.Equal(0, host.Budget.LiveReservations);
-        Assert.Equal(snapshot, counters);
+        ExecutionJobFixtures.AssertClosed(host, result);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

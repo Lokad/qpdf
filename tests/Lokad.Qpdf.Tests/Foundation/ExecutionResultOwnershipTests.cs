@@ -82,11 +82,7 @@ public sealed class ExecutionResultOwnershipTests
                 using JsonDocument parsed = JsonDocument.Parse(bytes);
                 Assert.Equal(2, parsed.RootElement.GetProperty("version").GetInt32());
             }
-            Assert.Equal(host.HostCalls, result.Counters.HostOperations);
-            QpdfExecutionCounters snapshot = result.Counters with { };
-            host.Dispose();
-            Assert.Equal(0L, host.Budget.ReservedBytes);
-            Assert.Equal(snapshot, result.Counters);
+            ExecutionJobFixtures.AssertClosed(host, result);
             return result;
         }
         finally

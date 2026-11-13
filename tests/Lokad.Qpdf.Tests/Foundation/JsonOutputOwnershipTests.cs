@@ -12,18 +12,6 @@ public sealed class JsonOutputOwnershipTests
 {
     private static readonly QpdfPath Input = QpdfPath.From("input.pdf"), Output = QpdfPath.From("output.json"), Side = QpdfPath.From("side-4");
 
-    private static void Closed(RecordingJobHost host, object? result)
-    {
-        Assert.Equal(0L, host.Inner.OpenLeaseCount);
-        QpdfExecutionCounters? counters = result is null ? null : ExecutionJobFixtures.Counters(result);
-        QpdfExecutionCounters? snapshot = counters is null ? null : counters with { };
-        if (counters is not null)
-        { Assert.Equal(0L, counters.OpenHandles); Assert.Equal(host.HostCalls, counters.HostOperations); }
-        host.Dispose();
-        Assert.Equal(0L, host.Budget.ReservedBytes); Assert.Equal(0, host.Budget.LiveReservations);
-        Assert.Equal(snapshot, counters);
-    }
-
     public static IEnumerable<object[]> InlineJobs()
     {
         yield return ["argv", false]; yield return ["argv", true];
@@ -54,7 +42,7 @@ public sealed class JsonOutputOwnershipTests
             Assert.Equal(1378, text.Length);
             Assert.True(host.Budget.ReservedBytes >= GovernedText.StringBytes(text.Length));
             Assert.True(host.Budget.ReservedBytes < host.Budget.PeakBytes);
-            Closed(host, result);
+            ExecutionJobFixtures.AssertClosed(host, result);
             using JsonDocument parsed = JsonDocument.Parse(text);
             Assert.Equal(2, parsed.RootElement.GetProperty("version").GetInt32());
         }
@@ -109,7 +97,7 @@ public sealed class JsonOutputOwnershipTests
                 Assert.Equal(side, host.Writes.Single(x => x.Path == Side).Bytes);
             }
             Assert.True(owner.Budget.ReservedBytes < owner.Budget.PeakBytes);
-            Closed(owner, result);
+            ExecutionJobFixtures.AssertClosed(owner, result);
             Assert.Equal(main, host.Writes.Single(x => x.Path == Output).Bytes);
             Assert.Contains("output.json", host.Names);
             if (text is not null) { using JsonDocument parsed = JsonDocument.Parse(text); Assert.Equal(version, parsed.RootElement.GetProperty("version").GetInt32()); }
@@ -316,7 +304,7 @@ public sealed class JsonOutputOwnershipTests
             }
             if (budget || outcome is "input-close" or "cancel-input" or "create") { Assert.Empty(host.Writes); }
             CapturedWrite[] copies = host.Writes.ToArray();
-            Closed(owner, result);
+            ExecutionJobFixtures.AssertClosed(owner, result);
             foreach (CapturedWrite copy in copies)
             {
                 if (copy.Path == Output) { using JsonDocument parsed = JsonDocument.Parse(copy.Bytes); Assert.Equal(2, parsed.RootElement.GetProperty("version").GetInt32()); }

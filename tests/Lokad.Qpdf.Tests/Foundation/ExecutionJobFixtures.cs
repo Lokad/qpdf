@@ -27,9 +27,7 @@ internal static class ExecutionJobFixtures
     internal static async Task<RecordingJobHost> PrepareAsync(string route, bool compressed, string boundary, string outcome)
     {
         byte[] content = "q Q\n"u8.ToArray();
-        byte[] body = compressed ? Deflate(content) : content;
-        byte[] source = CheckTests.Assemble(CheckTests.SinglePage(
-            "<< /Length " + body.Length + (compressed ? " /Filter /FlateDecode" : "") + " >>", body), 1);
+        byte[] source = DocumentBytes(compressed, "none");
         InMemoryQpdfHost setup = new();
         setup.AddInput(InputPath, source, QpdfInputOwnership.Copy);
         setup.AddInput(QpdfPath.From("attachment.bin"), content, QpdfInputOwnership.Copy);
@@ -110,6 +108,18 @@ internal static class ExecutionJobFixtures
         if (route == "typed-add") { return await Qpdf.AddAttachmentsAsync(host, InputPath, OutputPath, [Attachment()], limits, token); }
         if (route == "typed-remove") { return await Qpdf.RemoveAttachmentsAsync(host, InputPath, OutputPath, ["payload"], limits, token); }
         return await Qpdf.CopyAttachmentsAsync(host, InputPath, OutputPath, [new QpdfAttachmentCopy(QpdfPath.From("second.pdf"), "copy-")], limits, token);
+    }
+
+    internal static void AssertClosed(RecordingJobHost host, object? result)
+    {
+        Assert.Equal(0L, host.Inner.OpenLeaseCount);
+        QpdfExecutionCounters? counters = result is null ? null : Counters(result);
+        QpdfExecutionCounters? snapshot = counters is null ? null : counters with { };
+        if (counters is not null)
+        { Assert.Equal(0L, counters.OpenHandles); Assert.Equal(host.HostCalls, counters.HostOperations); }
+        host.Dispose();
+        Assert.Equal(0L, host.Budget.ReservedBytes); Assert.Equal(0, host.Budget.LiveReservations);
+        Assert.Equal(snapshot, counters);
     }
 
     internal static QpdfExecutionCounters Counters(object result) => result switch
