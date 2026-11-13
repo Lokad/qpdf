@@ -250,7 +250,8 @@ public sealed class CooperativeHostMemoryTests
         using InMemoryQpdfHost host = new(QpdfLimits.Default, null, storage);
         host.AddInput(InputPath, pdf, QpdfInputOwnership.Transfer);
         using IMemoryScope invocation = root.CreateScope();
-        string[] arguments = noDefaultLimits ? ["input", "--no-default-limits", "--show-npages"] : ["input", "--show-npages"];
+        // Object inspection requires complete input; counting can omit this stream.
+        string[] arguments = noDefaultLimits ? ["input", "--no-default-limits", "--show-object=1"] : ["input", "--show-object=1"];
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(new HostView(host, invocation), new QpdfCommandInvocation(arguments), CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
         Assert.True(root.PeakBytes < 2L * pdf.Length);
@@ -261,7 +262,7 @@ public sealed class CooperativeHostMemoryTests
         Assert.Equal(0L, host.OpenLeaseCount);
         using IMemoryScope tightOwner = root.CreateScope();
         QpdfExecutionResult tight = await Qpdf.ExecuteAsync(new HostView(host, tightOwner),
-            new QpdfCommandInvocation(["input", "--show-npages"]),
+            new QpdfCommandInvocation(["input", "--show-object=1"]),
             new QpdfExecutionOptions(QpdfLimits.Default with { MaxMemoryBytes = 65536L }), CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Failed, tight.Status);
         Assert.Contains(tight.Diagnostics, item => item.Code == QpdfDiagnosticCode.BudgetExceeded
