@@ -127,5 +127,6 @@ publication so formatting/admission failure cannot follow a successful commit.
 
 Structural/cycle/decompression limits and cooperative cancellation remain
 independent of memory admission. There is no cumulative CPU fuel or host-call
-quota; operation counters observe actual callbacks. Hosts can supply deadline tokens. See [API changes](COMPATIBILITY.md#resource-api-and-behavior-changes)
+quota; host-operation counters observe actual opens, reads and writes. Hosts can
+supply deadline tokens. See [API changes](COMPATIBILITY.md#resource-api-and-behavior-changes)
 and [benchmark methodology](BENCHMARKS.md) for migration and measurement details.

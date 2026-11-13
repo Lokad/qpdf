@@ -163,6 +163,50 @@ Allocation/admission evidence remains useful under load. Interpret small elapsed
 differences only after representative interleaved A/A controls; see the
 [memory contract](MEMORY.md) for what the estimates cover.
 
+## Consolidation allocation refresh, 2026-11-13
+
+Source `f22322d3` uses .NET 11 RC 3 on Windows. The existing memory-report runner
+measured two ordinary-admission workers and one recording-budget worker per group,
+each with JIT-stable warmup and seven batches. Small/planning/authentication jobs
+use batches of 32; bulk operations use batches of three. Every measured owner
+refunded to zero. Allocations below exclude recording-budget instrumentation;
+local/root peaks come from the separate instrumented workers and are admission
+estimates, not heap measurements. Bytes/job are rounded median batch averages.
+
+| Scenario | Allocated bytes/job | Local peak bytes | Shared-root peak bytes |
+| --- | ---: | ---: | ---: |
+| `tiny` | 10,848 | 11,157 | 17,089 |
+| `rewrite-tiny` | 32,080 | 547,210 | 557,761 |
+| `config-layered` | 24,608 | 20,188 | 34,547 |
+| `select-sparse` | 17,023,205 | 635,591 | 17,437,367 |
+| `rewrite-objects` | 4,124,147 | 3,566,409 | 3,569,064 |
+| `merge` | 55,208 | 555,118 | 558,466 |
+| `split` | 225,896 | 573,081 | 576,129 |
+| `json` | 57,224 | 32,879 | 39,605 |
+| `flate` | 194,168 | 164,293 | 164,783 |
+| `linearize` | 256,064 | 591,340 | 592,513 |
+| `security-plain-auth` | 9,064 | 10,548 | 17,696 |
+| `security-r4-auth` | 18,984 | 23,221 | 34,703 |
+| `security-r6-auth` | 151,128 | 58,615 | 67,780 |
+| `security-plain-open` | 5,815,040 | 5,732,479 | 5,742,122 |
+| `security-r4-open` | 6,353,243 | 5,937,747 | 5,946,924 |
+| `security-r6-open` | 6,455,851 | 5,940,383 | 5,947,233 |
+| `security-plain-rewrite` | 11,918,832 | 11,653,975 | 11,656,130 |
+| `security-r4-rewrite` | 30,646,620 | 17,309,875 | 17,316,952 |
+| `security-r6-rewrite` | 30,591,421 | 17,313,603 | 17,317,570 |
+| `security-plain-select` | 5,871,043 | 5,736,799 | 5,742,122 |
+| `security-r4-select` | 6,539,037 | 5,981,817 | 5,996,076 |
+| `security-r6-select` | 6,642,849 | 5,984,910 | 5,996,385 |
+
+Fresh host input copies are included, including the omitted 16 MiB stream in
+`select-sparse`; selective engine reading does not avoid this host setup copy.
+The [consolidation allocation record](https://github.com/Lokad/qpdf/blob/master/benchmarks/results/2026-11-13-consolidation-local.json.gz)
+retains source/binary identities, exact security-input hashes, commands, JIT/GC,
+raw samples and owner residuals. Its pre/postflight idle samples ranged from 8%
+to 79%, below the quiet-host requirement. Elapsed samples remain provisional;
+quiet-host timing with interleaved A/A controls is the sole deferred measurement.
+This refresh establishes no current managed/native throughput comparison.
+
 ## Password-security workloads
 
 The same memory-report runner also accepts
