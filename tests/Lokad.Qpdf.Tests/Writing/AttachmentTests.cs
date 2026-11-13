@@ -39,7 +39,7 @@ public sealed class AttachmentTests
         return Convert.ToHexStringLower(MD5.HashData(data));
     }
 
-    private static byte[] BuildPdf(string catalogExtra, string trailerExtra, List<(string Dict, byte[]? StreamData)> extras)
+    internal static byte[] BuildPdf(string catalogExtra, string trailerExtra, List<(string Dict, byte[]? StreamData)> extras)
     {
         List<string> bodies = new()
         {

@@ -19,7 +19,7 @@ public sealed class DocumentWarningSnapshotTests
     private static object Field(object value, string name) => value.GetType().GetField(name, Members)?.GetValue(value)
         ?? throw new InvalidOperationException(name);
 
-    private static byte[] OriginalFixture(bool compressed)
+    internal static byte[] OriginalFixture(bool compressed)
     {
         byte[] bytes = ExecutionJobFixtures.DocumentBytes(compressed, "none");
         ReadOnlySpan<byte> marker = "/Count 1"u8;
