@@ -370,12 +370,11 @@ public sealed class BinaryInspectionTests
     [InlineData("mixed", "check-attachment")]
     public async Task CancellationAfterAnObservedReadReturnsNoBinaryPayload(string route, string mode)
     {
-        var completed = await CompleteCancellation(route, mode);
-        CompletedCancellationObservation.Retire(completed.Governor, completed.Result);
+        await CompleteCancellation(route, mode);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static async Task<(ResourceGovernor Governor, QpdfExecutionResult Result)> CompleteCancellation(string route, string mode)
+    private static async Task CompleteCancellation(string route, string mode)
     {
         InMemoryQpdfHost source = Host(false, false);
         (string properties, string[] flags) = Settings(mode);
@@ -385,7 +384,7 @@ public sealed class BinaryInspectionTests
             await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None);
             await prior.CommitAsync(CancellationToken.None);
         }
-        WaitingHost host = new(source);
+        using RecordingJobHost host = new(source, "read", QpdfPath.From("a.pdf"), "success", true);
         using CancellationTokenSource cancellation = new();
         Task<QpdfExecutionResult> running = route == "job"
             ? Qpdf.ExecuteJobAsync(host, "{\"inputFile\":\"a.pdf\"," + properties + "}", cancellation.Token).AsTask()
@@ -393,57 +392,27 @@ public sealed class BinaryInspectionTests
                 ? ["a.pdf", "--job-json-file=settings.json"] : ["a.pdf", .. flags]), cancellation.Token).AsTask();
         try
         {
-            Assert.Same(host.ReadStarted.Task, await Task.WhenAny(running, host.ReadStarted.Task).WaitAsync(TimeSpan.FromSeconds(10)));
-            ResourceGovernor governor = CompletedCancellationObservation.FindGovernor(running);
+            Assert.Same(host.Entered, await Task.WhenAny(running, host.Entered).WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.True(host.ReadBytes > 0L);
+            Assert.True(host.Budget.ReservedBytes > 0L);
             cancellation.Cancel();
             QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
             Assert.Equal(QpdfExecutionStatus.Canceled, result.Status);
             Assert.True(result.Counters.HostOperations > 0);
-            // The immutable snapshot can include independently owned names
-            // awaiting natural collection; exact retirement is observed later.
             Assert.InRange(result.Counters.LiveMemoryBytes, ExecutionResultAdmission.MemoryBytes, result.Counters.PeakMemoryBytes);
             Assert.Equal(0L, result.Counters.OpenHandles);
             Assert.Null(result.OutputBytes);
             Assert.Null(result.OutputText);
-            Assert.Equal(0, host.OutputCreates);
+            Assert.Empty(host.CreatedPaths);
             Assert.Equal(0L, source.OpenLeaseCount);
             Assert.True(source.TryGetOutput(QpdfPath.From("prior.pdf"), out byte[] prior));
             Assert.Equal("prior"u8.ToArray(), prior);
-            return (governor, result);
+            QpdfExecutionCounters snapshot = result.Counters with { };
+            host.Dispose();
+            Assert.Equal(0L, host.Budget.ReservedBytes); Assert.Equal(0, host.Budget.LiveReservations);
+            Assert.Equal(snapshot, result.Counters);
         }
-        finally { cancellation.Cancel(); }
-    }
-
-    private sealed class WaitingHost(InMemoryQpdfHost source) : IQpdfHost
-    {
-        internal TaskCompletionSource ReadStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        internal int OutputCreates { get; private set; }
-        public async ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken cancellationToken)
-        {
-            IQpdfInput input = await source.OpenInputAsync(path, cancellationToken);
-            return path.Value == "a.pdf" ? new WaitingInput(input, ReadStarted) : input;
-        }
-        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken cancellationToken)
-        {
-            OutputCreates++;
-            return source.CreateOutputAsync(path, cancellationToken);
-        }
-    }
-
-    private sealed class WaitingInput(IQpdfInput inner, TaskCompletionSource started) : IQpdfInput
-    {
-        public QpdfPath Path => inner.Path;
-        public string Identity => inner.Identity;
-        public long Length => inner.Length;
-        public async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellationToken)
-        {
-            int data = await inner.ReadAsync(offset, destination, cancellationToken);
-            Assert.True(data > 0);
-            started.TrySetResult();
-            await Task.Delay(Timeout.Infinite, cancellationToken);
-            return data;
-        }
-        public ValueTask DisposeAsync() => inner.DisposeAsync();
+        finally { cancellation.Cancel(); host.Resume(); await running; }
     }
 
     public static IEnumerable<object[]> NormalizationCases()

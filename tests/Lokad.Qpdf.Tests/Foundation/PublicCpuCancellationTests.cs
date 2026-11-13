@@ -1,7 +1,7 @@
 using Lokad.Qpdf.Image;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.TestSupport;
 using Lokad.Qpdf.Tests.Content;
 using Lokad.Qpdf.Tests.Filters;
 using Lokad.Qpdf.Tests.Reading;
@@ -17,14 +17,18 @@ public sealed class PublicCpuCancellationTests(ITestOutputHelper output)
     private static readonly byte[] Prior = "prior"u8.ToArray();
     private static readonly TimeSpan Deadline = TimeSpan.FromSeconds(10);
 
-    // Hold the first read only to locate the existing job governor. Resume
-    // before observing CPU work; no cancellation is injected at a host boundary.
-    private sealed class Host : IQpdfHost, IQpdfJpegCodecHost
+    // Resume the first read before observing admission for CPU processing.
+    // The cancellation control requires every read callback to have returned.
+    private sealed class Host : IQpdfHost, IQpdfJpegCodecHost, IQpdfMemoryHost, IDisposable
     {
         internal readonly InMemoryQpdfHost Inner = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
         private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource _resume = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public IQpdfJpegCodec? JpegCodec => Inner.JpegCodec;
+        internal RecordingMemoryBudget Budget { get; } = new(1L << 30);
+        public IMemoryBudget MemoryBudget => Budget;
+        internal int PendingReads;
+        public void Dispose() { Budget.Dispose(); Inner.Dispose(); }
         internal Task Entered => _entered.Task;
         internal void Resume() => _resume.TrySetResult();
 
@@ -42,19 +46,24 @@ public sealed class PublicCpuCancellationTests(ITestOutputHelper output)
 
             public async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
             {
-                int bytes = await inner.ReadAsync(offset, destination, token);
-                host._entered.TrySetResult();
-                await host._resume.Task.WaitAsync(token);
-                return bytes;
+                Interlocked.Increment(ref host.PendingReads);
+                try
+                {
+                    int bytes = await inner.ReadAsync(offset, destination, token);
+                    host._entered.TrySetResult();
+                    await host._resume.Task.WaitAsync(token);
+                    return bytes;
+                }
+                finally { Interlocked.Decrement(ref host.PendingReads); }
             }
 
             public ValueTask DisposeAsync() => inner.DisposeAsync();
         }
     }
 
-    private async Task Verify(byte[] pdf, bool job, bool cancel, Func<QpdfExecutionCounters, QpdfExecutionCounters, bool> reached)
+    private async Task Verify(byte[] pdf, bool job, bool cancel, Func<long, long, bool> reached)
     {
-        Host host = new();
+        using Host host = new();
         host.Inner.AddInput(Input, pdf, QpdfInputOwnership.Copy);
         await using (IQpdfOutputTransaction seed = await host.Inner.CreateOutputAsync(Target, CancellationToken.None))
         {
@@ -74,17 +83,18 @@ public sealed class PublicCpuCancellationTests(ITestOutputHelper output)
         try
         {
             await host.Entered.WaitAsync(Deadline);
-            ResourceGovernor governor = CompletedCancellationObservation.FindGovernor(running);
-            QpdfExecutionCounters baseline = governor.Snapshot();
+            long baseline = host.Budget.PeakBytes;
+            Assert.True(baseline > 0L);
             host.Resume();
             if (cancel)
             {
-                Assert.True(SpinWait.SpinUntil(() => reached(governor.Snapshot(), baseline) || running.IsCompleted, Deadline));
-                QpdfExecutionCounters observed = governor.Snapshot();
+                Assert.True(SpinWait.SpinUntil(() => reached(host.Budget.PeakBytes, baseline) && Volatile.Read(ref host.PendingReads) == 0 || running.IsCompleted, Deadline));
+                long observed = host.Budget.PeakBytes;
                 Assert.False(running.IsCompleted, "The positive workload finished before CPU cancellation was observed.");
                 Assert.True(reached(observed, baseline));
                 cancellation.Cancel();
-                output.WriteLine("Canceled during processing: peak estimate={0}", observed.PeakMemoryBytes);
+                Assert.Equal(0, Volatile.Read(ref host.PendingReads));
+                output.WriteLine("Canceled during processing: admitted peak={0}", observed);
             }
 
             QpdfExecutionResult result = await running.WaitAsync(Deadline);
@@ -138,6 +148,8 @@ public sealed class PublicCpuCancellationTests(ITestOutputHelper output)
             await running.WaitAsync(Deadline);
         }
         Assert.Equal(0L, host.Inner.OpenLeaseCount);
+        host.Dispose();
+        Assert.Equal(0L, host.Budget.ReservedBytes); Assert.Equal(0, host.Budget.LiveReservations);
     }
 
     [Theory]
@@ -146,7 +158,7 @@ public sealed class PublicCpuCancellationTests(ITestOutputHelper output)
     public Task NumericHeavyArgvRewriteCancelsAfterParsingWork(bool cancel)
     {
         byte[] pdf = TolerantObjectLoadingTests.Pdf([new string('0', 16 * 1024 * 1024) + "7"], false);
-        return Verify(pdf, false, cancel, static (current, baseline) => current.PeakMemoryBytes >= baseline.PeakMemoryBytes + 16L * 1024L * 1024L);
+        return Verify(pdf, false, cancel, static (current, baseline) => current >= baseline + 16L * 1024L * 1024L);
     }
 
     [Theory]
@@ -160,6 +172,6 @@ public sealed class PublicCpuCancellationTests(ITestOutputHelper output)
         byte[] pdf = ImageOptimizeTests.BuildImagePage(dimension, dimension, "DeviceGray", 8,
             " /Filter /DCTDecode", jpeg);
         return Verify(pdf, true, cancel, static (current, baseline) =>
-            current.PeakMemoryBytes >= baseline.PeakMemoryBytes + pixels + 4L * 1024L * 1024L);
+            current >= baseline + pixels + 4L * 1024L * 1024L);
     }
 }

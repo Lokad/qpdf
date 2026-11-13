@@ -239,8 +239,11 @@ internal sealed class RecordingJobHost : IQpdfHost, IQpdfMemoryHost, IDisposable
     private bool _paused;
 
     internal RecordingJobHost(string? boundary, QpdfPath? path, string outcome, bool asyncResume)
+        : this(new InMemoryQpdfHost(), boundary, path, outcome, asyncResume) { }
+
+    internal RecordingJobHost(InMemoryQpdfHost inner, string? boundary, QpdfPath? path, string outcome, bool asyncResume)
     {
-        _boundary = boundary; PausePath = path; _outcome = outcome;
+        Inner = inner; _boundary = boundary; PausePath = path; _outcome = outcome;
         _resume = new(asyncResume ? TaskCreationOptions.RunContinuationsAsynchronously : TaskCreationOptions.None);
     }
 
@@ -263,7 +266,7 @@ internal sealed class RecordingJobHost : IQpdfHost, IQpdfMemoryHost, IDisposable
         return new(boundary, path, behavior, true);
     }
 
-    internal InMemoryQpdfHost Inner { get; } = new();
+    internal InMemoryQpdfHost Inner { get; }
     internal RecordingMemoryBudget Budget { get; } = new(64L << 20);
     public IMemoryBudget MemoryBudget => Budget;
     internal Task Entered => _entered.Task;
