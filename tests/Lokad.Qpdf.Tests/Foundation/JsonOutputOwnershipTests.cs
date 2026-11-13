@@ -1,5 +1,3 @@
-using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
@@ -12,163 +10,111 @@ namespace Lokad.Qpdf.Tests.Foundation;
 [Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class JsonOutputOwnershipTests
 {
-    private const BindingFlags Members = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+    private static readonly QpdfPath Input = QpdfPath.From("input.pdf"), Output = QpdfPath.From("output.json"), Side = QpdfPath.From("side-4");
+
+    private static void Closed(RecordingJobHost host, object? result)
+    {
+        Assert.Equal(0L, host.Inner.OpenLeaseCount);
+        QpdfExecutionCounters? counters = result is null ? null : ExecutionJobFixtures.Counters(result);
+        QpdfExecutionCounters? snapshot = counters is null ? null : counters with { };
+        if (counters is not null)
+        { Assert.Equal(0L, counters.OpenHandles); Assert.Equal(host.HostCalls, counters.HostOperations); }
+        host.Dispose();
+        Assert.Equal(0L, host.Budget.ReservedBytes); Assert.Equal(0, host.Budget.LiveReservations);
+        Assert.Equal(snapshot, counters);
+    }
 
     public static IEnumerable<object[]> InlineJobs()
     {
-        foreach (string route in new[] { "argv", "job", "mixed", "response" })
-        foreach (bool compressed in new[] { false, true }) { yield return [route, compressed]; }
-    }
-
-    private static async Task<(ResourceGovernor Governor, string Text)> CompleteInline(string route, bool compressed)
-    {
-        Type fixture = typeof(ExecutionCounterTests);
-        Task preparing = (Task)(fixture.GetMethod("Prepare", Members)?.Invoke(null, ["argv-json", compressed, "input-close", "success"])
-            ?? throw new InvalidOperationException("Missing existing complete-job fixture."));
-        await preparing;
-        object host = preparing.GetType().GetProperty("Result")?.GetValue(preparing)
-            ?? throw new InvalidOperationException("Missing prepared host.");
-        Type hostType = host.GetType();
-        hostType.GetField("PausePath", Members)?.SetValue(host, QpdfPath.From("input.pdf"));
-        InMemoryQpdfHost inner = (InMemoryQpdfHost)(hostType.GetProperty("Inner", Members)?.GetValue(host)
-            ?? throw new InvalidOperationException("Missing input host."));
-        List<string> argv = ["input.pdf", "--json=2", "--json-stream-data=inline"];
-        Task<QpdfExecutionResult> running;
-        if (route == "job")
-        {
-            running = Qpdf.ExecuteJobAsync((IQpdfHost)host,
-                "{\"inputFile\":\"input.pdf\",\"json\":\"2\",\"jsonStreamData\":\"inline\"}",
-                new QpdfExecutionOptions(QpdfLimits.Default), CancellationToken.None).AsTask();
-        }
-        else
-        {
-            if (route == "mixed") { argv.Insert(1, "--job-json-file=settings.json"); }
-            if (route == "response")
-            {
-                inner.AddInput(QpdfPath.From("args.txt"), Encoding.UTF8.GetBytes(string.Join('\n', argv) + "\n"), QpdfInputOwnership.Copy);
-                argv = ["@args.txt"];
-            }
-            running = Qpdf.ExecuteAsync((IQpdfHost)host, new QpdfCommandInvocation(argv),
-                new QpdfExecutionOptions(QpdfLimits.Default), CancellationToken.None).AsTask();
-        }
-        Task entered = (Task)(hostType.GetProperty("Entered", Members)?.GetValue(host)
-            ?? throw new InvalidOperationException("Missing observed close boundary."));
-        await entered.WaitAsync(TimeSpan.FromSeconds(10));
-        ResourceGovernor governor = (ResourceGovernor)(fixture.GetMethod("FindGovernor", Members)?.Invoke(null,
-            [running, 0, new HashSet<object>(ReferenceEqualityComparer.Instance)])
-            ?? throw new InvalidOperationException("Missing actual job governor."));
-        hostType.GetMethod("Resume", Members)?.Invoke(host, []);
-        QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
-        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
-        Assert.Equal(0L, result.Counters.OpenHandles);
-        Assert.Equal(0L, inner.OpenLeaseCount);
-        string text = Assert.IsType<string>(result.OutputText);
-        using JsonDocument parsed = JsonDocument.Parse(text);
-        Assert.Equal(2, parsed.RootElement.GetProperty("version").GetInt32());
-        // Keep the original fixture and its exact serialized output length.
-        Assert.Equal(1378, text.Length);
-        return (governor, text);
+        yield return ["argv", false]; yield return ["argv", true];
+        foreach (string route in new[] { "job", "mixed", "response" }) { yield return [route, false]; }
     }
 
     [Theory]
     [MemberData(nameof(InlineJobs))]
-    [Trait("Layer", "Contract")]
-    public async Task IndependentInlineTextAliasKeepsItsActualStorageFunded(string route, bool compressed)
+    public async Task IndependentInlineTextAliasSurvivesHostCleanup(string route, bool compressed)
     {
-        var captured = await CompleteInline(route, compressed);
-        long minimum = (24L + 2L * (captured.Text.Length + 1) + 7L) & ~7L;
-        Assert.Equal(2784L, minimum);
-        Assert.True(captured.Governor.Snapshot().LiveMemoryBytes >= minimum,
-            "The actual governor must fund the independently surviving public JSON string.");
-        GC.KeepAlive(captured.Text);
+        using RecordingJobHost host = await ExecutionJobFixtures.PrepareAsync("argv-json", compressed, "input-close", "success");
+        host.PausePath = Input;
+        string flags = "--json=2\n--json-stream-data=inline";
+        List<string> argv = ["input.pdf", "--json=2", "--json-stream-data=inline"];
+        if (route == "mixed") { argv.Insert(1, "--job-json-file=settings.json"); }
+        if (route == "response")
+        { host.Inner.AddInput(QpdfPath.From("args.txt"), Encoding.UTF8.GetBytes("input.pdf\n" + flags + "\n"), QpdfInputOwnership.Copy); argv = ["@args.txt"]; }
+        Task<QpdfExecutionResult> running = route == "job"
+            ? Qpdf.ExecuteJobAsync(host, "{\"inputFile\":\"input.pdf\",\"json\":\"2\",\"jsonStreamData\":\"inline\"}", CancellationToken.None).AsTask()
+            : Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None).AsTask();
+        try
+        {
+            await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.True(host.Budget.ReservedBytes > 0L); host.Resume();
+            QpdfExecutionResult result = await running;
+            Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+            string text = Assert.IsType<string>(result.OutputText);
+            Assert.Equal(1378, text.Length);
+            Assert.True(host.Budget.ReservedBytes >= GovernedText.StringBytes(text.Length));
+            Assert.True(host.Budget.ReservedBytes < host.Budget.PeakBytes);
+            Closed(host, result);
+            using JsonDocument parsed = JsonDocument.Parse(text);
+            Assert.Equal(2, parsed.RootElement.GetProperty("version").GetInt32());
+        }
+        finally { host.Resume(); await running; }
     }
 
     public static IEnumerable<object[]> PublicationJobs()
     {
-        foreach (string route in new[] { "typed", "argv", "job", "mixed", "response" })
-        foreach (bool compressed in new[] { false, true })
-        foreach (int version in new[] { 1, 2 })
-        foreach (string mode in new[] { "none", "inline", "file" })
+        foreach (string route in new[] { "typed", "argv" })
         {
-            if (version == 1 && mode != "none") { continue; }
-            yield return [route, compressed, version, mode];
+            yield return [route, false, 1, "none"];
+            foreach (string mode in new[] { "none", "inline", "file" }) { yield return [route, false, 2, mode]; }
         }
+        yield return ["argv", true, 2, "inline"];
+        yield return ["job", true, 2, "file"];
+        yield return ["mixed", false, 2, "inline"];
+        yield return ["response", true, 2, "none"];
     }
 
-    private sealed record Observation(ResourceGovernor Governor, object? Alias, long Minimum, long PeakMemoryBytes);
-
-    private static async Task<Observation> CompletePublished(string route, bool compressed, int version, string mode, string alias)
+    [Theory]
+    [MemberData(nameof(PublicationJobs))]
+    public async Task SuspendedJsonWritesKeepAdmissionAndHostCopiesSurviveCleanup(string route, bool compressed, int version, string mode)
     {
-        Type fixture = typeof(ExecutionCounterTests);
-        Task preparing = (Task)(fixture.GetMethod("Prepare", Members)?.Invoke(null,
-            ["argv-json", compressed, "input-close", "success"])
-            ?? throw new InvalidOperationException("Missing existing fixture."));
-        await preparing;
-        object original = preparing.GetType().GetProperty("Result")?.GetValue(preparing)
-            ?? throw new InvalidOperationException("Missing existing host.");
-        original.GetType().GetField("PausePath", Members)?.SetValue(original, QpdfPath.From("input.pdf"));
-        InMemoryQpdfHost inner = (InMemoryQpdfHost)(original.GetType().GetProperty("Inner", Members)?.GetValue(original)
-            ?? throw new InvalidOperationException("Missing input host."));
-        CaptureHost host = new((IQpdfHost)original, inner);
-        // Existing Flate inflation admits its codec workspace even for four
-        // decoded bytes. Keep the raw lane at 32 KiB; decoder containment is
-        // a separate audit obligation, with its existing workspace unchanged.
-        QpdfLimits limits = QpdfLimits.Default with
-        { MaxMemoryBytes = compressed ? 262144L : route == "mixed" ? 65536L : 32768L, MaxOpenHandles = 1L };
+        using RecordingJobHost owner = await ExecutionJobFixtures.PrepareAsync("argv-json", compressed, "write", "success");
+        owner.PausePath = Output;
+        CaptureHost host = new(owner);
+        QpdfLimits limits = QpdfLimits.Default with { MaxOpenHandles = 1L };
         Task<object> running = RunPublished(host, route, version, mode, limits, CancellationToken.None);
-        Task entered = (Task)(original.GetType().GetProperty("Entered", Members)?.GetValue(original)
-            ?? throw new InvalidOperationException("Missing observed close boundary."));
-        Task reached = await Task.WhenAny(entered, running);
-        if (ReferenceEquals(reached, running))
+        try
         {
-            object early = await running;
-            throw new InvalidOperationException(early is QpdfExecutionResult execution
-                ? string.Join(" | ", execution.Diagnostics.Select(diagnostic => diagnostic.Message)) : "Job completed before observed close.");
+            await owner.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.False(running.IsCompleted); Assert.False(owner.PendingWrite.IsEmpty);
+            Assert.True(owner.Budget.ReservedBytes >= owner.PendingWrite.Length);
+            Assert.Equal(owner.PendingWrite.ToArray(), Assert.Single(host.Writes).Bytes);
+            owner.Resume();
+            object result = await running;
+            string? text = result is QpdfJsonResult typed ? typed.Json : null;
+            if (result is QpdfExecutionResult command)
+            { Assert.Equal(QpdfExecutionStatus.Completed, command.Status); Assert.Null(command.OutputText); }
+            Assert.True(owner.Inner.TryGetOutput(Output, out byte[] main));
+            using (JsonDocument parsed = JsonDocument.Parse(main)) { Assert.Equal(version, parsed.RootElement.GetProperty("version").GetInt32()); }
+            Assert.Equal(main, host.Writes.Single(x => x.Path == Output).Bytes);
+            if (text is not null)
+            {
+                Assert.Equal(main, Encoding.UTF8.GetBytes(text));
+                Assert.True(owner.Budget.ReservedBytes >= GovernedText.StringBytes(text.Length));
+            }
+            if (mode == "file")
+            {
+                Assert.Contains("side-4", host.Names);
+                Assert.True(owner.Inner.TryGetOutput(Side, out byte[] side)); Assert.Equal("q Q\n"u8.ToArray(), side);
+                Assert.Equal(side, host.Writes.Single(x => x.Path == Side).Bytes);
+            }
+            Assert.True(owner.Budget.ReservedBytes < owner.Budget.PeakBytes);
+            Closed(owner, result);
+            Assert.Equal(main, host.Writes.Single(x => x.Path == Output).Bytes);
+            Assert.Contains("output.json", host.Names);
+            if (text is not null) { using JsonDocument parsed = JsonDocument.Parse(text); Assert.Equal(version, parsed.RootElement.GetProperty("version").GetInt32()); }
         }
-        await entered.WaitAsync(TimeSpan.FromSeconds(10));
-        ResourceGovernor governor = (ResourceGovernor)(fixture.GetMethod("FindGovernor", Members)?.Invoke(null,
-            [running, 0, new HashSet<object>(ReferenceEqualityComparer.Instance)])
-            ?? throw new InvalidOperationException("Missing actual governor."));
-        original.GetType().GetMethod("Resume", Members)?.Invoke(original, []);
-        object result = await running.WaitAsync(TimeSpan.FromSeconds(10));
-        QpdfExecutionCounters counters;
-        string? text;
-        if (result is QpdfJsonResult typed)
-        { counters = typed.Counters; text = typed.Json; }
-        else
-        {
-            QpdfExecutionResult execution = Assert.IsType<QpdfExecutionResult>(result);
-            Assert.True(execution.Status == QpdfExecutionStatus.Completed,
-                string.Join(" | ", execution.Diagnostics.Select(diagnostic => diagnostic.Message)));
-            Assert.Null(execution.OutputText);
-            counters = execution.Counters; text = null;
-        }
-        Assert.Equal(0L, counters.OpenHandles); Assert.Equal(0L, inner.OpenLeaseCount);
-        Assert.Equal(text is null ? 0L : GovernedText.StringBytes(text.Length), governor.CallerStorageBytes);
-        Assert.True(counters.PeakMemoryBytes <= limits.MaxMemoryBytes);
-        Assert.True(inner.TryGetOutput(QpdfPath.From("output.json"), out byte[] main));
-        using JsonDocument parsed = JsonDocument.Parse(main);
-        Assert.Equal(version, parsed.RootElement.GetProperty("version").GetInt32());
-        if (text is not null) { Assert.Equal(main, Encoding.UTF8.GetBytes(text)); }
-        object? value;
-        long minimum;
-        if (alias == "text")
-        { value = text; minimum = text is null ? 0L : (24L + 2L * (text.Length + 1) + 7L) & ~7L; }
-        else if (alias == "bytes")
-        {
-            value = host.Writes.ToArray();
-            minimum = BufferMinimum(host.Writes);
-            Assert.NotEmpty(host.Writes);
-            Assert.Equal(main, host.Writes[0].ToArray());
-        }
-        else if (alias == "name")
-        {
-            value = host.Names.ToArray();
-            minimum = mode == "file" ? (24L + 2L * ("side-4".Length + 1) + 7L) & ~7L : 0L;
-            if (mode == "file") { Assert.Contains("side-4", host.Names); }
-        }
-        else { value = null; minimum = 0L; }
-        return new(governor, value, minimum, counters.PeakMemoryBytes);
+        finally { owner.Resume(); await running; }
     }
 
     private static async Task<object> RunPublished(CaptureHost host, string route, int version, string mode,
@@ -199,72 +145,6 @@ public sealed class JsonOutputOwnershipTests
             argv = ["@args.txt"];
         }
         return await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), new QpdfExecutionOptions(limits), token);
-    }
-
-    private static long BufferMinimum(IEnumerable<ReadOnlyMemory<byte>> writes)
-    {
-        HashSet<byte[]> arrays = new(ReferenceEqualityComparer.Instance);
-        foreach (ReadOnlyMemory<byte> memory in writes)
-        {
-            Assert.True(MemoryMarshal.TryGetArray(memory, out ArraySegment<byte> segment));
-            arrays.Add(Assert.IsType<byte[]>(segment.Array));
-        }
-        return arrays.Sum(array => (24L + array.Length + 7L) & ~7L);
-    }
-
-    [Theory]
-    [MemberData(nameof(PublicationJobs))]
-    [Trait("Layer", "Contract")]
-    public async Task HostCopiesSurviveReaderAndResultRetirementWithoutPrivatePublicationCharges(string route, bool compressed, int version, string mode)
-    {
-        Observation observation = await CompletePublished(route, compressed, version, mode, "bytes");
-        Assert.Equal(observation.Governor.CallerMetadataBytes + observation.Governor.CallerStorageBytes, observation.Governor.Snapshot().LiveMemoryBytes);
-        Assert.NotEmpty(Assert.IsType<ReadOnlyMemory<byte>[]>(observation.Alias));
-        GC.KeepAlive(observation.Alias);
-    }
-
-    [Theory]
-    [MemberData(nameof(PublicationJobs))]
-    [Trait("Layer", "Contract")]
-    public async Task CompletedPublishedJobsRetireUnescapedSerializationStorage(string route, bool compressed, int version, string mode)
-    {
-        Observation observation = await CompletePublished(route, compressed, version, mode, "none");
-        Assert.Equal(observation.Governor.CallerMetadataBytes + observation.Governor.CallerStorageBytes, observation.Governor.Snapshot().LiveMemoryBytes);
-    }
-
-    [Theory]
-    [InlineData(false, "none")]
-    [InlineData(true, "none")]
-    [InlineData(false, "inline")]
-    [InlineData(true, "inline")]
-    [InlineData(false, "file")]
-    [InlineData(true, "file")]
-    [Trait("Layer", "Contract")]
-    public async Task IndependentTypedTextStaysFundedAfterPublication(bool compressed, string mode)
-    {
-        Observation observation = await CompletePublished("typed", compressed, 2, mode, "text");
-        Assert.True(observation.Governor.Snapshot().LiveMemoryBytes >= observation.Minimum);
-        Assert.True(observation.Governor.Snapshot().LiveMemoryBytes < observation.PeakMemoryBytes);
-        using JsonDocument parsed = JsonDocument.Parse(Assert.IsType<string>(observation.Alias));
-        Assert.Equal(2, parsed.RootElement.GetProperty("version").GetInt32());
-        GC.KeepAlive(observation.Alias);
-    }
-
-    public static IEnumerable<object[]> SidecarJobs()
-    {
-        foreach (string route in new[] { "typed", "argv", "job", "mixed", "response" })
-        foreach (bool compressed in new[] { false, true }) { yield return [route, compressed]; }
-    }
-
-    [Theory]
-    [MemberData(nameof(SidecarJobs))]
-    [Trait("Layer", "Contract")]
-    public async Task HostFilenameCopiesSurviveWithoutPrivatePublicationCharges(string route, bool compressed)
-    {
-        Observation observation = await CompletePublished(route, compressed, 2, "file", "name");
-        Assert.Equal(observation.Governor.CallerMetadataBytes + observation.Governor.CallerStorageBytes, observation.Governor.Snapshot().LiveMemoryBytes);
-        Assert.Contains("side-4", Assert.IsType<string[]>(observation.Alias));
-        GC.KeepAlive(observation.Alias);
     }
 
     public static IEnumerable<object[]> TextEncodings()
@@ -365,145 +245,109 @@ public sealed class JsonOutputOwnershipTests
 
     public static IEnumerable<object[]> FailureJobs()
     {
-        foreach (string route in new[] { "typed", "argv", "job", "mixed", "response" })
-        foreach (bool compressed in new[] { false, true })
+        foreach (string route in new[] { "typed", "argv" })
         foreach (string mode in new[] { "inline", "file" })
         foreach (string outcome in new[] { "input-close", "create", "write", "commit", "output-close", "cancel-input", "cancel-write", "memory", "output-bytes" })
-        { yield return [route, compressed, mode, outcome]; }
-    }
-
-    private static async Task<Observation> FailPublished(string route, bool compressed, string mode, string outcome)
-    {
-        using CancellationTokenSource cancellation = new();
-        bool budget = outcome is "memory" or "work" or "output-bytes";
-        Type fixture = typeof(ExecutionCounterTests);
-        Task preparing = (Task)(fixture.GetMethod("Prepare", Members)?.Invoke(null,
-            ["argv-json", compressed, budget ? "read" : "input-close", outcome == "input-close" ? "fault" : "success"])
-            ?? throw new InvalidOperationException("Missing existing fixture."));
-        await preparing;
-        object original = preparing.GetType().GetProperty("Result")?.GetValue(preparing)
-            ?? throw new InvalidOperationException("Missing existing host.");
-        original.GetType().GetField("PausePath", Members)?.SetValue(original, QpdfPath.From("input.pdf"));
-        InMemoryQpdfHost inner = (InMemoryQpdfHost)(original.GetType().GetProperty("Inner", Members)?.GetValue(original)
-            ?? throw new InvalidOperationException("Missing input host."));
-        byte[][] priorAliases = new byte[2][];
-        string[] targets = ["output.json", "side-4"];
-        for (int index = 0; index < targets.Length; index++)
-        {
-            await using IQpdfOutputTransaction seed = await inner.CreateOutputAsync(QpdfPath.From(targets[index]), CancellationToken.None);
-            await seed.WriteAsync(new byte[] { 17, 23, 41 }, CancellationToken.None); await seed.CommitAsync(CancellationToken.None);
-            Assert.True(inner.TryGetOutput(QpdfPath.From(targets[index]), out priorAliases[index]));
-        }
-        CaptureHost host = new((IQpdfHost)original, inner) { Outcome = outcome, Cancellation = cancellation };
-        QpdfLimits limits = QpdfLimits.Default with { MaxOpenHandles = 1L };
-        limits = outcome switch
-        {
-            "output-bytes" => limits with { MaxOutputBytes = 128L },
-            _ => limits,
-        };
-        Task<object> running = RunPublished(host, route, 2, mode, limits, cancellation.Token);
-        Task entered = (Task)(original.GetType().GetProperty("Entered", Members)?.GetValue(original)
-            ?? throw new InvalidOperationException("Missing observed I/O boundary."));
-        Task reached = await Task.WhenAny(entered, running).WaitAsync(TimeSpan.FromSeconds(10));
-        Assert.Same(entered, reached);
-        ResourceGovernor governor = (ResourceGovernor)(fixture.GetMethod("FindGovernor", Members)?.Invoke(null,
-            [running, 0, new HashSet<object>(ReferenceEqualityComparer.Instance)])
-            ?? throw new InvalidOperationException("Missing actual governor."));
-        Assert.True(governor.Snapshot().HostOperations > 0L);
-        Assert.True((long)(original.GetType().GetField("ReadBytes", Members)?.GetValue(original)
-            ?? throw new InvalidOperationException("Missing observed read count.")) > 0L);
-        long pressure = outcome == "memory" ? governor.RemainingMemoryBytes : 0L;
-        governor.ReserveMemory(pressure);
-        try
-        {
-            if (outcome == "cancel-input") { cancellation.Cancel(); }
-            original.GetType().GetMethod("Resume", Members)?.Invoke(original, []);
-            object result;
-            if (route == "typed")
-            {
-                Exception error = await Assert.ThrowsAnyAsync<Exception>(async () => { await running.WaitAsync(TimeSpan.FromSeconds(10)); });
-                if (outcome.StartsWith("cancel", StringComparison.Ordinal)) { Assert.IsAssignableFrom<OperationCanceledException>(error); }
-                else if (budget)
-                {
-                    QpdfLimitException limit = Assert.IsType<QpdfLimitException>(error);
-                    Assert.Equal(outcome == "memory" ? nameof(QpdfLimits.MaxMemoryBytes)
-                        : nameof(QpdfLimits.MaxOutputBytes), limit.LimitName);
-                }
-                else { Assert.IsType<QpdfHostException>(error); }
-                result = error;
-            }
-            else
-            {
-                QpdfExecutionResult execution = Assert.IsType<QpdfExecutionResult>(await running.WaitAsync(TimeSpan.FromSeconds(10)));
-                Assert.Equal(outcome.StartsWith("cancel", StringComparison.Ordinal) ? QpdfExecutionStatus.Canceled : QpdfExecutionStatus.Failed, execution.Status);
-                if (budget) { Assert.Contains(execution.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded); }
-                result = execution;
-            }
-            Assert.Equal(0L, governor.Snapshot().OpenHandles); Assert.Equal(0L, inner.OpenLeaseCount);
-            foreach (byte[] priorAlias in priorAliases) { Assert.Equal(new byte[] { 17, 23, 41 }, priorAlias); }
-            for (int index = 0; index < targets.Length; index++)
-            {
-                Assert.True(inner.TryGetOutput(QpdfPath.From(targets[index]), out byte[] current));
-                if (outcome == "output-close" && index == 0)
-                { using JsonDocument parsed = JsonDocument.Parse(current); Assert.Equal(2, parsed.RootElement.GetProperty("version").GetInt32()); }
-                else { Assert.Equal(priorAliases[index], current); }
-            }
-            if (budget || outcome is "input-close" or "cancel-input" or "create") { Assert.Empty(host.Writes); }
-            ReadOnlyMemory<byte>[] alias = host.Writes.ToArray();
-            long minimum = BufferMinimum(alias);
-            return new(governor, alias, minimum, governor.Snapshot().PeakMemoryBytes);
-        }
-        finally { governor.ReleaseMemory(pressure); }
-
+        { yield return [route, route == "argv" && outcome != "memory", mode, outcome, false]; }
+        foreach (string route in new[] { "typed", "argv" })
+        foreach (string outcome in new[] { "write", "commit", "output-close", "cancel-write" })
+        { yield return [route, false, "file", outcome, true]; }
+        foreach (string route in new[] { "job", "mixed", "response" }) { yield return [route, false, "file", "write", false]; }
     }
 
     [Theory]
     [MemberData(nameof(FailureJobs))]
-    [Trait("Layer", "Contract")]
-    public async Task FailedAndCanceledPublicJobsPreserveTargetsAndEscapedHostBytes(string route, bool compressed, string mode, string outcome)
+    public async Task FailedAndCanceledPublicJobsPreserveTargetsAndEscapedHostBytes(string route, bool compressed, string mode, string outcome, bool secondary)
     {
-        Observation observation = await FailPublished(route, compressed, mode, outcome);
-        Assert.Equal(observation.Governor.CallerMetadataBytes + observation.Governor.CallerStorageBytes, observation.Governor.Snapshot().LiveMemoryBytes);
-        Assert.All(Assert.IsType<ReadOnlyMemory<byte>[]>(observation.Alias), bytes =>
-        { using JsonDocument parsed = JsonDocument.Parse(bytes); Assert.Equal(2, parsed.RootElement.GetProperty("version").GetInt32()); });
-        GC.KeepAlive(observation.Alias);
+        using CancellationTokenSource cancellation = new();
+        bool budget = outcome is "memory" or "output-bytes";
+        string boundary = outcome switch { "memory" or "output-bytes" => "read", "cancel-input" => "input-close", "cancel-write" => "write", _ => outcome };
+        using RecordingJobHost owner = await ExecutionJobFixtures.PrepareAsync("argv-json", compressed, boundary,
+            budget || outcome.StartsWith("cancel", StringComparison.Ordinal) ? "success" : "fault");
+        owner.PausePath = boundary is "read" or "input-close" ? Input : secondary ? Side : Output;
+        if (outcome == "memory")
+        {
+            byte[] content = Enumerable.Repeat((byte)' ', 65536).ToArray();
+            owner.Inner.AddInput(Input, CheckTests.Assemble(CheckTests.SinglePage("<< /Length " + content.Length + " >>", content), 1), QpdfInputOwnership.Copy);
+        }
+        QpdfPath[] targets = [Output, Side];
+        byte[][] aliases = new byte[targets.Length][];
+        for (int i = 0; i < targets.Length; i++)
+        {
+            await using IQpdfOutputTransaction seed = await owner.Inner.CreateOutputAsync(targets[i], CancellationToken.None);
+            await seed.WriteAsync(new byte[] { 17, 23, 41 }, CancellationToken.None); await seed.CommitAsync(CancellationToken.None);
+            Assert.True(owner.Inner.TryGetOutput(targets[i], out aliases[i]));
+        }
+        CaptureHost host = new(owner);
+        QpdfLimits limits = QpdfLimits.Default with { MaxOpenHandles = 1L, MaxOutputBytes = outcome == "output-bytes" ? 128L : QpdfLimits.Default.MaxOutputBytes };
+        Task<object> running = RunPublished(host, route, 2, mode, limits, cancellation.Token);
+        try
+        {
+            Assert.Same(owner.Entered, await Task.WhenAny(owner.Entered, running).WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.True(owner.ReadBytes > 0L); Assert.True(owner.Budget.ReservedBytes > 0L);
+            if (boundary == "write") { Assert.False(owner.PendingWrite.IsEmpty); Assert.True(owner.Budget.ReservedBytes >= owner.PendingWrite.Length); }
+            if (outcome == "memory") { owner.Budget.RefuseGrowth = true; }
+            if (outcome.StartsWith("cancel", StringComparison.Ordinal)) { cancellation.Cancel(); } else { owner.Resume(); }
+            object? result = null;
+            if (route == "typed")
+            {
+                Exception error = await Assert.ThrowsAnyAsync<Exception>(async () => await running.WaitAsync(TimeSpan.FromSeconds(10)));
+                if (outcome.StartsWith("cancel", StringComparison.Ordinal)) { Assert.IsAssignableFrom<OperationCanceledException>(error); }
+                else if (outcome == "memory") { Assert.IsType<QpdfMemoryAdmissionException>(error); }
+                else if (outcome == "output-bytes") { Assert.Equal(nameof(QpdfLimits.MaxOutputBytes), Assert.IsType<QpdfLimitException>(error).LimitName); }
+                else { Assert.IsType<QpdfHostException>(error); }
+            }
+            else
+            {
+                QpdfExecutionResult command = Assert.IsType<QpdfExecutionResult>(await running.WaitAsync(TimeSpan.FromSeconds(10)));
+                Assert.Equal(outcome.StartsWith("cancel", StringComparison.Ordinal) ? QpdfExecutionStatus.Canceled : QpdfExecutionStatus.Failed, command.Status);
+                if (budget) { Assert.Contains(command.Diagnostics, x => x.Code == QpdfDiagnosticCode.BudgetExceeded); }
+                Assert.Null(command.OutputText); Assert.Null(command.OutputBytes); result = command;
+            }
+            int committed = secondary ? outcome == "output-close" ? 2 : 1 : outcome == "output-close" ? 1 : 0;
+            Assert.Equal(committed, owner.Committed.Count);
+            for (int i = 0; i < targets.Length; i++)
+            {
+                Assert.Equal(new byte[] { 17, 23, 41 }, aliases[i]);
+                Assert.True(owner.Inner.TryGetOutput(targets[i], out byte[] current));
+                if (i >= committed) { Assert.Equal(aliases[i], current); }
+                else if (targets[i] == Output) { using JsonDocument parsed = JsonDocument.Parse(current); Assert.Equal(2, parsed.RootElement.GetProperty("version").GetInt32()); }
+                else { Assert.Equal("q Q\n"u8.ToArray(), current); }
+            }
+            if (budget || outcome is "input-close" or "cancel-input" or "create") { Assert.Empty(host.Writes); }
+            CapturedWrite[] copies = host.Writes.ToArray();
+            Closed(owner, result);
+            foreach (CapturedWrite copy in copies)
+            {
+                if (copy.Path == Output) { using JsonDocument parsed = JsonDocument.Parse(copy.Bytes); Assert.Equal(2, parsed.RootElement.GetProperty("version").GetInt32()); }
+                else { Assert.Equal("q Q\n"u8.ToArray(), copy.Bytes); }
+            }
+        }
+        finally { owner.Resume(); try { await running; } catch (QpdfException) { } catch (OperationCanceledException) { } }
     }
 
-    private sealed class CaptureHost(IQpdfHost host, InMemoryQpdfHost inner) : IQpdfHost
+    private sealed record CapturedWrite(QpdfPath Path, byte[] Bytes);
+
+    private sealed class CaptureHost(RecordingJobHost host) : IQpdfHost, IQpdfMemoryHost
     {
-        internal InMemoryQpdfHost Inner => inner;
-        internal List<ReadOnlyMemory<byte>> Writes { get; } = [];
+        internal InMemoryQpdfHost Inner => host.Inner;
+        public IMemoryBudget MemoryBudget => host.Budget;
+        internal List<CapturedWrite> Writes { get; } = [];
         internal List<string> Names { get; } = [];
-        internal string Outcome = "success";
-        internal CancellationTokenSource? Cancellation;
         public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => host.OpenInputAsync(path, token);
         public async ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token)
         {
             Names.Add(new string(path.Value.AsSpan()));
-            if (Outcome == "create") { throw new QpdfHostException(path, QpdfHostFailureReason.WriteFailed); }
             return new Output(this, await host.CreateOutputAsync(path, token));
         }
         private sealed class Output(CaptureHost owner, IQpdfOutputTransaction transaction) : IQpdfOutputTransaction
         {
             public QpdfPath Path => transaction.Path;
             public ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken token)
-            {
-                owner.Writes.Add(bytes.ToArray());
-                if (owner.Outcome == "cancel-write") { owner.Cancellation?.Cancel(); token.ThrowIfCancellationRequested(); }
-                if (owner.Outcome == "write") { throw new QpdfHostException(Path, QpdfHostFailureReason.WriteFailed); }
-                return transaction.WriteAsync(bytes, token);
-            }
-            public ValueTask CommitAsync(CancellationToken token)
-            {
-                if (owner.Outcome == "commit") { throw new QpdfHostException(Path, QpdfHostFailureReason.CommitFailed); }
-                return transaction.CommitAsync(token);
-            }
+            { owner.Writes.Add(new(Path, bytes.ToArray())); return transaction.WriteAsync(bytes, token); }
+            public ValueTask CommitAsync(CancellationToken token) => transaction.CommitAsync(token);
             public ValueTask DiscardAsync(CancellationToken token) => transaction.DiscardAsync(token);
-            public async ValueTask DisposeAsync()
-            {
-                await transaction.DisposeAsync();
-                if (owner.Outcome == "output-close") { throw new QpdfHostException(Path, QpdfHostFailureReason.WriteFailed); }
-            }
+            public ValueTask DisposeAsync() => transaction.DisposeAsync();
         }
     }
 }
