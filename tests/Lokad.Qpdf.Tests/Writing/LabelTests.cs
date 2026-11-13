@@ -13,7 +13,7 @@ public sealed class LabelTests
         return host;
     }
 
-    private static byte[] BuildDoc(int pages)
+    internal static byte[] BuildDoc(int pages)
     {
         int fontNumber = 3 + (pages * 2);
         List<string> bodies = new()

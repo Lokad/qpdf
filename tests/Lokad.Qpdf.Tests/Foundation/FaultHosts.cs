@@ -1,3 +1,7 @@
+using System.Runtime.InteropServices;
+using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.TestSupport;
+
 namespace Lokad.Qpdf.Tests.Foundation;
 
 /// <summary>Input over a fixed snapshot used by fault-injection hosts.</summary>
@@ -223,5 +227,120 @@ internal sealed class FailingWriteHost : IQpdfHost
         cancellationToken.ThrowIfCancellationRequested();
         return ValueTask.FromResult<IQpdfOutputTransaction>(new FailingWriteTransaction(path));
     }
+}
+
+/// <summary>Records real calls/admission and suspends one selected host callback.</summary>
+internal sealed class RecordingJobHost : IQpdfHost, IQpdfMemoryHost, IDisposable
+{
+    private readonly string? _boundary;
+    private readonly string _outcome;
+    private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource _resume;
+    private bool _paused;
+
+    internal RecordingJobHost(string? boundary, QpdfPath? path, string outcome, bool asyncResume)
+    {
+        _boundary = boundary; PausePath = path; _outcome = outcome;
+        _resume = new(asyncResume ? TaskCreationOptions.RunContinuationsAsynchronously : TaskCreationOptions.None);
+    }
+
+    internal static RecordingJobHost ForOutcome(string outcome, QpdfPath input, QpdfPath output)
+    {
+        string? boundary = outcome switch
+        {
+            "budget" => null,
+            "publication-fault" or "commit-fault" => "commit",
+            "read-fault" => "read",
+            "close-fault" => "input-close",
+            "create-fault" => "create",
+            "write-fault" => "write",
+            "output-close-fault" => "output-close",
+            _ => "open",
+        };
+        QpdfPath path = boundary is "create" or "write" or "commit" or "output-close" ? output : input;
+        string behavior = outcome is "success" or "cancel" or "budget" ? "success"
+            : outcome == "host-cancel" ? "host-cancel" : "fault";
+        return new(boundary, path, behavior, true);
+    }
+
+    internal InMemoryQpdfHost Inner { get; } = new();
+    internal RecordingMemoryBudget Budget { get; } = new(64L << 20);
+    public IMemoryBudget MemoryBudget => Budget;
+    internal Task Entered => _entered.Task;
+    internal QpdfPath? PausePath { get; set; }
+    internal List<QpdfPath> OpenedPaths { get; } = [];
+    internal List<QpdfPath> CreatedPaths { get; } = [];
+    internal HashSet<QpdfPath> Committed { get; } = [];
+    internal List<WeakReference> ReadBuffers { get; } = [];
+    internal bool ObserveReadBuffers { get; init; }
+    internal long ReadBytes { get; private set; }
+    internal long HostCalls { get; private set; }
+    internal Memory<byte> PendingRead { get; private set; }
+    internal ReadOnlyMemory<byte> PendingWrite { get; private set; }
+    internal void Resume() => _resume.TrySetResult();
+
+    private async ValueTask Pause(string phase, QpdfPath path, CancellationToken token)
+    {
+        if (_paused || phase != _boundary || PausePath is QpdfPath selected && path != selected) { return; }
+        _paused = true; _entered.TrySetResult();
+        await _resume.Task.WaitAsync(token);
+        if (_outcome == "fault") { throw new QpdfHostException(path, QpdfHostFailureReason.ReadFailed); }
+        if (_outcome == "host-cancel") { throw new OperationCanceledException(new CancellationToken(true)); }
+    }
+
+    public async ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token)
+    {
+        HostCalls++; OpenedPaths.Add(path);
+        await Pause("open", path, token);
+        return new Input(this, await Inner.OpenInputAsync(path, token), token);
+    }
+
+    public async ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token)
+    {
+        HostCalls++; CreatedPaths.Add(path);
+        await Pause("create", path, token);
+        return new Output(this, await Inner.CreateOutputAsync(path, token), token);
+    }
+
+    private sealed class Input(RecordingJobHost host, IQpdfInput inner, CancellationToken token) : IQpdfInput
+    {
+        public QpdfPath Path => inner.Path;
+        public string Identity => inner.Identity;
+        public long Length => inner.Length;
+        public async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellation)
+        {
+            host.HostCalls++; host.PendingRead = destination;
+            if (host.ObserveReadBuffers && MemoryMarshal.TryGetArray((ReadOnlyMemory<byte>)destination, out ArraySegment<byte> segment)
+                && segment.Array is byte[] array) { host.ReadBuffers.Add(new(array)); }
+            try
+            {
+                int count = await inner.ReadAsync(offset, destination, cancellation);
+                host.ReadBytes += count;
+                await host.Pause("read", Path, cancellation);
+                return count;
+            }
+            finally { host.PendingRead = default; }
+        }
+        public async ValueTask DisposeAsync()
+        { try { await host.Pause("input-close", Path, token); } finally { await inner.DisposeAsync(); } }
+    }
+
+    private sealed class Output(RecordingJobHost host, IQpdfOutputTransaction inner, CancellationToken token) : IQpdfOutputTransaction
+    {
+        public QpdfPath Path => inner.Path;
+        public async ValueTask WriteAsync(ReadOnlyMemory<byte> data, CancellationToken cancellation)
+        {
+            host.HostCalls++; host.PendingWrite = data;
+            try { await host.Pause("write", Path, cancellation); await inner.WriteAsync(data, cancellation); }
+            finally { host.PendingWrite = default; }
+        }
+        public async ValueTask CommitAsync(CancellationToken cancellation)
+        { await host.Pause("commit", Path, cancellation); await inner.CommitAsync(cancellation); host.Committed.Add(Path); }
+        public ValueTask DiscardAsync(CancellationToken cancellation) => inner.DiscardAsync(cancellation);
+        public async ValueTask DisposeAsync()
+        { try { await host.Pause("output-close", Path, token); } finally { await inner.DisposeAsync(); } }
+    }
+
+    public void Dispose() { Inner.Dispose(); Budget.Dispose(); }
 }
 

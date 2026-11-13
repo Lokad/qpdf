@@ -1,4 +1,4 @@
-using Lokad.Qpdf.TestSupport;
+using Host = Lokad.Qpdf.Tests.Foundation.RecordingJobHost;
 using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
@@ -13,67 +13,6 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
     private static readonly QpdfPath InputPath = QpdfPath.From("input.pdf");
     private static readonly QpdfPath OutputPath = QpdfPath.From("output.pdf");
     private static readonly byte[] Prior = [17, 23, 41];
-
-    private sealed class Host(string outcome) : IQpdfHost, IQpdfMemoryHost, IDisposable
-    {
-        internal readonly InMemoryQpdfHost Inner = new();
-        internal readonly RecordingMemoryBudget Budget = new(16L << 20);
-        public IMemoryBudget MemoryBudget => Budget;
-        public void Dispose() { Inner.Dispose(); Budget.Dispose(); }
-
-        internal readonly List<string> ConfigurationNames = [];
-        internal string? InputName, OutputName, PassName;
-        internal int PdfOpens;
-        private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private readonly TaskCompletionSource _resume = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        internal Task Entered => _entered.Task;
-        internal void Resume() => _resume.TrySetResult();
-
-        public async ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token)
-        {
-            if (path == InputPath)
-            {
-                InputName = path.Value; PdfOpens++;
-                if (outcome != "budget") { _entered.TrySetResult(); await _resume.Task.WaitAsync(token); }
-                if (outcome == "open-fault") { throw new QpdfHostException(path, QpdfHostFailureReason.ReadFailed); }
-                if (outcome == "host-cancel") { throw new OperationCanceledException(new CancellationToken(true)); }
-            }
-            else if (path.Value != "args.txt") { ConfigurationNames.Add(path.Value); }
-            IQpdfInput input = await Inner.OpenInputAsync(path, token);
-            return path == InputPath ? new Input(input, outcome) : input;
-        }
-
-        public async ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token)
-        {
-            if (path.Value.Length > 100) { PassName = path.Value; }
-            else { OutputName = path.Value; }
-            IQpdfOutputTransaction output = await Inner.CreateOutputAsync(path, token);
-            return outcome == "publication-fault" ? new Output(output) : output;
-        }
-
-        private sealed class Input(IQpdfInput inner, string outcome) : IQpdfInput
-        {
-            public QpdfPath Path => inner.Path;
-            public string Identity => inner.Identity;
-            public long Length => inner.Length;
-            public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
-                => outcome == "read-fault" ? throw new QpdfHostException(Path, QpdfHostFailureReason.ReadFailed) : inner.ReadAsync(offset, destination, token);
-            public async ValueTask DisposeAsync()
-            {
-                try { if (outcome == "close-fault") { throw new QpdfHostException(Path, QpdfHostFailureReason.ReadFailed); } }
-                finally { await inner.DisposeAsync(); }
-            }
-        }
-
-        private sealed class Output(IQpdfOutputTransaction inner) : IQpdfOutputTransaction
-        {
-            public QpdfPath Path => inner.Path;
-            public ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken token) => inner.WriteAsync(bytes, token);
-            public ValueTask CommitAsync(CancellationToken token) => throw new QpdfHostException(Path, QpdfHostFailureReason.WriteFailed);
-            public ValueTask DiscardAsync(CancellationToken token) => inner.DiscardAsync(token);
-            public ValueTask DisposeAsync() => inner.DisposeAsync();
-        }
-    }
 
     private sealed record Completed(string Route, string Outcome, Host Host, QpdfExecutionResult Result,
         QpdfExecutionCounters Snapshot);
@@ -90,7 +29,7 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
 
     private async Task<Completed> Complete(string route, string outcome)
     {
-        using Host host = new(outcome);
+        using Host host = Host.ForOutcome(outcome, InputPath, OutputPath);
         QpdfPath pass = QpdfPath.From(new string(route == "argv-unicode" ? '\u00e9' : 'p', 1024) + ".pdf");
         await Seed(host, pass);
         using CancellationTokenSource cancel = new();
@@ -167,16 +106,12 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
         List<string> defects = [];
         foreach (Completed job in jobs)
         {
-            // Host callbacks own any identifiers they retain after completion.
-            // Check persisted content and the invocation's private refunds.
-            if (job.Host.PassName is string pass && pass != new string(job.Route == "argv-unicode" ? '\u00e9' : 'p', 1024) + ".pdf")
-            { defects.Add(job.Route + "|" + job.Outcome + "|pass"); }
-            if (job.Host.InputName is string input && input != InputPath.Value)
-            { defects.Add(job.Route + "|" + job.Outcome + "|input"); }
-            foreach (string name in job.Host.ConfigurationNames)
-            { if (name is not ("settings.json" or "child.json")) { defects.Add(job.Route + "|" + job.Outcome + "|include:" + name); } }
-            if (job.Host.OutputName is string output && output != OutputPath.Value)
-            { defects.Add(job.Route + "|" + job.Outcome + "|output"); }
+            foreach (QpdfPath path in job.Host.OpenedPaths)
+            { if (path.Value is not ("input.pdf" or "args.txt" or "settings.json" or "child.json")) { defects.Add(job.Route + "|" + job.Outcome + "|input:" + path.Value); } }
+            string pass = new string(job.Route == "argv-unicode" ? '\u00e9' : 'p', 1024) + ".pdf";
+            foreach (QpdfPath path in job.Host.CreatedPaths)
+            { if (path != OutputPath && path.Value != pass) { defects.Add(job.Route + "|" + job.Outcome + "|output:" + path.Value); } }
+
         }
         return defects;
     }
@@ -187,8 +122,6 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
         List<string> defects = CheckAliases(jobs);
         foreach (string defect in defects) { log.WriteLine("SETTING OWNERSHIP FAIL {0}", defect); }
         Assert.True(defects.Count == 0, string.Join(Environment.NewLine, defects));
-        foreach (Completed job in jobs)
-        { job.Host.InputName = null; job.Host.OutputName = null; job.Host.PassName = null; job.Host.ConfigurationNames.Clear(); }
 
         foreach (Completed job in jobs)
         {
@@ -215,7 +148,7 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
         QpdfPath pass = QpdfPath.From(new string(unicode ? '\u00e9' : 'p', 2048) + ".pdf");
         foreach (bool inline in new[] { true, false })
         {
-            using Host host = new("budget"); await Seed(host, pass);
+            using Host host = Host.ForOutcome("budget", InputPath, OutputPath); await Seed(host, pass);
             host.Budget.RefuseGrowth = true;
             string[] argv = inline
                 ? [InputPath.Value, "--linearize", "--linearize-pass1=" + pass.Value, OutputPath.Value]
@@ -224,7 +157,7 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
                 CancellationToken.None);
             Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
             Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded);
-            Assert.Equal(0, host.PdfOpens);
+            Assert.Empty(host.OpenedPaths);
             Assert.Equal(0L, host.Inner.OpenLeaseCount); Assert.Equal(0L, result.Counters.OpenHandles);
             Assert.True(host.Inner.TryGetOutput(OutputPath, out byte[] prior)); Assert.Equal(Prior, prior);
             Assert.True(host.Inner.TryGetOutput(pass, out byte[] sidecar)); Assert.Equal(Prior, sidecar);

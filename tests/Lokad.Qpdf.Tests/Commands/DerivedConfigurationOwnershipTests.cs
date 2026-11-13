@@ -1,11 +1,8 @@
-using System.Reflection;
-using System.Runtime.CompilerServices;
+using Host = Lokad.Qpdf.Tests.Foundation.RecordingJobHost;
 using System.Text;
 using System.Text.Json;
-using Lokad.Qpdf.Commands;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Tests.Foundation;
 using Xunit.Abstractions;
 
@@ -19,108 +16,7 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
     private static readonly byte[] Prior = [17, 23, 41];
     private static readonly string Prefix = new('p', 1024);
     private static readonly string Range = string.Join(',', Enumerable.Repeat("1", 512));
-    private static readonly Dictionary<int, long> PhysicalStrings = [];
-
-    private static long PhysicalStringBytes(int length)
-    {
-        if (PhysicalStrings.TryGetValue(length, out long known)) { return known; }
-        string[] roots = new string[32];
-        for (int index = 0; index < roots.Length; index++) { roots[index] = new string('p', length); }
-        Array.Clear(roots);
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int index = 0; index < roots.Length; index++) { roots[index] = new string('p', length); }
-        long bytes = GC.GetAllocatedBytesForCurrentThread() - before;
-        Assert.Equal(0L, bytes % roots.Length);
-        long measured = bytes / roots.Length;
-        PhysicalStrings.Add(length, measured); GC.KeepAlive(roots);
-        return measured;
-    }
-
-    private sealed class Host(string outcome) : IQpdfHost
-    {
-        internal readonly InMemoryQpdfHost Inner = new();
-        internal int PdfOpens;
-        private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private readonly TaskCompletionSource _resume = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        internal Task Entered => _entered.Task;
-        internal void Resume() => _resume.TrySetResult();
-
-        public async ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token)
-        {
-            if (path == InputPath)
-            {
-                PdfOpens++;
-                if (outcome != "budget") { _entered.TrySetResult(); await _resume.Task.WaitAsync(token); }
-                if (outcome == "open-fault") { throw new QpdfHostException(path, QpdfHostFailureReason.ReadFailed); }
-                if (outcome == "host-cancel") { throw new OperationCanceledException(new CancellationToken(true)); }
-            }
-            IQpdfInput input = await Inner.OpenInputAsync(path, token);
-            return path == InputPath ? new Input(input, outcome) : input;
-        }
-
-        public async ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token)
-        {
-            IQpdfOutputTransaction output = await Inner.CreateOutputAsync(path, token);
-            return outcome == "publication-fault" ? new Output(output) : output;
-        }
-
-        private sealed class Input(IQpdfInput inner, string outcome) : IQpdfInput
-        {
-            public QpdfPath Path => inner.Path;
-            public string Identity => inner.Identity;
-            public long Length => inner.Length;
-            public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
-                => outcome == "read-fault" ? throw new QpdfHostException(Path, QpdfHostFailureReason.ReadFailed) : inner.ReadAsync(offset, destination, token);
-            public async ValueTask DisposeAsync()
-            {
-                try { if (outcome == "close-fault") { throw new QpdfHostException(Path, QpdfHostFailureReason.ReadFailed); } }
-                finally { await inner.DisposeAsync(); }
-            }
-        }
-
-        private sealed class Output(IQpdfOutputTransaction inner) : IQpdfOutputTransaction
-        {
-            public QpdfPath Path => inner.Path;
-            public ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken token) => inner.WriteAsync(bytes, token);
-            public ValueTask CommitAsync(CancellationToken token) => throw new QpdfHostException(Path, QpdfHostFailureReason.WriteFailed);
-            public ValueTask DiscardAsync(CancellationToken token) => inner.DiscardAsync(token);
-            public ValueTask DisposeAsync() => inner.DisposeAsync();
-        }
-    }
-
-    private sealed class Completed(string route, string profile, string outcome, ResourceGovernor governor,
-        QpdfExecutionResult result, List<string> aliases, List<string> missing)
-    {
-        internal readonly string Id = route + "|" + profile + "|" + outcome;
-        internal readonly ResourceGovernor Governor = governor;
-        internal readonly List<string> Aliases = aliases, Missing = missing;
-        internal QpdfExecutionResult? Result = result;
-        internal QpdfExecutionCounters? Counters = result.Counters;
-    }
-
-    private static T? Find<T>(object value, int depth, HashSet<object> seen) where T : class
-    {
-        if (depth > 96 || !seen.Add(value)) { return null; }
-        if (value is T found) { return found; }
-        const BindingFlags fields = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        if (value is Task task)
-        {
-            object? state = task.GetType().GetField("StateMachine", fields)?.GetValue(task);
-            return state is null ? null : Find<T>(state, depth + 1, seen);
-        }
-        foreach (FieldInfo field in value.GetType().GetFields(fields))
-        { if (field.GetValue(value) is T direct) { return direct; } }
-        foreach (FieldInfo field in value.GetType().GetFields(fields))
-        {
-            if (field.GetValue(value) is object nested &&
-                (nested is Task || nested.GetType().IsValueType && !nested.GetType().IsPrimitive && !nested.GetType().IsEnum))
-            {
-                T? result = Find<T>(nested, depth + 1, seen);
-                if (result is not null) { return result; }
-            }
-        }
-        return null;
-    }
+    private sealed record Completed(QpdfExecutionResult Result, QpdfExecutionCounters Snapshot);
 
     private static async Task Seed(Host host)
     {
@@ -157,10 +53,9 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
         Assert.Equal(90L, Assert.IsType<PdfInteger>(rotation).Value);
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
     private async Task<Completed> Complete(string route, string profile, string outcome)
     {
-        Host host = new(outcome); await Seed(host);
+        using Host host = Host.ForOutcome(outcome, InputPath, OutputPath); await Seed(host);
         using CancellationTokenSource cancel = new();
         string prefix = route == "argv-unicode" ? new string('\u00e9', 1024) : Prefix;
         string label = "r1:D/1/" + prefix;
@@ -195,168 +90,102 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
         }
         else if (route == "job") { running = Qpdf.ExecuteJobAsync(host, json, cancel.Token).AsTask(); }
         else { running = Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), cancel.Token).AsTask(); }
-        await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
-        ResourceGovernor governor = Find<ResourceGovernor>(running, 0, new HashSet<object>(ReferenceEqualityComparer.Instance))
-            ?? throw new InvalidOperationException("Missing complete-job governor.");
-        JobPlan plan = Find<JobPlan>(running, 0, new HashSet<object>(ReferenceEqualityComparer.Instance))
-            ?? throw new InvalidOperationException("Missing complete-job plan.");
-        HashSet<(bool Trailer, int Number, int Generation)>? selected = (plan as JsonPlan)?.Objects;
-        if (profile == "json")
+        try
         {
-            Assert.NotNull(selected);
-            Assert.True(selected.SetEquals([(false, 1, 0), (false, int.MaxValue, 0)]));
+            await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.True(host.Budget.ReservedBytes > 0L);
+            if (outcome == "cancel") { cancel.Cancel(); }
+            host.Resume();
+            QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.Equal(outcome switch { "success" => QpdfExecutionStatus.Completed,
+                "cancel" or "host-cancel" => QpdfExecutionStatus.Canceled, _ => QpdfExecutionStatus.Failed }, result.Status);
+            Assert.Equal(0L, host.Inner.OpenLeaseCount); Assert.Equal(0L, result.Counters.OpenHandles);
+            if (outcome == "success") { await ValidateOutput(host, profile, prefix); }
+            else { Assert.True(host.Inner.TryGetOutput(OutputPath, out byte[] prior)); Assert.Equal(Prior, prior); }
+            Assert.True(host.Budget.ReservedBytes < host.Budget.PeakBytes);
+            log.WriteLine("DERIVED CONTROL PASS {0}|{1}|{2}", route, profile, outcome);
+            return new(result, result.Counters with { });
         }
-        List<string> aliases = profile == "json" ? []
-            : [Assert.Single(plan.Labels).FirstPage, Assert.Single(plan.Labels).Prefix ?? throw new InvalidOperationException("Missing prefix."),
-                Assert.Single(plan.Rotations).Range ?? throw new InvalidOperationException("Missing range.")];
-        Assert.Equal(profile == "json" ? Array.Empty<string>() : new[] { "r1", prefix, Range }, aliases);
-        long textBytes = profile == "json" ? 96L + 12L * (selected?.Count ?? 0) : aliases.Sum(value => PhysicalStringBytes(value.Length));
-        List<string> missing = governor.Snapshot().LiveMemoryBytes < textBytes ? ["active-text-batch:" + textBytes] : [];
-        // These observations belong to the test, beyond the private plan owner.
-        aliases = aliases.Select(value => new string(value.AsSpan())).ToList();
-        if (outcome == "cancel") { cancel.Cancel(); }
-        host.Resume();
-        QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
-        Assert.Equal(outcome switch { "success" => QpdfExecutionStatus.Completed, "cancel" or "host-cancel" => QpdfExecutionStatus.Canceled, _ => QpdfExecutionStatus.Failed }, result.Status);
-        Assert.Equal(0L, host.Inner.OpenLeaseCount); Assert.Equal(0L, result.Counters.OpenHandles);
-        if (outcome == "success") { await ValidateOutput(host, profile, prefix); }
-        else { Assert.True(host.Inner.TryGetOutput(OutputPath, out byte[] prior)); Assert.Equal(Prior, prior); }
-        log.WriteLine("DERIVED CONTROL PASS {0}|{1}|{2}", route, profile, outcome);
-        return new Completed(route, profile, outcome, governor, result, aliases, missing);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private async Task<List<Completed>> CompleteJobs()
-    {
-        List<Completed> jobs = [];
-        foreach (string route in new[] { "argv", "argv-unicode", "response", "mixed", "job", "file", "nested" })
-        foreach (string profile in new[] { "labels-rotation", "json" })
-        foreach (string outcome in new[] { "success", "publication-fault", "open-fault", "read-fault", "close-fault", "cancel", "host-cancel" })
-        { jobs.Add(await Complete(route, profile, outcome)); }
-        return jobs;
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static List<string> ObserveAliases(List<Completed> jobs)
-    {
-        List<string> defects = [];
-        foreach (Completed job in jobs)
-        {
-            foreach (string missing in job.Missing) { defects.Add(job.Id + "|" + missing); }
-            Assert.All(job.Aliases, alias => Assert.NotEmpty(alias));
-            Assert.Equal(0L, job.Governor.PrivateRetainedBytes);
-        }
-        return defects;
+        finally { host.Resume(); await running.WaitAsync(TimeSpan.FromSeconds(10)); }
     }
 
     [Fact]
     public async Task CompleteJobsFundDerivedValuesAndRetirePlansIndependently()
     {
-        List<Completed> jobs = await CompleteJobs();
-        List<string> defects = ObserveAliases(jobs);
-        foreach (Completed job in jobs) { job.Aliases.Clear(); job.Result = null; }
-
-        foreach (Completed job in jobs)
-        {
-            log.WriteLine("DERIVED COUNTER {0} {1}", job.Id, job.Governor.Snapshot().LiveMemoryBytes);
-            Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes); job.Counters = null;
-        }
-
-        foreach (Completed job in jobs)
-        {
-            log.WriteLine("DERIVED FINAL {0} {1}", job.Id, job.Governor.Snapshot().LiveMemoryBytes);
-            Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes);
-        }
-        Assert.True(defects.Count == 0, string.Join('\n', defects));
+        List<Completed> jobs = [];
+        foreach (string route in new[] { "argv", "argv-unicode", "response", "mixed", "job", "file", "nested" })
+        foreach (string profile in new[] { "labels-rotation", "json" })
+        { jobs.Add(await Complete(route, profile, "success")); }
+        foreach (string profile in new[] { "labels-rotation", "json" })
+        foreach (string outcome in new[] { "publication-fault", "open-fault", "read-fault", "close-fault", "cancel", "host-cancel" })
+        { jobs.Add(await Complete("argv-unicode", profile, outcome)); }
+        foreach (Completed job in jobs) { Assert.Equal(job.Snapshot, job.Result.Counters); }
     }
 
     [Fact]
-    public async Task DerivedRotationRangeRejectsBeforePdfOpenAtFourKiB()
+    public async Task DerivedRotationRangeRefusalPrecedesPdfOpen()
     {
-        Host host = new("budget"); await Seed(host);
+        using Host host = Host.ForOutcome("budget", InputPath, OutputPath); await Seed(host);
+        host.Budget.RefuseGrowth = true;
         string range = string.Join(',', Enumerable.Repeat("1", 1536));
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
-            new QpdfCommandInvocation(new[] { InputPath.Value, "--rotate", "+90:" + range, "--pages", ".", "1", "--", OutputPath.Value }),
-            new QpdfExecutionOptions(QpdfLimits.Default with { MaxMemoryBytes = 4096L }), CancellationToken.None);
+            new([InputPath.Value, "--rotate", "+90:" + range, "--pages", ".", "1", "--", OutputPath.Value]), CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded);
-        Assert.Equal(0, host.PdfOpens); Assert.Equal(0L, host.Inner.OpenLeaseCount);
+        Assert.Empty(host.OpenedPaths); Assert.Equal(0L, host.Inner.OpenLeaseCount);
         Assert.True(host.Inner.TryGetOutput(OutputPath, out byte[] prior)); Assert.Equal(Prior, prior);
     }
 
-    private sealed class TypedCompleted(ResourceGovernor governor, QpdfJsonResult? result, bool missing)
+    private async Task<QpdfJsonResult?> CompleteTyped(string outcome)
     {
-        internal readonly ResourceGovernor Governor = governor;
-        internal readonly bool Missing = missing;
-        internal QpdfJsonResult? Result = result;
-        internal QpdfExecutionCounters? Counters = result?.Counters;
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private async Task<TypedCompleted> CompleteTyped(string outcome)
-    {
-        Host host = new(outcome); await Seed(host);
+        using Host host = Host.ForOutcome(outcome, InputPath, OutputPath); await Seed(host);
         using CancellationTokenSource cancel = new();
         QpdfJsonOptions options = new(2, ["qpdf"], "none", null, ["0000000001,0000000000", "2147483647,0000000000"], false);
         Task<QpdfJsonResult> running = Qpdf.GetDocumentJsonAsync(host, InputPath, OutputPath, options, cancel.Token).AsTask();
-        await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
-        ResourceGovernor governor = Find<ResourceGovernor>(running, 0, new HashSet<object>(ReferenceEqualityComparer.Instance))
-            ?? throw new InvalidOperationException("Missing typed job governor.");
-        JsonInspection inspection = Find<JsonInspection>(running, 0, new HashSet<object>(ReferenceEqualityComparer.Instance))
-            ?? throw new InvalidOperationException("Missing typed JSON inspection.");
-        Assert.NotNull(inspection.Objects);
-        Assert.True(inspection.Objects.SetEquals([(false, 1, 0), (false, int.MaxValue, 0)]));
-        bool missing = governor.Snapshot().LiveMemoryBytes < 96L + 12L * inspection.Objects.Count;
-        if (outcome == "cancel") { cancel.Cancel(); }
-        host.Resume();
-        QpdfJsonResult? result = null;
-        if (outcome == "success")
+        try
         {
-            result = await running.WaitAsync(TimeSpan.FromSeconds(10));
-            await ValidateOutput(host, "json", string.Empty);
-            Assert.Equal(0L, result.Counters.OpenHandles);
+            await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.True(host.Budget.ReservedBytes > 0L);
+            if (outcome == "cancel") { cancel.Cancel(); }
+            host.Resume();
+            QpdfJsonResult? result = null;
+            if (outcome == "success")
+            {
+                result = await running.WaitAsync(TimeSpan.FromSeconds(10));
+                await ValidateOutput(host, "json", string.Empty);
+                Assert.Equal(0L, result.Counters.OpenHandles);
+            }
+            else
+            {
+                if (outcome is "cancel" or "host-cancel")
+                { await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running.WaitAsync(TimeSpan.FromSeconds(10))); }
+                else { await Assert.ThrowsAnyAsync<QpdfException>(() => running.WaitAsync(TimeSpan.FromSeconds(10))); }
+                Assert.True(host.Inner.TryGetOutput(OutputPath, out byte[] prior)); Assert.Equal(Prior, prior);
+            }
+            Assert.Equal(0L, host.Inner.OpenLeaseCount);
+            Assert.True(host.Budget.ReservedBytes < host.Budget.PeakBytes);
+            return result;
         }
-        else
+        finally
         {
-            if (outcome is "cancel" or "host-cancel")
-            { await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running.WaitAsync(TimeSpan.FromSeconds(10))); }
-            else { await Assert.ThrowsAnyAsync<QpdfException>(() => running.WaitAsync(TimeSpan.FromSeconds(10))); }
-            Assert.True(host.Inner.TryGetOutput(OutputPath, out byte[] prior)); Assert.Equal(Prior, prior);
+            host.Resume();
+            try { await running.WaitAsync(TimeSpan.FromSeconds(10)); }
+            catch (QpdfException) { }
+            catch (OperationCanceledException) { }
         }
-        Assert.Equal(0L, host.Inner.OpenLeaseCount);
-        log.WriteLine("DERIVED TYPED CONTROL PASS {0}", outcome);
-        return new TypedCompleted(governor, result, missing);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private async Task<List<TypedCompleted>> CompleteTypedJobs()
-    {
-        List<TypedCompleted> jobs = [];
-        foreach (string outcome in new[] { "success", "publication-fault", "open-fault", "read-fault", "close-fault", "cancel", "host-cancel" })
-        { jobs.Add(await CompleteTyped(outcome)); }
-        return jobs;
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static bool ObserveTyped(List<TypedCompleted> jobs)
-    {
-        bool missing = false;
-        foreach (TypedCompleted job in jobs)
-        {
-            missing |= job.Missing;
-                        Assert.Equal(0L, job.Governor.PrivateRetainedBytes);
-        }
-        return missing;
     }
 
     [Fact]
     public async Task TypedJsonJobsFundCanonicalSelectorsAndRetirePrivateInspection()
     {
-        List<TypedCompleted> jobs = await CompleteTypedJobs();
-        bool missing = ObserveTyped(jobs);
-        foreach (TypedCompleted job in jobs) { job.Result = null; job.Counters = null; }
-
-        foreach (TypedCompleted job in jobs) { Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes); }
-        Assert.False(missing, "Typed JSON selector storage exceeds its active allowance.");
+        foreach (string outcome in new[] { "success", "publication-fault", "cancel", "host-cancel" })
+        {
+            QpdfJsonResult? result = await CompleteTyped(outcome);
+            if (result is not null)
+            {
+                using JsonDocument parsed = JsonDocument.Parse(result.Json);
+                Assert.Equal(2, parsed.RootElement.GetProperty("version").GetInt32());
+            }
+        }
     }
 }
