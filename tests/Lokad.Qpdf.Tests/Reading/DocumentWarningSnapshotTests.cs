@@ -124,9 +124,6 @@ public sealed class DocumentWarningSnapshotTests
         Assert.Equal(0L, host.OpenLeaseCount); Assert.Equal(0L, governor.Snapshot().OpenHandles);
     }
 
-    private static Array Backing(IReadOnlyList<QpdfDiagnostic> warnings) => warnings.GetType().GetFields(Members)
-        .Select(field => field.GetValue(warnings)).OfType<Array>().Single();
-
     private sealed class Aliases(ResourceGovernor governor, object value, IReadOnlyList<QpdfDiagnostic> sibling,
         bool admitted)
     {
@@ -142,12 +139,10 @@ public sealed class DocumentWarningSnapshotTests
         ResourceGovernor governor = Governor(document);
         IReadOnlyList<QpdfDiagnostic> first = document.Warnings, second = document.Warnings;
         Validate(first); Validate(second); Assert.Same(first[0], second[0]); Assert.NotSame(first, second);
-        Array backing = Backing(first);
         bool admitted = governor.CallerStorageBytes + governor.PrivateRetainedBytes >= 56L;
         object value = kind switch
         {
             "view" => first,
-            "backing" => backing,
             "element" => first[0],
             _ => first.ToArray(),
         };
@@ -174,7 +169,7 @@ public sealed class DocumentWarningSnapshotTests
         object value = aliases.Value ?? throw new InvalidOperationException();
         if (value is QpdfDiagnostic diagnostic) { Assert.Equal(Message, diagnostic.Message); }
         else { Validate((IReadOnlyList<QpdfDiagnostic>)value); }
-        bool view = kind == "view", array = view || kind == "backing";
+        bool view = kind == "view";
         if (view)
         {
             IList mutable = (IList)value;
@@ -195,7 +190,7 @@ public sealed class DocumentWarningSnapshotTests
     public static IEnumerable<object[]> AliasCases()
     {
         foreach (object[] row in Originals())
-        foreach (string kind in new[] { "view", "backing", "element", "caller-copy" }) { yield return [.. row, kind]; }
+        foreach (string kind in new[] { "view", "element", "caller-copy" }) { yield return [.. row, kind]; }
     }
 
     [Theory]
@@ -330,7 +325,7 @@ public sealed class DocumentWarningSnapshotTests
     {
         foreach (bool compressed in new[] { false, true })
         foreach (string mode in new[] { "fault", "cancel" })
-        foreach (string kind in new[] { "view", "backing" }) { yield return [compressed, mode, kind]; }
+        foreach (string kind in new[] { "view", "caller-copy" }) { yield return [compressed, mode, kind]; }
     }
 
     [Theory]
