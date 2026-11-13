@@ -21,6 +21,9 @@ operation cores and validation. Argv supplies direct settings without serialized
 JSON. Actual JSON retains its admitted documents and copied text through plan
 consumption, including ordered nested-file loading. Scoped syntax helpers handle
 page, placement, attachment and encryption blocks.
+Typed single-input page selection can explicitly choose the shared bounded repair
+policy; existing typed overloads retain strict parsing. Recovery warnings flow
+through the existing result snapshot and publication owner.
 The reader resolves classic, streamed, hybrid and incremental xrefs into immutable
 PDF values. Eligible selections read bounded ranges from classic-xref inputs,
 falling back to a complete read on the same lease when necessary.

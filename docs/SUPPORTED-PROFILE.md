@@ -20,7 +20,10 @@ Standalone `--show-crypto` reports `managed` through the result diagnostics; it 
 Encryption facts expose permissions and authentication status without passwords
 or keys. Typed `SelectPageAsync` authenticates with the same password values and
 preserves R2–R6 protection, both passwords, permissions and metadata policy. It
-supports ordered/repeated pages, first/last previews and rotations. Missing
+supports ordered/repeated pages, first/last previews and rotations.
+Overloads with an explicit `QpdfRecoveryMode` permit bounded
+syntax/cross-reference repair and return its warnings; existing overloads remain
+strict. Both policies preserve opaque stream data and stored appearances. Missing
 credentials try empty. An explicit `QpdfOutputEncryption` policy can preserve,
 remove or replace protection with fresh AES-256 R6. Creation uses UTF-8 or exact
 password bytes, fresh keys/salts/IVs, the requested permission word and metadata

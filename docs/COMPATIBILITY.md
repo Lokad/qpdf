@@ -40,7 +40,7 @@ reasons. Companion fix-qdf/zlib-flate operations are additional contracts.
 
 | Behavior | Typed | Argv / job JSON |
 | --- | --- | --- |
-| Reading | Strict | Bounded repair by default; `--suppress-recovery` is strict |
+| Reading | Strict; `SelectPageAsync` can request bounded repair | Bounded repair by default; `--suppress-recovery` is strict |
 | Stream copying | Opaque encoded bytes | Generalized decoding and compression |
 | Rotation requests | Supplied list order | Last value per exact range text, then ordinal key order |
 | Generic catalog data | Selection defaults may omit extras | Ordinary rewrites preserve supported primary extras; split has a narrower policy |
@@ -57,6 +57,20 @@ could reject repetitions that security, inspection or layered jobs accepted.
 Input/output/pages/replace declarations and repeated `--empty` remain exclusive;
 main-context parser ceilings also remain exclusive. Stream-filter setters and
 `--global` blocks keep setter order. Block-local duplicate rules remain explicit.
+
+Single-input typed extraction and first/last previews can supply
+`QpdfRecoveryMode.BoundedRepair` to `SelectPageAsync`; existing overloads stay
+strict. The reader uses the same bounded syntax/xref repair as commands, including
+rebuilding a table with a zero-entry subsection. `PdfPageSelectionResult.Warnings`
+reports recovery. Streams remain opaque, and source bytes, passwords, limits and
+transactional publication keep their existing contracts. The full recovery overload
+also accepts rotations, an input password and an output-encryption policy.
+
+```csharp
+PdfPageSelectionResult preview = await Qpdf.SelectPageAsync(
+    host, input, output, PdfPageSelectionOptions.FirstAndLast(2),
+    QpdfRecoveryMode.BoundedRepair, cancellationToken);
+```
 
 ## Known differences from native qpdf
 

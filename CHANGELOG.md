@@ -1,7 +1,10 @@
 # Changelog
 
-## Unreleased — 0.2.0-dev.3
+## Unreleased — 0.2.0-dev.4
 
+- Let typed single-input extraction and first/last previews choose bounded recovery
+  through explicit `QpdfRecoveryMode` overloads. Keep strict defaults, opaque stream
+  copying, stored appearances, credentials and publication/cleanup guarantees.
 - Correct package description and release notes to describe the implemented
   password-security, signed-page and host-codec contracts. Package checks reject
   the obsolete blanket security exclusion in the built manifest.

@@ -2,7 +2,7 @@ using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf;
 
-/// <summary>Ordered page selection within the strict profile.</summary>
+/// <summary>Ordered page selection for extraction and first/last previews.</summary>
 public sealed record PdfPageSelectionOptions
 {
     /// <summary>Creates a selection for a 1-based page number.</summary>

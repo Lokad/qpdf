@@ -41,6 +41,38 @@ internal static class Program
         }
     }
 
+    private static async Task VerifySelectionRecoveryAsync()
+    {
+        byte[] source = TwoPagePdf();
+        int at = source.AsSpan().LastIndexOf("\nxref\n"u8) + 6;
+        Check(at >= 6, "selection recovery fixture xref");
+        byte[] damaged = [.. source.AsSpan(0, at), .. "0 0\n"u8, .. source.AsSpan(at)];
+        byte[] original = (byte[])damaged.Clone();
+        using InMemoryQpdfHost host = NewHost("recovery.pdf", damaged);
+        QpdfPath input = QpdfPath.From("recovery.pdf"), output = QpdfPath.From("repaired.pdf");
+        try
+        {
+            await Qpdf.SelectPageAsync(host, input, output, new PdfPageSelectionOptions(1), CancellationToken.None);
+            throw new InvalidOperationException("Default typed selection accepted damaged xrefs.");
+        }
+        catch (QpdfParseException) { }
+        Check(!host.TryGetOutput(output, out _) && host.OpenLeaseCount == 0, "strict selection rejects before publication");
+        PdfPageSelectionResult selected = await Qpdf.SelectPageAsync(host, input, output,
+            PdfPageSelectionOptions.FromPages([2, 1, 2]), QpdfRecoveryMode.BoundedRepair, QpdfLimits.Default, CancellationToken.None);
+        Check(selected.SourcePageCount == 2 && selected.SourcePages.SequenceEqual(new[] { 2, 1, 2 }) && selected.PageCount == 3,
+            "recovered explicit selection preserves counts and mapping");
+        Check(selected.Warnings.Any(d => d.Code == QpdfDiagnosticCode.RecoveryEngaged), "typed recovery is observable");
+        await CheckMultiOutputAsync(host, output.Value, ["Second", "First", "Second"]);
+        PdfPageSelectionResult preview = await Qpdf.SelectPageAsync(host, input, output,
+            PdfPageSelectionOptions.FirstAndLast(1), QpdfRecoveryMode.BoundedRepair, CancellationToken.None);
+        Check(preview.SourcePages.SequenceEqual(new[] { 1, 2 }), "recovered first/last preview");
+        await Qpdf.SelectPageAsync(host, input, output, new PdfPageSelectionOptions(1), Array.Empty<PdfPageRotation>(),
+            null, QpdfOutputEncryption.Remove, QpdfRecoveryMode.BoundedRepair, QpdfLimits.Default, CancellationToken.None);
+        await CheckOutputAsync(host, output.Value, "First");
+        Check(original.SequenceEqual(damaged) && host.OpenLeaseCount == 0, "recovery preserves source bytes and closes leases");
+        Console.WriteLine("PASS typed bounded recovery with strict default, explicit selection and first/last preview");
+    }
+
     private sealed class SampleCodec : IQpdfJpegCodec
     {
         internal int Calls { get; private set; }
@@ -156,6 +188,7 @@ internal static class Program
         await VerifyInlineJobEncodingAsync();
         await VerifyJobFileReadsAsync();
         await VerifySignatureCopyPolicyAsync();
+        await VerifySelectionRecoveryAsync();
         byte[] input = TwoPagePdf();
         InMemoryQpdfHost typedHost = NewHost("inputs/in.pdf", input);
         PdfPageSelectionResult typed = await Qpdf.SelectPageAsync(

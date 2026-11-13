@@ -50,13 +50,37 @@ public static partial class Qpdf
         => SelectPageAsync(host, inputPath, outputPath, options, rotations, password, outputEncryption, QpdfLimits.Default, cancellationToken);
 
     /// <summary>Copies and rotates selected pages with explicit budgets and output encryption policy.</summary>
-    public static async ValueTask<PdfPageSelectionResult> SelectPageAsync(IQpdfHost host, QpdfPath inputPath,
+    public static ValueTask<PdfPageSelectionResult> SelectPageAsync(IQpdfHost host, QpdfPath inputPath,
         QpdfPath outputPath, PdfPageSelectionOptions options, IReadOnlyList<PdfPageRotation> rotations,
         QpdfPassword? password, QpdfOutputEncryption outputEncryption, QpdfLimits limits, CancellationToken cancellationToken)
+        => SelectPageAsync(host, inputPath, outputPath, options, rotations, password, outputEncryption,
+            QpdfRecoveryMode.Strict, limits, cancellationToken);
+
+    /// <summary>Copies selected pages using explicit strict parsing or bounded recovery, with default budgets.</summary>
+    /// <remarks>Streams are copied opaquely. Recovery warnings are returned in the selection result.</remarks>
+    public static ValueTask<PdfPageSelectionResult> SelectPageAsync(IQpdfHost host, QpdfPath inputPath,
+        QpdfPath outputPath, PdfPageSelectionOptions options, QpdfRecoveryMode recovery, CancellationToken cancellationToken)
+        => SelectPageAsync(host, inputPath, outputPath, options, recovery, QpdfLimits.Default, cancellationToken);
+
+    /// <summary>Copies selected pages using explicit strict parsing or bounded recovery and explicit budgets.</summary>
+    public static ValueTask<PdfPageSelectionResult> SelectPageAsync(IQpdfHost host, QpdfPath inputPath,
+        QpdfPath outputPath, PdfPageSelectionOptions options, QpdfRecoveryMode recovery, QpdfLimits limits,
+        CancellationToken cancellationToken)
+        => SelectPageAsync(host, inputPath, outputPath, options, Array.Empty<PdfPageRotation>(), null,
+            QpdfOutputEncryption.Preserve, recovery, limits, cancellationToken);
+
+    /// <summary>Copies and rotates selected pages with explicit recovery, input credential, output encryption and budgets.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The recovery policy is undefined.</exception>
+    public static async ValueTask<PdfPageSelectionResult> SelectPageAsync(IQpdfHost host, QpdfPath inputPath,
+        QpdfPath outputPath, PdfPageSelectionOptions options, IReadOnlyList<PdfPageRotation> rotations,
+        QpdfPassword? password, QpdfOutputEncryption outputEncryption, QpdfRecoveryMode recovery,
+        QpdfLimits limits, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(host); ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(rotations); ArgumentNullException.ThrowIfNull(limits);
         ArgumentNullException.ThrowIfNull(outputEncryption);
+        if (recovery is not (QpdfRecoveryMode.Strict or QpdfRecoveryMode.BoundedRepair))
+        { throw new ArgumentOutOfRangeException(nameof(recovery)); }
         limits.Validate();
         ResourceGovernor governor = new(limits, cancellationToken, host);
         governor.PrepareTypedResult(PdfPageSelectionResult.StorageBytes);
@@ -66,7 +90,7 @@ public static partial class Qpdf
             preparation?.ConvertRotations(rotations);
             DiagnosticBag diagnostics = new(governor);
             PageSelectionOutcome result = await SelectPageCoreAsync(host, inputPath, outputPath, options, limits,
-                QpdfRecoveryMode.Strict, SelectionSettings.Typed with
+                recovery, SelectionSettings.Typed with
                 { Rotations = preparation?.Rotations ?? Array.Empty<OutputRotation>(), AuthenticatePrimary = true,
                     PrimaryPassword = password, OutputEncryption = outputEncryption },
                 governor, diagnostics, cancellationToken).ConfigureAwait(false);
