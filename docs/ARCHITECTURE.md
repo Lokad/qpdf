@@ -184,3 +184,10 @@ Gray/RGB encoding.
 Physical I/O adapters, native qpdf, renderers and PdfPig belong to development
 tools and tests. Ordinary tests work without native tools; explicit reference
 jobs require them. See [benchmarks](BENCHMARKS.md) for performance evidence.
+
+Tests assign exhaustive syntax/repair and known-answer security tables to their
+primitive owners. Reader/writer workflows retain representative repairs, limits,
+source roles and API wiring. Preserved physical-layout fixtures each reach their
+validator; classic/streamed, valid/invalid and opaque-stream controls cover route
+adaptation. Graph/content, writer layout, ownership/publication, native/visual
+evidence and installed consumers retain their separate guarantees.

@@ -211,17 +211,22 @@ public sealed class TolerantObjectLoadingTests
         }
     }
 
+    // Syntax owns the complete lexical/budget table. These cases exercise
+    // delimiter repair, NUL/name handling, bytes and newline normalization through
+    // the reader/writer, on both xref strategies and across the threshold.
     public static IEnumerable<object[]> LexicalPublicCases()
     {
         foreach (bool broken in new[] { false, true })
+        foreach ((string body, string kept, int errors, bool warns) in LexicalParserTests.Cases(broken))
         {
-            foreach ((string body, string kept, int errors, bool warns) in LexicalParserTests.Cases(broken))
+            bool representative = body is "[ 1{2 3}4 ]" or "/A#00B" or "<< /A#00B 1 /C 2 >>"
+                or "[ /A#2300B 2 ]" or "[ <ABCD> <ff00> ]"
+                || body.Contains('\r') && body.Contains('\n') && !body.Contains('\\');
+            if (!representative) { continue; }
+            foreach (long budget in new long[] { 0L, 1L })
             {
-                foreach (long budget in new long[] { 0L, 1L, 2L, 3L, 6L, 15L })
-                {
-                    string expected = budget != 0L && errors >= budget ? "null" : kept;
-                    yield return [body, budget, expected, warns, broken];
-                }
+                string expected = budget != 0L && errors >= budget ? "null" : kept;
+                yield return [body, budget, expected, warns, broken];
             }
         }
     }
@@ -233,7 +238,18 @@ public sealed class TolerantObjectLoadingTests
         await AssertPublicValueAndRewrite(body, budget, display, warns, broken, false, false);
     }
 
-    public static IEnumerable<object[]> DictionaryPublicCases() => DictionaryRepairTests.OracleCases();
+    // Preserve source-role references, orphan guards, nested isolation, fake-key
+    // collisions and NUL keys. Syntax exhausts numeric thresholds for every row;
+    // each distinct selected outcome needs one public integration representative.
+    public static IEnumerable<object[]> DictionaryPublicCases()
+    {
+        var cases = DictionaryRepairTests.Cases().Where(item => item.Name is
+            "array-orphan-gap" or "duplicate-reference-value" or "child-dictionary-isolation"
+            or "fake-key-collision-duplicate" or "nul-key-after-orphans" or "duplicate-integer-next-error")
+            .DistinctBy(item => (item.Name, item.Sanity, item.Expected));
+        foreach (var item in cases)
+        { yield return [item.Name, item.Body, item.Sanity, item.Budget, item.Expected]; }
+    }
 
     [Theory]
     [MemberData(nameof(DictionaryPublicCases))]
@@ -243,7 +259,15 @@ public sealed class TolerantObjectLoadingTests
         await AssertPublicValueAndRewrite(body, budget, display, true, broken, name == "duplicate-reference-value" && display != "null", false);
     }
 
-    public static IEnumerable<object[]> DamagedPublicCases() => DamagedSyntaxTests.OracleCases();
+    public static IEnumerable<object[]> DamagedPublicCases()
+    {
+        var cases = DamagedSyntaxTests.Cases().Where(item => item.Name is
+            "damage-name-identity" or "damage-array-dict-close" or "damage-array-endobj"
+            or "damage-array-paren" or "damage-array-eof" or "damage-array-hex-eof" or "damage-array-literal-eof")
+            .DistinctBy(item => (item.Name, item.Sanity, item.Expected));
+        foreach (var item in cases)
+        { yield return [item.Name, item.Body, item.Sanity, item.Budget, item.Expected, item.Warns]; }
+    }
 
     [Theory]
     [MemberData(nameof(DamagedPublicCases))]
@@ -252,7 +276,9 @@ public sealed class TolerantObjectLoadingTests
         await AssertPublicValueAndRewrite(body, budget, display, warns, broken, false, DamagedSyntaxTests.HasMalformedName(name));
     }
 
-    public static IEnumerable<object[]> StrictDamagedPublicCases() => DamagedSyntaxTests.StrictDamageCases();
+    public static IEnumerable<object[]> StrictDamagedPublicCases()
+        => DamagedSyntaxTests.StrictDamageCases().Where(row => row[0] is
+            "damage-name-identity" or "damage-array-dict-close" or "damage-array-paren" or "damage-array-eof");
 
     [Theory]
     [MemberData(nameof(StrictDamagedPublicCases))]

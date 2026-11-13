@@ -22,9 +22,16 @@ public sealed class LinearizationPhysicalTests
     {
         foreach (JsonObject row in Assert.IsType<JsonArray>(Corpus["Cases"]).OfType<JsonObject>())
         {
-            string[] routes = row["Routes"] is JsonArray selected
+            string id = Text(row["Id"]);
+            // Every preserved physical layout reaches its primary validator.
+            // Explicit routes avoid full --check's unrelated stream decoding.
+            string[] supported = row["Routes"] is JsonArray selected
                 ? selected.Select(Text).ToArray()
                 : ["typed", "argv-check", "job-check", "argv-linearization", "job-linearization", "argv-show", "job-show"];
+            bool wiring = id is "classic-control" or "streamed-control" or "classic-wrong-E" or "streamed-wrong-T"
+                or "original-raw-lin-66-argv-native" or "original-hex-lin-67-job-managed"
+                or "original-flate-lin-68-mixed-native" or "original-dct-lin-69-chain-managed";
+            IEnumerable<string> routes = wiring ? supported : supported.Take(1);
             foreach (string route in routes)
             {
                 yield return [Text(row["Id"]), route];
