@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — 0.2.0-dev.2
+## Unreleased — 0.2.0-dev.3
 
 - Correct package description and release notes to describe the implemented
   password-security, signed-page and host-codec contracts. Package checks reject
@@ -23,6 +23,11 @@
 - Share rectangle transforms, matrix composition and finite numeric-array readers
   across annotation flattening, rotation and placement. Keep feature-specific
   clipping/fallback rules and use spans for temporary bounds.
+- Assign exhaustive parser/security/layout tables and shared publication faults
+  primary test owners. Use explicit fixtures and recording hosts/budgets for API
+  lifetimes; retain isolated core collectability controls without compiler-frame
+  or private BCL collection probing.
+
 
 - Support Standard password security R2–R6 through the shared typed, argv and job
   pipelines, including legitimate empty passwords and non-secret encryption facts.
