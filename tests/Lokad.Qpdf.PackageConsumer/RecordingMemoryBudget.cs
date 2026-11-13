@@ -5,7 +5,7 @@ namespace Lokad.Qpdf.TestSupport;
 
 // Development-only shared allowance, compiled by tests and the isolated package
 // consumer. This is deliberately independent of the production implementation.
-internal sealed class RecordingMemoryBudget : IMemoryBudget
+internal sealed class RecordingMemoryBudget : IMemoryBudget, IDisposable
 {
     private readonly object _gate = new();
     private readonly Scope _root;
@@ -18,6 +18,7 @@ internal sealed class RecordingMemoryBudget : IMemoryBudget
     private int _peakReservations;
     private readonly bool _recordRequests;
     private readonly List<long> _requests = [];
+    private bool _refuseGrowth;
 
     internal RecordingMemoryBudget(long limitBytes) : this(limitBytes, true) { }
 
@@ -38,6 +39,11 @@ internal sealed class RecordingMemoryBudget : IMemoryBudget
     internal int PeakReservations { get { lock (_gate) { return _peakReservations; } } }
     internal int LiveReservations { get { lock (_gate) { return _liveReservations; } } }
     internal int RefuseOnGrowth { get; init; }
+    internal bool RefuseGrowth
+    {
+        get { lock (_gate) { return _refuseGrowth; } }
+        set { lock (_gate) { _refuseGrowth = value; } }
+    }
     internal long[] Requests { get { lock (_gate) { return _requests.ToArray(); } } }
 
     // Benchmark only: retain the shared root and clear observations between
@@ -54,6 +60,7 @@ internal sealed class RecordingMemoryBudget : IMemoryBudget
     }
 
     public IMemoryScope CreateScope() => _root.CreateScope();
+    public void Dispose() => _root.Dispose();
     internal long ReservedWithin(IMemoryScope owner)
         => owner is Scope scope ? scope.ReservedWithin(this) : throw new ArgumentException("Unknown scope.", nameof(owner));
     public bool TryReserve(long bytes, [NotNullWhen(true)] out IMemoryReservation? reservation)
@@ -63,7 +70,7 @@ internal sealed class RecordingMemoryBudget : IMemoryBudget
     {
         if (_recordRequests) { _requests.Add(bytes); }
         long delta = bytes - previous;
-        if (delta > 0L && ++_growths == RefuseOnGrowth) { return false; }
+        if (delta > 0L && (++_growths == RefuseOnGrowth || _refuseGrowth)) { return false; }
         if (delta > LimitBytes - _reserved) { return false; }
         _reserved += delta;
         _peak = Math.Max(_peak, _reserved);

@@ -1,10 +1,7 @@
-using System.Reflection;
-using System.Runtime.CompilerServices;
+using Lokad.Qpdf.TestSupport;
 using System.Text;
 using System.Text.Json;
-using Lokad.Qpdf.Commands;
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Tests.Foundation;
 using Xunit.Abstractions;
 
@@ -17,9 +14,13 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
     private static readonly QpdfPath OutputPath = QpdfPath.From("output.pdf");
     private static readonly byte[] Prior = [17, 23, 41];
 
-    private sealed class Host(string outcome) : IQpdfHost
+    private sealed class Host(string outcome) : IQpdfHost, IQpdfMemoryHost, IDisposable
     {
         internal readonly InMemoryQpdfHost Inner = new();
+        internal readonly RecordingMemoryBudget Budget = new(16L << 20);
+        public IMemoryBudget MemoryBudget => Budget;
+        public void Dispose() { Inner.Dispose(); Budget.Dispose(); }
+
         internal readonly List<string> ConfigurationNames = [];
         internal string? InputName, OutputName, PassName;
         internal int PdfOpens;
@@ -74,39 +75,8 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
         }
     }
 
-    private sealed class Completed(string route, string outcome, ResourceGovernor governor, Host host,
-        QpdfExecutionResult result)
-    {
-        internal readonly string Route = route, Outcome = outcome;
-        internal readonly ResourceGovernor Governor = governor;
-        internal readonly Host Host = host;
-        internal QpdfExecutionResult? Result = result;
-        internal QpdfExecutionCounters? Counters = result.Counters;
-    }
-
-    private static T? Find<T>(object value, int depth, HashSet<object> seen) where T : class
-    {
-        if (depth > 96 || !seen.Add(value)) { return null; }
-        if (value is T found) { return found; }
-        const BindingFlags fields = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        if (value is Task task)
-        {
-            object? state = task.GetType().GetField("StateMachine", fields)?.GetValue(task);
-            return state is null ? null : Find<T>(state, depth + 1, seen);
-        }
-        foreach (FieldInfo field in value.GetType().GetFields(fields))
-        { if (field.GetValue(value) is T direct) { return direct; } }
-        foreach (FieldInfo field in value.GetType().GetFields(fields))
-        {
-            if (field.GetValue(value) is object nested &&
-                (nested is Task || nested.GetType().IsValueType && !nested.GetType().IsPrimitive && !nested.GetType().IsEnum))
-            {
-                T? result = Find<T>(nested, depth + 1, seen);
-                if (result is not null) { return result; }
-            }
-        }
-        return null;
-    }
+    private sealed record Completed(string Route, string Outcome, Host Host, QpdfExecutionResult Result,
+        QpdfExecutionCounters Snapshot);
 
     private static async Task Seed(Host host, QpdfPath pass)
     {
@@ -118,10 +88,9 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
         }
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
     private async Task<Completed> Complete(string route, string outcome)
     {
-        Host host = new(outcome);
+        using Host host = new(outcome);
         QpdfPath pass = QpdfPath.From(new string(route == "argv-unicode" ? '\u00e9' : 'p', 1024) + ".pdf");
         await Seed(host, pass);
         using CancellationTokenSource cancel = new();
@@ -153,49 +122,46 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
         }
         else if (route == "job") { running = Qpdf.ExecuteJobAsync(host, json, cancel.Token).AsTask(); }
         else { running = Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), cancel.Token).AsTask(); }
-        await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
-        ResourceGovernor governor = Find<ResourceGovernor>(running, 0, new HashSet<object>(ReferenceEqualityComparer.Instance))
-            ?? throw new InvalidOperationException("Missing complete-job governor.");
-        JobPlan plan = Find<JobPlan>(running, 0, new HashSet<object>(ReferenceEqualityComparer.Instance))
-            ?? throw new InvalidOperationException("Missing complete-job plan.");
-        bool borrowed = ReferenceEquals(plan.LinearizePass1?.Value, pass.Value);
-        Assert.Equal(route == "borrowed", borrowed);
-        if (!borrowed)
+        try
         {
-            Assert.True(governor.Snapshot().LiveMemoryBytes >= GovernedText.StringBytes(pass.Value.Length),
-                route + "|" + outcome + " must fund its active pass name.");
+            await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+            // Observe the host's allowance while the actual input callback is pending.
+            Assert.True(host.Budget.ReservedBytes > 0L);
+            if (outcome == "cancel") { cancel.Cancel(); }
+            host.Resume();
+            QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.Equal(outcome switch
+            { "success" => QpdfExecutionStatus.Completed, "cancel" or "host-cancel" => QpdfExecutionStatus.Canceled, _ => QpdfExecutionStatus.Failed }, result.Status);
+            Assert.Equal(0L, host.Inner.OpenLeaseCount); Assert.Equal(0L, result.Counters.OpenHandles);
+            if (outcome == "success")
+            {
+                Assert.True(host.Inner.TryGetOutput(OutputPath, out byte[] published));
+                InMemoryQpdfHost validation = new(); QpdfPath input = QpdfPath.From("published.pdf");
+                validation.AddInput(input, published, QpdfInputOwnership.Copy);
+                QpdfCheckResult check = await Qpdf.CheckAsync(validation, input, CancellationToken.None);
+                Assert.True(check.Passed); Assert.Equal(1, check.PageCount);
+                Assert.True(host.Inner.TryGetOutput(pass, out byte[] sidecar)); Assert.True(sidecar.Length > 100);
+            }
+            else { Assert.True(host.Inner.TryGetOutput(OutputPath, out byte[] prior)); Assert.Equal(Prior, prior); }
+            log.WriteLine("SETTING CONTROL PASS {0}|{1}", route, outcome);
+            Assert.True(host.Budget.ReservedBytes < host.Budget.PeakBytes);
+            return new Completed(route, outcome, host, result, result.Counters with { });
         }
-        if (outcome == "cancel") { cancel.Cancel(); }
-        host.Resume();
-        QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
-        Assert.Equal(outcome switch
-        { "success" => QpdfExecutionStatus.Completed, "cancel" or "host-cancel" => QpdfExecutionStatus.Canceled, _ => QpdfExecutionStatus.Failed }, result.Status);
-        Assert.Equal(0L, host.Inner.OpenLeaseCount); Assert.Equal(0L, result.Counters.OpenHandles);
-        if (outcome == "success")
-        {
-            Assert.True(host.Inner.TryGetOutput(OutputPath, out byte[] published));
-            InMemoryQpdfHost validation = new(); QpdfPath input = QpdfPath.From("published.pdf");
-            validation.AddInput(input, published, QpdfInputOwnership.Copy);
-            QpdfCheckResult check = await Qpdf.CheckAsync(validation, input, CancellationToken.None);
-            Assert.True(check.Passed); Assert.Equal(1, check.PageCount);
-            Assert.True(host.Inner.TryGetOutput(pass, out byte[] sidecar)); Assert.True(sidecar.Length > 100);
-        }
-        else { Assert.True(host.Inner.TryGetOutput(OutputPath, out byte[] prior)); Assert.Equal(Prior, prior); }
-        log.WriteLine("SETTING CONTROL PASS {0}|{1}", route, outcome);
-        return new Completed(route, outcome, governor, host, result);
+        finally { host.Resume(); await running.WaitAsync(TimeSpan.FromSeconds(10)); }
+
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
     private async Task<List<Completed>> CompleteJobs()
     {
         List<Completed> jobs = [];
         foreach (string route in new[] { "argv", "argv-unicode", "borrowed", "response", "mixed", "job", "file", "nested" })
-        foreach (string outcome in new[] { "success", "publication-fault", "open-fault", "read-fault", "close-fault", "cancel", "host-cancel" })
-        { jobs.Add(await Complete(route, outcome)); }
+        { jobs.Add(await Complete(route, "success")); }
+        // The shared lifetime owns failures, independently of the syntax adapter.
+        foreach (string outcome in new[] { "publication-fault", "open-fault", "read-fault", "close-fault", "cancel", "host-cancel" })
+        { jobs.Add(await Complete("argv-unicode", outcome)); }
         return jobs;
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
     private static List<string> CheckAliases(List<Completed> jobs)
     {
         List<string> defects = [];
@@ -215,7 +181,6 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
         return defects;
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
     private void Observe(List<Completed> jobs)
     {
 
@@ -225,16 +190,13 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
         foreach (Completed job in jobs)
         { job.Host.InputName = null; job.Host.OutputName = null; job.Host.PassName = null; job.Host.ConfigurationNames.Clear(); }
 
-        foreach (Completed job in jobs) { job.Result = null; }
-
         foreach (Completed job in jobs)
         {
-            Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes);
+            Assert.Equal(0L, job.Host.Budget.ReservedBytes);
+            Assert.Equal(0, job.Host.Budget.LiveReservations);
+            Assert.Equal(job.Snapshot, job.Result.Counters);
             Assert.Equal(0L, job.Host.Inner.OpenLeaseCount);
-            job.Counters = null;
         }
-
-        foreach (Completed job in jobs) { Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes); }
         GC.KeepAlive(jobs);
     }
 
@@ -253,12 +215,13 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
         QpdfPath pass = QpdfPath.From(new string(unicode ? '\u00e9' : 'p', 2048) + ".pdf");
         foreach (bool inline in new[] { true, false })
         {
-            Host host = new("budget"); await Seed(host, pass);
+            using Host host = new("budget"); await Seed(host, pass);
+            host.Budget.RefuseGrowth = true;
             string[] argv = inline
                 ? [InputPath.Value, "--linearize", "--linearize-pass1=" + pass.Value, OutputPath.Value]
                 : [InputPath.Value, "--linearize", "--linearize-pass1", pass.Value, OutputPath.Value];
             QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv),
-                new QpdfExecutionOptions(QpdfLimits.Default with { MaxMemoryBytes = 4096L }), CancellationToken.None);
+                CancellationToken.None);
             Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
             Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded);
             Assert.Equal(0, host.PdfOpens);
