@@ -7,7 +7,6 @@ namespace Lokad.Qpdf.Writing;
 /// <summary>Bounded field-type resolution for signature disabling in derived output.</summary>
 internal sealed class SignatureCopyPolicy
 {
-    private static readonly PdfName TypeKey = PdfName.FromAscii("Type");
     private static readonly PdfName ParentKey = PdfName.FromAscii("Parent");
     private static readonly PdfName PageType = PdfName.FromAscii("Page");
     private static readonly PdfName PagesType = PdfName.FromAscii("Pages");

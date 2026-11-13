@@ -109,7 +109,7 @@ public sealed class PrimaryAttachmentPasswordTests
         for (int growth = 1; growth <= baseline.GrowthCalls; growth++) { await Run(new(4194304) { RefuseOnGrowth = growth }, true); }
         async Task Run(RecordingMemoryBudget budget, bool refuses)
         {
-            using InMemoryQpdfHost storage = new(); Prepare(storage, 4); using IMemoryScope caller = budget.CreateScope(); BudgetHost host = new(storage, caller);
+            using InMemoryQpdfHost storage = new(); Prepare(storage, 4); using IMemoryScope caller = budget.CreateScope(); MemoryBudgetHost host = new(storage, caller);
             async Task Operate()
             {
                 if (operation == "list") { _ = await Qpdf.ListAttachmentsAsync(host, Input, Password(4, true), QpdfLimits.Default, CancellationToken.None); }
@@ -143,10 +143,5 @@ public sealed class PrimaryAttachmentPasswordTests
         host.AddInput(QpdfPath.From("extra.bin"), "Added bytes"u8.ToArray(), QpdfInputOwnership.Copy);
         void Add(QpdfPath path, string file) => host.AddInput(path, File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", file)), QpdfInputOwnership.Copy);
     }
-    private sealed class BudgetHost(InMemoryQpdfHost storage, IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
-    {
-        public IMemoryBudget MemoryBudget => budget;
-        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => storage.OpenInputAsync(path, token);
-        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token) => storage.CreateOutputAsync(path, token);
-    }
+
 }

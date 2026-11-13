@@ -103,7 +103,7 @@ public sealed class EncryptedJsonUpdateCommandTests
         {
             using InMemoryQpdfHost host = new(); Add(host, Input, "security-r6-ascii.pdf"); Add(host, Template, "security-r4-empty.pdf"); await AddPatch(host);
             using IMemoryScope caller = budget.CreateScope();
-            QpdfExecutionResult result = await Execute(new BudgetHost(host, caller), true, "template");
+            QpdfExecutionResult result = await Execute(new MemoryBudgetHost(host, caller), true, "template");
             Assert.Equal(refuses ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed, result.Status);
             if (refuses) { Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, Assert.Single(result.Diagnostics).Code); Assert.False(host.TryGetOutput(Output, out _)); }
             Assert.Equal(0, host.OpenLeaseCount); caller.Dispose(); Assert.Equal(0, budget.ReservedBytes);
@@ -157,10 +157,5 @@ public sealed class EncryptedJsonUpdateCommandTests
     }
     private static int Ref(PdfDictionary dictionary, string name) => dictionary.TryGet(PdfName.FromAscii(name), out QpdfObject value) && value is PdfReference reference ? reference.ObjectNumber : 0;
     private static void Add(InMemoryQpdfHost host, QpdfPath path, string file) => host.AddInput(path, File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", file)), QpdfInputOwnership.Copy);
-    private sealed class BudgetHost(InMemoryQpdfHost storage, IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
-    {
-        public IMemoryBudget MemoryBudget => budget;
-        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => storage.OpenInputAsync(path, token);
-        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token) => storage.CreateOutputAsync(path, token);
-    }
+
 }

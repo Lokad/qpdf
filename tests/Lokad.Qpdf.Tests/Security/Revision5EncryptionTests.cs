@@ -229,7 +229,7 @@ public sealed class Revision5EncryptionTests
         async Task Run(RecordingMemoryBudget budget, bool refuses)
         {
             using InMemoryQpdfHost storage = new(); Add(storage, Input, "security-r5-ascii.pdf"); Add(storage, Template, "security-r5-empty.pdf");
-            using IMemoryScope caller = budget.CreateScope(); BudgetHost host = new(storage, caller);
+            using IMemoryScope caller = budget.CreateScope(); MemoryBudgetHost host = new(storage, caller);
             async Task Operate()
             {
                 if (operation == "open")
@@ -267,10 +267,5 @@ public sealed class Revision5EncryptionTests
     private static JsonDocument ReadVectors() => JsonDocument.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "security-r5-vectors.json")));
     private static void Add(InMemoryQpdfHost host, QpdfPath path, string fixture)
         => host.AddInput(path, File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", fixture)), QpdfInputOwnership.Copy);
-    private sealed class BudgetHost(InMemoryQpdfHost storage, IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
-    {
-        public IMemoryBudget MemoryBudget => budget;
-        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => storage.OpenInputAsync(path, token);
-        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token) => storage.CreateOutputAsync(path, token);
-    }
+
 }

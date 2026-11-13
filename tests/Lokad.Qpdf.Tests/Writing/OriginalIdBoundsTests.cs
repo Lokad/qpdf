@@ -13,23 +13,7 @@ public sealed class OriginalIdBoundsTests
     private static DocumentEngine Engine(QpdfObject value, ResourceGovernor governor)
     {
         PdfDictionary trailer = new(new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("ID")] = value });
-        using ParserMemoryScope fixtureStorage = ParserMemoryScope.Create(governor);
-        Dictionary<int, XrefEntry> fixtureEntries = ParserContainers.CreateDictionary<int, XrefEntry>(fixtureStorage);
-        using ParserMemoryScope fixtureValues = ParserMemoryScope.Create(governor);
-        List<PdfDictionary> fixtureTrailers = ParserContainers.CreateList<PdfDictionary>(fixtureStorage, 1, IntPtr.Size);
-        fixtureTrailers.Add(trailer);
-        XRefTable fixtureTable = XRefTable.CreateOwned(0L, fixtureEntries, trailer, fixtureTrailers,
-            governor, fixtureStorage, fixtureValues, false);
-        DocumentEngine fixtureEngine;
-        try
-        {
-            fixtureStorage.Reserve(32L);
-            fixtureEngine = DocumentEngine.CreateOwned(ReadOnlyMemory<byte>.Empty, fixtureTable, QpdfLimits.Default,
-                governor, new(governor), QpdfRecoveryMode.Strict, 32L, valuesEscape: true, hostInput: false, snapshotBorrow: null);
-            fixtureStorage.Retain();
-        }
-        catch { fixtureTable.Dispose(); throw; }
-        return fixtureEngine;
+        return TestDocumentEngine.Create(trailer, governor);
     }
 
     [Theory]

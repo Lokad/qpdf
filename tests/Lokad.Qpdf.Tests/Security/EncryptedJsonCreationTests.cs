@@ -91,7 +91,7 @@ public sealed class EncryptedJsonCreationTests
         async Task Run(RecordingMemoryBudget budget, bool refuses)
         {
             using InMemoryQpdfHost host = new(); AddJson(host, Source); using IMemoryScope caller = budget.CreateScope();
-            Task<QpdfJsonImportResult> Create() => Qpdf.CreatePdfFromJsonAsync(new BudgetHost(host, caller), Json, Output, NewProtection(false), QpdfLimits.Default, CancellationToken.None).AsTask();
+            Task<QpdfJsonImportResult> Create() => Qpdf.CreatePdfFromJsonAsync(new MemoryBudgetHost(host, caller), Json, Output, NewProtection(false), QpdfLimits.Default, CancellationToken.None).AsTask();
             if (refuses) { await Assert.ThrowsAsync<QpdfMemoryAdmissionException>(Create); Assert.False(host.TryGetOutput(Output, out _)); } else { _ = await Create(); }
             Assert.Equal(0, host.OpenLeaseCount); caller.Dispose(); Assert.Equal(0, budget.ReservedBytes);
         }
@@ -99,10 +99,5 @@ public sealed class EncryptedJsonCreationTests
     private static QpdfOutputEncryption NewProtection(bool metadata) => QpdfOutputEncryption.CreateAes256(QpdfPassword.FromText("reader"), QpdfPassword.FromText("owner"), -4, metadata);
     private static void AddJson(InMemoryQpdfHost host, string json) => host.AddInput(Json, Encoding.UTF8.GetBytes(json), QpdfInputOwnership.Copy);
     private static int Ref(PdfDictionary dictionary, string name) => dictionary.TryGet(PdfName.FromAscii(name), out QpdfObject value) && value is PdfReference reference ? reference.ObjectNumber : 0;
-    private sealed class BudgetHost(InMemoryQpdfHost storage, IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
-    {
-        public IMemoryBudget MemoryBudget => budget;
-        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => storage.OpenInputAsync(path, token);
-        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token) => storage.CreateOutputAsync(path, token);
-    }
+
 }

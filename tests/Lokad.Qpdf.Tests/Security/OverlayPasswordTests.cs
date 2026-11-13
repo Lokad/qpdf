@@ -135,7 +135,7 @@ public sealed class OverlayPasswordTests
         {
             using InMemoryQpdfHost host = new(); Add(host, Input, "security-r6-ascii.pdf"); Add(host, Source, "security-r4-pdfdoc.pdf");
             using IMemoryScope caller = budget.CreateScope();
-            QpdfExecutionResult result = await Qpdf.ExecuteAsync(new BudgetHost(host, caller), new([Input.Value, Output.Value, "--password=reader",
+            QpdfExecutionResult result = await Qpdf.ExecuteAsync(new MemoryBudgetHost(host, caller), new([Input.Value, Output.Value, "--password=reader",
                 "--overlay", Source.Value, "--password=café•", "--", "--encrypt", "new-reader", "new-owner", "256", "--", "--linearize", "--object-streams=generate"]), CancellationToken.None);
             Assert.Equal(refuses ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed, result.Status);
             if (refuses) { Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.BudgetExceeded); Assert.False(host.TryGetOutput(Output, out _)); }
@@ -165,12 +165,7 @@ public sealed class OverlayPasswordTests
         => job ? Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(fields), CancellationToken.None) : Qpdf.ExecuteAsync(host, new(argv), CancellationToken.None);
     private static void Completed(QpdfExecutionResult result)
         => Assert.True(result.Status == QpdfExecutionStatus.Completed, string.Join("; ", result.Diagnostics.Select(item => item.Message)));
-    private sealed class BudgetHost(InMemoryQpdfHost storage, IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
-    {
-        public IMemoryBudget MemoryBudget => budget;
-        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => storage.OpenInputAsync(path, token);
-        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token) => storage.CreateOutputAsync(path, token);
-    }
+
     private static void Add(InMemoryQpdfHost host, QpdfPath path, string file)
         => host.AddInput(path, File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", file)), QpdfInputOwnership.Copy);
 }

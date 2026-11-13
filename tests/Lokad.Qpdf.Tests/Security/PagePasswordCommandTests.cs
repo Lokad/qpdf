@@ -127,7 +127,7 @@ public sealed class PagePasswordCommandTests
         async Task Run(RecordingMemoryBudget budget, bool refuses)
         {
             using InMemoryQpdfHost host = new(); Fixtures(host); using IMemoryScope caller = budget.CreateScope();
-            QpdfExecutionResult result = await Qpdf.ExecuteAsync(new BudgetHost(host, caller), new(["--empty", Output.Value,
+            QpdfExecutionResult result = await Qpdf.ExecuteAsync(new MemoryBudgetHost(host, caller), new(["--empty", Output.Value,
                 "--pages", Input.Value, "--password=reader", "1", Other.Value, "--password=", "1", "--",
                 "--encrypt", "new-reader", "new-owner", "256", "--", "--linearize", "--object-streams=generate"]), CancellationToken.None);
             Assert.Equal(refuses ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed, result.Status);
@@ -194,12 +194,7 @@ public sealed class PagePasswordCommandTests
         Assert.DoesNotContain("private-value", result.Diagnostics[0].Message, StringComparison.Ordinal); Assert.Equal(0, result.Counters.HostOperations);
     }
 
-    private sealed class BudgetHost(InMemoryQpdfHost storage, IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
-    {
-        public IMemoryBudget MemoryBudget => budget;
-        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => storage.OpenInputAsync(path, token);
-        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token) => storage.CreateOutputAsync(path, token);
-    }
+
     private static void Fixtures(InMemoryQpdfHost host)
     { Add(host, Input, "security-r4-ascii.pdf"); Add(host, Other, "security-r6-empty.pdf"); }
     private static void Add(InMemoryQpdfHost host, QpdfPath path, string file)

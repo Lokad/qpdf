@@ -158,7 +158,7 @@ public sealed class EncryptionTemplateCommandTests
         {
             using InMemoryQpdfHost host = new(); Add(host, Input, "meta-1page.pdf"); Add(host, Template, "security-r4-pdfdoc.pdf");
             using IMemoryScope caller = budget.CreateScope();
-            QpdfExecutionResult result = await Qpdf.ExecuteAsync(new BudgetHost(host, caller), new(["--empty", Output.Value,
+            QpdfExecutionResult result = await Qpdf.ExecuteAsync(new MemoryBudgetHost(host, caller), new(["--empty", Output.Value,
                 "--pages", Input.Value, "1,1", "--", "--split-pages=1", "--copy-encryption=" + Template.Value, "--encryption-file-password=café•",
                 "--linearize", "--object-streams=generate"]), CancellationToken.None);
             Assert.Equal(refuses ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed, result.Status);
@@ -183,12 +183,7 @@ public sealed class EncryptionTemplateCommandTests
         => job ? Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(fields), CancellationToken.None) : Qpdf.ExecuteAsync(host, new(argv), CancellationToken.None);
     private static void Completed(QpdfExecutionResult result)
         => Assert.True(result.Status == QpdfExecutionStatus.Completed, string.Join("; ", result.Diagnostics.Select(item => item.Message)));
-    private sealed class BudgetHost(InMemoryQpdfHost storage, IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
-    {
-        public IMemoryBudget MemoryBudget => budget;
-        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => storage.OpenInputAsync(path, token);
-        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token) => storage.CreateOutputAsync(path, token);
-    }
+
     private static void Add(InMemoryQpdfHost host, QpdfPath path, string file)
         => host.AddInput(path, File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", file)), QpdfInputOwnership.Copy);
 }

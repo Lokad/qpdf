@@ -138,7 +138,7 @@ public sealed class EncryptedJsonTests
         {
             using InMemoryQpdfHost storage = new(); Add(storage, "security-r6-ascii.pdf");
             using IMemoryScope caller = budget.CreateScope();
-            BudgetHost host = new(storage, caller);
+            MemoryBudgetHost host = new(storage, caller);
             Task<QpdfJsonResult> Export() => Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("security-r6-ascii.pdf"), QpdfPath.From("out.json"),
                 new QpdfJsonOptions(2, ["encrypt", "qpdf"], "inline", null, [], false)
                 { Password = QpdfPassword.FromText("reader") }, CancellationToken.None).AsTask();
@@ -152,12 +152,7 @@ public sealed class EncryptedJsonTests
         }
     }
 
-    private sealed class BudgetHost(InMemoryQpdfHost storage, IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
-    {
-        public IMemoryBudget MemoryBudget => budget;
-        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => storage.OpenInputAsync(path, token);
-        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token) => storage.CreateOutputAsync(path, token);
-    }
+
 
     private static void Add(InMemoryQpdfHost host, string file)
         => host.AddInput(QpdfPath.From(file), File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", file)), QpdfInputOwnership.Transfer);

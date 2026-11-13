@@ -124,7 +124,7 @@ public sealed class AttachmentPasswordTests
         {
             using InMemoryQpdfHost host = new(); Add(host, Input, "meta-1page.pdf"); Add(host, Source, "security-r4-attachment.pdf");
             using IMemoryScope caller = budget.CreateScope();
-            QpdfExecutionResult result = await Qpdf.ExecuteAsync(new BudgetHost(host, caller), new([Input.Value, Output.Value,
+            QpdfExecutionResult result = await Qpdf.ExecuteAsync(new MemoryBudgetHost(host, caller), new([Input.Value, Output.Value,
                 "--copy-attachments-from", Source.Value, "--password=café•", "--prefix=copy-", "--",
                 "--encrypt", "new-reader", "new-owner", "256", "--", "--linearize", "--object-streams=generate"]), CancellationToken.None);
             Assert.Equal(refuses ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed, result.Status);
@@ -143,12 +143,7 @@ public sealed class AttachmentPasswordTests
         QpdfCheckResult check = await Qpdf.CheckAsync(host, copy, new QpdfCheckOptions { Password = QpdfPassword.FromText(password) }, QpdfLimits.Default, CancellationToken.None);
         Assert.DoesNotContain(check.Checks, item => item.Status == QpdfCheckStatus.Failed); Assert.Equal(0, host.OpenLeaseCount);
     }
-    private sealed class BudgetHost(InMemoryQpdfHost storage, IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
-    {
-        public IMemoryBudget MemoryBudget => budget;
-        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => storage.OpenInputAsync(path, token);
-        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token) => storage.CreateOutputAsync(path, token);
-    }
+
     private static void Add(InMemoryQpdfHost host, QpdfPath path, string file)
         => host.AddInput(path, File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", file)), QpdfInputOwnership.Copy);
 }

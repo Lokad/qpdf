@@ -90,7 +90,7 @@ public sealed class PasswordDescriptorTests
         async Task Run(RecordingMemoryBudget budget, bool refuses)
         {
             using InMemoryQpdfHost storage = new(); Add(storage, "security-r4-attachment.pdf", "6f776e6572e991\n"u8.ToArray());
-            using IMemoryScope caller = budget.CreateScope(); BudgetHost host = new(storage, caller);
+            using IMemoryScope caller = budget.CreateScope(); MemoryBudgetHost host = new(storage, caller);
             QpdfExecutionResult result = await Execute(host, true, "rewrite", true, CancellationToken.None);
             Assert.Equal(refuses ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed, result.Status);
             if (refuses) { Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.BudgetExceeded); Assert.False(storage.TryGetOutput(Output, out _)); }
@@ -119,10 +119,5 @@ public sealed class PasswordDescriptorTests
         host.AddInput(Input, File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", fixture)), QpdfInputOwnership.Copy);
         host.AddInput(Descriptor, descriptor, QpdfInputOwnership.Copy);
     }
-    private sealed class BudgetHost(InMemoryQpdfHost storage, IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
-    {
-        public IMemoryBudget MemoryBudget => budget;
-        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => storage.OpenInputAsync(path, token);
-        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token) => storage.CreateOutputAsync(path, token);
-    }
+
 }

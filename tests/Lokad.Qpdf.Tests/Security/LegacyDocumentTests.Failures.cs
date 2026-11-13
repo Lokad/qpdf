@@ -98,7 +98,7 @@ public sealed partial class LegacyDocumentTests
         for (int growth = 1; growth <= baseline.GrowthCalls; growth++) { await Run(new(4194304) { RefuseOnGrowth = growth }, true); }
         async Task Run(RecordingMemoryBudget budget, bool refuses)
         {
-            using InMemoryQpdfHost storage = new(); Add(storage, Input, fixture); using IMemoryScope caller = budget.CreateScope(); BudgetHost host = new(storage, caller);
+            using InMemoryQpdfHost storage = new(); Add(storage, Input, fixture); using IMemoryScope caller = budget.CreateScope(); MemoryBudgetHost host = new(storage, caller);
             async Task Operate()
             {
                 if (operation == "open")
@@ -111,10 +111,5 @@ public sealed partial class LegacyDocumentTests
         }
     }
 
-    private sealed class BudgetHost(InMemoryQpdfHost storage, IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
-    {
-        public IMemoryBudget MemoryBudget => budget;
-        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => storage.OpenInputAsync(path, token);
-        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token) => storage.CreateOutputAsync(path, token);
-    }
+
 }

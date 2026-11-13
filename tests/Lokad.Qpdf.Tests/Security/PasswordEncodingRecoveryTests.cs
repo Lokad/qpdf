@@ -100,7 +100,7 @@ public sealed class PasswordEncodingRecoveryTests
         static async Task Run(RecordingMemoryBudget budget, bool refuses, bool reverse)
         {
             using InMemoryQpdfHost storage = new(); Add(storage, reverse ? "security-recovery-r6-utf8.pdf" : "security-recovery-r6-macroman.pdf");
-            using IMemoryScope caller = budget.CreateScope(); BudgetHost host = new(storage, caller);
+            using IMemoryScope caller = budget.CreateScope(); MemoryBudgetHost host = new(storage, caller);
             async Task Open()
             {
                 await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input.pdf"),
@@ -113,12 +113,7 @@ public sealed class PasswordEncodingRecoveryTests
         }
     }
 
-    private sealed class BudgetHost(InMemoryQpdfHost storage, IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
-    {
-        public IMemoryBudget MemoryBudget => budget;
-        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => storage.OpenInputAsync(path, token);
-        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token) => storage.CreateOutputAsync(path, token);
-    }
+
 
     private static void Add(InMemoryQpdfHost host, string file)
         => host.AddInput(QpdfPath.From("input.pdf"), File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", file)), QpdfInputOwnership.Transfer);

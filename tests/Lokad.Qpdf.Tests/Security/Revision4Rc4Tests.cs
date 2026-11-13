@@ -183,7 +183,7 @@ public sealed class Revision4Rc4Tests
         async Task Run(RecordingMemoryBudget budget, bool refuses)
         {
             using InMemoryQpdfHost storage = new(); Add(storage, Input, "security-r4-rc4-ascii.pdf");
-            using IMemoryScope caller = budget.CreateScope(); BudgetHost host = new(storage, caller);
+            using IMemoryScope caller = budget.CreateScope(); MemoryBudgetHost host = new(storage, caller);
             async Task Operate()
             {
                 if (operation == "open")
@@ -214,10 +214,5 @@ public sealed class Revision4Rc4Tests
         => host.AddInput(path, File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", fixture)), QpdfInputOwnership.Copy);
     private sealed class NoResolver : IIndirectResolver
     { public bool TryResolve(PdfReference reference, out QpdfObject? value) { value = null; return false; } }
-    private sealed class BudgetHost(InMemoryQpdfHost storage, IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
-    {
-        public IMemoryBudget MemoryBudget => budget;
-        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => storage.OpenInputAsync(path, token);
-        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token) => storage.CreateOutputAsync(path, token);
-    }
+
 }

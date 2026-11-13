@@ -1,4 +1,3 @@
-using System.Reflection;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
@@ -7,14 +6,8 @@ namespace Lokad.Qpdf.Tests.Syntax;
 
 public sealed class NumericCopyCancellationTests
 {
-    private static readonly MethodInfo Copy = typeof(PdfParser).GetMethod("CopyNumericText", BindingFlags.NonPublic | BindingFlags.Instance) ?? throw new InvalidOperationException();
-
     private static string Run(PdfParser parser, byte[] data)
-    {
-        try { return Assert.IsType<string>(Copy.Invoke(parser, [(ReadOnlyMemory<byte>)data])); }
-        catch (TargetInvocationException error) when (error.InnerException is not null)
-        { System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error.InnerException).Throw(); throw; }
-    }
+        => parser.CopyNumericTextObserved(data, static () => { });
 
     [Theory]
     [InlineData(false)]

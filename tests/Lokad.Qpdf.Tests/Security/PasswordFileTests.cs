@@ -153,7 +153,7 @@ public sealed class PasswordFileTests
             using InMemoryQpdfHost storage = new(); Add(storage, "security-r4-pdfdoc.pdf");
             storage.AddInput(QpdfPath.From("password"), Convert.FromHexString("636166E980"), QpdfInputOwnership.Transfer);
             using IMemoryScope caller = budget.CreateScope();
-            QpdfExecutionResult result = await Qpdf.ExecuteAsync(new BudgetHost(storage, caller),
+            QpdfExecutionResult result = await Qpdf.ExecuteAsync(new MemoryBudgetHost(storage, caller),
                 new(["security-r4-pdfdoc.pdf", "--password-file=password", "--show-npages"]), CancellationToken.None);
             Assert.Equal(refuses ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed, result.Status);
             if (refuses) { Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.BudgetExceeded); }
@@ -162,12 +162,7 @@ public sealed class PasswordFileTests
         }
     }
 
-    private sealed class BudgetHost(InMemoryQpdfHost storage, IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
-    {
-        public IMemoryBudget MemoryBudget => budget;
-        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => storage.OpenInputAsync(path, token);
-        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token) => storage.CreateOutputAsync(path, token);
-    }
+
 
     private static InMemoryQpdfHost HostWithSetters()
     {

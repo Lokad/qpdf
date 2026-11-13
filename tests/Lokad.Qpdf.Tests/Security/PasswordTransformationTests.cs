@@ -168,7 +168,7 @@ public sealed class PasswordTransformationTests
                 argv = ["--empty", Output.Value, "--pages", "other.pdf", "1,1", "--", "--split-pages=1", "--object-streams=generate"];
             }
             if (newEncryption) { argv.AddRange(["--encrypt", "new-user", "new-owner", "256", "--modify=none", "--"]); }
-            QpdfExecutionResult result = await Qpdf.ExecuteAsync(new BudgetHost(host, caller), new(argv), CancellationToken.None);
+            QpdfExecutionResult result = await Qpdf.ExecuteAsync(new MemoryBudgetHost(host, caller), new(argv), CancellationToken.None);
             Assert.Equal(refuses ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed, result.Status);
             if (refuses)
             {
@@ -182,12 +182,7 @@ public sealed class PasswordTransformationTests
         }
     }
 
-    private sealed class BudgetHost(InMemoryQpdfHost storage, IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
-    {
-        public IMemoryBudget MemoryBudget => budget;
-        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => storage.OpenInputAsync(path, token);
-        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token) => storage.CreateOutputAsync(path, token);
-    }
+
 
     private static void Add(InMemoryQpdfHost host, QpdfPath path, string file)
         => host.AddInput(path, File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", file)), QpdfInputOwnership.Copy);
