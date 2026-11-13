@@ -78,10 +78,13 @@ public sealed class EncryptedJsonCreationCommandTests
         Assert.True(host.TryGetOutput(Output, out byte[] bytes)); Assert.Equal("prior"u8.ToArray(), bytes); Assert.Equal(0, host.OpenLeaseCount);
     }
     [Fact]
-    public async Task EveryCommandCreationAdmissionRefusalRefundsBeforePublication()
+    public async Task CommandCreationTranslatesEarlyAndLateAdmissionRefusals()
     {
         RecordingMemoryBudget baseline = new(4194304); await Run(baseline, false);
-        for (int growth = 1; growth <= baseline.GrowthCalls; growth++) { await Run(new(4194304) { RefuseOnGrowth = growth }, true); }
+        // Typed creation owns the shared creator/key/publication sweep.
+        // This wrapper owns diagnostic translation at entry and late publication.
+        Assert.True(baseline.GrowthCalls > 1);
+        foreach (int growth in new[] { 1, baseline.GrowthCalls }) { await Run(new(4194304) { RefuseOnGrowth = growth }, true); }
         async Task Run(RecordingMemoryBudget budget, bool refuses)
         {
             using InMemoryQpdfHost host = new(); Add(host, false); using IMemoryScope caller = budget.CreateScope();

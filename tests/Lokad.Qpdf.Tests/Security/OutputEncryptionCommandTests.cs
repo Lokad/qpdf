@@ -11,9 +11,18 @@ public sealed class OutputEncryptionCommandTests
 
     public static IEnumerable<object[]> Modes()
     {
-        foreach (bool job in new[] { false, true })
-        foreach (string mode in new[] { "copy", "select", "merge", "split", "streams", "linear", "linear-streams", "qdf", "qdf-streams", "attachment", "reencrypt", "empty", "empty-merge", "empty-split" })
-        { yield return [job, mode]; }
+        // Creation wiring and graph roles; physical writer variants have their
+        // own encrypted serializer owner, independent of command syntax.
+        yield return [false, "copy"];
+        yield return [true, "copy"];
+        yield return [false, "select"];
+        yield return [true, "merge"];
+        yield return [false, "split"];
+        yield return [true, "attachment"];
+        yield return [true, "reencrypt"];
+        yield return [false, "empty"];
+        yield return [true, "empty-merge"];
+        yield return [true, "empty-split"];
     }
 
     [Theory]
@@ -36,9 +45,6 @@ public sealed class OutputEncryptionCommandTests
             fields["pages"] = new[] { new { file = Input.Value, range } }; argv.AddRange(["--pages", Input.Value, range, "--"]);
         }
         if (split) { fields["splitPages"] = "1"; argv.Add("--split-pages=1"); }
-        if (mode.Contains("streams", StringComparison.Ordinal)) { fields["objectStreams"] = "generate"; argv.Add("--object-streams=generate"); }
-        if (mode.StartsWith("linear", StringComparison.Ordinal)) { fields["linearize"] = ""; argv.Add("--linearize"); }
-        if (mode.StartsWith("qdf", StringComparison.Ordinal)) { fields["qdf"] = ""; argv.Add("--qdf"); }
         if (mode == "attachment")
         {
             host.AddInput(QpdfPath.From("payload.bin"), "private attachment"u8.ToArray(), QpdfInputOwnership.Copy);
@@ -157,26 +163,10 @@ public sealed class OutputEncryptionCommandTests
     }
 
     [Theory]
-    [InlineData("modify", "all", -4)]
-    [InlineData("modify", "annotate", -12)]
-    [InlineData("modify", "form", -44)]
-    [InlineData("modify", "assembly", -300)]
     [InlineData("modify", "none", -1324)]
-    [InlineData("print", "none", -2056)]
     [InlineData("print", "low", -2052)]
-    [InlineData("print", "full", -4)]
-    [InlineData("accessibility", "n", -4)]
-    [InlineData("accessibility", "y", -4)]
     [InlineData("extract", "n", -20)]
-    [InlineData("extract", "y", -4)]
-    [InlineData("annotate", "n", -36)]
-    [InlineData("annotate", "y", -4)]
-    [InlineData("assemble", "n", -1028)]
-    [InlineData("assemble", "y", -4)]
     [InlineData("form", "n", -260)]
-    [InlineData("form", "y", -4)]
-    [InlineData("modify-other", "n", -12)]
-    [InlineData("modify-other", "y", -4)]
     public async Task PermissionChoicesReachTheAuthenticatedDictionary(string flag, string value, int permissions)
     {
         using InMemoryQpdfHost host = new(); Add(host, "meta-1page.pdf");

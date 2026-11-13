@@ -12,10 +12,19 @@ public sealed class PasswordTransformationTests
 
     public static IEnumerable<object[]> Cases()
     {
-        foreach (string file in new[] { "security-r4-ascii.pdf", "security-r6-empty.pdf" })
-        foreach (bool job in new[] { false, true })
-        foreach (string mode in new[] { "copy", "select", "merge", "split", "streams", "linear", "linear-streams", "qdf", "qdf-streams", "attachment" })
-        { yield return [file, job, mode]; }
+        // Physical writer/handler combinations belong to EncryptedSerializerTests.
+        // Keep each public transformation and both parsers, with targeted pairs.
+        yield return ["security-r4-ascii.pdf", false, "copy"];
+        yield return ["security-r6-empty.pdf", true, "copy"];
+        yield return ["security-r4-ascii.pdf", true, "select"];
+        yield return ["security-r6-empty.pdf", false, "merge"];
+        yield return ["security-r6-empty.pdf", true, "split"];
+        yield return ["security-r4-ascii.pdf", false, "streams"];
+        yield return ["security-r6-empty.pdf", true, "linear"];
+        yield return ["security-r4-ascii.pdf", true, "linear-streams"];
+        yield return ["security-r6-empty.pdf", false, "qdf"];
+        yield return ["security-r4-ascii.pdf", false, "qdf-streams"];
+        yield return ["security-r6-empty.pdf", true, "attachment"];
     }
 
     [Theory]

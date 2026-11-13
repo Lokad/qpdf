@@ -103,11 +103,14 @@ public sealed partial class EncryptedSerializerTests
     [InlineData("deflate")]
     [InlineData("linear-stream-flate")]
     [InlineData("qdf-stream")]
-    public async Task Revision4EmissionRefundsEveryAdmissionFailure(string mode)
+    public async Task Revision4EmissionPreservesAdmissionFailures(string mode)
     {
         (int before, int growths) = await Run(new(4194304), false);
         Assert.True(growths > 0);
-        for (int growth = 1; growth <= growths; growth++)
+        // Classic owns the legacy-key sweep; other writer storage is swept by
+        // the R6 physical writer owners. Keep their early/late legacy boundaries.
+        IEnumerable<int> refusals = mode == "classic" ? Enumerable.Range(1, growths) : new[] { 1, growths };
+        foreach (int growth in refusals)
         { _ = await Run(new(4194304) { RefuseOnGrowth = before + growth }, true); }
 
         async Task<(int Before, int Growths)> Run(RecordingMemoryBudget budget, bool refuses)

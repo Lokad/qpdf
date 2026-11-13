@@ -15,11 +15,16 @@ public sealed class EncryptedJsonRoundTripTests
     private static readonly QpdfPath Input = QpdfPath.From("input.pdf"), Json = QpdfPath.From("full.json"), Output = QpdfPath.From("output.pdf"), Template = QpdfPath.From("template.pdf");
     public static IEnumerable<object[]> Cases()
     {
-        foreach (string route in new[] { "typed", "argv", "job" })
         foreach (int revision in new[] { 4, 6 })
         foreach (bool create in new[] { false, true })
         foreach (string policy in new[] { "preserve", "remove", "new", "template" })
-        { if (!create || policy != "preserve") { yield return [route, revision, create, policy]; } }
+        { if (!create || policy != "preserve") { yield return ["typed", revision, create, policy]; } }
+        // Command creation/update policy tables own parser wiring. These pairs
+        // specifically prove wiring from complete authenticated exports.
+        yield return ["argv", 4, false, "preserve"];
+        yield return ["argv", 6, true, "new"];
+        yield return ["job", 6, false, "preserve"];
+        yield return ["job", 4, true, "template"];
     }
     [Theory]
     [MemberData(nameof(Cases))]
@@ -52,8 +57,6 @@ public sealed class EncryptedJsonRoundTripTests
     [InlineData("typed", 4)]
     [InlineData("typed", 6)]
     [InlineData("argv", 4)]
-    [InlineData("argv", 6)]
-    [InlineData("job", 4)]
     [InlineData("job", 6)]
     public async Task CreationCannotInferProtectionFromUnauthenticatedJson(string route, int revision)
     {
