@@ -223,12 +223,13 @@ internal static class MemoryReport
             "rewrite-objects" => PdfScenarioBuilder.BuildObjectComparisonDocument(),
             "flate" => PdfScenarioBuilder.BuildFilterChain(10),
             "photo" => PdfScenarioBuilder.BuildPhotoDocument(),
-            _ => PdfScenarioBuilder.BuildTextDocument(name is "tiny" or "rewrite-tiny" or "merge" ? 1 : 10),
+            _ => PdfScenarioBuilder.BuildTextDocument(name is "tiny" or "rewrite-tiny" or "select-one" or "merge" ? 1 : 10),
         };
         string[] arguments = name switch
         {
             "tiny" => ["input0", "--show-npages"],
             "rewrite-tiny" => ["input0", "output"],
+            "select-one" => ["input0", "--pages", ".", "1", "--", "output"],
             "select-sparse" => ["input0", "--pages", ".", "1-3", "--", "output"],
             "rewrite-objects" => ["input0", "--stream-data=preserve", "output"],
             "merge" => ["--empty", "--pages", "input0", "1", "input1", "1", "--", "output"],

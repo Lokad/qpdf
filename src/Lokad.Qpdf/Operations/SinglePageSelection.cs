@@ -127,7 +127,7 @@ internal static class SinglePageSelection
                         TransformCopierStreams(copier, document.Engine, singleCompress, singleDecode, settings.Compression.RecompressFlate, singleLevel, limits, governor, diagnostics, cancellationToken, singleMetadata);
                     }
 
-                    Content.ContentTransformRequest? singleTransforms = PrepareSourceContentTransforms(settings.CoalesceContents, settings.NormalizeContent, settings.ExternalizeInlineImages || (settings.Optimize.Optimize && !settings.Optimize.KeepInline), settings.IiMinBytes, singleCompress, singleLevel, StreamTransformer.Options(singleDecode, settings.Compression.RecompressFlate), settings.Prune, document.Engine, limits, governor, cancellationToken, out bool singlePrune);
+                    Content.ContentTransformRequest? singleTransforms = PrepareSourceContentTransforms(settings, singleCompress, singleLevel, singleDecode, document.Engine, limits, governor, cancellationToken, out bool singlePrune);
                     if (singleTransforms is not null)
                     {
                         List<int> occurrenceIds = ParserContainers.CreateList<int>(copyMemory, occurrences.Count, sizeof(int));
@@ -155,9 +155,7 @@ internal static class SinglePageSelection
                     int flattenAllocator = overlayApplied.NextId;
                     if (settings.FlattenAnnotations is not null && !settings.GenerateAppearances)
                     { needAppearances = Content.FlattenAnnotations.NeedsAppearances(document.Engine, governor, cancellationToken); }
-                    if (settings.FlattenAnnotations is not null || settings.GenerateAppearances)
-                    { needAppearances |= Content.FlattenAnnotations.NeedsAppearances(overlayApplied.FieldImports, governor, cancellationToken); }
-                    bool singleGenerated = false;
+                    needAppearances = IncludeImportedAppearances(settings, overlayApplied, needAppearances, governor, cancellationToken);
                     Content.CopiedForm? singleForm = !settings.RemoveAcroform || (settings.GenerateAppearances && needAppearances)
                         ? Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, kept, true, limits, governor, copyMemory, cancellationToken, false)
                         : null;
@@ -167,30 +165,9 @@ internal static class SinglePageSelection
                     IReadOnlyList<(GraphCopier Copier, Content.CopiedForm Part, int Occurrence)> rotationFields = Array.Empty<(GraphCopier, Content.CopiedForm, int)>();
                     IReadOnlyDictionary<int, double[]>? rotationFrames = null;
                     flattenAllocator = Math.Max(flattenAllocator, copier.NextId);
-                    if (settings.GenerateAppearances && needAppearances)
-                    {
-                        using ParserMemoryScope gateMemory = ParserMemoryScope.Create(governor);
-                        HashSet<int> gateSurvivors = Content.AcroFormCopy.CollectAnnotRefs(occurrences, governor, gateMemory, cancellationToken);
-                        List<(IReadOnlyDictionary<int, QpdfObject> Pool, Content.CopiedForm? Part)> gateParts = ParserContainers.CreateList<(IReadOnlyDictionary<int, QpdfObject>, Content.CopiedForm?)>(gateMemory);
-                        ParserContainers.AddItem(gateMemory, gateParts, (copier.CopiedObjects, singleForm), 16L);
-                        foreach (Content.AcroFormCopy.FieldImport import in overlayApplied.FieldImports)
-                        {
-                            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                            ParserContainers.AddItem(gateMemory, gateParts, (import.Copier.CopiedObjects, import.Part), 16L);
-                        }
-
-                        HashSet<int>? gateReached = CollectGenerateReached(gateParts, gateSurvivors, true, limits, governor, gateMemory, cancellationToken);
-                        Dictionary<GraphCopier, Content.CopiedForm?> singleForms = ParserContainers.CreateDictionary<GraphCopier, Content.CopiedForm?>(gateMemory);
-                        ParserContainers.EnsureEntryCapacity(gateMemory, singleForms, IntPtr.Size); singleForms.Add(copier, singleForm);
-                        flattenAllocator = Math.Max(flattenAllocator, copier.NextId);
-                        (flattenAllocator, singleGenerated) = Content.GenerateAppearances.Apply(occurrences, singleForms, limits, governor, diagnostics, cancellationToken, gateReached, false, overlayApplied.GeneratedWidgets, flattenAllocator);
-                        singleGenerated &= overlayApplied.GenerationComplete;
-                        needAppearances = !singleGenerated;
-                    }
-                    if (settings.FlattenAnnotations is not null)
-                    {
-                        flattenAllocator = Content.FlattenAnnotations.Apply(occurrences, settings.FlattenAnnotations, needAppearances, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, flattenAllocator);
-                    }
+                    (flattenAllocator, bool singleGenerated, needAppearances) = CompleteSelectionAppearances(occurrences,
+                        [copier], [singleForm], [singleForm], true, settings, overlayApplied, needAppearances,
+                        singleCompress, singleLevel, flattenAllocator, limits, governor, diagnostics, cancellationToken);
                     IReadOnlyList<(GraphCopier Copier, Content.CopiedForm Part, int Occurrence)> duplicateFields = Array.Empty<(GraphCopier, Content.CopiedForm, int)>();
                     if (settings.FlattenRotation || duplicatePages && !settings.RemoveAcroform)
                     {

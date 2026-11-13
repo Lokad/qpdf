@@ -299,7 +299,7 @@ internal static class MultiPageSelection
 
                 if (!catalogOnly)
                 {
-                    Content.ContentTransformRequest? sourceTransforms = PrepareSourceContentTransforms(settings.CoalesceContents, settings.NormalizeContent, settings.ExternalizeInlineImages || (settings.Optimize.Optimize && !settings.Optimize.KeepInline), settings.IiMinBytes, multiCompress, multiLevel, StreamTransformer.Options(multiDecode, settings.Compression.RecompressFlate), settings.Prune, document.Engine, limits, governor, cancellationToken, out bool sourcePrune);
+                    Content.ContentTransformRequest? sourceTransforms = PrepareSourceContentTransforms(settings, multiCompress, multiLevel, multiDecode, document.Engine, limits, governor, cancellationToken, out bool sourcePrune);
                     if (sourcePrune)
                     {
                         pruneSources ??= ParserContainers.CreateSet<GraphCopier>(selectionMemory);
@@ -368,42 +368,11 @@ internal static class MultiPageSelection
 
         Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, primaryInput, occurrences, settings.Underlays, settings.Overlays, multiCompress, multiLevel, recovery, limits, governor, diagnostics, selectionMemory, cancellationToken, nextId, null, processedContentForms, settings.GenerateAppearances, needAppearances).ConfigureAwait(false);
 
-        int multiFlattenAllocator = overlayApplied.NextId;
-        if (settings.FlattenAnnotations is not null || settings.GenerateAppearances)
-        { needAppearances |= Content.FlattenAnnotations.NeedsAppearances(overlayApplied.FieldImports, governor, cancellationToken); }
-        bool multiGenerated = false;
-        if (settings.GenerateAppearances && needAppearances)
-        {
-            using ParserMemoryScope gateMemory = ParserMemoryScope.Create(governor);
-            Dictionary<GraphCopier, Content.CopiedForm?> generationForms = ParserContainers.CreateDictionary<GraphCopier, Content.CopiedForm?>(gateMemory);
-            for (int s = 0; s < copiers.Count && s < multiForms.Count; s++)
-            {
-                ParserContainers.EnsureEntryCapacity(gateMemory, generationForms, IntPtr.Size);
-                generationForms.Add(copiers[s], multiForms[s]);
-            }
-
-            HashSet<int> multiSurvivors = Content.AcroFormCopy.CollectAnnotRefs(occurrences, governor, gateMemory, cancellationToken);
-            List<(IReadOnlyDictionary<int, QpdfObject> Pool, Content.CopiedForm? Part)> multiGateParts = ParserContainers.CreateList<(IReadOnlyDictionary<int, QpdfObject>, Content.CopiedForm?)>(gateMemory);
-            for (int s = 0; s < copiers.Count && s < gateForms.Count; s++)
-            {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                ParserContainers.AddItem(gateMemory, multiGateParts, (copiers[s].CopiedObjects, gateForms[s]), 16L);
-            }
-            foreach (Content.AcroFormCopy.FieldImport import in overlayApplied.FieldImports)
-            {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                ParserContainers.AddItem(gateMemory, multiGateParts, (import.Copier.CopiedObjects, import.Part), 16L);
-            }
-
-            HashSet<int>? multiReached = CollectGenerateReached(multiGateParts, multiSurvivors, pruneUnreachableFields, limits, governor, gateMemory, cancellationToken);
-            (multiFlattenAllocator, multiGenerated) = Content.GenerateAppearances.Apply(occurrences, generationForms, limits, governor, diagnostics, cancellationToken, multiReached, !pruneUnreachableFields, overlayApplied.GeneratedWidgets, multiFlattenAllocator);
-            multiGenerated &= overlayApplied.GenerationComplete;
-            needAppearances = !multiGenerated;
-        }
-        if (settings.FlattenAnnotations is not null)
-        {
-            multiFlattenAllocator = Content.FlattenAnnotations.Apply(occurrences, settings.FlattenAnnotations, needAppearances, multiCompress, multiLevel, limits, governor, diagnostics, cancellationToken, multiFlattenAllocator);
-        }
+        needAppearances = IncludeImportedAppearances(settings, overlayApplied, needAppearances, governor, cancellationToken);
+        (int multiFlattenAllocator, bool multiGenerated, needAppearances) = CompleteSelectionAppearances(occurrences,
+            CollectionsMarshal.AsSpan(copiers), CollectionsMarshal.AsSpan(multiForms), CollectionsMarshal.AsSpan(gateForms),
+            pruneUnreachableFields, settings, overlayApplied, needAppearances, multiCompress, multiLevel,
+            overlayApplied.NextId, limits, governor, diagnostics, cancellationToken);
 
         IReadOnlyList<(GraphCopier Copier, Content.CopiedForm Part, int Occurrence)> rotationFields = Array.Empty<(GraphCopier, Content.CopiedForm, int)>();
         IReadOnlyDictionary<int, double[]>? rotationFrames = null;

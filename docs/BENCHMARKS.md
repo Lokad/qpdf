@@ -331,3 +331,13 @@ passes remain. The
 [allocation record](https://github.com/Lokad/qpdf/blob/master/benchmarks/results/2026-11-13-encrypted-sizing-local.json.gz)
 retains exact library/input hashes and raw samples. This local run does not
 establish throughput; quiet-host timing remains deferred.
+
+## Appearance orchestration, 2026-11-13
+
+The `select-one` public one-page scenario allocates 31,800 bytes/job
+after sharing post-overlay appearance policy, versus 31,800 with the
+retained R11 binary. No merge/generation graph is allocated for this path.
+The same .NET 11 RC 3 driver also checks merge and sparse selection, with
+zero owner residuals. Exact binary/input hashes and samples are in the
+[allocation record](https://github.com/Lokad/qpdf/blob/master/benchmarks/results/2026-11-13-appearance-local.json.gz).
+Local timings remain provisional.

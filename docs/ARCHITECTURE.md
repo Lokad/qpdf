@@ -83,6 +83,10 @@ the original immutable values and do not validate signatures.
 Signature discovery caches each field's Parent/Kids component independently,
 including when entered through distinct annotation arrays. Array results combine
 those components without marking an unrelated ordinary field as signed.
+Single- and multi-source selection share post-overlay appearance reachability,
+generation completion and flattening decisions in `PageAssembly`. Source binding
+and field pruning remain with each caller; the shared operation borrows form
+lists and creates no generation graph when appearance work is unnecessary.
 
 Content transforms share rectangle bounds, matrix composition and finite numeric
 array extraction in `PdfGeometry`. Feature callers retain clipping, coordinate

@@ -11,6 +11,56 @@ namespace Lokad.Qpdf.Operations;
 
 internal static class PageAssembly
 {
+    internal static bool IncludeImportedAppearances(SelectionSettings settings, Content.OverlayApplication overlays,
+        bool sourceNeedsAppearances, ResourceGovernor governor, CancellationToken token)
+        => sourceNeedsAppearances | ((settings.FlattenAnnotations is not null || settings.GenerateAppearances)
+            && Content.FlattenAnnotations.NeedsAppearances(overlays.FieldImports, governor, token));
+
+    internal static (int NextId, bool Generated, bool NeedAppearances) CompleteSelectionAppearances(
+        IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
+        ReadOnlySpan<GraphCopier> copiers, ReadOnlySpan<Content.CopiedForm?> forms,
+        ReadOnlySpan<Content.CopiedForm?> gateForms, bool pruneUnreachableFields,
+        SelectionSettings settings, Content.OverlayApplication overlays, bool needAppearances,
+        bool compress, int? level, int nextId, QpdfLimits limits, ResourceGovernor governor,
+        DiagnosticBag diagnostics, CancellationToken token)
+    {
+        bool generated = false;
+        if (settings.GenerateAppearances && needAppearances)
+        {
+            using ParserMemoryScope gateMemory = ParserMemoryScope.Create(governor);
+            Dictionary<GraphCopier, Content.CopiedForm?> generationForms = ParserContainers.CreateDictionary<GraphCopier, Content.CopiedForm?>(gateMemory);
+            for (int index = 0; index < copiers.Length && index < forms.Length; index++)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                ParserContainers.EnsureEntryCapacity(gateMemory, generationForms, IntPtr.Size);
+                generationForms.Add(copiers[index], forms[index]);
+            }
+            HashSet<int> survivors = Content.AcroFormCopy.CollectAnnotRefs(occurrences, governor, gateMemory, token);
+            List<(IReadOnlyDictionary<int, QpdfObject> Pool, Content.CopiedForm? Part)> parts = ParserContainers.CreateList<(IReadOnlyDictionary<int, QpdfObject>, Content.CopiedForm?)>(gateMemory);
+            for (int index = 0; index < copiers.Length && index < gateForms.Length; index++)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                ParserContainers.AddItem(gateMemory, parts, (copiers[index].CopiedObjects, gateForms[index]), 16L);
+            }
+            foreach (Content.AcroFormCopy.FieldImport import in overlays.FieldImports)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                ParserContainers.AddItem(gateMemory, parts, (import.Copier.CopiedObjects, import.Part), 16L);
+            }
+            HashSet<int>? reached = CollectGenerateReached(parts, survivors, pruneUnreachableFields, limits, governor, gateMemory, token);
+            (nextId, generated) = Content.GenerateAppearances.Apply(occurrences, generationForms, limits, governor, diagnostics,
+                token, reached, !pruneUnreachableFields, overlays.GeneratedWidgets, nextId);
+            generated &= overlays.GenerationComplete;
+            needAppearances = !generated;
+        }
+        if (settings.FlattenAnnotations is not null)
+        {
+            nextId = Content.FlattenAnnotations.Apply(occurrences, settings.FlattenAnnotations, needAppearances,
+                compress, level, limits, governor, diagnostics, token, nextId);
+        }
+        return (nextId, generated, needAppearances);
+    }
+
     internal static HashSet<int>? CollectGenerateReached(IReadOnlyList<(IReadOnlyDictionary<int, QpdfObject> Pool, Content.CopiedForm? Part)> parts, HashSet<int> survivors, bool pruneUnreachableFields, QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken cancellationToken)
     {
         if (parts is null)
@@ -80,29 +130,27 @@ internal static class PageAssembly
     }
 
     internal static Content.ContentTransformRequest? PrepareSourceContentTransforms(
-        bool coalesceContents,
-        bool normalizeContent,
-        bool externalizeInlineImages,
-        long iiMinBytes,
+        SelectionSettings settings,
         bool compress,
         int? level,
-        byte filterOptions,
-        Content.ContentPrunePolicy prune,
+        string decode,
         DocumentEngine engine,
         QpdfLimits limits,
         ResourceGovernor governor,
         CancellationToken cancellationToken,
         out bool pruneHere)
     {
+        Content.ContentPrunePolicy prune = settings.Prune;
+        bool externalizeInlineImages = settings.ExternalizeInlineImages || (settings.Optimize.Optimize && !settings.Optimize.KeepInline);
         pruneHere = prune.Enabled && (prune.Mode == "yes"
             || (prune.Mode is null or "auto" && Content.ContentTransforms.SharedResourcesHeuristic(engine, limits, governor, cancellationToken)));
-        if (!coalesceContents && !normalizeContent && !externalizeInlineImages)
+        if (!settings.CoalesceContents && !settings.NormalizeContent && !externalizeInlineImages)
         {
             return null;
         }
 
-        return new Content.ContentTransformRequest(coalesceContents, normalizeContent, compress, level, externalizeInlineImages, iiMinBytes)
-        { FilterOptions = filterOptions };
+        return new Content.ContentTransformRequest(settings.CoalesceContents, settings.NormalizeContent, compress, level, externalizeInlineImages, settings.IiMinBytes)
+        { FilterOptions = StreamTransformer.Options(decode, settings.Compression.RecompressFlate) };
     }
 
     internal static void FinishContentTransforms(
