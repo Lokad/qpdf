@@ -7,6 +7,55 @@ namespace Lokad.Qpdf.Writing;
 
 internal sealed partial class PdfSerializer
 {
+    private long MeasureString(PdfByteString text, OutputSecurity? security, CancellationToken token)
+    {
+        if (security is null) { return WriterEncoding.MeasureString(text, _limits, _governor, token); }
+        token.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+        // Encrypted strings always use hex syntax, independent of random bytes.
+        long length = checked(2L + 2L * security.EncryptedLength(text.ValueSpan.Length));
+        if (length > _limits.MaxOutputBytes)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), length, _limits.MaxOutputBytes); }
+        return length;
+    }
+
+    private long MeasureQdfIndent(int level, bool large, CancellationToken token)
+        => WriterFormatting.MeasureParts([WriterPart.Text("\n"), WriterPart.Spaces(checked(2 * (large ? level + 1 : level)))],
+            _limits, _governor, token);
+
+    private OutputSecurity? CountingSecurity(QpdfObject value)
+    {
+        OutputSecurity? security = _security;
+        return security is null || ReferenceEquals(value, security.Dictionary)
+            || value is PdfStream stream && PdfStringCrypt.HasType(stream.Dictionary, "XRef"u8, _governor)
+            ? null : security;
+    }
+
+    private int CountedStreamLength(PdfStream stream, bool rootMetadata, IIndirectResolver resolver)
+    {
+        OutputSecurity? security = CountingSecurity(stream);
+        return security is not null && security.EncryptsStreamData(stream, rootMetadata, resolver, _governor)
+            ? security.EncryptedLength(stream.RawMemory.Length) : stream.RawMemory.Length;
+    }
+
+    private long MeasureEncryptedObject(QpdfObject value, bool rootMetadata, bool newlineBeforeEndstream, CancellationToken token)
+    {
+        OutputSecurity? security = CountingSecurity(value);
+        if (value is not PdfStream stream || security is null)
+        { return MeasureValue(value, 0, newlineBeforeEndstream, token, security, false); }
+        CheckValueDepth(0);
+        int dataLength = CountedStreamLength(stream, rootMetadata,
+            _securityResolver ?? throw new InvalidOperationException("Missing output resolver."));
+        checked
+        {
+            return MeasureAscii("<<", token)
+                + MeasureEntries(stream.Dictionary, 0, true, newlineBeforeEndstream, token, security, false)
+                + WriterFormatting.MeasureParts([WriterPart.Text("/Length "), WriterPart.Number(dataLength), WriterPart.Text(" ")],
+                    _limits, _governor, token)
+                + MeasureAscii(">>\nstream\n", token) + dataLength
+                + MeasureAscii(newlineBeforeEndstream ? "\nendstream" : "endstream", token);
+        }
+    }
+
     private void ValidateEncryptionModel(IReadOnlyList<NumberedObject> objects, CancellationToken cancellationToken)
         => ValidateEncryptionModel(objects, _security, _encryptionObject, _governor, cancellationToken);
 

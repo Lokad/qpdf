@@ -110,6 +110,11 @@ is checked against [RFC 6229](https://www.rfc-editor.org/rfc/rfc6229.txt);
 R6 derivation follows the
 [ISO algorithm errata](https://pdf-issues.pdfa.org/32000-2-2020/clause07.html#7.6.4.3.4).
 Recorded native keys and dictionary entries supplement roundtrip tests.
+Length-only writer passes measure encrypted hex strings and padded stream lengths
+without deriving object keys, generating IVs or allocating ciphertext. They share
+stream exception policy with emission and retain QDF's indirect length objects.
+Identifier hashing and layout passes that need actual bytes still produce them;
+final encryption follows compression and uses the final physical object numbers.
 Payload AES checks padding before allocating exact plaintext, processes bounded
 CBC chunks for cancellation and admits exact ciphertext including IV/padding.
 Key and derivation buffers remain owned and clear when their lifetimes end.

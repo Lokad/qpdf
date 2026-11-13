@@ -148,16 +148,7 @@ internal sealed partial class OutputSecurity : IDisposable
         QpdfObject result;
         if (value is PdfStream stream)
         {
-            using (FilterPlan filters = FilterChain.ResolveScoped(stream.Dictionary, resolver, governor, graph.Token))
-            {
-                for (int index = 0; index < filters.Count; index++)
-                {
-                    governor.CheckCancellation();
-                    if (filters[index].Name == "Crypt")
-                    { throw new QpdfUnsupportedFeatureException("Explicit stream Crypt filters are not supported for this output."); }
-                }
-            }
-            bool identity = rootMetadata && !EncryptMetadata || FilterChain.HasExternalData(stream, resolver, governor, graph.Token);
+            bool identity = !EncryptsStreamData(stream, rootMetadata, resolver, governor);
             PdfDictionary header = PdfStringCrypt.Dictionary(stream.Dictionary, graph, 0, key, Cipher, true);
             if (identity)
             {
@@ -180,6 +171,21 @@ internal sealed partial class OutputSecurity : IDisposable
         else { result = PdfStringCrypt.Value(value, graph, 0, key, Cipher, true); }
         graph.Memory.TransferTo(destination, graph.Bytes);
         return result;
+    }
+
+    internal bool EncryptsStreamData(PdfStream stream, bool rootMetadata, IIndirectResolver resolver, ResourceGovernor governor)
+    {
+        using (FilterPlan filters = FilterChain.ResolveScoped(stream.Dictionary, resolver, governor, governor.CancellationToken))
+        {
+            for (int index = 0; index < filters.Count; index++)
+            {
+                governor.CheckCancellation();
+                if (filters[index].Name == "Crypt")
+                { throw new QpdfUnsupportedFeatureException("Explicit stream Crypt filters are not supported for this output."); }
+            }
+        }
+        return !(rootMetadata && !EncryptMetadata
+            || FilterChain.HasExternalData(stream, resolver, governor, governor.CancellationToken));
     }
 
     public void Dispose()

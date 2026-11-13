@@ -72,10 +72,13 @@ internal static class SecurityWorkloads
     private static SecurityWorkload Load(string directory, string name)
     {
         string[] parts = name.Split('-');
-        if (parts.Length != 3 || parts[0] != "security" || !Profiles.Contains(parts[1]) || !Operations.Contains(parts[2]))
+        if (parts.Length is not (3 or 4) || parts[0] != "security" || !Profiles.Contains(parts[1]) || !Operations.Contains(parts[2])
+            || parts.Length == 4 && parts[3] is not ("small" or "bulk"))
         { throw new ArgumentException("Unknown security workload: " + name); }
         string profile = parts[1], operation = parts[2];
-        string size = operation == "auth" ? "small" : "bulk";
+        string size = parts.Length == 4 ? parts[3] : operation == "auth" ? "small" : "bulk";
+        if (size == "small" && operation == "select") { throw new ArgumentException("Selection workload requires the 500-page input."); }
+        int pages = size == "small" ? 1 : 500;
         byte[] input = File.ReadAllBytes(Path.Combine(directory, profile + "-" + size + ".pdf"));
         string[] credential = profile == "plain" ? [] : ["--password=" + Password];
         string[] arguments = operation switch
@@ -86,8 +89,8 @@ internal static class SecurityWorkloads
             _ => ["input0", .. credential, .. WriterOptions, "--pages", ".", "1,250,500", "--", "output"],
         };
         QpdfExitCode exit = operation == "auth" ? (QpdfExitCode)(profile == "plain" ? 2 : 3) : QpdfExitCode.Success;
-        return new(name, input, arguments, exit, Revision(profile), size == "small" ? 1 : 500,
-            operation == "select" ? 3 : operation == "rewrite" ? 500 : 0);
+        return new(name, input, arguments, exit, Revision(profile), pages,
+            operation == "select" ? 3 : operation == "rewrite" ? pages : 0);
     }
 
     internal static async Task ExecuteAsync(SecurityWorkload workload)
@@ -120,7 +123,7 @@ internal static class SecurityWorkloads
             Require(await Qpdf.ExecuteAsync(host, new(["read", "plain-output", .. credential, "--decrypt", .. WriterOptions]),
                 CancellationToken.None), QpdfExitCode.Success, workload.Name + " validation");
             if (!host.TryGetOutput(QpdfPath.From("plain-output"), out byte[] clear)) { throw new InvalidOperationException("Missing plaintext validation output."); }
-            foreach (int page in new[] { 1, 250, 500 })
+            foreach (int page in workload.OutputPages == 1 ? new[] { 1 } : new[] { 1, 250, 500 })
             {
                 if (clear.AsSpan().IndexOf(Encoding.ASCII.GetBytes("SECURITY-page-" + page.ToString("D4"))) < 0)
                 { throw new InvalidOperationException("Benchmark output lost a selected page's content."); }

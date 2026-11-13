@@ -303,11 +303,14 @@ internal sealed partial class PdfSerializer
             throw new ArgumentNullException(nameof(sink));
         }
 
-        using ParserMemoryScope? encrypted = _security is null || number == _encryptionObject ? null : ParserMemoryScope.Create(_governor);
+        bool countEncrypted = sink is CountingSink && _security is not null && number != _encryptionObject;
+        using ParserMemoryScope? encrypted = _security is null || number == _encryptionObject || countEncrypted ? null : ParserMemoryScope.Create(_governor);
         QpdfObject emitted = encrypted is null ? value : (_security ?? throw new InvalidOperationException("Missing output security.")).EncryptObject(
             value, number, 0, number == _metadataObject, _securityResolver ?? throw new InvalidOperationException("Missing output resolver."), encrypted, _governor);
         await AppendFormattedAsync([WriterPart.Number(number), WriterPart.Text(" 0 obj\n")], sink, cancellationToken).ConfigureAwait(false);
-        await AppendValueAsync(emitted, sink, 0, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
+        if (countEncrypted && sink is CountingSink counter)
+        { counter.AppendLength(MeasureEncryptedObject(value, number == _metadataObject, newlineBeforeEndstream, cancellationToken), cancellationToken); }
+        else { await AppendValueAsync(emitted, sink, 0, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false); }
         await AppendAsciiAsync("\nendobj\n", sink, cancellationToken).ConfigureAwait(false);
     }
 
@@ -659,6 +662,10 @@ internal sealed partial class PdfSerializer
     // Length-only counting has no I/O or retained state. Reuse token sizing
     // without async container frames or a sink append for every delimiter.
     private long MeasureValue(QpdfObject value, int depth, bool newlineBeforeEndstream, CancellationToken token)
+        => MeasureValue(value, depth, newlineBeforeEndstream, token, null, false);
+
+    private long MeasureValue(QpdfObject value, int depth, bool newlineBeforeEndstream, CancellationToken token,
+        OutputSecurity? stringSecurity, bool qdf)
     {
         CheckValueDepth(depth);
         checked
@@ -670,7 +677,7 @@ internal sealed partial class PdfSerializer
                 case PdfInteger integer: return MeasureAscii(integer.Text, token);
                 case PdfReal real: return MeasureAscii(real.Text, token);
                 case PdfName name: return WriterEncoding.MeasureName(name, _limits, _governor, token);
-                case PdfByteString text: return WriterEncoding.MeasureString(text, _limits, _governor, token);
+                case PdfByteString text: return MeasureString(text, stringSecurity, token);
                 case PdfReference reference:
                     return WriterFormatting.MeasureParts([WriterPart.Number(reference.ObjectNumber), WriterPart.Text(" 0 R")],
                         _limits, _governor, token);
@@ -678,17 +685,26 @@ internal sealed partial class PdfSerializer
                     long arrayLength = MeasureAscii("[", token);
                     for (int index = 0; index < array.Count; index++)
                     {
-                        if (index > 0) { arrayLength += MeasureAscii(" ", token); }
-                        arrayLength += MeasureValue(array[index], depth + 1, newlineBeforeEndstream, token);
+                        if (qdf) { arrayLength += MeasureQdfIndent(depth, true, token); }
+                        else if (index > 0) { arrayLength += MeasureAscii(" ", token); }
+                        arrayLength += MeasureValue(array[index], depth + 1, newlineBeforeEndstream, token, stringSecurity, qdf);
                     }
+                    if (qdf) { arrayLength += MeasureQdfIndent(depth, false, token); }
                     return arrayLength + MeasureAscii("]", token);
                 case PdfDictionary dictionary:
                     long dictionaryLength = MeasureAscii("<<", token);
-                    dictionaryLength += MeasureEntries(dictionary, depth, false, newlineBeforeEndstream, token);
+                    dictionaryLength += MeasureEntries(dictionary, depth, false, newlineBeforeEndstream, token, stringSecurity, qdf);
+                    if (qdf) { dictionaryLength += MeasureQdfIndent(depth, false, token); }
                     return dictionaryLength + MeasureAscii(">>", token);
                 case PdfStream stream:
                     long streamLength = MeasureAscii("<<", token);
-                    streamLength += MeasureEntries(stream.Dictionary, depth, true, newlineBeforeEndstream, token);
+                    // Direct nested streams are not string-transformed by PdfStringCrypt.
+                    streamLength += MeasureEntries(stream.Dictionary, depth, !qdf, newlineBeforeEndstream, token, null, qdf);
+                    if (qdf)
+                    {
+                        streamLength += MeasureQdfIndent(depth, false, token) + MeasureAscii(">>\nstream\n", token);
+                        return streamLength + stream.RawMemory.Length + MeasureAscii("endstream", token);
+                    }
                     streamLength += WriterFormatting.MeasureParts(
                         [WriterPart.Text("/Length "), WriterPart.Number(stream.RawMemory.Length), WriterPart.Text(" ")],
                         _limits, _governor, token);
@@ -702,21 +718,25 @@ internal sealed partial class PdfSerializer
     }
 
     private long MeasureEntries(PdfDictionary dictionary, int depth, bool skipLength,
-        bool newlineBeforeEndstream, CancellationToken token)
+        bool newlineBeforeEndstream, CancellationToken token, OutputSecurity? stringSecurity, bool qdf)
     {
         long length = 0L;
+        bool signature = stringSecurity is not null && PdfStringCrypt.IsSignature(dictionary, _governor);
         using PdfDictionary.EntryEnumerator entries = dictionary.GetEntryEnumerator();
         while (entries.MoveNext(_governor, token))
         {
             (PdfName key, QpdfObject entry) = entries.Current;
             if (skipLength && key.RawSpan.SequenceEqual("Length"u8)) { continue; }
             if (entry is null) { continue; }
+            if (qdf && entry is PdfNull) { continue; }
             checked
             {
+                if (qdf) { length += MeasureQdfIndent(depth, true, token); }
                 length += WriterEncoding.MeasureName(key, _limits, _governor, token);
                 length += MeasureAscii(" ", token);
-                length += MeasureValue(entry, depth + 1, newlineBeforeEndstream, token);
-                length += MeasureAscii(" ", token);
+                bool contents = signature && key.RawSpan.SequenceEqual("Contents"u8) && entry is PdfByteString { Hex: true };
+                length += MeasureValue(entry, depth + 1, newlineBeforeEndstream, token, contents ? null : stringSecurity, qdf);
+                if (!qdf) { length += MeasureAscii(" ", token); }
             }
         }
         return length;

@@ -6,6 +6,7 @@ using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Security;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.TestSupport;
+using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Security;
 
@@ -19,7 +20,7 @@ public sealed class OutputSecurityTests
     [InlineData("/F (external)", false, false)]
     [InlineData("/F 10 0 R", false, true)]
     [InlineData("/Type /XRef", false, false)]
-    public void PhysicalStreamEncryptionPreservesRequiredExceptionsAndUpdatesLengths(string fields, bool rootMetadata, bool encrypted)
+    public async Task PhysicalStreamEncryptionPreservesRequiredExceptionsAndUpdatesLengths(string fields, bool rootMetadata, bool encrypted)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope source = ParserMemoryScope.Create(governor);
@@ -48,10 +49,16 @@ public sealed class OutputSecurityTests
         Assert.Equal("header text"u8.ToArray(), xref ? note : aes.DecryptCbc(note.AsSpan(16), note.AsSpan(0, 16), PaddingMode.PKCS7));
         Assert.Equal("payload bytes"u8.ToArray(), stream.Data);
         Assert.Same(security.Dictionary, security.EncryptObject(security.Dictionary, 7, 0, false, new NullResolver(), destination, governor));
+        PdfSerializer serializer = new(QpdfLimits.Default, governor, security, 7, rootMetadata ? 4 : 0, new NullResolver());
+        CountingSink counter = new();
+        using BufferedSink sink = BufferedSink.Create(QpdfLimits.Default, governor, CancellationToken.None);
+        await serializer.AppendNumberedObjectAsync(4, stream, counter, false, CancellationToken.None);
+        await serializer.AppendNumberedObjectAsync(4, stream, sink, false, CancellationToken.None);
+        Assert.Equal(sink.Length, counter.Length);
     }
 
     [Fact]
-    public void UnconsumedCryptStagesFailWithoutTransferringPartialOutput()
+    public async Task UnconsumedCryptStagesFailWithoutTransferringPartialOutput()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope destination = ParserMemoryScope.Create(governor);
@@ -61,6 +68,10 @@ public sealed class OutputSecurityTests
         long before = governor.Snapshot().LiveMemoryBytes;
         Assert.Throws<QpdfUnsupportedFeatureException>(() => security.EncryptObject(stream, 4, 0, false, new NullResolver(), destination, governor));
         Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0, destination.ReservedBytes);
+        PdfSerializer serializer = new(QpdfLimits.Default, governor, security, 7, 0, new NullResolver());
+        await Assert.ThrowsAsync<QpdfUnsupportedFeatureException>(() => serializer.AppendNumberedObjectAsync(
+            4, stream, new CountingSink(), false, CancellationToken.None).AsTask());
+        Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
     }
 
     private sealed class NullResolver : IIndirectResolver

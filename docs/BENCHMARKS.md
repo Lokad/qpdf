@@ -306,3 +306,28 @@ reads. All measured recording-budget owners refund to zero. The
 [allocation record](https://github.com/Lokad/qpdf/blob/master/benchmarks/results/2026-11-13-shared-widgets-local.json.gz)
 retains library/input hashes, candidate patch hash and raw samples. Local
 elapsed times remain provisional; quiet-host throughput is deferred.
+
+## Encrypted sizing, 2026-11-13
+
+The same memory-report driver compares source `83d5265d` with encrypted
+length measurement, using retained identical inputs and .NET 11 RC 3.
+Append `-small` or `-bulk` to a security scenario to select its input size.
+Median ordinary-admission allocations are bytes per public rewrite job:
+
+| Input | Before | Length measurement |
+| --- | ---: | ---: |
+| plain small | 29,144 | 29,144 |
+| r4 small | 68,048 | 60,088 |
+| r6 small | 202,984 | 194,824 |
+| plain bulk | 11,918,608 | 11,918,392 |
+| r4 bulk | 30,647,275 | 24,496,411 |
+| r6 bulk | 30,590,640 | 24,503,107 |
+
+All measured owner residuals are zero. The key-withholding serializer control
+proves all four physical CountingSink paths avoid key derivation and payload
+cipher calls for tiny and large streams; actual emission fails without the
+key and succeeds after restoration. Existing byte-emitting hash/layout
+passes remain. The
+[allocation record](https://github.com/Lokad/qpdf/blob/master/benchmarks/results/2026-11-13-encrypted-sizing-local.json.gz)
+retains exact library/input hashes and raw samples. This local run does not
+establish throughput; quiet-host timing remains deferred.

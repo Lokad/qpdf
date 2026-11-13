@@ -160,7 +160,8 @@ internal sealed partial class PdfSerializer
                 await AppendFormattedAsync([WriterPart.Text("%% Original object ID: "), WriterPart.Number(emission.OriginalSource.Value), WriterPart.Text(" 0\n")], sink, cancellationToken).ConfigureAwait(false);
             }
 
-            using ParserMemoryScope? encrypted = _security is null || emission.Number == encryptionNumber
+            bool countEncrypted = sink is CountingSink && _security is not null && emission.Number != encryptionNumber;
+            using ParserMemoryScope? encrypted = _security is null || emission.Number == encryptionNumber || countEncrypted
                 ? null : ParserMemoryScope.Create(_governor);
             QpdfObject? value = encrypted is null ? emission.Value : EncryptQdfValue(
                 emission.Value ?? throw new QpdfException("QDF emission lost its value."), emission.Number, emission.Number == metadataNumber, emissions, encrypted);
@@ -168,8 +169,16 @@ internal sealed partial class PdfSerializer
             await AppendFormattedAsync([WriterPart.Number(emission.Number), WriterPart.Text(" 0 obj\n")], sink, cancellationToken).ConfigureAwait(false);
             if (value is PdfStream stream)
             {
-                encryptedStreamLength = stream.RawMemory.Length;
-                bool addedNewline = await AppendQdfStreamAsync(stream, sink, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
+                encryptedStreamLength = countEncrypted ? CountedStreamLength(stream, emission.Number == metadataNumber, emissions) : stream.RawMemory.Length;
+                bool addedNewline;
+                if (countEncrypted && sink is CountingSink streamCounter)
+                {
+                    streamCounter.AppendLength(MeasureValue(stream.Dictionary, 0, false, cancellationToken, CountingSecurity(stream), true), cancellationToken);
+                    streamCounter.AppendLength(MeasureAscii("\nstream\n", cancellationToken) + encryptedStreamLength
+                        + MeasureAscii("\nendstream", cancellationToken), cancellationToken);
+                    addedNewline = !newlineBeforeEndstream;
+                }
+                else { addedNewline = await AppendQdfStreamAsync(stream, sink, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false); }
                 await AppendAsciiAsync("\nendobj\n\n", sink, cancellationToken).ConfigureAwait(false);
                 if (addedNewline)
                 {
@@ -181,7 +190,9 @@ internal sealed partial class PdfSerializer
 
             if (value is QpdfObject plain)
             {
-                await AppendQdfValueAsync(plain, sink, 0, cancellationToken).ConfigureAwait(false);
+                if (countEncrypted && sink is CountingSink counter)
+                { counter.AppendLength(MeasureValue(plain, 0, false, cancellationToken, CountingSecurity(plain), true), cancellationToken); }
+                else { await AppendQdfValueAsync(plain, sink, 0, cancellationToken).ConfigureAwait(false); }
             }
             await AppendAsciiAsync("\nendobj\n\n", sink, cancellationToken).ConfigureAwait(false);
         }
@@ -350,7 +361,8 @@ internal sealed partial class PdfSerializer
         {
             cancellationToken.ThrowIfCancellationRequested();
             _governor.NoteOperation();
-            using ParserMemoryScope? encrypted = _security is null || old == _encryptionObject ? null : ParserMemoryScope.Create(_governor);
+            bool countEncrypted = sink is CountingSink && _security is not null && old != _encryptionObject;
+            using ParserMemoryScope? encrypted = _security is null || old == _encryptionObject || countEncrypted ? null : ParserMemoryScope.Create(_governor);
             QpdfObject emitted = encrypted is null ? value : (_security ?? throw new InvalidOperationException("Missing output security.")).EncryptObject(
                 value, number, 0, old == _metadataObject, _securityResolver ?? throw new InvalidOperationException("Missing output resolver."), encrypted, _governor);
             using WriterValue remapped = emitted is PdfStream originalStream
@@ -371,11 +383,16 @@ internal sealed partial class PdfSerializer
             if (emitted is PdfStream stream)
             {
                 int lengthNumber = number + 1;
-                await AppendQdfDictionaryAsync(AssertDictionary(remapped.Value), sink, 0, cancellationToken).ConfigureAwait(false);
+                if (countEncrypted && sink is CountingSink headerCounter)
+                { headerCounter.AppendLength(MeasureValue(remapped.Value, 0, false, cancellationToken, CountingSecurity(value), true), cancellationToken); }
+                else { await AppendQdfDictionaryAsync(AssertDictionary(remapped.Value), sink, 0, cancellationToken).ConfigureAwait(false); }
                 remapped.Dispose();
                 ReadOnlyMemory<byte> data = stream.RawMemory;
+                int dataLength = countEncrypted ? CountedStreamLength(stream, old == _metadataObject,
+                    _securityResolver ?? throw new InvalidOperationException("Missing output resolver.")) : data.Length;
                 await AppendAsciiAsync("\nstream\n", sink, cancellationToken).ConfigureAwait(false);
-                await AppendStreamPayloadAsync(stream, sink, cancellationToken).ConfigureAwait(false);
+                if (countEncrypted && sink is CountingSink dataCounter) { dataCounter.AppendLength(dataLength, cancellationToken); }
+                else { await AppendStreamPayloadAsync(stream, sink, cancellationToken).ConfigureAwait(false); }
                 bool addedNewline = _security is not null || newlineBeforeEndstream || data.Length == 0 || data.Span[data.Length - 1] != 0x0A;
                 if (addedNewline)
                 {
@@ -394,12 +411,14 @@ internal sealed partial class PdfSerializer
 
                 offsets.Add(lengthNumber, sink.Length);
                 await AppendFormattedAsync([WriterPart.Number(lengthNumber), WriterPart.Text(" 0 obj\n")], sink, cancellationToken).ConfigureAwait(false);
-                await AppendFormattedAsync([WriterPart.Number(data.Length)], sink, cancellationToken).ConfigureAwait(false);
+                await AppendFormattedAsync([WriterPart.Number(dataLength)], sink, cancellationToken).ConfigureAwait(false);
                 await AppendAsciiAsync("\nendobj\n\n", sink, cancellationToken).ConfigureAwait(false);
                 continue;
             }
 
-            await AppendQdfValueAsync(remapped.Value, sink, 0, cancellationToken).ConfigureAwait(false);
+            if (countEncrypted && sink is CountingSink counter)
+            { counter.AppendLength(MeasureValue(remapped.Value, 0, false, cancellationToken, CountingSecurity(value), true), cancellationToken); }
+            else { await AppendQdfValueAsync(remapped.Value, sink, 0, cancellationToken).ConfigureAwait(false); }
             remapped.Dispose();
             await AppendAsciiAsync("\nendobj\n\n", sink, cancellationToken).ConfigureAwait(false);
         }
