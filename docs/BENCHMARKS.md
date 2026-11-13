@@ -23,6 +23,8 @@ layering and 65,895 to 58,615 for authentication. These are admission estimates,
 not heap measurements. Timing remains provisional on the busy local host; this
 comparison establishes no throughput result. `rewrite-tiny` and `config-layered`
 are additional names accepted by `--memory-report`.
+The [planner allocation controls](https://github.com/Lokad/qpdf/blob/master/benchmarks/results/2026-11-13-planner-local.json.gz)
+retain source/binary identities, input hashes, samples and admission observations.
 
 The historical plaintext/native measurements used a dedicated quiet VM. Six pre/postflight idle gates
 passed; same-build A/A medians differed by up to 2.3% below. Treat differences
