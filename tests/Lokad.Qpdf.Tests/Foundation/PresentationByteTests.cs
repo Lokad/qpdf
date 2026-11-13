@@ -24,10 +24,10 @@ public sealed class PresentationByteTests
         { yield return [route, operation, compressed, ceiling]; }
     }
 
-    private static async Task<ByteHost> Prepare(string operation, bool compressed, bool warning)
+    private static async Task<CountingPublicationHost> Prepare(string operation, bool compressed, bool warning)
         => new(await PublicationTestJobs.PrepareAsync(operation, compressed, warning));
 
-    private static Task<QpdfExecutionResult> Run(ByteHost host, string route, string operation, string flags,
+    private static Task<QpdfExecutionResult> Run(CountingPublicationHost host, string route, string operation, string flags,
         QpdfLimits limits, CancellationToken token)
         => PublicationTestJobs.ExecuteAsync(host, host.Inner, route, operation, flags, limits, token);
 
@@ -39,13 +39,13 @@ public sealed class PresentationByteTests
     {
         {
             const string flags = "verbose progress report-memory-usage";
-            ByteHost baselineHost = await Prepare(operation, compressed, false);
+            CountingPublicationHost baselineHost = await Prepare(operation, compressed, false);
             QpdfExecutionResult baseline = await Run(baselineHost, route, operation, flags, QpdfLimits.Default, CancellationToken.None);
             Assert.True(baseline.Status == QpdfExecutionStatus.Completed, string.Join("; ", baseline.Diagnostics.Select(diagnostic => diagnostic.Message)));
             long bytes = MessageBytes(baseline);
             QpdfLimits limits = ceiling == "default" ? QpdfLimits.Default : QpdfLimits.Default with
             { MaxDiagnosticBytes = ceiling == "tiny" ? 16L : bytes - (ceiling == "short" ? 1L : 0L) };
-            ByteHost host = await Prepare(operation, compressed, false);
+            CountingPublicationHost host = await Prepare(operation, compressed, false);
             byte[][] aliases = Targets.Select(target =>
             { Assert.True(host.Inner.TryGetOutput(QpdfPath.From(target), out byte[] old)); return old; }).ToArray();
             QpdfExecutionResult result = await Run(host, route, operation, flags, limits, CancellationToken.None);
@@ -87,12 +87,12 @@ public sealed class PresentationByteTests
     public async Task OnlyStoredMessagesConsumeTheirByteAllowance(string route, bool noWarn, bool warningExitZero)
     {
         const string flags = "verbose progress report-memory-usage";
-        ByteHost baselineHost = await Prepare("whole", false, true);
+        CountingPublicationHost baselineHost = await Prepare("whole", false, true);
         QpdfExecutionResult baseline = await Run(baselineHost, route, "whole", flags + (noWarn ? " no-warn" : ""), QpdfLimits.Default, CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, baseline.Status);
         Assert.Equal(noWarn ? 0 : 1, baseline.Diagnostics.Count(diagnostic => diagnostic.Code == QpdfDiagnosticCode.DuplicateKey));
         long required = MessageBytes(baseline);
-        ByteHost host = await Prepare("whole", false, true);
+        CountingPublicationHost host = await Prepare("whole", false, true);
         QpdfExecutionResult result = await Run(host, route, "whole", flags + (noWarn ? " no-warn" : "")
             + (warningExitZero ? " warning-exit-0" : ""), QpdfLimits.Default with { MaxDiagnosticBytes = required }, CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
@@ -100,7 +100,7 @@ public sealed class PresentationByteTests
         Assert.Equal(noWarn ? 6L : 7L, result.Counters.DiagnosticCount);
         Assert.Equal(noWarn ? 0 : 1, result.Diagnostics.Count(diagnostic => diagnostic.Code == QpdfDiagnosticCode.DuplicateKey));
         Assert.Equal(1, host.Commits); Assert.Equal(0L, host.Inner.OpenLeaseCount);
-        ByteHost shortHost = await Prepare("whole", false, true);
+        CountingPublicationHost shortHost = await Prepare("whole", false, true);
         QpdfExecutionResult failed = await Run(shortHost, route, "whole", flags + (noWarn ? " no-warn" : ""),
             QpdfLimits.Default with { MaxDiagnosticBytes = required - 1L }, CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Failed, failed.Status);
@@ -115,12 +115,12 @@ public sealed class PresentationByteTests
     [InlineData("response")]
     public async Task ExactSidecarQuotasPreserveTheOneHandlePath(string route)
     {
-        ByteHost baselineHost = await Prepare("json-sidecar", true, false);
+        CountingPublicationHost baselineHost = await Prepare("json-sidecar", true, false);
         const string flags = "verbose progress report-memory-usage";
         QpdfExecutionResult baseline = await Run(baselineHost, route, "json-sidecar", flags,
             QpdfLimits.Default with { MaxOpenHandles = 1L }, CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, baseline.Status);
-        ByteHost host = await Prepare("json-sidecar", true, false);
+        CountingPublicationHost host = await Prepare("json-sidecar", true, false);
         QpdfExecutionResult result = await Run(host, route, "json-sidecar", flags,
             QpdfLimits.Default with { MaxOpenHandles = 1L, MaxDiagnosticBytes = MessageBytes(baseline) }, CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
@@ -150,17 +150,17 @@ public sealed class PresentationByteTests
     [MemberData(nameof(SelectedFlags))]
     public async Task ExactBytesMatchTheSelectedSummaries(string route, string operation, string flags)
     {
-        ByteHost baselineHost = await Prepare(operation, false, false);
+        CountingPublicationHost baselineHost = await Prepare(operation, false, false);
         QpdfExecutionResult baseline = await Run(baselineHost, route, operation, flags, QpdfLimits.Default, CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, baseline.Status);
         long bytes = MessageBytes(baseline);
-        ByteHost exactHost = await Prepare(operation, false, false);
+        CountingPublicationHost exactHost = await Prepare(operation, false, false);
         QpdfExecutionResult exact = await Run(exactHost, route, operation, flags,
             QpdfLimits.Default with { MaxDiagnosticBytes = Math.Max(1L, bytes) }, CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, exact.Status); Assert.Equal(bytes, MessageBytes(exact));
         if (bytes > 0L)
         {
-            ByteHost shortHost = await Prepare(operation, false, false);
+            CountingPublicationHost shortHost = await Prepare(operation, false, false);
             QpdfExecutionResult failed = await Run(shortHost, route, operation, flags,
                 QpdfLimits.Default with { MaxDiagnosticBytes = bytes - 1L }, CancellationToken.None);
             Assert.Equal(QpdfExecutionStatus.Failed, failed.Status); Assert.Equal(0, shortHost.Commits);
@@ -185,23 +185,4 @@ public sealed class PresentationByteTests
         finally { CultureInfo.CurrentCulture = prior; }
     }
 
-    private sealed class ByteHost(InMemoryQpdfHost inner) : IQpdfHost
-    {
-        internal InMemoryQpdfHost Inner { get; } = inner;
-        internal int Commits { get; private set; }
-        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => Inner.OpenInputAsync(path, token);
-        public async ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token)
-            => new Transaction(this, await Inner.CreateOutputAsync(path, token));
-        private sealed class Transaction : IQpdfOutputTransaction
-        {
-            private readonly ByteHost _host;
-            private readonly IQpdfOutputTransaction _inner;
-            internal Transaction(ByteHost host, IQpdfOutputTransaction inner) { _host = host; _inner = inner; }
-            public QpdfPath Path => _inner.Path;
-            public ValueTask WriteAsync(ReadOnlyMemory<byte> data, CancellationToken token) => _inner.WriteAsync(data, token);
-            public async ValueTask CommitAsync(CancellationToken token) { _host.Commits++; await _inner.CommitAsync(token); }
-            public ValueTask DiscardAsync(CancellationToken token) => _inner.DiscardAsync(token);
-            public ValueTask DisposeAsync() => _inner.DisposeAsync();
-        }
-    }
 }

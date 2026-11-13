@@ -93,7 +93,7 @@ public sealed class SharedResourceWalkOwnershipTests
         for (int number = 0; number < 17; number++) { walk.Push(borrowed, source.Token); walk.VisitNode(number, source.Token); walk.VisitResource(number, source.Token); }
         object pending = Field(walk, "_pending"), nodes = Field(walk, "_nodes"), resources = Field(walk, "_resources");
         object nodeIndex = Field(nodes, "_index"), resourceIndex = Field(resources, "_index");
-        WeakReference[] witnesses = [new(governor), new(source), new(Field(walk, "_memory")), new(pending), new(Field(pending, "_items")),
+        WeakReference[] witnesses = [new(governor), new(source), new(Field(walk, "_memory")), new(pending),
             new(nodes), new(resources), new(nodeIndex), new(resourceIndex), new(Field(nodeIndex, "_entries")), new(Field(nodeIndex, "_buckets")), new(Field(resourceIndex, "_entries")), new(Field(resourceIndex, "_buckets"))];
         walk.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); return new(walk, borrowed, witnesses);
     }

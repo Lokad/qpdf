@@ -53,8 +53,7 @@ public sealed class LabelOutputOwnershipTests(ITestOutputHelper log)
         }
     }
 
-    private static byte[] Fixture() => (byte[])(typeof(LabelTests).GetMethod("BuildDoc", BindingFlags.Static | BindingFlags.NonPublic)?.Invoke(null, [3])
-        ?? throw new InvalidOperationException("Missing existing three-page label fixture."));
+    private static byte[] Fixture() => LabelTests.BuildDoc(3);
 
     private static async Task<byte[]> SourceFixture(char character)
     {

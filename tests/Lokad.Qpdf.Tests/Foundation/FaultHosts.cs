@@ -347,3 +347,22 @@ internal sealed class RecordingJobHost : IQpdfHost, IQpdfMemoryHost, IDisposable
     public void Dispose() { Inner.Dispose(); Budget.Dispose(); }
 }
 
+internal sealed class CountingPublicationHost(InMemoryQpdfHost inner) : IQpdfHost
+{
+    internal InMemoryQpdfHost Inner { get; } = inner;
+    internal int Commits { get; private set; }
+    public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => Inner.OpenInputAsync(path, token);
+    public async ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token)
+        => new Transaction(this, await Inner.CreateOutputAsync(path, token));
+    private sealed class Transaction : IQpdfOutputTransaction
+    {
+        private readonly CountingPublicationHost _host;
+        private readonly IQpdfOutputTransaction _inner;
+        internal Transaction(CountingPublicationHost host, IQpdfOutputTransaction inner) { _host = host; _inner = inner; }
+        public QpdfPath Path => _inner.Path;
+        public ValueTask WriteAsync(ReadOnlyMemory<byte> data, CancellationToken token) => _inner.WriteAsync(data, token);
+        public async ValueTask CommitAsync(CancellationToken token) { _host.Commits++; await _inner.CommitAsync(token); }
+        public ValueTask DiscardAsync(CancellationToken token) => _inner.DiscardAsync(token);
+        public ValueTask DisposeAsync() => _inner.DisposeAsync();
+    }
+}

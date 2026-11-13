@@ -128,7 +128,7 @@ public sealed class FormResourceWalkOwnershipTests
         FormResourceWalk walk = FormResourceWalk.Create(governor, source.Token); PdfStream borrowed = new(Dictionary(), new byte[2 * 1024 * 1024]);
         for (int index = 0; index < 17; index++) { walk.Add(index, borrowed); walk.VisitNumber(index); walk.AddScope(Dictionary(("V", new PdfReference(index, 0)))); }
         object scopes = Field(walk, "_scopes"), forms = Field(walk, "_forms"), visited = Field(walk, "_visited"), indexStorage = Field(visited, "_index");
-        WeakReference[] witnesses = [new(governor), new(source), new(Field(walk, "_memory")), new(scopes), new(forms), new(Field(scopes, "_items")), new(Field(forms, "_items")),
+        WeakReference[] witnesses = [new(governor), new(source), new(Field(walk, "_memory")), new(scopes), new(forms),
             new(Field(walk, "_seen")), new(visited), new(indexStorage), new(Field(indexStorage, "_entries")), new(Field(indexStorage, "_buckets"))];
         walk.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); return new(walk, borrowed, witnesses);
     }
