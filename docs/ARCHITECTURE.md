@@ -38,11 +38,22 @@ internal owners; source copying supplies their data without duplicating policy.
 | Component | Responsibility |
 | --- | --- |
 | `Public`, `Commands`, `Jobs` | APIs, configuration and operation plans. |
+| `Operations` | Job dispatch, selection, source assembly and inspection execution. |
 | `Syntax`, `Reading`, `Objects` | Parsing, xrefs, recovery, resolution and immutable values. |
 | `Writing` | Graph copying, remapping, serialization, QDF and linearization. |
 | `Content`, `Filters`, `Attachments` | Content/image transforms, codecs and embedded files. |
 | `Json` | Inspection, import and update over the shared object model. |
 | `Runtime`, `Hosting` | Resource admission, diagnostics, cleanup and host adapters. |
+
+The public facade validates and adapts requests. Single-source selection keeps
+its selective-reader retry boundary and lightweight copier; multi-source assembly
+coordinates primary-source policy, per-input credentials and split occurrences.
+Page, label and attachment assembly share their graph helpers with inspection
+projection. `OutputPublication` owns identifier preparation, serializers and staged
+captures; split captures finish before any target commits.
+Job execution translates exceptions once at its enclosing result/presentation
+boundary. The governor coordinates result admission and completion with the same
+coarse storage owner, keeping all result capacity available before publication.
 
 ## Graph copying
 

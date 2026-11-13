@@ -1,6 +1,6 @@
+using Lokad.Qpdf.Operations;
 using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
-using System.Reflection;
 using Lokad.Qpdf.Commands;
 using Lokad.Qpdf.Attachments;
 using Lokad.Qpdf.Hosting;
@@ -62,14 +62,9 @@ public sealed class AttachmentConstructionTests
         SortedDictionary<string, AttachmentReference> existing, bool compress, QpdfLimits limits,
         ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
     {
-        MethodInfo method = typeof(Qpdf).GetMethod("AssembleAttachmentsAsync", BindingFlags.Static | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("Missing attachment assembly.");
-        object pending = method.Invoke(null, [host, existing, pool, edits, compress, null, false,
-            new List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)>(), QpdfRecoveryMode.Strict,
-            limits, governor, new DiagnosticBag(governor), memory, token]) ?? throw new InvalidOperationException("Missing assembly result.");
-        Task task = (Task)(pending.GetType().GetMethod("AsTask")?.Invoke(pending, null)
-            ?? throw new InvalidOperationException("Missing assembly task."));
-        await task;
+        await AttachmentAssembler.AssembleAttachmentsAsync(host, existing, pool, edits, compress, null, false,
+            [], QpdfRecoveryMode.Strict, limits, governor, new DiagnosticBag(governor), memory, token);
+
     }
 
     [Theory]

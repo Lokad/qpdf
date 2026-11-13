@@ -21,6 +21,29 @@ internal readonly record struct CatalogContents
 
 internal static class OutputCatalogPreparation
 {
+    internal static readonly PdfName UseAttachmentsPageMode = PdfName.FromAscii("UseAttachments");
+
+    internal static PdfDictionary PagesNode(IReadOnlyList<PdfReference> groupKids,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        // Fixed bounded names, three-entry table and count token; child backing
+        // is admitted exactly and adopted without a second array copy.
+        memory.Reserve(checked(1024L + IntPtr.Size * (long)groupKids.Count));
+        QpdfObject[] children = new QpdfObject[groupKids.Count];
+        for (int index = 0; index < groupKids.Count; index++)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); children[index] = groupKids[index];
+        }
+        string text = groupKids.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return PdfDictionary.FromOwnedEntries(new Dictionary<PdfName, QpdfObject>(3)
+        {
+            [PdfName.FromAscii("Type")] = PdfName.FromAscii("Pages"),
+            [PdfName.FromAscii("Kids")] = PdfArray.FromOwnedItems(children),
+            [PdfName.FromAscii("Count")] = new PdfInteger(text, groupKids.Count),
+        });
+    }
+
     internal static PdfDictionary NewCatalog(CatalogContents contents, PdfVersion finalVersion, int extensionLevel,
         IReadOnlyDictionary<int, QpdfObject> pool, ResourceGovernor governor, CancellationToken token)
     {

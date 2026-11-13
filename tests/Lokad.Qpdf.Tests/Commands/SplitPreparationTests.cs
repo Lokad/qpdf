@@ -1,5 +1,5 @@
 using System.Collections;
-using System.Reflection;
+using Lokad.Qpdf.Writing;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
@@ -42,8 +42,7 @@ public sealed class SplitPreparationTests
     }
 
     private delegate PdfDictionary PagesCall(IReadOnlyList<PdfReference> kids, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token);
-    private static readonly PagesCall Pages = (typeof(Qpdf).GetMethod("PagesNode", BindingFlags.Static | BindingFlags.NonPublic)
-        ?? throw new InvalidOperationException()).CreateDelegate<PagesCall>();
+    private static readonly PagesCall Pages = OutputCatalogPreparation.PagesNode;
 
     [Fact]
     public void PageChildrenRefuseBeforeAllocatingLargeBacking()

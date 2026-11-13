@@ -16,6 +16,10 @@
 - Share output model finalization, catalog/version policy and original-ID
   preparation across selection, merging and splitting. Preserve distinct source
   roles and independent split encryption while removing parallel writer setup.
+- Separate operation execution, source assembly and publication from public API
+  adaptation. Translate command exceptions at the shared presentation boundary
+  and call focused internal test owners directly instead of reflecting on facade
+  helpers.
 
 - Support Standard password security R2–R6 through the shared typed, argv and job
   pipelines, including legitimate empty passwords and non-secret encryption facts.

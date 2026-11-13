@@ -1,3 +1,4 @@
+using Lokad.Qpdf.Operations;
 using System.Text.Json;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Hosting;
@@ -23,7 +24,7 @@ public sealed class FormFlagStorageTests
         PdfDictionary source = LargeForm(16384);
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096 }, CancellationToken.None);
         long allocated = GC.GetAllocatedBytesForCurrentThread();
-        Assert.Throws<QpdfLimitException>(() => Qpdf.ClearNeedAppearances(source, governor, CancellationToken.None));
+        Assert.Throws<QpdfLimitException>(() => PageAssembly.ClearNeedAppearances(source, governor, CancellationToken.None));
         Assert.InRange(GC.GetAllocatedBytesForCurrentThread() - allocated, 0L, 131072L);
         Assert.Equal(0L, governor.CounterValues.LiveMemoryBytes);
         Assert.Equal(16385, source.Count);
@@ -38,7 +39,7 @@ public sealed class FormFlagStorageTests
         PdfDictionary source = LargeForm(16384);
         using CancellationTokenSource cancellation = new(); cancellation.Cancel();
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
-        Assert.Throws<OperationCanceledException>(() => Qpdf.ClearNeedAppearances(source, governor,
+        Assert.Throws<OperationCanceledException>(() => PageAssembly.ClearNeedAppearances(source, governor,
             governorToken ? CancellationToken.None : cancellation.Token));
         Assert.Equal(0L, governor.CounterValues.PeakMemoryBytes);
         Assert.Equal(16385, source.Count);
@@ -52,7 +53,7 @@ public sealed class FormFlagStorageTests
         using IMemoryScope owner = budget.CreateScope();
         using InMemoryQpdfHost host = new(QpdfLimits.Default, null, owner);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None, host);
-        Assert.Throws<QpdfMemoryAdmissionException>(() => Qpdf.ClearNeedAppearances(source, governor, CancellationToken.None));
+        Assert.Throws<QpdfMemoryAdmissionException>(() => PageAssembly.ClearNeedAppearances(source, governor, CancellationToken.None));
         Assert.Equal(0L, governor.CounterValues.LiveMemoryBytes);
         Assert.Equal(16385, source.Count);
         owner.Dispose(); Assert.Equal(0L, budget.ReservedBytes);
@@ -62,16 +63,16 @@ public sealed class FormFlagStorageTests
     public void MissingNullAndBorrowedValuesPreserveTheirIdentity()
     {
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096 }, CancellationToken.None);
-        Assert.Null(Qpdf.ClearNeedAppearances(null, governor, CancellationToken.None));
+        Assert.Null(PageAssembly.ClearNeedAppearances(null, governor, CancellationToken.None));
         PdfDictionary absent = new(new Dictionary<PdfName, QpdfObject>());
         PdfDictionary nullFlag = new(new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("NeedAppearances")] = PdfNull.Instance });
-        Assert.Same(absent, Qpdf.ClearNeedAppearances(absent, governor, CancellationToken.None));
-        Assert.Same(nullFlag, Qpdf.ClearNeedAppearances(nullFlag, governor, CancellationToken.None));
+        Assert.Same(absent, PageAssembly.ClearNeedAppearances(absent, governor, CancellationToken.None));
+        Assert.Same(nullFlag, PageAssembly.ClearNeedAppearances(nullFlag, governor, CancellationToken.None));
         PdfName key = PdfName.FromAscii("Extra");
         PdfByteString borrowed = new(new byte[2 * 1024 * 1024], false);
         PdfDictionary source = new(new Dictionary<PdfName, QpdfObject>
             { [PdfName.FromAscii("NeedAppearances")] = new PdfBoolean(false), [key] = borrowed });
-        PdfDictionary result = Assert.IsType<PdfDictionary>(Qpdf.ClearNeedAppearances(source, governor, CancellationToken.None));
+        PdfDictionary result = Assert.IsType<PdfDictionary>(PageAssembly.ClearNeedAppearances(source, governor, CancellationToken.None));
         Assert.Same(key, Assert.Single(result.Keys));
         Assert.True(result.TryGet(key, out QpdfObject value)); Assert.Same(borrowed, value);
         Assert.True(source.TryGet(PdfName.FromAscii("NeedAppearances"), out _));

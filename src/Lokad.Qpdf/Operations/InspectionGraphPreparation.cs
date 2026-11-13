@@ -4,27 +4,31 @@ using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Writing;
+using static Lokad.Qpdf.Operations.PageAssembly;
+using static Lokad.Qpdf.Writing.OutputCatalogPreparation;
+using static Lokad.Qpdf.Writing.OutputPublication;
+using static Lokad.Qpdf.Writing.OutputSecurityPreparation;
 
-namespace Lokad.Qpdf;
+namespace Lokad.Qpdf.Operations;
 
-public static partial class Qpdf
+internal static class InspectionGraphPreparation
 {
-    private static readonly PdfName InspectionParent = PdfName.FromAscii("Parent");
-    private static readonly PdfName InspectionPages = PdfName.FromAscii("Pages");
-    private static readonly PdfName InspectionRoot = PdfName.FromAscii("Root");
-    private static readonly PdfName InspectionType = PdfName.FromAscii("Type");
-    private static readonly PdfName InspectionKids = PdfName.FromAscii("Kids");
-    private static readonly PdfName InspectionCount = PdfName.FromAscii("Count");
-    private static readonly PdfName InspectionRotate = PdfName.FromAscii("Rotate");
-    private static readonly PdfName[] InspectionInherited =
+    internal static readonly PdfName InspectionParent = PdfName.FromAscii("Parent");
+    internal static readonly PdfName InspectionPages = PdfName.FromAscii("Pages");
+    internal static readonly PdfName InspectionRoot = PdfName.FromAscii("Root");
+    internal static readonly PdfName InspectionType = PdfName.FromAscii("Type");
+    internal static readonly PdfName InspectionKids = PdfName.FromAscii("Kids");
+    internal static readonly PdfName InspectionCount = PdfName.FromAscii("Count");
+    internal static readonly PdfName InspectionRotate = PdfName.FromAscii("Rotate");
+    internal static readonly PdfName[] InspectionInherited =
         [PdfName.FromAscii("MediaBox"), PdfName.FromAscii("CropBox"), PdfName.FromAscii("Resources"), InspectionRotate];
 
-    private readonly record struct InspectionPage(int Number, int Generation, PdfDictionary Page);
+    internal readonly record struct InspectionPage(int Number, int Generation, PdfDictionary Page);
 
     // The input engine borrows this graph only while its owner is alive. Source
     // cache values remain independent; new dictionaries, arrays and copy pools
     // belong to this scope and are detached before their admission is released.
-    private sealed class InspectionGraph : IDisposable
+    internal sealed class InspectionGraph : IDisposable
     {
         private QpdfDocument? _document;
         private ParserMemoryScope? _memory;
@@ -46,7 +50,7 @@ public static partial class Qpdf
         }
     }
 
-    private static async ValueTask<InspectionGraph?> PrepareInspectionGraphAsync(
+    internal static async ValueTask<InspectionGraph?> PrepareInspectionGraphAsync(
         IQpdfHost host, QpdfDocument document, CheckPlan plan, QpdfLimits limits,
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {
@@ -237,7 +241,7 @@ public static partial class Qpdf
         }
     }
 
-    private static async ValueTask<List<List<InspectionPage>>> PrepareInspectionSourcesAsync(
+    internal static async ValueTask<List<List<InspectionPage>>> PrepareInspectionSourcesAsync(
         IQpdfHost host, QpdfDocument document, List<InspectionPage> original, GraphCopier pool,
         CheckPlan plan, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
         ParserMemoryScope memory, CancellationToken token)
@@ -333,7 +337,7 @@ public static partial class Qpdf
         return groups;
     }
 
-    private static Dictionary<PdfName, QpdfObject> CopyInspectionEntries(PdfDictionary dictionary,
+    internal static Dictionary<PdfName, QpdfObject> CopyInspectionEntries(PdfDictionary dictionary,
         ParserMemoryScope memory, ResourceGovernor governor)
     {
         Dictionary<PdfName, QpdfObject> entries = ParserContainers.CreateDictionary<PdfName, QpdfObject>(memory);
@@ -346,19 +350,19 @@ public static partial class Qpdf
         return entries;
     }
 
-    private static void SetInspectionEntry(Dictionary<PdfName, QpdfObject> entries, PdfName key, QpdfObject value, ParserMemoryScope memory)
+    internal static void SetInspectionEntry(Dictionary<PdfName, QpdfObject> entries, PdfName key, QpdfObject value, ParserMemoryScope memory)
     {
         if (!entries.ContainsKey(key)) { ParserContainers.EnsureEntryCapacity(memory, entries, IntPtr.Size); }
         entries[key] = value;
     }
 
-    private static void StoreInspectionObject(GraphCopier pool, int id, QpdfObject value)
+    internal static void StoreInspectionObject(GraphCopier pool, int id, QpdfObject value)
     {
         if (pool.CopiedObjects.ContainsKey(id)) { pool.ReplaceCopiedObject(id, value); }
         else { _ = pool.AddIndirectObjectWithId(value, id); }
     }
 
-    private static void UpdateInspectionForm(QpdfDocument document, GraphCopier pool,
+    internal static void UpdateInspectionForm(QpdfDocument document, GraphCopier pool,
         IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
         IReadOnlyList<Content.AcroFormCopy.FieldImport> imports, bool pruneFields,
         ParserMemoryScope memory, QpdfLimits limits, ResourceGovernor governor,
@@ -420,36 +424,4 @@ public static partial class Qpdf
         }
     }
 
-    private static List<(int Source, int Slot)> CollatePageOrder(IReadOnlyList<int> counts,
-        PdfPageCollation? collation, ResourceGovernor governor, ParserMemoryScope memory)
-    {
-        memory.CheckOwner(governor); governor.CheckCancellation();
-        if (collation is not null && collation.GroupSizes.Count != 1 && collation.GroupSizes.Count != counts.Count)
-        {
-            throw new ArgumentException("Collation group sizes must hold one value or one per source.", nameof(collation));
-        }
-        using ParserMemoryScope result = ParserMemoryScope.Create(governor);
-        List<(int Source, int Slot)> order = ParserContainers.CreateList<(int, int)>(result);
-        long cursorBytes = checked(32L + sizeof(int) * (long)counts.Count);
-        result.Reserve(cursorBytes);
-        int[] cursors = new int[counts.Count];
-        bool more = true;
-        while (more)
-        {
-            more = false;
-            for (int source = 0; source < counts.Count; source++)
-            {
-                governor.CheckCancellation();
-                int size = collation is null ? counts[source]
-                    : collation.GroupSizes.Count == 1 ? collation.GroupSizes[0] : collation.GroupSizes[source];
-                for (int i = 0; i < size && cursors[source] < counts[source]; i++)
-                {
-                    governor.CheckCancellation();
-                    ParserContainers.AddItem(result, order, (source, cursors[source]++), 8L);
-                    more = true;
-                }
-            }
-        }
-        result.Release(cursorBytes); result.TransferTo(memory); return order;
-    }
 }

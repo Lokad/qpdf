@@ -1,4 +1,4 @@
-using System.Reflection;
+using Lokad.Qpdf.Writing;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
@@ -8,9 +8,7 @@ namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class OriginalIdBoundsTests
 {
-    private static readonly Func<DocumentEngine, byte[]?> Read =
-        (typeof(Qpdf).GetMethod("TryGetOriginalId", BindingFlags.Static | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException()).CreateDelegate<Func<DocumentEngine, byte[]?>>();
+    private static readonly Func<DocumentEngine, byte[]?> Read = OutputSecurityPreparation.TryGetOriginalId;
 
     private static DocumentEngine Engine(QpdfObject value, ResourceGovernor governor)
     {

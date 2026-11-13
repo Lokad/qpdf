@@ -1,3 +1,4 @@
+using Lokad.Qpdf.Operations;
 using System.Text.Json;
 using Lokad.Qpdf.Commands;
 using Lokad.Qpdf.Runtime;
@@ -1135,8 +1136,8 @@ internal static partial class JobPlanner
                     effectiveKeys.Add("qpdf");
                 }
 
-                Qpdf.ValidateJsonKeys(jsonNumber, effectiveKeys);
-                HashSet<(bool Trailer, int Number, int Generation)>? wantedObjects = Qpdf.ValidateJsonObjects(jsonObjects, 0L, textStorage);
+                JsonExecution.ValidateJsonKeys(jsonNumber, effectiveKeys);
+                HashSet<(bool Trailer, int Number, int Generation)>? wantedObjects = JsonExecution.ValidateJsonObjects(jsonObjects, 0L, textStorage);
                 string jsonDecode = decodeLevel ?? (seenJsonOutput ? "none" : "generalized");
                 if (jsonDecode != "none" && jsonDecode != "generalized" && jsonDecode != "specialized" && jsonDecode != "all")
                 {

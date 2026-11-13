@@ -1,5 +1,5 @@
 using System.Collections;
-using System.Reflection;
+using Lokad.Qpdf.Operations;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
@@ -13,11 +13,9 @@ namespace Lokad.Qpdf.Tests.Commands;
 public sealed class PagePlanningStorageTests
 {
     private delegate List<(int Source, int Slot)> Collate(IReadOnlyList<int> counts, PdfPageCollation? policy, ResourceGovernor governor, ParserMemoryScope owner);
-    private delegate void Rotate(List<(GraphCopier Copier, int Id)> occurrences, List<List<(PdfRotationMode Mode, int Angle)>> folds, ResourceGovernor governor, ParserMemoryScope owner);
-    private static readonly Collate Order = (typeof(Qpdf).GetMethod("CollatePageOrder", BindingFlags.Static | BindingFlags.NonPublic)
-        ?? throw new InvalidOperationException("Missing live collation implementation.")).CreateDelegate<Collate>();
-    private static readonly Rotate Apply = (typeof(Qpdf).GetMethod("ApplyRotations", BindingFlags.Static | BindingFlags.NonPublic)
-        ?? throw new InvalidOperationException("Missing live rotation implementation.")).CreateDelegate<Rotate>();
+    private delegate void Rotate(List<(GraphCopier Copier, int Id)> occurrences, List<List<(PdfRotationMode Mode, int Angle)>?> folds, ResourceGovernor governor, ParserMemoryScope owner);
+    private static readonly Collate Order = PageAssembly.CollatePageOrder;
+    private static readonly Rotate Apply = PageAssembly.ApplyRotations;
 
     [Fact]
     public void CollationRefusesLargeGrowthAndRefundsTheCandidate()
@@ -90,7 +88,7 @@ public sealed class PagePlanningStorageTests
         GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 3, copierMemory);
         PdfDictionary page = new(new Dictionary<PdfName, QpdfObject>()); copier.AddIndirectObjectWithId(page, 3);
         List<(GraphCopier Copier, int Id)> occurrences = Enumerable.Repeat((copier, 3), 262144).ToList();
-        List<List<(PdfRotationMode Mode, int Angle)>> folds = Enumerable.Repeat(new List<(PdfRotationMode, int)>(), occurrences.Count).ToList();
+        List<List<(PdfRotationMode Mode, int Angle)>?> folds = Enumerable.Repeat<List<(PdfRotationMode, int)>?>([], occurrences.Count).ToList();
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096 }, CancellationToken.None);
         using ParserMemoryScope owner = ParserMemoryScope.Create(governor);
         long before = GC.GetAllocatedBytesForCurrentThread(); Apply(occurrences, folds, governor, owner);

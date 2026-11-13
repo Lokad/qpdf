@@ -1,5 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
+using Lokad.Qpdf.Operations;
 using System.Text.Json;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.TestSupport;
@@ -11,9 +11,7 @@ public sealed class JsonSchemaMemoryTests
     // Exercise the checker called by JSON inspection, including drift and bad
     // JSON that the ordinary serializer deliberately cannot produce.
     private static readonly Action<string, long, int, ResourceGovernor, DiagnosticBag, CancellationToken> Checker =
-        (typeof(Qpdf).GetMethod("CheckJsonSchema", BindingFlags.Static | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("Missing JSON inspection checker."))
-        .CreateDelegate<Action<string, long, int, ResourceGovernor, DiagnosticBag, CancellationToken>>();
+        JsonExecution.CheckJsonSchema;
 
     private static void Check(string json, int version, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
         => Checker(json, System.Text.Encoding.UTF8.GetByteCount(json), version, governor, diagnostics, token);
