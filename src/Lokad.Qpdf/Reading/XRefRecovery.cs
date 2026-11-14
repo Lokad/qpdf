@@ -1,3 +1,4 @@
+using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
@@ -8,8 +9,8 @@ namespace Lokad.Qpdf.Reading;
 /// Bounded cross-reference repair, separate from strict resolution so heuristics
 /// can never weaken the strict contract. Scans for indirect object headers,
 /// trial-parses each candidate with per-object error tolerance, skips parsed bodies,
-/// keeps the last valid occurrence, checks cancellation throughout the scan, and fills
-/// unscanned gaps as free. The tail trailer wins when its root resolves;
+/// keeps the last valid occurrence and can reanchor an intact terminal xref stream.
+/// Otherwise it fills unscanned gaps as free. The tail trailer wins when its root resolves;
 /// otherwise the last scanned catalog wins.
 /// </summary>
 internal static class XRefRecovery
@@ -50,10 +51,29 @@ internal static class XRefRecovery
         long maxId = data.Length / 3L;
         Dictionary<int, XrefEntry> entries = ParserContainers.CreateDictionary<int, XrefEntry>(scan);
         QpdfLimits damaged = limits with { MaxContainerSize = Math.Min(limits.MaxContainerSize, limits.MaxContainerSizeDamaged) };
-        (int Number, int Generation)? lastCatalog = ScanObjects(data, damaged, governor, diagnostics, maxId, entries, scan);
+        (int Number, int Generation)? lastCatalog = ScanObjects(data, damaged, governor, diagnostics, maxId, entries, scan,
+            out (int Offset, int End)? terminalXref);
         if (entries.Count == 0)
         {
             throw new QpdfParseException($"Bounded repair found no objects after strict parsing failed: {strictReason}", null, null);
+        }
+
+        if (terminalXref is { } xref && HasOnlyFooter(data, xref.End, governor) && FooterNeedsReanchoring(data, xref.Offset, governor))
+        {
+            XRefTable? anchored = null;
+            try { anchored = XRefTable.ParseAtOffset(data, xref.Offset, limits, governor, diagnostics, valuesEscape); }
+            catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException)
+                && exception is not QpdfFilterException { Reason: QpdfFilterFailureReason.ExternalData }) { }
+            if (anchored is not null)
+            {
+                try
+                {
+                    diagnostics.AddParts(QpdfDiagnosticCode.RecoveryEngaged, QpdfDiagnosticSeverity.Warning,
+                        ["Bounded repair recovered the terminal cross-reference stream after strict parsing failed: ", strictReason]);
+                    return anchored;
+                }
+                catch { anchored.Dispose(); throw; }
+            }
         }
 
         int scannedMax = 0;
@@ -200,8 +220,11 @@ internal static class XRefRecovery
         DiagnosticBag diagnostics,
         long maxId,
         Dictionary<int, XrefEntry> entries,
-        ParserMemoryScope scan)
+        ParserMemoryScope scan,
+        out (int Offset, int End)? terminalXref)
     {
+        terminalXref = null;
+        int lastObject = -1;
         const int directCatalog = -1, catalogName = -2;
         Dictionary<int, (int Type, int TypeGeneration)>? catalogs = null;
         ReadOnlySpan<byte> span = data.Span;
@@ -287,6 +310,7 @@ internal static class XRefRecovery
 
             if (value is not null)
             {
+                lastObject = numberStart;
                 if (!entries.ContainsKey((int)number)) { ParserContainers.EnsureEntryCapacity(scan, entries, 24L); }
                 entries[(int)number] = XrefEntry.Uncompressed(numberStart, (int)generation);
                 // Replace live identity facts with the xref entry; never retain
@@ -311,6 +335,10 @@ internal static class XRefRecovery
                     catalogs[(int)number] = catalog.Value;
                 }
                 else { catalogs?.Remove((int)number); }
+                if (value is PdfStream stream
+                    && PdfDictionaryLookup.TryGet(stream.Dictionary, "Type"u8, governor, governor.CancellationToken, out QpdfObject kind)
+                    && kind is PdfName xrefType && PdfDictionaryLookup.NameEquals(xrefType, "XRef"u8, governor, governor.CancellationToken))
+                { terminalXref = (numberStart, parsedEnd); }
             }
 
             position = parsedEnd;
@@ -330,7 +358,27 @@ internal static class XRefRecovery
                 if (entry.First > latestOffset) { latestOffset = entry.First; lastCatalog = (candidate.Key, entry.Second); }
             }
         }
+        if (terminalXref is { } terminal && terminal.Offset != lastObject) { terminalXref = null; }
         return lastCatalog;
+    }
+
+    // A later classic section or object may supersede this stream. Re-anchoring
+    // is safe only when its suffix consists of the (possibly damaged) footer.
+    private static bool HasOnlyFooter(ReadOnlyMemory<byte> data, int start, ResourceGovernor governor)
+    {
+        PdfTokenizer tokenizer = new(data); tokenizer.SetPosition(start);
+        if (!tokenizer.TryReadToken(out PdfToken marker, false, governor)) { return true; }
+        return marker.Kind == PdfTokenKind.StartXRef
+            && tokenizer.TryReadToken(out PdfToken offset, false, governor) && offset.Kind == PdfTokenKind.Integer
+            && !tokenizer.TryReadToken(out _, false, governor);
+    }
+
+    private static bool FooterNeedsReanchoring(ReadOnlyMemory<byte> data, int scannedOffset, ResourceGovernor governor)
+    {
+        // An intact footer pointing here already tried this same section chain.
+        try { return XRefTable.ReadTailOffset(data, governor) != scannedOffset; }
+        catch (QpdfParseException) { return true; }
+        catch (CompleteInputRequiredException) { return true; }
     }
 
     private static QpdfObject? TryParseObject(

@@ -29,6 +29,11 @@ remove or replace protection with fresh AES-256 R6. Creation uses UTF-8 or exact
 password bytes, fresh keys/salts/IVs, the requested permission word and metadata
 policy. Reserved permission bits and accessibility must have their R6 values;
 nonempty user passwords require nonempty owner passwords.
+Bounded repair can reanchor an intact terminal cross-reference stream after
+damaged footer offsets, using ordinary section/coverage validation to preserve
+compressed objects and encryption metadata. Later objects or sections prevent
+using an older stream. Resource/cancellation failures abort without weaker repair.
+
 Typed `SelectPagesAsync` accepts credentials on each `PdfPageSource`. The first
 source controls preserved output protection, even if collation omits its pages;
 secondary sources cannot replace it. `PdfPageMergeOptions.OutputEncryption`

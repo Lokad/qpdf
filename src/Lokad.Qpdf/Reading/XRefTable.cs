@@ -211,6 +211,23 @@ internal sealed class XRefTable : IDisposable
             throw new QpdfParseException($"startxref offset {xrefOffset} is outside the input.", offsetToken.Offset, null);
         }
 
+        return ParseSections(data, xrefOffset, limits, governor, diagnostics, memory, values, valuesEscape);
+    }
+
+    // Recovery supplies a scanned physical offset; section parsing, revision
+    // precedence and coverage validation remain identical to strict reading.
+    internal static XRefTable ParseAtOffset(ReadOnlyMemory<byte> data, long offset, QpdfLimits limits,
+        ResourceGovernor governor, DiagnosticBag diagnostics, bool valuesEscape)
+    {
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        using ParserMemoryScope values = ParserMemoryScope.Create(governor);
+        return ParseSections(data, offset, limits, governor, diagnostics, memory, values, valuesEscape);
+    }
+
+    private static XRefTable ParseSections(ReadOnlyMemory<byte> data, long xrefOffset, QpdfLimits limits,
+        ResourceGovernor governor, DiagnosticBag diagnostics, ParserMemoryScope memory,
+        ParserMemoryScope values, bool valuesEscape)
+    {
         Dictionary<int, XrefEntry> merged = ParserContainers.CreateDictionary<int, XrefEntry>(memory);
         List<PdfDictionary> trailers = ParserContainers.CreateList<PdfDictionary>(memory);
         using ParserMemoryScope revisions = ParserMemoryScope.Create(governor);
