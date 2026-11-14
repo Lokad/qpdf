@@ -12,7 +12,8 @@ see [compatibility](docs/COMPATIBILITY.md) for supported behavior and difference
 ## What you can do
 
 - Extract, reorder, duplicate, merge, split and rotate pages.
-- Extract previews from signed, unencrypted PDFs, retaining stored signature marks.
+- Extract previews from signed PDFs, including supported password-encrypted inputs,
+  retaining stored signature marks.
 - Inspect document structure, check PDFs, and manage attachments and metadata.
 - Open RC4 R2/R3, 128-bit RC4/AES R4 and AES-256 R5/R6 inputs through `QpdfDocument`, using user or owner credentials.
 - Rewrite PDFs with compression, object streams and linearization for web delivery.

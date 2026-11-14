@@ -9,6 +9,15 @@
   "generation": "Deterministic classic-xref PDFs with LF endings, Helvetica text, ordered objects and computed xref offsets. Truncated fixture is the first 120 bytes of minimal-1page.pdf. Security fixtures record randomized native encryption of authored inputs; their individual descriptions identify generation and public test credentials.",
   "fixtures": [
     {
+      "file": "signature-encrypted-r6.pdf",
+      "sha256": "b1b8998444c63b8fa0ac09d147bbef31a4b5e3df5aa7b363081ad61585c515a7",
+      "bytes": 3870,
+      "expectedNpages": 3,
+      "headerVersion": "1.7",
+      "valid": true,
+      "description": "Native qpdf 12.4.2 AES-256 R6 encryption of signature-visible.pdf, preserving its two signature field roles and stored marks. Public test credentials: reader / fixture-owner. Native --check passes; cryptographic signature validity is not claimed."
+    },
+    {
       "file": "minimal-1page.pdf",
       "sha256": "2a42129ba3fe8014e8b461878f975cd58442b3f217cf46b2e3397d8749e0fb78",
       "bytes": 581,

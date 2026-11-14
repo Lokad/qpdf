@@ -10,6 +10,49 @@ public sealed class SignedAppearanceTests
     private static readonly QpdfPath Input = QpdfPath.From("input.pdf");
     private static readonly QpdfPath Output = QpdfPath.From("output.pdf");
 
+    [Fact]
+    public async Task EncryptedPreviewsPreserveMarksAndDisableSignatureRolesAfterAuthentication()
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(Input, File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "signature-encrypted-r6.pdf")), QpdfInputOwnership.Transfer);
+        byte[] expectedAppearance, expectedMark;
+        await using (QpdfDocument source = await QpdfDocument.OpenAsync(host, Input, QpdfPassword.FromText("reader"), QpdfLimits.Default, CancellationToken.None))
+        {
+            Assert.Equal(6, source.Encryption?.Revision);
+            PdfDictionary widget = Dict(source, Assert.Single(Assert.IsType<PdfArray>(Resolve(source, Get(source.PageReferences[0].Page, "Annots"))).Items));
+            PdfDictionary field = Dict(source, Get(widget, "Parent"));
+            Assert.Equal(PdfName.FromAscii("Sig"), Get(field, "FT"));
+            Assert.Equal(PdfName.FromAscii("Sig"), Get(Dict(source, Get(field, "V")), "Type"));
+            PdfStream appearance = Assert.IsType<PdfStream>(Resolve(source, Get(Dict(source, Get(widget, "AP")), "N")));
+            expectedAppearance = appearance.Data;
+            PdfDictionary resources = Dict(source, Get(appearance.Dictionary, "Resources"));
+            expectedMark = Assert.IsType<PdfStream>(Resolve(source, Get(Dict(source, Get(resources, "XObject")), "Mark"))).Data;
+        }
+        PdfPageSelectionResult result = await Qpdf.SelectPageAsync(host, Input, Output, PdfPageSelectionOptions.FirstAndLast(1), [],
+            QpdfPassword.FromText("reader"), QpdfOutputEncryption.Remove, QpdfLimits.Default, CancellationToken.None);
+        Assert.Equal(new[] { 1, 3 }, result.SourcePages); Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.True(host.TryGetOutput(Output, out byte[] bytes));
+        using (UglyToad.PdfPig.PdfDocument independent = UglyToad.PdfPig.PdfDocument.Open(bytes))
+        { Assert.Equal(2, independent.NumberOfPages); Assert.Contains("First", independent.GetPage(1).Text); Assert.Contains("Last", independent.GetPage(2).Text); }
+        QpdfPath reread = QpdfPath.From("reread.pdf"); host.AddInput(reread, bytes, QpdfInputOwnership.Transfer);
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, reread, CancellationToken.None))
+        {
+            Assert.Null(document.Encryption);
+            PdfDictionary catalog = Dict(document, Get(document.Engine.Trailer, "Root"));
+            Assert.False(catalog.TryGet(PdfName.FromAscii("Perms"), out _));
+            foreach (var page in document.PageReferences)
+            {
+                PdfDictionary stamp = Dict(document, Assert.Single(Assert.IsType<PdfArray>(Resolve(document, Get(page.Page, "Annots"))).Items));
+                AssertDisabled(document, stamp);
+                PdfStream appearance = Assert.IsType<PdfStream>(Resolve(document, Get(Dict(document, Get(stamp, "AP")), "N")));
+                Assert.Equal(expectedAppearance, appearance.Data);
+                PdfDictionary resources = Dict(document, Get(appearance.Dictionary, "Resources"));
+                Assert.Equal(expectedMark, Assert.IsType<PdfStream>(Resolve(document, Get(Dict(document, Get(resources, "XObject")), "Mark"))).Data);
+            }
+        }
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
     public static IEnumerable<object[]> Selections()
     {
         foreach (string fixture in new[] { "signature-visible", "signature-incremental", "signature-private-alias", "signature-shared-branch" })

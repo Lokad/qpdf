@@ -177,7 +177,8 @@ JSON inspection accepts the same primary credential, including raw bytes through
 the decrypted graph; selected stream data is decrypted before decoding or sidecar
 publication. `recovereduserpassword` and encryption `key` stay null.
 
-Signed, unencrypted pages can be copied, merged, placed and rewritten.
+Signed pages can be copied, merged, placed and rewritten. Supported password-encrypted
+inputs authenticate before copying; encrypted preview extraction is covered by an R6 fixture.
 Stored signature appearances survive; active signature field attributes and document
 certification restrictions are disabled, including blank signature fields. Derived
 output does not preserve signature validity. Read-only inspection retains source
