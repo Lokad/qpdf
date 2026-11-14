@@ -26,8 +26,19 @@ public sealed class DocumentOpenHintTests
 
     public static IEnumerable<object[]> Cases()
     {
-        foreach (JsonObject row in Assert.IsType<JsonArray>(Corpus["Cases"]).OfType<JsonObject>())
-        { yield return [Text(row["Id"])]; }
+        foreach (IGrouping<string, JsonObject> group in Assert.IsType<JsonArray>(Corpus["Cases"]).OfType<JsonObject>()
+            .GroupBy(row => Text(row["Id"])[..Text(row["Id"]).LastIndexOf('-')]))
+        {
+            JsonObject primary = group.Single(row => Text(row["Route"]) == "argv");
+            yield return [Text(primary["Id"])];
+            foreach (JsonObject row in group.Where(row => !ReferenceEquals(row, primary)))
+            {
+                bool differs = new[] { "Fixture", "Key", "Shape", "NativeExit", "NativeFields" }
+                    .Any(key => !JsonNode.DeepEquals(row[key], primary[key]));
+                if (differs || group.Key is "minimal-2page.pdf-disable-False" or "minimal-2page.pdf-generate-True")
+                { yield return [Text(row["Id"])]; }
+            }
+        }
     }
 
     private static async Task<InMemoryQpdfHost> HostAsync(JsonObject row)

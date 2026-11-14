@@ -13,7 +13,15 @@ public sealed class SplitLabelContinuationTests
         foreach (string fixture in new[] { "default", "start", "transition", "boundary", "prefix", "indirect", "unlabelled" })
         foreach (string selection in new[] { "all", "subset", "reordered", "duplicates" })
         foreach (int size in new[] { 1, 2, 3 })
-        foreach (string route in new[] { "typed", "argv", "job" }) { yield return [fixture, selection, size, route]; }
+        { yield return [fixture, selection, size, "typed"]; }
+        // Routes bind the same label/split plan. Keep reordered/duplicate pages
+        // and prefix/boundary labels as explicit argv/job interaction controls.
+        foreach (string route in new[] { "argv", "job" })
+        {
+            yield return ["boundary", "reordered", 2, route];
+            yield return ["prefix", "duplicates", 1, route];
+            yield return ["unlabelled", "all", 3, route];
+        }
     }
 
     private static async Task<QpdfExecutionResult?> Run(InMemoryQpdfHost host, string route, int size, int[] pages)

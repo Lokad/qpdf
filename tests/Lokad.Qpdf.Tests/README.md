@@ -22,3 +22,10 @@ compiler-generated frame or private BCL collection layout is used for those
 proofs. `PageInheritance.InheritedValues._first` is required InlineArray backing.
 The security [ownership map](Security/README.md) assigns primitive, writer,
 source, wrapper and publication guarantees to their primary tests.
+
+Native inline-image and document-open tables run every distinct semantic/native
+observation at a primary route. They retain differing route observations and
+targeted job/mixed/nested wiring controls. Split-label tables exhaust label,
+selection and split-size semantics through typed selection, with explicit argv/job
+reordering, duplicate, boundary, prefix and unlabelled cases. Frozen native records
+remain complete; route sampling does not replace independent expected fields.
