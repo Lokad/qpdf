@@ -3519,8 +3519,7 @@
           "ResourceEnforcementTests.FlattenRotationYieldsToExhaustedBudget",
           "AnnotationCoordinateFailureTests.PointArraysAdmitBeforeAllocatingAndHonorBothCancellationRoutes",
           "SourceActionFailureTests.BothTokensCancelDestinationBindingAfterAdmissionWithoutPublishingHeaders",
-          "AnnotationPublicationTests.EverySharedGrowthCanRefuseWithoutPublishing",
-          "AnnotationPublicationTests.OutputFaultsRefundOwnersAndRespectCommit"
+          "PagePreparationAdmissionTests.PreparedPageGraphsRefundOwnersAndRespectPublication"
         ],
         "oracle": [
           "diff:flatten-rotation"
@@ -5572,8 +5571,7 @@
         "resource": [
           "PreserveUnreferencedTests.PreserveFailsOnExhaustedOutputBudget",
           "PreservationAdmissionTests.SuccessfulScalarCopiesKeepTheirTableCapacityAdmitted",
-          "AnnotationPublicationTests.EverySharedGrowthCanRefuseWithoutPublishing",
-          "AnnotationPublicationTests.OutputFaultsRefundOwnersAndRespectCommit"
+          "PagePreparationAdmissionTests.PreparedPageGraphsRefundOwnersAndRespectPublication"
         ],
         "oracle": [
           "diff:preserve-unreferenced",

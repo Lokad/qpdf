@@ -36,3 +36,8 @@ refusal sweeps and write-failure refunds; form generation and placement retain
 complete boundary controls. `Writing/InspectionFailureTests` owns JSON exception
 translation, distinct inspection scratch and the rewrite source that survives
 through commit. Feature tables reuse these shared phase guarantees.
+
+Preparation admission cases live with forms, placements, content, page assembly,
+object streams and attachments. Each owner supplies its fixture and actual public
+invocation to `Foundation/PreparationAdmissionChecks`, which shares only the
+admission/fault assertions and host wrapper. Case names select within one owner.
