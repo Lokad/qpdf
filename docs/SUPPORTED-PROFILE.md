@@ -41,6 +41,9 @@ sets an explicit policy, including for split output. Newly encrypted split outpu
 use separate keys. Repeated paths share one opened document and require equal
 credential values and representations, including absent versus explicit passwords;
 conflicts fail before opening inputs. R2 uses 40-bit RC4; R3 accepts 40..128-bit keys in eight-bit steps.
+`PdfPageMergeOptions.RecoveryMode` defaults to Strict; BoundedRepair applies one
+policy to all source documents and any output-encryption template, returns repair
+warnings and retains the same source identity, credential and publication rules.
 Preserved/copied R2/R3 output keeps RC4 and requires PDF 1.3/1.4 respectively.
 Preserved/copied R4 output uses AES-128 and requires PDF 1.6, including RC4 inputs.
 Newly selected weak encryption remains unsupported.

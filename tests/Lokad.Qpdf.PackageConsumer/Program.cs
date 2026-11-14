@@ -71,6 +71,34 @@ internal static class Program
         await CheckOutputAsync(host, output.Value, "First");
         Check(original.SequenceEqual(damaged) && host.OpenLeaseCount == 0, "recovery preserves source bytes and closes leases");
         Console.WriteLine("PASS typed bounded recovery with strict default, explicit selection and first/last preview");
+
+        QpdfPath other = QpdfPath.From("other.pdf"), merged = QpdfPath.From("merged-recovery.pdf");
+        host.AddInput(other, source, QpdfInputOwnership.Copy);
+        PdfPageSource[] sources = [new(input, new(2)), new(other, new(1)), new(input, new(1))];
+        try
+        {
+            await Qpdf.SelectPagesAsync(host, sources, merged, new PdfPageMergeOptions(), CancellationToken.None);
+            throw new InvalidOperationException("Default typed merge accepted damaged xrefs.");
+        }
+        catch (QpdfParseException) { }
+        Check(!host.TryGetOutput(merged, out _) && host.OpenLeaseCount == 0, "strict merge rejects before publication");
+        foreach (int size in new[] { 0, 2 })
+        {
+            PdfMultiPageSelectionResult result = await Qpdf.SelectPagesAsync(host, sources, merged,
+                new PdfPageMergeOptions { RecoveryMode = QpdfRecoveryMode.BoundedRepair, SplitPages = size == 0 ? null : size },
+                QpdfLimits.Default, CancellationToken.None);
+            Check(result.PageCount == 3 && result.SourcePageCounts.SequenceEqual(new[] { 2, 2, 2 }), "repaired merge counts");
+            Check(result.Mapping.Select(mapping => (mapping.SourceIndex, mapping.SourcePage)).SequenceEqual(new[] { (0, 2), (1, 1), (2, 1) }), "repaired merge mappings");
+            Check(result.Warnings.Any(warning => warning.Code == QpdfDiagnosticCode.RecoveryEngaged), "merge reports recovery");
+            Check(result.OutputPaths.Count == (size == 0 ? 1 : 2) && host.OpenLeaseCount == 0, "repaired merge publication and closure");
+            if (size == 0) { await CheckMultiOutputAsync(host, result.OutputPaths[0].Value, ["Second", "First", "First"]); }
+            else
+            {
+                await CheckMultiOutputAsync(host, result.OutputPaths[0].Value, ["Second", "First"]);
+                await CheckOutputAsync(host, result.OutputPaths[1].Value, "First");
+            }
+        }
+        Console.WriteLine("PASS typed merge recovery option, repeated sources, mappings and split publication");
     }
 
     private sealed class SampleCodec : IQpdfJpegCodec

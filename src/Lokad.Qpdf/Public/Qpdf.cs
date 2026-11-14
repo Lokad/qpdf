@@ -306,6 +306,10 @@ public static partial class Qpdf
         }
 
         limits.Validate();
+        if (mergeOptions.RecoveryMode is not (QpdfRecoveryMode.Strict or QpdfRecoveryMode.BoundedRepair))
+        {
+            throw new ArgumentOutOfRangeException(nameof(mergeOptions), mergeOptions.RecoveryMode, "Unknown recovery mode.");
+        }
         ArgumentNullException.ThrowIfNull(mergeOptions.Rotations, "rotations");
         ArgumentNullException.ThrowIfNull(mergeOptions.Labels, "labels");
         ArgumentNullException.ThrowIfNull(mergeOptions.OutputEncryption, "outputEncryption");
@@ -339,7 +343,7 @@ public static partial class Qpdf
                 primaryInput: preparation.Sources[0].Input,
                 pruneUnreachableFields: true,
                 limits: limits,
-                recovery: QpdfRecoveryMode.Strict,
+                recovery: mergeOptions.RecoveryMode,
                 settings: SelectionSettings.Typed with { Rotations = preparation.Rotations, Labels = preparation.Labels,
                     AuthenticatePrimary = true, OutputEncryption = mergeOptions.OutputEncryption },
                 collation: mergeOptions.Collation,

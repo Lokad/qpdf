@@ -4,17 +4,17 @@
     "net10.0": {
       "Lokad.qpdf": {
         "type": "Direct",
-        "requested": "[0.2.0-dev.5, )",
-        "resolved": "0.2.0-dev.5",
-        "contentHash": "UjbeH1bn7MfYQZD5H/+qqeJehESSGXrMY0H8Y/lZm4Tl6tp71RBdBcGs+yNQrqF1nNQ47Oh/zNQjRCupl4SQuQ=="
+        "requested": "[0.2.0-dev.6, )",
+        "resolved": "0.2.0-dev.6",
+        "contentHash": "YGg34T17wuXiQANlgO3shA6urV6M7w4JqeOd/YBvyj3gQgc8w11w6aFFj0TjNe2vlInepyUfTNi5ohxzyR7z9A=="
       }
     },
     "net11.0": {
       "Lokad.qpdf": {
         "type": "Direct",
-        "requested": "[0.2.0-dev.5, )",
-        "resolved": "0.2.0-dev.5",
-        "contentHash": "UjbeH1bn7MfYQZD5H/+qqeJehESSGXrMY0H8Y/lZm4Tl6tp71RBdBcGs+yNQrqF1nNQ47Oh/zNQjRCupl4SQuQ=="
+        "requested": "[0.2.0-dev.6, )",
+        "resolved": "0.2.0-dev.6",
+        "contentHash": "YGg34T17wuXiQANlgO3shA6urV6M7w4JqeOd/YBvyj3gQgc8w11w6aFFj0TjNe2vlInepyUfTNi5ohxzyR7z9A=="
       }
     }
   }

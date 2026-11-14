@@ -1,6 +1,18 @@
 # Changelog
 
-## Unreleased — 0.2.0-dev.5
+## Unreleased — 0.2.0-dev.6
+
+- Let typed merging and splitting opt into bounded repair with
+  `PdfPageMergeOptions.RecoveryMode`, retaining strict defaults, repeated-source
+  identity, independent authentication and transactional publication.
+- Recover intact terminal cross-reference streams after damaged footer offsets
+  through the shared section parser, preserving compressed objects and security.
+- Traverse shared retained form resources once and reuse bounded decoded stream
+  bytes during structural checking while validating each page's own resources.
+- Share image discovery across JSON/text inspection, separate semantic fixtures
+  from route wiring, and correct current contract/API documentation.
+
+## 0.2.0-dev.5 — 2026-11-13 (development candidate)
 
 - Reuse shared field-component discovery across page annotation arrays while
   retaining independent signed/ordinary field roles and stored appearances.

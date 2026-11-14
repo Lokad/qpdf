@@ -50,6 +50,11 @@ public sealed record PdfPageCollation
 /// <summary>Combined options for multi-source page selection.</summary>
 public sealed record PdfPageMergeOptions
 {
+    /// <summary>Gets the input parsing policy. The default is strict.</summary>
+    /// <remarks>The policy applies to every source and encryption template in
+    /// this operation. Repeated source paths share one opened document.</remarks>
+    public QpdfRecoveryMode RecoveryMode { get; init; } = QpdfRecoveryMode.Strict;
+
     /// <summary>Gets the output encryption policy. By default the first source's
     /// protection is preserved, even when its pages are excluded by collation.
     /// Each split output requesting new protection receives a fresh key.</summary>

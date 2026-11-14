@@ -40,7 +40,7 @@ reasons. Companion fix-qdf/zlib-flate operations are additional contracts.
 
 | Behavior | Typed | Argv / job JSON |
 | --- | --- | --- |
-| Reading | Strict; `SelectPageAsync` can request bounded repair | Bounded repair by default; `--suppress-recovery` is strict |
+| Reading | Strict; page selection can request bounded repair | Bounded repair by default; `--suppress-recovery` is strict |
 | Stream copying | Opaque encoded bytes | Generalized decoding and compression |
 | Rotation requests | Supplied list order | Last value per exact range text, then ordinal key order |
 | Generic catalog data | Selection defaults may omit extras | Ordinary rewrites preserve supported primary extras; split has a narrower policy |
@@ -65,6 +65,12 @@ rebuilding a table with a zero-entry subsection. `PdfPageSelectionResult.Warning
 reports recovery. Streams remain opaque, and source bytes, passwords, limits and
 transactional publication keep their existing contracts. The full recovery overload
 also accepts rotations, an input password and an output-encryption policy.
+
+Typed merging/splitting selects the same policy through
+`PdfPageMergeOptions.RecoveryMode`. It defaults to Strict and applies to every
+source and encryption template. Repeated paths share one opened document;
+credential consistency, source mappings, warnings and output protection retain
+their existing contracts. Undefined recovery values reject before host access.
 
 ```csharp
 PdfPageSelectionResult preview = await Qpdf.SelectPageAsync(
