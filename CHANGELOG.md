@@ -111,7 +111,9 @@ First release published on NuGet.
 - Add cooperative memory admission with coarse execution/result ownership,
   independent cancellation, structural/decompression limits and bounded diagnostics.
   Input reads fill caller-owned buffers; codecs borrow the active memory budget.
-  Cumulative work/fuel APIs and compatibility wrappers have been removed.
+  Remove `QpdfLimits.MaxWork`, `QpdfExecutionCounters.TotalWork` and
+  `QpdfJpegCodecContext.ChargeWork`; replace codec ReserveMemory/ResizeMemory hooks
+  with `MemoryBudget`, without compatibility wrappers.
 - Preserve primary-document metadata and attachments independently of selected
   pages. Keep raw PDF values and private aliases; apply explicit edits afterward.
 - Preserve shared graph identities, field registrations, source resources and

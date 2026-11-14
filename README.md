@@ -29,7 +29,7 @@ pages 2 and 1, in that order, from a PDF with at least two pages:
 using Lokad.Qpdf;
 using Lokad.Qpdf.Hosting;
 
-var host = new InMemoryQpdfHost();
+using var host = new InMemoryQpdfHost();
 var input = QpdfPath.From("input.pdf");
 var output = QpdfPath.From("output.pdf");
 host.AddInput(input, await File.ReadAllBytesAsync("input.pdf"), QpdfInputOwnership.Copy);
@@ -56,8 +56,8 @@ and decoded bytes. Results include warnings and resource counters.
 Hosts can expose a shared memory budget through `IQpdfMemoryHost`; the standalone
 `QpdfInputReader.ReadExactlyToArrayAsync` helper also accepts that budget directly.
 Custom inputs fill caller-owned `Memory<byte>` and return a count.
-[API migrations](docs/COMPATIBILITY.md#resource-api-and-behavior-changes) describe
-the input and codec changes. See [cooperative memory admission](docs/MEMORY.md) for caller-scope ownership and the
+[Resource APIs](docs/COMPATIBILITY.md#resource-apis) describe
+the input and codec contracts. See [cooperative memory admission](docs/MEMORY.md) for caller-scope ownership and the
 current boundary between engine estimates and host-private storage.
 
 For existing qpdf workflows, `Qpdf.ExecuteAsync` accepts a `QpdfCommandInvocation`,
@@ -73,101 +73,39 @@ Console.WriteLine(document.PageCount);
 Console.WriteLine(document.Encryption); // Non-secret facts only.
 ```
 
-`FromText` uses UTF-8 without normalization; R2–R6 can retry PDFDoc, WinAnsi and
-MacRoman when the bounded prefix is representable. Commands can also recover
-single-byte and well-formed UTF-16 credentials through these encodings. `FromBytes` borrows exact bytes without encoding recovery.
-R2–R4 use the first 32 bytes; R5/R6 use 127. Keep borrowed bytes stable until opening completes.
-Omitting credentials tries an empty password. `QpdfSecurityException.Reason`
-distinguishes a required password, an invalid supplied password and an unsupported
-handler; malformed parameters throw `QpdfParseException`.
+Omitting credentials tries an empty password. `QpdfPassword.FromText` uses UTF-8
+with bounded encoding recovery; `FromBytes` borrows exact bytes. Keep borrowed
+credentials stable until the operation completes. Authentication failures have
+explicit reasons; passwords and keys are excluded from reports.
 
-Structural checks use the same credentials through
-`new QpdfCheckOptions { Password = QpdfPassword.FromText("reader") }` passed to
-`Qpdf.CheckAsync`. They inspect decrypted objects and streams and report authentication
-without exposing the password. Borrowed password bytes remain stable until the check completes.
-
-Typed single-source page selection preserves R2–R6 protection, including both
-passwords, permissions and metadata treatment. Its password overload accepts the
-same credentials; keep borrowed bytes stable until selection completes:
-
-```csharp
-await Qpdf.SelectPageAsync(host, input, output, PdfPageSelectionOptions.FirstAndLast(2),
-    QpdfPassword.FromText("reader"), CancellationToken.None);
-```
-
-Pass `QpdfOutputEncryption.Remove` after the input credential to decrypt explicitly,
-or use `CreateAes256` for fresh protection. The permission word `-4` allows all
-operations; `encryptMetadata` controls document-level metadata:
-
-```csharp
-QpdfOutputEncryption protection = QpdfOutputEncryption.CreateAes256(
-    QpdfPassword.FromText("new-reader"), QpdfPassword.FromText("new-owner"), -4, true);
-await Qpdf.SelectPageAsync(host, input, output, new PdfPageSelectionOptions(1),
-    QpdfPassword.FromText("reader"), protection, CancellationToken.None);
-```
-
-Multi-source selection accepts a credential on each `PdfPageSource` and uses the
-first source's protection by default, including when collation omits its pages.
-Set `PdfPageMergeOptions.OutputEncryption` to remove or replace that protection;
-each split output requesting new encryption receives a fresh key. Repeated logical
-paths share one input and must use the same password value and representation.
+Typed page operations preserve supported input protection by default. Pass
+`QpdfOutputEncryption.Remove` to decrypt, `CreateAes256` for fresh R6 protection,
+or `CopyFrom` to use an independently authenticated template. Multi-source
+selection accepts a credential on each `PdfPageSource`; the first source controls
+default output protection. Each split output requesting fresh encryption gets
+its own key.
 
 ```csharp
 await Qpdf.SelectPagesAsync(host,
     [new PdfPageSource(input, new PdfPageSelectionOptions(1), QpdfPassword.FromText("reader"))],
-    output, new PdfPageMergeOptions { OutputEncryption = protection }, CancellationToken.None);
+    output, new PdfPageMergeOptions
+    {
+        RecoveryMode = QpdfRecoveryMode.BoundedRepair,
+        OutputEncryption = QpdfOutputEncryption.Remove
+    }, CancellationToken.None);
 ```
 
-Argv/job inspections also accept a primary-input text password:
-`input.pdf --password=reader --check --show-npages`, or the job JSON key `"password":"reader"`.
-Missing and incorrect credentials have distinct diagnostic codes. PDF transformations
-also accept these primary credentials and preserve supported input protection:
-`input.pdf output.pdf --password=reader --linearize`. The primary document controls
-protection even when a pages block selects only other inputs. `--password-file=path` (job key
-`passwordFile`) reads the first line through the host. For `--password-file=-`,
-the host supplies the logical `"-"` input; it can map a descriptor to a stable lease.
-Page-source passwords can follow each file inside `--pages`, for example
-`--pages other.pdf --password=reader 1 --`; job entries use `pages[].password`.
-They also work for transformed inspections. The primary input still uses its main
-credential; one per-file password applies to all its occurrences, and conflicting
-nonempty credentials reject. An empty primary
-leaves output unencrypted unless new encryption is explicitly requested.
-Add `--decrypt` (job key `"decrypt":""`) to publish an unencrypted PDF after
-authenticating its input. It also applies to split outputs; output-free inspections
-ignore this output policy.
-Use `--encrypt user owner 256 --` to create fresh AES-256 R6 protection. The named
-form accepts `--user-password=... --owner-password=... --bits=256` inside the block.
-Job JSON uses `"encrypt":{"userPassword":"...","ownerPassword":"...","256bit":{}}`.
-Permission and metadata options are described in the [supported profile](docs/SUPPORTED-PROFILE.md).
-Attachment-copy sources accept their own credentials through
-`--copy-attachments-from source.pdf --password=reader --`, job
-`copyAttachmentsFrom[].password`, or `new QpdfAttachmentCopy(source, prefix, password)`.
-Source protection does not replace the destination's output policy.
-Typed page operations can copy protection from an independent template with
-`QpdfOutputEncryption.CopyFrom(template, password)`. Either valid template password
-retains both password entries and permissions; a plaintext template removes protection.
-Commands use `--copy-encryption=template.pdf --encryption-file-password=...`;
-job JSON uses `copyEncryption` and `encryptionFilePassword`. The global password
-mode applies to the template credential too.
-Overlay and underlay blocks likewise accept `--password=...`, or job
-`overlay[].password` / `underlay[].password`. Each distinct source credential
-authenticates independently, including when the source names the primary input.
-`--is-encrypted` and `--requires-password` provide native predicate exit codes;
-see the [supported profile](docs/SUPPORTED-PROFILE.md) for their `Completed` result semantics.
-`--show-encryption` reports declared permissions, cipher methods and password-match
-status without passwords or keys. Wrong credentials skip combined content inspections.
-JSON inspection also accepts primary credentials (`QpdfJsonOptions.Password` for typed
-calls), exports decrypted values and keeps password/key fields null.
-Typed `UpdatePdfFromJsonAsync` accepts an input password and output encryption policy.
-Object patches contain plaintext values and stream data; the writer applies the
-chosen protection. Full exports may repeat the authenticated input's unchanged
-encryption handler. Creating a PDF from a JSON `/Encrypt` declaration requires
-an explicit remove, new-encryption or template policy.
-Commands use `--update-from-json=patch.json` with the primary password and the
-usual output policy; job JSON uses `updateFromJson`.
-Typed `CreatePdfFromJsonAsync` also accepts an output policy and explicit limits
-to protect plaintext JSON using fresh AES-256 or an authenticated template.
-Commands combine `--json-input` with the output policy; job JSON uses `jsonInput`.
+Typed reading and selection are strict by default. Explicit bounded repair uses
+the shared reader and returns recovery warnings; the merge option applies to
+all sources and encryption templates. Repeated logical paths share one input
+and require consistent credentials.
+
+Checks, inspections, attachments, placements and JSON operations also accept
+credentials. Argv uses `--password=reader` or a host-backed `--password-file`;
+job JSON uses `password` or `passwordFile`. PDF transformations preserve input
+protection unless an output policy such as `--decrypt` or `--encrypt` is chosen.
+See the [supported profile](docs/SUPPORTED-PROFILE.md) for exact APIs, source
+credentials, encoding recovery, JSON encryption policies and security reporting.
 
 JPEG decoding and recompression use the optional `IQpdfJpegCodec` interface.
 Supply your implementation with `new InMemoryQpdfHost(QpdfLimits.Default, codec)`;
@@ -177,13 +115,8 @@ for buffer ownership, cancellation and resource admission.
 
 ## Limitations
 
-Typed page selection, merging and splitting preserve/remove R2–R6 protection or create AES-256 R6.
-Argv/job PDF transformations preserve/remove primary protection or create AES-256 R6;
-legacy encryption creation remains unsupported.
-Typed attachment listing, extraction and edits accept primary credentials with
-explicit limits. Edits also accept preserve/remove/create/template output policies.
-Rendering, OCR and
-text extraction are outside the library's scope.
+New encryption is AES-256 R6; legacy encryption can be read and preserved.
+Rendering, OCR, text extraction and general PDF authoring are outside scope.
 Copying or rewriting supported signed PDFs preserves stored annotation appearances
 and disables the active signature fields and certification restrictions. A derived
 PDF does not preserve signature validity. Blank signature fields are also disabled;
@@ -207,10 +140,6 @@ The package is written to `artifacts/nuget`. Ordinary builds and tests require n
 native qpdf or other external PDF tools. Contributor checks are listed in
 [architecture](docs/ARCHITECTURE.md#development); reference checks use
 `tools/bootstrap-qpdf.ps1`.
-CI also runs cold/batch probe, protocol and raster self-tests, oracle version and
-timeout cleanup controls, deterministic warmup-readiness tests and benchmark worker
-cleanup tests. These use small controlled executables and Python children,
-require no native PDF tools and measure no performance.
 
 - [Compatibility](docs/COMPATIBILITY.md): supported operations and caller-facing differences.
 - [Benchmarks](docs/BENCHMARKS.md): dated measurements, methodology and allocation/admission tools.

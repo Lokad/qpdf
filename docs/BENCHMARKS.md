@@ -1,36 +1,19 @@
 # Benchmarks
 
-**.NET 11 is the performance baseline.** The historical plaintext/native tables use SDK
-11.0.100-rc.3.26522.148 / runtime 11.0.0-rc.3.26522.148, code `33456c3`,
-measured 2026-11-05. Password-security observations appear separately below.
-The package also targets .NET 10.
+.NET 11 is the performance baseline; the package also targets .NET 10.
+The tables below are historical plaintext/native measurements from 2026-11-05,
+source `33456c3`, SDK `11.0.100-rc.3.26522.148` and runtime
+`11.0.0-rc.3.26522.148`. They are not measurements of the current development
+candidate and do not isolate a .NET 11 speedup over .NET 10.
 
-The 2026-11-13 planner consolidation used the existing .NET 11 memory report on
-identical inputs, with two workers per version, seven batches of 32 complete jobs
-and JIT-stable warmups. Median allocated bytes/job were:
-
-| Workload | Before consolidation | Shared planner |
-| --- | ---: | ---: |
-| `rewrite-tiny` (one page) | 31,680 | 32,080 |
-| `tiny` (page-count inspection) | 12,128 | 10,848 |
-| `config-layered` (one small job file) | 26,536 | 24,608 |
-| `security-r6-auth` | 153,208 | 151,128 |
-
-This removes serialized-setting/DOM work from argv. Separate recording-budget
-runs refunded all owners. Local estimated peaks changed from 541,618 to 547,210
-bytes for tiny rewriting, 16,240 to 11,157 for inspection, 29,080 to 20,188 for
-layering and 65,895 to 58,615 for authentication. These are admission estimates,
-not heap measurements. Timing remains provisional on the busy local host; this
-comparison establishes no throughput result. `rewrite-tiny` and `config-layered`
-are additional names accepted by `--memory-report`.
-The [planner allocation controls](https://github.com/Lokad/qpdf/blob/master/benchmarks/results/2026-11-13-planner-local.json.gz)
-retain source/binary identities, input hashes, samples and admission observations.
-
-The historical plaintext/native measurements used a dedicated quiet VM. Six pre/postflight idle gates
-passed; same-build A/A medians differed by up to 2.3% below. Treat differences
-within that variability cautiously. These measurements do not isolate a .NET 11
-speedup over .NET 10: older records used different code and hardware and remain
-archived under `benchmarks/results/`. No timing threshold is a CI gate.
+Later Windows allocation/admission records cover planning, password security,
+shared widgets, encrypted sizing, appearance handling and bounded counting.
+Their busy-host elapsed samples remain provisional. The
+[dated evidence index](https://github.com/Lokad/qpdf/blob/master/benchmarks/results/README.md)
+identifies each campaign and its raw records. Those records retain source and
+binary identities, input hashes, samples and validation results.
+Current-candidate throughput still requires a quiet-host campaign with interleaved
+same-build A/A controls. No timing threshold gates CI.
 
 ## Warmed complete jobs
 
@@ -106,7 +89,7 @@ it measures run variability, not an implementation improvement.
 
 Each campaign requires five consecutive one-second samples with at least 95% idle,
 less than 1% I/O wait/steal and over 3 GiB available memory before and after timing.
-Setup/builds and other agents' VM work stay outside these measurement windows.
+Builds and unrelated work stay outside these measurement windows.
 
 Warmup requires at least thirty jobs/two seconds and a two-second quiet JIT window,
 bounded by thirty seconds/50,000 jobs. Measured batches accumulate at least 350 ms
@@ -142,7 +125,7 @@ python3 tools/compare-warm-performance.py --repo "$PWD" \
 ```
 
 Use fresh work roots. The preparation command also records separate whole-process
-timings; the tables above report warmed jobs. For A/A, add
+timings; the historical tables report warmed jobs. For A/A, add
 `--baseline-probe tools/QpdfProbe/bin/Release/net11.0/QpdfProbe.dll` and the desired
 `--workload` entries. For job JSON, use `--workload select-sparse --job-selection`.
 
@@ -163,58 +146,14 @@ Allocation/admission evidence remains useful under load. Interpret small elapsed
 differences only after representative interleaved A/A controls; see the
 [memory contract](MEMORY.md) for what the estimates cover.
 
-## Consolidation allocation refresh, 2026-11-13
+## Password-security workload setup
 
-Source `f22322d3` uses .NET 11 RC 3 on Windows. The existing memory-report runner
-measured two ordinary-admission workers and one recording-budget worker per group,
-each with JIT-stable warmup and seven batches. Small/planning/authentication jobs
-use batches of 32; bulk operations use batches of three. Every measured owner
-refunded to zero. Allocations below exclude recording-budget instrumentation;
-local/root peaks come from the separate instrumented workers and are admission
-estimates, not heap measurements. Bytes/job are rounded median batch averages.
-
-| Scenario | Allocated bytes/job | Local peak bytes | Shared-root peak bytes |
-| --- | ---: | ---: | ---: |
-| `tiny` | 10,848 | 11,157 | 17,089 |
-| `rewrite-tiny` | 32,080 | 547,210 | 557,761 |
-| `config-layered` | 24,608 | 20,188 | 34,547 |
-| `select-sparse` | 17,023,205 | 635,591 | 17,437,367 |
-| `rewrite-objects` | 4,124,147 | 3,566,409 | 3,569,064 |
-| `merge` | 55,208 | 555,118 | 558,466 |
-| `split` | 225,896 | 573,081 | 576,129 |
-| `json` | 57,224 | 32,879 | 39,605 |
-| `flate` | 194,168 | 164,293 | 164,783 |
-| `linearize` | 256,064 | 591,340 | 592,513 |
-| `security-plain-auth` | 9,064 | 10,548 | 17,696 |
-| `security-r4-auth` | 18,984 | 23,221 | 34,703 |
-| `security-r6-auth` | 151,128 | 58,615 | 67,780 |
-| `security-plain-open` | 5,815,040 | 5,732,479 | 5,742,122 |
-| `security-r4-open` | 6,353,243 | 5,937,747 | 5,946,924 |
-| `security-r6-open` | 6,455,851 | 5,940,383 | 5,947,233 |
-| `security-plain-rewrite` | 11,918,832 | 11,653,975 | 11,656,130 |
-| `security-r4-rewrite` | 30,646,620 | 17,309,875 | 17,316,952 |
-| `security-r6-rewrite` | 30,591,421 | 17,313,603 | 17,317,570 |
-| `security-plain-select` | 5,871,043 | 5,736,799 | 5,742,122 |
-| `security-r4-select` | 6,539,037 | 5,981,817 | 5,996,076 |
-| `security-r6-select` | 6,642,849 | 5,984,910 | 5,996,385 |
-
-Fresh host input copies are included, including the omitted 16 MiB stream in
-`select-sparse`; selective engine reading does not avoid this host setup copy.
-The [consolidation allocation record](https://github.com/Lokad/qpdf/blob/master/benchmarks/results/2026-11-13-consolidation-local.json.gz)
-retains source/binary identities, exact security-input hashes, commands, JIT/GC,
-raw samples and owner residuals. Its pre/postflight idle samples ranged from 8%
-to 79%, below the quiet-host requirement. Elapsed samples remain provisional;
-quiet-host timing with interleaved A/A controls is the sole deferred measurement.
-This refresh establishes no current managed/native throughput comparison.
-
-## Password-security workloads
-
-The same memory-report runner also accepts
-`security-{plain|r4|r6}-{auth|open|rewrite|select}`. Prepare its six inputs once;
-keep the exact files across workers so randomized salts and password-derivation
-work do not change between samples. The manifest records public credentials,
-revisions, sizes and hashes. R4 preparation copies the recorded development
-template; R6 preparation uses fresh public AES-256 creation.
+The memory-report runner accepts
+`security-{plain|r4|r6}-{auth|open|rewrite|select}`; append `-small` or `-bulk`
+to select an input size. Prepare the six inputs once and keep their exact bytes
+across workers: randomized salts change password-derivation work. The manifest
+records public credentials, revisions, lengths and hashes. R4 uses the recorded
+development template; R6 uses fresh public AES-256 creation.
 
 ```powershell
 dotnet benchmarks/Lokad.Qpdf.Benchmarks/bin/Release/net11.0/Lokad.Qpdf.Benchmarks.dll --security-inputs artifacts/security-inputs
@@ -222,146 +161,20 @@ $env:QPDF_SECURITY_ROOT = (Resolve-Path artifacts/security-inputs).Path
 dotnet benchmarks/Lokad.Qpdf.Benchmarks/bin/Release/net11.0/Lokad.Qpdf.Benchmarks.dll --memory-report enabled 30 7 32 security-plain-rewrite security-r4-rewrite security-r6-rewrite
 ```
 
-Authentication uses the public password predicate on a one-page input. It
-isolates authentication from bulk page/stream work but includes input copying,
-handler parsing and cleanup; it is not a pure key-derivation microbenchmark.
-The small and bulk encrypted inputs have different salts, so subtracting their
-medians does not isolate a cipher's cost.
-Opening counts 500 pages. Rewrite preserves their protection and approximately
-5 MiB of stream data; selection retains pages 1, 250 and 500. All measured jobs
-include fresh host input copies, execution and disposal. Preparation and output
-validation stay outside capture and verify page counts, protection and selected
-content. Full output operations retain their authentication cost.
+Authentication uses a public password predicate on one page, including input
+copying, handler parsing and cleanup. It is not a key-derivation microbenchmark.
+Opening counts 500 pages; rewriting preserves protection and approximately
+5 MiB of streams; selection retains pages 1, 250 and 500. Every job includes fresh
+host input copies, execution and disposal. Preparation and validation stay outside
+capture. Different salts prevent subtraction of small/bulk medians from isolating
+cipher cost.
 
-Use .NET 11 memory reports for primary measurements and .NET 10 for compatibility.
-`SecurityBenchmarks` exposes the same twelve workloads to BenchmarkDotNet. The
-pinned BenchmarkDotNet version does not automatically recognize the .NET 11
-preview runtime; its .NET 10 dry run is a harness check, not timing evidence:
+Recording-budget smoke checks cover all twelve workloads on both targets and
+require zero owner residuals. Pinned qpdf checks all six prepared inputs with
+both credentials. `SecurityBenchmarks` exposes the same workloads to
+BenchmarkDotNet. Its pinned version does not recognize the .NET 11 preview runtime
+automatically; this .NET 10 dry run checks the harness only:
 
 ```powershell
 dotnet benchmarks/Lokad.Qpdf.Benchmarks/bin/Release/net10.0/Lokad.Qpdf.Benchmarks.dll --filter '*SecurityBenchmarks*' --job Dry
 ```
-
-Recording-budget smoke runs cover all twelve workloads on both frameworks and
-require every caller owner to refund to zero. Pinned qpdf independently checks
-all six prepared inputs with both recorded credentials. Compare elapsed results
-only with quiet-host and repeated same-input controls; these workloads do not
-extend the historical native timing table above.
-
-### Local observations, 2026-11-12
-
-These Windows/.NET 11 RC 3 measurements use candidate code `755b70d9` and
-published-source baseline `32a6117d`. The host failed its initial idle gate;
-only 10 of 120 later idle samples reached 95%. Elapsed values are **provisional**.
-Each range spans medians from two separate workers, with seven batches per
-worker and identical input hashes. They are not confidence intervals or native
-speed ratios.
-
-| Complete operation | Plain ms | R4 ms | R6 ms |
-| --- | ---: | ---: | ---: |
-| Authenticate, one page | 0.0037–0.0043 | 0.0747–0.0750 | 1.405–1.430 |
-| Open/count, 500 pages | 0.899–0.901 | 1.332–1.837 | 2.696–2.830 |
-| Preserve/rewrite, 500 pages | 9.94–10.67 | 20.10–22.78 | 23.52–27.27 |
-| Select 3 of 500 pages | 0.966–0.976 | 1.572–1.760 | 2.912–3.407 |
-
-Cumulative managed allocation excludes preparation and uses ordinary local
-admission, without the recording root's instrumentation. MB means 1,000,000 bytes.
-
-| Complete operation | Plain MB/job | R4 MB/job | R6 MB/job |
-| --- | ---: | ---: | ---: |
-| Authenticate, one page | 0.0104 | 0.0211 | 0.1532 |
-| Open/count, 500 pages | 5.816 | 6.355 | 6.458 |
-| Preserve/rewrite, 500 pages | 11.916 | 30.683 | 30.627 |
-| Select 3 of 500 pages | 5.870 | 6.545 | 6.649 |
-
-Interleaved 0.1.0 controls use identical `tiny`, `rewrite-objects` and
-`select-sparse` inputs. Candidate allocation increases stay below 800 bytes/job
-in these three cases. Same-build elapsed medians vary by up to 33%, so this run
-does not establish a plaintext throughput change. Separate recording-budget
-checks on both frameworks return every owner to zero.
-
-The source checkout retains input manifests, engine hashes, all samples, idle
-observations and recording-budget results in
-`benchmarks/results/2026-11-12-security-local.json.gz`. Qualified throughput
-comparisons still require a quiet host; no timing threshold gates CI.
-
-## Shared-widget discovery, 2026-11-13
-
-The existing memory-report harness adds `shared-widgets-16`, `-32`, `-64` and
-`-128` scenarios. Each selects that many pages from the same valid 128-page
-ordinary-field fixture; parsing the full input contributes a fixed cost.
-The same driver compares the qualified dev.4 DLL with the component-cache
-change, on .NET 11 RC 3. Median ordinary-admission allocations are bytes/job:
-
-| Selected widgets | dev.4 | Component reuse |
-| ---: | ---: | ---: |
-| 16 | 973,560 | 824,696 |
-| 32 | 1,151,152 | 853,424 |
-| 64 | 1,515,112 | 919,656 |
-| 128 | 2,286,128 | 1,095,216 |
-
-Deterministic internal copy-entry resolver reads fall from 608/2,240/8,576/33,536
-to 128/256/512/1,024 at the same sizes. Discovery alone uses 64/128/256/512
-reads. All measured recording-budget owners refund to zero. The
-[allocation record](https://github.com/Lokad/qpdf/blob/master/benchmarks/results/2026-11-13-shared-widgets-local.json.gz)
-retains library/input hashes, candidate patch hash and raw samples. Local
-elapsed times remain provisional; quiet-host throughput is deferred.
-
-## Encrypted sizing, 2026-11-13
-
-The same memory-report driver compares source `83d5265d` with encrypted
-length measurement, using retained identical inputs and .NET 11 RC 3.
-Append `-small` or `-bulk` to a security scenario to select its input size.
-Median ordinary-admission allocations are bytes per public rewrite job:
-
-| Input | Before | Length measurement |
-| --- | ---: | ---: |
-| plain small | 29,144 | 29,144 |
-| r4 small | 68,048 | 60,088 |
-| r6 small | 202,984 | 194,824 |
-| plain bulk | 11,918,608 | 11,918,392 |
-| r4 bulk | 30,647,275 | 24,496,411 |
-| r6 bulk | 30,590,640 | 24,503,107 |
-
-All measured owner residuals are zero. The key-withholding serializer control
-proves all four physical CountingSink paths avoid key derivation and payload
-cipher calls for tiny and large streams; actual emission fails without the
-key and succeeds after restoration. Existing byte-emitting hash/layout
-passes remain. The
-[allocation record](https://github.com/Lokad/qpdf/blob/master/benchmarks/results/2026-11-13-encrypted-sizing-local.json.gz)
-retains exact library/input hashes and raw samples. This local run does not
-establish throughput; quiet-host timing remains deferred.
-
-## Appearance orchestration, 2026-11-13
-
-The `select-one` public one-page scenario allocates 31,800 bytes/job
-after sharing post-overlay appearance policy, versus 31,800 with the
-retained R11 binary. No merge/generation graph is allocated for this path.
-The same .NET 11 RC 3 driver also checks merge and sparse selection, with
-zero owner residuals. Exact binary/input hashes and samples are in the
-[allocation record](https://github.com/Lokad/qpdf/blob/master/benchmarks/results/2026-11-13-appearance-local.json.gz).
-Local timings remain provisional.
-
-## Bounded-count resource shapes, 2026-11-13
-
-The existing memory-report driver adds three strict standalone count
-shapes and validates their returned counts: a 9 MiB unrelated stream,
-2,048 small unrelated objects, and 2,048 pages. .NET 11 RC 3 measurements
-include the standard driver's host input copy in managed bytes/job; the
-job peak is its separate admission estimate. All owners refund to zero.
-
-| Shape | Input bytes | Managed bytes/job | Job peak bytes |
-| --- | ---: | ---: | ---: |
-| count-large-stream | 9,437,609 | 9,448,512 | 10,691 |
-| count-small-objects | 374,041 | 1,190,520 | 665,061 |
-| count-many-pages | 243,802 | 2,600,944 | 1,978,718 |
-
-The reader still sorts xref offsets and prefetches small extents, including
-unrelated objects. Its 256 KiB selected-data and 64 KiB metadata caps can
-require complete acquisition; the small-object shape deliberately exceeds
-the former. Counting retains page locations through the shared page-tree
-walk, so the many-page shape measures that retained metadata. These
-controls describe existing limits. They add no reader or count collector.
-Exact input/library hashes and raw samples are in the
-[resource record](https://github.com/Lokad/qpdf/blob/master/benchmarks/results/2026-11-13-count-shapes-local.json.gz).
-This local allocation/admission run does not qualify quiet-host throughput.

@@ -51,9 +51,8 @@ and decode setters follow that order; QDF fills unset defaults. Managed extensio
 include separate job-file/JSON/split values and bare compression. Unknown options,
 invalid combinations and excluded crypto fail explicitly.
 
-The 0.2.0 development planner accepts repeated scalar/bare argv setters consistently,
-including warning, recovery, version and keep-open hints. Previously ordinary argv
-could reject repetitions that security, inspection or layered jobs accepted.
+Repeated scalar/bare argv setters are accepted, including warning, recovery,
+version and keep-open hints.
 Input/output/pages/replace declarations and repeated `--empty` remain exclusive;
 main-context parser ceilings also remain exclusive. Stream-filter setters and
 `--global` blocks keep setter order. Block-local duplicate rules remain explicit.
@@ -134,11 +133,11 @@ against the original image. The visual report records this as
 `documented-codec-difference`, not a passing native comparison, and requires
 a missing-image negative control to fail those original-image bounds.
 
-## Resource API and behavior changes
+## Resource APIs
 
 `CountPagesAsync` provides a typed count without exposing a document or object
-resolver. Existing document opening still acquires complete input. The new count
-API and standalone `--show-npages` / `showNpages` share bounded acquisition for
+resolver. Document opening acquires complete input. The count API and standalone
+`--show-npages` / `showNpages` share bounded acquisition for
 compact classic-xref PDFs with large unrelated objects. The page tree is traversed;
 reading `/Count` alone is insufficient. This validates count metadata, rather than
 every unrelated object or content stream.
@@ -150,34 +149,32 @@ command's existing reporting policy applies. Short reads and path replacement
 retain their lease semantics. Memory refusal fails without retrying another
 storage strategy. See [memory bounds](MEMORY.md#engine-guarantees-and-limits).
 
-The 0.2.0 development candidate removes `QpdfLimits.MaxHostOperations` without a
-replacement property. `QpdfExecutionCounters.HostOperations` observes executed
+`QpdfExecutionCounters.HostOperations` observes executed
 opens, reads and writes; it is not an allowance. Short-read hosts can perform more
 calls than complete-read hosts without exhausting a cumulative quota. Publication
 admits actual wrapper/staging storage rather than predicting calls, and selective
 reading depends on input structure and memory. Use cancellation/deadlines for host
 work; input/output, decoded bytes, memory, handles and structural limits still apply.
 
-The development API changed before 0.1.0 without compatibility overloads:
+The input and resource interfaces have these contracts:
 
 - Inputs implement `ReadAsync(offset, Memory<byte>, token)` and return a count;
   the caller owns the admitted destination. Identity, length and bytes stay pinned
   through lease disposal; pending reads finish before buffer reuse or cleanup.
 - Hosts expose `IMemoryBudget` through `IQpdfMemoryHost`. Codecs borrow
-  `QpdfJpegCodecContext.MemoryBudget` instead of ReserveMemory/ResizeMemory hooks.
+  `QpdfJpegCodecContext.MemoryBudget`.
   Keep caller scopes alive through escaped results and all asynchronous cleanup.
-- `QpdfLimits.MaxWork`, `QpdfExecutionCounters.TotalWork` and
-  `QpdfJpegCodecContext.ChargeWork` are removed. Supply deadline/cancellation tokens;
-  structural, decoded-byte and memory ceilings remain independent.
+- Supply deadline/cancellation tokens for work limits; structural, decoded-byte
+  and memory ceilings remain independent.
 - The counter constructor takes seven values: live/peak memory, decoded bytes,
   output bytes, host operations, open handles and diagnostic count.
-- Nesting/container exhaustion throws `QpdfLimitException` (BudgetExceeded),
-  rather than a parse exception. `MaxNestingDepth` is 1..499, default 256.
+- Nesting/container exhaustion throws `QpdfLimitException` (BudgetExceeded).
+  `MaxNestingDepth` is 1..499, default 256.
 - Required malformed source contexts use `QpdfParseException`/InvalidArguments;
-  unsupported binding uses UnsupportedFeature. Typed base QpdfException catches
-  still work; real host failures retain HostOperationFailed.
+  unsupported binding uses UnsupportedFeature. Host failures use HostOperationFailed.
 
-See [memory ownership](MEMORY.md) for admission, refusal and publication obligations.
+See [memory ownership](MEMORY.md) for admission, refusal and publication obligations,
+and the [changelog](../CHANGELOG.md) for migration history.
 
 ## How compatibility is verified
 
