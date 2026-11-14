@@ -62,9 +62,14 @@ public sealed class InspectionFailureTests
 
     public static IEnumerable<object[]> Faults()
     {
-        foreach (string mode in new[] { "attachments", "indirect-attachments", "pages", "labels", "acroform", "contents", "images", "stream", "rotation" })
+        // JSON inspection owns the complete fault/exception translation table.
         foreach (string phase in new[] { "read", "input-close", "create", "write", "commit", "close" })
-        foreach (string kind in new[] { "host", "cancel", "oom" }) { yield return [mode, phase, kind]; }
+        foreach (string kind in new[] { "host", "cancel", "oom" }) { yield return ["pages", phase, kind]; }
+        // Rewrites retain a borrowed source through commit, unlike JSON reports.
+        foreach (string phase in new[] { "input-close", "close" })
+        foreach (string kind in new[] { "host", "cancel", "oom" }) { yield return ["rotation", phase, kind]; }
+        foreach (string mode in new[] { "attachments", "indirect-attachments", "labels", "acroform", "contents", "images", "stream" })
+        { yield return [mode, "write", "host"]; }
     }
 
     private static async Task Seed(InMemoryQpdfHost storage)
@@ -104,25 +109,16 @@ public sealed class InspectionFailureTests
         Assert.InRange(root.ReservedBytes, 0L, 2048L); caller.Dispose(); Assert.Equal(0L, root.ReservedBytes);
     }
 
+    public static IEnumerable<object[]> AdmissionOwners()
+    {
+        foreach (string mode in new[] { "attachments", "indirect-attachments", "pages", "labels", "acroform", "contents", "images", "stream", "rotation" })
+        { yield return [mode, false]; }
+        yield return ["pages", true];
+        yield return ["rotation", true];
+    }
+
     [Theory]
-    [InlineData("attachments", false)]
-    [InlineData("attachments", true)]
-    [InlineData("indirect-attachments", false)]
-    [InlineData("indirect-attachments", true)]
-    [InlineData("pages", false)]
-    [InlineData("pages", true)]
-    [InlineData("labels", false)]
-    [InlineData("labels", true)]
-    [InlineData("acroform", false)]
-    [InlineData("acroform", true)]
-    [InlineData("contents", false)]
-    [InlineData("contents", true)]
-    [InlineData("images", false)]
-    [InlineData("images", true)]
-    [InlineData("stream", false)]
-    [InlineData("stream", true)]
-    [InlineData("rotation", false)]
-    [InlineData("rotation", true)]
+    [MemberData(nameof(AdmissionOwners))]
     public async Task EveryObservedSharedAdmissionRefusalPreservesOutput(string mode, bool job)
     {
         using InMemoryQpdfHost storage = new(); storage.AddInput(Input, Fixture(mode), QpdfInputOwnership.Transfer);

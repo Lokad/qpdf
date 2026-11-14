@@ -29,3 +29,10 @@ targeted job/mixed/nested wiring controls. Split-label tables exhaust label,
 selection and split-size semantics through typed selection, with explicit argv/job
 reordering, duplicate, boundary, prefix and unlabelled cases. Frozen native records
 remain complete; route sampling does not replace independent expected fields.
+
+`Foundation/PublicationAdmissionTests` owns shared host-fault phases, executed
+counters and sequential commits. Prepared graph tests retain their own admission
+refusal sweeps and write-failure refunds; form generation and placement retain
+complete boundary controls. `Writing/InspectionFailureTests` owns JSON exception
+translation, distinct inspection scratch and the rewrite source that survives
+through commit. Feature tables reuse these shared phase guarantees.

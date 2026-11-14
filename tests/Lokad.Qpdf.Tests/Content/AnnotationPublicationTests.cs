@@ -158,73 +158,80 @@ public sealed class AnnotationPublicationTests
         arguments.Add("output"); return arguments;
     }
 
+    public static IEnumerable<object[]> Preparations()
+    {
+        foreach (string mode in new[] {
+            "signature",
+            "source-groups",
+            "source-groups-job",
+            "source-groups-linear",
+            "os-qdf",
+            "os-qdf-job",
+            "os-qdf-noids",
+            "os-qdf-noids-job",
+            "os-split-qdf",
+            "os-split-qdf-job",
+            "os-split-qdf-noids",
+            "os-split-qdf-noids-job",
+            "os-generate",
+            "os-generate-job",
+            "os-preserve",
+            "os-preserve-job",
+            "os-split",
+            "os-split-job",
+            "os-linearized",
+            "os-linearized-job",
+            "catalog-extras",
+            "catalog-extras-job",
+            "split-max",
+            "split-max-job",
+            "attachment",
+            "attachment-job",
+            "attachment-copy",
+            "attachment-copy-job",
+            "catalog",
+            "catalog-job",
+            "flatten",
+            "overlay",
+            "overlay-form",
+            "overlay-form-job",
+            "overlay-form-indirect",
+            "overlay-generate",
+            "overlay-generate-job",
+            "overlay-clip",
+            "overlay-clip-job",
+            "coalesce",
+            "normalize",
+            "externalize",
+            "merge",
+            "preserve-many",
+            "preserve-rollback",
+            "preserve-split",
+            "form-indirect-generate",
+            "form-indirect-both",
+            "generate",
+            "generate-job",
+            "generate-text",
+            "generate-text-job",
+            "generate-array",
+            "generate-array-job",
+            "generate-parent",
+            "generate-parent-job",
+            "navigation",
+            "navigation-job",
+            "rotation",
+            "rotation-job",
+            "labels-split",
+            "labels-split-job",
+            "split-membership",
+            "split-membership-job",
+            "zero-collation",
+            "zero-collation-job",
+        }) { yield return [mode]; }
+    }
+
     [Theory]
-    [InlineData("signature")]
-    [InlineData("source-groups")]
-    [InlineData("source-groups-job")]
-    [InlineData("source-groups-linear")]
-    [InlineData("os-qdf")]
-    [InlineData("os-qdf-job")]
-    [InlineData("os-qdf-noids")]
-    [InlineData("os-qdf-noids-job")]
-    [InlineData("os-split-qdf")]
-    [InlineData("os-split-qdf-job")]
-    [InlineData("os-split-qdf-noids")]
-    [InlineData("os-split-qdf-noids-job")]
-    [InlineData("os-generate")]
-    [InlineData("os-generate-job")]
-    [InlineData("os-preserve")]
-    [InlineData("os-preserve-job")]
-    [InlineData("os-split")]
-    [InlineData("os-split-job")]
-    [InlineData("os-linearized")]
-    [InlineData("os-linearized-job")]
-    [InlineData("catalog-extras")]
-    [InlineData("catalog-extras-job")]
-    [InlineData("split-max")]
-    [InlineData("split-max-job")]
-    [InlineData("attachment")]
-    [InlineData("attachment-job")]
-    [InlineData("attachment-copy")]
-    [InlineData("attachment-copy-job")]
-    [InlineData("catalog")]
-    [InlineData("catalog-job")]
-    [InlineData("flatten")]
-    [InlineData("overlay")]
-    [InlineData("overlay-form")]
-    [InlineData("overlay-form-job")]
-    [InlineData("overlay-form-indirect")]
-    [InlineData("overlay-generate")]
-    [InlineData("overlay-generate-job")]
-    [InlineData("overlay-clip")]
-    [InlineData("overlay-clip-job")]
-    [InlineData("coalesce")]
-    [InlineData("normalize")]
-    [InlineData("externalize")]
-    [InlineData("merge")]
-    [InlineData("preserve-many")]
-    [InlineData("preserve-rollback")]
-    [InlineData("preserve-split")]
-    [InlineData("form-indirect-generate")]
-    [InlineData("form-indirect-both")]
-    [InlineData("generate")]
-    [InlineData("generate-job")]
-    [InlineData("generate-text")]
-    [InlineData("generate-text-job")]
-    [InlineData("generate-array")]
-    [InlineData("generate-array-job")]
-    [InlineData("generate-parent")]
-    [InlineData("generate-parent-job")]
-    [InlineData("navigation")]
-    [InlineData("navigation-job")]
-    [InlineData("rotation")]
-    [InlineData("rotation-job")]
-    [InlineData("labels-split")]
-    [InlineData("labels-split-job")]
-    [InlineData("split-membership")]
-    [InlineData("split-membership-job")]
-    [InlineData("zero-collation")]
-    [InlineData("zero-collation-job")]
+    [MemberData(nameof(Preparations))]
     public async Task EverySharedGrowthCanRefuseWithoutPublishing(string mode)
     {
         int growths;
@@ -261,331 +268,23 @@ public sealed class AnnotationPublicationTests
         }
     }
 
+    public static IEnumerable<object[]> PublicationFailures()
+    {
+        // Foundation owns shared host boundaries. These cases retain each
+        // prepared graph's write-failure cleanup; generation and placement also
+        // cover complete boundaries for their distinct result lifetimes.
+        foreach (object[] preparation in Preparations())
+        {
+            string mode = (string)preparation[0];
+            if (mode.EndsWith("-job", StringComparison.Ordinal) || mode == "source-groups-linear") { continue; }
+            foreach (string phase in mode is "generate" or "overlay-form"
+                ? new[] { "create", "write", "commit", "cancel", "close" } : ["write"])
+            { yield return [phase, mode]; }
+        }
+    }
+
     [Theory]
-    [InlineData("create", "signature")]
-    [InlineData("write", "signature")]
-    [InlineData("commit", "signature")]
-    [InlineData("cancel", "signature")]
-    [InlineData("close", "signature")]
-    [InlineData("create", "source-groups")]
-    [InlineData("write", "source-groups")]
-    [InlineData("commit", "source-groups")]
-    [InlineData("cancel", "source-groups")]
-    [InlineData("close", "source-groups")]
-    [InlineData("create", "source-groups-job")]
-    [InlineData("write", "source-groups-job")]
-    [InlineData("commit", "source-groups-job")]
-    [InlineData("cancel", "source-groups-job")]
-    [InlineData("close", "source-groups-job")]
-    [InlineData("create", "preserve-many")]
-    [InlineData("write", "preserve-many")]
-    [InlineData("commit", "preserve-many")]
-    [InlineData("cancel", "preserve-many")]
-    [InlineData("close", "preserve-many")]
-    [InlineData("create", "preserve-rollback")]
-    [InlineData("write", "preserve-rollback")]
-    [InlineData("commit", "preserve-rollback")]
-    [InlineData("cancel", "preserve-rollback")]
-    [InlineData("close", "preserve-rollback")]
-    [InlineData("create", "preserve-split")]
-    [InlineData("write", "preserve-split")]
-    [InlineData("commit", "preserve-split")]
-    [InlineData("cancel", "preserve-split")]
-    [InlineData("close", "preserve-split")]
-    [InlineData("create", "overlay-generate")]
-    [InlineData("write", "overlay-generate")]
-    [InlineData("commit", "overlay-generate")]
-    [InlineData("cancel", "overlay-generate")]
-    [InlineData("close", "overlay-generate")]
-    [InlineData("create", "overlay-generate-job")]
-    [InlineData("write", "overlay-generate-job")]
-    [InlineData("commit", "overlay-generate-job")]
-    [InlineData("cancel", "overlay-generate-job")]
-    [InlineData("close", "overlay-generate-job")]
-    [InlineData("create", "overlay-form-indirect")]
-    [InlineData("write", "overlay-form-indirect")]
-    [InlineData("commit", "overlay-form-indirect")]
-    [InlineData("cancel", "overlay-form-indirect")]
-    [InlineData("close", "overlay-form-indirect")]
-    [InlineData("create", "form-indirect-generate")]
-    [InlineData("write", "form-indirect-generate")]
-    [InlineData("commit", "form-indirect-generate")]
-    [InlineData("cancel", "form-indirect-generate")]
-    [InlineData("close", "form-indirect-generate")]
-    [InlineData("create", "form-indirect-both")]
-    [InlineData("write", "form-indirect-both")]
-    [InlineData("commit", "form-indirect-both")]
-    [InlineData("cancel", "form-indirect-both")]
-    [InlineData("close", "form-indirect-both")]
-    [InlineData("create", "os-qdf")]
-    [InlineData("write", "os-qdf")]
-    [InlineData("commit", "os-qdf")]
-    [InlineData("cancel", "os-qdf")]
-    [InlineData("close", "os-qdf")]
-    [InlineData("create", "os-qdf-job")]
-    [InlineData("write", "os-qdf-job")]
-    [InlineData("commit", "os-qdf-job")]
-    [InlineData("cancel", "os-qdf-job")]
-    [InlineData("close", "os-qdf-job")]
-    [InlineData("create", "os-qdf-noids")]
-    [InlineData("write", "os-qdf-noids")]
-    [InlineData("commit", "os-qdf-noids")]
-    [InlineData("cancel", "os-qdf-noids")]
-    [InlineData("close", "os-qdf-noids")]
-    [InlineData("create", "os-qdf-noids-job")]
-    [InlineData("write", "os-qdf-noids-job")]
-    [InlineData("commit", "os-qdf-noids-job")]
-    [InlineData("cancel", "os-qdf-noids-job")]
-    [InlineData("close", "os-qdf-noids-job")]
-    [InlineData("create", "os-split-qdf")]
-    [InlineData("write", "os-split-qdf")]
-    [InlineData("commit", "os-split-qdf")]
-    [InlineData("cancel", "os-split-qdf")]
-    [InlineData("close", "os-split-qdf")]
-    [InlineData("create", "os-split-qdf-job")]
-    [InlineData("write", "os-split-qdf-job")]
-    [InlineData("commit", "os-split-qdf-job")]
-    [InlineData("cancel", "os-split-qdf-job")]
-    [InlineData("close", "os-split-qdf-job")]
-    [InlineData("create", "os-split-qdf-noids")]
-    [InlineData("write", "os-split-qdf-noids")]
-    [InlineData("commit", "os-split-qdf-noids")]
-    [InlineData("cancel", "os-split-qdf-noids")]
-    [InlineData("close", "os-split-qdf-noids")]
-    [InlineData("create", "os-split-qdf-noids-job")]
-    [InlineData("write", "os-split-qdf-noids-job")]
-    [InlineData("commit", "os-split-qdf-noids-job")]
-    [InlineData("cancel", "os-split-qdf-noids-job")]
-    [InlineData("close", "os-split-qdf-noids-job")]
-    [InlineData("create", "os-generate")]
-    [InlineData("write", "os-generate")]
-    [InlineData("commit", "os-generate")]
-    [InlineData("cancel", "os-generate")]
-    [InlineData("close", "os-generate")]
-    [InlineData("create", "os-generate-job")]
-    [InlineData("write", "os-generate-job")]
-    [InlineData("commit", "os-generate-job")]
-    [InlineData("cancel", "os-generate-job")]
-    [InlineData("close", "os-generate-job")]
-    [InlineData("create", "os-preserve")]
-    [InlineData("write", "os-preserve")]
-    [InlineData("commit", "os-preserve")]
-    [InlineData("cancel", "os-preserve")]
-    [InlineData("close", "os-preserve")]
-    [InlineData("create", "os-preserve-job")]
-    [InlineData("write", "os-preserve-job")]
-    [InlineData("commit", "os-preserve-job")]
-    [InlineData("cancel", "os-preserve-job")]
-    [InlineData("close", "os-preserve-job")]
-    [InlineData("create", "os-split")]
-    [InlineData("write", "os-split")]
-    [InlineData("commit", "os-split")]
-    [InlineData("cancel", "os-split")]
-    [InlineData("close", "os-split")]
-    [InlineData("create", "os-split-job")]
-    [InlineData("write", "os-split-job")]
-    [InlineData("commit", "os-split-job")]
-    [InlineData("cancel", "os-split-job")]
-    [InlineData("close", "os-split-job")]
-    [InlineData("create", "os-linearized")]
-    [InlineData("write", "os-linearized")]
-    [InlineData("commit", "os-linearized")]
-    [InlineData("cancel", "os-linearized")]
-    [InlineData("close", "os-linearized")]
-    [InlineData("create", "os-linearized-job")]
-    [InlineData("write", "os-linearized-job")]
-    [InlineData("commit", "os-linearized-job")]
-    [InlineData("cancel", "os-linearized-job")]
-    [InlineData("close", "os-linearized-job")]
-    [InlineData("create", "catalog-extras")]
-    [InlineData("write", "catalog-extras")]
-    [InlineData("commit", "catalog-extras")]
-    [InlineData("cancel", "catalog-extras")]
-    [InlineData("close", "catalog-extras")]
-    [InlineData("create", "catalog-extras-job")]
-    [InlineData("write", "catalog-extras-job")]
-    [InlineData("commit", "catalog-extras-job")]
-    [InlineData("cancel", "catalog-extras-job")]
-    [InlineData("close", "catalog-extras-job")]
-    [InlineData("create", "split-max")]
-    [InlineData("write", "split-max")]
-    [InlineData("commit", "split-max")]
-    [InlineData("cancel", "split-max")]
-    [InlineData("close", "split-max")]
-    [InlineData("create", "split-max-job")]
-    [InlineData("write", "split-max-job")]
-    [InlineData("commit", "split-max-job")]
-    [InlineData("cancel", "split-max-job")]
-    [InlineData("close", "split-max-job")]
-    [InlineData("create", "attachment")]
-    [InlineData("write", "attachment")]
-    [InlineData("commit", "attachment")]
-    [InlineData("cancel", "attachment")]
-    [InlineData("close", "attachment")]
-    [InlineData("create", "attachment-job")]
-    [InlineData("write", "attachment-job")]
-    [InlineData("commit", "attachment-job")]
-    [InlineData("cancel", "attachment-job")]
-    [InlineData("close", "attachment-job")]
-    [InlineData("create", "catalog")]
-    [InlineData("write", "catalog")]
-    [InlineData("commit", "catalog")]
-    [InlineData("cancel", "catalog")]
-    [InlineData("close", "catalog")]
-    [InlineData("create", "catalog-job")]
-    [InlineData("write", "catalog-job")]
-    [InlineData("commit", "catalog-job")]
-    [InlineData("cancel", "catalog-job")]
-    [InlineData("close", "catalog-job")]
-    [InlineData("create", "overlay-form")]
-    [InlineData("write", "overlay-form")]
-    [InlineData("commit", "overlay-form")]
-    [InlineData("cancel", "overlay-form")]
-    [InlineData("close", "overlay-form")]
-    [InlineData("create", "overlay-form-job")]
-    [InlineData("write", "overlay-form-job")]
-    [InlineData("commit", "overlay-form-job")]
-    [InlineData("cancel", "overlay-form-job")]
-    [InlineData("close", "overlay-form-job")]
-    [InlineData("create", "flatten")]
-    [InlineData("create", "generate-text")]
-    [InlineData("write", "generate-text")]
-    [InlineData("commit", "generate-text")]
-    [InlineData("cancel", "generate-text")]
-    [InlineData("close", "generate-text")]
-    [InlineData("create", "generate-text-job")]
-    [InlineData("write", "generate-text-job")]
-    [InlineData("commit", "generate-text-job")]
-    [InlineData("cancel", "generate-text-job")]
-    [InlineData("close", "generate-text-job")]
-    [InlineData("create", "generate")]
-    [InlineData("write", "generate")]
-    [InlineData("commit", "generate")]
-    [InlineData("cancel", "generate")]
-    [InlineData("close", "generate")]
-    [InlineData("create", "generate-job")]
-    [InlineData("write", "generate-job")]
-    [InlineData("commit", "generate-job")]
-    [InlineData("cancel", "generate-job")]
-    [InlineData("close", "generate-job")]
-    [InlineData("write", "flatten")]
-    [InlineData("commit", "flatten")]
-    [InlineData("cancel", "flatten")]
-    [InlineData("close", "flatten")]
-    [InlineData("write", "overlay")]
-    [InlineData("commit", "overlay")]
-    [InlineData("cancel", "overlay")]
-    [InlineData("close", "overlay")]
-    [InlineData("create", "coalesce")]
-    [InlineData("write", "coalesce")]
-    [InlineData("commit", "coalesce")]
-    [InlineData("cancel", "coalesce")]
-    [InlineData("close", "coalesce")]
-    [InlineData("create", "normalize")]
-    [InlineData("write", "normalize")]
-    [InlineData("commit", "normalize")]
-    [InlineData("cancel", "normalize")]
-    [InlineData("close", "normalize")]
-    [InlineData("create", "externalize")]
-    [InlineData("write", "externalize")]
-    [InlineData("commit", "externalize")]
-    [InlineData("cancel", "externalize")]
-    [InlineData("close", "externalize")]
-    [InlineData("create", "merge")]
-    [InlineData("write", "merge")]
-    [InlineData("commit", "merge")]
-    [InlineData("cancel", "merge")]
-    [InlineData("close", "merge")]
-    [InlineData("create", "attachment-copy")]
-    [InlineData("write", "attachment-copy")]
-    [InlineData("commit", "attachment-copy")]
-    [InlineData("cancel", "attachment-copy")]
-    [InlineData("close", "attachment-copy")]
-    [InlineData("create", "attachment-copy-job")]
-    [InlineData("write", "attachment-copy-job")]
-    [InlineData("commit", "attachment-copy-job")]
-    [InlineData("cancel", "attachment-copy-job")]
-    [InlineData("close", "attachment-copy-job")]
-    [InlineData("create", "navigation")]
-    [InlineData("write", "navigation")]
-    [InlineData("commit", "navigation")]
-    [InlineData("cancel", "navigation")]
-    [InlineData("close", "navigation")]
-    [InlineData("create", "navigation-job")]
-    [InlineData("write", "navigation-job")]
-    [InlineData("commit", "navigation-job")]
-    [InlineData("cancel", "navigation-job")]
-    [InlineData("close", "navigation-job")]
-    [InlineData("create", "rotation")]
-    [InlineData("write", "rotation")]
-    [InlineData("commit", "rotation")]
-    [InlineData("cancel", "rotation")]
-    [InlineData("close", "rotation")]
-    [InlineData("create", "rotation-job")]
-    [InlineData("write", "rotation-job")]
-    [InlineData("commit", "rotation-job")]
-    [InlineData("cancel", "rotation-job")]
-    [InlineData("close", "rotation-job")]
-    [InlineData("create", "labels-split")]
-    [InlineData("write", "labels-split")]
-    [InlineData("commit", "labels-split")]
-    [InlineData("cancel", "labels-split")]
-    [InlineData("close", "labels-split")]
-    [InlineData("create", "labels-split-job")]
-    [InlineData("write", "labels-split-job")]
-    [InlineData("commit", "labels-split-job")]
-    [InlineData("cancel", "labels-split-job")]
-    [InlineData("close", "labels-split-job")]
-    [InlineData("create", "generate-array")]
-    [InlineData("write", "generate-array")]
-    [InlineData("commit", "generate-array")]
-    [InlineData("cancel", "generate-array")]
-    [InlineData("close", "generate-array")]
-    [InlineData("create", "generate-array-job")]
-    [InlineData("write", "generate-array-job")]
-    [InlineData("commit", "generate-array-job")]
-    [InlineData("cancel", "generate-array-job")]
-    [InlineData("close", "generate-array-job")]
-    [InlineData("create", "generate-parent")]
-    [InlineData("write", "generate-parent")]
-    [InlineData("commit", "generate-parent")]
-    [InlineData("cancel", "generate-parent")]
-    [InlineData("close", "generate-parent")]
-    [InlineData("create", "generate-parent-job")]
-    [InlineData("write", "generate-parent-job")]
-    [InlineData("commit", "generate-parent-job")]
-    [InlineData("cancel", "generate-parent-job")]
-    [InlineData("close", "generate-parent-job")]
-    [InlineData("create", "split-membership")]
-    [InlineData("write", "split-membership")]
-    [InlineData("commit", "split-membership")]
-    [InlineData("cancel", "split-membership")]
-    [InlineData("close", "split-membership")]
-    [InlineData("create", "split-membership-job")]
-    [InlineData("write", "split-membership-job")]
-    [InlineData("commit", "split-membership-job")]
-    [InlineData("cancel", "split-membership-job")]
-    [InlineData("close", "split-membership-job")]
-    [InlineData("create", "zero-collation")]
-    [InlineData("write", "zero-collation")]
-    [InlineData("commit", "zero-collation")]
-    [InlineData("cancel", "zero-collation")]
-    [InlineData("close", "zero-collation")]
-    [InlineData("create", "zero-collation-job")]
-    [InlineData("write", "zero-collation-job")]
-    [InlineData("commit", "zero-collation-job")]
-    [InlineData("cancel", "zero-collation-job")]
-    [InlineData("close", "zero-collation-job")]
-    [InlineData("create", "overlay-clip")]
-    [InlineData("write", "overlay-clip")]
-    [InlineData("commit", "overlay-clip")]
-    [InlineData("cancel", "overlay-clip")]
-    [InlineData("close", "overlay-clip")]
-    [InlineData("create", "overlay-clip-job")]
-    [InlineData("write", "overlay-clip-job")]
-    [InlineData("commit", "overlay-clip-job")]
-    [InlineData("cancel", "overlay-clip-job")]
-    [InlineData("close", "overlay-clip-job")]
+    [MemberData(nameof(PublicationFailures))]
     public async Task OutputFaultsRefundOwnersAndRespectCommit(string phase, string mode)
     {
         using InMemoryQpdfHost storage = await Storage(mode);
