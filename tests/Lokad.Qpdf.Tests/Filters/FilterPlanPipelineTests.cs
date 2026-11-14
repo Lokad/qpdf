@@ -18,10 +18,11 @@ public sealed class FilterPlanPipelineTests
         MethodInfo method = typeof(DocumentCheck).GetMethod("DecodeCheckStream", BindingFlags.Static | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("Checker stream decoder is missing.");
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        using CheckStreamCache cache = CheckStreamCache.Create(governor, limits, CancellationToken.None);
         object?[] arguments = [new PdfStream(dictionary, [7]), new Resolver(), QpdfStreamDecodeLevel.Generalized,
-            limits, governor, memory, CancellationToken.None, false];
+            limits, governor, memory, cache, CancellationToken.None, false, false];
         object? bytes = method.Invoke(null, arguments);
-        return (bytes, Assert.IsType<bool>(arguments[7]));
+        return (bytes, Assert.IsType<bool>(arguments[8]));
     }
 
     [Theory]

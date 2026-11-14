@@ -42,7 +42,7 @@ public sealed class PredictorDefaultsTests
         {
             QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("input"), CancellationToken.None);
             Assert.True(result.Passed, string.Join(';', result.Diagnostics.Select(d => d.Message)));
-            Assert.Empty(result.Diagnostics); Assert.Equal(8L, result.Counters.TotalDecodedBytes);
+            Assert.Empty(result.Diagnostics); Assert.Equal(4L, result.Counters.TotalDecodedBytes);
         }
         else
         {
