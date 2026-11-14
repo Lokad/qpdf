@@ -97,18 +97,6 @@ public static partial class Qpdf
         => SelectPageAsync(host, inputPath, outputPath, options, rotations, null, limits, cancellationToken);
 
     /// <summary>
-    /// Collects the destination widget identifiers that stay reachable from the copied form
-    /// registrations for appearance generation, mirroring the reference field traversal: only
-    /// widgets in a surviving field subtree keep generation, with memberless fields counting
-    /// only on whole-file paths. Returns null when no output registration list survives, in
-    /// which case every widget stays untouched like the reference.
-    /// </summary>
-
-    /// <summary>
-    /// Drops /NeedAppearances after the caller confirms that all retained widgets were updated.
-    /// </summary>
-
-    /// <summary>
     /// Copies pages from several inputs into one standalone PDF with default
     /// budgets. Each source keeps its own object identity: shared numbers across
     /// documents never collide, and every page keeps its own resources, so

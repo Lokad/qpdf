@@ -167,8 +167,7 @@ would print a recovered password. Explicit output paths are rejected.
 JSON inspection accepts the same primary credential, including raw bytes through
 `QpdfJsonOptions.Password`. Both JSON versions report encryption facts and export
 the decrypted graph; selected stream data is decrypted before decoding or sidecar
-publication. `recovereduserpassword` and encryption `key` stay null. JSON with
-an `/Encrypt` trailer entry still cannot be imported as a new PDF.
+publication. `recovereduserpassword` and encryption `key` stay null.
 
 Signed, unencrypted pages can be copied, merged, placed and rewritten.
 Stored signature appearances survive; active signature field attributes and document
@@ -294,7 +293,7 @@ disables QDF; empty split jobs create no output.
 
 ## Governance
 
-Limits cover input/output/decoded bytes, memory, filters, host operations/handles,
+Limits cover input/output/decoded bytes, memory, filters, open handles,
 diagnostics, nesting and containers. Nesting is 1..499, default 256; filter default
 is 25. Invocation settings cannot raise host ceilings, including under
 `--no-default-limits`. Cancellation is cooperative and independent of memory

@@ -18,7 +18,8 @@ public sealed class ApiDocumentationTests
         {
             string? name = member.Attribute("name")?.Value;
             XElement? summary = member.Element("summary");
-            if (name is not null && summary is not null && !string.IsNullOrWhiteSpace(summary.Value))
+            if (name is not null && summary is not null && member.Elements("summary").Count() == 1
+                && !string.IsNullOrWhiteSpace(summary.Value))
             {
                 documented.Add(name);
             }
@@ -73,7 +74,7 @@ public sealed class ApiDocumentationTests
 
     private static string MissingMessage(List<string> missing)
     {
-        return "Undocumented public API members: " + string.Join("; ", missing);
+        return "Public API members requiring exactly one nonempty summary: " + string.Join("; ", missing);
     }
 
     private static string StripArity(string qualified)
