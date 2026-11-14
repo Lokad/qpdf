@@ -54,6 +54,9 @@ internal sealed class AnalysisChunks : IDisposable
         catch { if (owned) { memory.TransferTo(source, allocation); } throw; }
     }
 
+    // The surrounding operation keeps this payload admitted until joining ends.
+    internal void AddBorrowed(ReadOnlyMemory<byte> bytes) => Append(bytes, false);
+
     // Joining consumes this owner only on success. Move a sole owned payload;
     // borrowed memory still needs an independent copy before its source closes.
     internal JoinedContent Join()

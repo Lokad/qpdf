@@ -185,6 +185,13 @@ targets commit sequentially, and later failures do not undo earlier commits.
 
 ## Limits and cancellation
 
+Structural checking shares decoded stream bytes between its stream and page
+stages. Its operation-local cache keeps at most 32 entries and 1 MiB (also capped
+at one sixteenth of the working-memory limit), with 256 KiB per entry. Current-page
+chunks pin borrowed arrays until validation finishes. Evicted or oversized streams
+use ordinary admitted decoding; every page still validates its own resources.
+Decoded counters charge actual decoding, including work after eviction.
+
 One governor spans configuration, reading, transforms, serialization and publication.
 It enforces local limits and a host's optional shared memory allowance. Estimates
 describe working storage, not CLR heap or process RSS. Structural, cycle and

@@ -83,8 +83,11 @@ internal static class DocumentCheck
             HashSet<int> reachable = GraphReachability.Find(engine, engine.Trailer, memory, governor);
             streams.RemoveAll(stream => !reachable.Contains(stream.Number));
         }
-        AddItem(outcomeMemory, governor, outcomes, CheckStreams(engine, options.DecodeLevel, limits, governor, diagnostics, streams, cancellationToken), IntPtr.Size);
-        AddItem(outcomeMemory, governor, outcomes, CheckPageContent(document, options, limits, governor, diagnostics, cancellationToken), IntPtr.Size);
+        using (CheckStreamCache decoded = CheckStreamCache.Create(governor, limits, cancellationToken))
+        {
+            AddItem(outcomeMemory, governor, outcomes, CheckStreams(engine, options.DecodeLevel, limits, governor, diagnostics, streams, decoded, cancellationToken), IntPtr.Size);
+            AddItem(outcomeMemory, governor, outcomes, CheckPageContent(document, options, limits, governor, diagnostics, decoded, cancellationToken), IntPtr.Size);
+        }
         AddItem(outcomeMemory, governor, outcomes, CheckFormTree(document, governor, diagnostics, cancellationToken), IntPtr.Size);
         QpdfCheckOutcome linearization = LinearizationCheck.Check(engine, document.PageCount, limits, governor, cancellationToken);
         AddItem(outcomeMemory, governor, outcomes, linearization, IntPtr.Size);
@@ -217,6 +220,7 @@ internal static class DocumentCheck
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         List<(int Number, PdfStream Stream)> streams,
+        CheckStreamCache cache,
         CancellationToken cancellationToken)
     {
         if (level == QpdfStreamDecodeLevel.None)
@@ -286,7 +290,11 @@ internal static class DocumentCheck
             try
             {
                 using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
-                _ = FilterChain.Decode(stream.ArrayData(decodedMemory, governor, cancellationToken), stages, limits, governor, decodedMemory, cancellationToken);
+                if (!cache.TryBorrow(stream, out _))
+                {
+                    byte[] bytes = FilterChain.Decode(stream.ArrayData(decodedMemory, governor, cancellationToken), stages, limits, governor, decodedMemory, cancellationToken);
+                    cache.Remember(stream, bytes, decodedMemory);
+                }
                 decoded += 1;
             }
             catch (QpdfFilterException ex) when (ex.Reason == QpdfFilterFailureReason.UnsupportedFilter)
@@ -382,6 +390,7 @@ internal static class DocumentCheck
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
+        CheckStreamCache cache,
         CancellationToken cancellationToken)
     {
         if (options.DecodeLevel == QpdfStreamDecodeLevel.None)
@@ -426,6 +435,7 @@ internal static class DocumentCheck
             QpdfObject? resources = PageInheritance.Find(engine, location, PdfName.FromAscii("Resources"), limits, governor, cancellationToken);
             if (streams.Count == 0) { continue; }
             using AnalysisChunks? chunks = streams.Count > 1 ? AnalysisChunks.Create(governor, cancellationToken) : null;
+            cache.BeginPage();
             try
             {
                 bool complete = true;
@@ -436,7 +446,7 @@ internal static class DocumentCheck
                     PdfStream stream = streams.Get(streamIndex).Stream;
                     cancellationToken.ThrowIfCancellationRequested();
                     using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
-                    ReadOnlyMemory<byte>? bytes = DecodeCheckStream(stream, resolver, options.DecodeLevel, limits, governor, decodedMemory, cancellationToken, out bool outsideLevel);
+                    ReadOnlyMemory<byte>? bytes = DecodeCheckStream(stream, resolver, options.DecodeLevel, limits, governor, decodedMemory, cache, cancellationToken, out bool outsideLevel, out bool owned);
                     if (bytes is null)
                     {
                         complete = false; pageAboveLevel |= outsideLevel; unavailable |= !outsideLevel;
@@ -444,7 +454,11 @@ internal static class DocumentCheck
                         continue;
                     }
                     if (!complete) { continue; }
-                    if (chunks is not null) { chunks.Add(bytes.Value, decodedMemory); }
+                    if (chunks is not null)
+                    {
+                        if (owned) { chunks.Add(bytes.Value, decodedMemory); }
+                        else { chunks.AddBorrowed(bytes.Value); }
+                    }
                     else { TokenizeCheckStream(bytes.Value, resources, resolver, limits, governor, diagnostics, cancellationToken); }
                 }
                 if (!complete)
@@ -464,6 +478,7 @@ internal static class DocumentCheck
             { skipped += 1; }
             catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
             { AddFailure(failures, ref failureCount, ["Page ", DiagnosticPart.Invariant(pageNumber), " content: ", ex.Message]); }
+            finally { cache.EndPage(); }
 
             if (failureCount >= MaxStreamFailures)
             {
@@ -851,10 +866,13 @@ internal static class DocumentCheck
         QpdfLimits limits,
         ResourceGovernor governor,
         ParserMemoryScope memory,
+        CheckStreamCache cache,
         CancellationToken cancellationToken,
-        out bool aboveLevel)
+        out bool aboveLevel,
+        out bool owned)
     {
-        aboveLevel = false;
+        aboveLevel = false; owned = false;
+        if (cache.TryBorrow(stream, out ReadOnlyMemory<byte> cached)) { return cached; }
         if (FilterChain.HasExternalData(stream, resolver, governor, cancellationToken)) { return null; }
         using FilterPlan stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, cancellationToken);
 
@@ -874,7 +892,9 @@ internal static class DocumentCheck
 
         try
         {
-            return FilterChain.Decode(stream.ArrayData(memory, governor, cancellationToken), stages, limits, governor, memory, cancellationToken);
+            byte[] decoded = FilterChain.Decode(stream.ArrayData(memory, governor, cancellationToken), stages, limits, governor, memory, cancellationToken);
+            owned = !cache.Remember(stream, decoded, memory);
+            return decoded;
         }
         catch (QpdfFilterException ex) when (ex.Reason == QpdfFilterFailureReason.UnsupportedFilter)
         {
