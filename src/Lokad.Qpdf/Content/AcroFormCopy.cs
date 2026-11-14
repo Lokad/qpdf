@@ -1784,14 +1784,10 @@ internal static class AcroFormCopy
             }
 
             ParserContainers.AddItem(result, kept, field, IntPtr.Size);
-            // An earlier retained root may already have reached this entire
-            // subtree. Keep registration order/duplicates without walking it again.
+            // Field survival is independent of resource reachability. Retain
+            // registration order/duplicates, but visit shared descendants once.
             if (closure.Contains(field.ObjectNumber)) { continue; }
-            foreach (int id in CollectPoolSubtree(pool, field.ObjectNumber, limits, governor, traversal, cancellationToken))
-            {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                ParserContainers.AddSetItem(result, closure, id, sizeof(int));
-            }
+            AddPoolSubtree(pool, field.ObjectNumber, closure, limits, governor, result, traversal, cancellationToken);
         }
 
         result.TransferTo(ownership); return (kept, closure);
@@ -2101,15 +2097,16 @@ internal static class AcroFormCopy
         return members;
     }
 
-    private static HashSet<int> CollectPoolSubtree(
+    private static void AddPoolSubtree(
         IReadOnlyDictionary<int, QpdfObject> pool,
         int rootNumber,
+        HashSet<int> found,
         QpdfLimits limits,
         ResourceGovernor governor,
+        ParserMemoryScope ownership,
         ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
-        HashSet<int> found = ParserContainers.CreateSet<int>(memory);
         List<int> stack = ParserContainers.CreateList<int>(memory);
         ParserContainers.AddItem(memory, stack, rootNumber, sizeof(int));
         while (stack.Count != 0)
@@ -2117,7 +2114,7 @@ internal static class AcroFormCopy
             int number = stack[^1]; stack.RemoveAt(stack.Count - 1);
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
-            if (!ParserContainers.AddSetItem(memory, found, number, sizeof(int)))
+            if (!ParserContainers.AddSetItem(ownership, found, number, sizeof(int)))
             {
                 continue;
             }
@@ -2142,8 +2139,6 @@ internal static class AcroFormCopy
                 }
             }
         }
-
-        return found;
     }
 
     private static PdfArray? ResolvePoolArray(IReadOnlyDictionary<int, QpdfObject> pool, QpdfObject raw)

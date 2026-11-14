@@ -1,3 +1,5 @@
+using System.Text;
+using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
@@ -26,6 +28,123 @@ public sealed class FieldCopyValidationTests
         (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
         (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] >>", null)], 1);
+
+    private static byte[] SharedAppearanceInput(int count)
+    {
+        string fields = string.Join(' ', Enumerable.Range(6, count).Select(number => $"{number} 0 R"));
+        string resources = string.Join(' ', Enumerable.Range(0, count).Select(index => $"/F{index} {count + 7 + index} 0 R"));
+        byte[] appearance = Encoding.ASCII.GetBytes(string.Join('\n', Enumerable.Range(0, count).Select(index => $"/F{index} Do")));
+        List<(int Number, string Dict, byte[]? StreamData)> objects = [
+            (1, $"<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [{fields} {6 + count} 0 R] /DA (/Helv 10 Tf 0 g) /DR << /Font << /Helv 4 0 R >> >> >> >>", null),
+            (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
+            (3, $"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Annots [{fields}] >>", null),
+            (4, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+            (5, $"<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Resources << /XObject << {resources} >> >> /Length {appearance.Length} >>", appearance),
+        ];
+        // /P is optional. Independent roots must not rely on page back-links
+        // reaching all sibling fields before the shared resources are visited.
+        for (int index = 0; index <= count; index++)
+        {
+            objects.Add((6 + index, $"<< /Type /Annot /Subtype /Widget /FT /Tx /T (Field{index}) /V (Value{index}) /Rect [0 0 10 10] /AP << /N 5 0 R >> >>", null));
+        }
+        for (int index = 0; index < count; index++)
+        {
+            byte[] data = Encoding.ASCII.GetBytes($"% leaf{index}\n0 0 1 1 re f\n");
+            objects.Add((count + 7 + index, $"<< /Type /XObject /Subtype /Form /BBox [0 0 1 1] /Length {data.Length} >>", data));
+        }
+        return CheckTests.Assemble(objects, 1);
+    }
+
+    [Theory]
+    [InlineData(16)]
+    [InlineData(64)]
+    [InlineData(128)]
+    public async Task RetainedFieldClosureVisitsSharedAppearanceResourcesLinearly(int count)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), SharedAppearanceInput(count), QpdfInputOwnership.Transfer);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input"), CancellationToken.None);
+        CountingObjects objects = new();
+        foreach (int number in document.Engine.XRefEntries.Keys.Where(number => number != 0)) { objects[number] = document.GetObject(number); }
+        PdfReference[] fields = Enumerable.Range(6, count).Select(number => new PdfReference(number, 0)).ToArray();
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using (ParserMemoryScope owner = ParserMemoryScope.Create(governor))
+        {
+            var result = AcroFormCopy.CollectKeptClosure(objects, [.. fields, fields[0]], fields.Select(field => field.ObjectNumber).ToHashSet(),
+                true, QpdfLimits.Default, governor, owner, CancellationToken.None);
+            Assert.Equal(fields.Append(fields[0]), result.Kept);
+            Assert.Equal(fields.Select(field => field.ObjectNumber).Concat(Enumerable.Range(count + 7, count)).Append(5).Order(), result.Closure.Order());
+            Assert.True(objects.Reads <= 6 * count + 16, $"Repeated shared-resource traversal: {objects.Reads} reads for {count} fields.");
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Fact]
+    public async Task SelectionRetainsSharedAppearanceBindingsAndPrunesUnselectedFields()
+    {
+        const int count = 16;
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), SharedAppearanceInput(count), QpdfInputOwnership.Transfer);
+        PdfPageSelectionResult result = await Qpdf.SelectPageAsync(host, QpdfPath.From("input"), QpdfPath.From("output"),
+            PdfPageSelectionOptions.FromPages([1]), CancellationToken.None);
+        Assert.Empty(result.Warnings); Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] bytes));
+        host.AddInput(QpdfPath.From("reread"), bytes, QpdfInputOwnership.Transfer);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("reread"), CancellationToken.None);
+        QpdfObject Resolve(QpdfObject value) => value is PdfReference reference ? document.GetObject(reference.ObjectNumber) : value;
+        QpdfObject Get(PdfDictionary dictionary, string key) { Assert.True(dictionary.TryGet(PdfName.FromAscii(key), out QpdfObject value)); return value; }
+        PdfDictionary catalog = Assert.IsType<PdfDictionary>(Resolve(Get(document.Engine.Trailer, "Root")));
+        PdfDictionary form = Assert.IsType<PdfDictionary>(Resolve(Get(catalog, "AcroForm")));
+        PdfArray fields = Assert.IsType<PdfArray>(Resolve(Get(form, "Fields")));
+        Assert.Equal(count, fields.Count);
+        PdfReference? appearance = null;
+        for (int index = 0; index < count; index++)
+        {
+            PdfDictionary field = Assert.IsType<PdfDictionary>(Resolve(fields[index]));
+            Assert.Equal($"Field{index}", Encoding.ASCII.GetString(Assert.IsType<PdfByteString>(Get(field, "T")).Value));
+            Assert.Equal($"Value{index}", Encoding.ASCII.GetString(Assert.IsType<PdfByteString>(Get(field, "V")).Value));
+            PdfDictionary ap = Assert.IsType<PdfDictionary>(Resolve(Get(field, "AP")));
+            PdfReference binding = Assert.IsType<PdfReference>(Get(ap, "N"));
+            appearance ??= binding; Assert.Equal(appearance, binding);
+        }
+        PdfStream stream = Assert.IsType<PdfStream>(Resolve(Assert.IsType<PdfReference>(appearance)));
+        PdfDictionary resources = Assert.IsType<PdfDictionary>(Resolve(Get(stream.Dictionary, "Resources")));
+        PdfDictionary xobjects = Assert.IsType<PdfDictionary>(Resolve(Get(resources, "XObject")));
+        Assert.Equal(count, xobjects.Count);
+        for (int leaf = 0; leaf < count; leaf++)
+        {
+            PdfStream resource = Assert.IsType<PdfStream>(Resolve(Get(xobjects, $"F{leaf}")));
+            Assert.Equal($"% leaf{leaf}\n0 0 1 1 re f\n", Encoding.ASCII.GetString(resource.Data));
+        }
+        using UglyToad.PdfPig.PdfDocument independent = UglyToad.PdfPig.PdfDocument.Open(bytes);
+        Assert.Equal(1, independent.NumberOfPages);
+    }
+
+    [Fact]
+    public void FieldClosureCancellationAndUnionLimitRefundTemporaryStorage()
+    {
+        CountingObjects objects = new();
+        for (int number = 1; number <= 8; number++)
+        { objects[number] = new PdfDictionary(new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("Subtype")] = PdfName.FromAscii("Widget") }); }
+        PdfReference[] fields = Enumerable.Range(1, 8).Select(number => new PdfReference(number, 0)).ToArray();
+        QpdfLimits limits = QpdfLimits.Default with { MaxContainerSize = 4 };
+        using CancellationTokenSource cancellation = new();
+        ResourceGovernor governor = new(limits, cancellation.Token);
+        using (ParserMemoryScope owner = ParserMemoryScope.Create(governor))
+        {
+            long baseline = governor.Snapshot().LiveMemoryBytes;
+            QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => AcroFormCopy.CollectKeptClosure(objects, fields,
+                objects.Keys.ToHashSet(), true, limits, governor, owner, cancellation.Token));
+            Assert.Equal(nameof(QpdfLimits.MaxContainerSize), failure.LimitName);
+            Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
+            int before = objects.Reads;
+            objects.OnRead = () => { if (objects.Reads == before + 3) { cancellation.Cancel(); } };
+            Assert.ThrowsAny<OperationCanceledException>(() => AcroFormCopy.CollectKeptClosure(objects, fields,
+                objects.Keys.ToHashSet(), true, QpdfLimits.Default, governor, owner, cancellation.Token));
+            Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
 
     private static CountingObjects Fields(int count)
     {

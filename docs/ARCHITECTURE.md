@@ -83,6 +83,9 @@ the original immutable values and do not validate signatures.
 Signature discovery caches each field's Parent/Kids component independently,
 including when entered through distinct annotation arrays. Array results combine
 those components without marking an unrelated ordinary field as signed.
+Retained form fields share one resource closure, so independent roots visit shared
+appearances once. Field survival and registration order remain separate; the
+closure union retains container, memory and cancellation bounds.
 Single- and multi-source selection share post-overlay appearance reachability,
 generation completion and flattening decisions in `PageAssembly`. Source binding
 and field pruning remain with each caller; the shared operation borrows form
