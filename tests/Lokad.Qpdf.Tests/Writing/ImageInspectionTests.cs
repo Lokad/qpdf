@@ -20,6 +20,35 @@ public sealed class ImageInspectionTests
 
     private const string Dimensions = "/Width 2 /Height 2 /BitsPerComponent 8 /ColorSpace /DeviceRGB";
 
+    [Theory]
+    [InlineData("direct", true)]
+    [InlineData("indirect", true)]
+    [InlineData("stale", false)]
+    [InlineData("malformed", false)]
+    public async Task JsonAndTextShareInheritedXObjectBindingsWhileKeepingTheirProjections(string shape, bool expected)
+    {
+        const string bindings = "<< /Z 5 0 R /A 5 0 R /Stale 5 1 R /Scalar 6 0 R /Form 7 0 R /Direct << /Subtype /Image >> >>";
+        string xobjects = shape switch { "direct" => bindings, "indirect" => "8 0 R", "stale" => "8 1 R", _ => "42" };
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), CheckTests.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
+            (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] /Resources 9 0 R >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Contents 4 0 R >>", null),
+            (4, "<< /Length 3 >>", "q Q"u8.ToArray()),
+            (5, "<< /Type /XObject /Subtype /Image /Width 6 0 R /Height 2 /BitsPerComponent 8 /ColorSpace /DeviceRGB /Length 12 >>", new byte[12]),
+            (6, "2", null), (7, "<< /Type /XObject /Subtype /Form /Length 0 >>", []),
+            (8, bindings, null), (9, "<< /XObject " + xobjects + " >>", null)], 1), QpdfInputOwnership.Transfer);
+        using JsonDocument json = JsonDocument.Parse(await Inspect(host, 2, "typed"));
+        JsonElement images = json.RootElement.GetProperty("pages")[0].GetProperty("images");
+        Assert.Equal(expected ? new[] { "/A", "/Z" } : [], images.EnumerateArray().Select(image => image.GetProperty("name").GetString()));
+        foreach (JsonElement image in images.EnumerateArray()) { Assert.Equal("6 0 R", image.GetProperty("width").GetString()); }
+        QpdfExecutionResult text = await Qpdf.ExecuteAsync(host, new(["input", "--show-pages", "--with-images"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, text.ExitCode);
+        Assert.Equal(expected ? new[] { "    /A: 5 0 R, 2 x 2", "    /Z: 5 0 R, 2 x 2" } : [],
+            text.Diagnostics.Where(item => item.Message.StartsWith("    /", StringComparison.Ordinal)).Select(item => item.Message));
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
     public static IEnumerable<object[]> Subtypes()
     {
         foreach (var item in new[] {

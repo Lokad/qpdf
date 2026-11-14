@@ -658,8 +658,6 @@ internal static class DocumentJson
         builder.Append((char)93);
     }
 
-    private readonly record struct PageImageDetail(PdfName Name, PdfReference Reference, PdfStream Stream);
-
     private static void AppendImages(
         DisplayBuffer builder,
         DocumentEngine engine,
@@ -672,7 +670,8 @@ internal static class DocumentJson
         builder.Append((char)91);
         bool first = true;
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        foreach (PageImageDetail detail in ListImages(engine, location, limits, memory, governor, cancellationToken))
+        PageImageBindings images = PageImageBindings.Create(engine, location, limits, memory, governor, cancellationToken);
+        while (images.TryReadNext(out PageImageBindings.Binding detail))
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
@@ -691,7 +690,7 @@ internal static class DocumentJson
     private static void AppendImage(
         DisplayBuffer builder,
         DocumentEngine engine,
-        PageImageDetail detail,
+        PageImageBindings.Binding detail,
         JsonRequest request,
         QpdfLimits limits,
         ResourceGovernor governor,
@@ -766,76 +765,6 @@ internal static class DocumentJson
     {
         PdfDictionaryLookup.TryGet(dictionary, key, governor, token, out QpdfObject raw);
         PdfJsonWriter.AppendValue(builder, raw, request.Version, governor, 0, limits);
-    }
-
-    private static List<PageImageDetail> ListImages(
-        DocumentEngine engine,
-        PageLocation location,
-        QpdfLimits limits,
-        ParserMemoryScope memory,
-        ResourceGovernor governor,
-        CancellationToken cancellationToken)
-    {
-        memory.CheckOwner(governor); cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        List<PageImageDetail> images = ParserContainers.CreateList<PageImageDetail>(memory);
-        QpdfObject? rawResources = PageInheritance.Find(engine, location, PdfName.FromAscii("Resources"), limits, governor, cancellationToken);
-        PdfDictionary? resources = Content.CatalogCopy.ResolveDictionary(rawResources, engine, governor, cancellationToken);
-        if (resources is null)
-        {
-            return images;
-        }
-
-        if (!resources.TryGet(PdfName.FromAscii("XObject"), out QpdfObject xobjectsRaw) || xobjectsRaw is PdfNull)
-        {
-            return images;
-        }
-
-        PdfDictionary? xobjects = xobjectsRaw as PdfDictionary;
-        if (xobjects is null && xobjectsRaw is PdfReference xobjectsReference
-            && ((IIndirectResolver)engine).TryResolve(xobjectsReference, out QpdfObject? xobjectsResolved))
-        {
-            xobjects = xobjectsResolved as PdfDictionary;
-        }
-
-        if (xobjects is null)
-        {
-            return images;
-        }
-
-        memory.Reserve(checked(32L + (xobjects.Count == 0 ? 0L : 32L + IntPtr.Size * (long)xobjects.Count)));
-        List<PdfName> names = new(xobjects.Count);
-        using (PdfDictionary.EntryEnumerator entries = xobjects.GetEntryEnumerator())
-        {
-            while (entries.MoveNext())
-            {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                names.Add(entries.Current.Key);
-            }
-        }
-        GovernedCollections.SortNames(memory, governor, names);
-        foreach (PdfName key in names)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            if (!xobjects.TryGet(key, out QpdfObject entry) || entry is not PdfReference reference)
-            {
-                continue;
-            }
-
-            if (!((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? target) || target is not PdfStream stream)
-            {
-                continue;
-            }
-
-            if (!PdfDictionaryLookup.HasName(stream.Dictionary, "Subtype"u8, "Image"u8, engine, governor, cancellationToken))
-            {
-                continue;
-            }
-
-            ParserContainers.AddItem(memory, images, new PageImageDetail(key, reference, stream), 3L * IntPtr.Size);
-        }
-
-        return images;
     }
 
     private static void AppendContents(

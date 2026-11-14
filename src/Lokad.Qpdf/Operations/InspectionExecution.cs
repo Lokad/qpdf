@@ -30,61 +30,15 @@ internal static class InspectionExecution
     {
         memory.CheckOwner(governor);
         List<PageImage> images = ParserContainers.CreateList<PageImage>(memory);
-        QpdfObject? rawResources = PageInheritance.Find(engine, location, PdfName.FromAscii("Resources"), limits, governor, cancellationToken);
-        PdfDictionary? resources = Content.CatalogCopy.ResolveDictionary(rawResources, engine, governor, cancellationToken);
-        if (resources is null)
+        PageImageBindings bindings = PageImageBindings.Create(engine, location, limits, memory, governor, cancellationToken);
+        while (bindings.TryReadNext(out PageImageBindings.Binding image))
         {
-            return images;
-        }
-
-        if (!resources.TryGet(PdfName.FromAscii("XObject"), out QpdfObject xobjectsRaw) || xobjectsRaw is PdfNull)
-        {
-            return images;
-        }
-
-        PdfDictionary? xobjects = xobjectsRaw as PdfDictionary;
-        if (xobjects is null && xobjectsRaw is PdfReference xobjectsReference
-            && ((IIndirectResolver)engine).TryResolve(xobjectsReference, out QpdfObject? xobjectsResolved))
-        {
-            xobjects = xobjectsResolved as PdfDictionary;
-        }
-
-        if (xobjects is null)
-        {
-            return images;
-        }
-
-        List<PdfName> names = ParserContainers.CreateList<PdfName>(memory);
-        foreach (PdfName name in xobjects.Keys)
-        {
-            governor.CheckCancellation();
-            if (names.Count == names.Capacity) { governor.NoteOperation(); }
-            ParserContainers.AddItem(memory, names, name, IntPtr.Size);
-        }
-        GovernedCollections.SortNames(memory, governor, names);
-        foreach (PdfName key in names)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            if (!xobjects.TryGet(key, out QpdfObject entry) || entry is not PdfReference reference)
-            {
-                continue;
-            }
-
-            if (!((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? target) || target is not PdfStream stream)
-            {
-                continue;
-            }
-
-            if (!PdfDictionaryLookup.HasName(stream.Dictionary, "Subtype"u8, "Image"u8, engine, governor, cancellationToken))
-            {
-                continue;
-            }
-
+            PdfReference reference = image.Reference;
+            PdfStream stream = image.Stream;
             long width = ImageDimension(stream.Dictionary, "Width", reference, engine, diagnostics, governor, cancellationToken);
             long height = ImageDimension(stream.Dictionary, "Height", reference, engine, diagnostics, governor, cancellationToken);
             if (images.Count == images.Capacity) { governor.NoteOperation(); }
-            ParserContainers.AddItem(memory, images, new PageImage(key, reference.ObjectNumber, reference.Generation, width, height), 32L);
+            ParserContainers.AddItem(memory, images, new PageImage(image.Name, reference.ObjectNumber, reference.Generation, width, height), 32L);
         }
 
         return images;

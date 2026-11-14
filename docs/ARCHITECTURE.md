@@ -59,6 +59,8 @@ coordinates primary-source policy, per-input credentials and split occurrences.
 Page, label and attachment assembly share their graph helpers with inspection
 projection. `OutputPublication` owns identifier preparation, serializers and staged
 captures; split captures finish before any target commits.
+Text and JSON page inspection share sorted image bindings from inherited resources;
+their dimension diagnostics and raw JSON descriptor projections remain distinct.
 Counting, identifier replay and final bytes share `OutputSerialization` format
 dispatch while keeping their transaction and buffer lifetimes separate.
 Job execution translates exceptions once at its enclosing result/presentation
