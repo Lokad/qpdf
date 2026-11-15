@@ -29,6 +29,10 @@ targeted job/mixed/nested wiring controls. Split-label tables exhaust label,
 selection and split-size semantics through typed selection, with explicit argv/job
 reordering, duplicate, boundary, prefix and unlabelled cases. Frozen native records
 remain complete; route sampling does not replace independent expected fields.
+Compression setter tables retain every distinct native encoding and all differing
+route observations, with ordinary argv/job/mixed/nested wiring. Externalized
+content tables cover alias/content/layout combinations primarily through argv;
+targeted job cases cross private roots, selection, merging, splitting and writers.
 
 `Foundation/PublicationAdmissionTests` owns shared host-fault phases, executed
 counters and sequential commits. Prepared graph tests retain their own admission

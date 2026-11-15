@@ -79,7 +79,11 @@ public sealed class CompressionOrderTests
     {
         foreach (string[] row in Cases)
         {
-            for (int route = 0; route < Routes.Length; route++)
+            // Distinct native setter/encoding observations are primary; retain
+            // every route when order changes its result, plus ordinary wiring.
+            bool allRoutes = row[0] is "" or "sd:uncompress"
+                || row.Skip(2).Any(expected => expected != row[1]);
+            for (int route = 0; route < (allRoutes ? Routes.Length : 1); route++)
             { yield return [row[0], Routes[route], row[route + 1]]; }
         }
     }

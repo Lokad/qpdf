@@ -38,11 +38,19 @@ public sealed class ExternalizedContentIdentityTests
     {
         foreach (string alias in new[] { "none", "catalog-stream", "catalog-array", "nested", "holder", "page", "other-page", "info", "metadata", "attachment" })
         foreach (bool array in new[] { false, true })
-        foreach (bool job in new[] { false, true })
-        foreach (string mode in new[] { "whole", "select", "preserve" }) { yield return [alias, array, mode, job]; }
+        foreach (string mode in new[] { "whole", "select", "preserve" }) { yield return [alias, array, mode, false]; }
         foreach (string alias in new[] { "none", "nested", "info", "metadata", "attachment", "page" })
         foreach (string mode in new[] { "packed", "qdf", "linear", "split", "merge", "duplicate" })
-        foreach (bool job in new[] { false, true }) { yield return [alias, true, mode, job]; }
+        { yield return [alias, true, mode, false]; }
+        // Job wiring crosses independent roots, source assembly and physical
+        // writers without replaying every alias/content/layout combination.
+        yield return ["catalog-array", true, "whole", true];
+        yield return ["none", false, "select", true];
+        yield return ["page", true, "preserve", true];
+        yield return ["attachment", true, "split", true];
+        yield return ["nested", true, "merge", true];
+        yield return ["none", true, "duplicate", true];
+        yield return ["metadata", true, "linear", true];
     }
 
     private static Task<QpdfExecutionResult> Run(IQpdfHost host, string mode, bool job, QpdfLimits limits, CancellationToken token)
