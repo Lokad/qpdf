@@ -194,6 +194,11 @@ at one sixteenth of the working-memory limit), with 256 KiB per entry. Current-p
 chunks pin borrowed arrays until validation finishes. Evicted or oversized streams
 use ordinary admitted decoding; every page still validates its own resources.
 Decoded counters charge actual decoding, including work after eviction.
+Resource pruning uses the same bounded decoded-stream storage and a 32-entry
+identity index for successful content/resource contexts. Page-specific annotation
+guards run before reuse. Repeated pruned resources gain one shared indirect
+identity; a single-page result keeps its direct header. Failed analyses retain
+their per-page diagnostics and conservative dependency policy.
 
 One governor spans configuration, reading, transforms, serialization and publication.
 It enforces local limits and a host's optional shared memory allowance. Estimates

@@ -1,4 +1,4 @@
-using System.Reflection;
+using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
@@ -18,9 +18,6 @@ public sealed class ResourcePruningChunkTests
             limits, governor, diagnostics, token);
         return copier.CopiedObjects.TryGetValue(id, out QpdfObject? result) && result is PdfDictionary replacement ? replacement : page;
     }
-    private static readonly Func<PdfDictionary, PoolResolver, QpdfLimits, ResourceGovernor, CancellationToken, object?> Collect =
-        (typeof(ContentTransforms).GetMethod("CollectPageChunks", BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException("Missing collection."))
-        .CreateDelegate<Func<PdfDictionary, PoolResolver, QpdfLimits, ResourceGovernor, CancellationToken, object?>>();
     private sealed class Prepared : IDisposable
     {
         private readonly DocumentEngine _engine;
@@ -101,7 +98,16 @@ public sealed class ResourcePruningChunkTests
         using Prepared prepared = new(governor); long live = governor.Snapshot().LiveMemoryBytes; PdfStream first = Stream("FlateDecode", "q"u8.ToArray(), false); byte[] original = first.Data;
         PdfStream bad = new(DecoderOwnershipFixtures.Dictionary(("Filter", PdfName.FromAscii(unsupported ? "DCTDecode" : "ASCIIHexDecode"))), "ABCG>"u8.ToArray());
         PdfDictionary page = DecoderOwnershipFixtures.Dictionary(("Contents", new PdfArray([first, bad])));
-        Assert.Null(Collect(page, new PoolResolver((IReadOnlyDictionary<int, QpdfObject>)prepared.Copier.CopiedObjects), QpdfLimits.Default, governor, CancellationToken.None));
+        using (DecodedStreamCache cache = DecodedStreamCache.Create(governor, QpdfLimits.Default, CancellationToken.None))
+        {
+            cache.BeginPage();
+            Assert.Null(ContentTransforms.CollectPageChunks(page, new PoolResolver((IReadOnlyDictionary<int, QpdfObject>)prepared.Copier.CopiedObjects),
+                cache, QpdfLimits.Default, governor, CancellationToken.None));
+            Assert.True(cache.TryBorrow(first, out ReadOnlyMemory<byte> bytes));
+            Assert.Equal("q"u8.ToArray(), bytes.ToArray());
+            Assert.True(governor.Snapshot().LiveMemoryBytes > live);
+            cache.EndPage();
+        }
         Assert.Equal(live, governor.Snapshot().LiveMemoryBytes); Assert.Equal(61L, prior.ReservedBytes); Assert.Equal(original, first.Data);
     }
 }

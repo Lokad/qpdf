@@ -1,3 +1,4 @@
+using Lokad.Qpdf.Filters;
 using System.IO.Compression;
 using System.Text;
 using Lokad.Qpdf.Hosting;
@@ -101,7 +102,7 @@ public sealed class CheckStreamReuseTests
     public void CurrentPageBorrowsPreventEvictionAndNewPayloadsStayWithTheirDecoder()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        using (CheckStreamCache cache = CheckStreamCache.Create(governor, QpdfLimits.Default, CancellationToken.None))
+        using (DecodedStreamCache cache = DecodedStreamCache.Create(governor, QpdfLimits.Default, CancellationToken.None))
         {
             cache.BeginPage();
             List<PdfStream> streams = [];
@@ -128,7 +129,7 @@ public sealed class CheckStreamReuseTests
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 1024L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
-        using (CheckStreamCache cache = CheckStreamCache.Create(governor, limits, CancellationToken.None))
+        using (DecodedStreamCache cache = DecodedStreamCache.Create(governor, limits, CancellationToken.None))
         using (ParserMemoryScope decoder = ParserMemoryScope.Create(governor))
         {
             decoder.Reserve(40L); byte[] bytes = new byte[8];

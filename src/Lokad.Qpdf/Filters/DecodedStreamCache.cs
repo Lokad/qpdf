@@ -2,10 +2,10 @@ using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 
-namespace Lokad.Qpdf.Reading;
+namespace Lokad.Qpdf.Filters;
 
 /// <summary>Operation-local decoded bytes; current-page chunks pin their borrowed payloads.</summary>
-internal sealed class CheckStreamCache : IDisposable
+internal sealed class DecodedStreamCache : IDisposable
 {
     private const int MaximumEntries = 32;
     private const long MaximumPayloadBytes = 1024L * 1024L;
@@ -23,10 +23,10 @@ internal sealed class CheckStreamCache : IDisposable
         internal long Charge => Bytes.IsEmpty ? 0L : Bytes.Length + GovernedBufferStream.ArrayOverheadBytes;
     }
 
-    private CheckStreamCache(ParserMemoryScope memory, ResourceGovernor governor, QpdfLimits limits, CancellationToken token)
+    private DecodedStreamCache(ParserMemoryScope memory, ResourceGovernor governor, QpdfLimits limits, CancellationToken token)
     { _memory = memory; _governor = governor; _token = token; _maximumBytes = Math.Min(MaximumPayloadBytes, limits.MaxMemoryBytes / 16L); }
 
-    internal static CheckStreamCache Create(ResourceGovernor governor, QpdfLimits limits, CancellationToken token)
+    internal static DecodedStreamCache Create(ResourceGovernor governor, QpdfLimits limits, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
@@ -34,9 +34,9 @@ internal sealed class CheckStreamCache : IDisposable
         catch { memory.Dispose(); throw; }
     }
 
-    private ParserMemoryScope Memory => _memory ?? throw new ObjectDisposedException(nameof(CheckStreamCache));
+    private ParserMemoryScope Memory => _memory ?? throw new ObjectDisposedException(nameof(DecodedStreamCache));
 
-    private ResourceGovernor Governor => _governor ?? throw new ObjectDisposedException(nameof(CheckStreamCache));
+    private ResourceGovernor Governor => _governor ?? throw new ObjectDisposedException(nameof(DecodedStreamCache));
 
     internal void BeginPage()
     {

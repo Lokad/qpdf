@@ -6136,7 +6136,8 @@
           "ContentTransformsTests.SplitOutputsPrune",
           "ResourcePruningScopeTests.FailedFormAnalysisKeepsTheEnclosingScope",
           "ResourcePruningScopeTests.ASpellingInTheOtherCategoryDoesNotProveALocalBinding",
-          "ResourcePruningScopeTests.PruningSharesContentsClassificationWithTheOtherTransforms"
+          "ResourcePruningScopeTests.PruningSharesContentsClassificationWithTheOtherTransforms",
+          "SharedPruningTests.IdenticalContextsDecodeOnceAndSharePrunedResources"
         ],
         "negative": [
           "ContentTransformsTests.MalformedContentFlagsFail",
@@ -6148,13 +6149,17 @@
           "ContentTransformsTests.PruneAppliesOnMerge",
           "InlinePacketBoundaryTests.EveryConsumerSkipsCompleteFilteredPackets",
           "LateContentTransformTests.SelectedPruningSeesImportedResourcesAndKeepsIndependentAliases",
-          "LateContentPublicationTests.EveryGrowthCanRefuseThroughTheAssembledGraph"
+          "LateContentPublicationTests.EveryGrowthCanRefuseThroughTheAssembledGraph",
+          "SharedPruningTests.DistinctResourcesKeepTheirOwnBindingsAndOversizedDecodesRemainUncached",
+          "SharedPruningTests.DifferentContentArraysKeepEveryProgramDependency"
         ],
         "resource": [
           "ResourceEnforcementTests.PruneYieldsToExhaustedBudget",
           "ResourcePruningRoleTests.FailedPruningPublicationKeepsThePriorTargetAndRefundsAdmission",
           "SinglePartContentOwnershipTests.JoinAdmissionRefusalPreservesTheSourceAndCanRetry",
-          "SinglePartContentOwnershipTests.EscapedBytesDropTheLargerSourceAndCompletedExecution"
+          "SinglePartContentOwnershipTests.EscapedBytesDropTheLargerSourceAndCompletedExecution",
+          "SharedPruningTests.EvictedIdentityContextsChargeTheirActualDecodingAgain",
+          "ContentPreparationAdmissionTests.SharedPruningRefundsEveryOwnerIncludingPromotionAndPendingPublication"
         ],
         "oracle": [
           "diff:prune-resources"

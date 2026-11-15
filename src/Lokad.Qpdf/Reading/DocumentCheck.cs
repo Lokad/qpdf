@@ -83,7 +83,7 @@ internal static class DocumentCheck
             HashSet<int> reachable = GraphReachability.Find(engine, engine.Trailer, memory, governor);
             streams.RemoveAll(stream => !reachable.Contains(stream.Number));
         }
-        using (CheckStreamCache decoded = CheckStreamCache.Create(governor, limits, cancellationToken))
+        using (DecodedStreamCache decoded = DecodedStreamCache.Create(governor, limits, cancellationToken))
         {
             AddItem(outcomeMemory, governor, outcomes, CheckStreams(engine, options.DecodeLevel, limits, governor, diagnostics, streams, decoded, cancellationToken), IntPtr.Size);
             AddItem(outcomeMemory, governor, outcomes, CheckPageContent(document, options, limits, governor, diagnostics, decoded, cancellationToken), IntPtr.Size);
@@ -220,7 +220,7 @@ internal static class DocumentCheck
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         List<(int Number, PdfStream Stream)> streams,
-        CheckStreamCache cache,
+        DecodedStreamCache cache,
         CancellationToken cancellationToken)
     {
         if (level == QpdfStreamDecodeLevel.None)
@@ -390,7 +390,7 @@ internal static class DocumentCheck
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
-        CheckStreamCache cache,
+        DecodedStreamCache cache,
         CancellationToken cancellationToken)
     {
         if (options.DecodeLevel == QpdfStreamDecodeLevel.None)
@@ -866,7 +866,7 @@ internal static class DocumentCheck
         QpdfLimits limits,
         ResourceGovernor governor,
         ParserMemoryScope memory,
-        CheckStreamCache cache,
+        DecodedStreamCache cache,
         CancellationToken cancellationToken,
         out bool aboveLevel,
         out bool owned)

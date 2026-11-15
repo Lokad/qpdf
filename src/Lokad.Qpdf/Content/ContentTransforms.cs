@@ -984,31 +984,60 @@ internal static class ContentTransforms
             int allocator = copier.NextId;
             forms.ApplyReplacements(copier, pageIds, replacements, ref allocator);
         }
+        using DecodedStreamCache decoded = DecodedStreamCache.Create(governor, limits, token);
+        using PrunedPageResources prunedPages = PrunedPageResources.Create(governor, token);
         foreach (int id in pageIds)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (copier.CopiedObjects.TryGetValue(id, out QpdfObject? raw) && raw is PdfDictionary page)
-            { PrunePage(copier, id, page, inherited, resolver, limits, governor, diagnostics, token); }
+            {
+                decoded.BeginPage();
+                try { PrunePage(copier, id, page, inherited, resolver, decoded, prunedPages, limits, governor, diagnostics, token); }
+                finally { decoded.EndPage(); }
+            }
         }
     }
 
     private static void PrunePage(GraphCopier copier, int pageId, PdfDictionary page, ResourceNameSet inherited,
-        PoolResolver resolver, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+        PoolResolver resolver, DecodedStreamCache decoded, PrunedPageResources prunedPages,
+        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
         if (!PdfDictionaryLookup.TryGet(page, "Resources"u8, governor, token, out QpdfObject raw)
             || CatalogCopy.ResolveDictionary(raw, resolver, governor, token) is not PdfDictionary resources) { return; }
         if (AppearanceResources.PageNeedsResources(page, resolver, governor, token)) { return; }
-        using AnalysisChunks? chunks = CollectPageChunks(page, resolver, limits, governor, token);
+        QpdfObject contents = PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, token, out QpdfObject program)
+            ? program : PdfNull.Instance;
+        if (contents is PdfReference link && PdfObjectLookup.TryResolve(link, (IIndirectResolver)resolver, governor, token, out QpdfObject? resolved) && resolved is not null)
+        { contents = resolved; }
+        if (prunedPages.TryGet(contents, resources, copier, out QpdfObject cached))
+        {
+            using OwnedAllocationBatch cachedGraph = OwnedAllocationBatch.Create(governor, token);
+            PdfDictionary cachedPage = PdfDictionaryRebuild.ReplaceEntry(cachedGraph, page, "Resources"u8, cached);
+            copier.ValidateReplacement(pageId); cachedGraph.Retain(); copier.ReplaceCopiedObject(pageId, cachedPage);
+            return;
+        }
+        using AnalysisChunks? chunks = CollectPageChunks(page, resolver, decoded, limits, governor, token);
         if (chunks is null)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped resource pruning for content that could not be read.");
             return;
         }
-        using JoinedContent content = chunks.Join();
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
-        PdfDictionary? pruned = ScanAndPrune(content.Bytes, resources, true, inherited, resolver, limits, diagnostics, graph);
+        PdfDictionary? pruned;
+        if (chunks.Parts.Count == 1)
+        {
+            // Raw or cached immutable bytes remain funded by the surrounding
+            // chunk/cache owners throughout this synchronous analysis.
+            pruned = ScanAndPrune(chunks.Parts[0], resources, true, inherited, resolver, limits, diagnostics, graph);
+        }
+        else
+        {
+            using JoinedContent content = chunks.Join();
+            pruned = ScanAndPrune(content.Bytes, resources, true, inherited, resolver, limits, diagnostics, graph);
+        }
         if (pruned is null) { return; }
         PdfDictionary replacement = ResourceRebuild.ReplaceResources(graph, page, pruned);
+        prunedPages.Remember(contents, resources, pruned, pageId);
         copier.ValidateReplacement(pageId); graph.Retain(); copier.ReplaceCopiedObject(pageId, replacement);
     }
 
@@ -1167,9 +1196,10 @@ internal static class ContentTransforms
         PdfDictionary rebuilt = PdfDictionaryRebuild.Complete(graph, resourcesEntries, resourceAllocation);
         return rebuilt;
     }
-    private static AnalysisChunks? CollectPageChunks(
+    internal static AnalysisChunks? CollectPageChunks(
         PdfDictionary page,
         PoolResolver resolver,
+        DecodedStreamCache decoded,
         QpdfLimits limits,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
@@ -1183,7 +1213,7 @@ internal static class ContentTransforms
         {
             for (int index = 0; index < entries.Count; index++)
             {
-                if (!chunks.TryAdd(entries.Get(index).Stream, resolver, limits))
+                if (!chunks.TryAdd(entries.Get(index).Stream, resolver, limits, decoded))
                 { chunks.Dispose(); return null; }
             }
             return chunks;

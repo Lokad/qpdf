@@ -1,3 +1,4 @@
+using Lokad.Qpdf.Filters;
 using System.Text.Json;
 using System.Reflection;
 using Lokad.Qpdf.Hosting;
@@ -108,10 +109,10 @@ public sealed class PageContentCoverageTests
         using CancellationTokenSource cancellation = new();
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(71L);
-        using CheckStreamCache cache = CheckStreamCache.Create(governor, QpdfLimits.Default, CancellationToken.None);
+        using DecodedStreamCache cache = DecodedStreamCache.Create(governor, QpdfLimits.Default, CancellationToken.None);
         var run = (typeof(Lokad.Qpdf.Reading.DocumentCheck).GetMethod("CheckPageContent", BindingFlags.NonPublic | BindingFlags.Static)
             ?? throw new InvalidOperationException("Missing live page-content check."))
-            .CreateDelegate<Func<QpdfDocument, QpdfCheckOptions, QpdfLimits, ResourceGovernor, DiagnosticBag, CheckStreamCache, CancellationToken, QpdfCheckOutcome>>();
+            .CreateDelegate<Func<QpdfDocument, QpdfCheckOptions, QpdfLimits, ResourceGovernor, DiagnosticBag, DecodedStreamCache, CancellationToken, QpdfCheckOutcome>>();
         long before = governor.Snapshot().LiveMemoryBytes; cancellation.Cancel();
         Assert.ThrowsAny<OperationCanceledException>(() => run(document, new(), QpdfLimits.Default, governor, new(governor), cache,
             governorToken ? CancellationToken.None : cancellation.Token));

@@ -27,12 +27,18 @@ internal sealed class AnalysisChunks : IDisposable
     // Borrowed only while this owner is alive; joining uses indexed reads.
     internal IReadOnlyList<ReadOnlyMemory<byte>> Parts => _parts ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
     internal bool TryAdd(PdfStream stream, IIndirectResolver resolver, QpdfLimits limits)
+        => TryAdd(stream, resolver, limits, null);
+
+    internal bool TryAdd(PdfStream stream, IIndirectResolver resolver, QpdfLimits limits, DecodedStreamCache? cache)
     {
         ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
         ResourceGovernor governor = _governor ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
+        if (cache is not null && cache.TryBorrow(stream, out ReadOnlyMemory<byte> cached))
+        { AddBorrowed(cached); return true; }
         if (!TryDecode(stream, resolver, limits, governor, memory, _token, out ReadOnlyMemory<byte> bytes, out bool decoded))
         { return false; }
-        Append(bytes, decoded); return true;
+        bool owned = decoded && (cache is null || !cache.Remember(stream, bytes, memory));
+        Append(bytes, owned); return true;
     }
 
     // The decoder's temporary scope owns a complete decoded array, or nothing
