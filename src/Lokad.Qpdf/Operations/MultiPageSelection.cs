@@ -636,13 +636,7 @@ internal static class MultiPageSelection
         }
 
         List<string> names = GenerateSplitNames(target.Value, kids.Count, splitPages.Value, selectionMemory, governor);
-        HashSet<string> distinctInputs = new(StringComparer.Ordinal);
-        foreach (PdfPageSource source in sources)
-        {
-            distinctInputs.Add(source.Input.Value);
-        }
-
-        HashSet<string> seenNames = new(StringComparer.Ordinal);
+        HashSet<string> seenNames = ParserContainers.CreateSet<string>(selectionMemory);
         foreach (string name in names)
         {
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -651,12 +645,13 @@ internal static class MultiPageSelection
                 throw new QpdfParseException("A split output name exceeds the path budget.", null, null);
             }
 
-            if (distinctInputs.Contains(name))
+            if ((!emptyPrimary && string.Equals(primaryInput.Value, name, StringComparison.Ordinal))
+                || sourceGroups.ContainsKey(name))
             {
                 throw new QpdfParseException($"Split output '{name}' aliases an input.", null, null);
             }
 
-            if (!seenNames.Add(name))
+            if (!ParserContainers.AddSetItem(selectionMemory, seenNames, name, IntPtr.Size))
             {
                 throw new QpdfParseException($"Split outputs collide on '{name}'.", null, null);
             }

@@ -6808,13 +6808,15 @@
           "SplitReplaceTests.JobSplitMalformedFails",
           "SplitReplaceTests.TypedSplitNonPositiveFailsCleanly",
           "PublicationAdmissionTests.ActiveFirstPassCannotOverwriteAnyMainOutput",
-          "SplitLabelContinuationTests.RealOverflowAndCyclicTreesFailBeforeAnySplitIsPublished"
+          "SplitLabelContinuationTests.RealOverflowAndCyclicTreesFailBeforeAnySplitIsPublished",
+          "SplitInputCollisionTests.EveryExpandedNameProtectsThePrimaryEvenWhenItsPagesAreOmitted"
         ],
         "interaction": [
           "SplitReplaceTests.SplitSingleGroupMatchesDirectBytes",
           "SplitReplaceTests.JobSplitMatchesArgv",
           "SplitReplaceTests.TypedSplitMatchesArgv",
-          "SplitReplaceTests.TypedSplitMatchesJob"
+          "SplitReplaceTests.TypedSplitMatchesJob",
+          "SplitInputCollisionTests.ExplicitEmptyPrimaryDoesNotProtectAnUnopenedHostInput"
         ],
         "resource": [
           "ResourceEnforcementTests.SplitYieldsToExhaustedBudget",
