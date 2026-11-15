@@ -46,19 +46,22 @@ public sealed class ResourcePruningScopeTests
     {
         foreach (string shape in new[] { "readable", "unknown", "flate", "literal", "hex" })
         foreach (string resources in new[] { "absent", "null", "indirect-null" })
-        foreach (bool automatic in new[] { false, true })
-        foreach (bool job in new[] { false, true }) { yield return [shape, resources, automatic, job]; }
+        foreach (bool inherited in new[] { false, true }) { yield return [shape, resources, inherited, false]; }
+        yield return ["readable", "absent", false, true];
+        yield return ["unknown", "null", true, true];
+        yield return ["flate", "indirect-null", false, true];
+        yield return ["literal", "absent", true, true];
     }
 
     [Theory]
     [MemberData(nameof(FormCases))]
-    public async Task FailedFormAnalysisKeepsTheEnclosingScope(string shape, string resources, bool automatic, bool job)
+    public async Task FailedFormAnalysisKeepsTheEnclosingScope(string shape, string resources, bool inherited, bool job)
     {
         byte[] data = Encoding.ASCII.GetBytes("/AA Do" + (shape == "literal" ? " (" : shape == "hex" ? " <" : ""));
         string header = resources == "absent" ? "" : resources == "null" ? "/Resources null" : "/Resources 8 0 R";
         if (shape is "unknown" or "flate") { header += " /Filter /" + (shape == "unknown" ? "Unknown" : "FlateDecode"); }
-        byte[] input = Fixture("q 60 0 0 60 20 20 cm /Form Do Q"u8.ToArray(), "4 0 R", "<< /XObject << /Form 5 0 R /AA 6 0 R /Unused 7 0 R >> >>", data, header, automatic);
-        using InMemoryQpdfHost host = new(); QpdfExecutionResult result = await Rewrite(host, input, job, automatic, false);
+        byte[] input = Fixture("q 60 0 0 60 20 20 cm /Form Do Q"u8.ToArray(), "4 0 R", "<< /XObject << /Form 5 0 R /AA 6 0 R /Unused 7 0 R >> >>", data, header, inherited);
+        using InMemoryQpdfHost host = new(); QpdfExecutionResult result = await Rewrite(host, input, job, false, false);
         Assert.Equal(shape == "readable" ? QpdfExitCode.Success : QpdfExitCode.Warning, result.ExitCode);
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("read"), CancellationToken.None);
         PdfDictionary objects = Dictionary(document, Dictionary(document, document.PageReferences[0].Page, "Resources"), "XObject");
@@ -67,12 +70,32 @@ public sealed class ResourcePruningScopeTests
         if (shape != "readable") { Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.UnsupportedFeature); }
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task PolicyAndResourceLocationHaveIndependentDecisions(bool automatic, bool inherited)
+    {
+        byte[] input = Fixture("/Form Do"u8.ToArray(), "4 0 R",
+            "<< /XObject << /Form 5 0 R /AA 6 0 R /Unused 7 0 R >> >>", "/AA Do"u8.ToArray(), "", inherited);
+        using InMemoryQpdfHost host = new();
+        QpdfExecutionResult result = await Rewrite(host, input, false, automatic, false);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Empty(result.Diagnostics);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("read"), CancellationToken.None);
+        PdfDictionary objects = Dictionary(document, Dictionary(document, document.PageReferences[0].Page, "Resources"), "XObject");
+        Assert.True(objects.TryGet(PdfName.FromAscii("AA"), out _));
+        Assert.Equal(automatic && !inherited, objects.TryGet(PdfName.FromAscii("Unused"), out _));
+    }
+
     public static IEnumerable<object[]> CategoryCases()
     {
         foreach (bool font in new[] { false, true })
         foreach (string local in new[] { "absent", "right", "wrong", "null", "indirect-null" })
-        foreach (bool escaped in new[] { false, true })
-        foreach (bool job in new[] { false, true }) { yield return [font, local, escaped, job]; }
+        foreach (bool escaped in new[] { false, true }) { yield return [font, local, escaped, false]; }
+        yield return [true, "right", true, true];
+        yield return [false, "wrong", false, true];
+        yield return [true, "indirect-null", false, true];
     }
 
     [Theory]
@@ -99,8 +122,10 @@ public sealed class ResourcePruningScopeTests
     public static IEnumerable<object[]> ContentCases()
     {
         foreach (string shape in new[] { "stream", "array", "indirect-array", "empty", "indirect-empty", "null", "indirect-null", "scalar", "null-element", "nested-array", "cycle-array" })
-        foreach (bool coalesce in new[] { false, true })
-        foreach (bool job in new[] { false, true }) { yield return [shape, coalesce, job]; }
+        foreach (bool coalesce in new[] { false, true }) { yield return [shape, coalesce, false]; }
+        yield return ["indirect-array", true, true];
+        yield return ["cycle-array", false, true];
+        yield return ["null-element", true, true];
     }
 
     [Theory]
@@ -124,8 +149,10 @@ public sealed class ResourcePruningScopeTests
     {
         foreach (string program in new[] { "readable", "unknown", "literal", "hex" })
         foreach (string scope in new[] { "absent", "null", "indirect-null", "local" })
-        foreach (bool indirect in new[] { false, true })
-        foreach (bool job in new[] { false, true }) { yield return [program, scope, indirect, job]; }
+        foreach (bool indirect in new[] { false, true }) { yield return [program, scope, indirect, false]; }
+        yield return ["readable", "local", true, true];
+        yield return ["unknown", "absent", false, true];
+        yield return ["hex", "indirect-null", true, true];
     }
 
     [Theory]

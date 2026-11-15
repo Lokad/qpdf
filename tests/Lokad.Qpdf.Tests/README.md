@@ -38,6 +38,8 @@ Compression setter tables retain every distinct native encoding and all differin
 route observations, with ordinary argv/job/mixed/nested wiring. Externalized
 content tables cover alias/content/layout combinations primarily through argv;
 targeted job cases cross private roots, selection, merging, splitting and writers.
+Pruning scope tables own content/resource semantics at argv with selected job
+interactions; independent policy/location controls complement the heuristic owners.
 
 `Foundation/PublicationAdmissionTests` owns shared host-fault phases, executed
 counters and sequential commits. Prepared graph tests retain their own admission
