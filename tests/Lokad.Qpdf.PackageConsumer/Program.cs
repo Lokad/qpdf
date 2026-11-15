@@ -50,6 +50,7 @@ internal static class Program
         byte[] original = (byte[])damaged.Clone();
         using InMemoryQpdfHost host = NewHost("recovery.pdf", damaged);
         QpdfPath input = QpdfPath.From("recovery.pdf"), output = QpdfPath.From("repaired.pdf");
+        await VerifyInspectionRecoveryAsync(host, input);
         try
         {
             await Qpdf.SelectPageAsync(host, input, output, new PdfPageSelectionOptions(1), CancellationToken.None);
@@ -99,6 +100,45 @@ internal static class Program
             }
         }
         Console.WriteLine("PASS typed merge recovery option, repeated sources, mappings and split publication");
+    }
+
+    private sealed class ReadOnlyInspectionHost(InMemoryQpdfHost storage) : IQpdfHost
+    {
+        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => storage.OpenInputAsync(path, token);
+        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token)
+            => throw new InvalidOperationException("Read-only inspection requested publication.");
+    }
+
+    private static async Task VerifyInspectionRecoveryAsync(InMemoryQpdfHost storage, QpdfPath input)
+    {
+        ReadOnlyInspectionHost host = new(storage);
+        try
+        {
+            await using QpdfDocument strict = await QpdfDocument.OpenAsync(host, input, CancellationToken.None);
+            throw new InvalidOperationException("Default typed opening accepted damaged xrefs.");
+        }
+        catch (QpdfParseException) { }
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, input, null,
+            QpdfRecoveryMode.BoundedRepair, QpdfLimits.Default, CancellationToken.None))
+        {
+            Check(document.PageCount == 2 && document.GetObject(1) is PdfDictionary, "repaired public document values");
+            Check(document.Warnings.Any(w => w.Code == QpdfDiagnosticCode.RecoveryEngaged), "document recovery warning");
+        }
+        QpdfCheckResult check = await Qpdf.CheckAsync(host, input,
+            new QpdfCheckOptions { RecoveryMode = QpdfRecoveryMode.BoundedRepair }, QpdfLimits.Default, CancellationToken.None);
+        Check(check.Passed && check.PageCount == 2 && check.Diagnostics.Any(w => w.Code == QpdfDiagnosticCode.RecoveryEngaged), "repaired typed check");
+        QpdfJsonOptions options = new(2, ["pages"]) { RecoveryMode = QpdfRecoveryMode.BoundedRepair };
+        foreach (bool explicitLimits in new[] { false, true })
+        {
+            QpdfJsonResult result = explicitLimits
+                ? await Qpdf.GetDocumentJsonAsync(host, input, options, QpdfLimits.Default, CancellationToken.None)
+                : await Qpdf.GetDocumentJsonAsync(host, input, options, CancellationToken.None);
+            using JsonDocument json = JsonDocument.Parse(result.Json);
+            Check(json.RootElement.GetProperty("pages").GetArrayLength() == 2 &&
+                result.Warnings.Any(w => w.Code == QpdfDiagnosticCode.RecoveryEngaged), "repaired result-only typed JSON");
+        }
+        Check(storage.OpenLeaseCount == 0, "inspection recovery closes input leases");
+        Console.WriteLine("PASS typed inspection recovery: document/check/result-only JSON on a read-only host");
     }
 
     private sealed class SampleCodec : IQpdfJpegCodec

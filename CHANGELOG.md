@@ -1,6 +1,17 @@
 # Changelog
 
-## Unreleased — 0.2.0-dev.6
+## Unreleased — 0.2.0-dev.7
+
+- Let typed document opening, checking and JSON inspection opt into shared bounded
+  repair while retaining strict defaults, authentication, warnings and ownership.
+- Return typed JSON without publishing a report; file sidecars require an explicit
+  prefix when no report target is supplied. Existing publishing overloads remain.
+- Reject expanded split outputs that alias a real primary omitted from selected
+  sources, before creating any output transaction.
+- Reuse bounded shared-content pruning analysis and resource identities; share
+  physical-writer emission policy and separate test semantics from route wiring.
+
+## 0.2.0-dev.6 — 2026-11-14 (development candidate)
 
 - Let typed merging and splitting opt into bounded repair with
   `PdfPageMergeOptions.RecoveryMode`, retaining strict defaults, repeated-source

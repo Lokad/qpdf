@@ -100,6 +100,12 @@ the shared reader and returns recovery warnings; the merge option applies to
 all sources and encryption templates. Repeated logical paths share one input
 and require consistent credentials.
 
+Document opening also accepts an explicit recovery policy with credentials and
+limits; checking and JSON use their options' `RecoveryMode`. For result-only JSON,
+call `Qpdf.GetDocumentJsonAsync(host, input, new QpdfJsonOptions(2, ["pages"]), token)`.
+An output path is needed only when publishing the report; file sidecars require
+an explicit prefix when there is no report path.
+
 Checks, inspections, attachments, placements and JSON operations also accept
 credentials. Argv uses `--password=reader` or a host-backed `--password-file`;
 job JSON uses `password` or `passwordFile`. PDF transformations preserve input

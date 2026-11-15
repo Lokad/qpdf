@@ -5,6 +5,13 @@ The [option inventory](../tests/Compatibility/options.json) records exact forms,
 combinations and executable evidence; [compatibility](COMPATIBILITY.md) records
 defaults and intentional differences. Accepted syntax alone does not establish support.
 
+Typed document opening, checking, counting, selection and JSON inspection are
+strict by default. The full `QpdfDocument.OpenAsync` overload accepts credentials,
+`QpdfRecoveryMode` and limits; `QpdfCheckOptions.RecoveryMode` and
+`QpdfJsonOptions.RecoveryMode` expose the same opt-in bounded repair. Undefined
+policies reject before host access. Repair preserves authentication and resource
+limits and reports warnings on the document/result (check diagnostics).
+
 `QpdfDocument.OpenAsync` supports RC4 R2/R3, 128-bit RC4/AES R4 and AES-256 R5/R6 with user or owner
 credentials, including empty passwords. UTF-8 text is not normalized. Failed text
 authentication can retry PDFDoc, WinAnsi and MacRoman encodings for R2–R6 when
@@ -256,6 +263,13 @@ preserves opaque streams with an explicit warning or skipped check.
 Checking covers structure, streams, content, forms and linearization, with explicit
 skipped stages. It does not establish rendering or conformance. Object, xref, page,
 image, attachment and outline listings use the shared resolver.
+
+Typed `GetDocumentJsonAsync` overloads without an output path return JSON without
+publishing a report. None/inline stream modes need no output capability. File
+sidecars require an explicit stream prefix and retain ordinary collision checks
+and sequential publication. Existing overloads with an output path publish the
+report as well as returning it. Caller budget scopes must outlive returned text
+and warnings, including after host/document cleanup.
 
 PDF JSON v1/v2 preserve reference identities; v2 uses binary strings whenever text
 would change bytes. Stream data can be omitted, inline or host sidecars. V2

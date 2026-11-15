@@ -90,7 +90,7 @@ internal static class InspectionExecution
         int pageCount;
         QpdfDocument.VersionParts versionParts;
         await using (QpdfDocument document = await QpdfDocument.OpenInspectionCore(host, inputPath, options.Password,
-            limits, governor, diagnostics, QpdfRecoveryMode.Strict, cancellationToken).ConfigureAwait(false))
+            limits, governor, diagnostics, options.RecoveryMode, cancellationToken).ConfigureAwait(false))
         {
             checks = DocumentCheck.Run(document, options, limits, governor, diagnostics, false, cancellationToken);
             pageCount = document.PageCount;

@@ -5,6 +5,10 @@ namespace Lokad.Qpdf;
 /// <summary>JSON inspection options: format version plus key filter.</summary>
 public sealed record QpdfJsonOptions
 {
+    /// <summary>Gets the input recovery policy; the default is strict parsing.</summary>
+    /// <remarks>Undefined values reject before host access. Bounded repair reports its warnings with the JSON result.</remarks>
+    public QpdfRecoveryMode RecoveryMode { get; init; } = QpdfRecoveryMode.Strict;
+
     /// <summary>Gets the input credential; null tries an empty password. Raw bytes are borrowed until inspection completes.</summary>
     public QpdfPassword? Password { get; init; }
 
@@ -93,7 +97,7 @@ public sealed record QpdfJsonOptions
     /// <summary>Gets how stream payloads are represented: none, inline, or file.</summary>
     public string StreamData { get; } = "none";
 
-    /// <summary>Gets the stream sidecar prefix for file mode; null means the output path.</summary>
+    /// <summary>Gets the stream sidecar prefix for file mode; null requires a report output path to use as the prefix.</summary>
     public string? StreamPrefix { get; }
 
     /// <summary>Gets a read-only snapshot of selected objects in trailer or obj[,gen] form; empty means all.</summary>

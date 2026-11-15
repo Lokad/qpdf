@@ -56,6 +56,10 @@ public sealed record QpdfCheckOutcome
 /// <summary>Options for structural inspection.</summary>
 public sealed record QpdfCheckOptions
 {
+    /// <summary>Gets the input recovery policy; the default is strict parsing.</summary>
+    /// <remarks>Undefined values reject before host access. Bounded repair reports its warnings with the check result.</remarks>
+    public QpdfRecoveryMode RecoveryMode { get; init; } = QpdfRecoveryMode.Strict;
+
     /// <summary>Gets this input's text or raw password. Null tries an empty password.</summary>
     /// <remarks>Borrowed password bytes must remain unchanged until CheckAsync completes.</remarks>
     public QpdfPassword? Password { get; init; }

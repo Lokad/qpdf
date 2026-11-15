@@ -408,6 +408,8 @@ public static partial class Qpdf
         {
             throw new ArgumentOutOfRangeException(nameof(options), options.DecodeLevel, "Unknown stream decode level.");
         }
+        if (options.RecoveryMode is not (QpdfRecoveryMode.Strict or QpdfRecoveryMode.BoundedRepair))
+        { throw new ArgumentOutOfRangeException(nameof(options), options.RecoveryMode, "Unknown recovery mode."); }
         ResourceGovernor governor = new(limits, cancellationToken, host);
         governor.PrepareTypedResult(QpdfCheckResult.StorageBytes);
         try
@@ -528,7 +530,7 @@ public static partial class Qpdf
     }
 
     /// <summary>
-    /// Inspects a document as JSON with default budgets.
+    /// Inspects a document as JSON and publishes the report with default budgets.
     /// </summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     public static ValueTask<QpdfJsonResult> GetDocumentJsonAsync(
@@ -542,16 +544,35 @@ public static partial class Qpdf
     }
 
     /// <summary>
-    /// Inspects a document as JSON with explicit budgets.
+    /// Inspects a document as JSON and publishes the report with explicit budgets.
     /// </summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public static async ValueTask<QpdfJsonResult> GetDocumentJsonAsync(
+    public static ValueTask<QpdfJsonResult> GetDocumentJsonAsync(
         IQpdfHost host,
         QpdfPath inputPath,
         QpdfPath outputPath,
         QpdfJsonOptions options,
         QpdfLimits limits,
         CancellationToken cancellationToken)
+        => GetDocumentJsonWithOutputAsync(host, inputPath, outputPath, options, limits, cancellationToken);
+
+    /// <summary>Inspects a document as JSON without publishing the report, using default budgets.</summary>
+    /// <remarks>None/inline stream data uses no output capability. File sidecars require an explicit stream prefix.</remarks>
+    /// <exception cref="ArgumentNullException">Host or options are null.</exception>
+    public static ValueTask<QpdfJsonResult> GetDocumentJsonAsync(IQpdfHost host, QpdfPath inputPath,
+        QpdfJsonOptions options, CancellationToken cancellationToken)
+        => GetDocumentJsonWithOutputAsync(host, inputPath, null, options, QpdfLimits.Default, cancellationToken);
+
+    /// <summary>Inspects a document as JSON without publishing the report, using explicit budgets.</summary>
+    /// <remarks>None/inline stream data uses no output capability. File sidecars require an explicit stream prefix.
+    /// Keep the caller's budget scope alive while using returned text and warnings.</remarks>
+    /// <exception cref="ArgumentNullException">Host, options or limits are null.</exception>
+    public static ValueTask<QpdfJsonResult> GetDocumentJsonAsync(IQpdfHost host, QpdfPath inputPath,
+        QpdfJsonOptions options, QpdfLimits limits, CancellationToken cancellationToken)
+        => GetDocumentJsonWithOutputAsync(host, inputPath, null, options, limits, cancellationToken);
+
+    private static async ValueTask<QpdfJsonResult> GetDocumentJsonWithOutputAsync(IQpdfHost host,
+        QpdfPath inputPath, QpdfPath? outputPath, QpdfJsonOptions options, QpdfLimits limits, CancellationToken cancellationToken)
     {
         if (host is null)
         {
@@ -569,6 +590,8 @@ public static partial class Qpdf
         }
 
         limits.Validate();
+        if (options.RecoveryMode is not (QpdfRecoveryMode.Strict or QpdfRecoveryMode.BoundedRepair))
+        { throw new ArgumentOutOfRangeException(nameof(options), options.RecoveryMode, "Unknown recovery mode."); }
         ResourceGovernor governor = new(limits, cancellationToken, host);
         governor.PrepareTypedResult(QpdfJsonResult.StorageBytes);
         try
@@ -580,7 +603,7 @@ public static partial class Qpdf
                 HashSet<(bool Trailer, int Number, int Generation)>? wanted = ValidateJsonObjects(options.Objects, 0L, textStorage);
                 Commands.JsonInspection inspection = new(options.Version, options.Keys, null, options.StreamData, options.StreamPrefix, wanted, options.MinimalOutput)
                 { Password = options.Password };
-                result = await JsonCoreAsync(host, inputPath, outputPath, inspection, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, false, true, cancellationToken).ConfigureAwait(false);
+                result = await JsonCoreAsync(host, inputPath, outputPath, inspection, limits, options.RecoveryMode, false, governor, diagnostics, false, true, cancellationToken).ConfigureAwait(false);
             }
             QpdfJsonResult presented = result.Present(governor);
             governor.FinishTypedCounters();

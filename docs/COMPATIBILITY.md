@@ -40,7 +40,7 @@ reasons. Companion fix-qdf/zlib-flate operations are additional contracts.
 
 | Behavior | Typed | Argv / job JSON |
 | --- | --- | --- |
-| Reading | Strict; page selection can request bounded repair | Bounded repair by default; `--suppress-recovery` is strict |
+| Reading | Strict by default; document/check/count/selection/JSON can request bounded repair | Bounded repair by default; `--suppress-recovery` is strict |
 | Stream copying | Opaque encoded bytes | Generalized decoding and compression |
 | Rotation requests | Supplied list order | Last value per exact range text, then ordinal key order |
 | Generic catalog data | Selection defaults may omit extras | Ordinary rewrites preserve supported primary extras; split has a narrower policy |
@@ -70,6 +70,12 @@ Typed merging/splitting selects the same policy through
 source and encryption template. Repeated paths share one opened document;
 credential consistency, source mappings, warnings and output protection retain
 their existing contracts. Undefined recovery values reject before host access.
+
+Document opening accepts an explicit recovery policy with credentials/limits;
+typed checking and JSON inspection use their options' `RecoveryMode`. Returned
+document warnings, check diagnostics and JSON warnings report repair. Typed JSON
+can return its report without publishing it; file sidecars still require an
+explicit prefix. See the [inspection profile](SUPPORTED-PROFILE.md#inspection-profile).
 
 ```csharp
 PdfPageSelectionResult preview = await Qpdf.SelectPageAsync(

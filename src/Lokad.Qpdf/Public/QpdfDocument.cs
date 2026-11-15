@@ -161,8 +161,20 @@ public sealed partial class QpdfDocument : IAsyncDisposable
     /// <exception cref="ArgumentNullException">Host or limits are null.</exception>
     /// <exception cref="QpdfSecurityException">Credentials fail or the security handler is unsupported.</exception>
     /// <exception cref="QpdfParseException">The input or encryption parameters are malformed.</exception>
-    public static async ValueTask<QpdfDocument> OpenAsync(
+    public static ValueTask<QpdfDocument> OpenAsync(
         IQpdfHost host, QpdfPath path, QpdfPassword? password, QpdfLimits limits, CancellationToken cancellationToken)
+        => OpenAsync(host, path, password, QpdfRecoveryMode.Strict, limits, cancellationToken);
+
+    /// <summary>Opens an input with explicit credentials, recovery policy and budgets.</summary>
+    /// <remarks>Bounded repair uses the shared reader and reports warnings on the document.
+    /// A null password tries empty. Borrowed password bytes must remain stable until opening completes.
+    /// Existing overloads use strict parsing. Input and returned-value ownership are unchanged.</remarks>
+    /// <exception cref="ArgumentNullException">Host or limits are null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The recovery policy or a limit is invalid.</exception>
+    /// <exception cref="QpdfSecurityException">Credentials fail or the security handler is unsupported.</exception>
+    /// <exception cref="QpdfParseException">The input or encryption parameters are malformed.</exception>
+    public static async ValueTask<QpdfDocument> OpenAsync(IQpdfHost host, QpdfPath path, QpdfPassword? password,
+        QpdfRecoveryMode recoveryMode, QpdfLimits limits, CancellationToken cancellationToken)
     {
         if (host is null)
         {
@@ -175,13 +187,15 @@ public sealed partial class QpdfDocument : IAsyncDisposable
         }
 
         limits.Validate();
+        if (recoveryMode is not (QpdfRecoveryMode.Strict or QpdfRecoveryMode.BoundedRepair))
+        { throw new ArgumentOutOfRangeException(nameof(recoveryMode), recoveryMode, "Unknown recovery mode."); }
         ResourceGovernor governor = new(limits, cancellationToken, host) { OwnsDocumentCounters = true };
         DiagnosticBag diagnostics = new(governor);
         try
         {
             IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
             QpdfDocument document = await OpenInputDocument(input, path, limits, governor, diagnostics,
-                QpdfRecoveryMode.Strict, cancellationToken, true, false, false, InputReadMode.Complete, password, true).ConfigureAwait(false);
+                recoveryMode, cancellationToken, true, false, false, InputReadMode.Complete, password, true).ConfigureAwait(false);
             governor.AcceptDocument();
             return document;
         }
