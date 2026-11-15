@@ -125,8 +125,7 @@ Recorded native keys and dictionary entries supplement roundtrip tests.
 Length-only writer passes measure encrypted hex strings and padded stream lengths
 without deriving object keys, generating IVs or allocating ciphertext. They share
 stream exception policy with emission and retain QDF's indirect length objects.
-Identifier hashing and layout passes that need actual bytes still produce them;
-final encryption follows compression and uses the final physical object numbers.
+Identifier hashing and layout passes that need actual bytes still produce them.
 Payload AES checks padding before allocating exact plaintext, processes bounded
 CBC chunks for cancellation and admits exact ciphertext including IV/padding.
 Key and derivation buffers remain owned and clear when their lifetimes end.

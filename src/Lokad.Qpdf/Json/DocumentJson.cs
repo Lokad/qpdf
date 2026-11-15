@@ -35,7 +35,8 @@ internal sealed record JsonRequest(
 /// <summary>
 /// Document to JSON inspection driver. Emits the upstream top-level layout
 /// (version, parameters, then pages, pagelabels, attachments, encrypt,
-/// outlines, objects or qpdf, objectinfo) with stream data omitted.
+/// outlines, objects or qpdf, objectinfo). Stream data follows the requested
+/// omitted, inline or sidecar policy.
 /// </summary>
 internal static class DocumentJson
 {

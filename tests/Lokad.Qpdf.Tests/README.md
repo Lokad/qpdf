@@ -4,7 +4,7 @@
 setup used by isolated object-graph tests. It preserves table/value/engine
 admission and disposal. Callers still construct their own meaningful objects and
 expected results. `MemoryBudgetHost` borrows storage and a caller budget without
-closing either; it replaces identical pass-through wrappers.
+closing either.
 
 Keep narrow observation seams where an ordinary final result cannot prove the
 ownership or cancellation boundary:

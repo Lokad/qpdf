@@ -7,8 +7,8 @@ using Lokad.Qpdf.Security;
 namespace Lokad.Qpdf;
 
 /// <summary>
-/// Strict inspection handle over one input PDF, covering classic tables, cross-reference
-/// streams, and hybrid/incremental chains with bounded recovery. Holds its input lease until
+/// Inspection handle over one input PDF, covering classic tables, cross-reference
+/// streams and hybrid/incremental chains. Opening uses strict parsing by default. Holds its input lease until
 /// disposed; always dispose (leases close and budgets release even on failure paths).
 /// Handles are single-owner and not thread-safe; concurrent calls need separate handles.
 /// </summary>
