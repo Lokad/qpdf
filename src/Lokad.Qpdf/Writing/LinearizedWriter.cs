@@ -348,60 +348,13 @@ internal sealed class LinearizedWriter
     }
 
     private ValueTask AppendFormattedAsync(ReadOnlySpan<WriterPart> parts, IByteSink sink, CancellationToken cancellationToken)
-    {
-        if (sink is CountingSink counter)
-        {
-            counter.AppendLength(WriterFormatting.MeasureParts(parts, _limits, _governor, cancellationToken), cancellationToken);
-            return ValueTask.CompletedTask;
-        }
-        if (sink is BatchingSink batch && batch.TryAppendFormatting(parts, _limits, cancellationToken))
-        { return ValueTask.CompletedTask; }
-        return AppendFormattingAsync(WriterFormatting.Create(parts, _limits, _governor, cancellationToken), sink, cancellationToken);
-    }
+        => _serializer.AppendFormattedAsync(parts, sink, cancellationToken);
 
-    private async ValueTask AppendFormattingAsync(WriterFormatting formatted, IByteSink sink, CancellationToken cancellationToken)
-    {
-        using (formatted)
-        {
-            await AppendBytesAsync(formatted.Data, sink, cancellationToken).ConfigureAwait(false);
-        }
-    }
+    private ValueTask AppendAsciiAsync(string text, IByteSink sink, CancellationToken cancellationToken)
+        => _serializer.AppendAsciiAsync(text, sink, cancellationToken);
 
-    private async ValueTask AppendAsciiAsync(string text, IByteSink sink, CancellationToken cancellationToken)
-    {
-        if (sink is CountingSink counter)
-        {
-            counter.AppendLength(WriterEncoding.MeasureAscii(text, _limits, _governor, cancellationToken), cancellationToken);
-            return;
-        }
-        if (WriterEncoding.TryGetSharedAscii(text, _limits, _governor, cancellationToken, out ReadOnlyMemory<byte> literal))
-        {
-            await AppendBytesAsync(literal, sink, cancellationToken).ConfigureAwait(false);
-            return;
-        }
-        if (sink is BatchingSink batch && batch.TryAppendAscii(text, _limits, cancellationToken)) { return; }
-        using WriterEncoding encoded = WriterEncoding.Ascii(text, _limits, _governor, cancellationToken);
-        await AppendBytesAsync(encoded.Data, sink, cancellationToken).ConfigureAwait(false);
-    }
-
-    private async ValueTask AppendBytesAsync(ReadOnlyMemory<byte> chunk, IByteSink sink, CancellationToken cancellationToken)
-    {
-        if (sink is CountingSink counter)
-        {
-            _governor.CheckCancellation();
-            counter.AppendLength(chunk.Length, cancellationToken);
-            return;
-        }
-        int offset = 0;
-        while (offset < chunk.Length)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            int take = System.Math.Min(8192, chunk.Length - offset);
-            await sink.AppendAsync(chunk.Slice(offset, take), cancellationToken).ConfigureAwait(false);
-            offset += take;
-        }
-    }
-
+    private ValueTask AppendBytesAsync(ReadOnlyMemory<byte> chunk, IByteSink sink, CancellationToken cancellationToken)
+        => _serializer.AppendBytesAsync(chunk, sink, cancellationToken);
 
     private static long HintLength(HintPayload? hintObject)
     {

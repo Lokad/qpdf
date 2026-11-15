@@ -869,7 +869,7 @@ internal sealed partial class PdfSerializer
         };
     }
 
-    private ValueTask AppendFormattedAsync(ReadOnlySpan<WriterPart> parts, IByteSink sink, CancellationToken cancellationToken)
+    internal ValueTask AppendFormattedAsync(ReadOnlySpan<WriterPart> parts, IByteSink sink, CancellationToken cancellationToken)
     {
         if (sink is CountingSink counter)
         {
@@ -889,7 +889,7 @@ internal sealed partial class PdfSerializer
         }
     }
 
-    private ValueTask AppendAsciiAsync(string text, IByteSink sink, CancellationToken cancellationToken)
+    internal ValueTask AppendAsciiAsync(string text, IByteSink sink, CancellationToken cancellationToken)
     {
         if (sink is CountingSink counter)
         {
@@ -905,7 +905,7 @@ internal sealed partial class PdfSerializer
         return AppendEncodingAsync(WriterEncoding.Ascii(text, _limits, _governor, cancellationToken), sink, cancellationToken);
     }
 
-    private ValueTask AppendBytesAsync(ReadOnlyMemory<byte> chunk, IByteSink sink, CancellationToken cancellationToken)
+    internal ValueTask AppendBytesAsync(ReadOnlyMemory<byte> chunk, IByteSink sink, CancellationToken cancellationToken)
     {
         if (sink is CountingSink counter)
         {

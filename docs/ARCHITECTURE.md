@@ -36,7 +36,9 @@ retain their complete graph preparation.
 Input admission and xref parsing form one stage before authentication and page
 traversal; callers retain host-lease ownership through success and cleanup.
 The writer prepares numbering, lengths, offsets and identifiers before publication;
-linearization uses two passes.
+linearization uses two passes. The serializer also owns shared header/ASCII
+emission, counting and bounded sink writes for both physical writers; stream
+payload isolation remains with its payload owner.
 `OutputModelPreparation` finalizes assembled and split graphs through shared
 reachability, encryption numbering, ordering and object-stream grouping.
 Catalog contents, version requirements and original-ID inversion have separate
