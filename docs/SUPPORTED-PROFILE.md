@@ -5,12 +5,40 @@ The [option inventory](../tests/Compatibility/options.json) records exact forms,
 combinations and executable evidence; [compatibility](COMPATIBILITY.md) records
 defaults and intentional differences. Accepted syntax alone does not establish support.
 
+## Entry paths
+
+Typed operations, `Qpdf.ExecuteAsync` argv and `Qpdf.ExecuteJobAsync` job JSON share
+the engine. Hosts supply inputs, outputs, descriptors and environment values;
+fileless inspection returns text or bytes. The core has no runtime NuGet dependencies.
+
+Typed reading is strict and selection preserves encoded streams. Argv/job defaults
+to bounded repair and generalized decoding/compression. Argv setters follow argument
+order; job setters follow sorted-key order, including nested files. Unsupported
+options and combinations fail explicitly. Execution reports exit 0/2/3 and diagnostics.
+
 Typed document opening, checking, counting, selection and JSON inspection are
 strict by default. The full `QpdfDocument.OpenAsync` overload accepts credentials,
 `QpdfRecoveryMode` and limits; `QpdfCheckOptions.RecoveryMode` and
 `QpdfJsonOptions.RecoveryMode` expose the same opt-in bounded repair. Undefined
 policies reject before host access. Repair preserves authentication and resource
 limits and reports warnings on the document/result (check diagnostics).
+
+## Input profile
+
+| Area | Support |
+| --- | --- |
+| Versions | PDF 1.0–1.7 and 2.0, header at offset zero; effective header/catalog version negotiation. |
+| Xrefs | Classic, streamed, hybrid and incremental chains; compressed objects, generations and extents validate. |
+| Values | Byte-preserving names, strings and numbers; signed 64-bit integers; bounded malformed-input recovery. |
+| Streams | Declared binary extents; bounded repair where enabled. External-file descriptors stay opaque and are never opened. |
+| Filters | Flate/LZW with predictors, ASCIIHex/ASCII85 and RunLength. DCT decoding requires a host codec; CMYK/YCCK also requires its explicit four-component capability. Zopfli is unavailable. |
+
+Unavailable optional decoding can warn and preserve encoded bytes. Structural
+budget exhaustion remains a resource failure, never permission to discard retained data.
+
+## Password security
+
+### Authentication
 
 `QpdfDocument.OpenAsync` supports RC4 R2/R3, 128-bit RC4/AES R4 and AES-256 R5/R6 with user or owner
 credentials, including empty passwords. UTF-8 text is not normalized. Failed text
@@ -41,6 +69,8 @@ damaged footer offsets, using ordinary section/coverage validation to preserve
 compressed objects and encryption metadata. Later objects or sections prevent
 using an older stream. Resource/cancellation failures abort without weaker repair.
 
+### Page sources and output protection
+
 Typed `SelectPagesAsync` accepts credentials on each `PdfPageSource`. The first
 source controls preserved output protection, even if collation omits its pages;
 secondary sources cannot replace it. `PdfPageMergeOptions.OutputEncryption`
@@ -58,16 +88,11 @@ Existing R5 AES-256 inputs can be inspected, transformed, preserved or copied as
 templates. Preservation keeps R5 and requires PDF 1.7 extension level 3; new
 encryption continues to use R6. No fresh R5 creation is exposed.
 
+### Inspection and secondary sources
+
 Typed `Qpdf.CheckAsync` accepts the same credentials in `QpdfCheckOptions.Password`
 and runs structural checks over the decrypted graph. Its existing skipped-stage
 reporting and partial-check contract still apply.
-Typed `Qpdf.CountPagesAsync` traverses the page tree and returns its count, warnings
-and final counters after input cleanup. Strict parsing is the default; the explicit
-credential/recovery/limits overload can request bounded repair. Standalone counts
-can omit large unrelated payloads in compact classic-xref inputs. Other layouts,
-protected inputs and uncertain validation use complete acquisition on the same
-lease; memory refusal remains a failure. Document opening and combined inspection
-retain their separate complete-input contracts.
 Argv/job inspections and PDF transformations accept a primary text password through
 `--password`/`password`, or the first line of a host file through
 `--password-file`/`passwordFile`. Page sources accept `--password=...` after their
@@ -125,6 +150,8 @@ and encrypt setters replace one another in argv order or job lexical-key order.
 Output-free inspections do not open the template. Copied encryption cannot combine
 with deterministic IDs or an insufficient forced version; it never falls back to
 plaintext after such a failure.
+### Authenticated JSON updates and creation
+
 Typed `UpdatePdfFromJsonAsync` accepts an input password and the same explicit
 preserve/remove/create/template output policies. Its existing overloads try an
 empty password and preserve supported protection. JSON object patches supply
@@ -145,6 +172,8 @@ Argv/job `--json-input` / `jsonInput` accepts the same output policies and globa
 password modes. Primary text passwords are ignored for plaintext JSON; password
 files are still read through the host, and missing files fail. Template inputs
 use the operation's recovery mode and their independent credential.
+### Command password files and modes
+
 File setters retain native order: a zero-byte file leaves the previous password
 unchanged, while a blank first line supplies an empty password. Spaces are retained;
 CR is stripped only before LF, and NUL terminates the password. Additional lines
@@ -166,6 +195,8 @@ Typed raw-byte credentials always remain exact and never take this recovery path
 For new R6 output, auto, bytes and unicode encode the managed text as UTF-8;
 hex-bytes uses the same bounded hex decoder. Both output passwords use this mode.
 
+### Reports and predicates
+
 `--is-encrypted` returns 0 for supported encrypted inputs and 2 for plain inputs.
 `--requires-password` returns 0 when credentials do not match, 2 for plain inputs,
 and 3 when the supplied or empty password matches. Job JSON uses `isEncrypted`
@@ -184,6 +215,8 @@ JSON inspection accepts the same primary credential, including raw bytes through
 the decrypted graph; selected stream data is decrypted before decoding or sidecar
 publication. `recovereduserpassword` and encryption `key` stay null.
 
+### Signed inputs and exclusions
+
 Signed pages can be copied, merged, placed and rewritten. Supported password-encrypted
 inputs authenticate before copying; encrypted preview extraction is covered by an R6 fixture.
 Stored signature appearances survive; active signature field attributes and document
@@ -191,30 +224,6 @@ certification restrictions are disabled, including blank signature fields. Deriv
 output does not preserve signature validity. Read-only inspection retains source
 values. Signing and signature validation are excluded. Rendering, OCR, text
 extraction/layout, general authoring and PDF/A/X/UA conformance are outside scope.
-
-## Entry paths
-
-Typed operations, `Qpdf.ExecuteAsync` argv and `Qpdf.ExecuteJobAsync` job JSON share
-the engine. Hosts supply inputs, outputs, descriptors and environment values;
-fileless inspection returns text or bytes. The core has no runtime NuGet dependencies.
-
-Typed reading is strict and selection preserves encoded streams. Argv/job defaults
-to bounded repair and generalized decoding/compression. Argv setters follow argument
-order; job setters follow sorted-key order, including nested files. Unsupported
-options and combinations fail explicitly. Execution reports exit 0/2/3 and diagnostics.
-
-## Input profile
-
-| Area | Support |
-| --- | --- |
-| Versions | PDF 1.0–1.7 and 2.0, header at offset zero; effective header/catalog version negotiation. |
-| Xrefs | Classic, streamed, hybrid and incremental chains; compressed objects, generations and extents validate. |
-| Values | Byte-preserving names, strings and numbers; signed 64-bit integers; bounded malformed-input recovery. |
-| Streams | Declared binary extents; bounded repair where enabled. External-file descriptors stay opaque and are never opened. |
-| Filters | Flate/LZW with predictors, ASCIIHex/ASCII85 and RunLength. DCT decoding requires a host codec; CMYK/YCCK also requires its explicit four-component capability. Zopfli is unavailable. |
-
-Unavailable optional decoding can warn and preserve encoded bytes. Structural
-budget exhaustion remains a resource failure, never permission to discard retained data.
 
 ## Selection semantics
 
@@ -264,6 +273,14 @@ Checking covers structure, streams, content, forms and linearization, with expli
 skipped stages. It does not establish rendering or conformance. Object, xref, page,
 image, attachment and outline listings use the shared resolver.
 
+Typed `Qpdf.CountPagesAsync` traverses the page tree and returns its count, warnings
+and final counters after input cleanup. Strict parsing is the default; the explicit
+credential/recovery/limits overload can request bounded repair. Standalone counts
+can omit large unrelated payloads in compact classic-xref inputs. Other layouts,
+protected inputs and uncertain validation use complete acquisition on the same
+lease; memory refusal remains a failure. Document opening and combined inspection
+retain their separate complete-input contracts.
+
 Typed `GetDocumentJsonAsync` overloads without an output path return JSON without
 publishing a report. None/inline stream modes need no output capability. File
 sidecars require an explicit stream prefix and retain ordinary collision checks
@@ -284,8 +301,9 @@ modes, version/extension negotiation, deterministic/static IDs, metadata control
 QDF and two-pass linearization. Explicit forced versions win without transcoding
 opaque features. Object streams require PDF 1.5; catalog XML metadata is uncompressed.
 
-`--remove-info` removes Info and catalog XML metadata; `--remove-metadata` removes
-only XML metadata. Independently rooted originals remain intact. Final-root
+`--remove-info` retains only an existing non-null Info ModDate and removes catalog
+XML metadata; without ModDate it omits Info. `--remove-metadata` alone removes
+only XML metadata and retains Info. Independently rooted originals remain intact. Final-root
 reachability retires replaced graphs; explicit unreferenced preservation excludes
 old catalog/page/container structure. Numbering and compressed bytes may differ from native.
 

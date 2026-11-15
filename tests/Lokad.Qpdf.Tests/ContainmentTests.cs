@@ -12,7 +12,7 @@ public sealed class ContainmentTests
         "System.Memory",
         "System.Runtime",
         "System.Runtime.InteropServices",
-        // MD5 fingerprints deterministic IDs and attachment digests only; excluded crypto operations never appear.
+        // BCL cryptography covers password handlers, identifiers and attachment digests.
         "System.Security.Cryptography",
         "System.Text.Encoding.Extensions",
         "System.Text.Json",
