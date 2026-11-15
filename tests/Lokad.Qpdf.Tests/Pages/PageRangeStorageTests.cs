@@ -105,7 +105,7 @@ public sealed class PageRangeStorageTests
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, $"<< /Type /Pages /Count {count} /Kids [" + string.Join(' ', Enumerable.Range(3, count).Select(id => $"{id} 0 R")) + "] >>", null)];
         for (int index = 0; index < count; index++) { objects.Add((index + 3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << >> >>", null)); }
-        byte[] input = CheckTests.Assemble(objects, 1); byte[]? expected = null; long peak = 0L;
+        byte[] input = PdfTestDocument.Assemble(objects, 1); byte[]? expected = null; long peak = 0L;
         foreach (string range in new[] { "1", "1,x2-z" })
         {
             using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Copy);

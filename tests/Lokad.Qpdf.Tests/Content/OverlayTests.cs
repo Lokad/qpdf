@@ -34,7 +34,7 @@ using (System.IO.Compression.ZLibStream zip = new(bytes, System.IO.Compression.C
 { zip.Write(Encoding.ASCII.GetBytes(new string(' ', 32768) + "q (Unused) Q")); }
 encoded = bytes.ToArray();
 }
-byte[] overlay = Inspection.CheckTests.Assemble([
+byte[] overlay = PdfTestDocument.Assemble([
 (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
 (2, "<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 >>", null),
 (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R >>", null),
@@ -79,9 +79,9 @@ public async Task IndirectContentArraysStampAcrossBothEntryPoints(bool destinati
 static byte[] Fixture(string marker, bool indirect)
 {
 byte[] content = Encoding.ASCII.GetBytes("BT (" + marker + ") Tj ET");
-var objects = Inspection.CheckTests.SinglePage("<< /Length " + content.Length + " >>", content);
+var objects = PdfTestDocument.SinglePage("<< /Length " + content.Length + " >>", content);
 objects[2] = (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents " + (indirect ? "5 0 R" : "[4 0 R]") + " >>", null);
-objects.Add((5, "[4 0 R]", null)); return Inspection.CheckTests.Assemble(objects, 1);
+objects.Add((5, "[4 0 R]", null)); return PdfTestDocument.Assemble(objects, 1);
 }
 using InMemoryQpdfHost host = HostWithTwo(Fixture("Base", destination), Fixture("Stamp", source));
 QpdfExecutionResult result = job
@@ -115,7 +115,7 @@ Assert.Equal(Convert.FromHexString(hex), appearance.ValueSpan.ToArray());
 public async Task FilterCountCeilingSkipsOverlayWithoutDroppingItsEncoding()
 {
 byte[] encoded = "712051>"u8.ToArray();
-byte[] overlay = Inspection.CheckTests.Assemble(Inspection.CheckTests.SinglePage("<< /Length " + encoded.Length + " /Filter /ASCIIHexDecode >>", encoded), 1);
+byte[] overlay = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length " + encoded.Length + " /Filter /ASCIIHexDecode >>", encoded), 1);
 using InMemoryQpdfHost host = HostWithTwo(BuildPdf(["q (Base) Q"]), overlay);
 QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation([
     "inputs/a.pdf", "--max-stream-filters=0", "--overlay", "inputs/o.pdf", "--", "--compress-streams=n", "--decode-level=none", "outputs/a.pdf"]), CancellationToken.None);
@@ -134,7 +134,7 @@ Assert.Contains("q (Base) Q", Encoding.ASCII.GetString(pdf));
 public async Task UndecodableOverlayWarnsAndKeepsDestinationContent(string encoding)
 {
 byte[] encoded = "ENCODED_CONTENT_BYTES"u8.ToArray();
-byte[] overlay = Inspection.CheckTests.Assemble(Inspection.CheckTests.SinglePage("<< /Length " + encoded.Length + " " + encoding + " >>", encoded), 1);
+byte[] overlay = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length " + encoded.Length + " " + encoding + " >>", encoded), 1);
 byte[] primary = BuildPdf(["q (Base) Q"]);
 (QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--", "--compress-streams=n", "--decode-level=none");
 Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
@@ -147,7 +147,7 @@ Assert.DoesNotContain("ENCODED_CONTENT_BYTES", Encoding.ASCII.GetString(pdf));
 public async Task UndecodableDestinationKeepsItsFilterAndSkipsOverlay()
 {
 byte[] encoded = "ENCODED_CONTENT_BYTES"u8.ToArray();
-byte[] primary = Inspection.CheckTests.Assemble(Inspection.CheckTests.SinglePage("<< /Length " + encoded.Length + " /Filter /UnknownFilter >>", encoded), 1);
+byte[] primary = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length " + encoded.Length + " /Filter /UnknownFilter >>", encoded), 1);
 (QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, BuildPdf(["q (Overlay) Q"])), "--overlay", "inputs/o.pdf", "--");
 Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
 Assert.Contains(result.Diagnostics, d => d.Severity == QpdfDiagnosticSeverity.Warning && d.Message.Contains("skipping overlay", StringComparison.Ordinal));

@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -96,7 +95,7 @@ public sealed class JsonGenerationTests
             case "cycle": catalog += " /Audit " + target; value = "<< /Self " + live + " /Dead 5 " + (active + 1) + " R >>"; break;
             default: throw new ArgumentException("Unknown role.", nameof(role));
         }
-        byte[] data = CheckTests.Assemble([
+        byte[] data = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R" + catalog + " >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 80 40] /Resources " + resources + " /Contents " + contents + page + " >>", null),
@@ -197,7 +196,7 @@ public sealed class JsonGenerationTests
     [InlineData("job")]
     public async Task NewDeclarationsDoNotReviveMissingSourceEdges(string route)
     {
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Old 4 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << >> >>", null)], 1);

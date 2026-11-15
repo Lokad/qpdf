@@ -10,7 +10,7 @@ public sealed class AttachmentConflictIdentityTests
     {
         string spec = "<< /Type /Filespec /F (file) /EF << /F 6 0 R >> /Bad 1 0 R >>";
         string entry = shape == "direct" ? spec : shape == "missing" ? "99 0 R" : "5 0 R";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 4 0 R >> >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null),
@@ -25,7 +25,7 @@ public sealed class AttachmentConflictIdentityTests
         host.AddInput(QpdfPath.From("input"), Fixture(shape), QpdfInputOwnership.Transfer);
         host.AddInput(QpdfPath.From("payload"), "NEW-BYTES"u8.ToArray(), QpdfInputOwnership.Transfer);
         // Import a valid key independently of the damaged primary specification.
-        byte[] source = CheckTests.Assemble([
+        byte[] source = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(key) 4 0 R] >> >> >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null),

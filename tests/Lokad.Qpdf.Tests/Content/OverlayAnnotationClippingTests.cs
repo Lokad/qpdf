@@ -2,7 +2,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -104,7 +103,7 @@ public sealed class OverlayAnnotationClippingTests
     internal static byte[] Source(string position, bool states)
     {
         string rect = position switch { "partial" => "[-20 20 20 60]", "outside" => "[-60 20 -20 60]", _ => "[20 20 60 60]" };
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [4 0 R 9 0 R] >>", null),
@@ -117,7 +116,7 @@ public sealed class OverlayAnnotationClippingTests
                 : "<< /N 5 0 R /R 5 0 R /D 6 0 R /Private 5 0 R >>", null)], 1);
     }
 
-    internal static byte[] Target() => CheckTests.Assemble([
+    internal static byte[] Target() => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
         (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 500 500] /Resources << >> >>", null)], 1);
@@ -131,7 +130,7 @@ public sealed class OverlayAnnotationClippingTests
             (4, "<< /Type /Annot /Subtype /Stamp /F 4 /Rect [-20 20 20 60] /AS /s0 /AP << /N " + states + " /R " + states + " >> >>", null)];
         foreach (int index in Enumerable.Range(0, count))
         { objects.Add((5 + index, "<< /Type /XObject /Subtype /Form /BBox [0 0 40 40] /Resources << >> /Length " + Original.Length + " >>", Original)); }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     private static QpdfObject Resolve(QpdfDocument document, QpdfObject value)

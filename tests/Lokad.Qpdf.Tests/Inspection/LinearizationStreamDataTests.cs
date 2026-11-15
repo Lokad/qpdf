@@ -37,7 +37,7 @@ public sealed class LinearizationStreamDataTests
         {
             objects.Add((page, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Resources << >> /Contents 4 0 R /Audit (" + new string('x', page) + ") >>", null));
         }
-        byte[] source = CheckTests.Assemble(objects, 1);
+        byte[] source = PdfTestDocument.Assemble(objects, 1);
         using InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("source"), source, QpdfInputOwnership.Transfer);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,

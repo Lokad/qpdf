@@ -54,7 +54,7 @@ public sealed class TypedSelectionRecoveryTests
         byte[] image = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "cmyk-8x8.jpg"));
         objects.Add((12, $"<< /Type /XObject /Subtype /Image /Width 8 /Height 8 /ColorSpace /DeviceCMYK /BitsPerComponent 8 /Filter /DCTDecode /Length {image.Length} >>", image));
         if (omittedBytes > 0) { objects.Add((13, $"<< /Length {omittedBytes} >>", new byte[omittedBytes])); }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     [Theory]

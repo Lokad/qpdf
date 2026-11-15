@@ -7,8 +7,8 @@ public sealed class FilterBoundaryTests
     internal static InMemoryQpdfHost Host(string filter, byte[] data)
     {
         InMemoryQpdfHost host = new();
-        var objects = Inspection.CheckTests.SinglePage("<< /Length " + data.Length + " /Filter /" + filter + " >>", data);
-        host.AddInput(QpdfPath.From("input"), Inspection.CheckTests.Assemble(objects, 1), QpdfInputOwnership.Transfer);
+        var objects = PdfTestDocument.SinglePage("<< /Length " + data.Length + " /Filter /" + filter + " >>", data);
+        host.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble(objects, 1), QpdfInputOwnership.Transfer);
         return host;
     }
 

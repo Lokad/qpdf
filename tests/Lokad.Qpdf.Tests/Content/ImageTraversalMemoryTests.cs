@@ -7,7 +7,6 @@ using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Content;
@@ -136,7 +135,7 @@ public sealed class ImageTraversalMemoryTests
     {
         string resources = indirectResources ? "7 0 R" : "<< /XObject 8 0 R >>";
         byte[] samples = new byte[128 * 128]; new Random(42).NextBytes(samples);
-        byte[] pdf = CheckTests.Assemble([
+        byte[] pdf = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources " + resources + " >>", null),

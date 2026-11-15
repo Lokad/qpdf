@@ -12,7 +12,7 @@ public sealed class AttachmentPreservationTests
     {
         string catalog = "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 7 0 R >>"
             + (profileRoot == "metadata" ? " /Metadata 4 0 R" : "") + " >>";
-        byte[] source = CheckTests.Assemble([
+        byte[] source = PdfTestDocument.Assemble([
             (1, catalog, null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >>" + (alias == "af" ? " /AF [5 0 R]" : "") + " >>", null),
@@ -36,7 +36,7 @@ public sealed class AttachmentPreservationTests
         InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("input"), source, QpdfInputOwnership.Transfer);
         host.AddInput(QpdfPath.From("added"), "N"u8.ToArray(), QpdfInputOwnership.Transfer);
-        host.AddInput(QpdfPath.From("base"), CheckTests.Assemble([
+        host.AddInput(QpdfPath.From("base"), PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] >>", null)], 1), QpdfInputOwnership.Transfer);

@@ -3,7 +3,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -82,7 +81,7 @@ public sealed class OverlayClippingGenerationTests
     private static byte[] Source(int rotate, int unit, bool template)
     {
         byte[] body = "/Tx BMC BT /F1 10 Tf 2 5 Td (OLD) Tj ET EMC"u8.ToArray();
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm 6 0 R >>", null), (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Rotate " + rotate + " /UserUnit " + unit + " /Resources << >> /Annots [4 0 R] >>", null),
             (4, "<< /Type /Annot /Subtype /Widget /FT /Tx /T (field) /V (NEW) /F 4 /Rect [80 40 140 60] /Private << /Original 5 0 R >>" + (template ? " /AP << /N 5 0 R >>" : "") + " >>", null),

@@ -21,7 +21,7 @@ public sealed class AppearanceResourceScopeTests
         string normal = shape switch { "stream" => "5 0 R", "states" => "<< /On 5 0 R >>", _ => "18 0 R" };
         string appearance = "/AP << /N " + normal + " /R 5 0 R /D 5 0 R /Private 15 0 R >> /AS /On";
         string xobjects = "/XObject << /Fx0 7 0 R /Fx1 7 0 R /Fx2 7 0 R /Fx3 7 0 R /Unused 7 0 R >>";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /OriginalAP 5 0 R /OriginalResources 9 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources 9 0 R /Contents 8 0 R /Annots [6 0 R] >>", null),
@@ -62,7 +62,7 @@ public sealed class AppearanceResourceScopeTests
     public async Task RetainedAppearancesKeepTheirOwnPageScopeAndAvoidPlacementNames(string resources, string shape, string operation, bool job)
     {
         using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), Fixture(resources, shape), QpdfInputOwnership.Transfer);
-        host.AddInput(QpdfPath.From("stamp"), CheckTests.Assemble(CheckTests.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray()), 1), QpdfInputOwnership.Transfer);
+        host.AddInput(QpdfPath.From("stamp"), PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray()), 1), QpdfInputOwnership.Transfer);
         bool local = resources is "local" or "reference-local", flatten = operation is "flatten" or "combined", prune = operation is "prune" or "combined";
         List<string> argv = ["input", "--compress-streams=n", "--decode-level=none"];
         Dictionary<string, object> settings = new() { ["inputFile"] = "input", ["outputFile"] = "output", ["compressStreams"] = "n", ["decodeLevel"] = "none" };
@@ -126,7 +126,7 @@ public sealed class AppearanceResourceScopeTests
         PdfStream escaped;
         using (InMemoryQpdfHost host = new())
         {
-            byte[] input = CheckTests.Assemble([
+            byte[] input = PdfTestDocument.Assemble([
                 (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>", null),
                 (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> >>", null),
                 (4, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> >>", null)], 1);
@@ -216,7 +216,7 @@ public sealed class AppearanceResourceScopeTests
     public async Task ScopePublicationFailuresPreserveTheTargetAndRefundAdmission(string phase, bool imported, bool job)
     {
         using InMemoryQpdfHost host = new();
-        byte[] blank = CheckTests.Assemble(CheckTests.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray()), 1);
+        byte[] blank = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray()), 1);
         byte[] withAppearance = Fixture("reference-null", "reference-states");
         host.AddInput(QpdfPath.From("input"), imported ? blank : withAppearance, QpdfInputOwnership.Copy);
         host.AddInput(QpdfPath.From("stamp"), imported ? withAppearance : blank, QpdfInputOwnership.Copy);

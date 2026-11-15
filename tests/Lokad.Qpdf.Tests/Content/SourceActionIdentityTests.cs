@@ -5,7 +5,6 @@ using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Content;
@@ -20,7 +19,7 @@ public sealed class SourceActionIdentityTests
     public async Task GenuineActionAliasesShareWhileOtherEventKeysStayOpaque(bool widget, bool job)
     {
         using InMemoryQpdfHost host = new();
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /URI << /Base (https://example.test/base/) >> >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [4 0 R] >>", null),
@@ -62,7 +61,7 @@ public sealed class SourceActionIdentityTests
         string prefix = absolute ? "https://example.test/base/" : "";
         string actions = string.Join(" ", Enumerable.Range(0, count).Select(i => "<< /S /URI /URI (" + prefix + "relative-" + i + ".pdf) >>"));
         using InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("input"), CheckTests.Assemble([
+        host.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /URI << /Base (https://example.test/base/) >> >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [4 0 R] >>", null),
@@ -156,7 +155,7 @@ public sealed class SourceActionIdentityTests
         string additional = identity == "direct" ? action : identity == "shared" ? "5 0 R" : "6 0 R";
         string roles = reverse ? "/AA " + additional + " /A " + active : "/A " + active + " /AA " + additional;
         string form = widget ? "/AcroForm << /Fields [4 0 R] /CO [4 0 R] /DR << /Font << /F1 7 0 R >> >> /DA (/F1 10 Tf) >>" : "";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /URI << /Base (https://example.test/base/) >> " + form + " >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [4 0 R] >>", null),

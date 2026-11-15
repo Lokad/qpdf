@@ -87,7 +87,7 @@ public sealed class AttachmentMetadataTests
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
-    internal static byte[] Fixture(string name, string parameters) => CheckTests.Assemble([
+    internal static byte[] Fixture(string name, string parameters) => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 4 0 R >> >>", null),
         (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] >>", null),
@@ -106,7 +106,7 @@ public sealed class AttachmentMetadataTests
     {
         string names = string.Join(' ', Enumerable.Range(0, count).Select(index => $"(K-{index:D3}) 5 0 R")
             .Concat(Enumerable.Range(0, malformed).Select(index => $"(zbad-{index:D3}) 7 0 R")));
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 4 0 R >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] >>", null),

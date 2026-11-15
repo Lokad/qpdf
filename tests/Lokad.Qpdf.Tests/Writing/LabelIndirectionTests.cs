@@ -19,7 +19,7 @@ public sealed class LabelIndirectionTests
         HashSet<int> numbers = objects.Select(item => item.Number).ToHashSet();
         for (int number = 1, last = numbers.Max(); number <= last; number++)
         { if (!numbers.Contains(number)) { objects.Add((number, "null", null)); } }
-        return Inspection.CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     private static QpdfObject Resolve(QpdfDocument document, QpdfObject value)

@@ -1,7 +1,6 @@
 using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -31,7 +30,7 @@ public sealed class JsonUtf16ProjectionTests
         foreach (bool fileless in route == "typed" ? new[] { false } : new[] { false, true })
         {
             using InMemoryQpdfHost host = new();
-            host.AddInput(QpdfPath.From("input"), CheckTests.Assemble([
+            host.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble([
                 (1, "<< /Type /Catalog /Pages 2 0 R /Probe <" + hex + "> >>", null),
                 (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
                 (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null)], 1), QpdfInputOwnership.Transfer);

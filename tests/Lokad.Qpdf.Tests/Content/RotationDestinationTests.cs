@@ -2,7 +2,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -94,7 +93,7 @@ public sealed class RotationDestinationTests
         for (int i = 0; i < 4; i++) { objects.Add((10 + i, i < values.Length ? values[i] : "0", null)); }
         for (int i = 14; i < 17; i++) { objects.Add((i, "null", null)); }
         objects.Add((17, "/" + mode, null));
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     internal static double[] Expected(string mode, int angle)

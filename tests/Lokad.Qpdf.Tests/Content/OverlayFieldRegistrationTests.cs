@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -62,7 +61,7 @@ public sealed class OverlayFieldRegistrationTests
     private static byte[] Source(bool parent, bool privateFirst, bool need)
     {
         string root = parent ? "8 0 R" : "4 0 R";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm 6 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots " + (privateFirst ? "[9 0 R 4 0 R]" : "[4 0 R 9 0 R]") + " >>", null),
@@ -74,7 +73,7 @@ public sealed class OverlayFieldRegistrationTests
             (9, "<< /Type /Annot /Subtype /Link /Rect [0 0 1 1] /Border [0 0 0] /Private " + root + " /OriginalAP 5 0 R /A << /S /URI /URI (https://example.test) >> >>", null)], 1);
     }
 
-    private static byte[] Target() => CheckTests.Assemble([
+    private static byte[] Target() => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
         (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null)], 1);

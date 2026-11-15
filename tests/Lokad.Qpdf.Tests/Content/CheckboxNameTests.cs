@@ -4,7 +4,6 @@ using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Content;
@@ -22,7 +21,7 @@ public sealed class CheckboxNameTests
     public async Task SynchronizationKeepsRawAppearanceKeys(string name, bool separate, bool off)
     {
         string value = off ? "Off" : "Initial";
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [" + (separate ? "8" : "5") + " 0 R] /NeedAppearances true >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Annots [5 0 R] >>", null),

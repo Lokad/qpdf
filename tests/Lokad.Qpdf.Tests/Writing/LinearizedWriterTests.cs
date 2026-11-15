@@ -75,7 +75,7 @@ public sealed class LinearizedWriterTests
         HashSet<int> authored = objects.Select(item => item.Number).ToHashSet();
         for (int number = 1; number <= 111; number++)
         { if (!authored.Contains(number)) { objects.Add((number, "null", null)); } }
-        InMemoryQpdfHost host = HostWith("inputs/a.pdf", Inspection.CheckTests.Assemble(objects, 1));
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", PdfTestDocument.Assemble(objects, 1));
         (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--linearize",
             "--object-streams=" + objectStreams, "--stream-data=preserve", "--static-id");
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);

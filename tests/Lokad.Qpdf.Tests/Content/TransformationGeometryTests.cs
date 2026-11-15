@@ -4,7 +4,6 @@ using System.Text.RegularExpressions;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -114,7 +113,7 @@ public sealed class TransformationGeometryTests
             : Qpdf.ExecuteAsync(host, new(["input", annotation ? "--flatten-annotations=all" : "--flatten-rotation", "--stream-data=uncompress", "output"]), CancellationToken.None);
 
     private static byte[] Fixture(string media, string rect, string box, string matrix)
-        => CheckTests.Assemble([
+        => PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, $"<< /Type /Page /Parent 2 0 R /MediaBox [{media}] /Rotate 90 /Resources << >> /Annots [5 0 R] /Contents 4 0 R >>", null),

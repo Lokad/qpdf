@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -25,7 +24,7 @@ public sealed class JsonNameTests
     {
         byte[] raw = Convert.FromHexString(hex);
         string name = "/" + string.Concat(raw.Select(value => "#" + value.ToString("X2", System.Globalization.CultureInfo.InvariantCulture)));
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R " + name + " 42 /Audit " + name + " >>", null),
             (2, "<< /Type /Pages /Kids [] /Count 0 >>", null)], 1);
         using InMemoryQpdfHost source = new(); source.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Copy);

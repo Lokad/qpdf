@@ -21,7 +21,7 @@ public sealed class ExtensionVersionTests
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 20] /Resources << >> >>", null),
         ];
         if (indirect) { objects.AddRange([(4, "null", null), (5, extensions, null), (6, adbe, null), (7, level.ToString(), null), (8, "/1.7", null)]); }
-        byte[] bytes = CheckTests.Assemble(objects, 1); bytes[7] = (byte)'7'; return bytes;
+        byte[] bytes = PdfTestDocument.Assemble(objects, 1); bytes[7] = (byte)'7'; return bytes;
     }
 
     public static IEnumerable<object[]> WriterCases()
@@ -261,7 +261,7 @@ public sealed class ExtensionVersionTests
     public async Task WideVendorDeclarationsRefuseUnderLocalAndSharedAdmission(bool shared)
     {
         string vendors = string.Concat(Enumerable.Range(0, 4096).Select(index => "/V" + index + " << /ExtensionLevel 1 >> "));
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Extensions << " + vendors + " >> >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 20] >>", null)], 1);
@@ -290,7 +290,7 @@ public sealed class ExtensionVersionTests
     [InlineData("4 0 R", "[4 0 R]")]
     public async Task MalformedAdobeLevelsRespectBoundedResolutionAndCatalogDropPolicy(string level, string extra)
     {
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Extensions << /ADBE << /BaseVersion /1.7 /ExtensionLevel " + level + " >> /ACME << /BaseVersion /1.7 /ExtensionLevel 42 >> >> >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 20] >>", null),

@@ -22,7 +22,7 @@ public sealed class SplitPreparationTests
         { objects.Add((page, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 20] /Resources << /Extra [" + refs + "] >> >>", null)); }
         for (int index = 0; index < 512; index++) { objects.Add((19 + index, "<< /V " + index + " >>", null)); }
         using InMemoryQpdfHost storage = new();
-        storage.AddInput(QpdfPath.From("input"), CheckTests.Assemble(objects, 1), QpdfInputOwnership.Transfer);
+        storage.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble(objects, 1), QpdfInputOwnership.Transfer);
         RecordingMemoryBudget root = new(1310720);
         using (IMemoryScope owner = root.CreateScope())
         using (CancellationTokenSource cancellation = new())

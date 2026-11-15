@@ -3,7 +3,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -95,7 +94,7 @@ public sealed class PreservationGraphTests
     [InlineData(true, true)]
     public async Task NonzeroAndStaleGenerationsKeepTheirIdentityPolicy(bool job, bool stale)
     {
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null),
             (4, "<< /Tag (A) /Peer 5 " + (stale ? "0" : "2") + " R >>", null),
@@ -109,7 +108,7 @@ public sealed class PreservationGraphTests
         else { Assert.Equal(tags["B"].Reference, Assert.IsType<PdfReference>(Get(tags["A"].Value, "Peer"))); }
     }
 
-    internal static byte[] RollbackFixture() => CheckTests.Assemble([
+    internal static byte[] RollbackFixture() => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Keep 5 0 R >>", null), (4, "null", null),
         (5, "<< /Tag (Prior) /Data (existing) >>", null),
@@ -128,7 +127,7 @@ public sealed class PreservationGraphTests
         using (System.IO.Compression.ZLibStream compressor = new(encoded, System.IO.Compression.CompressionLevel.Optimal, true))
         { compressor.Write("q Q"u8); }
         byte[] data = encoded.ToArray();
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null),
             (4, "null", null), (5, "<< /Tag (A) /Filter /FlateDecode /DecodeParms 6 0 R /Length " + data.Length + " >>", data),
@@ -153,7 +152,7 @@ public sealed class PreservationGraphTests
     [InlineData(true, true)]
     public async Task StrictMalformedLoadsStillFailWithoutReplacingOutput(bool job, bool reachable)
     {
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents " + (reachable ? "5" : "4") + " 0 R >>", null),
             (4, "<< /Length 3 >>", "q Q"u8.ToArray()), (5, "<< /Bad [", null)], 1);

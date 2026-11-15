@@ -1,13 +1,12 @@
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class PageParentTests
 {
-    private static byte[] Source() => CheckTests.Assemble([
+    private static byte[] Source() => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [6 0 R] >> /Audit << /Private 10 0 R /Field 6 0 R /Popup 9 0 R >> >>", null),
         (2, "<< /Type /Pages /Count 2 /Kids [8 0 R] >>", null),
         (3, "<< /Type /Page /Parent 8 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [5 0 R 11 0 R 9 0 R] >>", null),

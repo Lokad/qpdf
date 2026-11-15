@@ -75,7 +75,7 @@ public sealed class SignatureSelectionTests
             objects[2] = (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> /Audit 4 0 R >>", null);
             objects[3] = (4, "<< /T (Hidden) /FT /Sig /V << /Contents <00> /ByteRange [0 0 0 0] >> >>", null);
         }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     public static IEnumerable<object[]> SelectionCases()
@@ -170,7 +170,7 @@ public sealed class SignatureSelectionTests
     [InlineData("job")]
     public async Task PrivateValueAndParentCyclesAreNotFields(string route)
     {
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Private 4 0 R >>", null),

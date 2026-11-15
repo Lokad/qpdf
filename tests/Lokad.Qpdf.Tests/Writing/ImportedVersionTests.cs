@@ -1,7 +1,6 @@
 using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -180,7 +179,7 @@ public sealed class ImportedVersionTests
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << >> >>", null),
             (4, "null", null),
         ];
-        byte[] bytes = CheckTests.Assemble(objects, 1); bytes[7] = (byte)'0';
+        byte[] bytes = PdfTestDocument.Assemble(objects, 1); bytes[7] = (byte)'0';
         using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), bytes, QpdfInputOwnership.Transfer);
         QpdfExecutionResult result = job
             ? await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new { inputFile = "input", outputFile = "output" }), CancellationToken.None)
@@ -240,7 +239,7 @@ public sealed class ImportedVersionTests
             objects.Add((6, "<< /Type /Filespec /F (K) /EF << /F 7 0 R >> >>", null));
             objects.Add((7, "<< /Length 1 >>", [19]));
         }
-        byte[] bytes = CheckTests.Assemble(objects, 1);
+        byte[] bytes = PdfTestDocument.Assemble(objects, 1);
         bytes[5] = (byte)header[0]; bytes[7] = (byte)header[2]; return bytes;
     }
 }

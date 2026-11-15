@@ -6,7 +6,6 @@ using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Tests.Writing;
 
 namespace Lokad.Qpdf.Tests.Content;
@@ -41,7 +40,7 @@ public sealed class AnnotationArrayIsolationTests
         objects.Add((on, "<< /Type /XObject /Subtype /Form /BBox [0 0 80 20] /Length " + appearance.Length + " >>", appearance));
         objects.Add((off, "<< /Type /XObject /Subtype /Form /BBox [0 0 80 20] /Length 3 >>", "q Q"u8.ToArray()));
         objects.Add((content, "<< /Length 3 >>", "q Q"u8.ToArray()));
-        byte[] data = CheckTests.Assemble(objects, 1);
+        byte[] data = PdfTestDocument.Assemble(objects, 1);
         return alias == "info" ? Encoding.ASCII.GetBytes(Encoding.ASCII.GetString(data).Replace("/Root 1 0 R >>", "/Root 1 0 R /Info " + spec + " 0 R >>", StringComparison.Ordinal)) : data;
     }
 

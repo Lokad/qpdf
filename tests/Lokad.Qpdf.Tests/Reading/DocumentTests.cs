@@ -3,7 +3,6 @@ using System.Runtime.InteropServices;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Reading;
 
@@ -11,9 +10,9 @@ public sealed class DocumentTests
 {
     private static byte[] SmallStreamWithLargeUnusedInput(byte[] payload)
     {
-        List<(int, string, byte[]?)> objects = CheckTests.SinglePage($"<< /Length {payload.Length} >>", payload);
+        List<(int, string, byte[]?)> objects = PdfTestDocument.SinglePage($"<< /Length {payload.Length} >>", payload);
         objects.Add((6, new string(' ', 2 * 1024 * 1024) + "null", null));
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     [Theory]
@@ -102,7 +101,7 @@ public sealed class DocumentTests
     [InlineData("/")]
     public async Task EscapedPageTypesAndEmptyCatalogTypeKeepReaderSemantics(string catalogType)
     {
-        byte[] bytes = CheckTests.Assemble([
+        byte[] bytes = PdfTestDocument.Assemble([
             (1, "<< /Ty#70e " + catalogType + " /Pages 2 0 R /Version /1.7 >>", null),
             (2, "<< /Ty#70e /P#61ges /K#69ds [3 0 R] /Count 1 >>", null),
             (3, "<< /Ty#70e /P#61ge /Parent 2 0 R /MediaBox [0 0 100 100] >>", null),

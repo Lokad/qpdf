@@ -102,7 +102,7 @@ public sealed class ExceptionalCommandMemoryTests
         if (route == "inspection")
         {
             byte[] encoded = Encoding.ASCII.GetBytes(Convert.ToHexString(new byte[65536]) + ">");
-            return CheckTests.Assemble([
+            return PdfTestDocument.Assemble([
                 (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
                 (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
                 (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 1 1] /Contents 4 0 R >>", null),
@@ -118,7 +118,7 @@ public sealed class ExceptionalCommandMemoryTests
         {
             using MemoryStream packed = new();
             using (ZLibStream compressor = new(packed, CompressionLevel.Fastest, true)) { compressor.Write(new byte[131072]); }
-            return CheckTests.Assemble([
+            return PdfTestDocument.Assemble([
                 (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(data) 4 0 R] >> >> >>", null),
                 (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
                 (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 1 1] >>", null),
@@ -129,7 +129,7 @@ public sealed class ExceptionalCommandMemoryTests
         if (route == "appearances")
         {
             byte[] appearance = Encoding.ASCII.GetBytes("q BT ET Q");
-            return CheckTests.Assemble([
+            return PdfTestDocument.Assemble([
                 (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] /NeedAppearances true >> >>", null),
                 (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
                 (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Annots [4 0 R] >>", null),
@@ -145,9 +145,9 @@ public sealed class ExceptionalCommandMemoryTests
             using (ZLibStream encoded = new(result, CompressionLevel.Fastest, true)) { encoded.Write(raw); }
             return result.ToArray();
         }
-        List<(int Number, string Dict, byte[]? StreamData)> objects = CheckTests.SinglePage("<< /Length 0 >>", []);
+        List<(int Number, string Dict, byte[]? StreamData)> objects = PdfTestDocument.SinglePage("<< /Length 0 >>", []);
         objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /Audit (" + new string('A', 131072) + ") >>", null);
-        byte[] pdf = CheckTests.Assemble(objects, 1);
+        byte[] pdf = PdfTestDocument.Assemble(objects, 1);
         if (route != "qdf") { return pdf; }
         using InMemoryQpdfHost prepare = new();
         prepare.AddInput(Input, pdf, QpdfInputOwnership.Transfer);
@@ -281,12 +281,12 @@ public sealed class ExceptionalCommandMemoryTests
     public async Task QdfMemberBufferAdmissionCanFailAfterTheInputReadAndRefundItsAttempt()
     {
         const int count = 2000;
-        List<(int Number, string Dict, byte[]? StreamData)> objects = CheckTests.SinglePage("<< /Length 0 >>", []);
+        List<(int Number, string Dict, byte[]? StreamData)> objects = PdfTestDocument.SinglePage("<< /Length 0 >>", []);
         objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /Audit [" +
             string.Join(' ', Enumerable.Range(6, count).Select(number => number + " 0 R")) + "] >>", null);
         for (int number = 6; number < 6 + count; number++) { objects.Add((number, "(kept)", null)); }
         using InMemoryQpdfHost storage = new();
-        storage.AddInput(Input, CheckTests.Assemble(objects, 1), QpdfInputOwnership.Transfer);
+        storage.AddInput(Input, PdfTestDocument.Assemble(objects, 1), QpdfInputOwnership.Transfer);
         QpdfExecutionResult emitted = await Qpdf.ExecuteAsync(storage,
             new QpdfCommandInvocation([Input.Value, "--qdf", "--object-streams=generate", Output.Value]), CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, emitted.Status);

@@ -9,7 +9,7 @@ public sealed class FormIdentityInspectionTests
     {
         int parentNumber = relation == "different-object" ? 6 : 4;
         int parentGeneration = relation == "wrong-generation" ? generation + 1 : parentNumber == 4 ? generation : 0;
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [" + (registered ? "4 " + generation + " R" : "") + "] >> >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 80 40] /Resources << >> /Annots [5 0 R] >>", null),

@@ -2,7 +2,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -168,7 +167,7 @@ public sealed class ExplicitSplitLabelTests
             (10, "<< /Nums [0 11 0 R] >>", null),
             (11, "<< " + (kind == "numbered" ? "/S /D " : "") + "/P 12 0 R /St "
                 + (kind == "overflow" ? "9223372036854775807" : "7") + " >>", null), (12, "(Source-)", null)]);
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     private static QpdfObject Resolve(QpdfDocument document, QpdfObject value)

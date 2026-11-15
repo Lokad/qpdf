@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -40,7 +39,7 @@ public sealed class FormSourceContextTests
         }
         using InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("input"), Fixture(false, "absent", false, true), QpdfInputOwnership.Copy);
-        host.AddInput(QpdfPath.From("source"), CheckTests.Assemble(objects, 1), QpdfInputOwnership.Copy);
+        host.AddInput(QpdfPath.From("source"), PdfTestDocument.Assemble(objects, 1), QpdfInputOwnership.Copy);
         List<string> argv = ["input"];
         Dictionary<string, object> settings = new() { ["inputFile"] = "input", ["outputFile"] = "output" };
         if (operation == "merge")
@@ -114,7 +113,7 @@ public sealed class FormSourceContextTests
             objects.Add((15, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 100] /Resources << >> /Contents 4 0 R /Annots [14 0 R] /AuditDa 8 0 R >>", null));
         }
         if (shape == "local-appearance") { objects.Add((14, "<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman /Encoding /WinAnsiEncoding >>", null)); }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     public static IEnumerable<object[]> Cases()

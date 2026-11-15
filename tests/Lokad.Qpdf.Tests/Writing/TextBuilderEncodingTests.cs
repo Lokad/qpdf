@@ -33,7 +33,7 @@ public sealed class TextBuilderEncodingTests
     private static InMemoryQpdfHost Storage()
     {
         InMemoryQpdfHost storage = new();
-        storage.AddInput(QpdfPath.From("input"), CheckTests.Assemble(CheckTests.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray()), 1), QpdfInputOwnership.Transfer);
+        storage.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray()), 1), QpdfInputOwnership.Transfer);
         storage.AddInput(QpdfPath.From("payload"), "X"u8.ToArray(), QpdfInputOwnership.Transfer); return storage;
     }
 

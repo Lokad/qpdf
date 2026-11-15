@@ -2,14 +2,13 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Json;
 using Lokad.Qpdf.Runtime;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class AcroFormJsonTests
 {
-    internal static byte[] Fixture(string widget, string terminal, string group) => CheckTests.Assemble([
+    internal static byte[] Fixture(string widget, string terminal, string group) => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] /Q 2 >> >>", null),
         (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Annots [7 0 R] >>", null),

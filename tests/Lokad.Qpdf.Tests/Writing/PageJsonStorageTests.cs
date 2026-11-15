@@ -2,14 +2,13 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Json;
 using Lokad.Qpdf.Runtime;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class PageJsonStorageTests
 {
-    internal static byte[] Fixture(string contents, string array, string resources) => CheckTests.Assemble([
+    internal static byte[] Fixture(string contents, string array, string resources) => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
         (2, "<< /Type /Pages /Kids [3 0 R 7 0 R] /Count 2 /Resources << /XObject << /Inherited 4 0 R >> >> >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Contents " + contents + " " + resources + " >>", null),

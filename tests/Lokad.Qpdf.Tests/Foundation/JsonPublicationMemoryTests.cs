@@ -30,7 +30,7 @@ public sealed class JsonPublicationMemoryTests
         using IMemoryScope durable = root.CreateScope();
         using IMemoryScope caller = root.CreateScope();
         using InMemoryQpdfHost storage = new(QpdfLimits.Default, null, durable);
-        storage.AddInput(Input, CheckTests.Assemble([
+        storage.AddInput(Input, PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Private 4 0 R >>", null),
@@ -68,7 +68,7 @@ public sealed class JsonPublicationMemoryTests
             Root = new(limit); _storageOwner = Root.CreateScope();
             Storage = new(QpdfLimits.Default, null, _storageOwner);
             byte[] data = new byte[1048576]; data.AsSpan().Fill((byte)'A');
-            Storage.AddInput(Input, CheckTests.Assemble(CheckTests.SinglePage("<< /Length 1048576 >>", data), 1), QpdfInputOwnership.Transfer);
+            Storage.AddInput(Input, PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 1048576 >>", data), 1), QpdfInputOwnership.Transfer);
             Storage.AddInput(QpdfPath.From("settings"), "{}"u8.ToArray(), QpdfInputOwnership.Transfer);
             Storage.AddInput(QpdfPath.From("arguments"), "input\n--json=2\n--json-stream-data=inline\n--\noutput\n"u8.ToArray(), QpdfInputOwnership.Transfer);
         }

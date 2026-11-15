@@ -28,7 +28,7 @@ public sealed class JsonNameAuthoringTests
     private static InMemoryQpdfHost Host(byte[] json)
     {
         InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("json"), json, QpdfInputOwnership.Transfer);
-        host.AddInput(QpdfPath.From("input"), CheckTests.Assemble([
+        host.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null)], 1), QpdfInputOwnership.Transfer);
         return host;
@@ -115,7 +115,7 @@ public sealed class JsonNameAuthoringTests
     [MemberData(nameof(RetainedSourceNames))]
     public async Task MalformedSourceNamesKeepExistingRecoveryPolicy(string route, string role, bool qdf)
     {
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> "
                 + (role == "key" ? "/A#00B 42" : "/Audit /A#00B") + " >>", null)], 1);

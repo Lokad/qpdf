@@ -2,7 +2,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -29,7 +28,7 @@ public sealed class OverlayAppearanceIdentityTests
         using IMemoryScope owner = budget.CreateScope();
         using InMemoryQpdfHost host = new(QpdfLimits.Default, null, owner);
         host.AddInput(QpdfPath.From("source"), Fixture(shape, resources, matrix, mixedFlags), QpdfInputOwnership.Transfer);
-        host.AddInput(QpdfPath.From("input"), CheckTests.Assemble([
+        host.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] /Resources << >> >>", null)], 1), QpdfInputOwnership.Transfer);
@@ -108,7 +107,7 @@ public sealed class OverlayAppearanceIdentityTests
         string ap = shape is "container" or "shared-states" ? "8 0 R" : header;
         string Annot(int flags) => "<< /Type /Annot /Subtype /Stamp /Rect [10 20 40 40] /AS /On /F " + flags
             + " /AP " + ap + " /Private 7 0 R /PrivateAP 8 0 R /PrivateStates 9 0 R >>";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Resources << /Font << /F1 10 0 R >> >> /Annots [5 0 R 6 0 R] >>", null),

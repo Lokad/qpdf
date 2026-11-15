@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -42,7 +41,7 @@ public sealed class InlineConsumerScopeTests
             "glyph" => "BT /F 100 Tf 0 0 Td (A) Tj ET"u8.ToArray(),
             _ => "q Q"u8.ToArray(),
         };
-        byte[] fixture = CheckTests.Assemble([
+        byte[] fixture = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AuditOriginal 5 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Resources " + resources + " /Contents 4 0 R " + (route == "appearance" ? "/Annots [7 0 R]" : "") + " >>", null),

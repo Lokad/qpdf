@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
@@ -191,9 +190,9 @@ public sealed class PublicationAdmissionTests
     {
         byte[] random = new byte[35000]; new Random(1729).NextBytes(random);
         byte[] body = Encoding.ASCII.GetBytes("%" + Convert.ToHexString(random) + "\n");
-        List<(int Number, string Dict, byte[]? StreamData)> objects = CheckTests.SinglePage("<< /Length " + body.Length + " >>", body);
+        List<(int Number, string Dict, byte[]? StreamData)> objects = PdfTestDocument.SinglePage("<< /Length " + body.Length + " >>", body);
         objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /Duplicate 1 /Duplicate 2 >>", null);
-        byte[] pdf = CheckTests.Assemble(objects, 1);
+        byte[] pdf = PdfTestDocument.Assemble(objects, 1);
         int lateFailures = 0;
         // Fixed ceilings span the observed overlap of successive prepared outputs.
         // Weak retirement can move an individual boundary. Every outcome must

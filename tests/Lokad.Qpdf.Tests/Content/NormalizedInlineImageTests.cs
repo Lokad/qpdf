@@ -3,7 +3,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -33,7 +32,7 @@ public sealed class NormalizedInlineImageTests
         string header = "q BI /W " + (sample == "asciihex" ? "4" : "8") + " /H 1 /BPC 8 /CS /G "
             + (sample == "asciihex" ? "/F /AHx " : string.Empty);
         byte[] content = [.. Encoding.ASCII.GetBytes(header), .. opaque, .. " Q\n"u8];
-        byte[] fixture = CheckTests.Assemble([
+        byte[] fixture = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R >>", null),

@@ -17,7 +17,7 @@ public sealed class PageTreeIndirectionTests
         if (variant == "kids-stale") { kids = "9 1 R"; }
         string count = variant is "count" or "all" ? "11 0 R" : "2";
         if (variant == "bad-type") { catalog = "6 0 R"; }
-        return CheckTests.Assemble(
+        return PdfTestDocument.Assemble(
         [
             (1, "<< /Type " + catalog + " /Pages 2 0 R >>", null),
             (2, "<< /Type " + pages + " /Kids " + kids + " /Count " + count + " >>", null),

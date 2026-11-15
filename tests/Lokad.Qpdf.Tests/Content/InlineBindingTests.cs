@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -21,7 +20,7 @@ public sealed class InlineBindingTests
             "indirect-color" => "/Resources << /Font << /F1 9 0 R >> /ColorSpace 12 0 R >>",
             _ => "/Resources << /Font << /F1 9 0 R >> /ColorSpace << /CS1 /DeviceRGB >> >>"
         };
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Count 2 /Kids [3 0 R 6 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Resources << /Font << /F1 9 0 R >> /ColorSpace << /CS1 /DeviceRGB >> /XObject << /Fm 5 0 R >> >> /Contents 4 0 R >>", null),
             (4, "<< /Length 7 >>", "/Fm Do\n"u8.ToArray()),

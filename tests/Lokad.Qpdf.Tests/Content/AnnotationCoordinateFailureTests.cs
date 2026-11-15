@@ -4,7 +4,6 @@ using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -42,7 +41,7 @@ public sealed class AnnotationCoordinateFailureTests
         using (IMemoryScope owner = budget.CreateScope())
         using (InMemoryQpdfHost host = new(QpdfLimits.Default, null, owner))
         {
-            byte[] source = CheckTests.Assemble([
+            byte[] source = PdfTestDocument.Assemble([
                 (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
                 (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
                 (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Rotate 90 "
@@ -50,7 +49,7 @@ public sealed class AnnotationCoordinateFailureTests
                 (4, "<< /Type /Annot /Subtype /" + subtype + " /Rect [10 20 40 40] "
                     + (key is "CO" ? "/Cap true " : "") + "/" + key + " 5 0 R >>", null),
                 (5, value, null)], 1);
-            byte[] target = CheckTests.Assemble([
+            byte[] target = PdfTestDocument.Assemble([
                 (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
                 (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
                 (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 400] /Resources << >> >>", null)], 1);

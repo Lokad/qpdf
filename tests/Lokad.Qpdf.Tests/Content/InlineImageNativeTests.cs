@@ -5,7 +5,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -156,7 +155,7 @@ public sealed class InlineImageNativeTests
         using (ZLibStream encoder = new(encoded, CompressionLevel.Optimal, true))
         { encoder.Write("q /Tag BMC EMC Q\nBI /W 4 /H 1 /BPC 8 /CS /G ID abcd EI\n"u8); }
         byte[] data = encoded.ToArray();
-        byte[] fixture = CheckTests.Assemble(
+        byte[] fixture = PdfTestDocument.Assemble(
         [
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),

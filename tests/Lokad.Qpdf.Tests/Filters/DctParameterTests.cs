@@ -3,7 +3,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Image;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Filters;
 
@@ -197,7 +196,7 @@ public sealed class DctParameterTests
         };
         byte[] encoded = form == "chain" ? Encoding.ASCII.GetBytes(Convert.ToHexString(Jpeg) + ">") : Jpeg;
         byte[] content = "q 32 0 0 32 0 0 cm /Im0 Do Q\n"u8.ToArray();
-        byte[] pdf = CheckTests.Assemble([
+        byte[] pdf = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 32 32] /Resources << /XObject << /Im0 5 0 R >> >> /Contents 4 0 R >>", null),
             (4, $"<< /Length {content.Length} >>", content),

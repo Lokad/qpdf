@@ -2,14 +2,13 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
 public sealed class ResourcePruningScopeTests
 {
     private static byte[] Fixture(byte[] page, string contents, string resources, byte[]? form, string formHeader, bool inherited)
-        => CheckTests.Assemble([
+        => PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 " + (inherited ? "/Resources 9 0 R" : "") + " >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents " + contents + " " + (inherited ? "" : "/Resources 9 0 R") + " >>", null),
@@ -139,7 +138,7 @@ public sealed class ResourcePruningScopeTests
         string parentResources = "<< /XObject << /Child 6 0 R /Im 7 0 R /Unused 8 0 R >> >>";
         // The missing page declarations are deliberately incomplete. The legacy
         // enclosing-scope use still follows our conservative preservation policy.
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << /XObject << /Parent 5 0 R >> >> /Contents 4 0 R >>", null),

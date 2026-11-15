@@ -2,7 +2,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Reading;
 
@@ -19,7 +18,7 @@ public sealed class ObjectDefinitionPublicationTests
         string second = shape == "cycle" ? "6 0 R" : "<< /Marker (Keep) >>";
         const string extras = "/Resources << >> /Audit 6 0 R";
         return compressed ? ReaderAcceptanceTests.ObjectStreamPdf(body, second, true, true, null, extras)
-            : CheckTests.Assemble([
+            : PdfTestDocument.Assemble([
                 (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
                 (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
                 (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] " + extras + " >>", null),

@@ -2,7 +2,6 @@ using System.IO.Compression;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -58,7 +57,7 @@ public sealed class LogicalContentPartitionTests
             objects.Add((metadataNumber, $"<< /Type /Metadata /Subtype /XML /KeepStream 4 0 R /KeepArray {arrayNumber} 0 R /Length 7 >>", "<root/>"u8.ToArray()));
             objects.Add((fileNumber, "<< /Type /Filespec /F (content.bin) /EF << /F 4 0 R >> >>", null));
         }
-        return (CheckTests.Assemble(objects, 1), parts);
+        return (PdfTestDocument.Assemble(objects, 1), parts);
     }
 
     [Theory]

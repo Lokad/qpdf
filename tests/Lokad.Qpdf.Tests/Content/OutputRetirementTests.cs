@@ -2,7 +2,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -82,7 +81,7 @@ public sealed class OutputRetirementTests
         string catalog = "<< /Type /Catalog /Pages 2 0 R" + (alias == "catalog" ? " /Independent 5 0 R" : "")
             + (alias == "attachment" ? " /Names << /EmbeddedFiles << /Names [(K) 7 0 R] >> >>" : "") + " >>";
         byte[] payload = new byte[16384]; Array.Fill(payload, (byte)127);
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, catalog, null), (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R /Resources <<"
                 + (pruning ? " /XObject << /Unused 5 0 R >>" : "") + " >>" + (pruning ? "" : " /Annots [5 0 R]") + " >>", null),

@@ -2,7 +2,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -73,7 +72,7 @@ public sealed class AppearanceFontReadinessTests
         string local = binding switch
         { "null" => "/F1 null", "indirect-null" => "/F1 8 0 R", "malformed" => "/F1 42", _ => "" };
         string defaults = binding == "malformed" ? "/DR << /Font << /F1 9 0 R >> >>" : "";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm 6 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [4 0 R] >>", null),
@@ -86,7 +85,7 @@ public sealed class AppearanceFontReadinessTests
             (8, "null", null), (9, "<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>", null)], 1);
     }
 
-    private static byte[] Target() => CheckTests.Assemble([
+    private static byte[] Target() => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [] /DR << /Font << /F1 4 0 R >> >> >> >>", null),
         (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null),

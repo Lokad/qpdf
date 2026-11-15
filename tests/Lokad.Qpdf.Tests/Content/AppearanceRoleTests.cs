@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -14,7 +13,7 @@ public sealed class AppearanceRoleTests
     {
         string type = subtype switch { "absent" => "", "null" => "/Subtype null", "other" => "/Subtype /Other", "reference" => "/Subtype 12 0 R", _ => "/Subtype /Form" };
         string normal = shape switch { "stream" => "5 0 R", "states" => "<< /On 5 0 R >>", _ => "9 0 R" };
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /OriginalAP 5 0 R /OriginalPrivate 8 0 R /OriginalStates 10 0 R /OriginalCycle 11 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R /Annots [6 0 R] /PrivatePayload 5 0 R >>", null),

@@ -32,7 +32,7 @@ public sealed class InlineResourceDefaultsTests
         int last = objects.Max(item => item.Number);
         for (int number = 5; number < last; number++)
         { if (!objects.Any(item => item.Number == number)) { objects.Add((number, "42", null)); } }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     private static async Task<(InMemoryQpdfHost Host, QpdfExecutionResult Result)> Execute(
@@ -347,7 +347,7 @@ public sealed class InlineResourceDefaultsTests
     [InlineData("mixed")]
     public async Task RepairsOnUnselectedPagesRemainVisible(string route)
     {
-        byte[] input = CheckTests.Assemble(
+        byte[] input = PdfTestDocument.Assemble(
         [
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Count 2 /Kids [3 0 R 5 0 R] >>", null),

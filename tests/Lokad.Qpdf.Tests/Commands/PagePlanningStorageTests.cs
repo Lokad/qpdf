@@ -5,7 +5,6 @@ using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Commands;
@@ -106,7 +105,7 @@ public sealed class PagePlanningStorageTests
     public async Task DuplicateSelectionsRotateIndependentlyFromTheInheritedValue(string route)
     {
         using InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("input"), CheckTests.Assemble([
+        host.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 /Rotate 90 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 20] >>", null)], 1), QpdfInputOwnership.Transfer);

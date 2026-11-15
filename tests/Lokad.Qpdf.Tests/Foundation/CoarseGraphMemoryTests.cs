@@ -5,7 +5,6 @@ using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
@@ -133,7 +132,7 @@ public sealed class CoarseGraphMemoryTests
         using IMemoryScope owner = root.CreateScope();
         using InMemoryQpdfHost storage = new();
         QpdfPath input = QpdfPath.From("input");
-        storage.AddInput(input, CheckTests.Assemble(CheckTests.SinglePage("<< /Length 0 >>", []), 1), QpdfInputOwnership.Transfer);
+        storage.AddInput(input, PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 0 >>", []), 1), QpdfInputOwnership.Transfer);
         QpdfDocument document = await QpdfDocument.OpenAsync(new MemoryHost(storage, owner), input, CancellationToken.None);
         PdfVersion version = document.HeaderVersion;
         await document.DisposeAsync();
@@ -160,10 +159,10 @@ public sealed class CoarseGraphMemoryTests
         using IMemoryScope owner = root.CreateScope();
         using InMemoryQpdfHost storage = new();
         QpdfPath input = QpdfPath.From("input");
-        List<(int Number, string Dict, byte[]? StreamData)> objects = CheckTests.SinglePage("<< /Length 0 >>", []);
+        List<(int Number, string Dict, byte[]? StreamData)> objects = PdfTestDocument.SinglePage("<< /Length 0 >>", []);
         objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /Large (" + new string('A', length) + ") >>", null);
         if (fail) { objects[1] = (2, "<< /Type /Pages /Count 1 /Kids [2 0 R] >>", null); }
-        string pdf = Encoding.ASCII.GetString(CheckTests.Assemble(objects, 1));
+        string pdf = Encoding.ASCII.GetString(PdfTestDocument.Assemble(objects, 1));
         pdf = pdf.Replace("trailer\n<<", "trailer\n<< /Extra (" + new string('B', length) + ") ", StringComparison.Ordinal);
         storage.AddInput(input, Encoding.ASCII.GetBytes(pdf), QpdfInputOwnership.Transfer);
         MemoryHost host = new(storage, owner);
@@ -196,7 +195,7 @@ public sealed class CoarseGraphMemoryTests
     {
         using InMemoryQpdfHost storage = new();
         QpdfPath input = QpdfPath.From("input");
-        storage.AddInput(input, CheckTests.Assemble(CheckTests.SinglePage("<< /Length 0 >>", []), 1), QpdfInputOwnership.Transfer);
+        storage.AddInput(input, PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 0 >>", []), 1), QpdfInputOwnership.Transfer);
         MemoryHost host = new(storage, budget);
         QpdfDocument document = await QpdfDocument.OpenAsync(host, input, CancellationToken.None);
         PdfDictionary page = Assert.IsType<PdfDictionary>(document.GetObject(3));

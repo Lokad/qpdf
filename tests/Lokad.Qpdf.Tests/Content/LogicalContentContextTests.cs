@@ -1,7 +1,6 @@
 using System.Text;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -14,7 +13,7 @@ public sealed class LogicalContentContextTests
     {
         string Page(bool invalid) => "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources "
             + (invalid && !standalone ? "10 0 R" : "9 0 R") + " /Contents " + (invalid && standalone ? "5 0 R" : "6 0 R") + " >>";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AuditArray 6 0 R /AuditTail 5 0 R >>", null),
             (2, "<< /Type /Pages /Count 3 /Kids [3 0 R 7 0 R 8 0 R] >>", null),
             (3, Page(firstInvalid), null), (4, "<< /Length " + Header.Length + " >>", Header),
@@ -81,7 +80,7 @@ public sealed class LogicalContentContextTests
     {
         byte[] first = kind == "literal" ? "BT /F1 12 Tf (A\r"u8.ToArray() : "BT /F1 12 Tf <4142"u8.ToArray();
         byte[] last = kind == "literal" ? "B) Tj ET\n"u8.ToArray() : "4344> Tj ET\n"u8.ToArray();
-        byte[] source = CheckTests.Assemble([
+        byte[] source = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Audit 6 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 6 0 R >>", null),
@@ -113,7 +112,7 @@ public sealed class LogicalContentContextTests
         byte[] prefix = "q BI /W 1 /H 1 /BPC 8 /CS /RGB"u8.ToArray();
         byte[] encoded = filter == "RunLengthDecode" ? [(byte)(prefix.Length - 1), .. prefix, 128] : prefix;
         string header = filter == "external" ? "/F (unavailable)" : "/Filter /" + filter;
-        byte[] source = CheckTests.Assemble([
+        byte[] source = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents [4 0 R 5 0 R] >>", null),
             (4, "<< /Length " + encoded.Length + " " + header + " >>", encoded), (5, "<< /Length " + Tail.Length + " >>", Tail)], 1);
@@ -142,7 +141,7 @@ public sealed class LogicalContentContextTests
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 5 0 R >>", null),
             (4, "<< /Length " + good.Length + " >>", good), (5, "[4 0 R 6 0 R]", null), (6, "<< /Length 1 >>", "("u8.ToArray())];
         if (laterPage) { objects.Add((7, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R >>", null)); }
-        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), CheckTests.Assemble(objects, 1), QpdfInputOwnership.Transfer);
+        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble(objects, 1), QpdfInputOwnership.Transfer);
         List<string> args = ["input", "--normalize-content=y", "--stream-data=preserve", "--compress-streams=n", "--remove-unreferenced-resources=no"];
         Dictionary<string, object> settings = new() { ["inputFile"] = "input", ["outputFile"] = "output", ["normalizeContent"] = "y", ["streamData"] = "preserve", ["compressStreams"] = "n", ["removeUnreferencedResources"] = "no" };
         if (preserve) { args.Add("--preserve-unreferenced"); settings["preserveUnreferenced"] = true; }

@@ -5,7 +5,6 @@ using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -227,6 +226,6 @@ public sealed class OverlayParentTests
             objects.Add((number, "<< /T (F" + index + ")" + (index == 0 ? " /FT /Tx" : " /Parent " + (number - 1) + " 0 R")
                 + (index + 1 < count ? " /Kids [" + (number + 1) + " 0 R]" : " /Type /Annot /Subtype /Widget /P 3 0 R /Rect [0 0 10 10]") + " >>", null));
         }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 }

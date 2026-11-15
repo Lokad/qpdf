@@ -5,7 +5,6 @@ using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -38,7 +37,7 @@ public sealed class NormalizedLiteralTests
                 QpdfLimits.Default.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes), memory, out _); }
             else
             {
-                byte[] source = CheckTests.Assemble([
+                byte[] source = PdfTestDocument.Assemble([
                     (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
                     (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R >>", null),
                     (4, "<< /Length " + content.Length + " >>", content)], 1);

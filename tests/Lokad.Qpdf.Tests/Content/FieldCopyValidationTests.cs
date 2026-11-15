@@ -3,7 +3,6 @@ using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.TestSupport;
 using Lokad.Qpdf.Writing;
 
@@ -24,7 +23,7 @@ public sealed class FieldCopyValidationTests
         }
     }
 
-    private static byte[] Input() => CheckTests.Assemble([
+    private static byte[] Input() => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
         (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] >>", null)], 1);
@@ -52,7 +51,7 @@ public sealed class FieldCopyValidationTests
             byte[] data = Encoding.ASCII.GetBytes($"% leaf{index}\n0 0 1 1 re f\n");
             objects.Add((count + 7 + index, $"<< /Type /XObject /Subtype /Form /BBox [0 0 1 1] /Length {data.Length} >>", data));
         }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     [Theory]

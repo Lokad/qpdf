@@ -7,7 +7,6 @@ using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Content;
@@ -179,7 +178,7 @@ public sealed class NoRotateFrameTests
     {
         byte[] data = inherited ? "BT /F1 8 Tf 1 2 Td (Ab) Tj ET"u8.ToArray() : PlainAppearance;
         string number(int value) => value.ToString(CultureInfo.InvariantCulture);
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Rotate " + number(angle) + " /UserUnit " + number(unit)
@@ -199,7 +198,7 @@ public sealed class NoRotateFrameTests
 
     private static async Task Run(InMemoryQpdfHost host, byte[] source, string mode, bool job, bool rotatedTarget)
     {
-        byte[] target = CheckTests.Assemble([
+        byte[] target = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 500 500] " + (rotatedTarget ? "/Rotate 90 " : "")
                 + "/Resources << /Font << /F1 4 0 R >> >> >>", null),

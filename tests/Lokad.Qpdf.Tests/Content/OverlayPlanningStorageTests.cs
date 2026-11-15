@@ -13,8 +13,8 @@ public sealed class OverlayPlanningStorageTests
     {
         using InMemoryQpdfHost host = new();
         QpdfPath input = QpdfPath.From("input");
-        host.AddInput(input, Inspection.CheckTests.Assemble(
-            Inspection.CheckTests.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray()), 1), QpdfInputOwnership.Transfer);
+        host.AddInput(input, PdfTestDocument.Assemble(
+            PdfTestDocument.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray()), 1), QpdfInputOwnership.Transfer);
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, input, CancellationToken.None);
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 1024L * 1024 };
         ResourceGovernor governor = new(limits, CancellationToken.None);

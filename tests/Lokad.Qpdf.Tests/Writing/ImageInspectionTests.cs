@@ -10,7 +10,7 @@ namespace Lokad.Qpdf.Tests.Writing;
 public sealed class ImageInspectionTests
 {
     internal static byte[] Fixture(string subtype, string target, string resources, string descriptors)
-        => CheckTests.Assemble([
+        => PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << /XObject << " + resources + " >> >> /Contents 4 0 R >>", null),
@@ -30,7 +30,7 @@ public sealed class ImageInspectionTests
         const string bindings = "<< /Z 5 0 R /A 5 0 R /Stale 5 1 R /Scalar 6 0 R /Form 7 0 R /Direct << /Subtype /Image >> >>";
         string xobjects = shape switch { "direct" => bindings, "indirect" => "8 0 R", "stale" => "8 1 R", _ => "42" };
         using InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("input"), CheckTests.Assemble([
+        host.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] /Resources 9 0 R >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Contents 4 0 R >>", null),

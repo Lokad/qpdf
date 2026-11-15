@@ -14,7 +14,7 @@ public sealed class PageContentCoverageTests
     {
         byte[] data = filter == "RunLengthDecode" ? new byte[] { 2, 113, 32, 81, 128 } : filter is null ? "q Q"u8.ToArray() : "not-flate"u8.ToArray();
         string header = $"<< /Length {data.Length}" + (filter is null ? "" : " /Filter /" + filter) + " >>";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(K) 6 0 R] >> >> >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << >>" + (contents.Length == 0 ? "" : " /Contents " + contents) + " >>", null),

@@ -29,7 +29,7 @@ public sealed class CheckStreamReuseTests
             byte[] data = encoded.ToArray();
             objects.Add((firstStream + index, $"<< /Filter /FlateDecode /Length {data.Length} >>", data));
         }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     [Theory]

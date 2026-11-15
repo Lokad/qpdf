@@ -1,6 +1,5 @@
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -21,7 +20,7 @@ public sealed class FormAttachmentIdentityTests
     }
 
     internal static byte[] Fixture()
-        => CheckTests.Assemble([
+        => PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] /DA 9 0 R /DR << /Font << /Helv 8 0 R >> >> >> /PageLabels << /Nums [0 << /P 10 0 R >>] >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Annots [5 0 R] >>", null),
@@ -39,7 +38,7 @@ public sealed class FormAttachmentIdentityTests
         using InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("input"), Fixture(), QpdfInputOwnership.Transfer);
         host.AddInput(QpdfPath.From("payload"), "abc"u8.ToArray(), QpdfInputOwnership.Transfer);
-        host.AddInput(QpdfPath.From("overlay"), CheckTests.Assemble(CheckTests.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray()), 1), QpdfInputOwnership.Transfer);
+        host.AddInput(QpdfPath.From("overlay"), PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray()), 1), QpdfInputOwnership.Transfer);
         List<string> command = ["input"];
         if (selection) { command.AddRange(["--pages", ".", "1", "--"]); }
         if (attachment) { command.AddRange(["--add-attachment", "payload", "--"]); }

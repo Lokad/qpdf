@@ -111,7 +111,7 @@ public sealed class CatalogNamesTests
     private static byte[] Fixture(bool indirect, bool attachment)
     {
         string names = "<< /Dests 6 0 R /PrivateTree 12 0 R" + (attachment ? " /EmbeddedFiles << /Names [(kept) 7 0 R] >>" : "") + " >>";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Names " + (indirect ? "5 0 R" : names) + " /Outlines 9 0 R >>", null),
             (2, "<< /Type /Pages /Count 2 /Kids [3 0 R 11 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [4 0 R] >>", null),

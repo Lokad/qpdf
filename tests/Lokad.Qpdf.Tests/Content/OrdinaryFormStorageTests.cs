@@ -4,7 +4,6 @@ using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Content;
@@ -32,7 +31,7 @@ public sealed class OrdinaryFormStorageTests
             (6, "null", null), (7, "null", null),
             (8, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null), (9, "(/Helv 12 Tf)", null),
         ];
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     [Theory]

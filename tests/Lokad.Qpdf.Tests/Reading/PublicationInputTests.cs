@@ -15,10 +15,10 @@ public sealed class PublicationInputTests
 
     private static byte[] Build()
     {
-        List<(int Number, string Body, byte[]? Stream)> objects = CheckTests.SinglePage($"<< /Length {Payload.Length} >>", Payload);
+        List<(int Number, string Body, byte[]? Stream)> objects = PdfTestDocument.SinglePage($"<< /Length {Payload.Length} >>", Payload);
         byte[] unused = new byte[2 * 1048576];
         objects.Add((6, $"<< /Length {unused.Length} >>", unused));
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     [Theory]

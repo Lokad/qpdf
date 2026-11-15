@@ -1,13 +1,12 @@
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
 public sealed class OverlayIdentityTests
 {
     internal static byte[] LinkedAnnotations(bool reverse)
-        => CheckTests.Assemble([
+        => PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 50 50] /Annots " + (reverse ? "[6 0 R 5 0 R 4 0 R]" : "[4 0 R 5 0 R 6 0 R]") + " >>", null),
@@ -16,7 +15,7 @@ public sealed class OverlayIdentityTests
             (6, "<< /Type /Annot /Subtype /Text /Contents (Reply) /Rect [3 4 13 14] /IRT 4 0 R /AP << /N 7 0 R >> >>", null),
             (7, "<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Matrix [1 0 0 1 0 0] /Length 3 >>", "q Q"u8.ToArray())], 1);
 
-    private static byte[] Primary() => CheckTests.Assemble([
+    private static byte[] Primary() => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
         (2, "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] >>", null),

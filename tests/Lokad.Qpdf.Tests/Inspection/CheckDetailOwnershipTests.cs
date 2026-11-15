@@ -17,7 +17,7 @@ public sealed class CheckDetailOwnershipTests
     }
 
     private static byte[] Fixture()
-        => CheckTests.Assemble(CheckTests.SinglePage("<< /Length 0 >>", []), 1);
+        => PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 0 >>", []), 1);
 
     private sealed class Alias(object value, WeakReference[] references, int detailLength)
     {
@@ -108,13 +108,13 @@ public sealed class CheckDetailOwnershipTests
     [Fact]
     public async Task UnsupportedNamesJoinOnceInFirstOccurrenceOrder()
     {
-        List<(int Number, string Dict, byte[]? StreamData)> objects = CheckTests.SinglePage("<< /Length 0 >>", []);
+        List<(int Number, string Dict, byte[]? StreamData)> objects = PdfTestDocument.SinglePage("<< /Length 0 >>", []);
         objects.Add((6, "<< /Length 0 /Filter /MadeUp >>", []));
         objects.Add((7, "<< /Length 0 /Filter /Other >>", []));
         objects.Add((8, "<< /Length 0 /Filter /MadeUp >>", []));
         InMemoryQpdfHost host = new();
         QpdfPath path = QpdfPath.From("unsupported.pdf");
-        host.AddInput(path, CheckTests.Assemble(objects, 1), QpdfInputOwnership.Copy);
+        host.AddInput(path, PdfTestDocument.Assemble(objects, 1), QpdfInputOwnership.Copy);
         QpdfCheckResult result = await Qpdf.CheckAsync(host, path, CancellationToken.None);
         QpdfCheckOutcome outcome = Assert.Single(result.Checks, check => check.Name == "streams");
         Assert.Equal(QpdfCheckStatus.Skipped, outcome.Status);
@@ -135,7 +135,7 @@ public sealed class CheckDetailOwnershipTests
         objects.Add((15, "<< /Length 1 >>", Encoding.ASCII.GetBytes("(")));
         InMemoryQpdfHost host = new();
         QpdfPath path = QpdfPath.From("damaged-content.pdf");
-        host.AddInput(path, CheckTests.Assemble(objects, 1), QpdfInputOwnership.Copy);
+        host.AddInput(path, PdfTestDocument.Assemble(objects, 1), QpdfInputOwnership.Copy);
         QpdfCheckResult result = await Qpdf.CheckAsync(host, path, CancellationToken.None);
         QpdfCheckOutcome outcome = Assert.Single(result.Checks, check => check.Name == "page-content");
         Assert.Equal(QpdfCheckStatus.Failed, outcome.Status);

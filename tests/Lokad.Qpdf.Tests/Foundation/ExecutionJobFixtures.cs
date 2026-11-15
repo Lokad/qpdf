@@ -1,7 +1,6 @@
 using System.IO.Compression;
 using System.Text;
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
@@ -144,12 +143,12 @@ internal static class ExecutionJobFixtures
             using (ZLibStream encoder = new(output, CompressionLevel.Optimal, true)) { encoder.Write(content); }
             content = output.ToArray();
         }
-        List<(int, string, byte[]?)> objects = CheckTests.SinglePage(
+        List<(int, string, byte[]?)> objects = PdfTestDocument.SinglePage(
             "<< /Length " + content.Length + (compressed ? " /Filter /FlateDecode" : "") + " >>", content);
         string extra = catalog == "direct" ? " /Version /1.7" : catalog == "indirect" ? " /Version 6 0 R" : "";
         objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R" + extra + " >>", null);
         if (catalog == "indirect") { objects.Add((6, "/1.7", null)); }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
 }

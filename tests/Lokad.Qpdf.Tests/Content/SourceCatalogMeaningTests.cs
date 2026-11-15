@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -19,7 +18,7 @@ public sealed class SourceCatalogMeaningTests
         string value = layer ? "<< /Type /OCG /Name (Layer) >>"
             : "<< /Type /Annot /Subtype /Link /Rect [10 20 30 40] /A " + (kind == "uri" ? "<< /S /URI /URI (item.pdf) >>" : "<< /S /GoTo /D " + (kind == "dest-name" ? "/Here" : "(Here)") + " >>") + " >>";
         byte[] content = kind == "layers" ? "/OC /L BDC 1 0 0 rg 20 20 40 40 re f EMC"u8.ToArray() : "q Q"u8.ToArray();
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R " + catalog + " >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R " + page + " >>", null),

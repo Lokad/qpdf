@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Text;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -47,7 +46,7 @@ public sealed class AnnotationGeometryTests
     }
 
     private static byte[] Fixture(long angle)
-        => CheckTests.Assemble([
+        => PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Rotate " + angle.ToString(CultureInfo.InvariantCulture)

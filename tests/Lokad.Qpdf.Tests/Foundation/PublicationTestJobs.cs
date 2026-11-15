@@ -2,7 +2,6 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
@@ -20,10 +19,10 @@ internal static class PublicationTestJobs
             using (ZLibStream encoder = new(buffer, CompressionLevel.Optimal, true)) { encoder.Write(body); }
             body = buffer.ToArray();
         }
-        List<(int Number, string Dict, byte[]? StreamData)> objects = CheckTests.SinglePage(
+        List<(int Number, string Dict, byte[]? StreamData)> objects = PdfTestDocument.SinglePage(
             "<< /Length " + body.Length + (compressed ? " /Filter /FlateDecode" : "") + " >>", body);
         if (warning) { objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /Duplicate 1 /Duplicate 2 >>", null); }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     internal static async Task<InMemoryQpdfHost> PrepareAsync(string operation, bool compressed, bool warning)

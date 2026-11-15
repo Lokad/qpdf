@@ -3,7 +3,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -25,7 +24,7 @@ public sealed class InlineFramingContextTests
         string first = shape == "missing" ? "<< >>" : "<< /ColorSpace << /Local /DeviceGray >> >>";
         string second = "<< /ColorSpace << /Local /DeviceRGB >> >>";
         if (reverse) { (first, second) = (second, first); }
-        return (CheckTests.Assemble([
+        return (PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Original 7 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R 6 0 R] /Count 4 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources 8 0 R /Contents 7 0 R >>", null),

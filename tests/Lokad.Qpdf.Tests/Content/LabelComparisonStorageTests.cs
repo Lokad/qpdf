@@ -16,11 +16,11 @@ public sealed class LabelComparisonStorageTests
     {
         const int length = 262144;
         string name = escaped ? string.Concat(Enumerable.Repeat("#FF", length)) : new string('Z', length);
-        var objects = Inspection.CheckTests.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray());
+        var objects = PdfTestDocument.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray());
         objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /PageLabels << /Nums [0 << /S /D /P << /Type /"
             + name + " /Private (keep) >> >>] >> >>", null);
         using InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("input"), Inspection.CheckTests.Assemble(objects, 1), QpdfInputOwnership.Transfer);
+        host.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble(objects, 1), QpdfInputOwnership.Transfer);
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input"), CancellationToken.None);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
@@ -41,10 +41,10 @@ public sealed class LabelComparisonStorageTests
     [Fact]
     public async Task LabelSourceRefusalRefundsAdmittedTreeScratch()
     {
-        var objects = Inspection.CheckTests.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray());
+        var objects = PdfTestDocument.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray());
         string numbers = string.Join(" ", Enumerable.Range(0, 512).Select(index => index + " << /S /D >>"));
         objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /PageLabels << /Nums [" + numbers + "] >> >>", null);
-        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), Inspection.CheckTests.Assemble(objects, 1), QpdfInputOwnership.Transfer);
+        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble(objects, 1), QpdfInputOwnership.Transfer);
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input"), CancellationToken.None);
         ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope copierMemory = ParserMemoryScope.Create(construction);

@@ -4,7 +4,6 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 using Xunit.Abstractions;
 
 namespace Lokad.Qpdf.Tests.Foundation;
@@ -130,7 +129,7 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
             using (ZLibStream encoder = new(encoded, CompressionLevel.Optimal, true)) { encoder.Write(content); }
             content = encoded.ToArray();
         }
-        List<(int, string, byte[]?)> objects = CheckTests.SinglePage(
+        List<(int, string, byte[]?)> objects = PdfTestDocument.SinglePage(
             "<< /Length " + content.Length + (compressed ? " /Filter /FlateDecode" : "") + " >>", content);
         objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 10 0 R >> >>", null);
         objects[1] = (2, "<< /Type /Pages /Kids [3 0 R] /Count 2 >>", null);
@@ -140,7 +139,7 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
             (8, "<< /Type /EmbeddedFile /Length 4 >>", "q Q\n"u8.ToArray()),
             (9, "<< /Type /Filespec /F (kept.bin) /EF << /F 8 0 R >> >>", null),
             (10, "<< /Names [(payload) 7 0 R (kept) 9 0 R] >>", null)]);
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     private static async Task<object> Start(IQpdfHost host, string route, QpdfLimits limits, CancellationToken token)

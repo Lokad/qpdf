@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -233,6 +232,6 @@ public sealed class AttachmentTreeReferenceTests
                 objects[9] = (10, "<< /Names [(note.txt) 5 0 R] >>", null); break;
         }
         Dictionary<int, int> generations = new() { [7] = generation, [8] = generation, [9] = generation, [10] = generation };
-        return CheckTests.Assemble(objects, 1, generations);
+        return PdfTestDocument.Assemble(objects, 1, generations);
     }
 }

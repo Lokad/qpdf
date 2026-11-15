@@ -2,7 +2,6 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
@@ -40,7 +39,7 @@ internal static class DiagnosticTestJobs
         }
         if (body is not null)
         { objects.Add((53, "<< /Length " + body.Length + (compressed ? " /Filter /FlateDecode" : "") + " >>", body)); }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     internal static async Task<QpdfExecutionResult> RunAsync(RecordingJobHost host, string route, bool summaries, bool noWarn,

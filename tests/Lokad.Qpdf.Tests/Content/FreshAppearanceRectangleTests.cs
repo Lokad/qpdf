@@ -3,7 +3,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -13,7 +12,7 @@ public sealed class FreshAppearanceRectangleTests
     {
         string literals = "[" + string.Join(" ", values) + "]";
         string array = shape == "coordinates" ? "[7 0 R 8 0 R 9 0 R 10 0 R]" : literals;
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Audit 6 0 R /AcroForm << /Fields [4 0 R] /NeedAppearances true /DA (/F1 12 Tf 0 g) /DR << /Font << /F1 5 0 R >> >> >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [4 0 R] >>", null),

@@ -32,7 +32,7 @@ public sealed class ImageColorKeyTests
         entry += shape is "key-soft" or "key-ref-soft" or "soft-mask" ? " /SMask 9 0 R"
             : shape == "key-null-soft" ? " /SMask null" : shape == "key-ref-null-soft" ? " /SMask 7 0 R" : shape == "key-bad-soft" ? " /SMask 3" : "";
         byte[] content = "q 64 0 0 64 10 20 cm /Image Do Q"u8.ToArray();
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R 10 0 R] /Count 2 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Resources 11 0 R /Contents 4 0 R >>", null),

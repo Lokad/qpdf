@@ -5,7 +5,6 @@ using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.TestSupport;
 using Lokad.Qpdf.Writing;
 
@@ -32,7 +31,7 @@ public sealed class CatalogStorageTests
         return TestDocumentEngine.Create(trailer, construction);
     }
 
-    internal static byte[] Fixture(int keys) => CheckTests.Assemble([
+    internal static byte[] Fixture(int keys) => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R " + string.Concat(Enumerable.Range(0, keys).Select(i => "/Key" + i + " 1 ")) + ">>", null),
         (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 20] /Rotate 90 >>", null)], 1);

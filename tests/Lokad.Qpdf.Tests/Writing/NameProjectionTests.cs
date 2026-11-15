@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -22,7 +21,7 @@ public sealed class NameProjectionTests
         foreach (int version in new[] { 1, 2 }) { yield return [name, expected, route, version]; }
     }
 
-    internal static byte[] Form(string name) => CheckTests.Assemble([
+    internal static byte[] Form(string name) => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] >> >>", null),
         (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Annots [4 0 R] >>", null),
@@ -136,7 +135,7 @@ public sealed class NameProjectionTests
         { Assert.Equal(expected.Length == 0 ? null : expected, stream.Value.GetProperty("mimetype").GetString()); }
     }
 
-    internal static byte[] Attachment(string subtype) => CheckTests.Assemble([
+    internal static byte[] Attachment(string subtype) => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(K) 4 0 R] >> >> >>", null),
         (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] >>", null),

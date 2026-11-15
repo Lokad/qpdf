@@ -39,7 +39,7 @@ public sealed class ShowPagesTests
             : shape == "mixed" ? "[6 0 R 17 (ignored) null 4 0 R 6 0 R]" : "[" + references + "]";
         string contents = shape switch { "direct" or "empty-direct" => array, "single" => "4 0 R", _ => "5 0 R" };
         string indirect = shape switch { "non-array" => "42", "cycle" => "5 0 R", "deep" => "[[[[[[4 0 R]]]]]]", _ => array };
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Contents " + contents + " >>", null),

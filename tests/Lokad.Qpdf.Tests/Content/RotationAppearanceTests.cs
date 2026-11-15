@@ -1,6 +1,5 @@
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -65,7 +64,7 @@ public sealed class RotationAppearanceTests
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
-    internal static byte[] SharedFixture(int secondAngle) => CheckTests.Assemble([
+    internal static byte[] SharedFixture(int secondAngle) => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R 6 0 R] >> >>", null),
         (2, "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Rotate 90 /Annots [5 0 R 8 0 R] >>", null),
@@ -126,7 +125,7 @@ public sealed class RotationAppearanceTests
     public async Task DamagedAppearanceReferencesStayBounded(string normal, string extra, bool fails)
     {
         using InMemoryQpdfHost host = new();
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Rotate 90 /Annots [4 0 R] >>", null),
@@ -162,7 +161,7 @@ public sealed class RotationAppearanceTests
         string normal = mode == "states" ? indirect ? "6 0 R" : "<< /On 5 0 R >>" : "5 0 R";
         string matrix = mode == "states" ? "" : mode == "matrix" && indirect ? "/Matrix 6 0 R"
             : mode == "numbers" && indirect ? "/Matrix [7 0 R 1 0.5 3 5 7]" : "/Matrix [2 1 0.5 3 5 7]";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Rotate 90 /Resources << >> /Annots [4 0 R] >>", null),

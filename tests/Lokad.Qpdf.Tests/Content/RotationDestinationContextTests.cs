@@ -3,7 +3,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -80,7 +79,7 @@ public sealed class RotationDestinationContextTests
             using InMemoryQpdfHost host = new(QpdfLimits.Default, null, owner);
             host.AddInput(QpdfPath.From("input"), Source(naming), QpdfInputOwnership.Transfer);
             host.AddInput(QpdfPath.From("other"), Source(naming), QpdfInputOwnership.Transfer);
-            host.AddInput(QpdfPath.From("target"), CheckTests.Assemble([
+            host.AddInput(QpdfPath.From("target"), PdfTestDocument.Assemble([
                 (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
                 (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null)], 1), QpdfInputOwnership.Transfer);
             List<string> arguments = [mode == "merge" ? "target" : "input", "--flatten-rotation"];
@@ -175,7 +174,7 @@ public sealed class RotationDestinationContextTests
     {
         string first = naming == "legacy" ? "/mark" : naming == "string" ? "(landing)" : "9 0 R";
         string second = naming == "legacy" ? "/other" : naming == "string" ? "(second)" : "10 0 R";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Private 4 0 R /AcroForm << /Fields [4 0 R 7 0 R] /CO [4 0 R 7 0 R] >> /Dests << /mark 9 0 R /other 10 0 R >> /Names << /Dests << /Names [(landing) 9 0 R (second) 10 0 R] >> >> >>", null),
             (2, "<< /Type /Pages /Count 2 /Kids [3 0 R 5 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [10 20 110 220] /Resources << >> /Rotate 90 /Annots [4 0 R] >>", null),

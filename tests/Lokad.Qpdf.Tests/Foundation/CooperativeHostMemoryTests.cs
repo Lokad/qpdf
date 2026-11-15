@@ -1,7 +1,6 @@
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Objects;
 using System.Runtime.InteropServices;
 using System.Diagnostics.CodeAnalysis;
@@ -244,7 +243,7 @@ public sealed class CooperativeHostMemoryTests
     public async Task PrivateInputSnapshotKeepsItsHostChargeWithoutAnotherRootAdmission(bool noDefaultLimits)
     {
         byte[] payload = new byte[1048576]; Array.Fill(payload, (byte)' ');
-        byte[] pdf = CheckTests.Assemble(CheckTests.SinglePage("<< /Length " + payload.Length + " >>", payload), 1);
+        byte[] pdf = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length " + payload.Length + " >>", payload), 1);
         RecordingMemoryBudget root = new(pdf.LongLength + 131328L);
         using IMemoryScope storage = root.CreateScope();
         using InMemoryQpdfHost host = new(QpdfLimits.Default, null, storage);
@@ -273,7 +272,7 @@ public sealed class CooperativeHostMemoryTests
     public async Task SelectionSeparatesBorrowedInputAndHostStagingFromEngineStorage()
     {
         byte[] payload = new byte[1048576]; Array.Fill(payload, (byte)' ');
-        byte[] pdf = CheckTests.Assemble(CheckTests.SinglePage("<< /Length " + payload.Length + " >>", payload), 1);
+        byte[] pdf = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length " + payload.Length + " >>", payload), 1);
         RecordingMemoryBudget root = new(3L * pdf.Length + 131072L);
         using IMemoryScope storage = root.CreateScope();
         using InMemoryQpdfHost host = new(QpdfLimits.Default, null, storage);
@@ -294,7 +293,7 @@ public sealed class CooperativeHostMemoryTests
     public async Task CopiedGraphKeepsSnapshotStorageChargedAfterItsReaderCloses()
     {
         byte[] payload = new byte[65536]; payload[0] = 41;
-        byte[] pdf = CheckTests.Assemble(CheckTests.SinglePage("<< /Length " + payload.Length + " >>", payload), 1);
+        byte[] pdf = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length " + payload.Length + " >>", payload), 1);
         RecordingMemoryBudget root = new(1048576L);
         using IMemoryScope storage = root.CreateScope();
         using IMemoryScope invocation = root.CreateScope();
@@ -420,7 +419,7 @@ public sealed class CooperativeHostMemoryTests
     public async Task ExtractionObservesCommitAdmissionCancellation(string route, int length, bool cancel)
     {
         byte[] payload = new byte[length];
-        byte[] pdf = CheckTests.Assemble([
+        byte[] pdf = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 6 0 R >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 80 40] /Resources << >> >>", null),

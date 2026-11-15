@@ -2,7 +2,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -179,7 +178,7 @@ public sealed class VerbatimLabelTreeTests
         if (defect == "syntax") { label = "<< /P (unterminated"; }
         objects.AddRange([(10, tree, null), (11, "[0 12 0 R]", null), (12, label, null), (13, "/D", null),
             (14, "<fffe5300>", null), (15, maximum ? "+0009223372036854775807" : "+0007", null)]);
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     private static QpdfObject Resolve(QpdfDocument document, QpdfObject value)

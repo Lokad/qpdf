@@ -1,6 +1,5 @@
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Runtime;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
@@ -101,9 +100,9 @@ public sealed class PresentationCountTests
     public async Task StoredWarningsAndSummariesShareTheDiagnosticLimit(string invocation, bool noWarn, bool warningExitZero, bool shortCount)
     {
         PublicationHost host = await Prepare("whole", false);
-        List<(int Number, string Dict, byte[]? StreamData)> objects = CheckTests.SinglePage("<< /Length 4 >>", "q Q\n"u8.ToArray());
+        List<(int Number, string Dict, byte[]? StreamData)> objects = PdfTestDocument.SinglePage("<< /Length 4 >>", "q Q\n"u8.ToArray());
         objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /Duplicate 1 /Duplicate 2 >>", null);
-        host.Inner.AddInput(QpdfPath.From("input.pdf"), CheckTests.Assemble(objects, 1), QpdfInputOwnership.Copy);
+        host.Inner.AddInput(QpdfPath.From("input.pdf"), PdfTestDocument.Assemble(objects, 1), QpdfInputOwnership.Copy);
         string flags = "verbose progress report-memory-usage" + (noWarn ? " no-warn" : "") + (warningExitZero ? " warning-exit-0" : "");
         QpdfExecutionResult result = await Run(host, invocation, "whole", flags,
             QpdfLimits.Default with { MaxDiagnostics = (noWarn ? 6L : 7L) - (shortCount ? 1L : 0L) }, CancellationToken.None);

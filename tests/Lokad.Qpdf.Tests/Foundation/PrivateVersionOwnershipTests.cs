@@ -1,6 +1,5 @@
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
@@ -29,7 +28,7 @@ public sealed class PrivateVersionOwnershipTests
         using (IMemoryScope owner = root.CreateScope())
         {
             using InMemoryQpdfHost inner = new(QpdfLimits.Default, null, owner);
-            byte[] source = CheckTests.Assemble(CheckTests.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray()), 1);
+            byte[] source = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray()), 1);
             inner.AddInput(QpdfPath.From("first"), source, QpdfInputOwnership.Copy);
             byte[] other = (byte[])source.Clone(); other[7] = (byte)'7';
             inner.AddInput(QpdfPath.From("second"), other, QpdfInputOwnership.Transfer);
@@ -59,7 +58,7 @@ public sealed class PrivateVersionOwnershipTests
             QpdfCheckResult result;
             using (InMemoryQpdfHost host = new(QpdfLimits.Default, null, owner))
             {
-                host.AddInput(QpdfPath.From("input"), CheckTests.Assemble(CheckTests.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray()), 1), QpdfInputOwnership.Transfer);
+                host.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray()), 1), QpdfInputOwnership.Transfer);
                 result = await Qpdf.CheckAsync(host, QpdfPath.From("input"), CancellationToken.None);
                 Assert.True(result.Passed); Assert.Equal(0L, host.OpenLeaseCount);
             }

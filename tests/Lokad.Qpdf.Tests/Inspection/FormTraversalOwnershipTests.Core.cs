@@ -73,7 +73,7 @@ public sealed partial class FormTraversalOwnershipTests
         {
             objects.Add((number, "<< /Type /Annot /Subtype /Widget /FT /Tx /T (F) /Rect [0 0 10 10] >>", null));
         }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     [Theory]

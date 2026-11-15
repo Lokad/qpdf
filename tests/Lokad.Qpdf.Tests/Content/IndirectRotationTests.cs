@@ -1,7 +1,6 @@
 using System.Text;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -13,7 +12,7 @@ public sealed class IndirectRotationTests
     {
         string parent = inherited ? " /Rotate " + rotation : string.Empty;
         string page = inherited ? string.Empty : " /Rotate " + rotation;
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R]" + parent + " >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R /Annots [6 0 R]" + page + " >>", null),

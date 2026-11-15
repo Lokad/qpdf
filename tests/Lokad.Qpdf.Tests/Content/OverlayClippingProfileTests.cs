@@ -2,7 +2,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -85,7 +84,7 @@ public sealed class OverlayClippingProfileTests
         };
         string rect = inside ? "[20 20 60 60]" : "[-20 20 20 60]";
         byte[] body = "1 0 0 rg 0 0 40 40 re f"u8.ToArray();
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [4 0 R] >>", null),
             (4, "<< /Type /Annot /Subtype /" + subtype + " /F " + (shape == "hidden" ? "2" : "4") + " /Rect " + rect + " " + ap + " " + border + " >>", null),
@@ -93,7 +92,7 @@ public sealed class OverlayClippingProfileTests
             (6, shape == "borderless-indirect" ? "[0 0 7 0 R]" : "null", null), (7, "0", null)], 1);
     }
 
-    private static byte[] Target() => CheckTests.Assemble([
+    private static byte[] Target() => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 500 500] /Resources << >> >>", null)], 1);
     private static QpdfObject Resolve(QpdfDocument document, QpdfObject value)

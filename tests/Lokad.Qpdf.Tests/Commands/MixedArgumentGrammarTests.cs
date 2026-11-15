@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Commands;
 
@@ -8,7 +7,7 @@ public sealed class MixedArgumentGrammarTests
 {
     private static readonly string[] Targets = ["output.pdf", "output.json", "output-1.pdf", "output-2.pdf", "output-3.pdf", "output-1-2.pdf"];
 
-    private static byte[] Input() => CheckTests.Assemble([
+    private static byte[] Input() => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
         (2, "<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 80 40] /Resources << >> >>", null),

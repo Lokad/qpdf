@@ -2,7 +2,6 @@ using System.Collections;
 using System.Reflection;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Runtime;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
@@ -88,12 +87,12 @@ public sealed class FailureDiagnosticAccessTests
     public async Task PublicInspectionFailuresHaveConstantCountsAndLinearTraversal(bool job, bool noWarn, int extra)
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxDiagnostics = 4096L, MaxDiagnosticBytes = 1048576L };
-        List<(int, string, byte[]?)> objects = CheckTests.SinglePage("<< /Length 4 >>", "q Q\n"u8.ToArray());
+        List<(int, string, byte[]?)> objects = PdfTestDocument.SinglePage("<< /Length 4 >>", "q Q\n"u8.ToArray());
         for (int index = 0; index < extra; index++) { objects.Add((6 + index, "null", null)); }
         QpdfExecutionResult result;
         using (InMemoryQpdfHost host = new())
         {
-            host.AddInput(QpdfPath.From("input"), CheckTests.Assemble(objects, 1), QpdfInputOwnership.Copy);
+            host.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble(objects, 1), QpdfInputOwnership.Copy);
             result = job
                 ? await Qpdf.ExecuteJobAsync(host, "{\"inputFile\":\"input\",\"check\":\"\",\"showXref\":\"\",\"showObject\":\"4\",\"rawStreamData\":\"\",\""
                     + (noWarn ? "noWarn" : "reportMemoryUsage") + "\":\"\"}", new QpdfExecutionOptions(limits), CancellationToken.None)

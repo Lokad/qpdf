@@ -141,7 +141,7 @@ public sealed class SelectPageTests
     [InlineData("job", "7 0 R")]
     public async Task InheritsNearestNonNullAttributesWithoutReplacingLeafValues(string route, string resources)
     {
-        List<(int, string, byte[]?)> objects = CheckTests.SinglePage("<< /Length 4 >>", "q Q\n"u8.ToArray());
+        List<(int, string, byte[]?)> objects = PdfTestDocument.SinglePage("<< /Length 4 >>", "q Q\n"u8.ToArray());
         objects[1] = (2, "<< /Type /Pages /Kids [6 0 R] /Count 1 /MediaBox [0 0 612 792]"
             + " /CropBox [0 0 600 780] /Rotate 180 /Resources << /Marker /Root >> >>", null);
         objects[2] = (3, "<< /Type /Page /Parent 6 0 R /Contents 4 0 R /MediaBox 7 0 R"
@@ -150,7 +150,7 @@ public sealed class SelectPageTests
             + " /Resources 7 0 R /CropBox [10 20 500 700] /Rotate 90 >>", null));
         objects.Add((7, "null", null));
         InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("in.pdf"), CheckTests.Assemble(objects, 1), QpdfInputOwnership.Copy);
+        host.AddInput(QpdfPath.From("in.pdf"), PdfTestDocument.Assemble(objects, 1), QpdfInputOwnership.Copy);
         if (route == "typed")
         {
             await Qpdf.SelectPageAsync(host, QpdfPath.From("in.pdf"), QpdfPath.From("out.pdf"),
@@ -184,13 +184,13 @@ public sealed class SelectPageTests
     [InlineData("job", "direct-prefix")]
     public async Task RejectsAncestryCyclesWithoutPublishingOrLeakingLeases(string route, string shape)
     {
-        List<(int, string, byte[]?)> objects = CheckTests.SinglePage("<< /Length 4 >>", "q Q\n"u8.ToArray());
+        List<(int, string, byte[]?)> objects = PdfTestDocument.SinglePage("<< /Length 4 >>", "q Q\n"u8.ToArray());
         string parent = shape == "self" ? "3 0 R" : shape == "direct-prefix" ? "<< /Parent 6 0 R >>" : "6 0 R";
         objects[2] = (3, "<< /Type /Page /Parent " + parent
             + " /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << >> >>", null);
         objects.Add((6, shape == "direct-prefix" ? "<< /Parent 3 0 R >>" : "<< /Parent 6 0 R >>", null));
         InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("in.pdf"), CheckTests.Assemble(objects, 1), QpdfInputOwnership.Copy);
+        host.AddInput(QpdfPath.From("in.pdf"), PdfTestDocument.Assemble(objects, 1), QpdfInputOwnership.Copy);
         byte[] prior = "prior output"u8.ToArray();
         await using (IQpdfOutputTransaction seed = await host.CreateOutputAsync(QpdfPath.From("out.pdf"), CancellationToken.None))
         {

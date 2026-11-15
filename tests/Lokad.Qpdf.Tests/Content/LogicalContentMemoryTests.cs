@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -64,6 +63,6 @@ public sealed class LogicalContentMemoryTests
         byte[] program = Encoding.ASCII.GetBytes(string.Concat(Enumerable.Repeat("q Q\r\n", 1638)));
         objects.Add((11, "<< /Length " + program.Length.ToString(System.Globalization.CultureInfo.InvariantCulture) + " >>", program));
         objects.Add((12, "[" + string.Join(' ', Enumerable.Repeat("11 0 R", 32)) + "]", null));
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 }

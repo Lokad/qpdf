@@ -1,7 +1,6 @@
 using System.Globalization;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
@@ -80,7 +79,7 @@ public sealed class NestingBudgetTests
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
-    private static byte[] DeepPdf(int depth) => CheckTests.Assemble(
+    private static byte[] DeepPdf(int depth) => PdfTestDocument.Assemble(
     [
         (1, "<< /Type /Catalog /Pages 2 0 R /Deep " + new string('[', depth) + "0" + new string(']', depth) + " >>", null),
         (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),

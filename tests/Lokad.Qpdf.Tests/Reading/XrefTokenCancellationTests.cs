@@ -56,7 +56,7 @@ public sealed class XrefTokenCancellationTests
     public async Task CancellationDuringShortInputReadsPreservesTargetsAndClosesLeases(string route)
     {
         byte[] content = new byte[32768]; content.AsSpan().Fill((byte)' ');
-        byte[] input = CheckTests.Assemble(CheckTests.SinglePage("<< /Length 32768 >>", content), 1);
+        byte[] input = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 32768 >>", content), 1);
         using CancellationTokenSource cancellation = new();
         SelectiveInputTests.Host host = new(input, 37) { Cancel = cancellation };
         using var outputs = host.Outputs;

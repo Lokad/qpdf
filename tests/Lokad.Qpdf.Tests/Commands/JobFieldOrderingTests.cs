@@ -1,7 +1,6 @@
 using System.Text;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Commands;
 
@@ -30,7 +29,7 @@ public sealed class JobFieldOrderingTests
     {
         byte[] payload = Encoding.ASCII.GetBytes(string.Concat(Enumerable.Repeat("q Q\n", 64)));
         using InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("input"), CheckTests.Assemble(CheckTests.SinglePage($"<< /Length {payload.Length} >>", payload), 1), QpdfInputOwnership.Transfer);
+        host.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble(PdfTestDocument.SinglePage($"<< /Length {payload.Length} >>", payload), 1), QpdfInputOwnership.Transfer);
         host.AddInput(QpdfPath.From("child"), Encoding.UTF8.GetBytes(child), QpdfInputOwnership.Transfer);
         host.AddInput(QpdfPath.From("grandchild"), """{"compressStreams":"n"}"""u8.ToArray(), QpdfInputOwnership.Transfer);
         QpdfExecutionResult result;

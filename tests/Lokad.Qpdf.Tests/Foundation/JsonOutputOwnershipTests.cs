@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Runtime;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Tests.Reading;
 
 namespace Lokad.Qpdf.Tests.Foundation;
@@ -206,7 +205,7 @@ public sealed class JsonOutputOwnershipTests
             _ => new byte[] { 239, 187, 191 }.Concat(Encoding.UTF8.GetBytes(expected)).ToArray(),
         };
         if (encoding == "utf8-invalid") { expected = Encoding.UTF8.GetString(payload, 3, payload.Length - 3); }
-        byte[] input = CheckTests.Assemble(
+        byte[] input = PdfTestDocument.Assemble(
         [
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
@@ -256,7 +255,7 @@ public sealed class JsonOutputOwnershipTests
         if (outcome == "memory")
         {
             byte[] content = Enumerable.Repeat((byte)' ', 65536).ToArray();
-            owner.Inner.AddInput(Input, CheckTests.Assemble(CheckTests.SinglePage("<< /Length " + content.Length + " >>", content), 1), QpdfInputOwnership.Copy);
+            owner.Inner.AddInput(Input, PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length " + content.Length + " >>", content), 1), QpdfInputOwnership.Copy);
         }
         QpdfPath[] targets = [Output, Side];
         byte[][] aliases = new byte[targets.Length][];

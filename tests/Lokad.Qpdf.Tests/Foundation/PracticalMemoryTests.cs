@@ -150,8 +150,8 @@ public sealed class PracticalMemoryTests(ITestOutputHelper output)
         using (ZLibStream encoder = new(compressed, CompressionLevel.Fastest, true))
         { encoder.Write(new byte[1024 * 1024]); }
         byte[] payload = compressed.ToArray();
-        await RejectDecodedAmplification(CheckTests.Assemble(
-            CheckTests.SinglePage("<< /Length " + payload.Length + " /Filter /FlateDecode >>", payload), 1));
+        await RejectDecodedAmplification(PdfTestDocument.Assemble(
+            PdfTestDocument.SinglePage("<< /Length " + payload.Length + " /Filter /FlateDecode >>", payload), 1));
         byte[] jpeg = DctDecodeTests.PatchFrameDimensions(DctDecodeTests.EncodeGrayJpeg(8, 8), 4096, 4096);
         await RejectDecodedAmplification(DctDecodeTests.BuildDctPage(jpeg));
     }
@@ -183,7 +183,7 @@ public sealed class PracticalMemoryTests(ITestOutputHelper output)
         byte[] data = new byte[1024 * 1024];
         Array.Fill(data, (byte)' ');
         "0 0 10 10 re S\n% surviving stream payload\n"u8.CopyTo(data);
-        byte[] input = CheckTests.Assemble(CheckTests.SinglePage("<< /Length " + data.Length + " >>", data), 1);
+        byte[] input = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length " + data.Length + " >>", data), 1);
         // Exclude abandoned allocations from earlier tests from this small
         // workload's baseline. Collection is observation setup, not a required
         // receipt-retirement schedule or a production operation.

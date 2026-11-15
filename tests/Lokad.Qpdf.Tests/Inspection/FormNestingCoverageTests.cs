@@ -18,7 +18,7 @@ public sealed class FormNestingCoverageTests
             string kids = index + 1 < count ? $" /Kids [{number + 1} 0 R]" : cycle ? " /Kids [4 0 R]" : "";
             objects.Add((number, $"<< /T (F{index}) /FT /Tx{parent}{kids} >>", null));
         }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     [Theory]

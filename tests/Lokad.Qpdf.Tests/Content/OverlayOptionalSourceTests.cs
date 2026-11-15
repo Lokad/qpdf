@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -14,7 +13,7 @@ public sealed class OverlayOptionalSourceTests
         string raw = shape switch { "null" => "null", "refnull" or "refempty" or "refvalid" or "refbad" => "8 0 R", "empty" => "[]", "valid" => key == "Contents" ? "4 0 R" : "[0 0 100 100]",
             "nested" => key == "Contents" ? "[4 0 R [4 0 R]]" : "[[0 0 100 100]]", "null-entry" => key == "Contents" ? "[4 0 R null]" : "[0 null 100 100]", _ => "17" };
         string entry = shape == "absent" ? "" : "/" + key + " " + raw;
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /CropBox [10 10 90 90] /Resources << >> /Annots [5 0 R] " + (key == "TrimBox" ? "/Contents 4 0 R " : "") + entry + " >>", null),
@@ -36,7 +35,7 @@ public sealed class OverlayOptionalSourceTests
     public async Task OptionalSourceNullsUseFallbacksWhileMalformedValuesKeepTheirSkipPolicy(string key, string shape, bool job, bool underlay)
     {
         bool invalid = shape is "bad" or "refbad" or "nested" or "null-entry" || key == "TrimBox" && shape is "empty" or "refempty";
-        byte[] target = CheckTests.Assemble([(1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+        byte[] target = PdfTestDocument.Assemble([(1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null)], 1);
         using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), target, QpdfInputOwnership.Copy); host.AddInput(QpdfPath.From("stamp"), Source(key, shape), QpdfInputOwnership.Copy);
         string mode = underlay ? "underlay" : "overlay";

@@ -4,7 +4,6 @@ using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Attachments;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -39,7 +38,7 @@ public sealed class PdfTextIntegrationTests
     private static byte[] Fixture(byte[] text)
     {
         string value = "<" + Convert.ToHexString(text) + ">";
-        byte[] bytes = CheckTests.Assemble([
+        byte[] bytes = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Outlines 4 0 R /AcroForm 6 0 R /Names << /EmbeddedFiles 8 0 R >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Annots [7 0 R] >>", null),

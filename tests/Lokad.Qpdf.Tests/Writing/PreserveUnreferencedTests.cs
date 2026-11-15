@@ -28,82 +28,8 @@ public sealed class PreserveUnreferencedTests
         {
             bodies.Add(dict);
         }
-
-        List<byte[]> parts = new();
-        byte[] header = Encoding.ASCII.GetBytes("%PDF-1.4\n");
-        parts.Add(header);
-        List<long> offsets = new();
-        long position = header.Length;
-        for (int i = 0; i < bodies.Count; i++)
-        {
-            int number = i + 1;
-            byte[]? streamData = null;
-            if (number == 4)
-            {
-                streamData = pageData;
-            }
-            else if (number > 5)
-            {
-                streamData = extras[number - 6].StreamData;
-            }
-
-            byte[] open = Encoding.ASCII.GetBytes(number.ToString() + " 0 obj\n" + bodies[i] + "\n");
-            if (streamData is null)
-            {
-                byte[] close = Encoding.ASCII.GetBytes("endobj\n");
-                offsets.Add(position);
-                position += open.Length + close.Length;
-                byte[] plain = new byte[open.Length + close.Length];
-                Buffer.BlockCopy(open, 0, plain, 0, open.Length);
-                Buffer.BlockCopy(close, 0, plain, open.Length, close.Length);
-                parts.Add(plain);
-                continue;
-            }
-
-            byte[] streamOpen = Encoding.ASCII.GetBytes("stream\n");
-            byte[] streamClose = Encoding.ASCII.GetBytes("\nendstream\nendobj\n");
-            offsets.Add(position);
-            position += open.Length + streamOpen.Length + streamData.Length + streamClose.Length;
-            byte[] payload = new byte[open.Length + streamOpen.Length + streamData.Length + streamClose.Length];
-            int at = 0;
-            Buffer.BlockCopy(open, 0, payload, at, open.Length);
-            at += open.Length;
-            Buffer.BlockCopy(streamOpen, 0, payload, at, streamOpen.Length);
-            at += streamOpen.Length;
-            Buffer.BlockCopy(streamData, 0, payload, at, streamData.Length);
-            at += streamData.Length;
-            Buffer.BlockCopy(streamClose, 0, payload, at, streamClose.Length);
-            parts.Add(payload);
-        }
-
-        int size = bodies.Count + 1;
-        StringBuilder xref = new();
-        xref.Append("xref\n0 " + size.ToString() + "\n");
-        xref.Append("0000000000 65535 f \n");
-        foreach (long offset in offsets)
-        {
-            xref.Append(offset.ToString("D10") + " 00000 n \n");
-        }
-
-        xref.Append("trailer\n<< /Size " + size.ToString() + " /Root 1 0 R >>\n");
-        xref.Append("startxref\n" + position.ToString() + "\n%%EOF\n");
-        byte[] tail = Encoding.ASCII.GetBytes(xref.ToString());
-        parts.Add(tail);
-        int total = 0;
-        foreach (byte[] part in parts)
-        {
-            total += part.Length;
-        }
-
-        byte[] output = new byte[total];
-        int cursor = 0;
-        foreach (byte[] part in parts)
-        {
-            Buffer.BlockCopy(part, 0, output, cursor, part.Length);
-            cursor += part.Length;
-        }
-
-        return output;
+        return PdfTestDocument.AssembleBodies(bodies, number => number == 4 ? pageData : number > 5 ? extras[number - 6].StreamData : null,
+            "1.4", "");
     }
 
     private static byte[] OrphanFixture()

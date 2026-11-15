@@ -14,11 +14,11 @@ public sealed class OverlayAppearanceStorageTests
     public async Task CatalogDefaultsBorrowFundedBytesAndHonorCancellation(bool indirect)
     {
         byte[] raw = new byte[2 * 1024 * 1024]; Array.Fill(raw, (byte)' ');
-        var objects = Inspection.CheckTests.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray());
+        var objects = PdfTestDocument.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray());
         string program = "<" + Convert.ToHexString(raw) + ">";
         objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [] /DA " + (indirect ? "6 0 R" : program) + " >> >>", null);
         if (indirect) { objects.Add((6, program, null)); }
-        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), Inspection.CheckTests.Assemble(objects, 1), QpdfInputOwnership.Transfer);
+        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble(objects, 1), QpdfInputOwnership.Transfer);
         PdfByteString borrowed;
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input"), CancellationToken.None))
         {

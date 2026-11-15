@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -10,7 +9,7 @@ public sealed class OverlayScalarTests
     private static byte[] Page(string property, string scalar, bool indirect, bool inherited, string ancestorUnit)
     {
         string entry = property.Length == 0 ? "" : "/" + property + " " + (indirect ? "5 0 R" : scalar);
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 " + (inherited ? entry : "")
                 + (ancestorUnit.Length == 0 ? "" : " /UserUnit " + ancestorUnit) + " >>", null),

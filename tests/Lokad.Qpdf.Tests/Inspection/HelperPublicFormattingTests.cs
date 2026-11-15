@@ -60,12 +60,12 @@ public sealed class HelperPublicFormattingTests
     private static byte[] Images(int nameBytes)
     {
         string escaped = string.Concat(Enumerable.Repeat("#23", nameBytes));
-        List<(int Number, string Dict, byte[]? StreamData)> objects = CheckTests.SinglePage("<< /Length 0 >>", []);
+        List<(int Number, string Dict, byte[]? StreamData)> objects = PdfTestDocument.SinglePage("<< /Length 0 >>", []);
         objects[2] = (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R /Resources << /XObject << /"
             + escaped + "A 6 0 R /" + escaped + "B 7 0 R >> >> >>", null);
         objects.Add((6, "<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /Length 1 >>", [128]));
         objects.Add((7, "<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /Length 1 >>", [128]));
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     [Fact]
@@ -85,14 +85,14 @@ public sealed class HelperPublicFormattingTests
     [Fact]
     public async Task ImageListingUsesRawOrderWithEscapedDisplayNamesAndDimensions()
     {
-        List<(int Number, string Dict, byte[]? StreamData)> objects = CheckTests.SinglePage("<< /Length 0 >>", []);
+        List<(int Number, string Dict, byte[]? StreamData)> objects = PdfTestDocument.SinglePage("<< /Length 0 >>", []);
         objects[2] = (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R /Resources << /XObject << /A 6 0 R /#FF 7 0 R /#23 8 0 R >> >> >>", null);
         for (int number = 6; number <= 8; number++)
         {
             objects.Add((number, "<< /Type /XObject /Subtype /Image /Width 2 /Height 3 /Length 0 >>", []));
         }
         InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("images.pdf"), CheckTests.Assemble(objects, 1), QpdfInputOwnership.Transfer);
+        host.AddInput(QpdfPath.From("images.pdf"), PdfTestDocument.Assemble(objects, 1), QpdfInputOwnership.Transfer);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
             new QpdfCommandInvocation(["images.pdf", "--show-pages", "--with-images"]), CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);

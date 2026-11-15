@@ -14,7 +14,7 @@ public sealed class BoundedPageCountTests
 
     private static byte[] Document(int payloadBytes, string shape)
     {
-        List<(int Number, string Dict, byte[]? StreamData)> objects = CheckTests.SinglePage("<< /Length 4 >>", "q Q\n"u8.ToArray());
+        List<(int Number, string Dict, byte[]? StreamData)> objects = PdfTestDocument.SinglePage("<< /Length 4 >>", "q Q\n"u8.ToArray());
         objects.Add((6, $"<< /Length {payloadBytes} >>", new byte[payloadBytes]));
         if (shape == "metadata") { objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /Metadata 6 0 R >>", null); }
         if (shape == "large-page")
@@ -34,7 +34,7 @@ public sealed class BoundedPageCountTests
             objects[1] = (2, "<< /Type /Pages /Kids [7 0 R] /Count 1 >>", null);
             objects.Add((7, "<< /Type /Pages /Kids [3 0 R] /Count 9 >>", null));
         }
-        byte[] bytes = CheckTests.Assemble(objects, 1);
+        byte[] bytes = PdfTestDocument.Assemble(objects, 1);
         if (shape == "incremental")
         {
             string text = Encoding.ASCII.GetString(bytes);

@@ -155,7 +155,7 @@ public sealed class AttachmentOptionTests
 
     private static byte[] Fixture(byte[] data, string filters, bool deep, bool brokenXref)
     {
-        byte[] pdf = CheckTests.Assemble([
+        byte[] pdf = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Names 6 0 R" + (deep ? " /Audit [[[[0]]]]" : "") + " >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 80 40] /Resources << >> >>", null),

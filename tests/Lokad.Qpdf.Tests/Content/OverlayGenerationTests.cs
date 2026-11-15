@@ -10,7 +10,7 @@ public sealed class OverlayGenerationTests
 {
     private static readonly QpdfPath Output = QpdfPath.From("output");
 
-    private static byte[] Target() => CheckTests.Assemble([
+    private static byte[] Target() => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
         (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null)], 1);
@@ -24,7 +24,7 @@ public sealed class OverlayGenerationTests
         _ => $"6 {live} R 6 {stale} R",
     };
 
-    private static byte[] Actions(int live, int stale, string order) => CheckTests.Assemble([
+    private static byte[] Actions(int live, int stale, string order) => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
         (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R /Annots [5 0 R] >>", null),
@@ -38,7 +38,7 @@ public sealed class OverlayGenerationTests
         string appearance = "/Type /Annot /Subtype /Widget /Rect [0 0 10 10] /AP << /N 9 0 R >>";
         string field = "/FT /Tx /T (Field) /V (kept)";
         byte[] data = "BT /F1 10 Tf 0 0 Td (kept) Tj ET\n"u8.ToArray();
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm 10 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R /Annots [" + widget + "] >>", null),

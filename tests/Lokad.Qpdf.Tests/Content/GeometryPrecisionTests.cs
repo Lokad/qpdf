@@ -4,7 +4,6 @@ using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Content;
@@ -65,7 +64,7 @@ public sealed class GeometryPrecisionTests
         PdfArray escaped;
         using (InMemoryQpdfHost host = new())
         {
-            byte[] source = CheckTests.Assemble([
+            byte[] source = PdfTestDocument.Assemble([
                 (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
                 (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
                 (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + width + " 100] /Resources << >> /Rotate " + angle + " >>", null)], 1);

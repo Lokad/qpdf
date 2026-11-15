@@ -18,7 +18,7 @@ public sealed class ConservativeResourcePruningTests
         byte[] input = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "undefined-form-resources.pdf"));
         if (declared)
         {
-            input = Lokad.Qpdf.Tests.Inspection.CheckTests.Assemble(
+            input = PdfTestDocument.Assemble(
             [
                 (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
                 (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),

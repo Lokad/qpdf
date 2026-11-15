@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -30,7 +29,7 @@ public sealed class FieldInheritanceTests
         }
         objects.Add((font, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null));
         objects.Add((appearance, "<< /Type /XObject /Subtype /Form /BBox [0 0 140 20] /Length 4 >>", "q Q\n"u8.ToArray()));
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     private static QpdfObject Resolve(QpdfDocument document, QpdfObject value)

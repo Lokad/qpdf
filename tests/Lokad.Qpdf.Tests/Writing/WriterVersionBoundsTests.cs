@@ -10,7 +10,7 @@ public sealed class WriterVersionBoundsTests
     private static InMemoryQpdfHost Host()
     {
         InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("input"), CheckTests.Assemble(CheckTests.SinglePage("<< /Length 0 >>", []), 1), QpdfInputOwnership.Transfer);
+        host.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 0 >>", []), 1), QpdfInputOwnership.Transfer);
         return host;
     }
 

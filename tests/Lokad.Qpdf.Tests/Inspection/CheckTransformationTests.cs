@@ -10,7 +10,7 @@ public sealed class CheckTransformationTests
 
     private static byte[] NestedFixture() => NestedFixture(false);
 
-    private static byte[] NestedFixture(bool contentGenerations) => CheckTests.Assemble(
+    private static byte[] NestedFixture(bool contentGenerations) => PdfTestDocument.Assemble(
         [
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [8 0 R] /Count 2 /MediaBox [0 0 600 800] /Resources << /ProcSet [/PDF] >> /Rotate 90 >>", null),
@@ -299,7 +299,7 @@ public sealed class CheckTransformationTests
     [Fact]
     public async Task OverlayPreservesIndirectAnnotationsAndFormGenerations()
     {
-        byte[] primary = CheckTests.Assemble(
+        byte[] primary = PdfTestDocument.Assemble(
         [
             (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm 9 3 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),

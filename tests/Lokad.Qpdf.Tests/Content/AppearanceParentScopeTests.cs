@@ -4,7 +4,6 @@ using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -19,7 +18,7 @@ public sealed class AppearanceParentScopeTests
             : "/FT /Tx /DA (/F1 9 Tf 0 g) " + (own ? "/V (own)" : string.Empty);
         string foreign = kind == "flags" ? "/Ff 32768" : kind == "appearance" ? "/DA (/F1 27 Tf 1 0 0 rg)" : "/V (foreign)";
         byte[] on = "1 0 0 rg 0 0 90 40 re f"u8.ToArray();
-        byte[] data = CheckTests.Assemble([
+        byte[] data = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm 5 0 R " + catalog + " >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [6 0 R] " + (alias == "page" ? "/Private 7 0 R" : string.Empty) + " >>", null),

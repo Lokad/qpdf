@@ -2,7 +2,6 @@ using System.IO.Compression;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Reading;
 
@@ -85,7 +84,7 @@ public sealed class ExternalStreamTransformTests
     {
         RejectingCodec codec = new(); using InMemoryQpdfHost host = new(QpdfLimits.Default, codec);
         byte[] samples = new byte[32 * 32 * 3];
-        host.AddInput(QpdfPath.From("input"), CheckTests.Assemble([
+        host.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << /XObject << /Im 5 0 R >> >> /Contents 4 0 R >>", null),
@@ -117,7 +116,7 @@ public sealed class ExternalStreamTransformTests
     public async Task PruningKeepsNamespacesWhoseEffectiveContentIsUnavailable(bool job)
     {
         using InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("input"), CheckTests.Assemble([
+        host.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << /Font << /Keep << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 4 0 R >>", null),
@@ -153,7 +152,7 @@ public sealed class ExternalStreamTransformTests
             using (ZLibStream codec = new(buffer, CompressionLevel.SmallestSize, true)) { codec.Write(physical); }
             physical = buffer.ToArray();
         }
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Audit 6 0 R /AcroForm << /Fields [5 0 R] /NeedAppearances true /DR << /Font << /F1 7 0 R >> >> /DA (/F1 12 Tf) >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R /Annots [5 0 R] >>", null),

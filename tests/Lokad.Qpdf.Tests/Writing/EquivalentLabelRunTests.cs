@@ -56,7 +56,7 @@ public sealed class EquivalentLabelRunTests
         string styleBody = shape is "style-different" ? "/R" : shape is "malformed" ? "(D)" : "/#44";
         string prefixBody = shape is "prefix-different" ? "(Other)" : shape is "prefix-encoding" ? "<feff0050002d>" : "<502d>";
         string start = shape is "restart" ? "1" : "11";
-        byte[] source = Inspection.CheckTests.Assemble(
+        byte[] source = PdfTestDocument.Assemble(
         [
             (1, "<< /Type /Catalog /Pages 2 0 R /PageLabels << /Nums [0 << /S 5 0 R /P 6 0 R /St 10 >> 1 << /S "
                 + secondStyle + " /P " + secondPrefix + " /St " + start + " >>] >> >>", null),

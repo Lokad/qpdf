@@ -2,7 +2,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -112,7 +111,7 @@ public sealed class AnnotationBorderFrameTests
     {
         string style = commonStyle ? "<< /W 3 /S /S /N 10 0 R >>" : "<< /W 3 /S /D /D 9 0 R >>";
         byte[] payload = "1 0 0 rg 0 0 40 20 re f"u8.ToArray();
-        byte[] source = CheckTests.Assemble([
+        byte[] source = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Rotate 90 /UserUnit 2 /Resources << >> /Annots [4 0 R 5 0 R] >>", null),
             (4, "<< /Type /Annot /Subtype /Link /Rect [10 20 50 40] /F 4 /Private 6 0 R /BS 7 0 R" + (commonStyle ? " /AP 7 0 R" : "") + " >>", null),
@@ -166,7 +165,7 @@ public sealed class AnnotationBorderFrameTests
         using InMemoryQpdfHost host = new();
         string style = dashed ? " /BS << /S /D" + (nullReference ? " /D 6 0 R" : "") + " >>"
             : nullReference ? " /Border 6 0 R" : "";
-        byte[] source = CheckTests.Assemble([
+        byte[] source = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Rotate 90 /UserUnit 2 /Resources << >> /Annots [4 0 R 5 0 R] >>", null),
             (4, "<< /Subtype /Link /Rect [10 20 90 80] /F 4" + style + " >>", null),
@@ -206,14 +205,14 @@ public sealed class AnnotationBorderFrameTests
         };
         string fields = kind is "defaults" or "bs-defaults" ? "" : " /Border 5 0 R";
         if (kind is not ("border" or "defaults")) { fields += " /BS " + (kind == "bs-direct" ? bs : "7 0 R"); }
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Rotate 90 /UserUnit 2 /Resources << >> /Annots [4 0 R] >>", null),
             (4, "<< /Type /Annot /Subtype /Link /Rect [10 20 90 80] /F 4 /Private 8 0 R" + fields + " >>", null),
             (5, border, null), (6, "2", null), (7, bs, null), (8, "<< /Border 5 0 R /BS 7 0 R /Marker (original) >>", null)], 1);
     }
 
-    private static byte[] Target() => CheckTests.Assemble([
+    private static byte[] Target() => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 500 500] /Resources << >> >>", null)], 1);
 

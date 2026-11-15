@@ -1,7 +1,6 @@
 using System.IO.Compression;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -18,7 +17,7 @@ public sealed class ImageFilterLimitTests
         }
         string filters = count == 1 ? "/FlateDecode" : "[" + string.Join(" ", Enumerable.Repeat("/FlateDecode", count)) + "]";
         string entry = count == 0 ? "" : "/Filter " + (indirect ? "6 0 R" : filters);
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R /Resources << /XObject << /Im 5 0 R >> >> >>", null),

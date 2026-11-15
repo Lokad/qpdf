@@ -20,7 +20,7 @@ public sealed class OutlineValueInspectionTests
         string first = position == "root" ? Entry("First") : " /First 5 0 R";
         string last = position == "root" && !present ? string.Empty
             : " /Last " + (present && position is "root" or "next" ? "8" : "5") + " 0 R";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Outlines 4 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 80 40] /Resources << >> >>", null),
@@ -102,7 +102,7 @@ public sealed class OutlineValueInspectionTests
 
     private static byte[] Fixture(string title, string count, string destination, int generation)
     {
-        byte[] bytes = CheckTests.Assemble([
+        byte[] bytes = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Outlines 4 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 " + generation + " R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 80 40] /Resources << >> >>", null),

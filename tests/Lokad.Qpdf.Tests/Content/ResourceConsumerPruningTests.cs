@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -24,7 +23,7 @@ public sealed class ResourceConsumerPruningTests
         string fontArray = "[" + (kind == "gs-ordinary" ? "12" : "5") + " 0 R 60]";
         string state = graphicsFont ? "<< /Type /ExtGState /Font " + (indirect ? "18 0 R" : fontArray) + " >>"
             : "<< /Type /ExtGState /SMask " + (indirect ? "16 0 R" : mask) + " >>";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R 13 0 R] /Count 2" + (indirect ? resources : "") + " >>", null),
             (3, page, null),

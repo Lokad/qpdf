@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -133,7 +132,7 @@ public sealed class SplitLabelContinuationTests
         objects.Insert(0, (2, "<< /Type /Pages /Count 6 /Kids [3 0 R 4 0 R 5 0 R 6 0 R 7 0 R 8 0 R] >>", null));
         objects.Insert(0, (1, "<< /Type /Catalog /Pages 2 0 R /PageLabels 9 0 R >>", null));
         objects.Add((9, "<< " + tree + " >>", null));
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     [Theory]

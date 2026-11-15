@@ -22,7 +22,7 @@ public sealed class ContentSafetyTests
         objects.Add((first, "<< /Length 3 >>", "q Q"u8.ToArray()));
         objects.Add((second, "<< /Length " + payload.Length + " " + encoding + " >>", payload));
         objects.Add((array, contents, null));
-        return Inspection.CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     private static ValueTask<QpdfExecutionResult> Run(InMemoryQpdfHost host, string mode, bool job, QpdfLimits limits)

@@ -24,7 +24,7 @@ public sealed class AttachmentIndirectMetadataTests
             (5, $"<< /Type /EmbeddedFile /Length 1 {metadata} >>", "U"u8.ToArray())];
         for (int index = 0; index < values.Length; index++) { objects.Add((index + 6, scalarOverride ?? values[index], null)); }
         objects.Add((13, $"<< /Type /EmbeddedFile /Length 1 {metadata} >>", "F"u8.ToArray()));
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     [Theory]

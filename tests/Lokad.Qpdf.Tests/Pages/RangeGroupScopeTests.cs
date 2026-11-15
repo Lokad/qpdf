@@ -4,7 +4,6 @@ using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Pages;
 using Lokad.Qpdf.Runtime;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Pages;
 
@@ -86,7 +85,7 @@ public sealed class RangeGroupScopeTests
             objects.Add((index + 7, "<< /Length " + content.Length + " >>", content));
             if (annotations) { objects.Add((index + 12, "<< /Type /Annot /Subtype /Link /Rect [10 10 20 20] /A << /S /URI /URI (https://example.test/page-" + index + ") >> >>", null)); }
         }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     [Theory]

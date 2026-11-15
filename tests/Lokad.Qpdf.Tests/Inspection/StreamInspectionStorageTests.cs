@@ -8,7 +8,7 @@ namespace Lokad.Qpdf.Tests.Inspection;
 
 public sealed class StreamInspectionStorageTests
 {
-    private static byte[] Input(byte[] payload, string filter) => CheckTests.Assemble([
+    private static byte[] Input(byte[] payload, string filter) => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
         (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R >>", null),

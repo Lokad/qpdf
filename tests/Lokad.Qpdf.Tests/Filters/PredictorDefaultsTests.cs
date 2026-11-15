@@ -1,5 +1,4 @@
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Filters;
 
@@ -8,10 +7,10 @@ public sealed class PredictorDefaultsTests
     internal static byte[] Fixture(string codec, string parameters, byte[] predicted)
     {
         byte[] encoded = DecoderOwnershipFixtures.Encode(codec, predicted);
-        List<(int, string, byte[]?)> objects = CheckTests.SinglePage(
+        List<(int, string, byte[]?)> objects = PdfTestDocument.SinglePage(
             $"<< /Length {encoded.Length} /Filter /{codec} /DecodeParms {parameters} >>", encoded);
         objects.Add((6, "null", null));
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     public static IEnumerable<object[]> Cases()

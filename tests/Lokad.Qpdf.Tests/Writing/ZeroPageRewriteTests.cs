@@ -3,7 +3,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -25,7 +24,7 @@ public sealed class ZeroPageRewriteTests
         (5, "<< /Type /EmbeddedFile /Length 3 /Params << /Size 3 >> >>", Payload),
         ];
         if (onePage) { objects.Add((6, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>", null)); }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     private static async Task<ObservedHost> Prepare()

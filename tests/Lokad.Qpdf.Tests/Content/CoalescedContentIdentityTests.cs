@@ -2,7 +2,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -22,7 +21,7 @@ public sealed class CoalescedContentIdentityTests
     {
         bool catalogAlias = alias is "catalog" or "both";
         bool pageAlias = alias is "page" or "both";
-        byte[] fixture = CheckTests.Assemble([
+        byte[] fixture = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R " + (catalogAlias ? "/Audit 5 0 R" : string.Empty) + " >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 5 0 R " + (pageAlias ? "/Audit 5 0 R" : string.Empty) + " >>", null),

@@ -3,7 +3,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Image;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -41,7 +40,7 @@ public sealed class LateContentTransformTests
         string resources = role == "form" ? "<< /XObject << /Nested 6 0 R >> >>"
             : role == "unused" ? "<< /XObject << /Unused 7 0 R >> >>" : "<< >>";
         bool annotation = role == "appearance" || alias && role == "unused";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AuditContents 4 0 R /AuditAppearance 6 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources " + resources + " /Contents 4 0 R " + (annotation ? "/Annots [5 0 R]" : "") + " >>", null),
@@ -51,7 +50,7 @@ public sealed class LateContentTransformTests
             (7, "<< /Type /XObject /Subtype /Image /Width 128 /Height 128 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Length " + unused.Length + " >>", unused)], 1);
     }
 
-    private static byte[] Blank() => CheckTests.Assemble([
+    private static byte[] Blank() => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
         (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R >>", null),
@@ -148,7 +147,7 @@ public sealed class LateContentTransformTests
     public async Task MixedSourceAutoPruningKeepsEachOriginalDecision(bool reverse, bool job)
     {
         byte[] image = new byte[128 * 128 * 3]; new Random(119).NextBytes(image);
-        byte[] shared = CheckTests.Assemble([
+        byte[] shared = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Audit 7 0 R >>", null),
             (2, "<< /Type /Pages /Count 2 /Kids [3 0 R 5 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources 6 0 R /Contents 4 0 R >>", null),

@@ -3,7 +3,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -41,7 +40,7 @@ public sealed class SplitPageMembershipTests
                 (25, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null)]);
         }
         objects.Sort((left, right) => left.Number.CompareTo(right.Number));
-        byte[] bytes = CheckTests.Assemble(objects, 1);
+        byte[] bytes = PdfTestDocument.Assemble(objects, 1);
         return Encoding.Latin1.GetBytes(Encoding.Latin1.GetString(bytes).Replace("/Root 1 0 R >>", "/Root 1 0 R /Info 15 0 R >>", StringComparison.Ordinal));
     }
 

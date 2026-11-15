@@ -1,7 +1,6 @@
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -20,7 +19,7 @@ public sealed class OverlayClippingResourceTests
         byte[] program = "/Original Do"u8.ToArray(); byte[] leaf = "1 0 0 rg 0 0 40 40 re f"u8.ToArray();
         string resources = "<< /XObject << /Original 6 0 R >> >>";
         string pageResources = mode switch { "absent" => "", "null" => "/Resources null", "direct" => "/Resources " + resources, _ => "/Resources 7 0 R" };
-        byte[] source = CheckTests.Assemble([
+        byte[] source = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] " + pageResources + " /Annots [4 0 R] >>", null),
             (4, "<< /Type /Annot /Subtype /Stamp /F 4 /Rect " + (inside ? "[20 20 60 60]" : "[-20 20 20 60]") + " /AP << /N 5 0 R >> /Private 5 0 R >>", null),

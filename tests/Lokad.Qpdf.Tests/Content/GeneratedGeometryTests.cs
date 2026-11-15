@@ -19,7 +19,7 @@ public sealed class GeneratedGeometryTests
         string left = overflow && appearance ? "-" + width : "0";
         string form = appearance ? "/AcroForm << /Fields [5 0 R] /NeedAppearances true /DA (/Helv 12 Tf) /DR << /Font << /Helv 7 0 R >> >> >>" : "";
         string page = appearance ? "/Annots [5 0 R]" : "/Rotate 90" + (overflow ? " /UserUnit 2" : "");
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R " + form + " >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + (appearance ? "400" : width) + " 800] /Resources << >> /Contents 4 0 R " + page + " >>", null),

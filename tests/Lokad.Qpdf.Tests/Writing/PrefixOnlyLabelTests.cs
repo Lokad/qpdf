@@ -2,7 +2,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -200,7 +199,7 @@ public sealed class PrefixOnlyLabelTests
             (11, "<< /P 12 0 R /St " + (malformedStart ? "15" : "13") + " 0 R" + (style == "absent" ? "" : " /S 14 0 R") + " >>", null),
             (12, "(Fixed)", null), (13, maximum ? "9223372036854775807" : "7", null), (14, style == "numbered" ? "/D" : "null", null)]);
         if (malformedStart) { objects.Add((15, "(unterminated", null)); }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     private static QpdfObject Read(QpdfDocument document, PdfDictionary dictionary, string key)

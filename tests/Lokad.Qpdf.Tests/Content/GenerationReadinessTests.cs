@@ -3,7 +3,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -19,7 +18,7 @@ public sealed class GenerationReadinessTests
         string field = kind is "radio" or "push"
             ? "/FT /Btn /Ff " + (kind == "radio" ? "32768" : "65536") + " /V /On /AS /Off /AP << /N << /Off 5 0 R /On 5 0 R >> >>"
             : "/FT /Tx /V (LIVE2) " + second + " /AP << /N 5 0 R >>";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R 8 0 R] /NeedAppearances " + (needs ? "true" : "false") + " /DR << /Font << /F1 6 0 R >> >> >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R 7 0 R] /Count 2 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> /Annots [4 0 R 9 0 R] >>", null),

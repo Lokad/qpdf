@@ -2,7 +2,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Json;
 using Lokad.Qpdf.Runtime;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Writing;
@@ -17,7 +16,7 @@ public sealed class OutlineInspectionTests
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << >> >>", null),
             (4, "<< /Type /Outlines /First 5 0 R >>", null)];
         for (int i = 0; i < entries.Length; i++) { objects.Add((5 + i, entries[i], null)); }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     private static ValueTask<QpdfExecutionResult> Run(InMemoryQpdfHost host, bool job, CancellationToken token)

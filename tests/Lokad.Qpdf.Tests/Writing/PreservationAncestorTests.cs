@@ -3,7 +3,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -18,7 +17,7 @@ public sealed class PreservationAncestorTests
             "null" => "null", "indirect-null" => "6 0 R",
             _ => "2 " + generation + " R",
         };
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 " + generation + " R >>", null),
             (2, "<< /Type " + (generation == 0 ? "/Pages" : "7 0 R") + " /Kids [3 0 R] /Count 1 /OldTreeTag (obsolete) >>", null),
             (3, "<< /Type /Page /Parent " + parent + " /MediaBox [0 0 100 100] /CropBox [0 0 100 100] /Rotate 0 /Resources << >> >>", null),

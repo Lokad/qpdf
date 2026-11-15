@@ -1,7 +1,6 @@
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Pages;
 using Lokad.Qpdf.Runtime;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
@@ -61,7 +60,7 @@ public sealed class SimplifiedExecutionTests
     public async Task DiagnosticOverflowFailsBeforePublicationAndSuppressionSkipsUnstoredWarnings(bool noWarn)
     {
         using InMemoryQpdfHost host = new();
-        host.AddInput(Input, CheckTests.Assemble(CheckTests.SinglePage("<< /Length 4 /Length 4 /Width 1 /Width 2 >>", "q Q\n"u8.ToArray()), 1), QpdfInputOwnership.Transfer);
+        host.AddInput(Input, PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 4 /Length 4 /Width 1 /Width 2 >>", "q Q\n"u8.ToArray()), 1), QpdfInputOwnership.Transfer);
         await Seed(host);
         QpdfCommandInvocation command = new(noWarn ? ["input", "--no-warn", "output"] : ["input", "output"]);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, command,
@@ -104,7 +103,7 @@ public sealed class SimplifiedExecutionTests
         using InMemoryQpdfHost storage = CleanHost(); await Seed(storage);
         if (warning)
         {
-            storage.AddInput(Input, CheckTests.Assemble(CheckTests.SinglePage(
+            storage.AddInput(Input, PdfTestDocument.Assemble(PdfTestDocument.SinglePage(
                 "<< /Length 4 /Length 4 >>", "q Q\n"u8.ToArray()), 1), QpdfInputOwnership.Transfer);
         }
         using CancellationTokenSource cancellation = new();

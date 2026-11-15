@@ -4,7 +4,6 @@ using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Content;
@@ -68,7 +67,7 @@ public sealed class OverlayAdmissionTests
     public async Task ImportsBorrowSourceAndOnlyAdmitDestinationStorageForRealAnnotations(string kind)
     {
         string annotations = kind == "empty" ? "[]" : kind == "append" ? "[4 0 R]" : "[" + string.Concat(Enumerable.Repeat("null ", 262144)) + "]";
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Annots " + annotations + " >>", null),

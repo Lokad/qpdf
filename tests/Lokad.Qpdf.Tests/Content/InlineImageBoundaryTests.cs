@@ -6,7 +6,6 @@ using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -66,7 +65,7 @@ public sealed class InlineImageBoundaryTests
             (4, "<< /Length " + (form ? 6 : program.Length) + " >>", form ? "/Fm Do"u8.ToArray() : program),
         ];
         if (form) { objects.Add((5, "<< /Type /XObject /Subtype /Form /BBox [0 0 100 100] /Resources " + resources + " /Length " + program.Length + " >>", program)); }
-        return (CheckTests.Assemble(objects, 1), samples);
+        return (PdfTestDocument.Assemble(objects, 1), samples);
     }
 
     public static IEnumerable<object[]> Cases()

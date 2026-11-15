@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Json;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -16,7 +15,7 @@ public sealed class AttachmentJsonTests
     {
         int specGeneration = nonzeroGeneration ? 7 : 0, streamGeneration = nonzeroGeneration ? 9 : 0;
         string spec = "<< /Type /Filespec /UF (preferred) /EF << /UF 6 " + streamGeneration + " R >> >>";
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 4 0 R >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] >>", null),
@@ -79,7 +78,7 @@ public sealed class AttachmentJsonTests
     [Fact]
     public async Task NamedStreamsKeepTheirOwnMetadataAndPreferredIdentity()
     {
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 4 0 R >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] >>", null),
@@ -117,7 +116,7 @@ public sealed class AttachmentJsonTests
     [InlineData(true)]
     public async Task DamagedOptionalParametersPreservePreferredAndAlternateStreamPolicies(bool preferred)
     {
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 4 0 R >> >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] >>", null),

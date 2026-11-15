@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -16,7 +15,7 @@ public sealed class AppearanceFontIdentityTests
         string resources = "<< /Font << " + (local == "missing" ? "" : "/F1 " + (indirect ? "6 0 R" : localFont)) + " >> >>";
         string defaults = "<< /Font << /F1 " + (indirect ? "7 0 R" : fallbackFont) + " >> >>";
         byte[] original = "/Tx BMC BT /F1 12 Tf (OLD) Tj ET EMC\n"u8.ToArray();
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] /NeedAppearances true " + (fallback == "absent" ? "" : "/DR " + (indirect ? "11 0 R" : defaults)) + " >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 100] /Resources << >> /Annots [4 0 R] >>", null),

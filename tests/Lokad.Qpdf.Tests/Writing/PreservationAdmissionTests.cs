@@ -2,7 +2,6 @@ using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Writing;
@@ -11,9 +10,9 @@ public sealed class PreservationAdmissionTests
 {
     internal static byte[] Scalars(int count)
     {
-        var objects = CheckTests.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray());
+        var objects = PdfTestDocument.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray());
         for (int i = 0; i < count; i++) { objects.Add((i + 6, i.ToString(System.Globalization.CultureInfo.InvariantCulture), null)); }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     [Theory]

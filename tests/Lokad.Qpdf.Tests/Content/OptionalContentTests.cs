@@ -2,7 +2,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -21,7 +20,7 @@ public sealed class OptionalContentTests
     {
         byte[] program = "/OC /M BDC 1 0 0 rg 10 10 60 60 re f EMC /Inner Do"u8.ToArray();
         byte[] innerProgram = "0 0 1 rg 70 70 20 20 re f"u8.ToArray();
-        byte[] source = CheckTests.Assemble([
+        byte[] source = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /OCProperties << /OCGs [5 0 R 6 0 R] /D << /BaseState /ON /OFF [5 0 R] >> >> >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << /Properties << /M 7 0 R >> /XObject << /Inner 8 0 R >> >> /Contents 4 0 R /Annots [9 0 R] >>", null),
@@ -32,7 +31,7 @@ public sealed class OptionalContentTests
             (9, "<< /Type /Annot /Subtype /Link /Rect [1 1 10 10] /OC 7 0 R /A << /S /URI /URI (https://example.test/) >> >>", null)], 1);
         using InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("source"), source, QpdfInputOwnership.Transfer);
-        host.AddInput(QpdfPath.From("input"), CheckTests.Assemble([
+        host.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null)], 1), QpdfInputOwnership.Transfer);
         QpdfExecutionResult result = route == "argv"
@@ -104,7 +103,7 @@ public sealed class OptionalContentTests
         string properties = "<< /OCGs " + (indirect ? "9 0 R" : "[5 0 R]")
             + " /D " + (indirect ? "7 0 R" : defaults)
             + (policy == "alternate" ? " /Configs [<< /Name (Alternate) /BaseState /OFF >>]" : "") + " >>";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /OCProperties " + (indirect ? "6 0 R" : properties) + (alias ? " /Audit 6 0 R" : "") + " >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << /Properties << /Layer 5 0 R >> >> /Contents 4 0 R >>", null),
@@ -261,7 +260,7 @@ public sealed class OptionalContentTests
     [MemberData(nameof(OffStateCases))]
     public async Task RequiredOffStateInterpretationKeepsMalformedDataDistinctFromHostFailures(string route, bool retained, bool malformed)
     {
-        byte[] States(bool indirect, bool bad) => CheckTests.Assemble([
+        byte[] States(bool indirect, bool bad) => PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /OCProperties " + (indirect ? "6 0 R" : "<< /OCGs [5 0 R] /D << /BaseState /ON /OFF " + (bad ? "42" : "[5 0 R]") + " >> >>") + " >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << /Properties << /L 5 0 R >> " + (indirect ? "/Private 6 0 R" : "") + " >> /Contents 4 0 R >>", null),

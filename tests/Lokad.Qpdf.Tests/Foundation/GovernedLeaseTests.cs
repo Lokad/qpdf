@@ -1,6 +1,5 @@
 using System.Text;
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
@@ -55,7 +54,7 @@ public sealed class GovernedLeaseTests
     public async Task CompleteAndShortReadsHaveNoCumulativeCallAllowance(bool shortReads)
     {
         byte[] body = Encoding.ASCII.GetBytes("%" + new string('p', 100_100) + "\n");
-        byte[] pdf = CheckTests.Assemble(CheckTests.SinglePage("<< /Length " + body.Length + " >>", body), 1);
+        byte[] pdf = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length " + body.Length + " >>", body), 1);
         CountingHost host = new(pdf) { ShortReads = shortReads };
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("a"), CancellationToken.None))
         { Assert.Equal(1, document.PageCount); }

@@ -2,7 +2,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Tests.Foundation;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -23,7 +22,7 @@ public sealed class SharedRotationAnnotationTests
         string form = kind == "stamp" ? string.Empty : "/AcroForm << /Fields [" + (kind == "merged" ? "4 0 R" : "9 0 R") + "] >>";
         string annot = kind == "stamp" ? "/Subtype /Stamp" : "/Subtype /Widget "
             + (kind == "merged" ? "/FT /Tx /T (Field) /V (Value)" : "/Parent 9 0 R");
-        byte[] fixture = CheckTests.Assemble([
+        byte[] fixture = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R " + form + " >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Resources << >> /Annots 10 0 R >>", null),
@@ -97,7 +96,7 @@ public sealed class SharedRotationAnnotationTests
     [InlineData(true, true)]
     public async Task NestedFieldCopiesRetainOtherPagesAndCalculationOrder(bool job, bool linear)
     {
-        byte[] fixture = CheckTests.Assemble([
+        byte[] fixture = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [14 0 R] /CO [9 0 R 13 0 R] >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R 11 0 R] /Count 2 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Resources << >> /Annots [4 0 R] >>", null),
@@ -160,7 +159,7 @@ public sealed class SharedRotationAnnotationTests
     [InlineData(true)]
     public async Task LinkedPopupsOutsideAnnotsStayWithTheirOccurrence(bool job)
     {
-        byte[] fixture = CheckTests.Assemble([
+        byte[] fixture = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Annots [4 0 R] >>", null),
@@ -199,7 +198,7 @@ public sealed class SharedRotationAnnotationTests
     {
         const string first = "<< /Subtype /Stamp /Rect [40 60 60 80] /P 3 0 R /IRT 5 0 R >>";
         const string second = "<< /Subtype /Stamp /Rect [40 60 60 80] /P 4 0 R /IRT 5 0 R >>";
-        byte[] fixture = CheckTests.Assemble([
+        byte[] fixture = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Annots [5 0 R " + (direct ? first : "7 0 R") + "] >>", null),
@@ -230,7 +229,7 @@ public sealed class SharedRotationAnnotationTests
     [InlineData(true, true)]
     public async Task UnregisteredWidgetBranchesStayCoherentWithoutNewRegistrations(bool job, bool removeForm)
     {
-        byte[] fixture = CheckTests.Assemble([
+        byte[] fixture = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields " + (removeForm ? "[5 0 R]" : "[]") + " >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Annots [4 0 R] >>", null),
@@ -272,7 +271,7 @@ public sealed class SharedRotationAnnotationTests
     [InlineData(true, "commit")]
     public async Task FailureKeepsPriorOutputAndClosesLeases(bool job, string failure)
     {
-        byte[] fixture = CheckTests.Assemble([
+        byte[] fixture = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Annots [4 0 R] >>", null),

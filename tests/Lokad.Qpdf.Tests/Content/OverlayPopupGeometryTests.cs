@@ -2,7 +2,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -24,7 +23,7 @@ public sealed class OverlayPopupGeometryTests
         RecordingMemoryBudget budget = new(32L * 1048576L);
         using IMemoryScope owner = budget.CreateScope();
         using InMemoryQpdfHost host = new(QpdfLimits.Default, null, owner);
-        host.AddInput(QpdfPath.From("source"), CheckTests.Assemble([
+        host.AddInput(QpdfPath.From("source"), PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Rotate 90 /Resources << >> /Annots "
@@ -32,7 +31,7 @@ public sealed class OverlayPopupGeometryTests
             (4, "<< /Type /Annot /Subtype /Text /F 4 /Rect [10 20 40 40] /Popup 5 0 R >>", null),
             (5, "<< /Type /Annot /Subtype /Popup /F 4 /Rect 6 0 R /PrivateRect 6 0 R /Parent 4 0 R /Open true >>", null),
             (6, "[30 40 60 80]", null)], 1), QpdfInputOwnership.Transfer);
-        host.AddInput(QpdfPath.From("input"), CheckTests.Assemble([
+        host.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 400] /Resources << >> >>", null)], 1), QpdfInputOwnership.Transfer);

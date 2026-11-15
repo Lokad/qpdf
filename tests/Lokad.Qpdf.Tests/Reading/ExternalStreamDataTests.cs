@@ -2,7 +2,6 @@ using System.IO.Compression;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Syntax;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Reading;
 
@@ -47,7 +46,7 @@ public sealed class ExternalStreamDataTests
             (6, "<< /Type /Filespec /F (K) /EF << /F 5 0 R >> >>", null),
             (7, "(external.bin)", null), (8, "null", null),
         ];
-        return (CheckTests.Assemble(objects, 1), physical);
+        return (PdfTestDocument.Assemble(objects, 1), physical);
     }
 
     private static async Task Seed(InMemoryQpdfHost host)

@@ -98,7 +98,7 @@ public sealed class CompressionOrderTests
         (string pageHeader, byte[] page) = Hex(Page);
         (string formHeader, byte[] form) = Hex(Form);
         (string imageHeader, byte[] image) = Hex([127]);
-        return CheckTests.Assemble(
+        return PdfTestDocument.Assemble(
         [
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),

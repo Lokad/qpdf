@@ -4,7 +4,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Image;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -48,7 +47,7 @@ public sealed class ImageOptimizationGraphTests
         string formSubtype = kind switch { "form-indirect" => "8 0 R", "form-stale" => "8 1 R", "form-invalid" => "null", _ => "/Form" };
         string resources = form ? "/Fm0 6 0 R" : "/Im0 5 0 R /Im1 " + (distinct ? "6" : "5") + " 0 R";
         byte[] content = Encoding.ASCII.GetBytes("q 200 0 0 200 0 0 cm /" + (form ? "Fm0" : "Im0") + " Do Q\n");
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /XObject << " + resources + " >> >> /Contents 4 0 R >>", null),

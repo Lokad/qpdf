@@ -4,7 +4,6 @@ using Lokad.Qpdf.Attachments;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.TestSupport;
 
 namespace Lokad.Qpdf.Tests.Writing;
@@ -47,7 +46,7 @@ public sealed class SelectiveAttachmentExtractionTests
             for (int id = 11; id < 17; id++) { objects.Add((id, "<< /Kids [" + (id + 1) + " 0 R] >>", null)); }
             objects.Add((17, leaf, null));
         }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     private static ValueTask<QpdfExecutionResult> Execute(IQpdfHost host, string route, string key, QpdfLimits limits, CancellationToken token)

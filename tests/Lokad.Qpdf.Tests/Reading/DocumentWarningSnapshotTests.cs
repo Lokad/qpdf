@@ -244,10 +244,10 @@ public sealed class DocumentWarningSnapshotTests
     [Trait("Layer", "Contract")]
     public async Task OldSnapshotsKeepTheirPrefixWhenLaterObjectLoadingAddsAWarning()
     {
-        List<(int, string, byte[]?)> objects = CheckTests.SinglePage("<< /Length 0 >>", []);
+        List<(int, string, byte[]?)> objects = PdfTestDocument.SinglePage("<< /Length 0 >>", []);
         objects[1] = (2, "<< /Type /Pages /Kids [3 0 R] /Count 2 >>", null);
         objects.Add((6, "<< /K 1 /K 2 >>", null));
-        InMemoryQpdfHost host = new(); host.AddInput(Input, CheckTests.Assemble(objects, 1), QpdfInputOwnership.Copy);
+        InMemoryQpdfHost host = new(); host.AddInput(Input, PdfTestDocument.Assemble(objects, 1), QpdfInputOwnership.Copy);
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, Input, CancellationToken.None);
         IReadOnlyList<QpdfDiagnostic> first = document.Warnings; Validate(first);
         document.GetObject(6);

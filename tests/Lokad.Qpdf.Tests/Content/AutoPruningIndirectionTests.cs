@@ -2,7 +2,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -12,7 +11,7 @@ public sealed class AutoPruningIndirectionTests
     {
         string kids = indirectKids ? "9 0 R" : "[3 0 R 4 0 R]", subtype = indirectSubtype ? "10 0 R" : "/Form";
         byte[] page = "q 60 0 0 60 20 20 cm /Fm Do Q"u8.ToArray(), form = "/Im0 Do"u8.ToArray();
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R" + (alias ? " /OriginalResources 8 0 R" : string.Empty) + " >>", null),
             (2, "<< /Type /Pages /Kids " + kids + " /Count 2 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << /XObject << /Fm 6 0 R >> >> /Contents 5 0 R >>", null),

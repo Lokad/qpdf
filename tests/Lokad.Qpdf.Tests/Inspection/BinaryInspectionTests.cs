@@ -22,7 +22,7 @@ public sealed class BinaryInspectionTests
             using (ZLibStream zlib = new(encoded, CompressionLevel.Optimal, true)) { zlib.Write(data); }
             data = encoded.ToArray();
         }
-        var objects = CheckTests.SinglePage("<< /Length 0 >>", []);
+        var objects = PdfTestDocument.SinglePage("<< /Length 0 >>", []);
         objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /Audit 8 0 R /Names << /EmbeddedFiles << /Names [(payload) 6 0 R] >> >> >>", null);
         objects.Add((5, "<< /Length " + data.Length + (compressed ? " /Filter /FlateDecode" : string.Empty) + " >>", data));
         objects.Add((6, "<< /Type /Filespec /F (p.bin) /EF << /F 7 0 R >> >>", null));
@@ -37,7 +37,7 @@ public sealed class BinaryInspectionTests
         }
         byte[] checkedData = checkedStream.ToArray();
         objects.Add((8, "<< /Length " + checkedData.Length + " /Filter /FlateDecode >>", checkedData));
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     private static InMemoryQpdfHost Host(bool compressed, bool emptyStream)
@@ -264,14 +264,14 @@ public sealed class BinaryInspectionTests
     [InlineData("mixed")]
     public async Task FatalCheckingOfAnUnextractedStreamStopsAttachmentOutput(string route)
     {
-        var objects = CheckTests.SinglePage("<< /Length 0 >>", []);
+        var objects = PdfTestDocument.SinglePage("<< /Length 0 >>", []);
         objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(payload) 6 0 R] >> >> >>", null);
         objects.Add((6, "<< /Type /Filespec /F (p.bin) /EF << /F 7 0 R >> >>", null));
         objects.Add((7, "<< /Type /EmbeddedFile /Length 4 >>", AttachmentBytes));
         objects.Add((8, "<< /Length 7 /Filter /FlateDecode >>", "invalid"u8.ToArray()));
         objects[2] = (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 8 0 R >>", null);
         InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("a.pdf"), CheckTests.Assemble(objects, 1), QpdfInputOwnership.Copy);
+        host.AddInput(QpdfPath.From("a.pdf"), PdfTestDocument.Assemble(objects, 1), QpdfInputOwnership.Copy);
         QpdfExecutionResult result = await Execute(host, route, "\"check\":\"\",\"showAttachment\":\"payload\"",
             ["--check", "--show-attachment=payload"], QpdfLimits.Default);
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);

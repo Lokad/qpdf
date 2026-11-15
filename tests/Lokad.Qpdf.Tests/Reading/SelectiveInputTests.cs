@@ -13,7 +13,7 @@ public sealed class SelectiveInputTests
     {
         byte[] large = new byte[9 * 1048576];
         byte[] payload = mode == "required" ? large : "q Q\n"u8.ToArray();
-        List<(int Number, string Body, byte[]? Stream)> objects = CheckTests.SinglePage(
+        List<(int Number, string Body, byte[]? Stream)> objects = PdfTestDocument.SinglePage(
             mode == "malformed" ? "<< /Length 1 >>" : $"<< /Length {payload.Length} >>", payload);
         if (mode != "required") { objects.Add((6, $"<< /Length {large.Length} >>", large)); }
         // Retained metadata after the bulk object exercises both prefetched
@@ -32,7 +32,7 @@ public sealed class SelectiveInputTests
             var page = objects[2];
             objects[2] = (page.Number, page.Body.Replace("/Type /Page", "/Type /Page /Type /Page", StringComparison.Ordinal), page.Stream);
         }
-        byte[] result = CheckTests.Assemble(objects, 1);
+        byte[] result = PdfTestDocument.Assemble(objects, 1);
         if (mode == "broken-xref")
         {
             int start = result.AsSpan().LastIndexOf("startxref\n"u8) + 10;

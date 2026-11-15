@@ -16,7 +16,7 @@ public sealed class ResourcePruningRoleTests
         string aliases = rooted ? "/Original 5 0 R /OriginalOuter 10 0 R /OriginalResources 8 0 R" : "";
         string resources = "<< /XObject << /Target 5 0 R /Alias 5 0 R" + (shape == "flat" ? "" : " /Outer 10 0 R") + " >> >>";
         byte[] outer = Encoding.ASCII.GetBytes("/Target Do" + (shape == "cycle" ? " /Self Do" : ""));
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R " + aliases + " >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources " + resources + " /Contents 9 0 R " + aliases + " >>", null),

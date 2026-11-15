@@ -1,7 +1,6 @@
 using System.Text;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -85,7 +84,7 @@ public sealed class AnnotationPlacementTests
     private static byte[] Fixture(string matrix, string rect, string extra, int angle)
     {
         byte[] appearance = "0 0 m 80 0 l 0 40 l h f\n"u8.ToArray();
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, $"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Rotate {angle} /Resources << >> /Annots [4 0 R] >>", null),

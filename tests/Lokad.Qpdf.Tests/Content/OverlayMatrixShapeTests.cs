@@ -1,6 +1,5 @@
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -9,7 +8,7 @@ public sealed class OverlayMatrixShapeTests
     private static byte[] Source(string value, bool indirect)
     {
         const string appearance = "1 0 0 rg 0 0 10 10 re f";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [6 0 R 8 0 R] >>", null),
@@ -39,7 +38,7 @@ public sealed class OverlayMatrixShapeTests
     {
         using InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("stamp"), Source(value, indirect), QpdfInputOwnership.Transfer);
-        host.AddInput(QpdfPath.From("input"), CheckTests.Assemble([
+        host.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> >>", null)], 1), QpdfInputOwnership.Transfer);
         QpdfExecutionResult result = job ? await Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","overlay":{"file":"stamp"}}""", CancellationToken.None)

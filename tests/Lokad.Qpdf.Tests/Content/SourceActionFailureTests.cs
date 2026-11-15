@@ -26,7 +26,7 @@ public sealed class SourceActionFailureTests
         string context = destination ? "/Names << /Dests << /Names [(" + (valid ? "Here" : "Other") + ") [3 0 R /Fit]] >> >>"
             : "/URI << /Base " + (feature == "bad-base" ? "42" : "(https://source.test/)") + " >>";
         string action = destination ? "/S /GoTo /D (Here)" : "/S /URI /URI " + (feature == "non-ascii-uri" ? "<e9>" : "(relative.pdf)");
-        byte[] placed = Tests.Inspection.CheckTests.Assemble([
+        byte[] placed = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R " + context + " >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [4 0 R] >>", null),
@@ -35,7 +35,7 @@ public sealed class SourceActionFailureTests
         using (IMemoryScope owner = budget.CreateScope())
         using (InMemoryQpdfHost host = new(QpdfLimits.Default, null, owner))
         {
-            host.AddInput(Input, Tests.Inspection.CheckTests.Assemble([
+            host.AddInput(Input, PdfTestDocument.Assemble([
                 (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
                 (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null)], 1), QpdfInputOwnership.Transfer);
             host.AddInput(QpdfPath.From("placed"), placed, QpdfInputOwnership.Transfer); await Seed(host);
@@ -119,7 +119,7 @@ public sealed class SourceActionFailureTests
     {
         string tree = shape switch { "cycle" => "<< /Kids [6 0 R] /Source 1 0 R >>", "odd" => "<< /Names [(Here)] /Source 1 0 R >>",
             "key-type" => "<< /Names [42 [3 0 R /Fit]] /Source 1 0 R >>", "child-type" => "<< /Kids [42] /Source 1 0 R >>", _ => "<< /Names [(Other) [3 0 R /Fit]] /Source 1 0 R >>" };
-        byte[] source = Tests.Inspection.CheckTests.Assemble([
+        byte[] source = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Names << /Dests 6 0 R >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [4 0 R] >>", null),
@@ -221,7 +221,7 @@ public sealed class SourceActionFailureTests
     public async Task BothTokensCancelDestinationBindingAfterAdmissionWithoutPublishingHeaders(bool caller)
     {
         string actions = string.Join(" ", Enumerable.Range(0, 512).Select(i => "<< /S /GoTo /D [3 0 R /XYZ " + i + " 60 1] >>"));
-        byte[] source = Tests.Inspection.CheckTests.Assemble([
+        byte[] source = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /OpenAction 4 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [10 20 110 220] /Resources << >> /Rotate 90 >>", null),

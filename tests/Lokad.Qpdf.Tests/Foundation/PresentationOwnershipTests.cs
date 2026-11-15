@@ -3,7 +3,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Runtime;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Foundation;
@@ -139,7 +138,7 @@ public sealed class PresentationOwnershipTests
     public async Task PreparedSplitPreservesBytesAcrossSegmentBoundaries(string route)
     {
         byte[] body = Encoding.ASCII.GetBytes(string.Concat(Enumerable.Repeat("q Q\n", 17501)));
-        byte[] pdf = CheckTests.Assemble(CheckTests.SinglePage("<< /Length " + body.Length + " >>", body), 1);
+        byte[] pdf = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length " + body.Length + " >>", body), 1);
         CountingPublicationHost prior = await Prepare("split-qdf", false, false), current = await Prepare("split-qdf", false, false);
         prior.Inner.AddInput(QpdfPath.From("input.pdf"), pdf, QpdfInputOwnership.Copy);
         current.Inner.AddInput(QpdfPath.From("input.pdf"), pdf, QpdfInputOwnership.Copy);
@@ -161,9 +160,9 @@ public sealed class PresentationOwnershipTests
     {
         byte[] random = new byte[35000]; new Random(1729).NextBytes(random);
         byte[] body = Encoding.ASCII.GetBytes("%" + Convert.ToHexString(random) + "\n");
-        List<(int Number, string Dict, byte[]? StreamData)> objects = CheckTests.SinglePage("<< /Length " + body.Length + " >>", body);
+        List<(int Number, string Dict, byte[]? StreamData)> objects = PdfTestDocument.SinglePage("<< /Length " + body.Length + " >>", body);
         objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /Duplicate 1 /Duplicate 2 >>", null);
-        byte[] pdf = CheckTests.Assemble(objects, 1);
+        byte[] pdf = PdfTestDocument.Assemble(objects, 1);
         int lateFailures = 0;
         // Fixed ceilings span the observed overlap of successive prepared outputs.
         // Weak retirement can move an individual boundary. Every outcome must

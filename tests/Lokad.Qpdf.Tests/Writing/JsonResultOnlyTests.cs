@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -37,7 +36,7 @@ public sealed class JsonResultOnlyTests
     private static InMemoryQpdfHost Storage()
     {
         InMemoryQpdfHost storage = new();
-        storage.AddInput(Input, CheckTests.Assemble(CheckTests.SinglePage("<< /Length 5 >>", Payload), 1), QpdfInputOwnership.Transfer);
+        storage.AddInput(Input, PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 5 >>", Payload), 1), QpdfInputOwnership.Transfer);
         return storage;
     }
 
@@ -93,7 +92,7 @@ public sealed class JsonResultOnlyTests
     {
         using InMemoryQpdfHost storage = Storage();
         QpdfPath source = QpdfPath.From("side-4");
-        storage.AddInput(source, CheckTests.Assemble(CheckTests.SinglePage("<< /Length 5 >>", Payload), 1), QpdfInputOwnership.Transfer);
+        storage.AddInput(source, PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 5 >>", Payload), 1), QpdfInputOwnership.Transfer);
         ObservedHost host = new(storage, true);
         await Assert.ThrowsAsync<QpdfParseException>(() => Qpdf.GetDocumentJsonAsync(host, source,
             new QpdfJsonOptions(2, ["qpdf"], "file", "side", ["4"], false), CancellationToken.None).AsTask());
@@ -104,7 +103,7 @@ public sealed class JsonResultOnlyTests
     public async Task FailedSecondSidecarKeepsFirstCommitAndPriorSecondTarget()
     {
         using InMemoryQpdfHost storage = new();
-        storage.AddInput(Input, CheckTests.Assemble([
+        storage.AddInput(Input, PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R /Private 5 0 R >>", null),

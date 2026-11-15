@@ -4,7 +4,6 @@ using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -21,7 +20,7 @@ public sealed class ExternalizedContentIdentityTests
             "nested" => "/Audit << /Original 5 0 R >>", "holder" => "/Audit 6 0 R",
             "metadata" => "/Metadata 10 0 R", "attachment" => "/Names << /EmbeddedFiles << /Names [(copy) 8 0 R] >> >>", _ => ""
         };
-        byte[] bytes = CheckTests.Assemble([
+        byte[] bytes = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R " + catalog + " >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R 7 0 R] /Count 2 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Resources << >> /Contents " + (array ? "5" : "4") + " 0 R " + (alias == "page" ? "/Audit 5 0 R" : "") + " >>", null),

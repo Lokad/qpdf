@@ -4,7 +4,6 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -22,7 +21,7 @@ public sealed class LinearizedPageModeTests
     {
         string entry = mode == "direct" ? "/PageMode /UseOutlines" : mode == "missing" ? "" : "/PageMode 9 0 R";
         string value = mode switch { "null" => "null", "integer" => "7", "cycle" => "[9 0 R]", _ => "/UseOutlines" };
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Outlines 5 0 R " + entry + " >>", null),
             (2, "<< /Type /Pages /Count 2 /Kids [3 0 R 7 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << >> /Contents 4 0 R >>", null),

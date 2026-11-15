@@ -2,7 +2,6 @@ using System.IO.Compression;
 using System.Text;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -53,7 +52,7 @@ public sealed class SharedPruningTests
             { objects.Add((firstImage + context * 2 + image, "<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /BitsPerComponent 8 /ColorSpace /DeviceGray /Length 1 >>", [(byte)((context + image) % 2 == 0 ? 0 : 255)])); }
         }
         objects.Add((unused, "<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /BitsPerComponent 8 /ColorSpace /DeviceGray /Length 1 >>", [127]));
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     internal static byte[] SharedFixture(int count, bool array, bool audit)

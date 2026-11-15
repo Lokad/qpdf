@@ -1,5 +1,4 @@
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Commands;
 
@@ -14,7 +13,7 @@ public sealed class JobJsonHelpTests
     public async Task HelpAdvertisesLiveInspectionAndGlobalForms(string key, string job, bool binary)
     {
         using InMemoryQpdfHost host = new();
-        byte[] input = CheckTests.Assemble(CheckTests.SinglePage("<< /Length 4 >>", "q Q\n"u8.ToArray()), 1);
+        byte[] input = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 4 >>", "q Q\n"u8.ToArray()), 1);
         host.AddInput(QpdfPath.From("in.pdf"), input, QpdfInputOwnership.Copy);
         QpdfExecutionResult help = await Qpdf.ExecuteAsync(host,
             new QpdfCommandInvocation(["--job-json-help"]), CancellationToken.None);

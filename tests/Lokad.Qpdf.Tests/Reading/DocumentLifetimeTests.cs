@@ -20,7 +20,7 @@ public sealed class DocumentLifetimeTests
     {
         string value = "(" + new string('K', 4096) + ")";
         if (nested) { value = "<< /A [ " + value + " ] /Reference 3 2 R >>"; }
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R" + (fault == "version" ? " /Version 42" : "") + " >>", null),
             (2, "<< /Type /Pages /Kids [3 2 R] /Count 1 >>", null),
             (3, fault == "page" ? "<< /Type /Other >>" : "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R >>", null),
@@ -162,7 +162,7 @@ public sealed class DocumentLifetimeTests
     [InlineData("job")]
     public async Task MultiSourceSelectionReusesReleasedInputBudgetAndKeepsPageEffects(string route)
     {
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R >>", null),
@@ -429,7 +429,7 @@ public sealed class DocumentLifetimeTests
     public async Task CancellationAfterObservedPageVisitsReleasesExclusiveStorageAndAccountsAcceptedValues()
     {
         const int count = 200000;
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Count 200000 /Kids [ " + string.Concat(Enumerable.Repeat("3 0 R ", count)) + "] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] >>", null),

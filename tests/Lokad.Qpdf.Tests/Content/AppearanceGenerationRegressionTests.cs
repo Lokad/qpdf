@@ -1,7 +1,6 @@
 using System.Text;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -18,7 +17,7 @@ public sealed class AppearanceGenerationRegressionTests
             (5, "<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length 1 >>", "Q"u8.ToArray())];
         for (int i = 0; i < count; i++)
         { objects.Add((6 + i, "<< /Subtype /Widget /FT /Btn /T (F" + i + ") /V /Yes /AS /Off /Rect [0 0 10 10] /AP << /N << /Off 4 0 R /Yes 5 0 R >> >> >>", null)); }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     [Theory]
@@ -30,7 +29,7 @@ public sealed class AppearanceGenerationRegressionTests
         foreach (bool indirect in new[] { false, true })
         foreach (bool job in new[] { false, true })
         {
-            byte[] input = CheckTests.Assemble([
+            byte[] input = PdfTestDocument.Assemble([
                 (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R 6 0 R] /NeedAppearances true >> >>", null),
                 (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
                 (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Annots " + (indirect ? "9 0 R" : "[5 0 R 6 0 R]") + " >>", null),
@@ -65,7 +64,7 @@ public sealed class AppearanceGenerationRegressionTests
             string widgetA = "/Subtype /Widget /NM (WidgetA) /AS /Off /Rect [0 0 100 20] /AP << /N << /Off 10 0 R /OnA 11 0 R >> >>";
             string widgetB = "/Subtype /Widget /NM (WidgetB) /AS /Off /Rect [0 30 100 50] /AP << /N << /Off 10 0 R /OnB 12 0 R >> >>";
             string ft = terminalType ? " /FT /Btn" : "";
-            byte[] input = CheckTests.Assemble([
+            byte[] input = PdfTestDocument.Assemble([
                 (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] /NeedAppearances true >> >>", null),
                 (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
                 (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Annots " + (merged ? "[6 0 R 8 0 R]" : "[7 0 R 9 0 R]") + " >>", null),
@@ -108,7 +107,7 @@ public sealed class AppearanceGenerationRegressionTests
             string ft = indirect && attribute == "FT" ? "10 0 R" : "/Tx";
             string value = indirect && attribute == "V" ? "8 0 R" : "(Hello)";
             string da = indirect && attribute == "DA" ? "11 0 R" : "(/Helv 17 Tf)";
-            byte[] input = CheckTests.Assemble([
+            byte[] input = PdfTestDocument.Assemble([
                 (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] /NeedAppearances true /DR << /Font << /Helv 9 0 R >> >> >> >>", null),
                 (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
                 (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Annots [5 0 R] >>", null),

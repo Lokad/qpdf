@@ -54,7 +54,7 @@ public sealed class LateContentPublicationTests
     {
         InMemoryQpdfHost storage = new(QpdfLimits.Default, codec);
         byte[] input = role == "appearance" ? LateContentTransformTests.Fixture("appearance", true, false)
-            : CheckTests.Assemble(CheckTests.SinglePage("<< /Length 0 >>", []), 1);
+            : PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 0 >>", []), 1);
         storage.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Transfer);
         storage.AddInput(QpdfPath.From("source"), LateContentTransformTests.Fixture(role == "pruning" ? "unused" : "form", true, true), QpdfInputOwnership.Transfer);
         await using IQpdfOutputTransaction prior = await storage.CreateOutputAsync(QpdfPath.From("output"), CancellationToken.None);
@@ -220,7 +220,7 @@ public sealed class LateContentPublicationTests
     {
         byte[] incomplete = "BI /W 2 /H 2 /BPC 8 /CS /RGB ID short"u8.ToArray();
         byte[] contents = appearance ? "q Q"u8.ToArray() : "/Bad Do"u8.ToArray();
-        byte[] source = CheckTests.Assemble([
+        byte[] source = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R /Resources " + (appearance ? "<<>> /Annots [6 0 R]" : "<< /XObject << /Bad 5 0 R >> >>") + " >>", null),

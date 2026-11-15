@@ -4,7 +4,6 @@ using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Writing;
@@ -51,10 +50,10 @@ public sealed class GraphCopierSharingTests
     public async Task ChangedPathsPreservePrefixesAndRemapCycles(int changedIndex)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        var objects = CheckTests.SinglePage("<< /Length 4 >>", "q Q\n"u8.ToArray());
+        var objects = PdfTestDocument.SinglePage("<< /Length 4 >>", "q Q\n"u8.ToArray());
         objects.Add((6, "<< /Before 17 /Self 6 0 R /After (tail) >>", null));
         InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("source.pdf"), CheckTests.Assemble(objects, 1), QpdfInputOwnership.Copy);
+        host.AddInput(QpdfPath.From("source.pdf"), PdfTestDocument.Assemble(objects, 1), QpdfInputOwnership.Copy);
         await using QpdfDocument document = await QpdfDocument.OpenCore(host, QpdfPath.From("source.pdf"),
             QpdfLimits.Default, governor, new(governor), QpdfRecoveryMode.Strict, CancellationToken.None);
         using ParserMemoryScope ownership = ParserMemoryScope.Create(governor);
@@ -111,10 +110,10 @@ public sealed class GraphCopierSharingTests
     public async Task IdentityReferencesStillValidateGenerationsAndCopyReachableCycles()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        var objects = CheckTests.SinglePage("<< /Length 4 >>", "q Q\n"u8.ToArray());
+        var objects = PdfTestDocument.SinglePage("<< /Length 4 >>", "q Q\n"u8.ToArray());
         objects.Add((6, "<< /Self 6 0 R /Text (kept) >>", null));
         InMemoryQpdfHost host = new(); QpdfPath path = QpdfPath.From("source.pdf");
-        host.AddInput(path, CheckTests.Assemble(objects, 1), QpdfInputOwnership.Copy);
+        host.AddInput(path, PdfTestDocument.Assemble(objects, 1), QpdfInputOwnership.Copy);
         await using QpdfDocument document = await QpdfDocument.OpenCore(host, path,
             QpdfLimits.Default, governor, new(governor), QpdfRecoveryMode.Strict, CancellationToken.None);
         using ParserMemoryScope ownership = ParserMemoryScope.Create(governor);

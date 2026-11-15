@@ -4,7 +4,6 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -12,7 +11,7 @@ public sealed class OverlayBackgroundTests
 {
     private static readonly byte[] Artwork = "1 0 0 rg 25 35 10 20 re f 0 0 1 rg 65 155 10 25 re f 0 1 0 rg 45 90 10 10 re f"u8.ToArray();
     private static byte[] Target(int rotation, int unit, bool crop, bool trim)
-        => CheckTests.Assemble([
+        => PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Original 4 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox 6 0 R " + (crop ? "/CropBox 8 0 R " : "") + (trim ? "/TrimBox 7 0 R " : "") + "/Rotate 9 0 R /UserUnit 10 0 R /Resources << >> /Contents 4 0 R >>", null),
@@ -35,7 +34,7 @@ public sealed class OverlayBackgroundTests
     public async Task EmptyStampKeepsOriginalContentCoordinatesAndVisibleBounds(int rotation, int unit, bool crop, bool trim, bool job, bool underlay)
     {
         using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), Target(rotation, unit, crop, trim), QpdfInputOwnership.Copy);
-        byte[] empty = CheckTests.Assemble([(1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+        byte[] empty = PdfTestDocument.Assemble([(1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null)], 1);
         host.AddInput(QpdfPath.From("stamp"), empty, QpdfInputOwnership.Copy); string mode = underlay ? "underlay" : "overlay";
         QpdfExecutionResult result = job ? await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new Dictionary<string, object> { ["inputFile"] = "input", ["outputFile"] = "output", ["compressStreams"] = "n", ["normalizeContent"] = "n", [mode] = new { file = "stamp" } }), CancellationToken.None)

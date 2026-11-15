@@ -2,7 +2,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.TestSupport;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -37,7 +36,7 @@ public sealed class RotationDestinationProfileTests
     [InlineData(true)]
     public async Task UriActionExtrasRemainOpaqueEvenWhenTheyLookLikeLocalDestinations(bool job)
     {
-        byte[] source = CheckTests.Assemble([
+        byte[] source = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /OpenAction << /S /URI /URI (https://source.test/) /D [3 0 R /XYZ null null 1] >> >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Resources << >> /Rotate 90 >>", null)], 1);
@@ -125,6 +124,6 @@ public sealed class RotationDestinationProfileTests
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [10 20 110 220] /Resources << >> /Rotate " + angle + (unreadable ? " /Contents 42" : "") + " >>", null)];
         for (int i = 4; i <= 10; i++) { objects.Add((i, "null", null)); }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 }

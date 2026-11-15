@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -13,7 +12,7 @@ public sealed class CompressionSpecialStreamTests
     private static byte[] MetadataFixture(string type, string subtype)
     {
         byte[] encoded = Encoding.ASCII.GetBytes(Convert.ToHexString(Xml) + ">");
-        return CheckTests.Assemble(
+        return PdfTestDocument.Assemble(
         [
             (1, "<< /Type /Catalog /Pages 2 0 R /Metadata 5 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
@@ -26,7 +25,7 @@ public sealed class CompressionSpecialStreamTests
         ], 1);
     }
 
-    private static byte[] EmptyFixture() => CheckTests.Assemble(
+    private static byte[] EmptyFixture() => PdfTestDocument.Assemble(
     [
         (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
         (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),

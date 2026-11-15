@@ -19,7 +19,7 @@ public sealed class CatalogRecoveryTests
     [InlineData("date")]
     public async Task FailedDocumentExtraRetiresDescendantsBeforeLaterCopies(string kind)
     {
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Metadata 5 0 R /Later 6 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Prior 8 0 R >>", null),
@@ -70,7 +70,7 @@ public sealed class CatalogRecoveryTests
             "cycle" => "/A 5 0 R /Z 5 0 R /Cycle 7 0 R",
             _ => "/A 5 0 R /Z 5 0 R"
         };
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R " + extra + " /Good 10 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << >> /Contents 4 0 R >>", null),

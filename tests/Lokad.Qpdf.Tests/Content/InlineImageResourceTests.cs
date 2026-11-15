@@ -5,7 +5,6 @@ using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -26,7 +25,7 @@ public sealed class InlineImageResourceTests
             (4, "<< /Length " + content.Length + " >>", content)
         ];
         objects.AddRange(extra);
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     private static async Task<byte[]> Rewrite(byte[] input, string route, bool compress, QpdfExitCode expected)
@@ -176,7 +175,7 @@ public sealed class InlineImageResourceTests
     public async Task RewritingOnePagePreservesSharedResourcesAndProcessesSharedContentIndependently(string shared, string route)
     {
         bool resources = shared == "resources";
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Count 2 /Kids [3 0 R 5 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Contents 4 0 R /Resources " + (resources ? "7 0 R" : "<< /XObject << /IIm1 8 0 R >> >>") + " >>", null),
             (4, "<< /Length " + Image.Length + " >>", Image),

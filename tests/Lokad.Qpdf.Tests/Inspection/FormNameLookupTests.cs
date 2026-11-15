@@ -217,7 +217,7 @@ Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
             (4, "<< /T (F) /Kids [5 0 R] >>", null),
             (5, "<< /Subtype /Widget " + (parent == "missing" ? "" : "/Parent " + parent) + " >>", null),
         ];
-        InMemoryQpdfHost host = new(); QpdfPath path = QpdfPath.From("forms.pdf"); host.AddInput(path, CheckTests.Assemble(objects, 1), QpdfInputOwnership.Transfer);
+        InMemoryQpdfHost host = new(); QpdfPath path = QpdfPath.From("forms.pdf"); host.AddInput(path, PdfTestDocument.Assemble(objects, 1), QpdfInputOwnership.Transfer);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); DiagnosticBag diagnostics = new(governor);
         QpdfDocument document = await QpdfDocument.OpenCore(host, path, QpdfLimits.Default, governor, diagnostics,
             QpdfRecoveryMode.Strict, CancellationToken.None);

@@ -12,7 +12,7 @@ public sealed class AttachmentKeyAmbiguityTests
         string second = shape switch { "encoded" => "<feff004b>", "malformed" => "<feffd801>", "distinct" => "(k)", _ => first };
         string tree = shape == "nested" ? "<< /Kids [10 0 R 11 0 R] >>"
             : "<< /Names [" + first + " 5 0 R " + second + " 8 0 R]" + (brokenKid ? " /Kids [7 0 R]" : "") + " >>";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 4 0 R >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null),
@@ -28,7 +28,7 @@ public sealed class AttachmentKeyAmbiguityTests
     {
         InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("input"), Fixture(shape, brokenKid), QpdfInputOwnership.Transfer);
-        host.AddInput(QpdfPath.From("base"), CheckTests.Assemble([
+        host.AddInput(QpdfPath.From("base"), PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null)], 1), QpdfInputOwnership.Transfer);

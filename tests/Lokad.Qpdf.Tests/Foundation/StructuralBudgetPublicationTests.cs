@@ -3,7 +3,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
@@ -126,7 +125,7 @@ public sealed class StructuralBudgetPublicationTests
             for (int i = 7; i < 20; i++) { objects.Add((i, "null", null)); }
             for (int i = 20; i < 52; i++) { objects.Add((i, "<</Next " + (i == 51 ? "null" : (i + 1) + " 0 R") + ">>", null)); }
         }
-        byte[] bytes = CheckTests.Assemble(objects, 1);
+        byte[] bytes = PdfTestDocument.Assemble(objects, 1);
         return role == "info" ? Encoding.Latin1.GetBytes(Encoding.Latin1.GetString(bytes).Replace("/Root 1 0 R", "/Root 1 0 R /Info 5 0 R", StringComparison.Ordinal)) : bytes;
     }
 

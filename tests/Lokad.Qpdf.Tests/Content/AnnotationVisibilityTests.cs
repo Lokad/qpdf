@@ -3,7 +3,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -22,7 +21,7 @@ public sealed class AnnotationVisibilityTests
     public async Task VisibilityControlsStampingWithoutRetainingFlattenedAnnotations(int flags, string mode, bool job)
     {
         string bits = flags.ToString(CultureInfo.InvariantCulture);
-        byte[] fixture = CheckTests.Assemble([
+        byte[] fixture = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [4 0 R] >>", null),

@@ -6,7 +6,7 @@ namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class AttachmentImportConflictTests
 {
-    private static byte[] Plain() => CheckTests.Assemble([
+    private static byte[] Plain() => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
         (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null)], 1);
@@ -17,7 +17,7 @@ public sealed class AttachmentImportConflictTests
         string specification = "<< /Type /Filespec /F (file) /EF << /F 6 0 R >> " + extra + " >>";
         string value = shape == "direct" ? specification : shape == "missing" ? "99 0 R" : shape == "null" ? "null" : "5 0 R";
         string other = single ? "" : " (" + (second ? "Y" : "Z") + ") 7 0 R";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(K) " + value + other + "] >> >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null),

@@ -26,7 +26,7 @@ public sealed class JsonStringIdentityTests
     {
         (string first, string last) = Keys(kind);
         string pairs = "[<" + first + "> [3 0 R /Fit] <" + last + "> [4 0 R /Fit]]";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Names << /Dests 8 0 R >> /Audit 10 0 R /Alias 11 0 R >>", null),
             (2, "<< /Type /Pages /Count 2 /Kids [3 0 R 4 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [5 0 R 6 0 R] >>", null),

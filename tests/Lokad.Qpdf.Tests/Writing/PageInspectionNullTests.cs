@@ -25,7 +25,7 @@ public sealed class PageInspectionNullTests
             "scalar" => "/Contents 42", "reference-scalar" => "/Contents 8 0 R", "unknown" => "/Contents 99 0 R", _ => "/Contents [null 6 0 R 4 0 R]",
         };
         const string parentResources = "<< /XObject << /Im 5 0 R >> >>";
-        byte[] source = CheckTests.Assemble([
+        byte[] source = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 /Resources " + (indirectParentResources ? "7 0 R" : parentResources) + " >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] " + resources + " " + contents + " >>", null),
@@ -141,7 +141,7 @@ public sealed class PageInspectionNullTests
     public async Task RequiredParentErrorsAndDepthStillReject(string shape, string route)
     {
         string parent = shape switch { "cycle" => "3 0 R", "reference-null" => "6 0 R", "missing" => "99 0 R", "scalar" => "42", _ => "2 0 R" };
-        byte[] source = CheckTests.Assemble([
+        byte[] source = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 " + (shape == "depth" ? "/Parent 7 0 R" : "") + " >>", null),
             (3, "<< /Type /Page /Parent " + parent + " /MediaBox [0 0 100 100] >>", null),

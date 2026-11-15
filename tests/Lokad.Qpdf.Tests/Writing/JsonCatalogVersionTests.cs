@@ -68,7 +68,7 @@ public sealed class JsonCatalogVersionTests
     private static async Task Seed(Host host, byte[] json)
     {
         host.Inner.AddInput(Json, json, QpdfInputOwnership.Copy);
-        host.Inner.AddInput(Source, CheckTests.Assemble([
+        host.Inner.AddInput(Source, PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 20] >>", null)], 1), QpdfInputOwnership.Copy);
@@ -214,7 +214,7 @@ public sealed class JsonCatalogVersionTests
             {"qpdf":[{"jsonversion":2,"pdfversion":"1.3"},{
               "obj:1 0 R":{"value":{"/Type":"/Catalog","/Pages":"2 0 R","/Version":"VERSION"}}}]}
             """.Replace("VERSION", target == "99 0 R" ? target : "4 0 R", StringComparison.Ordinal)));
-        host.Inner.AddInput(Source, CheckTests.Assemble([
+        host.Inner.AddInput(Source, PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 20] >>", null),
@@ -320,7 +320,7 @@ public sealed class JsonCatalogVersionTests
         Assert.Contains("Malformed catalog /Version", jsonError.Message);
         Assert.True(jsonError.Message.Length < 256);
         Assert.Equal(0, host.Created); AssertUnpublished(host);
-        byte[] pdf = CheckTests.Assemble([(1, "<< /Type /Catalog /Version /" + name + " >>", null)], 1);
+        byte[] pdf = PdfTestDocument.Assemble([(1, "<< /Type /Catalog /Version /" + name + " >>", null)], 1);
         host.Inner.AddInput(QpdfPath.From("long.pdf"), pdf, QpdfInputOwnership.Copy);
         QpdfParseException readError = await Assert.ThrowsAsync<QpdfParseException>(async () =>
         { await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("long.pdf"), CancellationToken.None); });

@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -135,7 +134,7 @@ public sealed class PublicationProfileTests
             _ => "<< /Marker (Keep) >>",
         };
         string auxiliary = kind == "indirect" ? "/Sig" : kind is "private" or "cycle" ? "<< /Parent 5 0 R >>" : "null";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R" + (reachable ? " /Audit 5 0 R" : "") + " >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Resources << >> /Contents 4 0 R >>", null),

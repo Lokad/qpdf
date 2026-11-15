@@ -5,7 +5,6 @@ using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.TestSupport;
 using Lokad.Qpdf.Tests.Filters;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -67,7 +66,7 @@ public sealed class InlinePacketBoundaryTests
     {
         const string resources = "<< /Font << /Used 6 0 R /Unused 7 0 R >> >>";
         byte[] page = form ? "/Fm Do"u8.ToArray() : program;
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Original " + (form ? 5 : 4) + " 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources " + (form ? "<< /XObject << /Fm 5 0 R >> >>" : resources) + " /Contents 4 0 R >>", null),
@@ -232,7 +231,7 @@ public sealed class InlinePacketBoundaryTests
         byte[] samples = Enumerable.Repeat((byte)64, 64).ToArray(); "A EI /Tx BMC (decoy) Tj EMC "u8.CopyTo(samples);
         byte[] image = [.. "BI /W 8 /H 8 /CS /G /BPC 8 ID "u8, .. samples, .. " EI"u8];
         byte[] program = [.. image, .. "\n/Tx BMC BT /Used 8 Tf (old) Tj ET EMC\n"u8];
-        byte[] fixture = CheckTests.Assemble([
+        byte[] fixture = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] /NeedAppearances true /DA (/Used 8 Tf 0 g) /DR << /Font << /Used 7 0 R >> >> >> >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [5 0 R] >>", null),

@@ -3,7 +3,6 @@ using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -12,7 +11,7 @@ public sealed class IndirectWidgetSelectionTests
     private static byte[] Fixture(bool merged, bool indirect)
     {
         string subtype = indirect ? "9 0 R" : "/Widget";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm 4 0 R >>", null),
             (2, "<< /Type /Pages /Count 2 /Kids [3 0 R 6 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 80 40] /Resources << >> /Annots [5 0 R] >>", null),

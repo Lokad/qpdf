@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -26,7 +25,7 @@ public sealed class SourceGroupIdentityTests
             (13, "<< /Type /Filespec /F (file) /EF << /F 14 0 R >> /Private 12 0 R >>", null),
             (14, "<< /Length " + payload.Length + " >>", payload),
             (15, "<< /Title (" + prefix + ") /Private 12 0 R >>", null)]);
-        byte[] data = CheckTests.Assemble(objects, 1);
+        byte[] data = PdfTestDocument.Assemble(objects, 1);
         return Encoding.Latin1.GetBytes(Encoding.Latin1.GetString(data).Replace("/Root 1 0 R >>", "/Root 1 0 R /Info 15 0 R >>", StringComparison.Ordinal));
     }
 
@@ -187,7 +186,7 @@ public sealed class SourceGroupIdentityTests
 
     internal static byte[] FormFixture()
     {
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm 5 0 R /PageLabels << /Nums [0 << /S /D /P (Label) /St 7 >>] >> >>", null),
             (2, "<< /Type /Pages /Count 2 /Kids [3 0 R 4 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [6 0 R] >>", null),

@@ -6,7 +6,6 @@ using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Tests.Writing;
 using Lokad.Qpdf.Writing;
 
@@ -209,7 +208,7 @@ public sealed class AnnotationBorderFailureTests
     private static void AddInputs(InMemoryQpdfHost host, string style)
     {
         host.AddInput(QpdfPath.From("input"), File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "minimal-1page.pdf")), QpdfInputOwnership.Transfer);
-        host.AddInput(QpdfPath.From("stamp"), CheckTests.Assemble([
+        host.AddInput(QpdfPath.From("stamp"), PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Rotate 90 /UserUnit 2 /Resources << >> /Annots [4 0 R] >>", null),
             (4, "<< /Type /Annot /Subtype /Link /Rect [10 20 90 80] " + style + " >>", null)], 1), QpdfInputOwnership.Transfer);

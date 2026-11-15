@@ -26,7 +26,7 @@ public sealed class ResourcePayloadIdentityTests
         byte[] payload = image ? ImageBytes : FormBytes;
         string header = image ? "/Subtype /Image /Width 128 /Height 128 /BitsPerComponent 8 /ColorSpace /DeviceRGB"
             : "/Subtype /Form /BBox [0 0 100 200] /Resources << >>";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R " + catalog + " >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Resources " + resources + " /Contents 5 0 R " + roots + " >>", null),

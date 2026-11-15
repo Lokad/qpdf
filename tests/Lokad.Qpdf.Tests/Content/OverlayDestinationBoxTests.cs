@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -10,7 +9,7 @@ public sealed class OverlayDestinationBoxTests
     private static byte[] Target(string media, string preferred, string key, bool indirect, int rotate, double unit, bool inherited, bool damaged)
     {
         string bounds = "/" + key + " " + (indirect ? "5 0 R" : preferred);
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Audit 5 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1" + (inherited ? " " + bounds : "") + " >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox " + media + (inherited ? "" : " " + bounds)
@@ -25,7 +24,7 @@ public sealed class OverlayDestinationBoxTests
         string mode, bool job, string streamData, QpdfExecutionOptions options, CancellationToken token)
     {
         byte[] sourceData = "1 0 0 rg 0 0 100 100 re f 0 0 1 rg 0 0 50 50 re f"u8.ToArray();
-        byte[] source = CheckTests.Assemble([
+        byte[] source = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R >>", null),

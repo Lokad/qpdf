@@ -51,7 +51,7 @@ public sealed class JsonSidecarNameTests
             for (int number = 5; number < 10; number++) { objects.Add((number, "null", null)); }
             objects.Add((10, "<< /Length 7 >>", "SECOND\n"u8.ToArray()));
         }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     private static string Literal(string value) => "\"" + string.Concat(value.Select(unit =>

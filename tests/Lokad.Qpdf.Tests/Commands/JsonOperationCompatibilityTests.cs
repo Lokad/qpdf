@@ -20,7 +20,7 @@ public sealed class JsonOperationCompatibilityTests
         }]}
         """;
     private const string Update = """{"qpdf":[{"jsonversion":2},{}]}""";
-    private static readonly byte[] Pdf = CheckTests.Assemble([
+    private static readonly byte[] Pdf = PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm 5 0 R /StructTreeRoot 6 0 R >>", null),
         (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null),

@@ -1,7 +1,6 @@
 using System.Text;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -16,12 +15,12 @@ public sealed class OverlayResourceNamespaceTests
     {
         string name = largeName ? new string('A', 262144) : "Existing";
         byte[] content = "/Fx1 Do /Fx2 Do"u8.ToArray();
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << /XObject << /Fx1 5 0 R /Fx2 5 0 R /" + name + " 5 0 R >> >> /Contents 4 0 R >>", null),
             (4, "<< /Length " + content.Length + " >>", content),
             (5, "<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length 3 >>", "q Q"u8.ToArray())], 1);
-        byte[] stamp = CheckTests.Assemble(CheckTests.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray()), 1);
+        byte[] stamp = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray()), 1);
         PdfStream escaped;
         using (InMemoryQpdfHost host = new())
         {

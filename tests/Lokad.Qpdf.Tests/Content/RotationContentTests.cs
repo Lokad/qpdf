@@ -4,14 +4,13 @@ using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Content;
 
 public sealed class RotationContentTests
 {
-    internal static byte[] Fixture(string contents, string array, byte[] data) => CheckTests.Assemble([
+    internal static byte[] Fixture(string contents, string array, byte[] data) => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
         (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 20] /Resources << >> /Rotate 90 /Contents " + contents + " /Annots [6 0 R] >>", null),

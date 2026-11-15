@@ -1,7 +1,6 @@
 using System.Text;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -12,7 +11,7 @@ public sealed class SharedResourceAutoModeTests
         string branch = shape == "branch" ? " /Resources 5 0 R" : string.Empty;
         string leaf = shape == "shared-leaves" ? " /Resources 5 0 R" : shape == "direct-leaves" ? " /Resources << /Font << /F1 8 0 R /F2 9 0 R >> >>" : string.Empty;
         byte[] content = "BT /F1 12 Tf 0 0 Td (x) Tj ET\n"u8.ToArray();
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2" + branch + " >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 6 0 R" + leaf + " >>", null),

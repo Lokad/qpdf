@@ -11,7 +11,7 @@ public sealed class AttachmentPageModeTests
     {
         string value = shape switch { "name" => "/UseOutlines", "raw" or "direct-raw" => "/Use#80#ff", "opaque" => "[(KEEP) 5 0 R]", "bad" => "[5 0 R 1 0 R]", _ => "null" };
         string mode = shape == "absent" ? "" : " /PageMode " + (shape == "null" ? "null" : shape == "direct-raw" ? value : "4 0 R");
-        byte[] input = CheckTests.Assemble([
+        byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R" + mode + (shape == "opaque" ? " /Audit 4 0 R" : "") + " >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null),

@@ -3,7 +3,6 @@ using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Writing;
@@ -18,7 +17,7 @@ public sealed class ObjectStreamPlanningTests
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 20] /Resources << /Extra ["
                 + string.Join(' ', Enumerable.Range(4, count).Select(i => i + " 0 R")) + "] >> >>", null) ];
         for (int number = 4; number < count + 4; number++) { objects.Add((number, "<< /V " + number + " >>", null)); }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     private delegate HashSet<int> ResolveCall(string mode, IReadOnlyDictionary<int, QpdfObject> pool,

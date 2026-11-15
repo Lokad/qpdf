@@ -8,7 +8,7 @@ namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class JsonImportPayloadTests
 {
-    private static byte[] Input(bool stream) => CheckTests.Assemble([
+    private static byte[] Input(bool stream) => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R /Probe 4 0 R >>", null),
         (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 80 40] /Resources << >>"

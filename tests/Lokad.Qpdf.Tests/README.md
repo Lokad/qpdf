@@ -1,5 +1,10 @@
 # Focused test support
 
+`PdfTestDocument` owns ordinary classic-PDF fixture framing, including exact
+payloads, declared lengths, generations and header/trailer choices. Feature tests
+own their object bodies and expected semantics. Physical-layout, malformed-input,
+security and native vectors retain independent construction.
+
 `TestDocumentEngine` centralizes the identical empty-input inspection engine
 setup used by isolated object-graph tests. It preserves table/value/engine
 admission and disposal. Callers still construct their own meaningful objects and

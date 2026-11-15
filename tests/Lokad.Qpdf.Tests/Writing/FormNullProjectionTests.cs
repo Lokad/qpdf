@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -22,7 +21,7 @@ public sealed class FormNullProjectionTests
             "reference-scalar" => "/AcroForm 8 0 R", "missing" => "/AcroForm 99 0 R",
             _ => "/AcroForm << /Fields [" + (key == "Parent" ? "4" : "5") + " 0 R] >>",
         };
-        byte[] source = CheckTests.Assemble([
+        byte[] source = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R " + form + " >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Resources << >> /Annots [4 0 R] >>", null),

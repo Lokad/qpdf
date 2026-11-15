@@ -23,7 +23,7 @@ public sealed class ExecutionResultOwnershipTests
         if (failure)
         {
             byte[] content = Enumerable.Repeat((byte)' ', 65536).ToArray();
-            byte[] source = Inspection.CheckTests.Assemble(Inspection.CheckTests.SinglePage(
+            byte[] source = PdfTestDocument.Assemble(PdfTestDocument.SinglePage(
                 "<< /Length " + content.Length + " >>", content), 1);
             inner.AddInput(QpdfPath.From("input.pdf"), source, QpdfInputOwnership.Copy);
         }

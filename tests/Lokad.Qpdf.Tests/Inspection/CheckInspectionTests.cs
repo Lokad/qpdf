@@ -111,7 +111,7 @@ public sealed class CheckInspectionTests
     public async Task FatalStreamCheckingStopsEveryFollowingInspection(string route)
     {
         byte[] data = "invalid-flate"u8.ToArray();
-        byte[] bytes = CheckTests.Assemble(CheckTests.SinglePage("<< /Length " + data.Length + " /Filter /FlateDecode >>", data), 1);
+        byte[] bytes = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length " + data.Length + " /Filter /FlateDecode >>", data), 1);
         InMemoryQpdfHost host = Host(bytes);
         QpdfExecutionResult result = await Execute(host, route,
             "\"showNpages\":\"\",\"showPages\":\"\",\"showXref\":\"\",\"showObject\":\"1\",\"listAttachments\":\"\"",
@@ -181,11 +181,11 @@ public sealed class CheckInspectionTests
     [InlineData("file")]
     public async Task ExistingAttachmentsAreListedWithTheirOriginalStreamIdentity(string route)
     {
-        var objects = CheckTests.SinglePage("<< /Length 0 >>", []);
+        var objects = PdfTestDocument.SinglePage("<< /Length 0 >>", []);
         objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(payload) 5 0 R] >> >> >>", null);
         objects.Add((5, "<< /Type /Filespec /F (p.bin) /EF << /F 6 0 R >> >>", null));
         objects.Add((6, "<< /Type /EmbeddedFile /Length 3 >>", new byte[] { 0, 127, 255 }));
-        InMemoryQpdfHost host = Host(CheckTests.Assemble(objects, 1));
+        InMemoryQpdfHost host = Host(PdfTestDocument.Assemble(objects, 1));
         QpdfExecutionResult result = await Execute(host, route, "\"listAttachments\":\"\"",
             ["--check", "--list-attachments"], new QpdfExecutionOptions(QpdfLimits.Default));
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);

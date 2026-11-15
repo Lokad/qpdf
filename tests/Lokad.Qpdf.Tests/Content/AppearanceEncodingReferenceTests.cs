@@ -1,5 +1,4 @@
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -10,7 +9,7 @@ public sealed class AppearanceEncodingReferenceTests
         string chosen = indirect ? "9 0 R" : "/" + encoding;
         string formEncoding = local ? "/WinAnsiEncoding" : chosen;
         string resources = local ? "/Font << /Helv 8 0 R >>" : "";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] /NeedAppearances true /DA (/Helv 12 Tf) /DR << /Font << /Helv 7 0 R >> >> >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Resources << >> /Annots [5 0 R] >>", null),

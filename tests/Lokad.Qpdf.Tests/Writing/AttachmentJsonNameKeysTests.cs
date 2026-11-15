@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -23,7 +22,7 @@ public sealed class AttachmentJsonNameKeysTests
             (4, $"<< /Type /Filespec {names} /EF << {streams} >> >>", null),
             (5, "<< /Type /EmbeddedFile /Length 1 >>", "X"u8.ToArray())];
         for (int index = 0; index < keys.Length; index++) { objects.Add((index + 6, $"({keys[index]}.txt)", null)); }
-        byte[] input = CheckTests.Assemble(objects, 1);
+        byte[] input = PdfTestDocument.Assemble(objects, 1);
         foreach (string route in new[] { "typed", "argv", "job" })
         {
             using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Copy);

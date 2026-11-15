@@ -9,11 +9,11 @@ public sealed class AttachmentTextTests
     private static InMemoryQpdfHost Host()
     {
         InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("base"), CheckTests.Assemble([
+        host.AddInput(QpdfPath.From("base"), PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null)], 1), QpdfInputOwnership.Transfer);
-        host.AddInput(QpdfPath.From("source"), CheckTests.Assemble([
+        host.AddInput(QpdfPath.From("source"), PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 4 0 R >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null),

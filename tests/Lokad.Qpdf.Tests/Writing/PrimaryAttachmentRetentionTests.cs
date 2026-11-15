@@ -13,7 +13,7 @@ public sealed class PrimaryAttachmentRetentionTests
         string page = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >>"
             + (pageFile ? " /AF [5 0 R]" : "") + " >>";
         byte[] data = Encoding.ASCII.GetBytes(payload);
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 7 0 R >> >>", null),
             (2, "<< /Type /Pages /Count " + (zero ? "0 /Kids []" : "2 /Kids [3 0 R 4 0 R]") + " >>", null),
             (3, page, null), (4, page, null),
@@ -177,7 +177,7 @@ public sealed class PrimaryAttachmentRetentionTests
     {
         string names = resource == "memory" ? string.Join(' ', Enumerable.Range(0, 1000).Select(index => $"(K-{index:D4}) 5 0 R")) : "(K) 5 0 R";
         byte[] payload = new byte[resource == "memory" ? 1 : 32768]; new Random(42).NextBytes(payload);
-        byte[] fixture = CheckTests.Assemble([
+        byte[] fixture = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 4 0 R >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] >>", null),

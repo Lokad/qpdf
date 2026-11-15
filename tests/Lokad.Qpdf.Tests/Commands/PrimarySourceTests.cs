@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Tests.Writing;
 
 namespace Lokad.Qpdf.Tests.Commands;
@@ -14,7 +13,7 @@ public sealed class PrimarySourceTests
         byte[] content = Encoding.ASCII.GetBytes("q\n% " + name + "\nQ\n");
         byte[] xml = Encoding.ASCII.GetBytes("<" + name + "/>");
         byte[] attachment = Encoding.ASCII.GetBytes("attached-" + name);
-        byte[] pdf = CheckTests.Assemble(
+        byte[] pdf = PdfTestDocument.Assemble(
         [
             (1, "<< /Type /Catalog /Pages 2 0 R /Metadata 6 0 R /ViewerPreferences << /DisplayDocTitle true >> /Names << /EmbeddedFiles << /Names [(attached) 7 0 R] >> >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),

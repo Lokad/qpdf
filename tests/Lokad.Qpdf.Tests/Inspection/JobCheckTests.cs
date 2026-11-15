@@ -21,7 +21,7 @@ public sealed class JobCheckTests
     internal static byte[] Mismatch() => Encoding.ASCII.GetBytes(Encoding.ASCII.GetString(Fixture("minimal-1page.pdf"))
         .Replace("/Count 1", "/Count 9", StringComparison.Ordinal));
 
-    internal static byte[] CorruptStream() => CheckTests.Assemble(CheckTests.SinglePage("<< /Filter /FlateDecode /Length 14 >>", "not-deflate!!!"u8.ToArray()), 1);
+    internal static byte[] CorruptStream() => PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Filter /FlateDecode /Length 14 >>", "not-deflate!!!"u8.ToArray()), 1);
 
     private static byte[] BrokenXref()
     {
@@ -263,7 +263,7 @@ public sealed class JobCheckTests
     public async Task GlobalFilterLimitControlsActualStreamChecking(int requested, int hostCeiling, bool noDefaults, QpdfExecutionStatus status)
     {
         byte[] stream = "3731323035313E>"u8.ToArray();
-        byte[] input = CheckTests.Assemble(CheckTests.SinglePage("<< /Filter [/ASCIIHexDecode /ASCIIHexDecode] /Length " + stream.Length + " >>", stream), 1);
+        byte[] input = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Filter [/ASCIIHexDecode /ASCIIHexDecode] /Length " + stream.Length + " >>", stream), 1);
         InMemoryQpdfHost host = Host(input);
         string defaults = noDefaults ? ",\"noDefaultLimits\":\"\"" : string.Empty;
         string json = "{\"inputFile\":\"inputs/a.pdf\",\"check\":\"\",\"global\":{\"maxStreamFilters\":" + requested + defaults + "}}";
@@ -369,10 +369,10 @@ public sealed class JobCheckTests
     [Fact]
     public async Task CheckerResultsPreserveIndirectEffectiveVersionAfterInputsClose()
     {
-        List<(int, string, byte[]?)> objects = CheckTests.SinglePage("<< /Length 0 >>", []);
+        List<(int, string, byte[]?)> objects = PdfTestDocument.SinglePage("<< /Length 0 >>", []);
         objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /Version 6 0 R >>", null);
         objects.Add((6, "/1.7", null));
-        InMemoryQpdfHost host = Host(CheckTests.Assemble(objects, 1));
+        InMemoryQpdfHost host = Host(PdfTestDocument.Assemble(objects, 1));
         QpdfCheckResult typed = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/a.pdf"), CancellationToken.None);
         QpdfExecutionResult argv = await Qpdf.ExecuteAsync(host,
             new QpdfCommandInvocation(["inputs/a.pdf", "--check"]), CancellationToken.None);

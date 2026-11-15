@@ -2,7 +2,6 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Json;
 using Lokad.Qpdf.Runtime;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Writing;
@@ -15,7 +14,7 @@ public sealed class JsonLabelCursorTests
             (1, "<< /Type /Catalog /Pages 2 0 R /PageLabels << /Nums [" + labels + "] >> >>", null),
             (2, "<< /Type /Pages /Kids [" + string.Join(" ", Enumerable.Range(3, count).Select(i => i + " 0 R")) + "] /Count " + count + " >>", null)];
         for (int i = 0; i < count; i++) { objects.Add((3 + i, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << >> >>", null)); }
-        return CheckTests.Assemble(objects, 1);
+        return PdfTestDocument.Assemble(objects, 1);
     }
 
     [Theory]

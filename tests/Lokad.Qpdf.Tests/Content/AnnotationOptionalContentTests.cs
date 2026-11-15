@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -17,7 +16,7 @@ public sealed class AnnotationOptionalContentTests
         string state = on ? "ON" : "OFF", type = widget ? "/Subtype /Widget /FT /Tx /T (field) /V (text)" : "/Subtype /Stamp";
         string form = widget ? "/AcroForm << /Fields [7 0 R 8 0 R] /NeedAppearances " + (readiness ? "true" : "false") + " >>" : "";
         string first = "<< /Type /Annot " + type + " /Rect [20 20 80 60] /F " + flags + " /AP << /N 5 0 R >> ";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /OriginalAnnots 11 0 R /OriginalAP 5 0 R /OCProperties << /OCGs [9 0 R] /D << /BaseState /" + state + " /" + state + " [9 0 R] >> >> " + form + " >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R /Annots 11 0 R >>", null),

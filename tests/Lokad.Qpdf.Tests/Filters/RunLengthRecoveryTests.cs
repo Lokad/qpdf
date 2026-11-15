@@ -3,7 +3,6 @@ using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Tests.Writing;
 using Lokad.Qpdf.TestSupport;
 
@@ -107,7 +106,7 @@ public sealed class RunLengthRecoveryTests
     {
         string filter = chained ? "[/ASCIIHexDecode /RunLengthDecode]" : "/RunLengthDecode";
         byte[] data = chained ? System.Text.Encoding.ASCII.GetBytes(Convert.ToHexString(encoded) + ">") : encoded;
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 6 0 R >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << >> >>", null),

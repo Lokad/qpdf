@@ -2,14 +2,13 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class JsonTextFailureTests
 {
     private const string Template = """{"qpdf":[{"jsonversion":2,"pdfversion":"1.7"},{"obj:1 0 R":{"value":{"/Type":"/Catalog","/Pages":"2 0 R","/Review":"u:valid"}},"obj:2 0 R":{"value":{"/Type":"/Pages","/Count":1,"/Kids":["3 0 R"]}},"obj:3 0 R":{"value":{"/Type":"/Page","/Parent":"2 0 R","/MediaBox":[0,0,100,100],"/Resources":{}}},"trailer":{"value":{"/Root":"1 0 R","/Size":4}}}]}""";
-    private static byte[] Pdf() => CheckTests.Assemble([
+    private static byte[] Pdf() => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
         (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null)], 1);

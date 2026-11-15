@@ -4,7 +4,6 @@ using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Reading;
 
@@ -72,7 +71,7 @@ public sealed class RecoveryCatalogTests
         if (kind == "embedded-string-header") { objects[3] = (4, "(" + EmbeddedHeader + ")", null); }
         Dictionary<int, int> generations = new() { [root] = generation };
         if (type > 0 && type != root) { generations[type] = typeGeneration; }
-        string source = Encoding.ASCII.GetString(CheckTests.Assemble(objects, root, generations));
+        string source = Encoding.ASCII.GetString(PdfTestDocument.Assemble(objects, root, generations));
         if (kind == "missing-endobj") { source = source.Replace("4 0 obj\nnull\nendobj", "4 0 obj\nnull", StringComparison.Ordinal); }
         int trailer = source.LastIndexOf("trailer\n", StringComparison.Ordinal);
         string extra = kind == "overwritten-root" ? "7 1 obj\nnull\nendobj\n"

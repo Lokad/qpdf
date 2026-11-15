@@ -9,7 +9,7 @@ namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class AttachmentCopyRecoveryTests
 {
-    private static byte[] Plain() => CheckTests.Assemble([
+    private static byte[] Plain() => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
         (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << >> >>", null)], 1);
@@ -19,7 +19,7 @@ public sealed class AttachmentCopyRecoveryTests
         string spec = "<< /F (bad) /EF << /F 6 0 R >> /Child 7 0 R /Bad 1 0 R >>";
         string names = (shared ? "(A-kept) 9 0 R " : "") + "(B-bad) " + (direct ? spec : "5 0 R")
             + " (C-alias) 5 0 R" + (shared ? " (D-good) 10 0 R" : "");
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 4 0 R >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << >> >>", null),

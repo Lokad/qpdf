@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -13,7 +12,7 @@ public sealed class SourceActionRoleTests
         string uri = "<< /S /URI /URI (item.pdf)" + (indirect ? " /Next 11 0 R" : "") + " >>";
         string go = "<< /S /GoTo /D (Here) >>";
         string action = indirect ? "8 0 R" : uri, destination = indirect ? "10 0 R" : go;
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /URI << /Base " + basis + " >> /Dests 13 0 R /Names << /Dests 14 0 R >> /AcroForm << /Fields [5 0 R] /CO [6 0 R 7 0 R] >> /Audit << /Field 5 0 R /Widget 6 0 R /OtherWidget 7 0 R /Action 8 0 R /GoTo 10 0 R /Private 12 0 R >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [6 0 R 9 0 R 18 0 R] /AA << /O " + destination + " /Private 8 0 R >> >>", null),
@@ -33,7 +32,7 @@ public sealed class SourceActionRoleTests
             (18, "<< /Type /Annot /Subtype /Link /Rect [60 60 80 80] /Dest [3 0 R /Fit] >>", null)], 1);
     }
 
-    private static byte[] Target() => CheckTests.Assemble([
+    private static byte[] Target() => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R /URI << /Base (https://primary.test/) >> /Dests << /Here [3 0 R /Fit] >> >>", null),
         (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null)], 1);
@@ -225,7 +224,7 @@ public sealed class SourceActionRoleTests
     [InlineData("job", "Movie")]
     public async Task ActivationDataAndPopupExtrasDoNotBecomeActions(string route, string subtype)
     {
-        byte[] source = CheckTests.Assemble([
+        byte[] source = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /URI << /Base (https://source.test/base/) /Source 1 0 R >> >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [4 0 R 5 0 R] >>", null),
@@ -260,7 +259,7 @@ public sealed class SourceActionRoleTests
     [InlineData("job", true)]
     public async Task CatalogAndOutlineActionsBindTheirRolesWithoutChangingAliases(string route, bool linear)
     {
-        byte[] source = CheckTests.Assemble([
+        byte[] source = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /URI << /Base (https://source.test/base/) /Source 1 0 R >> /Dests 6 0 R /Outlines 4 0 R /OpenAction 7 0 R /AA << /WC << /S /JavaScript /JS () /Next 7 0 R >> /Private 7 0 R >> /Audit << /Action 7 0 R /Outlines 4 0 R >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null),

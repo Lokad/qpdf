@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -12,7 +11,7 @@ public sealed class OverlaySourceBoxTests
     {
         string selected = "/" + property + " " + (indirect ? "5 0 R" : preferred);
         byte[] content = "% source-boundary\n1 0 0 rg -50 -50 250 250 re f 0 0 1 rg 0 0 150 150 re f\n"u8.ToArray();
-        byte[] pdf = CheckTests.Assemble([
+        byte[] pdf = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 " + (inherited ? selected : "") + " >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox " + (indirect ? "6 0 R" : media)
@@ -28,7 +27,7 @@ public sealed class OverlaySourceBoxTests
     private static async Task<QpdfExecutionResult> Run(InMemoryQpdfHost host, byte[] source, string mode, bool job,
         QpdfExecutionOptions options, CancellationToken token)
     {
-        byte[] target = CheckTests.Assemble([
+        byte[] target = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> >>", null),
@@ -135,7 +134,7 @@ public sealed class OverlaySourceBoxTests
     [InlineData("[0 null 100 100]", true)]
     public async Task UnusableMediaBoundsSkipOtherwiseValidPreferredBoxes(string media, bool job)
     {
-        byte[] source = CheckTests.Assemble([
+        byte[] source = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /TrimBox [0 0 100 100] /Rotate 0 /Resources << >> /Contents 4 0 R "
@@ -154,7 +153,7 @@ public sealed class OverlaySourceBoxTests
     [InlineData(true)]
     public async Task EmptyIntersectionsDoNotDecodeUnpaintedContent(bool job)
     {
-        byte[] source = CheckTests.Assemble([
+        byte[] source = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /CropBox [200 200 300 300] /Resources << >> /Contents 4 0 R >>", null),

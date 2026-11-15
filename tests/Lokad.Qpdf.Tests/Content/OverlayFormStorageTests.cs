@@ -5,7 +5,6 @@ using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
-using Lokad.Qpdf.Tests.Inspection;
 using Lokad.Qpdf.Writing;
 using Lokad.Qpdf.TestSupport;
 
@@ -317,7 +316,7 @@ public sealed class OverlayFormStorageTests
         Assert.Equal(0L, root.ReservedBytes);
     }
 
-    internal static byte[] Fixture() => CheckTests.Assemble([
+    internal static byte[] Fixture() => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [6 0 R] /DA (/Helv 12 Tf) /Q 1 /DR << /Font << /Helv 8 0 R >> >> >> >>", null),
         (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 50 50] /Annots [5 0 R] >>", null),

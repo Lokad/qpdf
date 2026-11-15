@@ -65,7 +65,7 @@ public sealed class JobJsonMemoryTests
         string value = encoding is "unicode" or "surrogate" ? "\"" + description + "\"" : JsonSerializer.Serialize(description);
         string json = "{\"inputFile\":\"pdf\",\"outputFile\":\"output\",\"addAttachment\":[{\"file\":\"data\",\"description\":" + value + "}]}";
         using InMemoryQpdfHost storage = new();
-        storage.AddInput(QpdfPath.From("pdf"), CheckTests.Assemble(CheckTests.SinglePage("<< /Length 0 >>", []), 1), QpdfInputOwnership.Transfer);
+        storage.AddInput(QpdfPath.From("pdf"), PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 0 >>", []), 1), QpdfInputOwnership.Transfer);
         storage.AddInput(QpdfPath.From("data"), "payload"u8.ToArray(), QpdfInputOwnership.Transfer);
         storage.AddInput(QpdfPath.From("config"), Encoding.UTF8.GetBytes(json), QpdfInputOwnership.Transfer);
         storage.AddInput(QpdfPath.From("settings"), "{}"u8.ToArray(), QpdfInputOwnership.Transfer);

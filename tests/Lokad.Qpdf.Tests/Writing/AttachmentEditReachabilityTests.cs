@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -19,7 +18,7 @@ public sealed class AttachmentEditReachabilityTests
             "null" => "null",
             _ => "<< /Type /Filespec /F (seed) /EF << /F 7 0 R >> >>",
         };
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 9 0 R >> >>", null),
             (2, "<< /Type /Pages /Count 2 /Kids [3 0 R 4 0 R] >>", null),
             (3, page, null), (4, page, null), (5, "<< /Length 0 >>", []),

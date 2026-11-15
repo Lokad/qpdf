@@ -184,10 +184,10 @@ public sealed class InspectionSourceTests
     [InlineData("mixed", true)]
     public async Task SecondaryVersionsDoNotOutlivePrivateInspection(string route, bool catalogOverride)
     {
-        byte[] bytes = CheckTests.Assemble(CheckTests.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray()), 1);
+        byte[] bytes = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray()), 1);
         if (catalogOverride)
         {
-            bytes = CheckTests.Assemble([(1, "<< /Type /Catalog /Pages 2 0 R /Version /2.0 >>", null),
+            bytes = PdfTestDocument.Assemble([(1, "<< /Type /Catalog /Pages 2 0 R /Version /2.0 >>", null),
                 (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
                 (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null)], 1);
         }
@@ -240,7 +240,7 @@ public sealed class InspectionSourceTests
     public async Task EverySharedAdmissionRefusalRefundsCompletedSourceGraphs(string route)
     {
         byte[] content = new byte[131072]; content.AsSpan().Fill((byte)' '); "q Q"u8.CopyTo(content);
-        byte[] source = CheckTests.Assemble(CheckTests.SinglePage("<< /Length " + content.Length + " >>", content), 1);
+        byte[] source = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length " + content.Length + " >>", content), 1);
         async Task<(QpdfExecutionResult Result, int FirstGrowth, int LastGrowth)> Run(RecordingMemoryBudget budget)
         {
             using (IMemoryScope owner = budget.CreateScope())
@@ -299,7 +299,7 @@ public sealed class InspectionSourceTests
     public async Task CompletedSourceClosesWithBorrowedPayloadStillFunded(string route, string outcome)
     {
         byte[] content = new byte[1048576]; content.AsSpan().Fill((byte)' '); "q Q"u8.CopyTo(content);
-        byte[] source = CheckTests.Assemble(CheckTests.SinglePage("<< /Length " + content.Length + " >>", content), 1);
+        byte[] source = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length " + content.Length + " >>", content), 1);
         RecordingMemoryBudget root = new(33554432);
         using (IMemoryScope owner = root.CreateScope())
         {
@@ -332,7 +332,7 @@ public sealed class InspectionSourceTests
     {
         byte[] content = new byte[1048576];
         for (int index = 0; index < content.Length; index++) { content[index] = (byte)(index % 251); }
-        byte[] source = CheckTests.Assemble(CheckTests.SinglePage("<< /Length " + content.Length + " >>", content), 1);
+        byte[] source = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length " + content.Length + " >>", content), 1);
         RecordingMemoryBudget root = new(33554432);
         using (IMemoryScope owner = root.CreateScope())
         {

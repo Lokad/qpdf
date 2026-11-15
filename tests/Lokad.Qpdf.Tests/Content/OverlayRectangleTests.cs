@@ -4,7 +4,6 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -14,7 +13,7 @@ public sealed class OverlayRectangleTests
     {
         string raw = indirect ? "6 0 R" : "[" + string.Join(" ", values) + "]";
         string media = key == "MediaBox" ? raw : "[0 0 100 200]";
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Audit 6 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox " + media + (key == "MediaBox" ? "" : " /" + key + " " + raw) + " /Resources << >> >>", null),
@@ -27,7 +26,7 @@ public sealed class OverlayRectangleTests
     private static byte[] Source()
     {
         byte[] content = "1 0 0 rg 5 10 15 30 re f"u8.ToArray();
-        return CheckTests.Assemble([
+        return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R /Annots [5 0 R] >>", null),

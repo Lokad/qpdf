@@ -4,7 +4,6 @@ using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.TestSupport;
-using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -17,7 +16,7 @@ public sealed class NormalizedContentIdentityTests
     {
         string contents = shape is "indirect" or "repeat" ? "5 0 R" : shape == "array" ? "[4 0 R]" : "4 0 R";
         string roots = rooted ? "/Audit 5 0 R /Metadata 7 0 R /Names << /EmbeddedFiles << /Names [(copy) 8 0 R] >> >>" : "";
-        byte[] bytes = CheckTests.Assemble([
+        byte[] bytes = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R " + roots + " >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R 9 0 R] /Count 2 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Resources << >> /Contents " + contents + " >>", null),
@@ -50,7 +49,7 @@ public sealed class NormalizedContentIdentityTests
         using (InMemoryQpdfHost host = new())
         {
             host.AddInput(QpdfPath.From("input"), Fixture(shape, rooted), QpdfInputOwnership.Copy);
-            host.AddInput(QpdfPath.From("other"), CheckTests.Assemble([
+            host.AddInput(QpdfPath.From("other"), PdfTestDocument.Assemble([
                 (1, "<< /Type /Catalog /Pages 2 0 R >>", null), (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
                 (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << >> >>", null)], 1), QpdfInputOwnership.Copy);
             List<string> argv = ["input", "--normalize-content=" + (mode == "disabled" ? "n" : "y"), "--stream-data=uncompress", "--remove-unreferenced-resources=no"];
@@ -137,7 +136,7 @@ public sealed class NormalizedContentIdentityTests
     public async Task SkippedPageProgramsKeepAllPartsAndShareOriginalStreams(bool filter, bool job, bool sharedArray)
     {
         byte[] damaged = "("u8.ToArray(); byte[] good = "q \r\nQ\r\n"u8.ToArray();
-        byte[] source = CheckTests.Assemble([
+        byte[] source = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Keep 4 0 R >>", null),
             (2, "<< /Type /Pages /Count 2 /Kids [3 0 R 5 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << >> /Contents " + (sharedArray ? "7 0 R" : "[4 0 R 6 0 R]") + " >>", null),
