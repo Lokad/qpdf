@@ -2,6 +2,8 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Resolve named outline targets and destination wrappers in both JSON versions,
+  including page outline lists and full-generation target validation.
 - Bound destination-tree miss traversal and reuse repeated named lookups while
   preserving first matches, depth/cycle checks and source action meaning.
 - Use one authenticated selection-reader policy and remove obsolete internal

@@ -3981,7 +3981,10 @@
           "JsonInspectionTests.PageImagesRespectDecodeLevel",
           "JsonInspectionTests.PageImagesMatchAcrossVersions",
           "JsonInspectionTests.PageImagesJobParity",
-          "JsonReferenceKeyTests.PageReferencesAddressObjectAndInfoMaps"
+          "JsonReferenceKeyTests.PageReferencesAddressObjectAndInfoMaps",
+          "OutlineNamedDestinationTests.NamesTreesAndWrappersProjectTheResolvedDestination",
+          "OutlineNamedDestinationTests.PublicRoutesAndJsonVersionsKeepNamedPageProjection",
+          "OutlineNamedDestinationTests.NamedTargetsKeepFullPageReferenceValidation"
         ],
         "negative": [
           "JsonInspectionTests.BadVersionFails",
@@ -3989,7 +3992,8 @@
           "JsonInspectionTests.JsonCombinationsFail",
           "JsonInspectionTests.PageImagesMalformedFilterFails",
           "JsonModesTests.JsonOutputRejectsVersionOne",
-          "JsonModesTests.JobModesMalformedFail"
+          "JsonModesTests.JobModesMalformedFail",
+          "OutlineNamedDestinationTests.CyclicNamedTreesFailBeforeReplacingTheReport"
         ],
         "interaction": [
           "JsonInspectionTests.JobRoundTripMatchesArgv",
@@ -4005,7 +4009,9 @@
           "JsonValueOwnershipTests.BulkJsonDiscardsFitConsumerMemoryAllowance",
           "JsonValueOwnershipTests.SidecarsPreserveRawAndDecodedBytesAfterReaderCloses",
           "JsonValueOwnershipTests.InputCloseFaultPreservesMainAndSidecarTargets",
-          "JsonValueOwnershipTests.FailedOrCanceledJsonClosesReaderAndPreservesPriorOutput"
+          "JsonValueOwnershipTests.FailedOrCanceledJsonClosesReaderAndPreservesPriorOutput",
+          "OutlineNamedDestinationTests.NamedProjectionRefundsAdmissionAndPreservesThePriorReport",
+          "OutlineNamedDestinationTests.NamedProjectionDoesNotMutateTheSourceDestinationArray"
         ],
         "oracle": [
           "diff:json-pages",
@@ -4123,11 +4129,15 @@
         "positive": [
           "JsonInspectionTests.KeySelectionLimitsOutput",
           "EncryptedJsonTests.TypedArgvAndJobExportAuthenticatedFacts",
-          "JsonModesTests.AcroformReportsFields"
+          "JsonModesTests.AcroformReportsFields",
+          "OutlineNamedDestinationTests.NamesTreesAndWrappersProjectTheResolvedDestination",
+          "OutlineNamedDestinationTests.PublicRoutesAndJsonVersionsKeepNamedPageProjection",
+          "OutlineNamedDestinationTests.NamedTargetsKeepFullPageReferenceValidation"
         ],
         "negative": [
           "JsonInspectionTests.BadKeyFails",
-          "EncryptedJsonTests.FailedPasswordsPublishNeitherJsonNorSidecars"
+          "EncryptedJsonTests.FailedPasswordsPublishNeitherJsonNorSidecars",
+          "OutlineNamedDestinationTests.CyclicNamedTreesFailBeforeReplacingTheReport"
         ],
         "interaction": [
           "JsonInspectionTests.JobRoundTripMatchesArgv",
@@ -4139,7 +4149,9 @@
           "EncryptedJsonTests.EveryJsonAdmissionRefusalRefundsStorageBeforePublication",
           "SubtreeReuseTests.SharedSubtreesKeepWorkProportionalToTheirGraphAndResult",
           "SubtreeReuseTests.ReusedSubtreesStillEnforceDepthOnDeeperPaths",
-          "SubtreeReuseTests.EveryTraversalAdmissionRefusalRefundsItsPrivateState"
+          "SubtreeReuseTests.EveryTraversalAdmissionRefusalRefundsItsPrivateState",
+          "OutlineNamedDestinationTests.NamedProjectionRefundsAdmissionAndPreservesThePriorReport",
+          "OutlineNamedDestinationTests.NamedProjectionDoesNotMutateTheSourceDestinationArray"
         ],
         "oracle": [
           "diff:json-pages",

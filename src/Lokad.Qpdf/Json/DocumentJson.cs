@@ -432,7 +432,8 @@ internal static class DocumentJson
         DocumentEngine engine = document.Engine;
         List<OutlineEntry> roots = ParserContainers.CreateList<OutlineEntry>(memory);
         PdfDictionary? catalog = ResolveChild(engine, engine.Trailer, "Root", "catalog");
-        PdfDictionary? tree = catalog is null ? null : ResolveChild(engine, catalog, "Outlines", "outlines");
+        if (catalog is null) { return roots; }
+        PdfDictionary? tree = ResolveChild(engine, catalog, "Outlines", "outlines");
         if (tree is null || !tree.TryGet(PdfName.FromAscii("First"), out QpdfObject? firstRaw)
             || firstRaw is null || firstRaw is PdfNull) { return roots; }
         if (firstRaw is PdfReference firstReference
@@ -441,11 +442,12 @@ internal static class DocumentJson
 
         GovernedIntDictionary<int> pageIndex = BuildPageIndex(document, memory, governor, cancellationToken);
         GovernedIntSet visited = GovernedIntSet.Create(memory, governor, cancellationToken);
-        ReadOutlineSiblings(engine, pageIndex, firstRaw, roots, 0, visited, limits, governor, memory, cancellationToken);
+        NamedDestinations destinations = NamedDestinations.Create(engine, catalog, memory, governor, cancellationToken);
+        ReadOutlineSiblings(engine, destinations, pageIndex, firstRaw, roots, 0, visited, limits, governor, memory, cancellationToken);
         return roots;
     }
 
-    private static void ReadOutlineSiblings(DocumentEngine engine, GovernedIntDictionary<int> pageIndex,
+    private static void ReadOutlineSiblings(DocumentEngine engine, NamedDestinations destinations, GovernedIntDictionary<int> pageIndex,
         QpdfObject sibling, List<OutlineEntry> entries, int depth, GovernedIntSet visited,
         QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
     {
@@ -461,7 +463,7 @@ internal static class DocumentJson
             if (reference is not null && !visited.Add(memory, reference.ObjectNumber))
             { throw new QpdfParseException("Outline tree contains a cycle.", null, reference.ObjectNumber); }
 
-            OutlineEntry entry = ReadOutlineEntry(engine, pageIndex, reference, outline, depth, visited,
+            OutlineEntry entry = ReadOutlineEntry(engine, destinations, pageIndex, reference, outline, depth, visited,
                 limits, governor, memory, token);
             ParserContainers.AddItem(memory, entries, entry, IntPtr.Size);
             if (!PdfDictionaryLookup.TryGet(outline, "Next"u8, governor, token, out QpdfObject next)) { break; }
@@ -477,6 +479,7 @@ internal static class DocumentJson
 
     private static OutlineEntry ReadOutlineEntry(
         DocumentEngine engine,
+        NamedDestinations destinations,
         GovernedIntDictionary<int> pageIndex,
         PdfReference? nodeReference,
         PdfDictionary outline,
@@ -513,6 +516,7 @@ internal static class DocumentJson
         {
             destination = EmbeddedFiles.ResolveOptionalValue(engine, actionDestination, governor, cancellationToken);
         }
+        if (destination is PdfName or PdfByteString) { destination = destinations.Find(destination); }
         if (destination is PdfNull) { destination = null; }
 
         bool open = true;
@@ -547,7 +551,7 @@ internal static class DocumentJson
         List<OutlineEntry> children = ParserContainers.CreateList<OutlineEntry>(memory);
         if (outline.TryGet(PdfName.FromAscii("First"), out QpdfObject? firstRaw) && firstRaw is not null && firstRaw is not PdfNull)
         {
-            ReadOutlineSiblings(engine, pageIndex, firstRaw, children, depth + 1, visited, limits, governor, memory, cancellationToken);
+            ReadOutlineSiblings(engine, destinations, pageIndex, firstRaw, children, depth + 1, visited, limits, governor, memory, cancellationToken);
         }
 
         memory.Reserve(96L);

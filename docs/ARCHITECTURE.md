@@ -205,7 +205,8 @@ subtrees and completed attachment misses reuse prior traversal. Reused label
 summaries replay only their own overrides in child order; unique paths write
 directly to the result. Cached height still bounds deeper paths, while active-path
 cycle checks remain separate.
-Named-destination lookup uses the same identity/depth safeguards for subtree
+Source binding and outline inspection share named-destination lookup. It uses
+the same identity/depth safeguards for subtree
 misses and retains at most 32 query results per operation. Legacy names and
 byte-string keys remain distinct; cache eviction changes work only.
 

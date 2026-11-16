@@ -177,7 +177,7 @@ public sealed class OutlineValueInspectionTests
             ("/Dest null " + local, fit, 1), ("/Dest 99 0 R " + local, fit, 1),
             ("/Dest 12 1 R " + local, fit, 1), ("/Dest 42 " + local, "42", 0), ("/Dest [] " + local, "[]", 0),
             ("/Dest [3 0 R /XYZ 0 0 1] " + local, "[\"3 0 R\",\"/XYZ\",0,0,1]", 1),
-            ("/Dest /Chapter " + local, "\"/Chapter\"", 0), ("/A << /S /GoTo /D /Chapter >>", "\"/Chapter\"", 0),
+            ("/Dest /Chapter " + local, "null", 0), ("/A << /S /GoTo /D /Chapter >>", "null", 0),
             ("/A << /S /GoTo /D 42 >>", "42", 0), ("/A << /S /GoTo /D null >>", "null", 0),
             ("/A << /S /GoTo >>", "null", 0),
         }) { yield return [route, version, specification, expected, page]; }

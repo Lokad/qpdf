@@ -283,6 +283,11 @@ preserves opaque streams with an explicit warning or skipped check.
 Checking covers structure, streams, content, forms and linearization, with explicit
 skipped stages. It does not establish rendering or conformance. Object, xref, page,
 image, attachment and outline listings use the shared resolver.
+Outline projections resolve catalog names, destination name trees and `/D`
+wrappers, including local GoTo actions. Missing names project null; destination
+page positions validate the complete object number/generation pair.
+JSON inspection currently rejects page-source assembly; selected/merged PDFs
+must be published before JSON inspection.
 
 Typed `Qpdf.CountPagesAsync` traverses the page tree and returns its count, warnings
 and final counters after input cleanup. Its credential/recovery/limits overload
