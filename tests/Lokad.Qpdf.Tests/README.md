@@ -41,6 +41,8 @@ content tables cover alias/content/layout combinations primarily through argv;
 targeted job cases cross private roots, selection, merging, splitting and writers.
 Pruning scope tables own content/resource semantics at argv with selected job
 interactions; independent policy/location controls complement the heuristic owners.
+Coalescing identity controls separate physical layout from retention/duplication
+policy, with complete alias semantics at argv and sampled job interactions.
 
 `Foundation/PublicationAdmissionTests` owns shared host-fault phases, executed
 counters and sequential commits. Prepared graph tests retain their own admission

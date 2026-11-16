@@ -10,14 +10,23 @@ public sealed class CoalescedContentIdentityTests
     public static IEnumerable<object[]> Cases()
     {
         foreach (string alias in new[] { "none", "page", "catalog", "both" })
-        foreach (string mode in new[] { "classic", "packed", "qdf", "linear", "preserve", "duplicate" })
-        foreach (bool job in new[] { false, true })
-        { yield return [alias, mode, job]; }
+        {
+            foreach (string layout in new[] { "classic", "packed", "qdf", "linear" })
+            { yield return [alias, layout, false, false, false]; }
+            yield return [alias, "classic", true, false, false];
+            yield return [alias, "classic", false, true, false];
+        }
+        foreach ((string alias, string layout, bool preserve, bool duplicate) in new[]
+        {
+            ("none", "classic", false, false), ("page", "packed", false, false),
+            ("catalog", "qdf", false, false), ("both", "linear", false, false),
+            ("both", "packed", true, false), ("both", "qdf", false, true)
+        }) { yield return [alias, layout, preserve, duplicate, true]; }
     }
 
     [Theory]
     [MemberData(nameof(Cases))]
-    public async Task CoalescingReplacesThePageEntryAndPreservesSharedArrayValues(string alias, string mode, bool job)
+    public async Task CoalescingReplacesThePageEntryAndPreservesSharedArrayValues(string alias, string layout, bool preserve, bool duplicate, bool job)
     {
         bool catalogAlias = alias is "catalog" or "both";
         bool pageAlias = alias is "page" or "both";
@@ -32,11 +41,11 @@ public sealed class CoalescedContentIdentityTests
         host.AddInput(QpdfPath.From("input"), fixture, QpdfInputOwnership.Transfer);
         List<string> arguments = ["input", "--coalesce-contents", "--normalize-content=n", "--stream-data=uncompress"];
         Dictionary<string, object> settings = new() { ["inputFile"] = "input", ["outputFile"] = "output", ["coalesceContents"] = true, ["normalizeContent"] = "n", ["streamData"] = "uncompress" };
-        if (mode == "packed") { arguments.Add("--object-streams=generate"); settings["objectStreams"] = "generate"; }
-        if (mode == "qdf") { arguments.Add("--qdf"); settings["qdf"] = true; }
-        if (mode == "linear") { arguments.Add("--linearize"); settings["linearize"] = true; }
-        if (mode == "preserve") { arguments.Add("--preserve-unreferenced"); settings["preserveUnreferenced"] = true; }
-        if (mode == "duplicate")
+        if (layout == "packed") { arguments.Add("--object-streams=generate"); settings["objectStreams"] = "generate"; }
+        if (layout == "qdf") { arguments.Add("--qdf"); settings["qdf"] = true; }
+        if (layout == "linear") { arguments.Add("--linearize"); settings["linearize"] = true; }
+        if (preserve) { arguments.Add("--preserve-unreferenced"); settings["preserveUnreferenced"] = true; }
+        if (duplicate)
         {
             arguments.AddRange(["--pages", ".", "1,1", "--"]);
             settings["pages"] = new[] { new { file = ".", range = "1,1" } };
@@ -51,14 +60,14 @@ public sealed class CoalescedContentIdentityTests
         Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output));
         host.AddInput(QpdfPath.From("readback"), output, QpdfInputOwnership.Transfer);
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("readback"), CancellationToken.None);
-        Assert.Equal(mode == "duplicate" ? 2 : 1, document.PageCount);
+        Assert.Equal(duplicate ? 2 : 1, document.PageCount);
         QpdfObject Resolve(QpdfObject value) => value is PdfReference reference ? document.GetObject(reference.ObjectNumber) : value;
         PdfDictionary catalog = Assert.IsType<PdfDictionary>(Resolve(Get(document.Engine.Trailer, "Root")));
         QpdfObject? firstContents = null;
         foreach (var location in document.PageReferences)
         {
             QpdfObject contents = Get(location.Page, "Contents");
-            if (mode == "duplicate" && firstContents is not null) { Assert.Equal(firstContents, contents); }
+            if (duplicate && firstContents is not null) { Assert.Equal(firstContents, contents); }
             firstContents = contents;
             PdfStream joined = Assert.IsType<PdfStream>(Resolve(contents));
             Assert.Equal("q\nQ"u8.ToArray(), joined.Data);
@@ -73,11 +82,16 @@ public sealed class CoalescedContentIdentityTests
             }
             if (catalogAlias && pageAlias) { Assert.Equal(Get(catalog, "Audit"), Get(location.Page, "Audit")); }
         }
-        if (alias == "none" && mode != "preserve")
+        if (alias == "none")
         {
-            IEnumerable<QpdfObject> objects = document.Engine.XRefEntries.Where(e => e.Key > 0 && e.Value.Kind != XrefEntryKind.Free)
-                .Select(e => document.GetObject(e.Key));
-            Assert.DoesNotContain(objects.OfType<PdfStream>(), stream => stream.RawMemory.Span.SequenceEqual("q"u8) || stream.RawMemory.Span.SequenceEqual("Q"u8));
+            PdfStream[] streams = document.Engine.XRefEntries.Where(e => e.Key > 0 && e.Value.Kind != XrefEntryKind.Free)
+                .Select(e => document.GetObject(e.Key)).OfType<PdfStream>().ToArray();
+            if (preserve)
+            {
+                Assert.Contains(streams, stream => stream.RawMemory.Span.SequenceEqual("q"u8));
+                Assert.Contains(streams, stream => stream.RawMemory.Span.SequenceEqual("Q"u8));
+            }
+            else { Assert.DoesNotContain(streams, stream => stream.RawMemory.Span.SequenceEqual("q"u8) || stream.RawMemory.Span.SequenceEqual("Q"u8)); }
         }
     }
 
