@@ -159,6 +159,7 @@ internal static class SourceActions
         private readonly Dictionary<NodeKey, Node> _nodes;
         private readonly List<Node> _pending;
         private OwnedAllocationBatch? _graph;
+        private NamedDestinations? _destinations;
         internal PoolResolver Resolver { get; }
         private OwnedAllocationBatch Graph => _graph ??= OwnedAllocationBatch.Create(_governor, _token);
 
@@ -509,78 +510,14 @@ internal static class SourceActions
             DocumentEngine source = _source ?? throw new InvalidOperationException("Missing source context.");
             GraphCopier sourceCopier = _sourceCopier ?? throw new InvalidOperationException("Missing source copier.");
             PdfDictionary catalog = _catalog ?? throw new InvalidOperationException("Missing source catalog.");
-            QpdfObject? value = Resolve(raw), found = null;
-            if (value is PdfName name)
-            {
-                PdfDictionary? destinations = CatalogCopy.ResolveDictionary(Read(catalog, "Dests"u8, _governor, _token), source, _governor, _token);
-                if (destinations is not null) { found = Read(destinations, name.RawSpan, _governor, _token); }
-            }
-            else if (value is PdfByteString text)
-            {
-                PdfDictionary? names = CatalogCopy.ResolveDictionary(Read(catalog, "Names"u8, _governor, _token), source, _governor, _token);
-                PdfDictionary? destinations = names is null ? null : CatalogCopy.ResolveDictionary(Read(names, "Dests"u8, _governor, _token), source, _governor, _token);
-                if (destinations is not null)
-                {
-                    using ParserMemoryScope walk = ParserMemoryScope.Create(_governor);
-                    walk.Reserve(96L); HashSet<PdfDictionary> path = new(ReferenceEqualityComparer.Instance);
-                    found = FindName(destinations, text.ValueMemory, path, walk, 0);
-                }
-            }
-            else { return raw; }
-            found = CatalogCopy.ResolveValue(found, source, _governor, _token);
-            if (found is PdfDictionary wrapper) { found = CatalogCopy.ResolveValue(Read(wrapper, "D"u8, _governor, _token), source, _governor, _token); }
+            QpdfObject? value = Resolve(raw);
+            if (value is not (PdfName or PdfByteString)) { return raw; }
+            _destinations ??= NamedDestinations.Create(source, catalog, _scratch, _governor, _token);
+            QpdfObject? found = _destinations.Find(value);
             if (found is not PdfArray) { throw new QpdfParseException("The retained source-local named destination cannot be resolved.", null, null); }
             sourceCopier.AdvanceNextId(_copier.NextId);
             QpdfObject result = sourceCopier.CopyValue(found, 0); _copier.AdvanceNextId(sourceCopier.NextId);
             return result;
-        }
-
-        private QpdfObject? FindName(PdfDictionary node, ReadOnlyMemory<byte> key, HashSet<PdfDictionary> path, ParserMemoryScope walk, int depth)
-        {
-            DocumentEngine source = _source ?? throw new InvalidOperationException("Missing source context.");
-            Check();
-            if (depth > _governor.MaxNestingDepth) { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, _governor.MaxNestingDepth); }
-            if (!ParserContainers.AddSetItem(walk, path, node, IntPtr.Size)) { throw new QpdfParseException("Source destination name tree contains a cycle.", null, null); }
-            try
-            {
-                if (CatalogCopy.ResolveValue(Read(node, "Names"u8, _governor, _token), source, _governor, _token) is PdfArray names)
-                {
-                    if (names.Count % 2 != 0) { throw new QpdfParseException("Source destination names must contain pairs.", null, null); }
-                    int low = 0, high = names.Count / 2;
-                    while (low < high)
-                    {
-                        Check(); int middle = low + (high - low) / 2;
-                        if (CatalogCopy.ResolveValue(names[middle * 2], source, _governor, _token) is not PdfByteString candidate)
-                        { throw new QpdfParseException("Source destination keys must be strings.", null, null); }
-                        int comparison = Compare(candidate.ValueMemory.Span, key.Span);
-                        if (comparison == 0) { return names[middle * 2 + 1]; }
-                        if (comparison < 0) { low = middle + 1; } else { high = middle; }
-                    }
-                }
-                if (CatalogCopy.ResolveValue(Read(node, "Kids"u8, _governor, _token), source, _governor, _token) is PdfArray kids)
-                {
-                    for (int index = 0; index < kids.Count; index++)
-                    {
-                        Check(); PdfDictionary? child = CatalogCopy.ResolveDictionary(kids[index], source, _governor, _token);
-                        if (child is null) { throw new QpdfParseException("Source destination child must be a dictionary.", null, null); }
-                        if (CatalogCopy.ResolveValue(Read(child, "Limits"u8, _governor, _token), source, _governor, _token) is PdfArray { Count: 2 } limits
-                            && CatalogCopy.ResolveValue(limits[0], source, _governor, _token) is PdfByteString first
-                            && CatalogCopy.ResolveValue(limits[1], source, _governor, _token) is PdfByteString last
-                            && (Compare(key.Span, first.ValueSpan) < 0 || Compare(key.Span, last.ValueSpan) > 0)) { continue; }
-                        QpdfObject? found = FindName(child, key, path, walk, depth + 1); if (found is not null) { return found; }
-                    }
-                }
-                return null;
-            }
-            finally { path.Remove(node); }
-        }
-
-        private int Compare(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
-        {
-            int length = Math.Min(left.Length, right.Length);
-            for (int offset = 0; offset < length; offset += Math.Min(8192, length - offset))
-            { Check(); int count = Math.Min(8192, length - offset); int order = left.Slice(offset, count).SequenceCompareTo(right.Slice(offset, count)); if (order != 0) { return order; } }
-            return left.Length.CompareTo(right.Length);
         }
 
         private QpdfObject UriValue(QpdfObject raw)

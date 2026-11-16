@@ -5177,7 +5177,8 @@
           "OverlayDefaultTests.EqualDefaultTextStillBindsTheImportedFontIdentity",
           "OverlayAnnotationClippingTests.SourceClipKeepsFullRectAndPrivateAppearances",
           "OptionalContentStateTests.StaticDefaultsKeepIndependentGroupStates",
-          "OptionalContentStateTests.SourceStatesFollowSelectionPlacementAndSplitWiring"
+          "OptionalContentStateTests.SourceStatesFollowSelectionPlacementAndSplitWiring",
+          "NamedDestinationTests.LaterDestinationsSurviveSelectionAndPlacement"
         ],
         "negative": [
           "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
@@ -5216,7 +5217,11 @@
           "AppearanceResourceScopeTests.ScopePublicationFailuresPreserveTheTargetAndRefundAdmission",
           "OverlayClippingCancellationTests.BothTokensInterruptClippingAfterAdmissionWithoutPublishingTheHeader",
           "OptionalContentStateTests.BothCopyPathsRefundEveryAdmissionAndPreservePublication",
-          "OptionalContentStateTests.EitherTokenStopsOffBaseInterpretationAfterResolvingTheBase"
+          "OptionalContentStateTests.EitherTokenStopsOffBaseInterpretationAfterResolvingTheBase",
+          "NamedDestinationTests.SharedMissesStayProportionalToTheGraphAndRepeatedQueriesReuseThem",
+          "NamedDestinationTests.QueryCacheIsBoundedAndEvictionDoesNotChangeResults",
+          "NamedDestinationTests.EitherTokenCancelsAfterTraversalStartsAndRefundsItsIndex",
+          "NamedDestinationTests.EveryAdmissionRefusalRefundsLookupAndTraversalStorage"
         ],
         "oracle": [
           "diff:overlay",
@@ -5286,7 +5291,8 @@
           "SignedAppearanceTests.SelectionPreservesMarksAndDisablesOnlyTheFieldRole",
           "SignedAppearanceTests.WholeDocumentAndMergeKeepOrdinaryForms",
           "OptionalContentStateTests.StaticDefaultsKeepIndependentGroupStates",
-          "OptionalContentStateTests.SourceStatesFollowSelectionPlacementAndSplitWiring"
+          "OptionalContentStateTests.SourceStatesFollowSelectionPlacementAndSplitWiring",
+          "NamedDestinationTests.LaterDestinationsSurviveSelectionAndPlacement"
         ],
         "negative": [
           "AdapterTests.ArgvRangeErrorsFail",
@@ -5315,7 +5321,11 @@
           "SubtreeReuseTests.ReusedSubtreesStillEnforceDepthOnDeeperPaths",
           "SubtreeReuseTests.EveryTraversalAdmissionRefusalRefundsItsPrivateState",
           "OptionalContentStateTests.BothCopyPathsRefundEveryAdmissionAndPreservePublication",
-          "OptionalContentStateTests.EitherTokenStopsOffBaseInterpretationAfterResolvingTheBase"
+          "OptionalContentStateTests.EitherTokenStopsOffBaseInterpretationAfterResolvingTheBase",
+          "NamedDestinationTests.SharedMissesStayProportionalToTheGraphAndRepeatedQueriesReuseThem",
+          "NamedDestinationTests.QueryCacheIsBoundedAndEvictionDoesNotChangeResults",
+          "NamedDestinationTests.EitherTokenCancelsAfterTraversalStartsAndRefundsItsIndex",
+          "NamedDestinationTests.EveryAdmissionRefusalRefundsLookupAndTraversalStorage"
         ],
         "oracle": [
           "diff:select",
@@ -7193,7 +7203,8 @@
           "OverlayDefaultTests.EqualDefaultTextStillBindsTheImportedFontIdentity",
           "OverlayAnnotationClippingTests.SourceClipKeepsFullRectAndPrivateAppearances",
           "OptionalContentStateTests.StaticDefaultsKeepIndependentGroupStates",
-          "OptionalContentStateTests.SourceStatesFollowSelectionPlacementAndSplitWiring"
+          "OptionalContentStateTests.SourceStatesFollowSelectionPlacementAndSplitWiring",
+          "NamedDestinationTests.LaterDestinationsSurviveSelectionAndPlacement"
         ],
         "negative": [
           "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
@@ -7225,7 +7236,11 @@
           "OverlayGenerationTests.GenerationAwareCopyKeepsRollbackAndCancellation",
           "OverlayClippingCancellationTests.BothTokensInterruptClippingAfterAdmissionWithoutPublishingTheHeader",
           "OptionalContentStateTests.BothCopyPathsRefundEveryAdmissionAndPreservePublication",
-          "OptionalContentStateTests.EitherTokenStopsOffBaseInterpretationAfterResolvingTheBase"
+          "OptionalContentStateTests.EitherTokenStopsOffBaseInterpretationAfterResolvingTheBase",
+          "NamedDestinationTests.SharedMissesStayProportionalToTheGraphAndRepeatedQueriesReuseThem",
+          "NamedDestinationTests.QueryCacheIsBoundedAndEvictionDoesNotChangeResults",
+          "NamedDestinationTests.EitherTokenCancelsAfterTraversalStartsAndRefundsItsIndex",
+          "NamedDestinationTests.EveryAdmissionRefusalRefundsLookupAndTraversalStorage"
         ],
         "oracle": [
           "diff:overlay-ranges",

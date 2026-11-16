@@ -2,6 +2,8 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Bound destination-tree miss traversal and reuse repeated named lookups while
+  preserving first matches, depth/cycle checks and source action meaning.
 - Use one authenticated selection-reader policy and remove obsolete internal
   rejection branches, retaining existing public exception compatibility.
 - Preserve static layer states when combining ON/OFF default bases, normalize
