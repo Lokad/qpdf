@@ -303,26 +303,35 @@ public sealed class ParserDiscardTests
     }
 
     [Fact]
-    public async Task CancellationAfterOverwriteReleasesItsAttempt()
+    public void CancellationAfterOverwriteReleasesItsAttempt()
     {
-        byte[] input = Encoding.ASCII.GetBytes("<< /A (" + new string('A', 4096) + ") /A null /B (" + new string('B', 16 * 1024 * 1024) + ") >>");
+        byte[] input = Encoding.ASCII.GetBytes("<< /A (" + new string('A', 4096) + ") /A null /B << /Length 8 0 R >>\nstream\nabc\nendstream >>");
         using CancellationTokenSource cancellation = new();
         QpdfLimits limits = QpdfLimits.Default with { CancellationCheckInterval = 1L };
         ResourceGovernor governor = new(limits, cancellation.Token);
         DiagnosticBag diagnostics = new(governor);
-        PdfParser parser = new(limits, governor, diagnostics, null);
-        Task<QpdfObject> parsing = Task.Factory.StartNew(() =>
+        CancelingLengthResolver resolver = new(cancellation.Cancel);
+        PdfParser parser = new(limits, governor, diagnostics, resolver);
+        Assert.Throws<OperationCanceledException>(() =>
         {
             using ParserMemoryScope parsedMemory1 = ParserMemoryScope.Create(governor);
             var parsed = parser.ParseObjectValue(new PdfTokenizer(input), 0, parsedMemory1);
             parsedMemory1.RetainGraph();
-            return parsed;
-        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-        bool observed = SpinWait.SpinUntil(() => governor.Snapshot().LiveMemoryBytes >= 16L * 1024L * 1024L || parsing.IsCompleted, TimeSpan.FromSeconds(10));
-        cancellation.Cancel();
-        Assert.True(observed);
-        await Assert.ThrowsAsync<OperationCanceledException>(async () => await parsing.WaitAsync(TimeSpan.FromSeconds(10)));
-        Assert.True(governor.Snapshot().PeakMemoryBytes >= 16L * 1024L * 1024L);
+            GC.KeepAlive(parsed);
+        });
+        Assert.True(resolver.Invoked);
+        Assert.Contains(diagnostics.Entries, item => item.Code == QpdfDiagnosticCode.DuplicateKey);
+        Assert.True(governor.Snapshot().PeakMemoryBytes >= 4096L);
         Assert.Equal(ControlAdmission("null", true, false, diagnostics.Entries), governor.Snapshot().LiveMemoryBytes);
+    }
+
+    private sealed class CancelingLengthResolver(Action cancel) : IIndirectResolver
+    {
+        internal bool Invoked { get; private set; }
+        public bool TryResolve(PdfReference reference, out QpdfObject? value)
+        {
+            Assert.Equal(new PdfReference(8, 0), reference); Invoked = true; cancel();
+            value = new PdfInteger("3", 3); return true;
+        }
     }
 }
