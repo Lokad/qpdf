@@ -21,6 +21,7 @@ operation cores and validation. Argv supplies direct settings without serialized
 JSON. Actual JSON retains its admitted documents and copied text through plan
 consumption, including ordered nested-file loading. Scoped syntax helpers handle
 page, placement, attachment and encryption blocks.
+Writer plans share one option projection after branch-specific source selection.
 Typed document opening, checking, JSON, counting and page selection can explicitly
 choose the shared bounded repair policy;
 multi-source operations use `PdfPageMergeOptions.RecoveryMode` for every input and
