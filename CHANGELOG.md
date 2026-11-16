@@ -2,6 +2,8 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Reuse completed page, label and attachment subtrees while preserving repeated
+  page occurrences, label overrides, depth/cycle limits and attachment lookup rules.
 - Match JSON patches by full object number/generation pairs and roundtrip nonzero
   generations through creation/update. Keep newly declared pairs distinct and
   reuse omitted stream payloads only from the matching source pair.

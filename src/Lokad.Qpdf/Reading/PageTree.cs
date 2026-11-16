@@ -21,7 +21,8 @@ internal static class PageTree
         List<PageLocation> collector = ParserContainers.CreateList<PageLocation>(pageStorage);
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
         HashSet<int> path = ParserContainers.CreateSet<int>(traversal);
-        WalkPages(resolver, diagnostics, governor, limits, pages, null, path, collector, pageStorage, traversal, 0, cancellationToken);
+        Dictionary<PdfDictionary, int>? emptySubtrees = null;
+        WalkPages(resolver, diagnostics, governor, limits, pages, null, path, collector, pageStorage, traversal, ref emptySubtrees, 0, cancellationToken);
         return collector;
     }
 
@@ -95,7 +96,7 @@ internal static class PageTree
         return PdfObjectLookup.TryResolve(reference, resolver, governor, token, out QpdfObject? resolved) ? resolved as PdfInteger : null;
     }
 
-    private static void WalkPages(
+    private static int WalkPages(
         IIndirectResolver resolver,
         DiagnosticBag diagnostics,
         ResourceGovernor governor,
@@ -106,6 +107,7 @@ internal static class PageTree
         List<PageLocation> collector,
         ParserMemoryScope pageStorage,
         ParserMemoryScope traversal,
+        ref Dictionary<PdfDictionary, int>? emptySubtrees,
         int depth,
         CancellationToken cancellationToken)
     {
@@ -116,11 +118,20 @@ internal static class PageTree
         }
 
         governor.NoteOperation();
+        governor.CheckCancellation();
+        if (emptySubtrees is not null && emptySubtrees.TryGetValue(node, out int remainingDepth))
+        {
+            long deepest = (long)depth + remainingDepth;
+            if (deepest > limits.MaxNestingDepth)
+            { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), deepest, limits.MaxNestingDepth); }
+            return remainingDepth;
+        }
+        long diagnosticsBefore = governor.CounterValues.DiagnosticCount;
         PdfName? type = ReadType(resolver, node, governor, cancellationToken);
         if (type is not null && type.RawSpan.SequenceEqual("Page"u8))
         {
             ParserContainers.AddItem(pageStorage, collector, new PageLocation(incoming, node), 2L * IntPtr.Size);
-            return;
+            return 0;
         }
 
         if (type is null || !type.RawSpan.SequenceEqual("Pages"u8))
@@ -141,6 +152,7 @@ internal static class PageTree
         }
 
         long before = collector.Count;
+        int height = 0;
         for (int i = 0; i < kids.Count; i++)
         {
             QpdfObject kid = kids[i];
@@ -156,14 +168,16 @@ internal static class PageTree
                     throw new QpdfParseException($"Page kid does not resolve to a dictionary.", null, reference.ObjectNumber);
                 }
 
-                WalkPages(resolver, diagnostics, governor, limits, child, reference, path, collector, pageStorage, traversal, depth + 1, cancellationToken);
+                int childHeight = WalkPages(resolver, diagnostics, governor, limits, child, reference, path, collector, pageStorage, traversal, ref emptySubtrees, depth + 1, cancellationToken);
+                height = Math.Max(height, childHeight + 1);
                 path.Remove(reference.ObjectNumber);
                 continue;
             }
 
             if (kid is PdfDictionary direct)
             {
-                WalkPages(resolver, diagnostics, governor, limits, direct, null, path, collector, pageStorage, traversal, depth + 1, cancellationToken);
+                int childHeight = WalkPages(resolver, diagnostics, governor, limits, direct, null, path, collector, pageStorage, traversal, ref emptySubtrees, depth + 1, cancellationToken);
+                height = Math.Max(height, childHeight + 1);
                 continue;
             }
 
@@ -183,5 +197,14 @@ internal static class PageTree
                     ["A /Pages /Count of ", declared.Value, " disagrees with traversal (", total, "); traversal wins."]);
             }
         }
+        // Real page occurrences fund their expansion. Only quiet empty subtrees
+        // can multiply work without growing either pages or stored diagnostics.
+        if (collector.Count == before && governor.CounterValues.DiagnosticCount == diagnosticsBefore)
+        {
+            emptySubtrees ??= ParserContainers.CreateDictionary<PdfDictionary, int>(traversal, ReferenceEqualityComparer.Instance);
+            ParserContainers.EnsureEntryCapacity(traversal, emptySubtrees, sizeof(int));
+            emptySubtrees.Add(node, height);
+        }
+        return height;
     }
 }

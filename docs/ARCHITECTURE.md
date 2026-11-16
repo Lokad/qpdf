@@ -200,6 +200,12 @@ targets commit sequentially, and later failures do not undo earlier commits.
 
 ## Limits and cancellation
 
+Tree walkers own admitted, operation-local reuse indexes. Quiet empty page
+subtrees and completed attachment misses reuse prior traversal. Reused label
+summaries replay only their own overrides in child order; unique paths write
+directly to the result. Cached height still bounds deeper paths, while active-path
+cycle checks remain separate.
+
 Structural checking shares decoded stream bytes between its stream and page
 stages. Its operation-local cache keeps at most 32 entries and 1 MiB (also capped
 at one sixteenth of the working-memory limit), with 256 KiB per entry. Current-page

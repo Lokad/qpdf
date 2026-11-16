@@ -4136,7 +4136,10 @@
         ],
         "resource": [
           "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
-          "EncryptedJsonTests.EveryJsonAdmissionRefusalRefundsStorageBeforePublication"
+          "EncryptedJsonTests.EveryJsonAdmissionRefusalRefundsStorageBeforePublication",
+          "SubtreeReuseTests.SharedSubtreesKeepWorkProportionalToTheirGraphAndResult",
+          "SubtreeReuseTests.ReusedSubtreesStillEnforceDepthOnDeeperPaths",
+          "SubtreeReuseTests.EveryTraversalAdmissionRefusalRefundsItsPrivateState"
         ],
         "oracle": [
           "diff:json-pages",
@@ -4622,7 +4625,10 @@
           "AttachmentMetadataTests.TypedListingDoesNotSpendPresentationQuotas",
           "AttachmentMetadataTests.GenuineWarningsRemainBoundedDuringTypedListing",
           "AttachmentMetadataTests.CommandListingStillEnforcesPresentationQuota",
-          "PdfTextIntegrationTests.Utf8DecodeRefusalAndCancellationPreserveEarlierOwnership"
+          "PdfTextIntegrationTests.Utf8DecodeRefusalAndCancellationPreserveEarlierOwnership",
+          "SubtreeReuseTests.SharedSubtreesKeepWorkProportionalToTheirGraphAndResult",
+          "SubtreeReuseTests.ReusedSubtreesStillEnforceDepthOnDeeperPaths",
+          "SubtreeReuseTests.EveryTraversalAdmissionRefusalRefundsItsPrivateState"
         ],
         "oracle": [
           "diff:attachments-list"
@@ -5294,7 +5300,10 @@
         "resource": [
           "MergeCommandTests.CollateYieldsToStructuralCardinalityBound",
           "SimplifiedExecutionTests.ExpandedSelectionsKeepTheirStructuralCardinalityBound",
-          "SignatureSelectionTests.FailedCopyRefundsStorageAndPreservesPriorOutput"
+          "SignatureSelectionTests.FailedCopyRefundsStorageAndPreservesPriorOutput",
+          "SubtreeReuseTests.SharedSubtreesKeepWorkProportionalToTheirGraphAndResult",
+          "SubtreeReuseTests.ReusedSubtreesStillEnforceDepthOnDeeperPaths",
+          "SubtreeReuseTests.EveryTraversalAdmissionRefusalRefundsItsPrivateState"
         ],
         "oracle": [
           "diff:select",
@@ -6482,7 +6491,10 @@
           "AttachmentTreeResourceTests.OutputFailureAfterIndirectTraversalPreservesTheTarget",
           "AttachmentTests.ShowYieldsToExhaustedBudget",
           "AttachmentInspectionTests.PayloadBackingSurvivesSourceCloseAndPendingPublication",
-          "AttachmentInspectionTests.PublicationFaultsPreservePriorTargetAndCloseTheSingleSource"
+          "AttachmentInspectionTests.PublicationFaultsPreservePriorTargetAndCloseTheSingleSource",
+          "SubtreeReuseTests.SharedSubtreesKeepWorkProportionalToTheirGraphAndResult",
+          "SubtreeReuseTests.ReusedSubtreesStillEnforceDepthOnDeeperPaths",
+          "SubtreeReuseTests.EveryTraversalAdmissionRefusalRefundsItsPrivateState"
         ],
         "oracle": [
           "diff:attachments-show"
@@ -6644,7 +6656,10 @@
         ],
         "resource": [
           "ShowNpagesTests.FailsOnExhaustedInputBudget",
-          "BoundedPageCountTests.PendingIoAndCleanupRetainTheirActualOwners"
+          "BoundedPageCountTests.PendingIoAndCleanupRetainTheirActualOwners",
+          "SubtreeReuseTests.SharedSubtreesKeepWorkProportionalToTheirGraphAndResult",
+          "SubtreeReuseTests.ReusedSubtreesStillEnforceDepthOnDeeperPaths",
+          "SubtreeReuseTests.EveryTraversalAdmissionRefusalRefundsItsPrivateState"
         ],
         "oracle": [
           "diff:show-npages"

@@ -20,6 +20,7 @@ ownership or cancellation boundary:
 | `LinearizationCheck.TryReadOwnedDataObserved` | Retires decoded/combined temporary backing while parsed owners and source survive, and cancels after decode; `LinearizationDataOwnershipTests`. |
 | `PdfParser.CopyNumericTextObserved` | Stops the actual string-copy loop after deterministic work for either token; `NumericCopyCancellationTests`. Pre-cancelled copies use the same observer. |
 | Owned output-key reflection in `EncryptedSerializerTests` | Withholds the engine's own key to prove size-only passes make no key-dependent cipher calls, with failing emission and restored-key controls. |
+| Governor work-field reflection in `SubtreeReuseTests` | Finite chain/shared-graph notifications with resets disabled; separate identity guards detect hidden value comparisons. This is not a public CPU allowance. |
 
 Own-type backing-field reflection and isolated weak-reference controls remain
 where they prove real collectability independently of admission refunds. No

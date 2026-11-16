@@ -77,8 +77,9 @@ internal static class EmbeddedFiles
         PdfDictionary? tree = names is null ? null : ResolveDictionary(engine, names, "EmbeddedFiles"u8, governor, token);
         if (tree is not null)
         {
+            Dictionary<PdfDictionary, TreeResult>? completed = null;
             WalkNode(engine, tree, 0, GovernedIntSet.Create(scratch, governor, token), result,
-                limits, governor, memory, entriesMemory, scratch, token, null, removes.Count == 0 ? null : removed);
+                limits, governor, memory, entriesMemory, scratch, ref completed, token, null, removes.Count == 0 ? null : removed);
         }
         foreach (bool found in removed.Values)
         {
@@ -120,9 +121,10 @@ internal static class EmbeddedFiles
         // The document owns the selected spec; tree scratch need not span decoding.
         using (ParserMemoryScope traversal = ParserMemoryScope.Create(governor))
         {
+            Dictionary<PdfDictionary, TreeResult>? completed = null;
             raw = tree is null ? null : WalkNode(engine, tree, 0,
                 GovernedIntSet.Create(traversal, governor, token), null,
-                limits, governor, memory, traversal, traversal, token, key, null);
+                limits, governor, memory, traversal, traversal, ref completed, token, key, null).Found;
         }
         if (raw is null) { throw new QpdfParseException("The requested attachment was not found.", 0L, null); }
         (PdfStream stream, PdfReference? reference) = ReadEmbeddedStream(engine, ReadFileSpec(engine, raw, governor, token), governor, token);
@@ -226,20 +228,33 @@ internal static class EmbeddedFiles
         return resolved;
     }
 
-    private static QpdfObject? WalkNode(DocumentEngine engine, PdfDictionary node, int depth, GovernedIntSet visited,
+    private readonly record struct TreeResult(QpdfObject? Found, int Height, bool HasNames);
+
+    private static TreeResult WalkNode(DocumentEngine engine, PdfDictionary node, int depth, GovernedIntSet visited,
         List<EmbeddedFileEntry>? result, QpdfLimits limits, ResourceGovernor governor,
-        ParserMemoryScope memory, ParserMemoryScope entriesMemory, ParserMemoryScope traversal, CancellationToken token, string? requestedKey,
+        ParserMemoryScope memory, ParserMemoryScope entriesMemory, ParserMemoryScope traversal, ref Dictionary<PdfDictionary, TreeResult>? completed,
+        CancellationToken token, string? requestedKey,
         Dictionary<string, bool>? removed)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (depth > limits.MaxNestingDepth)
         { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, limits.MaxNestingDepth); }
+        if (completed is not null && completed.TryGetValue(node, out TreeResult cached))
+        {
+            long deepest = (long)depth + cached.Height;
+            if (deepest > limits.MaxNestingDepth)
+            { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), deepest, limits.MaxNestingDepth); }
+            return cached;
+        }
+        int height = 0;
+        bool hasNames = false;
         QpdfObject? namesValue = PdfDictionaryLookup.TryGet(node, "Names"u8, governor, token, out QpdfObject namesRaw)
             ? ResolveOptionalValue(engine, namesRaw, governor, token) : PdfNull.Instance;
         if (namesValue is not PdfNull)
         {
             if (namesValue is not PdfArray names || names.Count % 2 != 0)
             { throw new QpdfParseException("Embedded-files name array must hold key/value pairs.", null, null); }
+            hasNames = names.Count != 0;
             for (int i = 0; i < names.Count; i += 2)
             {
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -258,7 +273,7 @@ internal static class EmbeddedFiles
                 {
                     bool matches = CompareKeys(key, requestedKey, governor, token) == 0;
                     memory.Release(memory.ReservedBytes - before);
-                    if (matches) { return names[i + 1]; }
+                    if (matches) { return new(names[i + 1], 0, true); }
                     continue;
                 }
                 if (result is not null) { ParserContainers.AddItem(entriesMemory, result, new(key, keyBytes, names[i + 1]), 24L); }
@@ -279,13 +294,24 @@ internal static class EmbeddedFiles
                 { throw new QpdfParseException("Embedded-files kid must be a dictionary.", null, null); }
                 if (item is PdfReference link && !visited.Add(traversal, link.ObjectNumber))
                 { throw new QpdfParseException("Embedded-files name tree contains a cycle.", null, link.ObjectNumber); }
-                QpdfObject? found = WalkNode(engine, kid, depth + 1, visited, result,
-                    limits, governor, memory, entriesMemory, traversal, token, requestedKey, removed);
-                if (item is PdfReference completed) { visited.Remove(completed.ObjectNumber); }
-                if (found is not null) { return found; }
+                TreeResult child = WalkNode(engine, kid, depth + 1, visited, result,
+                    limits, governor, memory, entriesMemory, traversal, ref completed, token, requestedKey, removed);
+                if (item is PdfReference completedReference) { visited.Remove(completedReference.ObjectNumber); }
+                if (child.Found is not null) { return child; }
+                height = Math.Max(height, child.Height + 1);
+                hasNames |= child.HasNames;
             }
         }
-        return null;
+        // Enumeration must retain entries, removals and duplicate-key checks.
+        // A lookup can also reuse any fully searched subtree with no match.
+        TreeResult resultValue = new(null, height, hasNames);
+        if (requestedKey is not null || !hasNames)
+        {
+            completed ??= ParserContainers.CreateDictionary<PdfDictionary, TreeResult>(traversal, ReferenceEqualityComparer.Instance);
+            ParserContainers.EnsureEntryCapacity(traversal, completed, 16L);
+            completed.Add(node, resultValue);
+        }
+        return resultValue;
     }
 
     private static EmbeddedAttachment ParseAttachment(

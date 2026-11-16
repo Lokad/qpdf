@@ -75,6 +75,14 @@ internal static class ParserContainers
         return new Dictionary<TKey, TValue>();
     }
 
+    internal static Dictionary<TKey, TValue> CreateDictionary<TKey, TValue>(ParserMemoryScope memory,
+        IEqualityComparer<TKey> comparer) where TKey : notnull
+    {
+        ArgumentNullException.ThrowIfNull(comparer);
+        memory.Reserve(96L);
+        return new Dictionary<TKey, TValue>(comparer);
+    }
+
     internal static void EnsureEntryCapacity<TKey, TValue>(
         ParserMemoryScope memory, Dictionary<TKey, TValue> entries, long valueBytes) where TKey : notnull
         => EnsureEntryCapacity(memory, entries, valueBytes, Array.MaxLength);

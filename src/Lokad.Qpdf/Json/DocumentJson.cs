@@ -219,19 +219,26 @@ internal static class DocumentJson
             return labels;
         }
 
-        WalkLabelNode(engine, tree, 0, GovernedIntSet.Create(memory, governor, cancellationToken), labels, limits, governor, memory, cancellationToken);
+        using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
+        Dictionary<PdfDictionary, LabelSummary> completed = ParserContainers.CreateDictionary<PdfDictionary, LabelSummary>(traversal, ReferenceEqualityComparer.Instance);
+        WalkLabelNode(engine, tree, 0, GovernedIntSet.Create(traversal, governor, cancellationToken), completed,
+            labels, limits, governor, memory, traversal, cancellationToken);
         return labels;
     }
 
-    private static void WalkLabelNode(
+    private readonly record struct LabelSummary(int Height, SortedDictionary<int, QpdfObject>? Values);
+
+    private static int WalkLabelNode(
         DocumentEngine engine,
         PdfDictionary node,
         int depth,
         GovernedIntSet visited,
-        SortedDictionary<int, QpdfObject> labels,
+        Dictionary<PdfDictionary, LabelSummary> completed,
+        SortedDictionary<int, QpdfObject> destination,
         QpdfLimits limits,
         ResourceGovernor governor,
         ParserMemoryScope memory,
+        ParserMemoryScope traversal,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -241,7 +248,29 @@ internal static class DocumentJson
         }
 
         governor.NoteOperation();
-        QpdfObject? numbersValue = node.TryGet(PdfName.FromAscii("Nums"), out QpdfObject? numsRaw) && numsRaw is not null
+        governor.CheckCancellation();
+        bool reused = completed.TryGetValue(node, out LabelSummary cached);
+        if (reused)
+        {
+            long deepest = (long)depth + cached.Height;
+            if (deepest > limits.MaxNestingDepth)
+            { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), deepest, limits.MaxNestingDepth); }
+            if (cached.Values is not null)
+            {
+                ApplyLabelValues(cached.Values, destination, memory, governor, cancellationToken);
+                return cached.Height;
+            }
+        }
+        // Unique tree paths write directly to the result. Build a summary only
+        // on a second visit, then replay it in order on subsequent occurrences.
+        SortedDictionary<int, QpdfObject> labels = destination;
+        ParserMemoryScope valuesMemory = memory;
+        if (reused)
+        {
+            traversal.Reserve(96L); labels = new(); valuesMemory = traversal;
+        }
+        int height = 0;
+        QpdfObject? numbersValue = PdfDictionaryLookup.TryGet(node, "Nums"u8, governor, cancellationToken, out QpdfObject numsRaw) && numsRaw is not null
             ? EmbeddedFiles.ResolveOptionalValue(engine, numsRaw, governor, cancellationToken) : PdfNull.Instance;
         if (numbersValue is not PdfNull)
         {
@@ -268,12 +297,12 @@ internal static class DocumentJson
                 }
 
                 int index = (int)key.Value;
-                if (!labels.ContainsKey(index)) { memory.Reserve(64L); }
+                if (!labels.ContainsKey(index)) { valuesMemory.Reserve(64L); }
                 labels[index] = nums[i + 1];
             }
         }
 
-        QpdfObject? childrenValue = node.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw) && kidsRaw is not null
+        QpdfObject? childrenValue = PdfDictionaryLookup.TryGet(node, "Kids"u8, governor, cancellationToken, out QpdfObject kidsRaw) && kidsRaw is not null
             ? EmbeddedFiles.ResolveOptionalValue(engine, kidsRaw, governor, cancellationToken) : PdfNull.Instance;
         if (childrenValue is not PdfNull)
         {
@@ -305,14 +334,15 @@ internal static class DocumentJson
                 }
 
                 bool track = kidNumber >= 0;
-                if (track && !visited.Add(memory, kidNumber))
+                if (track && !visited.Add(traversal, kidNumber))
                 {
                     throw new QpdfParseException("Page-label number tree contains a cycle.", null, null);
                 }
 
                 try
                 {
-                    WalkLabelNode(engine, kid, depth + 1, visited, labels, limits, governor, memory, cancellationToken);
+                    int childHeight = WalkLabelNode(engine, kid, depth + 1, visited, completed, labels, limits, governor, valuesMemory, traversal, cancellationToken);
+                    height = Math.Max(height, childHeight + 1);
                 }
                 finally
                 {
@@ -322,6 +352,28 @@ internal static class DocumentJson
                     }
                 }
             }
+        }
+        if (reused)
+        {
+            completed[node] = new(height, labels);
+            ApplyLabelValues(labels, destination, memory, governor, cancellationToken);
+        }
+        else
+        {
+            ParserContainers.EnsureEntryCapacity(traversal, completed, 16L);
+            completed.Add(node, new(height, null));
+        }
+        return height;
+    }
+
+    private static void ApplyLabelValues(SortedDictionary<int, QpdfObject> source, SortedDictionary<int, QpdfObject> target,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        foreach (KeyValuePair<int, QpdfObject> entry in source)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.NoteOperation();
+            if (!target.ContainsKey(entry.Key)) { memory.Reserve(64L); }
+            target[entry.Key] = entry.Value;
         }
     }
 
