@@ -4,6 +4,9 @@
 
 - Protect encryption templates, password files and consumed configuration files
   from first-pass capture replacement before PDF/password reads or publication.
+- Share attachment inspection validation and one authenticated document across
+  returned and targeted payloads; honor combined reports and reject JSON conflicts
+  before secret/PDF I/O. Keep payload backing funded through publication.
 - Let typed document opening, checking and JSON inspection opt into shared bounded
   repair while retaining strict defaults, authentication, warnings and ownership.
 - Return typed JSON without publishing a report; file sidecars require an explicit

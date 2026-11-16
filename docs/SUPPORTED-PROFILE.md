@@ -311,6 +311,10 @@ old catalog/page/container structure. Numbering and compressed bytes may differ 
 
 Raw name-tree keys and filespec graphs are authoritative; listings are projections.
 List/extract/add/remove/copy share typed, argv and job implementations.
+Command listing, reports and extraction share one authenticated document.
+Targeted extraction uses the same inspection validation and reports as returned
+payloads; JSON inspection/import/update cannot be combined with it. Input cleanup
+finishes before targeted payload publication, with backing admitted through commit.
 
 - Match decoded ordinal keys; sort output by encoded bytes. Full-collection
   operations reject duplicate logical keys; selective extraction uses the first match.

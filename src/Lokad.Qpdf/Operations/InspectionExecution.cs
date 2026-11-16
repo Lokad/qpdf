@@ -496,6 +496,8 @@ internal static class InspectionExecution
             // Native reports declared counts separately from quiet traversal.
             // Partial counting validates declarations before accepting ranges.
             diagnostics.ReportPageCountMismatch = false;
+            if (plan.PayloadOutput is QpdfPath target && target == plan.Input)
+            { throw new QpdfParseException("The output file must differ from the input file.", 0L, null); }
             if (plan.ShowNpages && !plan.EmptyDocument && !plan.RunCheck && !plan.ShowEncryption
                 && !plan.ShowPages && !plan.ShowXref && plan.ObjectSelector is null && !plan.ListAttachments
                 && plan.AttachmentKey is null && !plan.CheckLinearization && !plan.ShowLinearization
@@ -507,6 +509,8 @@ internal static class InspectionExecution
                 return CompleteWithPresentation(governor);
             }
             using GovernedBufferStream output = new(governor, limits.MaxOutputBytes, nameof(QpdfLimits.MaxOutputBytes));
+            using ParserMemoryScope? payloadOwner = plan.PayloadOutput.HasValue ? ParserMemoryScope.Create(governor) : null;
+            ReadOnlyMemory<byte>? directPayload = null;
             bool hasPayload = false;
             // Checking and all following inspections use this same document.
             (QpdfDocument? opened, EncryptionInspection security) = plan.ShowEncryption && !plan.EmptyDocument
@@ -566,10 +570,38 @@ internal static class InspectionExecution
                     {
                         using ParserMemoryScope attachmentMemory = ParserMemoryScope.Create(governor);
                         ReadOnlyMemory<byte> payload = EmbeddedFiles.ExtractAttachment(document.Engine, plan.AttachmentKey, limits, governor, diagnostics, attachmentMemory, cancellationToken);
-                        AppendInspectionBytes(output, payload, governor);
+                        if (payloadOwner is not null && !hasPayload && inspection is null)
+                        {
+                            // Keep raw/decrypted/decoded backing funded across input close and publication.
+                            governor.ChargeOutputBytes(payload.Length);
+                            attachmentMemory.TransferTo(payloadOwner);
+                            document.Engine.TransferExclusiveValuesTo(payloadOwner);
+                            directPayload = payload;
+                        }
+                        else { AppendInspectionBytes(output, payload, governor); }
                         hasPayload = true;
                     }
                 }
+            }
+            if (hasPayload && plan.PayloadOutput is QpdfPath payloadTarget)
+            {
+                IReadOnlyList<QpdfDiagnostic> reports = diagnostics.Entries;
+                for (int index = 0; index < reports.Count; index++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    if (reports[index].Severity == QpdfDiagnosticSeverity.Error) { return CompleteWithPresentation(governor); }
+                }
+                ReadOnlyMemory<byte> payload = directPayload ?? output.WrittenMemory;
+                using PublicationReservation publication = PublicationReservation.Create(governor, true, payload.Length);
+                publication.Begin();
+                await using (IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, payloadTarget, governor, cancellationToken).ConfigureAwait(false))
+                {
+                    GovernedHost.PrepareOutputCapacity(transaction, payload.Length, cancellationToken);
+                    // Extraction already charged output bytes; publishing must not charge them twice.
+                    await transaction.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
+                    await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                }
+                return CompleteWithPresentation(governor);
             }
             ReadOnlyMemory<byte>? bytes = null;
             if (hasPayload)

@@ -271,6 +271,8 @@ internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : Jo
 
     public string? AttachmentKey { get; init; }
 
+    public QpdfPath? PayloadOutput { get; init; }
+
     public bool ShowNpages { get; init; }
 
     public bool ShowPages { get; init; }
@@ -288,9 +290,6 @@ internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : Jo
 
 /// <summary>Validated whole-file transformation.</summary>
 internal sealed record WholeFilePlan(QpdfPath Input, QpdfPath Output, QpdfRecoveryMode Recovery) : JobPlan(Input);
-
-/// <summary>Validated attachment inspection and extraction.</summary>
-internal sealed record AttachmentPlan(QpdfPath Input, QpdfPath? Output, string? Key, bool List, QpdfRecoveryMode Recovery) : JobPlan(Input);
 
 /// <summary>Validated JSON inspection.</summary>
 internal sealed record JsonPlan(QpdfPath Input, QpdfPath? Output, int Version, IReadOnlyList<string> Keys, QpdfRecoveryMode Recovery) : JobPlan(Input)

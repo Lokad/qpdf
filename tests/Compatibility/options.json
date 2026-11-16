@@ -4599,7 +4599,8 @@
           "AttachmentTests.KidsTreeListsAllAttachments",
           "AttachmentTests.UnicodeKeysMatchAndList",
           "AttachmentTests.TypedListReturnsAttachments",
-          "PdfTextIntegrationTests.MetadataAndAttachmentLookupUseTheSameTextDecoding"
+          "PdfTextIntegrationTests.MetadataAndAttachmentLookupUseTheSameTextDecoding",
+          "AttachmentInspectionTests.ListingCountAndPayloadUseOneInputSnapshot"
         ],
         "negative": [
           "AttachmentTreeReferenceTests.InvalidTreesKeepFailureClassificationAndPriorOutput",
@@ -6457,13 +6458,16 @@
           "AttachmentTests.ShowDecodesDctStream",
           "AttachmentTests.ShowLastKeyWins",
           "AttachmentTests.TypedExtractReturnsRawAndDecodedBytes",
-          "PdfTextIntegrationTests.MetadataAndAttachmentLookupUseTheSameTextDecoding"
+          "PdfTextIntegrationTests.MetadataAndAttachmentLookupUseTheSameTextDecoding",
+          "AttachmentInspectionTests.ListingCountAndPayloadUseOneInputSnapshot"
         ],
         "negative": [
           "AttachmentTreeReferenceTests.InvalidTreesKeepFailureClassificationAndPriorOutput",
           "AttachmentTests.ShowUnknownKeyFails",
           "AttachmentTests.TypedExtractUnknownKeyThrows",
-          "AttachmentTests.JobMalformedAttachmentsFail"
+          "AttachmentTests.JobMalformedAttachmentsFail",
+          "AttachmentInspectionTests.JsonConflictsRejectBeforePasswordPdfOrOutputAccess",
+          "AttachmentInspectionTests.FailedLinearizationReportCannotPublishAnOtherwiseUsableAttachment"
         ],
         "interaction": [
           "AttachmentTests.JobShowExtracts",
@@ -6471,7 +6475,9 @@
         ],
         "resource": [
           "AttachmentTreeResourceTests.OutputFailureAfterIndirectTraversalPreservesTheTarget",
-          "AttachmentTests.ShowYieldsToExhaustedBudget"
+          "AttachmentTests.ShowYieldsToExhaustedBudget",
+          "AttachmentInspectionTests.PayloadBackingSurvivesSourceCloseAndPendingPublication",
+          "AttachmentInspectionTests.PublicationFaultsPreservePriorTargetAndCloseTheSingleSource"
         ],
         "oracle": [
           "diff:attachments-show"
@@ -6620,7 +6626,8 @@
         "positive": [
           "ShowNpagesTests.ReportsPageCounts",
           "ShowNpagesTests.JobShowNpagesMatchesArgv",
-          "BoundedPageCountTests.ValidCountsSkipUnrelatedPayloadUnderSmallerLocalAndSharedAllowances"
+          "BoundedPageCountTests.ValidCountsSkipUnrelatedPayloadUnderSmallerLocalAndSharedAllowances",
+          "AttachmentInspectionTests.ListingCountAndPayloadUseOneInputSnapshot"
         ],
         "negative": [
           "ShowNpagesTests.RejectsCombinationsAndValuedForm",

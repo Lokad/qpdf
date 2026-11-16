@@ -783,10 +783,11 @@ internal static partial class JobPlanner
             }
 
             bool wantAttachments = listAttachments || showAttachment is not null;
-            if (check || showEncryption || (output is null && (showAttachment is not null || showObject is not null
+            bool attachmentTarget = showAttachment is not null && output is not null;
+            if (check || showEncryption || attachmentTarget || (output is null && (showAttachment is not null || showObject is not null
                 || showNpages || showPages || showXref || listAttachments || checkLinearization || showLinearization)))
             {
-                if (output is not null || seenReplaceInput || seenSplitPages
+                if (output is not null && !attachmentTarget || seenReplaceInput || seenSplitPages
                     || seenLabels || seenRemoveLabels
                     || seenFlattenRotation || seenFlattenAnnotations || seenGenerateAppearances
                     || seenLinearizePass1
@@ -832,6 +833,7 @@ internal static partial class JobPlanner
                     Overlays = overlays,
                     Underlays = underlays,
                     AttachmentKey = showAttachment,
+                    PayloadOutput = attachmentTarget ? SelectionPlan.CheckedPath(output ?? throw new InvalidOperationException("Missing attachment output.")) : null,
                     RawStreamData = rawStreamData,
                     FilteredStreamData = filteredStreamData,
                     ShowNpages = showNpages,
@@ -878,32 +880,9 @@ internal static partial class JobPlanner
                 throw new QpdfParseException("Job attachment keys cannot be combined with \"pages\".", 0L, null);
             }
 
-            if (wantAttachments && output is string attachmentOutput)
+            if (wantAttachments && output is not null)
             {
-                if (showAttachment is null)
-                {
-                    throw new QpdfParseException("Job \"outputFile\" must not be given without \"showAttachment\".", 0L, null);
-                }
-
-                (QpdfPath attachmentInput, bool attachmentEmpty) = ResolveInspectionInput(input, empty, "attachment inspection");
-                return new AttachmentPlan(attachmentInput, SelectionPlan.CheckedPath(attachmentOutput), showAttachment, listAttachments, recovery)
-                {
-                    TransformationPassword = password,
-                    PasswordFiles = passwordFiles,
-                    EmptyDocument = attachmentEmpty,
-                    IgnoreXrefStreams = ignoreXrefStreams,
-                    ReportMemoryUsage = reportMemoryUsage,
-                    Verbose = verbose,
-                    Progress = progress,
-                    NoWarn = noWarn,
-                    WarningExitZero = warningExit0,
-                    MaxStreamFilters = maxStreamFilters,
-                    ParserMaxNesting = parserMaxNesting,
-                    MaxContainerSize = maxContainerSize,
-                    MaxContainerSizeDamaged = maxContainerSizeDamaged,
-                    ParserMaxErrors = parserMaxErrors,
-                    NoDefaultLimits = noDefaultLimits,
-                };
+                throw new QpdfParseException("Job \"outputFile\" must not be given without \"showAttachment\".", 0L, null);
             }
 
             // Output-free inspections returned through CheckPlan above. Here an

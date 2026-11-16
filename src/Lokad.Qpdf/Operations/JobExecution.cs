@@ -241,23 +241,6 @@ internal static class JobExecution
             return CompleteWithPresentation(governor);
         }
 
-        if (plan is AttachmentPlan attachments)
-        {
-            QpdfPassword? password = suppliedPassword is null ? attachments.TransformationPassword : suppliedPassword.Password;
-            if (attachments.List)
-            {
-                await ListAttachmentsCoreAsync(host, attachments.Input, password, limits, attachments.Recovery, attachments.EmptyDocument, governor, diagnostics, false, cancellationToken).ConfigureAwait(false);
-            }
-
-            if (attachments.Key is not null)
-            {
-                QpdfPath output = attachments.Output ?? throw new QpdfParseException("An output file is required after --.", 0L, null);
-                await ExtractAttachmentCoreAsync(host, attachments.Input, attachments.Key, output, password, limits, attachments.Recovery, attachments.EmptyDocument, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-            }
-
-            return CompleteWithPresentation(governor);
-        }
-
         if (plan is JsonPlan json)
         {
             Commands.JsonInspection inspection = new(json.Version, json.Keys, json.DecodeLevel, json.StreamDataMode, json.StreamPrefix, json.Objects, json.MinimalOutput)
