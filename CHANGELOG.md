@@ -2,6 +2,8 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Respect field-local alternative/mapping names in form JSON while retaining
+  inherited types, values and choices and the documented name fallbacks.
 - Assemble pages before JSON inspection/export, including collation and empty
   primaries. Preserve labels, secondary contexts, complete primary references,
   source version requirements and input protection through JSON recreation.

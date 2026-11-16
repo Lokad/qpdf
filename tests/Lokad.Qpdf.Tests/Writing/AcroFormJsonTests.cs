@@ -8,14 +8,18 @@ namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class AcroFormJsonTests
 {
-    internal static byte[] Fixture(string widget, string terminal, string group) => PdfTestDocument.Assemble([
+    internal static byte[] Fixture(string widget, string terminal, string group)
+        => Fixture(widget, terminal, group, Array.Empty<(int, string, byte[]?)>());
+
+    private static byte[] Fixture(string widget, string terminal, string group,
+        IReadOnlyList<(int Number, string Dict, byte[]? StreamData)> extra) => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] /Q 2 >> >>", null),
         (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Annots [7 0 R] >>", null),
         (4, "null", null),
         (5, "<< /T (group) /Kids [6 0 R] " + group + " >>", null),
         (6, "<< /Parent 5 0 R /Kids [7 0 R] " + terminal + " >>", null),
-        (7, "<< /Type /Annot /Subtype /Widget /P 3 0 R /Rect [0 0 10 10] " + widget + " >>", null)], 1);
+        (7, "<< /Type /Annot /Subtype /Widget /P 3 0 R /Rect [0 0 10 10] " + widget + " >>", null), .. extra], 1);
 
     [Theory]
     [InlineData("typed", false)]
@@ -72,11 +76,11 @@ public sealed class AcroFormJsonTests
     [InlineData("FF FEE9003DD800DE", "é😀")]
     [InlineData("E918", "é˘")]
     [InlineData("EFBBBFE282", "�")]
-    public async Task NamesAndChoicesKeepTextEncodingAndInheritedValues(string hex, string expected)
+    public async Task LocalNamesAndInheritedChoicesKeepTextEncoding(string hex, string expected)
     {
         using InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("input"), Fixture("/Parent 6 0 R /AS /A#23B", "/T <" + hex + ">",
-            "/FT /Ch /TU <" + hex + "> /TM <" + hex + "> /Opt [<" + hex + "> [(export) <" + hex + ">] 42]"), QpdfInputOwnership.Transfer);
+        host.AddInput(QpdfPath.From("input"), Fixture("/Parent 6 0 R /AS /A#23B", "/T <" + hex + "> /TU <" + hex + "> /TM <" + hex + ">",
+            "/FT /Ch /Opt [<" + hex + "> [(export) <" + hex + ">] 42]"), QpdfInputOwnership.Transfer);
         QpdfJsonResult result = await Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("input"), QpdfPath.From("output"), new QpdfJsonOptions(2, ["acroform"]), CancellationToken.None);
         host.Dispose(); using JsonDocument json = JsonDocument.Parse(result.Json);
         JsonElement field = json.RootElement.GetProperty("acroform").GetProperty("fields")[0];
@@ -84,6 +88,47 @@ public sealed class AcroFormJsonTests
         foreach (string property in new[] { "partialname", "alternativename", "mappingname" }) { Assert.Equal(expected, field.GetProperty(property).GetString()); }
         Assert.Equal(new[] { expected, expected }, field.GetProperty("choices").EnumerateArray().Select(e => e.GetString()));
         Assert.Equal("/A#B", field.GetProperty("annotation").GetProperty("appearancestate").GetString());
+    }
+
+    [Theory]
+    [InlineData("", "group.field.widget", "group.field.widget")]
+    [InlineData("/TU null /TM null", "group.field.widget", "group.field.widget")]
+    [InlineData("/TU (local)", "local", "local")]
+    [InlineData("/TM (mapping)", "group.field.widget", "mapping")]
+    [InlineData("/TU ()", "", "")]
+    [InlineData("/TU (local) /TM (mapping)", "local", "mapping")]
+    [InlineData("/TU 8 0 R /TM 9 0 R", "indirect-local", "indirect-mapping")]
+    [InlineData("/TU 10 0 R /TM 10 0 R", "group.field.widget", "group.field.widget")]
+    [InlineData("/TU 42 /TM /Wrong", "group.field.widget", "group.field.widget")]
+    public async Task LocalNamesDoNotInheritAncestorNames(string own, string alternative, string mapping)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), Fixture("/Parent 6 0 R /FT /Tx /T (widget) " + own,
+            "/T (field) /TU (parent-alternative) /TM (parent-mapping)", "/FT /Tx /TU (root-alternative) /TM (root-mapping)",
+            [(8, "(indirect-local)", null), (9, "(indirect-mapping)", null), (10, "null", null)]), QpdfInputOwnership.Transfer);
+        QpdfJsonResult result = await Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("input"), new QpdfJsonOptions(2, ["acroform"]), CancellationToken.None);
+        host.Dispose(); using JsonDocument json = JsonDocument.Parse(result.Json);
+        JsonElement field = json.RootElement.GetProperty("acroform").GetProperty("fields")[0];
+        Assert.Equal(alternative, field.GetProperty("alternativename").GetString());
+        Assert.Equal(mapping, field.GetProperty("mappingname").GetString());
+        Assert.Equal("group.field.widget", field.GetProperty("fullname").GetString());
+    }
+
+    [Theory]
+    [InlineData(false, 2)]
+    [InlineData(true, 1)]
+    public async Task FieldLocalNamesUseTheSamePublicProjection(bool job, int version)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), Fixture("/Parent 6 0 R /FT /Tx /T (widget) /TU <FEFF00E9D83DDE00>",
+            "/T (field)", "/FT /Tx /TU (ancestor) /TM (ancestor-map)"), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = job
+            ? await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new { inputFile = "input", json = version.ToString(System.Globalization.CultureInfo.InvariantCulture), jsonKey = new[] { "acroform" } }), CancellationToken.None)
+            : await Qpdf.ExecuteAsync(host, new(["input", "--json=" + version, "--json-key=acroform"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Equal(0L, host.OpenLeaseCount);
+        using JsonDocument json = JsonDocument.Parse(result.OutputText ?? throw new InvalidOperationException());
+        JsonElement field = json.RootElement.GetProperty("acroform").GetProperty("fields")[0];
+        Assert.Equal("é😀", field.GetProperty("alternativename").GetString()); Assert.Equal("é😀", field.GetProperty("mappingname").GetString());
     }
 
     [Theory]

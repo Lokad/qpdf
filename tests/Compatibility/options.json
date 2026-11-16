@@ -3987,7 +3987,9 @@
           "OutlineNamedDestinationTests.NamedTargetsKeepFullPageReferenceValidation",
           "JsonPageAssemblyTests.AssembledPagesAndObjectExportsKeepTheSameGraph",
           "JsonPageAssemblyTests.PageLabelsFollowTheAssembledSourceOccurrences",
-          "JsonPageAssemblyTests.SourceActionsFormsAndLayersKeepTheirMeaningAcrossCopies"
+          "JsonPageAssemblyTests.SourceActionsFormsAndLayersKeepTheirMeaningAcrossCopies",
+          "AcroFormJsonTests.LocalNamesDoNotInheritAncestorNames",
+          "AcroFormJsonTests.LocalNamesAndInheritedChoicesKeepTextEncoding"
         ],
         "negative": [
           "JsonInspectionTests.BadVersionFails",
@@ -4008,7 +4010,8 @@
           "JsonPageAssemblyTests.AssembledExportsCanCreatePdfsAfterAllInputsClose",
           "JsonPageAssemblyTests.MinimalJobOutputExportsTheAssembledPageTree",
           "JsonPageAssemblyTests.EachEncryptedInputUsesItsOwnCredential",
-          "JsonPageAssemblyTests.ExportRetainsTheSelectedSourcesVersionFloor"
+          "JsonPageAssemblyTests.ExportRetainsTheSelectedSourcesVersionFloor",
+          "AcroFormJsonTests.FieldLocalNamesUseTheSamePublicProjection"
         ],
         "resource": [
           "JsonPublicationMemoryTests.KnownSidecarLengthFitsSharedAllowanceWithoutGrowthCopies",
@@ -4144,7 +4147,9 @@
           "JsonModesTests.AcroformReportsFields",
           "OutlineNamedDestinationTests.NamesTreesAndWrappersProjectTheResolvedDestination",
           "OutlineNamedDestinationTests.PublicRoutesAndJsonVersionsKeepNamedPageProjection",
-          "OutlineNamedDestinationTests.NamedTargetsKeepFullPageReferenceValidation"
+          "OutlineNamedDestinationTests.NamedTargetsKeepFullPageReferenceValidation",
+          "AcroFormJsonTests.LocalNamesDoNotInheritAncestorNames",
+          "AcroFormJsonTests.LocalNamesAndInheritedChoicesKeepTextEncoding"
         ],
         "negative": [
           "JsonInspectionTests.BadKeyFails",
@@ -4154,7 +4159,8 @@
         "interaction": [
           "JsonInspectionTests.JobRoundTripMatchesArgv",
           "EncryptedJsonTests.JsonStreamModesExportDecryptedPayloads",
-          "JsonModesTests.JobModesRoundTrip"
+          "JsonModesTests.JobModesRoundTrip",
+          "AcroFormJsonTests.FieldLocalNamesUseTheSamePublicProjection"
         ],
         "resource": [
           "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",

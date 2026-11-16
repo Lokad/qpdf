@@ -1582,13 +1582,18 @@ internal static class DocumentJson
     {
         foreach ((PdfReference? _, PdfDictionary node) in chain)
         {
-            if (PdfDictionaryLookup.TryGet(node, key, governor, token, out QpdfObject raw))
-            {
-                QpdfObject value = Content.CatalogCopy.ResolveValue(raw, engine, governor, token) ?? raw;
-                if (value is not PdfNull) { return value; }
-            }
+            QpdfObject? value = LocalFieldValue(engine, node, key, governor, token);
+            if (value is not null) { return value; }
         }
         return null;
+    }
+
+    private static QpdfObject? LocalFieldValue(DocumentEngine engine, PdfDictionary node,
+        ReadOnlySpan<byte> key, ResourceGovernor governor, CancellationToken token)
+    {
+        if (!PdfDictionaryLookup.TryGet(node, key, governor, token, out QpdfObject raw)) { return null; }
+        QpdfObject value = Content.CatalogCopy.ResolveValue(raw, engine, governor, token) ?? raw;
+        return value is PdfNull ? null : value;
     }
 
     private static int InheritedInt(DocumentEngine engine, List<(PdfReference? Reference, PdfDictionary Node)> chain,
@@ -1652,7 +1657,7 @@ internal static class DocumentJson
         builder.Append(",\"partialname\": ");
         PdfJsonWriter.AppendJsonString(builder, field.PartialName);
         string alternative = field.QualifiedName;
-        QpdfObject? tu = InheritedValue(engine, field.Ancestors, "TU"u8, governor, token);
+        QpdfObject? tu = LocalFieldValue(engine, field.Node, "TU"u8, governor, token);
         if (tu is PdfByteString tuText)
         {
             alternative = PdfText.Decode(tuText.ValueMemory, memory, governor, token);
@@ -1661,7 +1666,7 @@ internal static class DocumentJson
         builder.Append(",\"alternativename\": ");
         PdfJsonWriter.AppendJsonString(builder, alternative);
         string mapping = alternative;
-        QpdfObject? tm = InheritedValue(engine, field.Ancestors, "TM"u8, governor, token);
+        QpdfObject? tm = LocalFieldValue(engine, field.Node, "TM"u8, governor, token);
         if (tm is PdfByteString tmText)
         {
             mapping = PdfText.Decode(tmText.ValueMemory, memory, governor, token);
