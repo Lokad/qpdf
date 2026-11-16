@@ -111,34 +111,7 @@ internal static partial class JsonImport
         }
 
         limits.Validate();
-        JsonElement root = document.RootElement;
-        if (root.ValueKind != JsonValueKind.Object)
-        {
-            throw new QpdfParseException("qpdf JSON must be a dictionary.", 0L, null);
-        }
-
-        if (!root.TryGetProperty("qpdf", out JsonElement qpdf))
-        {
-            throw new QpdfParseException("qpdf JSON object was not seen.", 0L, null);
-        }
-
-        if (qpdf.ValueKind != JsonValueKind.Array || qpdf.GetArrayLength() != 2)
-        {
-            throw new QpdfParseException("qpdf JSON qpdf must have two elements.", 0L, null);
-        }
-
-        if (qpdf[0].ValueKind != JsonValueKind.Object)
-        {
-            throw new QpdfParseException("qpdf JSON qpdf[0] must be a dictionary.", 0L, null);
-        }
-
-        if (qpdf[1].ValueKind != JsonValueKind.Object)
-        {
-            throw new QpdfParseException("qpdf JSON qpdf[1] must be a dictionary.", 0L, null);
-        }
-
-        memory.CheckOwner(governor);
-        JsonImportMemory.AdmitModel(memory, qpdf, governor, cancellationToken);
+        JsonElement qpdf = ReadEnvelope(document, memory, governor, cancellationToken);
         PdfVersion header = ReadHeaderVersion(qpdf[0], governor);
         using ParserMemoryScope bindingMemory = ParserMemoryScope.Create(governor);
         Dictionary<(int Number, int Generation), int> bindings = ReadObjectBindings(qpdf[1], null, bindingMemory, governor, cancellationToken);
@@ -210,34 +183,7 @@ internal static partial class JsonImport
         }
 
         limits.Validate();
-        JsonElement root = document.RootElement;
-        if (root.ValueKind != JsonValueKind.Object)
-        {
-            throw new QpdfParseException("qpdf JSON must be a dictionary.", 0L, null);
-        }
-
-        if (!root.TryGetProperty("qpdf", out JsonElement qpdf))
-        {
-            throw new QpdfParseException("qpdf JSON object was not seen.", 0L, null);
-        }
-
-        if (qpdf.ValueKind != JsonValueKind.Array || qpdf.GetArrayLength() != 2)
-        {
-            throw new QpdfParseException("qpdf JSON qpdf must have two elements.", 0L, null);
-        }
-
-        if (qpdf[0].ValueKind != JsonValueKind.Object)
-        {
-            throw new QpdfParseException("qpdf JSON qpdf[0] must be a dictionary.", 0L, null);
-        }
-
-        if (qpdf[1].ValueKind != JsonValueKind.Object)
-        {
-            throw new QpdfParseException("qpdf JSON qpdf[1] must be a dictionary.", 0L, null);
-        }
-
-        memory.CheckOwner(governor);
-        JsonImportMemory.AdmitModel(memory, qpdf, governor, cancellationToken);
+        JsonElement qpdf = ReadEnvelope(document, memory, governor, cancellationToken);
         PdfVersion? updateVersion = ReadUpdateMeta(qpdf[0], governor);
         DocumentEngine engine = pdf.Engine;
         using ParserMemoryScope bindingMemory = ParserMemoryScope.Create(governor);
@@ -294,6 +240,40 @@ internal static partial class JsonImport
         ImportedModel result = new(updateVersion ?? governor.PrivateVersion(header.Major, header.Minor), merged, trailer);
         return PrepareUpdateEncryption(result, originalTrailer, originalEncryption, engine.Security is not null,
             preserveEncryption, governor, cancellationToken);
+    }
+
+    private static JsonElement ReadEnvelope(JsonDocument document, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        JsonElement root = document.RootElement;
+        if (root.ValueKind != JsonValueKind.Object)
+        {
+            throw new QpdfParseException("qpdf JSON must be a dictionary.", 0L, null);
+        }
+
+        if (!root.TryGetProperty("qpdf", out JsonElement qpdf))
+        {
+            throw new QpdfParseException("qpdf JSON object was not seen.", 0L, null);
+        }
+
+        if (qpdf.ValueKind != JsonValueKind.Array || qpdf.GetArrayLength() != 2)
+        {
+            throw new QpdfParseException("qpdf JSON qpdf must have two elements.", 0L, null);
+        }
+
+        if (qpdf[0].ValueKind != JsonValueKind.Object)
+        {
+            throw new QpdfParseException("qpdf JSON qpdf[0] must be a dictionary.", 0L, null);
+        }
+
+        if (qpdf[1].ValueKind != JsonValueKind.Object)
+        {
+            throw new QpdfParseException("qpdf JSON qpdf[1] must be a dictionary.", 0L, null);
+        }
+
+        memory.CheckOwner(governor);
+        JsonImportMemory.AdmitModel(memory, qpdf, governor, cancellationToken);
+        return qpdf;
     }
 
     private static PdfVersion? ReadUpdateMeta(JsonElement meta, ResourceGovernor governor)
