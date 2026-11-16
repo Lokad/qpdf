@@ -27,22 +27,7 @@ public sealed class ResourcePruningChunkTests
         {
             ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
             PdfDictionary trailer = DecoderOwnershipFixtures.Dictionary();
-            using ParserMemoryScope fixtureStorage = ParserMemoryScope.Create(construction);
-            Dictionary<int, XrefEntry> fixtureEntries = ParserContainers.CreateDictionary<int, XrefEntry>(fixtureStorage);
-            using ParserMemoryScope fixtureValues = ParserMemoryScope.Create(construction);
-            List<PdfDictionary> fixtureTrailers = ParserContainers.CreateList<PdfDictionary>(fixtureStorage, 1, IntPtr.Size);
-            fixtureTrailers.Add(trailer);
-            XRefTable fixtureTable = XRefTable.CreateOwned(0L, fixtureEntries, trailer, fixtureTrailers,
-                construction, fixtureStorage, fixtureValues, false);
-            DocumentEngine fixtureEngine;
-            try
-            {
-                fixtureStorage.Reserve(32L);
-                fixtureEngine = DocumentEngine.CreateOwned(ReadOnlyMemory<byte>.Empty, fixtureTable, QpdfLimits.Default,
-                    construction, new DiagnosticBag(construction), QpdfRecoveryMode.Strict, 32L, valuesEscape: true, hostInput: false, snapshotBorrow: null);
-                fixtureStorage.Retain();
-            }
-            catch { fixtureTable.Dispose(); throw; }
+            DocumentEngine fixtureEngine = TestDocumentEngine.Create(trailer, construction);
             _engine = fixtureEngine;
             _copyMemory = ParserMemoryScope.Create(governor);
             Copier = GraphCopier.CreateOwned(_engine, governor, QpdfLimits.Default, 1, _copyMemory);

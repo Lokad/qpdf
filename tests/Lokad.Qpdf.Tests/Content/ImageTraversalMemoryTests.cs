@@ -48,22 +48,7 @@ public sealed class ImageTraversalMemoryTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         PdfDictionary trailer = Dict();
-        using ParserMemoryScope fixtureStorage = ParserMemoryScope.Create(governor);
-        Dictionary<int, XrefEntry> fixtureEntries = ParserContainers.CreateDictionary<int, XrefEntry>(fixtureStorage);
-        using ParserMemoryScope fixtureValues = ParserMemoryScope.Create(governor);
-        List<PdfDictionary> fixtureTrailers = ParserContainers.CreateList<PdfDictionary>(fixtureStorage, 1, IntPtr.Size);
-        fixtureTrailers.Add(trailer);
-        XRefTable fixtureTable = XRefTable.CreateOwned(0, fixtureEntries, trailer, fixtureTrailers,
-            governor, fixtureStorage, fixtureValues, false);
-        DocumentEngine fixtureEngine;
-        try
-        {
-            fixtureStorage.Reserve(32L);
-            fixtureEngine = DocumentEngine.CreateOwned(ReadOnlyMemory<byte>.Empty, fixtureTable, QpdfLimits.Default,
-                governor, new(governor), QpdfRecoveryMode.Strict, 32L, valuesEscape: true, hostInput: false, snapshotBorrow: null);
-            fixtureStorage.Retain();
-        }
-        catch { fixtureTable.Dispose(); throw; }
+        DocumentEngine fixtureEngine = TestDocumentEngine.Create(trailer, governor);
         return fixtureEngine;
     }
 

@@ -14,22 +14,7 @@ public sealed class SharedResourceHeuristicTests
     { Dictionary<PdfName, QpdfObject> values = new(); foreach (var entry in entries) { values.Add(PdfName.FromAscii(entry.Key), entry.Value); } return new(values); }
     private static DocumentEngine Engine(PdfDictionary trailer, ResourceGovernor governor, IReadOnlyDictionary<int, QpdfObject> objects)
     {
-        using ParserMemoryScope fixtureStorage = ParserMemoryScope.Create(governor);
-        Dictionary<int, XrefEntry> fixtureEntries = ParserContainers.CreateDictionary<int, XrefEntry>(fixtureStorage);
-        using ParserMemoryScope fixtureValues = ParserMemoryScope.Create(governor);
-        List<PdfDictionary> fixtureTrailers = ParserContainers.CreateList<PdfDictionary>(fixtureStorage, 1, IntPtr.Size);
-        fixtureTrailers.Add(trailer);
-        XRefTable fixtureTable = XRefTable.CreateOwned(0L, fixtureEntries, trailer, fixtureTrailers,
-            governor, fixtureStorage, fixtureValues, false);
-        DocumentEngine fixtureEngine;
-        try
-        {
-            fixtureStorage.Reserve(32L);
-            fixtureEngine = DocumentEngine.CreateOwned(ReadOnlyMemory<byte>.Empty, fixtureTable, QpdfLimits.Default,
-                governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict, 32L, valuesEscape: true, hostInput: false, snapshotBorrow: null);
-            fixtureStorage.Retain();
-        }
-        catch { fixtureTable.Dispose(); throw; }
+        DocumentEngine fixtureEngine = TestDocumentEngine.Create(trailer, governor);
         DocumentEngine engine = fixtureEngine;
         engine.SetInspectionObjects(objects); return engine;
     }

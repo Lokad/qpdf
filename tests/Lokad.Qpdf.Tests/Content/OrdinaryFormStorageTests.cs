@@ -112,22 +112,7 @@ public sealed class OrdinaryFormStorageTests
         entries.Add(PdfName.FromAscii("Fields"), new PdfArray(Enumerable.Repeat<QpdfObject>(new PdfReference(10, 0), manyFields ? 16384 : 1).ToArray()));
         PdfDictionary trailer = Dict(("Root", Dict(("AcroForm", new PdfDictionary(entries)))));
         ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
-        using ParserMemoryScope fixtureStorage = ParserMemoryScope.Create(construction);
-        Dictionary<int, XrefEntry> fixtureEntries = ParserContainers.CreateDictionary<int, XrefEntry>(fixtureStorage);
-        using ParserMemoryScope fixtureValues = ParserMemoryScope.Create(construction);
-        List<PdfDictionary> fixtureTrailers = ParserContainers.CreateList<PdfDictionary>(fixtureStorage, 1, IntPtr.Size);
-        fixtureTrailers.Add(trailer);
-        XRefTable fixtureTable = XRefTable.CreateOwned(0L, fixtureEntries, trailer, fixtureTrailers,
-            construction, fixtureStorage, fixtureValues, false);
-        DocumentEngine fixtureEngine;
-        try
-        {
-            fixtureStorage.Reserve(32L);
-            fixtureEngine = DocumentEngine.CreateOwned(ReadOnlyMemory<byte>.Empty, fixtureTable, QpdfLimits.Default,
-                construction, new(construction), QpdfRecoveryMode.Strict, 32L, valuesEscape: true, hostInput: false, snapshotBorrow: null);
-            fixtureStorage.Retain();
-        }
-        catch { fixtureTable.Dispose(); throw; }
+        DocumentEngine fixtureEngine = TestDocumentEngine.Create(trailer, construction);
         using DocumentEngine engine = fixtureEngine;
         engine.SetInspectionObjects(new Dictionary<int, QpdfObject> { [10] = Dict() });
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096 }, CancellationToken.None);

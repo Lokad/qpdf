@@ -19,22 +19,7 @@ public sealed class OverlayFormStorageTests
     {
         ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
         PdfDictionary trailer = Dict(("Root", Dict(("AcroForm", form))));
-        using ParserMemoryScope fixtureStorage = ParserMemoryScope.Create(construction);
-        Dictionary<int, XrefEntry> fixtureEntries = ParserContainers.CreateDictionary<int, XrefEntry>(fixtureStorage);
-        using ParserMemoryScope fixtureValues = ParserMemoryScope.Create(construction);
-        List<PdfDictionary> fixtureTrailers = ParserContainers.CreateList<PdfDictionary>(fixtureStorage, 1, IntPtr.Size);
-        fixtureTrailers.Add(trailer);
-        XRefTable fixtureTable = XRefTable.CreateOwned(0L, fixtureEntries, trailer, fixtureTrailers,
-            construction, fixtureStorage, fixtureValues, false);
-        DocumentEngine fixtureEngine;
-        try
-        {
-            fixtureStorage.Reserve(32L);
-            fixtureEngine = DocumentEngine.CreateOwned(ReadOnlyMemory<byte>.Empty, fixtureTable, QpdfLimits.Default,
-                construction, new(construction), QpdfRecoveryMode.Strict, 32L, valuesEscape: true, hostInput: false, snapshotBorrow: null);
-            fixtureStorage.Retain();
-        }
-        catch { fixtureTable.Dispose(); throw; }
+        DocumentEngine fixtureEngine = TestDocumentEngine.Create(trailer, construction);
         DocumentEngine engine = fixtureEngine;
         engine.SetInspectionObjects(objects); return engine;
     }

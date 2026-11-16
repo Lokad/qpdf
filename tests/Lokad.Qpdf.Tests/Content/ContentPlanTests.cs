@@ -24,22 +24,7 @@ public sealed class ContentPlanTests
         internal Prepared()
         {
             PdfDictionary trailer = Dictionary();
-            using ParserMemoryScope fixtureStorage = ParserMemoryScope.Create(Construction);
-            Dictionary<int, XrefEntry> fixtureEntries = ParserContainers.CreateDictionary<int, XrefEntry>(fixtureStorage);
-            using ParserMemoryScope fixtureValues = ParserMemoryScope.Create(Construction);
-            List<PdfDictionary> fixtureTrailers = ParserContainers.CreateList<PdfDictionary>(fixtureStorage, 1, IntPtr.Size);
-            fixtureTrailers.Add(trailer);
-            XRefTable fixtureTable = XRefTable.CreateOwned(0L, fixtureEntries, trailer, fixtureTrailers,
-                Construction, fixtureStorage, fixtureValues, false);
-            DocumentEngine fixtureEngine;
-            try
-            {
-                fixtureStorage.Reserve(32L);
-                fixtureEngine = DocumentEngine.CreateOwned(ReadOnlyMemory<byte>.Empty, fixtureTable, QpdfLimits.Default,
-                    Construction, new DiagnosticBag(Construction), QpdfRecoveryMode.Strict, 32L, valuesEscape: true, hostInput: false, snapshotBorrow: null);
-                fixtureStorage.Retain();
-            }
-            catch { fixtureTable.Dispose(); throw; }
+            DocumentEngine fixtureEngine = TestDocumentEngine.Create(trailer, Construction);
             _engine = fixtureEngine;
             _memory = ParserMemoryScope.Create(Construction);
             Copier = GraphCopier.CreateOwned(_engine, Construction, QpdfLimits.Default, 1, _memory);
