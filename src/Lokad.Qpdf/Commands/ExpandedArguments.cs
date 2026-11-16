@@ -9,6 +9,7 @@ internal sealed class ExpandedArguments : IDisposable
     private readonly ResourceGovernor _governor;
     private ParserMemoryScope? _memory;
     private List<string>? _values;
+    private List<QpdfPath>? _inputs;
 
     private ExpandedArguments(ResourceGovernor governor, ParserMemoryScope memory, List<string> values)
     { _governor = governor; _memory = memory; _values = values; }
@@ -26,12 +27,19 @@ internal sealed class ExpandedArguments : IDisposable
     }
 
     internal IReadOnlyList<string> Values => _values ?? throw new ObjectDisposedException(nameof(ExpandedArguments));
+    internal IReadOnlyList<QpdfPath> Inputs => _inputs ?? (IReadOnlyList<QpdfPath>)Array.Empty<QpdfPath>();
     private ParserMemoryScope Memory => _memory ?? throw new ObjectDisposedException(nameof(ExpandedArguments));
 
     internal void AddBorrowed(string value)
     {
         List<string> values = _values ?? throw new ObjectDisposedException(nameof(ExpandedArguments));
         GovernedCollections.AddItem(Memory, _governor, values, value, IntPtr.Size);
+    }
+
+    internal void AddInput(QpdfPath path)
+    {
+        _inputs ??= ParserContainers.CreateList<QpdfPath>(Memory);
+        ParserContainers.AddItem(Memory, _inputs, path, IntPtr.Size);
     }
 
     internal string CopySubstring(string source, int start, int length)
@@ -67,6 +75,7 @@ internal sealed class ExpandedArguments : IDisposable
         List<string>? values = _values;
         ParserMemoryScope? memory = _memory;
         _values = null; _memory = null;
+        _inputs?.Clear(); _inputs = null;
         values?.Clear();
         memory?.Dispose();
     }

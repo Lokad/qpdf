@@ -913,7 +913,7 @@ public static partial class Qpdf
             try
             {
                 expanded = await ResponseFileExpander.ExpandAsync(host, invocation.Arguments, options.Limits, governor, cancellationToken).ConfigureAwait(false);
-                result = await RunExpandedInvocationAsync(host, expanded.Values, options, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                result = await RunExpandedInvocationAsync(host, expanded.Values, expanded.Inputs, options, governor, diagnostics, cancellationToken).ConfigureAwait(false);
             }
             catch (QpdfException ex)
             {
@@ -988,7 +988,7 @@ public static partial class Qpdf
             {
                 return governor.FinishExecutionResult(ExecutionOutcome.Canceled([]));
             }
-            return governor.FinishExecutionResult(await RunLoadedJobAsync(host, loaded, options, governor, diagnostics, cancellationToken).ConfigureAwait(false));
+            return governor.FinishExecutionResult(await RunLoadedJobAsync(host, loaded, [], options, governor, diagnostics, cancellationToken).ConfigureAwait(false));
         }
         finally { governor.AbandonExecutionResult(); }
     }

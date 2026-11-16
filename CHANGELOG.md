@@ -2,6 +2,8 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Protect encryption templates, password files and consumed configuration files
+  from first-pass capture replacement before PDF/password reads or publication.
 - Let typed document opening, checking and JSON inspection opt into shared bounded
   repair while retaining strict defaults, authentication, warnings and ownership.
 - Return typed JSON without publishing a report; file sidecars require an explicit

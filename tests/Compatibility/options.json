@@ -4558,7 +4558,8 @@
           "LinearizedWriterTests.Pass1MalformedFormsFail",
           "LinearizedWriterTests.Pass1MalformedJobKeysFail",
           "PublicationAdmissionTests.ActiveFirstPassCannotOverwriteAnyMainOutput",
-          "PublicationAdmissionTests.FirstPassRejectsInputPathsBeforePublication"
+          "PublicationAdmissionTests.FirstPassRejectsInputPathsBeforePublication",
+          "PublicationAdmissionTests.FirstPassProtectsAuxiliaryInputsBeforePublication"
         ],
         "interaction": [],
         "resource": [

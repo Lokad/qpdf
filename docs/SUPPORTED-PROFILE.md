@@ -328,8 +328,11 @@ Fix-QDF repairs consistent LF-framed, sequentially numbered input; ambiguous fra
 rejects. Zlib-flate stops at the first complete frame and rejects truncation/checksum errors.
 
 Linearization uses two passes and page/shared/outline hints. Checking validates
-physical layout and available hints. First-pass capture must be distinct from
-input and output targets; split capture keeps the last group's pass. Linearization
+physical layout and available hints. First-pass capture must differ from output
+targets, document/attachment inputs, the effective encryption template, every read
+password file and consumed job/response files. These checks precede PDF/password
+acquisition and output creation; configuration files must first be loaded.
+Split capture keeps the last group's pass. Linearization
 disables QDF; empty split jobs create no output.
 
 ## Governance

@@ -14,7 +14,7 @@ namespace Lokad.Qpdf.Operations;
 internal static class JobExecution
 {
     internal static async ValueTask<ExecutionOutcome> RunExpandedInvocationAsync(
-        IQpdfHost host, IReadOnlyList<string> expanded, QpdfExecutionOptions options,
+        IQpdfHost host, IReadOnlyList<string> expanded, IReadOnlyList<QpdfPath> argumentInputs, QpdfExecutionOptions options,
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {
 
@@ -86,17 +86,17 @@ internal static class JobExecution
             return ExecutionOutcome.Canceled([]);
         }
 
-        return await RunLoadedJobAsync(host, loaded, options, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await RunLoadedJobAsync(host, loaded, argumentInputs, options, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     internal static async ValueTask<ExecutionOutcome> RunLoadedJobAsync(
-        IQpdfHost host, JobJsonLoader.LoadedJob loaded, QpdfExecutionOptions options,
+        IQpdfHost host, JobJsonLoader.LoadedJob loaded, IReadOnlyList<QpdfPath> argumentInputs, QpdfExecutionOptions options,
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {
         ExecutionOutcome result;
         using (loaded)
         {
-            result = await RunPlanAsync(host, loaded.Plan, options.Limits, options.ExplicitLimits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+            result = await RunPlanAsync(host, loaded.Plan, loaded.Inputs, argumentInputs, options.Limits, options.ExplicitLimits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
         }
         return result;
     }
@@ -179,6 +179,8 @@ internal static class JobExecution
     internal static async ValueTask<ExecutionOutcome> RunPlanAsync(
         IQpdfHost host,
         JobPlan plan,
+        IReadOnlyList<QpdfPath> configurationInputs,
+        IReadOnlyList<QpdfPath> argumentInputs,
         QpdfLimits limits,
         bool hostExplicit,
         ResourceGovernor governor,
@@ -192,6 +194,7 @@ internal static class JobExecution
             governor.MaxNestingDepth = limits.MaxNestingDepth;
             presentation = ExecutionPresentation.Create(governor, diagnostics, plan.Verbose,
                 plan.ReportMemoryUsage, plan.Progress, plan.NoWarn, plan.WarningExitZero, cancellationToken);
+            ValidateFirstPassInputs(plan, configurationInputs, argumentInputs, governor, cancellationToken);
             ExecutionOutcome result = await RunPlanCoreAsync(host, plan, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
             ExecutionPresentation? active = presentation ?? governor.ExecutionPresentation;
             return result.Status == QpdfExecutionStatus.Completed || active is null ? result : active.Failure(result);
@@ -315,7 +318,6 @@ internal static class JobExecution
             return CompleteWithPresentation(governor);
         }
 
-        ValidateFirstPassInputs(plan, governor, cancellationToken);
         QpdfPassword? transformationPassword = suppliedPassword is null ? plan.TransformationPassword : suppliedPassword.Password;
         if (plan is WholeFilePlan whole)
         {
@@ -434,9 +436,11 @@ internal static class JobExecution
         }
     }
 
-    internal static void ValidateFirstPassInputs(JobPlan plan, ResourceGovernor governor, CancellationToken token)
+    internal static void ValidateFirstPassInputs(JobPlan plan, IReadOnlyList<QpdfPath> configurationInputs,
+        IReadOnlyList<QpdfPath> argumentInputs, ResourceGovernor governor, CancellationToken token)
     {
-        if (!plan.Linearize || plan.LinearizePass1 is not QpdfPath pass1) { return; }
+        if (plan is not (WholeFilePlan or SelectionPlan or MergePlan)
+            || !plan.Linearize || plan.LinearizePass1 is not QpdfPath pass1) { return; }
         bool empty = plan.EmptyDocument || plan is MergePlan { EmptyInput: true };
         if (!empty) { Check(plan.Input.Value); }
         if (plan is MergePlan merge)
@@ -451,6 +455,14 @@ internal static class JobExecution
         foreach (OverlaySpec underlay in plan.Underlays) { Check(underlay.File); }
         foreach (AttachmentCopy copy in plan.AttachmentsToCopy) { Check(copy.File); }
         foreach (AttachmentAdd add in plan.AttachmentsToAdd) { Check(add.File); }
+        if (plan.OutputEncryption?.TemplateInput is QpdfPath template) { Check(template.Value); }
+        if (plan.PasswordFiles is Security.CommandPasswordFiles passwords)
+        {
+            foreach (Security.PasswordAssignment assignment in passwords.Assignments)
+            { if (assignment.IsFile) { Check(assignment.Value); } }
+        }
+        foreach (QpdfPath input in configurationInputs) { Check(input.Value); }
+        foreach (QpdfPath input in argumentInputs) { Check(input.Value); }
 
         void Check(string input)
         {

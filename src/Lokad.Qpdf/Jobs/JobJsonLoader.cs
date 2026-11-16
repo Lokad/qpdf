@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Commands;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Jobs;
 
@@ -19,7 +20,7 @@ internal static class JobJsonLoader
             session.AddText(json);
             await session.LoadChildrenAsync(0, cancellationToken).ConfigureAwait(false);
             session.AppendChainFields(0);
-            return new LoadedJob(session.ParsePlan(), session);
+            return new LoadedJob(session.ParsePlan(), session, session.Inputs);
         }
         catch { session.Dispose(); throw; }
     }
@@ -33,21 +34,24 @@ internal static class JobJsonLoader
             session.AdmitArguments(argv);
             await ArgvConfigurationReader.ReadAsync(argv, session.AddSetting,
                 name => session.LoadFileChainAsync(name, cancellationToken), governor, session.TextStorage).ConfigureAwait(false);
-            return new LoadedJob(session.ParsePlan(), session);
+            return new LoadedJob(session.ParsePlan(), session, session.Inputs);
         }
         catch { session.Dispose(); throw; }
     }
 
-    internal sealed class LoadedJob(JobPlan plan, IDisposable owner) : IDisposable
+    internal sealed class LoadedJob(JobPlan plan, IDisposable owner, IReadOnlyList<QpdfPath> inputs) : IDisposable
     {
         private JobPlan? _plan = plan;
         private IDisposable? _owner = owner;
+        private IReadOnlyList<QpdfPath>? _inputs = inputs;
         internal JobPlan Plan => _plan ?? throw new ObjectDisposedException(nameof(LoadedJob));
+        internal IReadOnlyList<QpdfPath> Inputs => _inputs ?? throw new ObjectDisposedException(nameof(LoadedJob));
 
         public void Dispose()
         {
             _plan?.CollationStorage?.Dispose();
             _plan = null;
+            _inputs = null;
             IDisposable? retained = _owner;
             _owner = null;
             retained?.Dispose();
@@ -65,6 +69,7 @@ internal static class JobJsonLoader
         private long _bytes;
         private long _reserved;
         private ConfigurationText? _textStorage;
+        private List<QpdfPath>? _inputs;
 
         private Session(IQpdfHost host, QpdfLimits limits, ResourceGovernor governor)
         {
@@ -95,6 +100,7 @@ internal static class JobJsonLoader
 
         private List<JsonDocument> Documents => _documents ?? throw new ObjectDisposedException(nameof(Session));
         internal ConfigurationText TextStorage => _textStorage ?? throw new ObjectDisposedException(nameof(Session));
+        internal IReadOnlyList<QpdfPath> Inputs => _inputs ?? (IReadOnlyList<QpdfPath>)Array.Empty<QpdfPath>();
 
         internal void AdmitArguments(IReadOnlyList<string> argv)
         {
@@ -158,6 +164,8 @@ internal static class JobJsonLoader
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth + 1L, _limits.MaxNestingDepth);
             }
             await using IQpdfInput input = await GovernedHost.OpenInputAsync(_host, path, _governor, cancellationToken).ConfigureAwait(false);
+            _inputs ??= ParserContainers.CreateList<QpdfPath>(TextStorage.Memory);
+            ParserContainers.AddItem(TextStorage.Memory, _inputs, path, IntPtr.Size);
             HashSet<string> identities = _identities ?? throw new ObjectDisposedException(nameof(Session));
             if (identities.Contains(input.Identity))
             {
@@ -374,6 +382,7 @@ internal static class JobJsonLoader
             _documents = null;
             _fields = null;
             _identities = null;
+            _inputs?.Clear(); _inputs = null;
             ConfigurationText? textStorage = _textStorage;
             _textStorage = null;
             textStorage?.Dispose();

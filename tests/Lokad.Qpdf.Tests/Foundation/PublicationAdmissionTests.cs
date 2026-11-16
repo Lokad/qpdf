@@ -497,6 +497,104 @@ public sealed class PublicationAdmissionTests
         { Assert.Equal(shape == "scratch" ? new[] { "output.pdf", "pass1.pdf" } : new[] { "output.pdf" }, host.Committed); }
     }
 
+    public static IEnumerable<object[]> FirstPassAuxiliaryInputs()
+    {
+        foreach (string role in new[] { "plain-template", "encrypted-template", "password-file" })
+        foreach (string route in new[] { "argv", "job", "mixed" })
+        foreach (bool split in new[] { false, true }) { yield return [role, route, split, "collision"]; }
+        foreach (bool split in new[] { false, true }) { yield return ["previous-password-file", "argv", split, "collision"]; }
+        foreach (string role in new[] { "job-file", "nested-job-file" })
+        foreach (string route in new[] { "argv", "job" })
+        foreach (bool split in new[] { false, true }) { yield return [role, route, split, "collision"]; }
+        foreach (bool split in new[] { false, true }) { yield return ["response-file", "argv", split, "collision"]; }
+        foreach (string role in new[] { "encrypted-template", "password-file", "job-file", "response-file" })
+        foreach (string mode in new[] { "inactive", "safe" }) { yield return [role, "argv", false, mode]; }
+        foreach (string route in new[] { "argv", "job", "mixed" }) { yield return ["plain-template", route, false, "superseded"]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(FirstPassAuxiliaryInputs))]
+    public async Task FirstPassProtectsAuxiliaryInputsBeforePublication(string role, string route, bool split, string mode)
+    {
+        ObservedHost host = await Observed("whole", false, false);
+        using InMemoryQpdfHost storage = host.Inner;
+        string source = role switch
+        {
+            "plain-template" or "encrypted-template" => "template.pdf",
+            "password-file" or "previous-password-file" => "password.txt",
+            "nested-job-file" => "nested.json", "response-file" => "arguments.txt", _ => "settings.json"
+        };
+        string capture = mode == "safe" ? "pass1.pdf" : source;
+        await using (IQpdfOutputTransaction seed = await storage.CreateOutputAsync(QpdfPath.From(capture), CancellationToken.None))
+        { await seed.WriteAsync(PublicationTestJobs.Prior, CancellationToken.None); await seed.CommitAsync(CancellationToken.None); }
+        List<string> argv = ["input.pdf", "--linearize-pass1=" + capture];
+        Dictionary<string, object> job = new(StringComparer.Ordinal)
+        { ["inputFile"] = "input.pdf", ["outputFile"] = "output.pdf", ["linearizePass1"] = capture };
+        if (mode != "inactive") { argv.Add("--linearize"); job.Add("linearize", ""); }
+        if (split) { argv.Add("--split-pages=1"); job.Add("splitPages", "1"); }
+        if (role is "plain-template" or "encrypted-template")
+        {
+            byte[] template = role == "encrypted-template"
+                ? await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "security-r6-ascii.pdf"))
+                : await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "meta-1page.pdf"));
+            storage.AddInput(QpdfPath.From(source), template, QpdfInputOwnership.Transfer);
+            argv.Add("--copy-encryption=" + source); job.Add("copyEncryption", source);
+            if (role == "encrypted-template")
+            { argv.Add("--encryption-file-password=reader"); job.Add("encryptionFilePassword", "reader"); }
+            if (mode == "superseded") { argv.Add("--decrypt"); job.Add("decrypt", ""); }
+        }
+        if (role is "password-file" or "previous-password-file")
+        {
+            storage.AddInput(QpdfPath.From(source), "\n"u8.ToArray(), QpdfInputOwnership.Transfer);
+            argv.Add("--password-file=" + source); job.Add("passwordFile", source);
+            if (role == "previous-password-file") { argv.Add("--password=unused"); }
+        }
+        if (role is "job-file" or "nested-job-file")
+        {
+            if (role == "nested-job-file")
+            {
+                storage.AddInput(QpdfPath.From("settings.json"), "{\"jobJsonFile\":\"nested.json\"}"u8.ToArray(), QpdfInputOwnership.Transfer);
+                storage.AddInput(QpdfPath.From("nested.json"), "{}"u8.ToArray(), QpdfInputOwnership.Transfer);
+            }
+            argv.Insert(0, "--job-json-file=settings.json"); job.Add("jobJsonFile", "settings.json");
+        }
+        if (route == "mixed") { argv.Insert(0, "--job-json-file=settings.json"); }
+        argv.Add("output.pdf");
+        if (role == "response-file")
+        {
+            storage.AddInput(QpdfPath.From(source), Encoding.UTF8.GetBytes(string.Join('\n', argv)), QpdfInputOwnership.Transfer);
+            argv = ["@" + source];
+        }
+        QpdfExecutionResult result = route == "job"
+            ? await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(job), CancellationToken.None)
+            : await Qpdf.ExecuteAsync(host, new(argv), CancellationToken.None);
+        bool collision = mode == "collision";
+        Assert.Equal(collision ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(collision ? QpdfExitCode.Error : QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, storage.OpenLeaseCount);
+        if (collision)
+        {
+            Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.InvalidArguments && d.Message.Contains("first-pass", StringComparison.Ordinal));
+            Assert.Equal(0, host.Creates); Assert.Empty(host.Committed);
+            Assert.All(host.Opened, path => Assert.Contains(path, new[] { "settings.json", "nested.json", "arguments.txt" }));
+            Assert.True(storage.TryGetOutput(QpdfPath.From(capture), out byte[] prior)); Assert.Equal(PublicationTestJobs.Prior, prior);
+            foreach (string target in Targets)
+            { Assert.True(storage.TryGetOutput(QpdfPath.From(target), out byte[] bytes)); Assert.Equal(PublicationTestJobs.Prior, bytes); }
+        }
+        else
+        {
+            Assert.Equal(mode != "inactive", host.Committed.Contains(capture));
+            if (mode == "inactive")
+            { Assert.True(storage.TryGetOutput(QpdfPath.From(capture), out byte[] prior)); Assert.Equal(PublicationTestJobs.Prior, prior); }
+            if (mode == "superseded") { Assert.DoesNotContain(source, host.Opened); }
+            Assert.True(storage.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] output));
+            storage.AddInput(QpdfPath.From("readback.pdf"), output, QpdfInputOwnership.Transfer);
+            await using QpdfDocument document = await QpdfDocument.OpenAsync(storage, QpdfPath.From("readback.pdf"),
+                role == "encrypted-template" ? QpdfPassword.FromText("reader") : null, QpdfLimits.Default, CancellationToken.None);
+            Assert.Equal(1, document.PageCount); Assert.Equal(role == "encrypted-template" ? 6 : (int?)null, document.Encryption?.Revision);
+        }
+    }
+
     private sealed class ObservedHost(InMemoryQpdfHost inner) : IQpdfHost
     {
         internal InMemoryQpdfHost Inner => inner;
@@ -504,6 +602,7 @@ public sealed class PublicationAdmissionTests
         internal long PeakHandles;
         internal int Creates;
         internal List<string> Committed { get; } = new();
+        internal List<string> Opened { get; } = new();
         internal string Boundary = "";
         internal CancellationTokenSource? Cancellation;
         internal bool HostCancellation;
@@ -522,7 +621,7 @@ public sealed class PublicationAdmissionTests
 
         public async ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token)
         {
-            Operations++; Check("open", path, 0);
+            Operations++; Opened.Add(path.Value); Check("open", path, 0);
             IQpdfInput input = await inner.OpenInputAsync(path, token);
             PeakHandles = Math.Max(PeakHandles, inner.OpenLeaseCount);
             return new Input(this, input);

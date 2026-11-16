@@ -81,6 +81,7 @@ internal static class ResponseFileExpander
                     continue;
                 }
 
+                expanded.AddInput(path);
                 expanded.AddResponseLines(content);
             }
 
