@@ -271,11 +271,11 @@ internal static class HelpText
     }
 
     internal const string JsonHelpV2 = """
-        {"version": "JSON format version (2)", "parameters": "decode and stream-data parameters for this inspection", "pages": "per-page descriptors with object, contents, label, outlines, pageposfrom1 and images", "pagelabels": "explicit page labels", "attachments": "embedded-file entries", "encrypt": "non-secret encryption facts; password/key fields stay null", "outlines": "explicit-destination outline entries", "acroform": "form fields with inherited types, names, values and annotations", "qpdf": "object table (version 2)"}
+        {"version": "JSON format version (2)", "parameters": "decode and stream-data parameters for this inspection", "pages": "per-page descriptors with object, contents, label, outlines, pageposfrom1 and images", "pagelabels": "explicit page labels", "attachments": "embedded-file entries", "encrypt": "non-secret encryption facts; password/key fields stay null", "outlines": "outline entries with resolved explicit or named destinations", "acroform": "form fields with inherited types/values, local alternative/mapping names and widget annotations", "qpdf": "object table (version 2)"}
         """;
 
     internal const string JsonHelpV1 = """
-        {"version": "JSON format version (1)", "parameters": "decode and stream-data parameters for this inspection", "pages": "per-page descriptors with object, contents, label, outlines, pageposfrom1 and images", "pagelabels": "explicit page labels", "attachments": "embedded-file entries", "encrypt": "non-secret encryption facts; password/key fields stay null", "outlines": "explicit-destination outline entries", "acroform": "form fields with inherited types, names, values and annotations", "objects": "object table keyed by full references such as 3 0 R (version 1)", "objectinfo": "object metadata keyed by the same full references (version 1)"}
+        {"version": "JSON format version (1)", "parameters": "decode and stream-data parameters for this inspection", "pages": "per-page descriptors with object, contents, label, outlines, pageposfrom1 and images", "pagelabels": "explicit page labels", "attachments": "embedded-file entries", "encrypt": "non-secret encryption facts; password/key fields stay null", "outlines": "outline entries with resolved explicit or named destinations", "acroform": "form fields with inherited types/values, local alternative/mapping names and widget annotations", "objects": "object table keyed by full references such as 3 0 R (version 1)", "objectinfo": "object metadata keyed by the same full references (version 1)"}
         """;
 
     internal static bool TryMatchJsonHelp(IReadOnlyList<string> argv, out string text)
