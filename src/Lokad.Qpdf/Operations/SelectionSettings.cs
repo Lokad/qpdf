@@ -38,7 +38,6 @@ internal readonly struct SelectionSettings
     internal bool PreserveCatalog { get; init; }
     internal bool Linearize { get; init; }
     internal QpdfPath? LinearizePass1 { get; init; }
-    internal bool AuthenticatePrimary { get; init; }
     internal QpdfPassword? PrimaryPassword { get; init; }
     internal QpdfOutputEncryption? OutputEncryption { get; init; }
 
@@ -60,7 +59,6 @@ internal readonly struct SelectionSettings
 
     internal static SelectionSettings FromPlan(JobPlan plan, bool pruneEnabled, QpdfPassword? password) => new()
     {
-        AuthenticatePrimary = true,
         PrimaryPassword = password,
         OutputEncryption = plan.OutputEncryption,
         Rotations = plan.Rotations,

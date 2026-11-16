@@ -1,9 +1,11 @@
 namespace Lokad.Qpdf;
 
 /// <summary>
-/// The input structurally declares encryption on an operation route that does
-/// not yet support it. This carries no password data, keys, or input content.
+/// An operation refused an input that structurally declares encryption.
+/// This carries no password data, keys, or input content.
 /// </summary>
+/// <remarks>Built-in readers report credential and handler failures through
+/// <see cref="QpdfSecurityException" />.</remarks>
 public sealed class QpdfEncryptedInputException : QpdfException
 {
     /// <summary>Gets the logical path of the encrypted input.</summary>

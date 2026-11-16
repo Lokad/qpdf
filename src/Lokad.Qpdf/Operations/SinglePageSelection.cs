@@ -50,11 +50,9 @@ internal static class SinglePageSelection
                     if (selectiveCandidate && stableInput is null)
                     { stableInput = await GovernedHost.OpenInputAsync(host, inputPath, governor, cancellationToken).ConfigureAwait(false); }
                     await using QpdfDocument document = stableInput is null
-                        ? settings.AuthenticatePrimary
-                            ? await QpdfDocument.OpenInspectionCore(host, inputPath, settings.PrimaryPassword, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false)
-                            : await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false)
+                        ? await QpdfDocument.OpenInspectionCore(host, inputPath, settings.PrimaryPassword, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false)
                         : await QpdfDocument.OpenSelectionInputAsync(stableInput, inputPath, limits, governor, diagnostics,
-                            recovery, attempt == 0, cancellationToken, settings.PrimaryPassword, settings.AuthenticatePrimary).ConfigureAwait(false);
+                            recovery, attempt == 0, cancellationToken, settings.PrimaryPassword).ConfigureAwait(false);
                     // This private reader remains alive through publication.
                     document.Engine.BorrowImmutableStreamData = !document.Engine.HasSelectiveInput;
                     retryParse = document.Engine.HasSelectiveInput;

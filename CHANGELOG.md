@@ -2,6 +2,8 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Use one authenticated selection-reader policy and remove obsolete internal
+  rejection branches, retaining existing public exception compatibility.
 - Preserve static layer states when combining ON/OFF default bases, normalize
   combined output and identify unsupported layer policies precisely.
 - Reuse completed page, label and attachment subtrees while preserving repeated

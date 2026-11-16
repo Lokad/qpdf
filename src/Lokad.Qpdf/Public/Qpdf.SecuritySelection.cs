@@ -91,7 +91,7 @@ public static partial class Qpdf
             DiagnosticBag diagnostics = new(governor);
             PageSelectionOutcome result = await SelectPageCoreAsync(host, inputPath, outputPath, options, limits,
                 recovery, SelectionSettings.Typed with
-                { Rotations = preparation?.Rotations ?? Array.Empty<OutputRotation>(), AuthenticatePrimary = true,
+                { Rotations = preparation?.Rotations ?? Array.Empty<OutputRotation>(),
                     PrimaryPassword = password, OutputEncryption = outputEncryption },
                 governor, diagnostics, cancellationToken).ConfigureAwait(false);
             preparation?.Dispose();

@@ -67,7 +67,7 @@ internal static class MultiPageSelection
                     {
                         await using QpdfDocument document = await QpdfDocument.OpenSelectionInputAsync(input,
                             sources[0].Input, limits, governor, diagnostics, recovery, attempt == 0,
-                            cancellationToken, sources[0].Password, settings.AuthenticatePrimary).ConfigureAwait(false);
+                            cancellationToken, sources[0].Password).ConfigureAwait(false);
                         return await SelectPagesCoreAsync(
                             host: host,
                             sources: sources,
@@ -98,7 +98,7 @@ internal static class MultiPageSelection
         }
         using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
         using ParserMemoryScope selectionMemory = ParserMemoryScope.Create(governor);
-        using SelectionSecurity? securityOwner = settings.AuthenticatePrimary ? SelectionSecurity.Create(governor) : null;
+        using SelectionSecurity securityOwner = SelectionSecurity.Create(governor);
         PdfReference? outputParent = null;
         int primaryIdx = sources.Count;
         for (int p = 0; p < sources.Count; p++)
@@ -110,7 +110,7 @@ internal static class MultiPageSelection
             }
         }
         Dictionary<string, List<int>> sourceGroups = GroupPageSources(sources, selectionMemory, governor, cancellationToken);
-        if (settings.AuthenticatePrimary) { ValidateSourceCredentials(sources, sourceGroups, governor); }
+        ValidateSourceCredentials(sources, sourceGroups, governor);
         bool catalogOnlyPrimary = primaryIdx == sources.Count && !emptyPrimary;
         int documentCount = catalogOnlyPrimary ? checked(sourceGroups.Count + 1) : sourceGroups.Count;
         int sourcePasses = catalogOnlyPrimary ? checked(sources.Count + 1) : sources.Count;
@@ -160,11 +160,8 @@ internal static class MultiPageSelection
             // Multisource graphs survive each reader. Independent payloads let
             // catalog-only and mostly unused inputs retire after their copies.
             await using QpdfDocument document = !catalogOnly && preparedSource is not null ? preparedSource
-                : settings.AuthenticatePrimary
-                    ? await QpdfDocument.OpenInspectionCore(host, sourcePath, catalogOnly ? settings.PrimaryPassword : sources[s].Password,
-                        limits, governor, diagnostics, recovery, cancellationToken, !catalogOnly && sources.Count == 1).ConfigureAwait(false)
-                : await QpdfDocument.OpenCore(host, sourcePath, limits, governor, diagnostics, recovery, cancellationToken,
-                    false, !catalogOnly && sources.Count == 1).ConfigureAwait(false);
+                : await QpdfDocument.OpenInspectionCore(host, sourcePath, catalogOnly ? settings.PrimaryPassword : sources[s].Password,
+                    limits, governor, diagnostics, recovery, cancellationToken, !catalogOnly && sources.Count == 1).ConfigureAwait(false);
             try
             {
                 // The existing source transfer funds a single complete input
@@ -184,9 +181,8 @@ internal static class MultiPageSelection
                 if (s == primaryIdx && !emptyPrimary)
                 {
                     originalId1 = TryGetOriginalId(document.Engine);
-                    if (securityOwner is not null)
-                    { originalId1 = await securityOwner.PrepareAsync(host, settings.OutputEncryption ?? QpdfOutputEncryption.Preserve,
-                        document, originalId1, selectionMemory, governor, limits, diagnostics, recovery, cancellationToken).ConfigureAwait(false); }
+                    originalId1 = await securityOwner.PrepareAsync(host, settings.OutputEncryption ?? QpdfOutputEncryption.Preserve,
+                        document, originalId1, selectionMemory, governor, limits, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
                 }
 
                 sourceCompressed.Add(CollectCompressedOriginals(document.Engine, settings.ObjectStreams is not ("disable" or "generate"), selectionMemory, governor, cancellationToken));
@@ -562,10 +558,10 @@ internal static class MultiPageSelection
         PdfVersion inputMax = version ?? governor.PrivateVersion(1, 4);
         IncludeVersionRequirement(ref inputMax, ref inputExtension, overlayApplied.Version, overlayApplied.ExtensionLevel, governor);
         (PdfVersion negotiatedMulti, int negotiatedMultiExtension) = NegotiateVersion(inputMax, inputExtension, settings.MinVersion, settings.ForceVersion, governor);
-        if (emptyPrimary && securityOwner is not null)
+        if (emptyPrimary)
         { originalId1 = await securityOwner.PrepareAsync(host, settings.OutputEncryption ?? QpdfOutputEncryption.Preserve,
             null, originalId1, selectionMemory, governor, limits, diagnostics, recovery, cancellationToken).ConfigureAwait(false); }
-        OutputSecurity? outputSecurity = securityOwner?.Value;
+        OutputSecurity? outputSecurity = securityOwner.Value;
         RequireEncryptionVersion(outputSecurity, ref negotiatedMulti, ref negotiatedMultiExtension, settings.ForceVersion, governor);
         if (settings.ForceVersion is null)
         {

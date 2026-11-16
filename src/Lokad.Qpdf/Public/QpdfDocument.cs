@@ -156,8 +156,9 @@ public sealed partial class QpdfDocument : IAsyncDisposable
     /// <summary>Opens an input with per-input credentials and explicit budgets.</summary>
     /// <remarks>A null password tries the empty password and reports PasswordRequired
     /// if it fails. An explicitly empty password instead reports InvalidPassword.
-    /// R5/R6 use the first 127 UTF-8 or raw bytes. R2–R4 use 32 bytes and can retry
-    /// PDFDocEncoding for text credentials. The reader supports RC4 R2/R3, 128-bit RC4/AES R4 and AES-256 R5/R6.</remarks>
+    /// R5/R6 use the first 127 UTF-8 or raw bytes; R2–R4 use 32 bytes.
+    /// Text credentials can retry PDFDoc, WinAnsi and MacRoman encodings for R2–R6.
+    /// The reader supports RC4 R2/R3, 128-bit RC4/AES R4 and AES-256 R5/R6.</remarks>
     /// <exception cref="ArgumentNullException">Host or limits are null.</exception>
     /// <exception cref="QpdfSecurityException">Credentials fail or the security handler is unsupported.</exception>
     /// <exception cref="QpdfParseException">The input or encryption parameters are malformed.</exception>
@@ -195,7 +196,7 @@ public sealed partial class QpdfDocument : IAsyncDisposable
         {
             IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
             QpdfDocument document = await OpenInputDocument(input, path, limits, governor, diagnostics,
-                recoveryMode, cancellationToken, true, false, false, InputReadMode.Complete, password, true).ConfigureAwait(false);
+                recoveryMode, cancellationToken, true, false, false, InputReadMode.Complete, password).ConfigureAwait(false);
             governor.AcceptDocument();
             return document;
         }
@@ -301,9 +302,8 @@ public sealed partial class QpdfDocument : IAsyncDisposable
         bool borrowInputStreams)
     {
         IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
-        // Default readers borrow only for the memory host. Complete copy jobs
-        // may opt in while funding input through publication and isolating any
-        // slices passed to retaining output sinks.
+        // Escaped values retain their owner. Immutable input borrowing remains
+        // limited to the memory host.
         return await OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken, valuesEscape,
             borrowInputStreams && host is Hosting.InMemoryQpdfHost).ConfigureAwait(false);
     }
@@ -321,7 +321,7 @@ public sealed partial class QpdfDocument : IAsyncDisposable
     {
         IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
         return await OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken,
-            false, borrowInputStreams && host is Hosting.InMemoryQpdfHost, false, InputReadMode.Complete, password, true).ConfigureAwait(false);
+            false, borrowInputStreams && host is Hosting.InMemoryQpdfHost, false, InputReadMode.Complete, password).ConfigureAwait(false);
     }
 
     private static ValueTask<QpdfDocument> OpenInputDocument(
@@ -335,24 +335,19 @@ public sealed partial class QpdfDocument : IAsyncDisposable
         bool valuesEscape,
         bool borrowInputStreams)
         => OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken,
-            valuesEscape, borrowInputStreams, false, InputReadMode.Complete, null, false);
+            valuesEscape, borrowInputStreams, false, InputReadMode.Complete, null);
 
     internal static ValueTask<QpdfDocument> OpenSelectionInputAsync(IQpdfInput input, QpdfPath path,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, QpdfRecoveryMode recovery, bool selective,
-        CancellationToken cancellationToken)
-        => OpenSelectionInputAsync(input, path, limits, governor, diagnostics, recovery, selective, cancellationToken, null, false);
-
-    internal static ValueTask<QpdfDocument> OpenSelectionInputAsync(IQpdfInput input, QpdfPath path,
-        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, QpdfRecoveryMode recovery, bool selective,
-        CancellationToken cancellationToken, QpdfPassword? password, bool authenticateEncrypted)
+        CancellationToken cancellationToken, QpdfPassword? password)
         => OpenInputDocument(input, path, limits, governor, diagnostics, recovery,
-            cancellationToken, false, false, true, selective ? InputReadMode.Selection : InputReadMode.Complete, password, authenticateEncrypted);
+            cancellationToken, false, false, true, selective ? InputReadMode.Selection : InputReadMode.Complete, password);
 
     internal static ValueTask<QpdfDocument> OpenPageCountInputAsync(IQpdfInput input, QpdfPath path,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, QpdfRecoveryMode recovery,
         bool selective, QpdfPassword? password, CancellationToken cancellationToken)
         => OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken,
-            false, false, true, selective ? InputReadMode.PageCount : InputReadMode.Complete, password, true);
+            false, false, true, selective ? InputReadMode.PageCount : InputReadMode.Complete, password);
 
     // A multisource copy closes each source before publication. During a
     // speculative attempt the caller keeps its lease for fallback; once all
@@ -367,7 +362,7 @@ public sealed partial class QpdfDocument : IAsyncDisposable
         IQpdfInput input, QpdfPath path, QpdfLimits limits, ResourceGovernor governor,
         DiagnosticBag diagnostics, QpdfRecoveryMode recovery, CancellationToken cancellationToken,
         bool valuesEscape, bool borrowInputStreams, bool leaveInputOpen, InputReadMode readMode,
-        QpdfPassword? password, bool authenticateEncrypted)
+        QpdfPassword? password)
     {
         DocumentEngine? engine = null;
         try
@@ -375,10 +370,7 @@ public sealed partial class QpdfDocument : IAsyncDisposable
             (DocumentEngine loaded, VersionParts headerParts) = await ReadInputEngine(input, limits, governor,
                 diagnostics, recovery, cancellationToken, valuesEscape, borrowInputStreams, readMode).ConfigureAwait(false);
             engine = loaded;
-            // Authenticate operations that supply a credential policy; other
-            // internal readers retain their explicit protected-input refusal.
-            if (authenticateEncrypted) { AuthenticateEncrypted(engine, password, governor); }
-            else { RejectEncrypted(path, engine); }
+            AuthenticateEncrypted(engine, password, governor);
             return CompleteDocumentOpen(input, path, engine, headerParts, limits, governor,
                 diagnostics, cancellationToken, valuesEscape, leaveInputOpen);
         }
@@ -577,47 +569,6 @@ public sealed partial class QpdfDocument : IAsyncDisposable
         }
 
         return new(major, minor);
-    }
-
-    private static void RejectEncrypted(QpdfPath path, DocumentEngine engine)
-    {
-        foreach (PdfDictionary trailer in engine.Trailers)
-        {
-            if (TrailerDeclaresEncryption(trailer, engine))
-            {
-                throw new QpdfEncryptedInputException(path);
-            }
-        }
-    }
-
-    private static bool TrailerDeclaresEncryption(PdfDictionary trailer, DocumentEngine engine)
-    {
-        PdfName encryptKey = new([(byte)'E', (byte)'n', (byte)'c', (byte)'r', (byte)'y', (byte)'p', (byte)'t']);
-        if (!trailer.TryGet(encryptKey, out QpdfObject raw) || raw is PdfNull)
-        {
-            return false;
-        }
-
-        if (raw is PdfReference reference)
-        {
-            if (!((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? unresolved))
-            {
-                throw new QpdfParseException("Unresolvable trailer /Encrypt reference.", null, reference.ObjectNumber);
-            }
-
-            if (unresolved is null)
-            {
-                throw new QpdfParseException("Unresolvable trailer /Encrypt reference.", null, reference.ObjectNumber);
-            }
-
-            QpdfObject resolved = unresolved;
-            if (resolved is PdfNull)
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     internal long ReadDeclaredPageCount()
