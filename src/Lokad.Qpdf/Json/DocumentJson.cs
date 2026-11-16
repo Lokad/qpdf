@@ -1531,7 +1531,7 @@ internal static class DocumentJson
         if (annotReference is not null) { visited.Add(memory, annotReference.ObjectNumber); }
         PdfDictionary current = annot;
         int depth = 0;
-        while (depth < limits.MaxNestingDepth)
+        while (true)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (!current.TryGet(PdfName.FromAscii("Parent"), out QpdfObject? parentRaw) || parentRaw is null || parentRaw is PdfNull) { break; }
@@ -1539,6 +1539,8 @@ internal static class DocumentJson
             QpdfObject parent = TryResolve(engine, parentRaw) ?? parentRaw;
             if (parent is not PdfDictionary parentDict) { break; }
             if (parentReference is not null && !visited.Add(memory, parentReference.ObjectNumber)) { break; }
+            if (depth >= limits.MaxNestingDepth)
+            { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), (long)depth + 1L, limits.MaxNestingDepth); }
             ParserContainers.AddItem(memory, chain, (parentReference, parentDict), 2L * IntPtr.Size);
             current = parentDict;
             depth++;

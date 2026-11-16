@@ -2,6 +2,7 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Json;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Tests.Foundation;
 using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Writing;
@@ -196,17 +197,81 @@ public sealed class AcroFormJsonTests
     }
 
     [Fact]
-    public async Task AncestorDepthStillTruncatesLeniently()
+    public async Task AncestorDepthExhaustionRefundsInspectionScratch()
     {
         using InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("input"), Fixture("/Parent 6 0 R", "/T (field)", "/FT /Tx"), QpdfInputOwnership.Transfer);
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input"), CancellationToken.None);
         QpdfLimits limits = QpdfLimits.Default with { MaxNestingDepth = 1 };
         ResourceGovernor governor = new(limits, CancellationToken.None);
-        using PreparedJsonOutput output = PreparedJsonOutput.Create(governor);
-        using DisplayBuffer buffer = DocumentJson.WriteDocument(document, new(2, ["acroform"], "none", "none", null, [], false), output, limits, governor, new(governor), CancellationToken.None);
-        using GovernedText text = buffer.Finish(); using JsonDocument json = JsonDocument.Parse(text.Value);
-        JsonElement field = json.RootElement.GetProperty("acroform").GetProperty("fields")[0];
-        Assert.Equal("field", field.GetProperty("fullname").GetString()); Assert.Equal("", field.GetProperty("fieldtype").GetString());
+        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(71L);
+        long baseline = governor.Snapshot().LiveMemoryBytes;
+        using (PreparedJsonOutput output = PreparedJsonOutput.Create(governor))
+        {
+            QpdfLimitException exception = Assert.Throws<QpdfLimitException>(() =>
+            {
+                using DisplayBuffer buffer = DocumentJson.WriteDocument(document, new(2, ["acroform"], "none", "none", null, [], false), output, limits, governor, new(governor), CancellationToken.None);
+            });
+            Assert.Equal(nameof(QpdfLimits.MaxNestingDepth), exception.LimitName);
+            Assert.Equal(2L, exception.Requested); Assert.Equal(1L, exception.Allowed);
+        }
+        Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes); Assert.Equal(1, document.PageCount);
+    }
+
+    [Theory]
+    [InlineData(3)]
+    [InlineData(4)]
+    public async Task PublicAncestorLimitKeepsCompleteValuesOrThePriorReport(int ancestors)
+    {
+        using InMemoryQpdfHost host = await PreparationAdmissionChecks.StorageAsync(DeepFixture(ancestors), QpdfPath.From("report"));
+        QpdfLimits limits = QpdfLimits.Default with { MaxNestingDepth = 3 };
+        Task<QpdfJsonResult> running = Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("input"), QpdfPath.From("report"), new QpdfJsonOptions(2, ["acroform"]), limits, CancellationToken.None).AsTask();
+        if (ancestors == 4)
+        {
+            QpdfLimitException exception = await Assert.ThrowsAsync<QpdfLimitException>(() => running);
+            Assert.Equal(nameof(QpdfLimits.MaxNestingDepth), exception.LimitName); Assert.Equal(4L, exception.Requested); Assert.Equal(3L, exception.Allowed);
+            Assert.True(host.TryGetOutput(QpdfPath.From("report"), out byte[] prior)); Assert.Equal(new byte[] { 17, 23, 41 }, prior);
+        }
+        else
+        {
+            QpdfJsonResult result = await running; using JsonDocument json = JsonDocument.Parse(result.Json);
+            JsonElement field = json.RootElement.GetProperty("acroform").GetProperty("fields")[0];
+            Assert.Equal("root.n1.n2.leaf", field.GetProperty("fullname").GetString());
+            Assert.Equal("/Tx", field.GetProperty("fieldtype").GetString()); Assert.Equal("u:root-value", field.GetProperty("value").GetString());
+        }
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData(false, 2)]
+    [InlineData(true, 1)]
+    public async Task CommandAncestorExhaustionReportsBudgetExceededBeforePublication(bool job, int version)
+    {
+        using InMemoryQpdfHost host = await PreparationAdmissionChecks.StorageAsync(DeepFixture(4), QpdfPath.From("report"));
+        QpdfExecutionResult result = job
+            ? await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new { inputFile = "input", outputFile = "report", json = version.ToString(System.Globalization.CultureInfo.InvariantCulture), jsonKey = new[] { "acroform" }, @global = new { parserMaxNesting = "3" } }), CancellationToken.None)
+            : await Qpdf.ExecuteAsync(host, new(["input", "--json=" + version, "--json-key=acroform", "--parser-max-nesting=3", "report"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status); Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded);
+        Assert.True(host.TryGetOutput(QpdfPath.From("report"), out byte[] bytes)); Assert.Equal(new byte[] { 17, 23, 41 }, bytes);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    internal static byte[] DeepFixture(int ancestors)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(ancestors, 1);
+        int widget = 5 + ancestors;
+        List<(int Number, string Dict, byte[]? StreamData)> objects = [
+            (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] >> >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 80 40] /Annots [" + widget + " 0 R] >>", null),
+            (4, "null", null)];
+        for (int index = 0; index < ancestors; index++)
+        {
+            int number = 5 + index;
+            objects.Add((number, "<< /T (" + (index == 0 ? "root" : "n" + index) + ") /Kids [" + (number + 1) + " 0 R] "
+                + (index == 0 ? "/FT /Tx /V (root-value)" : "/Parent " + (number - 1) + " 0 R") + " >>", null));
+        }
+        objects.Add((widget, "<< /Type /Annot /Subtype /Widget /T (leaf) /P 3 0 R /Parent " + (widget - 1) + " 0 R /Rect [0 0 60 20] >>", null));
+        return PdfTestDocument.Assemble(objects, 1);
     }
 }

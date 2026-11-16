@@ -2,6 +2,8 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Fail form JSON inspection on ancestry-depth exhaustion before publishing an
+  incomplete name or value; retain lenient missing/cyclic-parent handling.
 - Respect field-local alternative/mapping names in form JSON while retaining
   inherited types, values and choices and the documented name fallbacks.
 - Assemble pages before JSON inspection/export, including collation and empty

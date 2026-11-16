@@ -4025,7 +4025,10 @@
           "OutlineNamedDestinationTests.NamedProjectionDoesNotMutateTheSourceDestinationArray",
           "JsonPageAssemblyTests.AssembledJsonRefundsAdmissionAndPreservesPriorReports",
           "JsonPageAssemblyTests.ContextAssemblyRefundsAdmissionAndPreservesPriorReports",
-          "JsonPageAssemblyTests.AssembledBackingLivesThroughPendingSourceCloseAndSidecarWrite"
+          "JsonPageAssemblyTests.AssembledBackingLivesThroughPendingSourceCloseAndSidecarWrite",
+          "AcroFormJsonTests.AncestorDepthExhaustionRefundsInspectionScratch",
+          "AcroFormJsonTests.PublicAncestorLimitKeepsCompleteValuesOrThePriorReport",
+          "AcroFormJsonTests.CommandAncestorExhaustionReportsBudgetExceededBeforePublication"
         ],
         "oracle": [
           "diff:json-pages",
@@ -4169,7 +4172,10 @@
           "SubtreeReuseTests.ReusedSubtreesStillEnforceDepthOnDeeperPaths",
           "SubtreeReuseTests.EveryTraversalAdmissionRefusalRefundsItsPrivateState",
           "OutlineNamedDestinationTests.NamedProjectionRefundsAdmissionAndPreservesThePriorReport",
-          "OutlineNamedDestinationTests.NamedProjectionDoesNotMutateTheSourceDestinationArray"
+          "OutlineNamedDestinationTests.NamedProjectionDoesNotMutateTheSourceDestinationArray",
+          "AcroFormJsonTests.AncestorDepthExhaustionRefundsInspectionScratch",
+          "AcroFormJsonTests.PublicAncestorLimitKeepsCompleteValuesOrThePriorReport",
+          "AcroFormJsonTests.CommandAncestorExhaustionReportsBudgetExceededBeforePublication"
         ],
         "oracle": [
           "diff:json-pages",
