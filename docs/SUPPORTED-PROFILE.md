@@ -286,8 +286,11 @@ image, attachment and outline listings use the shared resolver.
 Outline projections resolve catalog names, destination name trees and `/D`
 wrappers, including local GoTo actions. Missing names project null; destination
 page positions validate the complete object number/generation pair.
-JSON inspection currently rejects page-source assembly; selected/merged PDFs
-must be published before JSON inspection.
+Argv/job JSON inspection accepts page-source assembly and collation, including
+an empty primary. Page descriptors and object exports share the assembled graph;
+labels, secondary actions/forms/layers and source version requirements survive
+export and recreation. The primary retains catalog and security policy. Other
+page/content/image/layout transforms remain unavailable during JSON inspection.
 
 Typed `Qpdf.CountPagesAsync` traverses the page tree and returns its count, warnings
 and final counters after input cleanup. Its credential/recovery/limits overload
@@ -314,6 +317,7 @@ pairs and declared objects, including forward references; stale/free/missing
 original source edges remain null even when a patch declares that pair. A stream
 patch without payload data reuses bytes only from its matching source pair.
 Import/update validates page structure and replaces dangling references with null.
+Updates reject exports that declare pushed inherited page resources.
 Page/content/image/layout transforms and
 stream/metadata writer controls are unavailable during import/update.
 

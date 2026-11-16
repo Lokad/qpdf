@@ -75,9 +75,17 @@ internal static class OptionalContent
         CancellationToken token, out int number, out PdfDictionary? group)
     {
         number = 0; group = null;
-        if (value is not PdfReference reference || !copier.SourceToDestination.TryGetValue(reference.ObjectNumber, out number)
-            || !IsGroup(copier, number, governor, token)) { return false; }
-        group = CatalogCopy.ResolveDictionary(reference, engine, governor, token); return group is not null;
+        if (value is not PdfReference reference) { return false; }
+        group = CatalogCopy.ResolveDictionary(reference, engine, governor, token);
+        if (!copier.SourceToDestination.TryGetValue(reference.ObjectNumber, out number))
+        {
+            // Inspection can retain an original group under its unchanged pair.
+            // Numeric coincidence alone does not establish a retained identity.
+            if (group is null || !copier.CopiedObjects.TryGetValue(reference.ObjectNumber, out QpdfObject? retained)
+                || !ReferenceEquals(group, retained)) { return false; }
+            number = reference.ObjectNumber;
+        }
+        return group is not null && IsGroup(copier, number, governor, token);
     }
 
 

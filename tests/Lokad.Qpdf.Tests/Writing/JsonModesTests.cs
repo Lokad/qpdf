@@ -426,7 +426,6 @@ public sealed class JsonModesTests
     [Theory]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"jsonOutput\": \"1\"}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"json\": \"1\", \"jsonOutput\": \"latest\"}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"jsonOutput\": \"latest\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}]}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"jsonStreamData\": \"raw\"}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"jsonStreamData\": \"inline\"}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"jsonObject\": [\"1,2,3\"]}")]

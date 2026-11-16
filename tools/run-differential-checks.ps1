@@ -2846,6 +2846,8 @@ if ($p.ExitCode -ne 0 -or $q.ExitCode -ne 0) { Write-Output '[extends] FAIL: sho
 elseif ($libShow -ne $oraShow) { Write-Output '[extends] FAIL: object-6 dumps differ'; $script:failures++ }
 elseif ($libShow -notmatch '/BaseFont') { Write-Output '[extends] FAIL: object-6 is not the font dict'; $script:failures++ }
 else { Write-Output '[extends] trio ok with matching font object 6' }
+. (Join-Path $repoRoot 'tools/ReferenceJsonAssembly.ps1')
+Invoke-ReferenceJsonAssembly
 . (Join-Path $repoRoot 'tools/ReferenceSecurity.ps1')
 Invoke-ReferenceSecurity
 . (Join-Path $repoRoot 'tools/ReferenceSecurityPolicies.ps1')

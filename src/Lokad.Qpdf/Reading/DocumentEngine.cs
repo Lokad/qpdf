@@ -293,6 +293,7 @@ internal sealed partial class DocumentEngine : IStreamRecoveryResolver, IDisposa
         _ = Cache;
         _inspectionObjects = objects;
         _inspectionTrailer = null;
+        InspectionVersionParts = null;
     }
 
     internal void SetInspectionTrailer(PdfDictionary trailer)
@@ -302,6 +303,15 @@ internal sealed partial class DocumentEngine : IStreamRecoveryResolver, IDisposa
     }
 
     internal IEnumerable<int> InspectionObjectNumbers => _inspectionObjects?.Keys ?? [];
+    internal bool HasInspectionObjects => _inspectionObjects is not null;
+    internal QpdfDocument.VersionParts? InspectionVersionParts { get; set; }
+
+    internal int InspectionObjectGeneration(int number)
+        => Table.Entries.TryGetValue(number, out XrefEntry entry) && entry.Kind == XrefEntryKind.Uncompressed ? entry.Second : 0;
+
+    internal bool HasNewInspectionObject(int number)
+        => _inspectionObjects is not null && _inspectionObjects.ContainsKey(number)
+            && (!Table.Entries.TryGetValue(number, out XrefEntry entry) || entry.Kind == XrefEntryKind.Free);
 
     bool IIndirectResolver.TryResolve(PdfReference reference, out QpdfObject? value)
         => TryResolve(reference, false, out value);

@@ -3984,7 +3984,10 @@
           "JsonReferenceKeyTests.PageReferencesAddressObjectAndInfoMaps",
           "OutlineNamedDestinationTests.NamesTreesAndWrappersProjectTheResolvedDestination",
           "OutlineNamedDestinationTests.PublicRoutesAndJsonVersionsKeepNamedPageProjection",
-          "OutlineNamedDestinationTests.NamedTargetsKeepFullPageReferenceValidation"
+          "OutlineNamedDestinationTests.NamedTargetsKeepFullPageReferenceValidation",
+          "JsonPageAssemblyTests.AssembledPagesAndObjectExportsKeepTheSameGraph",
+          "JsonPageAssemblyTests.PageLabelsFollowTheAssembledSourceOccurrences",
+          "JsonPageAssemblyTests.SourceActionsFormsAndLayersKeepTheirMeaningAcrossCopies"
         ],
         "negative": [
           "JsonInspectionTests.BadVersionFails",
@@ -3993,14 +3996,19 @@
           "JsonInspectionTests.PageImagesMalformedFilterFails",
           "JsonModesTests.JsonOutputRejectsVersionOne",
           "JsonModesTests.JobModesMalformedFail",
-          "OutlineNamedDestinationTests.CyclicNamedTreesFailBeforeReplacingTheReport"
+          "OutlineNamedDestinationTests.CyclicNamedTreesFailBeforeReplacingTheReport",
+          "JsonPageAssemblyTests.NoPublicationCanReplaceAConsumedSecondaryInput"
         ],
         "interaction": [
           "JsonInspectionTests.JobRoundTripMatchesArgv",
           "JsonInspectionTests.TypedRoundTripMatchesArgv",
           "JsonInspectionTests.PageImagesJobParity",
           "JsonModesTests.JobModesRoundTrip",
-          "JsonReferenceKeyTests.PageReferencesAddressObjectAndInfoMaps"
+          "JsonReferenceKeyTests.PageReferencesAddressObjectAndInfoMaps",
+          "JsonPageAssemblyTests.AssembledExportsCanCreatePdfsAfterAllInputsClose",
+          "JsonPageAssemblyTests.MinimalJobOutputExportsTheAssembledPageTree",
+          "JsonPageAssemblyTests.EachEncryptedInputUsesItsOwnCredential",
+          "JsonPageAssemblyTests.ExportRetainsTheSelectedSourcesVersionFloor"
         ],
         "resource": [
           "JsonPublicationMemoryTests.KnownSidecarLengthFitsSharedAllowanceWithoutGrowthCopies",
@@ -4011,12 +4019,16 @@
           "JsonValueOwnershipTests.InputCloseFaultPreservesMainAndSidecarTargets",
           "JsonValueOwnershipTests.FailedOrCanceledJsonClosesReaderAndPreservesPriorOutput",
           "OutlineNamedDestinationTests.NamedProjectionRefundsAdmissionAndPreservesThePriorReport",
-          "OutlineNamedDestinationTests.NamedProjectionDoesNotMutateTheSourceDestinationArray"
+          "OutlineNamedDestinationTests.NamedProjectionDoesNotMutateTheSourceDestinationArray",
+          "JsonPageAssemblyTests.AssembledJsonRefundsAdmissionAndPreservesPriorReports",
+          "JsonPageAssemblyTests.ContextAssemblyRefundsAdmissionAndPreservesPriorReports",
+          "JsonPageAssemblyTests.AssembledBackingLivesThroughPendingSourceCloseAndSidecarWrite"
         ],
         "oracle": [
           "diff:json-pages",
           "diff:json-structure",
-          "diff:json-images"
+          "diff:json-images",
+          "diff:json-page-assembly"
         ]
       }
     },
@@ -4235,15 +4247,23 @@
         "positive": [
           "JsonModesTests.JsonOutputIsMinimal",
           "JsonModesTests.JsonOutputAcceptsKeys",
-          "JsonStringIdentityTests.TextEncodingIsUsedOnlyWhenItPreservesTheOriginalBytes"
+          "JsonStringIdentityTests.TextEncodingIsUsedOnlyWhenItPreservesTheOriginalBytes",
+          "JsonPageAssemblyTests.AssembledPagesAndObjectExportsKeepTheSameGraph",
+          "JsonPageAssemblyTests.PageLabelsFollowTheAssembledSourceOccurrences",
+          "JsonPageAssemblyTests.SourceActionsFormsAndLayersKeepTheirMeaningAcrossCopies"
         ],
         "negative": [
-          "JsonModesTests.JsonOutputRejectsVersionOne"
+          "JsonModesTests.JsonOutputRejectsVersionOne",
+          "JsonPageAssemblyTests.NoPublicationCanReplaceAConsumedSecondaryInput"
         ],
         "interaction": [
           "JsonModesTests.JobModesRoundTrip",
           "JsonModesTests.TypedMinimalOmitsVersion",
-          "JsonStringIdentityTests.ExportImportKeepsRawKeysLimitsActionsAndIndependentByteValues"
+          "JsonStringIdentityTests.ExportImportKeepsRawKeysLimitsActionsAndIndependentByteValues",
+          "JsonPageAssemblyTests.AssembledExportsCanCreatePdfsAfterAllInputsClose",
+          "JsonPageAssemblyTests.MinimalJobOutputExportsTheAssembledPageTree",
+          "JsonPageAssemblyTests.EachEncryptedInputUsesItsOwnCredential",
+          "JsonPageAssemblyTests.ExportRetainsTheSelectedSourcesVersionFloor"
         ],
         "resource": [
           "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
@@ -4253,11 +4273,15 @@
           "JsonValueOwnershipTests.BulkJsonDiscardsFitConsumerMemoryAllowance",
           "JsonValueOwnershipTests.SidecarsPreserveRawAndDecodedBytesAfterReaderCloses",
           "JsonValueOwnershipTests.InputCloseFaultPreservesMainAndSidecarTargets",
-          "JsonValueOwnershipTests.FailedOrCanceledJsonClosesReaderAndPreservesPriorOutput"
+          "JsonValueOwnershipTests.FailedOrCanceledJsonClosesReaderAndPreservesPriorOutput",
+          "JsonPageAssemblyTests.AssembledJsonRefundsAdmissionAndPreservesPriorReports",
+          "JsonPageAssemblyTests.ContextAssemblyRefundsAdmissionAndPreservesPriorReports",
+          "JsonPageAssemblyTests.AssembledBackingLivesThroughPendingSourceCloseAndSidecarWrite"
         ],
         "oracle": [
           "diff:json-output",
-          "diff:security-json"
+          "diff:security-json",
+          "diff:json-page-assembly"
         ]
       }
     },
@@ -5304,7 +5328,10 @@
           "SignedAppearanceTests.WholeDocumentAndMergeKeepOrdinaryForms",
           "OptionalContentStateTests.StaticDefaultsKeepIndependentGroupStates",
           "OptionalContentStateTests.SourceStatesFollowSelectionPlacementAndSplitWiring",
-          "NamedDestinationTests.LaterDestinationsSurviveSelectionAndPlacement"
+          "NamedDestinationTests.LaterDestinationsSurviveSelectionAndPlacement",
+          "JsonPageAssemblyTests.AssembledPagesAndObjectExportsKeepTheSameGraph",
+          "JsonPageAssemblyTests.PageLabelsFollowTheAssembledSourceOccurrences",
+          "JsonPageAssemblyTests.SourceActionsFormsAndLayersKeepTheirMeaningAcrossCopies"
         ],
         "negative": [
           "AdapterTests.ArgvRangeErrorsFail",
@@ -5314,7 +5341,8 @@
           "SourceActionFailureTests.UnresolvedOrMalformedSourceDestinationsCannotPublish",
           "OptionalContentTests.RequiredOffStateInterpretationKeepsMalformedDataDistinctFromHostFailures",
           "OptionalContentTests.UnsupportedCombinedStatesRefuseBeforePublication",
-          "OptionalContentStateTests.MalformedOnArraysRefuseBeforeReplacingOutput"
+          "OptionalContentStateTests.MalformedOnArraysRefuseBeforeReplacingOutput",
+          "JsonPageAssemblyTests.NoPublicationCanReplaceAConsumedSecondaryInput"
         ],
         "interaction": [
           "MergeCommandTests.ArgvMultiFileMergesInOrder",
@@ -5323,7 +5351,11 @@
           "SignatureSelectionTests.SignatureMetadataCanStillBeInspectedWithoutRewriting",
           "FormSourceContextTests.RetainedFieldsKeepSourceFontAndDefaults",
           "FormSourceContextTests.RewrittenSharedProgramsKeepOneIdentityAndTheirOriginalAliases",
-          "RangeGroupScopeTests.SelectionRotationAndPlacementMatchTheNativeGroupScope"
+          "RangeGroupScopeTests.SelectionRotationAndPlacementMatchTheNativeGroupScope",
+          "JsonPageAssemblyTests.AssembledExportsCanCreatePdfsAfterAllInputsClose",
+          "JsonPageAssemblyTests.MinimalJobOutputExportsTheAssembledPageTree",
+          "JsonPageAssemblyTests.EachEncryptedInputUsesItsOwnCredential",
+          "JsonPageAssemblyTests.ExportRetainsTheSelectedSourcesVersionFloor"
         ],
         "resource": [
           "MergeCommandTests.CollateYieldsToStructuralCardinalityBound",
@@ -5337,7 +5369,10 @@
           "NamedDestinationTests.SharedMissesStayProportionalToTheGraphAndRepeatedQueriesReuseThem",
           "NamedDestinationTests.QueryCacheIsBoundedAndEvictionDoesNotChangeResults",
           "NamedDestinationTests.EitherTokenCancelsAfterTraversalStartsAndRefundsItsIndex",
-          "NamedDestinationTests.EveryAdmissionRefusalRefundsLookupAndTraversalStorage"
+          "NamedDestinationTests.EveryAdmissionRefusalRefundsLookupAndTraversalStorage",
+          "JsonPageAssemblyTests.AssembledJsonRefundsAdmissionAndPreservesPriorReports",
+          "JsonPageAssemblyTests.ContextAssemblyRefundsAdmissionAndPreservesPriorReports",
+          "JsonPageAssemblyTests.AssembledBackingLivesThroughPendingSourceCloseAndSidecarWrite"
         ],
         "oracle": [
           "diff:select",
@@ -5346,7 +5381,8 @@
           "diff:errors",
           "diff:outlines-preserve",
           "diff:structure-preserve",
-          "diff:forms-collision"
+          "diff:forms-collision",
+          "diff:json-page-assembly"
         ]
       }
     },

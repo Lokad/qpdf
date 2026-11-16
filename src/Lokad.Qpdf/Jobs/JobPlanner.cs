@@ -802,23 +802,10 @@ internal static partial class JobPlanner
                 List<PdfPageSource> inspectionSources = new();
                 if (hasPages)
                 {
-                    List<(string File, string? Range, string? Password)> inspectionEntries = ParsePagesEntries(pages, textStorage);
-                    foreach ((string file, string? _, string? _) in inspectionEntries)
-                    {
-                        if (empty && file == ".") { throw new QpdfParseException("Cannot select from '.' with empty input.", 0L, null); }
-                    }
-                    inspectionSources = ParsePageSources(inspectionEntries, input, passwordMode, suppressPasswordRecovery, textStorage, governor);
+                    inspectionSources = ParseInspectionSources(pages, input, empty, passwordMode, suppressPasswordRecovery, textStorage, governor);
                 }
-                PdfPageCollation? inspectionCollation = null;
-                if (seenCollate && hasPages)
-                {
-                    List<int> sizes = collationSizes ?? throw new InvalidOperationException("Missing parsed collation sizes.");
-                    if (sizes.Count != 1 && sizes.Count != inspectionSources.Count)
-                    {
-                        throw new QpdfParseException("Job collate must hold one value or one per pages entry.", 0L, null);
-                    }
-                    inspectionCollation = (textStorage.Collation ?? throw new InvalidOperationException("Missing collation owner.")).CreatePolicy(sizes);
-                }
+                PdfPageCollation? inspectionCollation = seenCollate && hasPages
+                    ? ParseInspectionCollation(collationSizes, inspectionSources.Count, textStorage) : null;
                 (QpdfPath checkInput, bool checkEmpty) = ResolveInspectionInput(input, empty, "check");
                 return new CheckPlan(checkInput, recovery)
                 {
@@ -970,11 +957,6 @@ internal static partial class JobPlanner
                 throw new QpdfParseException("Job JSON requires \"outputFile\".", 0L, null);
             }
 
-            if ((seenJson || seenJsonOutput) && hasPages)
-            {
-                throw new QpdfParseException("Job \"json\" cannot be combined with \"pages\".", 0L, null);
-            }
-
             if ((seenJson || seenJsonOutput) && (wantAttachments || attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0))
             {
                 throw new QpdfParseException("Job \"json\" cannot be combined with attachment keys.", 0L, null);
@@ -990,7 +972,7 @@ internal static partial class JobPlanner
             // document-JSON writer ignores retain their separate policies.
             bool importJson = jsonInput || seenUpdateFromJson;
             if ((importJson || seenJson || seenJsonOutput)
-                && (replaceInput || splitPages is not null || seenCollate || rotations.Count > 0
+                && (replaceInput || splitPages is not null || (importJson && seenCollate) || rotations.Count > 0
                     || flattenRotation || flattenAnnotations is not null || generateAppearances
                     || qdf || linearize || overlays.Count > 0 || underlays.Count > 0))
             {
@@ -1125,8 +1107,14 @@ internal static partial class JobPlanner
 
                 string jsonStreams = seenJsonStreamData ? jsonStreamData! : (seenJsonOutput ? "inline" : "none");
                 (QpdfPath inspectionInput, bool emptyDocument) = ResolveInspectionInput(input, empty, "json inspection");
+                List<PdfPageSource> jsonSources = hasPages
+                    ? ParseInspectionSources(pages, input, empty, passwordMode, suppressPasswordRecovery, textStorage, governor) : [];
+                PdfPageCollation? jsonCollation = seenCollate && hasPages
+                    ? ParseInspectionCollation(collationSizes, jsonSources.Count, textStorage) : null;
                 return new JsonPlan(inspectionInput, output is null ? null : SelectionPlan.CheckedPath(output), jsonNumber, effectiveKeys, recovery) with
                 {
+                    Sources = jsonSources,
+                    Collation = jsonCollation,
                     PasswordFiles = passwordFiles,
                     Password = password,
                     EmptyDocument = emptyDocument,
@@ -2163,6 +2151,26 @@ internal static partial class JobPlanner
             textStorage.Memory.Reserve(64L);
             specs[index] = spec with { PasswordText = null, Password = ParseSourcePassword(password, mode, suppressRecovery, textStorage) };
         }
+    }
+
+    private static PdfPageCollation ParseInspectionCollation(List<int>? sizes, int sources, ConfigurationText textStorage)
+    {
+        if (sizes is null) { throw new InvalidOperationException("Missing parsed collation sizes."); }
+        if (sizes.Count != 1 && sizes.Count != sources)
+        { throw new QpdfParseException("Job collate must hold one value or one per pages entry.", 0L, null); }
+        return (textStorage.Collation ?? throw new InvalidOperationException("Missing collation owner.")).CreatePolicy(sizes);
+    }
+
+    private static List<PdfPageSource> ParseInspectionSources(JobValue pages, string? primary, bool empty, string? mode,
+        bool suppressRecovery, ConfigurationText textStorage, ResourceGovernor governor)
+    {
+        List<(string File, string? Range, string? Password)> entries = ParsePagesEntries(pages, textStorage);
+        foreach ((string file, string? _, string? _) in entries)
+        {
+            governor.CheckCancellation();
+            if (empty && file == ".") { throw new QpdfParseException("Cannot select from '.' with empty input.", 0L, null); }
+        }
+        return ParsePageSources(entries, primary, mode, suppressRecovery, textStorage, governor);
     }
 
     private static List<PdfPageSource> ParsePageSources(List<(string File, string? Range, string? Password)> entries,

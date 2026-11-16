@@ -254,8 +254,9 @@ internal sealed record SecurityPlan(QpdfPath Input, QpdfRecoveryMode Recovery, b
     QpdfPassword? Password) : JobPlan(Input);
 
 /// <summary>Validated structural inspection.</summary>
-internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input)
+internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input), IInspectionGraphPlan
 {
+    public bool AssembleCatalog => false;
     public QpdfPassword? Password { get; init; }
 
     public bool ShowEncryption { get; init; }
@@ -292,8 +293,11 @@ internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : Jo
 internal sealed record WholeFilePlan(QpdfPath Input, QpdfPath Output, QpdfRecoveryMode Recovery) : JobPlan(Input);
 
 /// <summary>Validated JSON inspection.</summary>
-internal sealed record JsonPlan(QpdfPath Input, QpdfPath? Output, int Version, IReadOnlyList<string> Keys, QpdfRecoveryMode Recovery) : JobPlan(Input)
+internal sealed record JsonPlan(QpdfPath Input, QpdfPath? Output, int Version, IReadOnlyList<string> Keys, QpdfRecoveryMode Recovery) : JobPlan(Input), IInspectionGraphPlan
 {
+    public bool AssembleCatalog => true;
+    public IReadOnlyList<PdfPageSource> Sources { get; init; } = [];
+    public PdfPageCollation? Collation { get; init; }
     public QpdfPassword? Password { get; init; }
 
     public string StreamDataMode { get; init; } = "none";
@@ -316,6 +320,7 @@ internal sealed record JsonInspection(
     bool MinimalOutput)
 {
     internal QpdfPassword? Password { get; init; }
+    internal IInspectionGraphPlan? GraphPlan { get; init; }
 }
 
 /// <summary>Validated JSON import: a qpdf JSON file converted to PDF.</summary>

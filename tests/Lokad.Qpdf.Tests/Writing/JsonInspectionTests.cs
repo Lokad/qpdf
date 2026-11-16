@@ -226,7 +226,6 @@ public sealed class JsonInspectionTests
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
     }
     [Theory]
-    [InlineData("--pages", "1")]
     [InlineData("--check")]
     [InlineData("--list-attachments")]
     [InlineData("--add-attachment", "files/n.bin", "--")]
@@ -477,7 +476,6 @@ public sealed class JsonInspectionTests
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"jsonKey\": [\"pages\"]}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"json\": \"2\", \"jsonKey\": \"pages\"}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"json\": \"2\", \"jsonKey\": [\"bogus\"]}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"json\": \"1\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}]}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"json\": \"2\", \"listAttachments\": true}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"jsonStreamData\": \"inline\"}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"jsonObject\": [\"trailer\"]}")]

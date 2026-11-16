@@ -233,9 +233,23 @@ internal static class JsonExecution
         ValidateJsonKeys(inspection.Version, inspection.Keys);
         // The configuration owner funds this immutable selection through execution.
         HashSet<(bool Trailer, int Number, int Generation)>? wanted = inspection.Objects;
-        if (outputPath.HasValue && string.Equals(inputPath.Value, outputPath.Value.Value, StringComparison.Ordinal))
+        using ParserMemoryScope? sourceProtection = inspection.GraphPlan is { Sources.Count: > 0 }
+            ? ParserMemoryScope.Create(governor) : null;
+        HashSet<string>? sourcePaths = null;
+        if (sourceProtection is not null && inspection.GraphPlan is IInspectionGraphPlan graphPlan)
         {
-            throw new QpdfParseException("The output file must differ from the input file.", 0L, null);
+            sourcePaths = ParserContainers.CreateSet<string>(sourceProtection);
+            ParserContainers.AddSetItem(sourceProtection, sourcePaths, inputPath.Value, IntPtr.Size);
+            foreach (PdfPageSource source in graphPlan.Sources)
+            {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                ParserContainers.AddSetItem(sourceProtection, sourcePaths, source.Input.Value == "." ? inputPath.Value : source.Input.Value, IntPtr.Size);
+            }
+        }
+        bool IsSource(string path) => sourcePaths is null ? string.Equals(inputPath.Value, path, StringComparison.Ordinal) : sourcePaths.Contains(path);
+        if (outputPath.HasValue && IsSource(outputPath.Value.Value))
+        {
+            throw new QpdfParseException("The output file must differ from every input file.", 0L, null);
         }
 
         string decodeLevel = inspection.DecodeLevel ?? (inspection.MinimalOutput ? "none" : "generalized");
@@ -260,6 +274,9 @@ internal static class JsonExecution
         await using QpdfDocument document = emptyDocument
             ? await QpdfDocument.OpenEmptyDocument(inputPath, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false)
             : await QpdfDocument.OpenInspectionCore(host, inputPath, inspection.Password, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
+        using InspectionGraphPreparation.InspectionGraph? graph = inspection.GraphPlan is null ? null
+            : await InspectionGraphPreparation.PrepareInspectionGraphAsync(host, document, inspection.GraphPlan, limits,
+                governor, diagnostics, cancellationToken).ConfigureAwait(false);
         Json.JsonRequest request = new(inspection.Version, inspection.Keys, decodeLevel, inspection.StreamData, prefix, wanted, inspection.MinimalOutput);
         using Json.PreparedJsonOutput output = Json.PreparedJsonOutput.Create(governor);
         long mainBytes;
@@ -270,6 +287,7 @@ internal static class JsonExecution
             { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), mainBytes, limits.MaxOutputBytes); }
             // The chunks no longer refer to PDF values. Close the reader
             // before allocating immutable text and publication copies.
+            graph?.Dispose();
             if (!testJsonSchema) { await document.DisposeAsync().ConfigureAwait(false); }
             using GovernedText text = builder.Finish();
             if (testJsonSchema)
@@ -286,8 +304,8 @@ internal static class JsonExecution
         foreach (Json.JsonPayload sidecar in sidecars)
         {
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            if (string.Equals(sidecar.Name, inputPath.Value, StringComparison.Ordinal))
-            { throw new QpdfParseException("A JSON stream file must differ from the input file.", 0L, null); }
+            if (IsSource(sidecar.Name))
+            { throw new QpdfParseException("A JSON stream file must differ from every input file.", 0L, null); }
             if (string.Equals(sidecar.Name, outputPath?.Value, StringComparison.Ordinal))
             { throw new QpdfParseException("A JSON stream file must differ from the main JSON output.", 0L, null); }
             anticipatedBytes = checked(anticipatedBytes + sidecar.Data.Length);

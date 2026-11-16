@@ -36,6 +36,7 @@
     <None Include="../Fixtures/labels-split-*.pdf" Link="Fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/minimal-1page.pdf" Link="Fixtures/minimal-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/minimal-2page.pdf" Link="Fixtures/minimal-2page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/json-assembly-*.pdf" Link="Fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/rotated-1page.pdf" Link="Fixtures/rotated-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/unref-1page.pdf" Link="Fixtures/unref-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/undefined-form-resources.pdf" Link="Fixtures/undefined-form-resources.pdf" CopyToOutputDirectory="PreserveNewest" />

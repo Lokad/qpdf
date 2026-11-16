@@ -1169,24 +1169,7 @@ internal static class DocumentJson
         List<int> numbers = output.CreateObjectNumbers();
         try
         {
-            int maxObjectId = 0;
-            foreach (KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
-            {
-                governor.CheckCancellation(); cancellationToken.ThrowIfCancellationRequested();
-                if (entry.Value.Kind == XrefEntryKind.Free)
-                {
-                    continue;
-                }
-
-                governor.CheckCancellation();
-                output.AddObjectNumber(numbers, entry.Key);
-                if (entry.Key > maxObjectId)
-                {
-                    maxObjectId = entry.Key;
-                }
-            }
-
-            GovernedSort.Sort<int, ObjectNumberComparer>(CollectionsMarshal.AsSpan(numbers), new(), governor, cancellationToken);
+            int maxObjectId = CollectObjectNumbers(engine, numbers, output, governor, cancellationToken);
             if (request.Version == 1)
             {
                 builder.Append((char)123);
@@ -1195,9 +1178,7 @@ internal static class DocumentJson
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     governor.NoteOperation();
-                    int generation = engine.XRefEntries[number].Kind == XrefEntryKind.Compressed
-                        ? 0
-                        : engine.XRefEntries[number].Second;
+                    int generation = engine.InspectionObjectGeneration(number);
                     if (!request.WantsObject(number, generation))
                     {
                         continue;
@@ -1232,9 +1213,12 @@ internal static class DocumentJson
 
             builder.Append("[{");
             builder.Append("\"jsonversion\": 2,\"pdfversion\": ");
-            builder.Append('"'); builder.AppendInteger(document.HeaderVersionParts.Major); builder.Append('.'); builder.AppendInteger(document.HeaderVersionParts.Minor); builder.Append('"');
-            builder.Append(",\"pushedinheritedpageresources\": false,\"calledgetallpages\": ");
-            builder.Append(touchesPages ? "true" : "false");
+            QpdfDocument.VersionParts version = engine.InspectionVersionParts ?? document.HeaderVersionParts;
+            builder.Append('"'); builder.AppendInteger(version.Major); builder.Append('.'); builder.AppendInteger(version.Minor); builder.Append('"');
+            builder.Append(",\"pushedinheritedpageresources\": ");
+            builder.Append(engine.HasInspectionObjects ? "true" : "false");
+            builder.Append(",\"calledgetallpages\": ");
+            builder.Append(touchesPages || engine.HasInspectionObjects ? "true" : "false");
             builder.Append(",\"maxobjectid\": ");
             builder.AppendInteger(maxObjectId);
             builder.Append("}, {");
@@ -1243,9 +1227,7 @@ internal static class DocumentJson
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 governor.NoteOperation();
-                int generation = engine.XRefEntries[number].Kind == XrefEntryKind.Compressed
-                    ? 0
-                    : engine.XRefEntries[number].Second;
+                int generation = engine.InspectionObjectGeneration(number);
                 if (!request.WantsObject(number, generation))
                 {
                     continue;
@@ -1287,6 +1269,26 @@ internal static class DocumentJson
             builder.Append("}]");
         }
         finally { output.ReleaseObjectNumbers(numbers); }
+    }
+
+    private static int CollectObjectNumbers(DocumentEngine engine, List<int> numbers, PreparedJsonOutput output,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        int greatest = 0;
+        foreach (KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (entry.Value.Kind == XrefEntryKind.Free) { continue; }
+            output.AddObjectNumber(numbers, entry.Key); greatest = Math.Max(greatest, entry.Key);
+        }
+        foreach (int number in engine.InspectionObjectNumbers)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (!engine.HasNewInspectionObject(number)) { continue; }
+            output.AddObjectNumber(numbers, number); greatest = Math.Max(greatest, number);
+        }
+        GovernedSort.Sort<int, ObjectNumberComparer>(CollectionsMarshal.AsSpan(numbers), new(), governor, token);
+        return greatest;
     }
 
     private readonly struct ObjectNumberComparer : IComparer<int>
@@ -1353,26 +1355,14 @@ internal static class DocumentJson
         List<int> numbers = output.CreateObjectNumbers();
         try
         {
-            foreach (KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
-            {
-                governor.CheckCancellation(); cancellationToken.ThrowIfCancellationRequested();
-                if (entry.Value.Kind != XrefEntryKind.Free)
-                {
-                    governor.CheckCancellation();
-                    output.AddObjectNumber(numbers, entry.Key);
-                }
-            }
-
-            GovernedSort.Sort<int, ObjectNumberComparer>(CollectionsMarshal.AsSpan(numbers), new(), governor, cancellationToken);
+            _ = CollectObjectNumbers(engine, numbers, output, governor, cancellationToken);
             builder.Append((char)123);
             bool first = true;
             foreach (int number in numbers)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 governor.NoteOperation();
-                int generation = engine.XRefEntries[number].Kind == XrefEntryKind.Compressed
-                    ? 0
-                    : engine.XRefEntries[number].Second;
+                int generation = engine.InspectionObjectGeneration(number);
                 if (!request.WantsObject(number, generation))
                 {
                     continue;

@@ -25,6 +25,13 @@ internal static class AnnotationCopies
         IReadOnlyDictionary<GraphCopier, CopiedForm?> forms,
         bool duplicateWidgets,
         ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token, ref int allocator)
+        => Isolate(occurrences, forms, duplicateWidgets, null, governor, ownership, token, ref allocator);
+
+    internal static IReadOnlyList<(GraphCopier Copier, CopiedForm Part, int Occurrence)> Isolate(
+        IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
+        IReadOnlyDictionary<GraphCopier, CopiedForm?> forms,
+        bool duplicateWidgets, IReadOnlyDictionary<int, int>? pageGenerations,
+        ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token, ref int allocator)
     {
         if (occurrences.Count < 2) { return Array.Empty<(GraphCopier, CopiedForm, int)>(); }
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
@@ -160,7 +167,8 @@ internal static class AnnotationCopies
             {
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 PdfDictionary original = (PdfDictionary)copier.CopiedObjects[linked[item]];
-                graph.Memory.Reserve(32L); PdfReference pageRef = new(id, 0); graph.Add(32L);
+                int generation = pageGenerations is not null && pageGenerations.TryGetValue(id, out int sourceGeneration) ? sourceGeneration : 0;
+                graph.Memory.Reserve(32L); PdfReference pageRef = new(id, generation); graph.Add(32L);
                 copier.ReplaceCopiedObject(linked[item], PdfDictionaryRebuild.ReplaceEntry(graph, original, "P"u8, pageRef));
                 if (original.TryGet(PdfName.FromAscii("Popup"), out QpdfObject popup) && popup is PdfReference popupRef
                     && ResolveOrNull(resolver, popupRef) is PdfDictionary

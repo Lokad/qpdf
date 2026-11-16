@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Assemble pages before JSON inspection/export, including collation and empty
+  primaries. Preserve labels, secondary contexts, complete primary references,
+  source version requirements and input protection through JSON recreation.
 - Resolve named outline targets and destination wrappers in both JSON versions,
   including page outline lists and full-generation target validation.
 - Bound destination-tree miss traversal and reuse repeated named lookups while

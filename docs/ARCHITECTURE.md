@@ -69,6 +69,10 @@ coordinates primary-source policy, per-input credentials and split occurrences.
 Page, label and attachment assembly share their graph helpers with inspection
 projection. `OutputPublication` owns identifier preparation, serializers and staged
 captures; split captures finish before any target commits.
+JSON page-source assembly uses that inspection graph, preserves primary pairs,
+and exports new copied identities alongside original objects. Source action,
+form, annotation and layer owners bind secondary context before input cleanup;
+the graph detaches after serialization and sidecar copying, before publication.
 Combined attachment reports and extraction use one document. Targeted binary
 publication transfers admitted payload backing past reader cleanup through commit;
 combined binary payloads use the existing inspection buffer.
