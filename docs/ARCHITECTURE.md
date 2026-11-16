@@ -157,8 +157,9 @@ never falls back to plaintext. Freshly protected split files get independent key
 
 The primary input controls preservation; page, attachment, placement and template
 sources authenticate independently. Copied objects outlive their source readers
-and receive the output owner's protection. Repeated sources validate credential
-consistency. Typed operations, argv and job JSON use this same ownership path;
+and receive the output owner's protection. Grouped page sources require matching
+credentials after command setter normalization; attachment imports authenticate
+per request. Typed operations, argv and job JSON use these same owners;
 argv encryption blocks feed the shared planner and preserve setter order.
 
 Writers encrypt after compression and final object numbering. R2–R4 per-object

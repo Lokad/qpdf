@@ -8,6 +8,7 @@ public sealed class RemoveRestrictionsTests
     [Theory]
     [InlineData("--remove-restrictions=x")]
     [InlineData("--check")]
+    [InlineData("--show-npages")]
     [InlineData("--show-object=1")]
     [InlineData("--json")]
     public async Task InvalidOrReadOnlyCombinationsRejectBeforeHostAccess(string option)

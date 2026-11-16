@@ -11,7 +11,7 @@ Typed operations, `Qpdf.ExecuteAsync` argv and `Qpdf.ExecuteJobAsync` job JSON s
 the engine. Hosts supply inputs, outputs, descriptors and environment values;
 fileless inspection returns text or bytes. The core has no runtime NuGet dependencies.
 
-Typed reading is strict and selection preserves encoded streams. Argv/job defaults
+Typed selection preserves encoded streams. Argv/job defaults
 to bounded repair and generalized decoding/compression. Argv setters follow argument
 order; job setters follow sorted-key order, including nested files. Unsupported
 options and combinations fail explicitly. Execution reports exit 0/2/3 and diagnostics.
@@ -50,7 +50,7 @@ using a 512-byte source prefix and the revision's 32/127-byte result limit.
 Typed raw bytes are borrowed until opening completes
 and never reinterpreted. R2–R4 use the first 32 bytes and R5/R6 use 127. Missing credentials try
 empty; a failed absent password is distinct from a failed supplied password.
-`--remove-restrictions`/`removeRestrictions` explicitly selects the default signature-disabling PDF publication policy. Inspections and JSON exports reject that setting; input signature values remain available for read-only inspection.
+`--remove-restrictions`/`removeRestrictions` explicitly selects the default signature-disabling PDF publication policy. Non-predicate inspections and JSON exports reject it; signature values remain available for reading. See [query precedence](#reports-and-predicates).
 Standalone `--show-crypto` reports `managed` through the result diagnostics; it takes no other arguments or job JSON key.
 Encryption facts expose permissions and authentication status without passwords
 or keys. Typed `SelectPageAsync` authenticates with the same password values and
@@ -202,6 +202,8 @@ hex-bytes uses the same bounded hex decoder. Both output passwords use this mode
 and 3 when the supplied or empty password matches. Job JSON uses `isEncrypted`
 and `requiresPassword`. These mutually exclusive predicates return `Completed`
 with no ordinary output; `--warning-exit-0` does not alter their query codes.
+Predicates take precedence over other inspections and ignore `--remove-restrictions`;
+acceptance does not establish restriction removal.
 Malformed or unsupported security handlers fail explicitly.
 
 `--show-encryption` / `showEncryption` reports declared permissions, cipher methods
@@ -228,8 +230,9 @@ extraction/layout, general authoring and PDF/A/X/UA conformance are outside scop
 ## Selection semantics
 
 - Select ordered 1-based pages, duplicates, FirstAndLast windows or Normalized
-  sets; merge, collate, rotate, label and split. Explicit empty/out-of-range
-  requests reject. Range exclusions affect their preceding positive group.
+  sets; merge, collate, rotate, label and split. Typed explicit page lists must be
+  nonempty; supported ranges can select no pages. Invalid/out-of-range endpoints
+  reject. Range exclusions affect their preceding positive group.
 - The primary owns document metadata and attachments even when none of its pages
   is selected. Secondary global collections require explicit import; page-reachable
   data copies normally. Explicit empty primary differs from a real zero-page input.
@@ -274,8 +277,8 @@ skipped stages. It does not establish rendering or conformance. Object, xref, pa
 image, attachment and outline listings use the shared resolver.
 
 Typed `Qpdf.CountPagesAsync` traverses the page tree and returns its count, warnings
-and final counters after input cleanup. Strict parsing is the default; the explicit
-credential/recovery/limits overload can request bounded repair. Standalone counts
+and final counters after input cleanup. Its credential/recovery/limits overload
+can request bounded repair. Standalone counts
 can omit large unrelated payloads in compact classic-xref inputs. Other layouts,
 protected inputs and uncertain validation use complete acquisition on the same
 lease; memory refusal remains a failure. Document opening and combined inspection
@@ -283,13 +286,16 @@ retain their separate complete-input contracts.
 
 Typed `GetDocumentJsonAsync` overloads without an output path return JSON without
 publishing a report. None/inline stream modes need no output capability. File
-sidecars require an explicit stream prefix and retain ordinary collision checks
-and sequential publication. Existing overloads with an output path publish the
+mode requires an explicit stream prefix without a report target, even in v1.
+Emitted sidecars retain ordinary collision checks and sequential publication.
+Existing overloads with an output path publish the
 report as well as returning it. Caller budget scopes must outlive returned text
 and warnings, including after host/document cleanup.
 
 PDF JSON v1/v2 preserve reference identities; v2 uses binary strings whenever text
-would change bytes. Stream data can be omitted, inline or host sidecars. V2
+would change bytes. V1 emits stream dictionaries only, including when inline/file
+settings are accepted; it creates no sidecars. V2 can omit/include stream payloads
+or publish host sidecars. V2
 import/update accepts generation-zero declarations, validates page structure and
 replaces dangling references with null. Page/content/image/layout transforms and
 stream/metadata writer controls are unavailable during import/update.

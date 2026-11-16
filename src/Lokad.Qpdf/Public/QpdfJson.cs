@@ -47,6 +47,8 @@ public sealed record QpdfJsonOptions
     public int Version { get; }
 
     /// <summary>Creates JSON inspection options with stream and output controls.</summary>
+    /// <remarks>Version 1 emits stream dictionaries only. Version 2 can omit payloads,
+    /// include them inline or publish sidecars. File-prefix validation applies to both versions.</remarks>
     /// <exception cref="ArgumentOutOfRangeException">The version is not 1 or 2.</exception>
     /// <exception cref="ArgumentNullException">Keys, stream data, or objects are null.</exception>
     /// <exception cref="ArgumentException">A list contains a null entry or stream data is unknown.</exception>
@@ -94,10 +96,11 @@ public sealed record QpdfJsonOptions
     /// <summary>Gets a read-only snapshot of selected top-level keys; empty means all supported keys.</summary>
     public IReadOnlyList<string> Keys { get; }
 
-    /// <summary>Gets how stream payloads are represented: none, inline, or file.</summary>
+    /// <summary>Gets the version-2 payload mode: none, inline, or file. Version 1 emits dictionaries only.</summary>
     public string StreamData { get; } = "none";
 
     /// <summary>Gets the stream sidecar prefix for file mode; null requires a report output path to use as the prefix.</summary>
+    /// <remarks>File mode validates the prefix in both versions; only version 2 emits sidecars.</remarks>
     public string? StreamPrefix { get; }
 
     /// <summary>Gets a read-only snapshot of selected objects in trailer or obj[,gen] form; empty means all.</summary>
