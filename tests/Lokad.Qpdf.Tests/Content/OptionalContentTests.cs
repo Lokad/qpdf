@@ -98,8 +98,9 @@ public sealed class OptionalContentTests
     internal static byte[] Fixture(bool indirect, string policy, bool alias)
     {
         byte[] program = "/OC /Layer BDC 1 0 0 rg 20 20 40 40 re f EMC"u8.ToArray();
-        string defaults = "<< /BaseState /ON /OFF " + (indirect ? "8 0 R" : "[5 0 R]")
-            + (policy == "automatic" ? " /AS [<< /Event /View /Category [/View] /OCGs [5 0 R] >>]" : "") + " >>";
+        string defaults = "<< /BaseState /" + (policy == "unchanged" ? "Unchanged" : "ON") + " /OFF " + (indirect ? "8 0 R" : "[5 0 R]")
+            + (policy == "automatic" ? " /AS [<< /Event /View /Category [/View] /OCGs [5 0 R] >>]" : "")
+            + (policy == "configuration" ? " /Intent /Design" : "") + " >>";
         string properties = "<< /OCGs " + (indirect ? "9 0 R" : "[5 0 R]")
             + " /D " + (indirect ? "7 0 R" : defaults)
             + (policy == "alternate" ? " /Configs [<< /Name (Alternate) /BaseState /OFF >>]" : "") + " >>";
@@ -185,6 +186,8 @@ public sealed class OptionalContentTests
     [InlineData("typed", "alternate")]
     [InlineData("argv", "alternate")]
     [InlineData("job", "alternate")]
+    [InlineData("typed", "unchanged")]
+    [InlineData("typed", "configuration")]
     public async Task OneComplexSourceRetainsItsConfiguration(string route, string policy)
     {
         using InMemoryQpdfHost host = new();
@@ -206,6 +209,12 @@ public sealed class OptionalContentTests
         }
         else if (policy == "alternate")
         { Assert.True(properties.TryGet(PdfName.FromAscii("Configs"), out raw)); Assert.Single(Assert.IsType<PdfArray>(Resolve(raw)).Items); }
+        else if (policy is "unchanged" or "configuration")
+        {
+            Assert.True(properties.TryGet(PdfName.FromAscii("D"), out raw)); PdfDictionary defaults = Assert.IsType<PdfDictionary>(Resolve(raw));
+            Assert.True(defaults.TryGet(PdfName.FromAscii(policy == "unchanged" ? "BaseState" : "Intent"), out raw));
+            Assert.Equal(policy == "unchanged" ? "Unchanged" : "Design", Assert.IsType<PdfName>(Resolve(raw)).DisplayText);
+        }
         else
         {
             Assert.True(properties.TryGet(PdfName.FromAscii("OCGs"), out raw));
@@ -224,6 +233,8 @@ public sealed class OptionalContentTests
     [InlineData("typed", "automatic")]
     [InlineData("typed", "intent")]
     [InlineData("typed", "alternate")]
+    [InlineData("typed", "unchanged")]
+    [InlineData("typed", "configuration")]
     public async Task UnsupportedCombinedStatesRefuseBeforePublication(string route, string policy)
     {
         using InMemoryQpdfHost host = new();
@@ -233,17 +244,20 @@ public sealed class OptionalContentTests
         { await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None); await prior.CommitAsync(CancellationToken.None); }
         string[] argv = ["input", "--pages", ".", "1", "source", "1", "--", "output"];
         string job = "{\"inputFile\":\"input\",\"outputFile\":\"output\",\"pages\":[{\"file\":\".\",\"range\":\"1\"},{\"file\":\"source\",\"range\":\"1\"}]}";
+        string expected = policy switch { "automatic" => "automatic states", "intent" => "group intents", "alternate" => "alternate configurations",
+            "unchanged" => "static ON/OFF BaseState", "configuration" => "configuration intent", _ => throw new ArgumentException(nameof(policy)) };
         if (route == "typed")
         {
-            await Assert.ThrowsAsync<QpdfUnsupportedFeatureException>(() => Qpdf.SelectPagesAsync(host,
+            QpdfUnsupportedFeatureException error = await Assert.ThrowsAsync<QpdfUnsupportedFeatureException>(() => Qpdf.SelectPagesAsync(host,
                 [new(QpdfPath.From("input"), new(1)), new(QpdfPath.From("source"), new(1))], QpdfPath.From("output"), new PdfPageMergeOptions(), CancellationToken.None).AsTask());
+            Assert.Contains(expected, error.Message, StringComparison.Ordinal);
         }
         else
         {
             QpdfExecutionResult result = route == "argv" ? await Qpdf.ExecuteAsync(host, new(argv), CancellationToken.None)
                 : await Qpdf.ExecuteJobAsync(host, job, CancellationToken.None);
             Assert.Equal(QpdfExitCode.Error, result.ExitCode);
-            Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.UnsupportedFeature);
+            Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.UnsupportedFeature && d.Message.Contains(expected, StringComparison.Ordinal));
         }
         Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output)); Assert.Equal("prior"u8.ToArray(), output);
         Assert.Equal(0L, host.OpenLeaseCount);

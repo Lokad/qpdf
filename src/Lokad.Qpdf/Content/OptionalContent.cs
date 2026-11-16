@@ -6,7 +6,9 @@ using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Content;
 
-internal sealed record CopiedOptionalContent(QpdfObject Properties, bool CanCombine);
+internal enum OptionalContentFailure { None, BaseState, AutomaticStates, ConfigurationIntent, GroupIntent, AlternateConfigurations }
+
+internal sealed record CopiedOptionalContent(QpdfObject Properties, OptionalContentFailure Failure);
 
 /// <summary>Preserves copied groups' source default states without importing secondary catalogs.</summary>
 internal static class OptionalContent
@@ -23,41 +25,28 @@ internal static class OptionalContent
         // documents never scan the copied pool, and unused groups stay unread.
         bool any = false;
         PdfDictionary? defaults = CatalogCopy.ResolveDictionary(Read(properties, "D"u8, governor, token), engine, governor, token);
-        bool simple = Simple(defaults, engine, governor, token) && NoAlternates(properties, engine, governor, token);
+        OptionalContentFailure failure = PolicyFailure(defaults, engine, governor, token);
+        if (failure == OptionalContentFailure.None && !NoAlternates(properties, engine, governor, token))
+        { failure = OptionalContentFailure.AlternateConfigurations; }
         for (int index = 0; index < sourceGroups.Count; index++)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (TryMappedGroup(sourceGroups[index], engine, copier, governor, token, out _, out PdfDictionary? group))
             {
                 any = true;
-                if (group is not null && !DefaultIntent(Read(group, "Intent"u8, governor, token), engine, governor, token)) { simple = false; }
+                if (group is not null && !DefaultIntent(Read(group, "Intent"u8, governor, token), engine, governor, token)
+                    && failure == OptionalContentFailure.None) { failure = OptionalContentFailure.GroupIntent; }
             }
         }
         if (!any) { return; }
         QpdfObject? retained = CatalogCopy.ReadExtra(extras, "OCProperties"u8, governor, token);
-        if (retained is not null || !simple || rawProperties is PdfReference existing && copier.SourceToDestination.ContainsKey(existing.ObjectNumber))
+        if (retained is not null || failure != OptionalContentFailure.None || rawProperties is PdfReference existing && copier.SourceToDestination.ContainsKey(existing.ObjectNumber))
         {
             QpdfObject result = retained ?? copier.CopyValue(rawProperties ?? properties, 0);
-            ownership.Reserve(32L); copier.OptionalContent = new(result, simple); return;
+            ownership.Reserve(32L); copier.OptionalContent = new(result, failure); return;
         }
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
-        HashSet<int> off = ParserContainers.CreateSet<int>(scratch);
-        if (defaults is not null)
-        {
-            QpdfObject? rawOff = CatalogCopy.ResolveValue(Read(defaults, "OFF"u8, governor, token), engine, governor, token);
-            if (rawOff is not null and not PdfNull && rawOff is not PdfArray)
-            { throw new QpdfParseException("Optional-content OFF states must be an array.", null, null); }
-            if (rawOff is PdfArray disabled)
-            {
-                for (int index = 0; index < disabled.Count; index++)
-                {
-                    token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                    if (TryMappedGroup(disabled[index], engine, copier, governor, token, out int mapped, out _))
-                    { ParserContainers.AddSetItem(scratch, off, mapped, sizeof(int)); }
-                }
-            }
-        }
         List<QpdfObject> members = ParserContainers.CreateList<QpdfObject>(scratch);
         List<QpdfObject> disabledMembers = ParserContainers.CreateList<QpdfObject>(scratch);
         HashSet<int> seen = ParserContainers.CreateSet<int>(scratch);
@@ -68,11 +57,17 @@ internal static class OptionalContent
                 || !ParserContainers.AddSetItem(scratch, seen, number, sizeof(int))) { continue; }
             graph.Memory.Reserve(32L); graph.Add(32L); PdfReference member = new(number, 0);
             ParserContainers.AddItem(scratch, members, member, IntPtr.Size);
-            if (off.Contains(number)) { ParserContainers.AddItem(scratch, disabledMembers, member, IntPtr.Size); }
+        }
+        HashSet<int> off = ReadDisabled(defaults, seen, new(engine, copier), scratch, governor, token);
+        foreach (QpdfObject member in members)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (member is PdfReference reference && off.Contains(reference.ObjectNumber))
+            { ParserContainers.AddItem(scratch, disabledMembers, member, IntPtr.Size); }
         }
         PdfDictionary minimal = Properties(graph, members, disabledMembers, null, null);
         graph.Memory.Reserve(32L); graph.Add(32L);
-        copier.OptionalContent = new(minimal, true);
+        copier.OptionalContent = new(minimal, OptionalContentFailure.None);
         graph.Memory.TransferTo(ownership, graph.Bytes);
     }
 
@@ -121,37 +116,40 @@ internal static class OptionalContent
         if (contributions.Count == 1 && primary is null) { return contributions[0].Properties; }
         if (contributions.Count == 1 && ReferenceEquals(primaryCopier?.OptionalContent, contributions[0])) { return primaryRaw; }
         PdfDictionary? primaryDefaults = primary is null ? null : CatalogCopy.ResolveDictionary(Read(primary, "D"u8, governor, token), resolver, governor, token);
-        if (!Simple(primaryDefaults, resolver, governor, token) || primary is not null && !NoAlternates(primary, resolver, governor, token)
-            || contributions.Exists(static source => !source.CanCombine))
-        { throw new QpdfUnsupportedFeatureException("Combining optional-content defaults with automatic states, alternate configurations or non-View intents is outside the supported profile."); }
+        RequireCombinable(PolicyFailure(primaryDefaults, resolver, governor, token));
+        if (primary is not null && !NoAlternates(primary, resolver, governor, token))
+        { RequireCombinable(OptionalContentFailure.AlternateConfigurations); }
         List<QpdfObject> members = ParserContainers.CreateList<QpdfObject>(scratch);
         List<QpdfObject> off = ParserContainers.CreateList<QpdfObject>(scratch);
         HashSet<int> groupIds = ParserContainers.CreateSet<int>(scratch), offIds = ParserContainers.CreateSet<int>(scratch);
         foreach (CopiedOptionalContent contribution in contributions)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            RequireCombinable(contribution.Failure);
             PdfDictionary properties = CatalogCopy.ResolveDictionary(contribution.Properties, resolver, governor, token)
                 ?? throw new QpdfException("Missing copied optional-content properties.");
             PdfArray groups = CatalogCopy.ResolveValue(Read(properties, "OCGs"u8, governor, token), resolver, governor, token) as PdfArray
                 ?? throw new QpdfException("Missing copied optional-content groups.");
+            using ParserMemoryScope contributionMemory = ParserMemoryScope.Create(governor);
+            HashSet<int> registered = ParserContainers.CreateSet<int>(contributionMemory);
             for (int index = 0; index < groups.Count; index++)
             {
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                if (groups[index] is PdfReference group && ParserContainers.AddSetItem(scratch, groupIds, group.ObjectNumber, sizeof(int)))
-                { ParserContainers.AddItem(scratch, members, group, IntPtr.Size); }
+                if (groups[index] is PdfReference group)
+                {
+                    ParserContainers.AddSetItem(contributionMemory, registered, group.ObjectNumber, sizeof(int));
+                    if (ParserContainers.AddSetItem(scratch, groupIds, group.ObjectNumber, sizeof(int)))
+                    { ParserContainers.AddItem(scratch, members, group, IntPtr.Size); }
+                }
             }
             PdfDictionary? defaults = CatalogCopy.ResolveDictionary(Read(properties, "D"u8, governor, token), resolver, governor, token);
-            QpdfObject? rawOff = defaults is null ? null : CatalogCopy.ResolveValue(Read(defaults, "OFF"u8, governor, token), resolver, governor, token);
-            if (rawOff is not null and not PdfNull && rawOff is not PdfArray)
-            { throw new QpdfParseException("Optional-content OFF states must be an array.", null, null); }
-            if (rawOff is PdfArray disabled)
+            HashSet<int> disabled = ReadDisabled(defaults, registered, new(resolver, null), contributionMemory, governor, token);
+            for (int index = 0; index < groups.Count; index++)
             {
-                for (int index = 0; index < disabled.Count; index++)
-                {
-                    token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                    if (disabled[index] is PdfReference group && ParserContainers.AddSetItem(scratch, offIds, group.ObjectNumber, sizeof(int)))
-                    { ParserContainers.AddItem(scratch, off, group, IntPtr.Size); }
-                }
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                if (groups[index] is PdfReference group && disabled.Contains(group.ObjectNumber)
+                    && ParserContainers.AddSetItem(scratch, offIds, group.ObjectNumber, sizeof(int)))
+                { ParserContainers.AddItem(scratch, off, group, IntPtr.Size); }
             }
         }
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
@@ -193,14 +191,74 @@ internal static class OptionalContent
         return type is PdfName name && name.RawSpan.SequenceEqual("OCG"u8);
     }
 
-    private static bool Simple(PdfDictionary? defaults, IIndirectResolver resolver, ResourceGovernor governor, CancellationToken token)
+    private static OptionalContentFailure PolicyFailure(PdfDictionary? defaults, IIndirectResolver resolver, ResourceGovernor governor, CancellationToken token)
     {
-        if (defaults is null) { return true; }
+        if (defaults is null) { return OptionalContentFailure.None; }
         QpdfObject? state = CatalogCopy.ResolveValue(Read(defaults, "BaseState"u8, governor, token), resolver, governor, token);
-        if (state is not null and not PdfNull && (state is not PdfName name || !name.RawSpan.SequenceEqual("ON"u8))) { return false; }
+        if (state is not null and not PdfNull && (state is not PdfName name || !(name.RawSpan.SequenceEqual("ON"u8) || name.RawSpan.SequenceEqual("OFF"u8))))
+        { return OptionalContentFailure.BaseState; }
         QpdfObject? automatic = CatalogCopy.ResolveValue(Read(defaults, "AS"u8, governor, token), resolver, governor, token);
-        return (automatic is null or PdfNull || automatic is PdfArray { Count: 0 })
-            && DefaultIntent(Read(defaults, "Intent"u8, governor, token), resolver, governor, token);
+        if (automatic is not null and not PdfNull && automatic is not PdfArray { Count: 0 }) { return OptionalContentFailure.AutomaticStates; }
+        return DefaultIntent(Read(defaults, "Intent"u8, governor, token), resolver, governor, token)
+            ? OptionalContentFailure.None : OptionalContentFailure.ConfigurationIntent;
+    }
+
+    private static void RequireCombinable(OptionalContentFailure failure)
+    {
+        if (failure == OptionalContentFailure.None) { return; }
+        throw new QpdfUnsupportedFeatureException(failure switch
+        {
+            OptionalContentFailure.BaseState => "Combining optional content requires a static ON/OFF BaseState.",
+            OptionalContentFailure.AutomaticStates => "Combining optional content with automatic states is outside the supported profile.",
+            OptionalContentFailure.AlternateConfigurations => "Combining optional content with alternate configurations is outside the supported profile.",
+            OptionalContentFailure.ConfigurationIntent => "Combining optional content requires View configuration intent.",
+            OptionalContentFailure.GroupIntent => "Combining optional content requires View group intents.",
+            _ => throw new InvalidOperationException("Unknown optional-content policy.")
+        });
+    }
+
+    private readonly record struct GroupMap(IIndirectResolver Resolver, GraphCopier? Copier)
+    {
+        internal bool TryGet(QpdfObject value, ResourceGovernor governor, CancellationToken token, out int number)
+        {
+            if (Copier is not null && Resolver is DocumentEngine engine)
+            { return TryMappedGroup(value, engine, Copier, governor, token, out number, out _); }
+            number = value is PdfReference reference ? reference.ObjectNumber : 0;
+            return value is PdfReference;
+        }
+    }
+
+    private static HashSet<int> ReadDisabled(PdfDictionary? defaults, IReadOnlySet<int> registered, GroupMap map,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        HashSet<int> disabled = ParserContainers.CreateSet<int>(memory);
+        QpdfObject? state = defaults is null ? null : CatalogCopy.ResolveValue(Read(defaults, "BaseState"u8, governor, token), map.Resolver, governor, token);
+        if (state is PdfName name && name.RawSpan.SequenceEqual("OFF"u8))
+        {
+            foreach (int number in registered)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                ParserContainers.AddSetItem(memory, disabled, number, sizeof(int));
+            }
+        }
+        Apply("ON"u8, false); Apply("OFF"u8, true);
+        return disabled;
+
+        void Apply(ReadOnlySpan<byte> key, bool off)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            QpdfObject? raw = defaults is null ? null : CatalogCopy.ResolveValue(Read(defaults, key, governor, token), map.Resolver, governor, token);
+            if (raw is not null and not PdfNull && raw is not PdfArray)
+            { throw new QpdfParseException(off ? "Optional-content OFF states must be an array." : "Optional-content ON states must be an array.", null, null); }
+            if (raw is not PdfArray values) { return; }
+            for (int index = 0; index < values.Count; index++)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                if (!map.TryGet(values[index], governor, token, out int number) || !registered.Contains(number)) { continue; }
+                if (off) { ParserContainers.AddSetItem(memory, disabled, number, sizeof(int)); }
+                else { disabled.Remove(number); }
+            }
+        }
     }
 
     private static bool NoAlternates(PdfDictionary properties, IIndirectResolver resolver, ResourceGovernor governor, CancellationToken token)

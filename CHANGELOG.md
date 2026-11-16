@@ -2,6 +2,8 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Preserve static layer states when combining ON/OFF default bases, normalize
+  combined output and identify unsupported layer policies precisely.
 - Reuse completed page, label and attachment subtrees while preserving repeated
   page occurrences, label overrides, depth/cycle limits and attachment lookup rules.
 - Match JSON patches by full object number/generation pairs and roundtrip nonzero

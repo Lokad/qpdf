@@ -243,6 +243,14 @@ extraction/layout, general authoring and PDF/A/X/UA conformance are outside scop
   optional-content context before cleanup. Unsupported context combinations fail
   before publication. Private aliases keep their original values.
 
+Combined layer contexts interpret static ON/OFF bases and their member arrays,
+with explicit OFF membership taking precedence. Output uses an ON base and an
+equivalent OFF list; same-named groups retain separate identities. OFF bases in
+the default configuration are tolerated input, outside the
+[specified ON-base requirement](https://opensource.adobe.com/dc-acrobat-sdk-docs/pdfstandards/PDF32000_2008.pdf)
+(Table 101). Combining Unchanged bases, automatic states, alternate configurations
+or non-View intents rejects; a single retained configuration keeps its existing policy.
+
 ## Page content profile
 
 Supported transforms include coalescing, normalization, conservative resource

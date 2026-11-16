@@ -5175,7 +5175,9 @@
           "OverlayDefaultTests.ImportedDefaultsRetainEffectiveValues",
           "OverlayDefaultTests.IndirectDestinationDefaultsDoNotOverrideImportedValues",
           "OverlayDefaultTests.EqualDefaultTextStillBindsTheImportedFontIdentity",
-          "OverlayAnnotationClippingTests.SourceClipKeepsFullRectAndPrivateAppearances"
+          "OverlayAnnotationClippingTests.SourceClipKeepsFullRectAndPrivateAppearances",
+          "OptionalContentStateTests.StaticDefaultsKeepIndependentGroupStates",
+          "OptionalContentStateTests.SourceStatesFollowSelectionPlacementAndSplitWiring"
         ],
         "negative": [
           "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
@@ -5185,7 +5187,9 @@
           "OverlayTests.RangedOverlayFlagsFail",
           "OverlayDefaultTests.UnusableDefaultsKeepFallbacksAndLocalOverrides",
           "OverlayClippingProfileTests.ClippingRequiresRepresentableStaticArtwork",
-          "SourceActionFailureTests.PlacementPreservesSemanticFailureCodesWithoutOptionalRecovery"
+          "SourceActionFailureTests.PlacementPreservesSemanticFailureCodesWithoutOptionalRecovery",
+          "OptionalContentTests.UnsupportedCombinedStatesRefuseBeforePublication",
+          "OptionalContentStateTests.MalformedOnArraysRefuseBeforeReplacingOutput"
         ],
         "interaction": [
           "OverlayTests.JobRoundTripMatchesArgv",
@@ -5210,7 +5214,9 @@
           "OverlayGenerationTests.EveryAdmissionRefusalPreservesPriorOutputAndRefundsPrivateStorage",
           "OverlayGenerationTests.GenerationAwareCopyKeepsRollbackAndCancellation",
           "AppearanceResourceScopeTests.ScopePublicationFailuresPreserveTheTargetAndRefundAdmission",
-          "OverlayClippingCancellationTests.BothTokensInterruptClippingAfterAdmissionWithoutPublishingTheHeader"
+          "OverlayClippingCancellationTests.BothTokensInterruptClippingAfterAdmissionWithoutPublishingTheHeader",
+          "OptionalContentStateTests.BothCopyPathsRefundEveryAdmissionAndPreservePublication",
+          "OptionalContentStateTests.EitherTokenStopsOffBaseInterpretationAfterResolvingTheBase"
         ],
         "oracle": [
           "diff:overlay",
@@ -5278,7 +5284,9 @@
           "SignedAppearanceTests.SelectionPreservesMarksAndDisablesOnlyTheFieldRole",
           "SignedAppearanceTests.WholeDocumentAndMergeKeepOrdinaryForms",
           "SignedAppearanceTests.SelectionPreservesMarksAndDisablesOnlyTheFieldRole",
-          "SignedAppearanceTests.WholeDocumentAndMergeKeepOrdinaryForms"
+          "SignedAppearanceTests.WholeDocumentAndMergeKeepOrdinaryForms",
+          "OptionalContentStateTests.StaticDefaultsKeepIndependentGroupStates",
+          "OptionalContentStateTests.SourceStatesFollowSelectionPlacementAndSplitWiring"
         ],
         "negative": [
           "AdapterTests.ArgvRangeErrorsFail",
@@ -5286,7 +5294,9 @@
           "SignatureSelectionTests.StructuralAndCyclicReferencesStillFailWithoutPublishing",
           "SourceActionFailureTests.AnUnusableExplicitBaseCannotPublishChangedMeaning",
           "SourceActionFailureTests.UnresolvedOrMalformedSourceDestinationsCannotPublish",
-          "OptionalContentTests.RequiredOffStateInterpretationKeepsMalformedDataDistinctFromHostFailures"
+          "OptionalContentTests.RequiredOffStateInterpretationKeepsMalformedDataDistinctFromHostFailures",
+          "OptionalContentTests.UnsupportedCombinedStatesRefuseBeforePublication",
+          "OptionalContentStateTests.MalformedOnArraysRefuseBeforeReplacingOutput"
         ],
         "interaction": [
           "MergeCommandTests.ArgvMultiFileMergesInOrder",
@@ -5303,7 +5313,9 @@
           "SignatureSelectionTests.FailedCopyRefundsStorageAndPreservesPriorOutput",
           "SubtreeReuseTests.SharedSubtreesKeepWorkProportionalToTheirGraphAndResult",
           "SubtreeReuseTests.ReusedSubtreesStillEnforceDepthOnDeeperPaths",
-          "SubtreeReuseTests.EveryTraversalAdmissionRefusalRefundsItsPrivateState"
+          "SubtreeReuseTests.EveryTraversalAdmissionRefusalRefundsItsPrivateState",
+          "OptionalContentStateTests.BothCopyPathsRefundEveryAdmissionAndPreservePublication",
+          "OptionalContentStateTests.EitherTokenStopsOffBaseInterpretationAfterResolvingTheBase"
         ],
         "oracle": [
           "diff:select",
@@ -6834,7 +6846,9 @@
           "SplitReplaceTests.TypedSplitMatchesArgv",
           "SplitReplaceTests.TypedSplitMatchesJob",
           "PublicationAdmissionTests.InactiveFirstPassDoesNotCreateOrOverwriteCapture",
-          "SplitLabelContinuationTests.EverySplitKeepsTheSelectedPagesEffectiveLabels"
+          "SplitLabelContinuationTests.EverySplitKeepsTheSelectedPagesEffectiveLabels",
+          "OptionalContentStateTests.StaticDefaultsKeepIndependentGroupStates",
+          "OptionalContentStateTests.SourceStatesFollowSelectionPlacementAndSplitWiring"
         ],
         "negative": [
           "SplitReplaceTests.SplitOutputAliasingInputFailsCleanly",
@@ -6842,7 +6856,9 @@
           "SplitReplaceTests.TypedSplitNonPositiveFailsCleanly",
           "PublicationAdmissionTests.ActiveFirstPassCannotOverwriteAnyMainOutput",
           "SplitLabelContinuationTests.RealOverflowAndCyclicTreesFailBeforeAnySplitIsPublished",
-          "SplitInputCollisionTests.EveryExpandedNameProtectsThePrimaryEvenWhenItsPagesAreOmitted"
+          "SplitInputCollisionTests.EveryExpandedNameProtectsThePrimaryEvenWhenItsPagesAreOmitted",
+          "OptionalContentTests.UnsupportedCombinedStatesRefuseBeforePublication",
+          "OptionalContentStateTests.MalformedOnArraysRefuseBeforeReplacingOutput"
         ],
         "interaction": [
           "SplitReplaceTests.SplitSingleGroupMatchesDirectBytes",
@@ -6853,7 +6869,9 @@
         ],
         "resource": [
           "ResourceEnforcementTests.SplitYieldsToExhaustedBudget",
-          "ZeroPageRewriteTests.ZeroSplitGroupsPreserveEveryTarget"
+          "ZeroPageRewriteTests.ZeroSplitGroupsPreserveEveryTarget",
+          "OptionalContentStateTests.BothCopyPathsRefundEveryAdmissionAndPreservePublication",
+          "OptionalContentStateTests.EitherTokenStopsOffBaseInterpretationAfterResolvingTheBase"
         ],
         "oracle": [
           "diff:split",
@@ -7173,7 +7191,9 @@
           "OverlayDefaultTests.ImportedDefaultsRetainEffectiveValues",
           "OverlayDefaultTests.IndirectDestinationDefaultsDoNotOverrideImportedValues",
           "OverlayDefaultTests.EqualDefaultTextStillBindsTheImportedFontIdentity",
-          "OverlayAnnotationClippingTests.SourceClipKeepsFullRectAndPrivateAppearances"
+          "OverlayAnnotationClippingTests.SourceClipKeepsFullRectAndPrivateAppearances",
+          "OptionalContentStateTests.StaticDefaultsKeepIndependentGroupStates",
+          "OptionalContentStateTests.SourceStatesFollowSelectionPlacementAndSplitWiring"
         ],
         "negative": [
           "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
@@ -7182,7 +7202,9 @@
           "OverlayPasswordTests.PrimaryPlacementRequiresItsOwnCredential",
           "OverlayDefaultTests.UnusableDefaultsKeepFallbacksAndLocalOverrides",
           "OverlayClippingProfileTests.ClippingRequiresRepresentableStaticArtwork",
-          "SourceActionFailureTests.PlacementPreservesSemanticFailureCodesWithoutOptionalRecovery"
+          "SourceActionFailureTests.PlacementPreservesSemanticFailureCodesWithoutOptionalRecovery",
+          "OptionalContentTests.UnsupportedCombinedStatesRefuseBeforePublication",
+          "OptionalContentStateTests.MalformedOnArraysRefuseBeforeReplacingOutput"
         ],
         "interaction": [
           "OverlayTests.WholeFileJobOverlay",
@@ -7201,7 +7223,9 @@
           "AnnotationCoordinateFailureTests.PointArraysAdmitBeforeAllocatingAndHonorBothCancellationRoutes",
           "OverlayGenerationTests.EveryAdmissionRefusalPreservesPriorOutputAndRefundsPrivateStorage",
           "OverlayGenerationTests.GenerationAwareCopyKeepsRollbackAndCancellation",
-          "OverlayClippingCancellationTests.BothTokensInterruptClippingAfterAdmissionWithoutPublishingTheHeader"
+          "OverlayClippingCancellationTests.BothTokensInterruptClippingAfterAdmissionWithoutPublishingTheHeader",
+          "OptionalContentStateTests.BothCopyPathsRefundEveryAdmissionAndPreservePublication",
+          "OptionalContentStateTests.EitherTokenStopsOffBaseInterpretationAfterResolvingTheBase"
         ],
         "oracle": [
           "diff:overlay-ranges",
