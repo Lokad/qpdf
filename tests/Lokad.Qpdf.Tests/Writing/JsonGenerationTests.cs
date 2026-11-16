@@ -46,33 +46,55 @@ public sealed class JsonGenerationTests
         foreach (string role in new[] { "private", "root", "pages", "kid", "resources", "info", "attachment", "stream-header", "array" })
         foreach (int generation in new[] { 0, 1 })
         foreach (bool update in new[] { false, true })
-        foreach (string route in new[] { "typed", "argv", "job" }) { yield return [role, generation, update, route]; }
+        { yield return [role, generation, update, "typed"]; }
         foreach (int generation in new[] { 65535, 65536, int.MaxValue })
         foreach (bool update in new[] { false, true })
-        foreach (string route in new[] { "typed", "argv", "job" }) { yield return ["private", generation, update, route]; }
+        { yield return ["private", generation, update, "typed"]; }
+        foreach (string role in new[] { "private", "root" })
+        foreach (int generation in new[] { 0, 1 })
+        foreach (bool update in new[] { false, true })
+        foreach (string route in new[] { "argv", "job" }) { yield return [role, generation, update, route]; }
     }
 
     [Theory]
     [MemberData(nameof(AuthoredCases))]
-    public async Task AuthoredReferencesRequireGenerationZero(string role, int generation, bool update, string route)
+    public async Task AuthoredReferencesBindOnlyDeclaredPairs(string role, int generation, bool update, string route)
     {
         using InMemoryQpdfHost host = new(); JsonPageTreeTests.Register(host, Authored(role, generation)); await JsonPageTreeTests.Seed(host);
-        if (generation == 0)
+        if (generation == 0 || role is not ("root" or "pages" or "kid"))
         {
             await Run(host, update, route); Assert.Equal(0L, host.OpenLeaseCount);
             await using QpdfDocument reader = await OpenOutput(host); Assert.Equal(1, reader.PageCount);
+            PdfDictionary catalog = Assert.IsType<PdfDictionary>(Resolve(reader, Get(reader.Engine.Trailer, "Root")));
+            QpdfObject target;
+            switch (role)
+            {
+                case "root": case "pages": case "kid": return;
+                case "resources": target = Get(reader.PageReferences[0].Page, "Resources"); break;
+                case "info": target = Get(reader.Engine.Trailer, "Info"); break;
+                case "attachment":
+                    PdfDictionary names = Assert.IsType<PdfDictionary>(Get(catalog, "Names"));
+                    PdfDictionary files = Assert.IsType<PdfDictionary>(Get(names, "EmbeddedFiles"));
+                    target = Assert.IsType<PdfArray>(Get(files, "Names"))[1]; break;
+                case "stream-header": target = Get(Assert.IsType<PdfStream>(Resolve(reader, Get(reader.PageReferences[0].Page, "Contents"))).Dictionary, "Audit"); break;
+                case "array":
+                    PdfArray array = Assert.IsType<PdfArray>(Get(catalog, "Audit")); target = array[0];
+                    Assert.IsType<PdfDictionary>(Resolve(reader, array[1])); break;
+                default: target = Get(catalog, "Audit"); break;
+            }
+            if (generation == 0) { Assert.IsType<PdfDictionary>(Resolve(reader, target)); }
+            else { Assert.IsType<PdfNull>(target); }
             return;
         }
         if (route == "typed")
         {
-            QpdfParseException error = await Assert.ThrowsAsync<QpdfParseException>(() => JsonPageTreeTests.Typed(host, update, QpdfLimits.Default, CancellationToken.None));
-            Assert.Contains("generations", error.Message, StringComparison.Ordinal);
+            await Assert.ThrowsAsync<QpdfParseException>(() => JsonPageTreeTests.Typed(host, update, QpdfLimits.Default, CancellationToken.None));
         }
         else
         {
             QpdfExecutionResult result = await JsonPageTreeTests.Execute(host, update, route, QpdfLimits.Default, CancellationToken.None);
             Assert.Equal(QpdfExecutionStatus.Failed, result.Status); Assert.Equal(QpdfExitCode.Error, result.ExitCode);
-            Assert.Contains("generations", Assert.Single(result.Diagnostics).Message, StringComparison.Ordinal); Assert.Equal(0L, result.Counters.OpenHandles);
+            Assert.Equal(QpdfDiagnosticCode.InvalidArguments, Assert.Single(result.Diagnostics).Code); Assert.Equal(0L, result.Counters.OpenHandles);
         }
         JsonPageTreeTests.AssertPrior(host);
     }
@@ -208,23 +230,36 @@ public sealed class JsonGenerationTests
     }
 
     [Theory]
-    [InlineData(false, "typed")]
-    [InlineData(true, "typed")]
-    [InlineData(false, "argv")]
-    [InlineData(true, "argv")]
-    [InlineData(false, "job")]
-    [InlineData(true, "job")]
-    public async Task ReplacedObjectsKeepLiveSourceAliasesAndAcceptNewZeroGenerationEdges(bool replaceCatalog, string route)
+    [InlineData(0, "typed")]
+    [InlineData(7, "typed")]
+    [InlineData(8, "typed")]
+    [InlineData(0, "argv")]
+    [InlineData(0, "job")]
+    public async Task UpdatesMatchPairsAndBindNewEdgesWithoutRevivingStaleSourceAliases(int generation, string route)
     {
         using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), Source("private", 7, true), QpdfInputOwnership.Copy);
-        string replacement = replaceCatalog
-            ? "\"obj:1 0 R\":{\"value\":{\"/Type\":\"/Catalog\",\"/Pages\":\"2 0 R\",\"/New\":\"5 0 R\"}}"
-            : "\"obj:5 0 R\":{\"value\":{\"/Marker\":\"u:new\"}}";
-        host.AddInput(QpdfPath.From("json"), Encoding.UTF8.GetBytes("{\"qpdf\":[{\"jsonversion\":2},{" + replacement + "}]}"), QpdfInputOwnership.Copy);
+        Dictionary<string, object> objects = new()
+        {
+            ["obj:3 0 R"] = new { value = new Dictionary<string, object> {
+                ["/Type"] = "/Page", ["/Parent"] = "2 0 R", ["/MediaBox"] = new[] { 0, 0, 80, 40 }, ["/Resources"] = new Dictionary<string, object>(),
+                ["/Live"] = "5 7 R", ["/Zero"] = "5 0 R", ["/Other"] = "5 8 R", ["/Forward"] = "99 11 R", ["/Missing"] = "99 0 R" } },
+            ["obj:5 " + generation + " R"] = new { value = new Dictionary<string, object> { ["/Marker"] = "u:new" } },
+            ["obj:99 11 R"] = new { value = 17 }
+        };
+        host.AddInput(QpdfPath.From("json"), JsonSerializer.SerializeToUtf8Bytes(new { qpdf = new object[] { new { jsonversion = 2 }, objects } }), QpdfInputOwnership.Copy);
         await Run(host, true, route); await using QpdfDocument reader = await OpenOutput(host);
         PdfDictionary catalog = Assert.IsType<PdfDictionary>(Resolve(reader, Get(reader.Engine.Trailer, "Root")));
-        PdfDictionary value = Assert.IsType<PdfDictionary>(Resolve(reader, Get(catalog, replaceCatalog ? "New" : "Live")));
-        Assert.Equal(Encoding.ASCII.GetBytes(replaceCatalog ? "old" : "new"), Assert.IsType<PdfByteString>(Get(value, "Marker")).Value);
-        if (!replaceCatalog) { Assert.IsType<PdfNull>(Get(catalog, "Audit")); }
+        string Marker(QpdfObject raw) => Encoding.ASCII.GetString(Assert.IsType<PdfByteString>(Get(Assert.IsType<PdfDictionary>(Resolve(reader, raw)), "Marker")).Value);
+        Assert.Equal(generation == 7 ? "new" : "old", Marker(Get(catalog, "Live")));
+        Assert.IsType<PdfNull>(Get(catalog, "Audit"));
+        PdfDictionary page = reader.PageReferences[0].Page;
+        Assert.Equal(Get(catalog, "Live"), Get(page, "Live"));
+        foreach ((int pairGeneration, string key) in new[] { (0, "Zero"), (8, "Other") })
+        {
+            if (generation == pairGeneration) { Assert.Equal("new", Marker(Get(page, key))); Assert.NotEqual(Get(catalog, "Live"), Get(page, key)); }
+            else { Assert.IsType<PdfNull>(Get(page, key)); }
+        }
+        Assert.Equal(17L, Assert.IsType<PdfInteger>(Resolve(reader, Get(page, "Forward"))).Value);
+        Assert.IsType<PdfNull>(Get(page, "Missing"));
     }
 }

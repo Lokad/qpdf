@@ -4040,11 +4040,15 @@
           "JsonImportTests.CreateRoundTrip",
           "JsonImportTests.CreateReadsDatafiles",
           "JsonImportTests.CreateAppliesNameAndStringForms",
+          "JsonPairRoundTripTests.ExportedPairsRoundTripThroughCreationAndUpdates",
+          "JsonPairRoundTripTests.CreationKeepsDistinctGenerationsAndMaximumNumbersWithoutSparseAllocation",
+          "JsonPairRoundTripTests.CompressedMembersRoundTripWithGenerationZero",
           "JsonNumberTests.NumericFormsRoundTripThroughCreateAndUpdate",
           "JsonImportTests.UpdateChangesValues"
         ],
         "negative": [
           "JsonImportTests.MalformedJsonFails",
+          "JsonGenerationTests.AuthoredReferencesBindOnlyDeclaredPairs",
           "JsonNumberTests.UnsupportedNumbersPreservePriorOutput",
           "JsonImportTests.ImportCombinationsFail",
           "JsonImportTests.MissingOutputFails",
@@ -4055,6 +4059,7 @@
           "JsonImportTests.TypedCreateRoundTrip",
           "EncryptedJsonCreationTests.TypedCreationProtectsStringsStreamsAndFinalCatalogMetadata",
           "EncryptedJsonCreationCommandTests.CommandsCreatePlaintextJsonWithTheSelectedProtection",
+          "JsonPairRoundTripTests.AuthenticatedGenerationExportsKeepDecryptedInfoAndExplicitProtection",
           "EncryptedJsonCreationCommandTests.PrimaryPasswordFilesAreReadWithoutAuthenticatingPlaintextJson",
           "EncryptedJsonCreationTests.DeclaredJsonEncryptionRequiresAnExplicitPolicy",
           "EncryptedJsonRoundTripTests.FullAuthenticatedExportsRoundTripThroughExplicitOutputPolicies",
@@ -7218,6 +7223,9 @@
         "positive": [
           "JsonImportTests.UpdateChangesValues",
           "JsonImportTests.UpdateKeepsStreamData",
+          "JsonGenerationTests.UpdatesMatchPairsAndBindNewEdgesWithoutRevivingStaleSourceAliases",
+          "JsonPairRoundTripTests.ExportedPairsRoundTripThroughCreationAndUpdates",
+          "JsonPairRoundTripTests.StreamPayloadReuseRequiresTheExactExistingPair",
           "JsonNumberTests.NumericFormsRoundTripThroughCreateAndUpdate",
           "JsonImportTests.UpdateReplacesStreamData",
           "JsonImportTests.UpdateAddsObjects",
@@ -7227,6 +7235,7 @@
         ],
         "negative": [
           "JsonImportTests.UpdateCombinationsFail",
+          "JsonPairRoundTripTests.MismatchedStreamWithoutDataRejectsAndPreservesPriorTarget",
           "JsonNumberTests.UnsupportedNumbersPreservePriorOutput",
           "JsonImportTests.UpdateMissingOutputFails",
           "JsonImportTests.UpdatePushedAttributesFail",
@@ -7237,6 +7246,7 @@
           "JsonImportTests.JobUpdateMalformedFails",
           "JsonImportTests.TypedUpdateRoundTrip",
           "JsonImportTests.TypedUpdateValidation",
+          "JsonPairRoundTripTests.AuthenticatedGenerationExportsKeepDecryptedInfoAndExplicitProtection",
           "EncryptedJsonUpdateTests.TypedUpdatesProtectChangedStringsStreamsAndMetadata",
           "EncryptedJsonUpdateCommandTests.CommandsApplyPlaintextPatchesWithTheChosenProtection",
           "EncryptedJsonUpdateCommandTests.UpdatesSharePrimaryPasswordFilesModesAndRecovery",
@@ -7247,6 +7257,7 @@
         ],
         "resource": [
           "JsonImportTests.UpdateYieldsToExhaustedBudget",
+          "JsonGenerationOwnershipTests.NormalizedUpdatesPreserveTargetsAndRefundPrivateStorage",
           "EncryptedJsonRoundTripTests.EveryFullUpdateAdmissionRefusalRefundsBeforePublication",
           "EncryptedJsonUpdateTests.EveryUpdateAdmissionRefusalRefundsBeforeEncryptedPublication"
         ],

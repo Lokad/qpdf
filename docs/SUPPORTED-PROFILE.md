@@ -295,9 +295,13 @@ and warnings, including after host/document cleanup.
 PDF JSON v1/v2 preserve reference identities; v2 uses binary strings whenever text
 would change bytes. V1 emits stream dictionaries only, including when inline/file
 settings are accepted; it creates no sidecars. V2 can omit/include stream payloads
-or publish host sidecars. V2
-import/update accepts generation-zero declarations, validates page structure and
-replaces dangling references with null. Page/content/image/layout transforms and
+or publish host sidecars. V2 import/update matches complete object number and
+generation pairs before assigning output numbers. New JSON edges bind live source
+pairs and declared objects, including forward references; stale/free/missing
+original source edges remain null even when a patch declares that pair. A stream
+patch without payload data reuses bytes only from its matching source pair.
+Import/update validates page structure and replaces dangling references with null.
+Page/content/image/layout transforms and
 stream/metadata writer controls are unavailable during import/update.
 
 ## Writer profile

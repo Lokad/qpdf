@@ -12,7 +12,7 @@ namespace Lokad.Qpdf.Writing;
 /// </summary>
 internal static class ObjectRemap
 {
-    // Validate source pairs before JSON edits introduce generation-zero values.
+    // Validate source pairs before JSON edits introduce new definitions.
     // The existing immutable walk borrows the xref index and stream payloads.
     internal static QpdfObject NormalizeSource(QpdfObject value, IReadOnlyDictionary<int, XrefEntry> entries,
         ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
@@ -20,6 +20,21 @@ internal static class ObjectRemap
         memory.CheckOwner(governor);
         return RemapIds(value, new NumberMap(null, null, null) { SourceEntries = entries, DiscardUnmapped = true },
             memory, governor, token, 0L);
+    }
+
+    internal static QpdfObject NormalizeSource(QpdfObject value, IReadOnlyDictionary<int, XrefEntry> entries,
+        Dictionary<(int Number, int Generation), int> bindings, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        memory.CheckOwner(governor);
+        return RemapIds(value, new NumberMap(null, null, null) { SourceEntries = entries, Pairs = bindings, DiscardUnmapped = true },
+            memory, governor, token, 0L);
+    }
+
+    internal static QpdfObject RemapImported(QpdfObject value, Dictionary<(int Number, int Generation), int> bindings,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        memory.CheckOwner(governor);
+        return RemapIds(value, new NumberMap(null, null, null) { Pairs = bindings, DiscardUnmapped = true }, memory, governor, token, 0L);
     }
 
     internal static QpdfObject RemapImported(QpdfObject value, Dictionary<int, int> renumber,
@@ -68,15 +83,18 @@ internal static class ObjectRemap
         internal bool DiscardUnmapped { get; init; }
         internal IReadOnlySet<int>? PageNumbers { get; init; }
         internal IReadOnlyDictionary<int, XrefEntry>? SourceEntries { get; init; }
+        internal Dictionary<(int Number, int Generation), int>? Pairs { get; init; }
         internal bool TryGetValue(PdfReference reference, out int mapped)
         {
             int number = reference.ObjectNumber;
             if (SourceEntries is not null)
             {
                 mapped = number;
-                return SourceEntries.TryGetValue(number, out XrefEntry entry) && entry.Kind != XrefEntryKind.Free
-                    && reference.Generation == (entry.Kind == XrefEntryKind.Compressed ? 0 : entry.Second);
+                if (!SourceEntries.TryGetValue(number, out XrefEntry entry) || entry.Kind == XrefEntryKind.Free
+                    || reference.Generation != (entry.Kind == XrefEntryKind.Compressed ? 0 : entry.Second)) { return false; }
+                return Pairs is null || Pairs.TryGetValue((number, reference.Generation), out mapped);
             }
+            if (Pairs is not null) { return Pairs.TryGetValue((number, reference.Generation), out mapped); }
             if (Writer is not null) { return Writer.TryGetValue(number, out mapped); }
             if (Governed is not null) { return Governed.TryGetValue(number, out mapped); }
             if (Plain is not null) { return Plain.TryGetValue(number, out mapped); }

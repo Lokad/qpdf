@@ -49,8 +49,8 @@ public sealed class JsonGenerationOwnershipTests
         using (IMemoryScope caller = root.CreateScope())
         using (InMemoryQpdfHost storage = new(QpdfLimits.Default, null, durable))
         {
-            storage.AddInput(QpdfPath.From("input"), JsonGenerationTests.Source("cycle", 7, true), QpdfInputOwnership.Transfer);
-            storage.AddInput(QpdfPath.From("json"), "{\"qpdf\":[{\"jsonversion\":2},{}]}"u8.ToArray(), QpdfInputOwnership.Transfer);
+            storage.AddInput(QpdfPath.From("input"), JsonGenerationTests.Source("contents", 7, false), QpdfInputOwnership.Transfer);
+            storage.AddInput(QpdfPath.From("json"), ReusedStreamPatch(), QpdfInputOwnership.Transfer);
             await JsonPageTreeTests.Seed(storage); long before = root.ReservedBytes;
             using CancellationTokenSource cancellation = new(); Host host = new(storage, caller, fault, cancellation);
             QpdfLimits limits = fault == "memory" ? QpdfLimits.Default with { MaxMemoryBytes = 4096L } : QpdfLimits.Default;
@@ -89,7 +89,7 @@ public sealed class JsonGenerationOwnershipTests
             using (CancellationTokenSource cancellation = new())
             {
                 storage.AddInput(QpdfPath.From("input"), JsonGenerationTests.Source("contents", 7, false), QpdfInputOwnership.Transfer);
-                storage.AddInput(QpdfPath.From("json"), "{\"qpdf\":[{\"jsonversion\":2},{}]}"u8.ToArray(), QpdfInputOwnership.Transfer);
+                storage.AddInput(QpdfPath.From("json"), ReusedStreamPatch(), QpdfInputOwnership.Transfer);
                 result = await JsonPageTreeTests.Typed(new Host(storage, caller, "none", cancellation), true, QpdfLimits.Default, CancellationToken.None);
                 Assert.Equal(0L, storage.OpenLeaseCount);
             }
@@ -98,6 +98,9 @@ public sealed class JsonGenerationOwnershipTests
         }
         Assert.Equal(0L, root.ReservedBytes);
     }
+
+    private static byte[] ReusedStreamPatch()
+        => "{\"qpdf\":[{\"jsonversion\":2},{\"obj:5 7 R\":{\"stream\":{\"dict\":{\"/Self\":\"5 7 R\"}}}}]}"u8.ToArray();
 
     [Theory]
     [InlineData(8192L)]

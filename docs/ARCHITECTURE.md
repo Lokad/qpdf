@@ -46,6 +46,10 @@ payload isolation remains with its payload owner.
 reachability, encryption numbering, ordering and object-stream grouping.
 Catalog contents, version requirements and original-ID inversion have separate
 internal owners; source copying supplies their data without duplicating policy.
+JSON import binds full object number/generation pairs before lowering to the
+writer's numbered model. The shared remapper validates original source edges
+against live xrefs and binds JSON edges against source/declared pairs, borrowing
+stream payloads while their backing owner lives. Its binding index is temporary.
 
 ## Component map
 

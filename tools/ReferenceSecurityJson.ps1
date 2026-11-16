@@ -26,13 +26,17 @@ function Assert-SecurityJsonPayloads {
 function Invoke-ReferenceSecurityJson {
   foreach ($profile in @(
     @('r2', 2, 40, -64), @('r3', 3, 128, -3388), @('r4', 4, 128, -3388),
-    @('r4-rc4', 4, 128, -3388), @('r5', 5, 256, -3388), @('r6', 6, 256, -3388)
+    @('r4-rc4', 4, 128, -3388), @('r5', 5, 256, -3388), @('r6', 6, 256, -3388),
+    @('r4-generations', 4, 128, -3388)
   )) {
-    foreach ($route in @('argv', 'job')) {
-      foreach ($mode in @('inline', 'file')) {
+    $routes = if ($profile[0] -eq 'r4-generations') { @('argv') } else { @('argv', 'job') }
+    $modes = if ($profile[0] -eq 'r4-generations') { @('inline') } else { @('inline', 'file') }
+    foreach ($route in $routes) {
+      foreach ($mode in $modes) {
         $name = "security-json-$($profile[0])-$route-$mode"
         $case = New-Case $name
-        Copy-Item -LiteralPath "$fixtureDir/security-$($profile[0])-ascii.pdf" -Destination "$case/inputs/a.pdf"
+        $fixture = if ($profile[0] -eq 'r4-generations') { 'security-r4-generations.pdf' } else { "security-$($profile[0])-ascii.pdf" }
+        Copy-Item -LiteralPath "$fixtureDir/$fixture" -Destination "$case/inputs/a.pdf"
         $nativeOptions = @('--password=reader', '--json-output=2', "--json-stream-data=$mode")
         if ($mode -eq 'file') { $nativeOptions += '--json-stream-prefix=inputs/native-stream' }
         $native = Invoke-Oracle $case (@('inputs/a.pdf', "$case/native.json") + $nativeOptions)
@@ -60,6 +64,27 @@ function Invoke-ReferenceSecurityJson {
         if ($result.Status -cne 'Completed' -or $result.ExitCode -ne 0) { throw "$name managed export failed" }
         $json = Get-Content -LiteralPath "$case/inputs/full.json" -Raw | ConvertFrom-Json -AsHashtable
         Assert-SecurityJsonPayloads $case $json $reference
+        if ($profile[0] -eq 'r4-generations') {
+          $pair = $json.qpdf[1].trailer.value['/Info'] -split ' '
+          if ($pair.Count -ne 3 -or $pair[1] -cne '513') { throw "$name lost the nonzero Info generation" }
+          foreach ($generation in @('0', '513')) {
+            $patch = @{ qpdf = @(@{ jsonversion = 2 }, @{ "obj:$($pair[0]) $generation R" = @{ value = @{ '/Title' = 'u:Pair replacement' } } }) }
+            $patch | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath "$case/inputs/pair.json" -Encoding utf8NoBOM
+            $patchFields = @{ inputFile = 'inputs/a.pdf'; outputFile = 'outputs/a.pdf'; password = 'reader'; updateFromJson = 'inputs/pair.json' }
+            Invoke-SecurityPolicyCase $case "$name-pair-$generation" $route $patchFields @('--password=reader', '--update-from-json=inputs/pair.json') 'reader' 'fixture-owner' 4 128 -3388 $true
+            foreach ($side in @('lib', 'ora')) {
+              $code = Invoke-Oracle $case @('--password=reader', '--json-output=2', "$case/$side.pdf")
+              if ($code -ne 0) { throw "$name-pair-$generation/$side inspection failed" }
+              $actual = Get-Content -LiteralPath "$case/ora-stdout.txt" -Raw | ConvertFrom-Json -AsHashtable
+              $infoKey = 'obj:' + $actual.qpdf[1].trailer.value['/Info']
+              $expected = if ($generation -eq '0') { 'u:TitleText' } else { 'u:Pair replacement' }
+              if ($actual.qpdf[1][$infoKey].value['/Title'] -cne $expected) { throw "$name-pair-$generation/$side changed the wrong object pair" }
+              Move-Item -LiteralPath "$case/$side.pdf" -Destination "$case/$side-pair-$generation.pdf"
+              Move-Item -LiteralPath "$case/$side-plain.pdf" -Destination "$case/$side-pair-$generation-plain.pdf"
+              Move-Item -LiteralPath "$case/$side-plain.pdf.reference.json" -Destination "$case/$side-pair-$generation-plain.pdf.reference.json"
+            }
+          }
+        }
         # A changed plaintext string proves the update, while unmodified stream
         # payloads exercise encrypted inline/sidecar import through both writers.
         $info = 'obj:' + $json.qpdf[1].trailer.value['/Info']

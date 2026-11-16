@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Match JSON patches by full object number/generation pairs and roundtrip nonzero
+  generations through creation/update. Keep newly declared pairs distinct and
+  reuse omitted stream payloads only from the matching source pair.
 - Protect encryption templates, password files and consumed configuration files
   from first-pass capture replacement before PDF/password reads or publication.
 - Share attachment inspection validation and one authenticated document across
