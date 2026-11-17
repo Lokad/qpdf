@@ -292,6 +292,8 @@ preserves opaque streams with an explicit warning or skipped check.
 Checking covers structure, streams, content, forms and linearization, with explicit
 skipped stages. It does not establish rendering or conformance. Object, xref, page,
 image, attachment and outline listings use the shared resolver.
+Filtered stream inspection accepts normalization for returned bytes or an explicit
+host output target. Raw extraction retains its encoded bytes.
 Image filter/parameter descriptors retain stored aliases, live references and
 array shapes. With decoding disabled they project raw specifications without
 building or validating a decoder plan; input and output limits still apply.

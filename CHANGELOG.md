@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Apply content normalization to filtered stream inspection with explicit host
+  output targets, sharing the existing returned-byte policy and publication guards.
+
 - Share literal decoding and canonical encoding across parsing, normalization and
   writing, with exact temporary buffers and caller-specific limits.
 

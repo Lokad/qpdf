@@ -897,7 +897,7 @@ internal static partial class JobPlanner
                     || seenObjectStreams || seenPreserveUnreferenced
                     || seenStreamData || seenCompressStreams || seenDecodeLevel || seenTestJsonSchema || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
-                    || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
+                    || seenCoalesceContents || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
                     || seenFlattenRotation || seenFlattenAnnotations || seenGenerateAppearances
                     || seenQdf || seenLinearize || seenNoOriginalObjectIds
@@ -924,6 +924,7 @@ internal static partial class JobPlanner
                     Output = output is null ? null : SelectionPlan.CheckedPath(output),
                     RawStreamData = rawStreamData,
                     FilteredStreamData = filteredStreamData,
+                    NormalizeContent = normalizeContent,
                     MaxStreamFilters = maxStreamFilters,
                     ParserMaxNesting = parserMaxNesting,
                     MaxContainerSize = maxContainerSize,

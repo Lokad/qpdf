@@ -3426,7 +3426,8 @@
           "ShowObjectTests.FilteredBeatsRaw",
           "ShowObjectTests.JobStreamDataMatchesArgv",
           "EmptyDecodeParmsTests.FilteredInspectionUsesDefaultsForEmptyParameterArrays",
-          "FilterParameterSupportTests.MetadataAndDecoderUseTheSameParameterRules"
+          "FilterParameterSupportTests.MetadataAndDecoderUseTheSameParameterRules",
+          "NormalizedStreamPublicationTests.NormalizationIsIndependentOfOutputTransport"
         ],
         "negative": [
           "ShowObjectTests.StreamOutputPathsMustBeUnambiguous",
@@ -3446,7 +3447,8 @@
           "CodecDecodedBudgetTests.PublicPngExtractionChargesSamplesAndPreservesPriorOutputOnRefusal",
           "LzwDictionaryTests.PublicInspectionFitsTwentyMiBAndRetainsOutput",
           "FilterPlanTests.EmptyParameterArraysUseDefaultsWithoutRetainingResolutionStorage",
-          "FilterPlanTests.CancellationAtResolverBoundaryPreventsPublication"
+          "FilterPlanTests.CancellationAtResolverBoundaryPreventsPublication",
+          "NormalizedStreamPublicationTests.NormalizedTargetPreparationOwnsItsAdmissionAndPublication"
         ],
         "oracle": [
           "diff:show-object-stream-data"
@@ -5048,7 +5050,8 @@
         ],
         "interaction": [
           "ContentTransformsTests.JobContentFlagsRoundTrip",
-          "LogicalContentPartitionTests.NormalizationWiringAndExplicitDisableHaveDistinctBytes"
+          "LogicalContentPartitionTests.NormalizationWiringAndExplicitDisableHaveDistinctBytes",
+          "NormalizedStreamPublicationTests.JobAndIncludedJobForwardNormalizationToTheTarget"
         ],
         "resource": [
           "ResourceEnforcementTests.NormalizeYieldsToExhaustedBudget",
@@ -6010,7 +6013,8 @@
         ],
         "interaction": [
           "ShowObjectTests.JobStreamDataMatchesArgv",
-          "ShowObjectTests.JobStreamDataRejectsCombinations"
+          "ShowObjectTests.JobStreamDataRejectsCombinations",
+          "NormalizedStreamPublicationTests.RawPublicationKeepsEncodedBytesWithNormalizationEnabled"
         ],
         "resource": [
           "ShowObjectTests.StreamDataYieldsToExhaustedBudget"

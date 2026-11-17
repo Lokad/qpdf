@@ -299,7 +299,6 @@ public sealed class ShowObjectTests
     [InlineData("inputs/a.pdf", "--show-object=4", "--filtered-stream-data=x")]
     [InlineData("inputs/a.pdf", "--show-object=4", "--raw-stream-data", "--raw-stream-data=x", "--", "outputs/r.bin")]
     [InlineData("inputs/a.pdf", "--show-object=4", "--filtered-stream-data", "--filtered-stream-data=x", "--", "outputs/r.bin")]
-    [InlineData("inputs/a.pdf", "--show-object=4", "--normalize-content=y", "--filtered-stream-data", "--", "outputs/f.bin")]
     public async Task RejectsMalformedStreamForms(params string[] argv)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
