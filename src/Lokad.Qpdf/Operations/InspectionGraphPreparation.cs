@@ -96,11 +96,12 @@ internal static class InspectionGraphPreparation
                 Dictionary<PdfName, QpdfObject> extra = ParserContainers.CreateDictionary<PdfName, QpdfObject>(memory);
                 if (plan.Sources.Count > 0 || overlay)
                 {
-                    foreach (PdfName key in InspectionInherited)
+                    PageInheritance.InheritedValues inheritedValues = PageInheritance.FindAncestors(document.Engine, location,
+                        InspectionInherited, limits, governor, cancellationToken);
+                    for (int index = 0; index < InspectionInherited.Length; index++)
                     {
-                        if (location.Page.TryGet(key, out QpdfObject own)
-                            && PageInheritance.Resolve(document.Engine, own, limits, governor) is not PdfNull) { continue; }
-                        QpdfObject? inherited = PageInheritance.Find(document.Engine, location, key, limits, governor, cancellationToken);
+                        PdfName key = InspectionInherited[index];
+                        QpdfObject? inherited = inheritedValues[index];
                         if (inherited is null) { continue; }
                         QpdfObject kept = inherited;
                         if (inherited is PdfArray or PdfDictionary)
