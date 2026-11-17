@@ -20,6 +20,9 @@ public sealed class JobFieldOrderingTests
             yield return ["nested-order", "\"compressStreams\":\"y\",\"jobJsonFile\":\"child\",\"streamData\":\"compress\"",
                 """{"jobJsonFile":"grandchild","streamData":"uncompress"}""", true, file];
             yield return ["duplicate-include", "\"jobJsonFile\":\"missing\",\"jobJsonFile\":\"child\"", """{"compressStreams":"n"}""", false, file];
+            yield return ["long-last-prefix", string.Concat(Enumerable.Repeat("\"compressStreams\":\"y\",", 4096)) + "\"compressStreams\":\"n\"", "{}", false, file];
+            yield return ["long-last-suffix", "\"jobJsonFile\":\"child\"," + string.Concat(Enumerable.Repeat("\"streamData\":\"compress\",", 4096)) + "\"streamData\":\"uncompress\"",
+                """{"compressStreams":"y"}""", false, file];
         }
     }
 

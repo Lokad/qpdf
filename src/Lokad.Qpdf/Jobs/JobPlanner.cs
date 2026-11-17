@@ -389,7 +389,7 @@ internal static partial class JobPlanner
                             throw new QpdfParseException("Job \u0027global\u0027 must be an object.", 0L, null);
                         }
 
-                        foreach (JobSetting globalProperty in EffectiveProperties(property.Value))
+                        foreach (JobSetting globalProperty in EffectiveProperties(property.Value, governor))
                         {
                             switch (globalProperty.Name)
                             {
@@ -1276,10 +1276,15 @@ internal static partial class JobPlanner
     internal static bool IsCryptoKey(string name)
         => name is "encrypt" or "decrypt" or "password" or "passwordFile" or "passwordMode" or "passwordIsHexKey" or "suppressPasswordRecovery" or "encryptionFilePassword" or "allowWeakCrypto" or "copyEncryption" or "showEncryptionKey" or "staticAesIv" or "removeRestrictions";
 
-    internal static IEnumerable<JobSetting> EffectiveProperties(JobValue value)
+    internal static IEnumerable<JobSetting> EffectiveProperties(JobValue value, ResourceGovernor governor)
     {
+        governor.CheckCancellation();
         Dictionary<string, JobSetting> properties = new(StringComparer.Ordinal);
-        foreach (JobSetting property in value.EnumerateObject()) { properties[property.Name] = property; }
+        foreach (JobSetting property in value.EnumerateObject())
+        {
+            governor.NoteOperation();
+            properties[property.Name] = property;
+        }
         return properties.Values;
     }
 
@@ -1373,7 +1378,7 @@ internal static partial class JobPlanner
         string? mimeType = null;
         string? description = null;
         bool replace = false;
-        foreach (JobSetting property in EffectiveProperties(entry))
+        foreach (JobSetting property in EffectiveProperties(entry, textStorage.Governor))
         {
             switch (property.Name)
             {
@@ -1530,7 +1535,7 @@ internal static partial class JobPlanner
         string? file = null;
         string? prefix = null;
         string? password = null;
-        foreach (JobSetting property in EffectiveProperties(entry))
+        foreach (JobSetting property in EffectiveProperties(entry, textStorage.Governor))
         {
             switch (property.Name)
             {
@@ -1991,7 +1996,7 @@ internal static partial class JobPlanner
         string? from = null;
         string? repeat = null;
         string? password = null;
-        foreach (JobSetting property in EffectiveProperties(entry))
+        foreach (JobSetting property in EffectiveProperties(entry, textStorage.Governor))
         {
             switch (property.Name)
             {
@@ -2125,7 +2130,7 @@ internal static partial class JobPlanner
         string? file = null;
         string? range = null;
         string? password = null;
-        foreach (JobSetting property in EffectiveProperties(entry))
+        foreach (JobSetting property in EffectiveProperties(entry, textStorage.Governor))
         {
             switch (property.Name)
             {

@@ -338,22 +338,40 @@ internal static class JobJsonLoader
             List<JobSetting> fields = _fields ?? throw new ObjectDisposedException(nameof(Session));
             // Each document has one include: forward prefixes, then reverse suffixes
             // reproduce native sorted-key traversal without recursive loading.
-            for (int index = first; index < Documents.Count; index++) { AddFields(Documents[index], true, fields); }
-            for (int index = Documents.Count - 1; index >= first; index--) { AddFields(Documents[index], false, fields); }
+            // Document admission already funds property dictionaries, names and lists;
+            // only this temporary suffix index adds storage across the prepared lists.
+            int count = Documents.Count - first;
+            using ParserMemoryScope ordering = ParserMemoryScope.Create(_governor);
+            ordering.Reserve(checked(32L + IntPtr.Size * (long)count));
+            List<JobSetting>[] suffixes = new List<JobSetting>[count];
+            for (int index = 0; index < count; index++)
+            {
+                List<JobSetting> sorted = PrepareFields(Documents[first + index]);
+                int suffix = 0;
+                while (suffix < sorted.Count)
+                {
+                    _governor.NoteOperation();
+                    int order = string.CompareOrdinal(sorted[suffix].Name, FileKey);
+                    if (order > 0) { break; }
+                    if (order < 0) { fields.Add(sorted[suffix]); }
+                    suffix++;
+                }
+                sorted.RemoveRange(0, suffix);
+                suffixes[index] = sorted;
+            }
+            for (int index = count - 1; index >= 0; index--)
+            {
+                foreach (JobSetting property in suffixes[index])
+                {
+                    _governor.NoteOperation();
+                    fields.Add(property);
+                }
+            }
         }
 
-        private void AddFields(JsonDocument document, bool prefix, List<JobSetting> fields)
+        private List<JobSetting> PrepareFields(JsonDocument document)
         {
-            List<JobSetting> sorted = new(JobPlanner.EffectiveProperties(new JobValue(document.RootElement)));
-            int kept = 0;
-            for (int index = 0; index < sorted.Count; index++)
-            {
-                _governor.NoteOperation();
-                JobSetting property = sorted[index];
-                int order = string.CompareOrdinal(property.Name, FileKey);
-                if (order != 0 && (prefix ? order < 0 : order > 0)) { sorted[kept++] = property; }
-            }
-            sorted.RemoveRange(kept, sorted.Count - kept);
+            List<JobSetting> sorted = new(JobPlanner.EffectiveProperties(new JobValue(document.RootElement), _governor));
             try
             {
                 sorted.Sort((left, right) =>
@@ -366,11 +384,7 @@ internal static class JobJsonLoader
             {
                 System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ex.InnerException ?? ex).Throw();
             }
-            foreach (JobSetting property in sorted)
-            {
-                _governor.NoteOperation();
-                fields.Add(property);
-            }
+            return sorted;
         }
 
         public void Dispose()
