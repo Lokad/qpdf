@@ -413,7 +413,8 @@ Split capture keeps the last group's pass. Linearization
 disables QDF; empty split jobs create no output.
 The linearized writer keeps the outline closure outside object streams so its
 hints describe one contiguous physical group; other eligible objects still pack.
-Direct outline dictionaries remain unsupported during linearization.
+Direct outline dictionaries are promoted before physical planning, including
+JSON creation/update; unrelated direct catalog values retain their representation.
 
 ## Governance
 

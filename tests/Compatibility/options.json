@@ -4160,7 +4160,8 @@
           "IdentityCryptOutputTests.JsonCreationAndUpdateNormalizeAuthoredIdentityStages",
           "XrefStreamRoleTests.TypedJsonCreationAndUpdateProtectAuthoredTaggedStreams",
           "JsonLayoutTests.ImportedValuesAndNoncanonicalRootsSurviveIndependentLayouts",
-          "JsonLayoutIdentityTests.SourceMembershipFollowsFullPairsAcrossNormalizedAndFinalIds"
+          "JsonLayoutIdentityTests.SourceMembershipFollowsFullPairsAcrossNormalizedAndFinalIds",
+          "DirectOutlineNormalizationTests.JsonCreationAndUpdatePromoteTheCatalogRoleBeforePacking"
         ],
         "negative": [
           "JsonImportTests.MalformedJsonFails",
@@ -4197,13 +4198,15 @@
           "EncryptedJsonCreationTests.EveryProtectedCreationAdmissionRefusalRefundsBeforePublication",
           "JsonNumberTests.ExpansionRefusalReleasesSharedAdmissionAndPreservesOutput",
           "JsonImportContainerTests.ContainerFailureRefundsItsOwnerAndAllowsRetry",
-          "JsonLayoutTests.LayoutPreparationRetiresOnEveryAdmissionAndPublicationFailure"
+          "JsonLayoutTests.LayoutPreparationRetiresOnEveryAdmissionAndPublicationFailure",
+          "DirectOutlineNormalizationTests.PromotionRetiresOnEveryAdmissionAndPublicationFailure"
         ],
         "oracle": [
           "diff:json-import",
           "diff:security-json",
           "diff:security-identity-crypt",
-          "diff:json-layout"
+          "diff:json-layout",
+          "tools/ReferenceDirectOutlines.ps1"
         ]
       }
     },
@@ -4669,11 +4672,9 @@
           "source": "manual/cli.rst:719"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Direct outline dictionaries are not normalized during linearization; ordinary rewriting can promote them, but a single linearization job currently refuses."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "LinearizedWriterTests.TwoPageLinearizePassesOwnCheck",
@@ -4692,33 +4693,38 @@
           "JsonLayoutTests.ImportedValuesAndNoncanonicalRootsSurviveIndependentLayouts",
           "JsonLayoutIdentityTests.SourceMembershipFollowsFullPairsAcrossNormalizedAndFinalIds",
           "OutlineHintOwnershipTests.LinearizedOutlineClosureStaysDirectWhileOtherObjectsPack",
-          "OutlineHintOwnershipTests.LargeOutlineClosureStaysContiguousWhileOtherObjectsPack"
+          "OutlineHintOwnershipTests.LargeOutlineClosureStaysContiguousWhileOtherObjectsPack",
+          "DirectOutlineNormalizationTests.CopyingPromotesOnlyTheOutlineRootBeforeLinearization",
+          "DirectOutlineNormalizationTests.JsonCreationAndUpdatePromoteTheCatalogRoleBeforePacking"
         ],
         "negative": [
           "LinearizedWriterTests.JsonCannotCombine",
-          "LinearizedWriterTests.DirectOutlinesFailExplicitly",
           "LinearizedWriterTests.OutlineUnknownFirstObjectFailsCheck",
           "LinearizedWriterTests.OutlineOffsetMismatchFailsCheck",
-          "OutlineHintOwnershipTests.FrozenIndependentControlsDistinguishMissingAndLegitimatelyOmittedHints"
+          "OutlineHintOwnershipTests.FrozenIndependentControlsDistinguishMissingAndLegitimatelyOmittedHints",
+          "DirectOutlineNormalizationTests.NonDictionaryDirectOutlinesRetainExplicitFailureAndPriorOutput"
         ],
         "interaction": [
           "LinearizedWriterTests.JobParityMatchesArgvBytes",
           "LinearizedWriterTests.QdfSilentlyDisabled",
           "ImportedVersionTests.BasicWriterProfileDeclares12UnlessExplicitlyForced",
           "JsonLayoutTests.JobAdaptersProjectBothLayoutSettings",
-          "JsonLayoutTests.HeaderSettersKeepPackingFloorsAndForcedSuppression"
+          "JsonLayoutTests.HeaderSettersKeepPackingFloorsAndForcedSuppression",
+          "DirectOutlineNormalizationTests.SelectionRemapsDestinationsWhilePrivateRootAliasesKeepTheirIdentity"
         ],
         "resource": [
           "ResourceEnforcementTests.LinearizeYieldsToExhaustedBudget",
           "JsonLayoutTests.LayoutPreparationRetiresOnEveryAdmissionAndPublicationFailure",
-          "OutlineHintOwnershipTests.OutlinePreparationRetiresOnEveryAdmissionAndPublicationFailure"
+          "OutlineHintOwnershipTests.OutlinePreparationRetiresOnEveryAdmissionAndPublicationFailure",
+          "DirectOutlineNormalizationTests.PromotionRetiresOnEveryAdmissionAndPublicationFailure"
         ],
         "oracle": [
           "diff:linearize",
           "diff:linearize-streams",
           "diff:xref-role",
           "diff:json-layout",
-          "diff:outline-hint"
+          "diff:outline-hint",
+          "tools/ReferenceDirectOutlines.ps1"
         ]
       }
     },
@@ -7525,7 +7531,8 @@
           "IdentityCryptOutputTests.JsonCreationAndUpdateNormalizeAuthoredIdentityStages",
           "XrefStreamRoleTests.TypedJsonCreationAndUpdateProtectAuthoredTaggedStreams",
           "JsonLayoutTests.ImportedValuesAndNoncanonicalRootsSurviveIndependentLayouts",
-          "JsonLayoutIdentityTests.SourceMembershipFollowsFullPairsAcrossNormalizedAndFinalIds"
+          "JsonLayoutIdentityTests.SourceMembershipFollowsFullPairsAcrossNormalizedAndFinalIds",
+          "DirectOutlineNormalizationTests.JsonCreationAndUpdatePromoteTheCatalogRoleBeforePacking"
         ],
         "negative": [
           "JsonImportTests.UpdateCombinationsFail",
@@ -7571,7 +7578,8 @@
           "diff:json-update",
           "diff:security-json",
           "diff:security-identity-crypt",
-          "diff:json-layout"
+          "diff:json-layout",
+          "tools/ReferenceDirectOutlines.ps1"
         ]
       }
     },

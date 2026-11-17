@@ -59,6 +59,8 @@ Writer assertions require the inspector's `Valid` linearization status;
 generic checking also passes ordinary PDFs. Packing uses actual xref membership.
 Outline hint controls separate direct physical groups from legitimate native
 omissions and retain a frozen missing-table failure independently of the writer.
+Direct-outline controls own input promotion separately from hint layout, with
+focused PDF/JSON, destination, private-alias and publication cases.
 
 `Foundation/PublicationAdmissionTests` owns shared host-fault phases, executed
 counters and sequential commits. Prepared graph tests retain their own admission

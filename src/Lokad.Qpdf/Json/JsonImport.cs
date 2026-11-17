@@ -1020,6 +1020,7 @@ internal static partial class JsonImport
         }
 
         Writing.GraphCopier.DisablePublishedSignatures(mapped, 1, governor, limits, memory);
+        PromoteOutlines(mapped, memory, governor, cancellationToken);
 
         int? infoNew = null;
         if (infoOld >= 0 && renumber.TryGetValue(infoOld, out int mappedInfo))
@@ -1045,6 +1046,27 @@ internal static partial class JsonImport
         int metadata = catalog.TryGet(PdfName.FromAscii("Metadata"), out QpdfObject metadataValue) && metadataValue is PdfReference metadataReference
             ? metadataReference.ObjectNumber : 0;
         return new RenumberedModel(numbered, infoNew, metadata, pages, mapped, renumber);
+    }
+
+    private static void PromoteOutlines(Dictionary<int, QpdfObject> objects, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        PdfDictionary catalog = (PdfDictionary)objects[1];
+        if (!PdfDictionaryLookup.TryGet(catalog, "Outlines"u8, governor, token, out QpdfObject raw)
+            || raw is not PdfDictionary outlines) { return; }
+        int number = 0;
+        foreach (int existing in objects.Keys)
+        { token.ThrowIfCancellationRequested(); governor.NoteOperation(); number = Math.Max(number, existing); }
+        number = checked(number + 1);
+        // Remapping already owns this immutable dictionary and its references.
+        // Give only the catalog role an indirect identity before packing policy.
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
+        graph.Memory.Reserve(24L); graph.Add(24L);
+        PdfReference reference = new(number, 0);
+        PdfDictionary replacement = PdfDictionaryRebuild.ReplaceEntry(graph, catalog, "Outlines"u8, reference);
+        ParserContainers.EnsureEntryCapacity(memory, objects, IntPtr.Size);
+        objects.Add(number, outlines); objects[1] = replacement;
+        graph.Memory.TransferTo(memory, graph.Bytes);
     }
 
     private static void ValidateCatalogVersion(PdfDictionary root, Syntax.IIndirectResolver resolver,

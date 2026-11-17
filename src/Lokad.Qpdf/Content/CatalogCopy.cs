@@ -106,9 +106,9 @@ internal static class CatalogCopy
             return null;
         }
 
-        if (linearize && raw is not PdfReference)
+        if (linearize && raw is not PdfReference && raw is not PdfDictionary)
         {
-            throw new QpdfParseException("Linearized output with a direct outlines dictionary is not implemented.", null, null);
+            throw new QpdfParseException("Linearized output needs an outlines dictionary or an indirect reference.", null, null);
         }
 
         cancellationToken.ThrowIfCancellationRequested();

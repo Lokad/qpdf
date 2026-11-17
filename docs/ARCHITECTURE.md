@@ -51,6 +51,8 @@ emission, counting and bounded sink writes for both physical writers; stream
 payload isolation remains with its payload owner.
 Streamed linearization excludes the outline closure from packing. Physical outline
 groups receive hints; omission is valid only when classification assigns no group.
+Copying and JSON normalization give direct outline roots an owned indirect identity
+before layout and packing; private catalog aliases retain their own values.
 `OutputModelPreparation` finalizes assembled and split graphs through shared
 reachability, encryption numbering, ordering and object-stream grouping.
 Catalog contents, version requirements and original-ID inversion have separate

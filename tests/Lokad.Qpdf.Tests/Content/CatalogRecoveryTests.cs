@@ -85,14 +85,14 @@ public sealed class CatalogRecoveryTests
     public static IEnumerable<object[]> InternalCases()
     {
         foreach (string kind in Kinds)
-        foreach (bool shared in new[] { false, true }) { yield return [kind, shared]; }
-        yield return ["direct", false];
-        yield return ["direct", true];
+        foreach (bool shared in new[] { false, true }) { yield return [kind, shared, false]; }
+        foreach (bool shared in new[] { false, true })
+        foreach (bool linearize in new[] { false, true }) { yield return ["direct", shared, linearize]; }
     }
 
     [Theory]
     [MemberData(nameof(InternalCases))]
-    public async Task RecoveryRetiresOnlyNewObjectsAndReusesIds(string kind, bool shared)
+    public async Task RecoveryRetiresOnlyNewObjectsAndReusesIds(string kind, bool shared, bool linearize)
     {
         using InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("input"), Input(kind), QpdfInputOwnership.Copy);
@@ -104,7 +104,7 @@ public sealed class CatalogRecoveryTests
             PdfReference? prior = shared ? Assert.IsType<PdfReference>(copier.CopyValue(new PdfReference(9, 0), 0)) : null;
             QpdfObject? kept = prior is null ? null : copier.CopiedObjects[prior.ObjectNumber];
             int firstId = copier.NextId;
-            Assert.Null(CatalogCopy.TryCopyOutlines(document.Engine, copier, true, false, governor, CancellationToken.None));
+            Assert.Null(CatalogCopy.TryCopyOutlines(document.Engine, copier, true, linearize, governor, CancellationToken.None));
             Assert.Equal((null, null), CatalogCopy.TryCopyStructure(document.Engine, copier, true, false, governor, CancellationToken.None));
             Assert.Equal(firstId, copier.NextId);
             IReadOnlyDictionary<PdfName, QpdfObject> extras = CatalogCopy.TryCopyExtras(document.Engine, copier, true, false, governor, owner, CancellationToken.None).Extras;
