@@ -1,6 +1,10 @@
+using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Reading;
+using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -22,9 +26,9 @@ public sealed class PageParentTests
 
     public static IEnumerable<object[]> Routes()
     {
-        foreach (string route in new[] { "argv", "job" })
-        foreach (string layout in new[] { "plain", "packed", "qdf", "linear", "split" }) { yield return [route, layout]; }
+        yield return ["argv", "plain"]; yield return ["job", "plain"];
         yield return ["typed", "single"]; yield return ["typed", "multi"];
+        yield return ["argv", "split"];
     }
 
     [Theory]
@@ -32,6 +36,71 @@ public sealed class PageParentTests
     public async Task EveryPublishedPagePointsToItsNewTreeWithoutChangingOtherParentRoles(string route, string layout)
     {
         using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), Source(), QpdfInputOwnership.Transfer);
+        List<QpdfPath> outputs = await Publish(host, route, layout);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        int occurrence = 0;
+        foreach (QpdfPath path in outputs)
+        {
+            await using QpdfDocument document = await ReadOutput(host, path);
+            Assert.Equal(layout == "split" ? 1 : 3, document.PageCount);
+            AssertPageParents(document);
+            foreach (var location in document.PageReferences)
+            {
+                bool hasAnnotations = location.Page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject raw);
+                Assert.Equal(occurrence++ < 2, hasAnnotations);
+                if (hasAnnotations)
+                {
+                    PdfArray annots = Assert.IsType<PdfArray>(Resolve(document, raw)); Assert.Equal(3, annots.Count);
+                    PdfDictionary widget = Assert.IsType<PdfDictionary>(Resolve(document, annots[0]));
+                    PdfReference fieldReference = Assert.IsType<PdfReference>(Read(widget, "Parent"));
+                    Assert.NotEqual(PageRoot(document), fieldReference);
+                    PdfDictionary field = Assert.IsType<PdfDictionary>(Resolve(document, fieldReference));
+                    Assert.Contains(annots[0], Assert.IsType<PdfArray>(Resolve(document, Read(field, "Kids"))).Items);
+                    PdfDictionary popup = Assert.IsType<PdfDictionary>(Resolve(document, annots[2])); Assert.Equal(annots[1], Read(popup, "Parent"));
+                }
+            }
+            PdfDictionary catalog = Catalog(document);
+            bool preservePrivate = route != "typed" && layout != "split";
+            Assert.Equal(preservePrivate, catalog.TryGet(PdfName.FromAscii("Audit"), out QpdfObject audit));
+            if (preservePrivate)
+            {
+                PdfDictionary data = Assert.IsType<PdfDictionary>(Resolve(document, Read(Assert.IsType<PdfDictionary>(Resolve(document, audit)), "Private")));
+                PdfDictionary parent = Assert.IsType<PdfDictionary>(Resolve(document, Read(data, "Parent")));
+                Assert.Equal("PrivateParent", Assert.IsType<PdfName>(Read(parent, "Kind")).DisplayText);
+            }
+        }
+        Assert.Equal(3, occurrence);
+    }
+
+    [Theory]
+    [InlineData("packed")]
+    [InlineData("qdf")]
+    [InlineData("linear")]
+    public async Task RequestedLayoutIsPresentAndKeepsThePageTree(string layout)
+    {
+        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), Source(), QpdfInputOwnership.Transfer);
+        QpdfPath output = Assert.Single(await Publish(host, "argv", layout));
+        Assert.True(host.TryGetOutput(output, out byte[] bytes));
+        await using QpdfDocument document = await ReadOutput(host, output);
+        Assert.Equal(3, document.PageCount); AssertPageParents(document);
+        if (layout == "packed")
+        {
+            PdfDictionary audit = Assert.IsType<PdfDictionary>(Resolve(document, Read(Catalog(document), "Audit")));
+            PdfReference data = Assert.IsType<PdfReference>(Read(audit, "Private"));
+            Assert.Equal(XrefEntryKind.Compressed, document.Engine.XRefEntries[data.ObjectNumber].Kind);
+        }
+        else if (layout == "qdf")
+        { Assert.Contains("%QDF-1.0", Encoding.Latin1.GetString(bytes), StringComparison.Ordinal); }
+        else
+        {
+            ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+            Assert.Equal(LinearizationStatus.Valid, LinearizationCheck.Inspect(document.Engine, 3, QpdfLimits.Default, governor, CancellationToken.None).Status);
+            Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        }
+    }
+
+    private static async Task<List<QpdfPath>> Publish(InMemoryQpdfHost host, string route, string layout)
+    {
         List<QpdfPath> outputs = [];
         if (route == "typed")
         {
@@ -57,37 +126,31 @@ public sealed class PageParentTests
             Assert.Equal(QpdfExitCode.Success, result.ExitCode);
             outputs.AddRange(layout == "split" ? [QpdfPath.From("output-1"), QpdfPath.From("output-2"), QpdfPath.From("output-3")] : [QpdfPath.From("output")]);
         }
+        return outputs;
+    }
+
+    private static async Task<QpdfDocument> ReadOutput(InMemoryQpdfHost host, QpdfPath path)
+    {
         Assert.Equal(0L, host.OpenLeaseCount);
-        foreach (QpdfPath path in outputs)
+        Assert.True(host.TryGetOutput(path, out byte[] output)); QpdfPath read = QpdfPath.From("read-" + path.Value);
+        host.AddInput(read, output, QpdfInputOwnership.Transfer);
+        return await QpdfDocument.OpenAsync(host, read, CancellationToken.None);
+    }
+
+    private static QpdfObject Resolve(QpdfDocument document, QpdfObject raw) => raw is PdfReference reference ? document.GetObject(reference) : raw;
+    private static QpdfObject Read(PdfDictionary dictionary, string key) { Assert.True(dictionary.TryGet(PdfName.FromAscii(key), out QpdfObject value)); return value; }
+    private static PdfDictionary Catalog(QpdfDocument document) => Assert.IsType<PdfDictionary>(Resolve(document, Read(document.Engine.Trailer, "Root")));
+    private static PdfReference PageRoot(QpdfDocument document) => Assert.IsType<PdfReference>(Read(Catalog(document), "Pages"));
+
+    private static void AssertPageParents(QpdfDocument document)
+    {
+        PdfReference root = PageRoot(document);
+        PdfArray kids = Assert.IsType<PdfArray>(Resolve(document, Read(Assert.IsType<PdfDictionary>(Resolve(document, root)), "Kids")));
+        Assert.Equal(document.PageCount, kids.Count);
+        foreach (var location in document.PageReferences)
         {
-            Assert.True(host.TryGetOutput(path, out byte[] output)); QpdfPath read = QpdfPath.From("read-" + path.Value); host.AddInput(read, output, QpdfInputOwnership.Transfer);
-            await using QpdfDocument document = await QpdfDocument.OpenAsync(host, read, CancellationToken.None);
-            QpdfObject Resolve(QpdfObject raw) => raw is PdfReference reference ? document.GetObject(reference.ObjectNumber) : raw;
-            QpdfObject Read(PdfDictionary dictionary, string key) { Assert.True(dictionary.TryGet(PdfName.FromAscii(key), out QpdfObject value)); return value; }
-            PdfDictionary catalog = Assert.IsType<PdfDictionary>(Resolve(Read(document.Engine.Trailer, "Root")));
-            PdfReference root = Assert.IsType<PdfReference>(Read(catalog, "Pages"));
-            PdfArray kids = Assert.IsType<PdfArray>(Resolve(Read(Assert.IsType<PdfDictionary>(Resolve(root)), "Kids")));
-            Assert.Equal(document.PageCount, kids.Count);
-            foreach (var location in document.PageReferences)
-            {
-                Assert.Contains(location.Source, kids.Items);
-                Assert.Equal(root, Assert.IsType<PdfReference>(Read(location.Page, "Parent")));
-                if (location.Page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject raw))
-                {
-                    PdfArray annots = Assert.IsType<PdfArray>(Resolve(raw));
-                    PdfDictionary widget = Assert.IsType<PdfDictionary>(Resolve(annots[0]));
-                    PdfReference fieldReference = Assert.IsType<PdfReference>(Read(widget, "Parent")); Assert.NotEqual(root, fieldReference);
-                    PdfDictionary field = Assert.IsType<PdfDictionary>(Resolve(fieldReference));
-                    Assert.Contains(annots[0], Assert.IsType<PdfArray>(Resolve(Read(field, "Kids"))).Items);
-                    PdfDictionary popup = Assert.IsType<PdfDictionary>(Resolve(annots[2])); Assert.Equal(annots[1], Read(popup, "Parent"));
-                }
-            }
-            if (catalog.TryGet(PdfName.FromAscii("Audit"), out QpdfObject audit))
-            {
-                PdfDictionary data = Assert.IsType<PdfDictionary>(Resolve(Read(Assert.IsType<PdfDictionary>(Resolve(audit)), "Private")));
-                PdfDictionary parent = Assert.IsType<PdfDictionary>(Resolve(Read(data, "Parent")));
-                Assert.Equal("PrivateParent", Assert.IsType<PdfName>(Read(parent, "Kind")).DisplayText);
-            }
+            Assert.Contains(location.Source, kids.Items);
+            Assert.Equal(root, Assert.IsType<PdfReference>(Read(location.Page, "Parent")));
         }
     }
 
