@@ -123,11 +123,15 @@ public sealed class RealParserTests
         PdfTokenizer tokenizer = new(bytes);
         long before = GC.GetAllocatedBytesForCurrentThread();
         using ParserMemoryScope parsedMemory3 = ParserMemoryScope.Create(governor);
-        PdfReal value = Assert.IsType<PdfReal>(parser.ParseValue(tokenizer, 0, parsedMemory3));
+        QpdfObject parsed = parser.ParseValue(tokenizer, 0, parsedMemory3);
         parsedMemory3.RetainGraph(); parsedMemory3.Dispose();
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        PdfReal value = Assert.IsType<PdfReal>(parsed);
         Assert.Equal(bytes.Length, value.Text.Length);
-        Assert.True(allocated < (bytes.Length * 2L) + 4096L, $"Real parsing allocated {allocated} bytes for {bytes.Length} source bytes.");
+        // Conversion has fixed scratch/bookkeeping independent of token length.
+        // Keep the allowance far below one extra source-sized character array.
+        const long fixedOverhead = 16384L;
+        Assert.True(allocated < (bytes.Length * 2L) + fixedOverhead, $"Real parsing allocated {allocated} bytes for {bytes.Length} source bytes.");
     }
 
     [Fact]
