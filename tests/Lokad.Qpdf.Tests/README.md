@@ -43,6 +43,9 @@ Pruning scope tables own content/resource semantics at argv with selected job
 interactions; independent policy/location controls complement the heuristic owners.
 Coalescing identity controls separate physical layout from retention/duplication
 policy, with complete alias semantics at argv and sampled job interactions.
+Text projection exhausts byte representations in both JSON versions at typed
+inspection; samples check adapters and named/fileless transport. Name descriptors
+exhaust spelling/escaping once, with selected version and route controls.
 
 `Foundation/PublicationAdmissionTests` owns shared host-fault phases, executed
 counters and sequential commits. Prepared graph tests retain their own admission

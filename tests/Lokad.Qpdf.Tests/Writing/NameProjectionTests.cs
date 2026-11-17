@@ -17,8 +17,11 @@ public sealed class NameProjectionTests
             ("#EF#BB#BFOn", "/\uFEFFOn"), ("#FF", "n:/#ff"),
             ("#E2#82", "n:/#e2#82"), ("", "/")];
         foreach ((string name, string expected) in names)
-        foreach (string route in new[] { "typed", "argv", "job" })
-        foreach (int version in new[] { 1, 2 }) { yield return [name, expected, route, version]; }
+        { yield return [name, expected, "typed", 2]; }
+        yield return ["On", "/On", "typed", 1];
+        yield return ["Caf#C3#A9", "/Café", "argv", 1];
+        yield return ["#22#5C#0A", "/\"\\\n", "job", 2];
+        yield return ["#FF", "n:/#ff", "job", 1];
     }
 
     internal static byte[] Form(string name) => PdfTestDocument.Assemble([

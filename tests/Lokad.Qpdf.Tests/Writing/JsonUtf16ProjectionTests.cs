@@ -18,8 +18,11 @@ public sealed class JsonUtf16ProjectionTests
             ("FEFFD83DDE00", "\ud83d\ude00"), ("FEFFD800D8010041", "A"), ("FEFF", ""),
             ("EFBBBF41C3A9", "A\u00e9"), ("414243", "ABC"), ("EFBBBFE282", "\ufffd"),
         })
-        foreach (string route in new[] { "typed", "argv", "job" })
-        foreach (int version in new[] { 1, 2 }) { yield return [hex, expected, route, version]; }
+        foreach (int version in new[] { 1, 2 }) { yield return [hex, expected, "typed", version]; }
+        yield return ["FEFF0041DC010042", "A\u0001B", "argv", 1];
+        yield return ["FEFFD83DDE00", "\ud83d\ude00", "job", 2];
+        yield return ["EFBBBFE282", "\ufffd", "argv", 2];
+        yield return ["EFBBBF41C3A9", "A\u00e9", "job", 1];
     }
 
     [Theory]
