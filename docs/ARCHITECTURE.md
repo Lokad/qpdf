@@ -292,6 +292,8 @@ Gray/RGB encoding.
 Physical I/O adapters, native qpdf, renderers and PdfPig belong to development
 tools and tests. Ordinary tests work without native tools; explicit reference
 jobs require them. See [benchmarks](BENCHMARKS.md) for performance evidence.
+Reference emit and companion probe commands share requested-input registration
+and mapped output export; fresh input arrays transfer to command-owned storage.
 
 Tests assign exhaustive syntax/repair and known-answer security tables to their
 primitive owners. Reader/writer workflows retain representative repairs, limits,

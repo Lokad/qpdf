@@ -390,6 +390,59 @@ public sealed class ProbeCliTests
         Assert.Contains("Workdir not found", stderr, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("emit")]
+    [InlineData("fix-qdf")]
+    [InlineData("zlib-flate")]
+    public async Task ManagedExportCommandsUseRequestedInputAndOutputMapping(string command)
+    {
+        DirectoryInfo directory = Directory.CreateTempSubdirectory("qpdfprobe-export-");
+        string tempRoot = Path.GetFullPath(Path.GetTempPath());
+        try
+        {
+            string inputs = Directory.CreateDirectory(Path.Combine(directory.FullName, "inputs")).FullName;
+            byte[] bytes = await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), "minimal-1page.pdf"));
+            if (command == "fix-qdf")
+            {
+                using InMemoryQpdfHost storage = new();
+                storage.AddInput(QpdfPath.From("input"), bytes, QpdfInputOwnership.Transfer);
+                QpdfExecutionResult prepared = await Qpdf.ExecuteAsync(storage, new(["input", "--qdf", "qdf"]), CancellationToken.None);
+                Assert.Equal(QpdfExitCode.Success, prepared.ExitCode);
+                Assert.True(storage.TryGetOutput(QpdfPath.From("qdf"), out bytes));
+            }
+            File.WriteAllBytes(Path.Combine(inputs, "selected"), bytes);
+            File.WriteAllBytes(Path.Combine(inputs, "unrelated"), "unrelated"u8.ToArray());
+            string output = Path.Combine(directory.FullName, "nested", "output");
+            List<string> arguments = [command, "--workdir", directory.FullName, "--out", "result=" + output];
+            if (command == "emit") { arguments.AddRange(["--", "./inputs/selected", "result"]); }
+            else { arguments.AddRange(["--in", "./inputs/selected"]); }
+            if (command == "zlib-flate") { arguments.AddRange(["--mode", "compress", "--level", "9"]); }
+            (int exit, string stdout, string stderr) = RunProbe(arguments.ToArray());
+            Assert.Equal(0, exit); Assert.Empty(stderr);
+            Assert.Contains("status=Completed exit=0", stdout, StringComparison.Ordinal);
+            byte[] actual = File.ReadAllBytes(output);
+            if (command == "zlib-flate")
+            {
+                using MemoryStream encoded = new(actual);
+                using System.IO.Compression.ZLibStream decoder = new(encoded, System.IO.Compression.CompressionMode.Decompress);
+                using MemoryStream decoded = new(); decoder.CopyTo(decoded);
+                Assert.Equal(bytes, decoded.ToArray());
+            }
+            else
+            {
+                using InMemoryQpdfHost reader = new();
+                reader.AddInput(QpdfPath.From("result"), actual, QpdfInputOwnership.Transfer);
+                await using QpdfDocument document = await QpdfDocument.OpenAsync(reader, QpdfPath.From("result"), CancellationToken.None);
+                Assert.Equal(1, document.PageCount);
+            }
+        }
+        finally
+        {
+            Assert.StartsWith(tempRoot, Path.GetFullPath(directory.FullName), StringComparison.OrdinalIgnoreCase);
+            directory.Delete(true);
+        }
+    }
+
     [Fact]
     public void ProbeFixQdfFailsExplicitlyOnMissingWorkdir()
     {

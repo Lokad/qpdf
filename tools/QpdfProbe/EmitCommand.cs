@@ -1,7 +1,6 @@
 using Lokad.Qpdf.Image;
 using Lokad.Qpdf;
 using Lokad.Qpdf.Hosting;
-using Microsoft.Win32.SafeHandles;
 
 namespace Lokad.Qpdf.Probe;
 
@@ -55,24 +54,11 @@ internal static class EmitCommand
 
     private static int Execute(string workdir, List<string> outs, string? jobJson, List<string>? argv, bool requireSuccess, bool fileInput)
     {
-        if (!Directory.Exists(workdir))
-        {
-            throw new ProbeException($"Workdir not found: {workdir}.", 1);
-        }
-
-        string inputsDir = Path.Combine(workdir, "inputs");
-        if (!Directory.Exists(inputsDir))
-        {
-            throw new ProbeException($"Inputs directory not found: {inputsDir}.", 1);
-        }
-
+        Dictionary<string, string> available = ProbeInputFiles.Index(workdir);
         InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
-        Dictionary<string, string> available = new(StringComparer.Ordinal);
-        foreach (string file in Directory.EnumerateFiles(inputsDir, "*", SearchOption.AllDirectories))
-        {
-            string logical = "inputs/" + Path.GetRelativePath(inputsDir, file).Replace(Path.DirectorySeparatorChar, '/');
-            available.Add(logical, file);
-        }
+        // Reference calls own storage here; warmed calls keep their
+        // established acquisition and measurement lifetime.
+        using InMemoryQpdfHost? referenceStorage = requireSuccess ? null : host;
 
         QpdfExecutionResult result;
         IQpdfHost executionHost;
@@ -84,10 +70,10 @@ internal static class EmitCommand
             // inside the timed emit call, using the consuming memory host itself.
             // The reference adapter below still supports lazy filename aliases.
             foreach ((string logical, string file) in available)
-            { host.AddInput(QpdfPath.From(logical), ReadInputBytes(file), QpdfInputOwnership.Transfer); }
+            { host.AddInput(QpdfPath.From(logical), ProbeInputFiles.ReadInputBytes(file), QpdfInputOwnership.Transfer); }
             executionHost = host;
         }
-        else { executionHost = new InputAliases(host, available); }
+        else { executionHost = new ProbeInputFiles.Requested(host, available); }
         if (jobJson is not null)
         {
             result = Qpdf.ExecuteJobAsync(executionHost, jobJson, CancellationToken.None).GetAwaiter().GetResult();
@@ -117,27 +103,15 @@ internal static class EmitCommand
 
         foreach (string mapping in outs)
         {
-            int equals = mapping.IndexOf('=');
-            if (equals <= 0 || equals + 1 >= mapping.Length)
-            {
-                throw new ProbeException($"Invalid --out mapping '{mapping}'. Expected <logical>=<physical>.", 1);
-            }
-
-            string logical = mapping[..equals];
-            string physical = mapping[(equals + 1)..];
+            if (!ProbeOutput.TryParse(mapping, out ProbeOutput output))
+            { throw new ProbeException($"Invalid --out mapping '{mapping}'. Expected <logical>=<physical>.", 1); }
+            string logical = output.Logical;
             if (!host.TryGetOutput(QpdfPath.From(logical), out byte[] content))
             {
                 throw new ProbeException($"Library produced no output '{logical}'. status={result.Status} exit={(int)result.ExitCode}.", 2);
             }
 
-            string? directory = Path.GetDirectoryName(physical);
-            if (!string.IsNullOrEmpty(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-
-            File.WriteAllBytes(physical, content);
-            Console.WriteLine($"emit: output {logical} {content.Length} bytes -> {physical}");
+            output.Export(content, "emit");
         }
 
         Console.WriteLine($"emit: counters decoded={result.Counters.TotalDecodedBytes} peakmem={result.Counters.PeakMemoryBytes}");
@@ -147,61 +121,6 @@ internal static class EmitCommand
         }
 
         return result.Status == QpdfExecutionStatus.Completed && (!requireSuccess || result.ExitCode == QpdfExitCode.Success) ? 0 : 2;
-    }
-
-    // Development host policy: ./ names share the canonical input lease identity.
-    // The library still receives the original filename key in its operation plan.
-    private sealed class InputAliases(InMemoryQpdfHost host, Dictionary<string, string> available) : IQpdfHost, IQpdfJpegCodecHost
-    {
-        public IQpdfJpegCodec? JpegCodec => host.JpegCodec;
-
-        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            string name = path.Value;
-            while (name.StartsWith("./", StringComparison.Ordinal)) { name = name[2..]; }
-            if (available.Remove(name, out string? file) && file is not null)
-            {
-                // This fresh file array has no caller alias. The host owns it;
-                // cloning it again provides no additional isolation.
-                host.AddInput(QpdfPath.From(name), ReadInputBytes(file), QpdfInputOwnership.Transfer);
-            }
-            return host.OpenInputAsync(QpdfPath.From(name), cancellationToken);
-        }
-
-        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken cancellationToken)
-            => host.CreateOutputAsync(path, cancellationToken);
-    }
-
-    internal static byte[] ReadInputBytes(string path)
-    {
-        FileOptions options = OperatingSystem.IsWindows() ? FileOptions.SequentialScan : FileOptions.None;
-        using SafeFileHandle input = File.OpenHandle(path, FileMode.Open, FileAccess.Read, FileShare.Read, options);
-        long length;
-        try { length = RandomAccess.GetLength(input); }
-        catch (NotSupportedException) { return ReadUnknownInputBytes(input); }
-        if (length == 0L) { return ReadUnknownInputBytes(input); }
-        if (length > Array.MaxLength) { throw new IOException("Input exceeds the supported buffer size."); }
-        // Fill every byte before ownership transfers; premature EOF fails here.
-        // The complete fresh file read remains inside each measured public job.
-        byte[] bytes = GC.AllocateUninitializedArray<byte>((int)length);
-        int filled = 0;
-        while (filled < bytes.Length)
-        {
-            int read = RandomAccess.Read(input, bytes.AsSpan(filled), filled);
-            if (read == 0) { throw new EndOfStreamException("Input ended before its declared length."); }
-            filled += read;
-        }
-        return bytes;
-    }
-
-    private static byte[] ReadUnknownInputBytes(SafeFileHandle input)
-    {
-        // An unknown length, including procfs, need not mean an empty file.
-        using FileStream stream = new(input, FileAccess.Read);
-        using MemoryStream storage = new();
-        stream.CopyTo(storage);
-        return storage.ToArray();
     }
 
     private static string GetOption(string[] args, string name)

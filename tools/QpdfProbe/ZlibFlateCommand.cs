@@ -41,60 +41,13 @@ internal static class ZlibFlateCommand
             level = parsed;
         }
 
-        if (!Directory.Exists(workdir))
-        {
-            throw new ProbeException("Workdir not found: " + workdir + ".", 1);
-        }
-
-        string inputsDir = Path.Combine(workdir, "inputs");
-        if (!Directory.Exists(inputsDir))
-        {
-            throw new ProbeException("Inputs directory not found: " + inputsDir + ".", 1);
-        }
-
-        InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
-        foreach (string file in Directory.EnumerateFiles(inputsDir, "*", SearchOption.AllDirectories))
-        {
-            string logical = "inputs/" + Path.GetRelativePath(inputsDir, file).Replace(Path.DirectorySeparatorChar, '/');
-            host.AddInput(QpdfPath.From(logical), File.ReadAllBytes(file), QpdfInputOwnership.Copy);
-        }
-
-        int equals = mapping.IndexOf('=');
-        if (equals <= 0 || equals + 1 >= mapping.Length)
-        {
-            throw new ProbeException("Invalid --out mapping (" + mapping + "). Expected <logical>=<physical>.", 1);
-        }
-
-        string logicalOut = mapping.Substring(0, equals);
-        string physical = mapping.Substring(equals + 1);
+        Dictionary<string, string> available = ProbeInputFiles.Index(workdir);
+        using InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
+        IQpdfHost executionHost = new ProbeInputFiles.Requested(host, available);
+        ProbeOutput output = ProbeOutput.ParseCompanion(mapping);
         QpdfZlibFlateOptions options = new(mode, level);
-        QpdfExecutionResult result = Qpdf.RunZlibFlateAsync(host, QpdfPath.From(input), QpdfPath.From(logicalOut), options, CancellationToken.None).GetAwaiter().GetResult();
-        Console.WriteLine("zlibflate: status=" + result.Status + " exit=" + (int)result.ExitCode);
-        foreach (QpdfDiagnostic diagnostic in result.Diagnostics)
-        {
-            Console.WriteLine("zlibflate: diagnostic " + diagnostic.Code + " " + diagnostic.Severity + " " + diagnostic.Message);
-        }
-
-        if (!host.TryGetOutput(QpdfPath.From(logicalOut), out byte[] content))
-        {
-            throw new ProbeException("Library produced no output (" + logicalOut + "). status=" + result.Status + " exit=" + (int)result.ExitCode + ".", 2);
-        }
-
-        string directory = Path.GetDirectoryName(physical) ?? string.Empty;
-        if (!string.IsNullOrEmpty(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        File.WriteAllBytes(physical, content);
-        Console.WriteLine("zlibflate: output " + logicalOut + " " + content.Length + " bytes -> " + physical);
-        Console.WriteLine("zlibflate: counters decoded=" + result.Counters.TotalDecodedBytes + " peakmem=" + result.Counters.PeakMemoryBytes);
-        if (result.Status == QpdfExecutionStatus.Canceled)
-        {
-            return 4;
-        }
-
-        return result.Status == QpdfExecutionStatus.Completed ? 0 : 2;
+        QpdfExecutionResult result = Qpdf.RunZlibFlateAsync(executionHost, QpdfPath.From(input), QpdfPath.From(output.Logical), options, CancellationToken.None).GetAwaiter().GetResult();
+        return output.CompleteCompanion(host, result, "zlibflate");
     }
 
     private static string GetOption(string[] args, string name)

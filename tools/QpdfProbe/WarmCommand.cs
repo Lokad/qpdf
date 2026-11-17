@@ -43,7 +43,7 @@ internal static class WarmCommand
             long start = Stopwatch.GetTimestamp();
             try
             {
-                if (inputOnly) { input = EmitCommand.ReadInputBytes(arguments[1]); exit = 0; }
+                if (inputOnly) { input = ProbeInputFiles.ReadInputBytes(arguments[1]); exit = 0; }
                 else if (fileSelection) { exit = FileSelectionCommand.Run(arguments[1..]); }
                 else if (jobJson) { exit = EmitCommand.RunWarmEmitJob(arguments[1..]); }
                 else { exit = EmitCommand.RunWarmEmit(arguments[1..]); }
