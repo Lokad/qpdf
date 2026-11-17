@@ -1356,14 +1356,21 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
-          "AttachmentEditTests.AddExplicitMetadata"
+          "AttachmentEditTests.AddExplicitMetadata",
+          "AttachmentNameSetterTests.JobNamesDefaultIndependentlyToThePayloadBasename",
+          "AttachmentNameSetterTests.EmptyAndResetArgvNamesSelectTheDefault"
         ],
         "negative": [
           "AttachmentEditTests.MalformedEditsFail",
-          "AttachmentEditTests.NestedUnknownFlagFails"
+          "AttachmentEditTests.NestedUnknownFlagFails",
+          "AttachmentNameSetterTests.MissingRequiredValuesAndNullPropertiesStillRejectBeforeInput",
+          "EmptyAttachmentKeyTests.TypedAuthoredEmptyNamesStillReject"
         ],
         "interaction": [
-          "AttachmentEditTests.NestedMetadataJobParityHolds"
+          "AttachmentEditTests.NestedMetadataJobParityHolds",
+          "AttachmentNameSetterTests.LastEmptyJobSetterResetsOnlyItsOwnName",
+          "AttachmentNameSetterTests.CommandOriginsUseTheSameDefaultRequest",
+          "AttachmentNameSetterTests.EmptyDefaultsKeepCollisionAndReplacementPolicy"
         ],
         "resource": [
           "AttachmentEditTests.AttachmentsYieldToExhaustedBudget"
@@ -1395,15 +1402,22 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
-          "AttachmentEditTests.AddExplicitMetadata"
+          "AttachmentEditTests.AddExplicitMetadata",
+          "AttachmentNameSetterTests.JobNamesDefaultIndependentlyToThePayloadBasename",
+          "AttachmentNameSetterTests.EmptyAndResetArgvNamesSelectTheDefault"
         ],
         "negative": [
           "AttachmentEditTests.MalformedEditsFail",
-          "AttachmentEditTests.NestedUnknownFlagFails"
+          "AttachmentEditTests.NestedUnknownFlagFails",
+          "AttachmentNameSetterTests.MissingRequiredValuesAndNullPropertiesStillRejectBeforeInput",
+          "EmptyAttachmentKeyTests.TypedAuthoredEmptyNamesStillReject"
         ],
         "interaction": [
           "AttachmentEditTests.JobAddRemoveRoundTrip",
-          "AttachmentEditTests.NestedMetadataJobParityHolds"
+          "AttachmentEditTests.NestedMetadataJobParityHolds",
+          "AttachmentNameSetterTests.LastEmptyJobSetterResetsOnlyItsOwnName",
+          "AttachmentNameSetterTests.CommandOriginsUseTheSameDefaultRequest",
+          "AttachmentNameSetterTests.EmptyDefaultsKeepCollisionAndReplacementPolicy"
         ],
         "resource": [
           "AttachmentEditTests.AttachmentsYieldToExhaustedBudget"

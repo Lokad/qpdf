@@ -278,8 +278,8 @@ public sealed class AttachmentEditTests
     [Theory]
     [InlineData("--add-attachment")]
     [InlineData("--add-attachment", "--", "--", "outputs/a.pdf")]
-    [InlineData("--add-attachment", "files/note.bin", "--key=")]
-    [InlineData("--add-attachment", "files/note.bin", "--filename=")]
+    [InlineData("--add-attachment", "files/note.bin", "--key")]
+    [InlineData("--add-attachment", "files/note.bin", "--filename")]
     [InlineData("--remove-attachment")]
     [InlineData("--copy-attachments-from", "inputs/b.pdf")]
     public async Task MalformedEditsFail(params string[] flags)

@@ -1470,25 +1470,7 @@ internal static partial class JobPlanner
             throw new QpdfParseException("Job addAttachment entries require a file.", 0L, null);
         }
 
-        if (key is not null && key.Length == 0)
-        {
-            throw new QpdfParseException("Job addAttachment key must not be empty.", 0L, null);
-        }
-
-        if (fileName is not null && fileName.Length == 0)
-        {
-            throw new QpdfParseException("Job addAttachment filename must not be empty.", 0L, null);
-        }
-
-        return new AttachmentAdd(
-            file,
-            key,
-            fileName,
-            creationDate is null || creationDate.Length == 0 ? null : creationDate,
-            modDate is null || modDate.Length == 0 ? null : modDate,
-            mimeType,
-            description is null || description.Length == 0 ? null : description,
-            replace);
+        return AttachmentAdd.FromCommand(file, key, fileName, creationDate, modDate, mimeType, description, replace);
     }
 
     private static List<string> ParseRemoveAttachmentArray(JobValue value, ConfigurationText textStorage)

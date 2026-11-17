@@ -429,7 +429,7 @@ internal static class ArgvParser
                 || token == "--description" || token.StartsWith("--description=", StringComparison.Ordinal))
             {
                 ReadOnlySpan<char> name = OptionName(token);
-                string value = TakeParameter(argv, argv.Count, ref cursor, $"--{name}", name is "description");
+                string value = TakeParameter(argv, argv.Count, ref cursor, $"--{name}", name is "description" or "key" or "filename");
                 if (name is "key")
                 {
                     key = value;
@@ -495,25 +495,7 @@ internal static class ArgvParser
         }
 
         cursor += 1;
-        if (key is not null && key.Length == 0)
-        {
-            throw new QpdfParseException("Option --key requires a non-empty key.", cursor, null);
-        }
-
-        if (fileName is not null && fileName.Length == 0)
-        {
-            throw new QpdfParseException("Option --filename requires a non-empty name.", cursor, null);
-        }
-
-        return new AttachmentAdd(
-            file,
-            key,
-            fileName,
-            creationDate is null || creationDate.Length == 0 ? null : creationDate,
-            modDate is null || modDate.Length == 0 ? null : modDate,
-            mimeType is null || mimeType.Length == 0 ? null : mimeType,
-            description is null || description.Length == 0 ? null : description,
-            replace);
+        return AttachmentAdd.FromCommand(file, key, fileName, creationDate, modDate, mimeType, description, replace);
     }
 
     internal static List<PageGroup> ParsePagesArea(IReadOnlyList<string> argv, int pagesAt, int terminatorAt)

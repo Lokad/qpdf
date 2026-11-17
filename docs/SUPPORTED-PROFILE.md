@@ -397,8 +397,9 @@ finishes before targeted payload publication, with backing admitted through comm
 - Remove before additions, then imports. Missing keys and collisions without
   replacement reject. Removed/replaced graphs survive only through independent roots
   or explicit unreferenced preservation. Split retains the final attachment collection.
-- New keys/filenames must be nonempty; empty copy prefixes and descriptions mean
-  omission and clear earlier command values. Authored text must be valid UTF-16
+- Empty command key/filename setters independently restore the payload basename;
+  typed authored names must be nonempty. Empty copy prefixes and descriptions
+  mean omission and clear earlier command values. Authored text must be valid UTF-16
   and MIME names ASCII without NUL. Existing empty keys remain removable/extractable.
   Dates are omitted unless supplied; additions record size/checksum and a default basename.
 

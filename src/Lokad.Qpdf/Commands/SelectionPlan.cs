@@ -345,7 +345,17 @@ internal sealed record AttachmentAdd(
     string? ModDate,
     string? MimeType,
     string? Description,
-    bool Replace);
+    bool Replace)
+{
+    // Empty command setters request defaults; typed authoring validates its
+    // explicit values before constructing this request directly.
+    internal static AttachmentAdd FromCommand(string file, string? key, string? fileName,
+        string? creationDate, string? modDate, string? mimeType, string? description, bool replace)
+        => new(file, Optional(key), Optional(fileName), Optional(creationDate), Optional(modDate),
+            Optional(mimeType), Optional(description), replace);
+
+    private static string? Optional(string? value) => string.IsNullOrEmpty(value) ? null : value;
+}
 
 /// <summary>One attachment source to copy: a document plus a key prefix.</summary>
 internal sealed record AttachmentCopy(string File, string? Prefix)

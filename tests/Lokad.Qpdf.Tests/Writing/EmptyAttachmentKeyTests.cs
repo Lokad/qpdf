@@ -142,24 +142,13 @@ public sealed class EmptyAttachmentKeyTests
     }
 
     [Theory]
-    [InlineData("typed")]
-    [InlineData("argv")]
-    [InlineData("job")]
-    public async Task CreatingAnEmptyKeyStillRejects(string route)
+    [InlineData("key")]
+    [InlineData("filename")]
+    public async Task TypedAuthoredEmptyNamesStillReject(string role)
     {
         using InMemoryQpdfHost host = Host(true); await Seed(host);
-        if (route == "typed")
-        {
-            await Assert.ThrowsAsync<ArgumentException>(() => Qpdf.AddAttachmentsAsync(host, QpdfPath.From("input"), QpdfPath.From("output"),
-                [new("added", string.Empty, null, null, null, null, null, true)], CancellationToken.None).AsTask());
-        }
-        else
-        {
-            QpdfExecutionResult result = route == "job"
-                ? await Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","addAttachment":[{"file":"added","key":"","replace":true}]}""", CancellationToken.None)
-                : await Qpdf.ExecuteAsync(host, new(["input", "--add-attachment", "added", "--key=", "--replace", "--", "output"]), CancellationToken.None);
-            Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-        }
+        await Assert.ThrowsAsync<ArgumentException>(() => Qpdf.AddAttachmentsAsync(host, QpdfPath.From("input"), QpdfPath.From("output"),
+            [new("added", role == "key" ? "" : null, role == "filename" ? "" : null, null, null, null, null, true)], CancellationToken.None).AsTask());
         Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] prior)); Assert.Equal("prior"u8.ToArray(), prior);
         Assert.Equal(0L, host.OpenLeaseCount);
     }

@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Default empty attachment command key/filename setters to the payload basename,
+  including resets, while keeping typed authored names nonempty.
+
 - Validate attachment command MIME setters before input work, requiring a slash
   while retaining native permissive forms and typed empty-value omission.
 
