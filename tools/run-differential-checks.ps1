@@ -2882,6 +2882,8 @@ Invoke-ReferenceJsonLayouts
 Invoke-ReferenceOutlineHints
 . (Join-Path $repoRoot 'tools/ReferenceDirectOutlines.ps1')
 Invoke-ReferenceDirectOutlines
+. (Join-Path $repoRoot 'tools/ReferenceInlineContexts.ps1')
+Invoke-ReferenceInlineContexts
 . (Join-Path $repoRoot 'tools/ReferenceSecurityPolicies.ps1')
 Invoke-ReferenceSecurityPolicies
 . (Join-Path $repoRoot 'tools/ReferenceSecurityPermissions.ps1')

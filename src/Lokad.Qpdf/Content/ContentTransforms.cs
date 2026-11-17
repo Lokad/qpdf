@@ -103,11 +103,13 @@ internal static class ContentTransforms
 
         if (request.Externalize)
         {
+            using ExternalizedPageContents? externalized = pageIds.Count > 1
+                ? ExternalizedPageContents.Create(governor, cancellationToken) : null;
             foreach (int pageId in pageIds)
             {
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 if (!copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? raw) || raw is not PdfDictionary page) { continue; }
-                InlineImages.ExternalizePage(copier, pageId, page, request.MinBytes, request.Compress, request.Level, limits, governor, diagnostics, cancellationToken, request.FilterOptions);
+                InlineImages.ExternalizePage(copier, pageId, page, request.MinBytes, request.Compress, request.Level, limits, governor, diagnostics, cancellationToken, request.FilterOptions, externalized);
             }
         }
         if (!request.Coalesce && !request.Normalize) { return; }

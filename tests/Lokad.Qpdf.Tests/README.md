@@ -61,6 +61,8 @@ Outline hint controls separate direct physical groups from legitimate native
 omissions and retain a frozen missing-table failure independently of the writer.
 Direct-outline controls own input promotion separately from hint layout, with
 focused PDF/JSON, destination, private-alias and publication cases.
+Inline context reuse separates repeated work from resource/name bindings and
+independent equal-byte identities; warning suppression retains per-page failures.
 
 `Foundation/PublicationAdmissionTests` owns shared host-fault phases, executed
 counters and sequential commits. Prepared graph tests retain their own admission

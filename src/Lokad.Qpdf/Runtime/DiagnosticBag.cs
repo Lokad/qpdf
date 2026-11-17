@@ -13,6 +13,8 @@ internal sealed class DiagnosticBag
 
     internal bool ReportPageCountMismatch { get; set; } = true;
     internal bool HasAcceptedWarnings { get; private set; }
+    /// <summary>Tracks emission attempts independently of warning presentation.</summary>
+    internal long EmissionVersion { get; private set; }
     internal bool ReadingPartialInput { get; set; }
     internal bool SuppressWarningStorage
     {
@@ -25,6 +27,7 @@ internal sealed class DiagnosticBag
 
     private bool Suppress(QpdfDiagnosticSeverity severity)
     {
+        EmissionVersion++;
         if (severity != QpdfDiagnosticSeverity.Warning || !_suppressWarnings) { return false; }
         HasAcceptedWarnings = true;
         return true;

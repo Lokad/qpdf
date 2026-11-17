@@ -2,6 +2,8 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Reuse successful inline-image externalization for repeated immutable page
+  contexts, preserving distinct resource bindings, diagnostics and private aliases.
 - Normalize direct outline roots before linearization and JSON writer packing,
   preserving destinations, private aliases and transactional publication.
 - Keep linearized outline hints consistent with physical ownership, including

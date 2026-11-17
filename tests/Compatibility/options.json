@@ -3366,16 +3366,19 @@
           "InlineImageBoundaryTests.CancellationAfterSampleAdmissionRefundsBothOwners",
           "InlineImageBoundaryTests.NamedColorFamiliesSupplyTheirDeclaredSampleComponents",
           "InlinePacketBoundaryTests.EveryConsumerSkipsCompleteFilteredPackets",
-          "LateContentTransformTests.FinalLiveFormsReceiveRequestedInlineProcessing"
+          "LateContentTransformTests.FinalLiveFormsReceiveRequestedInlineProcessing",
+          "InlineContextReuseTests.ReusesOnlyTheSameImmutableContentAndResourceContext"
         ],
         "negative": [
           "InlineImagesTests.MalformedExternalizeFlagsFail",
-          "InlinePacketBoundaryTests.UnknownFramingPreservesTheWholeProgramAndDiscardsEarlierCandidates"
+          "InlinePacketBoundaryTests.UnknownFramingPreservesTheWholeProgramAndDiscardsEarlierCandidates",
+          "InlineContextReuseTests.PartialConversionsRetainPerPageDiagnosticsRegardlessOfSuppression"
         ],
         "interaction": [
           "InlineImagesTests.JobRoundTripMatchesArgv",
           "ResourcePayloadIdentityTests.ResourceReplacementsKeepIndependentPayloadsAndSharedBindings",
-          "InlineConsumerScopeTests.OnlyXObjectResourceBindingsEnterFormExternalization"
+          "InlineConsumerScopeTests.OnlyXObjectResourceBindingsEnterFormExternalization",
+          "InlineContextReuseTests.JobAdapterSharesTheCompletedContext"
         ],
         "resource": [
           "ResourceEnforcementTests.ExternalizeInlineImagesYieldsToExhaustedBudget",
@@ -3384,10 +3387,13 @@
           "SinglePartContentOwnershipTests.CancellationAfterJoinAdmissionLeavesThePartFunded",
           "ResourcePayloadIdentityTests.FailurePreservesTheTargetAndRefundsBothResourcePaths",
           "InlinePacketBoundaryTests.PacketConstructionAndPublicationFailuresKeepPriorOutputAndRefundOwners",
-          "PacketFramingTests.FlateFrameStateAlsoReceivesSharedAdmission"
+          "PacketFramingTests.FlateFrameStateAlsoReceivesSharedAdmission",
+          "InlineContextReuseTests.DecodeCeilingsChargeActualDistinctContexts",
+          "InlineContextReuseTests.SharedResultRetiresOnEveryAdmissionAndPublicationFailure"
         ],
         "oracle": [
-          "diff:inline"
+          "diff:inline",
+          "tools/ReferenceInlineContexts.ps1"
         ]
       }
     },

@@ -171,7 +171,7 @@ public sealed class InlineContentInputTests
         if (form) { InlineImages.ExternalizeForm(prepared.Copier, 7, bad, 0L, false, null, QpdfLimits.Default, governor, diagnostics, CancellationToken.None, 0); Assert.Empty(diagnostics.Entries); }
         else
         {
-            Assert.Same(page, InlineImages.ExternalizePage(prepared.Copier, 3, page, 0L, false, null, QpdfLimits.Default, governor, diagnostics, CancellationToken.None, 0));
+            Assert.Same(page, InlineImages.ExternalizePage(prepared.Copier, 3, page, 0L, false, null, QpdfLimits.Default, governor, diagnostics, CancellationToken.None, 0, null));
             QpdfDiagnostic warning = Assert.Single(diagnostics.Entries); Assert.Equal(QpdfDiagnosticSeverity.Warning, warning.Severity);
             Assert.Equal(QpdfDiagnosticCode.UnsupportedFeature, warning.Code);
             Assert.Equal("Unable to filter content stream; not attempting to externalize inline images.", warning.Message);

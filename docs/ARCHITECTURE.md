@@ -252,6 +252,12 @@ guards run before reuse. Repeated pruned resources gain one shared indirect
 identity; a single-page result keeps its direct header. Failed analyses retain
 their per-page diagnostics and conservative dependency policy.
 
+Inline-image externalization retains at most 32 successful content/resource
+contexts per page phase. Reuse borrows generated image/content objects while
+rebuilding independent page headers; original private aliases remain unchanged.
+Diagnostic emission versions include suppressed warnings, so presentation does
+not change cache eligibility. Decoded counters charge actual distinct work.
+
 One governor spans configuration, reading, transforms, serialization and publication.
 It enforces local limits and a host's optional shared memory allowance. Estimates
 describe working storage, not CLR heap or process RSS. Structural, cycle and

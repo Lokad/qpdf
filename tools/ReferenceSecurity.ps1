@@ -11,7 +11,9 @@ function Invoke-SecurityManaged {
   $text = if ($textLine.Count -eq 1) { ConvertFrom-Json -InputObject $textLine[0].Substring(11) } else { $null }
   $report = @($lines | Select-String -Pattern '^emit: diagnostic EncryptionReport \w+ (.*)$' | ForEach-Object { $_.Matches[0].Groups[1].Value })
   $identity = @($lines | Select-String -Pattern '^emit: diagnostic HelpText Info (.*)$' | ForEach-Object { $_.Matches[0].Groups[1].Value })
-  return [pscustomobject]@{ Identity = $identity; Report = $report; PageCount = @($lines | Select-String -Pattern '^emit: diagnostic PageCount Info inputs/a.pdf: 1$').Count; Status = $status[0].Matches[0].Groups[1].Value; ExitCode = [int]$status[0].Matches[0].Groups[2].Value; Text = $text }
+  $counters = @($lines | Select-String -Pattern '^emit: counters decoded=(\d+) peakmem=\d+$')
+  $decoded = if ($counters.Count -eq 1) { [long]$counters[0].Matches[0].Groups[1].Value } else { $null }
+  return [pscustomobject]@{ Identity = $identity; Report = $report; PageCount = @($lines | Select-String -Pattern '^emit: diagnostic PageCount Info inputs/a.pdf: 1$').Count; Status = $status[0].Matches[0].Groups[1].Value; ExitCode = [int]$status[0].Matches[0].Groups[2].Value; Text = $text; DecodedBytes = $decoded }
 }
 
 function Assert-SecurityProtection {

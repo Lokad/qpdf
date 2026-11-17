@@ -18,8 +18,29 @@ internal static class InlineImages
     internal static PdfDictionary ExternalizePage(
         GraphCopier copier, int pageId, PdfDictionary page, long minBytes, bool compress, int? level,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
-        CancellationToken cancellationToken, byte filterOptions)
+        CancellationToken cancellationToken, byte filterOptions, ExternalizedPageContents? externalized)
     {
+        QpdfObject? source = null;
+        PdfDictionary? context = null;
+        if (externalized is not null)
+        {
+            if (PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, cancellationToken, out QpdfObject raw))
+            {
+                source = raw;
+                if (raw is PdfReference reference)
+                { PdfObjectLookup.TryResolve(reference, copier.CopiedObjects, governor, cancellationToken, out source); }
+            }
+            if (source is PdfStream or PdfArray
+                && PdfDictionaryLookup.TryGet(page, "Resources"u8, governor, cancellationToken, out raw))
+            { context = CatalogCopy.ResolveDictionary(raw, copier.CopiedObjects, governor, cancellationToken); }
+            if (source is not null && context is not null && externalized.TryGet(source, context, out ExternalizedPageContents.Result cached))
+            {
+                PdfDictionary cachedPage = ReplaceEntry(page, "Resources"u8, cached.Resources, governor, cancellationToken);
+                cachedPage = ReplaceEntry(cachedPage, "Contents"u8, cached.Contents, governor, cancellationToken);
+                copier.ReplaceCopiedObject(pageId, cachedPage); return cachedPage;
+            }
+        }
+        long diagnosticsBefore = diagnostics.EmissionVersion;
         using AnalysisChunks? chunks = CollectDecodedContents(copier, page, limits, governor, cancellationToken);
         if (chunks is null)
         {
@@ -43,6 +64,9 @@ internal static class InlineImages
         replaced = ReplaceEntry(replaced, "Contents"u8, link, governor, cancellationToken);
 
         copier.ReplaceCopiedObject(pageId, replaced);
+        if (externalized is not null && source is not null && context is not null
+            && rewritten.Resources is PdfDictionary completed && diagnostics.EmissionVersion == diagnosticsBefore)
+        { externalized.Remember(source, context, new(link, completed)); }
         return replaced;
     }
 
