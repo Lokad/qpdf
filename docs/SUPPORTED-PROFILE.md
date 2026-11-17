@@ -402,6 +402,10 @@ finishes before targeted payload publication, with backing admitted through comm
   and MIME names ASCII without NUL. Existing empty keys remain removable/extractable.
   Dates are omitted unless supplied; additions record size/checksum and a default basename.
 
+Command MIME setters require `/`; `/`, `type/`, `/subtype` and `text/a/b` are valid.
+Explicit empty values reject; typed null/empty means omission. Argv validates
+each setter, while duplicate job properties use the last value.
+
 Authored dates use `D:YYYYMMDDHHmmSS`, optionally followed by `Z` or a signed
 `HH'mm'` offset. Validation checks syntax, including ASCII digits, rather than
 calendar ranges. Typed null/empty dates mean omission; explicit empty command

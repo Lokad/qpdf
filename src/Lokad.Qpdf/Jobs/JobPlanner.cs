@@ -1446,6 +1446,8 @@ internal static partial class JobPlanner
                     }
 
                     mimeType = RequireString(property.Value, "addAttachment-mimetype", textStorage);
+                    if (!property.Value.IsDirectArgument)
+                    { AttachmentMimeType.RequireCommand(mimeType, textStorage.Governor); }
                     break;
                 case "description":
                     if (description is not null)
@@ -1484,7 +1486,7 @@ internal static partial class JobPlanner
             fileName,
             creationDate is null || creationDate.Length == 0 ? null : creationDate,
             modDate is null || modDate.Length == 0 ? null : modDate,
-            mimeType is null || mimeType.Length == 0 ? null : mimeType,
+            mimeType,
             description is null || description.Length == 0 ? null : description,
             replace);
     }

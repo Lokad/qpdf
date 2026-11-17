@@ -450,6 +450,7 @@ internal static class ArgvParser
                 }
                 else if (name is "mimetype")
                 {
+                    AttachmentMimeType.RequireCommand(value, governor);
                     mimeType = value;
                 }
                 else

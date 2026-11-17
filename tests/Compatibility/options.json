@@ -1435,17 +1435,25 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
-          "AttachmentEditTests.AddExplicitMetadata"
+          "AttachmentEditTests.AddExplicitMetadata",
+          "AttachmentMimeTypeTests.CommandAdaptersPublishExactPermissiveMimeAndPayload",
+          "AttachmentMimeTypeTests.TypedOptionalEmptyMimeStillOmitsTheSubtype"
         ],
         "negative": [
-          "AttachmentEditTests.NestedUnknownFlagFails"
+          "AttachmentEditTests.NestedUnknownFlagFails",
+          "AttachmentMimeTypeTests.CommandRuleRequiresOnlyASlash",
+          "AttachmentMimeTypeTests.InvalidMimePreservesActualTargetBeforeInputWork"
         ],
         "interaction": [
           "AttachmentEditTests.AddWithoutDatesOmitsParams",
-          "AttachmentEditTests.NestedMetadataJobParityHolds"
+          "AttachmentEditTests.NestedMetadataJobParityHolds",
+          "AttachmentMimeTypeTests.EachArgvSetterValidatesBeforeReplacement",
+          "AttachmentMimeTypeTests.LastJobPropertyOwnsMimeValidation"
         ],
         "resource": [
-          "AttachmentEditTests.AttachmentsYieldToExhaustedBudget"
+          "AttachmentEditTests.AttachmentsYieldToExhaustedBudget",
+          "AttachmentMimeTypeTests.LongValuesBorrowStorageAndRespectCancellation",
+          "AttachmentMimeTypeTests.InvalidMimePreservesActualTargetBeforeInputWork"
         ],
         "oracle": [
           "diff:attachments-add"
