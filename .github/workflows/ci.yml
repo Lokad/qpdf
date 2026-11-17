@@ -54,6 +54,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/test-warm-workers.py 2>&1 | Tee-Object artifacts/ci/logs/warm-workers.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/test-object-stream-layout.py 2>&1 | Tee-Object artifacts/ci/logs/object-stream-layout.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           pwsh -File tools/test-reference-probe.ps1 `
             -ProbeDll tools/QpdfProbe/bin/Release/net11.0/QpdfProbe.dll `
             -OracleFixture tests/Lokad.Qpdf.OracleFixture/bin/Release/net11.0/Lokad.Qpdf.OracleFixture${{ matrix.os == 'windows-latest' && '.exe' || '' }} `

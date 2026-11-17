@@ -39,6 +39,7 @@ $referenceTemp = Join-Path $diffRoot 'temp'
 New-Item -ItemType Directory -Path $referenceTemp | Out-Null
 . (Join-Path $repoRoot 'tools/ReferenceProbe.ps1')
 . (Join-Path $repoRoot 'tools/ReferenceContent.ps1')
+. (Join-Path $repoRoot 'tools/ReferenceObjectStreams.ps1')
 Initialize-ReferenceProbe -ProbeDll $probeDll -WorkRoot $diffRoot
 try {
 
@@ -2822,6 +2823,7 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
 }
 
 # --- case: linearize-streams (managed vs oracle writer with object streams) ---
+Invoke-ReferenceObjectStreamControls
 $case = New-Case 'linearize-streams'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
 Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/b.pdf"
@@ -2832,8 +2834,8 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   if ($code -ne 0) { Write-Output "[linearize-streams/$name] FAIL: managed emit exit $code"; $script:failures++; continue }
   $code = Invoke-Oracle $case @('--linearize', '--static-id', '--object-streams=generate', $sub[1], '--', "$case/ora-$name.pdf")
   if ($code -ne 0) { Write-Output "[linearize-streams/$name] FAIL: oracle linearize exit $code"; $script:failures++; continue }
-  $rawText = [IO.File]::ReadAllText("$case/lib-$name.pdf")
-  if (-not $rawText.Contains('/Type /ObjStm') -or -not $rawText.Contains('/Type /XRef')) { Write-Output "[linearize-streams/$name] FAIL: managed output lacks object/xref streams"; $script:failures++; continue }
+  Assert-ReferenceObjectStreams "$case/lib-$name.pdf"
+  Assert-ReferenceObjectStreams "$case/ora-$name.pdf"
   Copy-Item "$case/lib-$name.pdf" "$case/inputs/check-$name.pdf"
   $code = Invoke-ManagedCheck $case "inputs/check-$name.pdf" "linstreams-$name"
   $ora = Invoke-OracleCheck "$case/lib-$name.pdf"

@@ -14,6 +14,8 @@ import subprocess
 import tempfile
 import time
 
+from object_stream_layout import validate_object_streams as validate_physical_streams
+
 
 PIN = "4eba95899886e851cc41d76886483b347612f2a8"
 
@@ -187,39 +189,7 @@ def checker_preflight(directory, dotnet, probe, qpdf):
 
 
 def validate_object_streams(qpdf, path):
-    objects = native_json(qpdf, path)["qpdf"][1]
-    containers = {}
-    for key, value in objects.items():
-        stream = value.get("stream", {})
-        dictionary = stream.get("dict", {})
-        if dictionary.get("/Type") != "/ObjStm":
-            continue
-        count, first = dictionary.get("/N"), dictionary.get("/First")
-        if (not isinstance(count, int) or count < 1 or not isinstance(first, int)
-                or first < 0 or dictionary.get("/Filter") is not None):
-            raise ValueError("Expected an uncompressed object-stream header")
-        payload = base64.b64decode(stream["data"], validate=True)
-        fields = payload[:first].split()
-        if first >= len(payload) or len(fields) != 2 * count or any(not v.isdigit() for v in fields):
-            raise ValueError("Invalid object-stream member table")
-        numbers = [int(v) for v in fields[::2]]
-        offsets = [int(v) for v in fields[1::2]]
-        if (len(set(numbers)) != count or any(v < 1 for v in numbers)
-                or any(a >= b for a, b in zip(offsets, offsets[1:]))
-                or any(first + offset >= len(payload) for offset in offsets)):
-            raise ValueError("Invalid object-stream member ownership/offsets")
-        identity = re.fullmatch(r"obj:(\d+) 0 R", key)
-        if identity is None or int(identity.group(1)) in numbers:
-            raise ValueError("Invalid object-stream container identity")
-        containers[int(identity.group(1))] = numbers
-    entries = re.findall(rb"(?m)^(\d+)/0: compressed; stream = (\d+), index = (\d+)\r?$",
-        run([qpdf, "--show-xref", path]))
-    if not entries:
-        raise ValueError("Object-stream generation did not create compressed xref entries")
-    for member, owner, index in entries:
-        number, container, slot = int(member), int(owner), int(index)
-        if container not in containers or slot >= len(containers[container]) or containers[container][slot] != number:
-            raise ValueError("Compressed xref disagrees with object-stream ownership")
+    return validate_physical_streams(qpdf, path, run)
 
 
 def validate(case, directory, sources, dotnet, probe, qpdf, input_directory):
