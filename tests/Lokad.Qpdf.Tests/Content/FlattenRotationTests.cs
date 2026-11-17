@@ -4,10 +4,6 @@ using Lokad.Qpdf.Hosting;
 namespace Lokad.Qpdf.Tests.Content;
 public sealed class FlattenRotationTests
 {
-private static string NL()
-{
-return new string((char)10, 1);
-}
 private static string SP()
 {
 return new string((char)32, 1);
@@ -24,63 +20,7 @@ foreach ((string dict, byte[]? _) in extras)
 {
 bodies.Add(dict);
 }
-List<byte[]?> payloads = new() { null, null, null };
-foreach ((string _, byte[]? streamData) in extras)
-{
-payloads.Add(streamData);
-}
-List<byte[]> parts = new();
-byte[] header = Encoding.ASCII.GetBytes(string.Concat("%PDF-1.4", NL()));
-parts.Add(header);
-List<long> offsets = new();
-long position = header.Length;
-for (int i = 0; i < bodies.Count; i++)
-{
-int number = i + 1;
-byte[]? streamData = payloads[i];
-byte[] open = Encoding.ASCII.GetBytes(string.Concat(number.ToString(), SP(), "0 obj", NL(), bodies[i], NL()));
-if (streamData is null)
-{
-byte[] close = Encoding.ASCII.GetBytes(string.Concat("endobj", NL()));
-offsets.Add(position);
-position += open.Length + close.Length;
-parts.Add(open);
-parts.Add(close);
-continue;
-}
-byte[] streamOpen = Encoding.ASCII.GetBytes(string.Concat("stream", NL()));
-byte[] streamClose = Encoding.ASCII.GetBytes(string.Concat(NL(), "endstream", NL(), "endobj", NL()));
-offsets.Add(position);
-position += open.Length + streamOpen.Length + streamData.Length + streamClose.Length;
-parts.Add(open);
-parts.Add(streamOpen);
-parts.Add(streamData);
-parts.Add(streamClose);
-}
-int size = bodies.Count + 1;
-StringBuilder xref = new();
-xref.Append(string.Concat("xref", NL(), "0 ", size.ToString(), NL()));
-xref.Append(string.Concat("0000000000 65535 f ", NL()));
-foreach (long offset in offsets)
-{
-xref.Append(string.Concat(offset.ToString("D10"), " 00000 n ", NL()));
-}
-xref.Append(string.Concat("trailer", NL(), "<< /Size ", size.ToString(), " /Root 1 0 R >>", NL()));
-xref.Append(string.Concat("startxref", NL(), position.ToString(), NL(), "%%EOF", NL()));
-parts.Add(Encoding.ASCII.GetBytes(xref.ToString()));
-int total = 0;
-foreach (byte[] part in parts)
-{
-total += part.Length;
-}
-byte[] output = new byte[total];
-int cursor = 0;
-foreach (byte[] part in parts)
-{
-Buffer.BlockCopy(part, 0, output, cursor, part.Length);
-cursor += part.Length;
-}
-return output;
+return PdfTestDocument.AssembleBodies(bodies, number => number > 3 ? extras[number - 4].StreamData : null, "1.4", "");
 }
 private static byte[] ContentFixture(string pageExtra)
 {

@@ -70,69 +70,7 @@ public sealed class GlobalLimitsTests
             "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << >> >>",
             "<< /Length " + payload.Length.ToString() + " /Filter " + filters.ToString() + " >>",
         };
-        byte[] content = payload;
-        List<byte[]> parts = new();
-        byte[] header = Encoding.ASCII.GetBytes("%PDF-1.4" + (char)10);
-        parts.Add(header);
-        List<long> offsets = new();
-        long position = header.Length;
-        for (int i = 0; i < bodies.Count; i++)
-        {
-            int number = i + 1;
-            byte[] open = Encoding.ASCII.GetBytes(number.ToString() + " 0 obj" + (char)10 + bodies[i] + (char)10);
-            if (number == 4)
-            {
-                byte[] streamOpen = Encoding.ASCII.GetBytes("stream" + (char)10);
-                byte[] streamClose = Encoding.ASCII.GetBytes((char)10 + "endstream" + (char)10 + "endobj" + (char)10);
-                offsets.Add(position);
-                position += open.Length + streamOpen.Length + content.Length + streamClose.Length;
-                byte[] combined = new byte[open.Length + streamOpen.Length + content.Length + streamClose.Length];
-                int at = 0;
-                Buffer.BlockCopy(open, 0, combined, at, open.Length);
-                at += open.Length;
-                Buffer.BlockCopy(streamOpen, 0, combined, at, streamOpen.Length);
-                at += streamOpen.Length;
-                Buffer.BlockCopy(content, 0, combined, at, content.Length);
-                at += content.Length;
-                Buffer.BlockCopy(streamClose, 0, combined, at, streamClose.Length);
-                parts.Add(combined);
-                continue;
-            }
-
-            byte[] close = Encoding.ASCII.GetBytes("endobj" + (char)10);
-            offsets.Add(position);
-            position += open.Length + close.Length;
-            parts.Add(open);
-            parts.Add(close);
-        }
-
-        int size = bodies.Count + 1;
-        StringBuilder xref = new();
-        xref.Append("xref" + (char)10 + "0 " + size.ToString() + (char)10);
-        xref.Append("0000000000 65535 f " + (char)10);
-        foreach (long offset in offsets)
-        {
-            xref.Append(offset.ToString("D10") + " 00000 n " + (char)10);
-        }
-
-        xref.Append("trailer" + (char)10 + "<< /Size " + size.ToString() + " /Root 1 0 R >>" + (char)10);
-        xref.Append("startxref" + (char)10 + position.ToString() + (char)10 + "%%EOF" + (char)10);
-        parts.Add(Encoding.ASCII.GetBytes(xref.ToString()));
-        int total = 0;
-        foreach (byte[] part in parts)
-        {
-            total += part.Length;
-        }
-
-        byte[] output = new byte[total];
-        int cursor = 0;
-        foreach (byte[] part in parts)
-        {
-            Buffer.BlockCopy(part, 0, output, cursor, part.Length);
-            cursor += part.Length;
-        }
-
-        return output;
+        return PdfTestDocument.AssembleBodies(bodies, number => number == 4 ? payload : null, "1.4", "");
     }
 
     private static byte[] BuildDeepPage(int depth)
@@ -157,68 +95,7 @@ public sealed class GlobalLimitsTests
             "<< /Length 15 >>",
         };
         byte[] content = Encoding.ASCII.GetBytes("BT (Page) Tj ET");
-        List<byte[]> parts = new();
-        byte[] header = Encoding.ASCII.GetBytes("%PDF-1.4\n");
-        parts.Add(header);
-        List<long> offsets = new();
-        long position = header.Length;
-        for (int i = 0; i < bodies.Count; i++)
-        {
-            int number = i + 1;
-            byte[] open = Encoding.ASCII.GetBytes(number.ToString() + " 0 obj\n" + bodies[i] + "\n");
-            if (number == 4)
-            {
-                byte[] streamOpen = Encoding.ASCII.GetBytes("stream\n");
-                byte[] streamClose = Encoding.ASCII.GetBytes("\nendstream\nendobj\n");
-                offsets.Add(position);
-                position += open.Length + streamOpen.Length + content.Length + streamClose.Length;
-                byte[] payload = new byte[open.Length + streamOpen.Length + content.Length + streamClose.Length];
-                int at = 0;
-                Buffer.BlockCopy(open, 0, payload, at, open.Length);
-                at += open.Length;
-                Buffer.BlockCopy(streamOpen, 0, payload, at, streamOpen.Length);
-                at += streamOpen.Length;
-                Buffer.BlockCopy(content, 0, payload, at, content.Length);
-                at += content.Length;
-                Buffer.BlockCopy(streamClose, 0, payload, at, streamClose.Length);
-                parts.Add(payload);
-                continue;
-            }
-
-            byte[] close = Encoding.ASCII.GetBytes("endobj\n");
-            offsets.Add(position);
-            position += open.Length + close.Length;
-            parts.Add(open);
-            parts.Add(close);
-        }
-
-        int size = bodies.Count + 1;
-        StringBuilder xref = new();
-        xref.Append("xref\n0 " + size.ToString() + "\n");
-        xref.Append("0000000000 65535 f \n");
-        foreach (long offset in offsets)
-        {
-            xref.Append(offset.ToString("D10") + " 00000 n \n");
-        }
-
-        xref.Append("trailer\n<< /Size " + size.ToString() + " /Root 1 0 R >>\n");
-        xref.Append("startxref\n" + position.ToString() + "\n%%EOF\n");
-        parts.Add(Encoding.ASCII.GetBytes(xref.ToString()));
-        int total = 0;
-        foreach (byte[] part in parts)
-        {
-            total += part.Length;
-        }
-
-        byte[] output = new byte[total];
-        int cursor = 0;
-        foreach (byte[] part in parts)
-        {
-            Buffer.BlockCopy(part, 0, output, cursor, part.Length);
-            cursor += part.Length;
-        }
-
-        return output;
+        return PdfTestDocument.AssembleBodies(bodies, number => number == 4 ? content : null, "1.4", "");
     }
 
     [Fact]
