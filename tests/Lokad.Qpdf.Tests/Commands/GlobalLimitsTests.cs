@@ -446,15 +446,12 @@ public sealed class GlobalLimitsTests
     }
 
     [Fact]
-    public async Task NoDefaultLimitsRejectsRestrictedCombinations()
+    public async Task NoDefaultLimitsSupportsStandaloneCounting()
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildDeepPage(10));
         QpdfExecutionResult show = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-npages", "--no-default-limits"]), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, show.ExitCode);
-        QpdfExecutionResult import = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--json-input", "--no-default-limits", "--", "outputs/a.pdf"]), CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(import).Code);
-        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(host, "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"jsonInput\": true, \"global\": {\"noDefaultLimits\": true}}", CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(job).Code);
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 [Fact]
     public async Task FlagCannotRaiseTighterHostBudget()

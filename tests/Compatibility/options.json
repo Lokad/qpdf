@@ -1825,20 +1825,24 @@
         "positive": [
           "GlobalLimitsTests.NoDefaultLimitsAccepted",
           "GlobalLimitsTests.NoDefaultLimitsDecodesOverLimitFilters",
-          "GlobalLimitsTests.NoDefaultLimitsJobParityHolds"
+          "GlobalLimitsTests.NoDefaultLimitsJobParityHolds",
+          "JsonImportContainerTests.CommandsEnforceEffectiveContainerLimits",
+          "GlobalLimitsTests.NoDefaultLimitsSupportsStandaloneCounting"
         ],
         "negative": [
           "GlobalLimitsTests.ValuedNoDefaultLimitsFails",
           "GlobalLimitsTests.NoDefaultLimitsDuplicateFails",
-          "GlobalLimitsTests.NoDefaultLimitsRejectsRestrictedCombinations"
+          "JsonImportContainerTests.CommandsEnforceEffectiveContainerLimits"
         ],
         "interaction": [
           "GlobalLimitsTests.NoDefaultLimitsJobParityHolds",
-          "GlobalLimitsTests.NoDefaultLimitsExplicitFlagWins"
+          "GlobalLimitsTests.NoDefaultLimitsExplicitFlagWins",
+          "JsonImportContainerTests.ImportedContainersKeepTheExactBoundaryAndRejectOverflowBeforePublication"
         ],
         "resource": [
           "GlobalLimitsTests.NoDefaultLimitsRespectsTightHost",
-          "GlobalLimitsTests.NoDefaultLimitsKeepsNestingCap"
+          "GlobalLimitsTests.NoDefaultLimitsKeepsNestingCap",
+          "JsonImportContainerTests.ContainerFailureRefundsItsOwnerAndAllowsRetry"
         ],
         "oracle": [
           "diff:global"
@@ -1868,7 +1872,8 @@
       "evidence": {
         "positive": [
           "GlobalLimitsTests.LooseContainerCapsParse",
-          "GlobalLimitsTests.ContainerCapsJobParityHolds"
+          "GlobalLimitsTests.ContainerCapsJobParityHolds",
+          "JsonImportContainerTests.CommandsEnforceEffectiveContainerLimits"
         ],
         "negative": [
           "GlobalLimitsTests.TightContainerCapFailsStrictParsing",
@@ -1877,17 +1882,20 @@
           "GlobalLimitsTests.BadContainerFlagsFail",
           "GlobalLimitsTests.DuplicateContainerFlagsFail",
           "GlobalLimitsTests.BadNestedContainerKeysFail",
-          "GlobalLimitsTests.HostContainerBudgetInterplay"
+          "GlobalLimitsTests.HostContainerBudgetInterplay",
+          "JsonImportContainerTests.CommandsEnforceEffectiveContainerLimits"
         ],
         "interaction": [
           "GlobalLimitsTests.ContainerCapsJobParityHolds",
-          "GlobalLimitsTests.BadNestedContainerKeysFail"
+          "GlobalLimitsTests.BadNestedContainerKeysFail",
+          "JsonImportContainerTests.ImportedContainersKeepTheExactBoundaryAndRejectOverflowBeforePublication"
         ],
         "resource": [
           "GlobalLimitsTests.HostContainerBudgetInterplay",
           "GlobalLimitsTests.NegativeContainerBudgetsFailValidation",
           "GlobalLimitsTests.FlagMayTightenBelowContainerCeiling",
-          "StructuralBudgetPublicationTests.StructuralRefusalNeverDropsARetainedRootAndCommits"
+          "StructuralBudgetPublicationTests.StructuralRefusalNeverDropsARetainedRootAndCommits",
+          "JsonImportContainerTests.ContainerFailureRefundsItsOwnerAndAllowsRetry"
         ],
         "oracle": [
           "diff:global"
@@ -4097,7 +4105,10 @@
           "JsonPairRoundTripTests.CreationKeepsDistinctGenerationsAndMaximumNumbersWithoutSparseAllocation",
           "JsonPairRoundTripTests.CompressedMembersRoundTripWithGenerationZero",
           "JsonNumberTests.NumericFormsRoundTripThroughCreateAndUpdate",
-          "JsonImportTests.UpdateChangesValues"
+          "JsonImportTests.UpdateChangesValues",
+          "JsonImportContainerTests.ImportedContainersKeepTheExactBoundaryAndRejectOverflowBeforePublication",
+          "JsonImportContainerTests.DecodedDictionaryNamesFollowPdfParserCounting",
+          "JsonImportContainerTests.UnknownEnvelopeMembersDoNotBecomePdfContainerLimits"
         ],
         "negative": [
           "JsonImportTests.MalformedJsonFails",
@@ -4105,7 +4116,10 @@
           "JsonNumberTests.UnsupportedNumbersPreservePriorOutput",
           "JsonImportTests.ImportCombinationsFail",
           "JsonImportTests.MissingOutputFails",
-          "PublicationProfileTests.JsonPublicationUsesTheCopyProfile"
+          "PublicationProfileTests.JsonPublicationUsesTheCopyProfile",
+          "JsonImportContainerTests.ImportedContainersKeepTheExactBoundaryAndRejectOverflowBeforePublication",
+          "JsonImportContainerTests.ContainerChecksPrecedeDecodingInvalidOverflowValues",
+          "JsonImportContainerTests.TrailerDictionaryItselfHasTheSameCeiling"
         ],
         "interaction": [
           "JsonImportTests.JobCreateRoundTrip",
@@ -4119,12 +4133,14 @@
           "EncryptedJsonRoundTripTests.CreationCannotInferProtectionFromUnauthenticatedJson",
           "JsonImportTests.JobUpdateRoundTrip",
           "JsonImportTests.TypedUpdateRoundTrip",
-          "PublicationProfileTests.JsonPublicationUsesTheCopyProfile"
+          "PublicationProfileTests.JsonPublicationUsesTheCopyProfile",
+          "JsonImportContainerTests.CommandsEnforceEffectiveContainerLimits"
         ],
         "resource": [
           "JsonImportTests.CreateYieldsToExhaustedBudget",
           "EncryptedJsonCreationTests.EveryProtectedCreationAdmissionRefusalRefundsBeforePublication",
-          "JsonNumberTests.ExpansionRefusalReleasesSharedAdmissionAndPreservesOutput"
+          "JsonNumberTests.ExpansionRefusalReleasesSharedAdmissionAndPreservesOutput",
+          "JsonImportContainerTests.ContainerFailureRefundsItsOwnerAndAllowsRetry"
         ],
         "oracle": [
           "diff:json-import",
@@ -7405,7 +7421,10 @@
           "JsonImportTests.UpdateAddsObjects",
           "JsonImportTests.UpdateWithoutTrailerKeeps",
           "JsonImportTests.UpdateNoOpIsStable",
-          "JsonImportTests.UpdateHonorsPdfVersion"
+          "JsonImportTests.UpdateHonorsPdfVersion",
+          "JsonImportContainerTests.ImportedContainersKeepTheExactBoundaryAndRejectOverflowBeforePublication",
+          "JsonImportContainerTests.DecodedDictionaryNamesFollowPdfParserCounting",
+          "JsonImportContainerTests.UnknownEnvelopeMembersDoNotBecomePdfContainerLimits"
         ],
         "negative": [
           "JsonImportTests.UpdateCombinationsFail",
@@ -7413,7 +7432,10 @@
           "JsonNumberTests.UnsupportedNumbersPreservePriorOutput",
           "JsonImportTests.UpdateMissingOutputFails",
           "JsonImportTests.UpdatePushedAttributesFail",
-          "PublicationProfileTests.JsonPublicationUsesTheCopyProfile"
+          "PublicationProfileTests.JsonPublicationUsesTheCopyProfile",
+          "JsonImportContainerTests.ImportedContainersKeepTheExactBoundaryAndRejectOverflowBeforePublication",
+          "JsonImportContainerTests.ContainerChecksPrecedeDecodingInvalidOverflowValues",
+          "JsonImportContainerTests.TrailerDictionaryItselfHasTheSameCeiling"
         ],
         "interaction": [
           "JsonImportTests.JobUpdateRoundTrip",
@@ -7427,13 +7449,15 @@
           "EncryptedJsonUpdateTests.ReplacementTrailersCannotInjectEncryptionHandlers",
           "EncryptedJsonRoundTripTests.FullAuthenticatedExportsRoundTripThroughExplicitOutputPolicies",
           "EncryptedJsonRoundTripTests.PreservationRejectsEditedHandlersBeforePublication",
-          "PublicationProfileTests.JsonPublicationUsesTheCopyProfile"
+          "PublicationProfileTests.JsonPublicationUsesTheCopyProfile",
+          "JsonImportContainerTests.CommandsEnforceEffectiveContainerLimits"
         ],
         "resource": [
           "JsonImportTests.UpdateYieldsToExhaustedBudget",
           "JsonGenerationOwnershipTests.NormalizedUpdatesPreserveTargetsAndRefundPrivateStorage",
           "EncryptedJsonRoundTripTests.EveryFullUpdateAdmissionRefusalRefundsBeforePublication",
-          "EncryptedJsonUpdateTests.EveryUpdateAdmissionRefusalRefundsBeforeEncryptedPublication"
+          "EncryptedJsonUpdateTests.EveryUpdateAdmissionRefusalRefundsBeforeEncryptedPublication",
+          "JsonImportContainerTests.ContainerFailureRefundsItsOwnerAndAllowsRetry"
         ],
         "oracle": [
           "diff:json-update",

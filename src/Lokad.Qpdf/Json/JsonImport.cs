@@ -124,7 +124,7 @@ internal static partial class JsonImport
             string propertyName = ReadPropertyName(property);
             if (propertyName == "trailer")
             {
-                trailer = (PdfDictionary)Writing.ObjectRemap.RemapImported(ReadTrailer(property.Value, governor, memory, cancellationToken),
+                trailer = (PdfDictionary)Writing.ObjectRemap.RemapImported(ReadTrailer(property.Value, limits, governor, memory, cancellationToken),
                     bindings, memory, governor, cancellationToken);
                 continue;
             }
@@ -220,7 +220,7 @@ internal static partial class JsonImport
             string propertyName = ReadPropertyName(property);
             if (propertyName == "trailer")
             {
-                trailer = (PdfDictionary)Writing.ObjectRemap.RemapImported(ReadTrailer(property.Value, governor, memory, cancellationToken),
+                trailer = (PdfDictionary)Writing.ObjectRemap.RemapImported(ReadTrailer(property.Value, limits, governor, memory, cancellationToken),
                     bindings, memory, governor, cancellationToken);
                 continue;
             }
@@ -458,7 +458,7 @@ internal static partial class JsonImport
         return (number, generation);
     }
 
-    private static PdfDictionary ReadTrailer(JsonElement value, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
+    private static PdfDictionary ReadTrailer(JsonElement value, QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
     {
         if (value.ValueKind != JsonValueKind.Object)
         {
@@ -472,7 +472,7 @@ internal static partial class JsonImport
             string propertyName = ReadPropertyName(property);
             if (propertyName == "value")
             {
-                QpdfObject decoded = DecodeValue(property.Value, 0, governor, memory, token);
+                QpdfObject decoded = DecodeValue(property.Value, 0, limits, governor, memory, token);
                 if (decoded is not PdfDictionary dictionary)
                 {
                     throw new QpdfParseException("qpdf JSON trailer value must be a dictionary.", 0L, null);
@@ -519,7 +519,7 @@ internal static partial class JsonImport
             if (propertyName == "value")
             {
                 sawValue = true;
-                QpdfObject decoded = DecodeValue(property.Value, 0, governor, memory, cancellationToken);
+                QpdfObject decoded = DecodeValue(property.Value, 0, limits, governor, memory, cancellationToken);
                 if (decoded is PdfReference)
                 {
                     throw new QpdfParseException("qpdf JSON object value may not be an indirect object reference.", 0L, null);
@@ -544,7 +544,7 @@ internal static partial class JsonImport
                     string innerName = ReadPropertyName(inner);
                     if (innerName == "dict")
                     {
-                        QpdfObject decoded = DecodeValue(inner.Value, 0, governor, memory, cancellationToken);
+                        QpdfObject decoded = DecodeValue(inner.Value, 0, limits, governor, memory, cancellationToken);
                         if (decoded is not PdfDictionary dictionary)
                         {
                             throw new QpdfParseException("qpdf JSON stream dict must be a dictionary.", 0L, null);
@@ -672,7 +672,7 @@ internal static partial class JsonImport
         { throw new QpdfParseException("Invalid string encoding in qpdf JSON.", 0L, null, ex); }
     }
 
-    private static QpdfObject DecodeValue(JsonElement value, int depth, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
+    private static QpdfObject DecodeValue(JsonElement value, int depth, QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (depth > governor.MaxNestingDepth)
@@ -693,24 +693,40 @@ internal static partial class JsonImport
                 return DecodeString(ReadString(value) ?? string.Empty, governor, token);
             case JsonValueKind.Array:
             {
-                QpdfObject[] items = new QpdfObject[value.GetArrayLength()];
+                int count = value.GetArrayLength();
+                CheckContainerSize(count, limits);
+                QpdfObject[] items = new QpdfObject[count];
                 int index = 0;
                 foreach (JsonElement item in value.EnumerateArray())
-                { items[index++] = DecodeValue(item, depth + 1, governor, memory, token); }
+                { items[index++] = DecodeValue(item, depth + 1, limits, governor, memory, token); }
                 return PdfArray.FromOwnedItems(items);
             }
 
             case JsonValueKind.Object:
             {
-                Dictionary<PdfName, QpdfObject> entries = new(value.GetPropertyCount());
+                // Like the PDF parser, check stored entries before each pair.
+                // Repeated/escaped spellings can decode to the same name; raw
+                // JSON property count must not determine their capacity or limit.
+                int capacity = (int)Math.Min(value.GetPropertyCount(), limits.MaxContainerSize);
+                Dictionary<PdfName, QpdfObject> entries = new(capacity);
                 foreach (JsonProperty property in value.EnumerateObject())
-                { entries[DecodeName(ReadPropertyName(property), governor, token)] = DecodeValue(property.Value, depth + 1, governor, memory, token); }
+                {
+                    token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    CheckContainerSize(entries.Count + 1L, limits);
+                    entries[DecodeName(ReadPropertyName(property), governor, token)] = DecodeValue(property.Value, depth + 1, limits, governor, memory, token);
+                }
                 return PdfDictionary.FromOwnedEntries(entries);
             }
 
             default:
                 throw new QpdfParseException("Unsupported qpdf JSON value.", 0L, null);
         }
+    }
+
+    private static void CheckContainerSize(long count, QpdfLimits limits)
+    {
+        if (count > limits.MaxContainerSize)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), count, limits.MaxContainerSize); }
     }
 
     private static QpdfObject DecodeString(string text, ResourceGovernor governor, CancellationToken token)

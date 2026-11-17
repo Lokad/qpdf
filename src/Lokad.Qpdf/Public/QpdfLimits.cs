@@ -63,6 +63,7 @@ public sealed record QpdfLimits
     public bool IgnoreXrefStreams { get; init; }
 
     /// <summary>Maximum entries in parsed arrays/dictionaries and expanded selections.</summary>
+    /// <remarks>Includes PDF values imported from JSON; unrelated JSON envelope fields remain outside this ceiling.</remarks>
     public long MaxContainerSize { get; init; } = 4294967295L;
 
     /// <summary>Maximum top-level elements per container parsed during repair.</summary>

@@ -23,7 +23,7 @@ not establish implemented behavior. Development changes are in the
 | Zopfli | Unavailable; requests fail with exit 2. Ordinary Flate works. `QPDF_ZOPFLI` is treated as unset. |
 | Rotation baking | Numeric XYZ/FitR destinations follow the baked frame; Fit/FitB stays unchanged and 180-degree axis fits project their coordinate. Affected nullable positions and quarter-turn H/V/BH/BV fits fail UnsupportedFeature before publication because their general viewer/window state cannot be preserved. |
 | Host effects | Logical paths, inputs, descriptors, environment and publication require host capabilities. Fileless results replace ambient stdout. |
-| Resource limits | Host ceilings remain binding under `--no-default-limits`. Memory admission bounds an estimated working set, not CLR heap or process RSS. See [ownership](MEMORY.md). |
+| Resource limits | Host ceilings remain binding under `--no-default-limits`. PDF container ceilings also apply to JSON imports, where native can ignore them. Memory admission bounds an estimated working set, not CLR heap or process RSS. See [ownership](MEMORY.md). |
 | Scope | Rendering, OCR, text extraction/layout, general authoring and PDF/A/X/UA conformance are outside the target. |
 
 The inventory has 140 flags in 157 context entries. It separates implemented

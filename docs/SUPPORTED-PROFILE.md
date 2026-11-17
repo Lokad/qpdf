@@ -336,6 +336,12 @@ pairs and declared objects, including forward references; stale/free/missing
 original source edges remain null even when a patch declares that pair. A stream
 patch without payload data reuses bytes only from its matching source pair.
 Import/update validates page structure and replaces dangling references with null.
+Imported PDF arrays and dictionaries obey `MaxContainerSize`, including stream
+headers and trailer values. Dictionary counting follows the PDF parser's decoded
+names and duplicate-pair rule; unknown JSON envelope fields remain outside this
+PDF container ceiling.
+Commands can tighten it with `--parser-max-container-size` /
+`global.parserMaxContainerSize`; `--no-default-limits` does not relax it.
 Updates reject exports that declare pushed inherited page resources.
 Page/content/image/layout transforms and
 stream/metadata writer controls are unavailable during import/update.

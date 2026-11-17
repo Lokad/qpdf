@@ -980,8 +980,8 @@ internal static partial class JobPlanner
             }
 
             if (importJson && (objectStreams is not null || streamData is not null || compressStreams is not null
-                || decodeLevel is not null || maxStreamFilters is not null || noDefaultLimits || testJsonSchema
-                || parserMaxNesting is not null || maxContainerSize is not null || maxContainerSizeDamaged is not null
+                || decodeLevel is not null || maxStreamFilters is not null || testJsonSchema
+                || parserMaxNesting is not null || maxContainerSizeDamaged is not null
                 || parserMaxErrors is not null || recompressFlate || compressionLevel is not null || preserveUnreferenced
                 || removeInfo || removeMetadata || removeAcroform || removeStructure || labels.Count > 0 || removeLabels
                 || coalesceContents || normalizeContent || externalizeInlineImages || iiMinBytes != 1024L
@@ -1017,6 +1017,8 @@ internal static partial class JobPlanner
 
                 return new JsonInputPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output), recovery) with
                 {
+                    MaxContainerSize = maxContainerSize,
+                    NoDefaultLimits = noDefaultLimits,
                     PasswordFiles = passwordFiles,
                     OutputEncryption = outputEncryption,
                     WarningExitZero = warningExit0,
@@ -1056,6 +1058,8 @@ internal static partial class JobPlanner
 
                 return new JsonUpdatePlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(updateFromJson!), SelectionPlan.CheckedPath(output), recovery) with
                 {
+                    MaxContainerSize = maxContainerSize,
+                    NoDefaultLimits = noDefaultLimits,
                     TransformationPassword = password,
                     PasswordFiles = passwordFiles,
                     OutputEncryption = outputEncryption,
