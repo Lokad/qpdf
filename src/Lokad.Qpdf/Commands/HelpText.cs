@@ -124,9 +124,9 @@ internal static class HelpText
         Derived PDFs keep stored signature marks but disable signature fields and certification restrictions.
         Inspections and PDF transformations accept RC4 R2/R3, 128-bit RC4/AES R4 and AES-256 R5/R6 passwords, including empty passwords.
         Preserved/copied revision 4 output uses AES-128, including RC4 inputs, and requires PDF 1.6.
-        Encryption predicates are mutually exclusive, return no ordinary output, and ignore other inspections.
+        Encryption predicates are mutually exclusive, return no ordinary output, and ignore --remove-restrictions and other inspections.
         Their completed query codes 2 and 3 are not errors or warnings; --warning-exit-0 does not change them.
-        PDF transformations preserve primary protection unless --decrypt or --encrypt is supplied.
+        PDF transformations preserve primary protection unless --decrypt, --encrypt or --copy-encryption selects another policy.
         JSON updates accept primary credentials and output encryption policies.
         JSON handler declarations require authenticated preservation or an explicit output policy; password-file=- uses the host's logical "-" input.
         Signing and signature validation are unsupported.
@@ -237,7 +237,7 @@ internal static class HelpText
         passwordFile reads the first line of a host file; empty files retain the previous password.
         passwordMode accepts auto, bytes, unicode or hex-bytes; only hex-bytes changes input byte decoding.
         suppressPasswordRecovery takes "" and disables alternate-encoding attempts.
-        removeRestrictions explicitly requests the default PDF signature-disabling policy; inspections reject it.
+        removeRestrictions explicitly requests the default PDF signature-disabling policy; non-predicate inspections reject it.
         decrypt takes "" or a boolean and removes protection from PDF output after authentication.
         encrypt takes {userPassword,ownerPassword,"256bit":{}} for new AES-256 R6 output.
         copyEncryption names a template; encryptionFilePassword independently authenticates it.
@@ -245,6 +245,7 @@ internal static class HelpText
         The 256bit object accepts print, modify, extract, annotate, form, assemble, modifyOther,
         accessibility and cleartextMetadata. Nonempty user passwords require a nonempty owner password.
         isEncrypted and requiresPassword take "" and return the native query exit codes described by --help.
+        They take precedence over removeRestrictions and other inspections.
         showEncryption takes "" and reports declared settings without passwords or keys.
         PDF transformations preserve primary protection unless decrypt/encrypt/copyEncryption selects another policy.
         pages[].password authenticates every occurrence of that secondary file; conflicting credentials reject.
