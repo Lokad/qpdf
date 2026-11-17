@@ -173,4 +173,88 @@ public sealed class ArgumentErrorMemoryTests
         Assert.Equal($"Unsupported option '--{prefix}...' in the narrow selection profile. (offset 0).",
             Assert.Single(result.Diagnostics).Message);
     }
+
+    [Theory]
+    [InlineData(127)]
+    [InlineData(128)]
+    [InlineData(129)]
+    [InlineData(4096)]
+    [InlineData(4097)]
+    [InlineData(1048576)]
+    public void KnownRangeErrorsUseBoundedPreviewsAtSyntaxAndLengthBoundaries(int length)
+    {
+        string range = new('q', length);
+        QpdfParseException failure = Assert.Throws<QpdfParseException>(() =>
+            Lokad.Qpdf.Commands.OverlayRanges.ValidateSyntax(range, "--to", 7L));
+        string preview = length <= 128 ? range : range[..128] + "...";
+        Assert.Equal($"Invalid --to range {preview}: expected upstream page-range syntax. (offset 7).", failure.Message);
+        Assert.InRange(failure.Message.Length, 1, 256);
+    }
+
+    [Fact]
+    public void KnownRangeErrorPreviewKeepsSurrogatePairsWhole()
+    {
+        string prefix = new('q', 127);
+        QpdfParseException failure = Assert.Throws<QpdfParseException>(() =>
+            Lokad.Qpdf.Commands.OverlayRanges.ValidateSyntax(prefix + "\U0001F600tail", "--from", 5L));
+        Assert.Equal($"Invalid --from range {prefix}...: expected upstream page-range syntax. (offset 5).", failure.Message);
+    }
+
+    [Fact]
+    public void RejectedRangeFormattingDoesNotAllocateInputSizedCopies()
+    {
+        _ = Assert.Throws<QpdfParseException>(() => Lokad.Qpdf.Commands.OverlayRanges.ValidateSyntax("q", "--to", 0L));
+        string range = new('q', 1048576);
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        QpdfParseException failure = Assert.Throws<QpdfParseException>(() =>
+            Lokad.Qpdf.Commands.OverlayRanges.ValidateSyntax(range, "--to", 0L));
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.InRange(failure.Message.Length, 1, 256);
+        Assert.InRange(allocated, 1L, 32768L);
+    }
+
+    [Theory]
+    [InlineData(false, "to", 1048576)]
+    [InlineData(true, "to", 1048576)]
+    [InlineData(false, "from", 4097)]
+    [InlineData(true, "from", 4096)]
+    [InlineData(false, "repeat", 4096)]
+    [InlineData(true, "repeat", 4097)]
+    public async Task KnownRangeRejectionKeepsTerminalStorageBoundedAcrossAdapters(bool job, string role, int length)
+    {
+        RecordingMemoryBudget budget = new(16L << 20);
+        using (IMemoryScope caller = budget.CreateScope())
+        using (InMemoryQpdfHost host = new(QpdfLimits.Default, null, caller))
+        {
+            QpdfPath output = QpdfPath.From("out.pdf");
+            await using (IQpdfOutputTransaction prior = await host.CreateOutputAsync(output, CancellationToken.None))
+            { await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None); await prior.CommitAsync(CancellationToken.None); }
+            string range = new('q', length);
+            QpdfExecutionOptions options = new(QpdfLimits.Default with { MaxDiagnosticBytes = 16L });
+            QpdfExecutionResult result = job
+                ? await Qpdf.ExecuteJobAsync(host, System.Text.Json.JsonSerializer.Serialize(new
+                    { inputFile = "in.pdf", outputFile = output.Value,
+                        overlay = new[] { new Dictionary<string, string> { ["file"] = "stamp.pdf", [role] = range } } }), options, CancellationToken.None)
+                : await Qpdf.ExecuteAsync(host, new(["in.pdf", "--overlay", "stamp.pdf", "--" + role + "=" + range, "--", output.Value]), options, CancellationToken.None);
+            Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+            QpdfDiagnostic failure = Assert.Single(result.Diagnostics);
+            Assert.Equal(QpdfDiagnosticCode.InvalidArguments, failure.Code);
+            Assert.InRange(failure.Message.Length, 1, 256); Assert.Contains("...", failure.Message, StringComparison.Ordinal);
+            Assert.Equal(0L, result.Counters.HostOperations); Assert.Equal(0L, result.Counters.OpenHandles);
+            Assert.Equal(0L, host.OpenLeaseCount);
+            Assert.True(host.TryGetOutput(output, out byte[] bytes)); Assert.Equal("prior"u8.ToArray(), bytes);
+        }
+        Assert.Equal(0L, budget.ReservedBytes);
+    }
+
+    [Fact]
+    public async Task KnownRangeCopiesStillRequireConfigurationAdmission()
+    {
+        using InMemoryQpdfHost host = new();
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new(["in.pdf", "--overlay", "stamp.pdf", "--to=" + new string('q', 1048576), "--", "out.pdf"]),
+            new(Limits), CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, Assert.Single(result.Diagnostics).Code);
+        Assert.Equal(0L, result.Counters.HostOperations); Assert.Equal(0L, host.OpenLeaseCount);
+    }
 }

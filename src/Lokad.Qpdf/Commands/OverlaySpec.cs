@@ -29,7 +29,7 @@ internal static class OverlayRanges
         }
         catch (QpdfParseException ex)
         {
-            throw new QpdfParseException("Invalid " + role + " range " + text + ": expected upstream page-range syntax.", index, null, ex);
+            throw new QpdfParseException("Invalid " + role + " range " + ArgvParser.ErrorPreview(text) + ": expected upstream page-range syntax.", index, null, ex);
         }
     }
 

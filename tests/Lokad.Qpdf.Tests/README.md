@@ -75,3 +75,6 @@ Preparation admission cases live with forms, placements, content, page assembly,
 object streams and attachments. Each owner supplies its fixture and actual public
 invocation to `Foundation/PreparationAdmissionChecks`, which shares only the
 admission/fault assertions and host wrapper. Case names select within one owner.
+
+`ArgumentErrorMemoryTests` owns terminal argument-preview bounds, including known
+range values; adapter samples retain configuration admission and target preservation.

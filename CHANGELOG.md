@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Bound rejected overlay-range error previews before formatting, preserving
+  argument positions, configuration admission and prior outputs.
+
 - Reuse successful inline-image externalization for repeated immutable page
   contexts, preserving distinct resource bindings, diagnostics and private aliases.
 - Normalize direct outline roots before linearization and JSON writer packing,
