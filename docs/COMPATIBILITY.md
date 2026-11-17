@@ -61,7 +61,7 @@ invalid combinations and excluded crypto fail explicitly.
 
 Repeated scalar/bare argv setters are accepted, including warning, recovery,
 version and keep-open hints.
-Input/output/pages/replace declarations and repeated `--empty` remain exclusive;
+Nonempty input/output declarations, pages/replace declarations and repeated `--empty` remain exclusive;
 main-context parser ceilings also remain exclusive. Stream-filter setters and
 `--global` blocks keep setter order. Block-local duplicate rules remain explicit.
 

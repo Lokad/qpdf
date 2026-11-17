@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Accept empty main filename declarations without selecting a file, retaining
+  positional slots, explicit empty-input policy and declaration/replace conflicts.
+
 - Apply command nesting, parser-error and damaged-container settings to JSON
   creation/update through the shared reader limits, retaining host ceilings.
 

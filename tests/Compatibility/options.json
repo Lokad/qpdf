@@ -3249,25 +3249,31 @@
           "EmptyInputTests.EmptyJsonReportsNoPages",
           "EmptyInputTests.EmptyListAttachmentsReportsNone",
           "EmptyInputTests.EmptyCheckLinearizationReportsNotLinearized",
-          "EmptyInputTests.JobEmptyShowNpagesMatchesArgv"
+          "EmptyInputTests.JobEmptyShowNpagesMatchesArgv",
+          "EmptyFilenameTests.EmptyJobFilenamesSelectNoFile"
         ],
         "negative": [
           "EmptyInputTests.MalformedEmptySelectionsFail",
           "ZeroPageRewriteTests.EmptyJobMissingAttachmentSourcePreservesPriorOutput",
           "EmptyInputTests.EmptyWithReplaceInputFails",
           "EmptyInputTests.EmptyWithOverlayFails",
-          "EmptyInputTests.BadEmptyJobsFail"
+          "EmptyInputTests.BadEmptyJobsFail",
+          "EmptyFilenameTests.EmptyNamesDoNotSkipSlotsOrImplyAnEmptyDocument"
         ],
         "interaction": [
           "EmptyInputTests.JobEmptyMatchesArgv",
           "EmptyInputTests.JobEmptyShowNpagesMatchesArgv",
-          "EmptyInputTests.BadEmptyJobsFail"
+          "EmptyInputTests.BadEmptyJobsFail",
+          "EmptyFilenameTests.ResponseBlankLinesRemainEmptyArguments",
+          "EmptyFilenameTests.EmptyDefaultsDoNotResetADeclaredInput",
+          "EmptyFilenameTests.EffectiveEmptyJobInputPreservesTheExplicitEmptyPolicy"
         ],
         "resource": [
           "EmptyInputTests.EmptyMergeYieldsToExhaustedBudget",
           "ZeroPageRewriteTests.EmptyEditsCleanUpAtHostFailureAndCancellationBoundaries",
           "ZeroPageRewriteTests.EmptyAddHonorsLocalMemoryRefusalBeforePublication",
-          "ZeroPageRewriteTests.RewrittenZeroPageMetadataSurvivesDocumentAndHostCleanup"
+          "ZeroPageRewriteTests.RewrittenZeroPageMetadataSurvivesDocumentAndHostCleanup",
+          "EmptyFilenameTests.NamedInspectionOutputStillRefusesAndPreservesItsActualTarget"
         ],
         "oracle": [
           "diff:empty"
@@ -6531,7 +6537,8 @@
           "SplitReplaceTests.JobReplaceRejectsMalformed"
         ],
         "interaction": [
-          "SplitReplaceTests.JobReplaceRotatesInPlace"
+          "SplitReplaceTests.JobReplaceRotatesInPlace",
+          "EmptyFilenameTests.EmptyOutputDeclarationsRespectReplaceInputOrder"
         ],
         "resource": [
           "SplitReplaceTests.ReplaceYieldsToExhaustedBudgetLeavingInputUntouched"

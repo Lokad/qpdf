@@ -16,7 +16,7 @@ namespace Lokad.Qpdf.Jobs;
 internal static partial class JobPlanner
 {
     // JSON objects keep the last value per key. Configuration layers repeat
-    // setters; exclusive input/output/page declarations still reject.
+    // setters; nonempty filename and page declarations remain exclusive.
     internal static JobPlan ParseProperties(
         IEnumerable<JobSetting> properties,
         ResourceGovernor governor, ConfigurationText textStorage)
@@ -53,8 +53,6 @@ internal static partial class JobPlanner
             int encryptionPermissions = -4;
             bool encryptMetadata = true;
             bool empty = false;
-            bool seenInput = false;
-            bool seenOutput = false;
             bool seenPages = false;
             string? output = null;
             bool replaceInput = false;
@@ -271,23 +269,23 @@ internal static partial class JobPlanner
                         if (empty && input is not null) { throw new QpdfParseException("Empty input cannot follow an input file.", 0L, null); }
                         break;
                     case "inputFile":
-                        if (seenInput)
+                        if (input is not null)
                         {
                             throw new QpdfParseException("Duplicate job key 'inputFile'.", 0L, null);
                         }
 
-                        seenInput = true;
-                        input = RequireString(property.Value, "inputFile", textStorage);
-                        empty = false;
+                        input = ReadFilename(property.Value, "inputFile", textStorage);
+                        if (input is not null) { empty = false; }
                         break;
                     case "outputFile":
-                        if (seenOutput)
+                        if (output is not null)
                         {
                             throw new QpdfParseException("Duplicate job key 'outputFile'.", 0L, null);
                         }
 
-                        seenOutput = true;
-                        output = RequireString(property.Value, "outputFile", textStorage);
+                        if (replaceInput)
+                        { throw new QpdfParseException("Job \"outputFile\" cannot follow \"replaceInput\".", 0L, null); }
+                        output = ReadFilename(property.Value, "outputFile", textStorage);
                         break;
                     case "replaceInput":
                         if (seenReplaceInput)
@@ -2171,6 +2169,13 @@ internal static partial class JobPlanner
         }
 
         return (file, range, password);
+    }
+
+    private static string? ReadFilename(JobValue element, string role, ConfigurationText textStorage)
+    {
+        // Empty declarations still occupy argv slots, but select no logical file.
+        string value = RequireString(element, role, textStorage);
+        return value.Length == 0 ? null : value;
     }
 
     private static string RequireString(JobValue element, string role, ConfigurationText textStorage)

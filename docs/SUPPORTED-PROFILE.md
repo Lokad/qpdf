@@ -19,6 +19,11 @@ to bounded repair and generalized decoding/compression. Argv setters follow argu
 order; job setters follow sorted-key order, including nested files. Unsupported
 options and combinations fail explicitly. Execution reports exit 0/2/3 and diagnostics.
 
+Empty main filenames select no file; they do not imply `--empty`. Empty argv
+arguments still occupy their input/output slots, including response-file blank
+lines. Whitespace stays literal. Nonempty file declarations remain exclusive,
+and an output declaration cannot follow active `--replace-input`.
+
 Typed document opening, checking, counting, selection and JSON inspection are
 strict by default. The full `QpdfDocument.OpenAsync` overload accepts credentials,
 `QpdfRecoveryMode` and limits; `QpdfCheckOptions.RecoveryMode` and
