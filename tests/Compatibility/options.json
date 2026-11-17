@@ -7205,33 +7205,44 @@
           "source": "manual/cli.rst:4021"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "The checker bounds complete generated JSON syntax and checks top-level names against the selected help version. Recursive nested format validation remains unavailable."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "TestingOptionsTests.SchemaCheckValidatesVersions",
           "JsonDepthRoundTripTests.SchemaCheckingPreservesDeepValuesAcrossOutputEnvelopes",
           "OutlineInspectionTests.SchemaSyntaxCoversOutlineProjectionAroundADeepValue",
-          "TestingOptionsTests.JobSchemaKeyMatchesArgv"
+          "TestingOptionsTests.JobSchemaKeyMatchesArgv",
+          "JsonSchemaStructureTests.DescriptionContainersOwnFormatRules",
+          "JsonSchemaStructureTests.VersionedMetadataAndWildcardObjectsFollowTheirDescription",
+          "JsonSchemaStructureTests.ImageArrayReferencesAndArbitraryPdfLeavesStayUnconstrained"
         ],
         "negative": [
           "TestingOptionsTests.MalformedTestingFlagsFail",
           "TestingOptionsTests.SchemaCheckWithoutJsonFails",
-          "TestingOptionsTests.BadTestingJobKeysFail"
+          "TestingOptionsTests.BadTestingJobKeysFail",
+          "JsonSchemaStructureTests.DescribedPageAndImageFieldsRejectNestedDrift",
+          "JsonSchemaStructureTests.DescriptionContainersOwnFormatRules",
+          "JsonSchemaStructureTests.VersionedMetadataAndWildcardObjectsFollowTheirDescription"
         ],
         "interaction": [
           "TestingOptionsTests.JobSchemaKeyMatchesArgv",
-          "TestingOptionsTests.BadTestingJobKeysFail"
+          "TestingOptionsTests.BadTestingJobKeysFail",
+          "JsonSchemaStructureTests.SelectedKeysAndMinimalOutputControlRequiredRootFields",
+          "TestingOptionsTests.JobSchemaCheckHonorsVersionAndMinimalSelection"
         ],
         "resource": [
           "TestingOptionsTests.SchemaCheckYieldsToExhaustedBudget",
           "JsonSchemaMemoryTests.GeneratedSyntaxStillHasAFiniteCeilingAndRefundsFailureStorage",
           "JsonSchemaMemoryTests.RefusalBeforeFullEncodingRefundsScratch",
           "JsonSchemaMemoryTests.CancellationDuringEncodingObservesBothTokensAndRefunds",
-          "JsonDepthRoundTripTests.SchemaSyntaxAllowanceCannotRaiseTheSourceModelLimit"
+          "JsonDepthRoundTripTests.SchemaSyntaxAllowanceCannotRaiseTheSourceModelLimit",
+          "JsonSchemaMemoryTests.DenseNestedValuesNeedByteStorageWithoutAFullOutputDom",
+          "JsonSchemaMemoryTests.SchemaModelRefusalLeavesEarlierStorageFunded",
+          "JsonSchemaMemoryTests.CancellationDuringMatchingAndPdfSkippingChecksBothTokens",
+          "JsonSchemaMemoryTests.OversizedUnknownKeysFailBeforeDiagnosticUnescaping",
+          "JsonSchemaMemoryTests.SchemaAdmissionFailurePrecedesPublicationAndPreservesTheTarget"
         ],
         "oracle": [
           "diff:diagnostics"

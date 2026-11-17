@@ -262,7 +262,8 @@ public sealed class JsonInspectionTests
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
         QpdfDiagnostic help = Assert.Single(result.Diagnostics);
         using JsonDocument described = JsonDocument.Parse(help.Message);
-        Assert.Contains("images", described.RootElement.GetProperty("pages").GetString(), StringComparison.Ordinal);
+        Assert.True(described.RootElement.GetProperty("pages")[0].TryGetProperty("images", out JsonElement images));
+        Assert.True(images[0].TryGetProperty("filterable", out _));
     }
 
     [Theory]

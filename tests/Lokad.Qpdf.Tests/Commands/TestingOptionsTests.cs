@@ -117,6 +117,9 @@ public sealed class TestingOptionsTests
     }
 
     [Theory]
+    [InlineData("--json")]
+    [InlineData("--json=1")]
+    [InlineData("--json-output")]
     [InlineData("--json", "--json-key=pages")]
     [InlineData("--json=1", "--json-key=objects")]
     [InlineData("--json-output", "--json-key=qpdf")]
@@ -131,6 +134,12 @@ public sealed class TestingOptionsTests
         QpdfDiagnostic check = Assert.Single(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.JsonSchemaCheck);
         Assert.Equal(QpdfDiagnosticSeverity.Info, check.Severity);
         Assert.Contains("passed", check.Message, StringComparison.Ordinal);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.json"), out byte[] output));
+        using System.Text.Json.JsonDocument parsed = System.Text.Json.JsonDocument.Parse(output);
+        bool minimal = flags[0] == "--json-output";
+        Assert.Equal(!minimal, parsed.RootElement.TryGetProperty("version", out _));
+        Assert.Equal(!minimal, parsed.RootElement.TryGetProperty("parameters", out _));
     }
 
     [Fact]
@@ -159,6 +168,29 @@ public sealed class TestingOptionsTests
         Assert.Equal(QpdfExitCode.Success, job.ExitCode);
         string jobMessage = Assert.Single(job.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.JsonSchemaCheck).Message;
         Assert.Equal(argvMessage, jobMessage);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task JobSchemaCheckHonorsVersionAndMinimalSelection(bool minimal)
+    {
+        using InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        string json = minimal
+            ? """{"inputFile":"inputs/a.pdf","jsonOutput":"2","testJsonSchema":true}"""
+            : """{"inputFile":"inputs/a.pdf","json":1,"testJsonSchema":true}""";
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, json, CancellationToken.None);
+        _ = SingleNote(result, QpdfDiagnosticCode.JsonSchemaCheck);
+        using System.Text.Json.JsonDocument parsed = System.Text.Json.JsonDocument.Parse(Assert.IsType<string>(result.OutputText));
+        if (minimal)
+        { Assert.Equal("qpdf", Assert.Single(parsed.RootElement.EnumerateObject()).Name); }
+        else
+        {
+            Assert.Equal(1, parsed.RootElement.GetProperty("version").GetInt32());
+            Assert.True(parsed.RootElement.TryGetProperty("objectinfo", out _));
+            Assert.True(parsed.RootElement.TryGetProperty("objects", out _));
+        }
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Theory]
