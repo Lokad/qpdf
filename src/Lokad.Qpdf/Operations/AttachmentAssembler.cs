@@ -204,71 +204,47 @@ internal static class AttachmentAssembler
         QpdfDocument.VersionParts? copyVersion = null; int copyExtension = 0;
         string? firstCopyConflict = null;
         bool moreCopyConflicts = false;
+        using AttachmentImportCache? imports = edits.Copies.Count > 1 ? AttachmentImportCache.Create(governor, cancellationToken) : null;
         foreach (AttachmentCopy copy in edits.Copies)
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
-            await using QpdfDocument source = await QpdfDocument.OpenInspectionCore(host, SelectionPlan.CheckedPath(copy.File), copy.Password,
-                limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
-            Content.CatalogCopy.IncludeSourceVersion(ref copyVersion, ref copyExtension, source, governor, cancellationToken);
+            if (imports?.Find(copy) is IReadOnlyList<EmbeddedFileEntry> cached)
+            {
+                (bool reusedAny, _) = CopyImportedAttachments(copy, cached, null, null, existing,
+                    governor, diagnostics, ownership, cancellationToken, ref firstCopyConflict, ref moreCopyConflicts);
+                copiedAny |= reusedAny;
+                continue;
+            }
+            long diagnosticsBefore = diagnostics.EmissionVersion;
             using ParserMemoryScope entriesMemory = ParserMemoryScope.Create(governor);
-            List<EmbeddedFileEntry> found = EmbeddedFiles.ReadEntries(source.Engine, [], limits, governor, ownership, entriesMemory, cancellationToken);
-            GraphCopier copyCopier = GraphCopier.CreateOwned(source.Engine, governor, limits, nextId, ownership);
-            foreach (EmbeddedFileEntry attachment in found)
+            EmbeddedFileEntry[]? captured;
+            bool reusable;
+            await using (QpdfDocument source = await QpdfDocument.OpenInspectionCore(host, SelectionPlan.CheckedPath(copy.File), copy.Password,
+                limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false))
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                governor.NoteOperation();
-                string newKey = AttachmentCopyKey(copy.Prefix, attachment.Key, governor, ownership, cancellationToken);
-                if (existing.ContainsKey(newKey))
+                Content.CatalogCopy.IncludeSourceVersion(ref copyVersion, ref copyExtension, source, governor, cancellationToken);
+                List<EmbeddedFileEntry> found = EmbeddedFiles.ReadEntries(source.Engine, [], limits, governor, ownership, entriesMemory, cancellationToken);
+                captured = imports?.CreateEntries(found.Count, entriesMemory);
+                GraphCopier copyCopier = GraphCopier.CreateOwned(source.Engine, governor, limits, nextId, ownership);
+                (bool importedAny, bool canReuse) = CopyImportedAttachments(copy, found, copyCopier, captured, existing,
+                    governor, diagnostics, ownership, cancellationToken, ref firstCopyConflict, ref moreCopyConflicts);
+                copiedAny |= importedAny; reusable = canReuse;
+                nextId = copyCopier.NextId;
+                // Final writer models order object numbers; no sorted key snapshot is needed here.
+                foreach ((int id, QpdfObject value) in copyCopier.CopiedObjects)
                 {
-                    firstCopyConflict ??= copy.File;
-                    moreCopyConflicts |= !string.Equals(firstCopyConflict, copy.File, StringComparison.Ordinal);
-
-                    continue;
+                    cancellationToken.ThrowIfCancellationRequested(); governor.NoteOperation();
+                    ParserContainers.EnsureEntryCapacity(ownership, pool, IntPtr.Size);
+                    pool[id] = value;
                 }
-
-                // Keep the requested key even if its graph cannot be copied.
-                // Failed placeholders retire only after all imports check conflicts.
-                ownership.Reserve(64L); // SortedDictionary node; key text is funded separately.
-                existing.Add(newKey, new(attachment.Name, null));
-                PdfReference? link;
-                int firstId = copyCopier.BeginCopyAttempt();
-                try
-                {
-                    link = copyCopier.AddIndirectObject(attachment.Spec);
-                }
-                catch (QpdfParseException)
-                {
-                    copyCopier.RollbackCopyAttempt(firstId, cancellationToken);
-                    diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unpreservable attachment.");
-                    continue;
-                }
-                finally { copyCopier.EndCopyAttempt(); }
-
-                if (link is null)
-                {
-                    diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unpreservable attachment.");
-                    continue;
-                }
-
-                PdfByteString name = string.IsNullOrEmpty(copy.Prefix) ? attachment.Name
-                    : AttachmentBuilder.EncodeText(newKey, governor, ownership, cancellationToken);
-                existing[newKey] = new(name, link);
-                copiedAny = true;
+                ParserContainers.AddItem(ownership, compressibleSources,
+                    (copyCopier.SourceToDestination, CollectCompressedOriginals(source.Engine, preserveObjectStreams, ownership, governor, cancellationToken)), 2L * IntPtr.Size);
+                source.Engine.TransferExclusiveValuesTo(ownership);
             }
-
-            nextId = copyCopier.NextId;
-            // Final writer models order object numbers; no sorted key snapshot is needed here.
-            foreach ((int id, QpdfObject value) in copyCopier.CopiedObjects)
-            {
-                cancellationToken.ThrowIfCancellationRequested(); governor.NoteOperation();
-                ParserContainers.EnsureEntryCapacity(ownership, pool, IntPtr.Size);
-                pool[id] = value;
-            }
-
-            ParserContainers.AddItem(ownership, compressibleSources,
-                (copyCopier.SourceToDestination, CollectCompressedOriginals(source.Engine, preserveObjectStreams, ownership, governor, cancellationToken)), 2L * IntPtr.Size);
-            source.Engine.TransferExclusiveValuesTo(ownership);
+            if (reusable && captured is not null && diagnostics.EmissionVersion == diagnosticsBefore)
+            { imports?.Remember(copy, captured, entriesMemory); }
+            captured = null;
         }
 
         if (firstCopyConflict is not null)
@@ -314,6 +290,56 @@ internal static class AttachmentAssembler
         ParserContainers.EnsureEntryCapacity(ownership, pool, IntPtr.Size);
         pool[rootId] = wrapper;
         return new AttachmentAssembly(new PdfReference(rootId, 0), edits.Adds.Count > 0 || copiedAny, existing.Count, replaced, copyVersion, copyExtension);
+    }
+
+    private static (bool CopiedAny, bool Reusable) CopyImportedAttachments(
+        AttachmentCopy copy, IReadOnlyList<EmbeddedFileEntry> entries, GraphCopier? copier, EmbeddedFileEntry[]? captured,
+        SortedDictionary<string, AttachmentReference> existing, ResourceGovernor governor, DiagnosticBag diagnostics,
+        ParserMemoryScope ownership, CancellationToken token, ref string? firstConflict, ref bool moreConflicts)
+    {
+        bool copiedAny = false, reusable = captured is not null;
+        for (int index = 0; index < entries.Count; index++)
+        {
+            token.ThrowIfCancellationRequested(); governor.NoteOperation();
+            EmbeddedFileEntry attachment = entries[index];
+            string newKey = AttachmentCopyKey(copy.Prefix, attachment.Key, governor, ownership, token);
+            if (existing.ContainsKey(newKey))
+            {
+                reusable = false;
+                firstConflict ??= copy.File;
+                moreConflicts |= !string.Equals(firstConflict, copy.File, StringComparison.Ordinal);
+                continue;
+            }
+            // Placeholders retain failed keys until every request checks conflicts.
+            ownership.Reserve(64L);
+            existing.Add(newKey, new(attachment.Name, null));
+            PdfReference? link;
+            if (copier is null)
+            { link = attachment.Spec as PdfReference ?? throw new InvalidOperationException("A cached attachment must reference the output pool."); }
+            else
+            {
+                int firstId = copier.BeginCopyAttempt();
+                try { link = copier.AddIndirectObject(attachment.Spec); }
+                catch (QpdfParseException)
+                {
+                    copier.RollbackCopyAttempt(firstId, token);
+                    link = null;
+                }
+                finally { copier.EndCopyAttempt(); }
+            }
+            if (link is null)
+            {
+                reusable = false;
+                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unpreservable attachment.");
+                continue;
+            }
+            PdfByteString name = string.IsNullOrEmpty(copy.Prefix) ? attachment.Name
+                : AttachmentBuilder.EncodeText(newKey, governor, ownership, token);
+            existing[newKey] = new(name, link);
+            if (captured is not null) { captured[index] = new(attachment.Key, attachment.Name, link); }
+            copiedAny = true;
+        }
+        return (copiedAny, reusable);
     }
 
     internal static string AttachmentCopyKey(string? prefix, string key, ResourceGovernor governor,

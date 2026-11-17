@@ -2924,13 +2924,15 @@
           "AttachmentNameOrderTests.MixedEncodingTreesSupportByteSearchWithoutChangingListingOrPayloads",
           "AttachmentCopyTests.CopyPrefix",
           "AttachmentConflictIdentityTests.OriginalKeyConflictsSurviveRecoverableCopyFailures",
-          "AttachmentConflictIdentityTests.SkippedGraphsStayAbsentWhileExplicitEditsAndSharedPayloadsSurvive"
+          "AttachmentConflictIdentityTests.SkippedGraphsStayAbsentWhileExplicitEditsAndSharedPayloadsSurvive",
+          "AttachmentImportReuseTests.CompatibleRequestsReuseAcquisitionAndPayloadGraphs"
         ],
         "negative": [
           "AttachmentCopyTests.CopyCollisionFails",
           "AttachmentCopyTests.CopyUnknownSourceFails",
           "AttachmentCopyTests.CopyMalformedFails",
-          "AttachmentCopyTests.JobMalformedCopiesFail"
+          "AttachmentCopyTests.JobMalformedCopiesFail",
+          "AttachmentImportReuseTests.ASecondCredentialAuthenticatesBeforeReusingAnyGraph"
         ],
         "interaction": [
           "AttachmentCopyTests.JobCopyRoundTrip",
@@ -2938,12 +2940,15 @@
           "ZeroPageRewriteTests.ZeroPageEditsApplyThroughSharedAttachmentPipeline",
           "AttachmentCopyTests.CopyAddCollisionFails",
           "ImportedVersionTests.AttachmentImportsRetainValidatedSourceVersionRequirements",
-          "ExtensionVersionTests.ImportsNegotiateExtensionsAtTheSelectedBase"
+          "ExtensionVersionTests.ImportsNegotiateExtensionsAtTheSelectedBase",
+          "AttachmentImportReuseTests.CommandOriginsShareTheImportOwner"
         ],
         "resource": [
           "AttachmentCopyTests.CopyYieldsToExhaustedBudget",
           "ZeroPageRewriteTests.EmptyCopyRejectsMalformedSourceWithoutPublishing",
-          "ZeroPageRewriteTests.EmptyEditsRefundEverySharedAdmissionRefusal"
+          "ZeroPageRewriteTests.EmptyEditsRefundEverySharedAdmissionRefusal",
+          "AttachmentImportReuseTests.CacheMetadataAdmitsBeforeAllocationAndRefundsIndependently",
+          "AttachmentPreparationAdmissionTests.PreparedAttachmentsRefundOwnersAndRespectPublication"
         ],
         "oracle": [
           "diff:attachments-copy",

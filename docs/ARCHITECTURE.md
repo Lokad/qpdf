@@ -189,8 +189,9 @@ never falls back to plaintext. Freshly protected split files get independent key
 The primary input controls preservation; page, attachment, placement and template
 sources authenticate independently. Copied objects outlive their source readers
 and receive the output owner's protection. Grouped page sources require matching
-credentials after command setter normalization; attachment imports authenticate
-per request. Typed operations, argv and job JSON use these same owners;
+credentials after command setter normalization. Attachment imports reuse completed
+graphs for the same logical source and credential; other credentials authenticate
+independently. Typed operations, argv and job JSON use these same owners;
 argv encryption blocks feed the shared planner and preserve setter order.
 
 Writers encrypt after compression and final object numbering. R2–R4 per-object
@@ -242,6 +243,9 @@ subtrees and completed attachment misses reuse prior traversal. Reused label
 summaries replay only their own overrides in child order; unique paths write
 directly to the result. Cached height still bounds deeper paths, while active-path
 cycle checks remain separate.
+Attachment import reuse retains at most 32 clean source summaries and 4,096
+entry references under temporary admission. Source leases close before reuse;
+warnings, failed copies and conflicts keep ordinary per-request processing.
 Source binding and outline inspection share named-destination lookup. It uses
 the same identity/depth safeguards for subtree
 misses and retains at most 32 query results per operation. Legacy names and

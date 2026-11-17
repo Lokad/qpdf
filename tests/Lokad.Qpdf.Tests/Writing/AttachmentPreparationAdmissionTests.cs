@@ -29,6 +29,9 @@ public sealed class AttachmentPreparationAdmissionTests
 
     private static ValueTask<QpdfExecutionResult> Run(IQpdfHost host, string mode, CancellationToken token)
     {
+        if (mode == "attachment-copy-repeat")
+        { return Qpdf.ExecuteAsync(host, new(["input", "--copy-attachments-from", "source", "--prefix=first-", "--",
+            "--copy-attachments-from", "source", "--prefix=second-", "--", "output"]), token); }
         if (mode == "attachment-copy-job")
         { return Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","copyAttachmentsFrom":[{"file":"source","prefix":"copy-"}]}""", token); }
         if (mode == "attachment-copy")
@@ -51,6 +54,7 @@ public sealed class AttachmentPreparationAdmissionTests
     [InlineData("attachment-job")]
     [InlineData("attachment-copy")]
     [InlineData("attachment-copy-job")]
+    [InlineData("attachment-copy-repeat")]
     public Task PreparedAttachmentsRefundOwnersAndRespectPublication(string mode)
         => PreparationAdmissionChecks.VerifyAsync(() => Storage(mode), (host, token) => Run(host, mode, token), Output, 64,
             mode.EndsWith("-job", StringComparison.Ordinal) ? [] : ["write"]);
