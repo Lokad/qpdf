@@ -5508,7 +5508,8 @@
           "NamedDestinationTests.LaterDestinationsSurviveSelectionAndPlacement",
           "JsonPageAssemblyTests.AssembledPagesAndObjectExportsKeepTheSameGraph",
           "JsonPageAssemblyTests.PageLabelsFollowTheAssembledSourceOccurrences",
-          "JsonPageAssemblyTests.SourceActionsFormsAndLayersKeepTheirMeaningAcrossCopies"
+          "JsonPageAssemblyTests.SourceActionsFormsAndLayersKeepTheirMeaningAcrossCopies",
+          "EmptyRangeCommandTests.EmptyFiltersWorkThroughTheCommandOperationBranches"
         ],
         "negative": [
           "AdapterTests.ArgvRangeErrorsFail",
@@ -6611,7 +6612,8 @@
           "RotationTests.ArgvMainLevelRotateMatchesInsideForm",
           "RotationTests.JobRotateRangeMatchesArgv",
           "CommandRotationTests.InspectionUsesTheSameCommandRotationSettings",
-          "RangeGroupScopeTests.SelectionRotationAndPlacementMatchTheNativeGroupScope"
+          "RangeGroupScopeTests.SelectionRotationAndPlacementMatchTheNativeGroupScope",
+          "EmptyRangeCommandTests.JobRangesUseTheSharedEmptyExpansion"
         ],
         "resource": [
           "ResourceEnforcementTests.RotateYieldsToExhaustedBudget",

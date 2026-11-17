@@ -62,11 +62,14 @@ public sealed class PageRangesTests
         Matches(20, range, expected);
     }
 
-    [Fact]
-    public void SuffixAloneSelectsNothing()
+    [Theory]
+    [InlineData(0, ":even")]
+    [InlineData(0, ":odd")]
+    [InlineData(6, ":even")]
+    [InlineData(6, ":odd")]
+    public void SuffixAloneSelectsNothing(int total, string range)
     {
-        Matches(6, ":even", []);
-        Matches(6, ":odd", []);
+        Matches(total, range, []);
     }
 
     [Theory]
@@ -135,12 +138,41 @@ public sealed class PageRangesTests
         Assert.Throws<ArgumentOutOfRangeException>(() => PageRanges.Expand("4-10,x7-9", 6, long.MaxValue, governor, memory));
     }
 
-    [Fact]
-    public void ZeroTotalFails()
+    [Theory]
+    [InlineData("1")]
+    [InlineData("z")]
+    [InlineData("r1")]
+    [InlineData("1-z:even")]
+    public void ZeroTotalWithExplicitEndpointsFails(string range)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        Assert.Throws<ArgumentOutOfRangeException>(() => PageRanges.Expand("1", 0, long.MaxValue, governor, memory));
+        ArgumentOutOfRangeException failure = Assert.Throws<ArgumentOutOfRangeException>(() => PageRanges.Expand(range, 0, long.MaxValue, governor, memory));
+        Assert.Equal("range", failure.ParamName);
+    }
+
+    [Theory]
+    [InlineData(":unknown")]
+    [InlineData(":odd:even")]
+    public void EmptyDocumentsStillValidateRangeSyntax(string range)
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        Assert.Throws<QpdfParseException>(() => PageRanges.Expand(range, 0, long.MaxValue, governor, memory));
+    }
+
+    [Fact]
+    public void EmptyFiltersKeepArgumentAndCancellationChecksBeforeAdmission()
+    {
+        using CancellationTokenSource cancellation = new();
+        ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor); memory.Reserve(71L);
+        long before = governor.Snapshot().LiveMemoryBytes;
+        Assert.Equal("total", Assert.Throws<ArgumentOutOfRangeException>(() => PageRanges.Expand(":odd", -1, 1L, governor, memory)).ParamName);
+        Assert.Equal("maxEntries", Assert.Throws<ArgumentOutOfRangeException>(() => PageRanges.Expand(":odd", 0, 0L, governor, memory)).ParamName);
+        cancellation.Cancel();
+        Assert.Throws<OperationCanceledException>(() => PageRanges.Expand(":odd", 0, 1L, governor, memory));
+        Assert.Equal(71L, memory.ReservedBytes); Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]

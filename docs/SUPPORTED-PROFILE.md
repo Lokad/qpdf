@@ -238,7 +238,8 @@ extraction/layout, general authoring and PDF/A/X/UA conformance are outside scop
 
 - Select ordered 1-based pages, duplicates, FirstAndLast windows or Normalized
   sets; merge, collate, rotate, label and split. Typed explicit page lists must be
-  nonempty; supported ranges can select no pages. Invalid/out-of-range endpoints
+  nonempty; supported ranges can select no pages. Endpoint-free `:odd`/`:even`
+  filters also work with zero-page inputs. Invalid/out-of-range endpoints
   reject. Range exclusions affect their preceding positive group.
 - The primary owns document metadata and attachments even when none of its pages
   is selected. Secondary global collections require explicit import; page-reachable

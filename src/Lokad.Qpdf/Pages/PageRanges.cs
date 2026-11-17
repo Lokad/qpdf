@@ -43,9 +43,9 @@ internal static class PageRanges
     {
         memory.CheckOwner(governor); governor.CheckCancellation();
         if (total == 0 && string.IsNullOrEmpty(range)) { return []; }
-        if (total < 1)
+        if (total < 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(total), "Page counts are 1-based and must be positive.");
+            throw new ArgumentOutOfRangeException(nameof(total), "Page counts must not be negative.");
         }
 
         if (maxEntries < 1L)

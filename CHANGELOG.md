@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Accept endpoint-free odd/even ranges on zero-page inputs through the shared
+  selection, rotation and inspection range expansion.
+
 - Apply content normalization to filtered stream inspection with explicit host
   output targets, sharing the existing returned-byte policy and publication guards.
 
