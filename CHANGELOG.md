@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Accept omitted page-label starts before prefixes or trailing slashes through
+  the shared command parser, retaining explicit-start validation.
+
 - Bound rejected overlay-range error previews before formatting, preserving
   argument positions, configuration admission and prior outputs.
 

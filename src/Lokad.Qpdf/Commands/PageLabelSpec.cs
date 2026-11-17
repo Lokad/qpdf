@@ -149,7 +149,8 @@ internal sealed record PageLabelSpec(string FirstPage, PdfPageLabelStyle? Style,
 
     private static int? ParseStart(ReadOnlySpan<char> text, string specification, long offset)
     {
-        if (text.Length == 0 || text.Length > 10)
+        if (text.IsEmpty) { return null; }
+        if (text.Length > 10)
         {
             throw new QpdfParseException($"Invalid page label '{ArgvParser.ErrorPreview(specification)}': the start must be a positive number.", offset, null);
         }

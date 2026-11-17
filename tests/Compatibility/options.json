@@ -6659,7 +6659,9 @@
           "PrefixOnlyLabelTests.PrefixOnlyRunsIgnoreStartsAndKeepIndependentAliases",
           "VerbatimLabelTreeTests.WholeFileRetainsRawTreeAndAliasesWithoutComputingPageCounters",
           "LabelTests.IndirectLabelValuesResolve",
-          "SplitLabelContinuationTests.EverySplitKeepsTheSelectedPagesEffectiveLabels"
+          "SplitLabelContinuationTests.EverySplitKeepsTheSelectedPagesEffectiveLabels",
+          "PageLabelSpecTests.OptionalStartAndPrefixFieldsRemainIndependent",
+          "PageLabelSpecTests.DefaultStartsApplyInAssembledOrderBeforeSplitting"
         ],
         "negative": [
           "LabelTests.LabelOrderRulesFailCleanly",
@@ -6669,19 +6671,22 @@
           "LabelTests.LabelMergeYieldsToExhaustedBudget",
           "SplitLabelContinuationTests.RealOverflowAndCyclicTreesFailBeforeAnySplitIsPublished",
           "PrefixOnlyLabelTests.NumberedStylesStillRejectMeaningfulCounterOverflowBeforePublication",
-          "PrefixOnlyLabelTests.OnlyNumberedLabelsInterpretAnOtherwiseUnusedMalformedStart"
+          "PrefixOnlyLabelTests.OnlyNumberedLabelsInterpretAnOtherwiseUnusedMalformedStart",
+          "PageLabelSpecTests.ExplicitInvalidStartsAndStylesStillReject"
         ],
         "interaction": [
           "LabelTests.PrefixAndStartRoundTrip",
           "ImportedVersionTests.AuthoredStructuresSetKnownVersionFloorsAndForceStillWins",
           "ImportedVersionTests.RebuiltSupportedTreesHaveTheirOwnVersionFloors",
-          "ImportedVersionTests.NullLabelTreesDoNotRaiseTheBasicWriterProfile"
+          "ImportedVersionTests.NullLabelTreesDoNotRaiseTheBasicWriterProfile",
+          "PageLabelSpecTests.JobLabelsUseTheSameOptionalStartParser"
         ],
         "resource": [
           "LabelTests.LabelsYieldToExhaustedBudget",
           "LabelComparisonStorageTests.RefusedLabelConstructionPreservesPriorAdmission",
           "ExplicitSplitLabelTests.FailureAfterFirstSplitKeepsItsExplicitLabelsAndPreservesLaterTargets",
-          "VerbatimLabelTreeTests.OpaqueCopyKeepsSyntaxResourceCancellationAndPublicationGuards"
+          "VerbatimLabelTreeTests.OpaqueCopyKeepsSyntaxResourceCancellationAndPublicationGuards",
+          "PageLabelSpecTests.DefaultStartLabelPreparationKeepsAdmissionAndPublicationBoundaries"
         ],
         "oracle": [
           "diff:labels",

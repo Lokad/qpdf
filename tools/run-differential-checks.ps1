@@ -763,7 +763,7 @@ $oraCat = (Get-Content "$case/show-ora.txt" -Raw).Trim()
 if ($libCat -ne $oraCat) { Write-Output "[set-page-labels] FAIL: labeled catalogs differ"; $script:failures++ }
 elseif (-not $libCat.Contains('/PageLabels')) { Write-Output "[set-page-labels] FAIL: labels missing"; $script:failures++ }
 else { Write-Output "[set-page-labels] labeled catalogs agree" }
-foreach ($sub in @(@('pdfdoc', "1:D/1/$([char]0xC9)"), @('utf16', "1:D/1/$([char]0x65E5)$([char]0x672C)"))) {
+foreach ($sub in @(@('pdfdoc', "1:D/1/$([char]0xC9)"), @('utf16', "1:D/1/$([char]0x65E5)$([char]0x672C)"), @('default-numbered', '1:D//A-'), @('default-prefix', '1://Cover'), @('default-trailing', '1:D/'), @('default-empty', '1://'))) {
   $name = $sub[0]
   $code = Invoke-Emit $case (@('emit', '--workdir', $case, '--out', "outputs/p-$name.pdf=$case/lib-p-$name.pdf", '--', 'inputs/a.pdf', '--set-page-labels', $sub[1], '--', '--pages', '.', '1', '.', '2', '--', "outputs/p-$name.pdf"))
   if ($code -ne 0) { throw "labels/prefix-$name`: emit failed ($code)" }
