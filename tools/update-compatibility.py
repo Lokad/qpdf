@@ -1,4 +1,4 @@
-"""Extract public option metadata; never import upstream implementation code."""
+"""Extract pinned option syntax while retaining reviewed compatibility evidence."""
 
 import argparse
 import hashlib
@@ -20,6 +20,8 @@ force-V4 force-R5 cleartext-metadata static-aes-iv accessibility annotate
 assemble extract form modify-other modify print show-crypto show-encryption
 show-encryption-key is-encrypted requires-password remove-restrictions
 """.split())
+CRYPTO_SYNTAX = CRYPTO - {"show-encryption", "is-encrypted", "requires-password"}
+UNREVIEWED_GAP = "Behavior review and implementation pending."
 GROUPS = (
     "bare", "optional_parameter", "file_parameter", "required_parameter",
     "required_choices", "optional_choices",
@@ -40,7 +42,7 @@ def crypto_gap(scope):
         return "Specialist raw-key and static-IV switches are outside the supported target."
     if scope == "deferred":
         return "New weak encryption, forced legacy output and insecure password combinations are deferred; reading and preserving existing protection are separate requirements."
-    return "Password-security behavior is not implemented; current evidence establishes rejection only."
+    return UNREVIEWED_GAP
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -143,9 +145,9 @@ def main():
         row["manualForms"] = forms[row["flag"]]
         row["status"] = "not-started"
         row["defaultReview"] = "pending"
-        row["remainingGaps"] = [crypto_gap(row["scope"]) if crypto else "Behavior review and implementation pending."]
+        row["remainingGaps"] = [crypto_gap(row["scope"]) if crypto else UNREVIEWED_GAP]
         if crypto:
-            row["currentRejection"] = True
+            row["cryptoSyntax"] = name in CRYPTO_SYNTAX
             if row["scope"] == "excluded":
                 row["status"] = "excluded"
                 row["exclusionReason"] = crypto_gap(row["scope"])
@@ -153,7 +155,7 @@ def main():
         row["evidence"] = {kind: [] for kind in ("positive", "negative", "interaction", "resource", "oracle")}
         row["jobJsonPaths"] = sorted(set(row["jobJsonPaths"]))
         old = previous.get((row["context"], row["flag"]), {})
-        for field in ("scope", "choiceScopes", "status", "defaultReview", "remainingGaps", "evidence", "currentRejection", "exclusionReason"):
+        for field in ("scope", "choiceScopes", "status", "defaultReview", "remainingGaps", "evidence", "cryptoSyntax", "exclusionReason"):
             if field in old:
                 row[field] = old[field]
 

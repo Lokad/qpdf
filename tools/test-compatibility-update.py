@@ -46,6 +46,27 @@ class CompatibilityUpdateTests(unittest.TestCase):
     def write(self, value):
         self.output.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
+    def use_canonical_syntax(self):
+        # Reconstruct synthetic input from this repository's extracted syntax.
+        # Reviewed status/evidence comes only from the separately supplied output.
+        tables = {context["name"]: {"table": context["name"]} for context in self.canonical["contexts"]}
+        choices = {}
+        for index, row in enumerate(self.canonical["options"]):
+            group = row["argumentKind"]
+            if group == "manual":
+                continue
+            table = tables[row["context"]]
+            name = row["flag"][2:]
+            if group == "bare":
+                table.setdefault(group, []).append(name)
+            else:
+                parameter = "parameter" + str(index)
+                table.setdefault(group, {})[name] = parameter
+                if group.endswith("choices"):
+                    choices[parameter] = row["choices"]
+        job = {"options": list(tables.values()), "choices": choices, "json": {}}
+        (self.reference / "job.yml").write_text(json.dumps(job), encoding="utf-8")
+
     def test_initial_generation_keeps_companion_requirements(self):
         result = self.generate(inventory.COMMIT)
         self.assertEqual(["--json-key=encrypt must report non-secret encryption facts", "fix-qdf companion", "zlib-flate companion"],
@@ -74,6 +95,56 @@ class CompatibilityUpdateTests(unittest.TestCase):
         result = self.generate(inventory.COMMIT)
         row = next(row for row in result["options"] if row["flag"] == "--warning-exit-0")
         self.assertEqual(["warningExit0"], row["jobJsonPaths"])
+
+    def test_current_security_reviews_survive_regeneration(self):
+        self.use_canonical_syntax()
+        self.write(self.canonical)
+        result = self.generate(inventory.COMMIT)
+        expected = {(r["context"], r["flag"]): r for r in self.canonical["options"]}
+        fields = ("scope", "choiceScopes", "status", "defaultReview", "remainingGaps",
+                  "evidence", "cryptoSyntax", "exclusionReason")
+        for row in result["options"]:
+            with self.subTest(context=row["context"], flag=row["flag"]):
+                old = expected[row["context"], row["flag"]]
+                self.assertEqual({k: old[k] for k in fields if k in old},
+                                 {k: row[k] for k in fields if k in row})
+                self.assertNotIn("currentRejection", row)
+        self.assertEqual({r["status"] for r in self.canonical["options"]},
+                         {r["status"] for r in result["options"]})
+        self.assertEqual(result, self.generate(inventory.COMMIT))
+
+    def test_initial_security_classification_does_not_claim_rejection(self):
+        self.use_canonical_syntax()
+        result = self.generate(inventory.COMMIT)
+        expected = {(r["context"], r["flag"]): r for r in self.canonical["options"]}
+        for row in result["options"]:
+            old = expected[row["context"], row["flag"]]
+            self.assertEqual(old.get("cryptoSyntax"), row.get("cryptoSyntax"))
+            self.assertNotIn("currentRejection", row)
+            if row["scope"] == "required":
+                self.assertEqual("not-started", row["status"])
+                self.assertEqual([inventory.UNREVIEWED_GAP], row["remainingGaps"])
+        self.assertTrue(next(r for r in result["options"] if r["flag"] == "--encrypt")["cryptoSyntax"])
+        self.assertFalse(next(r for r in result["options"] if r["flag"] == "--show-encryption")["cryptoSyntax"])
+
+    def test_legacy_rejection_markers_retire_without_losing_reviews(self):
+        self.use_canonical_syntax()
+        legacy = json.loads(json.dumps(self.canonical))
+        for row in legacy["options"]:
+            if "cryptoSyntax" in row:
+                del row["cryptoSyntax"]
+                row["currentRejection"] = True
+        self.write(legacy)
+        result = self.generate(inventory.COMMIT)
+        expected = {(r["context"], r["flag"]): r for r in self.canonical["options"]}
+        for row in result["options"]:
+            old = expected[row["context"], row["flag"]]
+            self.assertEqual(old.get("cryptoSyntax"), row.get("cryptoSyntax"))
+            self.assertEqual(old["status"], row["status"])
+            self.assertEqual(old["remainingGaps"], row["remainingGaps"])
+            self.assertEqual(old["evidence"], row["evidence"])
+            self.assertNotIn("currentRejection", row)
+        self.assertEqual(result, self.generate(inventory.COMMIT))
 
     def test_source_hashes_ignore_checkout_newlines_but_preserve_content(self):
         sources = {name: (self.reference / name).read_bytes().replace(b"\r\n", b"\n")
