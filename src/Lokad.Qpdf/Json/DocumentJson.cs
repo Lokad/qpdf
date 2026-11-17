@@ -1221,7 +1221,7 @@ internal static class DocumentJson
                     first = false;
                     PdfJsonWriter.AppendObjectKey(builder, number, generation, false);
                     builder.Append(": ");
-                    PdfJsonWriter.AppendValue(builder, value, 1, governor, 0, limits);
+                    PdfJsonWriter.AppendSourceValue(builder, value, 1, governor, 0, limits, engine);
                 }
 
                 if (request.WantsTrailer)
@@ -1232,7 +1232,7 @@ internal static class DocumentJson
                     }
 
                     builder.Append("\"trailer\": ");
-                    PdfJsonWriter.AppendValue(builder, engine.Trailer, 1, governor, 0, limits);
+                    PdfJsonWriter.AppendSourceValue(builder, engine.Trailer, 1, governor, 0, limits, engine);
                 }
 
                 builder.Append((char)125);
@@ -1277,7 +1277,7 @@ internal static class DocumentJson
                 else
                 {
                     builder.Append("{\"value\": ");
-                    PdfJsonWriter.AppendValue(builder, value, 2, governor, 0, limits);
+                    PdfJsonWriter.AppendSourceValue(builder, value, 2, governor, 0, limits, engine);
                     builder.Append((char)125);
                 }
             }
@@ -1290,7 +1290,7 @@ internal static class DocumentJson
                 }
 
                 builder.Append("\"trailer\": {\"value\": ");
-                PdfJsonWriter.AppendValue(builder, engine.Trailer, 2, governor, 0, limits);
+                PdfJsonWriter.AppendSourceValue(builder, engine.Trailer, 2, governor, 0, limits, engine);
                 builder.Append((char)125);
             }
 
@@ -1349,7 +1349,7 @@ internal static class DocumentJson
         if (request.Version == 1 || request.StreamData == "none")
         {
             builder.Append("{\"stream\": {\"dict\": ");
-            PdfJsonWriter.AppendDictionary(builder, stream.Dictionary, request.Version, governor, 0, limits);
+            PdfJsonWriter.AppendDictionary(builder, stream.Dictionary, request.Version, governor, 0, limits, engine);
             builder.Append("}}"); return;
         }
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
@@ -1366,7 +1366,7 @@ internal static class DocumentJson
             PdfJsonWriter.AppendBase64(builder, data.Span);
         }
         builder.Append(",\"dict\": ");
-        PdfJsonWriter.AppendStreamDictionary(builder, stream.Dictionary, request.Version, governor, limits, decoded);
+        PdfJsonWriter.AppendStreamDictionary(builder, stream.Dictionary, request.Version, governor, limits, decoded, engine);
         builder.Append("}}");
     }
 
@@ -1442,15 +1442,9 @@ internal static class DocumentJson
 
     private static QpdfObject DereferenceOnce(DocumentEngine engine, QpdfObject value)
     {
-        if (value is PdfReference reference
-            && ((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? resolved)
-            && resolved is not null
-            && resolved is not PdfNull)
-        {
-            return resolved;
-        }
-
-        return value;
+        if (value is not PdfReference reference) { return value; }
+        return ((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? resolved)
+            ? resolved ?? PdfNull.Instance : PdfNull.Instance;
     }
     private static void AppendAcroform(
         DisplayBuffer builder,

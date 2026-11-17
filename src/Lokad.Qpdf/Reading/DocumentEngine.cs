@@ -320,6 +320,21 @@ internal sealed partial class DocumentEngine : IStreamRecoveryResolver, IDisposa
             : Table.Entries.TryGetValue(reference.ObjectNumber, out XrefEntry entry) && entry.MatchesGeneration(reference.Generation);
     }
 
+    internal bool IsNullReference(PdfReference reference)
+    {
+        // A presence query still uses ordinary parsing, repair and caching.
+        // Exclusive complete readers can borrow their admitted immutable input
+        // while inspecting a stream's type, even through a custom host. Public
+        // document values and selective readers retain their existing policy.
+        bool previous = BorrowImmutableStreamData;
+        if (!_valuesEscape && !HasSelectiveInput) { BorrowImmutableStreamData = true; }
+        try
+        {
+            return !TryResolve(reference, false, out QpdfObject? value) || value is null or PdfNull;
+        }
+        finally { BorrowImmutableStreamData = previous; }
+    }
+
     bool IIndirectResolver.TryResolve(PdfReference reference, out QpdfObject? value)
         => TryResolve(reference, false, out value);
 

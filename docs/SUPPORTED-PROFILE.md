@@ -325,7 +325,10 @@ leaves admit arbitrary PDF values; this is not primitive-value or JSON Schema
 validation. Deep PDF/outline syntax remains bounded, and PDF model limits apply.
 
 PDF JSON v1/v2 preserve reference identities; v2 uses binary strings whenever text
-would change bytes. V1 emits stream dictionaries only, including when inline/file
+would change bytes. Object-table projection turns dead array references into null
+and omits null-valued dictionary fields. Live references to null objects retain
+their identity in arrays; stored descriptor fields keep their own projection rules.
+V1 emits stream dictionaries only, including when inline/file
 settings are accepted; it creates no sidecars. V2 can omit/include stream payloads
 or publish host sidecars. V2 import/update matches complete object number and
 generation pairs before assigning output numbers. New JSON edges bind live source

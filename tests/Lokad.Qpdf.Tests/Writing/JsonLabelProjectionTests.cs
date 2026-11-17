@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.TestSupport;
 
@@ -73,8 +74,16 @@ public sealed class JsonLabelProjectionTests
             Assert.False(label.TryGetProperty("/Private", out _));
         }
         JsonElement original = parsed.RootElement.GetProperty("qpdf")[1].GetProperty("obj:1 0 R").GetProperty("value").GetProperty("/PageLabels").GetProperty("/Nums")[1];
-        Assert.Equal(42, original.GetProperty("/Private").GetInt32()); Assert.Equal("9 7 R", original.GetProperty("/St").GetString());
+        Assert.Equal(42, original.GetProperty("/Private").GetInt32()); Assert.False(original.TryGetProperty("/St", out _));
         Assert.Equal(0L, host.OpenLeaseCount);
+        await using QpdfDocument source = await QpdfDocument.OpenAsync(host, QpdfPath.From("input"), CancellationToken.None);
+        PdfDictionary catalog = Assert.IsType<PdfDictionary>(source.GetObject(1));
+        Assert.True(catalog.TryGet(PdfName.FromAscii("PageLabels"), out QpdfObject labels));
+        PdfDictionary tree = Assert.IsType<PdfDictionary>(labels);
+        Assert.True(tree.TryGet(PdfName.FromAscii("Nums"), out QpdfObject numbers));
+        PdfDictionary stored = Assert.IsType<PdfDictionary>(Assert.IsType<PdfArray>(numbers)[1]);
+        Assert.True(stored.TryGet(PdfName.FromAscii("St"), out QpdfObject start));
+        Assert.Equal(new PdfReference(9, 7), start);
     }
 
     [Fact]

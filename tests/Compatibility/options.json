@@ -4000,7 +4000,8 @@
           "AcroFormJsonTests.LocalNamesAndInheritedChoicesKeepTextEncoding",
           "ImageDescriptorShapeTests.DescriptorsRetainRawNamesReferencesAndOuterShapes",
           "JsonLabelProjectionTests.PageCountersAdvanceWithinRunsWhileExplicitEntriesKeepTheirStarts",
-          "JsonLabelProjectionTests.ProjectionKeepsLiveFieldPairsAndLeavesOriginalDictionariesUntouched"
+          "JsonLabelProjectionTests.ProjectionKeepsLiveFieldPairsAndLeavesOriginalDictionariesUntouched",
+          "JsonReferenceProjectionTests.SourceTablesStreamHeadersAndTrailersShareReferenceProjection"
         ],
         "negative": [
           "JsonInspectionTests.BadVersionFails",
@@ -4010,7 +4011,8 @@
           "JsonModesTests.JsonOutputRejectsVersionOne",
           "JsonModesTests.JobModesMalformedFail",
           "OutlineNamedDestinationTests.CyclicNamedTreesFailBeforeReplacingTheReport",
-          "JsonPageAssemblyTests.NoPublicationCanReplaceAConsumedSecondaryInput"
+          "JsonPageAssemblyTests.NoPublicationCanReplaceAConsumedSecondaryInput",
+          "JsonReferenceProjectionTests.InvalidSelectedReferenceTargetsPreserveThePriorReport"
         ],
         "interaction": [
           "JsonInspectionTests.JobRoundTripMatchesArgv",
@@ -4030,7 +4032,10 @@
           "ImageDescriptorShapeTests.AssembledAndCompressedSourcesKeepTheirLiveDescriptorReferences",
           "JsonLabelProjectionTests.VersionOneAdaptersUseTheSameCounterProjection",
           "JsonLabelProjectionTests.ZeroPageLabelCollectionsDistinguishAbsentEmptyAndExplicitTrees",
-          "JsonLabelProjectionTests.BinaryPrefixBytesKeepTheExistingVersionTwoIdentityPolicy"
+          "JsonLabelProjectionTests.BinaryPrefixBytesKeepTheExistingVersionTwoIdentityPolicy",
+          "JsonReferenceProjectionTests.CompressedPairsUseGenerationZeroAndRetainLiveNullArrayReferences",
+          "JsonReferenceProjectionTests.AssembledObjectsKeepTheirNewLiveIdentities",
+          "JsonReferenceProjectionTests.SelectedObjectExportsResolveRequiredSourcePairsWithoutEmittingThem"
         ],
         "resource": [
           "JsonPublicationMemoryTests.KnownSidecarLengthFitsSharedAllowanceWithoutGrowthCopies",
@@ -4051,7 +4056,8 @@
           "FilterParameterSupportTests.ResolverCancellationIsFatalForEitherToken",
           "FilterParameterSupportTests.RefusedParameterStorageIsFatalAndPreservesPriorOwners",
           "ImageDescriptorShapeTests.MalformedSpecificationsStillRefuseBeforeReplacingTheReport",
-          "JsonLabelProjectionTests.CounterOverflowPreservesPriorReportsAndRefundsCallerStorage"
+          "JsonLabelProjectionTests.CounterOverflowPreservesPriorReportsAndRefundsCallerStorage",
+          "JsonReferenceProjectionTests.SourceSerializationPreservesRawValuesAndPriorOwners"
         ],
         "oracle": [
           "diff:json-pages",
@@ -4175,18 +4181,23 @@
           "OutlineNamedDestinationTests.PublicRoutesAndJsonVersionsKeepNamedPageProjection",
           "OutlineNamedDestinationTests.NamedTargetsKeepFullPageReferenceValidation",
           "AcroFormJsonTests.LocalNamesDoNotInheritAncestorNames",
-          "AcroFormJsonTests.LocalNamesAndInheritedChoicesKeepTextEncoding"
+          "AcroFormJsonTests.LocalNamesAndInheritedChoicesKeepTextEncoding",
+          "JsonReferenceProjectionTests.SourceTablesStreamHeadersAndTrailersShareReferenceProjection"
         ],
         "negative": [
           "JsonInspectionTests.BadKeyFails",
           "EncryptedJsonTests.FailedPasswordsPublishNeitherJsonNorSidecars",
-          "OutlineNamedDestinationTests.CyclicNamedTreesFailBeforeReplacingTheReport"
+          "OutlineNamedDestinationTests.CyclicNamedTreesFailBeforeReplacingTheReport",
+          "JsonReferenceProjectionTests.InvalidSelectedReferenceTargetsPreserveThePriorReport"
         ],
         "interaction": [
           "JsonInspectionTests.JobRoundTripMatchesArgv",
           "EncryptedJsonTests.JsonStreamModesExportDecryptedPayloads",
           "JsonModesTests.JobModesRoundTrip",
-          "AcroFormJsonTests.FieldLocalNamesUseTheSamePublicProjection"
+          "AcroFormJsonTests.FieldLocalNamesUseTheSamePublicProjection",
+          "JsonReferenceProjectionTests.CompressedPairsUseGenerationZeroAndRetainLiveNullArrayReferences",
+          "JsonReferenceProjectionTests.AssembledObjectsKeepTheirNewLiveIdentities",
+          "JsonReferenceProjectionTests.SelectedObjectExportsResolveRequiredSourcePairsWithoutEmittingThem"
         ],
         "resource": [
           "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
@@ -4198,7 +4209,8 @@
           "OutlineNamedDestinationTests.NamedProjectionDoesNotMutateTheSourceDestinationArray",
           "AcroFormJsonTests.AncestorDepthExhaustionRefundsInspectionScratch",
           "AcroFormJsonTests.PublicAncestorLimitKeepsCompleteValuesOrThePriorReport",
-          "AcroFormJsonTests.CommandAncestorExhaustionReportsBudgetExceededBeforePublication"
+          "AcroFormJsonTests.CommandAncestorExhaustionReportsBudgetExceededBeforePublication",
+          "JsonReferenceProjectionTests.SourceSerializationPreservesRawValuesAndPriorOwners"
         ],
         "oracle": [
           "diff:json-pages",
@@ -4285,11 +4297,13 @@
           "JsonStringIdentityTests.TextEncodingIsUsedOnlyWhenItPreservesTheOriginalBytes",
           "JsonPageAssemblyTests.AssembledPagesAndObjectExportsKeepTheSameGraph",
           "JsonPageAssemblyTests.PageLabelsFollowTheAssembledSourceOccurrences",
-          "JsonPageAssemblyTests.SourceActionsFormsAndLayersKeepTheirMeaningAcrossCopies"
+          "JsonPageAssemblyTests.SourceActionsFormsAndLayersKeepTheirMeaningAcrossCopies",
+          "JsonReferenceProjectionTests.SourceTablesStreamHeadersAndTrailersShareReferenceProjection"
         ],
         "negative": [
           "JsonModesTests.JsonOutputRejectsVersionOne",
-          "JsonPageAssemblyTests.NoPublicationCanReplaceAConsumedSecondaryInput"
+          "JsonPageAssemblyTests.NoPublicationCanReplaceAConsumedSecondaryInput",
+          "JsonReferenceProjectionTests.InvalidSelectedReferenceTargetsPreserveThePriorReport"
         ],
         "interaction": [
           "JsonModesTests.JobModesRoundTrip",
@@ -4298,7 +4312,10 @@
           "JsonPageAssemblyTests.AssembledExportsCanCreatePdfsAfterAllInputsClose",
           "JsonPageAssemblyTests.MinimalJobOutputExportsTheAssembledPageTree",
           "JsonPageAssemblyTests.EachEncryptedInputUsesItsOwnCredential",
-          "JsonPageAssemblyTests.ExportRetainsTheSelectedSourcesVersionFloor"
+          "JsonPageAssemblyTests.ExportRetainsTheSelectedSourcesVersionFloor",
+          "JsonReferenceProjectionTests.CompressedPairsUseGenerationZeroAndRetainLiveNullArrayReferences",
+          "JsonReferenceProjectionTests.AssembledObjectsKeepTheirNewLiveIdentities",
+          "JsonReferenceProjectionTests.SelectedObjectExportsResolveRequiredSourcePairsWithoutEmittingThem"
         ],
         "resource": [
           "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
@@ -4311,7 +4328,8 @@
           "JsonValueOwnershipTests.FailedOrCanceledJsonClosesReaderAndPreservesPriorOutput",
           "JsonPageAssemblyTests.AssembledJsonRefundsAdmissionAndPreservesPriorReports",
           "JsonPageAssemblyTests.ContextAssemblyRefundsAdmissionAndPreservesPriorReports",
-          "JsonPageAssemblyTests.AssembledBackingLivesThroughPendingSourceCloseAndSidecarWrite"
+          "JsonPageAssemblyTests.AssembledBackingLivesThroughPendingSourceCloseAndSidecarWrite",
+          "JsonReferenceProjectionTests.SourceSerializationPreservesRawValuesAndPriorOwners"
         ],
         "oracle": [
           "diff:json-output",

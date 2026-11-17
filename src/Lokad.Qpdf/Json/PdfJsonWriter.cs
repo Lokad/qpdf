@@ -276,12 +276,12 @@ internal static class PdfJsonWriter
     }
 
     internal static void AppendDictionary(DisplayBuffer builder, PdfDictionary dictionary, int version,
-        ResourceGovernor governor, int depth, QpdfLimits limits)
-        => AppendDictionaryCore(builder, dictionary, version, governor, depth, limits, false, false, null);
+        ResourceGovernor governor, int depth, QpdfLimits limits, DocumentEngine source)
+        => AppendDictionaryCore(builder, dictionary, version, governor, depth, limits, false, false, source);
 
     internal static void AppendStreamDictionary(DisplayBuffer builder, PdfDictionary dictionary, int version,
-        ResourceGovernor governor, QpdfLimits limits, bool decoded)
-        => AppendDictionaryCore(builder, dictionary, version, governor, 0, limits, true, decoded, null);
+        ResourceGovernor governor, QpdfLimits limits, bool decoded, DocumentEngine source)
+        => AppendDictionaryCore(builder, dictionary, version, governor, 0, limits, true, decoded, source);
 
     private static void AppendDictionaryCore(DisplayBuffer builder, PdfDictionary dictionary, int version,
         ResourceGovernor governor, int depth, QpdfLimits limits, bool omitLength, bool decoded, DocumentEngine? sourceEngine)
@@ -299,9 +299,12 @@ internal static class PdfJsonWriter
                 governor.CheckCancellation();
                 KeyValuePair<PdfName, QpdfObject> entry = source.Current;
                 if (entry.Value is PdfNull) { continue; }
-                if (sourceEngine is not null && entry.Value is PdfReference fieldReference
-                    && (!PdfObjectLookup.TryResolve(fieldReference, (IIndirectResolver)sourceEngine, governor, governor.CancellationToken, out QpdfObject? fieldValue)
-                        || fieldValue is null or PdfNull)) { continue; }
+                if (sourceEngine is not null && entry.Value is PdfReference fieldReference)
+                {
+                    bool isNull = sourceEngine.IsNullReference(fieldReference);
+                    governor.CheckCancellation();
+                    if (isNull) { continue; }
+                }
                 if (omitLength && entry.Key.RawSpan.SequenceEqual("Length"u8)) { continue; }
                 if (decoded && (entry.Key.RawSpan.SequenceEqual("Filter"u8) || entry.Key.RawSpan.SequenceEqual("DecodeParms"u8))) { continue; }
                 entries[count++] = entry;

@@ -70,8 +70,10 @@ public sealed class ImageDescriptorShapeTests
         EqualJson(expectedFilter, image.GetProperty("filter")); EqualJson(expectedParameters, image.GetProperty("decodeparms"));
         Assert.True(image.GetProperty("filterable").GetBoolean()); Assert.Equal("4 0 R", image.GetProperty("object").GetString());
         JsonElement dictionary = report.RootElement.GetProperty("qpdf")[1].GetProperty("obj:4 0 R").GetProperty("stream").GetProperty("dict");
-        if (filter.EndsWith(" R", StringComparison.Ordinal)) { Assert.Equal(filter, dictionary.GetProperty("/Filter").GetString()); }
-        if (parameters.EndsWith(" R", StringComparison.Ordinal)) { Assert.Equal(parameters, dictionary.GetProperty("/DecodeParms").GetString()); }
+        if (filter is "8 8 R" or "9 7 R") { Assert.False(dictionary.TryGetProperty("/Filter", out _)); }
+        else if (filter.EndsWith(" R", StringComparison.Ordinal)) { Assert.Equal(filter, dictionary.GetProperty("/Filter").GetString()); }
+        if (parameters is "6 8 R" or "9 7 R") { Assert.False(dictionary.TryGetProperty("/DecodeParms", out _)); }
+        else if (parameters.EndsWith(" R", StringComparison.Ordinal)) { Assert.Equal(parameters, dictionary.GetProperty("/DecodeParms").GetString()); }
         Assert.Equal(0L, result.Counters.TotalDecodedBytes); Assert.Equal(0L, host.OpenLeaseCount);
     }
 
