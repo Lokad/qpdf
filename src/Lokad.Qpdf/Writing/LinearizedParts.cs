@@ -65,7 +65,6 @@ internal sealed class StreamedParts : IDisposable
         IReadOnlyList<int> pages,
         IReadOnlyList<IReadOnlyCollection<int>> pageUsers,
         IReadOnlyList<int> outlines,
-        bool outlinesDirect,
         GovernedIntDictionary<int> renumber,
         GovernedIntDictionary<(int Container, int Index)> members,
         GovernedIntDictionary<IReadOnlyList<int>> containerMembers,
@@ -88,7 +87,6 @@ internal sealed class StreamedParts : IDisposable
         Pages = pages;
         PageUsers = pageUsers;
         Outlines = outlines;
-        OutlinesDirect = outlinesDirect;
         _renumber = renumber;
         _members = members;
         _containerMembers = containerMembers;
@@ -121,7 +119,6 @@ internal sealed class StreamedParts : IDisposable
     internal IReadOnlyList<int> Outlines { get; private set; }
 
 
-    internal bool OutlinesDirect { get; }
 
     internal GovernedIntDictionary<int> Renumber => _renumber ?? throw new ObjectDisposedException(nameof(StreamedParts));
 
@@ -298,14 +295,7 @@ internal sealed class LinearizedParts : IDisposable
         {
             throw new QpdfParseException("Linearized output lost objects while ordering parts.", null, null);
         }
-        bool outlinesDirect = true;
         GovernedIntSet containerSet = CopySet(containers, retained, governor, cancellationToken);
-        for (int index = 0; index < graph.Outlines.Count; index++)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            if (containerSet.Contains(graph.Outlines[index])) { outlinesDirect = false; break; }
-        }
         GovernedIntDictionary<IReadOnlyList<int>> readonlyMembers = GovernedIntDictionary<IReadOnlyList<int>>.Create(retained, governor, IntPtr.Size, cancellationToken);
         foreach (KeyValuePair<int, List<int>> entry in containerMembers)
         {
@@ -314,7 +304,7 @@ internal sealed class LinearizedParts : IDisposable
         }
         retained.Reserve(168L);
         StreamedParts result = new(graph.Part4, graph.Part6, graph.Part7, graph.Part8, graph.Part9,
-            graph.Pages, graph.PageUsers, graph.Outlines, outlinesDirect, renumber,
+            graph.Pages, graph.PageUsers, graph.Outlines, renumber,
             members, readonlyMembers, containerSet, lindictNumber, hintNumber, xrefFirstNumber, xrefMainNumber,
             firstSize, mainSize, maxNumber, maxMemberIndex, lookup);
         retained.TransferTo(memory);
@@ -352,6 +342,17 @@ internal sealed class LinearizedParts : IDisposable
         containers = ParserContainers.CreateList<int>(temporary);
         owners = GovernedIntDictionary<int>.Create(temporary, governor, sizeof(int), cancellationToken);
         containerMembers = GovernedIntDictionary<List<int>>.Create(temporary, governor, IntPtr.Size, cancellationToken);
+        GovernedIntSet? outlineMembers = null;
+        if (catalog is PdfDictionary catalogDictionary
+            && PdfDictionaryLookup.TryGet(catalogDictionary, "Outlines"u8, governor, cancellationToken, out QpdfObject outlineRoot)
+            && outlineRoot is not PdfNull)
+        {
+            // Keep the outline closure direct: a shared container can place its
+            // root before the remaining outlines, which no contiguous hint span
+            // can describe. The still-empty owner map preserves logical IDs.
+            outlineMembers = GovernedIntSet.Create(temporary, governor, cancellationToken);
+            WalkSubtree(lookup, outlineRoot, true, outlineMembers, owners, temporary, governor, cancellationToken);
+        }
         int next = checked(max + 1);
         for (int index = 0; index < groups.Count; index++)
         {
@@ -367,7 +368,8 @@ internal sealed class LinearizedParts : IDisposable
                 governor.NoteOperation();
                 int member = group[memberIndex];
                 if (!lookup.TryGetValue(member, out QpdfObject? value) || value is null
-                    || member == 1 || member == pagesRoot || pageSet.Contains(member) || value is PdfStream || owners.ContainsKey(member)) { continue; }
+                    || member == 1 || member == pagesRoot || pageSet.Contains(member) || value is PdfStream
+                    || owners.ContainsKey(member) || outlineMembers?.Contains(member) == true) { continue; }
                 if (encryptionObject != 0 && (member == encryptionObject
                     || value is PdfDictionary dictionary && PdfStringCrypt.IsSignature(dictionary, governor))) { continue; }
                 Add(groupMemory, governor, kept, member);

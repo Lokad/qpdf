@@ -411,6 +411,9 @@ password file and consumed job/response files. These checks precede PDF/password
 acquisition and output creation; configuration files must first be loaded.
 Split capture keeps the last group's pass. Linearization
 disables QDF; empty split jobs create no output.
+The linearized writer keeps the outline closure outside object streams so its
+hints describe one contiguous physical group; other eligible objects still pack.
+Direct outline dictionaries remain unsupported during linearization.
 
 ## Governance
 

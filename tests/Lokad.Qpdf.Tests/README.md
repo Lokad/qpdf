@@ -57,6 +57,8 @@ source-membership controls use a free gap and distinct generations to verify the
 exact referenced members. Adapter and installed-consumer checks sample wiring.
 Writer assertions require the inspector's `Valid` linearization status;
 generic checking also passes ordinary PDFs. Packing uses actual xref membership.
+Outline hint controls separate direct physical groups from legitimate native
+omissions and retain a frozen missing-table failure independently of the writer.
 
 `Foundation/PublicationAdmissionTests` owns shared host-fault phases, executed
 counters and sequential commits. Prepared graph tests retain their own admission

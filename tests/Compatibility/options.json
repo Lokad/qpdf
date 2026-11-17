@@ -2581,7 +2581,9 @@
           "CheckTransformationTests.OverlayChangesInspectedPageBeforeChecking",
           "CheckTransformationTests.OverlayRegistersImportedFieldsBeforeChecking",
           "CheckInspectionTests.PruningDoesNotRewriteFilelessInspectionResources",
-          "InlinePacketBoundaryTests.CheckingDoesNotParseBinarySamplesAsAnUnterminatedLiteral"
+          "InlinePacketBoundaryTests.CheckingDoesNotParseBinarySamplesAsAnUnterminatedLiteral",
+          "OutlineHintOwnershipTests.LinearizedOutlineClosureStaysDirectWhileOtherObjectsPack",
+          "OutlineHintOwnershipTests.LargeOutlineClosureStaysContiguousWhileOtherObjectsPack"
         ],
         "negative": [
           "CheckTests.ArgvCheckRejectsCombinedAndTrailingForms",
@@ -2593,7 +2595,8 @@
           "BinaryInspectionTests.FatalCheckingOfAnUnextractedStreamStopsAttachmentOutput",
           "CheckTransformationTests.RangeBoundsReturnExplicitFailureAfterInputWork",
           "CheckTransformationTests.MissingOverlayFailsBeforeCheckingOrListing",
-          "InlinePacketBoundaryTests.UnknownFramingPreservesTheWholeProgramAndDiscardsEarlierCandidates"
+          "InlinePacketBoundaryTests.UnknownFramingPreservesTheWholeProgramAndDiscardsEarlierCandidates",
+          "OutlineHintOwnershipTests.FrozenIndependentControlsDistinguishMissingAndLegitimatelyOmittedHints"
         ],
         "interaction": [
           "CheckTests.ArgvCheckRejectsCombinedAndTrailingForms",
@@ -2633,7 +2636,8 @@
           "CheckTransformationTests.TransformationCeilingsPreserveExistingTargets",
           "CheckTransformationTests.CancellationDuringForeignReadDisposesThePreparedPrimaryView",
           "CheckTransformationTests.CancellationDuringOverlayReadClosesBothInputs",
-          "CheckTransformationTests.OverlayHandleLimitStopsInspectionAndClosesPrimary"
+          "CheckTransformationTests.OverlayHandleLimitStopsInspectionAndClosesPrimary",
+          "OutlineHintOwnershipTests.OutlinePreparationRetiresOnEveryAdmissionAndPublicationFailure"
         ],
         "oracle": [
           "diff:linearized",
@@ -2642,7 +2646,8 @@
           "diff:job-check",
           "diff:check-inspection",
           "diff:binary-inspection",
-          "diff:check-transformations"
+          "diff:check-transformations",
+          "diff:outline-hint"
         ]
       }
     },
@@ -2670,13 +2675,16 @@
         "positive": [
           "LinearizationInspectionTests.CheckLinearizationReportsNoErrors",
           "LinearizationInspectionTests.CheckLinearizationOnPlainFile",
-          "LinearizationInspectionTests.CheckPlusCheckLinearization"
+          "LinearizationInspectionTests.CheckPlusCheckLinearization",
+          "OutlineHintOwnershipTests.LinearizedOutlineClosureStaysDirectWhileOtherObjectsPack",
+          "OutlineHintOwnershipTests.LargeOutlineClosureStaysContiguousWhileOtherObjectsPack"
         ],
         "negative": [
           "LinearizationInspectionTests.CheckLinearizationFailsOnBadHints",
           "LinearizationInspectionTests.CheckLinearizationRejectsOutputFile",
           "LinearizationInspectionTests.CheckLinearizationRejectsCombinations",
-          "LinearizationInspectionTests.CheckPlusCheckLinearizationSurfacesHintDefects"
+          "LinearizationInspectionTests.CheckPlusCheckLinearizationSurfacesHintDefects",
+          "OutlineHintOwnershipTests.FrozenIndependentControlsDistinguishMissingAndLegitimatelyOmittedHints"
         ],
         "interaction": [
           "LinearizationInspectionTests.JobCheckLinearizationMatchesArgv",
@@ -2684,10 +2692,12 @@
         ],
         "resource": [
           "LinearizationInspectionTests.LinearizationInspectionYieldsToExhaustedInputBudget",
-          "LinearizationTests.DirectHintDecodingChargesOnceAndEnforcesAggregateAdmission"
+          "LinearizationTests.DirectHintDecodingChargesOnceAndEnforcesAggregateAdmission",
+          "OutlineHintOwnershipTests.OutlinePreparationRetiresOnEveryAdmissionAndPublicationFailure"
         ],
         "oracle": [
-          "diff:check-linearization"
+          "diff:check-linearization",
+          "diff:outline-hint"
         ]
       }
     },
@@ -4659,9 +4669,11 @@
           "source": "manual/cli.rst:719"
         }
       ],
-      "status": "complete",
+      "status": "partial",
       "defaultReview": "reviewed",
-      "remainingGaps": [],
+      "remainingGaps": [
+        "Direct outline dictionaries are not normalized during linearization; ordinary rewriting can promote them, but a single linearization job currently refuses."
+      ],
       "evidence": {
         "positive": [
           "LinearizedWriterTests.TwoPageLinearizePassesOwnCheck",
@@ -4678,13 +4690,16 @@
           "LinearizedWriterTests.CheckingWithLinearizeKeepsTheOriginalDocument",
           "XrefStreamRoleTests.WritersProtectTaggedObjectsWithoutDiscardingTheirIdentity",
           "JsonLayoutTests.ImportedValuesAndNoncanonicalRootsSurviveIndependentLayouts",
-          "JsonLayoutIdentityTests.SourceMembershipFollowsFullPairsAcrossNormalizedAndFinalIds"
+          "JsonLayoutIdentityTests.SourceMembershipFollowsFullPairsAcrossNormalizedAndFinalIds",
+          "OutlineHintOwnershipTests.LinearizedOutlineClosureStaysDirectWhileOtherObjectsPack",
+          "OutlineHintOwnershipTests.LargeOutlineClosureStaysContiguousWhileOtherObjectsPack"
         ],
         "negative": [
           "LinearizedWriterTests.JsonCannotCombine",
           "LinearizedWriterTests.DirectOutlinesFailExplicitly",
           "LinearizedWriterTests.OutlineUnknownFirstObjectFailsCheck",
-          "LinearizedWriterTests.OutlineOffsetMismatchFailsCheck"
+          "LinearizedWriterTests.OutlineOffsetMismatchFailsCheck",
+          "OutlineHintOwnershipTests.FrozenIndependentControlsDistinguishMissingAndLegitimatelyOmittedHints"
         ],
         "interaction": [
           "LinearizedWriterTests.JobParityMatchesArgvBytes",
@@ -4695,13 +4710,15 @@
         ],
         "resource": [
           "ResourceEnforcementTests.LinearizeYieldsToExhaustedBudget",
-          "JsonLayoutTests.LayoutPreparationRetiresOnEveryAdmissionAndPublicationFailure"
+          "JsonLayoutTests.LayoutPreparationRetiresOnEveryAdmissionAndPublicationFailure",
+          "OutlineHintOwnershipTests.OutlinePreparationRetiresOnEveryAdmissionAndPublicationFailure"
         ],
         "oracle": [
           "diff:linearize",
           "diff:linearize-streams",
           "diff:xref-role",
-          "diff:json-layout"
+          "diff:json-layout",
+          "diff:outline-hint"
         ]
       }
     },

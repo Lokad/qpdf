@@ -9,6 +9,33 @@
   "generation": "Deterministic classic-xref PDFs with LF endings, Helvetica text, ordered objects and computed xref offsets. Truncated fixture is the first 120 bytes of minimal-1page.pdf. Security fixtures record randomized native encryption of authored inputs; their individual descriptions identify generation and public test credentials.",
   "fixtures": [
     {
+      "file": "linearized-outline-split-group.pdf",
+      "sha256": "7b29b2e67965797444a8a72e137bc259851e0c4e00b624788b9c6bb0c795eaff",
+      "bytes": 3657,
+      "expectedNpages": 1,
+      "headerVersion": "1.7",
+      "valid": false,
+      "description": "Recorded streamed output whose outline root shares a first-page object-stream container while later outline objects form a separate advertised group. Native qpdf 12.4.2 warns about incorrect outline hint offsets/lengths; the visible one-page graph and 110 titles remain readable."
+    },
+    {
+      "file": "linearized-outline-missing-hint.pdf",
+      "sha256": "654f67c4994e953cd5504d688fcadff2330c329bd478c954f5e3b5ecd7c56518",
+      "bytes": 1362,
+      "expectedNpages": 1,
+      "headerVersion": "1.7",
+      "valid": false,
+      "description": "Recorded managed streamed linearization with compressed outlines but no advertised outline hint table; native qpdf 12.4.2 warns about its incorrect outline object count. The graph and one-page rendering remain readable."
+    },
+    {
+      "file": "linearized-outline-native-omission.pdf",
+      "sha256": "509239b995ad686a781c39fd6cbf0c0821b45f298010eb8fbf0da7a3ced35f38",
+      "bytes": 1485,
+      "expectedNpages": 1,
+      "headerVersion": "1.7",
+      "valid": true,
+      "description": "Recorded native qpdf 12.4.2 streamed linearization with outlines sharing a higher-priority physical container. Native checking and hint validation pass despite an omitted outline table."
+    },
+    {
       "file": "json-layout-sparse.pdf",
       "sha256": "272ba8f1df6dc70635eec405e46756c5cf2344476149ef9ef896de7a6d2406d2",
       "bytes": 683,

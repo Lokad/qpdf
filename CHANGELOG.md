@@ -2,6 +2,8 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Keep linearized outline hints consistent with physical ownership, including
+  mixed object-stream groups; reject missing required hints while accepting valid omissions.
 - Support JSON creation/update with object streams and linearization through the
   shared writer, including protected output. Add explicit typed layout options;
   retain original packing by full source identity across imported numbering.

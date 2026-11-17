@@ -318,7 +318,12 @@ internal sealed class LinearizationPhysical : IDisposable
 
     private void CheckOutlines(ClassifiedGraph graph)
     {
-        if (_data.Outlines is not OutlineTable table) { return; }
+        if (_data.Outlines is not OutlineTable table)
+        {
+            if (graph.Outlines.Count != 0)
+            { throw new QpdfParseException("Outline hints are missing for the physical outline group.", null, null); }
+            return;
+        }
         if (table.ObjectCount != graph.Outlines.Count)
         {
             throw new QpdfParseException("Outline hint count disagrees with physical graph assignments.", null, null);
@@ -328,6 +333,17 @@ internal sealed class LinearizationPhysical : IDisposable
         {
             throw new QpdfParseException("Incorrect offset in outlines table. Outline hint names the wrong physical first object.", null, null);
         }
+        if (!PdfDictionaryLookup.TryGet(_engine.Trailer, "Root"u8, _governor, _token, out QpdfObject rootRaw)
+            || rootRaw is not PdfReference rootReference
+            || !PdfObjectLookup.TryResolve(rootReference, _engine, _governor, _token, out QpdfObject? root)
+            || root is not PdfDictionary catalog
+            || !PdfDictionaryLookup.TryGet(catalog, "Outlines"u8, _governor, _token, out QpdfObject outlineRaw)
+            || outlineRaw is not PdfReference outline
+            || !_engine.XRefEntries.TryGetValue(outline.ObjectNumber, out XrefEntry entry))
+        { throw new QpdfParseException("Outline hints need an indirect physical outline root.", null, null); }
+        int owner = entry.Kind == XrefEntryKind.Compressed ? checked((int)entry.First) : outline.ObjectNumber;
+        if (table.FirstObject != owner)
+        { throw new QpdfParseException("Outline hints do not start at the outline root's physical owner.", null, outline.ObjectNumber); }
         long end = 0L;
         foreach (int number in graph.Outlines) { end = Math.Max(end, Extent(number).WhitespaceEnd); }
         long start = Extent(table.FirstObject).Start;

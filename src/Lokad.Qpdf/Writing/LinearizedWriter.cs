@@ -368,7 +368,7 @@ internal sealed class LinearizedWriter
         int? compressionLevel,
         CancellationToken cancellationToken)
     {
-        return BuildHintObjectCore(parts.Part6, parts.Part8, parts.Part7, parts.Pages, parts.PageUsers, parts.Outlines, parts.Renumber, parts.HintNumber, true, counted, compressHints, compressionLevel, cancellationToken);
+        return BuildHintObjectCore(parts.Part6, parts.Part8, parts.Part7, parts.Pages, parts.PageUsers, parts.Outlines, parts.Renumber, parts.HintNumber, counted, compressHints, compressionLevel, cancellationToken);
     }
 
     private HintPayload BuildHintObject(
@@ -378,7 +378,7 @@ internal sealed class LinearizedWriter
         int? compressionLevel,
         CancellationToken cancellationToken)
     {
-        return BuildHintObjectCore(parts.Part6, parts.Part8, parts.Part7, parts.Pages, parts.PageUsers, parts.Outlines, parts.Renumber, parts.HintNumber, parts.OutlinesDirect, counted, compressHints, compressionLevel, cancellationToken);
+        return BuildHintObjectCore(parts.Part6, parts.Part8, parts.Part7, parts.Pages, parts.PageUsers, parts.Outlines, parts.Renumber, parts.HintNumber, counted, compressHints, compressionLevel, cancellationToken);
     }
 
     private HintPayload BuildHintObjectCore(
@@ -390,7 +390,6 @@ internal sealed class LinearizedWriter
         IReadOnlyList<int> outlines,
         GovernedIntDictionary<int> renumber,
         int hintNumber,
-        bool outlinesDirect,
         LinearizedLayout counted,
         bool compressHints,
         int? compressionLevel,
@@ -444,7 +443,7 @@ internal sealed class LinearizedWriter
         int outlineFirst = 0;
         long outlineOffset = 0L;
         long outlineLength = 0L;
-        if (outlines.Count > 0 && outlinesDirect)
+        if (outlines.Count > 0)
         {
             outlineFirst = renumber[outlines[0]];
             outlineOffset = counted.Starts[outlineFirst];
@@ -462,8 +461,8 @@ internal sealed class LinearizedWriter
 
         using WriterFormatting head = WriterFormatting.Create([WriterPart.Number(hintNumber), WriterPart.Text(" 0 obj\n<<"),
             WriterPart.Text(flate ? " /Filter /FlateDecode" : ""), WriterPart.Text(" /S "), WriterPart.Number(sharedAt),
-            WriterPart.Text(outlines.Count > 0 && outlinesDirect ? " /O " : ""),
-            outlines.Count > 0 && outlinesDirect ? WriterPart.Number(outlineAt) : default,
+            WriterPart.Text(outlines.Count > 0 ? " /O " : ""),
+            outlines.Count > 0 ? WriterPart.Number(outlineAt) : default,
             WriterPart.Text(" /Length "), WriterPart.Number(data.Length), WriterPart.Text(" >>\nstream\n")],
             _limits, _governor, cancellationToken);
         ReadOnlyMemory<byte> prefix = head.Data;

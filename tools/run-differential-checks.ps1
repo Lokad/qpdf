@@ -2878,6 +2878,8 @@ Invoke-ReferenceSecurity
 Invoke-ReferenceXrefRoles
 . (Join-Path $repoRoot 'tools/ReferenceJsonLayouts.ps1')
 Invoke-ReferenceJsonLayouts
+. (Join-Path $repoRoot 'tools/ReferenceOutlineHints.ps1')
+Invoke-ReferenceOutlineHints
 . (Join-Path $repoRoot 'tools/ReferenceSecurityPolicies.ps1')
 Invoke-ReferenceSecurityPolicies
 . (Join-Path $repoRoot 'tools/ReferenceSecurityPermissions.ps1')

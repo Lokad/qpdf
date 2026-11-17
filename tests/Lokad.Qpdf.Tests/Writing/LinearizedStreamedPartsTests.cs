@@ -73,7 +73,7 @@ public sealed class LinearizedStreamedPartsTests
         Assert.Equal(11, parts.FirstSize);
         Assert.Equal(10, parts.MaxNumber);
         Assert.Equal(0, parts.MaxMemberIndex);
-        Assert.True(parts.OutlinesDirect);
+        Assert.Empty(parts.Outlines);
     }
 
     [Fact]
