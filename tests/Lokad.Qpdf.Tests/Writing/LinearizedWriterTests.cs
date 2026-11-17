@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Text;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Writing;
 using UglyToad.PdfPig;
@@ -40,13 +41,36 @@ public sealed class LinearizedWriterTests
 
     private static async Task CheckLinearizedAsync(byte[] pdf, int pages)
     {
-        InMemoryQpdfHost host = HostWith("inputs/r.pdf", pdf);
-        QpdfCheckResult check = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/r.pdf"), CancellationToken.None);
-        Assert.Equal(pages, check.PageCount);
-        QpdfCheckOutcome linearization = Assert.Single(check.Checks, outcome => outcome.Name == "linearization");
-        Assert.Equal(QpdfCheckStatus.Passed, linearization.Status);
+        using InMemoryQpdfHost host = HostWith("inputs/r.pdf", pdf);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/r.pdf"), CancellationToken.None);
+        AssertLinearized(document, pages);
         using PdfDocument reread = PdfDocument.Open(new MemoryStream(pdf));
         Assert.Equal(pages, reread.NumberOfPages);
+    }
+
+    private static void AssertLinearized(QpdfDocument document, int pages)
+    {
+        Assert.Equal(pages, document.PageCount);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        LinearizationInspection inspection = LinearizationCheck.Inspect(document.Engine, pages,
+            QpdfLimits.Default, governor, CancellationToken.None);
+        Assert.Equal(LinearizationStatus.Valid, inspection.Status);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Theory]
+    [InlineData("minimal-1page.pdf")]
+    [InlineData("objstm-1page.pdf")]
+    public async Task LinearizedAssertionRejectsOrdinaryClassicAndPackedOutputs(string fixture)
+    {
+        using InMemoryQpdfHost host = await HostWithFixture("inputs/r.pdf", fixture);
+        QpdfPath path = QpdfPath.From("inputs/r.pdf");
+        QpdfCheckResult check = await Qpdf.CheckAsync(host, path, CancellationToken.None);
+        Assert.True(check.Passed); Assert.Equal(1, check.PageCount);
+        Assert.Equal(QpdfCheckStatus.Passed, Assert.Single(check.Checks, c => c.Name == "linearization").Status);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, path, CancellationToken.None);
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertLinearized(document, 1));
+        Assert.Equal(fixture == "objstm-1page.pdf", document.Engine.XRefEntries.Values.Any(entry => entry.Kind == XrefEntryKind.Compressed));
     }
 
     [Theory]
@@ -731,15 +755,12 @@ public sealed class LinearizedWriterTests
     public async Task StreamedLinearizedOutputPassesOwnCheck()
     {
         byte[] pdf = await WriteStreamedAsync(StreamedModel(), new List<IReadOnlyList<int>> { new List<int> { 5 } });
-        string text = System.Text.Encoding.Latin1.GetString(pdf);
-        Assert.Contains("/Type /ObjStm", text, StringComparison.Ordinal);
-        Assert.Contains("/Type /XRef", text, StringComparison.Ordinal);
-        InMemoryQpdfHost host = HostWith("inputs/r.pdf", pdf);
+        using InMemoryQpdfHost host = HostWith("inputs/r.pdf", pdf);
         QpdfCheckResult check = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/r.pdf"), CancellationToken.None);
-        Assert.Equal(1, check.PageCount);
-        QpdfCheckOutcome linearization = Assert.Single(check.Checks, outcome => outcome.Name == "linearization");
-        Assert.Equal(QpdfCheckStatus.Passed, linearization.Status);
         Assert.True(check.Passed);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/r.pdf"), CancellationToken.None);
+        AssertLinearized(document, 1);
+        Assert.Contains(document.Engine.XRefEntries.Values, entry => entry.Kind == XrefEntryKind.Compressed);
     }
 
     [Fact]
