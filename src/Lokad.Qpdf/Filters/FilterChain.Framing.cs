@@ -22,7 +22,13 @@ internal static partial class FilterChain
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             byte value = data[position++];
             if (name == AsciiHexFilter.FilterName && value == '>') { length = position; return true; }
-            if (name == Ascii85Filter.FilterName && value == '~' && position < data.Length && data[position] == '>') { length = position + 1; return true; }
+            if (name == Ascii85Filter.FilterName && value == '~')
+            {
+                while (position < data.Length && PdfTokenizer.IsWhitespace(data[position]))
+                { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); position++; }
+                if (position >= data.Length || data[position] != '>') { return false; }
+                length = position + 1; return true;
+            }
             if (name == RunLengthFilter.FilterName)
             {
                 if (value == 128) { length = position; return true; }

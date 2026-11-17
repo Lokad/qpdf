@@ -2,6 +2,8 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Accept PDF whitespace inside ASCII85 end markers across inline-image consumers.
+
 - Reuse completed attachment imports for matching logical sources and credentials,
   sharing payload graphs without retaining input handles between requests. Bounded
   summaries retire by recency so later sources can benefit.

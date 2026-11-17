@@ -49,6 +49,11 @@ public sealed class InlinePacketBoundaryTests
     private static (byte[] Packet, string Filter) Packet(string filter)
     {
         byte[] samples = Samples();
+        if (filter == "ASCII85Whitespace")
+        {
+            byte[] encoded = DecoderOwnershipFixtures.Encode("ASCII85Decode", samples);
+            return ([.. encoded.AsSpan(0, encoded.Length - 1), .. " \t\r\n\f>"u8], "/A85");
+        }
         return filter switch
         {
             "raw" => (samples, "[]"),
@@ -87,6 +92,10 @@ public sealed class InlinePacketBoundaryTests
         foreach (string filter in new[] { "raw", "FlateDecode", "RunLengthDecode", "DCTDecode", "ASCIIHexDecode", "ASCII85Decode", "LZWDecode", "chain" })
         foreach (string mode in new[] { "external-page", "external-form", "normalize", "qdf", "scan" })
         foreach (bool job in new[] { false, true }) { yield return [filter, mode, job]; }
+        yield return ["ASCII85Whitespace", "external-page", false];
+        yield return ["ASCII85Whitespace", "external-form", true];
+        yield return ["ASCII85Whitespace", "normalize", false];
+        yield return ["ASCII85Whitespace", "scan", false];
     }
 
     public static IEnumerable<object[]> UnknownCases()
@@ -221,6 +230,18 @@ public sealed class InlinePacketBoundaryTests
         QpdfExecutionResult result = job ? await Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","check":""}""", CancellationToken.None)
             : await Qpdf.ExecuteAsync(host, new(["input", "--check"]), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task CheckingFramesWhitespaceBeforeTheAscii85EndDelimiter()
+    {
+        (byte[] packet, string filter) = Packet("ASCII85Whitespace");
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), Fixture(Image(packet, filter), false), QpdfInputOwnership.Transfer);
+        QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("input"), CancellationToken.None);
+        Assert.True(result.Passed);
+        Assert.Contains(result.Checks, outcome => outcome.Name == "page-content" && outcome.Status == QpdfCheckStatus.Passed);
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Theory]

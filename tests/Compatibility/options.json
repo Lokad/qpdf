@@ -2592,7 +2592,8 @@
           "CheckInspectionTests.PruningDoesNotRewriteFilelessInspectionResources",
           "InlinePacketBoundaryTests.CheckingDoesNotParseBinarySamplesAsAnUnterminatedLiteral",
           "OutlineHintOwnershipTests.LinearizedOutlineClosureStaysDirectWhileOtherObjectsPack",
-          "OutlineHintOwnershipTests.LargeOutlineClosureStaysContiguousWhileOtherObjectsPack"
+          "OutlineHintOwnershipTests.LargeOutlineClosureStaysContiguousWhileOtherObjectsPack",
+          "Ascii85FramingTests.PacketLengthAndDecodingAgreeOnEndMarkerWhitespace"
         ],
         "negative": [
           "CheckTests.ArgvCheckRejectsCombinedAndTrailingForms",
@@ -2605,7 +2606,8 @@
           "CheckTransformationTests.RangeBoundsReturnExplicitFailureAfterInputWork",
           "CheckTransformationTests.MissingOverlayFailsBeforeCheckingOrListing",
           "InlinePacketBoundaryTests.UnknownFramingPreservesTheWholeProgramAndDiscardsEarlierCandidates",
-          "OutlineHintOwnershipTests.FrozenIndependentControlsDistinguishMissingAndLegitimatelyOmittedHints"
+          "OutlineHintOwnershipTests.FrozenIndependentControlsDistinguishMissingAndLegitimatelyOmittedHints",
+          "Ascii85FramingTests.BrokenMarkersDoNotConsumeLaterContent"
         ],
         "interaction": [
           "CheckTests.ArgvCheckRejectsCombinedAndTrailingForms",
@@ -2627,7 +2629,8 @@
           "CheckTransformationTests.OverlayPreservesIndirectAnnotationsAndFormGenerations",
           "CheckTransformationTests.OverlayUpdatesAFormInADirectTrailerCatalog",
           "CheckTransformationTests.LayerInspectionWithoutCheckReturnsTheTransformedStream",
-          "EmptyDecodeParmsTests.ImageJsonAndCheckingShareDefaultParameters"
+          "EmptyDecodeParmsTests.ImageJsonAndCheckingShareDefaultParameters",
+          "InlinePacketBoundaryTests.CheckingFramesWhitespaceBeforeTheAscii85EndDelimiter"
         ],
         "resource": [
           "CheckTests.CheckFailsOnExhaustedInputBudget",
@@ -2646,7 +2649,8 @@
           "CheckTransformationTests.CancellationDuringForeignReadDisposesThePreparedPrimaryView",
           "CheckTransformationTests.CancellationDuringOverlayReadClosesBothInputs",
           "CheckTransformationTests.OverlayHandleLimitStopsInspectionAndClosesPrimary",
-          "OutlineHintOwnershipTests.OutlinePreparationRetiresOnEveryAdmissionAndPublicationFailure"
+          "OutlineHintOwnershipTests.OutlinePreparationRetiresOnEveryAdmissionAndPublicationFailure",
+          "Ascii85FramingTests.LongWhitespaceMarkerNeedsNoDecodeOrAllocationAllowance"
         ],
         "oracle": [
           "diff:linearized",
@@ -3381,12 +3385,14 @@
           "InlineImageBoundaryTests.NamedColorFamiliesSupplyTheirDeclaredSampleComponents",
           "InlinePacketBoundaryTests.EveryConsumerSkipsCompleteFilteredPackets",
           "LateContentTransformTests.FinalLiveFormsReceiveRequestedInlineProcessing",
-          "InlineContextReuseTests.ReusesOnlyTheSameImmutableContentAndResourceContext"
+          "InlineContextReuseTests.ReusesOnlyTheSameImmutableContentAndResourceContext",
+          "Ascii85FramingTests.PacketLengthAndDecodingAgreeOnEndMarkerWhitespace"
         ],
         "negative": [
           "InlineImagesTests.MalformedExternalizeFlagsFail",
           "InlinePacketBoundaryTests.UnknownFramingPreservesTheWholeProgramAndDiscardsEarlierCandidates",
-          "InlineContextReuseTests.PartialConversionsRetainPerPageDiagnosticsRegardlessOfSuppression"
+          "InlineContextReuseTests.PartialConversionsRetainPerPageDiagnosticsRegardlessOfSuppression",
+          "Ascii85FramingTests.BrokenMarkersDoNotConsumeLaterContent"
         ],
         "interaction": [
           "InlineImagesTests.JobRoundTripMatchesArgv",
@@ -3403,7 +3409,8 @@
           "InlinePacketBoundaryTests.PacketConstructionAndPublicationFailuresKeepPriorOutputAndRefundOwners",
           "PacketFramingTests.FlateFrameStateAlsoReceivesSharedAdmission",
           "InlineContextReuseTests.DecodeCeilingsChargeActualDistinctContexts",
-          "InlineContextReuseTests.SharedResultRetiresOnEveryAdmissionAndPublicationFailure"
+          "InlineContextReuseTests.SharedResultRetiresOnEveryAdmissionAndPublicationFailure",
+          "Ascii85FramingTests.LongWhitespaceMarkerNeedsNoDecodeOrAllocationAllowance"
         ],
         "oracle": [
           "diff:inline",
@@ -5055,12 +5062,14 @@
           "LogicalContentContextTests.FailedProgramsDoNotPublishUnusedFragmentsAndLaterPagesCanUseAComputedFragment",
           "ContentTransformsTests.NormalizeDecodesFlate",
           "InlinePacketBoundaryTests.EveryConsumerSkipsCompleteFilteredPackets",
-          "InlineFramingContextTests.NormalizationSharesOnlyContextIndependentOrMatchingResourceUses"
+          "InlineFramingContextTests.NormalizationSharesOnlyContextIndependentOrMatchingResourceUses",
+          "Ascii85FramingTests.PacketLengthAndDecodingAgreeOnEndMarkerWhitespace"
         ],
         "negative": [
           "ContentTransformsTests.MalformedContentFlagsFail",
           "ContentTransformsTests.NormalizeKeepsDamagedStreamsWithWarning",
-          "InlinePacketBoundaryTests.UnknownFramingPreservesTheWholeProgramAndDiscardsEarlierCandidates"
+          "InlinePacketBoundaryTests.UnknownFramingPreservesTheWholeProgramAndDiscardsEarlierCandidates",
+          "Ascii85FramingTests.BrokenMarkersDoNotConsumeLaterContent"
         ],
         "interaction": [
           "ContentTransformsTests.JobContentFlagsRoundTrip",
@@ -5069,7 +5078,8 @@
         ],
         "resource": [
           "ResourceEnforcementTests.NormalizeYieldsToExhaustedBudget",
-          "InlinePacketBoundaryTests.PacketConstructionAndPublicationFailuresKeepPriorOutputAndRefundOwners"
+          "InlinePacketBoundaryTests.PacketConstructionAndPublicationFailuresKeepPriorOutputAndRefundOwners",
+          "Ascii85FramingTests.LongWhitespaceMarkerNeedsNoDecodeOrAllocationAllowance"
         ],
         "oracle": [
           "diff:normalize-payloads"
@@ -6422,11 +6432,13 @@
           "ResourcePruningScopeTests.FailedFormAnalysisKeepsTheEnclosingScope",
           "ResourcePruningScopeTests.ASpellingInTheOtherCategoryDoesNotProveALocalBinding",
           "ResourcePruningScopeTests.PruningSharesContentsClassificationWithTheOtherTransforms",
-          "SharedPruningTests.IdenticalContextsDecodeOnceAndSharePrunedResources"
+          "SharedPruningTests.IdenticalContextsDecodeOnceAndSharePrunedResources",
+          "Ascii85FramingTests.PacketLengthAndDecodingAgreeOnEndMarkerWhitespace"
         ],
         "negative": [
           "ContentTransformsTests.MalformedContentFlagsFail",
-          "ContentTransformsTests.PruneSkipsDamagedContentWithWarning"
+          "ContentTransformsTests.PruneSkipsDamagedContentWithWarning",
+          "Ascii85FramingTests.BrokenMarkersDoNotConsumeLaterContent"
         ],
         "interaction": [
           "ContentTransformsTests.JobContentFlagsRoundTrip",
@@ -6444,7 +6456,8 @@
           "SinglePartContentOwnershipTests.JoinAdmissionRefusalPreservesTheSourceAndCanRetry",
           "SinglePartContentOwnershipTests.EscapedBytesDropTheLargerSourceAndCompletedExecution",
           "SharedPruningTests.EvictedIdentityContextsChargeTheirActualDecodingAgain",
-          "ContentPreparationAdmissionTests.SharedPruningRefundsEveryOwnerIncludingPromotionAndPendingPublication"
+          "ContentPreparationAdmissionTests.SharedPruningRefundsEveryOwnerIncludingPromotionAndPendingPublication",
+          "Ascii85FramingTests.LongWhitespaceMarkerNeedsNoDecodeOrAllocationAllowance"
         ],
         "oracle": [
           "diff:prune-resources"
