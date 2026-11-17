@@ -355,6 +355,10 @@ names and duplicate-pair rule; unknown JSON envelope fields remain outside this
 PDF container ceiling.
 Commands can tighten it with `--parser-max-container-size` /
 `global.parserMaxContainerSize`; `--no-default-limits` does not relax it.
+Global nesting, parser-error and damaged-container settings also work with JSON
+creation/update. Nesting bounds imported PDF values and the update's PDF input;
+repair settings govern the PDF reader, while JSON-authored values remain strict.
+Explicit host ceilings stay binding.
 Updates require stable source page identities: traversal-introduced page identities
 are not reconstructed, and exports declaring pushed inherited resources reject.
 Import/update can use object-stream disable/preserve/generate modes and two-pass

@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Apply command nesting, parser-error and damaged-container settings to JSON
+  creation/update through the shared reader limits, retaining host ceilings.
+
 - Default empty attachment command key/filename setters to the payload basename,
   including resets, while keeping typed authored names nonempty.
 

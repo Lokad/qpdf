@@ -1966,7 +1966,8 @@
       "evidence": {
         "positive": [
           "GlobalLimitsTests.LooseContainerCapsParse",
-          "GlobalLimitsTests.ContainerCapsJobParityHolds"
+          "GlobalLimitsTests.ContainerCapsJobParityHolds",
+          "JsonImportReaderLimitTests.ReaderSettingsPreserveImportedValues"
         ],
         "negative": [
           "GlobalLimitsTests.TightContainerCapFailsStrictParsing",
@@ -1974,15 +1975,18 @@
           "GlobalLimitsTests.DamagedCapGovernsRepair",
           "GlobalLimitsTests.BadContainerFlagsFail",
           "GlobalLimitsTests.DuplicateContainerFlagsFail",
-          "GlobalLimitsTests.BadNestedContainerKeysFail"
+          "GlobalLimitsTests.BadNestedContainerKeysFail",
+          "JsonImportReaderLimitTests.ReaderSettingsCannotRaiseExplicitHostCeilings"
         ],
         "interaction": [
           "GlobalLimitsTests.ContainerCapsJobParityHolds",
-          "GlobalLimitsTests.BadNestedContainerKeysFail"
+          "GlobalLimitsTests.BadNestedContainerKeysFail",
+          "JsonImportReaderLimitTests.NestedFileSettingsUseTheSameGovernance"
         ],
         "resource": [
           "GlobalLimitsTests.HostContainerBudgetInterplay",
-          "GlobalLimitsTests.NegativeContainerBudgetsFailValidation"
+          "GlobalLimitsTests.NegativeContainerBudgetsFailValidation",
+          "JsonImportReaderLimitTests.DamagedContainerLimitOnlyAppliesDuringRecovery"
         ],
         "oracle": [
           "diff:global"
@@ -2026,7 +2030,8 @@
           "RecoveryTests.ErrorsZeroRemovesThreshold",
           "GlobalLimitsTests.ParserMaxErrorsZeroJobAccepted",
           "ParserJobRecoveryTests.InvalidStreamLengthsRecoverBeforeWriting",
-          "ParserJobRecoveryTests.CompressedDictionaryDoesNotStartFileStreamRecovery"
+          "ParserJobRecoveryTests.CompressedDictionaryDoesNotStartFileStreamRecovery",
+          "JsonImportReaderLimitTests.ReaderSettingsPreserveImportedValues"
         ],
         "negative": [
           "GlobalLimitsTests.BadParserMaxErrorsValuesFail",
@@ -2038,7 +2043,9 @@
           "DamagedSyntaxTests.StrictParserRejectsDamagedTokensAndContainers",
           "TolerantObjectLoadingTests.StrictPublicPathsRejectDamagedTokensAndContainers",
           "RecoveryTests.ErrorsBudgetStrictUnaffected",
-          "ParserJobRecoveryTests.StrictReadingRejectsNestedAndCompressedDamage"
+          "ParserJobRecoveryTests.StrictReadingRejectsNestedAndCompressedDamage",
+          "JsonImportReaderLimitTests.ReaderSettingsCannotRaiseExplicitHostCeilings",
+          "JsonImportReaderLimitTests.UnlimitedErrorsCannotLiftAFiniteHostCeiling"
         ],
         "interaction": [
           "TolerantObjectLoadingTests.RewrittenRepairedValuesRemainReadableWithArgvJobParity",
@@ -2056,7 +2063,8 @@
           "RecoveryTests.ExplicitErrorUnderNoDefaultLimitsDoesNotCountScanCandidates",
           "ParserJobRecoveryTests.NestedLengthRepairPreservesIndependentValuesThroughRewrite",
           "ParserJobRecoveryTests.CompressedMemberBudgetsRemainIndependentThroughRewrite",
-          "ParserJobRecoveryTests.RecoveryHonorsMarkerDelimitersAndPhysicalObjectBoundaries"
+          "ParserJobRecoveryTests.RecoveryHonorsMarkerDelimitersAndPhysicalObjectBoundaries",
+          "JsonImportReaderLimitTests.NestedFileSettingsUseTheSameGovernance"
         ],
         "resource": [
           "GlobalLimitsTests.ParserMaxErrorsRespectsTightHost",
@@ -2184,7 +2192,8 @@
           "JsonValueOwnershipTests.BulkJsonDiscardsFitConsumerMemoryAllowance",
           "JsonValueOwnershipTests.SidecarsPreserveRawAndDecodedBytesAfterReaderCloses",
           "JsonValueOwnershipTests.InputCloseFaultPreservesMainAndSidecarTargets",
-          "JsonValueOwnershipTests.FailedOrCanceledJsonClosesReaderAndPreservesPriorOutput"
+          "JsonValueOwnershipTests.FailedOrCanceledJsonClosesReaderAndPreservesPriorOutput",
+          "JsonImportReaderLimitTests.ErrorThresholdGovernsTheUpdatedSourceObject"
         ],
         "oracle": [
           "diff:recovery",
@@ -2216,7 +2225,8 @@
       "evidence": {
         "positive": [
           "GlobalLimitsTests.RaisedCapParsesDeepCatalog",
-          "GlobalLimitsTests.NestedGlobalParityHolds"
+          "GlobalLimitsTests.NestedGlobalParityHolds",
+          "JsonImportReaderLimitTests.ReaderSettingsPreserveImportedValues"
         ],
         "negative": [
           "GlobalLimitsTests.DefaultNestingRejectsDeepCatalog",
@@ -2225,17 +2235,20 @@
           "GlobalLimitsTests.CeilingMessageNamesTheMaximum",
           "GlobalLimitsTests.ZeroNestingRejectsBeforeHostAccess",
           "GlobalLimitsTests.BadNestedGlobalFails",
-          "GlobalLimitsTests.FlagCannotRaiseTighterHostBudget"
+          "GlobalLimitsTests.FlagCannotRaiseTighterHostBudget",
+          "JsonImportReaderLimitTests.ReaderSettingsCannotRaiseExplicitHostCeilings"
         ],
         "interaction": [
           "GlobalLimitsTests.NestedGlobalParityHolds",
-          "GlobalLimitsTests.BadNestedGlobalFails"
+          "GlobalLimitsTests.BadNestedGlobalFails",
+          "JsonImportReaderLimitTests.NestedFileSettingsUseTheSameGovernance"
         ],
         "resource": [
           "GlobalLimitsTests.FlagCannotRaiseTighterHostBudget",
           "GlobalLimitsTests.FlagMayTightenBelowHostCeiling",
           "StructuralBudgetPublicationTests.StructuralRefusalNeverDropsARetainedRootAndCommits",
-          "OverlayFormStorageTests.FieldDepthRefusesInsteadOfReturningPartialRegistration"
+          "OverlayFormStorageTests.FieldDepthRefusesInsteadOfReturningPartialRegistration",
+          "JsonImportReaderLimitTests.NestingSettingsReachBothJsonValuesAndTheUpdateReader"
         ],
         "oracle": [
           "diff:global"
