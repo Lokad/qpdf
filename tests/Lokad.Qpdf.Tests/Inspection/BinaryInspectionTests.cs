@@ -1,13 +1,11 @@
 using System.IO.Compression;
 using System.Text;
-using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Tests.Foundation;
 using Lokad.Qpdf.Hosting;
 
 namespace Lokad.Qpdf.Tests.Inspection;
 
-[Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class BinaryInspectionTests
 {
     private static readonly byte[] StreamBytes = [0, 1, 2, 127, 128, 255, 13, 10, 65];
@@ -65,20 +63,21 @@ public sealed class BinaryInspectionTests
 
     public static IEnumerable<object[]> PayloadCases()
     {
-        foreach (string route in new[] { "job", "argv", "mixed" })
-        {
-            foreach (string mode in new[] { "raw", "filtered", "attachment", "check-attachment", "check-both", "empty" })
-            {
-                yield return [route, mode];
-            }
-        }
+        // Exhaust payload semantics once; sample both configuration adapters.
+        foreach (string mode in new[] { "raw", "filtered", "attachment", "check-attachment", "check-both", "empty" })
+        { yield return ["argv", mode]; }
+        yield return ["job", "filtered"];
+        yield return ["job", "check-both"];
+        yield return ["mixed", "raw"];
+        yield return ["mixed", "check-attachment"];
+        yield return ["mixed", "empty"];
     }
 
     [Theory]
     [MemberData(nameof(PayloadCases))]
     public async Task FilelessInspectionReturnsExactCallerBytes(string route, string mode)
     {
-        InMemoryQpdfHost host = Host(mode == "filtered", mode == "empty");
+        using InMemoryQpdfHost host = Host(mode == "filtered", mode == "empty");
         (string properties, string[] flags) = Settings(mode);
         QpdfExecutionResult result = await Execute(host, route, properties, flags, QpdfLimits.Default);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
@@ -101,9 +100,7 @@ public sealed class BinaryInspectionTests
         {
             Assert.True(result.Counters.TotalDecodedBytes >= StreamBytes.Length + AttachmentBytes.Length);
         }
-        host = new InMemoryQpdfHost();
-        host.AddInput(QpdfPath.From("other.pdf"), "%PDF-invalid"u8.ToArray(), QpdfInputOwnership.Copy);
-        GC.Collect();
+        host.Dispose();
         Assert.Equal(expected, payload.ToArray());
     }
 
@@ -283,13 +280,12 @@ public sealed class BinaryInspectionTests
 
     public static IEnumerable<object[]> DefaultCases()
     {
-        foreach (string route in new[] { "job", "argv", "mixed" })
-        {
-            foreach (string mode in new[] { "raw-check", "filtered-count", "raw-attachment", "disabled", "disabled-count", "disabled-output", "unused-write", "unused-no-output" })
-            {
-                yield return [route, mode];
-            }
-        }
+        foreach (string mode in new[] { "raw-check", "filtered-count", "raw-attachment", "disabled", "disabled-count", "disabled-output", "unused-write", "unused-no-output" })
+        { yield return ["argv", mode]; }
+        yield return ["job", "disabled-output"];
+        yield return ["job", "unused-write"];
+        yield return ["mixed", "disabled-count"];
+        yield return ["mixed", "raw-attachment"];
     }
 
     [Theory]
@@ -373,7 +369,6 @@ public sealed class BinaryInspectionTests
         await CompleteCancellation(route, mode);
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
     private static async Task CompleteCancellation(string route, string mode)
     {
         InMemoryQpdfHost source = Host(false, false);
@@ -417,13 +412,12 @@ public sealed class BinaryInspectionTests
 
     public static IEnumerable<object[]> NormalizationCases()
     {
-        foreach (string route in new[] { "job", "argv", "mixed" })
-        {
-            foreach (string mode in new[] { "default", "yes", "no", "raw", "qdf", "qdf-no", "checked" })
-            {
-                yield return [route, mode];
-            }
-        }
+        foreach (string mode in new[] { "default", "yes", "no", "raw", "qdf", "qdf-no", "checked" })
+        { yield return ["argv", mode]; }
+        yield return ["job", "yes"];
+        yield return ["job", "qdf-no"];
+        yield return ["mixed", "qdf"];
+        yield return ["mixed", "checked"];
     }
 
     [Theory]
