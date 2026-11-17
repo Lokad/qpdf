@@ -21,6 +21,7 @@
     <EmbeddedResource Include="Writing/DocumentOpenHintCases.json" />
     <EmbeddedResource Include="Inspection/LinearizationCheckCases.json" />
     <EmbeddedResource Include="Filters/PredictorApplicabilityCases.json" />
+    <EmbeddedResource Include="Writing/AttachmentDateCases.json" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" PrivateAssets="All" />
     <PackageReference Include="xunit" PrivateAssets="All" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="All" />

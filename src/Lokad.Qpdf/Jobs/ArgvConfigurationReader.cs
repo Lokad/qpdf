@@ -90,7 +90,7 @@ internal static partial class ArgvConfigurationReader
                     continue;
                 case "add-attachment":
                     _ = Bare(token, cursor);
-                    AttachmentAdd add = ArgvParser.ParseAddBlock(argv, ref cursor);
+                    AttachmentAdd add = ArgvParser.ParseAddBlock(argv, ref cursor, governor);
                     Dictionary<string, object> addFields = new() { ["file"] = add.File };
                     Optional(addFields, "key", add.Key);
                     Optional(addFields, "filename", add.FileName);

@@ -1162,15 +1162,10 @@ internal static class DocumentJson
     internal static string? ToIso8601(string pdfDate)
     {
         // Inspect the bounded timestamp syntax before allocating any presentation text.
-        if (pdfDate is null || pdfDate.Length is not (16 or 17 or 23)
-            || !pdfDate.StartsWith("D:", StringComparison.Ordinal)) { return null; }
-        for (int i = 2; i < 16; i++) { if (pdfDate[i] is < '0' or > '9') { return null; } }
+        if (pdfDate is null || !PdfTimestamp.HasFullSyntax(pdfDate.AsSpan())) { return null; }
         bool utc = true;
-        if (pdfDate.Length == 17 && pdfDate[16] != 'Z') { return null; }
         if (pdfDate.Length == 23)
         {
-            if (pdfDate[16] is not ('+' or '-') || pdfDate[19] != '\'' || pdfDate[22] != '\'') { return null; }
-            for (int i = 17; i < 22; i++) { if (i != 19 && pdfDate[i] is < '0' or > '9') { return null; } }
             int hours = (pdfDate[17] - '0') * 10 + pdfDate[18] - '0';
             int minutes = (pdfDate[20] - '0') * 10 + pdfDate[21] - '0';
             if (hours > 23 || minutes > 59) { return null; }

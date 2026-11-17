@@ -41,10 +41,10 @@ public sealed record QpdfAttachmentInfo
     /// <summary>Gets the MIME type.</summary>
     public string MimeType { get; }
 
-    /// <summary>Gets the creation date in PDF timestamp syntax.</summary>
+    /// <summary>Gets the full PDF timestamp, or null/empty to omit the creation date.</summary>
     public string CreationDate { get; }
 
-    /// <summary>Gets the modification date in PDF timestamp syntax.</summary>
+    /// <summary>Gets the full PDF timestamp, or null/empty to omit the modification date.</summary>
     public string ModDate { get; }
 
     /// <summary>Gets the stored checksum as lowercase hexadecimal.</summary>

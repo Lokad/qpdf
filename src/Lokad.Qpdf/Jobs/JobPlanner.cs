@@ -1423,6 +1423,7 @@ internal static partial class JobPlanner
                     }
 
                     creationDate = RequireString(property.Value, "addAttachment-creationdate", textStorage);
+                    PdfTimestamp.RequireAuthored(creationDate, textStorage.Governor);
                     break;
                 case "moddate":
                     if (modDate is not null)
@@ -1431,6 +1432,7 @@ internal static partial class JobPlanner
                     }
 
                     modDate = RequireString(property.Value, "addAttachment-moddate", textStorage);
+                    PdfTimestamp.RequireAuthored(modDate, textStorage.Governor);
                     break;
                 case "mimetype":
                     if (mimeType is not null)

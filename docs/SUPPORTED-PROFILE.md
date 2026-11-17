@@ -384,6 +384,12 @@ finishes before targeted payload publication, with backing admitted through comm
   and MIME names ASCII without NUL. Existing empty keys remain removable/extractable.
   Dates are omitted unless supplied; additions record size/checksum and a default basename.
 
+Authored dates use `D:YYYYMMDDHHmmSS`, optionally followed by `Z` or a signed
+`HH'mm'` offset. Validation checks syntax, including ASCII digits, rather than
+calendar ranges. Typed null/empty dates mean omission; explicit empty command
+setters reject. Existing stored dates remain readable and survive copying.
+Authoring rejects embedded NUL; native job JSON can truncate the timestamp at NUL.
+
 ## QDF and linearization profile
 
 QDF provides editable objects, indirect lengths and optional original-ID comments.

@@ -2,6 +2,8 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Validate authored attachment timestamps before payload acquisition, sharing
+  bounded syntax with JSON date projection while preserving existing metadata.
 - Add generation-aware `QpdfDocument.GetObject(PdfReference)` lookup through the
   shared resolver, preserving number-based lookup and escaped value ownership.
 - Inspect raw image filter descriptors without constructing inactive decoder

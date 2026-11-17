@@ -26,6 +26,8 @@ internal static class AttachmentExecution
             if (spec.File.Length == 0) { throw new ArgumentException("Attachment files must not be empty.", nameof(attachments)); }
             if (spec.Key is not null && spec.Key.Length == 0) { throw new ArgumentException("Attachment keys must not be empty.", nameof(attachments)); }
             if (spec.FileName is not null && spec.FileName.Length == 0) { throw new ArgumentException("Attachment filenames must not be empty.", nameof(attachments)); }
+            if (!string.IsNullOrEmpty(spec.CreationDate)) { PdfTimestamp.RequireAuthored(spec.CreationDate, governor); }
+            if (!string.IsNullOrEmpty(spec.ModDate)) { PdfTimestamp.RequireAuthored(spec.ModDate, governor); }
             adds.Add(new AttachmentAdd(spec.File, spec.Key, spec.FileName,
                 string.IsNullOrEmpty(spec.CreationDate) ? null : spec.CreationDate,
                 string.IsNullOrEmpty(spec.ModDate) ? null : spec.ModDate,

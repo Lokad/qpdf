@@ -1,0 +1,145 @@
+{
+  "reference": "qpdf 12.4.2 attachment authoring syntax, not calendar validity",
+  "cases": [
+    {
+      "name": "plain",
+      "value": "D:20240102030405",
+      "valid": true
+    },
+    {
+      "name": "utc",
+      "value": "D:20240102030405Z",
+      "valid": true
+    },
+    {
+      "name": "positive",
+      "value": "D:20240102030405+05'30'",
+      "valid": true
+    },
+    {
+      "name": "negative",
+      "value": "D:20240102030405-02'30'",
+      "valid": true
+    },
+    {
+      "name": "zero-offset",
+      "value": "D:20240102030405-00'00'",
+      "valid": true
+    },
+    {
+      "name": "zero-components",
+      "value": "D:00000000000000",
+      "valid": true
+    },
+    {
+      "name": "large-components",
+      "value": "D:99999999999999",
+      "valid": true
+    },
+    {
+      "name": "large-offset",
+      "value": "D:20240102030405+99'99'",
+      "valid": true
+    },
+    {
+      "name": "empty",
+      "value": "",
+      "valid": false
+    },
+    {
+      "name": "word",
+      "value": "not-a-date",
+      "valid": false
+    },
+    {
+      "name": "partial",
+      "value": "D:2024",
+      "valid": false
+    },
+    {
+      "name": "no-prefix",
+      "value": "20240102030405",
+      "valid": false
+    },
+    {
+      "name": "lower-prefix",
+      "value": "d:20240102030405",
+      "valid": false
+    },
+    {
+      "name": "short",
+      "value": "D:2024010203040",
+      "valid": false
+    },
+    {
+      "name": "long",
+      "value": "D:202401020304050",
+      "valid": false
+    },
+    {
+      "name": "separators",
+      "value": "D:2024-01-02T03:04:05",
+      "valid": false
+    },
+    {
+      "name": "letter",
+      "value": "D:2024010203040a",
+      "valid": false
+    },
+    {
+      "name": "unicode-digit",
+      "value": "D:２０２４0102030405",
+      "valid": false
+    },
+    {
+      "name": "lower-utc",
+      "value": "D:20240102030405z",
+      "valid": false
+    },
+    {
+      "name": "double-utc",
+      "value": "D:20240102030405ZZ",
+      "valid": false
+    },
+    {
+      "name": "trailing-space",
+      "value": "D:20240102030405 ",
+      "valid": false
+    },
+    {
+      "name": "trailing-newline",
+      "value": "D:20240102030405\n",
+      "valid": false
+    },
+    {
+      "name": "leading-space",
+      "value": " D:20240102030405",
+      "valid": false
+    },
+    {
+      "name": "short-offset",
+      "value": "D:20240102030405+5'30'",
+      "valid": false
+    },
+    {
+      "name": "open-offset",
+      "value": "D:20240102030405+05'30",
+      "valid": false
+    },
+    {
+      "name": "colon-offset",
+      "value": "D:20240102030405+05:30",
+      "valid": false
+    },
+    {
+      "name": "letter-offset",
+      "value": "D:20240102030405+0a'30'",
+      "valid": false
+    },
+    {
+      "name": "unicode-sign",
+      "value": "D:20240102030405＋05'30'",
+      "valid": false
+    }
+  ]
+}

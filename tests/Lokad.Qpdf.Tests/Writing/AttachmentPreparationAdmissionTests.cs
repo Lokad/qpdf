@@ -35,11 +35,13 @@ public sealed class AttachmentPreparationAdmissionTests
         { return Qpdf.ExecuteAsync(host, new(["input", "--copy-attachments-from", "source", "--prefix=copy-", "--", "output"]), token); }
         if (mode == "attachment-job")
         { return Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new { inputFile = "input", outputFile = "output", addAttachment = Enumerable.Range(0, 4)
-            .Select(index => new { file = "payload", key = index.ToString("D3"), filename = "Euro \u20ac", description = new string('x', 256) }).ToArray() }), token); }
+            .Select(index => new { file = "payload", key = index.ToString("D3"), filename = "Euro \u20ac", description = new string('x', 256),
+                creationdate = "D:20240102030405Z", moddate = "D:20240102030405-02'30'" }).ToArray() }), token); }
         if (mode != "attachment") { throw new ArgumentOutOfRangeException(nameof(mode)); }
         List<string> arguments = ["input"];
         for (int index = 0; index < 4; index++)
-        { arguments.AddRange(["--add-attachment", "payload", "--key=" + index.ToString("D3"), "--filename=Euro \u20ac", "--description=" + new string('x', 256), "--"]); }
+        { arguments.AddRange(["--add-attachment", "payload", "--key=" + index.ToString("D3"), "--filename=Euro \u20ac", "--description=" + new string('x', 256),
+            "--creationdate=D:20240102030405Z", "--moddate=D:20240102030405-02'30'", "--"]); }
         arguments.Add("output");
         return Qpdf.ExecuteAsync(host, new(arguments), token);
     }

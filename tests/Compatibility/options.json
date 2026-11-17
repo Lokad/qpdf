@@ -1271,19 +1271,24 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
+          "AttachmentDateTests.AuthoredDatesMatchNativeSyntax",
           "AttachmentEditTests.AddExplicitMetadata"
         ],
         "negative": [
-          "AttachmentEditTests.NestedUnknownFlagFails"
+          "AttachmentDateTests.AuthoredDatesMatchNativeSyntax",
+          "AttachmentDateTests.InvalidArgvSettersFailEvenWhenAValidValueFollows",
+          "AttachmentDateTests.InvalidTypedTextRejectsBeforeHostAccessWithBoundedDiagnostics"
         ],
         "interaction": [
-          "AttachmentEditTests.NestedMetadataJobParityHolds"
+          "AttachmentDateTests.AdaptersKeepDateFieldsAndOptionalTypedValues",
+          "AttachmentDateTests.ExistingMalformedDatesRemainReadableAndSurviveAnOrdinaryRewrite"
         ],
         "resource": [
-          "AttachmentEditTests.AttachmentsYieldToExhaustedBudget"
+          "AttachmentPreparationAdmissionTests.PreparedAttachmentsRefundOwnersAndRespectPublication",
+          "AttachmentDateTests.CanceledTypedRequestsPreserveThePriorTargetWithoutAcquiringPayloads"
         ],
         "oracle": [
-          "diff:attachments-add"
+          "diff:attachment-date-syntax"
         ]
       }
     },
@@ -1465,19 +1470,24 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
+          "AttachmentDateTests.AuthoredDatesMatchNativeSyntax",
           "AttachmentEditTests.AddExplicitMetadata"
         ],
         "negative": [
-          "AttachmentEditTests.NestedUnknownFlagFails"
+          "AttachmentDateTests.AuthoredDatesMatchNativeSyntax",
+          "AttachmentDateTests.InvalidArgvSettersFailEvenWhenAValidValueFollows",
+          "AttachmentDateTests.InvalidTypedTextRejectsBeforeHostAccessWithBoundedDiagnostics"
         ],
         "interaction": [
-          "AttachmentEditTests.NestedMetadataJobParityHolds"
+          "AttachmentDateTests.AdaptersKeepDateFieldsAndOptionalTypedValues",
+          "AttachmentDateTests.ExistingMalformedDatesRemainReadableAndSurviveAnOrdinaryRewrite"
         ],
         "resource": [
-          "AttachmentEditTests.AttachmentsYieldToExhaustedBudget"
+          "AttachmentPreparationAdmissionTests.PreparedAttachmentsRefundOwnersAndRespectPublication",
+          "AttachmentDateTests.CanceledTypedRequestsPreserveThePriorTargetWithoutAcquiringPayloads"
         ],
         "oracle": [
-          "diff:attachments-add"
+          "diff:attachment-date-syntax"
         ]
       }
     },

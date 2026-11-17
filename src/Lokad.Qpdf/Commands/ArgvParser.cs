@@ -391,7 +391,7 @@ internal static class ArgvParser
         return new AttachmentCopy(file, prefix is null || prefix.Length == 0 ? null : prefix) { PasswordText = copyPassword };
     }
 
-    internal static AttachmentAdd ParseAddBlock(IReadOnlyList<string> argv, ref int cursor)
+    internal static AttachmentAdd ParseAddBlock(IReadOnlyList<string> argv, ref int cursor, Runtime.ResourceGovernor governor)
     {
         cursor += 1;
         if (cursor >= argv.Count || argv[cursor] is null || argv[cursor] == "--" || (argv[cursor].StartsWith("--", StringComparison.Ordinal) && argv[cursor].Length > 2))
@@ -440,10 +440,12 @@ internal static class ArgvParser
                 }
                 else if (name is "creationdate")
                 {
+                    Runtime.PdfTimestamp.RequireAuthored(value, governor);
                     creationDate = value;
                 }
                 else if (name is "moddate")
                 {
+                    Runtime.PdfTimestamp.RequireAuthored(value, governor);
                     modDate = value;
                 }
                 else if (name is "mimetype")
