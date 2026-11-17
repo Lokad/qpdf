@@ -503,14 +503,16 @@ internal sealed partial class GraphCopier
 
         foreach (KeyValuePair<PdfName, QpdfObject> materialized in extra)
         {
-            bool found = entries is PdfNameTable<QpdfObject> names
-                ? names.TryGetValue(materialized.Key, _governor, _governor.CancellationToken, out QpdfObject? existing)
-                : entries.TryGetValue(materialized.Key, out existing);
-            if (!found || existing is PdfNull)
+            if (!retainSourceObjects)
             {
-                _ownership.Reserve(32L);
-                entries.Assign(_ownership, _governor, materialized.Key, materialized.Value, _governor.CancellationToken);
+                bool found = entries is PdfNameTable<QpdfObject> names
+                    ? names.TryGetValue(materialized.Key, _governor, _governor.CancellationToken, out QpdfObject? existing)
+                    : entries.TryGetValue(materialized.Key, out existing);
+                if (found && existing is not PdfNull) { continue; }
             }
+            // Inspection has selected these overrides after resolving leaf values.
+            _ownership.Reserve(32L);
+            entries.Assign(_ownership, _governor, materialized.Key, materialized.Value, _governor.CancellationToken);
         }
 
         if (outputParent is not null)

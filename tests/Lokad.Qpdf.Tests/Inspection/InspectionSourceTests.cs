@@ -11,6 +11,58 @@ namespace Lokad.Qpdf.Tests.Inspection;
 
 public sealed class InspectionSourceTests
 {
+    [Theory]
+    [InlineData("missing", false, 2)]
+    [InlineData("null", false, 2)]
+    [InlineData("7 0 R", false, 2)]
+    [InlineData("7 1 R", false, 2)]
+    [InlineData("7 0 R", true, 2)]
+    [InlineData("7 0 R", false, 1)]
+    public async Task InheritedInspectionValuesRetainNullFallbackSharingAndOwnGenerations(string empty, bool job, int version)
+    {
+        string Entry(string name) => empty == "missing" ? "" : " /" + name + " " + empty;
+        byte[] input = PdfTestDocument.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R] /Count 3 /MediaBox [0 0 100 200] /CropBox [0 0 100 200] /Resources << /ProcSet [/PDF] >> /Rotate 90 >>", null),
+            (3, "<< /Type /Pages /Parent 2 0 R /Kids [4 0 R 5 0 R 6 0 R] /Count 3 /CropBox [1 2 99 198] /Resources null /Rotate null >>", null),
+            (4, "<< /Type /Page /Parent 3 0 R /Rotate 180" + Entry("MediaBox") + " >>", null),
+            (5, "<< /Type /Page /Parent 3 0 R" + Entry("CropBox") + Entry("Resources") + " >>", null),
+            (6, "<< /Type /Page /Parent 3 0 R /MediaBox 8 7 R /CropBox 9 9 R /Resources 10 5 R /Rotate 11 2 R >>", null),
+            (7, "null", null), (8, "[0 0 200 400]", null), (9, "[2 3 198 397]", null),
+            (10, "<< /ProcSet [/PDF /Text] >>", null), (11, "270", null)], 1,
+            new Dictionary<int, int> { [8] = 7, [9] = 9, [10] = 5, [11] = 2 });
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = job
+            ? await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new { inputFile = "input", json = version.ToString(), jsonKey = new[] { "pages", "qpdf" }, pages = new[] { new { file = ".", range = "1-z" } } }), CancellationToken.None)
+            : await Qpdf.ExecuteAsync(host, new(["input", "--pages", ".", "1-z", "--", "--json=" + version, "--json-key=pages", "--json-key=" + (version == 2 ? "qpdf" : "objects")]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        using JsonDocument report = JsonDocument.Parse(result.OutputText ?? throw new InvalidOperationException());
+        JsonElement table = version == 2 ? report.RootElement.GetProperty("qpdf")[1] : report.RootElement.GetProperty("objects");
+        JsonElement Resolve(JsonElement value) => value.ValueKind != JsonValueKind.String ? value : version == 2
+            ? table.GetProperty("obj:" + value.GetString()).GetProperty("value") : table.GetProperty(value.GetString() ?? throw new InvalidOperationException());
+        JsonElement[] pages = report.RootElement.GetProperty("pages").EnumerateArray().Select(p => Resolve(p.GetProperty("object"))).ToArray();
+        Assert.Equal(3, pages.Length);
+        for (int index = 0; index < 2; index++)
+        {
+            Assert.Equal(new[] { 0, 0, 100, 200 }, Resolve(pages[index].GetProperty("/MediaBox")).EnumerateArray().Select(v => v.GetInt32()));
+            Assert.Equal(new[] { 1, 2, 99, 198 }, Resolve(pages[index].GetProperty("/CropBox")).EnumerateArray().Select(v => v.GetInt32()));
+            Assert.Equal("/PDF", Assert.Single(Resolve(pages[index].GetProperty("/Resources")).GetProperty("/ProcSet").EnumerateArray()).GetString());
+            Assert.Equal(index == 0 ? 180 : 90, Resolve(pages[index].GetProperty("/Rotate")).GetInt32());
+        }
+        Assert.Equal(pages[0].GetProperty("/MediaBox").GetString(), pages[1].GetProperty("/MediaBox").GetString());
+        Assert.Equal(pages[0].GetProperty("/CropBox").GetString(), pages[1].GetProperty("/CropBox").GetString());
+        Assert.Equal("8 7 R", pages[2].GetProperty("/MediaBox").GetString());
+        Assert.Equal("9 9 R", pages[2].GetProperty("/CropBox").GetString());
+        Assert.Equal("10 5 R", pages[2].GetProperty("/Resources").GetString());
+        Assert.Equal("11 2 R", pages[2].GetProperty("/Rotate").GetString());
+        Assert.Equal(new[] { 0, 0, 200, 400 }, Resolve(pages[2].GetProperty("/MediaBox")).EnumerateArray().Select(v => v.GetInt32()));
+        Assert.Equal(new[] { 2, 3, 198, 397 }, Resolve(pages[2].GetProperty("/CropBox")).EnumerateArray().Select(v => v.GetInt32()));
+        Assert.Equal(new[] { "/PDF", "/Text" }, Resolve(pages[2].GetProperty("/Resources")).GetProperty("/ProcSet").EnumerateArray().Select(v => v.GetString()));
+        Assert.Equal(270, Resolve(pages[2].GetProperty("/Rotate")).GetInt32());
+    }
+
     private sealed class ClosureHost(InMemoryQpdfHost inner, IMemoryBudget budget, RecordingMemoryBudget root,
         string outcome, CancellationTokenSource cancellation) : IQpdfHost, IQpdfMemoryHost
     {

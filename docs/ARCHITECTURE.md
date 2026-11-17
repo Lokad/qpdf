@@ -76,6 +76,8 @@ JSON page-source assembly uses that inspection graph, preserves primary pairs,
 and exports new copied identities alongside original objects. Source action,
 form, annotation and layer owners bind secondary context before input cleanup;
 the graph detaches after serialization and sidecar copying, before publication.
+Inspection applies inherited overrides chosen from effective non-null values,
+including attributes whose leaf references resolve to null.
 Combined attachment reports and extraction use one document. Targeted binary
 publication transfers admitted payload backing past reader cleanup through commit;
 combined binary payloads use the existing inspection buffer.
