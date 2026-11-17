@@ -346,9 +346,17 @@ names and duplicate-pair rule; unknown JSON envelope fields remain outside this
 PDF container ceiling.
 Commands can tighten it with `--parser-max-container-size` /
 `global.parserMaxContainerSize`; `--no-default-limits` does not relax it.
-Updates reject exports that declare pushed inherited page resources.
-Page/content/image/layout transforms and
-stream/metadata writer controls are unavailable during import/update.
+Updates require stable source page identities: traversal-introduced page identities
+are not reconstructed, and exports declaring pushed inherited resources reject.
+Import/update can use object-stream disable/preserve/generate modes and two-pass
+linearization, including with supported output encryption. Preservation retains
+matching source members; creation has no original packing to preserve. Argv/job
+defaults to preserve. Existing typed overloads stay flat; full overloads accept
+`QpdfJsonImportOptions(objectStreams, linearize)` with explicit output protection
+and limits. Forced versions below 1.5 disable packing; other version/security
+requirements retain the shared writer's rules.
+Page/content/image transforms, splitting, QDF, first-pass capture and
+stream/metadata transforms remain unavailable during import/update.
 
 ## Writer profile
 

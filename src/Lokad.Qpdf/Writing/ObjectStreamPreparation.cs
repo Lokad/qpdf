@@ -7,6 +7,11 @@ namespace Lokad.Qpdf.Writing;
 
 internal static class ObjectStreamPreparation
 {
+    internal static int PageTreeRootNumber(QpdfObject? catalog, ResourceGovernor governor, CancellationToken token)
+        => catalog is PdfDictionary dictionary
+            && PdfDictionaryLookup.TryGet(dictionary, "Pages"u8, governor, token, out QpdfObject pages)
+            && pages is PdfReference reference ? reference.ObjectNumber : 0;
+
     internal static string ResolveObjectStreamMode(string? raw)
     {
         if (raw is null)
@@ -50,9 +55,10 @@ internal static class ObjectStreamPreparation
         return compressed;
     }
 
-    internal static bool IsCompressibleValue(int number, QpdfObject value, ResourceGovernor governor, CancellationToken token)
+    private static bool IsCompressibleValue(int number, QpdfObject value, int catalogNumber, int pagesNumber,
+        ResourceGovernor governor, CancellationToken token)
     {
-        if (number == 1 || number == 2)
+        if (number == catalogNumber || number == pagesNumber)
         {
             return false;
         }
@@ -82,6 +88,14 @@ internal static class ObjectStreamPreparation
         string mode,
         IReadOnlyDictionary<int, QpdfObject> pool,
         List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> sources,
+        ParserMemoryScope ownership, ResourceGovernor governor, CancellationToken token)
+        => ResolveCompressedSet(mode, pool, sources, 1, 2, ownership, governor, token);
+
+    internal static HashSet<int> ResolveCompressedSet(
+        string mode,
+        IReadOnlyDictionary<int, QpdfObject> pool,
+        List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> sources,
+        int catalogNumber, int pagesNumber,
         ParserMemoryScope ownership, ResourceGovernor governor, CancellationToken token)
     {
         if (mode is null)
@@ -119,7 +133,7 @@ internal static class ObjectStreamPreparation
             foreach (KeyValuePair<int, QpdfObject> entry in pool)
             {
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                if (IsCompressibleValue(entry.Key, entry.Value, governor, token))
+                if (IsCompressibleValue(entry.Key, entry.Value, catalogNumber, pagesNumber, governor, token))
                 {
                     ParserContainers.AddSetItem(candidate, compressed, entry.Key, sizeof(int));
                 }
@@ -144,7 +158,7 @@ internal static class ObjectStreamPreparation
                 if (map.TryGetValue(orig, out int dest)
                     && pool.TryGetValue(dest, out QpdfObject? value)
                     && value is not null
-                    && IsCompressibleValue(dest, value, governor, token))
+                    && IsCompressibleValue(dest, value, catalogNumber, pagesNumber, governor, token))
                 {
                     ParserContainers.AddSetItem(candidate, compressed, dest, sizeof(int));
                 }

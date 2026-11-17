@@ -340,6 +340,8 @@ internal sealed class LinearizedParts : IDisposable
         out GovernedIntDictionary<int> owners, out GovernedIntDictionary<List<int>> containerMembers)
     {
         GovernedIntSet pageSet = CopySet(pages, temporary, governor, cancellationToken);
+        lookup.TryGetValue(1, out QpdfObject? catalog);
+        int pagesRoot = ObjectStreamPreparation.PageTreeRootNumber(catalog, governor, cancellationToken);
         int max = 0;
         foreach (KeyValuePair<int, QpdfObject> entry in lookup)
         {
@@ -365,7 +367,7 @@ internal sealed class LinearizedParts : IDisposable
                 governor.NoteOperation();
                 int member = group[memberIndex];
                 if (!lookup.TryGetValue(member, out QpdfObject? value) || value is null
-                    || member == 1 || member == 2 || pageSet.Contains(member) || value is PdfStream || owners.ContainsKey(member)) { continue; }
+                    || member == 1 || member == pagesRoot || pageSet.Contains(member) || value is PdfStream || owners.ContainsKey(member)) { continue; }
                 if (encryptionObject != 0 && (member == encryptionObject
                     || value is PdfDictionary dictionary && PdfStringCrypt.IsSignature(dictionary, governor))) { continue; }
                 Add(groupMemory, governor, kept, member);

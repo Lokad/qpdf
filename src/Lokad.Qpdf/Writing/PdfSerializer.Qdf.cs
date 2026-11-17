@@ -252,6 +252,7 @@ internal sealed partial class PdfSerializer
             }
         }
 
+        int pagesRoot = PageTreeRootNumber(lookup);
         foreach (IReadOnlyList<int> group in objectStreamGroups)
         {
             if (group is null || group.Count == 0 || group.Count > 100)
@@ -263,7 +264,7 @@ internal sealed partial class PdfSerializer
                 foreach (int number in group)
                 {
                     cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
-                    _ = ReadObjectStreamMember(lookup, number);
+                    _ = ReadObjectStreamMember(lookup, number, pagesRoot);
                 }
             }
         }
@@ -324,7 +325,7 @@ internal sealed partial class PdfSerializer
                     throw new QpdfException($"Object-stream member {group[m]} is missing from the model.");
                 }
 
-                if (group[m] == 1 || group[m] == 2)
+                if (group[m] == 1 || group[m] == pagesRoot)
                 {
                     throw new QpdfException($"Object {group[m]} cannot be compressed into an object stream.");
                 }

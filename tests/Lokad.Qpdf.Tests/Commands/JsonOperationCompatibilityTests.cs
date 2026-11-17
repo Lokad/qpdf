@@ -53,6 +53,7 @@ public sealed class JsonOperationCompatibilityTests
             if (mode is "inspect" or "json-output"
                 && key is not ("qdf" or "linearize" or "flattenRotation" or "flattenAnnotations"
                     or "generateAppearances" or "overlay" or "underlay")) { continue; }
+            if (mode is "create" or "update" && key == "linearize") { continue; }
             yield return [key, value, arguments, mode, route];
         }
     }

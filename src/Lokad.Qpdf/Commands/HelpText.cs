@@ -103,6 +103,7 @@ internal static class HelpText
           --json-output[=2|latest]  minimal JSON for serialization
           --json-input  build a PDF from qpdf JSON
           --update-from-json=file  update a PDF from qpdf JSON
+            JSON creation/update accept object streams and linearization; other transforms remain excluded.
           --check-linearization       check linearization tables only
           --show-npages                 show number of pages
           --show-pages                  show page dictionaries and contents

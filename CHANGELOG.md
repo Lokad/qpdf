@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Support JSON creation/update with object streams and linearization through the
+  shared writer, including protected output. Add explicit typed layout options;
+  retain original packing by full source identity across imported numbering.
 - Protect and retain private XRef-tagged streams across writers and JSON import;
   distinguish physical xref sections from ordinary graph values during decryption.
 - Expose bounded recovery for typed attachment operations, with immutable listing

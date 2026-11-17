@@ -614,34 +614,9 @@ public static partial class Qpdf
     /// JSON export requires an explicit Remove, CreateAes256 or CopyFrom policy. Its values are plaintext;
     /// template protection uses an independently authenticated PDF.
     /// Credentials are borrowed until completion.</remarks>
-    public static async ValueTask<QpdfJsonImportResult> CreatePdfFromJsonAsync(IQpdfHost host, QpdfPath jsonPath,
+    public static ValueTask<QpdfJsonImportResult> CreatePdfFromJsonAsync(IQpdfHost host, QpdfPath jsonPath,
         QpdfPath outputPath, QpdfOutputEncryption outputEncryption, QpdfLimits limits, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(outputEncryption);
-        if (host is null)
-        {
-            throw new ArgumentNullException(nameof(host));
-        }
-
-        if (limits is null)
-        {
-            throw new ArgumentNullException(nameof(limits));
-        }
-
-        limits.Validate();
-        ResourceGovernor governor = new(limits, cancellationToken, host);
-        governor.PrepareTypedResult(QpdfJsonImportResult.StorageBytes);
-        try
-        {
-            DiagnosticBag diagnostics = new(governor);
-            JsonImportOutcome result = await ImportCreateCoreAsync(host, jsonPath, outputPath, null, null, false, false,
-                outputEncryption, QpdfRecoveryMode.Strict, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-            QpdfJsonImportResult presented = result.Present(governor);
-            governor.FinishTypedCounters();
-            return presented;
-        }
-        finally { governor.AbandonTypedCounters(); }
-    }
+        => CreatePdfFromJsonAsync(host, jsonPath, outputPath, QpdfJsonImportOptions.Default, outputEncryption, limits, cancellationToken);
 
     /// <summary>
     /// Updates a PDF document from qpdf JSON with default budgets.
@@ -680,35 +655,10 @@ public static partial class Qpdf
         => UpdatePdfFromJsonAsync(host, inputPath, jsonPath, outputPath, password, outputEncryption, QpdfLimits.Default, cancellationToken);
 
     /// <summary>Updates an authenticated PDF from qpdf JSON with explicit budgets and output protection.</summary>
-    public static async ValueTask<QpdfJsonImportResult> UpdatePdfFromJsonAsync(IQpdfHost host, QpdfPath inputPath,
+    public static ValueTask<QpdfJsonImportResult> UpdatePdfFromJsonAsync(IQpdfHost host, QpdfPath inputPath,
         QpdfPath jsonPath, QpdfPath outputPath, QpdfPassword? password, QpdfOutputEncryption outputEncryption,
         QpdfLimits limits, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(outputEncryption);
-        if (host is null)
-        {
-            throw new ArgumentNullException(nameof(host));
-        }
-
-        if (limits is null)
-        {
-            throw new ArgumentNullException(nameof(limits));
-        }
-
-        limits.Validate();
-        ResourceGovernor governor = new(limits, cancellationToken, host);
-        governor.PrepareTypedResult(QpdfJsonImportResult.StorageBytes);
-        try
-        {
-            DiagnosticBag diagnostics = new(governor);
-            JsonImportOutcome result = await ImportUpdateCoreAsync(host, inputPath, jsonPath, outputPath, null, null, false, false,
-                password, outputEncryption, limits, QpdfRecoveryMode.Strict, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-            QpdfJsonImportResult presented = result.Present(governor);
-            governor.FinishTypedCounters();
-            return presented;
-        }
-        finally { governor.AbandonTypedCounters(); }
-    }
+        => UpdatePdfFromJsonAsync(host, inputPath, jsonPath, outputPath, QpdfJsonImportOptions.Default, password, outputEncryption, limits, cancellationToken);
 
     /// <summary>
     /// Embeds host files into a document with default budgets.

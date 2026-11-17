@@ -94,6 +94,7 @@ Copy-Item -LiteralPath (Join-Path $consumerSource 'PasswordReaderChecks.cs') -De
 Copy-Item -LiteralPath (Join-Path $consumerSource 'PageCountChecks.cs') -Destination $projectDirectory
 Copy-Item -LiteralPath (Join-Path $consumerSource 'DocumentReferenceChecks.cs') -Destination $projectDirectory
 Copy-Item -LiteralPath (Join-Path $consumerSource 'AttachmentRecoveryChecks.cs') -Destination $projectDirectory
+Copy-Item -LiteralPath (Join-Path $consumerSource 'JsonLayoutChecks.cs') -Destination $projectDirectory
 $fixtureDirectory = Join-Path $runRoot 'Fixtures'
 New-Item -ItemType Directory -Path $fixtureDirectory | Out-Null
 foreach ($name in @('reference-pairs-1page.pdf', 'objstm-1page.pdf', 'security-r6-attachment.pdf', 'security-recovery-r6-utf8.pdf', 'security-recovery-r6-ligatures.pdf', 'security-recovery-r6-macroman.pdf', 'security-recovery-r6-long.pdf', 'security-r6-ascii.pdf', 'security-r6-empty.pdf', 'security-r5-ascii.pdf', 'security-r4-rc4-ascii.pdf', 'security-r2-ascii.pdf', 'security-r3-ascii.pdf', 'security-r4-pdfdoc.pdf', 'security-r4-attachment.pdf')) {

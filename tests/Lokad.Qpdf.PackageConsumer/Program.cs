@@ -245,6 +245,7 @@ internal static class Program
     {
         await DocumentReferenceChecks.RunAsync();
         await AttachmentRecoveryChecks.RunAsync(TwoPagePdf());
+        await JsonLayoutChecks.RunAsync();
         await PasswordReaderChecks.RunAsync();
         await VerifyMemoryContractAsync();
         await VerifyHostMemoryContractAsync();

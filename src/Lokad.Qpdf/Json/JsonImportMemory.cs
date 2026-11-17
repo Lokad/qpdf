@@ -24,7 +24,7 @@ internal static class JsonImportMemory
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         Utf8JsonReader reader = new(json, new JsonReaderOptions { MaxDepth = SyntaxMaxDepth });
-        long document = 1024L, model = 512L;
+        long document = 1024L, model = 520L;
         while (reader.Read())
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();

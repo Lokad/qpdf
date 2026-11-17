@@ -5,11 +5,13 @@ using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Attachments;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Json;
 
-/// <summary>An imported document model: header version plus numbered objects.</summary>
-internal sealed record ImportedModel(PdfVersion HeaderVersion, Dictionary<int, QpdfObject> Objects, PdfDictionary Trailer);
+/// <summary>Imported objects and original packing in the normalized ID space.</summary>
+internal sealed record ImportedModel(PdfVersion HeaderVersion, Dictionary<int, QpdfObject> Objects,
+    PdfDictionary Trailer, HashSet<int>? CompressedObjects);
 
 /// <summary>
 /// qpdf JSON to PDF object model import. Mirrors the upstream import reactor:
@@ -144,7 +146,7 @@ internal static partial class JsonImport
             throw new QpdfParseException("qpdf JSON trailer was not seen.", 0L, null);
         }
 
-        return new ImportedModel(header, objects, trailer);
+        return new ImportedModel(header, objects, trailer, null);
     }
 
     internal static async ValueTask<ImportedModel> BuildUpdateModelAsync(
@@ -152,6 +154,7 @@ internal static partial class JsonImport
         JsonDocument document,
         QpdfDocument pdf,
         bool preserveEncryption,
+        bool preserveObjectStreams,
         QpdfLimits limits,
         ResourceGovernor governor,
         ParserMemoryScope memory,
@@ -190,6 +193,7 @@ internal static partial class JsonImport
         Dictionary<(int Number, int Generation), int> bindings = ReadObjectBindings(qpdf[1], engine.XRefEntries, bindingMemory, governor, cancellationToken);
         memory.Reserve(checked(128L + 64L * bindings.Count));
         Dictionary<int, QpdfObject> merged = new(bindings.Count);
+        HashSet<int>? compressed = preserveObjectStreams ? ParserContainers.CreateSet<int>(memory) : null;
         foreach (KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -200,6 +204,8 @@ internal static partial class JsonImport
 
             governor.NoteOperation();
             int number = bindings[(entry.Key, entry.Value.Kind == XrefEntryKind.Compressed ? 0 : entry.Value.Second)];
+            if (entry.Value.Kind == XrefEntryKind.Compressed && compressed is not null)
+            { ParserContainers.AddSetItem(memory, compressed, number, sizeof(int)); }
             merged[number] = Writing.ObjectRemap.NormalizeSource(engine.Load(entry.Key), engine.XRefEntries, bindings,
                 memory, governor, cancellationToken);
         }
@@ -237,7 +243,7 @@ internal static partial class JsonImport
         }
 
         QpdfDocument.VersionParts header = pdf.HeaderVersionParts;
-        ImportedModel result = new(updateVersion ?? governor.PrivateVersion(header.Major, header.Minor), merged, trailer);
+        ImportedModel result = new(updateVersion ?? governor.PrivateVersion(header.Major, header.Minor), merged, trailer, compressed);
         return PrepareUpdateEncryption(result, originalTrailer, originalEncryption, engine.Security is not null,
             preserveEncryption, governor, cancellationToken);
     }
@@ -878,7 +884,9 @@ internal static partial class JsonImport
         List<Writing.NumberedObject> Model,
         int? InfoNumber,
         int MetadataNumber,
-        int PageCount);
+        int PageCount,
+        Dictionary<int, QpdfObject> Objects,
+        IReadOnlyDictionary<int, int> Mapping);
 
     internal static RenumberedModel Renumber(
         ImportedModel model,
@@ -921,7 +929,7 @@ internal static partial class JsonImport
         }
 
         memory.CheckOwner(governor);
-        memory.Reserve(checked(512L + 192L * model.Objects.Count));
+        memory.Reserve(checked(528L + 192L * model.Objects.Count));
         int rootOld;
         PdfDictionary root;
         if (rootRaw is PdfDictionary directRoot)
@@ -1023,20 +1031,20 @@ internal static partial class JsonImport
             infoNew = renumber[-2];
         }
 
-        List<Writing.NumberedObject> ordered = new(mapped.Count);
-        List<int> numbers = new(mapped.Keys);
-        GovernedCollections.SortNumbers(memory, governor, numbers);
-        foreach (int number in numbers)
+        // Publication orders the numbered model once, along with ordinary and
+        // split output. Keep the catalog first for role-specific preparation.
+        List<Writing.NumberedObject> numbered = new(mapped.Count) { new(1, mapped[1]) };
+        foreach ((int number, QpdfObject value) in mapped)
         {
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            ordered.Add(new Writing.NumberedObject(number, mapped[number]));
+            if (number != 1) { numbered.Add(new Writing.NumberedObject(number, value)); }
         }
 
         int pages = PageTree.Read(resolver, mapped[1], diagnostics, governor, limits, pageMemory, cancellationToken).Count;
         PdfDictionary catalog = (PdfDictionary)mapped[1];
         int metadata = catalog.TryGet(PdfName.FromAscii("Metadata"), out QpdfObject metadataValue) && metadataValue is PdfReference metadataReference
             ? metadataReference.ObjectNumber : 0;
-        return new RenumberedModel(ordered, infoNew, metadata, pages);
+        return new RenumberedModel(numbered, infoNew, metadata, pages, mapped, renumber);
     }
 
     private static void ValidateCatalogVersion(PdfDictionary root, Syntax.IIndirectResolver resolver,

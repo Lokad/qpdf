@@ -2874,6 +2874,8 @@ Invoke-ReferenceJsonAssembly
 Invoke-ReferenceSecurity
 . (Join-Path $repoRoot 'tools/ReferenceXrefRoles.ps1')
 Invoke-ReferenceXrefRoles
+. (Join-Path $repoRoot 'tools/ReferenceJsonLayouts.ps1')
+Invoke-ReferenceJsonLayouts
 . (Join-Path $repoRoot 'tools/ReferenceSecurityPolicies.ps1')
 Invoke-ReferenceSecurityPolicies
 . (Join-Path $repoRoot 'tools/ReferenceSecurityPermissions.ps1')

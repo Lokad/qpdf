@@ -4148,7 +4148,9 @@
           "JsonImportContainerTests.UnknownEnvelopeMembersDoNotBecomePdfContainerLimits",
           "JsonSidecarNameTests.FilePayloadRoundtripsKeepUnicodeMultipleStreamsAndExactLengthNames",
           "IdentityCryptOutputTests.JsonCreationAndUpdateNormalizeAuthoredIdentityStages",
-          "XrefStreamRoleTests.TypedJsonCreationAndUpdateProtectAuthoredTaggedStreams"
+          "XrefStreamRoleTests.TypedJsonCreationAndUpdateProtectAuthoredTaggedStreams",
+          "JsonLayoutTests.ImportedValuesAndNoncanonicalRootsSurviveIndependentLayouts",
+          "JsonLayoutIdentityTests.SourceMembershipFollowsFullPairsAcrossNormalizedAndFinalIds"
         ],
         "negative": [
           "JsonImportTests.MalformedJsonFails",
@@ -4159,7 +4161,8 @@
           "PublicationProfileTests.JsonPublicationUsesTheCopyProfile",
           "JsonImportContainerTests.ImportedContainersKeepTheExactBoundaryAndRejectOverflowBeforePublication",
           "JsonImportContainerTests.ContainerChecksPrecedeDecodingInvalidOverflowValues",
-          "JsonImportContainerTests.TrailerDictionaryItselfHasTheSameCeiling"
+          "JsonImportContainerTests.TrailerDictionaryItselfHasTheSameCeiling",
+          "JsonLayoutTests.CombinedLayoutsRequireValidPrimaryAndTemplateCredentialsBeforeOutput"
         ],
         "interaction": [
           "JsonImportTests.JobCreateRoundTrip",
@@ -4175,18 +4178,22 @@
           "JsonImportTests.TypedUpdateRoundTrip",
           "PublicationProfileTests.JsonPublicationUsesTheCopyProfile",
           "JsonImportContainerTests.CommandsEnforceEffectiveContainerLimits",
-          "JsonSidecarNameTests.FilePayloadRoundtripsKeepUnicodeMultipleStreamsAndExactLengthNames"
+          "JsonSidecarNameTests.FilePayloadRoundtripsKeepUnicodeMultipleStreamsAndExactLengthNames",
+          "JsonLayoutTests.JobAdaptersProjectBothLayoutSettings",
+          "JsonLayoutTests.HeaderSettersKeepPackingFloorsAndForcedSuppression"
         ],
         "resource": [
           "JsonImportTests.CreateYieldsToExhaustedBudget",
           "EncryptedJsonCreationTests.EveryProtectedCreationAdmissionRefusalRefundsBeforePublication",
           "JsonNumberTests.ExpansionRefusalReleasesSharedAdmissionAndPreservesOutput",
-          "JsonImportContainerTests.ContainerFailureRefundsItsOwnerAndAllowsRetry"
+          "JsonImportContainerTests.ContainerFailureRefundsItsOwnerAndAllowsRetry",
+          "JsonLayoutTests.LayoutPreparationRetiresOnEveryAdmissionAndPublicationFailure"
         ],
         "oracle": [
           "diff:json-import",
           "diff:security-json",
-          "diff:security-identity-crypt"
+          "diff:security-identity-crypt",
+          "diff:json-layout"
         ]
       }
     },
@@ -4669,7 +4676,9 @@
           "LinearizedWriterTests.ThumbnailsLinearizePassesOwnCheck",
           "LinearizedWriterTests.ThumbnailsLinearizeJobSucceeds",
           "LinearizedWriterTests.CheckingWithLinearizeKeepsTheOriginalDocument",
-          "XrefStreamRoleTests.WritersProtectTaggedObjectsWithoutDiscardingTheirIdentity"
+          "XrefStreamRoleTests.WritersProtectTaggedObjectsWithoutDiscardingTheirIdentity",
+          "JsonLayoutTests.ImportedValuesAndNoncanonicalRootsSurviveIndependentLayouts",
+          "JsonLayoutIdentityTests.SourceMembershipFollowsFullPairsAcrossNormalizedAndFinalIds"
         ],
         "negative": [
           "LinearizedWriterTests.JsonCannotCombine",
@@ -4680,15 +4689,19 @@
         "interaction": [
           "LinearizedWriterTests.JobParityMatchesArgvBytes",
           "LinearizedWriterTests.QdfSilentlyDisabled",
-          "ImportedVersionTests.BasicWriterProfileDeclares12UnlessExplicitlyForced"
+          "ImportedVersionTests.BasicWriterProfileDeclares12UnlessExplicitlyForced",
+          "JsonLayoutTests.JobAdaptersProjectBothLayoutSettings",
+          "JsonLayoutTests.HeaderSettersKeepPackingFloorsAndForcedSuppression"
         ],
         "resource": [
-          "ResourceEnforcementTests.LinearizeYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.LinearizeYieldsToExhaustedBudget",
+          "JsonLayoutTests.LayoutPreparationRetiresOnEveryAdmissionAndPublicationFailure"
         ],
         "oracle": [
           "diff:linearize",
           "diff:linearize-streams",
-          "diff:xref-role"
+          "diff:xref-role",
+          "diff:json-layout"
         ]
       }
     },
@@ -5052,7 +5065,9 @@
           "ObjectStreamTests.ManyObjectsChunkIntoMultipleStreams",
           "ObjectStreamTests.GenerateWithCompressFlatesContainers",
           "ObjectStreamTests.PreserveWithCompressFlatesContainers",
-          "XrefStreamRoleTests.WritersProtectTaggedObjectsWithoutDiscardingTheirIdentity"
+          "XrefStreamRoleTests.WritersProtectTaggedObjectsWithoutDiscardingTheirIdentity",
+          "JsonLayoutTests.ImportedValuesAndNoncanonicalRootsSurviveIndependentLayouts",
+          "JsonLayoutIdentityTests.SourceMembershipFollowsFullPairsAcrossNormalizedAndFinalIds"
         ],
         "negative": [
           "ObjectStreamTests.InvalidModesFail",
@@ -5063,15 +5078,19 @@
           "ObjectStreamTests.ForceBelow15DisablesStreams",
           "ObjectStreamTests.JobJsonParityHolds",
           "ObjectStreamTests.CompressJobParityHolds",
-          "QdfTests.ObjectStreamsQdfJobParityMatchesArgvBytes"
+          "QdfTests.ObjectStreamsQdfJobParityMatchesArgvBytes",
+          "JsonLayoutTests.JobAdaptersProjectBothLayoutSettings",
+          "JsonLayoutTests.HeaderSettersKeepPackingFloorsAndForcedSuppression"
         ],
         "resource": [
-          "ObjectStreamTests.GenerateYieldsToExhaustedBudget"
+          "ObjectStreamTests.GenerateYieldsToExhaustedBudget",
+          "JsonLayoutTests.LayoutPreparationRetiresOnEveryAdmissionAndPublicationFailure"
         ],
         "oracle": [
           "diff:qdf-markers",
           "diff:linearize-streams",
-          "diff:xref-role"
+          "diff:xref-role",
+          "diff:json-layout"
         ]
       }
     },
@@ -7465,9 +7484,11 @@
           "source": "manual/cli.rst:3785"
         }
       ],
-      "status": "complete",
+      "status": "partial",
       "defaultReview": "reviewed",
-      "remainingGaps": [],
+      "remainingGaps": [
+        "Update preparation does not reconstruct page identities introduced by calledgetallpages; pushedinheritedpageresources:true is rejected, including assembled exports. Source page identities must remain stable."
+      ],
       "evidence": {
         "positive": [
           "JsonImportTests.UpdateChangesValues",
@@ -7485,7 +7506,9 @@
           "JsonImportContainerTests.DecodedDictionaryNamesFollowPdfParserCounting",
           "JsonImportContainerTests.UnknownEnvelopeMembersDoNotBecomePdfContainerLimits",
           "IdentityCryptOutputTests.JsonCreationAndUpdateNormalizeAuthoredIdentityStages",
-          "XrefStreamRoleTests.TypedJsonCreationAndUpdateProtectAuthoredTaggedStreams"
+          "XrefStreamRoleTests.TypedJsonCreationAndUpdateProtectAuthoredTaggedStreams",
+          "JsonLayoutTests.ImportedValuesAndNoncanonicalRootsSurviveIndependentLayouts",
+          "JsonLayoutIdentityTests.SourceMembershipFollowsFullPairsAcrossNormalizedAndFinalIds"
         ],
         "negative": [
           "JsonImportTests.UpdateCombinationsFail",
@@ -7496,7 +7519,8 @@
           "PublicationProfileTests.JsonPublicationUsesTheCopyProfile",
           "JsonImportContainerTests.ImportedContainersKeepTheExactBoundaryAndRejectOverflowBeforePublication",
           "JsonImportContainerTests.ContainerChecksPrecedeDecodingInvalidOverflowValues",
-          "JsonImportContainerTests.TrailerDictionaryItselfHasTheSameCeiling"
+          "JsonImportContainerTests.TrailerDictionaryItselfHasTheSameCeiling",
+          "JsonLayoutTests.CombinedLayoutsRequireValidPrimaryAndTemplateCredentialsBeforeOutput"
         ],
         "interaction": [
           "JsonImportTests.JobUpdateRoundTrip",
@@ -7511,19 +7535,26 @@
           "EncryptedJsonRoundTripTests.FullAuthenticatedExportsRoundTripThroughExplicitOutputPolicies",
           "EncryptedJsonRoundTripTests.PreservationRejectsEditedHandlersBeforePublication",
           "PublicationProfileTests.JsonPublicationUsesTheCopyProfile",
-          "JsonImportContainerTests.CommandsEnforceEffectiveContainerLimits"
+          "JsonImportContainerTests.CommandsEnforceEffectiveContainerLimits",
+          "JsonLayoutTests.JobAdaptersProjectBothLayoutSettings",
+          "JsonLayoutTests.HeaderSettersKeepPackingFloorsAndForcedSuppression",
+          "JsonLayoutTests.CommandUpdatesKeepNativeDefaultPacking",
+          "JsonLayoutTests.ExistingTypedOverloadsKeepFlatOutput"
         ],
         "resource": [
           "JsonImportTests.UpdateYieldsToExhaustedBudget",
           "JsonGenerationOwnershipTests.NormalizedUpdatesPreserveTargetsAndRefundPrivateStorage",
           "EncryptedJsonRoundTripTests.EveryFullUpdateAdmissionRefusalRefundsBeforePublication",
           "EncryptedJsonUpdateTests.EveryUpdateAdmissionRefusalRefundsBeforeEncryptedPublication",
-          "JsonImportContainerTests.ContainerFailureRefundsItsOwnerAndAllowsRetry"
+          "JsonImportContainerTests.ContainerFailureRefundsItsOwnerAndAllowsRetry",
+          "JsonLayoutTests.LayoutPreparationRetiresOnEveryAdmissionAndPublicationFailure",
+          "JsonLayoutIdentityTests.PreservedMembershipRetiresOnEveryAdmissionAndPublicationFailure"
         ],
         "oracle": [
           "diff:json-update",
           "diff:security-json",
-          "diff:security-identity-crypt"
+          "diff:security-identity-crypt",
+          "diff:json-layout"
         ]
       }
     },

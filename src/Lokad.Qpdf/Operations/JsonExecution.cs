@@ -1,5 +1,6 @@
 using Lokad.Qpdf.Commands;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Security;
 using Lokad.Qpdf.Syntax;
@@ -9,6 +10,7 @@ using static Lokad.Qpdf.Writing.OutputCatalogPreparation;
 using static Lokad.Qpdf.Writing.OutputPublication;
 using static Lokad.Qpdf.Writing.OutputSecurityPreparation;
 using static Lokad.Qpdf.Writing.OutputVersionPolicy;
+using static Lokad.Qpdf.Writing.ObjectStreamPreparation;
 
 namespace Lokad.Qpdf.Operations;
 
@@ -275,6 +277,8 @@ internal static class JsonExecution
         string? forceVersion,
         bool staticId,
         bool newlineBeforeEndstream,
+        string objectStreams,
+        bool linearize,
         QpdfOutputEncryption outputEncryption,
         QpdfRecoveryMode recovery,
         QpdfLimits limits,
@@ -297,13 +301,12 @@ internal static class JsonExecution
             var preparedSecurity = await PrepareOutputSecurityAsync(host, outputEncryption, null, null, importMemory,
                 governor, limits, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
             using OutputSecurity? security = preparedSecurity.Security;
-            (model, PdfVersion effective) = PrepareImportedVersion(model, minVersion, forceVersion, security, governor, cancellationToken);
-            Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, diagnostics, importMemory, cancellationToken);
-            int encryptionNumber = OutputModelPreparation.AddEncryptionObject(renumbered.Model, security, importMemory, governor);
-            await PublishModelAsync(host, effective, renumbered.Model, null, false, null, renumbered.InfoNumber, preparedSecurity.Identifier,
-                staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, false, null, outputPath, limits, governor, cancellationToken,
-                security, encryptionNumber, renumbered.MetadataNumber).ConfigureAwait(false);
-            return new JsonImportOutcome(renumbered.PageCount, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
+            PreparedImportedOutput prepared = PrepareImportedOutput(model, minVersion, forceVersion, objectStreams,
+                security, limits, importMemory, governor, diagnostics, cancellationToken);
+            await PublishModelAsync(host, prepared.Version, prepared.Output.Model, prepared.Output.ObjectStreams, false, null, prepared.Graph.InfoNumber, preparedSecurity.Identifier,
+                staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, linearize, null, outputPath, limits, governor, cancellationToken,
+                security, prepared.Output.EncryptionObject, prepared.Graph.MetadataNumber).ConfigureAwait(false);
+            return new JsonImportOutcome(prepared.Graph.PageCount, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
         }
     }
 
@@ -316,6 +319,8 @@ internal static class JsonExecution
         string? forceVersion,
         bool staticId,
         bool newlineBeforeEndstream,
+        string objectStreams,
+        bool linearize,
         QpdfPassword? password,
         QpdfOutputEncryption outputEncryption,
         QpdfLimits limits,
@@ -341,22 +346,24 @@ internal static class JsonExecution
         using (parsed)
         {
             Json.ImportedModel model = await Json.JsonImport.BuildUpdateModelAsync(host, parsed, document, outputEncryption.PreservesInput,
-                limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
+                objectStreams == "preserve", limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
             var preparedSecurity = await PrepareOutputSecurityAsync(host, outputEncryption, document, TryGetOriginalId(document.Engine),
                 importMemory, governor, limits, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
             using OutputSecurity? security = preparedSecurity.Security;
-            (model, PdfVersion effective) = PrepareImportedVersion(model, minVersion, forceVersion, security, governor, cancellationToken);
-            Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, diagnostics, importMemory, cancellationToken);
-            int encryptionNumber = OutputModelPreparation.AddEncryptionObject(renumbered.Model, security, importMemory, governor);
-            await PublishModelAsync(host, effective, renumbered.Model, null, false, null, renumbered.InfoNumber, preparedSecurity.Identifier,
-                staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, false, null, outputPath, limits, governor, cancellationToken,
-                security, encryptionNumber, renumbered.MetadataNumber).ConfigureAwait(false);
-            return new JsonImportOutcome(renumbered.PageCount, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
+            PreparedImportedOutput prepared = PrepareImportedOutput(model, minVersion, forceVersion, objectStreams,
+                security, limits, importMemory, governor, diagnostics, cancellationToken);
+            await PublishModelAsync(host, prepared.Version, prepared.Output.Model, prepared.Output.ObjectStreams, false, null, prepared.Graph.InfoNumber, preparedSecurity.Identifier,
+                staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, linearize, null, outputPath, limits, governor, cancellationToken,
+                security, prepared.Output.EncryptionObject, prepared.Graph.MetadataNumber).ConfigureAwait(false);
+            return new JsonImportOutcome(prepared.Graph.PageCount, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
         }
     }
 
-    internal static (Json.ImportedModel Model, PdfVersion Version) PrepareImportedVersion(Json.ImportedModel model,
-        string? minVersion, string? forceVersion, OutputSecurity? security, ResourceGovernor governor, CancellationToken token)
+    private readonly record struct PreparedImportedOutput(PdfVersion Version, Json.JsonImport.RenumberedModel Graph, PreparedOutputModel Output);
+
+    private static PreparedImportedOutput PrepareImportedOutput(Json.ImportedModel model,
+        string? minVersion, string? forceVersion, string objectStreams, OutputSecurity? security, QpdfLimits limits,
+        ParserMemoryScope memory, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         IIndirectResolver resolver = Content.PoolResolver.Create(graph.Memory, model.Objects);
@@ -365,24 +372,30 @@ internal static class JsonExecution
         int level = Content.CatalogCopy.ReadExtensionLevel(catalog, resolver, governor, token);
         (PdfVersion version, int extensionLevel) = NegotiateVersion(model.HeaderVersion, level, minVersion, forceVersion, governor);
         RequireEncryptionVersion(security, ref version, ref extensionLevel, forceVersion, governor);
-        if (catalog is not null)
+        Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, diagnostics, memory, token);
+        string mode = ResolveObjectStreamMode(objectStreams);
+        if (forceVersion is not null && PdfVersion.CompareParts(version.Major, version.Minor, 1, 5) < 0) { mode = "disable"; }
+        List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> sources = ParserContainers.CreateList<(IReadOnlyDictionary<int, int>, HashSet<int>)>(memory);
+        if (mode == "preserve" && model.CompressedObjects is not null)
         {
-            PdfDictionaryLookup.TryGet(catalog, "Extensions"u8, governor, token, out QpdfObject original);
-            QpdfObject? extensions = PrepareExtensions(original, resolver, version, extensionLevel, graph);
-            if (!ReferenceEquals(extensions, original))
-            {
-                PdfDictionary replacement = extensions is null ? PdfDictionaryRebuild.RemoveEntry(graph, catalog, "Extensions"u8)
-                    : PdfDictionaryRebuild.ReplaceEntry(graph, catalog, "Extensions"u8, extensions);
-                if (root is PdfReference reference) { model.Objects[reference.ObjectNumber] = replacement; }
-                else
-                {
-                    PdfDictionary trailer = PdfDictionaryRebuild.ReplaceEntry(graph, model.Trailer, "Root"u8, replacement);
-                    graph.Memory.Reserve(48L); graph.Add(48L);
-                    model = new(model.HeaderVersion, model.Objects, trailer);
-                }
-            }
+            ParserContainers.AddItem(memory, sources, (renumbered.Mapping, model.CompressedObjects), 2L * IntPtr.Size);
         }
-        graph.Retain(); return (model, version);
+        PdfDictionary mappedCatalog = (PdfDictionary)renumbered.Objects[1];
+        int pagesNumber = PageTreeRootNumber(mappedCatalog, governor, token);
+        HashSet<int> compressed = ResolveCompressedSet(mode, renumbered.Objects, sources, 1, pagesNumber, memory, governor, token);
+        (version, extensionLevel) = RequireObjectStreamVersion(version, extensionLevel, compressed.Count != 0, governor);
+        IIndirectResolver mappedResolver = Content.PoolResolver.Create(graph.Memory, renumbered.Objects);
+        PdfDictionaryLookup.TryGet(mappedCatalog, "Extensions"u8, governor, token, out QpdfObject originalExtensions);
+        QpdfObject? extensions = PrepareExtensions(originalExtensions, mappedResolver, version, extensionLevel, graph);
+        if (!ReferenceEquals(extensions, originalExtensions))
+        {
+            PdfDictionary replacement = extensions is null ? PdfDictionaryRebuild.RemoveEntry(graph, mappedCatalog, "Extensions"u8)
+                : PdfDictionaryRebuild.ReplaceEntry(graph, mappedCatalog, "Extensions"u8, extensions);
+            renumbered.Objects[1] = replacement; renumbered.Model[0] = new(1, replacement);
+        }
+        graph.Retain();
+        PreparedOutputModel output = OutputModelPreparation.Finish(renumbered.Model, compressed, security, memory, governor, token);
+        return new(version, renumbered, output);
     }
 
 }

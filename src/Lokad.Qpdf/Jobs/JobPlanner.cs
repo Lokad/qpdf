@@ -967,18 +967,18 @@ internal static partial class JobPlanner
             }
 
             // Complete validation before any restricted JSON-plan return. These
-            // plans cannot run geometry/layout operations; ordinary checking and
+            // plans cannot run geometry operations; ordinary checking and
             // document-JSON writer ignores retain their separate policies.
             bool importJson = jsonInput || seenUpdateFromJson;
             if ((importJson || seenJson || seenJsonOutput)
                 && (replaceInput || splitPages is not null || (importJson && seenCollate) || rotations.Count > 0
                     || flattenRotation || flattenAnnotations is not null || generateAppearances
-                    || qdf || linearize || overlays.Count > 0 || underlays.Count > 0))
+                    || qdf || (!importJson && linearize) || overlays.Count > 0 || underlays.Count > 0))
             {
                 throw new QpdfParseException("JSON operations cannot be combined with page transformations or PDF layout settings.", 0L, null);
             }
 
-            if (importJson && (objectStreams is not null || streamData is not null || compressStreams is not null
+            if (importJson && (streamData is not null || compressStreams is not null
                 || decodeLevel is not null || maxStreamFilters is not null || testJsonSchema
                 || parserMaxNesting is not null || maxContainerSizeDamaged is not null
                 || parserMaxErrors is not null || recompressFlate || compressionLevel is not null || preserveUnreferenced
@@ -1030,6 +1030,8 @@ internal static partial class JobPlanner
                     ForceVersion = forceVersion,
                     StaticId = staticId,
                     NewlineBeforeEndstream = newlineBeforeEndstream,
+                    ObjectStreams = objectStreams,
+                    Linearize = linearize,
                 };
             }
 
@@ -1072,6 +1074,8 @@ internal static partial class JobPlanner
                     ForceVersion = forceVersion,
                     StaticId = staticId,
                     NewlineBeforeEndstream = newlineBeforeEndstream,
+                    ObjectStreams = objectStreams,
+                    Linearize = linearize,
                 };
             }
 

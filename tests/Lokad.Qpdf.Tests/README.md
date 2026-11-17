@@ -52,6 +52,9 @@ JSON import tables exhaust catalog version and payload semantics through typed
 calls, and header setters through argv. Selected argv, job and file-job cases
 cover adapter wiring; create/update and source-binding combinations remain
 independent semantic cases.
+JSON layout tables separate graph identity from physical packing/linearization;
+source-membership controls use a free gap and distinct generations to verify the
+exact referenced members. Adapter and installed-consumer checks sample wiring.
 
 `Foundation/PublicationAdmissionTests` owns shared host-fault phases, executed
 counters and sequential commits. Prepared graph tests retain their own admission

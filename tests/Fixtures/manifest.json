@@ -9,6 +9,15 @@
   "generation": "Deterministic classic-xref PDFs with LF endings, Helvetica text, ordered objects and computed xref offsets. Truncated fixture is the first 120 bytes of minimal-1page.pdf. Security fixtures record randomized native encryption of authored inputs; their individual descriptions identify generation and public test credentials.",
   "fixtures": [
     {
+      "file": "json-layout-sparse.pdf",
+      "sha256": "272ba8f1df6dc70635eec405e46756c5cf2344476149ef9ef896de7a6d2406d2",
+      "bytes": 683,
+      "expectedNpages": 1,
+      "headerVersion": "1.5",
+      "valid": true,
+      "description": "Authored one-page streamed-xref PDF with complete free-entry coverage, compressed private object 6 and ordinary private decoy 7. The free gap at object 5 separates source identities from normalized import IDs. Native qpdf 12.4.2 checking and exact member inspection succeed."
+    },
+    {
       "file": "security-r6-xref-private.pdf",
       "sha256": "31f17e8e17b59ba6f01fe4eb9768bdf44fc9a2a48491c3e0cc9ffb55f0c9747a",
       "bytes": 1329,

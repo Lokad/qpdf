@@ -408,6 +408,7 @@ internal sealed partial class PdfSerializer
             throw new QpdfException("Streamed output exceeds supported object capacity.");
         }
 
+        int pagesRoot = PageTreeRootNumber(lookup);
         using WriterIndex<(int Container, int Index)> compressed = WriterIndex<(int Container, int Index)>.Create(2L * sizeof(int), _governor, cancellationToken);
         foreach (IReadOnlyList<int> group in groups)
         {
@@ -420,7 +421,7 @@ internal sealed partial class PdfSerializer
                 foreach (int number in group)
                 {
                     cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
-                    _ = ReadObjectStreamMember(lookup, number);
+                    _ = ReadObjectStreamMember(lookup, number, pagesRoot);
                 }
             }
         }
@@ -480,7 +481,7 @@ internal sealed partial class PdfSerializer
                 {
                     cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
                     first = checked(first + ObjectStreamPayload.MeasureTableRow(number, members.Length, _governor));
-                    await AppendValueAsync(ReadObjectStreamMember(lookup, number), members, 0,
+                    await AppendValueAsync(ReadObjectStreamMember(lookup, number, pagesRoot), members, 0,
                         newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
                 }
                 long length = checked(first + members.Length);
@@ -498,7 +499,7 @@ internal sealed partial class PdfSerializer
                 foreach (int number in group)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    await members.AppendAsync(this, ReadObjectStreamMember(lookup, number), newlineBeforeEndstream,
+                    await members.AppendAsync(this, ReadObjectStreamMember(lookup, number, pagesRoot), newlineBeforeEndstream,
                         cancellationToken).ConfigureAwait(false);
                 }
                 using ObjectStreamPayload payload = ObjectStreamPayload.Create(group, null, members,
@@ -578,13 +579,13 @@ internal sealed partial class PdfSerializer
         return sink.Length;
     }
 
-    private QpdfObject ReadObjectStreamMember(WriterIndex<QpdfObject> lookup, int number)
+    private QpdfObject ReadObjectStreamMember(WriterIndex<QpdfObject> lookup, int number, int pagesRoot)
     {
         if (!lookup.TryGetValue(number, out QpdfObject? value) || value is null)
         {
             throw new QpdfException($"Object-stream member {number} is missing from the model.");
         }
-        if (value is PdfStream || number == 1 || number == 2)
+        if (value is PdfStream || number == 1 || number == pagesRoot)
         {
             throw new QpdfException($"Object {number} cannot be compressed into an object stream.");
         }
@@ -592,6 +593,12 @@ internal sealed partial class PdfSerializer
             || value is PdfDictionary dictionary && PdfStringCrypt.IsSignature(dictionary, _governor)))
         { throw new QpdfException($"Object {number} must remain outside encrypted object streams."); }
         return value;
+    }
+
+    private int PageTreeRootNumber(WriterIndex<QpdfObject> lookup)
+    {
+        lookup.TryGetValue(1, out QpdfObject? catalog);
+        return ObjectStreamPreparation.PageTreeRootNumber(catalog, _governor, _governor.CancellationToken);
     }
 
     internal static int BytesNeeded(long value)
