@@ -1087,20 +1087,27 @@ internal static class DocumentJson
         using ParserMemoryScope textMemory = ParserMemoryScope.Create(governor);
         if (streams is not null)
         {
-            foreach (string name in NameKeys)
+            using ParserMemoryScope namesMemory = ParserMemoryScope.Create(governor);
+            List<PdfName> names = ParserContainers.CreateList<PdfName>(namesMemory, streams.Count, IntPtr.Size);
+            using (PdfDictionary.EntryEnumerator entries = streams.GetEntryEnumerator())
+            {
+                while (entries.MoveNext(governor, token)) { names.Add(entries.Current.Key); }
+            }
+            GovernedCollections.SortNames(namesMemory, governor, names);
+            foreach (PdfName name in names)
             {
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                if (!streams.TryGet(PdfName.FromAscii(name), out QpdfObject candidate)
-                    || TryResolve(engine, candidate) is not PdfStream stream) { continue; }
+                if (!PdfDictionaryLookup.TryGet(streams, name.RawSpan, governor, token, out QpdfObject candidate)
+                    || EmbeddedFiles.ResolveOptionalValue(engine, candidate, governor, token) is not PdfStream stream) { continue; }
                 if (!first) { builder.Append(','); } first = false;
-                builder.Append("\"/"); builder.Append(name); builder.Append("\": ");
+                PdfJsonWriter.AppendDescriptorName(builder, name); builder.Append(": ");
                 EmbeddedFiles.EmbeddedStreamMetadata metadata;
                 if (ReferenceEquals(stream, attachment.Stream))
                 { metadata = new(attachment.MimeType, attachment.CreationDate, attachment.ModDate, attachment.Checksum, attachment.Size); }
                 else
                 {
-                    PdfDictionary? parameters = stream.Dictionary.TryGet(PdfName.FromAscii("Params"), out QpdfObject parametersRaw)
-                        ? TryResolve(engine, parametersRaw) as PdfDictionary : null;
+                    PdfDictionary? parameters = PdfDictionaryLookup.TryGet(stream.Dictionary, "Params"u8, governor, token, out QpdfObject parametersRaw)
+                        ? EmbeddedFiles.ResolveOptionalValue(engine, parametersRaw, governor, token) as PdfDictionary : null;
                     metadata = EmbeddedFiles.ReadStreamMetadata(engine, stream, parameters, textMemory, governor, token);
                 }
                 AppendEmbeddedStream(builder, metadata);

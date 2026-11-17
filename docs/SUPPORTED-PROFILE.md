@@ -362,6 +362,9 @@ old catalog/page/container structure. Numbering and compressed bytes may differ 
 ## Attachments profile
 
 Raw name-tree keys and filespec graphs are authoritative; listings are projections.
+Attachment JSON lists stream entries under every `/EF` name, sorted by raw name
+bytes. Filename preference uses UF/F/Unix/DOS/Mac. Null values, non-stream values
+and optional entries with unreadable syntax are omitted.
 List/extract/add/remove/copy share typed, argv and job implementations.
 Command listing, reports and extraction share one authenticated document.
 Targeted extraction uses the same inspection validation and reports as returned
