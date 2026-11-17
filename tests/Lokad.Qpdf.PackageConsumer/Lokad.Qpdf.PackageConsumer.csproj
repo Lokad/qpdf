@@ -19,6 +19,8 @@
 
   <ItemGroup>
     <PackageReference Include="Lokad.qpdf" />
+    <EmbeddedResource Include="../Fixtures/reference-pairs-1page.pdf" LogicalName="Fixtures.reference-pairs-1page.pdf" />
+    <EmbeddedResource Include="../Fixtures/objstm-1page.pdf" LogicalName="Fixtures.objstm-1page.pdf" />
     <EmbeddedResource Include="../Fixtures/security-recovery-r6-utf8.pdf" LogicalName="Fixtures.security-recovery-r6-utf8.pdf" />
     <EmbeddedResource Include="../Fixtures/security-recovery-r6-ligatures.pdf" LogicalName="Fixtures.security-recovery-r6-ligatures.pdf" />
     <EmbeddedResource Include="../Fixtures/security-recovery-r6-macroman.pdf" LogicalName="Fixtures.security-recovery-r6-macroman.pdf" />

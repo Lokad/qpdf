@@ -1413,6 +1413,15 @@
       "headerVersion": "1.4",
       "valid": true,
       "description": "Authored two-page B source for JSON page assembly: distinct tags and prefix-only labels, shared content, a string-named outline destination and page 1 at generation 4. Native and independent readers validate the source; reference controls verify order, labels, named positions and JSON recreation."
+    },
+    {
+      "file": "reference-pairs-1page.pdf",
+      "sha256": "7314122c67c1d6d0c4b9f6e1b80ec5a0e3a3f19a18b729cc044b5c37f1294e11",
+      "bytes": 963,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Authored classic-xref incremental chain frees objects 4 and 5, then reuses 4 at generation 1. Catalog and array edges distinguish current, stale, free and missing pairs; a separate opaque stream survives public lookup disposal. Native exact-reference inspection agrees."
     }
   ]
 }

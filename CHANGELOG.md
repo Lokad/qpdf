@@ -2,6 +2,8 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Add generation-aware `QpdfDocument.GetObject(PdfReference)` lookup through the
+  shared resolver, preserving number-based lookup and escaped value ownership.
 - Inspect raw image filter descriptors without constructing inactive decoder
   plans; retain parsing, resource and enabled-decoder validation boundaries.
 - Validate effective job settings after duplicate-property resolution, preserving

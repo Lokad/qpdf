@@ -78,6 +78,7 @@ public sealed class FixtureManifestTests
     [InlineData("images-progressive-rgb-large-1page.pdf", 1)]
     [InlineData("incr-samegen-1page.pdf", 1)]
     [InlineData("incr-freereuse-1page.pdf", 1)]
+    [InlineData("reference-pairs-1page.pdf", 1)]
     [InlineData("overlay-annot-1page.pdf", 1)]
     [InlineData("labels-2page.pdf", 2)]
     [InlineData("catalog-extras-1page.pdf", 1)]

@@ -76,6 +76,7 @@
     <None Include="../Fixtures/xstream-lzw.pdf" Link="Fixtures/xstream-lzw.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/xstream-badtype.pdf" Link="Fixtures/xstream-badtype.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/objstm-1page.pdf" Link="Fixtures/objstm-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/reference-pairs-1page.pdf" Link="Fixtures/reference-pairs-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/objstm-extends.pdf" Link="Fixtures/objstm-extends.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/prev-chain.pdf" Link="Fixtures/prev-chain.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/xstm-classic.pdf" Link="Fixtures/xstm-classic.pdf" CopyToOutputDirectory="PreserveNewest" />

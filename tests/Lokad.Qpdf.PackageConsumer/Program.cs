@@ -243,6 +243,7 @@ internal static class Program
 
     private static async Task RunAsync()
     {
+        await DocumentReferenceChecks.RunAsync();
         await PasswordReaderChecks.RunAsync();
         await VerifyMemoryContractAsync();
         await VerifyHostMemoryContractAsync();

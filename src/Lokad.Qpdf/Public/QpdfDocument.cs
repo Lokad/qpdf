@@ -412,10 +412,11 @@ public sealed partial class QpdfDocument : IAsyncDisposable
     }
 
     /// <summary>
-    /// Returns the object, resolving references. Free or deleted entries yield
-    /// <see cref="PdfNull" />; unknown numbers throw
+    /// Looks up the active object by number without checking its generation.
+    /// Free or deleted entries yield <see cref="PdfNull" />; unknown numbers throw
     /// <see cref="QpdfParseException" />.
     /// </summary>
+    /// <remarks>Use <see cref="GetObject(PdfReference)" /> to dereference an exact object-generation pair.</remarks>
     /// <exception cref="ArgumentOutOfRangeException">The number is negative.</exception>
     /// <exception cref="ObjectDisposedException">The document is disposed.</exception>
     public QpdfObject GetObject(int objectNumber)
@@ -431,6 +432,29 @@ public sealed partial class QpdfDocument : IAsyncDisposable
         }
 
         return Engine.Load(objectNumber);
+    }
+
+    /// <summary>
+    /// Resolves an exact object number and generation. Free, missing or stale
+    /// references yield <see cref="PdfNull" />.
+    /// </summary>
+    /// <remarks>
+    /// Uses the cancellation token and budgets supplied when opening the document.
+    /// Returned values remain valid after document disposal.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">The reference is null.</exception>
+    /// <exception cref="ObjectDisposedException">The document is disposed.</exception>
+    /// <exception cref="OperationCanceledException">The document's cancellation token is canceled.</exception>
+    public QpdfObject GetObject(PdfReference reference)
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(QpdfDocument));
+        }
+
+        ArgumentNullException.ThrowIfNull(reference);
+        return PdfObjectLookup.TryResolve(reference, Engine, _governor, _governor.CancellationToken, out QpdfObject? value)
+            && value is not null ? value : PdfNull.Instance;
     }
 
     /// <summary>Releases the input and reader cache storage; safe to call more than once.</summary>

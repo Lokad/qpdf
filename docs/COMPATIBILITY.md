@@ -38,6 +38,11 @@ reasons. Companion fix-qdf/zlib-flate operations are additional contracts.
 
 ## Entry-point defaults
 
+`QpdfDocument.GetObject(PdfReference)` resolves an exact number/generation pair;
+stale, free and missing pairs yield PDF null. `GetObject(int)` looks up the active
+object by number and throws for unknown numbers. Both return values that survive
+document disposal; exact-reference lookup uses the document's opening token and budgets.
+
 | Behavior | Typed | Argv / job JSON |
 | --- | --- | --- |
 | Reading | Strict by default; document/check/count/selection/JSON can request bounded repair | Bounded repair by default; `--suppress-recovery` is strict |
