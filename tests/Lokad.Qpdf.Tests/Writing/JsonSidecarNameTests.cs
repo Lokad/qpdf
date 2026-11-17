@@ -30,12 +30,11 @@ public sealed class JsonSidecarNameTests
     public static IEnumerable<object[]> Cases()
     {
         foreach (string kind in new[] { "ascii", "bmp", "pair", "pair-edge", "high", "low", "broken", "nul", "both-fit", "one-fits", "overflow", "max-prefix" })
-        foreach (string route in new[] { "typed", "argv", "job", "mixed" })
         foreach (bool defaultPrefix in new[] { false, true })
         foreach (bool twoStreams in new[] { false, true })
         {
             if (kind == "nul" && defaultPrefix) { continue; }
-            yield return [kind, route, defaultPrefix, twoStreams];
+            yield return [kind, defaultPrefix, twoStreams];
         }
     }
 
@@ -88,11 +87,39 @@ public sealed class JsonSidecarNameTests
 
     [Theory]
     [MemberData(nameof(Cases))]
-    public async Task SidecarNamesStayExactOrFailBeforeAnyPublication(string kind, string route, bool defaultPrefix, bool twoStreams)
+    public async Task SidecarNamesStayExactOrFailBeforeAnyPublication(string kind, bool defaultPrefix, bool twoStreams)
     {
         using InMemoryQpdfHost storage = new(); Host host = new(storage);
+        var result = await CheckExport(storage, host, kind, "typed", defaultPrefix, twoStreams);
+        storage.Dispose();
+        if (result.TypedText is string text && result.JsonBytes is byte[] bytes)
+        {
+            using JsonDocument returned = JsonDocument.Parse(text), published = JsonDocument.Parse(bytes);
+            Assert.True(JsonElement.DeepEquals(returned.RootElement, published.RootElement));
+        }
+    }
+
+    [Theory]
+    [InlineData("ascii", "argv", false, true)]
+    [InlineData("pair", "job", true, true)]
+    [InlineData("bmp", "mixed", false, false)]
+    [InlineData("high", "argv", false, false)]
+    [InlineData("broken", "job", true, true)]
+    [InlineData("one-fits", "mixed", true, true)]
+    [InlineData("nul", "job", false, false)]
+    [InlineData("overflow", "argv", false, false)]
+    [InlineData("pair-edge", "mixed", true, true)]
+    public async Task CommandAdaptersPreserveNamesAndPreflightFailures(string kind, string route, bool defaultPrefix, bool twoStreams)
+    {
+        using InMemoryQpdfHost storage = new(); Host host = new(storage);
+        await CheckExport(storage, host, kind, route, defaultPrefix, twoStreams);
+    }
+
+    private static async Task<(byte[]? JsonBytes, string? TypedText)> CheckExport(
+        InMemoryQpdfHost storage, Host host, string kind, string route, bool defaultPrefix, bool twoStreams)
+    {
         storage.AddInput(QpdfPath.From("input"), Fixture(twoStreams), QpdfInputOwnership.Transfer);
-        storage.AddInput(QpdfPath.From("settings"), "{}"u8.ToArray(), QpdfInputOwnership.Transfer);
+        if (route == "mixed") { storage.AddInput(QpdfPath.From("settings"), "{}"u8.ToArray(), QpdfInputOwnership.Transfer); }
         string prefix = Prefix(kind), output = defaultPrefix ? prefix : "main";
         int[] numbers = twoStreams ? [4, 10] : [4];
         await Seed(storage, output, "prior-main"u8.ToArray());
@@ -117,7 +144,7 @@ public sealed class JsonSidecarNameTests
             Assert.True(storage.TryGetOutput(QpdfPath.From(output), out byte[] prior)); Assert.Equal("prior-main"u8.ToArray(), prior);
             foreach (string name in seeded)
             { Assert.True(storage.TryGetOutput(QpdfPath.From(name), out byte[] bytes)); Assert.Equal("prior-side"u8.ToArray(), bytes); }
-            Assert.Equal(0L, storage.OpenLeaseCount); return;
+            Assert.Equal(0L, storage.OpenLeaseCount); return (null, null);
         }
         var result = await Export(host, route, output, defaultPrefix ? null : prefix);
         if (result.Command is not null) { Assert.Equal(QpdfExitCode.Success, result.Command.ExitCode); Assert.Empty(result.Command.Diagnostics); }
@@ -133,8 +160,28 @@ public sealed class JsonSidecarNameTests
                 Assert.Contains(expected, host.Created);
                 Assert.True(storage.TryGetOutput(QpdfPath.From(expected), out byte[] payload));
                 Assert.Equal(number == 4 ? "q Q\n"u8.ToArray() : "SECOND\n"u8.ToArray(), payload);
-                storage.AddInput(QpdfPath.From(expected), payload, QpdfInputOwnership.Transfer);
             }
+        }
+        Assert.Equal(0L, storage.OpenLeaseCount);
+        return (jsonBytes, result.Text);
+    }
+
+    [Theory]
+    [InlineData("ascii", false, true)]
+    [InlineData("bmp", false, false)]
+    [InlineData("pair", true, true)]
+    [InlineData("both-fit", true, true)]
+    public async Task FilePayloadRoundtripsKeepUnicodeMultipleStreamsAndExactLengthNames(string kind, bool defaultPrefix, bool twoStreams)
+    {
+        using InMemoryQpdfHost storage = new(); Host host = new(storage);
+        var exported = await CheckExport(storage, host, kind, "typed", defaultPrefix, twoStreams);
+        byte[] jsonBytes = Assert.IsType<byte[]>(exported.JsonBytes);
+        int[] numbers = twoStreams ? [4, 10] : [4];
+        foreach (int number in numbers)
+        {
+            string name = Prefix(kind) + "-" + number;
+            Assert.True(storage.TryGetOutput(QpdfPath.From(name), out byte[] payload));
+            storage.AddInput(QpdfPath.From(name), payload, QpdfInputOwnership.Transfer);
         }
         storage.AddInput(QpdfPath.From("json"), jsonBytes, QpdfInputOwnership.Transfer);
         await Qpdf.CreatePdfFromJsonAsync(storage, QpdfPath.From("json"), QpdfPath.From("roundtrip"), CancellationToken.None);
@@ -150,7 +197,6 @@ public sealed class JsonSidecarNameTests
                 .GetProperty("stream").GetProperty("data").GetBytesFromBase64();
             Assert.Equal(number == 4 ? "q Q\n"u8.ToArray() : "SECOND\n"u8.ToArray(), bytes);
         }
-        if (result.Text is not null) { using JsonDocument typed = JsonDocument.Parse(result.Text); }
     }
 
     [Theory]

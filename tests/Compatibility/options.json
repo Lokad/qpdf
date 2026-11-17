@@ -4112,7 +4112,8 @@
           "JsonImportTests.UpdateChangesValues",
           "JsonImportContainerTests.ImportedContainersKeepTheExactBoundaryAndRejectOverflowBeforePublication",
           "JsonImportContainerTests.DecodedDictionaryNamesFollowPdfParserCounting",
-          "JsonImportContainerTests.UnknownEnvelopeMembersDoNotBecomePdfContainerLimits"
+          "JsonImportContainerTests.UnknownEnvelopeMembersDoNotBecomePdfContainerLimits",
+          "JsonSidecarNameTests.FilePayloadRoundtripsKeepUnicodeMultipleStreamsAndExactLengthNames"
         ],
         "negative": [
           "JsonImportTests.MalformedJsonFails",
@@ -4138,7 +4139,8 @@
           "JsonImportTests.JobUpdateRoundTrip",
           "JsonImportTests.TypedUpdateRoundTrip",
           "PublicationProfileTests.JsonPublicationUsesTheCopyProfile",
-          "JsonImportContainerTests.CommandsEnforceEffectiveContainerLimits"
+          "JsonImportContainerTests.CommandsEnforceEffectiveContainerLimits",
+          "JsonSidecarNameTests.FilePayloadRoundtripsKeepUnicodeMultipleStreamsAndExactLengthNames"
         ],
         "resource": [
           "JsonImportTests.CreateYieldsToExhaustedBudget",
@@ -4396,16 +4398,19 @@
           "JsonModesTests.InlineFallsBackToRaw",
           "JsonModesTests.DecodeNoneKeepsRaw",
           "JsonModesTests.VersionOneIgnoresStreamData",
-          "JsonSidecarNameTests.SidecarNamesStayExactOrFailBeforeAnyPublication"
+          "JsonSidecarNameTests.SidecarNamesStayExactOrFailBeforeAnyPublication",
+          "JsonSidecarNameTests.FilePayloadRoundtripsKeepUnicodeMultipleStreamsAndExactLengthNames"
         ],
         "negative": [
           "JsonModesTests.BadStreamOptionsFail",
           "PublicationAdmissionTests.JsonSidecarCannotOverwriteMainOutput",
-          "JsonSidecarNameTests.SidecarNamesStayExactOrFailBeforeAnyPublication"
+          "JsonSidecarNameTests.SidecarNamesStayExactOrFailBeforeAnyPublication",
+          "JsonSidecarNameTests.CommandAdaptersPreserveNamesAndPreflightFailures"
         ],
         "interaction": [
           "JsonModesTests.JobStreamModesRoundTrip",
-          "JsonModesTests.TypedModesRoundTrip"
+          "JsonModesTests.TypedModesRoundTrip",
+          "JsonSidecarNameTests.CommandAdaptersPreserveNamesAndPreflightFailures"
         ],
         "resource": [
           "JsonPublicationMemoryTests.KnownSidecarLengthFitsSharedAllowanceWithoutGrowthCopies",
@@ -4444,16 +4449,19 @@
         "positive": [
           "JsonModesTests.FileModeWritesSidecars",
           "JsonModesTests.FileModeHonorsPrefix",
-          "JsonSidecarNameTests.SidecarNamesStayExactOrFailBeforeAnyPublication"
+          "JsonSidecarNameTests.SidecarNamesStayExactOrFailBeforeAnyPublication",
+          "JsonSidecarNameTests.FilePayloadRoundtripsKeepUnicodeMultipleStreamsAndExactLengthNames"
         ],
         "negative": [
           "JsonModesTests.BadStreamOptionsFail",
           "JsonModesTests.StrayStreamOptionsFail",
           "PublicationAdmissionTests.JsonSidecarCannotOverwriteMainOutput",
-          "JsonSidecarNameTests.SidecarNamesStayExactOrFailBeforeAnyPublication"
+          "JsonSidecarNameTests.SidecarNamesStayExactOrFailBeforeAnyPublication",
+          "JsonSidecarNameTests.CommandAdaptersPreserveNamesAndPreflightFailures"
         ],
         "interaction": [
-          "JsonModesTests.JobStreamModesRoundTrip"
+          "JsonModesTests.JobStreamModesRoundTrip",
+          "JsonSidecarNameTests.CommandAdaptersPreserveNamesAndPreflightFailures"
         ],
         "resource": [
           "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",

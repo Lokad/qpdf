@@ -47,6 +47,7 @@ policy, with complete alias semantics at argv and sampled job interactions.
 Text projection exhausts byte representations in both JSON versions at typed
 inspection; samples check adapters and named/fileless transport. Name descriptors
 exhaust spelling/escaping once, with selected version and route controls.
+Sidecar tests separate name boundaries, adapter wiring and file-payload roundtrips.
 
 `Foundation/PublicationAdmissionTests` owns shared host-fault phases, executed
 counters and sequential commits. Prepared graph tests retain their own admission
