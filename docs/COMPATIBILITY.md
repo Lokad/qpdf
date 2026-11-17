@@ -90,6 +90,12 @@ PdfPageSelectionResult preview = await Qpdf.SelectPageAsync(
     QpdfRecoveryMode.BoundedRepair, cancellationToken);
 ```
 
+Typed attachment list/extract/add/remove/copy have full overloads accepting
+`QpdfRecoveryMode`. The policy applies to primary, copy-source and encryption-template
+readers; existing overloads remain strict. Explicit listing returns
+`QpdfAttachmentListResult` with immutable metadata, warnings and closed-handle counters.
+Typed extraction closes its input before publication, retaining payload backing through commit.
+
 ## Known differences from native qpdf
 
 These are intentional current policies; exact object numbers or compressed bytes

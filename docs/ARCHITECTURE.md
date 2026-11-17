@@ -26,8 +26,8 @@ admitted suffix index preserves include order and retires before plan consumptio
 Encoding validation stays independent of semantic validation. Effective root keys
 validate before includes load, and nested setters validate in the shared planner.
 Writer plans share one option projection after branch-specific source selection.
-Typed document opening, checking, JSON, counting and page selection can explicitly
-choose the shared bounded repair policy;
+Typed document opening, checking, JSON, counting, page selection and attachment
+operations can explicitly choose the shared bounded repair policy;
 multi-source operations use `PdfPageMergeOptions.RecoveryMode` for every input and
 encryption template. Existing typed defaults remain strict. Recovery warnings flow
 through the existing result snapshot and publication owner.

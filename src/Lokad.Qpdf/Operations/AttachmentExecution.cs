@@ -40,11 +40,13 @@ internal static class AttachmentExecution
     internal static async ValueTask<QpdfAttachmentEditResult> EditAttachmentsAsync(
         IQpdfHost host, QpdfPath inputPath, QpdfPath outputPath,
         IReadOnlyList<QpdfAttachmentSpec>? attachments, IReadOnlyList<string>? keys, IReadOnlyList<QpdfAttachmentCopy>? sources,
-        QpdfPassword? password, QpdfOutputEncryption outputEncryption,
+        QpdfPassword? password, QpdfOutputEncryption outputEncryption, QpdfRecoveryMode recovery,
         QpdfLimits limits, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(outputEncryption);
         ArgumentNullException.ThrowIfNull(host); ArgumentNullException.ThrowIfNull(limits); limits.Validate();
+        if (recovery is not (QpdfRecoveryMode.Strict or QpdfRecoveryMode.BoundedRepair))
+        { throw new ArgumentOutOfRangeException(nameof(recovery)); }
         ResourceGovernor governor = new(limits, cancellationToken, host);
         try
         {
@@ -84,7 +86,7 @@ internal static class AttachmentExecution
                         copies.Add(new AttachmentCopy(source.Input.Value, source.Prefix) { Password = source.Password });
                     }
                 }
-                WholeFilePlan plan = new(inputPath, outputPath, QpdfRecoveryMode.Strict)
+                WholeFilePlan plan = new(inputPath, outputPath, recovery)
                 {
                     OutputEncryption = outputEncryption,
                     AttachmentsToAdd = adds, AttachmentsToRemove = removes is null ? [] : removes,
@@ -128,6 +130,10 @@ internal static class AttachmentExecution
             throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), data.Length, limits.MaxOutputBytes);
         }
 
+        // Match targeted command extraction: preserve the payload's backing,
+        // then finish input cleanup before any output can be published.
+        document.Engine.TransferExclusiveValuesTo(attachmentMemory);
+        await document.DisposeAsync().ConfigureAwait(false);
         await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, outputPath, governor, cancellationToken).ConfigureAwait(false);
         TransactionSink sink = new(transaction, governor);
         await sink.AppendAsync(data, cancellationToken).ConfigureAwait(false);
@@ -147,7 +153,13 @@ internal static class AttachmentExecution
         IReadOnlyList<QpdfAttachmentInfo> infos = ListAttachments(document, inputPath, limits, governor, diagnostics,
             memory, results, cancellationToken);
         await document.DisposeAsync().ConfigureAwait(false);
-        if (results is not null) { results.RetainCallerStorage(results.ReservedBytes); }
+        if (results is not null)
+        {
+            // Rich typed results can still refuse while preparing warnings.
+            // Keep their unreturned metadata provisional until the wrapper is accepted.
+            if (governor.HasTypedResult) { results.PrepareResultStorage(results.ReservedBytes); }
+            else { results.RetainCallerStorage(results.ReservedBytes); }
+        }
         return infos;
     }
 

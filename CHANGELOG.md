@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Expose bounded recovery for typed attachment operations, with immutable listing
+  metadata, warnings and final counters. Close extraction inputs before publication,
+  preserving payload backing and prior targets on cleanup failure or cancellation.
 - Validate authored attachment timestamps before payload acquisition, sharing
   bounded syntax with JSON date projection while preserving existing metadata.
 - Add generation-aware `QpdfDocument.GetObject(PdfReference)` lookup through the
