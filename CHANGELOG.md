@@ -2,6 +2,8 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Inspect raw image filter descriptors without constructing inactive decoder
+  plans; retain parsing, resource and enabled-decoder validation boundaries.
 - Validate effective job settings after duplicate-property resolution, preserving
   encoding checks, early excluded-key refusal and ordered file includes.
 - Consume valid plaintext Identity Crypt stages before content processing and

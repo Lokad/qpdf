@@ -291,7 +291,8 @@ Checking covers structure, streams, content, forms and linearization, with expli
 skipped stages. It does not establish rendering or conformance. Object, xref, page,
 image, attachment and outline listings use the shared resolver.
 Image filter/parameter descriptors retain stored aliases, live references and
-array shapes.
+array shapes. With decoding disabled they project raw specifications without
+building or validating a decoder plan; input and output limits still apply.
 Image filterability checks decode level, filter count and supported parameters;
 it does not validate encoded frames or establish host JPEG capability.
 Label JSON supplies default starts and per-page counters without changing source

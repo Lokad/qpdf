@@ -4023,7 +4023,9 @@
           "JsonLabelProjectionTests.PageCountersAdvanceWithinRunsWhileExplicitEntriesKeepTheirStarts",
           "JsonLabelProjectionTests.ProjectionKeepsLiveFieldPairsAndLeavesOriginalDictionariesUntouched",
           "JsonReferenceProjectionTests.SourceTablesStreamHeadersAndTrailersShareReferenceProjection",
-          "AttachmentJsonStreamKeysTests.EveryValidEfStreamIsReportedWithoutChangingFilenamePreference"
+          "AttachmentJsonStreamKeysTests.EveryValidEfStreamIsReportedWithoutChangingFilenamePreference",
+          "RawImageDescriptorTests.DisabledDecodingProjectsStoredMalformedSpecifications",
+          "RawImageDescriptorTests.TypedMinimalAndJobVersionOneUseTheSameInactivePolicy"
         ],
         "negative": [
           "JsonInspectionTests.BadVersionFails",
@@ -4082,13 +4084,15 @@
           "ImageDescriptorShapeTests.MalformedSpecificationsStillRefuseBeforeReplacingTheReport",
           "JsonLabelProjectionTests.CounterOverflowPreservesPriorReportsAndRefundsCallerStorage",
           "JsonReferenceProjectionTests.SourceSerializationPreservesRawValuesAndPriorOwners",
-          "AttachmentJsonStreamKeysTests.ExtraStreamInspectionRefundsEveryRefusedSharedGrowth"
+          "AttachmentJsonStreamKeysTests.ExtraStreamInspectionRefundsEveryRefusedSharedGrowth",
+          "RawImageDescriptorTests.InactiveInspectionAvoidsStageStorageWhileRetainingParsedContainerLimits"
         ],
         "oracle": [
           "diff:json-pages",
           "diff:json-structure",
           "diff:json-images",
-          "diff:json-page-assembly"
+          "diff:json-page-assembly",
+          "diff:json-images-raw-malformed"
         ]
       }
     },

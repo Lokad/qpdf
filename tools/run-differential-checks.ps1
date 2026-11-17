@@ -494,6 +494,26 @@ if ($code -ne 0) { throw "json-images/all: oracle failed ($code)" }
 Copy-Item "$case/ora-stdout.txt" "$case/ora-all.json" -Force
 Compare-ImageJson 'all' "$case/lib-all.json" "$case/ora-all.json"
 
+# Raw image descriptions do not require usable decoder specifications. Replace
+# one header with equal-length text so xref offsets and stream payloads stay exact.
+$case = New-Case 'json-images-raw-malformed'
+$original = [Text.Encoding]::Latin1.GetString([IO.File]::ReadAllBytes("$fixtureDir/images-filtered-1page.pdf"))
+$headerMatches = [regex]::Matches($original, '/Filter\s*/FlateDecode')
+if ($headerMatches.Count -ne 1) { throw 'Raw image control needs one scalar Flate header.' }
+$match = $headerMatches[0]
+$mutated = $original.Substring(0, $match.Index) + '/Filter 17'.PadRight($match.Length) + $original.Substring($match.Index + $match.Length)
+[IO.File]::WriteAllBytes("$case/inputs/a.pdf", [Text.Encoding]::Latin1.GetBytes($mutated))
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/raw.json=$case/lib.json", '--', 'inputs/a.pdf', '--json=2', '--json-key=pages', '--decode-level=none', 'outputs/raw.json')
+if ($code -ne 0) { throw 'Raw image descriptor inspection failed.' }
+$code = Invoke-Oracle $case @('inputs/a.pdf', '--json=2', '--json-key=pages', '--decode-level=none')
+if ($code -ne 0) { throw 'Native raw image descriptor inspection failed.' }
+Copy-Item -LiteralPath "$case/ora-stdout.txt" -Destination "$case/ora.json"
+Compare-ImageJson 'raw-malformed' "$case/lib.json" "$case/ora.json"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--', 'inputs/a.pdf', '--json=2', '--json-key=pages', '--decode-level=generalized')
+if ($code -ne 2) { throw 'Managed active decoder validation lost its refusal.' }
+$code = Invoke-Oracle $case @('inputs/a.pdf', '--json=2', '--json-key=pages', '--decode-level=generalized')
+if ($code -ne 3) { throw 'Native active decoder validation lost its warning.' }
+
 # --- case: json-import (managed vs oracle PDF construction from qpdf JSON) ---
 $case = New-Case 'json-import'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"

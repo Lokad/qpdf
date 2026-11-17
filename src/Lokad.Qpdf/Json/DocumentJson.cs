@@ -794,7 +794,8 @@ internal static class DocumentJson
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
-        using FilterPlan stages = FilterChain.ResolveScoped(detail.Stream.Dictionary, (IIndirectResolver)engine, governor, cancellationToken);
+        using FilterPlan? stages = request.DecodeLevel == "none" ? null
+            : FilterChain.ResolveScoped(detail.Stream.Dictionary, (IIndirectResolver)engine, governor, cancellationToken);
         builder.Append("{\"bitspercomponent\": ");
         AppendImageValue(builder, detail.Stream.Dictionary, "BitsPerComponent"u8, request, limits, governor, cancellationToken);
         builder.Append(",\"colorspace\": ");
@@ -805,7 +806,7 @@ internal static class DocumentJson
         builder.Append(",\"decodeparms\": ");
         _ = AppendImageArrayValue(builder, engine, detail.Stream.Dictionary, "DecodeParms"u8, filters, request, limits, governor, cancellationToken);
         builder.Append(",\"filterable\": ");
-        builder.Append(request.DecodeLevel != "none" && stages.Count <= limits.MaxStreamFilters
+        builder.Append(stages is not null && stages.Count <= limits.MaxStreamFilters
             && !FilterChain.HasExternalData(detail.Stream, engine, governor, cancellationToken)
             && FilterChain.AllStagesInLevel(stages, request.DecodeLevel)
             && FilterChain.SupportsParameters(stages, cancellationToken) ? "true" : "false");
