@@ -107,12 +107,16 @@ public sealed class JsonCatalogVersionTests
 
     public static IEnumerable<object[]> InvalidCases()
     {
-        foreach (string route in new[] { "typed", "argv", "job" })
         foreach (bool update in new[] { false, true })
         foreach (bool directRoot in new[] { false, true })
         foreach (bool indirect in new[] { false, true })
         foreach (string kind in new[] { "string", "integer", "array", "dictionary", "malformed", "unsupported" })
-        { yield return [route, update, directRoot, indirect, kind]; }
+        { yield return ["typed", update, directRoot, indirect, kind]; }
+
+        yield return ["argv", false, false, false, "string"];
+        yield return ["argv", true, true, true, "unsupported"];
+        yield return ["job", false, true, false, "array"];
+        yield return ["job", true, false, true, "malformed"];
     }
 
     [Theory]
@@ -235,12 +239,15 @@ public sealed class JsonCatalogVersionTests
 
     public static IEnumerable<object[]> HeaderCases()
     {
-        foreach (string route in new[] { "argv", "job" })
         foreach (bool update in new[] { false, true })
         foreach (bool directRoot in new[] { false, true })
         foreach (bool indirect in new[] { false, true })
         foreach (string setting in new[] { "none", "force", "min" })
-        { yield return [route, update, directRoot, indirect, setting]; }
+        { yield return ["argv", update, directRoot, indirect, setting]; }
+
+        yield return ["job", false, false, true, "none"];
+        yield return ["job", true, true, false, "force"];
+        yield return ["job", false, true, true, "min"];
     }
 
     [Theory]

@@ -58,7 +58,18 @@ public sealed class JsonImportPayloadTests
     {
         foreach (string target in new[] { "create", "existing-stream", "existing-scalar", "new" })
         foreach (string payload in new[] { "inline", "sidecar", "empty-inline", "empty-sidecar", "omitted", "both", "missing-dict", "bad-base64", "bad-datafile", "null-data", "null-datafile" })
-        foreach (string route in new[] { "typed", "argv", "job" }) { yield return [target, payload, route]; }
+        { yield return [target, payload, "typed"]; }
+
+        yield return ["create", "inline", "argv"];
+        yield return ["existing-stream", "omitted", "argv"];
+        yield return ["existing-scalar", "bad-base64", "argv"];
+        yield return ["new", "sidecar", "argv"];
+        yield return ["create", "missing-dict", "job"];
+        yield return ["existing-stream", "sidecar", "job"];
+        yield return ["existing-scalar", "inline", "job"];
+        yield return ["new", "omitted", "job"];
+        yield return ["create", "empty-sidecar", "file"];
+        yield return ["existing-stream", "both", "file"];
     }
 
     private static async Task Run(InMemoryQpdfHost host, bool create, string route, bool valid)
@@ -73,12 +84,24 @@ public sealed class JsonImportPayloadTests
         }
         else
         {
-            QpdfExecutionResult result = route == "job"
-                ? await Qpdf.ExecuteJobAsync(host, create
+            QpdfExecutionResult result;
+            if (route is "job" or "file")
+            {
+                string job = create
                     ? """{"inputFile":"json","outputFile":"output","jsonInput":true}"""
-                    : """{"inputFile":"input","outputFile":"output","updateFromJson":"json"}""", CancellationToken.None)
-                : await Qpdf.ExecuteAsync(host, new(create ? ["json", "--json-input", "--", "output"]
+                    : """{"inputFile":"input","outputFile":"output","updateFromJson":"json"}""";
+                if (route == "file")
+                {
+                    host.AddInput(QpdfPath.From("job"), Encoding.UTF8.GetBytes(job), QpdfInputOwnership.Transfer);
+                    result = await Qpdf.ExecuteAsync(host, new(["--job-json-file=job"]), CancellationToken.None);
+                }
+                else { result = await Qpdf.ExecuteJobAsync(host, job, CancellationToken.None); }
+            }
+            else
+            {
+                result = await Qpdf.ExecuteAsync(host, new(create ? ["json", "--json-input", "--", "output"]
                     : ["input", "--update-from-json=json", "--", "output"]), CancellationToken.None);
+            }
             Assert.Equal(valid ? QpdfExitCode.Success : QpdfExitCode.Error, result.ExitCode); Assert.Equal(0L, result.Counters.OpenHandles);
         }
         Assert.Equal(0L, host.OpenLeaseCount);
@@ -125,7 +148,10 @@ public sealed class JsonImportPayloadTests
     public static IEnumerable<object[]> MetadataCases()
     {
         foreach (string metadata in new[] { "missing-pdfversion", "missing-jsonversion", "missing-trailer", "empty-trailer", "stream-trailer", "non-dict-trailer" })
-        foreach (string route in new[] { "typed", "argv", "job" }) { yield return [metadata, route]; }
+        { yield return [metadata, "typed"]; }
+
+        yield return ["missing-jsonversion", "argv"];
+        yield return ["missing-trailer", "job"];
     }
 
     [Theory]

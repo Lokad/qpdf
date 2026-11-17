@@ -48,6 +48,10 @@ Text projection exhausts byte representations in both JSON versions at typed
 inspection; samples check adapters and named/fileless transport. Name descriptors
 exhaust spelling/escaping once, with selected version and route controls.
 Sidecar tests separate name boundaries, adapter wiring and file-payload roundtrips.
+JSON import tables exhaust catalog version and payload semantics through typed
+calls, and header setters through argv. Selected argv, job and file-job cases
+cover adapter wiring; create/update and source-binding combinations remain
+independent semantic cases.
 
 `Foundation/PublicationAdmissionTests` owns shared host-fault phases, executed
 counters and sequential commits. Prepared graph tests retain their own admission
