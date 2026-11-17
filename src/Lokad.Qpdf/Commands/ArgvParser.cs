@@ -223,7 +223,7 @@ internal static class ArgvParser
                 }
 
                 seenFile = true;
-                file = TakeParameter(argv, argv.Count, ref cursor, "--file");
+                file = TakeParameter(argv, argv.Count, ref cursor, "--file", false);
                 continue;
             }
 
@@ -356,7 +356,7 @@ internal static class ArgvParser
 
             if (token == "--prefix" || token.StartsWith("--prefix=", StringComparison.Ordinal))
             {
-                prefix = TakeParameter(argv, argv.Count, ref cursor, "--prefix");
+                prefix = TakeParameter(argv, argv.Count, ref cursor, "--prefix", true);
                 continue;
             }
 
@@ -429,7 +429,7 @@ internal static class ArgvParser
                 || token == "--description" || token.StartsWith("--description=", StringComparison.Ordinal))
             {
                 ReadOnlySpan<char> name = OptionName(token);
-                string value = TakeParameter(argv, argv.Count, ref cursor, $"--{name}");
+                string value = TakeParameter(argv, argv.Count, ref cursor, $"--{name}", name is "description");
                 if (name is "key")
                 {
                     key = value;
@@ -564,7 +564,7 @@ internal static class ArgvParser
                         groups.Add(new PageGroup(file, null) { Password = pagePassword });
                     }
 
-                    file = TakeParameter(argv, terminatorAt, ref i, "--file");
+                    file = TakeParameter(argv, terminatorAt, ref i, "--file", false);
                     pagePassword = null;
                     namedFile = true;
                     continue;
@@ -577,7 +577,7 @@ internal static class ArgvParser
                         throw new QpdfParseException("--range must follow the file specification.", i, null);
                     }
 
-                    string range = TakeParameter(argv, terminatorAt, ref i, "--range");
+                    string range = TakeParameter(argv, terminatorAt, ref i, "--range", false);
                     groups.Add(new PageGroup(file, range) { Password = pagePassword });
                     file = null;
                     pagePassword = null;
@@ -671,14 +671,14 @@ internal static class ArgvParser
         return sizes;
     }
 
-    private static string TakeParameter(IReadOnlyList<string> argv, int terminatorAt, ref int i, string option)
+    private static string TakeParameter(IReadOnlyList<string> argv, int terminatorAt, ref int i, string option, bool allowEmpty)
     {
         string token = argv[i];
         int equals = token.IndexOf('=');
         if (equals >= 0)
         {
             string inline = ConfigurationText.Slice(argv, token, equals + 1);
-            if (inline.Length == 0)
+            if (!allowEmpty && inline.Length == 0)
             {
                 throw new QpdfParseException($"Empty parameter for {option}.", i, null);
             }

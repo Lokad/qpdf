@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Accept empty argv attachment prefixes and descriptions, including resets of
+  earlier setters, through the shared attachment planner.
+
 - Validate ranges without temporary syntax graphs and scope expansion metadata
   under admission, retaining original argv positions for overlay errors.
 

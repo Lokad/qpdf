@@ -1314,16 +1314,20 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
-          "AttachmentEditTests.AddExplicitMetadata"
+          "AttachmentEditTests.AddExplicitMetadata",
+          "AttachmentOptionalSetterTests.OptionalBlockSettersKeepTheirEffectiveValue"
         ],
         "negative": [
-          "AttachmentEditTests.NestedUnknownFlagFails"
+          "AttachmentEditTests.NestedUnknownFlagFails",
+          "AttachmentOptionalSetterTests.MissingOptionalSetterValueStillRejects"
         ],
         "interaction": [
-          "AttachmentEditTests.NestedMetadataJobParityHolds"
+          "AttachmentEditTests.NestedMetadataJobParityHolds",
+          "AttachmentOptionalSetterTests.EmptySettersShareAttachmentDefaultsAcrossConfigurationOrigins"
         ],
         "resource": [
-          "AttachmentEditTests.AttachmentsYieldToExhaustedBudget"
+          "AttachmentEditTests.AttachmentsYieldToExhaustedBudget",
+          "AttachmentOptionalSetterTests.MissingValuesFailBeforeInputsAndPreserveTheRequestedTarget"
         ],
         "oracle": [
           "diff:attachments-add"
@@ -1602,16 +1606,21 @@
       "evidence": {
         "positive": [
           "AttachmentCopyTests.CopyPrefix",
-          "AttachmentCopyTests.CopySpacePrefixForm"
+          "AttachmentCopyTests.CopySpacePrefixForm",
+          "AttachmentOptionalSetterTests.OptionalBlockSettersKeepTheirEffectiveValue",
+          "AttachmentCopyTests.CopyEmptyPrefixKeepsOriginalKeys"
         ],
         "negative": [
-          "AttachmentCopyTests.CopyStrayPrefixFails"
+          "AttachmentCopyTests.CopyStrayPrefixFails",
+          "AttachmentOptionalSetterTests.MissingOptionalSetterValueStillRejects"
         ],
         "interaction": [
-          "AttachmentCopyTests.JobCopyRoundTrip"
+          "AttachmentCopyTests.JobCopyRoundTrip",
+          "AttachmentOptionalSetterTests.EmptySettersShareAttachmentDefaultsAcrossConfigurationOrigins"
         ],
         "resource": [
-          "AttachmentCopyTests.CopyYieldsToExhaustedBudget"
+          "AttachmentCopyTests.CopyYieldsToExhaustedBudget",
+          "AttachmentOptionalSetterTests.MissingValuesFailBeforeInputsAndPreserveTheRequestedTarget"
         ],
         "oracle": [
           "diff:attachments-copy"

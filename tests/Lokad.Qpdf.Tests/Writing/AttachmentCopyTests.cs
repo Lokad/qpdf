@@ -396,15 +396,20 @@ public sealed class AttachmentCopyTests
     }
 
     [Fact]
-    public async Task CopyEmptyPrefixFails()
+    public async Task CopyEmptyPrefixKeepsOriginalKeys()
     {
-        InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
+        using InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
         host.AddInput(QpdfPath.From("inputs/s.pdf"), SourceFixture(), QpdfInputOwnership.Copy);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
             new QpdfCommandInvocation(["inputs/a.pdf", "--copy-attachments-from", "inputs/s.pdf", "--prefix=", "--", "--", "outputs/a.pdf"]),
             CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
-        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Empty(result.Diagnostics);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] output));
+        host.AddInput(QpdfPath.From("reread"), output, QpdfInputOwnership.Transfer);
+        IReadOnlyList<QpdfAttachmentInfo> infos = await ListAsync(host, "reread");
+        Assert.Equal(new[] { "alpha.txt", "beta.txt" }, infos.Select(info => info.Key));
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 }
