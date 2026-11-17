@@ -1177,108 +1177,11 @@ internal sealed class PdfParser
     private byte[] UnescapeLiteral(ReadOnlyMemory<byte> raw, long offset)
     {
         ReadOnlySpan<byte> span = raw.Span;
-        int length = UnescapeLiteralCore(span, Span<byte>.Empty, offset, false);
+        int length = PdfLiteralCodec.DecodedLength(span, offset, _governor, _token);
         ReserveMemory(checked(32L + length));
         byte[] result = GC.AllocateUninitializedArray<byte>(length);
-        _ = UnescapeLiteralCore(span, result, offset, true);
+        PdfLiteralCodec.Decode(span, result, offset, _governor, _token);
         return result;
-    }
-
-    private int UnescapeLiteralCore(ReadOnlySpan<byte> span, Span<byte> result, long offset, bool write)
-    {
-        int outCount = 0;
-        long nextCheck = 0L;
-        for (int i = 0; i < span.Length; i++)
-        {
-            CheckUnescapeCancellation(i, ref nextCheck);
-            if (span[i] != (byte)'\\')
-            {
-                // Raw CR and CRLF are a single PDF end-of-line marker. An
-                // escaped \r below is a literal carriage return instead.
-                if (write) { result[outCount] = span[i] == (byte)'\r' ? (byte)'\n' : span[i]; }
-                outCount += 1;
-                if (span[i] == (byte)'\r' && i + 1 < span.Length && span[i + 1] == (byte)'\n')
-                {
-                    i += 1;
-                }
-                continue;
-            }
-
-            i += 1;
-            if (i >= span.Length)
-            {
-                throw new QpdfParseException("Trailing backslash in literal string.", offset, null);
-            }
-
-            byte b = span[i];
-            if (b == (byte)'n')
-            {
-                if (write) { result[outCount] = (byte)'\n'; }
-                outCount += 1;
-            }
-            else if (b == (byte)'r')
-            {
-                if (write) { result[outCount] = (byte)'\r'; }
-                outCount += 1;
-            }
-            else if (b == (byte)'t')
-            {
-                if (write) { result[outCount] = (byte)'\t'; }
-                outCount += 1;
-            }
-            else if (b == (byte)'b')
-            {
-                if (write) { result[outCount] = (byte)'\b'; }
-                outCount += 1;
-            }
-            else if (b == (byte)'f')
-            {
-                if (write) { result[outCount] = (byte)'\f'; }
-                outCount += 1;
-            }
-            else if (b == (byte)'(' || b == (byte)')' || b == (byte)'\\')
-            {
-                if (write) { result[outCount] = b; }
-                outCount += 1;
-            }
-            else if (b == (byte)'\r')
-            {
-                if (i + 1 < span.Length && span[i + 1] == (byte)'\n')
-                {
-                    i += 1;
-                }
-            }
-            else if (b == (byte)'\n')
-            {
-            }
-            else if (b >= (byte)'0' && b <= (byte)'7')
-            {
-                int value = b - (byte)'0';
-                for (int k = 0; k < 2; k++)
-                {
-                    if (i + 1 < span.Length && span[i + 1] >= (byte)'0' && span[i + 1] <= (byte)'7')
-                    {
-                        i += 1;
-                        value = (value * 8) + (span[i] - (byte)'0');
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-
-                if (write) { result[outCount] = (byte)(value & 0xFF); }
-                outCount += 1;
-            }
-            else
-            {
-                if (write) { result[outCount] = b; }
-                outCount += 1;
-            }
-        }
-
-        _governor.CheckCancellation();
-        return outCount;
     }
 
     private void CheckUnescapeCancellation(int position, ref long nextCheck)

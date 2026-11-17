@@ -63,6 +63,8 @@ Direct-outline controls own input promotion separately from hint layout, with
 focused PDF/JSON, destination, private-alias and publication cases.
 Inline context reuse separates repeated work from resource/name bindings and
 independent equal-byte identities; warning suppression retains per-page failures.
+Literal escape semantics belong to `PdfLiteralCodecTests`; focused parser/writer/
+normalizer cases retain framing, quotas, cancellation and physical line markers.
 
 `Foundation/PublicationAdmissionTests` owns shared host-fault phases, executed
 counters and sequential commits. Prepared graph tests retain their own admission

@@ -642,7 +642,7 @@ internal static class ContentTransforms
             case ContentTokenKind.LiteralString:
                 using (ParserMemoryScope temporary = ParserMemoryScope.Create(governor))
                 {
-                    byte[] decoded = DecodeLiteral(token.Data, governor, temporary, cancellationToken);
+                    byte[] decoded = DecodeLiteral(token.Data, token.Offset, governor, temporary, cancellationToken);
                     byte[] encoded = EncodeLiteral(decoded, governor, temporary, maximumBytes, limitName, cancellationToken);
                     output.Write(encoded);
                 }
@@ -737,158 +737,26 @@ internal static class ContentTransforms
         return false;
     }
 
-    private static byte[] DecodeLiteral(ReadOnlyMemory<byte> raw, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken cancellationToken)
+    private static byte[] DecodeLiteral(ReadOnlyMemory<byte> raw, long offset, ResourceGovernor governor,
+        ParserMemoryScope memory, CancellationToken token)
     {
-        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        ReadOnlySpan<byte> span = raw.Span;
-        memory.Reserve(112L);
-        using GovernedBufferStream decoded = new(governor, Math.Max(1, span.Length), nameof(QpdfLimits.MaxDecodedBytes), cancellationToken);
-        int i = 0;
-        if (span.Length > 0 && span[0] == (byte)'(')
-        {
-            i = 1;
-        }
-
-        int end = span.Length;
-        if (end > i && span[end - 1] == (byte)')')
-        {
-            end -= 1;
-        }
-
-        while (i < end)
-        {
-            governor.NoteOperation();
-            if (span[i] == (byte)'\\' && i + 1 < end)
-            {
-                byte next = span[i + 1];
-                if (next == (byte)'n')
-                {
-                    decoded.WriteByte((byte)'\n');
-                    i += 2;
-                }
-                else if (next == (byte)'r')
-                {
-                    decoded.WriteByte((byte)'\r');
-                    i += 2;
-                }
-                else if (next == (byte)'t')
-                {
-                    decoded.WriteByte((byte)'\t');
-                    i += 2;
-                }
-                else if (next == (byte)'b')
-                {
-                    decoded.WriteByte((byte)'\b');
-                    i += 2;
-                }
-                else if (next == (byte)'f')
-                {
-                    decoded.WriteByte((byte)'\f');
-                    i += 2;
-                }
-                else if (next == (byte)'\n')
-                {
-                    i += 2;
-                }
-                else if (next == (byte)'\r')
-                {
-                    i += 2;
-                    if (i < end && span[i] == (byte)'\n')
-                    {
-                        i += 1;
-                    }
-                }
-                else if (next >= (byte)'0' && next <= (byte)'7')
-                {
-                    int value = 0;
-                    int digits = 0;
-                    while (digits < 3 && i + 1 + digits < end && span[i + 1 + digits] >= (byte)'0' && span[i + 1 + digits] <= (byte)'7')
-                    {
-                        value = (value * 8) + (span[i + 1 + digits] - (byte)'0');
-                        digits += 1;
-                    }
-
-                    decoded.WriteByte((byte)(value & 0xFF));
-                    i += 1 + digits;
-                }
-                else
-                {
-                    decoded.WriteByte(next);
-                    i += 2;
-                }
-
-                continue;
-            }
-
-            byte currentByte = span[i++];
-            if (currentByte == (byte)'\r')
-            {
-                // A physical CR or CRLF is one LF byte in a PDF literal.
-                if (i < end && span[i] == (byte)'\n') { i++; }
-                currentByte = (byte)'\n';
-            }
-            decoded.WriteByte(currentByte);
-        }
-
-        return decoded.ToArray(memory, cancellationToken);
+        // ContentTokenizer has already validated the outer parentheses.
+        ReadOnlySpan<byte> payload = raw.Span[1..^1];
+        int length = PdfLiteralCodec.DecodedLength(payload, offset, governor, token);
+        memory.Reserve(32L + length); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        byte[] decoded = GC.AllocateUninitializedArray<byte>(length);
+        PdfLiteralCodec.Decode(payload, decoded, offset, governor, token);
+        return decoded;
     }
 
     private static byte[] EncodeLiteral(byte[] value, ResourceGovernor governor, ParserMemoryScope memory,
-        long maximumBytes, string limitName, CancellationToken cancellationToken)
+        long maximumBytes, string limitName, CancellationToken token)
     {
-        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        memory.Reserve(112L);
-        using GovernedBufferStream output = new(governor, maximumBytes, limitName, cancellationToken, (int)Math.Min(8192L, value.Length + 2L));
-        output.WriteByte((byte)'(');
-        foreach (byte b in value)
-        {
-            switch (b)
-            {
-                case (byte)'\n':
-                    output.WriteByte((byte)'\\');
-                    output.WriteByte((byte)'n');
-                    break;
-                case (byte)'\r':
-                    output.WriteByte((byte)'\\');
-                    output.WriteByte((byte)'r');
-                    break;
-                case (byte)'\t':
-                    output.WriteByte((byte)'\\');
-                    output.WriteByte((byte)'t');
-                    break;
-                case (byte)'\b':
-                    output.WriteByte((byte)'\\');
-                    output.WriteByte((byte)'b');
-                    break;
-                case (byte)'\f':
-                    output.WriteByte((byte)'\\');
-                    output.WriteByte((byte)'f');
-                    break;
-                case (byte)'(':
-                case (byte)')':
-                case (byte)'\\':
-                    output.WriteByte((byte)'\\');
-                    output.WriteByte(b);
-                    break;
-                default:
-                    if (b < 0x20 || b > 0x7E)
-                    {
-                        output.WriteByte((byte)'\\');
-                        output.WriteByte((byte)('0' + ((b >> 6) & 0x07)));
-                        output.WriteByte((byte)('0' + ((b >> 3) & 0x07)));
-                        output.WriteByte((byte)('0' + (b & 0x07)));
-                    }
-                    else
-                    {
-                        output.WriteByte(b);
-                    }
-
-                    break;
-            }
-        }
-
-        output.WriteByte((byte)')');
-        return output.ToArray(memory, cancellationToken);
+        long length = PdfLiteralCodec.EncodedLength(value, Math.Min(maximumBytes, Array.MaxLength), limitName, governor, token, null);
+        memory.Reserve(32L + length); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        byte[] encoded = GC.AllocateUninitializedArray<byte>((int)length);
+        PdfLiteralCodec.Encode(value, encoded, governor, token, null);
+        return encoded;
     }
 
     private static byte[] ResolveNameBytes(ReadOnlyMemory<byte> raw, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken cancellationToken)

@@ -12,20 +12,17 @@ public sealed class NormalizedLiteralTests
 {
     public static IEnumerable<object[]> Cases()
     {
-        (string Body, string Value)[] samples = [
-            ("(a\rb)", "a\nb"), ("(a\r\nb)", "a\nb"), ("(a\nb)", "a\nb"),
-            ("(a\r\r\nb)", "a\n\nb"), ("(a\n\rb)", "a\n\nb"),
-            ("(a\\rb)", "a\rb"), ("(a\\nb)", "a\nb"), ("(a\\015\\012b)", "a\r\nb"),
-            ("(a\\\r\nb\\\rc\\\nd)", "abcd"), ("(a\\\r\r\nb)", "a\nb"),
-            ("(a(b)c)", "a(b)c"), ("(a\\(b\\)c)", "a(b)c"), ("(a\0b)", "a\0b"),
-            ("(\r\n)", "\n"), ("(" + new string('x', 8191) + "\r\nY)", new string('x', 8191) + "\nY")];
-        foreach (var sample in samples)
-        foreach (string route in new[] { "core", "argv", "job", "qdf-argv", "qdf-job" }) { yield return [sample.Body, sample.Value, route]; }
+        yield return ["(a\r\nb\\015\\012)", "a\nb\r\n", "(a\\nb\\r\\n)", "core", true];
+        yield return ["(\\q\\1\\77)", "q\x01?", "(q\\001?)", "argv", false];
+        yield return ["(a(b)c)", "a(b)c", "(a\\(b\\)c)", "job", false];
+        yield return ["(a\0b\rc)", "a\0b\nc", "(a\\000b\\nc)", "qdf-argv", true];
+        yield return ["(" + new string('x', 8191) + "\r\nY)", new string('x', 8191) + "\nY",
+            "(" + new string('x', 8191) + "\\nY)", "qdf-job", true];
     }
 
     [Theory]
     [MemberData(nameof(Cases))]
-    public async Task NormalizationKeepsLiteralSemanticBytes(string body, string expected, string route)
+    public async Task NormalizationKeepsLiteralSemanticBytes(string body, string expected, string encoded, string route, bool marker)
     {
         byte[] content = [.. "/Span << /ActualText "u8, .. Encoding.Latin1.GetBytes(body), .. " >> BDC EMC\n"u8];
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
@@ -59,6 +56,10 @@ public sealed class NormalizedLiteralTests
             {
                 if (token.Kind != ContentTokenKind.LiteralString) { continue; }
                 literals++;
+                Assert.Equal(Encoding.Latin1.GetBytes(encoded), token.Data.ToArray());
+                Assert.NotEqual(Encoding.Latin1.GetBytes(body), token.Data.ToArray());
+                int after = checked((int)token.Offset + token.Data.Length);
+                Assert.Equal(marker, after < normalized.Length && normalized[after] == (byte)'\n');
                 PdfParser parser = new(QpdfLimits.Default, governor, new(governor), null);
                 PdfByteString value = Assert.IsType<PdfByteString>(parser.ParseValue(new PdfTokenizer(token.Data), 0, memory));
                 Assert.Equal(Encoding.Latin1.GetBytes(expected), value.ValueMemory.ToArray());

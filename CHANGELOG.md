@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Share literal decoding and canonical encoding across parsing, normalization and
+  writing, with exact temporary buffers and caller-specific limits.
+
 - Accept omitted page-label starts before prefixes or trailing slashes through
   the shared command parser, retaining explicit-start validation.
 

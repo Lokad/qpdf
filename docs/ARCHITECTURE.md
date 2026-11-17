@@ -131,6 +131,9 @@ lists and creates no generation graph when appearance work is unnecessary.
 Content transforms share rectangle bounds, matrix composition and finite numeric
 array extraction in `PdfGeometry`. Feature callers retain clipping, coordinate
 order, malformed-value diagnostics and degenerate-box fallbacks.
+Literal decoding and canonical encoding share one byte-oriented syntax primitive.
+Parsing and normalization admit exact result arrays; normalization keeps physical
+source-line markers outside the codec. Writer token ownership stays with its sink.
 
 ## Password security
 

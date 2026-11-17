@@ -1,5 +1,6 @@
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Writing;
 
@@ -218,6 +219,8 @@ internal sealed class WriterEncoding : IDisposable
         ArgumentNullException.ThrowIfNull(limits);
         ArgumentNullException.ThrowIfNull(governor);
         CheckCancellation(governor, cancellationToken);
+        if (kind == Kind.Literal)
+        { return PdfLiteralCodec.EncodedLength(input, Math.Min(limits.MaxOutputBytes, Array.MaxLength), nameof(QpdfLimits.MaxOutputBytes), governor, cancellationToken, observe); }
         long length = kind switch
         {
             Kind.Ascii => text.Length,
@@ -227,7 +230,7 @@ internal sealed class WriterEncoding : IDisposable
         };
         long maximum = Math.Min(limits.MaxOutputBytes, Array.MaxLength);
         CheckLength(length, maximum);
-        if (kind is Kind.Name or Kind.Literal)
+        if (kind == Kind.Name)
         {
             for (int offset = 0; offset < input.Length;)
             {
@@ -236,7 +239,7 @@ internal sealed class WriterEncoding : IDisposable
                 governor.NoteOperation();
                 for (int index = offset; index < offset + count; index++)
                 {
-                    length += kind == Kind.Name ? NameWidth(input[index]) : LiteralWidth(input[index]);
+                    length += NameWidth(input[index]);
                     CheckLength(length, maximum);
                 }
                 offset += count;
@@ -267,6 +270,8 @@ internal sealed class WriterEncoding : IDisposable
     private static void Fill(Kind kind, ReadOnlySpan<byte> input, ReadOnlySpan<char> text, Span<byte> target,
         ResourceGovernor governor, CancellationToken cancellationToken, Action? observe)
     {
+        if (kind == Kind.Literal)
+        { PdfLiteralCodec.Encode(input, target, governor, cancellationToken, observe); return; }
         int used = 0;
         if (kind != Kind.Ascii)
         {
@@ -289,7 +294,6 @@ internal sealed class WriterEncoding : IDisposable
                     target[used++] = text[index] <= 127 ? (byte)text[index] : (byte)'?';
                 }
                 else if (kind == Kind.Name) { used += WriteName(input[index], target.Slice(used)); }
-                else if (kind == Kind.Literal) { used += WriteLiteral(input[index], target.Slice(used)); }
                 else
                 {
                     target[used++] = Hex(input[index] >> 4);
@@ -311,27 +315,6 @@ internal sealed class WriterEncoding : IDisposable
         if (value == 0) { target[0] = (byte)'#'; return 1; }
         if (IsRegular(value)) { target[0] = value; return 1; }
         target[0] = (byte)'#'; target[1] = Hex(value >> 4); target[2] = Hex(value & 15); return 3;
-    }
-
-    private static int LiteralWidth(byte value) => value is 10 or 13 or 9 or 8 or 12 or 40 or 41 or 92 ? 2
-        : value is < 32 or > 126 ? 4 : 1;
-
-    private static int WriteLiteral(byte value, Span<byte> target)
-    {
-        if (LiteralWidth(value) == 1) { target[0] = value; return 1; }
-        target[0] = (byte)'\\';
-        if (LiteralWidth(value) == 2)
-        {
-            target[1] = value switch
-            {
-                10 => (byte)'n', 13 => (byte)'r', 9 => (byte)'t', 8 => (byte)'b', 12 => (byte)'f', _ => value,
-            };
-            return 2;
-        }
-        target[1] = (byte)('0' + (value >> 6));
-        target[2] = (byte)('0' + ((value >> 3) & 7));
-        target[3] = (byte)('0' + (value & 7));
-        return 4;
     }
 
     private static byte Hex(int value) => (byte)"0123456789ABCDEF"[value];
