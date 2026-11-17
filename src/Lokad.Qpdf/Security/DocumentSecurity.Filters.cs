@@ -38,7 +38,8 @@ internal sealed partial class DocumentSecurity
         if (!TryGet(header, "Filter"u8, out QpdfObject rawFilters) || Resolve(rawFilters, resolver) is not PdfArray names)
         { throw new QpdfParseException("Invalid Crypt filter chain.", null, null); }
         header = PdfDictionaryRebuild.ReplaceEntry(graph, header, "Filter"u8, Tail(names, graph));
-        if (TryGet(header, "DecodeParms"u8, out QpdfObject rawParms) && Resolve(rawParms, resolver) is PdfArray parameters)
+        if (TryGet(header, "DecodeParms"u8, out QpdfObject rawParms)
+            && Resolve(rawParms, resolver) is PdfArray parameters && parameters.Count > 0)
         { header = PdfDictionaryRebuild.ReplaceEntry(graph, header, "DecodeParms"u8, Tail(parameters, graph)); }
         return header;
     }

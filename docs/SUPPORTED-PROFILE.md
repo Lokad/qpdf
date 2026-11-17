@@ -36,6 +36,7 @@ limits and reports warnings on the document/result (check diagnostics).
 | Streams | Declared binary extents; bounded repair where enabled. External-file descriptors stay opaque and are never opened. |
 | Filters | Flate/LZW with predictors, ASCIIHex/ASCII85 and RunLength. DCT decoding requires a host codec; CMYK/YCCK also requires its explicit four-component capability. Zopfli is unavailable. |
 
+Empty `DecodeParms` arrays select the filters' defaults.
 Unavailable optional decoding can warn and preserve encoded bytes. Structural
 budget exhaustion remains a resource failure, never permission to discard retained data.
 

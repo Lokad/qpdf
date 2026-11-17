@@ -2596,7 +2596,8 @@
           "CheckInspectionTests.ExplicitGlobalBlocksKeepNativeRepeatedSettings",
           "CheckTransformationTests.OverlayPreservesIndirectAnnotationsAndFormGenerations",
           "CheckTransformationTests.OverlayUpdatesAFormInADirectTrailerCatalog",
-          "CheckTransformationTests.LayerInspectionWithoutCheckReturnsTheTransformedStream"
+          "CheckTransformationTests.LayerInspectionWithoutCheckReturnsTheTransformedStream",
+          "EmptyDecodeParmsTests.ImageJsonAndCheckingShareDefaultParameters"
         ],
         "resource": [
           "CheckTests.CheckFailsOnExhaustedInputBudget",
@@ -3375,7 +3376,8 @@
           "FilterBoundaryTests.AsciiFiltersUsePdfWhitespace",
           "PredictorDefaultsTests.OptionalNullParametersUseTheSameDefaultsAsAbsentKeys",
           "ShowObjectTests.FilteredBeatsRaw",
-          "ShowObjectTests.JobStreamDataMatchesArgv"
+          "ShowObjectTests.JobStreamDataMatchesArgv",
+          "EmptyDecodeParmsTests.FilteredInspectionUsesDefaultsForEmptyParameterArrays"
         ],
         "negative": [
           "ShowObjectTests.StreamOutputPathsMustBeUnambiguous",
@@ -3392,7 +3394,9 @@
         "resource": [
           "ShowObjectTests.StreamDataYieldsToExhaustedBudget",
           "CodecDecodedBudgetTests.PublicPngExtractionChargesSamplesAndPreservesPriorOutputOnRefusal",
-          "LzwDictionaryTests.PublicInspectionFitsTwentyMiBAndRetainsOutput"
+          "LzwDictionaryTests.PublicInspectionFitsTwentyMiBAndRetainsOutput",
+          "FilterPlanTests.EmptyParameterArraysUseDefaultsWithoutRetainingResolutionStorage",
+          "FilterPlanTests.CancellationAtResolverBoundaryPreventsPublication"
         ],
         "oracle": [
           "diff:show-object-stream-data"
@@ -4011,7 +4015,8 @@
           "JsonPageAssemblyTests.MinimalJobOutputExportsTheAssembledPageTree",
           "JsonPageAssemblyTests.EachEncryptedInputUsesItsOwnCredential",
           "JsonPageAssemblyTests.ExportRetainsTheSelectedSourcesVersionFloor",
-          "AcroFormJsonTests.FieldLocalNamesUseTheSamePublicProjection"
+          "AcroFormJsonTests.FieldLocalNamesUseTheSamePublicProjection",
+          "EmptyDecodeParmsTests.ImageJsonAndCheckingShareDefaultParameters"
         ],
         "resource": [
           "JsonPublicationMemoryTests.KnownSidecarLengthFitsSharedAllowanceWithoutGrowthCopies",

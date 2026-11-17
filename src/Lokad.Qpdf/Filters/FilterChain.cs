@@ -358,6 +358,7 @@ internal static partial class FilterChain
         }
         if (raw is not PdfArray array)
         { throw new QpdfParseException("Stream /DecodeParms must be a dictionary, an array, or null.", null, null); }
+        if (array.Count == 0) { return; }
         if (array.Count != plan.Count)
         { throw new QpdfParseException($"Stream /DecodeParms holds {array.Count} entries for {plan.Count} filters.", null, null); }
         for (int index = 0; index < array.Count; index++)

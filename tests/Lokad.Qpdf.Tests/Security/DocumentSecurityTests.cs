@@ -32,6 +32,7 @@ public sealed class DocumentSecurityTests
 
     [Theory]
     [InlineData("/Filter /Crypt", false)]
+    [InlineData("/Filter /Crypt /DecodeParms []", false)]
     [InlineData("/Filter /Crypt /DecodeParms << /Name /Identity >>", false)]
     [InlineData("/Filter /Crypt /DecodeParms << /Name /StdCF >>", true)]
     [InlineData("/Filter [/Crypt /FlateDecode] /DecodeParms [<< /Name /StdCF >> null]", true)]
@@ -51,6 +52,27 @@ public sealed class DocumentSecurityTests
                 Assert.Single(parms.Items); Assert.IsType<PdfNull>(parms[0]);
             }
             else { Assert.False(result.Dictionary.TryGet(PdfName.FromAscii("Filter"), out _)); }
+        });
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EmptyParameterArraysRemainDefaultAcrossDecryptionAndCryptRemoval(bool identity)
+    {
+        WithContext(0, static text => text, (security, key, governor, memory) =>
+        {
+            byte[] encoded = Convert.FromHexString("789C73040000420042");
+            string filter = identity ? "[/Crypt /FlateDecode]" : "/FlateDecode";
+            PdfStream stream = new(Parse("<< /Filter " + filter + " /DecodeParms [] >>", governor, memory), identity ? encoded : Encrypt(encoded, key));
+            NoResolver resolver = new();
+            PdfStream result = Assert.IsType<PdfStream>(security.Decrypt(stream, 1, 0, false, resolver, memory));
+            Assert.Equal(encoded, result.Data);
+            Assert.Empty(Assert.IsType<PdfArray>(Get(result.Dictionary, "DecodeParms")).Items);
+            using Lokad.Qpdf.Filters.FilterPlan filters = Lokad.Qpdf.Filters.FilterChain.Resolve(result.Dictionary, resolver, governor, CancellationToken.None);
+            Assert.Equal(1, filters.Count); Assert.Equal("FlateDecode", filters[0].Name); Assert.Null(filters[0].Parms);
+            Assert.Equal("A"u8.ToArray(), Lokad.Qpdf.Filters.FilterChain.Decode(result.ArrayData(memory, governor, CancellationToken.None), filters,
+                QpdfLimits.Default, governor, memory, CancellationToken.None));
         });
     }
 

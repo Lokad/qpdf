@@ -101,7 +101,7 @@ public sealed class FilterPlanTests
     public void MalformedParameterShapesRetireAllExclusiveStageStorage(string kind)
     {
         QpdfObject filter = kind == "without-filter" ? new PdfArray([]) : PdfName.FromAscii("Fl");
-        QpdfObject parms = kind == "count" ? new PdfArray([]) : kind == "entry" ? new PdfArray([new PdfInteger("7", 7L)]) : new PdfInteger("7", 7L);
+        QpdfObject parms = kind == "count" ? new PdfArray([PdfNull.Instance, PdfNull.Instance]) : kind == "entry" ? new PdfArray([new PdfInteger("7", 7L)]) : new PdfInteger("7", 7L);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         QpdfParseException failure = Assert.Throws<QpdfParseException>(() => FilterChain.Resolve(Dictionary(filter, parms), null, governor, CancellationToken.None));
         Assert.Contains("/DecodeParms", failure.Message, StringComparison.Ordinal); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
@@ -112,6 +112,31 @@ public sealed class FilterPlanTests
         internal readonly List<int> Visits = new();
         public bool TryResolve(PdfReference reference, out QpdfObject? value)
         { Visits.Add(reference.ObjectNumber); bool result = values.TryGetValue(reference.ObjectNumber, out value); observe?.Invoke(); return result; }
+    }
+
+    [Theory]
+    [InlineData(false, 1)]
+    [InlineData(true, 1)]
+    [InlineData(false, 6)]
+    [InlineData(true, 6)]
+    public void EmptyParameterArraysUseDefaultsWithoutRetainingResolutionStorage(bool indirect, int count)
+    {
+        PdfName[] names = [PdfName.FromAscii("Fl"), PdfName.FromAscii("LZW"), PdfName.FromAscii("A85"),
+            PdfName.FromAscii("AHx"), PdfName.FromAscii("RL"), PdfName.FromAscii("DCT")];
+        PdfArray empty = new([]);
+        Resolver resolver = new(new() { [1] = empty }, null);
+        QpdfObject parms = indirect ? new PdfReference(1, 0) : empty;
+        QpdfObject filters = count == 1 ? names[0] : new PdfArray(names);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
+        long before = governor.Snapshot().LiveMemoryBytes;
+        using FilterPlan plan = FilterChain.Resolve(Dictionary(filters, parms), resolver, governor, CancellationToken.None);
+        Assert.Equal(count, plan.Count);
+        for (int index = 0; index < count; index++)
+        { Assert.Null(plan[index].Parms); Assert.Same(resolver, plan[index].Resolver); }
+        if (indirect) { Assert.Contains(1, resolver.Visits); }
+        Assert.Empty(empty.Items);
+        plan.Dispose(); Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L, prior.ReservedBytes);
     }
 
     [Fact]
@@ -175,16 +200,20 @@ public sealed class FilterPlanTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void CancellationAtResolverBoundaryPreventsPublication(bool governorToken)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void CancellationAtResolverBoundaryPreventsPublication(bool governorToken, bool parameters)
     {
         using CancellationTokenSource cancellation = new();
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
-        Resolver resolver = new(new() { [1] = PdfName.FromAscii("Fl") }, cancellation.Cancel);
-        Assert.ThrowsAny<OperationCanceledException>(() => FilterChain.Resolve(Dictionary(new PdfReference(1, 0), PdfNull.Instance), resolver,
+        using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
+        long before = governor.Snapshot().LiveMemoryBytes;
+        Resolver resolver = new(new() { [1] = parameters ? new PdfArray([]) : PdfName.FromAscii("Fl") }, cancellation.Cancel);
+        Assert.ThrowsAny<OperationCanceledException>(() => FilterChain.Resolve(Dictionary(parameters ? PdfName.FromAscii("Fl") : new PdfReference(1, 0), parameters ? new PdfReference(1, 0) : PdfNull.Instance), resolver,
             governor, governorToken ? CancellationToken.None : cancellation.Token));
-        Assert.Equal([1], resolver.Visits); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal([1], resolver.Visits); Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L, prior.ReservedBytes);
     }
 
     [Fact]
