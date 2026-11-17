@@ -8,6 +8,35 @@ namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class OutlineInspectionTests
 {
+    [Fact]
+    public async Task SchemaSyntaxCoversOutlineProjectionAroundADeepValue()
+    {
+        int levels = (int)QpdfLimits.ParserNestingCeiling;
+        List<string> nodes = [];
+        for (int index = 0; index < levels; index++)
+        {
+            string entry = "<< /Title (node) /Parent " + (index == 0 ? 4 : index + 4) + " 0 R";
+            entry += index + 1 < levels ? " /First " + (index + 6) + " 0 R" : " /Dest " + (levels + 5) + " 0 R";
+            nodes.Add(entry + " >>");
+        }
+        nodes.Add(new string('[', levels) + "3 0 R" + new string(']', levels));
+        QpdfLimits limits = QpdfLimits.Default with { MaxNestingDepth = levels };
+        using InMemoryQpdfHost host = new(limits);
+        host.AddInput(QpdfPath.From("input"), Fixture(nodes.ToArray()), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new(["input", "--json=2", "--json-key=outlines", "--test-json-schema"]), new QpdfExecutionOptions(limits), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.JsonSchemaCheck);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        using JsonDocument parsed = JsonDocument.Parse(result.OutputText ?? throw new InvalidOperationException(), new JsonDocumentOptions { MaxDepth = DocumentJson.SyntaxMaxDepth });
+        JsonElement outline = Assert.Single(parsed.RootElement.GetProperty("outlines").EnumerateArray());
+        for (int index = 1; index < levels; index++) { outline = Assert.Single(outline.GetProperty("kids").EnumerateArray()); }
+        Assert.Empty(outline.GetProperty("kids").EnumerateArray());
+        JsonElement destination = outline.GetProperty("dest");
+        for (int index = 1; index < levels; index++) { destination = Assert.Single(destination.EnumerateArray()); }
+        Assert.Equal("3 0 R", Assert.Single(destination.EnumerateArray()).GetString());
+    }
+
     internal static byte[] Fixture(params string[] entries)
     {
         List<(int Number, string Dict, byte[]? StreamData)> objects = [

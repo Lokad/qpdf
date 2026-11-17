@@ -311,6 +311,11 @@ Existing overloads with an output path publish the
 report as well as returning it. Caller budget scopes must outlive returned text
 and warnings, including after host/document cleanup.
 
+`--test-json-schema` bounds complete generated JSON syntax and checks top-level
+names against the selected help version. Its syntax allowance covers deep PDF
+values and outline projections; PDF model limits remain binding. Recursive nested
+format validation is unavailable.
+
 PDF JSON v1/v2 preserve reference identities; v2 uses binary strings whenever text
 would change bytes. V1 emits stream dictionaries only, including when inline/file
 settings are accepted; it creates no sidecars. V2 can omit/include stream payloads

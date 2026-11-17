@@ -23,11 +23,14 @@ internal static class JsonExecution
         CancellationToken cancellationToken)
     {
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        memory.Reserve(80L);
+        // Conservative backing for the readers' container stacks and their
+        // growth overlap. Output syntax can surround an already bounded model.
+        memory.Reserve(80L + 64L * (2L + (Json.DocumentJson.SyntaxMaxDepth + 63L) / 64L));
         using GovernedBufferStream bytes = new(governor, Array.MaxLength, nameof(QpdfLimits.MaxOutputBytes), cancellationToken, 1024);
         List<string> described = ParserContainers.CreateList<string>(memory);
         EncodeSchemaJson(version == 1 ? HelpText.JsonHelpV1 : HelpText.JsonHelpV2, bytes, governor, cancellationToken);
-        System.Text.Json.Utf8JsonReader help = new(bytes.WrittenSpan);
+        System.Text.Json.JsonReaderOptions options = new() { MaxDepth = Json.DocumentJson.SyntaxMaxDepth };
+        System.Text.Json.Utf8JsonReader help = new(bytes.WrittenSpan, options);
         while (help.Read())
         {
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -46,7 +49,7 @@ internal static class JsonExecution
         EncodeSchemaJson(json, bytes, governor, cancellationToken);
         if (bytes.Length != utf8Bytes) { throw new InvalidOperationException("JSON UTF-8 sizing disagrees with encoding."); }
         List<string> missing = ParserContainers.CreateList<string>(memory);
-        System.Text.Json.Utf8JsonReader generated = new(bytes.WrittenSpan);
+        System.Text.Json.Utf8JsonReader generated = new(bytes.WrittenSpan, options);
         if (!generated.Read() || generated.TokenType != System.Text.Json.JsonTokenType.StartObject)
         { throw new System.Text.Json.JsonException("JSON schema checking requires an object."); }
         while (generated.Read())

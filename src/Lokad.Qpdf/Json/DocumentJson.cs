@@ -40,6 +40,10 @@ internal sealed record JsonRequest(
 /// </summary>
 internal static class DocumentJson
 {
+    // An outline projects an object and child array per level, and its leaf
+    // can carry a full-depth PDF value. Model limits remain with their readers.
+    internal const int SyntaxMaxDepth = 3 * (int)QpdfLimits.ParserNestingCeiling + 8;
+
     internal static DisplayBuffer WriteDocument(
         QpdfDocument document,
         JsonRequest request,

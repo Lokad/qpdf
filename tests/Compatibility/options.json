@@ -7182,12 +7182,16 @@
           "source": "manual/cli.rst:4021"
         }
       ],
-      "status": "complete",
+      "status": "partial",
       "defaultReview": "reviewed",
-      "remainingGaps": [],
+      "remainingGaps": [
+        "The checker bounds complete generated JSON syntax and checks top-level names against the selected help version. Recursive nested format validation remains unavailable."
+      ],
       "evidence": {
         "positive": [
           "TestingOptionsTests.SchemaCheckValidatesVersions",
+          "JsonDepthRoundTripTests.SchemaCheckingPreservesDeepValuesAcrossOutputEnvelopes",
+          "OutlineInspectionTests.SchemaSyntaxCoversOutlineProjectionAroundADeepValue",
           "TestingOptionsTests.JobSchemaKeyMatchesArgv"
         ],
         "negative": [
@@ -7200,7 +7204,11 @@
           "TestingOptionsTests.BadTestingJobKeysFail"
         ],
         "resource": [
-          "TestingOptionsTests.SchemaCheckYieldsToExhaustedBudget"
+          "TestingOptionsTests.SchemaCheckYieldsToExhaustedBudget",
+          "JsonSchemaMemoryTests.GeneratedSyntaxStillHasAFiniteCeilingAndRefundsFailureStorage",
+          "JsonSchemaMemoryTests.RefusalBeforeFullEncodingRefundsScratch",
+          "JsonSchemaMemoryTests.CancellationDuringEncodingObservesBothTokensAndRefunds",
+          "JsonDepthRoundTripTests.SchemaSyntaxAllowanceCannotRaiseTheSourceModelLimit"
         ],
         "oracle": [
           "diff:diagnostics"

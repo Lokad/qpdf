@@ -106,6 +106,18 @@ public sealed class JsonSchemaMemoryTests
         Assert.Empty(diagnostics.Entries); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
+    [Fact]
+    public void GeneratedSyntaxStillHasAFiniteCeilingAndRefundsFailureStorage()
+    {
+        string json = "{\"pages\":" + new string('[', Lokad.Qpdf.Json.DocumentJson.SyntaxMaxDepth)
+            + "0" + new string(']', Lokad.Qpdf.Json.DocumentJson.SyntaxMaxDepth) + "}";
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        DiagnosticBag diagnostics = new(governor);
+        Assert.ThrowsAny<JsonException>(() => Check(json, 2, governor, diagnostics, CancellationToken.None));
+        Assert.Empty(diagnostics.Entries);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
     [Theory]
     [InlineData(1, "objects", true)]
     [InlineData(2, "objects", false)]

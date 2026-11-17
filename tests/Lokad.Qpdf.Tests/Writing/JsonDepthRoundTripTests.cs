@@ -88,6 +88,79 @@ public sealed class JsonDepthRoundTripTests
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
+    public static IEnumerable<object[]> SchemaCases()
+    {
+        foreach (string envelope in new[] { "value", "stream", "trailer" })
+        foreach (int depth in new[] { 64, 200, 499 }) { yield return [envelope, depth, 2, "argv"]; }
+        foreach (int depth in new[] { 64, 200, 499 }) { yield return ["value", depth, 1, "argv"]; }
+        yield return ["stream", 200, 2, "job"];
+        yield return ["trailer", 200, 1, "job"];
+        yield return ["value", 499, 2, "mixed"];
+    }
+
+    [Theory]
+    [MemberData(nameof(SchemaCases))]
+    public async Task SchemaCheckingPreservesDeepValuesAcrossOutputEnvelopes(string envelope, int depth, int version, string route)
+    {
+        QpdfLimits limits = QpdfLimits.Default with { MaxNestingDepth = 499 };
+        using InMemoryQpdfHost host = new(limits);
+        host.AddInput(QpdfPath.From("json"), Encoding.UTF8.GetBytes(Json(envelope, depth)), QpdfInputOwnership.Transfer);
+        await Qpdf.CreatePdfFromJsonAsync(host, QpdfPath.From("json"), QpdfPath.From("created"), limits, CancellationToken.None);
+        Assert.True(host.TryGetOutput(QpdfPath.From("created"), out byte[] pdf));
+        host.AddInput(QpdfPath.From("input"), pdf, QpdfInputOwnership.Transfer);
+        host.AddInput(QpdfPath.From("settings"), Encoding.UTF8.GetBytes("{\"json\":\"" + version + "\"}"), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = route == "job"
+            ? await Qpdf.ExecuteJobAsync(host, "{\"inputFile\":\"input\",\"outputFile\":\"report\",\"json\":\"" + version + "\",\"testJsonSchema\":\"\"}", new QpdfExecutionOptions(limits), CancellationToken.None)
+            : await Qpdf.ExecuteAsync(host, new(route == "mixed"
+                ? ["input", "--job-json-file=settings", "--test-json-schema", "--", "report"]
+                : ["input", "--json=" + version, "--test-json-schema", "--", "report"]), new QpdfExecutionOptions(limits), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.JsonSchemaCheck);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.True(host.TryGetOutput(QpdfPath.From("report"), out byte[] output));
+        using JsonDocument parsed = JsonDocument.Parse(output, new JsonDocumentOptions { MaxDepth = Lokad.Qpdf.Json.DocumentJson.SyntaxMaxDepth });
+        JsonElement table = version == 2 ? parsed.RootElement.GetProperty("qpdf")[1] : parsed.RootElement.GetProperty("objects");
+        JsonElement Object(string reference) => table.GetProperty((version == 2 ? "obj:" : "") + reference);
+        JsonElement Value(string reference) => version == 2 ? Object(reference).GetProperty("value") : Object(reference);
+        JsonElement trailer = version == 2 ? table.GetProperty("trailer").GetProperty("value") : table.GetProperty("trailer");
+        JsonElement catalog = Value(trailer.GetProperty("/Root").GetString() ?? throw new InvalidOperationException());
+        JsonElement dictionary = envelope switch
+        {
+            "value" => catalog,
+            "trailer" => Value(trailer.GetProperty("/Info").GetString() ?? throw new InvalidOperationException()),
+            _ => version == 2 ? Object(catalog.GetProperty("/Probe").GetString() ?? throw new InvalidOperationException()).GetProperty("stream").GetProperty("dict")
+                : Object(catalog.GetProperty("/Probe").GetString() ?? throw new InvalidOperationException())
+        };
+        JsonElement nested = dictionary.GetProperty("/Review");
+        int arrays = envelope == "trailer" ? depth - 1 : depth;
+        for (int index = 1; index < arrays; index++) { nested = Assert.Single(nested.EnumerateArray()); }
+        Assert.Empty(nested.EnumerateArray());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SchemaSyntaxAllowanceCannotRaiseTheSourceModelLimit(bool job)
+    {
+        QpdfLimits creation = QpdfLimits.Default with { MaxNestingDepth = 499 };
+        using InMemoryQpdfHost host = new(creation);
+        host.AddInput(QpdfPath.From("json"), Encoding.UTF8.GetBytes(Json("value", 200)), QpdfInputOwnership.Transfer);
+        await Qpdf.CreatePdfFromJsonAsync(host, QpdfPath.From("json"), QpdfPath.From("created"), creation, CancellationToken.None);
+        Assert.True(host.TryGetOutput(QpdfPath.From("created"), out byte[] pdf));
+        host.AddInput(QpdfPath.From("input"), pdf, QpdfInputOwnership.Transfer);
+        await using (IQpdfOutputTransaction prior = await host.CreateOutputAsync(QpdfPath.From("report"), CancellationToken.None))
+        { await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None); await prior.CommitAsync(CancellationToken.None); }
+        QpdfExecutionOptions options = new(creation with { MaxNestingDepth = 64 });
+        QpdfExecutionResult result = job
+            ? await Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"report","json":"2","testJsonSchema":""}""", options, CancellationToken.None)
+            : await Qpdf.ExecuteAsync(host, new(["input", "--json=2", "--test-json-schema", "--", "report"]), options, CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.True(host.TryGetOutput(QpdfPath.From("report"), out byte[] output));
+        Assert.Equal("prior"u8.ToArray(), output);
+    }
+
     [Theory]
     [InlineData("value")]
     [InlineData("stream")]
