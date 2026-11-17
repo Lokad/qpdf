@@ -25,9 +25,7 @@ internal sealed partial class PdfSerializer
     private OutputSecurity? CountingSecurity(QpdfObject value)
     {
         OutputSecurity? security = _security;
-        return security is null || ReferenceEquals(value, security.Dictionary)
-            || value is PdfStream stream && PdfStringCrypt.HasType(stream.Dictionary, "XRef"u8, _governor)
-            ? null : security;
+        return security is null || ReferenceEquals(value, security.Dictionary) ? null : security;
     }
 
     private int CountedStreamLength(PdfStream stream, bool rootMetadata, IIndirectResolver resolver)

@@ -51,10 +51,10 @@ public sealed class StreamCryptPreparationTests
     }
 
     [Theory]
-    [InlineData("/F (external)", false)]
-    [InlineData("/Type /Metadata", true)]
-    [InlineData("/Type /XRef", false)]
-    public void PreparationPreservesClearStreamExceptions(string fields, bool metadata)
+    [InlineData("/F (external)", false, true)]
+    [InlineData("/Type /Metadata", true, true)]
+    [InlineData("/Type /XRef", false, false)]
+    public void PreparationPreservesClearStreamExceptionsWithoutTrustingTypeTags(string fields, bool metadata, bool clear)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope source = ParserMemoryScope.Create(governor);
@@ -67,10 +67,15 @@ public sealed class StreamCryptPreparationTests
         int number = OutputModelPreparation.AddEncryptionObject(model, security, source, governor);
         Assert.Equal(5, number);
         PdfStream normalized = Assert.IsType<PdfStream>(model[0].Value);
+        Assert.False(normalized.Dictionary.TryGet(PdfName.FromAscii("Filter"), out _));
         PoolResolver resolver = new(model.ToDictionary(item => item.Number, item => item.Value));
         PdfStream encrypted = Assert.IsType<PdfStream>(security.EncryptObject(normalized, 4, 0, metadata, resolver, source, governor));
-        Assert.Equal("clear"u8.ToArray(), encrypted.Data);
-        Assert.Same(original.AllocationCarrier, encrypted.AllocationCarrier);
+        if (clear)
+        {
+            Assert.Equal("clear"u8.ToArray(), encrypted.Data);
+            Assert.Same(original.AllocationCarrier, encrypted.AllocationCarrier);
+        }
+        else { Assert.NotEqual("clear"u8.ToArray(), encrypted.Data); }
     }
 
     [Theory]

@@ -129,8 +129,10 @@ order, malformed-value diagnostics and degenerate-box fallbacks.
 One security handler serves the shared reader and all entry points. The reader
 validates the encryption dictionary before traversing encrypted objects, then
 owns one authenticated file key. Physical strings and streams decrypt before
-caching; object streams decrypt once, before their members parse. Xref data,
-encryption dictionaries and signature Contents remain clear. Metadata follows
+caching; object streams decrypt once, before their members parse. Xref sections
+are identified by physical offsets, including hybrid links and earlier revisions;
+reused object numbers and ordinary `/Type /XRef` tags do not grant exemptions.
+Physical xref data, encryption dictionaries and signature Contents remain clear. Metadata follows
 its encryption flag, explicit Crypt stages are consumed once, and external-file
 streams stay opaque without opening their referenced paths.
 

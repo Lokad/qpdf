@@ -391,7 +391,7 @@ internal sealed partial class GraphCopier
             PdfReference reference = new(number, generation);
             if (!PdfObjectLookup.TryResolve(reference, resolver, _governor, cancellationToken, out QpdfObject? resolved) || resolved is null)
             { skipped += 1; continue; }
-            if (IsSkippedStructure(resolved, number, excluded)) { continue; }
+            if (engine.IsCrossReferenceStream(number) || IsSkippedStructure(resolved, number, excluded)) { continue; }
             int firstId = BeginCopyAttempt();
             try
             {
@@ -434,7 +434,7 @@ internal sealed partial class GraphCopier
         if (value is PdfStream stream)
         {
             if (stream.Dictionary.TryGet(TypeKey, out QpdfObject raw) && raw is PdfName name
-                && (name.RawSpan.SequenceEqual("ObjStm"u8) || name.RawSpan.SequenceEqual("XRef"u8)))
+                && name.RawSpan.SequenceEqual("ObjStm"u8))
             {
                 return true;
             }

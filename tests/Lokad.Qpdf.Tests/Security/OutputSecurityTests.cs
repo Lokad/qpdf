@@ -19,7 +19,7 @@ public sealed class OutputSecurityTests
     [InlineData("/Type /Metadata", false, true)]
     [InlineData("/F (external)", false, false)]
     [InlineData("/F 10 0 R", false, true)]
-    [InlineData("/Type /XRef", false, false)]
+    [InlineData("/Type /XRef", false, true)]
     public async Task PhysicalStreamEncryptionPreservesRequiredExceptionsAndUpdatesLengths(string fields, bool rootMetadata, bool encrypted)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
@@ -31,8 +31,7 @@ public sealed class OutputSecurityTests
         PdfStream stream = new(header, "payload bytes"u8.ToArray());
         using OutputSecurity security = OutputSecurity.CreateRevision6("reader"u8, "owner"u8, -4, false, governor);
         PdfStream written = Assert.IsType<PdfStream>(security.EncryptObject(stream, 4, 0, rootMetadata, new NullResolver(), destination, governor));
-        bool xref = fields.Contains("XRef", StringComparison.Ordinal);
-        Assert.Equal(xref, ReferenceEquals(stream, written));
+        Assert.NotSame(stream, written);
         byte[] key = new byte[32];
         Assert.Equal(PasswordAuthentication.User, Aes256Encryption.Authenticate(security.Dictionary, "reader"u8, key, governor));
         using Aes aes = Aes.Create(); aes.SetKey(key);
@@ -46,7 +45,7 @@ public sealed class OutputSecurityTests
         else { Assert.Equal("payload bytes"u8.ToArray(), written.Data); }
         Assert.True(written.Dictionary.TryGet(PdfName.FromAscii("Note"), out QpdfObject rawNote));
         byte[] note = Assert.IsType<PdfByteString>(rawNote).Value;
-        Assert.Equal("header text"u8.ToArray(), xref ? note : aes.DecryptCbc(note.AsSpan(16), note.AsSpan(0, 16), PaddingMode.PKCS7));
+        Assert.Equal("header text"u8.ToArray(), aes.DecryptCbc(note.AsSpan(16), note.AsSpan(0, 16), PaddingMode.PKCS7));
         Assert.Equal("payload bytes"u8.ToArray(), stream.Data);
         Assert.Same(security.Dictionary, security.EncryptObject(security.Dictionary, 7, 0, false, new NullResolver(), destination, governor));
         PdfSerializer serializer = new(QpdfLimits.Default, governor, security, 7, rootMetadata ? 4 : 0, new NullResolver());
@@ -57,17 +56,21 @@ public sealed class OutputSecurityTests
         Assert.Equal(sink.Length, counter.Length);
     }
 
-    [Fact]
-    public async Task UnknownCryptStagesFailWithoutTransferringPartialOutput()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task UnknownCryptStagesFailWithoutTransferringPartialOutput(bool tagged)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope destination = ParserMemoryScope.Create(governor);
-        PdfDictionary header = new(new Dictionary<PdfName, QpdfObject>
+        Dictionary<PdfName, QpdfObject> entries = new()
         {
             [PdfName.FromAscii("Filter")] = PdfName.FromAscii("Crypt"),
             [PdfName.FromAscii("DecodeParms")] = new PdfDictionary(new Dictionary<PdfName, QpdfObject>
             { [PdfName.FromAscii("Name")] = PdfName.FromAscii("Unknown") })
-        });
+        };
+        if (tagged) { entries[PdfName.FromAscii("Type")] = PdfName.FromAscii("XRef"); }
+        PdfDictionary header = new(entries);
         PdfStream stream = new(header, "opaque"u8.ToArray());
         using OutputSecurity security = OutputSecurity.CreateRevision6([], "owner"u8, -4, true, governor);
         long before = governor.Snapshot().LiveMemoryBytes;

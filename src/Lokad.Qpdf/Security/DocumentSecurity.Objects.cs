@@ -9,14 +9,14 @@ namespace Lokad.Qpdf.Security;
 
 internal sealed partial class DocumentSecurity
 {
-    // Called only for physical indirect objects, never object-stream members.
+    // Called only for ordinary physical indirect objects. The reader handles
+    // actual xref sections before this boundary; tags do not grant exceptions.
     internal QpdfObject Decrypt(QpdfObject value, int objectNumber, int generation, bool rootMetadata,
         IIndirectResolver resolver, ParserMemoryScope destination)
     {
         CheckOwner(_governor); destination.CheckOwner(_governor);
         _governor.CheckCancellation();
         if (value is not (PdfByteString or PdfArray or PdfDictionary or PdfStream)) { return value; }
-        if (value is PdfStream xref && PdfStringCrypt.HasType(xref.Dictionary, "XRef"u8, _governor)) { return value; }
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(_governor, _governor.CancellationToken);
         Span<byte> derived = stackalloc byte[16];
         try

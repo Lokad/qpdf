@@ -2,6 +2,8 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Protect and retain private XRef-tagged streams across writers and JSON import;
+  distinguish physical xref sections from ordinary graph values during decryption.
 - Expose bounded recovery for typed attachment operations, with immutable listing
   metadata, warnings and final counters. Close extraction inputs before publication,
   preserving payload backing and prior targets on cleanup failure or cancellation.

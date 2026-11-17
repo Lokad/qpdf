@@ -119,7 +119,7 @@ public sealed class DocumentSecurityTests
     }
 
     [Fact]
-    public void EmbeddedFilesUseEffWhileStringsUseStrFAndXrefsStayUntouched()
+    public void EmbeddedFilesUseEffWhileStringsAndTaggedStreamsUseTheirOrdinaryFilters()
     {
         WithContext(0, static text => text.Replace("/StmF /StdCF", "/StmF /Identity /EFF /StdCF", StringComparison.Ordinal), (security, key, governor, memory) =>
         {
@@ -130,8 +130,9 @@ public sealed class DocumentSecurityTests
             Assert.Equal(plain, result.Data); Assert.Equal("filename.txt", Text(Get(result.Dictionary, "Private")));
             PdfStream ordinary = new(Parse("<< >>", governor, memory), plain);
             Assert.Equal(plain, Assert.IsType<PdfStream>(security.Decrypt(ordinary, 1, 0, false, new NoResolver(), memory)).Data);
-            PdfStream xref = new(Parse("<< /Type /XRef /ID [<01020304> <05060708>] >>", governor, memory), plain);
-            Assert.Same(xref, security.Decrypt(xref, 1, 0, false, new NoResolver(), memory));
+            PdfStream tagged = new(Parse($"<< /Type /XRef /Private <{encryptedName}> >>", governor, memory), plain);
+            PdfStream decrypted = Assert.IsType<PdfStream>(security.Decrypt(tagged, 1, 0, false, new NoResolver(), memory));
+            Assert.Equal(plain, decrypted.Data); Assert.Equal("filename.txt", Text(Get(decrypted.Dictionary, "Private")));
         });
     }
 

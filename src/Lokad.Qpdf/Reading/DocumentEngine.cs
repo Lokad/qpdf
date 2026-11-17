@@ -233,6 +233,10 @@ internal sealed partial class DocumentEngine : IStreamRecoveryResolver, IDisposa
 
     internal IReadOnlyDictionary<int, XrefEntry> XRefEntries => Table.Entries;
 
+    internal bool IsCrossReferenceStream(int number)
+        => Table.Entries.TryGetValue(number, out XrefEntry entry)
+            && entry.Kind == XrefEntryKind.Uncompressed && Table.IsStreamOffset(entry.First);
+
     internal ReadOnlyMemory<byte> Data => _data;
 
     long IStreamRecoveryResolver.GetStreamRecoveryEnd(long streamOffset)
@@ -523,7 +527,8 @@ internal sealed partial class DocumentEngine : IStreamRecoveryResolver, IDisposa
                     throw new QpdfParseException($"Object header contradicts its xref entry for object {number}.", entry.First, number);
                 }
 
-                if (_security is not null && number != _encryptionNumber)
+                if (_security is not null && number != _encryptionNumber
+                    && (value is not PdfStream || !Table.IsStreamOffset(entry.First)))
                 { value = _security.Decrypt(value, number, foundGeneration, number == _rootMetadataNumber, this, memory); }
                 StoreCached(number, value, memory, true);
                 return value;

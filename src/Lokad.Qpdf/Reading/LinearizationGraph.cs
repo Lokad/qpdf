@@ -21,12 +21,10 @@ internal static class LinearizationGraph
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
             if (entry.Key <= 0 || entry.Value.Kind == XrefEntryKind.Free
-                || entry.Key == lindictObject || entry.Key == hintObject
+                || entry.Key == lindictObject || entry.Key == hintObject || engine.IsCrossReferenceStream(entry.Key)
                 || entry.Value.Kind == XrefEntryKind.Uncompressed && entry.Value.First == overflowOffset) { continue; }
             QpdfObject value = engine.Load(entry.Key);
             if (value is null or PdfNull) { continue; }
-            if (value is PdfStream stream && PdfDictionaryLookup.TryGet(stream.Dictionary, "Type"u8,
-                governor, cancellationToken, out QpdfObject type) && type is PdfName name && name.RawSpan.SequenceEqual("XRef"u8)) { continue; }
             lookup.TryAdd(temporary, entry.Key, value);
             if (entry.Value.Kind == XrefEntryKind.Compressed)
             {

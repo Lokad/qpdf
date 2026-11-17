@@ -124,10 +124,11 @@ internal sealed partial class OutputSecurity : IDisposable
     internal QpdfObject EncryptObject(QpdfObject value, int number, int generation, bool rootMetadata, IIndirectResolver resolver,
         ParserMemoryScope destination, ResourceGovernor governor)
     {
+        // Physical xref packets have their own writer. Values supplied here are
+        // ordinary graph objects even when their dictionaries say /Type /XRef.
         ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(OutputSecurity));
         memory.CheckOwner(governor); destination.CheckOwner(governor); governor.CheckCancellation();
         if (ReferenceEquals(value, Dictionary) || value is not (PdfByteString or PdfArray or PdfDictionary or PdfStream)) { return value; }
-        if (value is PdfStream xref && PdfStringCrypt.HasType(xref.Dictionary, "XRef"u8, governor)) { return value; }
         Span<byte> derived = stackalloc byte[16];
         try { return EncryptObjectCore(value, rootMetadata, resolver, destination, ObjectKey(number, generation, derived, governor), governor); }
         finally { CryptographicOperations.ZeroMemory(derived); }

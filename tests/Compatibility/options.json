@@ -2955,7 +2955,8 @@
       "cryptoSyntax": true,
       "evidence": {
         "positive": [
-          "EncryptionTemplateCommandTests.CopyPolicyUsesItsOwnCredentialAcrossWriterAndSelectionModes"
+          "EncryptionTemplateCommandTests.CopyPolicyUsesItsOwnCredentialAcrossWriterAndSelectionModes",
+          "XrefStreamRoleTests.WritersProtectTaggedObjectsWithoutDiscardingTheirIdentity"
         ],
         "negative": [
           "EncryptionTemplateCommandTests.InvalidTemplatePasswordsDoNotPublishOrLeak",
@@ -2972,7 +2973,8 @@
         ],
         "oracle": [
           "diff:security-template",
-          "diff:security-sources"
+          "diff:security-sources",
+          "diff:xref-role"
         ]
       }
     },
@@ -3236,7 +3238,8 @@
           "OutputEncryptionCommandTests.OutputPasswordsHonorTheSelectedRepresentation",
           "OutputEncryptionCommandTests.PermissionChoicesReachTheAuthenticatedDictionary",
           "IdentityCryptOutputTests.TypedEncryptionConsumesIdentityAndPreservesEncodedBytesAndPrivateAliases",
-          "IdentityCryptOutputTests.PhysicalWritersAndJobAdapterUseThePreparedHeader"
+          "IdentityCryptOutputTests.PhysicalWritersAndJobAdapterUseThePreparedHeader",
+          "XrefStreamRoleTests.WritersProtectTaggedObjectsWithoutDiscardingTheirIdentity"
         ],
         "negative": [
           "OutputEncryptionCommandTests.UnsupportedOrMalformedPoliciesNeverExposeSecretsOrOpenInputs",
@@ -3254,12 +3257,14 @@
           "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput",
           "StreamCryptPreparationTests.RefusalRetiresPreparationWithoutChangingSourceOrPriorStorage",
           "StreamCryptPreparationTests.CancellationDuringCryptNameResolutionDoesNotBecomeOpaqueFallback",
-          "EncryptedSerializerTests.IdentityPreparationAndSizeOnlyPassDoNotUseTheOutputKey"
+          "EncryptedSerializerTests.IdentityPreparationAndSizeOnlyPassDoNotUseTheOutputKey",
+          "XrefStreamRoleTests.AdmissionAndPublicationFailuresRetirePhysicalRoleStorageAndPreserveTargets"
         ],
         "oracle": [
           "diff:security-create",
           "diff:security-permission",
-          "diff:security-identity-crypt"
+          "diff:security-identity-crypt",
+          "diff:xref-role"
         ]
       }
     },
@@ -3759,7 +3764,8 @@
           "IgnoreXrefStreamsTests.StreamOnlyFileRecoversWithoutStreams",
           "IgnoreXrefStreamsTests.ClassicFileIgnoresFlag",
           "IgnoreXrefStreamsTests.JobParityHolds",
-          "IgnoreXrefStreamsTests.HostBudgetHonoredWithoutFlag"
+          "IgnoreXrefStreamsTests.HostBudgetHonoredWithoutFlag",
+          "XrefStreamRoleTests.StructuralExceptionsFollowPhysicalSectionsAndActiveOffsets"
         ],
         "negative": [
           "IgnoreXrefStreamsTests.MalformedFlagsFail",
@@ -4141,7 +4147,8 @@
           "JsonImportContainerTests.DecodedDictionaryNamesFollowPdfParserCounting",
           "JsonImportContainerTests.UnknownEnvelopeMembersDoNotBecomePdfContainerLimits",
           "JsonSidecarNameTests.FilePayloadRoundtripsKeepUnicodeMultipleStreamsAndExactLengthNames",
-          "IdentityCryptOutputTests.JsonCreationAndUpdateNormalizeAuthoredIdentityStages"
+          "IdentityCryptOutputTests.JsonCreationAndUpdateNormalizeAuthoredIdentityStages",
+          "XrefStreamRoleTests.TypedJsonCreationAndUpdateProtectAuthoredTaggedStreams"
         ],
         "negative": [
           "JsonImportTests.MalformedJsonFails",
@@ -4661,7 +4668,8 @@
           "LinearizedWriterTests.UseOutlinesRideFirstPage",
           "LinearizedWriterTests.ThumbnailsLinearizePassesOwnCheck",
           "LinearizedWriterTests.ThumbnailsLinearizeJobSucceeds",
-          "LinearizedWriterTests.CheckingWithLinearizeKeepsTheOriginalDocument"
+          "LinearizedWriterTests.CheckingWithLinearizeKeepsTheOriginalDocument",
+          "XrefStreamRoleTests.WritersProtectTaggedObjectsWithoutDiscardingTheirIdentity"
         ],
         "negative": [
           "LinearizedWriterTests.JsonCannotCombine",
@@ -4679,7 +4687,8 @@
         ],
         "oracle": [
           "diff:linearize",
-          "diff:linearize-streams"
+          "diff:linearize-streams",
+          "diff:xref-role"
         ]
       }
     },
@@ -5042,7 +5051,8 @@
           "ObjectStreamTests.DisableExpandsCompressedObjects",
           "ObjectStreamTests.ManyObjectsChunkIntoMultipleStreams",
           "ObjectStreamTests.GenerateWithCompressFlatesContainers",
-          "ObjectStreamTests.PreserveWithCompressFlatesContainers"
+          "ObjectStreamTests.PreserveWithCompressFlatesContainers",
+          "XrefStreamRoleTests.WritersProtectTaggedObjectsWithoutDiscardingTheirIdentity"
         ],
         "negative": [
           "ObjectStreamTests.InvalidModesFail",
@@ -5060,7 +5070,8 @@
         ],
         "oracle": [
           "diff:qdf-markers",
-          "diff:linearize-streams"
+          "diff:linearize-streams",
+          "diff:xref-role"
         ]
       }
     },
@@ -5753,7 +5764,8 @@
           "PreservationGraphTests.PreservationKeepsOneCopyAndRetiresFailedCandidates",
           "PreservationGraphTests.NonzeroAndStaleGenerationsKeepTheirIdentityPolicy",
           "PreservationGraphTests.RollbackKeepsEarlierCopiesAndRetriesIndependentDescendants",
-          "PreservationGraphTests.StreamRewritingKeepsPreservedParametersAfterDisconnectingThem"
+          "PreservationGraphTests.StreamRewritingKeepsPreservedParametersAfterDisconnectingThem",
+          "XrefStreamRoleTests.ExplicitUnreferencedPreservationKeepsTaggedPrivateStreamsInQdf"
         ],
         "negative": [
           "PreserveUnreferencedTests.DefaultDropsUnreferencedObjects",
@@ -5889,7 +5901,8 @@
           "QdfTests.LengthsAreIndirectObjects",
           "QdfTests.ObjectStreamsGenerateProducesStreamedQdf",
           "QdfTests.ObjectStreamsQdfOffsetsLandOnValues",
-          "QdfTests.RoundTripsThroughOwnReaderAndPig"
+          "QdfTests.RoundTripsThroughOwnReaderAndPig",
+          "XrefStreamRoleTests.WritersProtectTaggedObjectsWithoutDiscardingTheirIdentity"
         ],
         "negative": [
           "QdfTests.MalformedQdfFlagsFail"
@@ -5907,7 +5920,8 @@
           "InlineIndexedColorTests.RefusalAndBothCancellationRoutesLeaveTheOriginalArrayAndRefundConstruction"
         ],
         "oracle": [
-          "diff:qdf-markers"
+          "diff:qdf-markers",
+          "diff:xref-role"
         ]
       }
     },
@@ -7470,7 +7484,8 @@
           "JsonImportContainerTests.ImportedContainersKeepTheExactBoundaryAndRejectOverflowBeforePublication",
           "JsonImportContainerTests.DecodedDictionaryNamesFollowPdfParserCounting",
           "JsonImportContainerTests.UnknownEnvelopeMembersDoNotBecomePdfContainerLimits",
-          "IdentityCryptOutputTests.JsonCreationAndUpdateNormalizeAuthoredIdentityStages"
+          "IdentityCryptOutputTests.JsonCreationAndUpdateNormalizeAuthoredIdentityStages",
+          "XrefStreamRoleTests.TypedJsonCreationAndUpdateProtectAuthoredTaggedStreams"
         ],
         "negative": [
           "JsonImportTests.UpdateCombinationsFail",

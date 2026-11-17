@@ -71,17 +71,19 @@ internal sealed class XRefTable : IDisposable
     private Dictionary<int, XrefEntry>? _entries;
     private PdfDictionary? _trailer;
     private List<PdfDictionary>? _trailers;
+    private HashSet<long>? _streamOffsets;
     private readonly ResourceGovernor _governor;
     private long _containerBytes;
     private long _ownedValuesBytes;
 
     private XRefTable(long xrefOffset, Dictionary<int, XrefEntry> entries, PdfDictionary trailer,
-        List<PdfDictionary> trailers, ResourceGovernor governor, long containerBytes)
+        List<PdfDictionary> trailers, HashSet<long>? streamOffsets, ResourceGovernor governor, long containerBytes)
     {
         XrefOffset = xrefOffset;
         _entries = entries;
         _trailer = trailer;
         _trailers = trailers;
+        _streamOffsets = streamOffsets;
         _governor = governor;
         _containerBytes = containerBytes;
     }
@@ -89,13 +91,18 @@ internal sealed class XRefTable : IDisposable
     internal static XRefTable CreateOwned(long xrefOffset, Dictionary<int, XrefEntry> entries,
         PdfDictionary trailer, List<PdfDictionary> trailers, ResourceGovernor governor,
         ParserMemoryScope containers, ParserMemoryScope values, bool valuesEscape)
+        => CreateOwned(xrefOffset, entries, trailer, trailers, governor, containers, values, valuesEscape, null);
+
+    private static XRefTable CreateOwned(long xrefOffset, Dictionary<int, XrefEntry> entries,
+        PdfDictionary trailer, List<PdfDictionary> trailers, ResourceGovernor governor,
+        ParserMemoryScope containers, ParserMemoryScope values, bool valuesEscape, HashSet<long>? streamOffsets)
     {
         containers.CheckOwner(governor);
         values.CheckOwner(governor);
         // The table wrapper and parsed values may have independently retained
         // aliases. Only the exclusive map/list receipt releases on disposal.
-        values.Reserve(96L);
-        XRefTable table = new(xrefOffset, entries, trailer, trailers, governor, containers.ReservedBytes);
+        values.Reserve(104L);
+        XRefTable table = new(xrefOffset, entries, trailer, trailers, streamOffsets, governor, containers.ReservedBytes);
         if (valuesEscape) { values.RetainGraph(); }
         else
         {
@@ -126,6 +133,7 @@ internal sealed class XRefTable : IDisposable
         _entries = null;
         _trailer = null;
         _trailers = null;
+        _streamOffsets = null;
         _governor.ReleaseMemory(_containerBytes);
         _governor.ReleaseMemory(_ownedValuesBytes);
         _containerBytes = 0L;
@@ -139,6 +147,13 @@ internal sealed class XRefTable : IDisposable
     internal PdfDictionary Trailer => _trailer ?? throw new ObjectDisposedException(nameof(XRefTable));
 
     internal IReadOnlyList<PdfDictionary> Trailers => _trailers ?? throw new ObjectDisposedException(nameof(XRefTable));
+
+    internal bool IsStreamOffset(long offset)
+    {
+        _ = Entries;
+        _governor.CheckCancellation();
+        return _streamOffsets?.Contains(offset) == true;
+    }
 
     internal static XRefTable Parse(
         ReadOnlyMemory<byte> data,
@@ -233,6 +248,7 @@ internal sealed class XRefTable : IDisposable
     {
         Dictionary<int, XrefEntry> merged = ParserContainers.CreateDictionary<int, XrefEntry>(memory);
         List<PdfDictionary> trailers = ParserContainers.CreateList<PdfDictionary>(memory);
+        HashSet<long>? streamOffsets = null;
         using ParserMemoryScope revisions = ParserMemoryScope.Create(governor);
         HashSet<long> visited = ParserContainers.CreateSet<long>(revisions);
         int? effectiveSize = null;
@@ -252,7 +268,7 @@ internal sealed class XRefTable : IDisposable
             }
 
             governor.NoteOperation();
-            current = ProcessSection(data, limits, governor, diagnostics, merged, trailers, ref effectiveSize, current.Value, memory, values);
+            current = ProcessSection(data, limits, governor, diagnostics, merged, trailers, ref effectiveSize, current.Value, memory, values, ref streamOffsets);
         }
 
         if (effectiveSize is null || trailers.Count == 0)
@@ -261,7 +277,7 @@ internal sealed class XRefTable : IDisposable
         }
 
         ValidateUnionCoverage(merged, effectiveSize.Value, governor);
-        return CreateOwned(xrefOffset, merged, trailers[0], trailers, governor, memory, values, valuesEscape);
+        return CreateOwned(xrefOffset, merged, trailers[0], trailers, governor, memory, values, valuesEscape, streamOffsets);
     }
 
     internal static long ReadTailOffset(ReadOnlyMemory<byte> data, ResourceGovernor governor)
@@ -313,7 +329,8 @@ internal sealed class XRefTable : IDisposable
         ref int? effectiveSize,
         long current,
         ParserMemoryScope memory,
-        ParserMemoryScope values)
+        ParserMemoryScope values,
+        ref HashSet<long>? streamOffsets)
     {
         using ParserMemoryScope section = ParserMemoryScope.Create(governor);
         PdfTokenizer tokenizer = new(data);
@@ -336,10 +353,20 @@ internal sealed class XRefTable : IDisposable
             section.Discard();
             ParserContainers.AddItem(memory, trailers, trailer, IntPtr.Size);
             long? hybrid = limits.IgnoreXrefStreams ? null : ReadLinkOffset(trailer, "XRefStm"u8, "XRefStm", data, current, governor);
+            if (limits.IgnoreXrefStreams
+                && PdfDictionaryLookup.TryGet(trailer, "XRefStm"u8, governor, governor.CancellationToken, out QpdfObject ignored)
+                && ignored is PdfInteger ignoredOffset && ignoredOffset.Value >= 0 && ignoredOffset.Value < data.Length)
+            {
+                // Ignoring its entries does not turn a declared physical xref
+                // stream into encrypted document content. Invalid ignored links
+                // keep their existing non-interpreted behavior.
+                RecordStreamOffset(ref streamOffsets, ignoredOffset.Value, memory);
+            }
             if (hybrid.HasValue)
             {
                 (Dictionary<int, XrefEntry> extra, PdfDictionary _) = ParseStreamSection(data, limits, governor, diagnostics, hybrid.Value, values, section, false);
                 MergeSection(merged, extra, effectiveSize.Value, data.Length, hybrid.Value, governor, memory);
+                RecordStreamOffset(ref streamOffsets, hybrid.Value, memory);
             }
 
             return ReadLinkOffset(trailer, "Prev"u8, "Prev", data, current, governor);
@@ -364,12 +391,19 @@ internal sealed class XRefTable : IDisposable
             }
 
             MergeSection(merged, entries, effectiveSize.Value, data.Length, current, governor, memory);
+            RecordStreamOffset(ref streamOffsets, current, memory);
             section.Discard();
             ParserContainers.AddItem(memory, trailers, trailer, IntPtr.Size);
             return ReadLinkOffset(trailer, "Prev"u8, "Prev", data, current, governor);
         }
 
         throw new QpdfParseException("Cross-reference section is neither an xref table nor a stream.", current, null);
+    }
+
+    private static void RecordStreamOffset(ref HashSet<long>? offsets, long offset, ParserMemoryScope memory)
+    {
+        offsets ??= ParserContainers.CreateSet<long>(memory);
+        ParserContainers.AddSetItem(memory, offsets, offset, sizeof(long));
     }
 
     private static void MergeSection(

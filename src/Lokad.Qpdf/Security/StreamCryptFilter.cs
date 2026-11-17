@@ -13,8 +13,7 @@ internal static class StreamCryptFilter
     internal static bool MayContain(PdfStream stream, ResourceGovernor governor)
     {
         CancellationToken token = governor.CancellationToken;
-        if (PdfStringCrypt.HasType(stream.Dictionary, "XRef"u8, governor)
-            || !PdfDictionaryLookup.TryGet(stream.Dictionary, "Filter"u8, governor, token, out QpdfObject raw)
+        if (!PdfDictionaryLookup.TryGet(stream.Dictionary, "Filter"u8, governor, token, out QpdfObject raw)
             || raw is PdfNull) { return false; }
         if (raw is PdfName name) { return PdfDictionaryLookup.NameEquals(name, "Crypt"u8, governor, token); }
         if (raw is not PdfArray array) { return true; }

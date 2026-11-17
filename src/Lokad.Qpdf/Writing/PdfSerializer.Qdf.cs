@@ -95,10 +95,7 @@ internal sealed partial class PdfSerializer
         using WriterOrder<NumberedObject> sorted = WriterOrder<NumberedObject>.Create(model.Count, 16L, _governor, cancellationToken);
         foreach (NumberedObject numbered in model)
         {
-            if (!IsDiscardedXRefStream(numbered.Value))
-            {
-                sorted.Add(numbered);
-            }
+            sorted.Add(numbered);
         }
 
         sorted.Sort(new WriterObjectOrder());
@@ -249,7 +246,7 @@ internal sealed partial class PdfSerializer
         using WriterIndex<QpdfObject> lookup = WriterIndex<QpdfObject>.Create(IntPtr.Size, _governor, cancellationToken);
         foreach (NumberedObject numbered in model)
         {
-            if (!IsDiscardedXRefStream(numbered.Value) && !lookup.ContainsKey(numbered.Number))
+            if (!lookup.ContainsKey(numbered.Number))
             {
                 lookup[numbered.Number] = numbered.Value;
             }
@@ -652,14 +649,6 @@ internal sealed partial class PdfSerializer
             return marks;
         }
         catch { marks.Dispose(); throw; }
-    }
-
-    private static bool IsDiscardedXRefStream(QpdfObject value)
-    {
-        return value is PdfStream stream
-            && stream.Dictionary.TryGet(QdfTypeKey, out QpdfObject? type)
-            && type is PdfName name
-            && name.RawSpan.SequenceEqual("XRef"u8);
     }
 
     private async ValueTask<bool> AppendQdfStreamAsync(PdfStream stream, IByteSink sink, bool newlineBeforeEndstream, CancellationToken cancellationToken)
