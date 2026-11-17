@@ -209,20 +209,19 @@ internal static class PageLabelMerge
             return (1L, null, covering?.Prefix);
         }
 
-        long start;
+        return (AdvanceStart(covering.Start, (long)(pageIndex - key)), covering.Style, covering.Prefix);
+    }
+
+    internal static long AdvanceStart(long start, long offset)
+    {
         try
         {
-            checked
-            {
-                start = covering.Start + (long)(pageIndex - key);
-            }
+            return checked(start + offset);
         }
         catch (OverflowException ex)
         {
             throw new QpdfParseException("Page-label start overflows its output position.", null, null, ex);
         }
-
-        return (start, covering.Style, covering.Prefix);
     }
 
     private static SourceLabelEntry ResolveEntry(

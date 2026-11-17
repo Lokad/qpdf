@@ -291,6 +291,8 @@ Image filter/parameter descriptors retain stored aliases, live references and
 array shapes.
 Image filterability checks decode level, filter count and supported parameters;
 it does not validate encoded frames or establish host JPEG capability.
+Label JSON supplies default starts and per-page counters without changing source
+dictionaries.
 Outline projections resolve catalog names, destination name trees and `/D`
 wrappers, including local GoTo actions. Missing names project null; destination
 page positions validate the complete object number/generation pair.

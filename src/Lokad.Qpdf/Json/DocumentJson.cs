@@ -67,9 +67,10 @@ internal static class DocumentJson
             using ParserMemoryScope inspectionMemory = ParserMemoryScope.Create(governor);
             bool touchesPages = request.Wants("pages") || request.Wants("pagelabels") || request.Wants("outlines") || request.Wants("acroform");
             SortedDictionary<int, QpdfObject> labels = new();
+            bool hasLabelTree = false;
             if (request.Wants("pages") || request.Wants("pagelabels"))
             {
-                labels = ReadLabelTree(engine, limits, governor, inspectionMemory, cancellationToken);
+                labels = ReadLabelTreeCore(engine, limits, governor, inspectionMemory, cancellationToken, out hasLabelTree);
             }
 
             List<OutlineEntry> outlines = new();
@@ -89,7 +90,7 @@ internal static class DocumentJson
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 AppendKey(builder, ref firstKey, "pagelabels");
-                AppendPageLabels(builder, engine, request, labels, governor, limits);
+                AppendPageLabels(builder, engine, request, labels, document.PageCount, hasLabelTree, governor, limits, cancellationToken);
             }
 
             if (request.Wants("attachments"))
@@ -208,7 +209,13 @@ internal static class DocumentJson
         ResourceGovernor governor,
         ParserMemoryScope memory,
         CancellationToken cancellationToken)
+        => ReadLabelTreeCore(engine, limits, governor, memory, cancellationToken, out _);
+
+    private static SortedDictionary<int, QpdfObject> ReadLabelTreeCore(
+        DocumentEngine engine, QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory,
+        CancellationToken cancellationToken, out bool hasLabelTree)
     {
+        hasLabelTree = false;
         memory.CheckOwner(governor); cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         memory.Reserve(96L); SortedDictionary<int, QpdfObject> labels = new();
         PdfDictionary? catalog = ResolveChild(engine, engine.Trailer, "Root", "catalog");
@@ -222,6 +229,8 @@ internal static class DocumentJson
         {
             return labels;
         }
+
+        hasLabelTree = true;
 
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
         Dictionary<PdfDictionary, LabelSummary> completed = ParserContainers.CreateDictionary<PdfDictionary, LabelSummary>(traversal, ReferenceEqualityComparer.Instance);
@@ -386,13 +395,23 @@ internal static class DocumentJson
         DocumentEngine engine,
         JsonRequest request,
         SortedDictionary<int, QpdfObject> labels,
+        int pageCount,
+        bool hasLabelTree,
         ResourceGovernor governor,
-        QpdfLimits limits)
+        QpdfLimits limits,
+        CancellationToken token)
     {
         builder.Append((char)91);
         bool first = true;
+        if (hasLabelTree && !labels.ContainsKey(0))
+        {
+            builder.Append("{\"index\": 0,\"label\": {\"/St\": 1}}");
+            first = false;
+        }
         foreach (KeyValuePair<int, QpdfObject> entry in labels)
         {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (entry.Key != 0 && entry.Key >= pageCount) { break; }
             governor.NoteOperation();
             if (!first)
             {
@@ -403,22 +422,38 @@ internal static class DocumentJson
             builder.Append("{\"index\": ");
             builder.AppendInteger(entry.Key);
             builder.Append(",\"label\": ");
-            AppendLabelValue(builder, engine, entry.Value, request, governor, limits);
+            AppendLabelValue(builder, engine, entry.Value, 0L, request, governor, limits, token);
             builder.Append((char)125);
         }
 
         builder.Append((char)93);
     }
 
-    private static void AppendLabelValue(DisplayBuffer builder, DocumentEngine engine, QpdfObject value,
-        JsonRequest request, ResourceGovernor governor, QpdfLimits limits)
+    private static void AppendLabelValue(DisplayBuffer builder, DocumentEngine engine, QpdfObject value, long offset,
+        JsonRequest request, ResourceGovernor governor, QpdfLimits limits, CancellationToken token)
     {
         if (value is PdfReference reference
-            && PdfObjectLookup.TryResolve(reference, (IIndirectResolver)engine, governor, CancellationToken.None, out QpdfObject? resolved)
+            && PdfObjectLookup.TryResolve(reference, (IIndirectResolver)engine, governor, token, out QpdfObject? resolved)
             && resolved is not null) { value = resolved; }
-        if (value is PdfDictionary dictionary)
-        { PdfJsonWriter.AppendLabelDictionary(builder, dictionary, request.Version, governor, limits, (IIndirectResolver)engine); }
-        else { PdfJsonWriter.AppendValue(builder, value, request.Version, governor, 0, limits); }
+        if (value is not PdfDictionary dictionary)
+        { PdfJsonWriter.AppendValue(builder, value, request.Version, governor, 0, limits); return; }
+
+        PdfDictionaryLookup.TryGet(dictionary, "St"u8, governor, token, out QpdfObject startRaw);
+        QpdfObject? start = EmbeddedFiles.ResolveOptionalValue(engine, startRaw, governor, token);
+        long number = Content.PageLabelMerge.AdvanceStart(start is PdfInteger integer ? integer.Value : 1L, offset);
+        builder.Append('{');
+        AppendLabelField("P"u8, "/P");
+        AppendLabelField("S"u8, "/S");
+        builder.Append("\"/St\": "); builder.AppendInteger(number); builder.Append('}');
+
+        void AppendLabelField(ReadOnlySpan<byte> key, string name)
+        {
+            PdfDictionaryLookup.TryGet(dictionary, key, governor, token, out QpdfObject raw);
+            if (EmbeddedFiles.ResolveOptionalValue(engine, raw, governor, token) is null or PdfNull) { return; }
+            PdfJsonWriter.AppendJsonString(builder, name); builder.Append(": ");
+            PdfJsonWriter.AppendSourceValue(builder, raw, request.Version, governor, 1, limits, engine);
+            builder.Append(',');
+        }
     }
 
     private sealed record OutlineEntry(
@@ -666,6 +701,7 @@ internal static class DocumentJson
         using SortedDictionary<int, QpdfObject>.Enumerator labelEntries = labels.GetEnumerator();
         bool hasLabel = labelEntries.MoveNext();
         QpdfObject? label = null;
+        int labelIndex = -1;
         builder.Append((char)91);
         for (int i = 0; i < pages.Count; i++)
         {
@@ -698,6 +734,7 @@ internal static class DocumentJson
             {
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 label = labelEntries.Current.Value;
+                labelIndex = labelEntries.Current.Key;
                 hasLabel = labelEntries.MoveNext();
             }
             if (label is null || label is PdfNull)
@@ -706,7 +743,7 @@ internal static class DocumentJson
             }
             else
             {
-                AppendLabelValue(builder, document.Engine, label, request, governor, limits);
+                AppendLabelValue(builder, document.Engine, label, (long)i - labelIndex, request, governor, limits, cancellationToken);
             }
 
             builder.Append(",\"outlines\": ");

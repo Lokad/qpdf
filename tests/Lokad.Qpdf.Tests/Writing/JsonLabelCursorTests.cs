@@ -28,7 +28,8 @@ public sealed class JsonLabelCursorTests
         QpdfJsonResult result = await Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("input"), QpdfPath.From("output"),
             new QpdfJsonOptions(2, ["pages", "pagelabels"]), CancellationToken.None);
         using JsonDocument json = JsonDocument.Parse(result.Json); JsonElement pages = json.RootElement.GetProperty("pages");
-        Assert.Equal(count, pages.GetArrayLength()); Assert.Equal(count, json.RootElement.GetProperty("pagelabels").GetArrayLength());
+        Assert.Equal(count, pages.GetArrayLength()); Assert.Equal(count == 0 ? 1 : count, json.RootElement.GetProperty("pagelabels").GetArrayLength());
+        if (count == 0) { Assert.Equal(1, json.RootElement.GetProperty("pagelabels")[0].GetProperty("label").GetProperty("/St").GetInt32()); }
         for (int i = 0; i < count; i++) { Assert.Equal(i, pages[i].GetProperty("label").GetInt32()); }
         Assert.Equal(0L, host.OpenLeaseCount);
     }

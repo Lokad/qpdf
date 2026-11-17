@@ -265,10 +265,10 @@ internal static class PdfJsonWriter
                     AppendValueCore(builder, array[index], version, governor, depth + 1, limits, source);
                 }
                 builder.Append(']'); break;
-            case PdfDictionary dictionary: AppendDictionaryCore(builder, dictionary, version, governor, depth + 1, limits, false, false, null, source); break;
+            case PdfDictionary dictionary: AppendDictionaryCore(builder, dictionary, version, governor, depth + 1, limits, false, false, source); break;
             case PdfStream stream:
                 if (version != 1) { builder.Append("{\"stream\": {\"dict\": "); }
-                AppendDictionaryCore(builder, stream.Dictionary, version, governor, depth + 1, limits, false, false, null, source);
+                AppendDictionaryCore(builder, stream.Dictionary, version, governor, depth + 1, limits, false, false, source);
                 if (version != 1) { builder.Append("}}"); }
                 break;
             default: throw new QpdfParseException("Unsupported object in JSON inspection.", null, null);
@@ -277,18 +277,14 @@ internal static class PdfJsonWriter
 
     internal static void AppendDictionary(DisplayBuffer builder, PdfDictionary dictionary, int version,
         ResourceGovernor governor, int depth, QpdfLimits limits)
-        => AppendDictionaryCore(builder, dictionary, version, governor, depth, limits, false, false, null, null);
-
-    internal static void AppendLabelDictionary(DisplayBuffer builder, PdfDictionary dictionary, int version,
-        ResourceGovernor governor, QpdfLimits limits, IIndirectResolver resolver)
-        => AppendDictionaryCore(builder, dictionary, version, governor, 1, limits, false, false, resolver, null);
+        => AppendDictionaryCore(builder, dictionary, version, governor, depth, limits, false, false, null);
 
     internal static void AppendStreamDictionary(DisplayBuffer builder, PdfDictionary dictionary, int version,
         ResourceGovernor governor, QpdfLimits limits, bool decoded)
-        => AppendDictionaryCore(builder, dictionary, version, governor, 0, limits, true, decoded, null, null);
+        => AppendDictionaryCore(builder, dictionary, version, governor, 0, limits, true, decoded, null);
 
     private static void AppendDictionaryCore(DisplayBuffer builder, PdfDictionary dictionary, int version,
-        ResourceGovernor governor, int depth, QpdfLimits limits, bool omitLength, bool decoded, IIndirectResolver? labelResolver, DocumentEngine? sourceEngine)
+        ResourceGovernor governor, int depth, QpdfLimits limits, bool omitLength, bool decoded, DocumentEngine? sourceEngine)
     {
         long reserved = dictionary.Count == 0 ? 0L : checked(32L + 16L * dictionary.Count);
         governor.CheckCancellation(); governor.ReserveMemory(reserved);
@@ -308,9 +304,6 @@ internal static class PdfJsonWriter
                         || fieldValue is null or PdfNull)) { continue; }
                 if (omitLength && entry.Key.RawSpan.SequenceEqual("Length"u8)) { continue; }
                 if (decoded && (entry.Key.RawSpan.SequenceEqual("Filter"u8) || entry.Key.RawSpan.SequenceEqual("DecodeParms"u8))) { continue; }
-                if (labelResolver is not null && entry.Key.RawSpan.SequenceEqual("St"u8) && entry.Value is PdfReference reference
-                    && PdfObjectLookup.TryResolve(reference, labelResolver, governor, CancellationToken.None, out QpdfObject? start)
-                    && start is PdfInteger) { entry = new(entry.Key, start); }
                 entries[count++] = entry;
             }
             GovernedSort.Sort<KeyValuePair<PdfName, QpdfObject>, RawKeyComparer>(entries.AsSpan(0, count), new(governor), governor, CancellationToken.None);

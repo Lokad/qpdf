@@ -3998,7 +3998,9 @@
           "JsonPageAssemblyTests.SourceActionsFormsAndLayersKeepTheirMeaningAcrossCopies",
           "AcroFormJsonTests.LocalNamesDoNotInheritAncestorNames",
           "AcroFormJsonTests.LocalNamesAndInheritedChoicesKeepTextEncoding",
-          "ImageDescriptorShapeTests.DescriptorsRetainRawNamesReferencesAndOuterShapes"
+          "ImageDescriptorShapeTests.DescriptorsRetainRawNamesReferencesAndOuterShapes",
+          "JsonLabelProjectionTests.PageCountersAdvanceWithinRunsWhileExplicitEntriesKeepTheirStarts",
+          "JsonLabelProjectionTests.ProjectionKeepsLiveFieldPairsAndLeavesOriginalDictionariesUntouched"
         ],
         "negative": [
           "JsonInspectionTests.BadVersionFails",
@@ -4025,7 +4027,10 @@
           "ImageParameterSupportTests.UnsupportedParametersReportFalseAndRetainRawStreamFallback",
           "ImageParameterSupportTests.EligibleMetadataDoesNotClaimFrameIntegrity",
           "ImageDescriptorShapeTests.JobVersionOneKeepsBothOuterReferencesAndTheirFullPairs",
-          "ImageDescriptorShapeTests.AssembledAndCompressedSourcesKeepTheirLiveDescriptorReferences"
+          "ImageDescriptorShapeTests.AssembledAndCompressedSourcesKeepTheirLiveDescriptorReferences",
+          "JsonLabelProjectionTests.VersionOneAdaptersUseTheSameCounterProjection",
+          "JsonLabelProjectionTests.ZeroPageLabelCollectionsDistinguishAbsentEmptyAndExplicitTrees",
+          "JsonLabelProjectionTests.BinaryPrefixBytesKeepTheExistingVersionTwoIdentityPolicy"
         ],
         "resource": [
           "JsonPublicationMemoryTests.KnownSidecarLengthFitsSharedAllowanceWithoutGrowthCopies",
@@ -4045,7 +4050,8 @@
           "AcroFormJsonTests.CommandAncestorExhaustionReportsBudgetExceededBeforePublication",
           "FilterParameterSupportTests.ResolverCancellationIsFatalForEitherToken",
           "FilterParameterSupportTests.RefusedParameterStorageIsFatalAndPreservesPriorOwners",
-          "ImageDescriptorShapeTests.MalformedSpecificationsStillRefuseBeforeReplacingTheReport"
+          "ImageDescriptorShapeTests.MalformedSpecificationsStillRefuseBeforeReplacingTheReport",
+          "JsonLabelProjectionTests.CounterOverflowPreservesPriorReportsAndRefundsCallerStorage"
         ],
         "oracle": [
           "diff:json-pages",

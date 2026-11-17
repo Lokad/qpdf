@@ -56,8 +56,8 @@ public sealed class LabelTreeIndirectionTests
         JsonElement labels = json.RootElement.GetProperty("pagelabels"); Assert.Equal(1, labels.GetArrayLength());
         long start = operation == "select" ? 11 : 10;
         Assert.Equal(start, labels[0].GetProperty("label").GetProperty("/St").GetInt64());
-        foreach (JsonElement page in json.RootElement.GetProperty("pages").EnumerateArray())
-        { Assert.Equal(start, page.GetProperty("label").GetProperty("/St").GetInt64()); }
+        Assert.Equal(operation == "select" ? new long[] { 11 } : new long[] { 10, 11 },
+            json.RootElement.GetProperty("pages").EnumerateArray().Select(page => page.GetProperty("label").GetProperty("/St").GetInt64()));
     }
 
     [Theory]
