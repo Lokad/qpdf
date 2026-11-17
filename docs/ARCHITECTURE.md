@@ -23,6 +23,8 @@ consumption, including ordered nested-file loading. Scoped syntax helpers handle
 page, placement, attachment and encryption blocks.
 Each loaded document prepares its last-property-wins sequence once; a temporary
 admitted suffix index preserves include order and retires before plan consumption.
+Encoding validation stays independent of semantic validation. Effective root keys
+validate before includes load, and nested setters validate in the shared planner.
 Writer plans share one option projection after branch-specific source selection.
 Typed document opening, checking, JSON, counting and page selection can explicitly
 choose the shared bounded repair policy;

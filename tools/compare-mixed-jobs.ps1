@@ -67,6 +67,9 @@ $cases = @(
   # comparison uses its documented joined form for the same configuration.
   @{ Name='separate-form'; Args=@('inputs/a.pdf','--job-json-file','inputs/settings.json','outputs/a.pdf'); NativeArgs=@('inputs/a.pdf','--job-json-file=inputs/settings.json','outputs/a.pdf'); Version='1.5' },
   @{ Name='nested-scalar'; Args=@('inputs/a.pdf','outputs/a.pdf','--force-version=1.7','--job-json-file=inputs/nested.json'); Version='1.5' },
+  @{ Name='shadowed-root'; Args=@('inputs/a.pdf','outputs/a.pdf','--job-json-file=inputs/shadowed-root.json'); Version='1.5' },
+  @{ Name='shadowed-nested'; Args=@('inputs/a.pdf','outputs/a.pdf','--job-json-file=inputs/shadowed-nested.json'); Version='1.5' },
+  @{ Name='shadowed-active-invalid'; Args=@('inputs/a.pdf','outputs/a.pdf','--job-json-file=inputs/shadowed-invalid.json'); Exit=2 },
   @{ Name='pages'; Args=@('inputs/a.pdf','--job-json-file=inputs/settings.json','--pages','inputs/b.pdf','2,1','--','outputs/a.pdf'); Version='1.5'; Pages=2 },
   @{ Name='overlay'; Args=@('inputs/a.pdf','--job-json-file=inputs/settings.json','--overlay','inputs/a.pdf','--','--','outputs/a.pdf'); Version='1.5' },
   @{ Name='attachment-add'; Args=@('inputs/a.pdf','--job-json-file=inputs/settings.json','--add-attachment','inputs/payload.bin','--key=payload','--','--','outputs/a.pdf'); Version='1.5'; Attachment=$true },
@@ -89,6 +92,9 @@ $jobs = @{
   'global.json'='{"global":{"maxStreamFilters":"1"}}'
   'nested.json'='{"forceVersion":"1.6","jobJsonFile":"inputs/settings.json"}'
   'rotation.json'='{"rotate":["+90:1"]}'
+  'shadowed-root.json'='{"forceVersion":{"password":"discarded"},"forceVersion":"1.5"}'
+  'shadowed-nested.json'='{"global":{"maxStreamFilters":{"password":"discarded"},"maxStreamFilters":"0"},"forceVersion":"1.5"}'
+  'shadowed-invalid.json'='{"forceVersion":"1.5","forceVersion":{"password":"active"}}'
 }
 $records = @()
 foreach ($item in $cases) {

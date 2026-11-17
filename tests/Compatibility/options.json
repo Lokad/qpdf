@@ -3875,7 +3875,9 @@
           "NestedJobTests.OuterJobCompletesPartialChildAndRepeatsEmptyFlag",
           "NestedJobTests.PlainJobUsesTheWholeFileWriter",
           "MixedJobArgvTests.ConfigurationOrderAndPositionalState",
-          "MixedJobArgvTests.RepeatedCompletedIncludesAreNotIdentityCycles"
+          "MixedJobArgvTests.RepeatedCompletedIncludesAreNotIdentityCycles",
+          "JobEffectiveValidationTests.OnlyEffectiveValuesParticipateInSemanticValidation",
+          "JobEffectiveValidationTests.EffectiveIncludeAndSetterOrderWorkThroughFileAdapters"
         ],
         "negative": [
           "InlineJobEncodingTests.InvalidLiteralUtf16ReturnsFailureAndPreservesOtherOwners",
@@ -3886,7 +3888,8 @@
           "NestedJobTests.CryptoDeclarationsRejectBeforePdfOrPasswordAccess",
           "MixedJobArgvTests.ArgvCryptoRejectsBeforeConfigurationAccess",
           "MixedJobGovernanceTests.NestedCycleInARepeatedFileStillRejects",
-          "NestedJobTests.CyclesAreDetectedUsingHostIdentity"
+          "NestedJobTests.CyclesAreDetectedUsingHostIdentity",
+          "JobEffectiveValidationTests.ActiveInvalidSettingsAndMalformedEncodingStillFailBeforeHostAccess"
         ],
         "interaction": [
           "InvocationTests.JobJsonFileErrorsAreExplicit",
@@ -3910,12 +3913,15 @@
           "MixedJobGovernanceTests.ShortReadsAndIndependentDepthUseSequentialLeases",
           "MixedJobGovernanceTests.WholeRewriteClosesItsPreliminaryLeaseBeforePublication",
           "MixedJobGovernanceTests.CancellationDuringTheSecondFileReleasesLoadedModelsAndLeases",
-          "JobConfigurationOwnershipTests.LoadedConfigurationRefundsAdmissionAndClosesItsPublicLifetime"
+          "JobConfigurationOwnershipTests.LoadedConfigurationRefundsAdmissionAndClosesItsPublicLifetime",
+          "JobEffectiveValidationTests.ConfigurationCancellationRetiresPreparedFieldsAndClosesItsInput",
+          "JobEffectiveValidationTests.SharedRefusalRetiresPreparedFieldsAndPreservesExistingOutput"
         ],
         "oracle": [
           "diff:job-file",
           "diff:nested-job",
-          "diff:mixed-job"
+          "diff:mixed-job",
+          "diff:mixed-job-shadowed"
         ]
       }
     },

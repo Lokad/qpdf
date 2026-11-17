@@ -63,7 +63,9 @@ internal static class JobJsonLoader
         private readonly IQpdfHost _host;
         private readonly QpdfLimits _limits;
         private readonly ResourceGovernor _governor;
-        private List<JsonDocument>? _documents;
+        private readonly record struct PreparedDocument(JsonDocument Json, List<JobSetting> Fields);
+
+        private List<PreparedDocument>? _documents;
         private List<JobSetting>? _fields;
         private HashSet<string>? _identities;
         private long _bytes;
@@ -77,7 +79,7 @@ internal static class JobJsonLoader
             _limits = limits;
             _governor = governor;
             _reserved = 512L;
-            _documents = new List<JsonDocument>();
+            _documents = new List<PreparedDocument>();
             _fields = new List<JobSetting>();
             _identities = new HashSet<string>(StringComparer.Ordinal);
             _textStorage = ConfigurationText.Create(governor);
@@ -98,7 +100,7 @@ internal static class JobJsonLoader
             }
         }
 
-        private List<JsonDocument> Documents => _documents ?? throw new ObjectDisposedException(nameof(Session));
+        private List<PreparedDocument> Documents => _documents ?? throw new ObjectDisposedException(nameof(Session));
         internal ConfigurationText TextStorage => _textStorage ?? throw new ObjectDisposedException(nameof(Session));
         internal IReadOnlyList<QpdfPath> Inputs => _inputs ?? (IReadOnlyList<QpdfPath>)Array.Empty<QpdfPath>();
 
@@ -259,8 +261,13 @@ internal static class JobJsonLoader
                 {
                     throw new QpdfParseException("Job JSON must be an object.", 0L, null);
                 }
-                Validate(document.RootElement, true, null);
-                Documents.Add(document);
+                ValidateEncoding(document.RootElement);
+                List<JobSetting> fields = PrepareFields(document);
+                // Reject active excluded root keys before following includes.
+                // These same effective fields later supply the sorted setters.
+                foreach (JobSetting field in fields)
+                { _governor.CheckCancellation(); JobPlanner.ValidateRootCryptoKey(field.Name); }
+                Documents.Add(new(document, fields));
             }
             catch (InvalidOperationException ex)
             {
@@ -270,7 +277,7 @@ internal static class JobJsonLoader
             catch { document.Dispose(); throw; }
         }
 
-        private void Validate(JsonElement value, bool root, string? context)
+        private void ValidateEncoding(JsonElement value)
         {
             _governor.CheckCancellation();
             if (value.ValueKind == JsonValueKind.Object)
@@ -278,17 +285,13 @@ internal static class JobJsonLoader
                 foreach (JsonProperty property in value.EnumerateObject())
                 {
                     _governor.NoteOperation();
-                    if ((root && JobPlanner.IsCryptoKey(property.Name) && property.Name is not ("password" or "passwordFile" or "passwordMode" or "suppressPasswordRecovery" or "decrypt" or "encrypt" or "copyEncryption" or "encryptionFilePassword" or "removeRestrictions"))
-                        || (!root && property.Name == "password" && context is not ("pages" or "copyAttachmentsFrom" or "overlay" or "underlay")))
-                    {
-                        throw new QpdfCryptoException(property.Name);
-                    }
-                    Validate(property.Value, false, root ? property.Name : null);
+                    _ = property.Name;
+                    ValidateEncoding(property.Value);
                 }
             }
             else if (value.ValueKind == JsonValueKind.Array)
             {
-                foreach (JsonElement item in value.EnumerateArray()) { Validate(item, false, context); }
+                foreach (JsonElement item in value.EnumerateArray()) { ValidateEncoding(item); }
             }
             else if (value.ValueKind == JsonValueKind.String)
             {
@@ -309,7 +312,7 @@ internal static class JobJsonLoader
 
         internal async ValueTask LoadChildrenAsync(int first, CancellationToken cancellationToken)
         {
-            while (Documents[^1].RootElement.TryGetProperty(FileKey, out JsonElement child))
+            while (Documents[^1].Json.RootElement.TryGetProperty(FileKey, out JsonElement child))
             {
                 _governor.CheckCancellation();
                 if (child.ValueKind != JsonValueKind.String)
@@ -346,7 +349,7 @@ internal static class JobJsonLoader
             List<JobSetting>[] suffixes = new List<JobSetting>[count];
             for (int index = 0; index < count; index++)
             {
-                List<JobSetting> sorted = PrepareFields(Documents[first + index]);
+                List<JobSetting> sorted = Documents[first + index].Fields;
                 int suffix = 0;
                 while (suffix < sorted.Count)
                 {
@@ -391,7 +394,7 @@ internal static class JobJsonLoader
         {
             if (_documents is not null)
             {
-                foreach (JsonDocument document in _documents) { document.Dispose(); }
+                foreach (PreparedDocument document in _documents) { document.Json.Dispose(); }
             }
             _documents = null;
             _fields = null;

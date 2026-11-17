@@ -46,7 +46,9 @@ reasons. Companion fix-qdf/zlib-flate operations are additional contracts.
 | Generic catalog data | Selection defaults may omit extras | Ordinary rewrites preserve supported primary extras; split has a narrower policy |
 
 Argv setters apply at their position. Job keys use native sorted-key setter order,
-including nested files; duplicate JSON properties keep their last value. Compression
+including nested files; duplicate JSON properties keep their last value. Semantic
+validation uses effective values; malformed string encoding still rejects even
+in a superseded value. Compression
 and decode setters follow that order; QDF fills unset defaults. Managed extensions
 include separate job-file/JSON/split values and bare compression. Unknown options,
 invalid combinations and excluded crypto fail explicitly.

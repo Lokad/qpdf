@@ -205,8 +205,7 @@ internal static partial class JobPlanner
             foreach (JobSetting property in properties)
             {
                 governor.CheckCancellation();
-                if (IsCryptoKey(property.Name) && property.Name is not ("password" or "passwordFile" or "passwordMode" or "suppressPasswordRecovery" or "decrypt" or "encrypt" or "copyEncryption" or "encryptionFilePassword" or "removeRestrictions"))
-                { throw new QpdfCryptoException(property.Name); }
+                ValidateRootCryptoKey(property.Name);
                 switch (property.Name)
                 {
                     case "removeRestrictions":
@@ -1279,6 +1278,13 @@ internal static partial class JobPlanner
 
     internal static bool IsCryptoKey(string name)
         => name is "encrypt" or "decrypt" or "password" or "passwordFile" or "passwordMode" or "passwordIsHexKey" or "suppressPasswordRecovery" or "encryptionFilePassword" or "allowWeakCrypto" or "copyEncryption" or "showEncryptionKey" or "staticAesIv" or "removeRestrictions";
+
+    internal static void ValidateRootCryptoKey(string name)
+    {
+        if (IsCryptoKey(name) && name is not ("password" or "passwordFile" or "passwordMode" or "suppressPasswordRecovery"
+            or "decrypt" or "encrypt" or "copyEncryption" or "encryptionFilePassword" or "removeRestrictions"))
+        { throw new QpdfCryptoException(name); }
+    }
 
     internal static IEnumerable<JobSetting> EffectiveProperties(JobValue value, ResourceGovernor governor)
     {

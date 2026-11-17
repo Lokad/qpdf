@@ -2,6 +2,8 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Validate effective job settings after duplicate-property resolution, preserving
+  encoding checks, early excluded-key refusal and ordered file includes.
 - Consume valid plaintext Identity Crypt stages before content processing and
   output encryption, including JSON creation/update and physical writer layouts.
   Preserve private filter aliases and reject unknown stages for encryption.
