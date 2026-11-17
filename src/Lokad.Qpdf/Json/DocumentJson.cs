@@ -809,7 +809,8 @@ internal static class DocumentJson
         builder.Append("],\"filterable\": ");
         builder.Append(request.DecodeLevel != "none" && stages.Count <= limits.MaxStreamFilters
             && !FilterChain.HasExternalData(detail.Stream, engine, governor, cancellationToken)
-            && FilterChain.AllStagesInLevel(stages, request.DecodeLevel) ? "true" : "false");
+            && FilterChain.AllStagesInLevel(stages, request.DecodeLevel)
+            && FilterChain.SupportsParameters(stages, cancellationToken) ? "true" : "false");
         builder.Append(",\"height\": ");
         AppendImageValue(builder, detail.Stream.Dictionary, "Height"u8, request, limits, governor, cancellationToken);
         builder.Append(",\"name\": ");

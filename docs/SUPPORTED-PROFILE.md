@@ -287,6 +287,8 @@ preserves opaque streams with an explicit warning or skipped check.
 Checking covers structure, streams, content, forms and linearization, with explicit
 skipped stages. It does not establish rendering or conformance. Object, xref, page,
 image, attachment and outline listings use the shared resolver.
+Image filterability checks decode level, filter count and supported parameters;
+it does not validate encoded frames or establish host JPEG capability.
 Outline projections resolve catalog names, destination name trees and `/D`
 wrappers, including local GoTo actions. Missing names project null; destination
 page positions validate the complete object number/generation pair.

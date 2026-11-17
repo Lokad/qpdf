@@ -2996,7 +2996,8 @@
           "DctDecodeTests.ChainedFlateDctDecodesAtAll",
           "ProgressiveJpegTests.PublicRewritePreservesExactProgressiveSamples",
           "DctDecodeTests.StoredCmykJpegDecodesThroughTheHostCapability",
-          "DctDecodeTests.FourComponentSamplesMatchRecordedNativeValues"
+          "DctDecodeTests.FourComponentSamplesMatchRecordedNativeValues",
+          "FilterParameterSupportTests.MetadataAndDecoderUseTheSameParameterRules"
         ],
         "negative": [
           "DctDecodeTests.FourComponentFrameStaysOpaque",
@@ -3010,7 +3011,8 @@
           "CompressionTests.DctAtAllWarnsAndStaysOpaque",
           "DctDecodeTests.JobParityHoldsForDecodeAll",
           "CheckTests.ValidDctPassesStreamsCheck",
-          "CmykJpegTests.DecodingPreservesPdfColorSpaceAndDecodeArray"
+          "CmykJpegTests.DecodingPreservesPdfColorSpaceAndDecodeArray",
+          "FilterParameterSupportTests.ParameterSupportDoesNotRequireAJpegCodecOrChangeDecodeLevels"
         ],
         "resource": [
           "JpegCodecBoundaryTests.CoreJpegInputBorrowsAdmittedBackingWithinTightAllowance",
@@ -3377,7 +3379,8 @@
           "PredictorDefaultsTests.OptionalNullParametersUseTheSameDefaultsAsAbsentKeys",
           "ShowObjectTests.FilteredBeatsRaw",
           "ShowObjectTests.JobStreamDataMatchesArgv",
-          "EmptyDecodeParmsTests.FilteredInspectionUsesDefaultsForEmptyParameterArrays"
+          "EmptyDecodeParmsTests.FilteredInspectionUsesDefaultsForEmptyParameterArrays",
+          "FilterParameterSupportTests.MetadataAndDecoderUseTheSameParameterRules"
         ],
         "negative": [
           "ShowObjectTests.StreamOutputPathsMustBeUnambiguous",
@@ -3389,7 +3392,8 @@
         ],
         "interaction": [
           "ShowObjectTests.JobStreamDataMatchesArgv",
-          "ShowObjectTests.JobStreamDataRejectsCombinations"
+          "ShowObjectTests.JobStreamDataRejectsCombinations",
+          "FilterParameterSupportTests.ParameterSupportDoesNotRequireAJpegCodecOrChangeDecodeLevels"
         ],
         "resource": [
           "ShowObjectTests.StreamDataYieldsToExhaustedBudget",
@@ -4016,7 +4020,9 @@
           "JsonPageAssemblyTests.EachEncryptedInputUsesItsOwnCredential",
           "JsonPageAssemblyTests.ExportRetainsTheSelectedSourcesVersionFloor",
           "AcroFormJsonTests.FieldLocalNamesUseTheSamePublicProjection",
-          "EmptyDecodeParmsTests.ImageJsonAndCheckingShareDefaultParameters"
+          "EmptyDecodeParmsTests.ImageJsonAndCheckingShareDefaultParameters",
+          "ImageParameterSupportTests.UnsupportedParametersReportFalseAndRetainRawStreamFallback",
+          "ImageParameterSupportTests.EligibleMetadataDoesNotClaimFrameIntegrity"
         ],
         "resource": [
           "JsonPublicationMemoryTests.KnownSidecarLengthFitsSharedAllowanceWithoutGrowthCopies",
@@ -4033,7 +4039,9 @@
           "JsonPageAssemblyTests.AssembledBackingLivesThroughPendingSourceCloseAndSidecarWrite",
           "AcroFormJsonTests.AncestorDepthExhaustionRefundsInspectionScratch",
           "AcroFormJsonTests.PublicAncestorLimitKeepsCompleteValuesOrThePriorReport",
-          "AcroFormJsonTests.CommandAncestorExhaustionReportsBudgetExceededBeforePublication"
+          "AcroFormJsonTests.CommandAncestorExhaustionReportsBudgetExceededBeforePublication",
+          "FilterParameterSupportTests.ResolverCancellationIsFatalForEitherToken",
+          "FilterParameterSupportTests.RefusedParameterStorageIsFatalAndPreservesPriorOwners"
         ],
         "oracle": [
           "diff:json-pages",

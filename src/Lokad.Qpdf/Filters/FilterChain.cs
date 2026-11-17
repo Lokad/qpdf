@@ -95,7 +95,7 @@ internal static partial class FilterChain
     internal static bool StageInLevel(FilterStage stage, string decode)
     {
         string name = stage.Name;
-        if (name == DctFilter.FilterName && stage.Parms is not null) { return false; }
+        if (name == DctFilter.FilterName && !SupportsDctParameters(stage)) { return false; }
         bool generalized = name == FlateFilter.FilterName || name == LzwFilter.FilterName
             || name == AsciiHexFilter.FilterName || name == Ascii85Filter.FilterName;
         return decode switch
@@ -188,20 +188,18 @@ internal static partial class FilterChain
 
     private static byte[] DecodeStage(byte[] input, FilterStage stage, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
+        using StageParameters parameters = ReadStageParameters(stage, governor, token);
         if (stage.Name == FlateFilter.FilterName || stage.Name == LzwFilter.FilterName)
-        { return DecodePredictorStage(input, stage, limits, governor, token); }
+        { return DecodePredictorStage(input, stage.Name, parameters.Predictor, parameters.EarlyChange, limits, governor, token); }
 
         if (stage.Name == DctFilter.FilterName)
         {
-            if (stage.Parms is not null)
-            { throw new QpdfFilterException(QpdfFilterFailureReason.UnsupportedFilter, stage.Name, "DCTDecode DecodeParms are not supported."); }
             // DctFilter owns decoded-byte accounting for its frame; DecodeChecked would charge twice.
             return DctFilter.Decode(input, limits, governor);
         }
 
         if (stage.Name == AsciiHexFilter.FilterName || stage.Name == Ascii85Filter.FilterName || stage.Name == RunLengthFilter.FilterName)
         {
-            RequireNoParms(stage);
             byte[] decoded = stage.Name == AsciiHexFilter.FilterName
                 ? AsciiHexFilter.Decode(input, limits, governor, token)
                 : stage.Name == Ascii85Filter.FilterName
@@ -213,25 +211,17 @@ internal static partial class FilterChain
         throw new QpdfFilterException(QpdfFilterFailureReason.UnsupportedFilter, stage.Name, "Filter decoding is unavailable.");
     }
 
-    private static byte[] DecodePredictorStage(byte[] input, FilterStage stage, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
+    private static byte[] DecodePredictorStage(byte[] input, string name, PredictorParameters? parms, bool earlyChange,
+        QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
-        bool earlyChange = stage.Name != LzwFilter.FilterName || ReadEarlyChange(stage.Parms, stage.Resolver, governor, token);
-        using ParserMemoryScope? memory = stage.Parms is null ? null : ParserMemoryScope.Create(governor);
-        PredictorParameters? parms = null;
-        try
-        {
-            if (memory is not null)
-            { parms = PredictorParameters.FromDictionary(stage.Parms, stage.Name, stage.Resolver, memory, governor, token); }
-            // Hints and the companion facade share this same Flate codec.
-            if (stage.Name == FlateFilter.FilterName) { return FlateFilter.Decode(input, parms, limits, governor, token); }
-            long selectorStride = parms is not null && parms.Predictor >= 10
-                ? PredictorStages.RowLength(parms, LzwFilter.FilterName) + 1L : 0L;
-            byte[] inflated = LzwFilter.Decode(input, earlyChange, limits, governor, token, selectorStride);
-            if (parms is null || parms.Predictor == 1) { return DecodeChecked(inflated, limits, governor); }
-            try { return DecodeChecked(PredictorStages.Apply(inflated, parms, LzwFilter.FilterName, governor, token), limits, governor); }
-            finally { long bytes = ArrayBytes(inflated); inflated = Array.Empty<byte>(); governor.ReleaseMemory(bytes); }
-        }
-        finally { parms = null; }
+        // Hints and the companion facade share this same Flate codec.
+        if (name == FlateFilter.FilterName) { return FlateFilter.Decode(input, parms, limits, governor, token); }
+        long selectorStride = parms is not null && parms.Predictor >= 10
+            ? PredictorStages.RowLength(parms, LzwFilter.FilterName) + 1L : 0L;
+        byte[] inflated = LzwFilter.Decode(input, earlyChange, limits, governor, token, selectorStride);
+        if (parms is null || parms.Predictor == 1) { return DecodeChecked(inflated, limits, governor); }
+        try { return DecodeChecked(PredictorStages.Apply(inflated, parms, LzwFilter.FilterName, governor, token), limits, governor); }
+        finally { long bytes = ArrayBytes(inflated); inflated = Array.Empty<byte>(); governor.ReleaseMemory(bytes); }
     }
 
     private static byte[] DecodeChecked(byte[] decoded, QpdfLimits limits, ResourceGovernor governor)
