@@ -10,6 +10,9 @@ defaults and intentional differences. Accepted syntax alone does not establish s
 Typed operations, `Qpdf.ExecuteAsync` argv and `Qpdf.ExecuteJobAsync` job JSON share
 the engine. Hosts supply inputs, outputs, descriptors and environment values;
 fileless inspection returns text or bytes. The core has no runtime NuGet dependencies.
+Response arguments use one argument per UTF-8 line. `@-` reads the stable host input
+keyed `-`; an unmapped descriptor fails through the host. Missing ordinary `@file`
+inputs remain literal, and nested response tokens are not expanded again.
 
 Typed selection preserves encoded streams. Argv/job defaults
 to bounded repair and generalized decoding/compression. Argv setters follow argument

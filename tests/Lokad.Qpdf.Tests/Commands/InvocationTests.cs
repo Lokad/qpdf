@@ -37,16 +37,19 @@ public sealed class InvocationTests
         return Assert.Single(result.Diagnostics);
     }
 
-    [Fact]
-    public async Task ResponseFileExpandsThroughHost()
+    [Theory]
+    [InlineData("args.txt", "\n")]
+    [InlineData("-", "\n")]
+    [InlineData("-", "\r\n")]
+    public async Task ResponseFileExpandsThroughHost(string name, string newline)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         host.AddInput(
-            QpdfPath.From("args.txt"),
-            Encoding.UTF8.GetBytes("inputs/a.pdf\n--pages\n.\n2\n--\noutputs/r.pdf\n"),
+            QpdfPath.From(name),
+            Encoding.UTF8.GetBytes(string.Join(newline, ["inputs/a.pdf", "--pages", ".", "2", "--", "outputs/r.pdf", ""])),
             QpdfInputOwnership.Copy);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
-            host, new QpdfCommandInvocation(["@args.txt"]), CancellationToken.None);
+            host, new QpdfCommandInvocation(["@" + name]), CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         {
@@ -67,21 +70,38 @@ public sealed class InvocationTests
     }
 
     [Fact]
-    public async Task StdinResponseFileFailsExplicitly()
+    public async Task UnmappedResponseDescriptorFailsThroughTheHost()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host, new QpdfCommandInvocation(["@-"]), CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.Equal(QpdfDiagnosticCode.HostOperationFailed, SingleError(result).Code);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Fact]
-    public async Task NestedResponseFileStaysLiteral()
+    public async Task EmptyResponseDescriptorAddsNoArguments()
+    {
+        using InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        host.AddInput(QpdfPath.From("-"), [], QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "@-", "--show-npages"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        QpdfDiagnostic count = Assert.Single(result.Diagnostics);
+        Assert.Equal(QpdfDiagnosticCode.PageCount, count.Code);
+        Assert.EndsWith(": 1", count.Message, StringComparison.Ordinal);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData("outer.txt")]
+    [InlineData("-")]
+    public async Task NestedResponseFileStaysLiteral(string name)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         host.AddInput(
-            QpdfPath.From("outer.txt"),
+            QpdfPath.From(name),
             Encoding.UTF8.GetBytes("@inner.txt"),
             QpdfInputOwnership.Copy);
         host.AddInput(
@@ -89,7 +109,7 @@ public sealed class InvocationTests
             Encoding.UTF8.GetBytes("inputs/a.pdf\n--check"),
             QpdfInputOwnership.Copy);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
-            host, new QpdfCommandInvocation(["@outer.txt"]), CancellationToken.None);
+            host, new QpdfCommandInvocation(["@" + name]), CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
     }
 

@@ -6,8 +6,8 @@ namespace Lokad.Qpdf.Commands;
 /// <summary>
 /// Single-level response-file expansion through the host. Tokens starting with
 /// `@` name a logical response file holding one argument per line;
-/// `@-` (standard input) has no host descriptor and fails explicitly. Missing
-/// files stay literal like the reference parser; nested `@` tokens are never
+/// `@-` reads the host's `-` input descriptor and requires that mapping. Missing
+/// ordinary files stay literal like the reference parser; nested `@` tokens are never
 /// re-expanded. File bytes and expanded lines charge the job budgets.
 /// </summary>
 internal static class ResponseFileExpander
@@ -59,11 +59,6 @@ internal static class ResponseFileExpander
                 }
 
                 string name = expanded.CopySubstring(token, 1, token.Length - 1);
-                if (name == "-")
-                {
-                    throw new QpdfParseException("Response arguments from standard input need a stdin descriptor, which this profile does not provide.", i, null);
-                }
-
                 QpdfPath path;
                 try
                 {
@@ -74,7 +69,9 @@ internal static class ResponseFileExpander
                     throw new QpdfParseException($"Response file name is not a valid logical path: {ex.Message}.", i, null, ex);
                 }
 
-                using GovernedText? content = await TryReadTextFileAsync(host, path, limits, governor, cancellationToken).ConfigureAwait(false);
+                using GovernedText? content = name == "-"
+                    ? await ReadTextFileAsync(host, path, limits, governor, cancellationToken).ConfigureAwait(false)
+                    : await TryReadTextFileAsync(host, path, limits, governor, cancellationToken).ConfigureAwait(false);
                 if (content is null)
                 {
                     expanded.AddBorrowed(token);

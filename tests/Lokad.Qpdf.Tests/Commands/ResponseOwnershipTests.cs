@@ -16,9 +16,10 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
     private static readonly QpdfPath Output = QpdfPath.From(new string('o', 1024) + ".pdf");
     private static readonly byte[] Prior = [17, 23, 41];
 
-    private sealed class BoundaryHost(string outcome) : IQpdfHost, IQpdfMemoryHost, IDisposable
+    private sealed class BoundaryHost(string outcome, QpdfPath response) : IQpdfHost, IQpdfMemoryHost, IDisposable
     {
         private readonly string _outcome = outcome;
+        private readonly QpdfPath _response = response;
         internal readonly InMemoryQpdfHost Inner = new();
         private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource _resume = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -34,8 +35,8 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
         public async ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token)
         {
             IQpdfInput input = await Inner.OpenInputAsync(path, token);
-            if (path != Response) { PdfOpens++; }
-            if (path == Response && _outcome is "empty" or "memory")
+            if (path != _response) { PdfOpens++; }
+            if (path == _response && _outcome is "empty" or "memory")
             {
                 _entered.TrySetResult();
                 await _resume.Task.WaitAsync(token);
@@ -54,8 +55,9 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
 
             public async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
             {
-                int bytes = await inner.ReadAsync(offset, destination, token);
-                if (Path == Response)
+                int bytes = await inner.ReadAsync(offset, Path == host._response && host._response.Value == "-"
+                    ? destination[..Math.Min(3, destination.Length)] : destination, token);
+                if (Path == host._response)
                 {
                     host.Reads++;
                     host._entered.TrySetResult();
@@ -71,7 +73,7 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
             {
                 try
                 {
-                    if (Path == Response)
+                    if (Path == host._response)
                     {
                         host.Closes++;
                         if (host._outcome == "close-fault") { throw new QpdfHostException(Path, QpdfHostFailureReason.ReadFailed); }
@@ -84,17 +86,19 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
 
     private static async Task<(BoundaryHost Host, QpdfExecutionResult Result, int Length)> Execute(string outcome, bool unicode, string route, QpdfLimits limits)
     {
-        using BoundaryHost host = new(outcome);
+        QpdfPath response = route == "descriptor" ? QpdfPath.From("-") : Response;
+        bool responseArguments = route is "response" or "descriptor";
+        using BoundaryHost host = new(outcome, response);
         string padding = unicode ? new string('\u00e9', 1024) : new string('o', 1024);
         QpdfPath target = unicode ? QpdfPath.From(padding + ".pdf") : Output;
         host.Inner.AddInput(QpdfPath.From("input.pdf"),
             await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "minimal-1page.pdf")), QpdfInputOwnership.Copy);
-        string text = route == "response" ? "input.pdf\n--\n" + target.Value + "\n"
+        string text = responseArguments ? "input.pdf\n--\n" + target.Value + "\n"
             : JsonSerializer.Serialize(new Dictionary<string, string> { ["inputFile"] = "input.pdf", ["outputFile"] = target.Value });
         if (outcome == "memory") { text = new string(' ', 65536) + text; }
         byte[] bytes = outcome == "invalid-utf8" ? [0xff, 0xfe]
             : outcome == "empty" ? [] : Encoding.UTF8.GetBytes(text);
-        host.Inner.AddInput(Response, bytes, QpdfInputOwnership.Copy);
+        host.Inner.AddInput(response, bytes, QpdfInputOwnership.Copy);
         await using (IQpdfOutputTransaction seed = await host.Inner.CreateOutputAsync(target, CancellationToken.None))
         {
             await seed.WriteAsync(Prior, CancellationToken.None);
@@ -102,7 +106,7 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
         }
         Assert.True(host.Inner.TryGetOutput(target, out byte[] prior));
         using CancellationTokenSource cancellation = new();
-        string[] caller = route == "response" ? ["@arguments.txt"] : ["--job-json-file=arguments.txt"];
+        string[] caller = responseArguments ? ["@" + response.Value] : ["--job-json-file=arguments.txt"];
         QpdfCommandInvocation invocation = new(caller);
         Task<QpdfExecutionResult> running = route == "job"
             ? Qpdf.ExecuteJobAsync(host, "{\"jobJsonFile\":\"arguments.txt\"}", new QpdfExecutionOptions(limits), cancellation.Token).AsTask()
@@ -121,7 +125,12 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
             // A newly admitted configuration owner may reject before its first
             // byte read. Keep the same memory limit and before-PDF rejection.
             if (outcome == "memory") { Assert.InRange(host.Reads, 0, 1); }
-            else { Assert.Equal(outcome == "empty" ? 0 : 1, host.Reads); }
+            else
+            {
+                int expectedReads = outcome == "empty" ? 0 : route == "descriptor" && (outcome is "success" or "close-fault")
+                    ? (bytes.Length + 2) / 3 : 1;
+                Assert.Equal(expectedReads, host.Reads);
+            }
             Assert.Equal(1, host.Closes);
             Assert.Equal(0L, host.Inner.OpenLeaseCount); Assert.Equal(0L, result.Counters.OpenHandles);
             Assert.True(host.Inner.TryGetOutput(target, out byte[] published));
@@ -200,6 +209,14 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
         { jobs.Add(await Execute(outcome, false, "response", QpdfLimits.Default)); }
         foreach (string outcome in new[] { "invalid-utf8", "empty" })
         { jobs.Add(await Execute(outcome, false, "job", QpdfLimits.Default)); }
+        foreach (string outcome in new[] { "success", "read-fault", "close-fault", "invalid-utf8", "cancel", "host-cancel", "no-progress", "empty", "memory" })
+        {
+            var job = await Execute(outcome, false, "descriptor", QpdfLimits.Default);
+            if (outcome is "invalid-utf8") { Assert.Contains(job.Result.Diagnostics, d => d.Code == QpdfDiagnosticCode.InvalidArguments); }
+            if (outcome is "read-fault" or "close-fault" or "no-progress") { Assert.Contains(job.Result.Diagnostics, d => d.Code == QpdfDiagnosticCode.HostOperationFailed); }
+            if (outcome is "memory") { Assert.Contains(job.Result.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded); }
+            jobs.Add(job);
+        }
         jobs.Add(await Execute("cancel", false, "mixed", QpdfLimits.Default));
         output.WriteLine("CONFIGURATION CONTROLS {0}", jobs.Count);
         return jobs;

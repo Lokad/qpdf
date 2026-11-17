@@ -507,7 +507,8 @@ public sealed class PublicationAdmissionTests
         foreach (string route in new[] { "argv", "job" })
         foreach (bool split in new[] { false, true }) { yield return [role, route, split, "collision"]; }
         foreach (bool split in new[] { false, true }) { yield return ["response-file", "argv", split, "collision"]; }
-        foreach (string role in new[] { "encrypted-template", "password-file", "job-file", "response-file" })
+        foreach (bool split in new[] { false, true }) { yield return ["response-descriptor", "argv", split, "collision"]; }
+        foreach (string role in new[] { "encrypted-template", "password-file", "job-file", "response-file", "response-descriptor" })
         foreach (string mode in new[] { "inactive", "safe" }) { yield return [role, "argv", false, mode]; }
         foreach (string route in new[] { "argv", "job", "mixed" }) { yield return ["plain-template", route, false, "superseded"]; }
     }
@@ -522,7 +523,7 @@ public sealed class PublicationAdmissionTests
         {
             "plain-template" or "encrypted-template" => "template.pdf",
             "password-file" or "previous-password-file" => "password.txt",
-            "nested-job-file" => "nested.json", "response-file" => "arguments.txt", _ => "settings.json"
+            "nested-job-file" => "nested.json", "response-file" => "arguments.txt", "response-descriptor" => "-", _ => "settings.json"
         };
         string capture = mode == "safe" ? "pass1.pdf" : source;
         await using (IQpdfOutputTransaction seed = await storage.CreateOutputAsync(QpdfPath.From(capture), CancellationToken.None))
@@ -560,7 +561,7 @@ public sealed class PublicationAdmissionTests
         }
         if (route == "mixed") { argv.Insert(0, "--job-json-file=settings.json"); }
         argv.Add("output.pdf");
-        if (role == "response-file")
+        if (role is "response-file" or "response-descriptor")
         {
             storage.AddInput(QpdfPath.From(source), Encoding.UTF8.GetBytes(string.Join('\n', argv)), QpdfInputOwnership.Transfer);
             argv = ["@" + source];
@@ -576,7 +577,7 @@ public sealed class PublicationAdmissionTests
         {
             Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.InvalidArguments && d.Message.Contains("first-pass", StringComparison.Ordinal));
             Assert.Equal(0, host.Creates); Assert.Empty(host.Committed);
-            Assert.All(host.Opened, path => Assert.Contains(path, new[] { "settings.json", "nested.json", "arguments.txt" }));
+            Assert.All(host.Opened, path => Assert.Contains(path, new[] { "settings.json", "nested.json", "arguments.txt", "-" }));
             Assert.True(storage.TryGetOutput(QpdfPath.From(capture), out byte[] prior)); Assert.Equal(PublicationTestJobs.Prior, prior);
             foreach (string target in Targets)
             { Assert.True(storage.TryGetOutput(QpdfPath.From(target), out byte[] bytes)); Assert.Equal(PublicationTestJobs.Prior, bytes); }
