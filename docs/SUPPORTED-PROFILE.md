@@ -49,16 +49,20 @@ budget exhaustion remains a resource failure, never permission to discard retain
 
 ### Authentication
 
-`QpdfDocument.OpenAsync` supports RC4 R2/R3, 128-bit RC4/AES R4 and AES-256 R5/R6 with user or owner
-credentials, including empty passwords. UTF-8 text is not normalized. Failed text
-authentication can retry PDFDoc, WinAnsi and MacRoman encodings for R2–R6 when
-the bounded password prefix is representable. Command byte credentials can
-also convert among UTF-8/PDFDoc/WinAnsi/MacRoman or from well-formed BOM-marked
-UTF-16 to the single-byte encodings. At most nine distinct alternatives are tried,
-using a 512-byte source prefix and the revision's 32/127-byte result limit.
-Typed raw bytes are borrowed until opening completes
-and never reinterpreted. R2–R4 use the first 32 bytes and R5/R6 use 127. Missing credentials try
-empty; a failed absent password is distinct from a failed supplied password.
+`QpdfDocument.OpenAsync` supports RC4 R2/R3, 128-bit RC4/AES R4 and AES-256 R5/R6
+with user or owner credentials, including empty passwords. Authentication tries
+the supplied representation first, consuming up to 32 bytes for R2–R4 or 127
+for R5/R6. UTF-8 text is not normalized.
+Missing credentials try empty; failed absent and supplied passwords are distinct.
+
+Failed text authentication can retry PDFDoc, WinAnsi and MacRoman encodings when
+the bounded prefix is representable. Command byte credentials can convert among
+UTF-8/PDFDoc/WinAnsi/MacRoman or from well-formed BOM-marked UTF-16 to the single-byte
+encodings. Recovery tries at most nine distinct alternatives from a source prefix
+of at most 512 bytes, with the same revision-specific authentication limits.
+Typed raw bytes remain borrowed until the operation completes and are never
+reinterpreted by recovery.
+
 `--remove-restrictions`/`removeRestrictions` explicitly selects the default signature-disabling PDF publication policy. Non-predicate inspections and JSON exports reject it; signature values remain available for reading. See [query precedence](#reports-and-predicates).
 Standalone `--show-crypto` reports `managed` through the result diagnostics; it takes no other arguments or job JSON key.
 Encryption facts expose permissions and authentication status without passwords
@@ -187,20 +191,18 @@ File setters retain native order: a zero-byte file leaves the previous password
 unchanged, while a blank first line supplies an empty password. Spaces are retained;
 CR is stripped only before LF, and NUL terminates the password. Additional lines
 produce a non-secret informational note without changing the exit code. File bytes
-stay in bounded owned storage and are cleared after the operation. For descriptor
+use [owned password storage](MEMORY.md#engine-guarantees-and-limits). For descriptor
 input (`--password-file=-`), the host opens the logical path `"-"` as a stable
 `IQpdfInput` lease with the same limits and first-line semantics. The host owns
 descriptor acquisition and any snapshot storage; core never reads ambient stdin.
 An unmapped descriptor fails through the host before opening the PDF.
-`--suppress-password-recovery` / `suppressPasswordRecovery` disables encoding
-retries across password-bearing operations. Host-file
-credentials retain at most 512 source bytes for these bounded conversions. It leaves raw
-bytes, absent passwords and successful first attempts unchanged.
+`--suppress-password-recovery` / `suppressPasswordRecovery` disables the
+[authentication retries](#authentication) across password-bearing operations;
+it changes neither the supplied representation nor successful first attempts.
 Input `--password-mode` / `passwordMode` accepts `auto`, `bytes`, `unicode` and
 `hex-bytes`. As in native qpdf, the first three leave input decoding unchanged.
 Hex mode ignores non-hex characters, pads an odd nibble and ends at the first
-decoded NUL; supported encoding recovery still applies unless suppressed.
-Typed raw-byte credentials always remain exact and never take this recovery path.
+decoded NUL; the authentication recovery policy still applies unless suppressed.
 For new R6 output, auto, bytes and unicode encode the managed text as UTF-8;
 hex-bytes uses the same bounded hex decoder. Both output passwords use this mode.
 

@@ -122,10 +122,11 @@ admitted and cleared. A document owns its authenticated file key and clears it o
 disposal or failed opening. Plaintext PDF values follow ordinary graph ownership
 and may outlive the document; they are not zeroed while retained callers use them.
 Caller-owned bytes and immutable password strings are never claimed to be erased.
-Command password files use a 512-byte owned recovery prefix and bounded read scratch;
-scratch remains admitted through input close. Ordered setters use a separate
-candidate prefix so an empty file preserves the previous credential. Owned
-prefixes are cleared before the operation releases their storage.
+Command password files fund separate 512-byte active and candidate prefixes plus
+at most 512 bytes of read scratch. Scratch remains admitted through input close;
+both owned prefixes clear before their storage retires.
+[Command setter semantics](SUPPORTED-PROFILE.md#command-password-files-and-modes)
+define how each file changes the credential.
 
 Parsing, copying, filters, images, JSON, writer passes and inspection admit major
 buffers/container capacity before construction. Opted-in CMYK JPEG decoding uses

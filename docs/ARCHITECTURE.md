@@ -167,16 +167,13 @@ Payload AES checks padding before allocating exact plaintext, processes bounded
 CBC chunks for cancellation and admits exact ciphertext including IV/padding.
 Key and derivation buffers remain owned and clear when their lifetimes end.
 
-Credentials belong to each input. Typed raw bytes stay exact and borrowed;
-text and command credentials try the supplied representation first, then at most
-nine distinct UTF-8/PDFDoc/WinAnsi/MacRoman alternatives. Well-formed BOM-marked
-UTF-16 can recover to a single-byte encoding. Recovery shares the appearance
-text tables, uses bounded cleared scratch and can be suppressed globally by
-commands. Authentication consumes at most 32 legacy or 127 modern bytes.
-Password files retain a 512-byte recovery prefix and 512-byte read scratch,
-funded through asynchronous close. Separate setter candidates preserve the
-previous credential for an empty file. The logical descriptor `-` uses the
-ordinary stable host lease; core never reads ambient stdin.
+Credentials belong to each input. Authentication tries the supplied representation
+before optional encoding recovery, which shares the appearance text tables.
+Password-file and descriptor acquisition uses ordinary stable host leases.
+The [authentication profile](SUPPORTED-PROFILE.md#authentication) defines
+representations, limits and recovery; [command setters](SUPPORTED-PROFILE.md#command-password-files-and-modes)
+define file semantics. [Memory ownership](MEMORY.md#engine-guarantees-and-limits)
+covers admitted scratch, secret-buffer clearing and asynchronous close.
 
 The output policy prepares an independent key/dictionary owner before writing.
 Preservation and authenticated templates copy both password entries and the first
