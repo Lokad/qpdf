@@ -5550,7 +5550,9 @@
           "NamedDestinationTests.EveryAdmissionRefusalRefundsLookupAndTraversalStorage",
           "JsonPageAssemblyTests.AssembledJsonRefundsAdmissionAndPreservesPriorReports",
           "JsonPageAssemblyTests.ContextAssemblyRefundsAdmissionAndPreservesPriorReports",
-          "JsonPageAssemblyTests.AssembledBackingLivesThroughPendingSourceCloseAndSidecarWrite"
+          "JsonPageAssemblyTests.AssembledBackingLivesThroughPendingSourceCloseAndSidecarWrite",
+          "PageRangeSyntaxStorageTests.DenseValidationDoesNotBuildSyntaxGraphs",
+          "PageRangeSyntaxStorageTests.SyntaxAdmissionRefusalLeavesPriorAndOutputStorageUntouched"
         ],
         "oracle": [
           "diff:select",
@@ -6617,7 +6619,9 @@
         ],
         "resource": [
           "ResourceEnforcementTests.RotateYieldsToExhaustedBudget",
-          "CommandRotationTests.CommandOrderingRefusesOrCancelsBeforeLargeScratchAllocation"
+          "CommandRotationTests.CommandOrderingRefusesOrCancelsBeforeLargeScratchAllocation",
+          "PageRangeSyntaxStorageTests.DenseValidationDoesNotBuildSyntaxGraphs",
+          "PageRangeSyntaxStorageTests.SyntaxAdmissionRefusalLeavesPriorAndOutputStorageUntouched"
         ],
         "oracle": [
           "diff:rotate-ranges"
@@ -8084,7 +8088,9 @@
           "RangeGroupScopeTests.SelectionRotationAndPlacementMatchTheNativeGroupScope"
         ],
         "resource": [
-          "ResourceEnforcementTests.OverlayFromYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.OverlayFromYieldsToExhaustedBudget",
+          "PageRangeSyntaxStorageTests.DenseValidationDoesNotBuildSyntaxGraphs",
+          "PageRangeSyntaxStorageTests.SyntaxAdmissionRefusalLeavesPriorAndOutputStorageUntouched"
         ],
         "oracle": [
           "diff:overlay-ranges",
@@ -8196,7 +8202,9 @@
           "RangeGroupScopeTests.SelectionRotationAndPlacementMatchTheNativeGroupScope"
         ],
         "resource": [
-          "ResourceEnforcementTests.OverlayRepeatYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.OverlayRepeatYieldsToExhaustedBudget",
+          "PageRangeSyntaxStorageTests.DenseValidationDoesNotBuildSyntaxGraphs",
+          "PageRangeSyntaxStorageTests.SyntaxAdmissionRefusalLeavesPriorAndOutputStorageUntouched"
         ],
         "oracle": [
           "diff:overlay-ranges",
@@ -8260,7 +8268,9 @@
           "RangeGroupScopeTests.SelectionRotationAndPlacementMatchTheNativeGroupScope"
         ],
         "resource": [
-          "ResourceEnforcementTests.OverlayToYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.OverlayToYieldsToExhaustedBudget",
+          "PageRangeSyntaxStorageTests.DenseValidationDoesNotBuildSyntaxGraphs",
+          "PageRangeSyntaxStorageTests.SyntaxAdmissionRefusalLeavesPriorAndOutputStorageUntouched"
         ],
         "oracle": [
           "diff:overlay-ranges",

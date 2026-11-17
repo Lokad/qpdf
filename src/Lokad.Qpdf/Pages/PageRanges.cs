@@ -19,9 +19,12 @@ internal static class PageRanges
 {
     internal const int MaxRangeTextLength = 4096;
 
-    private sealed record Endpoint(bool Relative, long Value);
+    private readonly record struct Endpoint(bool Relative, long Value);
 
-    private sealed record Group(bool Exclude, Endpoint First, Endpoint? Last);
+    private readonly record struct Group(bool Exclude, Endpoint First, Endpoint? Last)
+    {
+        internal const long ElementBytes = 48L;
+    }
 
     internal static void CheckSyntax(string? range)
     {
@@ -35,7 +38,8 @@ internal static class PageRanges
             throw new QpdfParseException($"Invalid page range: text exceeds {MaxRangeTextLength} characters.", 0L, null);
         }
 
-        Parse(range);
+        SyntaxReader syntax = new(range);
+        while (syntax.TryReadNext(out _)) { }
     }
 
     internal static IReadOnlyList<int> Expand(string? range, int total, long maxEntries,
@@ -74,17 +78,15 @@ internal static class PageRanges
             throw new QpdfParseException($"Invalid page range: text exceeds {MaxRangeTextLength} characters.", 0L, null);
         }
 
-        // Range text is capped at 4096 characters. This envelope covers its
-        // bounded lexical strings, split array and endpoint/group records.
-        memory.Reserve(checked(256L + 128L * range.Length));
+        using ParserMemoryScope syntaxMemory = ParserMemoryScope.Create(governor);
         governor.NoteOperation();
-        (List<Group> groups, bool oddOnly, bool evenOnly) = Parse(range);
+        (List<Group> groups, bool oddOnly, bool evenOnly) = Parse(range, governor, syntaxMemory);
         List<int> selected = ParserContainers.CreateList<int>(memory);
         int groupStart = 0;
         foreach (Group group in groups)
         {
             int first = ResolveEndpoint(group.First, range, total);
-            int last = group.Last is null ? first : ResolveEndpoint(group.Last, range, total);
+            int last = group.Last is Endpoint endpoint ? ResolveEndpoint(endpoint, range, total) : first;
             if (!group.Exclude)
             {
                 groupStart = selected.Count;
@@ -136,52 +138,58 @@ internal static class PageRanges
         return selected;
     }
 
-    private static (List<Group> Groups, bool OddOnly, bool EvenOnly) Parse(string range)
+    private static (List<Group> Groups, bool OddOnly, bool EvenOnly) Parse(string range, ResourceGovernor governor, ParserMemoryScope memory)
     {
-        string groups = range;
-        bool oddOnly = false;
-        bool evenOnly = false;
-        int colon = range.IndexOf(':');
-        if (colon >= 0)
+        SyntaxReader syntax = new(range);
+        List<Group> groups = ParserContainers.CreateList<Group>(memory);
+        while (syntax.TryReadNext(out Group group))
         {
-            string suffix = range.Substring(colon + 1);
-            string head = range.Substring(0, colon);
-            if (head.IndexOf(':') >= 0)
-            {
-                throw new QpdfParseException($"Invalid page range '{range}': expected :even or :odd.", 0L, null);
-            }
-
-            if (suffix == "odd")
-            {
-                oddOnly = true;
-            }
-            else if (suffix == "even")
-            {
-                evenOnly = true;
-            }
-            else
-            {
-                throw new QpdfParseException($"Invalid page range '{range}': expected :even or :odd.", 0L, null);
-            }
-
-            groups = head;
+            governor.NoteOperation();
+            ParserContainers.AddItem(memory, groups, group, Group.ElementBytes);
         }
-
-        List<Group> parsed = new();
-        if (groups.Length > 0)
-        {
-            bool first = true;
-            foreach (string text in groups.Split(','))
-            {
-                parsed.Add(ParseGroup(text, range, first));
-                first = false;
-            }
-        }
-
-        return (parsed, oddOnly, evenOnly);
+        return (groups, syntax.OddOnly, syntax.EvenOnly);
     }
 
-    private static Group ParseGroup(string text, string range, bool first)
+    private ref struct SyntaxReader
+    {
+        private readonly string _range;
+        private readonly ReadOnlySpan<char> _groups;
+        private int _next;
+        private bool _first;
+        internal bool OddOnly { get; }
+        internal bool EvenOnly { get; }
+
+        internal SyntaxReader(string range)
+        {
+            _range = range;
+            OddOnly = false; EvenOnly = false;
+            ReadOnlySpan<char> groups = range.AsSpan();
+            int colon = groups.IndexOf(':');
+            if (colon >= 0)
+            {
+                ReadOnlySpan<char> suffix = groups[(colon + 1)..];
+                if (suffix.SequenceEqual("odd")) { OddOnly = true; }
+                else if (suffix.SequenceEqual("even")) { EvenOnly = true; }
+                else { throw new QpdfParseException($"Invalid page range '{range}': expected :even or :odd.", 0L, null); }
+                groups = groups[..colon];
+            }
+            _groups = groups; _next = groups.IsEmpty ? 1 : 0; _first = true;
+        }
+
+        internal bool TryReadNext(out Group group)
+        {
+            if (_next > _groups.Length) { group = default; return false; }
+            int start = _next;
+            int comma = _groups[start..].IndexOf(',');
+            int length = comma < 0 ? _groups.Length - start : comma;
+            _next = comma < 0 ? _groups.Length + 1 : start + length + 1;
+            group = ParseGroup(_groups.Slice(start, length), _range, _first);
+            _first = false;
+            return true;
+        }
+    }
+
+    private static Group ParseGroup(ReadOnlySpan<char> text, string range, bool first)
     {
         if (text.Length == 0)
         {
@@ -189,11 +197,11 @@ internal static class PageRanges
         }
 
         bool exclude = false;
-        string body = text;
+        ReadOnlySpan<char> body = text;
         if (body[0] == 'x')
         {
             exclude = true;
-            body = body.Substring(1);
+            body = body[1..];
             if (first)
             {
                 throw new QpdfParseException($"Invalid page range '{range}': first range group may not be an exclusion.", 0L, null);
@@ -206,7 +214,7 @@ internal static class PageRanges
         }
 
         int dash = body.IndexOf('-');
-        if (dash >= 0 && body.IndexOf('-', dash + 1) >= 0)
+        if (dash >= 0 && body[(dash + 1)..].IndexOf('-') >= 0)
         {
             throw new QpdfParseException($"Invalid page range '{range}': invalid range syntax.", 0L, null);
         }
@@ -216,27 +224,27 @@ internal static class PageRanges
             return new Group(exclude, ParseEndpoint(body, range), null);
         }
 
-        return new Group(exclude, ParseEndpoint(body.Substring(0, dash), range), ParseEndpoint(body.Substring(dash + 1), range));
+        return new Group(exclude, ParseEndpoint(body[..dash], range), ParseEndpoint(body[(dash + 1)..], range));
     }
 
-    private static Endpoint ParseEndpoint(string text, string range)
+    private static Endpoint ParseEndpoint(ReadOnlySpan<char> text, string range)
     {
         if (text.Length == 0)
         {
             throw new QpdfParseException($"Invalid page range '{range}': invalid range syntax.", 0L, null);
         }
 
-        if (text == "z")
+        if (text.SequenceEqual("z"))
         {
             return new Endpoint(true, 1L);
         }
 
         bool relative = false;
-        string digits = text;
+        ReadOnlySpan<char> digits = text;
         if (text[0] == 'r')
         {
             relative = true;
-            digits = text.Substring(1);
+            digits = text[1..];
         }
 
         if (digits.Length == 0 || digits.Length > 19)

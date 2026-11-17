@@ -233,6 +233,10 @@ targets commit sequentially, and later failures do not undo earlier commits.
 
 ## Limits and cancellation
 
+Page-range validation and expansion share one span reader. Validation builds no
+syntax graph; expansion admits temporary value groups and retires their storage
+before returning the selected-page list.
+
 Tree walkers own admitted, operation-local reuse indexes. Quiet empty page
 subtrees and completed attachment misses reuse prior traversal. Reused label
 summaries replay only their own overrides in child order; unique paths write

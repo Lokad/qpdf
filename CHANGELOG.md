@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Validate ranges without temporary syntax graphs and scope expansion metadata
+  under admission, retaining original argv positions for overlay errors.
+
 - Accept endpoint-free odd/even ranges on zero-page inputs through the shared
   selection, rotation and inspection range expansion.
 

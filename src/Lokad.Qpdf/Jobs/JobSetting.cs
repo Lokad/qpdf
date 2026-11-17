@@ -15,6 +15,8 @@ internal readonly struct JobValue
     internal JobValue(JsonElement json) { _json = json; _argument = null; }
     internal JobValue(object argument) { _json = default; _argument = argument; }
 
+    internal bool IsDirectArgument => _argument is not null;
+
     internal JsonValueKind ValueKind => _argument switch
     {
         null => _json.ValueKind,

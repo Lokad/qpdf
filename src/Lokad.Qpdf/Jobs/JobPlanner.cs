@@ -2013,6 +2013,9 @@ internal static partial class JobPlanner
         string? from = null;
         string? repeat = null;
         string? password = null;
+        // Argv blocks validate ranges at their original argument positions.
+        // JSON first validates here; both origins still validate field encoding.
+        bool validateRanges = !entry.IsDirectArgument;
         foreach (JobSetting property in EffectiveProperties(entry, textStorage.Governor))
         {
             switch (property.Name)
@@ -2022,15 +2025,15 @@ internal static partial class JobPlanner
                     break;
                 case "to":
                     to = RequireString(property.Value, role + ".to", textStorage);
-                    OverlayRanges.ValidateSyntax(to, "--to", 0L);
+                    if (validateRanges) { OverlayRanges.ValidateSyntax(to, "--to", 0L); }
                     break;
                 case "from":
                     from = RequireString(property.Value, role + ".from", textStorage);
-                    OverlayRanges.ValidateSyntax(from, "--from", 0L);
+                    if (validateRanges) { OverlayRanges.ValidateSyntax(from, "--from", 0L); }
                     break;
                 case "repeat":
                     repeat = RequireString(property.Value, role + ".repeat", textStorage);
-                    OverlayRanges.ValidateSyntax(repeat, "--repeat", 0L);
+                    if (validateRanges) { OverlayRanges.ValidateSyntax(repeat, "--repeat", 0L); }
                     break;
                 case "password":
                     password = RequireString(property.Value, role + ".password", textStorage);
