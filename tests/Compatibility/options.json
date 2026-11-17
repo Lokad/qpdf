@@ -5047,7 +5047,8 @@
           "InlinePacketBoundaryTests.UnknownFramingPreservesTheWholeProgramAndDiscardsEarlierCandidates"
         ],
         "interaction": [
-          "ContentTransformsTests.JobContentFlagsRoundTrip"
+          "ContentTransformsTests.JobContentFlagsRoundTrip",
+          "LogicalContentPartitionTests.NormalizationWiringAndExplicitDisableHaveDistinctBytes"
         ],
         "resource": [
           "ResourceEnforcementTests.NormalizeYieldsToExhaustedBudget",
@@ -5961,7 +5962,8 @@
           "QdfTests.ExplicitOverridesRestoreFlate",
           "QdfTests.NormalizeWinsOverDecodeNone",
           "QdfTests.NormalizeExplicitNoKeepsNewlines",
-          "ImportedVersionTests.BasicWriterProfileDeclares12UnlessExplicitlyForced"
+          "ImportedVersionTests.BasicWriterProfileDeclares12UnlessExplicitlyForced",
+          "LogicalContentPartitionTests.NormalizationWiringAndExplicitDisableHaveDistinctBytes"
         ],
         "resource": [
           "ResourceEnforcementTests.QdfYieldsToExhaustedBudget",

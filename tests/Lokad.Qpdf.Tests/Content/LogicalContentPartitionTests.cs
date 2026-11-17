@@ -31,6 +31,9 @@ public sealed class LogicalContentPartitionTests
             "empty-tail" => [program, []],
             _ => [program],
         };
+        int last = parts.Length - 1;
+        while (parts[last].Length == 0) { last--; }
+        parts[last] = [.. parts[last], .. " /Span << /ActualText (a\\015\\012b) >> BDC EMC"u8];
         int arrayNumber = 4 + parts.Length, metadataNumber = arrayNumber + 1, fileNumber = arrayNumber + 2;
         string array = "[" + string.Join(' ', Enumerable.Range(4, parts.Length).Select(x => x + " 0 R")) + "]";
         string roots = aliases ? $"/AuditArray {arrayNumber} 0 R /AuditStream 4 0 R /Metadata {metadataNumber} 0 R /Names << /EmbeddedFiles << /Names [(copy) {fileNumber} 0 R] >> >>" : "";
@@ -69,13 +72,27 @@ public sealed class LogicalContentPartitionTests
         QpdfCheckResult typed = await Qpdf.CheckAsync(host, QpdfPath.From("input"), CancellationToken.None);
         Assert.Equal(QpdfCheckStatus.Passed, Assert.Single(typed.Checks, x => x.Name == "page-content").Status);
         Assert.True(typed.Passed); Assert.False(typed.HasSkipped);
-        foreach (bool job in new[] { false, true })
-        {
-            QpdfExecutionResult result = job
-                ? await Qpdf.ExecuteJobAsync(host, "{\"inputFile\":\"input\",\"check\":\"\"}", CancellationToken.None)
-                : await Qpdf.ExecuteAsync(host, new(["input", "--check"]), CancellationToken.None);
-            Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Empty(result.Diagnostics); Assert.Null(result.OutputBytes);
-        }
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData(false, "after-BI", true, false)]
+    [InlineData(true, "before-ID", true, true)]
+    public async Task CommandCheckingUsesTheLogicalPartitionReader(bool job, string shape, bool encoded, bool indirect)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), Fixture(shape, encoded, indirect, false).Bytes, QpdfInputOwnership.Transfer);
+        ValueTask<QpdfExecutionResult> Inspect(QpdfLimits limits) => job
+            ? Qpdf.ExecuteJobAsync(host, "{\"inputFile\":\"input\",\"check\":\"\"}", new(limits), CancellationToken.None)
+            : Qpdf.ExecuteAsync(host, new(["input", "--check"]), new(limits), CancellationToken.None);
+        QpdfExecutionResult result = await Inspect(QpdfLimits.Default);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Empty(result.Diagnostics); Assert.Null(result.OutputBytes);
+        Assert.True(result.Counters.TotalDecodedBytes > 1L);
+        QpdfExecutionResult limited = await Inspect(QpdfLimits.Default with { MaxDecodedBytes = 1L });
+        Assert.Equal(QpdfExecutionStatus.Failed, limited.Status);
+        Assert.Contains(limited.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded);
+        Assert.True(limited.Counters.HostOperations > 0L); Assert.Null(limited.OutputBytes);
+        Assert.Equal(0L, limited.Counters.OpenHandles);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
@@ -83,32 +100,54 @@ public sealed class LogicalContentPartitionTests
     [MemberData(nameof(Partitions))]
     public async Task NormalizationPreservesPhysicalPartsAndInlineSamples(string shape, bool encoded, bool indirect)
     {
+        await AssertNormalizationAsync(shape, encoded, indirect, false, false, true);
+    }
+
+    [Theory]
+    [InlineData(false, false, "empty-tail", false, true)]
+    [InlineData(true, false, "after-EI", true, false)]
+    [InlineData(false, true, "dictionary", true, true)]
+    [InlineData(true, true, "before-ID", false, false)]
+    public async Task NormalizationWiringAndExplicitDisableHaveDistinctBytes(bool job, bool qdf, string shape, bool encoded, bool indirect)
+    {
+        foreach (bool normalize in new[] { false, true })
+        { await AssertNormalizationAsync(shape, encoded, indirect, job, qdf, normalize); }
+    }
+
+    private static async Task AssertNormalizationAsync(string shape, bool encoded, bool indirect, bool job, bool qdf, bool normalize)
+    {
         (byte[] input, byte[][] parts) = Fixture(shape, encoded, indirect, false);
-        foreach (bool qdf in new[] { false, true })
-        foreach (bool job in new[] { false, true })
+        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await ExecuteNormalization(host, job, qdf, false, normalize);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Empty(result.Diagnostics);
+        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output)); host.AddInput(QpdfPath.From("copy"), output, QpdfInputOwnership.Transfer);
+        byte[] logical;
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("copy"), CancellationToken.None))
         {
-            using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Copy);
-            List<string> arguments = ["input", "--normalize-content=y", "--stream-data=uncompress", "--compress-streams=n"];
-            Dictionary<string, object> values = new() { ["inputFile"] = "input", ["outputFile"] = "output", ["normalizeContent"] = "y", ["streamData"] = "uncompress", ["compressStreams"] = "n" };
-            if (qdf) { arguments.Add("--qdf"); values["qdf"] = true; }
-            arguments.Add("output");
-            QpdfExecutionResult result = job ? await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(values), CancellationToken.None)
-                : await Qpdf.ExecuteAsync(host, new(arguments), CancellationToken.None);
-            Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Empty(result.Diagnostics);
-            Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output)); host.AddInput(QpdfPath.From("copy"), output, QpdfInputOwnership.Transfer);
-            await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("copy"), CancellationToken.None))
-            {
-                QpdfObject Resolve(QpdfObject value) => value is PdfReference reference ? document.GetObject(reference.ObjectNumber) : value;
-                Assert.True(document.PageReferences[0].Page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject value));
-                QpdfObject contents = Resolve(value); QpdfObject[] entries = contents is PdfArray array ? array.Items : [value];
-                Assert.Equal(parts.Length, entries.Length);
-                byte[] logical = entries.SelectMany(x => Assert.IsType<PdfStream>(Resolve(x)).Data.Append((byte)'\n')).ToArray();
-                int start = logical.AsSpan().IndexOf("ID"u8); Assert.True(start >= 0);
-                Assert.Equal((byte)' ', logical[start + 2]); Assert.Equal(Image, logical.AsSpan(start + 3, Image.Length).ToArray());
-            }
-            QpdfCheckResult check = await Qpdf.CheckAsync(host, QpdfPath.From("copy"), CancellationToken.None);
-            Assert.True(check.Passed); Assert.False(check.HasSkipped); Assert.Equal(0L, host.OpenLeaseCount);
+            QpdfObject Resolve(QpdfObject value) => value is PdfReference reference ? document.GetObject(reference.ObjectNumber) : value;
+            Assert.True(document.PageReferences[0].Page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject value));
+            QpdfObject contents = Resolve(value); QpdfObject[] entries = contents is PdfArray array ? array.Items : [value];
+            Assert.Equal(parts.Length, entries.Length);
+            logical = entries.SelectMany(x => Assert.IsType<PdfStream>(Resolve(x)).Data.Append((byte)'\n')).ToArray();
+            int start = logical.AsSpan().IndexOf("ID"u8); Assert.True(start >= 0);
+            Assert.Equal((byte)' ', logical[start + 2]); Assert.Equal(Image, logical.AsSpan(start + 3, Image.Length).ToArray());
         }
+        Assert.Equal(normalize, logical.AsSpan().IndexOf("(a\\r\\nb)"u8) >= 0);
+        Assert.Equal(!normalize, logical.AsSpan().IndexOf("(a\\015\\012b)"u8) >= 0);
+        QpdfCheckResult check = await Qpdf.CheckAsync(host, QpdfPath.From("copy"), CancellationToken.None);
+        Assert.True(check.Passed); Assert.False(check.HasSkipped); Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    private static ValueTask<QpdfExecutionResult> ExecuteNormalization(InMemoryQpdfHost host, bool job, bool qdf, bool coalesce, bool normalize)
+    {
+        string setting = normalize ? "y" : "n";
+        List<string> arguments = ["input", "--normalize-content=" + setting, "--stream-data=uncompress", "--compress-streams=n"];
+        Dictionary<string, object> values = new() { ["inputFile"] = "input", ["outputFile"] = "output", ["normalizeContent"] = setting, ["streamData"] = "uncompress", ["compressStreams"] = "n" };
+        if (qdf) { arguments.Add("--qdf"); values["qdf"] = true; }
+        if (coalesce) { arguments.Add("--coalesce-contents"); values["coalesceContents"] = true; }
+        arguments.Add("output");
+        return job ? Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(values), CancellationToken.None)
+            : Qpdf.ExecuteAsync(host, new(arguments), CancellationToken.None);
     }
 
     [Theory]
@@ -122,12 +161,7 @@ public sealed class LogicalContentPartitionTests
         foreach (bool job in new[] { false, true })
         {
             using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Copy);
-            List<string> arguments = ["input", "--normalize-content=y", "--stream-data=uncompress", "--compress-streams=n"];
-            Dictionary<string, object> values = new() { ["inputFile"] = "input", ["outputFile"] = "output", ["normalizeContent"] = "y", ["streamData"] = "uncompress", ["compressStreams"] = "n" };
-            if (coalesce) { arguments.Add("--coalesce-contents"); values["coalesceContents"] = true; }
-            arguments.Add("output");
-            QpdfExecutionResult result = job ? await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(values), CancellationToken.None)
-                : await Qpdf.ExecuteAsync(host, new(arguments), CancellationToken.None);
+            QpdfExecutionResult result = await ExecuteNormalization(host, job, false, coalesce, true);
             Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Empty(result.Diagnostics);
             Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output)); host.AddInput(QpdfPath.From("copy"), output, QpdfInputOwnership.Transfer);
             await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("copy"), CancellationToken.None))
