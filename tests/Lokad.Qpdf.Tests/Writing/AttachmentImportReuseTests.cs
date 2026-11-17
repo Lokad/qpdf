@@ -98,7 +98,7 @@ public sealed class AttachmentImportReuseTests
         Host host = new(storage);
         QpdfAttachmentEditResult result = await Qpdf.CopyAttachmentsAsync(host, QpdfPath.From("input"), QpdfPath.From("output"), copies, CancellationToken.None);
         Assert.Equal(74, result.AttachmentCount); Assert.Empty(result.Warnings);
-        Assert.Equal(1, host.Opens["source0"]); Assert.Equal(2, host.Opens["source34"]);
+        Assert.Equal(2, host.Opens["source0"]); Assert.Equal(1, host.Opens["source34"]);
         Assert.InRange(host.Peak, 1, 2); Assert.Equal(0, host.Live); Assert.Equal(0L, storage.OpenLeaseCount);
     }
 

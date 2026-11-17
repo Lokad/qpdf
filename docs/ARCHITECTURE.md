@@ -244,7 +244,8 @@ summaries replay only their own overrides in child order; unique paths write
 directly to the result. Cached height still bounds deeper paths, while active-path
 cycle checks remain separate.
 Attachment import reuse retains at most 32 clean source summaries and 4,096
-entry references under temporary admission. Source leases close before reuse;
+entry references under temporary admission, retiring the least recently used.
+Source leases close before reuse;
 warnings, failed copies and conflicts keep ordinary per-request processing.
 Source binding and outline inspection share named-destination lookup. It uses
 the same identity/depth safeguards for subtree

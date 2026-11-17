@@ -37,13 +37,17 @@ internal sealed class AttachmentImportCache : IDisposable
     {
         Memory.CheckOwner(Governor); _token.ThrowIfCancellationRequested(); Governor.CheckCancellation();
         if (_sources is null) { return null; }
-        foreach (Source source in _sources)
+        for (int index = 0; index < _sources.Count; index++)
         {
             Governor.NoteOperation();
+            Source source = _sources[index];
             if (StringComparer.Ordinal.Equals(source.File, copy.File)
                 && (ReferenceEquals(source.Password, copy.Password)
                     || source.Password is not null && copy.Password is not null && source.Password.HasSameInput(copy.Password, Governor)))
-            { return source.Entries; }
+            {
+                _sources.RemoveAt(index); _sources.Add(source);
+                return source.Entries;
+            }
         }
         return null;
     }
@@ -52,7 +56,15 @@ internal sealed class AttachmentImportCache : IDisposable
     {
         source.CheckOwner(Governor); _token.ThrowIfCancellationRequested(); Governor.CheckCancellation();
         ArgumentOutOfRangeException.ThrowIfNegative(count);
-        if ((_sources?.Count ?? 0) >= MaximumSources || count > MaximumEntries - _entryCount) { return null; }
+        if (count > MaximumEntries) { return null; }
+        while (_sources is not null && _sources.Count > 0
+            && (_sources.Count >= MaximumSources || count > MaximumEntries - _entryCount))
+        {
+            _token.ThrowIfCancellationRequested(); Governor.NoteOperation();
+            Source retired = _sources[0];
+            _sources.RemoveAt(0); _entryCount -= retired.Entries.Length;
+            Memory.Release(64L + ArrayBytes(retired.Entries.Length));
+        }
         if (count == 0) { return []; }
         source.Reserve(ArrayBytes(count));
         return new EmbeddedFileEntry[count];

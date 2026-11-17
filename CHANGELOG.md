@@ -3,7 +3,8 @@
 ## Unreleased — 0.2.0-dev.7
 
 - Reuse completed attachment imports for matching logical sources and credentials,
-  sharing payload graphs without retaining input handles between requests.
+  sharing payload graphs without retaining input handles between requests. Bounded
+  summaries retire by recency so later sources can benefit.
 
 - Accept empty argv attachment prefixes and descriptions, including resets of
   earlier setters, through the shared attachment planner.
