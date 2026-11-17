@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Consume valid plaintext Identity Crypt stages before content processing and
+  output encryption, including JSON creation/update and physical writer layouts.
+  Preserve private filter aliases and reject unknown stages for encryption.
 - Fail form JSON inspection on ancestry-depth exhaustion before publishing an
   incomplete name or value; retain lenient missing/cyclic-parent handling.
 - Respect field-local alternative/mapping names in form JSON while retaining

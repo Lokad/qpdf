@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Security;
 using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Writing;
@@ -585,7 +586,14 @@ internal sealed partial class GraphCopier
             // Serialization uses the accepted payload length. An obsolete source
             // Length reference must not make a successfully repaired stream fail
             // while copying its otherwise meaningful dictionary references.
-            PdfDictionary copiedDictionary = CopyDictionary(stream.Dictionary, depth + 1, length);
+            PdfDictionary sourceDictionary = stream.Dictionary;
+            if (StreamCryptFilter.MayContain(stream, _governor))
+            {
+                using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(_governor, _governor.CancellationToken);
+                sourceDictionary = StreamCryptFilter.RemoveIdentity(stream, _resolver, graph);
+                graph.Memory.TransferTo(_ownership, graph.Bytes);
+            }
+            PdfDictionary copiedDictionary = CopyDictionary(sourceDictionary, depth + 1, length);
             // Payloads are immutable. Complete jobs retain the source admission
             // until publication (transferring exclusive values before closure);
             // public document payloads already have an independent owner.

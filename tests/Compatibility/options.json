@@ -3224,11 +3224,14 @@
         "positive": [
           "OutputEncryptionCommandTests.CommandsAndJobsCreateAes256ThroughSharedWriters",
           "OutputEncryptionCommandTests.OutputPasswordsHonorTheSelectedRepresentation",
-          "OutputEncryptionCommandTests.PermissionChoicesReachTheAuthenticatedDictionary"
+          "OutputEncryptionCommandTests.PermissionChoicesReachTheAuthenticatedDictionary",
+          "IdentityCryptOutputTests.TypedEncryptionConsumesIdentityAndPreservesEncodedBytesAndPrivateAliases",
+          "IdentityCryptOutputTests.PhysicalWritersAndJobAdapterUseThePreparedHeader"
         ],
         "negative": [
           "OutputEncryptionCommandTests.UnsupportedOrMalformedPoliciesNeverExposeSecretsOrOpenInputs",
-          "OutputEncryptionCommandTests.FailedEncryptionPreservesPriorOutput"
+          "OutputEncryptionCommandTests.FailedEncryptionPreservesPriorOutput",
+          "IdentityCryptOutputTests.UnknownAndMalformedCryptStagesPreserveThePriorOutput"
         ],
         "interaction": [
           "OutputEncryptionCommandTests.ArgvPermissionSettersRetainTheirOrder",
@@ -3238,11 +3241,15 @@
         ],
         "resource": [
           "PasswordTransformationTests.EveryTransformAdmissionRefusalRefundsBeforePublication",
-          "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput"
+          "OutputEncryptionCommandTests.DeterministicIdsRefuseNewEncryptionBeforeInput",
+          "StreamCryptPreparationTests.RefusalRetiresPreparationWithoutChangingSourceOrPriorStorage",
+          "StreamCryptPreparationTests.CancellationDuringCryptNameResolutionDoesNotBecomeOpaqueFallback",
+          "EncryptedSerializerTests.IdentityPreparationAndSizeOnlyPassDoNotUseTheOutputKey"
         ],
         "oracle": [
           "diff:security-create",
-          "diff:security-permission"
+          "diff:security-permission",
+          "diff:security-identity-crypt"
         ]
       }
     },
@@ -4113,7 +4120,8 @@
           "JsonImportContainerTests.ImportedContainersKeepTheExactBoundaryAndRejectOverflowBeforePublication",
           "JsonImportContainerTests.DecodedDictionaryNamesFollowPdfParserCounting",
           "JsonImportContainerTests.UnknownEnvelopeMembersDoNotBecomePdfContainerLimits",
-          "JsonSidecarNameTests.FilePayloadRoundtripsKeepUnicodeMultipleStreamsAndExactLengthNames"
+          "JsonSidecarNameTests.FilePayloadRoundtripsKeepUnicodeMultipleStreamsAndExactLengthNames",
+          "IdentityCryptOutputTests.JsonCreationAndUpdateNormalizeAuthoredIdentityStages"
         ],
         "negative": [
           "JsonImportTests.MalformedJsonFails",
@@ -4150,7 +4158,8 @@
         ],
         "oracle": [
           "diff:json-import",
-          "diff:security-json"
+          "diff:security-json",
+          "diff:security-identity-crypt"
         ]
       }
     },
@@ -7440,7 +7449,8 @@
           "JsonImportTests.UpdateHonorsPdfVersion",
           "JsonImportContainerTests.ImportedContainersKeepTheExactBoundaryAndRejectOverflowBeforePublication",
           "JsonImportContainerTests.DecodedDictionaryNamesFollowPdfParserCounting",
-          "JsonImportContainerTests.UnknownEnvelopeMembersDoNotBecomePdfContainerLimits"
+          "JsonImportContainerTests.UnknownEnvelopeMembersDoNotBecomePdfContainerLimits",
+          "IdentityCryptOutputTests.JsonCreationAndUpdateNormalizeAuthoredIdentityStages"
         ],
         "negative": [
           "JsonImportTests.UpdateCombinationsFail",
@@ -7477,7 +7487,8 @@
         ],
         "oracle": [
           "diff:json-update",
-          "diff:security-json"
+          "diff:security-json",
+          "diff:security-identity-crypt"
         ]
       }
     },

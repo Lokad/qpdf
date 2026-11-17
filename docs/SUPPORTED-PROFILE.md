@@ -37,6 +37,9 @@ limits and reports warnings on the document/result (check diagnostics).
 | Filters | Flate/LZW with predictors, ASCIIHex/ASCII85 and RunLength. DCT decoding requires a host codec; CMYK/YCCK also requires its explicit four-component capability. Zopfli is unavailable. |
 
 Empty `DecodeParms` arrays select the filters' defaults.
+Copying consumes a valid leading default/Identity Crypt stage without changing
+payload bytes; remaining filters and independent private aliases retain their
+meaning. JSON-authored Identity stages also support explicit output encryption.
 Unavailable optional decoding can warn and preserve encoded bytes. Structural
 budget exhaustion remains a resource failure, never permission to discard retained data.
 

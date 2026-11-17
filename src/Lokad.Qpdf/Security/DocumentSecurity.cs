@@ -13,7 +13,7 @@ internal enum PdfCipher : byte { Identity, Rc4, Aes128, Aes256, Unsupported }
 internal sealed partial class DocumentSecurity : IDisposable
 {
     private readonly record struct CryptFilter(PdfCipher Cipher, bool EmbeddedOnly);
-    private static readonly PdfName IdentityName = PdfName.FromAscii("Identity");
+    private static readonly PdfName IdentityName = StreamCryptFilter.IdentityName;
     private readonly ResourceGovernor _governor;
     private readonly Dictionary<PdfName, CryptFilter> _filters;
     private readonly PdfCipher _strings;

@@ -58,11 +58,16 @@ public sealed class OutputSecurityTests
     }
 
     [Fact]
-    public async Task UnconsumedCryptStagesFailWithoutTransferringPartialOutput()
+    public async Task UnknownCryptStagesFailWithoutTransferringPartialOutput()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope destination = ParserMemoryScope.Create(governor);
-        PdfDictionary header = new(new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("Filter")] = PdfName.FromAscii("Crypt") });
+        PdfDictionary header = new(new Dictionary<PdfName, QpdfObject>
+        {
+            [PdfName.FromAscii("Filter")] = PdfName.FromAscii("Crypt"),
+            [PdfName.FromAscii("DecodeParms")] = new PdfDictionary(new Dictionary<PdfName, QpdfObject>
+            { [PdfName.FromAscii("Name")] = PdfName.FromAscii("Unknown") })
+        });
         PdfStream stream = new(header, "opaque"u8.ToArray());
         using OutputSecurity security = OutputSecurity.CreateRevision6([], "owner"u8, -4, true, governor);
         long before = governor.Snapshot().LiveMemoryBytes;

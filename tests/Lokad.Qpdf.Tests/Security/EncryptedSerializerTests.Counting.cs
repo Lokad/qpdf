@@ -2,12 +2,52 @@ using System.Reflection;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Security;
+using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Security;
 
 public sealed partial class EncryptedSerializerTests
 {
+    [Theory]
+    [InlineData("classic")]
+    [InlineData("qdf")]
+    public async Task IdentityPreparationAndSizeOnlyPassDoNotUseTheOutputKey(string mode)
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using (ParserMemoryScope source = ParserMemoryScope.Create(governor))
+        using (OutputSecurity security = OutputSecurity.CreateRevision6("reader"u8, "owner"u8, -4, false, governor))
+        {
+            List<NumberedObject> model = Model(governor, source, security);
+            model.RemoveAt(model.Count - 1);
+            PdfStream original = Assert.IsType<PdfStream>(model[3].Value);
+            PdfParser parser = new(QpdfLimits.Default, governor, new(governor), null);
+            PdfDictionary header = Assert.IsType<PdfDictionary>(parser.ParseObjectValue(
+                new PdfTokenizer("<< /Filter /Crypt /DecodeParms << /Name /Identity >> >>"u8.ToArray()), 0, source));
+            model[3] = new(4, original.WithDictionary(header));
+            FieldInfo keyField = typeof(OutputSecurity).GetField("_key", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?? throw new InvalidOperationException("Missing owned payload key.");
+            object? key = keyField.GetValue(security); Assert.NotNull(key);
+            using ParserMemoryScope prepared = ParserMemoryScope.Create(governor);
+            long count;
+            try
+            {
+                keyField.SetValue(security, null);
+                Assert.Equal(7, OutputModelPreparation.AddEncryptionObject(model, security, prepared, governor));
+                Assert.Same(original.AllocationCarrier, Assert.IsType<PdfStream>(model[3].Value).AllocationCarrier);
+                count = await WriteCopied(mode, security, model, new byte[16], governor, new CountingSink(), CancellationToken.None);
+                await Assert.ThrowsAsync<ObjectDisposedException>(() => WriteCopied(mode, security, model,
+                    new byte[16], governor, new MemorySink(), CancellationToken.None).AsTask());
+            }
+            finally { keyField.SetValue(security, key); }
+            long before = governor.Snapshot().LiveMemoryBytes;
+            MemorySink sink = new();
+            Assert.Equal(count, await WriteCopied(mode, security, model, new byte[16], governor, sink, CancellationToken.None));
+            Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
     [Theory]
     [InlineData("classic")]
     [InlineData("deflate")]

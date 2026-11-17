@@ -183,6 +183,12 @@ security exceptions stay clear. Classic, QDF and two-pass linearized writers
 count IVs, padding and encoded lengths before publication. Prepared buffers stay
 admitted through pending host writes; copied keys survive source-reader disposal.
 
+The reader, copier and output-model preparation share explicit Crypt-stage
+validation and header reconstruction. Copying consumes only valid default/Identity
+stages before content processing; JSON-authored stages normalize before physical
+writer passes. Fresh headers borrow immutable payloads and keep private filter
+aliases independent. Unknown stages never silently become plaintext.
+
 Authenticated JSON exports plaintext values and non-secret encryption facts.
 Updates authenticate the source PDF before applying a plaintext patch and an
 explicit output policy. JSON creation requires remove/create/template handling

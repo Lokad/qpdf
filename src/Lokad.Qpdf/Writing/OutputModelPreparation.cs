@@ -52,11 +52,50 @@ internal static class OutputModelPreparation
     {
         if (security is null) { return 0; }
         int number = 0;
+        bool crypt = false;
         foreach (NumberedObject item in model)
-        { governor.CheckCancellation(); number = Math.Max(number, item.Number); }
+        {
+            governor.CheckCancellation(); number = Math.Max(number, item.Number);
+            if (!crypt && item.Value is PdfStream stream && StreamCryptFilter.MayContain(stream, governor)) { crypt = true; }
+        }
+        if (crypt) { NormalizeIdentityCrypt(model, memory, governor); }
         number = checked(number + 1);
         ParserContainers.AddItem(memory, model, new NumberedObject(number, security.Dictionary), 16L);
         return number;
+    }
+
+    private static void NormalizeIdentityCrypt(List<NumberedObject> model, ParserMemoryScope memory, ResourceGovernor governor)
+    {
+        CancellationToken token = governor.CancellationToken;
+        using ParserMemoryScope lookupMemory = ParserMemoryScope.Create(governor);
+        Dictionary<int, QpdfObject> values = ParserContainers.CreateDictionary<int, QpdfObject>(lookupMemory);
+        foreach (NumberedObject item in model)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            ParserContainers.EnsureEntryCapacity(lookupMemory, values, IntPtr.Size); values.Add(item.Number, item.Value);
+        }
+        Content.PoolResolver resolver = Content.PoolResolver.Create(lookupMemory, values);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
+        for (int i = 0; i < model.Count; i++)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            NumberedObject item = model[i];
+            if (item.Value is not PdfStream stream || !StreamCryptFilter.MayContain(stream, governor)) { continue; }
+            PdfName? name = StreamCryptFilter.ReadName(stream.Dictionary, resolver, governor, token, out int count);
+            if (name is null) { continue; }
+            if (!PdfDictionaryLookup.NameEquals(name, "Identity"u8, governor, token))
+            { throw new QpdfUnsupportedFeatureException("An unauthenticated stream Crypt filter must use Identity for output encryption."); }
+            PdfDictionary header = StreamCryptFilter.Remove(stream.Dictionary, count, resolver, graph);
+            graph.Memory.Reserve(32L); graph.Add(32L);
+            PdfStream normalized = stream.WithDictionary(header);
+            values[item.Number] = normalized;
+        }
+        graph.Memory.TransferTo(memory, graph.Bytes);
+        for (int i = 0; i < model.Count; i++)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            NumberedObject item = model[i]; model[i] = new(item.Number, values[item.Number]);
+        }
     }
 
     private static void PruneOutputModel(List<NumberedObject> model, Dictionary<int, QpdfObject> pool,

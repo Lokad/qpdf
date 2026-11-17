@@ -16,6 +16,7 @@ function Invoke-SecurityPolicyCase {
 }
 
 function Invoke-ReferenceSecurityPolicies {
+  Invoke-ReferenceIdentityCrypt
   $case = New-Case 'security-create-named'
   Copy-Item -LiteralPath "$fixtureDir/meta-1page.pdf" -Destination "$case/inputs/a.pdf"
   Invoke-SecurityPolicyCase $case 'security-create-named' 'argv' @{ inputFile = 'inputs/a.pdf'; outputFile = 'outputs/a.pdf' } @(
@@ -96,4 +97,56 @@ function Invoke-ReferenceSecurityPolicies {
     }
   }
   Write-Output '[security-policy] fresh AES-256 and independently authenticated templates preserve their requested policies'
+}
+
+function Invoke-ReferenceIdentityCrypt {
+  foreach ($mode in @('classic', 'qdf', 'objects', 'linearized', 'json-create', 'json-update')) {
+    $name = "security-identity-crypt-$mode"
+    $case = New-Case $name
+    Copy-Item -LiteralPath "$fixtureDir/identity-crypt-1page.pdf" -Destination "$case/inputs/a.pdf"
+    $fields = @{ inputFile = 'inputs/a.pdf'; outputFile = 'outputs/a.pdf';
+      encrypt = @{ userPassword = 'reader'; ownerPassword = 'owner'; '256bit' = @{} } }
+    $options = @('--encrypt', 'reader', 'owner', '256', '--')
+    if ($mode.StartsWith('json-')) {
+      $code = Invoke-Oracle $case @('inputs/a.pdf', '--json-output=2', '--json-stream-data=inline', '--decode-level=none')
+      if ($code -ne 0) { throw "$name raw source export failed" }
+      $json = Get-Content -LiteralPath "$case/ora-stdout.txt" -Raw | ConvertFrom-Json -AsHashtable
+      $stream = $json.qpdf[1]['obj:4 0 R'].stream
+      if ($stream.dict['/Filter'][0] -cne '/Crypt' -or $stream.dict['/DecodeParms'][0]['/Name'] -cne '/Identity') {
+        throw "$name source export lost the Identity stage"
+      }
+      $json | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath "$case/inputs/source.json" -Encoding utf8NoBOM
+      if ($mode -eq 'json-create') {
+        $fields.inputFile = 'inputs/source.json'; $fields.jsonInput = ''; $options += '--json-input'
+      } else { $fields.updateFromJson = 'inputs/source.json'; $options += '--update-from-json=inputs/source.json' }
+    }
+    switch ($mode) {
+      'qdf' { $fields.qdf = ''; $options += '--qdf' }
+      'objects' { $fields.objectStreams = 'generate'; $options += '--object-streams=generate' }
+      'linearized' { $fields.linearize = ''; $fields.objectStreams = 'generate'; $options += @('--linearize', '--object-streams=generate') }
+    }
+    $route = if ($mode -in @('objects', 'linearized', 'json-update')) { 'job' } else { 'argv' }
+    $mapping = @('--out', "outputs/a.pdf=$case/lib.pdf")
+    if ($route -eq 'argv') { $command = @('emit', '--workdir', $case) + $mapping + @('--', $fields.inputFile, $fields.outputFile) + $options }
+    else {
+      $fields | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath "$case/job.json" -Encoding utf8NoBOM
+      $command = @('emit-job', '--workdir', $case, '--job', "$case/job.json") + $mapping
+    }
+    $managed = Invoke-SecurityManaged $case $command
+    if ($managed.Status -cne 'Completed' -or $managed.ExitCode -ne 0) { throw "$name managed encryption failed" }
+    $code = Invoke-Oracle $case (@($fields.inputFile, "$case/ora.pdf") + $options)
+    if ($code -ne 0) { throw "$name native encryption failed" }
+    Assert-SecurityProtection $case $name 'reader' 'owner' 6 256 -4 $true
+    Assert-Trio $name "$case/lib-plain.pdf" "$case/ora-plain.pdf" 1
+    $left = Read-ReferenceContent $QpdfExe "$case/lib-plain.pdf"
+    $right = Read-ReferenceContent $QpdfExe "$case/ora-plain.pdf"
+    if ($left.Signature -cne $right.Signature -or $left.PageText -cne "q Q`n") { throw "$name decoded payload differs" }
+    foreach ($side in @('lib', 'ora')) {
+      $decoded = Get-Content -LiteralPath "$case/$side-plain.pdf.reference.json" -Raw | ConvertFrom-Json -AsHashtable
+      foreach ($entry in $decoded.qpdf[1].Values) {
+        if ($entry.stream -and '/Crypt' -in @($entry.stream.dict['/Filter'])) { throw "$name retained an active Crypt stage" }
+      }
+    }
+  }
+  Write-Output '[security-identity-crypt] Identity stages normalize before protected PDF and JSON publication'
 }
