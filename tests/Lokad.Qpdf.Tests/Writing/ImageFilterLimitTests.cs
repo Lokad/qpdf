@@ -76,8 +76,13 @@ public sealed class ImageFilterLimitTests
         Assert.Equal(expected, image.GetProperty("filterable").GetBoolean());
         if (indirect) { Assert.Equal("7 0 R", image.GetProperty("width").GetString()); }
         else { Assert.Equal(1, image.GetProperty("width").GetInt32()); }
-        Assert.Equal(count == 0 ? 1 : count, image.GetProperty("filter").GetArrayLength());
-        if (count == 0) { Assert.Equal(JsonValueKind.Null, image.GetProperty("filter")[0].ValueKind); }
-        else { Assert.All(image.GetProperty("filter").EnumerateArray(), item => Assert.Equal("/FlateDecode", item.GetString())); }
+        JsonElement filter = image.GetProperty("filter");
+        if (indirect && count > 1) { Assert.Equal("6 0 R", filter.GetString()); }
+        else
+        {
+            Assert.Equal(count == 0 ? 1 : count, filter.GetArrayLength());
+            if (count == 0) { Assert.Equal(JsonValueKind.Null, filter[0].ValueKind); }
+            else { Assert.All(filter.EnumerateArray(), item => Assert.Equal(indirect ? "6 0 R" : "/FlateDecode", item.GetString())); }
+        }
     }
 }

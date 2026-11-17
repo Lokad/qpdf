@@ -763,50 +763,11 @@ internal static class DocumentJson
         builder.Append(",\"colorspace\": ");
         AppendImageValue(builder, detail.Stream.Dictionary, "ColorSpace"u8, request, limits, governor, cancellationToken);
 
-        builder.Append(",\"decodeparms\": [");
-        if (stages.Count == 0)
-        {
-            builder.Append("null");
-        }
-
-        for (int i = 0; i < stages.Count; i++)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            if (i > 0)
-            {
-                builder.Append((char)44);
-            }
-
-            if (stages[i].Parms is PdfDictionary parms)
-            {
-                PdfJsonWriter.AppendValue(builder, parms, request.Version, governor, 0, limits);
-            }
-            else
-            {
-                builder.Append("null");
-            }
-        }
-
-        builder.Append("],\"filter\": [");
-        if (stages.Count == 0)
-        {
-            builder.Append("null");
-        }
-
-        for (int i = 0; i < stages.Count; i++)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            if (i > 0)
-            {
-                builder.Append((char)44);
-            }
-
-            builder.Append('"'); builder.Append('/'); PdfJsonWriter.AppendEscaped(builder, stages[i].Name); builder.Append('"');
-        }
-
-        builder.Append("],\"filterable\": ");
+        builder.Append(",\"filter\": ");
+        int filters = AppendImageArrayValue(builder, engine, detail.Stream.Dictionary, "Filter"u8, 1, request, limits, governor, cancellationToken);
+        builder.Append(",\"decodeparms\": ");
+        _ = AppendImageArrayValue(builder, engine, detail.Stream.Dictionary, "DecodeParms"u8, filters, request, limits, governor, cancellationToken);
+        builder.Append(",\"filterable\": ");
         builder.Append(request.DecodeLevel != "none" && stages.Count <= limits.MaxStreamFilters
             && !FilterChain.HasExternalData(detail.Stream, engine, governor, cancellationToken)
             && FilterChain.AllStagesInLevel(stages, request.DecodeLevel)
@@ -820,6 +781,31 @@ internal static class DocumentJson
         builder.Append("\",\"width\": ");
         AppendImageValue(builder, detail.Stream.Dictionary, "Width"u8, request, limits, governor, cancellationToken);
         builder.Append((char)125);
+    }
+
+    private static int AppendImageArrayValue(DisplayBuffer builder, DocumentEngine engine, PdfDictionary dictionary,
+        ReadOnlySpan<byte> key, int repetitions, JsonRequest request, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
+    {
+        PdfDictionaryLookup.TryGet(dictionary, key, governor, token, out QpdfObject raw);
+        QpdfObject? resolved = raw;
+        if (raw is PdfReference reference)
+        { PdfObjectLookup.TryResolve(reference, (IIndirectResolver)engine, governor, token, out resolved); }
+        // Inspect the outer shape but serialize the stored value. Decoder plans
+        // expand names and parameter references for a different purpose.
+        if (resolved is PdfArray array)
+        {
+            PdfJsonWriter.AppendSourceValue(builder, raw, request.Version, governor, 0, limits, engine);
+            return array.Count;
+        }
+        builder.Append('[');
+        for (int index = 0; index < repetitions; index++)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (index > 0) { builder.Append(','); }
+            PdfJsonWriter.AppendSourceValue(builder, raw, request.Version, governor, 0, limits, engine);
+        }
+        builder.Append(']');
+        return repetitions;
     }
 
     private static void AppendImageValue(DisplayBuffer builder, PdfDictionary dictionary, ReadOnlySpan<byte> key,

@@ -3997,7 +3997,8 @@
           "JsonPageAssemblyTests.PageLabelsFollowTheAssembledSourceOccurrences",
           "JsonPageAssemblyTests.SourceActionsFormsAndLayersKeepTheirMeaningAcrossCopies",
           "AcroFormJsonTests.LocalNamesDoNotInheritAncestorNames",
-          "AcroFormJsonTests.LocalNamesAndInheritedChoicesKeepTextEncoding"
+          "AcroFormJsonTests.LocalNamesAndInheritedChoicesKeepTextEncoding",
+          "ImageDescriptorShapeTests.DescriptorsRetainRawNamesReferencesAndOuterShapes"
         ],
         "negative": [
           "JsonInspectionTests.BadVersionFails",
@@ -4022,7 +4023,9 @@
           "AcroFormJsonTests.FieldLocalNamesUseTheSamePublicProjection",
           "EmptyDecodeParmsTests.ImageJsonAndCheckingShareDefaultParameters",
           "ImageParameterSupportTests.UnsupportedParametersReportFalseAndRetainRawStreamFallback",
-          "ImageParameterSupportTests.EligibleMetadataDoesNotClaimFrameIntegrity"
+          "ImageParameterSupportTests.EligibleMetadataDoesNotClaimFrameIntegrity",
+          "ImageDescriptorShapeTests.JobVersionOneKeepsBothOuterReferencesAndTheirFullPairs",
+          "ImageDescriptorShapeTests.AssembledAndCompressedSourcesKeepTheirLiveDescriptorReferences"
         ],
         "resource": [
           "JsonPublicationMemoryTests.KnownSidecarLengthFitsSharedAllowanceWithoutGrowthCopies",
@@ -4041,7 +4044,8 @@
           "AcroFormJsonTests.PublicAncestorLimitKeepsCompleteValuesOrThePriorReport",
           "AcroFormJsonTests.CommandAncestorExhaustionReportsBudgetExceededBeforePublication",
           "FilterParameterSupportTests.ResolverCancellationIsFatalForEitherToken",
-          "FilterParameterSupportTests.RefusedParameterStorageIsFatalAndPreservesPriorOwners"
+          "FilterParameterSupportTests.RefusedParameterStorageIsFatalAndPreservesPriorOwners",
+          "ImageDescriptorShapeTests.MalformedSpecificationsStillRefuseBeforeReplacingTheReport"
         ],
         "oracle": [
           "diff:json-pages",

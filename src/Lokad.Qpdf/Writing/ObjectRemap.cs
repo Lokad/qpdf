@@ -90,8 +90,7 @@ internal static class ObjectRemap
             if (SourceEntries is not null)
             {
                 mapped = number;
-                if (!SourceEntries.TryGetValue(number, out XrefEntry entry) || entry.Kind == XrefEntryKind.Free
-                    || reference.Generation != (entry.Kind == XrefEntryKind.Compressed ? 0 : entry.Second)) { return false; }
+                if (!SourceEntries.TryGetValue(number, out XrefEntry entry) || !entry.MatchesGeneration(reference.Generation)) { return false; }
                 return Pairs is null || Pairs.TryGetValue((number, reference.Generation), out mapped);
             }
             if (Pairs is not null) { return Pairs.TryGetValue((number, reference.Generation), out mapped); }

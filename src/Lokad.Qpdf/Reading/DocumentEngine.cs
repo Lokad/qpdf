@@ -313,6 +313,13 @@ internal sealed partial class DocumentEngine : IStreamRecoveryResolver, IDisposa
         => _inspectionObjects is not null && _inspectionObjects.ContainsKey(number)
             && (!Table.Entries.TryGetValue(number, out XrefEntry entry) || entry.Kind == XrefEntryKind.Free);
 
+    internal bool HasLiveReference(PdfReference reference)
+    {
+        _ = Cache;
+        return HasNewInspectionObject(reference.ObjectNumber) ? reference.Generation == 0
+            : Table.Entries.TryGetValue(reference.ObjectNumber, out XrefEntry entry) && entry.MatchesGeneration(reference.Generation);
+    }
+
     bool IIndirectResolver.TryResolve(PdfReference reference, out QpdfObject? value)
         => TryResolve(reference, false, out value);
 
@@ -357,7 +364,7 @@ internal sealed partial class DocumentEngine : IStreamRecoveryResolver, IDisposa
         // generation (freed or superseded) is a dead pair and resolves to null
         // instead of the newest object with that number. Compressed members are
         // always generation 0.
-        if (entry.Kind == XrefEntryKind.Compressed ? reference.Generation != 0 : entry.Second != reference.Generation)
+        if (!entry.MatchesGeneration(reference.Generation))
         {
             value = PdfNull.Instance;
             return true;

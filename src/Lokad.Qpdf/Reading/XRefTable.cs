@@ -38,6 +38,9 @@ internal readonly struct XrefEntry
 
     internal int Second { get; }
 
+    internal bool MatchesGeneration(int generation)
+        => Kind != XrefEntryKind.Free && generation == (Kind == XrefEntryKind.Compressed ? 0 : Second);
+
     internal static XrefEntry Free(long next, int generation)
     {
         return new XrefEntry(XrefEntryKind.Free, next, generation);
