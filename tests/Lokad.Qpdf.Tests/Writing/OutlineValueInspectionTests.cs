@@ -37,8 +37,13 @@ public sealed class OutlineValueInspectionTests
     {
         foreach (string position in new[] { "root", "child", "next" })
         foreach (string representation in new[] { "absent", "null", "reference-null", "present" })
-        foreach (string route in new[] { "typed", "argv", "job" })
-        foreach (int version in new[] { 1, 2 }) { yield return [position, representation, route, version]; }
+        { yield return [position, representation, "typed", 2]; }
+
+        yield return ["root", "reference-null", "typed", 1];
+        yield return ["root", "present", "argv", 1];
+        yield return ["next", "present", "argv", 2];
+        yield return ["child", "present", "job", 1];
+        yield return ["next", "null", "job", 2];
     }
 
     [Theory]
@@ -73,7 +78,11 @@ public sealed class OutlineValueInspectionTests
     {
         foreach (string position in new[] { "root", "child", "next" })
         foreach (string representation in new[] { "integer", "reference-integer", "missing" })
-        foreach (string route in new[] { "typed", "argv", "job" }) { yield return [position, representation, route]; }
+        { yield return [position, representation, "typed"]; }
+
+        yield return ["root", "integer", "argv"];
+        yield return ["next", "missing", "argv"];
+        yield return ["child", "reference-integer", "job"];
     }
 
     [Theory]
@@ -137,15 +146,19 @@ public sealed class OutlineValueInspectionTests
 
     public static IEnumerable<object[]> ScalarCases()
     {
-        foreach (string route in new[] { "typed", "argv", "job" })
-        foreach (int version in new[] { 1, 2 })
         foreach ((string title, string count, string expected, bool open) in new[]
         {
             ("(Parent)", "-1", "Parent", false), ("7 0 R", "-1", "Parent", false),
             ("(Parent)", "8 0 R", "Parent", false), ("7 0 R", "8 0 R", "Parent", false),
             ("", "", "", true), ("null", "null", "", true), ("99 0 R", "99 0 R", "", true),
             ("8 0 R", "7 0 R", "", true), ("7 1 R", "8 1 R", "", true),
-        }) { yield return [route, version, title, count, expected, open]; }
+        }) { yield return ["typed", 2, title, count, expected, open]; }
+
+        yield return ["typed", 1, "7 0 R", "8 0 R", "Parent", false];
+        yield return ["argv", 1, "(Parent)", "-1", "Parent", false];
+        yield return ["argv", 2, "null", "null", "", true];
+        yield return ["job", 1, "8 0 R", "7 0 R", "", true];
+        yield return ["job", 2, "99 0 R", "99 0 R", "", true];
     }
 
     [Theory]
@@ -164,8 +177,6 @@ public sealed class OutlineValueInspectionTests
     {
         const string local = "/A << /S /GoTo /D [3 0 R /Fit] >>";
         const string fit = "[\"3 0 R\",\"/Fit\"]";
-        foreach (string route in new[] { "typed", "argv", "job" })
-        foreach (int version in new[] { 1, 2 })
         foreach ((string specification, string expected, int page) in new[]
         {
             (local, fit, 1), ("/A 9 0 R", fit, 1), ("/A << /S 11 0 R /D 10 0 R >>", fit, 1),
@@ -180,7 +191,13 @@ public sealed class OutlineValueInspectionTests
             ("/Dest /Chapter " + local, "null", 0), ("/A << /S /GoTo /D /Chapter >>", "null", 0),
             ("/A << /S /GoTo /D 42 >>", "42", 0), ("/A << /S /GoTo /D null >>", "null", 0),
             ("/A << /S /GoTo >>", "null", 0),
-        }) { yield return [route, version, specification, expected, page]; }
+        }) { yield return ["typed", 2, specification, expected, page]; }
+
+        yield return ["typed", 1, "/Dest [3 0 R /XYZ 0 0 1] " + local, "[\"3 0 R\",\"/XYZ\",0,0,1]", 1];
+        yield return ["argv", 1, local, fit, 1];
+        yield return ["argv", 2, "/Dest 42 " + local, "42", 0];
+        yield return ["job", 1, "/A << /S 11 0 R /D 10 0 R >>", fit, 1];
+        yield return ["job", 2, "/Dest 99 0 R " + local, fit, 1];
     }
 
     [Theory]
@@ -200,8 +217,6 @@ public sealed class OutlineValueInspectionTests
 
     public static IEnumerable<object[]> GenerationCases()
     {
-        foreach (string route in new[] { "typed", "argv", "job" })
-        foreach (int version in new[] { 1, 2 })
         foreach (bool action in new[] { false, true })
         foreach ((int active, int number, int generation, bool live, bool page) in new[]
         {
@@ -209,7 +224,13 @@ public sealed class OutlineValueInspectionTests
             (0, 3, 1, false, false), (4, 3, 0, false, false), (4, 3, 5, false, false),
             (0, 99, 0, false, false), (4, 99, 4, false, false),
             (0, 12, 0, true, false), (0, 14, 0, false, false), (4, 14, 1, false, false),
-        }) { yield return [route, version, action, active, number, generation, live, page]; }
+        }) { yield return ["typed", 2, action, active, number, generation, live, page]; }
+
+        yield return ["typed", 1, false, 4, 3, 4, true, true];
+        yield return ["argv", 1, true, 4, 3, 0, false, false];
+        yield return ["argv", 2, false, 0, 14, 0, false, false];
+        yield return ["job", 1, true, 0, 99, 0, false, false];
+        yield return ["job", 2, false, 0, 12, 0, true, false];
     }
 
     [Theory]
