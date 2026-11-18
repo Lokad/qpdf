@@ -105,11 +105,16 @@ $records = foreach ($item in $cases) {
   foreach ($route in @('job','argv','mixed')) {
     $name = "binary-$($item.N)-$route"; $case = Join-Path $WorkRoot $name
     if (Test-Path -LiteralPath $case) { throw "Existing case: $case" }
-    New-Item -ItemType Directory -Path "$case/inputs","$case/outputs" -Force | Out-Null
+    New-Item -ItemType Directory -Path "$case/inputs" -Force | Out-Null
     $mode = if ($item.Mode) { $item.Mode } else { 'plain' }
     [IO.File]::WriteAllBytes("$case/inputs/a.pdf",(New-BytesPdf $mode ([bool]$item.Recovery)))
-    [IO.File]::WriteAllText("$case/outputs/prior.pdf",'prior',$utf8)
-    $prior = (Get-FileHash "$case/outputs/prior.pdf").Hash
+    $nativeTarget = $null
+    if ($item.F.outputFile) {
+      New-Item -ItemType Directory -Path "$case/outputs" | Out-Null
+      $nativeTarget = Join-Path $case $item.F.outputFile
+      [IO.File]::WriteAllText($nativeTarget,'prior',$utf8)
+      $nativeBefore = (Get-FileHash -LiteralPath $nativeTarget).Hash
+    }
     $job = @{inputFile='inputs/a.pdf'}
     foreach ($key in $item.F.Keys) { $job[$key]=$item.F[$key] }
     [IO.File]::WriteAllText("$case/inputs/job.json",($job|ConvertTo-Json -Compress),$utf8)
@@ -160,8 +165,15 @@ $records = foreach ($item in $cases) {
         if ($LASTEXITCODE -ne 0) { throw "$name independent rewritten-output validation failed: $count" }
       }
     }
-    if ((Get-FileHash "$case/outputs/prior.pdf").Hash -cne $prior) { throw "$name changed prior target" }
-    [pscustomobject]@{Name=$name;Route=$route;NativeExit=$nativeExit;ManagedReportedExit=$expected;ManagedProcessExit=$managedExit;PayloadHex=$item.Hex;CheckChannel=$item.Channel;NativePrefix=$item.NativePrefix;StagedFailureDifference=[bool]$item.NativePrefix;RewriteValidated=[bool]$item.Rewrite;PriorPreserved=$true;InputSHA256=(Get-FileHash "$case/inputs/a.pdf").Hash}
+    $record = [ordered]@{Name=$name;Route=$route;NativeExit=$nativeExit;ManagedReportedExit=$expected;ManagedProcessExit=$managedExit;
+      PayloadHex=$item.Hex;CheckChannel=$item.Channel;NativePrefix=$item.NativePrefix;StagedFailureDifference=[bool]$item.NativePrefix;
+      RewriteValidated=[bool]$item.Rewrite;InputSHA256=(Get-FileHash "$case/inputs/a.pdf").Hash}
+    if ($nativeTarget) {
+      $preserved = (Get-FileHash -LiteralPath $nativeTarget).Hash -ceq $nativeBefore
+      if ($preserved -eq [bool]$item.Rewrite) { throw "$name native target did not have the expected disposition" }
+      $record['NativeTarget'] = if ($preserved) { 'preserved' } else { 'replaced' }
+    }
+    [pscustomobject]$record
     Write-Host "[$name] byte/default/ordering verdict passed"
   }
 }

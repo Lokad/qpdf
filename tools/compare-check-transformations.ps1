@@ -82,99 +82,102 @@ $cases = @(
   @{N='rotation-value';Rotate='+45:1';O='2';Exit=2},
   @{N='missing-source';R='1';Source='inputs/missing.pdf';O='2';Exit=2}
 )
+# Keep one listing comparison for each shape. These additional cases exercise
+# checker ordering, source/range refusal and each configuration route. Unit
+# tests observe selected-content checking and count managed output attempts.
+$checkRoutes = @{
+  'first'='argv'; 'collation'='job'; 'content-generations'='mixed';
+  'range-bounds'='job'; 'missing-source'='mixed'
+}
 $records = foreach ($item in $cases) {
-  foreach ($check in @($false,$true)) {
-    foreach ($route in @('job','argv','mixed')) {
-      $name = "$($item.N)-$route-check-$check"
-      $case = Join-Path $WorkRoot $name
-      if (Test-Path -LiteralPath $case) { throw "Existing case output: $case" }
-      New-Item -ItemType Directory -Path "$case/inputs","$case/outputs" | Out-Null
-      if ($item.Nested) { Write-AuthoredPdf "$case/inputs/a.pdf" ([bool]$item.ContentGenerations) }
-      else { Copy-Item -LiteralPath "$FixtureDirectory/minimal-2page.pdf" -Destination "$case/inputs/a.pdf" }
-      Copy-Item -LiteralPath "$FixtureDirectory/minimal-2page.pdf" -Destination "$case/inputs/b.pdf"
-      [IO.File]::WriteAllBytes("$case/outputs/prior.pdf",[byte[]]@(0,127,255,65))
-      $before = (Get-FileHash "$case/outputs/prior.pdf").Hash
-      $settings = @{showNpages='';showPages='';showXref='';showObject=$item.O}
-      [string[]]$argv = @('inputs/a.pdf','--show-npages','--show-pages','--show-xref',('--show-object='+$item.O))
-      if ($check) { $settings.check=''; $argv += '--check' }
-      if ($item.Rotate) { $settings.rotate=@($item.Rotate); $argv += ('--rotate='+$item.Rotate) }
-      if ($item.Collate) { $settings.collate=$item.Collate; $argv += ('--collate='+$item.Collate) }
-      $sources = if ($item.Sources) { $item.Sources } elseif ($item.R) { @(@{file=$(if ($item.Source) {$item.Source} else {'.'});range=$item.R}) } else { @() }
-      if ($sources.Count -gt 0) {
-        $settings.pages=@($sources); $argv += '--pages'
-        foreach ($source in $sources) { $argv += @($source.file,$source.range) }
-        $argv += '--'
-      }
-      $job = @{inputFile='inputs/a.pdf'}
-      foreach ($key in $settings.Keys) { $job[$key]=$settings[$key] }
-      [IO.File]::WriteAllText("$case/inputs/job.json",($job|ConvertTo-Json -Depth 8),$utf8)
-      [IO.File]::WriteAllText("$case/inputs/settings.json",($settings|ConvertTo-Json -Depth 8),$utf8)
-      [string[]]$nativeArgs = if ($route -eq 'job') {@('--job-json-file=inputs/job.json')} elseif ($route -eq 'mixed') {@('inputs/a.pdf','--job-json-file=inputs/settings.json')} else {$argv}
-      [string[]]$managedArgs = if ($route -eq 'job') {@('emit-job','--workdir',$case,'--job',"$case/inputs/job.json")} else {@('emit','--workdir',$case,'--')+$nativeArgs}
-      Push-Location $case
-      try {
-        & $QpdfExe @nativeArgs 1> "$case/native.txt" 2> "$case/native-error.txt"; $nativeExit=$LASTEXITCODE
-        $managed=@(Invoke-ReferenceProbe -Arguments (@($ProbeDll)+$managedArgs) 2>&1|ForEach-Object {$_.ToString()}); $managedExit=$LASTEXITCODE
-      } finally { Pop-Location }
-      [IO.File]::WriteAllText("$case/managed.txt",($managed -join "`n")+"`n",$utf8)
-      $expected = if ($item.ContainsKey('Exit')) {$item.Exit} else {0}
-      $status = if ($expected -eq 2) {'Failed'} else {'Completed'}
-      if ($nativeExit -ne $expected -or $managedExit -ne $expected -or ($managed -join "`n") -notmatch "emit: status=$status exit=$expected\b") { throw "$name exits differ; see $case" }
-      $native = @(Get-Content "$case/native.txt" | Where-Object {$_ -match '^(\d+$|\d+/\d+: |<< .* >>$|\[ .* \]$|null$|page \d+:|  (content|images):$|    )'})
-      $left = @($managed | ForEach-Object {
-        if ($_ -match '^emit: diagnostic (PageCount|XrefListing|ObjectListing|PageListing) Info (.*)$') {
-          if ($Matches[1] -eq 'PageCount') { $Matches[2] -replace '^inputs/a\.pdf: ','' } else { $Matches[2] }
-        }
-      })
-      $expectedNative = if ($item.ImportedIdentities) {
-        # One pass preserves the correspondence when the permutation contains a
-        # cycle. Match references only: counts, physical xrefs and offsets stay exact.
-        [regex]::Replace(($native -join "`n"),'\b(\d+) 0 R\b',{
-          param($match)
-          $number = [int]$match.Groups[1].Value
-          if ($item.ImportedIdentities.ContainsKey($number)) { return "$($item.ImportedIdentities[$number]) 0 R" }
-          return $match.Value
-        })
-      } else { $native -join "`n" }
-      if (($left -join "`n") -cne $expectedNative) { throw "$name ordered graph effects differ; see $case" }
-      if (@($managed | Where-Object {$_ -match '^emit: bytes '}).Count -ne 0) { throw "$name returned an unexpected binary payload." }
-      if ($expected -eq 2 -and ($left.Count -ne 0 -or [IO.File]::ReadAllText("$case/native.txt") -match 'checking inputs/a.pdf')) { throw "$name inspected/checked before source/range rejection." }
-      if ($item.Line -and $native -cnotcontains $item.Line) { throw "$name missing exact effect." }
-      if ($item.Pattern -and ($native -join "`n") -notmatch $item.Pattern) { throw "$name missing object effect." }
-      if ($item.Forbidden -and ($native -join "`n") -match $item.Forbidden) { throw "$name altered the wrong occurrence." }
-      if ((Get-FileHash "$case/outputs/prior.pdf").Hash -ne $before) { throw "$name changed prior output." }
-      [pscustomobject]@{Name=$name;Route=$route;Check=$check;NativeExit=$nativeExit;ManagedExit=$managedExit;OrderedListingLines=$left.Count;InputSHA256=(Get-FileHash "$case/inputs/a.pdf").Hash;PriorOutputPreserved=$true}
-      Write-Host "$($name): exit $expected; ordered graph effects agree"
+  $variants = @(@{Route='argv';Check=$false})
+  if ($checkRoutes.ContainsKey($item.N)) { $variants += @{Route=$checkRoutes[$item.N];Check=$true} }
+  foreach ($variant in $variants) {
+    $route = $variant.Route; $check = $variant.Check
+    $name = "$($item.N)-$route-check-$check"
+    $case = Join-Path $WorkRoot $name
+    if (Test-Path -LiteralPath $case) { throw "Existing case output: $case" }
+    New-Item -ItemType Directory -Path "$case/inputs" | Out-Null
+    if ($item.Nested) { Write-AuthoredPdf "$case/inputs/a.pdf" ([bool]$item.ContentGenerations) }
+    else { Copy-Item -LiteralPath "$FixtureDirectory/minimal-2page.pdf" -Destination "$case/inputs/a.pdf" }
+    Copy-Item -LiteralPath "$FixtureDirectory/minimal-2page.pdf" -Destination "$case/inputs/b.pdf"
+    $settings = @{showNpages='';showPages='';showXref='';showObject=$item.O}
+    [string[]]$argv = @('inputs/a.pdf','--show-npages','--show-pages','--show-xref',('--show-object='+$item.O))
+    if ($check) { $settings.check=''; $argv += '--check' }
+    if ($item.Rotate) { $settings.rotate=@($item.Rotate); $argv += ('--rotate='+$item.Rotate) }
+    if ($item.Collate) { $settings.collate=$item.Collate; $argv += ('--collate='+$item.Collate) }
+    $sources = if ($item.Sources) { $item.Sources } elseif ($item.R) { @(@{file=$(if ($item.Source) {$item.Source} else {'.'});range=$item.R}) } else { @() }
+    if ($sources.Count -gt 0) {
+      $settings.pages=@($sources); $argv += '--pages'
+      foreach ($source in $sources) { $argv += @($source.file,$source.range) }
+      $argv += '--'
     }
+    $job = @{inputFile='inputs/a.pdf'}
+    foreach ($key in $settings.Keys) { $job[$key]=$settings[$key] }
+    [IO.File]::WriteAllText("$case/inputs/job.json",($job|ConvertTo-Json -Depth 8),$utf8)
+    [IO.File]::WriteAllText("$case/inputs/settings.json",($settings|ConvertTo-Json -Depth 8),$utf8)
+    [string[]]$nativeArgs = if ($route -eq 'job') {@('--job-json-file=inputs/job.json')} elseif ($route -eq 'mixed') {@('inputs/a.pdf','--job-json-file=inputs/settings.json')} else {$argv}
+    [string[]]$managedArgs = if ($route -eq 'job') {@('emit-job','--workdir',$case,'--job',"$case/inputs/job.json")} else {@('emit','--workdir',$case,'--')+$nativeArgs}
+    Push-Location $case
+    try {
+      & $QpdfExe @nativeArgs 1> "$case/native.txt" 2> "$case/native-error.txt"; $nativeExit=$LASTEXITCODE
+      $managed=@(Invoke-ReferenceProbe -Arguments (@($ProbeDll)+$managedArgs) 2>&1|ForEach-Object {$_.ToString()}); $managedExit=$LASTEXITCODE
+    } finally { Pop-Location }
+    [IO.File]::WriteAllText("$case/managed.txt",($managed -join "`n")+"`n",$utf8)
+    $expected = if ($item.ContainsKey('Exit')) {$item.Exit} else {0}
+    $status = if ($expected -eq 2) {'Failed'} else {'Completed'}
+    if ($nativeExit -ne $expected -or $managedExit -ne $expected -or ($managed -join "`n") -notmatch "emit: status=$status exit=$expected\b") { throw "$name exits differ; see $case" }
+    $native = @(Get-Content "$case/native.txt" | Where-Object {$_ -match '^(\d+$|\d+/\d+: |<< .* >>$|\[ .* \]$|null$|page \d+:|  (content|images):$|    )'})
+    $left = @($managed | ForEach-Object {
+      if ($_ -match '^emit: diagnostic (PageCount|XrefListing|ObjectListing|PageListing) Info (.*)$') {
+        if ($Matches[1] -eq 'PageCount') { $Matches[2] -replace '^inputs/a\.pdf: ','' } else { $Matches[2] }
+      }
+    })
+    $expectedNative = if ($item.ImportedIdentities) {
+      # One pass preserves the correspondence when the permutation contains a
+      # cycle. Match references only: counts, physical xrefs and offsets stay exact.
+      [regex]::Replace(($native -join "`n"),'\b(\d+) 0 R\b',{
+        param($match)
+        $number = [int]$match.Groups[1].Value
+        if ($item.ImportedIdentities.ContainsKey($number)) { return "$($item.ImportedIdentities[$number]) 0 R" }
+        return $match.Value
+      })
+    } else { $native -join "`n" }
+    if (($left -join "`n") -cne $expectedNative) { throw "$name ordered graph effects differ; see $case" }
+    if (@($managed | Where-Object {$_ -match '^emit: bytes '}).Count -ne 0) { throw "$name returned an unexpected binary payload." }
+    $nativeChecked = [IO.File]::ReadAllText("$case/native.txt") -match '(?m)^checking inputs/a\.pdf'
+    if ($expected -eq 2 -and ($left.Count -ne 0 -or $nativeChecked)) { throw "$name inspected/checked before source/range rejection." }
+    if ($expected -eq 0 -and $nativeChecked -ne $check) { throw "$name checker execution differs." }
+    if ($item.Line -and $native -cnotcontains $item.Line) { throw "$name missing exact effect." }
+    if ($item.Pattern -and ($native -join "`n") -notmatch $item.Pattern) { throw "$name missing object effect." }
+    if ($item.Forbidden -and ($native -join "`n") -match $item.Forbidden) { throw "$name altered the wrong occurrence." }
+    [pscustomobject]@{Name=$name;Route=$route;Check=$check;NativeExit=$nativeExit;ManagedExit=$managedExit;OrderedListingLines=$left.Count;InputSHA256=(Get-FileHash "$case/inputs/a.pdf").Hash}
+    Write-Host "$($name): exit $expected; ordered graph effects agree"
   }
 }
-foreach ($route in @('job','argv','mixed')) {
-  $name = "selected-stream-$route"
-  $case = Join-Path $WorkRoot $name
-  if (Test-Path -LiteralPath $case) { throw "Existing case output: $case" }
-  New-Item -ItemType Directory -Path "$case/inputs" | Out-Null
-  Copy-Item -LiteralPath "$FixtureDirectory/minimal-2page.pdf" -Destination "$case/inputs/a.pdf"
-  $settings = @{pages=@(@{file='.';range='1'});showObject='5';filteredStreamData=''}
-  $job = @{inputFile='inputs/a.pdf'}
-  foreach ($key in $settings.Keys) { $job[$key]=$settings[$key] }
-  [IO.File]::WriteAllText("$case/inputs/job.json",($job|ConvertTo-Json -Depth 8),$utf8)
-  [IO.File]::WriteAllText("$case/inputs/settings.json",($settings|ConvertTo-Json -Depth 8),$utf8)
-  [string[]]$argv = if ($route -eq 'job') {@('--job-json-file=inputs/job.json')} elseif ($route -eq 'mixed') {@('inputs/a.pdf','--job-json-file=inputs/settings.json')} else {@('inputs/a.pdf','--pages','.','1','--','--show-object=5','--filtered-stream-data')}
-  [string[]]$emit = if ($route -eq 'job') {@('emit-job','--workdir',$case,'--job',"$case/inputs/job.json")} else {@('emit','--workdir',$case,'--')+$argv}
-  Push-Location $case
-  try {
-    & $QpdfExe @argv 1> "$case/native.bin" 2> "$case/native-error.txt"; $nativeExit=$LASTEXITCODE
-    $managed=@(Invoke-ReferenceProbe -Arguments (@($ProbeDll)+$emit) 2>&1|ForEach-Object {$_.ToString()}); $managedExit=$LASTEXITCODE
-  } finally { Pop-Location }
-  [IO.File]::WriteAllText("$case/managed.txt",($managed -join "`n")+"`n",$utf8)
-  [byte[]]$expected = [Text.Encoding]::ASCII.GetBytes('BT /F1 24 Tf 100 700 Td (First) Tj ET')
-  $hex = [Convert]::ToHexString([IO.File]::ReadAllBytes("$case/native.bin"))
-  $payload = @($managed | Where-Object {$_ -match '^emit: bytes '})
-  if ($nativeExit -ne 0 -or $managedExit -ne 0 -or ($managed -join "`n") -notmatch 'emit: status=Completed exit=0\b' -or $hex -cne [Convert]::ToHexString($expected) -or $payload.Count -ne 1 -or $payload[0] -cne "emit: bytes $hex") { throw "$name selected binary bytes differ; see $case" }
-  $records += [pscustomobject]@{Name=$name;Route=$route;Check=$false;NativeExit=$nativeExit;ManagedExit=$managedExit;BinaryBytes=$expected.Length;InputSHA256=(Get-FileHash "$case/inputs/a.pdf").Hash}
-  Write-Host "$($name): exit 0; selected filtered bytes agree"
-}
+$name = 'selected-stream-job'
+$case = Join-Path $WorkRoot $name
+if (Test-Path -LiteralPath $case) { throw "Existing case output: $case" }
+New-Item -ItemType Directory -Path "$case/inputs" | Out-Null
+Copy-Item -LiteralPath "$FixtureDirectory/minimal-2page.pdf" -Destination "$case/inputs/a.pdf"
+$settings = @{pages=@(@{file='.';range='1'});showObject='5';filteredStreamData=''}
+$job = @{inputFile='inputs/a.pdf'}
+foreach ($key in $settings.Keys) { $job[$key]=$settings[$key] }
+[IO.File]::WriteAllText("$case/inputs/job.json",($job|ConvertTo-Json -Depth 8),$utf8)
+[string[]]$emit = @('emit-job','--workdir',$case,'--job',"$case/inputs/job.json")
+Push-Location $case
+try {
+  & $QpdfExe '--job-json-file=inputs/job.json' 1> "$case/native.bin" 2> "$case/native-error.txt"; $nativeExit=$LASTEXITCODE
+  $managed=@(Invoke-ReferenceProbe -Arguments (@($ProbeDll)+$emit) 2>&1|ForEach-Object {$_.ToString()}); $managedExit=$LASTEXITCODE
+} finally { Pop-Location }
+[IO.File]::WriteAllText("$case/managed.txt",($managed -join "`n")+"`n",$utf8)
+[byte[]]$expected = [Text.Encoding]::ASCII.GetBytes('BT /F1 24 Tf 100 700 Td (First) Tj ET')
+$hex = [Convert]::ToHexString([IO.File]::ReadAllBytes("$case/native.bin"))
+$payload = @($managed | Where-Object {$_ -match '^emit: bytes '})
+if ($nativeExit -ne 0 -or $managedExit -ne 0 -or ($managed -join "`n") -notmatch 'emit: status=Completed exit=0\b' -or $hex -cne [Convert]::ToHexString($expected) -or $payload.Count -ne 1 -or $payload[0] -cne "emit: bytes $hex") { throw "$name selected binary bytes differ; see $case" }
+$records += [pscustomobject]@{Name=$name;Route='job';Check=$false;NativeExit=$nativeExit;ManagedExit=$managedExit;BinaryBytes=$expected.Length;InputSHA256=(Get-FileHash "$case/inputs/a.pdf").Hash}
+Write-Host "$($name): exit 0; selected filtered bytes agree"
 [IO.File]::WriteAllText("$WorkRoot/results.json",($records|ConvertTo-Json -Depth 6)+"`n",$utf8)
-Write-Host "Checker transformation lane passed: $($records.Count) comparisons. Other contexts and audit gates remain open."
+Write-Host "Checker transformation lane passed: $($records.Count) comparisons."
 
 } finally { Complete-ReferenceProbe }

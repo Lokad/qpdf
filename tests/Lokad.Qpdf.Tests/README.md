@@ -48,6 +48,10 @@ coverage boundaries are:
 | Literal and partition syntax | Primitive owners exhaust escaping, shape, encoding and container representation; parser/writer/normalizer samples retain framing, quotas, cancellation and physical line markers. |
 | Presentation | Own count/byte boundaries for each output shape; sample flag combinations, decimal/culture behavior and route adaptation separately. |
 
+Reference inspection compares ordered native listings and exact payloads.
+Native target checks preseed the path passed to qpdf. Recording-host tests
+observe managed transaction calls and prior-target contents.
+
 `Foundation/PublicationAdmissionTests` owns shared host-fault phases, executed
 counters and sequential commits. Prepared graph tests retain their own admission
 refusal sweeps and write-failure refunds; form generation and placement retain

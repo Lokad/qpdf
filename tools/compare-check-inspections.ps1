@@ -82,7 +82,7 @@ $records = foreach ($item in $cases) {
     $name = "check-inspection-$($item.Name)-$route"
     $case = Join-Path $WorkRoot $name
     if (Test-Path -LiteralPath $case) { throw "Existing case output: $case" }
-    New-Item -ItemType Directory -Path "$case/inputs","$case/outputs" -Force | Out-Null
+    New-Item -ItemType Directory -Path "$case/inputs" -Force | Out-Null
     $fixture = if ($item.Fixture) { $item.Fixture } else { 'minimal-2page.pdf' }
     $pdf = if ($item.Authored) { New-AuthoredPdf ($item.Authored -eq 'attachment') } else { [IO.File]::ReadAllBytes((Join-Path $FixtureDirectory $fixture)) }
     if ($item.Mutation) {
@@ -92,8 +92,13 @@ $records = foreach ($item in $cases) {
       $pdf = [Text.Encoding]::ASCII.GetBytes($text)
     }
     [IO.File]::WriteAllBytes("$case/inputs/a.pdf",[byte[]] $pdf)
-    [IO.File]::WriteAllBytes("$case/outputs/prior.pdf",[Text.Encoding]::ASCII.GetBytes('prior'))
-    $before = (Get-FileHash "$case/outputs/prior.pdf").Hash
+    $nativeTarget = $null
+    if ($item.Fields.outputFile) {
+      New-Item -ItemType Directory -Path "$case/outputs" | Out-Null
+      $nativeTarget = Join-Path $case $item.Fields.outputFile
+      [IO.File]::WriteAllText($nativeTarget,'prior',$utf8)
+      $nativeBefore = (Get-FileHash -LiteralPath $nativeTarget).Hash
+    }
     $job = @{ inputFile='inputs/a.pdf';check='' }
     foreach ($key in $item.Fields.Keys) { $job[$key] = $item.Fields[$key] }
     if ($item.InitialSelector) {
@@ -131,9 +136,14 @@ $records = foreach ($item in $cases) {
     if ($expected -ne 2 -and ($left.Count -lt $item.Minimum -or $left -cnotcontains $item.Line)) { throw "$name missing actual inspection effect" }
     if ($expected -eq 2 -and $left.Count -ne 0) { throw "$name performed inspection after rejection/fatal checking" }
     if ($item.Authored -eq 'fatal' -and [IO.File]::ReadAllText("$case/native-error.txt") -match 'reconstruct|damaged|xref') { throw "$name fatal fixture also requires xref recovery" }
-    if ((Get-FileHash "$case/outputs/prior.pdf").Hash -ne $before) { throw "$name changed prior output" }
-    [pscustomobject]@{ Name=$name; Route=$route; NativeExit=$nativeExit; ManagedReportedExit=$expected; ManagedProcessExit=$managedExit; ListingLines=$left.Count; InputSHA256=(Get-FileHash "$case/inputs/a.pdf").Hash; PriorOutputPreserved=$true }
-    Write-Host "[$name] exit $expected; original identities and ordered listings agree; prior output preserved"
+    $record = [ordered]@{ Name=$name; Route=$route; NativeExit=$nativeExit; ManagedReportedExit=$expected;
+      ManagedProcessExit=$managedExit; ListingLines=$left.Count; InputSHA256=(Get-FileHash "$case/inputs/a.pdf").Hash }
+    if ($nativeTarget) {
+      if ((Get-FileHash -LiteralPath $nativeTarget).Hash -cne $nativeBefore) { throw "$name changed the native prior target" }
+      $record['NativePriorOutputPreserved'] = $true
+    }
+    [pscustomobject]$record
+    Write-Host "[$name] exit $expected; original identities and ordered listings agree"
   }
 }
 [IO.File]::WriteAllText((Join-Path $WorkRoot 'results.json'),($records | ConvertTo-Json -Depth 5) + "`n",$utf8)
