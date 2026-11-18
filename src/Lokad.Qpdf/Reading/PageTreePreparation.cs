@@ -17,20 +17,26 @@ internal static class PageTreePreparation
 
     internal static Prepared Prepare(DocumentEngine source, bool pushInherited, QpdfLimits limits,
         ParserMemoryScope values, ParserMemoryScope temporary, ResourceGovernor governor, CancellationToken token)
-        => PrepareCore(source, pushInherited, false, limits, values, temporary, governor, token);
+        => PrepareCore(source, source.Trailer, source.XRefEntries, null, pushInherited, false, limits, values, temporary, governor, token);
 
     internal static Prepared PrepareForInspection(DocumentEngine source, bool pushInherited, QpdfLimits limits,
         ParserMemoryScope values, ParserMemoryScope temporary, ResourceGovernor governor, CancellationToken token)
-        => PrepareCore(source, pushInherited, true, limits, values, temporary, governor, token);
+        => PrepareCore(source, source.Trailer, source.XRefEntries, null, pushInherited, true, limits, values, temporary, governor, token);
 
-    private static Prepared PrepareCore(DocumentEngine source, bool pushInherited, bool collectPages, QpdfLimits limits,
+    internal static Prepared PrepareBound(IIndirectResolver source, PdfDictionary trailer, Func<int> allocateNumber,
+        bool pushInherited, QpdfLimits limits, ParserMemoryScope values, ParserMemoryScope temporary,
+        ResourceGovernor governor, CancellationToken token)
+        => PrepareCore(source, trailer, null, allocateNumber, pushInherited, false, limits, values, temporary, governor, token);
+
+    private static Prepared PrepareCore(IIndirectResolver source, PdfDictionary trailer, IReadOnlyDictionary<int, XrefEntry>? xrefs,
+        Func<int>? allocateNumber, bool pushInherited, bool collectPages, QpdfLimits limits,
         ParserMemoryScope values, ParserMemoryScope temporary, ResourceGovernor governor, CancellationToken token)
     {
         values.CheckOwner(governor); temporary.CheckOwner(governor);
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         temporary.Reserve(128L);
-        Builder builder = new(source, pushInherited, collectPages, limits, temporary, traversal, graph);
+        Builder builder = new(source, trailer, xrefs, allocateNumber, pushInherited, collectPages, limits, temporary, traversal, graph);
         Prepared prepared = builder.Build();
         // The overlay indexes are temporary; immutable headers may be borrowed
         // by the normalized model after those indexes and this builder retire.
@@ -38,9 +44,33 @@ internal static class PageTreePreparation
         return prepared;
     }
 
+    internal static int GreatestReferencedNumber(QpdfObject value, int greatest, QpdfLimits limits,
+        ResourceGovernor governor, CancellationToken token, long depth)
+    {
+        token.ThrowIfCancellationRequested(); governor.NoteOperation();
+        if (depth > limits.MaxNestingDepth)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, limits.MaxNestingDepth); }
+        if (value is PdfReference reference) { return Math.Max(greatest, reference.ObjectNumber); }
+        if (value is PdfArray array)
+        {
+            for (int index = 0; index < array.Count; index++)
+            { greatest = GreatestReferencedNumber(array[index], greatest, limits, governor, token, depth + 1); }
+        }
+        else if (value is PdfDictionary dictionary)
+        {
+            using PdfDictionary.EntryEnumerator entries = dictionary.GetEntryEnumerator();
+            while (entries.MoveNext(governor, token))
+            { greatest = GreatestReferencedNumber(entries.Current.Value, greatest, limits, governor, token, depth + 1); }
+        }
+        return greatest;
+    }
+
     private sealed class Builder
     {
-        private readonly DocumentEngine _source;
+        private readonly IIndirectResolver _source;
+        private readonly PdfDictionary _trailer;
+        private readonly IReadOnlyDictionary<int, XrefEntry>? _xrefs;
+        private readonly Func<int>? _allocateNumber;
         private readonly bool _pushInherited;
         private readonly QpdfLimits _limits;
         private readonly ParserMemoryScope _temporary;
@@ -54,10 +84,12 @@ internal static class PageTreePreparation
         private ResourceGovernor Governor => _graph.Governor;
         private CancellationToken Token => _graph.Token;
 
-        internal Builder(DocumentEngine source, bool pushInherited, bool collectPages, QpdfLimits limits,
+        internal Builder(IIndirectResolver source, PdfDictionary trailer, IReadOnlyDictionary<int, XrefEntry>? xrefs,
+            Func<int>? allocateNumber, bool pushInherited, bool collectPages, QpdfLimits limits,
             ParserMemoryScope temporary, ParserMemoryScope traversal, OwnedAllocationBatch graph)
         {
-            _source = source; _pushInherited = pushInherited; _limits = limits;
+            _source = source; _trailer = trailer; _xrefs = xrefs; _allocateNumber = allocateNumber;
+            _pushInherited = pushInherited; _limits = limits;
             _temporary = temporary; _traversal = traversal; _graph = graph;
             _objects = ParserContainers.CreateDictionary<int, QpdfObject>(temporary);
             temporary.Reserve(96L);
@@ -69,16 +101,18 @@ internal static class PageTreePreparation
 
         internal Prepared Build()
         {
-            foreach (KeyValuePair<int, XrefEntry> entry in _source.XRefEntries)
+            if (_xrefs is not null)
             {
-                Visit(0);
-                if (entry.Value.Kind != XrefEntryKind.Free) { _greatest = Math.Max(_greatest, entry.Key); }
+                foreach (KeyValuePair<int, XrefEntry> entry in _xrefs)
+                {
+                    Visit(0);
+                    if (entry.Value.Kind != XrefEntryKind.Free) { _greatest = Math.Max(_greatest, entry.Key); }
+                }
+                // Native reserves identities mentioned by the trailer before
+                // establishing live objects. Ordinary dangling edges do not.
+                _greatest = GreatestReferencedNumber(_trailer, _greatest, _limits, Governor, Token, 0);
             }
-            // The trailer is parsed before native's live-object table is fixed.
-            // Its dangling pairs reserve identities; free xref slots and dangling
-            // references encountered later inside ordinary objects do not.
-            IncludeTrailerReferences(_source.Trailer, 0);
-            PdfDictionary trailer = _source.Trailer;
+            PdfDictionary trailer = _trailer;
             if (!PdfDictionaryLookup.TryGet(trailer, "Root"u8, Governor, Token, out QpdfObject root))
             { throw new QpdfParseException("Trailer must declare /Root.", null, null); }
             PdfDictionary catalog = Dictionary(root);
@@ -117,11 +151,11 @@ internal static class PageTreePreparation
         {
             Visit(0);
             if (raw is not PdfReference reference) { return raw; }
-            bool original = _source.XRefEntries.TryGetValue(reference.ObjectNumber, out XrefEntry entry)
-                && entry.MatchesGeneration(reference.Generation);
+            bool original = _xrefs is null ? reference.Generation == 0
+                : _xrefs.TryGetValue(reference.ObjectNumber, out XrefEntry entry) && entry.MatchesGeneration(reference.Generation);
             if (!original && !_added.Contains(reference)) { return null; }
             if (_objects.TryGetValue(reference.ObjectNumber, out QpdfObject? value)) { return value; }
-            return ((IIndirectResolver)_source).TryResolve(reference, out QpdfObject? loaded) ? loaded : null;
+            return _source.TryResolve(reference, out QpdfObject? loaded) ? loaded : null;
         }
 
         private PdfDictionary Dictionary(QpdfObject raw)
@@ -142,7 +176,7 @@ internal static class PageTreePreparation
             if (_greatest == int.MaxValue)
             { throw new QpdfParseException("No object identity is available for page preparation.", null, null); }
             _graph.Memory.Reserve(32L); _graph.Add(32L);
-            PdfReference reference = new(++_greatest, 0);
+            PdfReference reference = new(_allocateNumber is null ? ++_greatest : _allocateNumber(), 0);
             ParserContainers.AddSetItem(_temporary, _added, reference, IntPtr.Size);
             Store(reference, value);
             return reference;
@@ -311,17 +345,5 @@ internal static class PageTreePreparation
             return PdfDictionaryRebuild.Complete(_graph, entries, allocation);
         }
 
-        private void IncludeTrailerReferences(QpdfObject value, long depth)
-        {
-            Visit(depth);
-            if (value is PdfReference reference) { _greatest = Math.Max(_greatest, reference.ObjectNumber); }
-            else if (value is PdfArray array)
-            { for (int index = 0; index < array.Count; index++) { IncludeTrailerReferences(array[index], checked(depth + 1)); } }
-            else if (value is PdfDictionary dictionary)
-            {
-                using PdfDictionary.EntryEnumerator entries = dictionary.GetEntryEnumerator();
-                while (entries.MoveNext(Governor, Token)) { IncludeTrailerReferences(entries.Current.Value, checked(depth + 1)); }
-            }
-        }
     }
 }

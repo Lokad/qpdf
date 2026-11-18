@@ -390,7 +390,6 @@ public sealed class JsonImportTests
     [InlineData("--json")]
     [InlineData("--list-attachments")]
     [InlineData("--add-attachment", "files/n.bin", "--")]
-    [InlineData("--update-from-json=other.json")]
     [InlineData("--replace-input")]
     public async Task ImportCombinationsFail(params string[] flags)
     {
@@ -746,8 +745,6 @@ public sealed class JsonImportTests
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"updateFromJson\": 5}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"updateFromJson\": \"inputs/u.json\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}]}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"updateFromJson\": \"inputs/u.json\", \"json\": \"2\"}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"updateFromJson\": \"inputs/u.json\", \"jsonInput\": true}")]
-    [InlineData("{\"inputFile\": \"inputs/a.json\", \"outputFile\": \"outputs/a.pdf\", \"jsonInput\": true, \"updateFromJson\": \"inputs/u.json\"}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"updateFromJson\": \"inputs/u.json\", \"addAttachment\": [{\"file\": \"f\"}]}")]
     public async Task JobUpdateMalformedFails(string jobJson)
     {

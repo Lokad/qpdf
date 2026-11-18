@@ -394,13 +394,14 @@ write host sidecars.
 PDF JSON v2 creates PDFs with `--json-input` or `CreatePdfFromJsonAsync` and
 patches existing PDFs with `--update-from-json` or `UpdatePdfFromJsonAsync`.
 Commands also accept `jsonInput` and `updateFromJson` in job JSON.
+Combining them applies the patch to the JSON-created graph before publication.
 
 ### Binding and limits
 
 Creation and update bind complete object number and generation pairs before
 assigning output numbers. JSON edges can refer to live source pairs and
-forward-declared objects. Original source edges to stale, free or missing
-pairs remain null even if the patch or page preparation assigns that pair.
+objects declared in either stage of a combined job. Original PDF edges to
+stale, free or missing pairs remain null even if a patch assigns that pair.
 A stream patch without payload data borrows bytes from its exact source
 pair. Sidecars can share a read by logical path while retaining separate
 stream dictionaries. The bound graph validates the page tree and resolves

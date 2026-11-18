@@ -294,6 +294,7 @@ internal static class JsonExecution
         IQpdfHost host,
         QpdfPath? sourcePdf,
         QpdfPath jsonPath,
+        QpdfPath? creationPatch,
         QpdfPath outputPath,
         bool replaceInput,
         QpdfPassword? password,
@@ -312,7 +313,7 @@ internal static class JsonExecution
             throw new QpdfParseException("The output file must differ from the input file.", 0L, null);
         }
 
-        if (string.Equals(jsonPath.Value, outputPath.Value, StringComparison.Ordinal))
+        if (jsonPath == outputPath || creationPatch == outputPath)
         {
             string message = sourcePdf.HasValue ? "The output file must differ from the JSON file."
                 : "The output file must differ from the input file.";
@@ -338,7 +339,10 @@ internal static class JsonExecution
         Json.ImportedModel model;
         if (document is null)
         {
-            model = await Json.JsonImport.BuildCreateModelAsync(host, parsed, retainOriginalPairs, limits, governor,
+            using System.Text.Json.JsonDocument? patch = creationPatch is QpdfPath patchPath
+                ? await Json.JsonImport.ReadJsonAsync(host, patchPath, null, limits, governor, importMemory, cancellationToken).ConfigureAwait(false)
+                : null;
+            model = await Json.JsonImport.BuildCreateModelAsync(host, parsed, patch, retainOriginalPairs, limits, governor,
                 importMemory, cancellationToken).ConfigureAwait(false);
             if (!writer.Encryption.PreservesInput)
             {

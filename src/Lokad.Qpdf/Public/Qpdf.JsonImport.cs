@@ -33,7 +33,7 @@ public static partial class Qpdf
         {
             DiagnosticBag diagnostics = new(governor);
             JsonImportWriterSettings writer = JsonImportWriterSettings.ForTyped(options, outputEncryption);
-            JsonImportOutcome result = await JsonExecution.ImportCoreAsync(host, inputPath, jsonPath, outputPath, false, password,
+            JsonImportOutcome result = await JsonExecution.ImportCoreAsync(host, inputPath, jsonPath, null, outputPath, false, password,
                 writer, QpdfRecoveryMode.Strict, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
             QpdfJsonImportResult presented = result.Present(governor);
             governor.FinishTypedCounters(); return presented;

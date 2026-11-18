@@ -23,28 +23,45 @@ internal static partial class JsonImport
             {
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 if (entry.Value.Kind == XrefEntryKind.Free) { continue; }
-                Add((entry.Key, entry.Value.Kind == XrefEntryKind.Compressed ? 0 : entry.Value.Second));
+                Bind(bindings, (entry.Key, entry.Value.Kind == XrefEntryKind.Compressed ? 0 : entry.Value.Second), memory, governor);
             }
         }
         if (addedReferences is not null)
         {
             foreach (PdfReference reference in addedReferences)
-            { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); Add((reference.ObjectNumber, reference.Generation)); }
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                Bind(bindings, (reference.ObjectNumber, reference.Generation), memory, governor);
+            }
         }
+        AddJsonBindings(bindings, objects, memory, governor, token);
+        return bindings;
+    }
+
+    private static int AddJsonBindings(Dictionary<(int Number, int Generation), int> bindings, JsonElement objects,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        int greatest = 0;
         foreach (JsonProperty property in objects.EnumerateObject())
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             string name = ReadPropertyName(property);
-            if (name != "trailer") { Add(ParseObjectKey(name)); }
+            if (name == "trailer") { continue; }
+            (int Number, int Generation) pair = ParseObjectKey(name);
+            Bind(bindings, pair, memory, governor);
+            greatest = Math.Max(greatest, pair.Number);
         }
-        return bindings;
+        return greatest;
+    }
 
-        void Add((int Number, int Generation) pair)
-        {
-            governor.NoteOperation();
-            if (bindings.ContainsKey(pair)) { return; }
-            ParserContainers.EnsureEntryCapacity(memory, bindings, sizeof(int));
-            bindings.Add(pair, checked(bindings.Count + 1));
-        }
+    private static int Bind(Dictionary<(int Number, int Generation), int> bindings, (int Number, int Generation) pair,
+        ParserMemoryScope memory, ResourceGovernor governor)
+    {
+        governor.NoteOperation();
+        if (bindings.TryGetValue(pair, out int previous)) { return previous; }
+        ParserContainers.EnsureEntryCapacity(memory, bindings, sizeof(int));
+        int bound = checked(bindings.Count + 1);
+        bindings.Add(pair, bound);
+        return bound;
     }
 }

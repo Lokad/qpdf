@@ -971,10 +971,6 @@ internal static partial class JobPlanner
                 throw new QpdfParseException("Job \"json\" cannot be combined with attachment keys.", 0L, null);
             }
 
-            if (jsonInput && seenUpdateFromJson)
-            {
-                throw new QpdfParseException("Job \"jsonInput\" and \"updateFromJson\" cannot be combined.", 0L, null);
-            }
             if (replaceInput && (jsonInput || seenJson || seenJsonOutput))
             {
                 throw new QpdfParseException("JSON replacement requires an update of a PDF.", 0L, null);
@@ -1027,9 +1023,9 @@ internal static partial class JobPlanner
                 }
 
                 QpdfPath importInput = SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null));
-                QpdfPath? patch = jsonInput ? null : SelectionPlan.CheckedPath(updateFromJson
+                QpdfPath? patch = !seenUpdateFromJson ? null : SelectionPlan.CheckedPath(updateFromJson
                     ?? throw new InvalidOperationException("Missing validated JSON patch path."));
-                return new JsonImportPlan(importInput, patch, SelectionPlan.CheckedPath(output), recovery) with
+                return new JsonImportPlan(importInput, patch, jsonInput, SelectionPlan.CheckedPath(output), recovery) with
                 {
                     ReplaceInput = replaceInput,
                     SplitPages = splitPages,

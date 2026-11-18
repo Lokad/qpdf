@@ -269,7 +269,7 @@ internal static class JobExecution
 
         if (plan is JsonImportPlan import)
         {
-            QpdfPath? source = import.Patch.HasValue ? import.Input : null;
+            QpdfPath? source = import.Create ? null : import.Input;
             QpdfPassword? password = null;
             if (source.HasValue) { password = suppliedPassword is null ? import.TransformationPassword : suppliedPassword.Password; }
             JsonImportWriterSettings writer = new(import.MinVersion, import.ForceVersion, import.StaticId,
@@ -282,7 +282,8 @@ internal static class JobExecution
             await ImportCoreAsync(
                 host,
                 source,
-                import.Patch ?? import.Input,
+                import.Create ? import.Input : import.Patch ?? throw new InvalidOperationException("Missing JSON patch."),
+                import.Create ? import.Patch : null,
                 import.Output,
                 import.ReplaceInput,
                 password,

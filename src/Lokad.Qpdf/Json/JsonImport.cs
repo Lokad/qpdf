@@ -88,9 +88,20 @@ internal static partial class JsonImport
         if (identity is not null && string.Equals(input.Identity, identity, StringComparison.Ordinal))
         { throw new QpdfParseException(ReplacementAlias, 0L, null); }
     }
+    internal static ValueTask<ImportedModel> BuildCreateModelAsync(
+        IQpdfHost host,
+        JsonDocument document,
+        bool retainOriginalPairs,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        ParserMemoryScope memory,
+        CancellationToken cancellationToken)
+        => BuildCreateModelAsync(host, document, null, retainOriginalPairs, limits, governor, memory, cancellationToken);
+
     internal static async ValueTask<ImportedModel> BuildCreateModelAsync(
         IQpdfHost host,
         JsonDocument document,
+        JsonDocument? patch,
         bool retainOriginalPairs,
         QpdfLimits limits,
         ResourceGovernor governor,
@@ -122,39 +133,57 @@ internal static partial class JsonImport
         Metadata metadata = ReadMetadata(qpdf[0], true, governor);
         PdfVersion header = metadata.Version ?? throw new InvalidOperationException("Missing validated PDF version.");
         using ParserMemoryScope bindingMemory = ParserMemoryScope.Create(governor);
-        Dictionary<(int Number, int Generation), int> bindings = ReadObjectBindings(qpdf[1], null, null,
-            retainOriginalPairs ? memory : bindingMemory, governor, cancellationToken);
+        ParserMemoryScope retainedBindings = retainOriginalPairs ? memory : bindingMemory;
+        Dictionary<(int Number, int Generation), int> bindings = ParserContainers.CreateDictionary<(int, int), int>(retainedBindings);
+        int greatest = AddJsonBindings(bindings, qpdf[1], retainedBindings, governor, cancellationToken);
+        JsonElement patchObjects = default;
+        Metadata patchMetadata = default;
+        if (patch is not null)
+        {
+            JsonElement envelope = ReadEnvelope(patch, memory, governor, cancellationToken);
+            patchMetadata = ReadMetadata(envelope[0], false, governor);
+            patchObjects = envelope[1];
+            // Both sets of declarations participate in reference binding. A
+            // first-stage edge can name an object authored in the patch.
+            AddJsonBindings(bindings, patchObjects, retainedBindings, governor, cancellationToken);
+        }
         Dictionary<int, QpdfObject> objects = new(bindings.Count);
         using SidecarReader sidecars = SidecarReader.Create(host, limits, governor, memory, bindingMemory, null);
-        PdfDictionary? trailer = null;
-        foreach (JsonProperty property in qpdf[1].EnumerateObject())
+        PdfDictionary sourceTrailer = await ApplyObjectTableAsync(qpdf[1], objects, bindings, sidecars, false,
+            limits, governor, memory, cancellationToken).ConfigureAwait(false)
+            ?? throw new QpdfParseException("qpdf JSON trailer was not seen.", 0L, null);
+        PdfDictionary trailer = (PdfDictionary)Writing.ObjectRemap.RemapImported(sourceTrailer, bindings, memory, governor, cancellationToken);
+        if (patch is not null)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            string propertyName = ReadPropertyName(property);
-            if (propertyName == "trailer")
+            if (patchMetadata.CalledAllPages || patchMetadata.PushedInherited)
             {
-                trailer = (PdfDictionary)Writing.ObjectRemap.RemapImported(ReadTrailer(property.Value, limits, governor, memory, cancellationToken),
-                    bindings, memory, governor, cancellationToken);
-                continue;
+                greatest = PageTreePreparation.GreatestReferencedNumber(sourceTrailer, greatest, limits, governor, cancellationToken, 0);
+                Content.PoolResolver resolver = Content.PoolResolver.Create(bindingMemory, objects);
+                PageTreePreparation.Prepared prepared = PageTreePreparation.PrepareBound(resolver, trailer, Allocate,
+                    patchMetadata.PushedInherited, limits, memory, bindingMemory, governor, cancellationToken);
+                foreach (KeyValuePair<int, QpdfObject> replacement in prepared.Objects)
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    if (!objects.ContainsKey(replacement.Key)) { ParserContainers.EnsureEntryCapacity(memory, objects, IntPtr.Size); }
+                    objects[replacement.Key] = replacement.Value;
+                }
+                trailer = prepared.Trailer;
             }
-
-            int number = bindings[ParseObjectKey(propertyName)];
-            if (property.Value.ValueKind != JsonValueKind.Object)
+            PdfDictionary? patchedTrailer = await ApplyObjectTableAsync(patchObjects, objects, bindings, sidecars, true,
+                limits, governor, memory, cancellationToken).ConfigureAwait(false);
+            if (patchedTrailer is not null)
             {
-                throw new QpdfParseException("qpdf JSON object must be a dictionary.", 0L, null);
+                trailer = (PdfDictionary)Writing.ObjectRemap.RemapImported(patchedTrailer, bindings, memory, governor, cancellationToken);
             }
-
-            QpdfObject value = await ReadObjectAsync(sidecars, property.Value, null, limits, governor, memory, cancellationToken).ConfigureAwait(false);
-            objects[number] = Writing.ObjectRemap.RemapImported(value, bindings, memory, governor, cancellationToken);
         }
+        return new ImportedModel(patchMetadata.Version ?? header, objects, trailer, null) { OriginalPairs = retainOriginalPairs ? bindings : null };
 
-        if (trailer is null)
+        int Allocate()
         {
-            throw new QpdfParseException("qpdf JSON trailer was not seen.", 0L, null);
+            if (greatest == int.MaxValue)
+            { throw new QpdfParseException("No object identity is available for page preparation.", null, null); }
+            return Bind(bindings, (++greatest, 0), retainedBindings, governor);
         }
-
-        return new ImportedModel(header, objects, trailer, null) { OriginalPairs = retainOriginalPairs ? bindings : null };
     }
 
     internal static async ValueTask<ImportedModel> BuildUpdateModelAsync(
@@ -265,15 +294,32 @@ internal static partial class JsonImport
             if (excluded is not null && declaration is PdfReference originalHandler)
             { ParserContainers.AddSetItem(memory, excluded, originalHandler.ObjectNumber, sizeof(int)); }
         }
-        foreach (JsonProperty property in qpdf[1].EnumerateObject())
+        PdfDictionary? patchedTrailer = await ApplyObjectTableAsync(qpdf[1], merged, bindings, sidecars, true,
+            limits, governor, memory, cancellationToken).ConfigureAwait(false);
+        if (patchedTrailer is not null)
+        {
+            trailer = (PdfDictionary)Writing.ObjectRemap.RemapImported(patchedTrailer, bindings, memory, governor, cancellationToken);
+        }
+
+        ImportedModel result = new(metadata.Version ?? governor.PrivateVersion(header.Major, header.Minor), merged, trailer, compressed)
+        { OriginalPairs = retainOriginalPairs ? bindings : null, DetachedRootExclusions = excluded };
+        return PrepareUpdateEncryption(result, originalTrailer, originalEncryption, engine.Security is not null,
+            preserveEncryption, memory, governor, cancellationToken);
+    }
+
+    private static async ValueTask<PdfDictionary?> ApplyObjectTableAsync(JsonElement declarations,
+        Dictionary<int, QpdfObject> objects, Dictionary<(int Number, int Generation), int> bindings, SidecarReader sidecars,
+        bool reusePayload, QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken cancellationToken)
+    {
+        PdfDictionary? trailer = null;
+        foreach (JsonProperty property in declarations.EnumerateObject())
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
             string propertyName = ReadPropertyName(property);
             if (propertyName == "trailer")
             {
-                trailer = (PdfDictionary)Writing.ObjectRemap.RemapImported(ReadTrailer(property.Value, limits, governor, memory, cancellationToken),
-                    bindings, memory, governor, cancellationToken);
+                trailer = ReadTrailer(property.Value, limits, governor, memory, cancellationToken);
                 continue;
             }
 
@@ -283,15 +329,11 @@ internal static partial class JsonImport
                 throw new QpdfParseException("qpdf JSON object must be a dictionary.", 0L, null);
             }
 
-            merged.TryGetValue(number, out QpdfObject? existing);
-            QpdfObject value = await ReadObjectAsync(sidecars, property.Value, existing as PdfStream, limits, governor, memory, cancellationToken).ConfigureAwait(false);
-            merged[number] = Writing.ObjectRemap.RemapImported(value, bindings, memory, governor, cancellationToken);
+            PdfStream? existing = reusePayload ? objects.GetValueOrDefault(number) as PdfStream : null;
+            QpdfObject value = await ReadObjectAsync(sidecars, property.Value, existing, limits, governor, memory, cancellationToken).ConfigureAwait(false);
+            objects[number] = Writing.ObjectRemap.RemapImported(value, bindings, memory, governor, cancellationToken);
         }
-
-        ImportedModel result = new(metadata.Version ?? governor.PrivateVersion(header.Major, header.Minor), merged, trailer, compressed)
-        { OriginalPairs = retainOriginalPairs ? bindings : null, DetachedRootExclusions = excluded };
-        return PrepareUpdateEncryption(result, originalTrailer, originalEncryption, engine.Security is not null,
-            preserveEncryption, memory, governor, cancellationToken);
+        return trailer;
     }
 
     private static JsonElement ReadEnvelope(JsonDocument document, ParserMemoryScope memory,

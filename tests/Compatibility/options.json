@@ -4361,6 +4361,7 @@
         "interaction": [
           "JsonImportCompressionTests.CreateUsesEffectiveCompressionSetters",
           "JsonImportTests.JobCreateRoundTrip",
+          "JsonCompositionTests.CreateThenPatchBindsExactPairsAndReusesTheFirstPayload",
           "JsonImportTests.TypedCreateRoundTrip",
           "EncryptedJsonCreationTests.TypedCreationProtectsStringsStreamsAndFinalCatalogMetadata",
           "EncryptedJsonCreationCommandTests.CommandsCreatePlaintextJsonWithTheSelectedProtection",
@@ -4370,6 +4371,7 @@
           "EncryptedJsonRoundTripTests.FullAuthenticatedExportsRoundTripThroughExplicitOutputPolicies",
           "EncryptedJsonRoundTripTests.CreationCannotInferProtectionFromUnauthenticatedJson",
           "JsonImportTests.JobUpdateRoundTrip",
+          "JsonCompositionTests.CreateThenPatchBindsExactPairsAndReusesTheFirstPayload",
           "JsonImportTests.TypedUpdateRoundTrip",
           "PublicationProfileTests.JsonPublicationUsesTheCopyProfile",
           "JsonImportContainerTests.CommandsEnforceEffectiveContainerLimits",
@@ -8036,6 +8038,7 @@
         "interaction": [
           "JsonImportCompressionTests.JobUpdateCompressesRetainedSourceStreamsAtRequestedLevel",
           "JsonImportTests.JobUpdateRoundTrip",
+          "JsonCompositionTests.CreateThenPatchBindsExactPairsAndReusesTheFirstPayload",
           "JsonImportTests.JobUpdateMalformedFails",
           "JsonImportTests.TypedUpdateRoundTrip",
           "JsonImportTests.TypedUpdateValidation",

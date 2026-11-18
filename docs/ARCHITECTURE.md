@@ -65,8 +65,9 @@ after serialization and sidecar copying, before host publication.
 
 JSON creation and update bind declarations against complete pairs. An update
 authenticates the source first and applies any declared page preparation before
-binding. Original source edges must match live xrefs. JSON edges may refer to
-live or declared pairs. Sidecars can share admitted bytes by logical path while
+binding. A create-and-patch job binds both sets of declarations and applies the
+patch to the in-memory graph. Original PDF edges must match live xrefs.
+Sidecars can share admitted bytes by logical path while
 retaining separate headers. Output packing carries original object-stream
 membership through renumbering.
 Command imports use the shared coalescer during bound page-tree traversal.
