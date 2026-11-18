@@ -104,6 +104,75 @@ public sealed class JsonLayoutTests
         Assert.Equal(1, independent.NumberOfPages);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CommandCapturesFirstPassFromTheBoundGraph(bool update)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(Json, Model(update, false), QpdfInputOwnership.Transfer);
+        if (update) { host.AddInput(Input, Source(), QpdfInputOwnership.Transfer); }
+        QpdfExecutionResult result = update
+            ? await Qpdf.ExecuteJobAsync(host, """
+                {"inputFile":"input.pdf","updateFromJson":"input.json","outputFile":"output.pdf",
+                 "linearize":"","linearizePass1":"pass1.bin","compressStreams":"n"}
+                """, CancellationToken.None)
+            : await Qpdf.ExecuteAsync(host, new([
+                Json.Value, "--json-input", "--linearize", "--linearize-pass1=pass1.bin",
+                "--compress-streams=n", Output.Value]), CancellationToken.None);
+
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(Output, out byte[] pdf));
+        Assert.True(host.TryGetOutput(QpdfPath.From("pass1.bin"), out byte[] pass1));
+        LinearizedWriterTests.AssertFirstPassMatchesLayout(pdf, pass1);
+        Assert.Contains("(patched)", Encoding.ASCII.GetString(pass1), StringComparison.Ordinal);
+        Assert.True(pass1.AsSpan().IndexOf(Payload) >= 0);
+        host.AddInput(Output, pdf, QpdfInputOwnership.Transfer);
+        await Check(host, pdf, true);
+    }
+
+    [Fact]
+    public async Task InactiveCaptureDoesNotProbeOrReplaceTheJsonInput()
+    {
+        using RecordingJobHost host = new(null, null, "success", true);
+        host.Inner.AddInput(Json, Model(false, false), QpdfInputOwnership.Transfer);
+        await using (IQpdfOutputTransaction prior = await host.Inner.CreateOutputAsync(Json, CancellationToken.None))
+        {
+            await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None);
+            await prior.CommitAsync(CancellationToken.None);
+        }
+
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new([
+            Json.Value, "--json-input", "--linearize-pass1=input.json", Output.Value]), CancellationToken.None);
+
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal([Json, Output], host.OpenedPaths);
+        Assert.Equal([Output], host.CreatedPaths);
+        Assert.True(host.Inner.TryGetOutput(Json, out byte[] intact));
+        Assert.Equal("prior"u8.ToArray(), intact);
+        ExecutionJobFixtures.AssertClosed(host, result);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ActiveCaptureProtectsTheJsonDeclarationBeforeAcquisition(bool replace)
+    {
+        using RecordingJobHost host = new(null, null, "success", true);
+        string[] argv = replace
+            ? [Input.Value, "--update-from-json=input.json", "--replace-input"]
+            : [Json.Value, "--json-input", Output.Value];
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new([
+            .. argv, "--linearize", "--linearize-pass1=input.json"]), CancellationToken.None);
+
+        QpdfDiagnostic diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, diagnostic.Code);
+        Assert.Contains("first-pass", diagnostic.Message, StringComparison.Ordinal);
+        Assert.Empty(host.OpenedPaths);
+        Assert.Empty(host.CreatedPaths);
+        ExecutionJobFixtures.AssertClosed(host, result);
+    }
+
     private static void PackedInputs(InMemoryQpdfHost host)
     {
         host.AddInput(Input, File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "objstm-1page.pdf")), QpdfInputOwnership.Transfer);

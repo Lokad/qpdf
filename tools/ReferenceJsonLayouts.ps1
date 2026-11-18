@@ -34,10 +34,10 @@ function Invoke-ReferenceJsonLayouts {
   }
   $cases = @(
     @{ Name = 'create-generate'; Update = $false; Flags = @('--object-streams=generate'); Packed = $true; Version = '1.5' },
-    @{ Name = 'create-linear'; Update = $false; Flags = @('--linearize'); Packed = $false; Version = '1.3' },
+    @{ Name = 'create-linear'; Update = $false; Flags = @('--linearize'); Capture = $true; Packed = $false; Version = '1.3' },
     @{ Name = 'create-combined'; Update = $false; Flags = @('--object-streams=generate', '--linearize'); Packed = $true; Version = '1.5' },
     @{ Name = 'update-generate'; Update = $true; Flags = @('--object-streams=generate'); Packed = $true; Version = '1.5' },
-    @{ Name = 'update-linear'; Update = $true; Flags = @('--linearize', '--object-streams=disable'); Packed = $false; Version = '1.5' },
+    @{ Name = 'update-linear'; Update = $true; Flags = @('--linearize', '--object-streams=disable'); Capture = $true; Packed = $false; Version = '1.5' },
     @{ Name = 'update-preserve'; Update = $true; Flags = @('--object-streams=preserve'); Packed = $true; Version = '1.5' },
     @{ Name = 'update-combined'; Update = $true; Flags = @('--linearize', '--object-streams=generate'); Packed = $true; Version = '1.5' },
     @{ Name = 'update-default'; Update = $true; Flags = @(); Packed = $true; Version = '1.5' },
@@ -59,9 +59,16 @@ function Invoke-ReferenceJsonLayouts {
       $operation = @('inputs/model.json', '--json-input')
     }
     $before = @{}; Get-ChildItem -LiteralPath "$case/inputs" -File | ForEach-Object { $before[$_.Name] = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }
-    $managed = Invoke-SecurityManaged $case (@('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--') + $operation + $row.Flags + @('outputs/a.pdf'))
+    $mappings = @('--out', "outputs/a.pdf=$case/lib.pdf")
+    $managedFlags = $row.Flags; $nativeFlags = $row.Flags
+    if ($row.Capture) {
+      $mappings += @('--out', "outputs/pass1.bin=$case/lib.pass1")
+      $managedFlags += '--linearize-pass1=outputs/pass1.bin'
+      $nativeFlags += "--linearize-pass1=$case/ora.pass1"
+    }
+    $managed = Invoke-SecurityManaged $case (@('emit', '--workdir', $case) + $mappings + @('--') + $operation + $managedFlags + @('outputs/a.pdf'))
     if ($managed.ExitCode -ne 0 -or $managed.Status -cne 'Completed') { throw "$name managed import failed." }
-    if ((Invoke-Oracle $case ($operation + $row.Flags + @("$case/ora.pdf"))) -ne 0) { throw "$name native import failed." }
+    if ((Invoke-Oracle $case ($operation + $nativeFlags + @("$case/ora.pdf"))) -ne 0) { throw "$name native import failed." }
     $password = if ($row.Protected) { 'reader' } else { '' }
     foreach ($side in @('lib', 'ora')) {
       $file = "$case/$side.pdf"
@@ -73,6 +80,14 @@ function Invoke-ReferenceJsonLayouts {
       if ($row.Flags -contains '--linearize') {
         $code = Invoke-Oracle $case @("--password=$password", '--check-linearization', $file)
         if ($code -ne 0 -or (Get-Content -LiteralPath "$case/ora-stdout.txt" -Raw) -notmatch 'no linearization errors') { throw "$name/$side linearization did not validate." }
+      }
+      if ($row.Capture) {
+        $first = [IO.File]::ReadAllText("$case/$side.pass1", [Text.Encoding]::Latin1)
+        if ($first -notmatch '(?m)^0000000000 00000 n ' -or
+            (Get-FileHash -LiteralPath "$case/$side.pass1").Hash -eq (Get-FileHash -LiteralPath $file).Hash) {
+          throw "$name/$side did not capture the first-pass offsets."
+        }
+        Write-Output "[$name/$side] captured first-pass placeholder offsets."
       }
       $facts = Get-JsonLayoutFacts $case $file $password
       if ($facts.Marker -cne 'u:patched' -or $facts.Probe -cne 'u:private-value' -or $facts.Scalar -ne 17 -or $facts.Title -cne 'u:kept-info' -or $facts.Contents -cne 'cQpRCg==') { throw "$name/$side imported values differ." }

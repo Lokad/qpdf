@@ -273,7 +273,7 @@ internal static class JobExecution
             QpdfPassword? password = null;
             if (source.HasValue) { password = suppliedPassword is null ? import.TransformationPassword : suppliedPassword.Password; }
             JsonImportWriterSettings writer = new(import.MinVersion, import.ForceVersion, import.StaticId,
-                import.NewlineBeforeEndstream, import.ObjectStreams ?? "preserve", import.Linearize,
+                import.NewlineBeforeEndstream, import.ObjectStreams ?? "preserve", import.Linearize, import.LinearizePass1,
                 import.OutputEncryption ?? QpdfOutputEncryption.Preserve,
                 new(import.RemoveInfo, import.RemoveMetadata, import.RemoveAcroform, import.RemoveStructure, import.RemoveLabels),
                 import.Compression(), new(import.Qdf, import.NoOriginalObjectIds), import.NormalizeContent,
@@ -422,14 +422,16 @@ internal static class JobExecution
             target = import.Output;
             error = "The JSON replacement target must differ from every auxiliary input file.";
             Check(patch.Value);
+            CheckAuxiliaryInputs();
         }
-        else if (plan is (WholeFilePlan or SelectionPlan or MergePlan)
+        if (plan is (WholeFilePlan or SelectionPlan or MergePlan or JsonImportPlan)
             && plan.Linearize && plan.LinearizePass1 is QpdfPath pass1)
         {
             target = pass1;
             error = "The first-pass output must differ from every input file.";
             bool empty = plan.EmptyDocument || plan is MergePlan { EmptyInput: true };
             if (!empty) { Check(plan.Input.Value); }
+            if (plan is JsonImportPlan { Patch: QpdfPath update }) { Check(update.Value); }
             if (plan is MergePlan merge)
             {
                 foreach (PdfPageSource source in merge.Sources)
@@ -442,17 +444,20 @@ internal static class JobExecution
             foreach (OverlaySpec underlay in plan.Underlays) { Check(underlay.File); }
             foreach (AttachmentCopy copy in plan.AttachmentsToCopy) { Check(copy.File); }
             foreach (AttachmentAdd add in plan.AttachmentsToAdd) { Check(add.File); }
+            CheckAuxiliaryInputs();
         }
-        else { return; }
 
-        if (plan.OutputEncryption?.TemplateInput is QpdfPath template) { Check(template.Value); }
-        if (plan.PasswordFiles is Security.CommandPasswordFiles passwords)
+        void CheckAuxiliaryInputs()
         {
-            foreach (Security.PasswordAssignment assignment in passwords.Assignments)
-            { if (assignment.IsFile) { Check(assignment.Value); } }
+            if (plan.OutputEncryption?.TemplateInput is QpdfPath template) { Check(template.Value); }
+            if (plan.PasswordFiles is Security.CommandPasswordFiles passwords)
+            {
+                foreach (Security.PasswordAssignment assignment in passwords.Assignments)
+                { if (assignment.IsFile) { Check(assignment.Value); } }
+            }
+            foreach (QpdfPath input in configurationInputs) { Check(input.Value); }
+            foreach (QpdfPath input in argumentInputs) { Check(input.Value); }
         }
-        foreach (QpdfPath input in configurationInputs) { Check(input.Value); }
-        foreach (QpdfPath input in argumentInputs) { Check(input.Value); }
 
         void Check(string input)
         {

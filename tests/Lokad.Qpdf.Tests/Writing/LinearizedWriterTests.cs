@@ -504,6 +504,11 @@ public sealed class LinearizedWriterTests
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/p1.bin"), out byte[] pass1));
         await CheckLinearizedAsync(pdf, 2);
+        AssertFirstPassMatchesLayout(pdf, pass1);
+    }
+
+    internal static void AssertFirstPassMatchesLayout(byte[] pdf, byte[] pass1)
+    {
         string finalText = Encoding.ASCII.GetString(pdf);
         string pass1Text = Encoding.ASCII.GetString(pass1);
         Assert.Contains("0000000000 00000 n ", pass1Text, StringComparison.Ordinal);

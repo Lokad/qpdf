@@ -457,8 +457,11 @@ target, its stable identity must differ from those of the inputs and other parts
 All parts are prepared before the first commit. Later commit
 failures leave earlier parts published. Fresh protection uses a separate key
 for each part. Splitting is unavailable in inspection and replacement modes.
-Other page, content and image transforms, attachment edits and first-pass
-capture remain unavailable during import and update.
+With linearization enabled, command imports and updates accept
+`--linearize-pass1` / `linearizePass1`. Split capture retains the last part's
+first pass. The capture option is inactive without linearization.
+Other page, content and image transforms and attachment edits remain
+unavailable during import and update.
 
 ## Writer profile
 

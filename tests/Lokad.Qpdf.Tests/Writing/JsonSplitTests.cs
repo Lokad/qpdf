@@ -48,6 +48,46 @@ public sealed class JsonSplitTests
     }
 
     [Fact]
+    public async Task SplitCaptureContainsTheLastBoundGroup()
+    {
+        using InMemoryQpdfHost host = new();
+        AddUpdate(host, Source);
+        QpdfPath capture = QpdfPath.From("pass1.bin");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new([
+            Source.Value, "--update-from-json=graph.json", "--linearize", "--linearize-pass1=pass1.bin",
+            "--compress-streams=n", "--split-pages=2", "part.pdf"]), CancellationToken.None);
+
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        await AssertPart(host, First, 7, [2, 0], true);
+        await AssertPart(host, Last, 9, [1], false);
+        byte[] pass1 = Output(host, capture);
+        LinearizedWriterTests.AssertFirstPassMatchesLayout(Output(host, Last), pass1);
+        Assert.True(pass1.AsSpan().IndexOf(Programs[1]) >= 0);
+        Assert.True(pass1.AsSpan().IndexOf(Programs[0]) < 0);
+        Assert.True(pass1.AsSpan().IndexOf(Programs[2]) < 0);
+    }
+
+    [Fact]
+    public async Task SplitCaptureCannotAliasAnAcquiredSidecar()
+    {
+        using RecordingJobHost host = new(null, null, "success", true);
+        await SeedOutputs(host.Inner);
+        AddCreation(host.Inner, JsonPath, Body);
+        QpdfPath capture = QpdfPath.From("pass1.bin");
+
+        QpdfExecutionResult result = await Create(new OutputAliasHost(host, capture, Body), JsonPath,
+            QpdfLimits.Default, CancellationToken.None, "--linearize", "--linearize-pass1=pass1.bin");
+
+        QpdfDiagnostic diagnostic = Assert.Single(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.InvalidArguments);
+        Assert.Contains(capture.Value, diagnostic.Message, StringComparison.Ordinal);
+        Assert.Equal(Body, host.OpenedPaths[^1]);
+        Assert.Empty(host.CreatedPaths);
+        Assert.Equal("prior"u8.ToArray(), Output(host.Inner, First));
+        Assert.Equal("prior"u8.ToArray(), Output(host.Inner, Last));
+        ExecutionJobFixtures.AssertClosed(host, result);
+    }
+
+    [Fact]
     public async Task AuthoredLabelsFollowThePatchedOrderAndContinueInLaterParts()
     {
         using InMemoryQpdfHost host = new();

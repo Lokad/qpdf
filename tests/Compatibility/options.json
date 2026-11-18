@@ -4331,6 +4331,7 @@
           "IdentityCryptOutputTests.JsonCreationAndUpdateNormalizeAuthoredIdentityStages",
           "XrefStreamRoleTests.TypedJsonCreationAndUpdateProtectAuthoredTaggedStreams",
           "JsonLayoutTests.ImportedValuesAndNoncanonicalRootsSurviveIndependentLayouts",
+          "JsonLayoutTests.CommandCapturesFirstPassFromTheBoundGraph",
           "JsonLayoutIdentityTests.SourceMembershipFollowsFullPairsAcrossNormalizedAndFinalIds",
           "DirectOutlineNormalizationTests.JsonCreationAndUpdatePromoteTheCatalogRoleBeforePacking",
           "JsonMetadataPolicyTests.ImportsApplyIndependentInfoAndXmlPolicies",
@@ -5009,6 +5010,8 @@
           "LinearizedWriterTests.Pass1WithoutLinearizeIsIgnored",
           "LinearizedWriterTests.Pass1SpaceFormCaptures",
           "LinearizedWriterTests.Pass1JobParityMatchesArgvBytes",
+          "JsonLayoutTests.CommandCapturesFirstPassFromTheBoundGraph",
+          "JsonLayoutTests.InactiveCaptureDoesNotProbeOrReplaceTheJsonInput",
           "PublicationAdmissionTests.InactiveFirstPassDoesNotCreateOrOverwriteCapture"
         ],
         "negative": [
@@ -5018,14 +5021,20 @@
           "PublicationAdmissionTests.ActiveFirstPassCannotOverwriteAnyMainOutput",
           "PublicationAdmissionTests.FirstPassRejectsInputPathsBeforePublication",
           "PublicationAdmissionTests.FirstPassProtectsAuxiliaryInputsBeforePublication",
-          "NamedPublicationAliasTests.ProtectedStorageAliasesRefuseBeforeStaging"
+          "NamedPublicationAliasTests.ProtectedStorageAliasesRefuseBeforeStaging",
+          "JsonLayoutTests.ActiveCaptureProtectsTheJsonDeclarationBeforeAcquisition",
+          "JsonSplitTests.SplitCaptureCannotAliasAnAcquiredSidecar"
         ],
-        "interaction": [],
+        "interaction": [
+          "JsonSplitTests.SplitCaptureContainsTheLastBoundGroup"
+        ],
         "resource": [
           "LinearizedWriterTests.Pass1YieldsToExhaustedBudget"
         ],
         "oracle": [
-          "diff:linearize-pass1"
+          "diff:linearize-pass1",
+          "diff:json-layout",
+          "diff:json-split"
         ]
       }
     },
@@ -7484,6 +7493,7 @@
           "SplitReplaceTests.SplitPagesWritesNamedGroups",
           "JsonSplitTests.CreationSplitsInheritedPagesAndContinuesLabels",
           "JsonSplitTests.JobUpdateSplitsThePatchedPageOrder",
+          "JsonSplitTests.SplitCaptureContainsTheLastBoundGroup",
           "JsonSplitTests.FreshProtectionUsesDifferentAuthenticatedKeysForTheParts",
           "JsonSplitTests.RepeatedPageWidgetsKeepTheirOwnPageAndRegistration",
           "JsonSplitTests.SharedResourceMemberIsPackedInEachPart",

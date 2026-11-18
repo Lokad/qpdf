@@ -41,7 +41,6 @@ public sealed class JsonOperationCompatibilityTests
             ("jpegQuality", "75", ["--jpeg-quality=75"]),
             ("overlay", new { file = "stamp" }, ["--overlay", "stamp", "--"]),
             ("underlay", new { file = "stamp" }, ["--underlay", "stamp", "--"]),
-            ("linearizePass1", "pass1", ["--linearize-pass1=pass1"]),
         ];
         foreach ((string key, object value, string[] arguments) in requests)
         {

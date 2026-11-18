@@ -89,4 +89,37 @@ function Invoke-ReferenceJsonSplit {
     }
     Write-Output "[$tag] bound page order, inherited frame, continued labels and split names verified."
   }
+
+  $captureFlags = @($source,'--update-from-json=inputs/update.json','--split-pages=2','--linearize','--compress-streams=n')
+  $mappings = @('--out',"lib-capture-1-2.pdf=$case/lib-capture-1-2.pdf",
+      '--out',"lib-capture-3.pdf=$case/lib-capture-3.pdf",'--out',"lib.pass1=$case/lib.pass1")
+  $code = Invoke-Emit $case (@('emit','--workdir',$case) + $mappings + @('--') + $captureFlags +
+      @('--linearize-pass1=lib.pass1','lib-capture.pdf'))
+  $oracle = Invoke-Oracle $case ($captureFlags + @("--linearize-pass1=$case/ora.pass1","$case/ora-capture.pdf"))
+  if ($code -ne 0 -or $oracle -ne 0) { throw 'JSON split capture failed.' }
+  foreach ($part in @(@{Suffix='1-2'; Native='1-2'; Pages=2}, @{Suffix='3'; Native='3-3'; Pages=1})) {
+    $lib = "$case/lib-capture-$($part.Suffix).pdf"; $ora = "$case/ora-capture-$($part.Native).pdf"
+    Assert-Trio "json-split/capture/$($part.Suffix)" $lib $ora $part.Pages
+    foreach ($file in @($lib, $ora)) {
+      if ((Invoke-Oracle $case @('--check-linearization',$file)) -ne 0 -or
+          (Get-Content -LiteralPath "$case/ora-stdout.txt" -Raw) -notmatch 'no linearization errors') {
+        throw "JSON split capture has invalid linearization: $file"
+      }
+    }
+    # Compare the decoded page streams. The physical hint streams have their own check.
+    if ((Read-ReferenceContent $QpdfExe $lib).PageText -cne (Read-ReferenceContent $QpdfExe $ora).PageText) {
+      throw "JSON split capture changed the decoded page programs: $lib"
+    }
+    Assert-ReferencePageText $probeDll $lib $ora
+  }
+  foreach ($side in @('lib','ora')) {
+    $capture = [IO.File]::ReadAllText("$case/$side.pass1", [Text.Encoding]::Latin1)
+    if ($capture -notmatch '(?m)^0000000000 00000 n ' -or
+        !$capture.Contains('(Second)', [StringComparison]::Ordinal) -or
+        $capture.Contains('(Third)', [StringComparison]::Ordinal) -or
+        $capture.Contains('(First)', [StringComparison]::Ordinal)) {
+      throw "The $side JSON split capture does not belong to the final group."
+    }
+  }
+  Write-Output '[json-split/capture] both first-pass captures contain the last bound group.'
 }

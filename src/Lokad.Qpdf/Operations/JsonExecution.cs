@@ -16,12 +16,12 @@ namespace Lokad.Qpdf.Operations;
 
 internal readonly record struct JsonImportWriterSettings(
     string? MinVersion, string? ForceVersion, bool StaticId, bool NewlineBeforeEndstream,
-    string ObjectStreams, bool Linearize, QpdfOutputEncryption Encryption,
+    string ObjectStreams, bool Linearize, QpdfPath? LinearizePass1, QpdfOutputEncryption Encryption,
     DocumentPublicationPolicy Publication, CompressionRequest? Compression, QdfOptions Qdf, bool NormalizeContent,
     bool CoalesceContents, int? SplitPages, IReadOnlyList<PageLabelSpec> Labels)
 {
     internal static JsonImportWriterSettings ForTyped(QpdfJsonImportOptions options, QpdfOutputEncryption encryption)
-        => new(null, null, false, false, options.ObjectStreams, options.Linearize, encryption, new(false, false),
+        => new(null, null, false, false, options.ObjectStreams, options.Linearize, null, encryption, new(false, false),
             null, QdfOptions.Disabled, false, false, null, []);
 }
 
@@ -367,7 +367,7 @@ internal static class JsonExecution
         {
             await PublishModelAsync(host, prepared.Version, prepared.Output.Model, prepared.Output.ObjectStreams, false, null,
                 prepared.Graph.InfoNumber, preparedSecurity.Identifier, writer.StaticId, writer.NewlineBeforeEndstream,
-                writer.Qdf, originalIds, writer.Linearize, null, outputPath, limits, governor, cancellationToken,
+                writer.Qdf, originalIds, writer.Linearize, writer.LinearizePass1, outputPath, limits, governor, cancellationToken,
                 security, prepared.Output.EncryptionObject, prepared.Graph.MetadataNumber).ConfigureAwait(false);
         }
         return new JsonImportOutcome(prepared.Graph.PageCount, ResultWarningSnapshot.Read(resultWarnings, diagnostics));

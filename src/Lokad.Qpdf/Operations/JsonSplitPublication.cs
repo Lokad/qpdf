@@ -25,7 +25,8 @@ internal static class JsonSplitPublication
     {
         using ParserMemoryScope split = ParserMemoryScope.Create(governor);
         List<string> names = GenerateSplitNames(outputPath.Value, pages.Count, groupSize, split, governor);
-        await inputs.ValidateTargetsAsync(host, names, null, "Split", token).ConfigureAwait(false);
+        QpdfPath? capture = writer.Linearize ? writer.LinearizePass1 : null;
+        await inputs.ValidateTargetsAsync(host, names, capture, "Split", token).ConfigureAwait(false);
         using PreparedSplitPublications preparation = PreparedSplitPublications.Create(governor);
         if (pages.Count != 0)
         {
@@ -68,7 +69,7 @@ internal static class JsonSplitPublication
                     groupMemory, governor, token);
                 PreparedSplitPublication publication = await PreparePresentationOutputAsync(version, output.Model,
                     output.ObjectStreams, false, null, part.Info, originalId, writer.StaticId, writer.NewlineBeforeEndstream,
-                    writer.Qdf, ids, writer.Linearize, null, QpdfPath.From(names[group]), limits, governor, token,
+                    writer.Qdf, ids, writer.Linearize, capture, QpdfPath.From(names[group]), limits, governor, token,
                     groupSecurity, output.EncryptionObject, part.Metadata).ConfigureAwait(false);
                 preparation.Add(publication);
             }
