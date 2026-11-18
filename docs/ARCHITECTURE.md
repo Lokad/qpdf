@@ -57,8 +57,10 @@ before layout and packing; private catalog aliases retain their own values.
 reachability, encryption numbering, ordering and object-stream grouping.
 Catalog contents, version requirements and original-ID inversion have separate
 internal owners; source copying supplies their data without duplicating policy.
-JSON import binds full object number/generation pairs before lowering to the
-writer's numbered model. Declared page traversal and inherited-attribute pushing
+JSON creation and update share writer settings and publication after binding the
+JSON document or the authenticated PDF and patch. Binding preserves full object
+number/generation pairs before lowering to the writer's numbered model.
+Declared page traversal and inherited-attribute pushing
 first create immutable overlays of the original tree. Generated edges retain
 their provenance so their new pairs cannot revive invalid original edges.
 The shared remapper validates original source edges

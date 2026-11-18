@@ -14,6 +14,15 @@ using static Lokad.Qpdf.Writing.ObjectStreamPreparation;
 
 namespace Lokad.Qpdf.Operations;
 
+internal readonly record struct JsonImportWriterSettings(
+    string? MinVersion, string? ForceVersion, bool StaticId, bool NewlineBeforeEndstream,
+    string ObjectStreams, bool Linearize, QpdfOutputEncryption Encryption,
+    DocumentPublicationPolicy Publication, CompressionRequest? Compression)
+{
+    internal static JsonImportWriterSettings ForTyped(QpdfJsonImportOptions options, QpdfOutputEncryption encryption)
+        => new(null, null, false, false, options.ObjectStreams, options.Linearize, encryption, new(false, false), null);
+}
+
 internal static class JsonExecution
 {
     internal static void CheckJsonSchema(
@@ -269,98 +278,61 @@ internal static class JsonExecution
 
     }
 
-    internal static async ValueTask<JsonImportOutcome> ImportCreateCoreAsync(
+    internal static async ValueTask<JsonImportOutcome> ImportCoreAsync(
         IQpdfHost host,
+        QpdfPath? sourcePdf,
         QpdfPath jsonPath,
         QpdfPath outputPath,
-        string? minVersion,
-        string? forceVersion,
-        bool staticId,
-        bool newlineBeforeEndstream,
-        string objectStreams,
-        bool linearize,
-        QpdfOutputEncryption outputEncryption,
-        DocumentPublicationPolicy publicationPolicy,
-        CompressionRequest? compression,
-        QpdfRecoveryMode recovery,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
-        CancellationToken cancellationToken)
-    {
-        using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
-        if (string.Equals(jsonPath.Value, outputPath.Value, StringComparison.Ordinal))
-        {
-            throw new QpdfParseException("The output file must differ from the input file.", 0L, null);
-        }
-
-        using ParserMemoryScope importMemory = ParserMemoryScope.Create(governor);
-        System.Text.Json.JsonDocument parsed = await Json.JsonImport.ReadJsonAsync(host, jsonPath, limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
-        using (parsed)
-        {
-            Json.ImportedModel model = await Json.JsonImport.BuildCreateModelAsync(host, parsed, limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
-            if (!outputEncryption.PreservesInput) { model = Json.JsonImport.RemoveEncryptionDeclaration(model, governor, cancellationToken); }
-            var preparedSecurity = await PrepareOutputSecurityAsync(host, outputEncryption, null, null, importMemory,
-                governor, limits, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
-            using OutputSecurity? security = preparedSecurity.Security;
-            PreparedImportedOutput prepared = PrepareImportedOutput(model, publicationPolicy, compression, minVersion, forceVersion, objectStreams,
-                security, limits, importMemory, governor, diagnostics, cancellationToken);
-            await PublishModelAsync(host, prepared.Version, prepared.Output.Model, prepared.Output.ObjectStreams, false, null, prepared.Graph.InfoNumber, preparedSecurity.Identifier,
-                staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, linearize, null, outputPath, limits, governor, cancellationToken,
-                security, prepared.Output.EncryptionObject, prepared.Graph.MetadataNumber).ConfigureAwait(false);
-            return new JsonImportOutcome(prepared.Graph.PageCount, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
-        }
-    }
-
-    internal static async ValueTask<JsonImportOutcome> ImportUpdateCoreAsync(
-        IQpdfHost host,
-        QpdfPath inputPath,
-        QpdfPath jsonPath,
-        QpdfPath outputPath,
-        string? minVersion,
-        string? forceVersion,
-        bool staticId,
-        bool newlineBeforeEndstream,
-        string objectStreams,
-        bool linearize,
         QpdfPassword? password,
-        QpdfOutputEncryption outputEncryption,
-        DocumentPublicationPolicy publicationPolicy,
-        CompressionRequest? compression,
-        QpdfLimits limits,
+        JsonImportWriterSettings writer,
         QpdfRecoveryMode recovery,
+        QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
         using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
-        if (string.Equals(inputPath.Value, outputPath.Value, StringComparison.Ordinal))
+        if (sourcePdf is QpdfPath source && string.Equals(source.Value, outputPath.Value, StringComparison.Ordinal))
         {
             throw new QpdfParseException("The output file must differ from the input file.", 0L, null);
         }
 
         if (string.Equals(jsonPath.Value, outputPath.Value, StringComparison.Ordinal))
         {
-            throw new QpdfParseException("The output file must differ from the JSON file.", 0L, null);
+            string message = sourcePdf.HasValue ? "The output file must differ from the JSON file."
+                : "The output file must differ from the input file.";
+            throw new QpdfParseException(message, 0L, null);
         }
 
-        await using QpdfDocument document = await QpdfDocument.OpenInspectionCore(host, inputPath, password, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
+        await using QpdfDocument? document = sourcePdf is QpdfPath input
+            ? await QpdfDocument.OpenInspectionCore(host, input, password, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false)
+            : null;
         using ParserMemoryScope importMemory = ParserMemoryScope.Create(governor);
-        System.Text.Json.JsonDocument parsed = await Json.JsonImport.ReadJsonAsync(host, jsonPath, limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
-        using (parsed)
+        using System.Text.Json.JsonDocument parsed = await Json.JsonImport.ReadJsonAsync(host, jsonPath, limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
+        Json.ImportedModel model;
+        if (document is null)
         {
-            Json.ImportedModel model = await Json.JsonImport.BuildUpdateModelAsync(host, parsed, document, outputEncryption.PreservesInput,
-                objectStreams == "preserve", limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
-            var preparedSecurity = await PrepareOutputSecurityAsync(host, outputEncryption, document, TryGetOriginalId(document.Engine),
-                importMemory, governor, limits, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
-            using OutputSecurity? security = preparedSecurity.Security;
-            PreparedImportedOutput prepared = PrepareImportedOutput(model, publicationPolicy, compression, minVersion, forceVersion, objectStreams,
-                security, limits, importMemory, governor, diagnostics, cancellationToken);
-            await PublishModelAsync(host, prepared.Version, prepared.Output.Model, prepared.Output.ObjectStreams, false, null, prepared.Graph.InfoNumber, preparedSecurity.Identifier,
-                staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, linearize, null, outputPath, limits, governor, cancellationToken,
-                security, prepared.Output.EncryptionObject, prepared.Graph.MetadataNumber).ConfigureAwait(false);
-            return new JsonImportOutcome(prepared.Graph.PageCount, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
+            model = await Json.JsonImport.BuildCreateModelAsync(host, parsed, limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
+            if (!writer.Encryption.PreservesInput)
+            { model = Json.JsonImport.RemoveEncryptionDeclaration(model, governor, cancellationToken); }
         }
+        else
+        {
+            model = await Json.JsonImport.BuildUpdateModelAsync(host, parsed, document, writer.Encryption.PreservesInput,
+                writer.ObjectStreams == "preserve", limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
+        }
+
+        byte[]? originalId = document is null ? null : TryGetOriginalId(document.Engine);
+        var preparedSecurity = await PrepareOutputSecurityAsync(host, writer.Encryption, document, originalId, importMemory,
+            governor, limits, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
+        using OutputSecurity? security = preparedSecurity.Security;
+        PreparedImportedOutput prepared = PrepareImportedOutput(model, writer.Publication, writer.Compression, writer.MinVersion,
+            writer.ForceVersion, writer.ObjectStreams, security, limits, importMemory, governor, diagnostics, cancellationToken);
+        await PublishModelAsync(host, prepared.Version, prepared.Output.Model, prepared.Output.ObjectStreams, false, null,
+            prepared.Graph.InfoNumber, preparedSecurity.Identifier, writer.StaticId, writer.NewlineBeforeEndstream,
+            Writing.QdfOptions.Disabled, null, writer.Linearize, null, outputPath, limits, governor, cancellationToken,
+            security, prepared.Output.EncryptionObject, prepared.Graph.MetadataNumber).ConfigureAwait(false);
+        return new JsonImportOutcome(prepared.Graph.PageCount, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
     }
 
     private readonly record struct PreparedImportedOutput(PdfVersion Version, Json.JsonImport.RenumberedModel Graph, PreparedOutputModel Output);

@@ -988,29 +988,33 @@ internal static partial class JobPlanner
                 throw new QpdfParseException("These transformation settings cannot be combined with JSON import.", 0L, null);
             }
 
-            if (jsonInput)
+            if (importJson)
             {
+                string operation = jsonInput ? "jsonInput" : "updateFromJson";
                 if (hasPages)
                 {
-                    throw new QpdfParseException("Job \"jsonInput\" cannot be combined with \"pages\".", 0L, null);
+                    throw new QpdfParseException($"Job \"{operation}\" cannot be combined with \"pages\".", 0L, null);
                 }
 
                 if (wantAttachments || attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0)
                 {
-                    throw new QpdfParseException("Job \"jsonInput\" cannot be combined with attachment keys.", 0L, null);
+                    throw new QpdfParseException($"Job \"{operation}\" cannot be combined with attachment keys.", 0L, null);
                 }
 
                 if (seenJson || seenJsonOutput || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix)
                 {
-                    throw new QpdfParseException("Job \"jsonInput\" cannot be combined with JSON inspection.", 0L, null);
+                    throw new QpdfParseException($"Job \"{operation}\" cannot be combined with JSON inspection.", 0L, null);
                 }
 
                 if (output is null)
                 {
-                    throw new QpdfParseException("Job JSON requires \"outputFile\" with \"jsonInput\".", 0L, null);
+                    throw new QpdfParseException($"Job JSON requires \"outputFile\" with \"{operation}\".", 0L, null);
                 }
 
-                return new JsonInputPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output), recovery) with
+                QpdfPath importInput = SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null));
+                QpdfPath? patch = jsonInput ? null : SelectionPlan.CheckedPath(updateFromJson
+                    ?? throw new InvalidOperationException("Missing validated JSON patch path."));
+                return new JsonImportPlan(importInput, patch, SelectionPlan.CheckedPath(output), recovery) with
                 {
                     CompressionState = compressionSettings.State,
                     RecompressFlate = recompressFlate,
@@ -1026,62 +1030,7 @@ internal static partial class JobPlanner
                     ParserMaxErrors = parserMaxErrors,
                     MaxContainerSizeDamaged = maxContainerSizeDamaged,
                     NoDefaultLimits = noDefaultLimits,
-                    PasswordFiles = passwordFiles,
-                    OutputEncryption = outputEncryption,
-                    WarningExitZero = warningExit0,
-                    ReportMemoryUsage = reportMemoryUsage,
-                    Verbose = verbose,
-                    Progress = progress,
-                    IgnoreXrefStreams = ignoreXrefStreams,
-                    NoWarn = noWarn,
-                    MinVersion = minVersion,
-                    ForceVersion = forceVersion,
-                    StaticId = staticId,
-                    NewlineBeforeEndstream = newlineBeforeEndstream,
-                    ObjectStreams = objectStreams,
-                    Linearize = linearize,
-                };
-            }
-
-            if (seenUpdateFromJson)
-            {
-                if (hasPages)
-                {
-                    throw new QpdfParseException("Job \"updateFromJson\" cannot be combined with \"pages\".", 0L, null);
-                }
-
-                if (wantAttachments || attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0)
-                {
-                    throw new QpdfParseException("Job \"updateFromJson\" cannot be combined with attachment keys.", 0L, null);
-                }
-
-                if (seenJson || seenJsonOutput || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix)
-                {
-                    throw new QpdfParseException("Job \"updateFromJson\" cannot be combined with JSON inspection.", 0L, null);
-                }
-
-                if (output is null)
-                {
-                    throw new QpdfParseException("Job JSON requires \"outputFile\" with \"updateFromJson\".", 0L, null);
-                }
-
-                return new JsonUpdatePlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(updateFromJson!), SelectionPlan.CheckedPath(output), recovery) with
-                {
-                    CompressionState = compressionSettings.State,
-                    RecompressFlate = recompressFlate,
-                    CompressionLevel = compressionLevel,
-                    MaxStreamFilters = maxStreamFilters,
-                    RemoveAcroform = removeAcroform,
-                    RemoveStructure = removeStructure,
-                    RemoveLabels = removeLabels,
-                    RemoveInfo = removeInfo,
-                    RemoveMetadata = removeMetadata,
-                    MaxContainerSize = maxContainerSize,
-                    ParserMaxNesting = parserMaxNesting,
-                    ParserMaxErrors = parserMaxErrors,
-                    MaxContainerSizeDamaged = maxContainerSizeDamaged,
-                    NoDefaultLimits = noDefaultLimits,
-                    TransformationPassword = password,
+                    TransformationPassword = jsonInput ? null : password,
                     PasswordFiles = passwordFiles,
                     OutputEncryption = outputEncryption,
                     WarningExitZero = warningExit0,

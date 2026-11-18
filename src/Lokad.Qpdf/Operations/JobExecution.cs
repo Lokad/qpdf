@@ -261,48 +261,25 @@ internal static class JobExecution
             return CompleteWithPresentation(governor).WithOutputText(json.Output.HasValue ? null : inspected.Json);
         }
 
-        if (plan is JsonInputPlan jsonInput)
+        if (plan is JsonImportPlan import)
         {
-            await ImportCreateCoreAsync(
+            QpdfPath? source = import.Patch.HasValue ? import.Input : null;
+            QpdfPassword? password = null;
+            if (source.HasValue) { password = suppliedPassword is null ? import.TransformationPassword : suppliedPassword.Password; }
+            JsonImportWriterSettings writer = new(import.MinVersion, import.ForceVersion, import.StaticId,
+                import.NewlineBeforeEndstream, import.ObjectStreams ?? "preserve", import.Linearize,
+                import.OutputEncryption ?? QpdfOutputEncryption.Preserve,
+                new(import.RemoveInfo, import.RemoveMetadata, import.RemoveAcroform, import.RemoveStructure, import.RemoveLabels),
+                import.Compression());
+            await ImportCoreAsync(
                 host,
-                jsonInput.Input,
-                jsonInput.Output,
-                jsonInput.MinVersion,
-                jsonInput.ForceVersion,
-                jsonInput.StaticId,
-                jsonInput.NewlineBeforeEndstream,
-                jsonInput.ObjectStreams ?? "preserve",
-                jsonInput.Linearize,
-                jsonInput.OutputEncryption ?? QpdfOutputEncryption.Preserve,
-                new(jsonInput.RemoveInfo, jsonInput.RemoveMetadata, jsonInput.RemoveAcroform, jsonInput.RemoveStructure, jsonInput.RemoveLabels),
-                jsonInput.Compression(),
-                jsonInput.Recovery,
+                source,
+                import.Patch ?? import.Input,
+                import.Output,
+                password,
+                writer,
+                import.Recovery,
                 limits,
-                governor,
-                diagnostics,
-                cancellationToken).ConfigureAwait(false);
-            return CompleteWithPresentation(governor);
-        }
-
-        if (plan is JsonUpdatePlan jsonUpdate)
-        {
-            await ImportUpdateCoreAsync(
-                host,
-                jsonUpdate.Input,
-                jsonUpdate.JsonPath,
-                jsonUpdate.Output,
-                jsonUpdate.MinVersion,
-                jsonUpdate.ForceVersion,
-                jsonUpdate.StaticId,
-                jsonUpdate.NewlineBeforeEndstream,
-                jsonUpdate.ObjectStreams ?? "preserve",
-                jsonUpdate.Linearize,
-                suppliedPassword is null ? jsonUpdate.TransformationPassword : suppliedPassword.Password,
-                jsonUpdate.OutputEncryption ?? QpdfOutputEncryption.Preserve,
-                new(jsonUpdate.RemoveInfo, jsonUpdate.RemoveMetadata, jsonUpdate.RemoveAcroform, jsonUpdate.RemoveStructure, jsonUpdate.RemoveLabels),
-                jsonUpdate.Compression(),
-                limits,
-                jsonUpdate.Recovery,
                 governor,
                 diagnostics,
                 cancellationToken).ConfigureAwait(false);
