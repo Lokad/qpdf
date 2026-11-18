@@ -21,7 +21,7 @@ ownership or cancellation boundary:
 | `PdfParser.CopyNumericTextObserved` | Stops the actual string-copy loop after deterministic work for either token; `NumericCopyCancellationTests`. Pre-cancelled copies use the same observer. |
 | `JsonFormatValidator.CheckObserved` | Cancels actual format matching and unconstrained PDF-value skipping after syntax validation; `JsonSchemaMemoryTests`. |
 | Owned output-key reflection in `EncryptedSerializerTests` | Withholds the engine's own key to prove size-only passes make no key-dependent cipher calls, with failing emission and restored-key controls. |
-| Governor work-field reflection in `SubtreeReuseTests` | Finite chain/shared-graph notifications with resets disabled; separate identity guards detect hidden value comparisons. This is not a public CPU allowance. |
+| Governor work-field reflection | `SubtreeReuseTests` and `PageInheritanceTests` measure finite traversal work and guard identities with resets disabled. Counts are not a public CPU allowance. |
 
 Own-type backing-field reflection and isolated weak-reference controls remain
 where they prove real collectability independently of admission refunds. No
@@ -30,43 +30,23 @@ proofs. `PageInheritance.InheritedValues._first` is required InlineArray backing
 The security [ownership map](Security/README.md) assigns primitive, writer,
 source, wrapper and publication guarantees to their primary tests.
 
-Native inline-image and document-open tables run every distinct semantic/native
-observation at a primary route. They retain differing route observations and
-targeted job/mixed/nested wiring controls. Split-label tables exhaust label,
-selection and split-size semantics through typed selection, with explicit argv/job
-reordering, duplicate, boundary, prefix and unlabelled cases. Frozen native records
-remain complete; route sampling does not replace independent expected fields.
-Compression setter tables retain every distinct native encoding and all differing
-route observations, with ordinary argv/job/mixed/nested wiring. Externalized
-content tables cover alias/content/layout combinations primarily through argv;
-targeted job cases cross private roots, selection, merging, splitting and writers.
-Pruning scope tables own content/resource semantics at argv with selected job
-interactions; independent policy/location controls complement the heuristic owners.
-Coalescing identity controls separate physical layout from retention/duplication
-policy, with complete alias semantics at argv and sampled job interactions.
-Text projection exhausts byte representations in both JSON versions at typed
-inspection; samples check adapters and named/fileless transport. Name descriptors
-exhaust spelling/escaping once, with selected version and route controls.
-Sidecar tests separate name boundaries, adapter wiring and file-payload roundtrips.
-JSON import tables exhaust catalog version and payload semantics through typed
-calls, and header setters through argv. Selected argv, job and file-job cases
-cover adapter wiring; create/update and source-binding combinations remain
-independent semantic cases.
-JSON layout tables separate graph identity from physical packing/linearization;
-source-membership controls use a free gap and distinct generations to verify the
-exact referenced members. Adapter and installed-consumer checks sample wiring.
-Writer assertions require the inspector's `Valid` linearization status;
-generic checking also passes ordinary PDFs. Packing uses actual xref membership.
-Outline hint controls separate direct physical groups from legitimate native
-omissions and retain a frozen missing-table failure independently of the writer.
-Direct-outline controls own input promotion separately from hint layout, with
-focused PDF/JSON, destination, private-alias and publication cases.
-Inline context reuse separates repeated work from resource/name bindings and
-independent equal-byte identities; warning suppression retains per-page failures.
-Literal escape semantics belong to `PdfLiteralCodecTests`; focused parser/writer/
-normalizer cases retain framing, quotas, cancellation and physical line markers.
-Partition tables exhaust shape, encoding and container representation at primary routes;
-command/QDF samples distinguish enabled and disabled normalization by exact bytes.
+Assign exhaustive semantics to their shared owners, then sample argv/job/mixed
+wiring. Keep every distinct native outcome and frozen expected field. The main
+coverage boundaries are:
+
+| Guarantee | Ownership and observations |
+| --- | --- |
+| Syntax, repair and security | Primitive tables own grammar and known answers; workflows retain limits, source roles and reader/writer integration. |
+| Labels and splitting | Typed selection owns label/range/split-size combinations; argv/job cases cover reordering, duplicates, boundaries, prefixes and unlabelled output. |
+| Compression setters | Exhaust native encodings and effective setter order; sample argv/job/mixed/nested configuration. |
+| Content and resources | Feature owners cover alias, content and layout semantics; integration retains selection, merging, splitting and conservative failure behavior. |
+| Geometry | Exhaust subtype, operation, indirection, border, coefficient and thin-page semantics through argv; selected job cases retain adapter wiring. NoRotate, private originals, escaped values and canonical/reversed comparisons stay independent. |
+| JSON projection | Typed inspection owns both versions' text/name/reference/descriptor semantics. Adapter and transport cases cover named/fileless output, sidecar names and payload roundtrips. |
+| JSON imports | Typed cases own graph binding, catalog versions and payloads; argv owns header setters. Create/update, source bindings, packing and job/file-job wiring retain separate controls. |
+| Physical layout | Require `Valid` linearization and actual xref membership, rather than generic check success. Preserve outline promotion, hint ownership and frozen invalid fixtures independently of the writer. |
+| Reuse indexes | Separate repeated work from resource bindings and equal-byte identities; retain warning eligibility, per-page failures, admission and refund controls. Work notifications are not CPU fuel. |
+| Literal and partition syntax | Primitive owners exhaust escaping, shape, encoding and container representation; parser/writer/normalizer samples retain framing, quotas, cancellation and physical line markers. |
+| Presentation | Own count/byte boundaries for each output shape; sample flag combinations, decimal/culture behavior and route adaptation separately. |
 
 `Foundation/PublicationAdmissionTests` owns shared host-fault phases, executed
 counters and sequential commits. Prepared graph tests retain their own admission

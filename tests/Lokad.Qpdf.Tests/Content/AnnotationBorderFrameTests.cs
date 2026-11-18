@@ -11,18 +11,20 @@ public sealed class AnnotationBorderFrameTests
     {
         foreach (string kind in new[] { "border", "bs", "bs-direct", "defaults", "bs-defaults", "solid-unused", "beveled-unused", "inset-unused", "underline-unused", "unknown-unused", "zero", "bs-null" })
         foreach (string operation in new[] { "flatten", "overlay" })
-        foreach (string route in new[] { "argv", "job" }) { yield return [kind, operation, route]; }
+        foreach (bool indirect in new[] { false, true }) { yield return [kind, operation, indirect, "argv"]; }
+        yield return ["border", "flatten", true, "job"];
+        yield return ["bs-direct", "overlay", false, "job"];
     }
 
     [Theory]
     [MemberData(nameof(Cases))]
-    public async Task BorderFramesRespectDefaultsPrecedenceAndIndependentOriginalValues(string kind, string operation, string route)
+    public async Task BorderFramesRespectDefaultsPrecedenceAndIndependentOriginalValues(string kind, string operation, bool indirect, string route)
     {
         RecordingMemoryBudget budget = new(8L * 1024 * 1024);
         using (IMemoryScope owner = budget.CreateScope())
         {
             using InMemoryQpdfHost host = new(QpdfLimits.Default, null, owner);
-            byte[] source = Source(kind, route == "job");
+            byte[] source = Source(kind, indirect);
             host.AddInput(QpdfPath.From("input"), operation == "flatten" ? source : Target(), QpdfInputOwnership.Transfer);
             host.AddInput(QpdfPath.From("stamp"), source, QpdfInputOwnership.Transfer);
             QpdfExecutionResult result;

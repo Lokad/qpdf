@@ -8,10 +8,8 @@ public sealed class AnnotationPlacementTests
 {
     public static IEnumerable<object[]> CoefficientCases()
     {
-        for (int coefficient = 0; coefficient < 6; coefficient++)
-        {
-            foreach (bool job in new[] { false, true }) { yield return [coefficient, job]; }
-        }
+        for (int coefficient = 0; coefficient < 6; coefficient++) { yield return [coefficient, false]; }
+        yield return [5, true];
     }
 
     [Theory]
@@ -27,13 +25,10 @@ public sealed class AnnotationPlacementTests
 
     [Theory]
     [InlineData("null", false)]
-    [InlineData("null", true)]
     [InlineData("/Bad", false)]
-    [InlineData("/Bad", true)]
     [InlineData("[]", false)]
     [InlineData("[]", true)]
     [InlineData("(bad)", false)]
-    [InlineData("(bad)", true)]
     public async Task UnusableCoefficientsKeepIdentityFallback(string extra, bool job)
     {
         string content = await FlattenedContent(Fixture("7 0 R 0 0 1 0 0", "20 30 180 110", extra, 0), job);
@@ -46,9 +41,10 @@ public sealed class AnnotationPlacementTests
         {
             foreach (int angle in new[] { 0, 90, 180, 270 })
             {
-                foreach (bool job in new[] { false, true }) { yield return [rect, angle, job]; }
+                yield return [rect, angle, false];
             }
         }
+        yield return ["180 110 20 30", 270, true];
     }
 
     [Theory]

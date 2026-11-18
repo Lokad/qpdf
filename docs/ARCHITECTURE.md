@@ -297,21 +297,12 @@ jobs require them. See [benchmarks](BENCHMARKS.md) for performance evidence.
 Reference emit and companion probe commands share requested-input registration
 and mapped output export; fresh input arrays transfer to command-owned storage.
 
-Tests assign exhaustive syntax/repair and known-answer security tables to their
-primitive owners. Reader/writer workflows retain representative repairs, limits,
-source roles and API wiring. Preserved physical-layout fixtures each reach their
-validator; classic/streamed, valid/invalid and opaque-stream controls cover route
-adaptation. Graph/content, writer layout, ownership/publication, native/visual
-evidence and installed consumers retain their separate guarantees.
-
-Presentation count/byte boundaries cover every output shape at a primary route;
-selected flag combinations and decimal/culture boundaries have their own controls.
-Route wiring does not replay every quota, compression and failure combination.
-Publication ownership exhausts shared host boundaries, then covers additional
-sources, splits, sidecars, encryption and committed outputs explicitly.
-
-Recording hosts and caller budgets observe actual suspended I/O, admission,
-refunds and immutable exported counters. Focused internal owners test exact
-reservation/refusal behavior and warning preparation. A few isolated weak-reference
-controls check CLR retention that admission alone cannot prove; they inspect core
-owners, without traversing compiler frames or private BCL collection fields.
+Tests distinguish syntax/security vectors, graph/content semantics, physical
+layout, memory/publication, native/visual evidence and installed consumers.
+Shared semantic owners carry exhaustive cases; adapter checks sample wiring.
+Recording hosts and caller budgets observe suspended I/O, admission, refunds and
+immutable counters. Narrow observers and owned-type reflection check cancellation
+or collectability when final outputs cannot prove those boundaries; they do not
+inspect compiler frames or private BCL collection layouts. The
+[test ownership guide](https://github.com/Lokad/qpdf/blob/master/tests/Lokad.Qpdf.Tests/README.md)
+records fixture, observation and coverage responsibilities.

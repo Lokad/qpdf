@@ -51,10 +51,12 @@ public sealed class GeometryPrecisionTests
 
     public static IEnumerable<object[]> ThinPages()
     {
-        foreach (bool job in new[] { false, true })
         foreach (int angle in new[] { 90, 180, 270 })
         foreach (string width in new[] { "0.000001", "0.0000049", "0.0000051", "0.00001", "0.001", "1" })
-        { yield return [job, angle, width]; }
+        { yield return [false, angle, width]; }
+        yield return [true, 90, "0.0000049"];
+        yield return [true, 180, "0.000001"];
+        yield return [true, 270, "1"];
     }
 
     [Theory]

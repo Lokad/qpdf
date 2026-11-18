@@ -12,7 +12,10 @@ public sealed class AnnotationCoordinateTests
         foreach (string subtype in new[] { "Link", "Highlight", "Underline", "Squiggly", "StrikeOut", "Line", "Polygon", "PolyLine", "Ink", "FreeText" })
         foreach (string mode in new[] { "flatten", "overlay", "underlay" })
         foreach (bool indirect in new[] { false, true })
-        foreach (bool job in new[] { false, true }) { yield return [subtype, mode, indirect, job]; }
+        { yield return [subtype, mode, indirect, false]; }
+        yield return ["Link", "flatten", true, true];
+        yield return ["Ink", "overlay", false, true];
+        yield return ["FreeText", "underlay", true, true];
     }
 
     [Theory]
