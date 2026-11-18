@@ -8,3 +8,9 @@ through the explicit caller-codec capability. Four-component encoding remains un
 The committed progressive PDF fixtures remain independent decoding controls.
 Their exact constant samples and the existing malformed/parameterized fixtures
 must remain valid regardless of which development JPEG provider is selected.
+
+The `rgb` visual case uses authored noise and JPEG quality 75. A recorded
+Lokad.Image 0.2.0 versus libjpeg comparison had normalized mean error 0.052373
+against a 0.04 limit. Both outputs passed their original-image bounds. The
+visual lane retains both comparisons and a missing-image negative control.
+[Run the visual checks](../../docs/COMPATIBILITY.md#how-compatibility-is-verified)

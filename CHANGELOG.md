@@ -2,135 +2,62 @@
 
 ## Unreleased — 0.2.0-dev.7
 
-- Apply ordinary stream compression settings during command JSON creation and
-  update, before output encryption.
+### PDF JSON
 
-- Apply catalog and Info removals and authored page labels during JSON export,
-  preserving private aliases and resolving label positions after page selection.
+- Create and update PDFs with command compression, QDF, object streams,
+  linearization and output protection. Typed layout options select packing and
+  linearization. Packing and QDF comments retain matching original pairs.
+- Check bound JSON graphs and issue follow-up listings without a PDF output.
+  Update a PDF in place with `--replace-input` / `replaceInput`. The source lease
+  closes before staging, and auxiliary inputs are protected from replacement.
+- Bind patches by object number and generation. Honor declared page preparation
+  for direct or repeated pages and inherited attributes. Omitted payloads reuse
+  data from the exact source stream. Apply the command parser limits to imports.
+- Assemble and collate pages for JSON export, including empty primaries. Retain
+  labels, source version requirements, secondary context and independently rooted
+  values. Support per-source resource pruning, image optimization, coalescing
+  and inline-image externalization with the ordinary content policies.
+- Apply document metadata, AcroForm, structure and label removals during JSON
+  export and import. Export can author labels in assembled page order. Command
+  imports can coalesce contents. `--remove-info` retains a live ModDate if present.
+- Return typed JSON without publishing a report. File sidecars require a prefix
+  when there is no report target. Typed document opening, checking and JSON
+  inspection can opt into bounded repair.
 
-- Apply per-source resource pruning to JSON page selection, preserving private
-  aliases and the same selection-only defaults as PDF output.
+### Inspection and publication
 
-- Apply image optimization before JSON export through the host JPEG codec,
-  preserving private originals and honoring thresholds, quality and inline policy.
+- Resolve exact generation pairs with `QpdfDocument.GetObject(PdfReference)`.
+  Resolve named outline targets in both JSON versions. Form JSON uses field-local
+  alternative and mapping names, and reports depth exhaustion before output.
+- Preserve raw image filter descriptors with decoding disabled. Normalize
+  filtered stream bytes when returning them or publishing to a host target.
+- Support direct outline roots in linearized output and JSON writer packing.
+  Check physical outline-hint ownership and required hints.
+- Preserve ordinary graph streams tagged `/Type /XRef` during protected
+  publication. Normalize valid leading Identity Crypt stages before content
+  processing and protection. Physical xref sections remain clear.
+- Keep omitted primary inputs safe from expanded split output names. Protect
+  templates, password files and consumed configuration from first-pass capture.
+- Share typed attachment recovery options across listing, extraction and edits.
+  List with warnings and counters. Close extraction inputs before committing
+  plaintext bytes to a host target. Command attachment reports and extraction
+  can share one authenticated input.
 
-- Apply coalescing and inline-image externalization before JSON export, including
-  assembled pages and nested Forms, while preserving original aliases and exact
-  source references. Keep generated page identities linked to the visible tree.
+### Command and graph behavior
 
-- Prepare declared page identities and inherited attributes before JSON updates,
-  including direct/repeated pages and updates from assembled exports. Reject
-  repeated tree containers during preparation to keep identities and work bounded.
-
-- Reuse page ancestry within placement bundles while preserving geometry-first
-  validation, nearest inherited values and scoped traversal admission.
-
-- Apply AcroForm, structure and page-label removal during JSON creation/update,
-  preserving widgets, independent aliases and unrelated catalog data.
-
-- Apply remove-info/remove-metadata during JSON creation and update through the
-  ordinary metadata policy, retaining independent roots and retiring superseded data.
-
-- Omit Info during remove-info when ModDate resolves to null, is missing or has
-  a stale generation, while retaining live date references and private aliases.
-
-- Accept empty main filename declarations without selecting a file, retaining
-  positional slots, explicit empty-input policy and declaration/replace conflicts.
-
-- Apply command nesting, parser-error and damaged-container settings to JSON
-  creation/update through the shared reader limits, retaining host ceilings.
-
-- Default empty attachment command key/filename setters to the payload basename,
-  including resets, while keeping typed authored names nonempty.
-
-- Validate attachment command MIME setters before input work, requiring a slash
-  while retaining native permissive forms and typed empty-value omission.
-
-- Accept PDF whitespace inside ASCII85 end markers across inline-image consumers.
-
-- Reuse completed attachment imports for matching logical sources and credentials,
-  sharing payload graphs without retaining input handles between requests. Bounded
-  summaries retire by recency so later sources can benefit.
-
-- Accept empty argv attachment prefixes and descriptions, including resets of
-  earlier setters, through the shared attachment planner.
-
-- Validate ranges without temporary syntax graphs and scope expansion metadata
-  under admission, retaining original argv positions for overlay errors.
-
-- Accept endpoint-free odd/even ranges on zero-page inputs through the shared
-  selection, rotation and inspection range expansion.
-
-- Apply content normalization to filtered stream inspection with explicit host
-  output targets, sharing the existing returned-byte policy and publication guards.
-
-- Share literal decoding and canonical encoding across parsing, normalization and
-  writing, with exact temporary buffers and caller-specific limits.
-
-- Accept omitted page-label starts before prefixes or trailing slashes through
-  the shared command parser, retaining explicit-start validation.
-
-- Bound rejected overlay-range error previews before formatting, preserving
-  argument positions, configuration admission and prior outputs.
-
-- Reuse successful inline-image externalization for repeated immutable page
-  contexts, preserving distinct resource bindings, diagnostics and private aliases.
-- Normalize direct outline roots before linearization and JSON writer packing,
-  preserving destinations, private aliases and transactional publication.
-- Keep linearized outline hints consistent with physical ownership, including
-  mixed object-stream groups; reject missing required hints while accepting valid omissions.
-- Support JSON creation/update with object streams and linearization through the
-  shared writer, including protected output. Add explicit typed layout options;
-  retain original packing by full source identity across imported numbering.
-- Protect and retain private XRef-tagged streams across writers and JSON import;
-  distinguish physical xref sections from ordinary graph values during decryption.
-- Expose bounded recovery for typed attachment operations, with immutable listing
-  metadata, warnings and final counters. Close extraction inputs before publication,
-  preserving payload backing and prior targets on cleanup failure or cancellation.
-- Validate authored attachment timestamps before payload acquisition, sharing
-  bounded syntax with JSON date projection while preserving existing metadata.
-- Add generation-aware `QpdfDocument.GetObject(PdfReference)` lookup through the
-  shared resolver, preserving number-based lookup and escaped value ownership.
-- Inspect raw image filter descriptors without constructing inactive decoder
-  plans; retain parsing, resource and enabled-decoder validation boundaries.
-- Validate effective job settings after duplicate-property resolution, preserving
-  encoding checks, early excluded-key refusal and ordered file includes.
-- Consume valid plaintext Identity Crypt stages before content processing and
-  output encryption, including JSON creation/update and physical writer layouts.
-  Preserve private filter aliases and reject unknown stages for encryption.
-- Fail form JSON inspection on ancestry-depth exhaustion before publishing an
-  incomplete name or value; retain lenient missing/cyclic-parent handling.
-- Respect field-local alternative/mapping names in form JSON while retaining
-  inherited types, values and choices and the documented name fallbacks.
-- Assemble pages before JSON inspection/export, including collation and empty
-  primaries. Preserve labels, secondary contexts, complete primary references,
-  source version requirements and input protection through JSON recreation.
-- Resolve named outline targets and destination wrappers in both JSON versions,
-  including page outline lists and full-generation target validation.
-- Bound destination-tree miss traversal and reuse repeated named lookups while
-  preserving first matches, depth/cycle checks and source action meaning.
-- Use one authenticated selection-reader policy and remove obsolete internal
-  rejection branches, retaining existing public exception compatibility.
-- Preserve static layer states when combining ON/OFF default bases, normalize
-  combined output and identify unsupported layer policies precisely.
-- Reuse completed page, label and attachment subtrees while preserving repeated
-  page occurrences, label overrides, depth/cycle limits and attachment lookup rules.
-- Match JSON patches by full object number/generation pairs and roundtrip nonzero
-  generations through creation/update. Keep newly declared pairs distinct and
-  reuse omitted stream payloads only from the matching source pair.
-- Protect encryption templates, password files and consumed configuration files
-  from first-pass capture replacement before PDF/password reads or publication.
-- Share attachment inspection validation and one authenticated document across
-  returned and targeted payloads; honor combined reports and reject JSON conflicts
-  before secret/PDF I/O. Keep payload backing funded through publication.
-- Let typed document opening, checking and JSON inspection opt into shared bounded
-  repair while retaining strict defaults, authentication, warnings and ownership.
-- Return typed JSON without publishing a report; file sidecars require an explicit
-  prefix when no report target is supplied. Existing publishing overloads remain.
-- Reject expanded split outputs that alias a real primary omitted from selected
-  sources, before creating any output transaction.
-- Reuse bounded shared-content pruning analysis and resource identities; share
-  physical-writer emission policy and separate test semantics from route wiring.
+- Resolve effective job settings after duplicate properties, with encoding
+  checks and ordered includes. Empty filename declarations retain argv slots
+  without choosing a file. Endpoint-free odd/even ranges work on zero pages.
+- Empty attachment key and filename setters use the payload basename. Empty
+  prefixes/descriptions clear earlier values. Validate authored MIME and
+  timestamps before acquisition. Existing stored metadata remains readable.
+- Accept omitted page-label starts and PDF whitespace inside ASCII85 terminal
+  markers. Share literal escaping across parsing, normalization and writing.
+- Combine static View layer states with ON/OFF bases. Keep independent layer
+  identities and refuse unsupported combinations before publication.
+- Bound range validation and diagnostics. Reuse work in page, label, attachment,
+  placement, destination, resource-pruning and inline-image processing while
+  retaining occurrence-local results and private aliases.
 
 ## 0.2.0-dev.6 — 2026-11-14 (development candidate)
 

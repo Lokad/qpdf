@@ -100,74 +100,29 @@ are generally not compatibility guarantees.
 | Linearized outlines | Outline closures stay outside object streams so hint spans remain contiguous. Pinned native packing can split a root from later outline containers and warn about its own offsets/lengths; the reference controls retain that failure and compare a valid classic equivalent. |
 | Companions | Fix-QDF requires LF outer syntax, sequential numbering and unambiguous stream/length framing. Zlib-flate reports malformed frames and enforces decoded and output limits during inflation. Once the codec returns a byte beyond the tighter limit, the operation refuses before validating the rest of the frame. An exact fit still requires frame validation. |
 
-Rotation destination limits follow the viewer-dependent semantics in
-[ISO 32000-1, 12.3.2.2 and Table 151](https://opensource.adobe.com/dc-acrobat-sdk-docs/standards/pdfstandards/pdf/PDF32000_2008.pdf).
-A null position retains a prior viewer coordinate; it is not zero. For example,
-the tested 90-degree transform maps `y' = 120 - x`. Prior horizontal positions
-25 and 75 require new vertical positions 95 and 45. Neither a constant nor a
-null retaining the old vertical position expresses that dependency. Numeric
-XYZ/FitR values can be projected directly.
+Nullable destination positions retain prior viewer coordinates. A quarter turn
+can make one coordinate depend on the other. Turning a width fit into a height
+fit also changes how the viewer computes zoom. These semantics explain the
+rotation refusals above. [ISO 32000-1, 12.3.2.2 and Table 151](https://opensource.adobe.com/dc-acrobat-sdk-docs/standards/pdfstandards/pdf/PDF32000_2008.pdf)
 
-Changing an axis-fit destination from FitH to FitV also changes its zoom rule.
-For a 200-by-100 page in a 600-by-400 window, width fit gives zoom 3 while
-height fit gives zoom 4. A quarter-turn conversion cannot generally preserve
-both the requested coordinate and the original fit rule for arbitrary windows.
-The existing fixtures therefore retain explicit refusals for these cases,
-while covering numeric destinations, Fit/FitB, 180-degree axis fits and
-navigation discarded by splitting. Raster checks establish page appearance,
-not interactive viewer navigation.
-
-JPEG quality is a codec setting, not a cross-encoder equivalence guarantee.
-The development adapter passes quality 1..100 to Lokad.Image 0.2.0, whose color
-quantizers differ from native qpdf's libjpeg quantizers. The authored RGB-noise
-case at quality 75 has normalized cross-encoder mean error 0.052373, exceeding
-the existing 0.04 comparison limit. Both outputs pass the unchanged comparison
-against the original image. The visual report records this as
-`documented-codec-difference`, not a passing native comparison, and requires
-a missing-image negative control to fail those original-image bounds.
+JPEG quality is codec-specific. For the RGB-noise case, the visual lane records
+`documented-codec-difference` when the cross-encoder comparison exceeds its
+bound and both results meet the original-image bounds. A missing-image control
+must fail those bounds. [JPEG fixtures and visual evidence](https://github.com/Lokad/qpdf/blob/master/tests/Fixtures/JPEG.md)
 
 ## Resource APIs
 
-`CountPagesAsync` provides a typed count without exposing a document or object
-resolver. Document opening acquires complete input. The count API and standalone
-`--show-npages` / `showNpages` share bounded acquisition for
-compact classic-xref PDFs with large unrelated objects. The page tree is traversed;
-reading `/Count` alone is insufficient. This validates count metadata, rather than
-every unrelated object or content stream.
+The typed count and standalone `--show-npages` / `showNpages` share bounded
+acquisition. Their count policies differ as described above.
+[Counting](SUPPORTED-PROFILE.md#inspection-profile) · [Acquisition bounds](MEMORY.md#engine-guarantees-and-limits)
 
-Small inputs, protected documents, incremental/hybrid/streamed xrefs, oversized
-metadata and uncertain required ranges use complete acquisition on the same
-opened lease. Declared-count mismatches also require complete input before the
-command's existing reporting policy applies. Short reads and path replacement
-retain their lease semantics. Memory refusal fails without retrying another
-storage strategy. See [memory bounds](MEMORY.md#engine-guarantees-and-limits).
-
-`QpdfExecutionCounters.HostOperations` observes executed
-opens, reads and writes; it is not an allowance. Short-read hosts can perform more
-calls than complete-read hosts without exhausting a cumulative quota. Publication
-admits actual wrapper/staging storage rather than predicting calls, and selective
-reading depends on input structure and memory. Use cancellation/deadlines for host
-work; input/output, decoded bytes, memory, handles and structural limits still apply.
-
-The input and resource interfaces have these contracts:
-
-- Inputs implement `ReadAsync(offset, Memory<byte>, token)` and return a count;
-  the caller owns the admitted destination. Identity, length and bytes stay pinned
-  through lease disposal; pending reads finish before buffer reuse or cleanup.
-- Hosts expose `IMemoryBudget` through `IQpdfMemoryHost`. Codecs borrow
-  `QpdfJpegCodecContext.MemoryBudget`.
-  Keep caller scopes alive through escaped results and all asynchronous cleanup.
-- Supply deadline/cancellation tokens for work limits; structural, decoded-byte
-  and memory ceilings remain independent.
-- The counter constructor takes seven values: live/peak memory, decoded bytes,
-  output bytes, host operations, open handles and diagnostic count.
-- Nesting/container exhaustion throws `QpdfLimitException` (BudgetExceeded).
-  `MaxNestingDepth` is 1..499, default 256.
-- Required malformed source contexts use `QpdfParseException`/InvalidArguments;
-  unsupported binding uses UnsupportedFeature. Host failures use HostOperationFailed.
-
-See [memory ownership](MEMORY.md) for admission, refusal and publication obligations,
-and the [changelog](../CHANGELOG.md) for migration history.
+`QpdfExecutionCounters.HostOperations` counts actual opens, reads and writes.
+Hosts can supply deadline tokens alongside structural, decoded-byte, memory and
+handle limits. Nesting or container exhaustion raises `QpdfLimitException`
+(`BudgetExceeded`). Required malformed source contexts raise `QpdfParseException`
+(`InvalidArguments`), unsupported binding yields `UnsupportedFeature`, and host
+failures yield `HostOperationFailed`.
+[Input leases](MEMORY.md#input-leases) · [Caller ownership](MEMORY.md#escaped-values-and-results) · [JPEG codecs](MEMORY.md#jpeg-codecs)
 
 ## How compatibility is verified
 
