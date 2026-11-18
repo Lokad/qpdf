@@ -98,7 +98,7 @@ def main() -> None:
         if existing is None:
             manifest["fixtures"].append(entry)
         else:
-            manifest["fixtures"][existing] = entry
+            manifest["fixtures"][existing].update(entry)
         print(f"{name}: {len(data)} bytes, sha256={entry['sha256']}")
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
 

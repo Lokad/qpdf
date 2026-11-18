@@ -67,6 +67,7 @@
       "sha256": "2a42129ba3fe8014e8b461878f975cd58442b3f217cf46b2e3397d8749e0fb78",
       "bytes": 581,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page, classic xref, unencrypted. Oracle --check and --show-npages must succeed; independent reader must report 1 page."
@@ -76,6 +77,7 @@
       "sha256": "c3ee267167a354a0bb401a1e852676bd1dc552c66c2ded5f4b80437eadd11085",
       "bytes": 841,
       "expectedNpages": 2,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "Two pages sharing one font, classic xref, unencrypted. Oracle and independent page counts must agree on 2."
@@ -85,6 +87,7 @@
       "sha256": "33118e667a5be6a4e96d7dcc6172823cabe2d2c9e70395bd5a633addbbdaafce",
       "bytes": 592,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with /Rotate 90, classic xref, unencrypted. Rotation flattening must drop /Rotate, swap the media box, and wrap content with the 90-degree counter-transform; the rotation differential consumes it."
@@ -94,6 +97,7 @@
       "sha256": "4a1846ccb27cd55d7b5443feecce830e5a0d958cc8f804f55fbb8562b2210e53",
       "bytes": 686,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with an unreferenced /F2 Helvetica-Bold font alongside the used /F1, classic xref, unencrypted. Resource pruning under page operations must drop /F2 while whole-file output keeps it; the prune differential consumes it."
@@ -103,6 +107,7 @@
       "sha256": "2ee8792f704f65d16663863c83c9fe509cb3a1e23130e6d219882d05817dec85",
       "bytes": 944,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "Original conservative-pruning regression: a form uses F1 under an explicit empty Resources dictionary, and its invocation is split across page streams. Explicit pruning must retain both page fonts F1 and Unused, matching the pinned reference."
@@ -112,6 +117,7 @@
       "sha256": "6e0200c2ca91b691c291133c4e1d553932ba07b262d3016c300eb9c30e73c604",
       "bytes": 768,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page whose catalog carries /StructTreeRoot and /MarkInfo, classic xref, unencrypted. Structure removal must drop both keys while keeping the pages tree; the removal differential consumes it."
@@ -121,6 +127,7 @@
       "sha256": "7452a428d16b552caeea1190bd2553c85a1823588afdfb352be38f2f61543f1d",
       "bytes": 759,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page whose catalog carries a well-formed /StructTreeRoot and /MarkInfo, classic xref, unencrypted. Ordinary selection must preserve both keys while contained preview drops them; the catalog differential consumes it."
@@ -130,6 +137,7 @@
       "sha256": "49efd5043b16147158647f24c1408cdf06ec390734c45e4df3184fa0873da324",
       "bytes": 1012,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a self-contained text widget (stale appearance, NeedAppearances). Oracle and independent page counts must agree on 1; appearance generation and annotation flattening differentials consume it."
@@ -139,6 +147,7 @@
       "sha256": "4c6effe48cedba8ecbbb752f17cbb8289eaae056cdb7a0d8263d6037fe7a9e13",
       "bytes": 1504,
       "expectedNpages": 2,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "Two pages each carrying a self-contained text widget (NeedAppearances, document default resources). Subset selection must prune the unselected field while full selection and merge keep both registrations; the forms-preserve differential consumes it."
@@ -148,6 +157,7 @@
       "sha256": "5dbba245ae665b17969fee50c7c3212dcd9b1c101ee43ecdc02d1861e8bf1be9",
       "bytes": 1151,
       "expectedNpages": 2,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "Two pages sharing one font with document outlines, classic xref, unencrypted. Linearized selection must carry the outline tree into the output hint tables."
@@ -157,6 +167,7 @@
       "sha256": "72b7ed550367055e336c4d529ed2734aa20022008a96a10eb140cc0c4b4a6b67",
       "bytes": 1174,
       "expectedNpages": 2,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "Two outlined pages with PageMode UseOutlines, classic xref, unencrypted. Linearized selection must place outlines in the first-page part."
@@ -166,6 +177,7 @@
       "sha256": "c577f1ddfe79421a54bd5dc6faa2a6e202c6cf1329249acb362b92e2fdafcbbe",
       "bytes": 736,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a thumbnail image XObject, classic xref, unencrypted. Linearized selection must place the thumbnail in part 9."
@@ -175,6 +187,7 @@
       "sha256": "d5486669a33228b5411d87b11a957aefb20eca47fe2e13cc2f4f65393d0c52ff",
       "bytes": 1205,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page linearized by the pinned oracle with static IDs. Oracle check must succeed; managed linearization check must pass."
@@ -184,6 +197,7 @@
       "sha256": "3ffbd450140a4eda7c355108761293d1ec4f2d3c38bfd43bf6da0b3a89f8d211",
       "bytes": 1501,
       "expectedNpages": 2,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "Two pages linearized by the pinned oracle with static IDs. Oracle and managed linearization checks must agree."
@@ -193,6 +207,7 @@
       "sha256": "16abaa403da9a3da6ccbb83e4c28a98b4d07b415cd9f42713e9d11ccc7380edc",
       "bytes": 1462,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.5",
       "valid": true,
       "description": "One page linearized by the pinned oracle with static IDs and generated object streams (xref streams plus an object stream). Managed linearization inspection must pass without dedicated container handling."
@@ -202,6 +217,7 @@
       "sha256": "e37fb7b7b1a3c9ebff226892de3dd47e79a88b77f88ff1dba49b0ac66b47e9fa",
       "bytes": 1730,
       "expectedNpages": 2,
+      "independentPageCount": true,
       "headerVersion": "1.5",
       "valid": true,
       "description": "Two pages linearized by the pinned oracle with static IDs and generated object streams (xref streams plus an object stream). Managed linearization inspection must pass without dedicated container handling."
@@ -211,6 +227,7 @@
       "sha256": "c0726a9ffa9713120cb4b5eb13ea21c88b4839f686297bdd3581711d8de85352",
       "bytes": 987,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a direct image XObject and a form XObject holding a nested image. --show-pages --with-images must list only the direct image with dimensions; the form and its nested image stay unlisted."
@@ -220,6 +237,7 @@
       "sha256": "e37ee5881aaba1b09d9aa6eb65de23163f673ae52f5e4bbca7ea014febc3a224",
       "bytes": 572,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a dimension-less image XObject. --show-pages --with-images must list 0 x 0 dimensions with per-key warnings (exit 3 on both sides)."
@@ -229,6 +247,7 @@
       "sha256": "ba03b790933402d5303c85632ab980eee9165dfcbb4c40ac90b1c2668d45c9db",
       "bytes": 1341,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with four image XObjects: Flate with decode parms, undecodable DCT (filterable is support-based), chained ASCIIHex+Flate, and Indexed. --json must report filter names, aligned parms, and level-gated filterable flags; the json-images differential consumes it."
@@ -238,6 +257,7 @@
       "sha256": "30f139afa69dfc6ea82b85af3eae1517f785b0e15a4aa4120a1a4f16175a2780",
       "bytes": 802,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with trailer /Info (Title, ModDate) and catalog /Metadata XMP stream, classic xref, unencrypted. --remove-info must drop metadata and non-ModDate info keys while --remove-metadata drops only the stream; the metadata differential consumes it."
@@ -256,6 +276,7 @@
       "sha256": "f7d8d4eeeb311f4dbe6063c87f74ab12a93aec3be85f659bab893d0f55ca48cf",
       "bytes": 2138,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a 1500-byte inline image above the default externalization threshold, classic xref, unencrypted. Inline-image externalization and threshold selection must convert it to an /IIm1 XObject on both sides; the inline differential consumes it."
@@ -265,6 +286,7 @@
       "sha256": "f4e2793761766ad72167da364dcb0071d3e544cdc9e52b61d285f82245d0634a",
       "bytes": 893,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with /Rotate 90, direct /UserUnit and a widget carrying an appearance stream, classic xref, unencrypted. Rotation flattening must rotate the appearance matrix and keep the user unit on both sides; the flatten-rotation differential consumes it."
@@ -274,6 +296,7 @@
       "sha256": "818f7b42cf53cc0f1c7826b8f7f360e5ec0ea89c17171eb33ed62988b0bbe6ee",
       "bytes": 920,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with an orphan dictionary, an orphan stream, a dangling page and linked catalog metadata, classic xref, unencrypted. Object preservation must keep all four loose payloads with metadata linked on both sides; the preserve-unreferenced differential consumes it."
@@ -283,6 +306,7 @@
       "sha256": "4c1c9a7aec2b8d4ec631e97f4ba2c048bc6d1d0c02e03d41f995ba1797bf295a",
       "bytes": 77460,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a large noisy RGB photo above the optimization thresholds, classic xref, unencrypted. Image optimization must emit smaller DCT streams with identical dimensions on both sides; the optimize differential consumes it."
@@ -292,6 +316,7 @@
       "sha256": "b81f6d15dea13d4e22f06e0d2d22e95518c8cd2070eab391f2ef867b2ab12492",
       "bytes": 947,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page carrying Text, Link and appearance-stream annotations, classic xref, unencrypted. Overlay and underlay stamping must copy its non-widget annotations with placement-transformed rectangles; the overlay-annots differential consumes it."
@@ -301,6 +326,7 @@
       "sha256": "23e408e1bca851c6217b90587ca8bfcb0bbc6817d4bc5eb6aaa9c8ffb4aa2f94",
       "bytes": 941,
       "expectedNpages": 2,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "Two pages with a source page-label number tree, classic xref, unencrypted. Selection merging must concatenate source label entries with page-index offsets; the labels-merge differential consumes it."
@@ -310,6 +336,7 @@
       "sha256": "86a79b134938150529dabe323e811d55f0bfae3a1e756274f07c633d7ca6abaa",
       "bytes": 708,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with catalog extras (NeedsRendering, PageLayout, ViewerPreferences, Lang, OpenAction), classic xref, unencrypted. Ordinary selection and rewrite must preserve unknown catalog keys through the shared copy engine; the catalog-extras differential consumes it."
@@ -319,6 +346,7 @@
       "sha256": "65addd24f3d38f7034bf06a7107e986b78e35dfedde5f74349711e66be21bb3e",
       "bytes": 1111,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a WinAnsi font reachable only through form default resources. Appearance generation must resolve the DA font encoding through default resources; the dr-encoding differential consumes it."
@@ -328,6 +356,7 @@
       "sha256": "0f818bca37012d98b6c6cbd128c2fd79685c1dda663425b9c7c2db3015d4029c",
       "bytes": 1152,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a WinAnsi font in AcroForm default resources while the appearance keeps unrelated resources. Appearance generation must merge the missing DR font into appearance resources; the dr-merge differential consumes it."
@@ -337,6 +366,7 @@
       "sha256": "ced276154b3c4df046164713ddca2fdcd05849d5ba00f73a7daaa8652159194e",
       "bytes": 1023,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "Parent-held text field without a Kids back-link, with its appearance font available only on the page. Checking warns unreachable; generation preserves the appearance under the managed local/AcroForm-font policy while native qpdf can regenerate from page context."
@@ -346,6 +376,7 @@
       "sha256": "27348e90e9b860602916874507ca460e2cfceecb7c649ccc71b476e50404eb15",
       "bytes": 1057,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "Parent-held text field without a Kids back-link and with a usable AcroForm default font. Appearance generation follows Parent and the differential checks the generated value and placement while retaining the unreachable-widget warning."
@@ -355,6 +386,7 @@
       "sha256": "3bcd83c4b6db91936e3d50c85f9e92e8af4f4e5f925bc56e32b08f40911ad50b",
       "bytes": 1280,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with top-level fields D and W. Merging with dc-b-1page.pdf must rename the colliding direct kid to D+1 on both sides; the direct-rename differential consumes it."
@@ -364,6 +396,7 @@
       "sha256": "411758f6af33b71cae3426d8eae12a83dce33303f2a5a0f60fb039e577ac3732",
       "bytes": 1227,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with an unnamed container holding a direct kid D plus widgets W2 and V. Merging with dc-a-1page.pdf must rename the colliding direct kid to D+1 on both sides; the direct-rename differential consumes it."
@@ -373,6 +406,7 @@
       "sha256": "64c55000859b5afb52334eda5e1789b6ce13c8d0cfe81295a5e612563020c9b9",
       "bytes": 1261,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page overlay source with a merged text field O, a parent field P with a widget kid, a radio parent R with two widget kids, and an unreached widget UW. Overlaying it must import O, P and R once each plus UW as its own field with a fallback note on both sides; the overlay-widgets differential consumes it."
@@ -382,6 +416,7 @@
       "sha256": "13f7451eaf9d0e859da392a08b76d2a4ae5cd42ff506914d7cfa6d7466761c11",
       "bytes": 877,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page overlay destination with text fields D (with default appearance and Helvetica DR font F1) and O. Overlaying the DR source must keep D and F1, rename the colliding import to O+1, add the Courier font as F1_1 and rewrite its default appearance; the overlay-widgets-dr differential consumes it."
@@ -391,6 +426,7 @@
       "sha256": "d4f151f0d389acc7ba07be2f7591e2aa36707cfd72b23240d01ddbb29514e1b1",
       "bytes": 884,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page overlay source with text fields S (with default appearance and Courier DR font F1) and O. Overlaying it onto the DR destination must preserve values with destination-wins resource merging; the overlay-widgets-dr differential consumes it."
@@ -400,6 +436,7 @@
       "sha256": "c0983b7db283259d9a571b9bb8f072b4eb7c6d332943897df9c546a8b1ca8092",
       "bytes": 78390,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a flate RGB image carrying a gray SMask. Both sides must recompress the image to DCT while keeping /SMask and leaving the mask flate; the optimize-masks differential consumes it."
@@ -409,6 +446,7 @@
       "sha256": "2e1e47f218f579aa7ae8259f56d3602465eea51ac6ec62d686ba7b8c849d19b4",
       "bytes": 1050,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a text widget carrying /DA and an appearance stream referencing an AcroForm DR font. Both sides must stamp the appearance verbatim on flatten; the flatten-dr differential consumes it."
@@ -418,6 +456,7 @@
       "sha256": "35059934da1d69cc639f6d891a3cd8a8ebadd1ed1fb6fe759d85f11d04bb20f1",
       "bytes": 832,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a radio button whose value and appearance state disagree. Both sides must keep both states and warn about radio synchronization; the generate-radio differential consumes it."
@@ -427,6 +466,7 @@
       "sha256": "4f622f3e5df6a796f0400a4f60b41323dcc49ae6863ec87d04a31949c9e2baee",
       "bytes": 1038,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a widget unreachable from the form field registration (with a stale appearance and NeedAppearances). Selection must drop the emptied form and skip generation silently while whole-file output warns and regenerates; the generate-unreachable differential consumes it."
@@ -436,6 +476,7 @@
       "sha256": "4145be7ebd287a4bf19be26e62dab43794ad6586c050c4651346c5ce2d52ca4c",
       "bytes": 989,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a true four-component CMYK DCT image (deterministic DC-only samples). The oracle decodes exact raw samples with exit 0 while managed output stays opaque with a warning; the cmyk differential consumes it."
@@ -445,6 +486,7 @@
       "sha256": "9f1189c3034d42ac06f35549db45d120df6ad34cc571b6ae6611a5951b4ef571",
       "bytes": 1005,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with an Adobe YCCK DCT image. The oracle converts to CMYK samples with exit 0 while managed output stays opaque with a warning; the cmyk differential consumes it."
@@ -454,6 +496,7 @@
       "sha256": "bda1cb2e283ef44a021ef23d610f9df7aab9c84a1870074f6b37dda2252b8859",
       "bytes": 601,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with an incremental same-generation update of the contents stream. Generation selectors resolve to the newest revision on both sides; the show-object differential consumes it."
@@ -463,6 +506,7 @@
       "sha256": "9316800975ad1a2e87a3a491a8101c64f4c658946df63b5363eda6e743aa954d",
       "bytes": 694,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page where the contents stream was freed and re-added with generation 1. Bare and stale selectors display null while the live pair displays on both sides; the show-object differential consumes it."
@@ -472,6 +516,7 @@
       "sha256": "0a2f492b2c2b5bb5555fea6baf6c43f4cd76d673d37e21c555cc44343aa29921",
       "bytes": 835,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "Authored 13x9, 1-component progressive JPEG image with separate DC/AC scans; exact decoded samples are uniformly 128.",
@@ -486,6 +531,7 @@
       "sha256": "3174e74dd9d923b0651476833affd4f3040709894ce2b1f66278f8fe769b5678",
       "bytes": 871,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "Authored 17x11, 3-component progressive JPEG image with separate DC/AC scans; exact decoded samples are uniformly 128.",
@@ -500,6 +546,7 @@
       "sha256": "ab5d77d87313b715c68a289381c4b955f4e3d487520851da14d38b28feba532c",
       "bytes": 4946,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "Authored 1024x1024, 1-component progressive JPEG image with separate DC/AC scans; exact decoded samples are uniformly 128.",
@@ -514,6 +561,7 @@
       "sha256": "ea67b333ee0304a0b264b136ef75ec4acba4374f090feddf9a8032c98af30545",
       "bytes": 3945,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "Authored 512x512, 3-component progressive JPEG image with separate DC/AC scans; exact decoded samples are uniformly 128.",
@@ -1464,9 +1512,199 @@
       "sha256": "7314122c67c1d6d0c4b9f6e1b80ec5a0e3a3f19a18b729cc044b5c37f1294e11",
       "bytes": 963,
       "expectedNpages": 1,
+      "independentPageCount": true,
       "headerVersion": "1.4",
       "valid": true,
       "description": "Authored classic-xref incremental chain frees objects 4 and 5, then reuses 4 at generation 1. Catalog and array edges distinguish current, stale, free and missing pairs; a separate opaque stream survives public lookup disposal. Native exact-reference inspection agrees."
+    },
+    {
+      "file": "bogus-filter.pdf",
+      "sha256": "f428a711479e2a13491a0394bf503bd50ab6a41b2ff3c4c1f312127ef435ba98",
+      "bytes": 608,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": false,
+      "description": "Authored one-page control with an unknown stream filter. Raw stream inspection preserves its bytes and filtered inspection refuses."
+    },
+    {
+      "file": "cyclic-pages.pdf",
+      "sha256": "e869bb7c9256c9b1762a05c080b58b90d15af0b3e84191e48ba7587511224c8f",
+      "bytes": 329,
+      "expectedNpages": 0,
+      "headerVersion": "1.4",
+      "valid": false,
+      "description": "Authored page-tree cycle used by the reader refusal controls."
+    },
+    {
+      "file": "cyclic-prev.pdf",
+      "sha256": "32e6897d8ce41682d6fcc806997bd1651a6ae297ed641a9c482b99d174de8868",
+      "bytes": 674,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": false,
+      "description": "Authored incremental cross-reference chain whose /Prev offset cycles. Strict reading refuses the cycle."
+    },
+    {
+      "file": "hybrid-xstm.pdf",
+      "sha256": "410b31b87f64c34bc9ca67b754ab5f3313ef0b078cc1ab7f834450b7c79fac20",
+      "bytes": 927,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Authored hybrid cross-reference control with a classic table and an /XRefStm supplement. Inspection also exercises the option to ignore the supplement."
+    },
+    {
+      "file": "identity-crypt-1page.pdf",
+      "sha256": "11991fbf7de6625154aabb2e4471bf2c59feef660555d21facb28fda9b2e740e",
+      "bytes": 514,
+      "expectedNpages": 1,
+      "headerVersion": "1.7",
+      "valid": true,
+      "description": "Reference-only authored plaintext stream with an explicit Identity Crypt stage. ReferenceSecurityPolicies checks its stream treatment during publication."
+    },
+    {
+      "file": "incremental-1page.pdf",
+      "sha256": "2acd53a00ad7907ed47eb31227c230cec31257e25cc4f23074a8a27992b5f8b7",
+      "bytes": 786,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Authored classic incremental update. The current revision supersedes earlier objects while /Prev links to the older section."
+    },
+    {
+      "file": "incremental-delete.pdf",
+      "sha256": "49dad23a7911c86189f767abc71d5f5e048fbee8b69d36795f8b04d77c73bee8",
+      "bytes": 698,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Authored incremental update whose latest free entry retires a previously defined object."
+    },
+    {
+      "file": "indirect-length.pdf",
+      "sha256": "d5a4495b1f012186968d32eeef43cbfd061a7503e76fb0bcf054f9ffbb86d5e0",
+      "bytes": 622,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Authored content stream whose /Length is indirect. Independent reference checks resolve the declared payload boundary."
+    },
+    {
+      "file": "inherited-attrs.pdf",
+      "sha256": "3cc1e09e0e02c919b0b5fcffaabab5cea31c7def43d53c031e1232c1e93c9089",
+      "bytes": 578,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Authored one-page tree with inherited page attributes used by selection controls."
+    },
+    {
+      "file": "objstm-1page.pdf",
+      "sha256": "9a7e37a87b4f6a361f47c6bca1c8b514ec83fa5a60ba6c49444d289b46aba25c",
+      "bytes": 670,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Authored cross-reference stream and compressed object members used by exact-reference, recovery and stream inspection controls."
+    },
+    {
+      "file": "objstm-extends.pdf",
+      "sha256": "3cde0788655cfd32a0c70d349c284409c777df6e337693927d71946af305a7ca",
+      "bytes": 685,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Authored object-stream /Extends layout used to check membership and object inspection."
+    },
+    {
+      "file": "prev-stream.pdf",
+      "sha256": "26642cf3d831cced77ed969e79b06c6569988a96d8fa0f0c052e1f3d541bbe98",
+      "bytes": 854,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Authored incremental cross-reference chain with /Prev pointing to an earlier cross-reference stream."
+    },
+    {
+      "file": "rotation-indirect-matrix.pdf",
+      "sha256": "12fb637d3e018c3013aadf1d4001cf850e9390f78baa1bf3a75f3ddb18398dcb",
+      "bytes": 705,
+      "expectedNpages": 1,
+      "headerVersion": "1.7",
+      "valid": true,
+      "description": "Reference-only authored rotated page with an indirect annotation appearance matrix. The noncommuting page and appearance transforms have separate exact expectations for native and managed output."
+    },
+    {
+      "file": "rotation-indirect-states.pdf",
+      "sha256": "dcc83f264d77ca4ac29a175df309a91a42c61cfdeb0d7e9a8b7f8b8b412746dd",
+      "bytes": 761,
+      "expectedNpages": 1,
+      "headerVersion": "1.7",
+      "valid": true,
+      "description": "Reference-only authored rotated page with indirect annotation appearance states for geometry comparisons."
+    },
+    {
+      "file": "rotation-shared-90-0.pdf",
+      "sha256": "a7bbe8efd398c009d8b4de0f3a1bc96dbb15dd0f86c8b8d1c9022eac4c9034f2",
+      "bytes": 890,
+      "expectedNpages": 2,
+      "headerVersion": "1.7",
+      "valid": true,
+      "description": "Reference-only authored two-page control sharing an appearance across pages with 90-degree and zero rotation."
+    },
+    {
+      "file": "rotation-shared-90-270.pdf",
+      "sha256": "3232b72849e868f3d2786995f4cf1b3cf7595c91b617192579777ea4bc8a2a1e",
+      "bytes": 892,
+      "expectedNpages": 2,
+      "headerVersion": "1.7",
+      "valid": true,
+      "description": "Reference-only authored two-page control sharing an appearance across pages with different quarter-turn rotations."
+    },
+    {
+      "file": "xstm-classic.pdf",
+      "sha256": "4f5a8e3d8b100b6489b58f1d8fe6ae8e8707d817832c384e0062727452746de3",
+      "bytes": 597,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": false,
+      "description": "Authored classic cross-reference input with an invalid /XRefStm offset. Strict reading refuses it and the ignore-streams control retains the classic table."
+    },
+    {
+      "file": "xstream-1page.pdf",
+      "sha256": "88f479fcbca980cb91f07b8c13681e2f8a367bb78f4c56b9e5b785e4f4ad84d7",
+      "bytes": 564,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Authored one-page cross-reference stream with uncompressed entries for reader and inspection controls."
+    },
+    {
+      "file": "xstream-badtype.pdf",
+      "sha256": "03480cdd735ece55ee8825c7ab6c8cfb8fa1baa8a895e3055e49f05e6a126400",
+      "bytes": 569,
+      "expectedNpages": null,
+      "headerVersion": "1.4",
+      "valid": false,
+      "description": "Authored cross-reference stream with an incorrect /Type. The reader refuses its cross-reference; the pinned oracle yields no page count."
+    },
+    {
+      "file": "xstream-lzw.pdf",
+      "sha256": "6967b7ee066201c0650dec7daed05fdc253e16415b4cc5a7592970a01942cbe6",
+      "bytes": 559,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Authored one-page cross-reference stream using LZW compression."
+    },
+    {
+      "file": "xstream-nowtype.pdf",
+      "sha256": "d2af1ace3efd8dd14bb827d90e0c9ab040aaddb9268aa773f3d879e1956a9791",
+      "bytes": 564,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Authored one-page cross-reference stream without an explicit /Type entry. Reader coverage records acceptance."
     }
   ]
 }

@@ -5,6 +5,9 @@ payloads, declared lengths, generations and header/trailer choices. Feature test
 own their object bodies and expected semantics. Physical-layout, malformed-input,
 security and native vectors retain independent construction.
 
+The [fixture manifest](../Fixtures/manifest.json) records PDF checksums and page counts.
+`independentPageCount` selects the entries also checked by PdfPig.
+
 `TestDocumentEngine` supplies an empty, admitted engine for object-graph tests.
 `MemoryBudgetHost` borrows storage and a caller budget.
 

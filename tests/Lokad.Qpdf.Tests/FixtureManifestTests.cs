@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using UglyToad.PdfPig;
 
@@ -25,80 +26,65 @@ public sealed class FixtureManifestTests
         JsonElement fixtures = manifest.RootElement.GetProperty("fixtures");
         Assert.NotEmpty(fixtures.EnumerateArray());
         HashSet<string> names = new(StringComparer.Ordinal);
+        Span<byte> header = stackalloc byte[8];
+        int independentlyQualified = 0;
 
         foreach (JsonElement entry in fixtures.EnumerateArray())
         {
-            string? fileOrNull = entry.GetProperty("file").GetString();
-            string? shaOrNull = entry.GetProperty("sha256").GetString();
-            if (fileOrNull is null || shaOrNull is null)
-            {
-                throw new Xunit.Sdk.XunitException("Fixture manifest entry is missing file or sha256.");
-            }
-
-            string file = fileOrNull;
+            string file = FixtureName(entry);
+            Assert.DoesNotContain('/', file);
+            Assert.DoesNotContain('\\', file);
+            Assert.DoesNotContain(':', file);
+            Assert.EndsWith(".pdf", file, StringComparison.Ordinal);
             Assert.True(names.Add(file), $"Duplicate fixture entry: {file}.");
-            string expectedSha = shaOrNull;
-            long expectedBytes = entry.GetProperty("bytes").GetInt64();
+
+            bool valid = entry.GetProperty("valid").GetBoolean();
+            JsonElement pages = entry.GetProperty("expectedNpages");
+            if (pages.ValueKind == JsonValueKind.Null) { Assert.False(valid); }
+            else { Assert.True(pages.GetInt32() >= 0, $"Negative page count for {file}."); }
+            if (HasIndependentPageCount(entry))
+            {
+                Assert.True(valid, $"Independent page-count cases must be valid: {file}.");
+                independentlyQualified++;
+            }
+            Assert.False(string.IsNullOrWhiteSpace(entry.GetProperty("description").GetString()));
+
             string path = Path.Combine(FixtureDir(), file);
             Assert.True(File.Exists(path), $"Fixture file not found: {path}.");
+            using FileStream stream = File.OpenRead(path);
+            Assert.Equal(entry.GetProperty("bytes").GetInt64(), stream.Length);
+            stream.ReadExactly(header);
+            Assert.Equal("%PDF-" + entry.GetProperty("headerVersion").GetString(), Encoding.ASCII.GetString(header));
+            stream.Position = 0;
+            string actualSha = Convert.ToHexString(SHA256.HashData(stream));
+            Assert.Equal(entry.GetProperty("sha256").GetString(), actualSha, ignoreCase: true);
+        }
 
-            byte[] bytes = File.ReadAllBytes(path);
-            Assert.Equal(expectedBytes, bytes.Length);
-            string actualSha = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
-            Assert.Equal(expectedSha.ToLowerInvariant(), actualSha);
+        Assert.True(independentlyQualified > 0);
+        IEnumerable<string> actualNames = Directory.EnumerateFiles(FixtureDir(), "*.pdf")
+            .Select(path => Path.GetFileName(path.AsSpan()).ToString()).Order(StringComparer.Ordinal);
+        Assert.Equal(names.Order(StringComparer.Ordinal), actualNames);
+    }
+
+    private static string FixtureName(JsonElement entry) => Assert.IsType<string>(entry.GetProperty("file").GetString());
+
+    private static bool HasIndependentPageCount(JsonElement entry)
+        => entry.TryGetProperty("independentPageCount", out JsonElement qualified) && qualified.GetBoolean();
+
+    public static IEnumerable<object[]> IndependentReaderCases()
+    {
+        using JsonDocument manifest = ReadManifest();
+        foreach (JsonElement entry in manifest.RootElement.GetProperty("fixtures").EnumerateArray())
+        {
+            if (HasIndependentPageCount(entry))
+            {
+                yield return [FixtureName(entry), entry.GetProperty("expectedNpages").GetInt32()];
+            }
         }
     }
 
     [Theory]
-    [InlineData("minimal-1page.pdf", 1)]
-    [InlineData("minimal-2page.pdf", 2)]
-    [InlineData("rotated-1page.pdf", 1)]
-    [InlineData("unref-1page.pdf", 1)]
-    [InlineData("undefined-form-resources.pdf", 1)]
-    [InlineData("meta-1page.pdf", 1)]
-    [InlineData("struct-1page.pdf", 1)]
-    [InlineData("struct-preserve-1page.pdf", 1)]
-    [InlineData("lin-objstm-1page.pdf", 1)]
-    [InlineData("lin-objstm-2page.pdf", 2)]
-    [InlineData("forms-1page.pdf", 1)]
-    [InlineData("forms-2page.pdf", 2)]
-    [InlineData("inline-1page.pdf", 1)]
-    [InlineData("rotated-ap-1page.pdf", 1)]
-    [InlineData("orphans-1page.pdf", 1)]
-    [InlineData("photo-1page.pdf", 1)]
-    [InlineData("images-smask-1page.pdf", 1)]
-    [InlineData("flatten-dr-1page.pdf", 1)]
-    [InlineData("generate-radio-1page.pdf", 1)]
-    [InlineData("generate-unreachable-1page.pdf", 1)]
-    [InlineData("images-cmyk-1page.pdf", 1)]
-    [InlineData("images-ycck-1page.pdf", 1)]
-    [InlineData("images-progressive-gray-1page.pdf", 1)]
-    [InlineData("images-progressive-rgb-1page.pdf", 1)]
-    [InlineData("images-progressive-gray-large-1page.pdf", 1)]
-    [InlineData("images-progressive-rgb-large-1page.pdf", 1)]
-    [InlineData("incr-samegen-1page.pdf", 1)]
-    [InlineData("incr-freereuse-1page.pdf", 1)]
-    [InlineData("reference-pairs-1page.pdf", 1)]
-    [InlineData("overlay-annot-1page.pdf", 1)]
-    [InlineData("labels-2page.pdf", 2)]
-    [InlineData("catalog-extras-1page.pdf", 1)]
-    [InlineData("dr-encoding-1page.pdf", 1)]
-    [InlineData("dr-merge-1page.pdf", 1)]
-    [InlineData("parent-held-1page.pdf", 1)]
-    [InlineData("parent-held-dr-1page.pdf", 1)]
-    [InlineData("dc-a-1page.pdf", 1)]
-    [InlineData("dc-b-1page.pdf", 1)]
-    [InlineData("outlined-2page.pdf", 2)]
-    [InlineData("outlined-use-2page.pdf", 2)]
-    [InlineData("thumb-1page.pdf", 1)]
-    [InlineData("linearized-1page.pdf", 1)]
-    [InlineData("linearized-2page.pdf", 2)]
-    [InlineData("images-1page.pdf", 1)]
-    [InlineData("images-nodim-1page.pdf", 1)]
-    [InlineData("images-filtered-1page.pdf", 1)]
-    [InlineData("overlay-widget-1page.pdf", 1)]
-    [InlineData("overlay-widget-dest-1page.pdf", 1)]
-    [InlineData("overlay-widget-dr-1page.pdf", 1)]
+    [MemberData(nameof(IndependentReaderCases))]
     public void IndependentReaderReportsExpectedPageCounts(string file, int expectedNpages)
     {
         string path = Path.Combine(FixtureDir(), file);
@@ -116,21 +102,5 @@ public sealed class FixtureManifestTests
             using PdfDocument document = PdfDocument.Open(path);
             _ = document.NumberOfPages;
         });
-    }
-
-    [Fact]
-    public void ValidFixturesStartWithPdfHeader()
-    {
-        foreach (string file in new[] { "minimal-1page.pdf", "minimal-2page.pdf", "forms-1page.pdf" })
-        {
-            string path = Path.Combine(FixtureDir(), file);
-            byte[] prefix = new byte[8];
-            using (FileStream stream = File.OpenRead(path))
-            {
-                Assert.Equal(8, stream.Read(prefix, 0, prefix.Length));
-            }
-
-            Assert.Equal("%PDF-1.4", System.Text.Encoding.ASCII.GetString(prefix));
-        }
     }
 }
