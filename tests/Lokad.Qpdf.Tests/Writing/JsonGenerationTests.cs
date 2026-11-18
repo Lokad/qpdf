@@ -167,7 +167,10 @@ public sealed class JsonGenerationTests
             PdfDictionary cycle = Assert.IsType<PdfDictionary>(Resolve(reader, live));
             Assert.Equal(live, Get(cycle, "Self")); Assert.IsType<PdfNull>(Get(cycle, "Dead"));
         }
-        if (role == "contents") { Assert.Equal("q Q"u8.ToArray(), Assert.IsType<PdfStream>(Resolve(reader, live)).Data); }
+        if (role == "contents")
+        {
+            Assert.Equal("q Q"u8.ToArray(), StreamObservation.Decode(Assert.IsType<PdfStream>(Resolve(reader, live))));
+        }
         Assert.Equal(1, reader.PageCount); await reader.DisposeAsync(); Assert.Equal(0L, host.OpenLeaseCount);
     }
 

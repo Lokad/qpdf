@@ -281,6 +281,7 @@ internal static class JsonExecution
         bool linearize,
         QpdfOutputEncryption outputEncryption,
         DocumentPublicationPolicy publicationPolicy,
+        CompressionRequest? compression,
         QpdfRecoveryMode recovery,
         QpdfLimits limits,
         ResourceGovernor governor,
@@ -302,7 +303,7 @@ internal static class JsonExecution
             var preparedSecurity = await PrepareOutputSecurityAsync(host, outputEncryption, null, null, importMemory,
                 governor, limits, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
             using OutputSecurity? security = preparedSecurity.Security;
-            PreparedImportedOutput prepared = PrepareImportedOutput(model, publicationPolicy, minVersion, forceVersion, objectStreams,
+            PreparedImportedOutput prepared = PrepareImportedOutput(model, publicationPolicy, compression, minVersion, forceVersion, objectStreams,
                 security, limits, importMemory, governor, diagnostics, cancellationToken);
             await PublishModelAsync(host, prepared.Version, prepared.Output.Model, prepared.Output.ObjectStreams, false, null, prepared.Graph.InfoNumber, preparedSecurity.Identifier,
                 staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, linearize, null, outputPath, limits, governor, cancellationToken,
@@ -325,6 +326,7 @@ internal static class JsonExecution
         QpdfPassword? password,
         QpdfOutputEncryption outputEncryption,
         DocumentPublicationPolicy publicationPolicy,
+        CompressionRequest? compression,
         QpdfLimits limits,
         QpdfRecoveryMode recovery,
         ResourceGovernor governor,
@@ -352,7 +354,7 @@ internal static class JsonExecution
             var preparedSecurity = await PrepareOutputSecurityAsync(host, outputEncryption, document, TryGetOriginalId(document.Engine),
                 importMemory, governor, limits, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
             using OutputSecurity? security = preparedSecurity.Security;
-            PreparedImportedOutput prepared = PrepareImportedOutput(model, publicationPolicy, minVersion, forceVersion, objectStreams,
+            PreparedImportedOutput prepared = PrepareImportedOutput(model, publicationPolicy, compression, minVersion, forceVersion, objectStreams,
                 security, limits, importMemory, governor, diagnostics, cancellationToken);
             await PublishModelAsync(host, prepared.Version, prepared.Output.Model, prepared.Output.ObjectStreams, false, null, prepared.Graph.InfoNumber, preparedSecurity.Identifier,
                 staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, linearize, null, outputPath, limits, governor, cancellationToken,
@@ -364,6 +366,7 @@ internal static class JsonExecution
     private readonly record struct PreparedImportedOutput(PdfVersion Version, Json.JsonImport.RenumberedModel Graph, PreparedOutputModel Output);
 
     private static PreparedImportedOutput PrepareImportedOutput(Json.ImportedModel model, DocumentPublicationPolicy publicationPolicy,
+        CompressionRequest? compression,
         string? minVersion, string? forceVersion, string objectStreams, OutputSecurity? security, QpdfLimits limits,
         ParserMemoryScope memory, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
@@ -398,6 +401,14 @@ internal static class JsonExecution
         }
         graph.Retain();
         PreparedOutputModel output = OutputModelPreparation.Finish(renumbered.Model, compressed, security, memory, governor, token);
+        // Protected output preparation consumes supported Crypt stages before ordinary
+        // stream decoding. The serializer applies ciphertext after compression.
+        if (compression is not null)
+        {
+            using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
+            StreamPreparation.TransformNumberedStreams(output.Model, Content.PoolResolver.Create(resolverMemory, renumbered.Objects),
+                renumbered.MetadataNumber, compression, limits, governor, diagnostics, token);
+        }
         return new(version, renumbered, output);
     }
 

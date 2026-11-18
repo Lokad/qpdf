@@ -88,8 +88,8 @@ public sealed class JsonImportPayloadTests
             if (route is "job" or "file")
             {
                 string job = create
-                    ? """{"inputFile":"json","outputFile":"output","jsonInput":true}"""
-                    : """{"inputFile":"input","outputFile":"output","updateFromJson":"json"}""";
+                    ? """{"inputFile":"json","outputFile":"output","jsonInput":true,"streamData":"preserve"}"""
+                    : """{"inputFile":"input","outputFile":"output","updateFromJson":"json","streamData":"preserve"}""";
                 if (route == "file")
                 {
                     host.AddInput(QpdfPath.From("job"), Encoding.UTF8.GetBytes(job), QpdfInputOwnership.Transfer);
@@ -99,8 +99,8 @@ public sealed class JsonImportPayloadTests
             }
             else
             {
-                result = await Qpdf.ExecuteAsync(host, new(create ? ["json", "--json-input", "--", "output"]
-                    : ["input", "--update-from-json=json", "--", "output"]), CancellationToken.None);
+                result = await Qpdf.ExecuteAsync(host, new(create ? ["json", "--json-input", "--stream-data=preserve", "--", "output"]
+                    : ["input", "--update-from-json=json", "--stream-data=preserve", "--", "output"]), CancellationToken.None);
             }
             Assert.Equal(valid ? QpdfExitCode.Success : QpdfExitCode.Error, result.ExitCode); Assert.Equal(0L, result.Counters.OpenHandles);
         }

@@ -563,7 +563,11 @@ public sealed class JsonImportTests
         QpdfExecutionResult result = await UpdateAsync(host, "--update-from-json=inputs/u.json");
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
-        Assert.Contains("Replacement bytes.", Encoding.ASCII.GetString(pdf), StringComparison.Ordinal);
+        using InMemoryQpdfHost reopened = HostWith("read", pdf);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(reopened, QpdfPath.From("read"), CancellationToken.None);
+        Assert.True(document.PageReferences[0].Page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject contents));
+        PdfStream stream = Assert.IsType<PdfStream>(document.GetObject(Assert.IsType<PdfReference>(contents)));
+        Assert.Equal(replacement, StreamObservation.Decode(stream));
     }
 
     [Fact]

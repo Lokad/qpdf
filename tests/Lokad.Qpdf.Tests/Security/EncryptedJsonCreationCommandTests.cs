@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Tests.Writing;
 using Lokad.Qpdf.TestSupport;
 
 namespace Lokad.Qpdf.Tests.Security;
@@ -125,7 +126,8 @@ public sealed class EncryptedJsonCreationCommandTests
             if (encrypted) { Assert.Equal(metadata, document.Encryption?.EncryptMetadata); }
             PdfDictionary info = Assert.IsType<PdfDictionary>(document.GetObject(Ref(document.Engine.Trailer, "Info")));
             Assert.True(info.TryGet(PdfName.FromAscii("Title"), out QpdfObject title)); Assert.Equal("Created title"u8.ToArray(), Assert.IsType<PdfByteString>(title).Value);
-            Assert.Equal("BT (Page) Tj ET"u8.ToArray(), Assert.IsType<PdfStream>(document.GetObject(Ref(document.PageReferences[0].Page, "Contents"))).Data);
+            PdfStream content = Assert.IsType<PdfStream>(document.GetObject(Ref(document.PageReferences[0].Page, "Contents")));
+            Assert.Equal("BT (Page) Tj ET"u8.ToArray(), StreamObservation.Decode(content));
             PdfDictionary root = Assert.IsType<PdfDictionary>(document.GetObject(Ref(document.Engine.Trailer, "Root")));
             Assert.Equal("<Meta>Created</Meta>"u8.ToArray(), Assert.IsType<PdfStream>(document.GetObject(Ref(root, "Metadata"))).Data);
         }

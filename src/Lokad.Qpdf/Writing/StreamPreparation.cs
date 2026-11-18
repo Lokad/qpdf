@@ -81,16 +81,40 @@ internal static class StreamPreparation
                 continue;
             }
 
-            bool xmlMetadata = metadata?.ObjectNumber == id
-                && PdfDictionaryLookup.HasName(stream.Dictionary, "Type"u8, "Metadata"u8, resolver, governor, cancellationToken)
-                && PdfDictionaryLookup.HasName(stream.Dictionary, "Subtype"u8, "XML"u8, resolver, governor, cancellationToken);
-            QpdfObject? replacement = StreamTransformer.Transform(stream, id, resolver, xmlMetadata ? false : compress,
-                xmlMetadata ? "all" : decode, recompressFlate, level, limits, governor, diagnostics, cancellationToken);
+            QpdfObject? replacement = TransformForOutput(stream, id, resolver, metadata?.ObjectNumber ?? 0,
+                compress, decode, recompressFlate, level, limits, governor, diagnostics, cancellationToken);
             if (replacement is not null)
             {
                 copier.ReplaceCopiedObject(id, replacement);
             }
         }
+    }
+
+    internal static void TransformNumberedStreams(List<NumberedObject> model, IIndirectResolver resolver, int metadata,
+        CompressionRequest request, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+    {
+        (bool compress, string decode, int? level) = ResolveCompression(request, false);
+        if (!compress && decode == "none" && metadata == 0) { return; }
+        for (int i = 0; i < model.Count; i++)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            NumberedObject item = model[i];
+            if (item.Value is not PdfStream stream || (!compress && decode == "none" && item.Number != metadata)) { continue; }
+            PdfStream? replacement = TransformForOutput(stream, item.Number, resolver, metadata,
+                compress, decode, request.RecompressFlate, level, limits, governor, diagnostics, token);
+            if (replacement is not null) { model[i] = new(item.Number, replacement); }
+        }
+    }
+
+    private static PdfStream? TransformForOutput(PdfStream stream, int id, IIndirectResolver resolver, int metadata,
+        bool compress, string decode, bool recompressFlate, int? level, QpdfLimits limits, ResourceGovernor governor,
+        DiagnosticBag diagnostics, CancellationToken token)
+    {
+        bool xmlMetadata = metadata == id
+            && PdfDictionaryLookup.HasName(stream.Dictionary, "Type"u8, "Metadata"u8, resolver, governor, token)
+            && PdfDictionaryLookup.HasName(stream.Dictionary, "Subtype"u8, "XML"u8, resolver, governor, token);
+        return StreamTransformer.Transform(stream, id, resolver, !xmlMetadata && compress,
+            xmlMetadata ? "all" : decode, recompressFlate, level, limits, governor, diagnostics, token);
     }
 
 }

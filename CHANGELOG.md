@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Apply ordinary stream compression settings during command JSON creation and
+  update, before output encryption.
+
 - Apply catalog and Info removals and authored page labels during JSON export,
   preserving private aliases and resolving label positions after page selection.
 

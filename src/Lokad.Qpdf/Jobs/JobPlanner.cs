@@ -977,9 +977,7 @@ internal static partial class JobPlanner
                 throw new QpdfParseException("JSON operations cannot be combined with page transformations or PDF layout settings.", 0L, null);
             }
 
-            if (importJson && (streamData is not null || compressStreams is not null
-                || decodeLevel is not null || maxStreamFilters is not null || testJsonSchema
-                || recompressFlate || compressionLevel is not null || preserveUnreferenced
+            if (importJson && (testJsonSchema || preserveUnreferenced
                 || labels.Count > 0
                 || coalesceContents || normalizeContent || externalizeInlineImages || iiMinBytes != 1024L
                 || removeUnreferencedResources is not (null or "no") || noOriginalObjectIds || linearizePass1 is not null
@@ -1014,6 +1012,10 @@ internal static partial class JobPlanner
 
                 return new JsonInputPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output), recovery) with
                 {
+                    CompressionState = compressionSettings.State,
+                    RecompressFlate = recompressFlate,
+                    CompressionLevel = compressionLevel,
+                    MaxStreamFilters = maxStreamFilters,
                     RemoveAcroform = removeAcroform,
                     RemoveStructure = removeStructure,
                     RemoveLabels = removeLabels,
@@ -1065,6 +1067,10 @@ internal static partial class JobPlanner
 
                 return new JsonUpdatePlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(updateFromJson!), SelectionPlan.CheckedPath(output), recovery) with
                 {
+                    CompressionState = compressionSettings.State,
+                    RecompressFlate = recompressFlate,
+                    CompressionLevel = compressionLevel,
+                    MaxStreamFilters = maxStreamFilters,
                     RemoveAcroform = removeAcroform,
                     RemoveStructure = removeStructure,
                     RemoveLabels = removeLabels,

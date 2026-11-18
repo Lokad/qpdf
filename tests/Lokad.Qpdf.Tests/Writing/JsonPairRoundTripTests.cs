@@ -61,7 +61,8 @@ public sealed class JsonPairRoundTripTests
         Assert.Equal("Information", Text(Get(Dict(document, info), "Title")));
         Assert.Equal(1, document.PageCount);
         QpdfObject contents = Get(document.PageReferences[0].Page, "Contents");
-        PdfStream stream = Assert.IsType<PdfStream>(Resolve(document, contents)); Assert.Equal("q Q"u8.ToArray(), stream.Data);
+        PdfStream stream = Assert.IsType<PdfStream>(Resolve(document, contents));
+        Assert.Equal("q Q"u8.ToArray(), StreamObservation.Decode(stream));
         Assert.Equal(contents, Get(stream.Dictionary, "Self")); Assert.Equal(live, Get(stream.Dictionary, "Audit"));
         Assert.IsType<PdfNull>(Get(stream.Dictionary, "Stale"));
     }

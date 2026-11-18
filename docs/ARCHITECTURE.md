@@ -70,6 +70,9 @@ before numbering; fresh roles retain independent aliases while shared reachabili
 retires superseded roles. JSON publication shares output-model grouping,
 version/security negotiation and the ordinary or linearized serializer; the page
 tree's actual identity determines its packing exclusion.
+Command JSON import applies the shared stream preparation policy to bound
+objects after protected output normalizes Crypt stages. Physical writers then
+apply encryption to the final encoded streams.
 
 ## Component map
 

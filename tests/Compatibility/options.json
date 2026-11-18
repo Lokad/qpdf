@@ -1829,6 +1829,7 @@
           "GlobalLimitsTests.FlagCannotRaiseTighterFilterBudget"
         ],
         "interaction": [
+          "JsonImportCompressionTests.FilterLimitKeepsTheStreamOpaqueAndWarns",
           "CompressionTests.MaxStreamFiltersJobParityHolds",
           "CompressionTests.MaxStreamFiltersRejectsRestrictedCombinations"
         ],
@@ -2890,6 +2891,7 @@
           "CompressionTests.DuplicateFlagsFail"
         ],
         "interaction": [
+          "JsonImportCompressionTests.CreateUsesEffectiveCompressionSetters",
           "CompressionTests.DecodeNoneWithCompressKeepsHex",
           "ObjectStreamTests.GenerateWithCompressFlatesContainers"
         ],
@@ -2898,6 +2900,7 @@
           "FlateMemoryTests.TightBudgetRejectsBeforeCodecAndOutputAllocation"
         ],
         "oracle": [
+          "tools/ReferenceJsonImportCompression.ps1: Invoke-ReferenceJsonImportCompression",
           "diff:compress"
         ]
       }
@@ -2931,6 +2934,7 @@
           "CompressionTests.JobJsonInvalidValuesFail"
         ],
         "interaction": [
+          "JsonImportCompressionTests.ExplicitRecompressionChangesTheStoredEncoding",
           "CompressionTests.JobJsonParityHolds",
           "CompressionTests.RecompressFlateRewritesFlate",
           "ObjectStreamTests.CompressLevelsApplyToContainers"
@@ -2942,6 +2946,7 @@
           "FlateMemoryTests.ReturnedCopyNeedsMemoryWhileWorkingCapacityIsLive"
         ],
         "oracle": [
+          "tools/ReferenceJsonImportCompression.ps1: Invoke-ReferenceJsonImportCompression",
           "diff:compress"
         ]
       }
@@ -3100,6 +3105,7 @@
           "CmykJpegTests.ExistingCodecsDeclineBeforeSampleAllocation"
         ],
         "interaction": [
+          "JsonImportCompressionTests.CreateUsesEffectiveCompressionSetters",
           "CompressionTests.DctBeyondLevelStaysOpaque",
           "CompressionTests.DctAtAllWarnsAndStaysOpaque",
           "DctDecodeTests.JobParityHoldsForDecodeAll",
@@ -3132,6 +3138,7 @@
           "JpegCodecBoundaryTests.NestedCodecFailuresPreserveLocalAndSharedRefusal"
         ],
         "oracle": [
+          "tools/ReferenceJsonImportCompression.ps1: Invoke-ReferenceJsonImportCompression",
           "diff:uncompress-payloads",
           "diff:compress",
           "diff:cmyk",
@@ -4291,7 +4298,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Ordinary stream compression remains unavailable with JSON creation/update."
+        "Attachment edits remain unavailable during JSON creation and update."
       ],
       "evidence": {
         "positive": [
@@ -4332,6 +4339,7 @@
           "JsonPagePreparationTests.BothPoliciesValidatePreparationFlagTypesBeforePublication"
         ],
         "interaction": [
+          "JsonImportCompressionTests.CreateUsesEffectiveCompressionSetters",
           "JsonImportTests.JobCreateRoundTrip",
           "JsonImportTests.TypedCreateRoundTrip",
           "EncryptedJsonCreationTests.TypedCreationProtectsStringsStreamsAndFinalCatalogMetadata",
@@ -4371,6 +4379,7 @@
           "JsonCatalogRemovalTests.CatalogPreparationRefundsAndPreservesTheActualTarget"
         ],
         "oracle": [
+          "tools/ReferenceJsonImportCompression.ps1: Invoke-ReferenceJsonImportCompression",
           "diff:json-import",
           "diff:security-json",
           "diff:security-identity-crypt",
@@ -6312,6 +6321,7 @@
           "CompressionTests.DuplicateFlagsFail"
         ],
         "interaction": [
+          "JsonImportCompressionTests.ExplicitRecompressionChangesTheStoredEncoding",
           "CompressionTests.JobJsonParityHolds"
         ],
         "resource": [
@@ -6319,6 +6329,7 @@
           "FlateMemoryTests.ReturnedCopyNeedsMemoryWhileWorkingCapacityIsLive"
         ],
         "oracle": [
+          "tools/ReferenceJsonImportCompression.ps1: Invoke-ReferenceJsonImportCompression",
           "diff:compress"
         ]
       }
@@ -7578,12 +7589,14 @@
           "CompressionTests.DuplicateFlagsFail"
         ],
         "interaction": [
+          "JsonImportCompressionTests.CreateUsesEffectiveCompressionSetters",
           "CompressionTests.JobJsonParityHolds"
         ],
         "resource": [
           "ResourceEnforcementTests.CompressYieldsToExhaustedBudget"
         ],
         "oracle": [
+          "tools/ReferenceJsonImportCompression.ps1: Invoke-ReferenceJsonImportCompression",
           "diff:uncompress-payloads",
           "diff:compress"
         ]
@@ -7873,7 +7886,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Ordinary stream compression remains unavailable with JSON creation/update."
+        "Attachment edits remain unavailable during JSON creation and update."
       ],
       "evidence": {
         "positive": [
@@ -7920,6 +7933,7 @@
           "JsonPageContainerPreparationTests.DeclaredPreparationRejectsRepeatedContainersBeforePublication"
         ],
         "interaction": [
+          "JsonImportCompressionTests.JobUpdateCompressesRetainedSourceStreamsAtRequestedLevel",
           "JsonImportTests.JobUpdateRoundTrip",
           "JsonImportTests.JobUpdateMalformedFails",
           "JsonImportTests.TypedUpdateRoundTrip",
@@ -7969,6 +7983,7 @@
           "JsonPageContainerPreparationTests.EmptyDagPreparationStopsAfterFiniteDistinctContainerWorkAndRefunds"
         ],
         "oracle": [
+          "tools/ReferenceJsonImportCompression.ps1: Invoke-ReferenceJsonImportCompression",
           "diff:json-update",
           "diff:security-json",
           "diff:security-identity-crypt",

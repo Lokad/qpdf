@@ -48,6 +48,7 @@ document disposal; exact-reference lookup uses the document's opening token and 
 | Reading | Strict by default; document/check/count/selection/JSON can request bounded repair | Bounded repair by default; `--suppress-recovery` is strict |
 | Stream copying | Opaque encoded bytes | Generalized decoding and compression |
 | JSON import packing | Existing overloads disable packing; full overloads accept `QpdfJsonImportOptions` | Preserve matching source members by default |
+| JSON import compression | Preserve encoded payloads | Generalized decoding and compression, with the ordinary stream setters |
 | Rotation requests | Supplied list order | Last value per exact range text, then ordinal key order |
 | Generic catalog data | Selection defaults may omit extras | Ordinary rewrites preserve supported primary extras; split has a narrower policy |
 

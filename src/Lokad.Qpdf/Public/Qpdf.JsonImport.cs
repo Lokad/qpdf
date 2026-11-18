@@ -20,7 +20,7 @@ public static partial class Qpdf
         {
             DiagnosticBag diagnostics = new(governor);
             JsonImportOutcome result = await JsonExecution.ImportCreateCoreAsync(host, jsonPath, outputPath,
-                null, null, false, false, options.ObjectStreams, options.Linearize, outputEncryption, new(false, false), QpdfRecoveryMode.Strict,
+                null, null, false, false, options.ObjectStreams, options.Linearize, outputEncryption, new(false, false), null, QpdfRecoveryMode.Strict,
                 limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
             QpdfJsonImportResult presented = result.Present(governor);
             governor.FinishTypedCounters(); return presented;
@@ -43,7 +43,7 @@ public static partial class Qpdf
         {
             DiagnosticBag diagnostics = new(governor);
             JsonImportOutcome result = await JsonExecution.ImportUpdateCoreAsync(host, inputPath, jsonPath, outputPath,
-                null, null, false, false, options.ObjectStreams, options.Linearize, password, outputEncryption, new(false, false),
+                null, null, false, false, options.ObjectStreams, options.Linearize, password, outputEncryption, new(false, false), null,
                 limits, QpdfRecoveryMode.Strict, governor, diagnostics, cancellationToken).ConfigureAwait(false);
             QpdfJsonImportResult presented = result.Present(governor);
             governor.FinishTypedCounters(); return presented;
