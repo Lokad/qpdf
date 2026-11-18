@@ -84,25 +84,7 @@ internal sealed class LinearizedWriter
             throw new ArgumentNullException(nameof(sink));
         }
 
-        if (id1 is null)
-        {
-            throw new ArgumentNullException(nameof(id1));
-        }
-
-        if (id2 is null)
-        {
-            throw new ArgumentNullException(nameof(id2));
-        }
-
-        if (id1.Length == 0 || id1.Length > 256)
-        {
-            throw new ArgumentOutOfRangeException(nameof(id1), "Document identifiers must hold 1..256 bytes.");
-        }
-
-        if (id2.Length == 0 || id2.Length > 256)
-        {
-            throw new ArgumentOutOfRangeException(nameof(id2), "Document identifiers must hold 1..256 bytes.");
-        }
+        WriterIdentifiers.Validate(id1, id2);
 
         using ParserMemoryScope classificationMemory = ParserMemoryScope.Create(_governor);
         PdfSerializer.ValidateEncryptionModel(model, _security, _encryptionObject, _governor, cancellationToken);
@@ -806,25 +788,7 @@ internal sealed class LinearizedWriter
             throw new ArgumentNullException(nameof(sink));
         }
 
-        if (id1 is null)
-        {
-            throw new ArgumentNullException(nameof(id1));
-        }
-
-        if (id2 is null)
-        {
-            throw new ArgumentNullException(nameof(id2));
-        }
-
-        if (id1.Length == 0 || id1.Length > 256)
-        {
-            throw new ArgumentOutOfRangeException(nameof(id1), "Document identifiers must hold 1..256 bytes.");
-        }
-
-        if (id2.Length == 0 || id2.Length > 256)
-        {
-            throw new ArgumentOutOfRangeException(nameof(id2), "Document identifiers must hold 1..256 bytes.");
-        }
+        WriterIdentifiers.Validate(id1, id2);
 
         using ParserMemoryScope classificationMemory = ParserMemoryScope.Create(_governor);
         PdfSerializer.ValidateEncryptionModel(model, _security, _encryptionObject, _governor, cancellationToken);

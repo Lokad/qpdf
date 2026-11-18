@@ -46,8 +46,8 @@ retain their complete graph preparation.
 Input admission and xref parsing form one stage before authentication and page
 traversal; callers retain host-lease ownership through success and cleanup.
 The writer prepares numbering, lengths, offsets and identifiers before publication;
-linearization uses two passes. The serializer also owns shared header/ASCII
-emission, counting and bounded sink writes for both physical writers; stream
+linearization uses two passes. The writers share identifier argument validation; the serializer owns header/ASCII
+emission, counting and bounded sink writes for both physical writers. Stream
 payload isolation remains with its payload owner.
 Streamed linearization excludes the outline closure from packing. Physical outline
 groups receive hints; omission is valid only when classification assigns no group.

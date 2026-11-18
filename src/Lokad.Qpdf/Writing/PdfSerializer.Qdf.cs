@@ -72,25 +72,7 @@ internal sealed partial class PdfSerializer
             throw new ArgumentNullException(nameof(sink));
         }
 
-        if (id1 is null)
-        {
-            throw new ArgumentNullException(nameof(id1));
-        }
-
-        if (id2 is null)
-        {
-            throw new ArgumentNullException(nameof(id2));
-        }
-
-        if (id1.Length == 0 || id1.Length > 256)
-        {
-            throw new ArgumentOutOfRangeException(nameof(id1), "Document identifiers must hold 1..256 bytes.");
-        }
-
-        if (id2.Length == 0 || id2.Length > 256)
-        {
-            throw new ArgumentOutOfRangeException(nameof(id2), "Document identifiers must hold 1..256 bytes.");
-        }
+        WriterIdentifiers.Validate(id1, id2);
 
         using WriterOrder<NumberedObject> sorted = WriterOrder<NumberedObject>.Create(model.Count, 16L, _governor, cancellationToken);
         foreach (NumberedObject numbered in model)
