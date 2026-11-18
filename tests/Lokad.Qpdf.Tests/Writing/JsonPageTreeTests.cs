@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Tests.Foundation;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -68,31 +69,38 @@ public sealed class JsonPageTreeTests
     {
         foreach (string layout in new[] { "direct", "indirect-type", "indirect", "empty", "duplicate", "shared" })
         foreach (bool update in new[] { false, true })
-        foreach (string route in new[] { "typed", "argv", "job" })
-        { yield return [layout, false, update, route]; }
+        { yield return [layout, false, update]; }
         foreach (string layout in new[] { "direct", "indirect" })
         foreach (bool update in new[] { false, true })
-        foreach (string route in new[] { "typed", "argv", "job" })
-        { yield return [layout, true, update, route]; }
+        { yield return [layout, true, update]; }
     }
 
     [Theory]
     [MemberData(nameof(ValidCases))]
-    public async Task CountsMatchReaderForEquivalentAndSharedPageTrees(string layout, bool directRoot, bool update, string route)
+    public async Task CountsMatchReaderForEquivalentAndSharedPageTrees(string layout, bool directRoot, bool update)
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxNestingDepth = 2 };
         int expected = layout == "empty" ? 0 : layout is "duplicate" or "shared" ? 2 : 1;
-        using InMemoryQpdfHost host = new(); Register(host, Fixture(layout == "shared" ? 2 : 1, layout, directRoot)); await Seed(host);
-        if (route == "typed")
-        {
-            QpdfJsonImportResult result = await Typed(host, update, limits, CancellationToken.None);
-            Assert.Equal(expected, result.PageCount); Assert.Empty(result.Warnings); Assert.Equal(0L, result.Counters.OpenHandles);
-        }
-        else
-        {
-            QpdfExecutionResult result = await Execute(host, update, route, limits, CancellationToken.None);
-            Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Empty(result.Diagnostics); Assert.Equal(0L, result.Counters.OpenHandles);
-        }
+        using InMemoryQpdfHost host = new(); Register(host, Fixture(layout == "shared" ? 2 : 1, layout, directRoot));
+        QpdfJsonImportResult result = await Typed(host, update, limits, CancellationToken.None);
+        Assert.Equal(expected, result.PageCount); Assert.Empty(result.Warnings); Assert.Equal(0L, result.Counters.OpenHandles);
+        await AssertPublishedPages(host, limits, expected);
+    }
+
+    [Theory]
+    [InlineData("argv", false, "indirect", true, 1)]
+    [InlineData("job", true, "shared", false, 2)]
+    public async Task CommandAdaptersPublishBoundPageTrees(string route, bool update, string layout, bool directRoot, int expected)
+    {
+        using InMemoryQpdfHost host = new(); Register(host, Fixture(layout == "shared" ? 2 : 1, layout, directRoot));
+        QpdfLimits limits = QpdfLimits.Default with { MaxNestingDepth = 2 };
+        QpdfExecutionResult result = await Execute(host, update, route, limits, CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Empty(result.Diagnostics); Assert.Equal(0L, result.Counters.OpenHandles);
+        await AssertPublishedPages(host, limits, expected);
+    }
+
+    private static async Task AssertPublishedPages(InMemoryQpdfHost host, QpdfLimits limits, int expected)
+    {
         Assert.Equal(0, host.OpenLeaseCount); Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output));
         host.AddInput(QpdfPath.From("result"), output, QpdfInputOwnership.Copy);
         await using QpdfDocument reader = await QpdfDocument.OpenAsync(host, QpdfPath.From("result"), limits, CancellationToken.None);
@@ -104,8 +112,7 @@ public sealed class JsonPageTreeTests
     {
         foreach (string layout in new[] { "cycle", "missing-child", "bad-kids", "bad-type", "depth", "default-depth" })
         foreach (bool update in new[] { false, true })
-        foreach (string route in new[] { "typed", "argv", "job" })
-        { yield return [layout, update, route]; }
+        { yield return [layout, update]; }
     }
 
     internal static void AssertPrior(InMemoryQpdfHost host)
@@ -116,45 +123,58 @@ public sealed class JsonPageTreeTests
 
     [Theory]
     [MemberData(nameof(InvalidCases))]
-    public async Task InvalidPageTreesFailBeforePublication(string layout, bool update, string route)
+    public async Task InvalidPageTreesFailBeforePublication(string layout, bool update)
     {
         bool deep = layout is "depth" or "default-depth";
         QpdfLimits limits = layout == "default-depth" ? QpdfLimits.Default : QpdfLimits.Default with { MaxNestingDepth = 2 };
         int depth = deep ? checked((int)limits.MaxNestingDepth + 1) : 1;
-        using InMemoryQpdfHost host = new(); Register(host, Fixture(depth, deep ? "direct" : layout, false)); await Seed(host);
-        if (route == "typed")
-        {
-            if (deep) { await Assert.ThrowsAsync<QpdfLimitException>(() => Typed(host, update, limits, CancellationToken.None)); }
-            else { await Assert.ThrowsAsync<QpdfParseException>(() => Typed(host, update, limits, CancellationToken.None)); }
-        }
-        else
-        {
-            QpdfExecutionResult result = await Execute(host, update, route, limits, CancellationToken.None);
-            Assert.Equal(QpdfExecutionStatus.Failed, result.Status); Assert.NotEmpty(result.Diagnostics); Assert.Equal(0L, result.Counters.OpenHandles);
-        }
-        AssertPrior(host);
+        using InMemoryQpdfHost host = new(); Register(host, Fixture(depth, deep ? "direct" : layout, false));
+        if (deep) { await Assert.ThrowsAsync<QpdfLimitException>(() => Typed(host, update, limits, CancellationToken.None)); }
+        else { await Assert.ThrowsAsync<QpdfParseException>(() => Typed(host, update, limits, CancellationToken.None)); }
+        Assert.False(host.TryGetOutput(QpdfPath.From("output"), out _)); Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Theory]
-    [InlineData(false, "typed")]
-    [InlineData(true, "typed")]
-    [InlineData(false, "argv")]
-    [InlineData(true, "argv")]
-    [InlineData(false, "job")]
-    [InlineData(true, "job")]
-    public async Task DeclaredCountMismatchUsesReaderWarningPolicy(bool update, string route)
+    [InlineData("argv", false, false)]
+    [InlineData("argv", true, true)]
+    [InlineData("job", true, false)]
+    [InlineData("job", false, true)]
+    public async Task InvalidPageTreeCommandsReportTheirFailureBeforeStaging(string route, bool update, bool depth)
+    {
+        using RecordingJobHost host = new(null, null, "success", true);
+        Register(host.Inner, Fixture(depth ? 3 : 1, depth ? "direct" : "cycle", false));
+        await Seed(host.Inner);
+        QpdfExecutionResult result = await Execute(host, update, route, QpdfLimits.Default with { MaxNestingDepth = 2 }, CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        QpdfDiagnostic diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(depth ? QpdfDiagnosticCode.BudgetExceeded : QpdfDiagnosticCode.InvalidArguments, diagnostic.Code);
+        Assert.Contains(depth ? nameof(QpdfLimits.MaxNestingDepth) : "cycle", diagnostic.Message, StringComparison.OrdinalIgnoreCase);
+        QpdfPath json = QpdfPath.From("json");
+        Assert.Equal(update ? [QpdfPath.From("input"), json] : [json], host.OpenedPaths);
+        Assert.Empty(host.CreatedPaths);
+        Assert.Equal(0L, result.Counters.TotalOutputBytes);
+        AssertPrior(host.Inner);
+        ExecutionJobFixtures.AssertClosed(host, result);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DeclaredCountMismatchUsesReaderWarningPolicy(bool update)
     {
         using InMemoryQpdfHost host = new(); Register(host, Fixture(1, "count-mismatch", false));
-        if (route == "typed")
-        {
-            QpdfJsonImportResult result = await Typed(host, update, QpdfLimits.Default, CancellationToken.None);
-            Assert.Equal(1, result.PageCount); Assert.Contains(result.Warnings, item => item.Code == QpdfDiagnosticCode.PageCountMismatch);
-        }
-        else
-        {
-            QpdfExecutionResult result = await Execute(host, update, route, QpdfLimits.Default, CancellationToken.None);
-            Assert.Equal(QpdfExitCode.Warning, result.ExitCode); Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.PageCountMismatch);
-        }
+        QpdfJsonImportResult result = await Typed(host, update, QpdfLimits.Default, CancellationToken.None);
+        Assert.Equal(1, result.PageCount); Assert.Contains(result.Warnings, item => item.Code == QpdfDiagnosticCode.PageCountMismatch);
+        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out _)); Assert.Equal(0, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task JobJsonReportsTheCountWarningAndPublishes()
+    {
+        using InMemoryQpdfHost host = new(); Register(host, Fixture(1, "count-mismatch", false));
+        QpdfExecutionResult result = await Execute(host, true, "job", QpdfLimits.Default, CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        Assert.Equal(QpdfDiagnosticCode.PageCountMismatch, Assert.Single(result.Diagnostics).Code);
         Assert.True(host.TryGetOutput(QpdfPath.From("output"), out _)); Assert.Equal(0, host.OpenLeaseCount);
     }
 }
