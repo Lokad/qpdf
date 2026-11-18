@@ -21,7 +21,7 @@ ownership or cancellation boundary:
 | `PdfParser.CopyNumericTextObserved` | Stops the actual string-copy loop after deterministic work for either token; `NumericCopyCancellationTests`. Pre-cancelled copies use the same observer. |
 | `JsonFormatValidator.CheckObserved` | Cancels actual format matching and unconstrained PDF-value skipping after syntax validation; `JsonSchemaMemoryTests`. |
 | Owned output-key reflection in `EncryptedSerializerTests` | Withholds the engine's own key to prove size-only passes make no key-dependent cipher calls, with failing emission and restored-key controls. |
-| Governor work-field reflection | `SubtreeReuseTests` and `PageInheritanceTests` measure finite traversal work and guard identities with resets disabled. Counts are not a public CPU allowance. |
+| Governor work-field reflection | `SubtreeReuseTests`, `PageInheritanceTests` and `JsonPageContainerPreparationTests` measure finite traversal work and guard identities with resets disabled. Counts are not a public CPU allowance. |
 
 Own-type backing-field reflection and isolated weak-reference controls remain
 where they prove real collectability independently of admission refunds. No

@@ -40,7 +40,7 @@ internal static class PageTreePreparation
         private readonly OwnedAllocationBatch _graph;
         private readonly Dictionary<int, QpdfObject> _objects;
         private readonly HashSet<PdfReference> _added;
-        private readonly HashSet<int> _path, _pages;
+        private readonly HashSet<int> _containers, _pages;
         private int _greatest;
         private ResourceGovernor Governor => _graph.Governor;
         private CancellationToken Token => _graph.Token;
@@ -53,7 +53,7 @@ internal static class PageTreePreparation
             _objects = ParserContainers.CreateDictionary<int, QpdfObject>(temporary);
             temporary.Reserve(96L);
             _added = new(ReferenceEqualityComparer.Instance);
-            _path = ParserContainers.CreateSet<int>(traversal);
+            _containers = ParserContainers.CreateSet<int>(traversal);
             _pages = ParserContainers.CreateSet<int>(traversal);
         }
 
@@ -129,51 +129,53 @@ internal static class PageTreePreparation
             return reference;
         }
 
+        private void MarkContainer(QpdfObject raw)
+        {
+            if (raw is PdfReference reference
+                && !ParserContainers.AddSetItem(_traversal, _containers, reference.ObjectNumber, sizeof(int)))
+            { throw new QpdfParseException("Page preparation encountered a repeated page-tree container.", null, reference.ObjectNumber); }
+        }
+
         private QpdfObject Canonicalize(QpdfObject raw, long depth, bool mediaBox, bool resources)
         {
             Visit(depth);
             PdfDictionary node = Dictionary(raw);
-            PdfReference? reference = raw as PdfReference;
-            if (reference is not null && !ParserContainers.AddSetItem(_traversal, _path, reference.ObjectNumber, sizeof(int)))
-            { throw new QpdfParseException("Page tree contains a cycle.", null, reference.ObjectNumber); }
-            try
+            MarkContainer(raw);
+            if (!PdfDictionaryLookup.TryGet(node, "Kids"u8, Governor, Token, out QpdfObject kidsRaw)
+                || Resolve(kidsRaw) is not PdfArray kids)
+            { throw new QpdfParseException("Pages must declare an array of /Kids.", null, (raw as PdfReference)?.ObjectNumber); }
+            MarkContainer(kidsRaw);
+            mediaBox = mediaBox || HasRectangle(node);
+            resources = resources || PdfDictionaryLookup.TryGet(node, "Resources"u8, Governor, Token, out QpdfObject parentResources)
+                && Resolve(parentResources) is PdfDictionary;
+            QpdfObject[]? changed = null;
+            for (int index = 0; index < kids.Count; index++)
             {
-                if (!PdfDictionaryLookup.TryGet(node, "Kids"u8, Governor, Token, out QpdfObject kidsRaw)
-                    || Resolve(kidsRaw) is not PdfArray kids)
-                { throw new QpdfParseException("Pages must declare an array of /Kids.", null, reference?.ObjectNumber); }
-                mediaBox |= HasRectangle(node);
-                resources |= PdfDictionaryLookup.TryGet(node, "Resources"u8, Governor, Token, out QpdfObject parentResources)
-                    && Resolve(parentResources) is PdfDictionary;
-                QpdfObject[]? changed = null;
-                for (int index = 0; index < kids.Count; index++)
+                Visit(checked(depth + 1));
+                QpdfObject childRaw = kids[index];
+                PdfDictionary child = Dictionary(childRaw);
+                if (childRaw is not PdfReference) { childRaw = Allocate(child); }
+                if (PdfDictionaryLookup.TryGet(child, "Kids"u8, Governor, Token, out QpdfObject childKids)
+                    && Resolve(childKids) is not (null or PdfNull))
+                { childRaw = Canonicalize(childRaw, checked(depth + 1), mediaBox, resources); }
+                else
                 {
-                    Visit(checked(depth + 1));
-                    QpdfObject childRaw = kids[index];
-                    PdfDictionary child = Dictionary(childRaw);
-                    if (childRaw is not PdfReference) { childRaw = Allocate(child); }
-                    if (PdfDictionaryLookup.TryGet(child, "Kids"u8, Governor, Token, out QpdfObject childKids)
-                        && Resolve(childKids) is not (null or PdfNull))
-                    { childRaw = Canonicalize(childRaw, checked(depth + 1), mediaBox, resources); }
-                    else
-                    {
-                        PdfDictionary leaf = PrepareLeaf(child, mediaBox, resources);
-                        childRaw = Store(childRaw, leaf);
-                        if (childRaw is PdfReference page
-                            && !ParserContainers.AddSetItem(_traversal, _pages, page.ObjectNumber, sizeof(int)))
-                        { childRaw = Allocate(Clone(leaf)); }
-                    }
-                    if (ReferenceEquals(childRaw, kids[index])) { continue; }
-                    changed ??= CopyItems(kids);
-                    changed[index] = childRaw;
+                    PdfDictionary leaf = PrepareLeaf(child, mediaBox, resources);
+                    childRaw = Store(childRaw, leaf);
+                    if (childRaw is PdfReference page
+                        && !ParserContainers.AddSetItem(_traversal, _pages, page.ObjectNumber, sizeof(int)))
+                    { childRaw = Allocate(Clone(leaf)); }
                 }
-                if (changed is null) { return raw; }
-                QpdfObject preparedKids = Store(kidsRaw, PdfArray.FromOwnedItems(changed));
-                // An indirect Kids array keeps its pair; its own overlay already
-                // relinks the visible tree, without replacing the parent header.
-                return ReferenceEquals(preparedKids, kidsRaw) ? raw
-                    : Store(raw, PdfDictionaryRebuild.ReplaceEntry(_graph, node, "Kids"u8, preparedKids));
+                if (ReferenceEquals(childRaw, kids[index])) { continue; }
+                changed ??= CopyItems(kids);
+                changed[index] = childRaw;
             }
-            finally { if (reference is not null) { _path.Remove(reference.ObjectNumber); } }
+            if (changed is null) { return raw; }
+            QpdfObject preparedKids = Store(kidsRaw, PdfArray.FromOwnedItems(changed));
+            // An indirect Kids array keeps its pair; its own overlay already
+            // relinks the visible tree, without replacing the parent header.
+            return ReferenceEquals(preparedKids, kidsRaw) ? raw
+                : Store(raw, PdfDictionaryRebuild.ReplaceEntry(_graph, node, "Kids"u8, preparedKids));
         }
 
         private bool HasRectangle(PdfDictionary node)

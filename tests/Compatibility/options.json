@@ -7725,7 +7725,8 @@
           "JsonImportContainerTests.TrailerDictionaryItselfHasTheSameCeiling",
           "JsonLayoutTests.CombinedLayoutsRequireValidPrimaryAndTemplateCredentialsBeforeOutput",
           "JsonMetadataPolicyTests.DatePresenceUsesTheBoundJsonGraph",
-          "JsonPagePreparationTests.BothPoliciesValidatePreparationFlagTypesBeforePublication"
+          "JsonPagePreparationTests.BothPoliciesValidatePreparationFlagTypesBeforePublication",
+          "JsonPageContainerPreparationTests.DeclaredPreparationRejectsRepeatedContainersBeforePublication"
         ],
         "interaction": [
           "JsonImportTests.JobUpdateRoundTrip",
@@ -7773,7 +7774,8 @@
           "JsonCatalogRemovalTests.CatalogPreparationRefundsAndPreservesTheActualTarget",
           "JsonPagePreparationTests.PreparationBorrowsOriginalValuesAndOwnsItsFreshHeaders",
           "JsonPagePreparationTests.PreparationRetainsTheSharedNestingAndCancellationBounds",
-          "JsonPagePreparationTests.PreparationAndPublicationFailuresRetainTheActualTargetAndRefundAdmission"
+          "JsonPagePreparationTests.PreparationAndPublicationFailuresRetainTheActualTargetAndRefundAdmission",
+          "JsonPageContainerPreparationTests.EmptyDagPreparationStopsAfterFiniteDistinctContainerWorkAndRefunds"
         ],
         "oracle": [
           "diff:json-update",

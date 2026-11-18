@@ -370,6 +370,8 @@ independent headers, and pushed attributes follow the original tree's nearest
 non-null values. Original stale/free/missing edges stay null even if preparation
 allocates their pair. Creation validates these flags but ignores their actions.
 The reader's existing structural and recovery policies still apply.
+Declared preparation rejects repeated Pages nodes or shared Kids arrays, matching
+native traversal; ordinary repeated leaf pages remain supported.
 Import/update can use object-stream disable/preserve/generate modes and two-pass
 linearization, including with supported output encryption. Preservation retains
 matching source members; creation has no original packing to preserve. Argv/job
