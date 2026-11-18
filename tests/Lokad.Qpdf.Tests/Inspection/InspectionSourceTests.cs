@@ -1,7 +1,10 @@
 using System.Text;
 using System.Text.Json;
+using Lokad.Qpdf.Commands;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Operations;
+using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.TestSupport;
@@ -116,12 +119,13 @@ public sealed class InspectionSourceTests
         if (selector is not null) { args.Add("--show-object=" + selector); job["showObject"] = selector; }
         if (collation is not null) { args.Add("--collate=" + collation); job["collate"] = collation; }
         QpdfExecutionOptions options = new(limits);
+        if (route == "mixed" && selector is not null) { job["showObject"] = "trailer"; }
         string text = JsonSerializer.Serialize(job);
         if (route == "job") { return Qpdf.ExecuteJobAsync(host, text, options, CancellationToken.None); }
         if (route == "mixed")
         {
             host.AddInput(QpdfPath.From("settings"), Encoding.UTF8.GetBytes(text), QpdfInputOwnership.Transfer);
-            args = ["--job-json-file=settings"];
+            args = selector is null ? ["--job-json-file=settings"] : ["--job-json-file=settings", "--show-object=" + selector];
         }
         return Qpdf.ExecuteAsync(host, new(args), options, CancellationToken.None);
     }
@@ -136,12 +140,12 @@ public sealed class InspectionSourceTests
     {
         foreach (string shape in new[] { "direct", "indirect", "shared", "action" })
         foreach (string selection in new[] { "combined", "groups", "reverse", "duplicate", "interleaved", "collated", "omitted", "zero", "overlap" })
-        foreach (string route in new[] { "argv", "job", "mixed" }) { yield return [shape, selection, route]; }
+        { yield return [shape, selection]; }
     }
 
     [Theory]
     [MemberData(nameof(SelectionCases))]
-    public async Task SelectedTargetsAndAliasesUseTheCompleteLogicalSource(string shape, string selection, string route)
+    public async Task SelectedTargetsAndAliasesUseTheCompleteLogicalSource(string shape, string selection)
     {
         using InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("input"), Fixture(shape, "P"), QpdfInputOwnership.Transfer);
@@ -164,67 +168,81 @@ public sealed class InspectionSourceTests
             "omitted" or "zero" => ["A1", "A3"], "overlap" => ["A1", "A2", "A3"], _ => ["A1", "A2", "A3"],
         };
         QpdfLimits limits = QpdfLimits.Default with { MaxOpenHandles = 2 };
-        QpdfExecutionResult result = await Execute(host, route, groups, collation, limits, true, null);
-        Assert.True(result.ExitCode == QpdfExitCode.Success,
-            string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        string[] pageReferences = result.Diagnostics.Where(d => d.Code == QpdfDiagnosticCode.PageListing
-                && d.Message.StartsWith("page ", StringComparison.Ordinal))
+        QpdfPath input = QpdfPath.From("input");
+        CheckPlan plan = new(input, QpdfRecoveryMode.BoundedRepair)
+        {
+            Sources = groups.Select(group => new PdfPageSource(QpdfPath.From(group.Path), PdfPageSelectionOptions.FromRange(group.Range))).ToArray(),
+            Collation = collation is null ? null : new PdfPageCollation(collation.Split(',').Select(int.Parse).ToArray()),
+            ShowPages = true,
+        };
+        ResourceGovernor governor = new(limits, CancellationToken.None, host);
+        DiagnosticBag diagnostics = new(governor);
+        try
+        {
+            await using QpdfDocument document = await QpdfDocument.OpenInspectionCore(host, input, null, limits, governor,
+                diagnostics, plan.Recovery, CancellationToken.None);
+            using InspectionGraphPreparation.InspectionGraph graph = Assert.IsType<InspectionGraphPreparation.InspectionGraph>(
+                await InspectionGraphPreparation.PrepareInspectionGraphAsync(host, document, plan, limits,
+                    governor, diagnostics, CancellationToken.None));
+            Assert.Empty(diagnostics.Entries);
+            IIndirectResolver resolver = document.Engine;
+            QpdfObject Resolve(QpdfObject value) => PageInheritance.Resolve(resolver, value, limits, governor);
+            string Marker(QpdfObject value) => Encoding.ASCII.GetString(Assert.IsType<PdfByteString>(Get(Resolve(value), "Marker")).ValueSpan);
+
+            PdfReference[] references = document.PageReferences.Select(page => Assert.IsType<PdfReference>(page.Source)).ToArray();
+            Assert.Equal(expected, references.Select(Marker));
+            Assert.Equal(references.Length, references.Distinct().Count());
+            List<QpdfObject> sharedDestinations = [];
+            for (int index = 0; index < references.Length; index++)
+            {
+                QpdfObject page = Resolve(references[index]);
+                Assert.Same(document.PageReferences[index].Page, page);
+                QpdfObject annotation = Resolve(Assert.IsType<PdfArray>(Resolve(Get(page, "Annots")))[0]);
+                QpdfObject destinationValue = shape == "action" ? Get(Resolve(Get(annotation, "A")), "D") : Get(annotation, "Dest");
+                PdfArray destination = Assert.IsType<PdfArray>(Resolve(destinationValue));
+                string marker = expected[index];
+                int targetPage = shape == "shared" ? 3 : (marker[1] - '0') % 3 + 1;
+                string target = marker[..1] + targetPage.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                if (expected.Contains(target))
+                {
+                    Assert.Equal(target, Marker(destination[0]));
+                    Assert.Contains(Assert.IsType<PdfReference>(destination[0]), references);
+                }
+                else { Assert.IsType<PdfNull>(Resolve(destination[0])); }
+                if (shape == "shared" && marker[0] == 'A') { sharedDestinations.Add(destinationValue); }
+            }
+            if (shape == "shared") { Assert.Single(sharedDestinations.Distinct()); }
+        }
+        finally { governor.CompleteStorage(); }
+        Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.Equal(0L, governor.Snapshot().OpenHandles);
+    }
+
+    [Theory]
+    [InlineData("argv")]
+    [InlineData("job")]
+    [InlineData("mixed")]
+    public async Task PageListingPairsResolveThroughThePublicSelector(string route)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), Fixture("shared", "P"), QpdfInputOwnership.Transfer);
+        host.AddInput(QpdfPath.From("other"), Fixture("shared", "A"), QpdfInputOwnership.Transfer);
+        (string, string)[] groups = [("other", "1,1,3")];
+        QpdfLimits limits = QpdfLimits.Default with { MaxOpenHandles = 2 };
+        QpdfExecutionResult listed = await Execute(host, route, groups, null, limits, true, null);
+        Assert.Equal(QpdfExitCode.Success, listed.ExitCode);
+        string[] pages = listed.Diagnostics.Where(d => d.Code == QpdfDiagnosticCode.PageListing && d.Message.StartsWith("page ", StringComparison.Ordinal))
             .Select(d => d.Message[(d.Message.IndexOf(':') + 2)..]).ToArray();
-        ResourceGovernor parsing = new(QpdfLimits.Default, CancellationToken.None);
-        using ParserMemoryScope parsed = ParserMemoryScope.Create(parsing);
-        Dictionary<string, QpdfObject> objects = new(StringComparer.Ordinal);
-        async Task<QpdfObject> Read(string reference)
-        {
-            if (objects.TryGetValue(reference, out QpdfObject? known)) { return known; }
-            string selector = reference[..^2].Replace(' ', ',');
-            QpdfExecutionResult shown = await Execute(host, route, groups, collation, limits, false, selector);
-            Assert.True(shown.ExitCode == QpdfExitCode.Success, string.Join("; ", shown.Diagnostics.Select(d => d.Message)));
-            string body = Assert.Single(shown.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing).Message;
-            PdfParser parser = new(QpdfLimits.Default, parsing, new DiagnosticBag(parsing), null);
-            QpdfObject value = parser.ParseValue(new PdfTokenizer(Encoding.Latin1.GetBytes(body), CancellationToken.None), 0, parsed);
-            objects.Add(reference, value); return value;
-        }
-        async Task<QpdfObject> Resolve(QpdfObject value)
-        {
-            while (value is PdfReference reference)
-            { value = await Read(reference.ObjectNumber + " " + reference.Generation + " R"); }
-            return value;
-        }
-        async Task<string> Marker(QpdfObject value)
-            => Encoding.ASCII.GetString(Assert.IsType<PdfByteString>(Get(await Resolve(value), "Marker")).ValueSpan);
-        List<string> markers = [];
-        foreach (string reference in pageReferences) { markers.Add(await Marker(await Read(reference))); }
-        Assert.Equal(expected, markers);
-        Assert.Equal(pageReferences.Length, pageReferences.Distinct().Count());
-        for (int index = 0; index < pageReferences.Length; index++)
-        {
-            QpdfObject page = await Read(pageReferences[index]);
-            QpdfObject annotation = await Resolve(Assert.IsType<PdfArray>(await Resolve(Get(page, "Annots")))[0]);
-            PdfArray destination = Assert.IsType<PdfArray>(await Resolve(shape == "action"
-                ? Get(await Resolve(Get(annotation, "A")), "D") : Get(annotation, "Dest")));
-            string marker = expected[index];
-            string target = marker[..1] + (shape == "shared" ? "3" : (int.Parse(marker[1..], System.Globalization.CultureInfo.InvariantCulture) % 3 + 1).ToString(System.Globalization.CultureInfo.InvariantCulture));
-            if (expected.Contains(target))
-            {
-                Assert.Equal(target, await Marker(destination[0]));
-                PdfReference targetReference = Assert.IsType<PdfReference>(destination[0]);
-                Assert.Contains(targetReference.ObjectNumber + " " + targetReference.Generation + " R", pageReferences);
-            }
-            else { Assert.IsType<PdfNull>(await Resolve(destination[0])); }
-        }
-        if (shape == "shared")
-        {
-            List<QpdfObject> sameSource = [];
-            for (int index = 0; index < pageReferences.Length; index++)
-            {
-                if (expected[index][0] != 'A') { continue; }
-                QpdfObject page = await Read(pageReferences[index]);
-                QpdfObject annotation = await Resolve(Assert.IsType<PdfArray>(await Resolve(Get(page, "Annots")))[0]);
-                sameSource.Add(Get(annotation, "Dest"));
-            }
-            Assert.Single(sameSource.Distinct());
-        }
-        Assert.Equal(0L, host.OpenLeaseCount); Assert.Equal(0L, result.Counters.OpenHandles);
+        Assert.Equal(3, pages.Length);
+        Assert.Equal(3, pages.Distinct().Count());
+        string selector = pages[1][..^2].Replace(' ', ',');
+        Assert.True(int.Parse(selector.AsSpan(0, selector.IndexOf(',')), System.Globalization.CultureInfo.InvariantCulture) > 19);
+        QpdfExecutionResult shown = await Execute(host, route, groups, null, limits, false, selector);
+        Assert.Equal(QpdfExitCode.Success, shown.ExitCode);
+        Assert.Contains("/Marker (A1)", Assert.Single(shown.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing).Message,
+            StringComparison.Ordinal);
+        Assert.Equal(0L, shown.Counters.OpenHandles);
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Theory]
