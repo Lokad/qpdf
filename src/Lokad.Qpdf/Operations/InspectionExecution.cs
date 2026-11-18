@@ -683,22 +683,12 @@ internal static class InspectionExecution
                 diagnostics, plan.Recovery, token).ConfigureAwait(false);
         using DocumentEngine? engine = source.Engine;
         using ParserMemoryScope graph = ParserMemoryScope.Create(governor);
-        using System.Text.Json.JsonDocument json = await Json.JsonImport.ReadJsonAsync(host, imported.Json,
-            null, limits, governor, graph, token).ConfigureAwait(false);
-        Json.ImportedModel model = engine is null
-            ? await Json.JsonImport.BuildCreateModelAsync(host, json, true, limits, governor, graph, token).ConfigureAwait(false)
-            : await Json.JsonImport.BuildUpdateModelAsync(host, json, engine, source.Header, true, false, true, null, null,
-                limits, governor, graph, token).ConfigureAwait(false);
-        Json.JsonImport.CheckObjectCount(model, limits);
-        if (PdfDictionaryLookup.TryGet(model.Trailer, "Encrypt"u8, governor, token, out QpdfObject declaration)
-            && declaration is not PdfNull) { throw new QpdfCryptoException("/Encrypt"); }
+        Json.ImportedModel model = await JsonExecution.BindInspectionModelAsync(host, imported, engine, source.Header,
+            limits, governor, graph, token).ConfigureAwait(false);
 
         using ParserMemoryScope inspection = ParserMemoryScope.Create(governor);
         Content.PoolResolver resolver = Content.PoolResolver.Create(inspection, model.Objects);
-        if (!PdfDictionaryLookup.TryGet(model.Trailer, "Root"u8, governor, token, out QpdfObject root)
-            || Content.CatalogCopy.ResolveDictionary(root, resolver, governor, token) is not PdfDictionary catalog)
-        { throw new QpdfParseException("Imported trailer /Root must resolve to a dictionary.", 0L, null); }
-        Json.JsonImport.ValidateCatalogVersion(catalog, resolver, governor, token);
+        PdfDictionary catalog = JsonExecution.ReadBoundCatalog(model, resolver, governor, token);
         IReadOnlyList<PageLocation> pages = plan.RunCheck || plan.ShowPages || plan.ShowNpages
             ? PageTree.Read(resolver, catalog, diagnostics, governor, limits, inspection, token) : [];
         IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds = OriginalObjectIds.PrepareImportedIds(

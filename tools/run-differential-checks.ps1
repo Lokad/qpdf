@@ -2896,6 +2896,8 @@ Invoke-ReferenceJsonSplit
 Invoke-ReferenceJsonQdf
 . (Join-Path $repoRoot 'tools/ReferenceJsonCheck.ps1')
 Invoke-ReferenceJsonCheck
+. (Join-Path $repoRoot 'tools/ReferenceJsonComposition.ps1')
+Invoke-ReferenceJsonComposition
 . (Join-Path $repoRoot 'tools/ReferenceSecurity.ps1')
 Invoke-ReferenceSecurity
 . (Join-Path $repoRoot 'tools/ReferenceXrefRoles.ps1')

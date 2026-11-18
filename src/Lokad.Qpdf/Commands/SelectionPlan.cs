@@ -290,7 +290,10 @@ internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : Jo
     public bool ShowLinearization { get; init; }
 }
 
-internal readonly record struct ImportedInspectionInput(QpdfPath Json, bool Update);
+internal readonly record struct ImportedInspectionInput(QpdfPath Json, bool Update)
+{
+    internal QpdfPath? FollowingPatch { get; init; }
+}
 
 /// <summary>Validated whole-file transformation.</summary>
 internal sealed record WholeFilePlan(QpdfPath Input, QpdfPath Output, QpdfRecoveryMode Recovery) : JobPlan(Input);
@@ -298,6 +301,7 @@ internal sealed record WholeFilePlan(QpdfPath Input, QpdfPath Output, QpdfRecove
 /// <summary>Validated JSON inspection.</summary>
 internal sealed record JsonPlan(QpdfPath Input, QpdfPath? Output, int Version, IReadOnlyList<string> Keys, QpdfRecoveryMode Recovery) : JobPlan(Input), IInspectionGraphPlan
 {
+    internal ImportedInspectionInput? Import { get; init; }
     public bool AssembleCatalog => true;
     public IReadOnlyList<PdfPageSource> Sources { get; init; } = [];
     public PdfPageCollation? Collation { get; init; }
@@ -322,6 +326,7 @@ internal sealed record JsonInspection(
     HashSet<(bool Trailer, int Number, int Generation)>? Objects,
     bool MinimalOutput)
 {
+    internal ImportedInspectionInput? Import { get; init; }
     internal QpdfPassword? Password { get; init; }
     internal IInspectionGraphPlan? GraphPlan { get; init; }
 }

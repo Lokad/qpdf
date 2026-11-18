@@ -351,6 +351,14 @@ retain their separate complete-input contracts.
 
 ### JSON export
 
+Commands can combine JSON export with `--json-input` or
+`--update-from-json`. The report describes the bound graph and uses its
+declared pairs in descriptors, object keys and filters. A create-and-patch
+job can export the result directly. Physical updates authenticate before
+binding. The report and its sidecars protect every consumed input.
+When exported objects share a number across generations, nonzero generations
+add a suffix to the sidecar name to keep the files distinct.
+
 Argv/job JSON inspection accepts page-source assembly and collation, including
 an empty primary. Page descriptors and object exports share the assembled graph;
 labels, secondary actions/forms/layers and source version requirements survive

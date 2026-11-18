@@ -980,18 +980,19 @@ internal static partial class JobPlanner
             if (importJson && replaceInput && splitPages.HasValue)
             { throw new QpdfParseException("--split-pages may not be used with --replace-input.", null, null); }
 
+            bool wantJsonOutput = seenJsonOutput || seenJson;
             // Complete validation before any restricted JSON-plan return. These
             // plans cannot run geometry operations; ordinary checking and
             // document-JSON writer ignores retain their separate policies.
             if ((importJson || seenJson || seenJsonOutput)
-                && ((!importJson && splitPages.HasValue) || (importJson && seenCollate) || rotations.Count > 0
+                && ((wantJsonOutput && splitPages.HasValue) || (importJson && seenCollate) || rotations.Count > 0
                     || flattenRotation || flattenAnnotations is not null || generateAppearances
-                    || (!importJson && (qdf || linearize)) || overlays.Count > 0 || underlays.Count > 0))
+                    || (wantJsonOutput && (qdf || linearize)) || overlays.Count > 0 || underlays.Count > 0))
             {
                 throw new QpdfParseException("JSON operations cannot be combined with page transformations or PDF layout settings.", 0L, null);
             }
 
-            if (importJson && (testJsonSchema
+            if (importJson && ((!wantJsonOutput && testJsonSchema)
                 || (normalizeContent && !qdf) || externalizeInlineImages || iiMinBytes != 1024L
                 || removeUnreferencedResources is not (null or "no")
                 || optimizeImages || oiMinWidth != 128L || oiMinHeight != 128L || oiMinArea != 16384L
@@ -1001,20 +1002,20 @@ internal static partial class JobPlanner
                 throw new QpdfParseException("These transformation settings cannot be combined with JSON import.", 0L, null);
             }
 
-            if (importJson)
+            if (importJson && (hasPages || (wantJsonOutput && (empty || coalesceContents || labels.Count > 0))))
+            {
+                throw new QpdfParseException("These page transformations cannot be combined with bound JSON inspection or import.", 0L, null);
+            }
+
+            if (importJson && !wantJsonOutput)
             {
                 string operation = jsonInput ? "jsonInput" : "updateFromJson";
-                if (hasPages)
-                {
-                    throw new QpdfParseException($"Job \"{operation}\" cannot be combined with \"pages\".", 0L, null);
-                }
-
                 if (wantAttachments || attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0)
                 {
                     throw new QpdfParseException($"Job \"{operation}\" cannot be combined with attachment keys.", 0L, null);
                 }
 
-                if (seenJson || seenJsonOutput || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix)
+                if (seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix)
                 {
                     throw new QpdfParseException($"Job \"{operation}\" cannot be combined with JSON inspection.", 0L, null);
                 }
@@ -1070,7 +1071,6 @@ internal static partial class JobPlanner
                 };
             }
 
-            bool wantJsonOutput = seenJsonOutput || seenJson;
             if ((seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix) && !wantJsonOutput)
             {
                 throw new QpdfParseException("JSON stream and object keys require \"json\" or \"jsonOutput\".", 0L, null);
@@ -1111,6 +1111,12 @@ internal static partial class JobPlanner
                     ? ParseInspectionCollation(collationSizes, jsonSources.Count, textStorage) : null;
                 return new JsonPlan(inspectionInput, output is null ? null : SelectionPlan.CheckedPath(output), jsonNumber, effectiveKeys, recovery) with
                 {
+                    Import = importJson ? new ImportedInspectionInput(jsonInput ? inspectionInput : SelectionPlan.CheckedPath(updateFromJson
+                        ?? throw new InvalidOperationException("Missing validated JSON patch path.")), !jsonInput)
+                    {
+                        FollowingPatch = jsonInput && seenUpdateFromJson ? SelectionPlan.CheckedPath(updateFromJson
+                            ?? throw new InvalidOperationException("Missing validated second-stage patch path.")) : null,
+                    } : null,
                     CoalesceContents = coalesceContents,
                     ExternalizeInlineImages = externalizeInlineImages,
                     IiMinBytes = iiMinBytes,

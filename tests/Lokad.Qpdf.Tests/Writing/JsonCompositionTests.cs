@@ -111,6 +111,146 @@ public sealed class JsonCompositionTests
         Assert.Equal(0, host.OpenLeaseCount);
     }
 
+    [Fact]
+    public async Task BoundProjectionKeepsDeclaredAddressesAcrossDescriptorsAndValues()
+    {
+        using InMemoryQpdfHost host = NewHost(ValidPatch);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new([
+            "source.json", "--json-input", "--update-from-json=patch.json", "--json=2",
+            "--json-key=pages", "--json-key=qpdf", "--json-stream-data=inline"]), Token);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        using JsonDocument json = JsonDocument.Parse(Assert.IsType<string>(result.OutputText));
+        JsonElement page = Assert.Single(json.RootElement.GetProperty("pages").EnumerateArray());
+        Assert.Equal("19 7 R", page.GetProperty("object").GetString());
+        JsonElement table = json.RootElement.GetProperty("qpdf")[1];
+        Assert.Equal("5 2 R", table.GetProperty("trailer").GetProperty("value").GetProperty("/Root").GetString());
+        JsonElement catalog = ReadCatalog(table);
+        Assert.Equal("41 7 R", catalog.GetProperty("/New").GetString());
+        Assert.Equal("23 4 R", catalog.GetProperty("/Keep").GetString());
+        Assert.False(catalog.TryGetProperty("/Stale", out _));
+        Assert.Equal(Payload, table.GetProperty("obj:23 4 R").GetProperty("stream").GetProperty("data").GetBytesFromBase64());
+        Assert.Equal(0, host.OpenLeaseCount);
+
+        QpdfExecutionResult unpatched = await Qpdf.ExecuteAsync(host, new(["source.json", "--json-input", "--json-output"]), Token);
+        Assert.Equal(QpdfExitCode.Success, unpatched.ExitCode);
+        using JsonDocument creation = JsonDocument.Parse(Assert.IsType<string>(unpatched.OutputText));
+        JsonElement originalTable = creation.RootElement.GetProperty("qpdf")[1];
+        Assert.False(ReadCatalog(originalTable).TryGetProperty("/New", out _));
+        Assert.Equal("u:original", originalTable.GetProperty("obj:23 4 R").GetProperty("stream").GetProperty("dict").GetProperty("/Tag").GetString());
+    }
+
+    [Fact]
+    public async Task NamedProjectionSeparatesSameNumberStreamGenerations()
+    {
+        using InMemoryQpdfHost host = NewHost(ValidPatch);
+        string second = """
+            {"qpdf":[{"jsonversion":2},{"obj:23 6 R":{"stream":{"dict":{},"data":"T1RIRVI="}}}]}
+            """;
+        host.AddInput(Patch, Encoding.UTF8.GetBytes(second), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, """
+            {"inputFile":"source.json","jsonInput":"","updateFromJson":"patch.json","jsonOutput":"2",
+             "jsonStreamData":"file","jsonStreamPrefix":"parts","outputFile":"report.json"}
+            """, Token);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Null(result.OutputText);
+        Assert.True(host.TryGetOutput(QpdfPath.From("report.json"), out byte[] report));
+        using JsonDocument json = JsonDocument.Parse(report);
+        JsonElement table = json.RootElement.GetProperty("qpdf")[1];
+        CheckPayload("obj:23 4 R", "parts-23-4", Payload);
+        CheckPayload("obj:23 6 R", "parts-23-6", "OTHER"u8.ToArray());
+        Assert.Equal(0, host.OpenLeaseCount);
+
+        void CheckPayload(string key, string expectedName, byte[] expected)
+        {
+            JsonElement stream = table.GetProperty(key).GetProperty("stream");
+            Assert.Equal(expectedName, stream.GetProperty("datafile").GetString());
+            Assert.True(host.TryGetOutput(QpdfPath.From(expectedName), out byte[] bytes));
+            Assert.Equal(expected, bytes);
+        }
+    }
+
+    [Fact]
+    public async Task AProjectedSidecarCannotReplaceABoundInput()
+    {
+        using InMemoryQpdfHost host = NewHost(ValidPatch);
+        QpdfPath report = QpdfPath.From("report.json");
+        QpdfPath sidecar = QpdfPath.From("parts-23");
+        host.AddInput(Source, Encoding.UTF8.GetBytes(Create.Replace("payload.bin", "parts-23", StringComparison.Ordinal)), QpdfInputOwnership.Transfer);
+        host.AddInput(sidecar, Payload, QpdfInputOwnership.Copy);
+        await using (IQpdfOutputTransaction prior = await host.CreateOutputAsync(report, Token))
+        {
+            await prior.WriteAsync(Prior, Token);
+            await prior.CommitAsync(Token);
+        }
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new([
+            "source.json", "--json-input", "--update-from-json=patch.json", "--json-output",
+            "--json-stream-data=file", "--json-stream-prefix=parts", "report.json"]), Token);
+        Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.InvalidArguments && d.Message.Contains("aliases an input", StringComparison.Ordinal));
+        Assert.True(host.TryGetOutput(report, out byte[] current));
+        Assert.Equal(Prior, current);
+        Assert.False(host.TryGetOutput(sidecar, out _));
+        Assert.Equal(0, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task ObjectFilterMatchesTheDeclaredPairInVersionOne()
+    {
+        using InMemoryQpdfHost host = NewHost(ValidPatch);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new([
+            "source.json", "--json-input", "--update-from-json=patch.json", "--json=1",
+            "--json-key=objects", "--json-object=23,4"]), Token);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        using JsonDocument json = JsonDocument.Parse(Assert.IsType<string>(result.OutputText));
+        JsonProperty stream = Assert.Single(json.RootElement.GetProperty("objects").EnumerateObject());
+        Assert.Equal("23 4 R", stream.Name);
+        Assert.Equal("patched", stream.Value.GetProperty("/Tag").GetString());
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task PhysicalUpdateAuthenticatesBeforeProjection(bool authenticated)
+    {
+        using InMemoryQpdfHost host = new();
+        QpdfPath input = QpdfPath.From("protected.pdf");
+        byte[] bytes = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "security-r6-ascii.pdf"));
+        host.AddInput(input, bytes, QpdfInputOwnership.Transfer);
+        QpdfExecutionResult original = await Qpdf.ExecuteAsync(host,
+            new(["protected.pdf", "--password=reader", "--json=2", "--json-key=qpdf"]), Token);
+        Assert.Equal(QpdfExitCode.Success, original.ExitCode);
+        using JsonDocument sourceReport = JsonDocument.Parse(Assert.IsType<string>(original.OutputText));
+        JsonElement table = sourceReport.RootElement.GetProperty("qpdf")[1];
+        string root = Assert.IsType<string>(table.GetProperty("trailer").GetProperty("value").GetProperty("/Root").GetString());
+        Dictionary<string, JsonElement> catalog = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(ReadCatalog(table))
+            ?? throw new InvalidOperationException("Missing source catalog.");
+        catalog.Add("/Marker", JsonSerializer.SerializeToElement("u:bound"));
+        Dictionary<string, object> change = new() { ["obj:" + root] = new { value = catalog } };
+        byte[] patch = JsonSerializer.SerializeToUtf8Bytes(new { qpdf = new object[] { new { jsonversion = 2 }, change } });
+        host.AddInput(Patch, patch, QpdfInputOwnership.Transfer);
+
+        string password = authenticated ? "reader" : "wrong";
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new([
+            "protected.pdf", "--password=" + password, "--update-from-json=patch.json", "--json=2",
+            "--json-key=qpdf", "--json-key=encrypt"]), Token);
+        if (!authenticated)
+        {
+            Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+            Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.InvalidPassword);
+            Assert.Null(result.OutputText);
+        }
+        else
+        {
+            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+            using JsonDocument json = JsonDocument.Parse(Assert.IsType<string>(result.OutputText));
+            JsonElement effective = json.RootElement.GetProperty("qpdf")[1];
+            Assert.Equal("u:bound", ReadCatalog(effective).GetProperty("/Marker").GetString());
+            Assert.True(json.RootElement.GetProperty("encrypt").GetProperty("encrypted").GetBoolean());
+            Assert.False(effective.GetProperty("trailer").GetProperty("value").TryGetProperty("/Encrypt", out _));
+        }
+        Assert.Equal(0, host.OpenLeaseCount);
+    }
+
     private static InMemoryQpdfHost NewHost(string patch)
     {
         InMemoryQpdfHost host = new();

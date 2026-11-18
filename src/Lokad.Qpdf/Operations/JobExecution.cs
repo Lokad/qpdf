@@ -250,7 +250,7 @@ internal static class JobExecution
         if (plan is JsonPlan json)
         {
             Commands.JsonInspection inspection = new(json.Version, json.Keys, json.DecodeLevel, json.StreamDataMode, json.StreamPrefix, json.Objects, json.MinimalOutput)
-            { Password = suppliedPassword is null ? json.Password : suppliedPassword.Password, GraphPlan = json };
+            { Password = suppliedPassword is null ? json.Password : suppliedPassword.Password, GraphPlan = json, Import = json.Import };
             JsonInspectionOutcome inspected = await JsonCoreAsync(
                 host,
                 json.Input,

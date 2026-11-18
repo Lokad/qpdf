@@ -60,7 +60,8 @@ retains its policy for malformed or unsupported values.
 
 JSON export can assemble the selected page graph before projecting it. Page and
 object reports share the assembled graph and preserve source pair provenance.
-New identities cannot revive invalid source edges. The export graph detaches
+The writer can project a bound JSON graph with its original pairs. Physical
+source edges resolve against their xrefs. The export graph detaches
 after serialization and sidecar copying, before host publication.
 
 JSON creation and update bind declarations against complete pairs. An update

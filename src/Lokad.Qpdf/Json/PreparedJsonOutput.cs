@@ -82,11 +82,17 @@ internal sealed class PreparedJsonOutput : IDisposable
     }
 
     internal JsonPayload AddSidecar(string prefix, int number, ReadOnlySpan<byte> bytes, QpdfLimits limits)
+        => AddSidecar(prefix, number, 0, bytes, limits);
+
+    internal JsonPayload AddSidecar(string prefix, int number, int disambiguatingGeneration, ReadOnlySpan<byte> bytes, QpdfLimits limits)
     {
         _governor.CheckCancellation();
         Span<byte> digits = stackalloc byte[20];
         int length = WriterNumber.Format(number, digits, _governor);
-        if (prefix.Length > QpdfPath.MaxLength - 1 - length || prefix.Contains('\0')
+        Span<byte> generationDigits = stackalloc byte[20];
+        int generationLength = disambiguatingGeneration == 0 ? 0 : WriterNumber.Format(disambiguatingGeneration, generationDigits, _governor);
+        int suffixLength = 1 + length + (generationLength == 0 ? 0 : 1 + generationLength);
+        if (prefix.Length > QpdfPath.MaxLength - suffixLength || prefix.Contains('\0')
             || !GovernedText.IsValidUtf16(prefix, _governor))
         { throw new QpdfParseException("JSON stream file name is not a valid logical path.", null, null); }
         if (bytes.Length > limits.MaxOutputBytes)
@@ -94,6 +100,11 @@ internal sealed class PreparedJsonOutput : IDisposable
         using DisplayBuffer nameBuffer = DisplayBuffer.Create(_governor, false);
         nameBuffer.Append(prefix); nameBuffer.Append('-');
         foreach (byte digit in digits[..length]) { nameBuffer.Append((char)digit); }
+        if (generationLength != 0)
+        {
+            nameBuffer.Append('-');
+            foreach (byte digit in generationDigits[..generationLength]) { nameBuffer.Append((char)digit); }
+        }
         using GovernedText name = nameBuffer.Finish();
         long reserved = ArrayBytes(bytes.Length);
         Memory.Reserve(reserved);

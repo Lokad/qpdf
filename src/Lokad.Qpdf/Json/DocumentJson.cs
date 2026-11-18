@@ -52,8 +52,18 @@ internal static class DocumentJson
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
+        => WriteDocument(new JsonDocumentView(document), request, output, limits, governor, diagnostics, cancellationToken);
+
+    internal static DisplayBuffer WriteDocument(
+        JsonDocumentView document,
+        JsonRequest request,
+        PreparedJsonOutput output,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
     {
-        DocumentEngine engine = document.Engine;
+        JsonDocumentView engine = document;
         DisplayBuffer builder = DisplayBuffer.CreateJson(governor);
         try
         {
@@ -70,7 +80,7 @@ internal static class DocumentJson
             bool hasLabelTree = false;
             if (request.Wants("pages") || request.Wants("pagelabels"))
             {
-                labels = ReadLabelTreeCore(engine, limits, governor, inspectionMemory, cancellationToken, out hasLabelTree);
+                labels = ReadLabelTreeCore(engine.Resolver, engine.Trailer, limits, governor, inspectionMemory, cancellationToken, out hasLabelTree);
             }
 
             List<OutlineEntry> outlines = new();
@@ -90,7 +100,7 @@ internal static class DocumentJson
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 AppendKey(builder, ref firstKey, "pagelabels");
-                AppendPageLabels(builder, engine, request, labels, document.PageCount, hasLabelTree, governor, limits, cancellationToken);
+                AppendPageLabels(builder, engine, request, labels, document.Pages.Count, hasLabelTree, governor, limits, cancellationToken);
             }
 
             if (request.Wants("attachments"))
@@ -110,7 +120,7 @@ internal static class DocumentJson
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 AppendKey(builder, ref firstKey, "outlines");
-                AppendOutlines(builder, outlines, request, governor, limits);
+                AppendOutlines(builder, engine, outlines, request, governor, limits);
             }
 
             if (request.Wants("acroform"))
@@ -161,11 +171,11 @@ internal static class DocumentJson
         builder.Append((char)125);
     }
 
-    private static GovernedIntDictionary<int> BuildPageIndex(QpdfDocument document,
+    private static GovernedIntDictionary<int> BuildPageIndex(JsonDocumentView document,
         ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
         GovernedIntDictionary<int> index = GovernedIntDictionary<int>.Create(memory, governor, sizeof(int), token);
-        IReadOnlyList<PageLocation> pages = document.PageReferences;
+        IReadOnlyList<PageLocation> pages = document.Pages;
         for (int i = 0; i < pages.Count; i++)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -209,12 +219,12 @@ internal static class DocumentJson
         ResourceGovernor governor,
         ParserMemoryScope memory,
         CancellationToken cancellationToken)
-        => ReadLabelTreeCore(engine, limits, governor, memory, cancellationToken, out _);
+        => ReadLabelTreeCore(engine, engine.Trailer, limits, governor, memory, cancellationToken, out _);
 
     private static SortedDictionary<int, QpdfObject> ReadLabelTreeCore(
-        DocumentEngine engine, QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory,
+        IIndirectResolver engine, PdfDictionary trailer, QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory,
         CancellationToken cancellationToken, out bool hasLabelTree)
-        => ReadLabelTree(engine, ResolveChild(engine, engine.Trailer, "Root", "catalog"),
+        => ReadLabelTree(engine, ResolveChild(engine, trailer, "Root", "catalog"),
             limits, governor, memory, cancellationToken, out hasLabelTree);
 
     internal static SortedDictionary<int, QpdfObject> ReadLabelTree(
@@ -397,7 +407,7 @@ internal static class DocumentJson
 
     private static void AppendPageLabels(
         DisplayBuffer builder,
-        DocumentEngine engine,
+        JsonDocumentView engine,
         JsonRequest request,
         SortedDictionary<int, QpdfObject> labels,
         int pageCount,
@@ -434,17 +444,17 @@ internal static class DocumentJson
         builder.Append((char)93);
     }
 
-    private static void AppendLabelValue(DisplayBuffer builder, DocumentEngine engine, QpdfObject value, long offset,
+    private static void AppendLabelValue(DisplayBuffer builder, JsonDocumentView engine, QpdfObject value, long offset,
         JsonRequest request, ResourceGovernor governor, QpdfLimits limits, CancellationToken token)
     {
         if (value is PdfReference reference
-            && PdfObjectLookup.TryResolve(reference, (IIndirectResolver)engine, governor, token, out QpdfObject? resolved)
+            && PdfObjectLookup.TryResolve(reference, engine.Resolver, governor, token, out QpdfObject? resolved)
             && resolved is not null) { value = resolved; }
         if (value is not PdfDictionary dictionary)
-        { PdfJsonWriter.AppendValue(builder, value, request.Version, governor, 0, limits); return; }
+        { PdfJsonWriter.AppendValue(builder, value, request.Version, governor, 0, limits, engine); return; }
 
         PdfDictionaryLookup.TryGet(dictionary, "St"u8, governor, token, out QpdfObject startRaw);
-        QpdfObject? start = EmbeddedFiles.ResolveOptionalValue(engine, startRaw, governor, token);
+        QpdfObject? start = EmbeddedFiles.ResolveOptionalValue(engine.Resolver, startRaw, governor, token);
         long number = Content.PageLabelMerge.AdvanceStart(start is PdfInteger integer ? integer.Value : 1L, offset);
         builder.Append('{');
         AppendLabelField("P"u8, "/P");
@@ -454,7 +464,7 @@ internal static class DocumentJson
         void AppendLabelField(ReadOnlySpan<byte> key, string name)
         {
             PdfDictionaryLookup.TryGet(dictionary, key, governor, token, out QpdfObject raw);
-            if (EmbeddedFiles.ResolveOptionalValue(engine, raw, governor, token) is null or PdfNull) { return; }
+            if (EmbeddedFiles.ResolveOptionalValue(engine.Resolver, raw, governor, token) is null or PdfNull) { return; }
             PdfJsonWriter.AppendJsonString(builder, name); builder.Append(": ");
             PdfJsonWriter.AppendSourceValue(builder, raw, request.Version, governor, 1, limits, engine);
             builder.Append(',');
@@ -470,28 +480,28 @@ internal static class DocumentJson
         int? DestinationPage,
         List<OutlineEntry> Children);
 
-    private static List<OutlineEntry> ReadOutlines(QpdfDocument document, QpdfLimits limits,
+    private static List<OutlineEntry> ReadOutlines(JsonDocumentView document, QpdfLimits limits,
         ResourceGovernor governor, ParserMemoryScope memory, CancellationToken cancellationToken)
     {
-        DocumentEngine engine = document.Engine;
+        JsonDocumentView engine = document;
         List<OutlineEntry> roots = ParserContainers.CreateList<OutlineEntry>(memory);
-        PdfDictionary? catalog = ResolveChild(engine, engine.Trailer, "Root", "catalog");
+        PdfDictionary? catalog = ResolveChild(engine.Resolver, engine.Trailer, "Root", "catalog");
         if (catalog is null) { return roots; }
-        PdfDictionary? tree = ResolveChild(engine, catalog, "Outlines", "outlines");
+        PdfDictionary? tree = ResolveChild(engine.Resolver, catalog, "Outlines", "outlines");
         if (tree is null || !tree.TryGet(PdfName.FromAscii("First"), out QpdfObject? firstRaw)
             || firstRaw is null || firstRaw is PdfNull) { return roots; }
         if (firstRaw is PdfReference firstReference
-            && ((IIndirectResolver)engine).TryResolve(firstReference, out QpdfObject? firstValue)
+            && engine.Resolver.TryResolve(firstReference, out QpdfObject? firstValue)
             && firstValue is PdfNull) { return roots; }
 
         GovernedIntDictionary<int> pageIndex = BuildPageIndex(document, memory, governor, cancellationToken);
         GovernedIntSet visited = GovernedIntSet.Create(memory, governor, cancellationToken);
-        NamedDestinations destinations = NamedDestinations.Create(engine, catalog, memory, governor, cancellationToken);
+        NamedDestinations destinations = NamedDestinations.Create(engine.Resolver, catalog, memory, governor, cancellationToken);
         ReadOutlineSiblings(engine, destinations, pageIndex, firstRaw, roots, 0, visited, limits, governor, memory, cancellationToken);
         return roots;
     }
 
-    private static void ReadOutlineSiblings(DocumentEngine engine, NamedDestinations destinations, GovernedIntDictionary<int> pageIndex,
+    private static void ReadOutlineSiblings(JsonDocumentView engine, NamedDestinations destinations, GovernedIntDictionary<int> pageIndex,
         QpdfObject sibling, List<OutlineEntry> entries, int depth, GovernedIntSet visited,
         QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
     {
@@ -500,7 +510,7 @@ internal static class DocumentJson
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             PdfReference? reference = sibling as PdfReference;
             QpdfObject? node = reference is null ? sibling
-                : ((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? resolved) ? resolved : null;
+                : engine.Resolver.TryResolve(reference, out QpdfObject? resolved) ? resolved : null;
             if (node is PdfNull) { break; }
             if (node is not PdfDictionary outline)
             { throw new QpdfParseException("Outline entry must resolve to a dictionary.", null, reference?.ObjectNumber); }
@@ -522,7 +532,7 @@ internal static class DocumentJson
     }
 
     private static OutlineEntry ReadOutlineEntry(
-        DocumentEngine engine,
+        JsonDocumentView engine,
         NamedDestinations destinations,
         GovernedIntDictionary<int> pageIndex,
         PdfReference? nodeReference,
@@ -543,29 +553,29 @@ internal static class DocumentJson
         governor.NoteOperation();
         string title = string.Empty;
         if (outline.TryGet(PdfName.FromAscii("Title"), out QpdfObject? titleRaw)
-            && EmbeddedFiles.ResolveOptionalValue(engine, titleRaw, governor, cancellationToken) is PdfByteString titleText)
+            && EmbeddedFiles.ResolveOptionalValue(engine.Resolver, titleRaw, governor, cancellationToken) is PdfByteString titleText)
         {
             title = PdfText.Decode(titleText.ValueMemory, memory, governor, cancellationToken);
         }
 
         QpdfObject? destination = PdfDictionaryLookup.TryGet(outline, "Dest"u8, governor, cancellationToken, out QpdfObject destRaw)
-            ? EmbeddedFiles.ResolveOptionalValue(engine, destRaw, governor, cancellationToken) : null;
+            ? EmbeddedFiles.ResolveOptionalValue(engine.Resolver, destRaw, governor, cancellationToken) : null;
         if (destination is null or PdfNull
             && PdfDictionaryLookup.TryGet(outline, "A"u8, governor, cancellationToken, out QpdfObject actionRaw)
-            && EmbeddedFiles.ResolveOptionalValue(engine, actionRaw, governor, cancellationToken) is PdfDictionary action
+            && EmbeddedFiles.ResolveOptionalValue(engine.Resolver, actionRaw, governor, cancellationToken) is PdfDictionary action
             && PdfDictionaryLookup.TryGet(action, "S"u8, governor, cancellationToken, out QpdfObject kindRaw)
-            && EmbeddedFiles.ResolveOptionalValue(engine, kindRaw, governor, cancellationToken) is PdfName kind
+            && EmbeddedFiles.ResolveOptionalValue(engine.Resolver, kindRaw, governor, cancellationToken) is PdfName kind
             && PdfDictionaryLookup.NameEquals(kind, "GoTo"u8, governor, cancellationToken)
             && PdfDictionaryLookup.TryGet(action, "D"u8, governor, cancellationToken, out QpdfObject actionDestination))
         {
-            destination = EmbeddedFiles.ResolveOptionalValue(engine, actionDestination, governor, cancellationToken);
+            destination = EmbeddedFiles.ResolveOptionalValue(engine.Resolver, actionDestination, governor, cancellationToken);
         }
         if (destination is PdfName or PdfByteString) { destination = destinations.Find(destination); }
         if (destination is PdfNull) { destination = null; }
 
         bool open = true;
         if (outline.TryGet(PdfName.FromAscii("Count"), out QpdfObject? countRaw)
-            && EmbeddedFiles.ResolveOptionalValue(engine, countRaw, governor, cancellationToken) is PdfInteger count && count.Value < 0L)
+            && EmbeddedFiles.ResolveOptionalValue(engine.Resolver, countRaw, governor, cancellationToken) is PdfInteger count && count.Value < 0L)
         {
             open = false;
         }
@@ -573,7 +583,7 @@ internal static class DocumentJson
         int? destinationPage = null;
         if (destination is PdfArray destArray && destArray.Count > 0 && destArray[0] is PdfReference pageReference)
         {
-            QpdfObject? target = EmbeddedFiles.ResolveOptionalValue(engine, pageReference, governor, cancellationToken);
+            QpdfObject? target = EmbeddedFiles.ResolveOptionalValue(engine.Resolver, pageReference, governor, cancellationToken);
             if (target is null or PdfNull)
             {
                 memory.Reserve(checked(56L + IntPtr.Size * (long)destArray.Count));
@@ -604,6 +614,7 @@ internal static class DocumentJson
 
     private static void AppendOutlineEntry(
         DisplayBuffer builder,
+        JsonDocumentView engine,
         OutlineEntry entry,
         bool forPage,
         JsonRequest request,
@@ -614,12 +625,12 @@ internal static class DocumentJson
         if (entry.NodeReference is PdfReference nodeReference)
         {
             builder.Append((char)34);
-            PdfJsonWriter.AppendReference(builder, nodeReference.ObjectNumber, nodeReference.Generation);
+            PdfJsonWriter.AppendReference(builder, nodeReference.ObjectNumber, nodeReference.Generation, engine);
             builder.Append((char)34);
         }
         else
         {
-            PdfJsonWriter.AppendValue(builder, entry.Node, request.Version, governor, 0, limits);
+            PdfJsonWriter.AppendValue(builder, entry.Node, request.Version, governor, 0, limits, engine);
         }
 
         builder.Append(",\"title\": ");
@@ -631,7 +642,7 @@ internal static class DocumentJson
         }
         else
         {
-            PdfJsonWriter.AppendValue(builder, entry.Destination, request.Version, governor, 0, limits);
+            PdfJsonWriter.AppendValue(builder, entry.Destination, request.Version, governor, 0, limits, engine);
         }
 
         if (!forPage)
@@ -656,7 +667,7 @@ internal static class DocumentJson
                     builder.Append((char)44);
                 }
 
-                AppendOutlineEntry(builder, entry.Children[i], false, request, governor, limits);
+                AppendOutlineEntry(builder, engine, entry.Children[i], false, request, governor, limits);
             }
 
             builder.Append((char)93);
@@ -667,6 +678,7 @@ internal static class DocumentJson
 
     private static void AppendOutlines(
         DisplayBuffer builder,
+        JsonDocumentView engine,
         List<OutlineEntry> outlines,
         JsonRequest request,
         ResourceGovernor governor,
@@ -680,14 +692,14 @@ internal static class DocumentJson
                 builder.Append((char)44);
             }
 
-            AppendOutlineEntry(builder, outlines[i], false, request, governor, limits);
+            AppendOutlineEntry(builder, engine, outlines[i], false, request, governor, limits);
         }
 
         builder.Append((char)93);
     }
     private static void AppendPages(
         DisplayBuffer builder,
-        QpdfDocument document,
+        JsonDocumentView document,
         List<OutlineEntry> outlines,
         JsonRequest request,
         SortedDictionary<int, QpdfObject> labels,
@@ -697,7 +709,8 @@ internal static class DocumentJson
         ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
-        IReadOnlyList<PageLocation> pages = document.PageReferences;
+        JsonDocumentView engine = document;
+        IReadOnlyList<PageLocation> pages = document.Pages;
         using PageImageBindings.Cache? imageCache = pages.Count > 1 ? PageImageBindings.Cache.Create(governor, diagnostics) : null;
         GovernedIntDictionary<List<OutlineEntry>>? pageOutlines = null;
         if (outlines.Count > 0)
@@ -724,18 +737,18 @@ internal static class DocumentJson
             if (location.Source is PdfReference source)
             {
                 builder.Append((char)34);
-                PdfJsonWriter.AppendReference(builder, source.ObjectNumber, source.Generation);
+                PdfJsonWriter.AppendReference(builder, source.ObjectNumber, source.Generation, engine);
                 builder.Append((char)34);
             }
             else
             {
-                PdfJsonWriter.AppendValue(builder, location.Page, request.Version, governor, 0, limits);
+                PdfJsonWriter.AppendValue(builder, location.Page, request.Version, governor, 0, limits, engine);
             }
 
             builder.Append(",\"images\": ");
-            AppendImages(builder, document.Engine, location, request, limits, governor, cancellationToken, imageCache);
+            AppendImages(builder, document, location, request, limits, governor, cancellationToken, imageCache);
             builder.Append(",\"contents\": ");
-            AppendContents(builder, document.Engine, location.Page, request, governor, limits);
+            AppendContents(builder, document, location.Page, request, governor, limits);
             builder.Append(",\"label\": ");
             while (hasLabel && labelEntries.Current.Key <= i)
             {
@@ -750,11 +763,11 @@ internal static class DocumentJson
             }
             else
             {
-                AppendLabelValue(builder, document.Engine, label, (long)i - labelIndex, request, governor, limits, cancellationToken);
+                AppendLabelValue(builder, document, label, (long)i - labelIndex, request, governor, limits, cancellationToken);
             }
 
             builder.Append(",\"outlines\": ");
-            AppendPageOutlines(builder, pageOutlines, i + 1, request, governor, limits);
+            AppendPageOutlines(builder, engine, pageOutlines, i + 1, request, governor, limits);
             builder.Append(",\"pageposfrom1\": ");
             builder.AppendInteger((i + 1));
             builder.Append((char)125);
@@ -765,7 +778,7 @@ internal static class DocumentJson
 
     private static void AppendImages(
         DisplayBuffer builder,
-        DocumentEngine engine,
+        JsonDocumentView engine,
         PageLocation location,
         JsonRequest request,
         QpdfLimits limits,
@@ -776,7 +789,7 @@ internal static class DocumentJson
         builder.Append((char)91);
         bool first = true;
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        PageImageBindings images = PageImageBindings.Create(engine, location, limits, memory, governor, cancellationToken, imageCache);
+        PageImageBindings images = PageImageBindings.Create(engine.Resolver, location, limits, memory, governor, cancellationToken, imageCache);
         while (images.TryReadNext(out PageImageBindings.Binding detail))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -795,7 +808,7 @@ internal static class DocumentJson
 
     private static void AppendImage(
         DisplayBuffer builder,
-        DocumentEngine engine,
+        JsonDocumentView engine,
         PageImageBindings.Binding detail,
         JsonRequest request,
         QpdfLimits limits,
@@ -803,11 +816,11 @@ internal static class DocumentJson
         CancellationToken cancellationToken)
     {
         using FilterPlan? stages = request.DecodeLevel == "none" ? null
-            : FilterChain.ResolveScoped(detail.Stream.Dictionary, (IIndirectResolver)engine, governor, cancellationToken);
+            : FilterChain.ResolveScoped(detail.Stream.Dictionary, engine.Resolver, governor, cancellationToken);
         builder.Append("{\"bitspercomponent\": ");
-        AppendImageValue(builder, detail.Stream.Dictionary, "BitsPerComponent"u8, request, limits, governor, cancellationToken);
+        AppendImageValue(builder, engine, detail.Stream.Dictionary, "BitsPerComponent"u8, request, limits, governor, cancellationToken);
         builder.Append(",\"colorspace\": ");
-        AppendImageValue(builder, detail.Stream.Dictionary, "ColorSpace"u8, request, limits, governor, cancellationToken);
+        AppendImageValue(builder, engine, detail.Stream.Dictionary, "ColorSpace"u8, request, limits, governor, cancellationToken);
 
         builder.Append(",\"filter\": ");
         int filters = AppendImageArrayValue(builder, engine, detail.Stream.Dictionary, "Filter"u8, 1, request, limits, governor, cancellationToken);
@@ -815,27 +828,27 @@ internal static class DocumentJson
         _ = AppendImageArrayValue(builder, engine, detail.Stream.Dictionary, "DecodeParms"u8, filters, request, limits, governor, cancellationToken);
         builder.Append(",\"filterable\": ");
         builder.Append(stages is not null && stages.Count <= limits.MaxStreamFilters
-            && !FilterChain.HasExternalData(detail.Stream, engine, governor, cancellationToken)
+            && !FilterChain.HasExternalData(detail.Stream, engine.Resolver, governor, cancellationToken)
             && FilterChain.AllStagesInLevel(stages, request.DecodeLevel)
             && FilterChain.SupportsParameters(stages, cancellationToken) ? "true" : "false");
         builder.Append(",\"height\": ");
-        AppendImageValue(builder, detail.Stream.Dictionary, "Height"u8, request, limits, governor, cancellationToken);
+        AppendImageValue(builder, engine, detail.Stream.Dictionary, "Height"u8, request, limits, governor, cancellationToken);
         builder.Append(",\"name\": ");
         PdfJsonWriter.AppendDescriptorName(builder, detail.Name);
         builder.Append(",\"object\": \"");
-        PdfJsonWriter.AppendReference(builder, detail.Reference.ObjectNumber, detail.Reference.Generation);
+        PdfJsonWriter.AppendReference(builder, detail.Reference.ObjectNumber, detail.Reference.Generation, engine);
         builder.Append("\",\"width\": ");
-        AppendImageValue(builder, detail.Stream.Dictionary, "Width"u8, request, limits, governor, cancellationToken);
+        AppendImageValue(builder, engine, detail.Stream.Dictionary, "Width"u8, request, limits, governor, cancellationToken);
         builder.Append((char)125);
     }
 
-    private static int AppendImageArrayValue(DisplayBuffer builder, DocumentEngine engine, PdfDictionary dictionary,
+    private static int AppendImageArrayValue(DisplayBuffer builder, JsonDocumentView engine, PdfDictionary dictionary,
         ReadOnlySpan<byte> key, int repetitions, JsonRequest request, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
         PdfDictionaryLookup.TryGet(dictionary, key, governor, token, out QpdfObject raw);
         QpdfObject? resolved = raw;
         if (raw is PdfReference reference)
-        { PdfObjectLookup.TryResolve(reference, (IIndirectResolver)engine, governor, token, out resolved); }
+        { PdfObjectLookup.TryResolve(reference, engine.Resolver, governor, token, out resolved); }
         // Inspect the outer shape but serialize the stored value. Decoder plans
         // expand names and parameter references for a different purpose.
         if (resolved is PdfArray array)
@@ -854,16 +867,16 @@ internal static class DocumentJson
         return repetitions;
     }
 
-    private static void AppendImageValue(DisplayBuffer builder, PdfDictionary dictionary, ReadOnlySpan<byte> key,
+    private static void AppendImageValue(DisplayBuffer builder, JsonDocumentView engine, PdfDictionary dictionary, ReadOnlySpan<byte> key,
         JsonRequest request, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
         PdfDictionaryLookup.TryGet(dictionary, key, governor, token, out QpdfObject raw);
-        PdfJsonWriter.AppendValue(builder, raw, request.Version, governor, 0, limits);
+        PdfJsonWriter.AppendValue(builder, raw, request.Version, governor, 0, limits, engine);
     }
 
     private static void AppendContents(
         DisplayBuffer builder,
-        DocumentEngine engine,
+        JsonDocumentView engine,
         PdfDictionary page,
         JsonRequest request,
         ResourceGovernor governor,
@@ -884,12 +897,12 @@ internal static class DocumentJson
                     builder.Append((char)44);
                 }
 
-                PdfJsonWriter.AppendValue(builder, array[i], request.Version, governor, 0, limits);
+                PdfJsonWriter.AppendValue(builder, array[i], request.Version, governor, 0, limits, engine);
             }
         }
         else if (contents is not PdfNull)
         {
-            PdfJsonWriter.AppendValue(builder, contents, request.Version, governor, 0, limits);
+            PdfJsonWriter.AppendValue(builder, contents, request.Version, governor, 0, limits, engine);
         }
 
         builder.Append((char)93);
@@ -915,6 +928,7 @@ internal static class DocumentJson
 
     private static void AppendPageOutlines(
         DisplayBuffer builder,
+        JsonDocumentView engine,
         GovernedIntDictionary<List<OutlineEntry>>? outlines,
         int pageposfrom1,
         JsonRequest request,
@@ -933,7 +947,7 @@ internal static class DocumentJson
                 }
 
                 first = false;
-                AppendOutlineEntry(builder, entry, true, request, governor, limits);
+                AppendOutlineEntry(builder, engine, entry, true, request, governor, limits);
             }
         }
 
@@ -976,14 +990,14 @@ internal static class DocumentJson
     }
     private static void AppendAttachments(
         DisplayBuffer builder,
-        DocumentEngine engine,
+        JsonDocumentView engine,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
-        List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(engine, limits, governor, diagnostics, memory, cancellationToken);
+        List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(engine.Resolver, engine.Trailer, limits, governor, diagnostics, memory, cancellationToken);
         builder.Append((char)123);
         bool firstAttachment = true;
         foreach (EmbeddedAttachment attachment in found)
@@ -1005,7 +1019,7 @@ internal static class DocumentJson
             else
             {
                 builder.Append((char)34);
-                PdfJsonWriter.AppendReference(builder, specReference.ObjectNumber, specReference.Generation);
+                PdfJsonWriter.AppendReference(builder, specReference.ObjectNumber, specReference.Generation, engine);
                 builder.Append((char)34);
             }
 
@@ -1019,7 +1033,7 @@ internal static class DocumentJson
             else
             {
                 builder.Append((char)34);
-                PdfJsonWriter.AppendReference(builder, streamReference.ObjectNumber, streamReference.Generation);
+                PdfJsonWriter.AppendReference(builder, streamReference.ObjectNumber, streamReference.Generation, engine);
                 builder.Append((char)34);
             }
 
@@ -1046,7 +1060,7 @@ internal static class DocumentJson
     // Fixed ASCII PDF names; JSON map keys retain their leading slash.
     private static readonly string[] NameKeys = ["F", "UF", "Unix", "DOS", "Mac"];
 
-    private static PdfDictionary? AttachmentSpec(DocumentEngine engine, EmbeddedAttachment attachment)
+    private static PdfDictionary? AttachmentSpec(JsonDocumentView engine, EmbeddedAttachment attachment)
     {
         if (attachment.Spec is PdfDictionary direct)
         {
@@ -1056,7 +1070,7 @@ internal static class DocumentJson
         return TryResolve(engine, attachment.Spec) as PdfDictionary;
     }
 
-    private static void AppendAttachmentNames(DisplayBuffer builder, EmbeddedAttachment attachment, DocumentEngine engine,
+    private static void AppendAttachmentNames(DisplayBuffer builder, EmbeddedAttachment attachment, JsonDocumentView engine,
         ResourceGovernor governor, CancellationToken token)
     {
         builder.Append((char)123);
@@ -1068,7 +1082,7 @@ internal static class DocumentJson
             foreach (string name in NameKeys)
             {
                 if (spec.TryGet(PdfName.FromAscii(name), out QpdfObject raw)
-                    && EmbeddedFiles.ResolveOptionalValue(engine, raw, governor, token) is PdfByteString text)
+                    && EmbeddedFiles.ResolveOptionalValue(engine.Resolver, raw, governor, token) is PdfByteString text)
                 {
                     if (!first)
                     {
@@ -1086,7 +1100,7 @@ internal static class DocumentJson
         builder.Append((char)125);
     }
 
-    private static void AppendAttachmentStreams(DisplayBuffer builder, DocumentEngine engine,
+    private static void AppendAttachmentStreams(DisplayBuffer builder, JsonDocumentView engine,
         EmbeddedAttachment attachment, ResourceGovernor governor, CancellationToken token)
     {
         builder.Append('{'); bool first = true;
@@ -1107,7 +1121,7 @@ internal static class DocumentJson
             {
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 if (!PdfDictionaryLookup.TryGet(streams, name.RawSpan, governor, token, out QpdfObject candidate)
-                    || EmbeddedFiles.ResolveOptionalValue(engine, candidate, governor, token) is not PdfStream stream) { continue; }
+                    || EmbeddedFiles.ResolveOptionalValue(engine.Resolver, candidate, governor, token) is not PdfStream stream) { continue; }
                 if (!first) { builder.Append(','); } first = false;
                 PdfJsonWriter.AppendDescriptorName(builder, name); builder.Append(": ");
                 EmbeddedFiles.EmbeddedStreamMetadata metadata;
@@ -1116,8 +1130,8 @@ internal static class DocumentJson
                 else
                 {
                     PdfDictionary? parameters = PdfDictionaryLookup.TryGet(stream.Dictionary, "Params"u8, governor, token, out QpdfObject parametersRaw)
-                        ? EmbeddedFiles.ResolveOptionalValue(engine, parametersRaw, governor, token) as PdfDictionary : null;
-                    metadata = EmbeddedFiles.ReadStreamMetadata(engine, stream, parameters, textMemory, governor, token);
+                        ? EmbeddedFiles.ResolveOptionalValue(engine.Resolver, parametersRaw, governor, token) as PdfDictionary : null;
+                    metadata = EmbeddedFiles.ReadStreamMetadata(engine.Resolver, stream, parameters, textMemory, governor, token);
                 }
                 AppendEmbeddedStream(builder, metadata);
                 textMemory.Discard();
@@ -1126,11 +1140,11 @@ internal static class DocumentJson
         builder.Append('}');
     }
 
-    private static QpdfObject? TryResolve(DocumentEngine engine, QpdfObject? raw)
+    private static QpdfObject? TryResolve(JsonDocumentView engine, QpdfObject? raw)
     {
         if (raw is PdfReference reference)
         {
-            if (((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? resolved) && resolved is not null && resolved is not PdfNull)
+            if (engine.Resolver.TryResolve(reference, out QpdfObject? resolved) && resolved is not null && resolved is not PdfNull)
             {
                 return resolved;
             }
@@ -1196,7 +1210,7 @@ internal static class DocumentJson
 
     private static void AppendObjects(
         DisplayBuffer builder,
-        QpdfDocument document,
+        JsonDocumentView document,
         JsonRequest request,
         bool touchesPages,
         PreparedJsonOutput output,
@@ -1204,7 +1218,7 @@ internal static class DocumentJson
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
-        DocumentEngine engine = document.Engine;
+        JsonDocumentView engine = document;
         List<int> numbers = output.CreateObjectNumbers();
         try
         {
@@ -1217,8 +1231,8 @@ internal static class DocumentJson
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     governor.NoteOperation();
-                    int generation = engine.InspectionObjectGeneration(number);
-                    if (!request.WantsObject(number, generation))
+                    (int declared, int generation) = engine.ObjectPair(number);
+                    if (!request.WantsObject(declared, generation))
                     {
                         continue;
                     }
@@ -1230,7 +1244,7 @@ internal static class DocumentJson
                     }
 
                     first = false;
-                    PdfJsonWriter.AppendObjectKey(builder, number, generation, false);
+                    PdfJsonWriter.AppendObjectKey(builder, declared, generation, false);
                     builder.Append(": ");
                     PdfJsonWriter.AppendSourceValue(builder, value, 1, governor, 0, limits, engine);
                 }
@@ -1252,22 +1266,23 @@ internal static class DocumentJson
 
             builder.Append("[{");
             builder.Append("\"jsonversion\": 2,\"pdfversion\": ");
-            QpdfDocument.VersionParts version = engine.InspectionVersionParts ?? document.HeaderVersionParts;
+            QpdfDocument.VersionParts version = document.HeaderVersion;
             builder.Append('"'); builder.AppendInteger(version.Major); builder.Append('.'); builder.AppendInteger(version.Minor); builder.Append('"');
             builder.Append(",\"pushedinheritedpageresources\": ");
-            builder.Append((engine.InspectionPushedInheritedResources ?? engine.HasInspectionObjects) ? "true" : "false");
+            builder.Append(engine.PushedInheritedResources ? "true" : "false");
             builder.Append(",\"calledgetallpages\": ");
-            builder.Append(touchesPages || (engine.InspectionCalledAllPages ?? engine.HasInspectionObjects) ? "true" : "false");
+            builder.Append(touchesPages || engine.CalledAllPages ? "true" : "false");
             builder.Append(",\"maxobjectid\": ");
             builder.AppendInteger(maxObjectId);
             builder.Append("}, {");
             bool firstObject = true;
-            foreach (int number in numbers)
+            for (int index = 0; index < numbers.Count; index++)
             {
+                int number = numbers[index];
                 cancellationToken.ThrowIfCancellationRequested();
                 governor.NoteOperation();
-                int generation = engine.InspectionObjectGeneration(number);
-                if (!request.WantsObject(number, generation))
+                (int declared, int generation) = engine.ObjectPair(number);
+                if (!request.WantsObject(declared, generation))
                 {
                     continue;
                 }
@@ -1279,11 +1294,15 @@ internal static class DocumentJson
                 }
 
                 firstObject = false;
-                PdfJsonWriter.AppendObjectKey(builder, number, generation, true);
+                PdfJsonWriter.AppendObjectKey(builder, declared, generation, true);
                 builder.Append(": ");
                 if (value is PdfStream stream)
                 {
-                    AppendJsonStream(builder, engine, number, stream, request, output, governor, limits, cancellationToken);
+                    bool sharedNumber = engine.ImportedObjects is not null &&
+                        (index > 0 && engine.ObjectPair(numbers[index - 1]).Number == declared
+                            || index + 1 < numbers.Count && engine.ObjectPair(numbers[index + 1]).Number == declared);
+                    AppendJsonStream(builder, engine, declared, sharedNumber ? generation : 0, stream,
+                        request, output, governor, limits, cancellationToken);
                 }
                 else
                 {
@@ -1310,20 +1329,33 @@ internal static class DocumentJson
         finally { output.ReleaseObjectNumbers(numbers); }
     }
 
-    private static int CollectObjectNumbers(DocumentEngine engine, List<int> numbers, PreparedJsonOutput output,
+    private static int CollectObjectNumbers(JsonDocumentView engine, List<int> numbers, PreparedJsonOutput output,
         ResourceGovernor governor, CancellationToken token)
     {
         int greatest = 0;
-        foreach (KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
+        if (engine.ImportedObjects is IReadOnlyDictionary<int, QpdfObject> objects)
+        {
+            foreach (int number in objects.Keys)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                output.AddObjectNumber(numbers, number);
+                greatest = Math.Max(greatest, engine.ObjectPair(number).Number);
+            }
+            GovernedSort.Sort<int, DeclaredPairComparer>(CollectionsMarshal.AsSpan(numbers), new(engine), governor, token);
+            return greatest;
+        }
+
+        DocumentEngine physical = engine.Physical ?? throw new InvalidOperationException("Missing physical reader.");
+        foreach (KeyValuePair<int, XrefEntry> entry in physical.XRefEntries)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (entry.Value.Kind == XrefEntryKind.Free) { continue; }
             output.AddObjectNumber(numbers, entry.Key); greatest = Math.Max(greatest, entry.Key);
         }
-        foreach (int number in engine.InspectionObjectNumbers)
+        foreach (int number in physical.InspectionObjectNumbers)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            if (!engine.HasNewInspectionObject(number)) { continue; }
+            if (!physical.HasNewInspectionObject(number)) { continue; }
             output.AddObjectNumber(numbers, number); greatest = Math.Max(greatest, number);
         }
         GovernedSort.Sort<int, ObjectNumberComparer>(CollectionsMarshal.AsSpan(numbers), new(), governor, token);
@@ -1335,16 +1367,21 @@ internal static class DocumentJson
         public int Compare(int left, int right) => left.CompareTo(right);
     }
 
-    private static (ReadOnlyMemory<byte> Data, bool Decoded) ResolveStreamPayload(DocumentEngine engine,
+    private readonly struct DeclaredPairComparer(JsonDocumentView view) : IComparer<int>
+    {
+        public int Compare(int left, int right) => view.ObjectPair(left).CompareTo(view.ObjectPair(right));
+    }
+
+    internal static (ReadOnlyMemory<byte> Data, bool Decoded) ResolveStreamPayload(IIndirectResolver resolver,
         PdfStream stream, string decodeLevel, QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory)
     {
         // Borrow immutable reader storage. A file sidecar receives its own
         // admitted copy before the document can close; inline encoding does not.
         ReadOnlyMemory<byte> raw = stream.RawMemory;
         if (decodeLevel == "none") { return (raw, false); }
-        if (FilterChain.HasExternalData(stream, engine, governor, governor.CancellationToken)) { return (raw, false); }
+        if (FilterChain.HasExternalData(stream, resolver, governor, governor.CancellationToken)) { return (raw, false); }
         FilterPlan stages;
-        try { stages = FilterChain.ResolveScoped(stream.Dictionary, engine, governor, governor.CancellationToken); }
+        try { stages = FilterChain.ResolveScoped(stream.Dictionary, resolver, governor, governor.CancellationToken); }
         catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException)) { return (raw, false); }
         using FilterPlan stageOwner = stages;
         if (stages.Count == 0 || !FilterChain.AllStagesInLevel(stages, decodeLevel)) { return (raw, false); }
@@ -1352,7 +1389,7 @@ internal static class DocumentJson
         catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException)) { return (raw, false); }
     }
 
-    private static void AppendJsonStream(DisplayBuffer builder, DocumentEngine engine, int number,
+    private static void AppendJsonStream(DisplayBuffer builder, JsonDocumentView engine, int number, int disambiguatingGeneration,
         PdfStream stream, JsonRequest request, PreparedJsonOutput output,
         ResourceGovernor governor, QpdfLimits limits, CancellationToken cancellationToken)
     {
@@ -1364,10 +1401,10 @@ internal static class DocumentJson
             builder.Append("}}"); return;
         }
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        (ReadOnlyMemory<byte> data, bool decoded) = ResolveStreamPayload(engine, stream, request.DecodeLevel, limits, governor, memory);
+        (ReadOnlyMemory<byte> data, bool decoded) = ResolveStreamPayload(engine.Resolver, stream, request.DecodeLevel, limits, governor, memory);
         if (request.StreamData == "file")
         {
-            JsonPayload payload = output.AddSidecar(request.StreamPrefix ?? string.Empty, number, data.Span, limits);
+            JsonPayload payload = output.AddSidecar(request.StreamPrefix ?? string.Empty, number, disambiguatingGeneration, data.Span, limits);
             builder.Append("{\"stream\": {\"datafile\": ");
             PdfJsonWriter.AppendJsonString(builder, payload.Name);
         }
@@ -1383,14 +1420,14 @@ internal static class DocumentJson
 
     private static void AppendObjectInfo(
         DisplayBuffer builder,
-        QpdfDocument document,
+        JsonDocumentView document,
         JsonRequest request,
         PreparedJsonOutput output,
         QpdfLimits limits,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
-        DocumentEngine engine = document.Engine;
+        JsonDocumentView engine = document;
         List<int> numbers = output.CreateObjectNumbers();
         try
         {
@@ -1401,8 +1438,8 @@ internal static class DocumentJson
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 governor.NoteOperation();
-                int generation = engine.InspectionObjectGeneration(number);
-                if (!request.WantsObject(number, generation))
+                (int declared, int generation) = engine.ObjectPair(number);
+                if (!request.WantsObject(declared, generation))
                 {
                     continue;
                 }
@@ -1414,14 +1451,14 @@ internal static class DocumentJson
                 }
 
                 first = false;
-                PdfJsonWriter.AppendObjectKey(builder, number, generation, false);
+                PdfJsonWriter.AppendObjectKey(builder, declared, generation, false);
                 builder.Append(": {\"stream\": {\"is\": ");
                 if (value is PdfStream stream)
                 {
                     builder.Append("true,\"length\": ");
                     if (stream.Dictionary.TryGet(PdfName.FromAscii("Length"), out QpdfObject? length) && length is not null && length is not PdfNull)
                     {
-                        PdfJsonWriter.AppendValue(builder, DereferenceOnce(engine, length), request.Version, governor, 0, limits);
+                        PdfJsonWriter.AppendValue(builder, DereferenceOnce(engine, length), request.Version, governor, 0, limits, engine);
                     }
                     else
                     {
@@ -1431,7 +1468,7 @@ internal static class DocumentJson
                     builder.Append(",\"filter\": ");
                     if (stream.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject? filter) && filter is not null && filter is not PdfNull)
                     {
-                        PdfJsonWriter.AppendValue(builder, DereferenceOnce(engine, filter), request.Version, governor, 0, limits);
+                        PdfJsonWriter.AppendValue(builder, DereferenceOnce(engine, filter), request.Version, governor, 0, limits, engine);
                     }
                     else
                     {
@@ -1451,27 +1488,27 @@ internal static class DocumentJson
         finally { output.ReleaseObjectNumbers(numbers); }
     }
 
-    private static QpdfObject DereferenceOnce(DocumentEngine engine, QpdfObject value)
+    private static QpdfObject DereferenceOnce(JsonDocumentView engine, QpdfObject value)
     {
         if (value is not PdfReference reference) { return value; }
-        return ((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? resolved)
+        return engine.Resolver.TryResolve(reference, out QpdfObject? resolved)
             ? resolved ?? PdfNull.Instance : PdfNull.Instance;
     }
     private static void AppendAcroform(
         DisplayBuffer builder,
-        QpdfDocument document,
+        JsonDocumentView document,
         JsonRequest request,
         QpdfLimits limits,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
-        DocumentEngine engine = document.Engine;
-        PdfDictionary? catalog = ResolveChild(engine, engine.Trailer, "Root", "catalog");
+        JsonDocumentView engine = document;
+        PdfDictionary? catalog = ResolveChild(engine.Resolver, engine.Trailer, "Root", "catalog");
         QpdfObject? formValue = null;
         if (catalog is not null
             && PdfDictionaryLookup.TryGet(catalog, "AcroForm"u8, governor, cancellationToken, out QpdfObject acroRaw))
         {
-            formValue = Content.CatalogCopy.ResolveValue(acroRaw, engine, governor, cancellationToken) ?? acroRaw;
+            formValue = Content.CatalogCopy.ResolveValue(acroRaw, engine.Resolver, governor, cancellationToken) ?? acroRaw;
         }
 
         PdfDictionary? acroform = formValue as PdfDictionary;
@@ -1479,7 +1516,7 @@ internal static class DocumentJson
         bool needAppearances = false;
         if (acroform is not null
             && PdfDictionaryLookup.TryGet(acroform, "NeedAppearances"u8, governor, cancellationToken, out QpdfObject needRaw)
-            && Content.CatalogCopy.ResolveValue(needRaw, engine, governor, cancellationToken) is PdfBoolean need)
+            && Content.CatalogCopy.ResolveValue(needRaw, engine.Resolver, governor, cancellationToken) is PdfBoolean need)
         {
             needAppearances = need.Value;
         }
@@ -1490,7 +1527,7 @@ internal static class DocumentJson
         builder.Append(needAppearances ? "true" : "false");
         builder.Append(",\"fields\": [");
         bool firstField = true;
-        IReadOnlyList<PageLocation> pages = document.PageReferences;
+        IReadOnlyList<PageLocation> pages = document.Pages;
         for (int i = 0; i < pages.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1518,7 +1555,7 @@ internal static class DocumentJson
                     continue;
                 }
 
-                if (!PdfDictionaryLookup.HasName(annot, "Subtype"u8, "Widget"u8, engine, governor, cancellationToken))
+                if (!PdfDictionaryLookup.HasName(annot, "Subtype"u8, "Widget"u8, engine.Resolver, governor, cancellationToken))
                 {
                     continue;
                 }
@@ -1549,7 +1586,7 @@ internal static class DocumentJson
     }
 
     private static AcroField ResolveAcroField(
-        DocumentEngine engine,
+        JsonDocumentView engine,
         PdfReference? annotReference,
         PdfDictionary annot,
         QpdfLimits limits,
@@ -1581,7 +1618,7 @@ internal static class DocumentJson
 
         // A separate widget points at its terminal field, which may inherit FT
         // from a named group. A merged widget carries field entries itself.
-        int fieldIndex = chain.Count > 1 && !Content.AcroFormCopy.HasFieldEntries(annot, engine, governor, token) ? 1 : 0;
+        int fieldIndex = chain.Count > 1 && !Content.AcroFormCopy.HasFieldEntries(annot, engine.Resolver, governor, token) ? 1 : 0;
         PdfName? fieldType = null;
         foreach ((PdfReference? _, PdfDictionary node) in chain)
         {
@@ -1612,7 +1649,7 @@ internal static class DocumentJson
         return new AcroField(chain, fieldIndex, fieldType, qualified, partial);
     }
 
-    private static QpdfObject? InheritedValue(DocumentEngine engine, List<(PdfReference? Reference, PdfDictionary Node)> chain,
+    private static QpdfObject? InheritedValue(JsonDocumentView engine, List<(PdfReference? Reference, PdfDictionary Node)> chain,
         ReadOnlySpan<byte> key, ResourceGovernor governor, CancellationToken token)
     {
         foreach ((PdfReference? _, PdfDictionary node) in chain)
@@ -1623,21 +1660,21 @@ internal static class DocumentJson
         return null;
     }
 
-    private static QpdfObject? LocalFieldValue(DocumentEngine engine, PdfDictionary node,
+    private static QpdfObject? LocalFieldValue(JsonDocumentView engine, PdfDictionary node,
         ReadOnlySpan<byte> key, ResourceGovernor governor, CancellationToken token)
     {
         if (!PdfDictionaryLookup.TryGet(node, key, governor, token, out QpdfObject raw)) { return null; }
-        QpdfObject value = Content.CatalogCopy.ResolveValue(raw, engine, governor, token) ?? raw;
+        QpdfObject value = Content.CatalogCopy.ResolveValue(raw, engine.Resolver, governor, token) ?? raw;
         return value is PdfNull ? null : value;
     }
 
-    private static int InheritedInt(DocumentEngine engine, List<(PdfReference? Reference, PdfDictionary Node)> chain,
+    private static int InheritedInt(JsonDocumentView engine, List<(PdfReference? Reference, PdfDictionary Node)> chain,
         ReadOnlySpan<byte> key, ResourceGovernor governor, CancellationToken token)
     {
         return InheritedIntOrNull(engine, chain, key, governor, token) ?? 0;
     }
 
-    private static int? InheritedIntOrNull(DocumentEngine engine, List<(PdfReference? Reference, PdfDictionary Node)> chain,
+    private static int? InheritedIntOrNull(JsonDocumentView engine, List<(PdfReference? Reference, PdfDictionary Node)> chain,
         ReadOnlySpan<byte> key, ResourceGovernor governor, CancellationToken token)
     {
         QpdfObject? found = InheritedValue(engine, chain, key, governor, token);
@@ -1645,7 +1682,7 @@ internal static class DocumentJson
     }
     private static void AppendAcroField(
         DisplayBuffer builder,
-        DocumentEngine engine,
+        JsonDocumentView engine,
         AcroField field,
         PdfReference? annotReference,
         PdfDictionary annot,
@@ -1661,19 +1698,19 @@ internal static class DocumentJson
         if (field.NodeReference is PdfReference fieldReference)
         {
             builder.Append((char)34);
-            PdfJsonWriter.AppendReference(builder, fieldReference.ObjectNumber, fieldReference.Generation);
+            PdfJsonWriter.AppendReference(builder, fieldReference.ObjectNumber, fieldReference.Generation, engine);
             builder.Append((char)34);
         }
         else
         {
-            PdfJsonWriter.AppendValue(builder, field.Node, request.Version, governor, 0, limits);
+            PdfJsonWriter.AppendValue(builder, field.Node, request.Version, governor, 0, limits, engine);
         }
 
         builder.Append(",\"parent\": ");
         if (PdfDictionaryLookup.TryGet(field.Node, "Parent"u8, governor, token, out QpdfObject parentRaw)
-            && (Content.CatalogCopy.ResolveValue(parentRaw, engine, governor, token) ?? parentRaw) is not PdfNull)
+            && (Content.CatalogCopy.ResolveValue(parentRaw, engine.Resolver, governor, token) ?? parentRaw) is not PdfNull)
         {
-            PdfJsonWriter.AppendValue(builder, parentRaw, request.Version, governor, 0, limits);
+            PdfJsonWriter.AppendValue(builder, parentRaw, request.Version, governor, 0, limits, engine);
         }
         else
         {
@@ -1717,7 +1754,7 @@ internal static class DocumentJson
         }
         else
         {
-            PdfJsonWriter.AppendValue(builder, value, request.Version, governor, 0, limits);
+            PdfJsonWriter.AppendValue(builder, value, request.Version, governor, 0, limits, engine);
         }
 
         builder.Append(",\"defaultvalue\": ");
@@ -1728,7 +1765,7 @@ internal static class DocumentJson
         }
         else
         {
-            PdfJsonWriter.AppendValue(builder, defaultValue, request.Version, governor, 0, limits);
+            PdfJsonWriter.AppendValue(builder, defaultValue, request.Version, governor, 0, limits, engine);
         }
 
         int? quadding = InheritedIntOrNull(engine, field.Ancestors, "Q"u8, governor, token);
@@ -1811,12 +1848,12 @@ internal static class DocumentJson
         if (annotReference is PdfReference annotLink)
         {
             builder.Append((char)34);
-            PdfJsonWriter.AppendReference(builder, annotLink.ObjectNumber, annotLink.Generation);
+            PdfJsonWriter.AppendReference(builder, annotLink.ObjectNumber, annotLink.Generation, engine);
             builder.Append((char)34);
         }
         else
         {
-            PdfJsonWriter.AppendValue(builder, annot, request.Version, governor, 0, limits);
+            PdfJsonWriter.AppendValue(builder, annot, request.Version, governor, 0, limits, engine);
         }
 
         PdfName? appearance = null;

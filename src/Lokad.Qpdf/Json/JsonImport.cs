@@ -13,9 +13,11 @@ namespace Lokad.Qpdf.Json;
 internal sealed record ImportedModel(PdfVersion HeaderVersion, Dictionary<int, QpdfObject> Objects,
     PdfDictionary Trailer, HashSet<int>? CompressedObjects)
 {
-    internal const long AllocationBytes = 56L;
+    internal const long AllocationBytes = 64L;
     internal IReadOnlyDictionary<(int Number, int Generation), int>? OriginalPairs { get; init; }
     internal HashSet<int>? DetachedRootExclusions { get; init; }
+    internal bool CalledAllPages { get; init; }
+    internal bool PushedInheritedResources { get; init; }
 }
 
 /// <summary>
@@ -176,7 +178,12 @@ internal static partial class JsonImport
                 trailer = (PdfDictionary)Writing.ObjectRemap.RemapImported(patchedTrailer, bindings, memory, governor, cancellationToken);
             }
         }
-        return new ImportedModel(patchMetadata.Version ?? header, objects, trailer, null) { OriginalPairs = retainOriginalPairs ? bindings : null };
+        return new ImportedModel(patchMetadata.Version ?? header, objects, trailer, null)
+        {
+            OriginalPairs = retainOriginalPairs ? bindings : null,
+            CalledAllPages = metadata.CalledAllPages || patchMetadata.CalledAllPages,
+            PushedInheritedResources = metadata.PushedInherited || patchMetadata.PushedInherited,
+        };
 
         int Allocate()
         {
@@ -302,7 +309,10 @@ internal static partial class JsonImport
         }
 
         ImportedModel result = new(metadata.Version ?? governor.PrivateVersion(header.Major, header.Minor), merged, trailer, compressed)
-        { OriginalPairs = retainOriginalPairs ? bindings : null, DetachedRootExclusions = excluded };
+        {
+            OriginalPairs = retainOriginalPairs ? bindings : null, DetachedRootExclusions = excluded,
+            CalledAllPages = metadata.CalledAllPages, PushedInheritedResources = metadata.PushedInherited,
+        };
         return PrepareUpdateEncryption(result, originalTrailer, originalEncryption, engine.Security is not null,
             preserveEncryption, memory, governor, cancellationToken);
     }

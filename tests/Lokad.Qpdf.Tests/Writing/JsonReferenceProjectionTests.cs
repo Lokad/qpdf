@@ -204,7 +204,7 @@ public sealed class JsonReferenceProjectionTests
             using (DisplayBuffer output = DisplayBuffer.CreateJson(writer))
             {
                 if (outcome.EndsWith("-cancel", StringComparison.Ordinal)) { cancellation.Cancel(); }
-                void Render() => PdfJsonWriter.AppendSourceValue(output, raw, 2, writer, 0, QpdfLimits.Default, document.Engine);
+                void Render() => PdfJsonWriter.AppendSourceValue(output, raw, 2, writer, 0, QpdfLimits.Default, new JsonDocumentView(document));
                 if (outcome == "memory") { Assert.Throws<QpdfLimitException>(Render); }
                 else if (outcome.EndsWith("-cancel", StringComparison.Ordinal)) { Assert.ThrowsAny<OperationCanceledException>(Render); }
                 else

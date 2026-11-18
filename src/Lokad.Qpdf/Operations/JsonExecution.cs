@@ -200,6 +200,11 @@ internal static class JsonExecution
         if (targetAliases is not null)
         {
             targetAliases.RememberPath(inputPath.Value);
+            if (inspection.Import is ImportedInspectionInput import)
+            {
+                targetAliases.RememberPath(import.Json.Value);
+                if (import.FollowingPatch is QpdfPath following) { targetAliases.RememberPath(following.Value); }
+            }
             if (inspection.GraphPlan is IInspectionGraphPlan graphPlan)
             {
                 foreach (PdfPageSource source in graphPlan.Sources)
@@ -233,16 +238,21 @@ internal static class JsonExecution
 
         // JSON emits text and copied sidecar bytes. Its reader values remain
         // exclusive to this document until serialization completes.
-        await using QpdfDocument document = emptyDocument
-            ? await QpdfDocument.OpenEmptyDocument(inputPath, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false)
-            : await QpdfDocument.OpenInspectionCore(host, inputPath, inspection.Password, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
-        using InspectionGraphPreparation.InspectionGraph? graph = inspection.GraphPlan is null ? null
+        await using QpdfDocument? document = inspection.Import.HasValue ? null
+            : emptyDocument
+                ? await QpdfDocument.OpenEmptyDocument(inputPath, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false)
+                : await QpdfDocument.OpenInspectionCore(host, inputPath, inspection.Password, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
+        using InspectionGraphPreparation.InspectionGraph? graph = inspection.GraphPlan is null || document is null ? null
             : await InspectionGraphPreparation.PrepareInspectionGraphAsync(host, document, inspection.GraphPlan, limits,
                 governor, diagnostics, cancellationToken).ConfigureAwait(false);
         Json.JsonRequest request = new(inspection.Version, inspection.Keys, decodeLevel, inspection.StreamData, prefix, wanted, inspection.MinimalOutput);
         using Json.PreparedJsonOutput output = Json.PreparedJsonOutput.Create(governor);
         long mainBytes;
-        using (DisplayBuffer builder = Json.DocumentJson.WriteDocument(document, request, output, limits, governor, diagnostics, cancellationToken))
+        using (DisplayBuffer builder = inspection.Import is ImportedInspectionInput imported
+            ? await WriteImportedJsonAsync(host, inputPath, imported, inspection, request, output,
+                limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false)
+            : Json.DocumentJson.WriteDocument(document ?? throw new InvalidOperationException("Missing JSON projection document."),
+                request, output, limits, governor, diagnostics, cancellationToken))
         {
             mainBytes = builder.Utf8Bytes;
             if (mainBytes > limits.MaxOutputBytes)
@@ -250,13 +260,13 @@ internal static class JsonExecution
             // The chunks no longer refer to PDF values. Close the reader
             // before allocating immutable text and publication copies.
             graph?.Dispose();
-            if (!testJsonSchema) { await document.DisposeAsync().ConfigureAwait(false); }
+            if (!testJsonSchema && document is not null) { await document.DisposeAsync().ConfigureAwait(false); }
             using GovernedText text = builder.Finish();
             if (testJsonSchema)
             {
                 // Preserve the schema note's acceptance before input close.
                 CheckJsonSchema(text.Value, text.Utf8Bytes, inspection.Version, request.Keys, request.MinimalOutput, governor, diagnostics, cancellationToken);
-                await document.DisposeAsync().ConfigureAwait(false);
+                if (document is not null) { await document.DisposeAsync().ConfigureAwait(false); }
             }
             output.Prepare(text, outputPath.HasValue, escapeText, limits);
         }
@@ -288,6 +298,70 @@ internal static class JsonExecution
         { await PublishPreparedBytesAsync(host, QpdfPath.From(sidecar.Name), sidecar, governor, cancellationToken).ConfigureAwait(false); }
         return new JsonInspectionOutcome(output.TransferText(), ResultWarningSnapshot.Read(resultWarnings, diagnostics));
 
+    }
+
+    private static async ValueTask<DisplayBuffer> WriteImportedJsonAsync(IQpdfHost host, QpdfPath path,
+        ImportedInspectionInput imported, JsonInspection inspection, Json.JsonRequest request, Json.PreparedJsonOutput output,
+        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, QpdfRecoveryMode recovery, CancellationToken token)
+    {
+        DisplayBuffer? rendered = null;
+        try
+        {
+            await using IQpdfInput? input = imported.Update
+                ? await GovernedHost.OpenInputAsync(host, path, governor, token).ConfigureAwait(false) : null;
+            var source = input is null ? default
+                : await QpdfDocument.ReadAuthenticatedPatchSourceAsync(input, inspection.Password, limits, governor,
+                    diagnostics, recovery, token).ConfigureAwait(false);
+            using DocumentEngine? engine = source.Engine;
+            using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+            Json.ImportedModel model = await BindInspectionModelAsync(host, imported, engine, source.Header,
+                limits, governor, memory, token).ConfigureAwait(false);
+            if (inspection.GraphPlan is JsonPlan settings)
+            {
+                model = ImportedPublication.Apply(model,
+                    new(settings.RemoveInfo, settings.RemoveMetadata, settings.RemoveAcroform, settings.RemoveStructure, settings.RemoveLabels),
+                    limits, memory, governor, token);
+            }
+            Content.PoolResolver resolver = Content.PoolResolver.Create(memory, model.Objects);
+            PdfDictionary catalog = ReadBoundCatalog(model, resolver, governor, token);
+            IReadOnlyList<PageLocation> pages = request.Wants("pages") || request.Wants("pagelabels")
+                    || request.Wants("outlines") || request.Wants("acroform")
+                ? PageTree.Read(resolver, catalog, diagnostics, governor, limits, memory, token) : [];
+            IReadOnlyDictionary<int, (int Number, int Generation)>? ids = OriginalObjectIds.PrepareImportedIds(
+                model.OriginalPairs, null, memory, governor, token);
+            Json.JsonDocumentView view = new(model, resolver, pages, ids, engine?.Security);
+            rendered = Json.DocumentJson.WriteDocument(view, request, output, limits, governor, diagnostics, token);
+        }
+        catch { rendered?.Dispose(); throw; }
+        return rendered;
+    }
+
+    internal static async ValueTask<Json.ImportedModel> BindInspectionModelAsync(IQpdfHost host, ImportedInspectionInput imported,
+        DocumentEngine? engine, QpdfDocument.VersionParts header, QpdfLimits limits, ResourceGovernor governor,
+        ParserMemoryScope memory, CancellationToken token)
+    {
+        using System.Text.Json.JsonDocument json = await Json.JsonImport.ReadJsonAsync(host, imported.Json,
+            null, limits, governor, memory, token).ConfigureAwait(false);
+        using System.Text.Json.JsonDocument? patch = imported.FollowingPatch is QpdfPath path
+            ? await Json.JsonImport.ReadJsonAsync(host, path, null, limits, governor, memory, token).ConfigureAwait(false) : null;
+        Json.ImportedModel model = engine is null
+            ? await Json.JsonImport.BuildCreateModelAsync(host, json, patch, true, limits, governor, memory, token).ConfigureAwait(false)
+            : await Json.JsonImport.BuildUpdateModelAsync(host, json, engine, header, true, false, true, null, null,
+                limits, governor, memory, token).ConfigureAwait(false);
+        Json.JsonImport.CheckObjectCount(model, limits);
+        if (PdfDictionaryLookup.TryGet(model.Trailer, "Encrypt"u8, governor, token, out QpdfObject declaration)
+            && declaration is not PdfNull) { throw new QpdfCryptoException("/Encrypt"); }
+        return model;
+    }
+
+    internal static PdfDictionary ReadBoundCatalog(Json.ImportedModel model, IIndirectResolver resolver,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        if (!PdfDictionaryLookup.TryGet(model.Trailer, "Root"u8, governor, token, out QpdfObject root)
+            || Content.CatalogCopy.ResolveDictionary(root, resolver, governor, token) is not PdfDictionary catalog)
+        { throw new QpdfParseException("Imported trailer /Root must resolve to a dictionary.", 0L, null); }
+        Json.JsonImport.ValidateCatalogVersion(catalog, resolver, governor, token);
+        return catalog;
     }
 
     internal static async ValueTask<JsonImportOutcome> ImportCoreAsync(
