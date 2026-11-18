@@ -40,6 +40,7 @@ coverage boundaries are:
 | Labels and splitting | Typed selection owns label, range and split-size combinations. The reference lane checks each label shape and samples reordered job selection. |
 | Compression setters | Exhaust native encodings and effective setter order; sample argv/job/mixed/nested configuration. |
 | Content and resources | Feature owners cover alias, content and layout semantics; integration retains selection, merging, splitting and conservative failure behavior. |
+| Unreferenced graph preservation | The native lane checks tagged edges and shared stream bytes. It preserves separate whole-file, selection, split and contained-copy warning outcomes, with focused job samples. |
 | Geometry | Exhaust subtype, operation, indirection, border, coefficient and thin-page semantics through argv; selected job cases retain adapter wiring. NoRotate, private originals, escaped values and canonical/reversed comparisons stay independent. |
 | Inspection | Transformed reports cover page identity and order. A malformed selected page tests checker wiring and suppression of later reports. Typed JSON covers names, references and raw descriptors in both versions. Image tests keep sorting, name collisions and text dimension resolution distinct. Transport tests cover named and returned reports, sidecar names and payload roundtrips. |
 | JSON imports | Typed cases own graph binding, catalog versions and payloads; argv owns header setters. Create/update, source bindings, packing and job/file-job wiring retain separate controls. |
