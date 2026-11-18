@@ -4129,8 +4129,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "JSON export rejects existing rotation-baking, appearance-generation and annotation-flattening combinations.",
-        "JSON export accepts catalog-removal and authored-label policies without applying their effects."
+        "JSON export rejects existing rotation-baking, appearance-generation and annotation-flattening combinations."
       ],
       "evidence": {
         "positive": [
@@ -4191,6 +4190,11 @@
           "JsonResourcePruningTests.DamagedProgramsRetainResourcesAndReturnThePruningWarning"
         ],
         "interaction": [
+          "JsonPublicationTransformTests.ActiveRolesChangeWhileOriginalAliasesAndGenerationsRemain",
+          "JsonPublicationTransformTests.SelectedPagesDoNotInterpretLabelsThatAreRemovedOrReplaced",
+          "JsonPublicationTransformTests.RemoveInfoOmittedForNonLiveModificationDate",
+          "JsonPublicationTransformTests.AuthenticatedExportKeepsTheDecryptedDate",
+          "JsonPublicationTransformTests.JobLabelsUpdateTheTreeAndFullReportDescriptors",
           "JsonInspectionTests.JobRoundTripMatchesArgv",
           "JsonInspectionTests.TypedRoundTripMatchesArgv",
           "JsonInspectionTests.PageImagesJobParity",
@@ -4226,6 +4230,7 @@
           "JsonResourcePruningTests.MinimalJobAndReturnedVersionsCarryThePrunedBindings"
         ],
         "resource": [
+          "JsonPublicationTransformTests.PreparationAndPublicationFailuresKeepTheActualTargetAndRefundAdmission",
           "JsonPublicationMemoryTests.KnownSidecarLengthFitsSharedAllowanceWithoutGrowthCopies",
           "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
           "MixedJobArgvTests.DirectJsonTextObeysOutputLimitsAndPreservesTargets",
@@ -4253,6 +4258,7 @@
           "JsonResourcePruningTests.PreparationAndPublicationFailuresProtectTheActualReportAndRefundOwners"
         ],
         "oracle": [
+          "tools/ReferenceJsonPublication.ps1: Invoke-ReferenceJsonPublication",
           "diff:json-pages",
           "diff:json-structure",
           "diff:json-images",
@@ -4534,8 +4540,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "JSON export rejects existing rotation-baking, appearance-generation and annotation-flattening combinations.",
-        "JSON export accepts catalog-removal and authored-label policies without applying their effects."
+        "JSON export rejects existing rotation-baking, appearance-generation and annotation-flattening combinations."
       ],
       "evidence": {
         "positive": [
@@ -4567,6 +4572,10 @@
           "JsonResourcePruningTests.DamagedProgramsRetainResourcesAndReturnThePruningWarning"
         ],
         "interaction": [
+          "JsonPublicationTransformTests.ActiveRolesChangeWhileOriginalAliasesAndGenerationsRemain",
+          "JsonPublicationTransformTests.SelectedPagesDoNotInterpretLabelsThatAreRemovedOrReplaced",
+          "JsonPublicationTransformTests.RemoveInfoOmittedForNonLiveModificationDate",
+          "JsonPublicationTransformTests.ReturnedMetadataPolicyUsesTheSameActiveInfoRole",
           "JsonModesTests.JobModesRoundTrip",
           "JsonModesTests.TypedMinimalOmitsVersion",
           "JsonStringIdentityTests.ExportImportKeepsRawKeysLimitsActionsAndIndependentByteValues",
@@ -4590,6 +4599,7 @@
           "JsonResourcePruningTests.MinimalJobAndReturnedVersionsCarryThePrunedBindings"
         ],
         "resource": [
+          "JsonPublicationTransformTests.PreparationAndPublicationFailuresKeepTheActualTargetAndRefundAdmission",
           "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
           "JsonStringIdentityTests.EveryObservedMemoryRefusalPreservesTheTargetAndRefunds",
           "JsonStringIdentityTests.OutputFailureKeepsThePriorTargetAndRefunds",
@@ -4607,6 +4617,7 @@
           "JsonResourcePruningTests.PreparationAndPublicationFailuresProtectTheActualReportAndRefundOwners"
         ],
         "oracle": [
+          "tools/ReferenceJsonPublication.ps1: Invoke-ReferenceJsonPublication",
           "diff:json-output",
           "diff:security-json",
           "diff:json-page-assembly",
@@ -6345,6 +6356,7 @@
           "RemoveAcroformTests.JobRemoveAcroformRejectsMalformed"
         ],
         "interaction": [
+          "JsonPublicationTransformTests.ActiveRolesChangeWhileOriginalAliasesAndGenerationsRemain",
           "RemoveAcroformTests.MergeDropsFormDictionary",
           "RemoveAcroformTests.IgnoredWithCheck",
           "JsonCatalogRemovalTests.JobAndNestedImportsProjectCatalogRemoval",
@@ -6359,6 +6371,7 @@
           "JsonCatalogRemovalTests.CatalogPreparationRefundsAndPreservesTheActualTarget"
         ],
         "oracle": [
+          "tools/ReferenceJsonPublication.ps1: Invoke-ReferenceJsonPublication",
           "diff:remove-acroform",
           "diff:forms-preserve"
         ]
@@ -6446,6 +6459,9 @@
           "JsonMetadataPolicyTests.DatePresenceUsesTheBoundJsonGraph"
         ],
         "interaction": [
+          "JsonPublicationTransformTests.ActiveRolesChangeWhileOriginalAliasesAndGenerationsRemain",
+          "JsonPublicationTransformTests.RemoveInfoOmittedForNonLiveModificationDate",
+          "JsonPublicationTransformTests.AuthenticatedExportKeepsTheDecryptedDate",
           "MetadataTests.BothRemovalsDropBoth",
           "MetadataTests.JobJsonParityHolds",
           "MetadataPolicyTests.PreservesIndependentInfoXmlAndLiveDateAliases",
@@ -6462,6 +6478,7 @@
           "JsonMetadataPolicyTests.ImportMetadataPreparationRefundsAndPreservesActualTargets"
         ],
         "oracle": [
+          "tools/ReferenceJsonPublication.ps1: Invoke-ReferenceJsonPublication",
           "diff:remove-info"
         ]
       }
@@ -6498,6 +6515,7 @@
           "JsonMetadataPolicyTests.DatePresenceUsesTheBoundJsonGraph"
         ],
         "interaction": [
+          "JsonPublicationTransformTests.ActiveRolesChangeWhileOriginalAliasesAndGenerationsRemain",
           "MetadataTests.BothRemovalsDropBoth",
           "MetadataTests.MergeKeepsPrimaryInfo",
           "MetadataTests.SplitGroupsCarryInfo",
@@ -6513,6 +6531,7 @@
           "JsonMetadataPolicyTests.ImportMetadataPreparationRefundsAndPreservesActualTargets"
         ],
         "oracle": [
+          "tools/ReferenceJsonPublication.ps1: Invoke-ReferenceJsonPublication",
           "diff:remove-metadata"
         ]
       }
@@ -6548,6 +6567,8 @@
           "LabelTests.ArgvLabelFormsFailExplicitly"
         ],
         "interaction": [
+          "JsonPublicationTransformTests.ActiveRolesChangeWhileOriginalAliasesAndGenerationsRemain",
+          "JsonPublicationTransformTests.SelectedPagesDoNotInterpretLabelsThatAreRemovedOrReplaced",
           "LabelTests.JobRemovePageLabelsBehavesLikeArgv",
           "JsonCatalogRemovalTests.JobAndNestedImportsProjectCatalogRemoval",
           "JsonCatalogRemovalTests.PrivateRootsKeepTheirOriginalCatalogData",
@@ -6561,6 +6582,7 @@
           "JsonCatalogRemovalTests.CatalogPreparationRefundsAndPreservesTheActualTarget"
         ],
         "oracle": [
+          "tools/ReferenceJsonPublication.ps1: Invoke-ReferenceJsonPublication",
           "diff:remove-page-labels"
         ]
       }
@@ -6638,6 +6660,7 @@
           "RemoveStructureTests.JobRemoveStructureRejectsMalformed"
         ],
         "interaction": [
+          "JsonPublicationTransformTests.ActiveRolesChangeWhileOriginalAliasesAndGenerationsRemain",
           "RemoveStructureTests.MergeDropsStructureTree",
           "RemoveStructureTests.IgnoredWithCheck",
           "JsonCatalogRemovalTests.JobAndNestedImportsProjectCatalogRemoval",
@@ -6652,6 +6675,7 @@
           "JsonCatalogRemovalTests.CatalogPreparationRefundsAndPreservesTheActualTarget"
         ],
         "oracle": [
+          "tools/ReferenceJsonPublication.ps1: Invoke-ReferenceJsonPublication",
           "diff:remove-structure"
         ]
       }
@@ -6992,6 +7016,9 @@
           "PageLabelSpecTests.ExplicitInvalidStartsAndStylesStillReject"
         ],
         "interaction": [
+          "JsonPublicationTransformTests.ActiveRolesChangeWhileOriginalAliasesAndGenerationsRemain",
+          "JsonPublicationTransformTests.SelectedPagesDoNotInterpretLabelsThatAreRemovedOrReplaced",
+          "JsonPublicationTransformTests.JobLabelsUpdateTheTreeAndFullReportDescriptors",
           "LabelTests.PrefixAndStartRoundTrip",
           "ImportedVersionTests.AuthoredStructuresSetKnownVersionFloorsAndForceStillWins",
           "ImportedVersionTests.RebuiltSupportedTreesHaveTheirOwnVersionFloors",
@@ -7006,6 +7033,7 @@
           "PageLabelSpecTests.DefaultStartLabelPreparationKeepsAdmissionAndPublicationBoundaries"
         ],
         "oracle": [
+          "tools/ReferenceJsonPublication.ps1: Invoke-ReferenceJsonPublication",
           "diff:labels",
           "diff:labels-merge",
           "diff:split-labels"

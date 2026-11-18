@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Apply catalog and Info removals and authored page labels during JSON export,
+  preserving private aliases and resolving label positions after page selection.
+
 - Apply per-source resource pruning to JSON page selection, preserving private
   aliases and the same selection-only defaults as PDF output.
 

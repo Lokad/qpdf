@@ -11,7 +11,7 @@ using static Lokad.Qpdf.Writing.OutputSecurityPreparation;
 
 namespace Lokad.Qpdf.Operations;
 
-internal static class InspectionGraphPreparation
+internal static partial class InspectionGraphPreparation
 {
     internal static readonly PdfName InspectionParent = PdfName.FromAscii("Parent");
     internal static readonly PdfName InspectionPages = PdfName.FromAscii("Pages");
@@ -27,7 +27,7 @@ internal static class InspectionGraphPreparation
 
     private sealed class InspectionCatalog
     {
-        internal readonly Dictionary<int, (Content.SourceLabels Source, int Page, GraphCopier Copier)> Pages;
+        internal readonly Dictionary<int, (Content.SourceLabels? Labels, int Page, GraphCopier Copier)> Pages;
         internal readonly Dictionary<GraphCopier, Content.CopiedForm?> Forms;
         internal readonly List<GraphCopier> Sources;
         internal QpdfDocument.VersionParts? Version;
@@ -36,7 +36,7 @@ internal static class InspectionGraphPreparation
         internal InspectionCatalog(ParserMemoryScope memory)
         {
             memory.Reserve(56L);
-            Pages = ParserContainers.CreateDictionary<int, (Content.SourceLabels, int, GraphCopier)>(memory);
+            Pages = ParserContainers.CreateDictionary<int, (Content.SourceLabels?, int, GraphCopier)>(memory);
             Forms = ParserContainers.CreateDictionary<GraphCopier, Content.CopiedForm?>(memory);
             Sources = ParserContainers.CreateList<GraphCopier>(memory);
         }
@@ -74,7 +74,12 @@ internal static class InspectionGraphPreparation
         bool overlay = plan.Overlays.Count > 0 || plan.Underlays.Count > 0;
         bool externalize = plan.ExternalizeInlineImages || plan.OptimizeImages && !plan.KeepInlineImages;
         bool content = plan is JsonPlan && (plan.CoalesceContents || externalize || plan.OptimizeImages);
-        if (plan.Sources.Count == 0 && plan.Rotations.Count == 0 && !overlay && !content) { return null; }
+        JsonPlan? json = plan as JsonPlan;
+        bool authoredLabels = json is not null && json.Labels.Count > 0;
+        bool publication = json is not null && (authoredLabels || json.RemoveInfo || json.RemoveMetadata
+            || json.RemoveAcroform || json.RemoveStructure || json.RemoveLabels);
+        bool preparePages = plan.Sources.Count > 0 || plan.Rotations.Count > 0 || overlay || content || authoredLabels;
+        if (!preparePages && !publication) { return null; }
         if (plan.Sources.Count > 0 && plan.Collation is PdfPageCollation collation
             && collation.GroupSizes.Count != 1 && collation.GroupSizes.Count != plan.Sources.Count)
         { throw new ArgumentException("Collation requires one size or one size per source."); }
@@ -104,7 +109,7 @@ internal static class InspectionGraphPreparation
                     { prunePrimary = prunePolicy.ShouldPrune(document.Engine, limits, governor, cancellationToken); break; }
                 }
             }
-            using ParserMemoryScope? preparation = content ? ParserMemoryScope.Create(governor) : null;
+            using ParserMemoryScope? preparation = content || authoredLabels ? ParserMemoryScope.Create(governor) : null;
             PageTreePreparation.Prepared? prepared = preparation is null ? null
                 : PageTreePreparation.PrepareForInspection(document.Engine, plan.Sources.Count > 0 || overlay,
                     limits, memory, preparation, governor, cancellationToken);
@@ -127,6 +132,14 @@ internal static class InspectionGraphPreparation
             }
             if (greatest == int.MaxValue) { throw new QpdfParseException("No object identity is available for page transformations.", null, null); }
             GraphCopier pool = GraphCopier.CreateInspectionOwned(document.Engine, governor, limits, greatest + 1, memory, true);
+            if (!preparePages && json is not null)
+            {
+                document.Engine.SetInspectionObjects(pool.CopiedObjects);
+                document.Engine.InspectionCalledAllPages = false;
+                document.Engine.InspectionPushedInheritedResources = false;
+                ApplyInspectionPublication(document, pool, json, memory, governor, cancellationToken);
+                return lifetime;
+            }
             if (prunePrimary && pruneSources is not null && pruningMemory is not null)
             { ParserContainers.AddSetItem(pruningMemory, pruneSources, pool, IntPtr.Size); }
             if (prepared is not null)
@@ -186,10 +199,11 @@ internal static class InspectionGraphPreparation
             }
 
             InspectionCatalog? catalogAssembly = plan.AssembleCatalog && plan.Sources.Count > 0 ? new(memory) : null;
+            bool preserveLabels = catalogAssembly is not null && !authoredLabels && json?.RemoveLabels != true;
             if (catalogAssembly is not null)
             { Content.CatalogCopy.IncludeSourceVersion(ref catalogAssembly.Version, ref catalogAssembly.Extension, document, governor, cancellationToken); }
             List<List<InspectionPage>> groups = await PrepareInspectionSourcesAsync(host, document, original,
-                pool, plan, catalogAssembly, prunePolicy, pruneSources, pruningMemory,
+                pool, plan, catalogAssembly, preserveLabels, prunePolicy, pruneSources, pruningMemory,
                 limits, governor, diagnostics, memory, cancellationToken).ConfigureAwait(false);
             if (catalogAssembly is not null)
             {
@@ -212,8 +226,8 @@ internal static class InspectionGraphPreparation
             List<(int Source, int Slot)> order = CollatePageOrder(counts, plan.Collation, governor, memory);
             List<InspectionPage> selectedPages = ParserContainers.CreateList<InspectionPage>(memory);
             HashSet<int> used = ParserContainers.CreateSet<int>(memory);
-            List<(Content.SourceLabels Source, int Page)>? labelOccurrences = catalogAssembly is null ? null
-                : ParserContainers.CreateList<(Content.SourceLabels, int)>(memory);
+            List<(Content.SourceLabels Source, int Page)>? labelOccurrences = preserveLabels
+                ? ParserContainers.CreateList<(Content.SourceLabels, int)>(memory) : null;
             List<(GraphCopier Copier, int Id)>? occurrences = catalogAssembly is null ? null
                 : ParserContainers.CreateList<(GraphCopier, int)>(memory);
             bool anyLabels = false;
@@ -222,12 +236,17 @@ internal static class InspectionGraphPreparation
                 governor.NoteOperation();
                 InspectionPage page = groups[source][slot];
                 GraphCopier pageOwner = pool;
-                if (labelOccurrences is not null && catalogAssembly is not null)
+                if (catalogAssembly is not null)
                 {
-                    var label = catalogAssembly.Pages[page.Number];
-                    pageOwner = label.Copier;
-                    anyLabels |= label.Source.HasTree;
-                    ParserContainers.AddItem(memory, labelOccurrences, (label.Source, label.Page), 16L);
+                    var sourcePage = catalogAssembly.Pages[page.Number];
+                    pageOwner = sourcePage.Copier;
+                    if (labelOccurrences is not null)
+                    {
+                        Content.SourceLabels labels = sourcePage.Labels
+                            ?? throw new InvalidOperationException("Missing labels for a selected page source.");
+                        anyLabels |= labels.HasTree;
+                        ParserContainers.AddItem(memory, labelOccurrences, (labels, sourcePage.Page), 16L);
+                    }
                 }
                 if (!ParserContainers.AddSetItem(memory, used, page.Number, sizeof(int)))
                 {
@@ -427,6 +446,8 @@ internal static class InspectionGraphPreparation
                 ParserContainers.AddItem(memory, transformed, new PageLocation(new PdfReference(selected.Number, selected.Generation), page), 16L);
             }
             document.SetInspectionPages(transformed);
+            if (publication && json is not null)
+            { ApplyInspectionPublication(document, pool, json, memory, governor, cancellationToken); }
             return lifetime;
         }
         catch (ArgumentException ex)
@@ -448,7 +469,7 @@ internal static class InspectionGraphPreparation
 
     private static async ValueTask<List<List<InspectionPage>>> PrepareInspectionSourcesAsync(
         IQpdfHost host, QpdfDocument document, List<InspectionPage> original, GraphCopier pool,
-        IInspectionGraphPlan plan, InspectionCatalog? catalogAssembly,
+        IInspectionGraphPlan plan, InspectionCatalog? catalogAssembly, bool preserveLabels,
         Content.ContentPrunePolicy? prunePolicy, HashSet<GraphCopier>? pruneSources, ParserMemoryScope? pruningMemory,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
         ParserMemoryScope memory, CancellationToken token)
@@ -511,7 +532,7 @@ internal static class InspectionGraphPreparation
             if (!primary && hasPages && prunePolicy is not null && pruneSources is not null && pruningMemory is not null
                 && prunePolicy.ShouldPrune(reader.Engine, limits, governor, token))
             { ParserContainers.AddSetItem(pruningMemory, pruneSources, copier, IntPtr.Size); }
-            Content.SourceLabels? sourceLabels = catalogAssembly is not null && hasPages
+            Content.SourceLabels? sourceLabels = preserveLabels && hasPages
                 ? Content.PageLabelMerge.ReadSource(reader.Engine, copier, limits, governor, token) : null;
             if (catalogAssembly is not null && hasPages)
             { Content.CatalogCopy.IncludeSourceVersion(ref catalogAssembly.Version, ref catalogAssembly.Extension, reader, governor, token); }
@@ -535,7 +556,7 @@ internal static class InspectionGraphPreparation
                         selected = new(id, 0, page);
                     }
                     ParserContainers.AddItem(memory, groups[group], selected, 16L);
-                    if (sourceLabels is not null && catalogAssembly is not null)
+                    if (catalogAssembly is not null)
                     {
                         if (!catalogAssembly.Pages.ContainsKey(selected.Number))
                         { ParserContainers.EnsureEntryCapacity(memory, catalogAssembly.Pages, 24L); }

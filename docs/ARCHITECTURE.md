@@ -97,6 +97,9 @@ JSON content/image transforms use the same content owners and host JPEG
 capability over that graph, including the ordinary inline-image policy.
 Source selection determines resource-pruning policy before inherited overlays;
 the shared pruning owner applies it to the assembled source occurrences.
+JSON export shares the catalog and Info removal policy with PDF publication.
+Catalog-only changes avoid additional page preparation. Authored labels use
+the selected page order, and replaced label trees need no merge.
 Parsed source references keep provenance so new inspection identities cannot
 revive old dangling edges. Source-aware pool resolution borrows untouched values;
 Form replacement propagation retains borrowed parents and exact source pairs.

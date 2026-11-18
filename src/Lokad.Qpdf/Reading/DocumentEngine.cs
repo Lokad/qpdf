@@ -299,6 +299,7 @@ internal sealed partial class DocumentEngine : IStreamRecoveryResolver, IDisposa
         _inspectionTrailer = null;
         InspectionVersionParts = null;
         InspectionPushedInheritedResources = null;
+        InspectionCalledAllPages = null;
     }
 
     internal void SetInspectionTrailer(PdfDictionary trailer)
@@ -311,6 +312,7 @@ internal sealed partial class DocumentEngine : IStreamRecoveryResolver, IDisposa
     internal bool HasInspectionObjects => _inspectionObjects is not null;
     internal QpdfDocument.VersionParts? InspectionVersionParts { get; set; }
     internal bool? InspectionPushedInheritedResources { get; set; }
+    internal bool? InspectionCalledAllPages { get; set; }
 
     internal int InspectionObjectGeneration(int number)
         => Table.Entries.TryGetValue(number, out XrefEntry entry) && entry.Kind == XrefEntryKind.Uncompressed ? entry.Second : 0;

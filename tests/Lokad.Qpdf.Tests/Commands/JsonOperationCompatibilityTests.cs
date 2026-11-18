@@ -262,7 +262,7 @@ public sealed class JsonOperationCompatibilityTests
     [InlineData("json-output", "argv")]
     [InlineData("json-output", "job")]
     [InlineData("json-output", "mixed")]
-    public async Task PreserveDocumentJsonWriterIgnores(string mode, string route)
+    public async Task ApplyDocumentJsonCatalogRemovals(string mode, string route)
     {
         using InMemoryQpdfHost storage = CreateHost();
         QpdfExecutionResult result = await Execute(new(storage), storage, mode, route,
@@ -270,9 +270,12 @@ public sealed class JsonOperationCompatibilityTests
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(storage.TryGetOutput(QpdfPath.From("output"), out byte[] output));
         using JsonDocument json = JsonDocument.Parse(output);
-        JsonElement catalog = json.RootElement.GetProperty("qpdf")[1].GetProperty("obj:1 0 R").GetProperty("value");
-        Assert.True(catalog.TryGetProperty("/AcroForm", out _));
-        Assert.True(catalog.TryGetProperty("/StructTreeRoot", out _));
+        JsonElement table = json.RootElement.GetProperty("qpdf")[1];
+        string root = table.GetProperty("trailer").GetProperty("value").GetProperty("/Root").GetString()
+            ?? throw new InvalidOperationException();
+        JsonElement catalog = table.GetProperty("obj:" + root).GetProperty("value");
+        Assert.False(catalog.TryGetProperty("/AcroForm", out _));
+        Assert.False(catalog.TryGetProperty("/StructTreeRoot", out _));
         Assert.Equal(0, storage.OpenLeaseCount);
     }
 

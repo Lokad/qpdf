@@ -328,10 +328,10 @@ Prepared direct/repeated pages
 remain linked from the visible tree; exact source generations and independent
 aliases retain their meaning. Content-only preparation does not claim that all
 inherited resources were pushed.
-Other form/frame transforms remain unavailable. Catalog removal and
-authored-label settings currently leave JSON export unchanged;
-their missing combinations remain in the inventory. PDF serializer settings
-retain their separate native ignore policy.
+JSON export applies Info, XML metadata, AcroForm, structure and page-label
+removals to the active roles. Independent aliases retain their original values.
+Authored labels replace removed or existing labels in the final page order.
+Other form and frame transforms remain unavailable during JSON export.
 
 Typed `Qpdf.CountPagesAsync` traverses the page tree and returns its count, warnings
 and final counters after input cleanup. Its credential/recovery/limits overload

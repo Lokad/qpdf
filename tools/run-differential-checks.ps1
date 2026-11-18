@@ -2878,6 +2878,8 @@ Invoke-ReferenceJsonContent
 Invoke-ReferenceJsonImages
 . (Join-Path $repoRoot 'tools/ReferenceJsonResources.ps1')
 Invoke-ReferenceJsonResources
+. (Join-Path $repoRoot 'tools/ReferenceJsonPublication.ps1')
+Invoke-ReferenceJsonPublication
 . (Join-Path $repoRoot 'tools/ReferenceSecurity.ps1')
 Invoke-ReferenceSecurity
 . (Join-Path $repoRoot 'tools/ReferenceXrefRoles.ps1')

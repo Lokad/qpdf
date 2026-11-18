@@ -1249,7 +1249,7 @@ internal static class DocumentJson
             builder.Append(",\"pushedinheritedpageresources\": ");
             builder.Append((engine.InspectionPushedInheritedResources ?? engine.HasInspectionObjects) ? "true" : "false");
             builder.Append(",\"calledgetallpages\": ");
-            builder.Append(touchesPages || engine.HasInspectionObjects ? "true" : "false");
+            builder.Append(touchesPages || (engine.InspectionCalledAllPages ?? engine.HasInspectionObjects) ? "true" : "false");
             builder.Append(",\"maxobjectid\": ");
             builder.AppendInteger(maxObjectId);
             builder.Append("}, {");
