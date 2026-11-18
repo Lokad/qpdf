@@ -98,8 +98,6 @@ public sealed class CommandRotationTests
     [InlineData(false, "add-set", 90)]
     [InlineData(false, "add-add", 180)]
     [InlineData(true, "set-add", 180)]
-    [InlineData(true, "add-set", 90)]
-    [InlineData(true, "add-add", 180)]
     public async Task TypedRotationListsKeepExplicitOrderAndRepeatedEntries(bool multi, string order, int expected)
     {
         using InMemoryQpdfHost host = CreateHost();

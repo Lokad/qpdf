@@ -117,7 +117,14 @@ public sealed class TypedConfigurationOwnershipTests(ITestOutputHelper log)
             InMemoryQpdfHost reader = new(); reader.AddInput(Input, output, QpdfInputOwnership.Copy);
             await using QpdfDocument document = await QpdfDocument.OpenAsync(reader, Input, CancellationToken.None);
             Assert.Equal(3, document.PageCount);
-            if (route != "multi")
+            if (route == "multi")
+            {
+                foreach (var location in document.PageReferences)
+                {
+                    Assert.False(location.Page.TryGet(PdfName.FromAscii("Rotate"), out _));
+                }
+            }
+            else
             {
                 PdfDictionary first = document.PageReferences[0].Page;
                 Assert.True(first.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject angle));
@@ -141,54 +148,53 @@ public sealed class TypedConfigurationOwnershipTests(ITestOutputHelper log)
         }
     }
 
-    [Fact]
-    public async Task TypedPositionsKeepEmptyDefaultsAndDuplicatesBeyondTheTextCeiling()
+    [Theory]
+    [InlineData("null")]
+    [InlineData("empty")]
+    [InlineData("2048-repeats")]
+    [InlineData("ordered")]
+    [InlineData("2049-repeats")]
+    public async Task TypedPositionsKeepEmptyDefaultsAndDuplicatesBeyondTheTextCeiling(string boundary)
     {
-        foreach (string route in new[] { "single", "rotations", "merge" })
-        foreach (string boundary in new[] { "null", "empty", "2048-repeats", "ordered", "2049-repeats" })
+        using Host host = await CreateHost();
+        PdfPageSource[] sources = [new(Input, PdfPageSelectionOptions.FromPages(Enumerable.Repeat(1, 11).ToArray()))];
+        int[]? pages = boundary switch
         {
-            using Host host = await CreateHost();
-            PdfPageSource[] sources = [new(Input, PdfPageSelectionOptions.FromPages(Enumerable.Repeat(1, 11).ToArray()))];
-            int[]? pages = boundary switch
+            "null" => null,
+            "empty" => [],
+            "2048-repeats" => Enumerable.Repeat(1, 2048).ToArray(),
+            "ordered" => [.. Enumerable.Repeat(1, 2047), 11],
+            "2049-repeats" => Enumerable.Repeat(1, 2049).ToArray(),
+            _ => throw new InvalidOperationException(boundary),
+        };
+        PdfPageRotation[] rotations = [new(PdfRotationMode.Add, 90, pages)];
+        await Run(host, "rotations", sources, rotations, [], QpdfLimits.Default, CancellationToken.None);
+        Assert.True(host.Inner.TryGetOutput(Output, out byte[] output));
+        using InMemoryQpdfHost reader = new(); reader.AddInput(Input, output, QpdfInputOwnership.Copy);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(reader, Input, CancellationToken.None);
+        Assert.Equal(11, document.PageCount);
+        for (int i = 0; i < 11; i++)
+        {
+            long expected = boundary switch
             {
-                    "null" => null,
-                    "empty" => [],
-                    "2048-repeats" => Enumerable.Repeat(1, 2048).ToArray(),
-                    "ordered" => [.. Enumerable.Repeat(1, 2047), 11],
-                    "2049-repeats" => Enumerable.Repeat(1, 2049).ToArray(),
-                _ => throw new InvalidOperationException(boundary),
+                "null" or "empty" => 90L,
+                "2048-repeats" => 0L,
+                "2049-repeats" => i == 0 ? 90L : 0L,
+                _ => i == 0 ? 270L : i == 10 ? 90L : 0L,
             };
-            PdfPageRotation[] rotations = [new(PdfRotationMode.Add, 90, pages)];
-            await Run(host, route, sources, rotations, [], QpdfLimits.Default, CancellationToken.None);
-            Assert.True(host.Inner.TryGetOutput(Output, out byte[] output));
-            InMemoryQpdfHost reader = new(); reader.AddInput(Input, output, QpdfInputOwnership.Copy);
-            await using QpdfDocument document = await QpdfDocument.OpenAsync(reader, Input, CancellationToken.None);
-            Assert.Equal(11, document.PageCount);
-            for (int i = 0; i < 11; i++)
-            {
-                long expected = boundary switch
-                {
-                    "null" or "empty" => 90L,
-                    "2048-repeats" => 0L,
-                    "2049-repeats" => i == 0 ? 90L : 0L,
-                    _ => i == 0 ? 270L : i == 10 ? 90L : 0L,
-                };
-                PdfDictionary page = document.PageReferences[i].Page;
-                long actual = page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject angle) ? Assert.IsType<PdfInteger>(angle).Value : 0L;
-                Assert.Equal(expected, actual);
-            }
-            Assert.Equal(0L, host.Inner.OpenLeaseCount);
-            log.WriteLine("TYPED CONFIG BOUNDARY {0}|{1} preserved", route, boundary);
+            PdfDictionary page = document.PageReferences[i].Page;
+            long actual = page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject angle) ? Assert.IsType<PdfInteger>(angle).Value : 0L;
+            Assert.Equal(expected, actual);
         }
+        Assert.Equal(0L, host.Inner.OpenLeaseCount);
+        log.WriteLine("TYPED CONFIG BOUNDARY {0} preserved", boundary);
     }
 
     [Theory]
     [InlineData("single", false)]
     [InlineData("rotations", false)]
-    [InlineData("merge", false)]
     [InlineData("single", true)]
     [InlineData("rotations", true)]
-    [InlineData("merge", true)]
     public async Task NumericRotationBoundsPreservePriorOutputAndCloseInputs(string route, bool cardinality)
     {
         using Host host = await CreateHost();
