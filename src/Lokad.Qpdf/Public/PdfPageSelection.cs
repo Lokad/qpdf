@@ -26,7 +26,7 @@ public sealed record PdfPageSelectionOptions
         Range = range;
     }
 
-    /// <summary>Gets a read-only snapshot of the explicit selection; duplicates and order are preserved.</summary>
+    /// <summary>Gets the explicitly selected pages in order, with duplicates preserved. Range and preview selections return an empty list here.</summary>
     public IReadOnlyList<int> Pages { get; }
 
     internal int? FirstAndLastCount { get; }
@@ -103,9 +103,12 @@ public sealed record PdfPageSelectionOptions
         return new PdfPageSelectionOptions([.. ordered], null, null);
     }
 
-    /// <summary>Creates a range selection using the shared upstream page-range grammar. A null range selects every page.</summary>
+    /// <summary>Creates an ordered selection using the qpdf page-range grammar.</summary>
+    /// <remarks>Null or empty text selects every page. Relative endpoints such as <c>r1</c> and <c>z</c>
+    /// resolve against the corresponding input during execution. Ranges support descending order, exclusions,
+    /// duplicates and positional odd or even filters.</remarks>
     /// <exception cref="QpdfParseException">The range syntax is invalid.</exception>
-    internal static PdfPageSelectionOptions FromRange(string? range)
+    public static PdfPageSelectionOptions FromRange(string? range)
     {
         global::Lokad.Qpdf.Pages.PageRanges.CheckSyntax(range);
         return new PdfPageSelectionOptions([], null, range ?? string.Empty);

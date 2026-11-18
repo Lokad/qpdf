@@ -250,16 +250,18 @@ modifier. Read-only inspection keeps source values. [Predicate precedence](#repo
 
 ## Selection semantics
 
-`SelectPageAsync` accepts `QpdfRecoveryMode.BoundedRepair` for explicit page and
-first/last preview selections and reports repair in `PdfPageSelectionResult.Warnings`.
+`SelectPageAsync` accepts `QpdfRecoveryMode.BoundedRepair` and reports repair
+in `PdfPageSelectionResult.Warnings`.
 The full overload accepts rotations, input credentials and the output protection
 policy. `PdfPageMergeOptions.RecoveryMode` applies to all sources and templates.
 
-- Select ordered 1-based pages, duplicates, FirstAndLast windows or Normalized
-  sets; merge, collate, rotate, label and split. Typed explicit page lists must be
-  nonempty; supported ranges can select no pages. Endpoint-free `:odd`/`:even`
-  filters also work with zero-page inputs. Invalid/out-of-range endpoints
-  reject. Range exclusions affect their preceding positive group.
+- Typed callers can select explicit 1-based pages, first/last windows,
+  normalized sets, or a `PdfPageSelectionOptions.FromRange` expression such
+  as `z-1:odd`. Typed ranges and command ranges share syntax and resolve
+  against the source page count. Exclusions affect their preceding positive
+  group. Explicit page lists require at least one page. Ranges can select
+  zero pages, including endpoint-free `:odd` or `:even` on an empty input.
+  Invalid or out-of-range endpoints fail.
 - The primary owns document metadata and attachments even when none of its pages
   is selected. Secondary global collections require explicit import; page-reachable
   data copies normally. Explicit empty primary differs from a real zero-page input.

@@ -1,3 +1,5 @@
+using System.Text;
+using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 
 namespace Lokad.Qpdf.TestSupport;
@@ -59,5 +61,33 @@ internal static class PageCountChecks
                 "Caller closure refunds count owners without changing returned values.");
         }
         Console.WriteLine("PASS typed bounded page count through short range reads and all public overloads");
+    }
+
+    internal static async Task RunRangeSelectionAsync(byte[] source)
+    {
+        QpdfPath input = QpdfPath.From("source.pdf"), output = QpdfPath.From("selected.pdf");
+        using InMemoryQpdfHost storage = new();
+        storage.AddInput(input, source, QpdfInputOwnership.Transfer);
+        PdfPageSelectionOptions selection = PdfPageSelectionOptions.FromRange("r1-r2");
+        PdfPageSelectionResult result = await Qpdf.SelectPageAsync(storage, input, output, selection, CancellationToken.None);
+        Require(result.SourcePages.SequenceEqual(new[] { 2, 1 }) && result.Counters.OpenHandles == 0,
+            "Relative endpoints select the pages in reverse order and close the input.");
+        Require(storage.TryGetOutput(output, out byte[] selected), "The range selection must publish a PDF.");
+        storage.AddInput(output, selected, QpdfInputOwnership.Transfer);
+        QpdfJsonOptions options = new(2, ["pages", "qpdf"], "inline", null, [], false);
+        QpdfJsonResult json = await Qpdf.GetDocumentJsonAsync(storage, output, options, CancellationToken.None);
+        using JsonDocument report = JsonDocument.Parse(json.Json);
+        JsonElement table = report.RootElement.GetProperty("qpdf")[1];
+        JsonElement pages = report.RootElement.GetProperty("pages");
+        Require(pages.GetArrayLength() == 2, "The selected PDF must contain both pages.");
+        for (int index = 0; index < 2; index++)
+        {
+            string? reference = pages[index].GetProperty("contents")[0].GetString();
+            byte[] data = table.GetProperty("obj:" + reference).GetProperty("stream").GetProperty("data").GetBytesFromBase64();
+            string expected = index == 0 ? "(Second)" : "(First)";
+            Require(Encoding.ASCII.GetString(data).Contains(expected, StringComparison.Ordinal),
+                "The selected page content must follow the range order.");
+        }
+        Console.WriteLine("PASS typed relative page range and selected PDF order");
     }
 }
