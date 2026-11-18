@@ -141,46 +141,22 @@ internal static class ArgvParser
         }
 
         string token = argv[i];
-        int equals = token.IndexOf((char)61);
-        if (equals < 0 && (i + 1 >= argv.Count || argv[i + 1] is null || argv[i + 1] == "--" || (argv[i + 1].StartsWith("--", StringComparison.Ordinal) && argv[i + 1].Length > 2)))
-        {
-            return bareDefault;
-        }
-
-        string? value = TakeChoiceValue(argv, ref i, option);
+        int equals = token.IndexOf('=');
+        // A separated value is an extension for recognized choices. Other
+        // tokens remain available to the positional and option grammar.
+        string? value = equals >= 0 ? ConfigurationText.Slice(argv, token, equals + 1)
+            : i + 1 < argv.Count ? argv[i + 1] : null;
         foreach (string choice in choices)
         {
             if (value == choice)
             {
-                return value;
+                if (equals < 0) { i++; }
+                return choice;
             }
         }
 
+        if (equals < 0) { return bareDefault; }
         throw new QpdfParseException(option + " must be one of: " + string.Join(", ", choices) + ".", i, null);
-    }
-
-    private static string? TakeChoiceValue(IReadOnlyList<string> argv, ref int i, string option)
-    {
-        string token = argv[i];
-        int equals = token.IndexOf((char)61);
-        if (equals >= 0)
-        {
-            return ConfigurationText.Slice(argv, token, equals + 1);
-        }
-
-        if (i + 1 >= argv.Count)
-        {
-            throw new QpdfParseException(option + " requires a value.", i, null);
-        }
-
-        string next = argv[i + 1];
-        if (next is null || next == "--" || (next.StartsWith("--", StringComparison.Ordinal) && next.Length > 2))
-        {
-            throw new QpdfParseException(option + " requires a value.", i, null);
-        }
-
-        i += 1;
-        return next;
     }
 
     internal static OverlaySpec ParseOverlayBlock(IReadOnlyList<string> argv, ref int cursor, bool underlay)

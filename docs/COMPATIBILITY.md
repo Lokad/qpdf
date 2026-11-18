@@ -50,9 +50,13 @@ Argv setters apply in argument order. Job keys apply in sorted order within each
 file, and duplicate JSON properties keep their last value. Semantic validation
 uses effective values. Malformed string encoding fails even in a superseded
 value. Compression and decode setters follow that order. QDF fills unset defaults.
-Managed extensions include separate job-file/JSON values, separate unsigned
-decimal split sizes and bare compression. To split into filenames based on a
-fully numeric output operand, use `--split-pages -- 2` or `--split-pages=1 2`.
+Managed extensions include separate job-file values, recognized JSON version
+and compression choices as separate tokens, and separate unsigned decimal
+split sizes. Bare JSON and compression flags leave ordinary path operands
+available. If a filename matches a recognized choice, add a separator
+(`--json-output -- 2`) or specify the value with equals (`--json-output=2 2`).
+Use the same separator or equals syntax for numeric split output names.
+For JSON export, an output of `-` returns the report in the execution result.
 Unknown options,
 invalid combinations and excluded crypto fail explicitly.
 

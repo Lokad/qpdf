@@ -554,9 +554,9 @@ Write-Output "[json-update] mutation assertions done"
 # --- case: json-modes (managed vs oracle JSON inspection modifiers) ---
 $case = New-Case 'json-modes'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/o.json=$case/lib-o.json", '--', 'inputs/a.pdf', '--json', '--json-object=trailer', '--', 'outputs/o.json')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/o.json=$case/lib-o.json", '--', 'inputs/a.pdf', '--json-object=trailer', '--json', 'outputs/o.json')
 if ($code -ne 0) { throw "json-modes/object: emit failed ($code)" }
-$code = Invoke-Oracle $case @('--json', '--json-object=trailer', 'inputs/a.pdf', '--', "$case/ora-o.json")
+$code = Invoke-Oracle $case @('inputs/a.pdf', '--json-object=trailer', '--json', "$case/ora-o.json")
 if ($code -ne 0) { throw "json-modes/object: oracle failed ($code)" }
 $libObj = Get-Content "$case/lib-o.json" -Raw | ConvertFrom-Json
 $oraObj = Get-Content "$case/ora-o.json" -Raw | ConvertFrom-Json
@@ -577,9 +577,9 @@ foreach ($k in @($libInline.qpdf[1].PSObject.Properties.Name)) {
   if ((($libInline.qpdf[1].$k.stream | ConvertTo-Json -Compress -Depth 100)) -ne (($oraInline.qpdf[1].$k.stream | ConvertTo-Json -Compress -Depth 100))) { Write-Output "[json-stream-data] FAIL: stream payload differs for $k"; $script:failures++; $inlineMismatch = $true }
 }
 if (-not $inlineMismatch) { Write-Output "[json-stream-data] inline payloads match" }
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/m.json=$case/lib-m.json", '--', 'inputs/a.pdf', '--json-output', '--', 'outputs/m.json')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/m.json=$case/lib-m.json", '--', 'inputs/a.pdf', '--json-output', 'outputs/m.json')
 if ($code -ne 0) { throw "json-modes/output: emit failed ($code)" }
-$code = Invoke-Oracle $case @('--json-output', 'inputs/a.pdf', '--', "$case/ora-m.json")
+$code = Invoke-Oracle $case @('inputs/a.pdf', '--json-output', "$case/ora-m.json")
 if ($code -ne 0) { throw "json-modes/output: oracle failed ($code)" }
 $libMin = Get-Content "$case/lib-m.json" -Raw | ConvertFrom-Json
 $oraMin = Get-Content "$case/ora-m.json" -Raw | ConvertFrom-Json

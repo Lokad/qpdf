@@ -715,7 +715,9 @@ internal static partial class JobPlanner
 
             if (output == "-")
             {
-                throw new QpdfParseException("Stdout output requires an explicit streaming contract.", 0L, null);
+                if (!seenJson && !seenJsonOutput)
+                { throw new QpdfParseException("Stdout output requires an explicit streaming contract.", 0L, null); }
+                output = null;
             }
 
             if (input is null && !empty)

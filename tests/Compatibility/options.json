@@ -2895,6 +2895,7 @@
       "evidence": {
         "positive": [
           "CompressionTests.CompressStreamsBareDefaultsToYes",
+          "OptionalChoiceOperandTests.BareCompressionLeavesTheTargetForRewrite",
           "CompressionTests.CompressYesKeepsFlateWithoutRecompress",
           "CompressionTests.CompressStreamsNoLeavesRaw"
         ],
@@ -4156,6 +4157,7 @@
           "AttachmentTreeReferenceTests.EquivalentTreesWorkAcrossPublicOperations",
           "JsonInspectionTests.DefaultVersionIsTwo",
           "JsonInspectionTests.JsonWithoutFileReturnsText",
+          "OptionalChoiceOperandTests.BareJsonLeavesTheFollowingFileOperand",
           "JsonRealExportTests.SignedAndZeroPaddedRealsExportValidExactJson",
           "AttachmentJsonTests.ReferencePresentationPreservesGenerationsAndDirectSpecNull",
           "JsonInspectionTests.ExplicitVersionOne",
@@ -4585,6 +4587,8 @@
       "evidence": {
         "positive": [
           "JsonModesTests.JsonOutputIsMinimal",
+          "OptionalChoiceOperandTests.BareJsonLeavesTheFollowingFileOperand",
+          "OptionalChoiceOperandTests.JsonDashReturnsTheReportWithoutOutputAccess",
           "JsonModesTests.JsonOutputAcceptsKeys",
           "JsonStringIdentityTests.TextEncodingIsUsedOnlyWhenItPreservesTheOriginalBytes",
           "JsonPageAssemblyTests.AssembledPagesAndObjectExportsKeepTheSameGraph",
