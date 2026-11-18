@@ -46,16 +46,28 @@ public sealed class JsonOperationCompatibilityTests
             ("noOriginalObjectIds", true, ["--no-original-object-ids"]),
         ];
         foreach ((string key, object value, string[] arguments) in requests)
-        foreach (string mode in new[] { "create", "update", "inspect", "json-output" })
-        foreach (string route in new[] { "argv", "job", "mixed" })
         {
-            // Export refusals are distinct from supported content transforms
-            // and accepted settings with remaining compatibility gaps.
-            if (mode is "inspect" or "json-output"
-                && key is not ("qdf" or "linearize" or "flattenRotation" or "flattenAnnotations"
-                    or "generateAppearances" or "overlay" or "underlay")) { continue; }
-            if (mode is "create" or "update" && key == "linearize") { continue; }
-            yield return [key, value, arguments, mode, route];
+            if (key != "linearize") { yield return [key, value, arguments, "create", "argv"]; }
+            if (key is "qdf" or "linearize" or "flattenRotation" or "flattenAnnotations"
+                or "generateAppearances" or "overlay" or "underlay")
+            { yield return [key, value, arguments, "inspect", "argv"]; }
+        }
+
+        // Sample operation and adapter wiring independently of setting policy.
+        (string Key, string Mode, string Route)[] adapters = [
+            ("externalizeInlineImages", "update", "argv"),
+            ("normalizeContent", "create", "job"),
+            ("setPageLabels", "update", "mixed"),
+            ("overlay", "create", "job"),
+            ("flattenRotation", "inspect", "job"),
+            ("flattenAnnotations", "json-output", "mixed"),
+            ("underlay", "json-output", "argv"),
+            ("qdf", "update", "mixed"),
+        ];
+        foreach ((string key, string mode, string route) in adapters)
+        {
+            var request = requests.Single(request => request.Key == key);
+            yield return [key, request.Value, request.Arguments, mode, route];
         }
     }
 
@@ -71,7 +83,8 @@ public sealed class JsonOperationCompatibilityTests
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         Assert.Equal(QpdfExitCode.Error, result.ExitCode);
         Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.InvalidArguments);
-        Assert.All(host.Inputs, path => Assert.Equal("settings", path));
+        if (route == "mixed") { Assert.Equal(new[] { "settings" }, host.Inputs); }
+        else { Assert.Empty(host.Inputs); }
         Assert.Equal(0, host.Outputs);
         Assert.Equal(0, storage.OpenLeaseCount);
         Assert.Equal(0, result.Counters.OpenHandles);
