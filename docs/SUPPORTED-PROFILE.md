@@ -333,6 +333,17 @@ dictionaries.
 Outline projections resolve catalog names, destination name trees and `/D`
 wrappers, including local GoTo actions. Missing names project null; destination
 page positions validate the complete object number/generation pair.
+
+Typed `Qpdf.CountPagesAsync` traverses the page tree and returns its count,
+warnings and final counters after input cleanup. Its credential, recovery and
+limits overload can request bounded repair. Standalone counts can omit large
+unrelated payloads in compact classic-xref inputs. Other layouts, protected
+inputs and uncertain validation use complete acquisition on the same lease.
+Memory refusal remains a failure. Document opening and combined inspection
+retain their separate complete-input contracts.
+
+### JSON export
+
 Argv/job JSON inspection accepts page-source assembly and collation, including
 an empty primary. Page descriptors and object exports share the assembled graph;
 labels, secondary actions/forms/layers and source version requirements survive
@@ -343,32 +354,19 @@ Coalescing, inline-image externalization and eligible image optimization,
 including nested Forms, share the ordinary content owners before JSON projection.
 Optimization uses the caller's JPEG codec, thresholds, quality and inline policy;
 it retains originals when candidates are not smaller or encoding declines.
-Prepared direct/repeated pages
-remain linked from the visible tree; exact source generations and independent
-aliases retain their meaning. Content-only preparation does not claim that all
-inherited resources were pushed.
+Prepared direct and repeated pages remain linked from the visible tree.
+Source generations and independent aliases retain their meaning. Inherited
+resource pushdown is reported only when performed.
 JSON export applies Info, XML metadata, AcroForm, structure and page-label
 removals to the active roles. Independent aliases retain their original values.
 Authored labels replace removed or existing labels in the final page order.
 Other form and frame transforms remain unavailable during JSON export.
 
-Typed `Qpdf.CountPagesAsync` traverses the page tree and returns its count, warnings
-and final counters after input cleanup. Its credential/recovery/limits overload
-can request bounded repair. Standalone counts
-can omit large unrelated payloads in compact classic-xref inputs. Other layouts,
-protected inputs and uncertain validation use complete acquisition on the same
-lease; memory refusal remains a failure. Document opening and combined inspection
-retain their separate complete-input contracts.
-
-Typed `GetDocumentJsonAsync` overloads without an output path return JSON without
-publishing a report. None/inline stream modes need no output capability. File
-mode requires an explicit stream prefix without a report target, even in v1.
-Overloads with an output path publish the report as well as returning it.
-Report and sidecar paths must differ from the graph inputs and each other.
-For readable existing targets, the engine checks stable host identities after
-closing input leases and before creating any transaction. Hosts may return
-`NotFound` or `Unsupported` for a target probe. Commits remain sequential.
-Caller budget scopes must outlive returned text and warnings.
+Typed `GetDocumentJsonAsync` returns JSON. An explicit output path also
+publishes the report. None and inline stream modes can return reports without
+output capability. File mode requires a stream prefix when the report has no
+target, including in v1. Caller budget scopes must outlive returned text and
+warnings. [Publication checks](#governance)
 
 `--test-json-schema` checks generated syntax and the selected version's nested
 help description: required/unknown keys, wildcard maps and array patterns.
@@ -380,101 +378,90 @@ PDF JSON v1/v2 preserve reference identities; v2 uses binary strings whenever te
 would change bytes. Object-table projection turns dead array references into null
 and omits null-valued dictionary fields. Live references to null objects retain
 their identity in arrays; stored descriptor fields keep their own projection rules.
-V1 emits stream dictionaries only, including when inline/file
-settings are accepted; it creates no sidecars. V2 can omit/include stream payloads
-or publish host sidecars. An import can reuse a sidecar read by logical path
-while keeping separate stream dictionaries. V2 import and update match complete
-object number and generation pairs before assigning output numbers. New JSON
-edges bind live source
-pairs and declared objects, including forward references; stale/free/missing
-original source edges remain null even when a patch declares that pair. A stream
-patch without payload data reuses bytes only from its matching source pair.
-Import/update validates page structure and replaces dangling references with null.
-Argv and job JSON can apply a PDF patch in place with `--replace-input` or
-`replaceInput`. The source lease closes before staging, and the host commits
-the replacement to the source key. The replacement key must differ from
-patch, sidecar, password-file, template and consumed configuration keys.
-Patch and sidecar leases must also have separate storage identities. Named
-outputs and typed updates require a distinct target.
-Imported PDF arrays and dictionaries obey `MaxContainerSize`, including stream
-headers and trailer values. Dictionary counting follows the PDF parser's decoded
-names and duplicate-pair rule; unknown JSON envelope fields remain outside this
-PDF container ceiling.
-Commands can tighten it with `--parser-max-container-size` /
-`global.parserMaxContainerSize`; `--no-default-limits` does not relax it.
-Global nesting, parser-error and damaged-container settings also work with JSON
-creation/update. Nesting bounds imported PDF values and the update's PDF input;
-repair settings govern the PDF reader, while JSON-authored values remain strict.
-Explicit host ceilings stay binding.
-Updates prepare the page traversal and inherited attributes declared by v2 metadata
-before binding patches. Direct children gain identities, repeated pages gain
-independent headers, and pushed attributes follow the original tree's nearest
-non-null values. Original stale/free/missing edges stay null even if preparation
-allocates their pair. Creation validates these flags but ignores their actions.
-The reader's existing structural and recovery policies still apply.
-Declared preparation rejects repeated Pages nodes or shared Kids arrays, matching
-native traversal; ordinary repeated leaf pages remain supported.
-Import/update can use object-stream disable/preserve/generate modes and two-pass
-linearization, including with supported output encryption. Preservation retains
-matching source members; creation has no original packing to preserve. Argv/job
-defaults to preserve. Existing typed overloads stay flat; full overloads accept
-`QpdfJsonImportOptions(objectStreams, linearize)` with explicit output protection
-and limits. Forced versions below 1.5 disable packing; other version/security
-requirements retain the shared writer's rules.
-Argv/job imports apply remove-info/remove-metadata and remove-acroform/
-remove-structure/remove-page-labels after reference binding, using the ordinary
-document policies. AcroForm removal retains widgets; structure removal omits
-StructTreeRoot and MarkInfo together. Fresh catalog/Info roles preserve private
-aliases and retire superseded metadata unless independently rooted.
-Command imports publish the graph reachable from the catalog and Info.
-`--preserve-unreferenced` / `preserveUnreferenced` also retains eligible
-detached declarations and source objects. Superseded source page-tree,
-security and physical layout roles require a retained graph edge. Typed
-imports continue to retain detached declarations.
-Command imports and updates can coalesce page contents after binding. The
-shared coalescer joins the decoded chunks in order before stream encoding.
-Private references keep the original array and streams. An edited direct
-page gains an indirect identity. When a chunk cannot be decoded, the page
-keeps its array and the operation reports a warning.
-Argv and job JSON imports use ordinary stream compression and decoding settings.
-Streams that exceed the filter limit remain opaque and report a warning.
-Stream preparation precedes encryption. Typed imports preserve encoded payloads.
-Command imports also use QDF. Classic object comments keep the original
-number/generation pairs. `--no-original-object-ids` suppresses comments.
-QDF normalizes page streams through their shared identities by default.
-Resource-dependent framing across different contexts keeps the content program
-and reports a warning.
-Explicit normalization and compression settings, packing, linearization and
-output protection use the ordinary writer policies.
-Apply `--set-page-labels` / `setPageLabels` to the bound page order.
-Authored labels replace the active tree and preserve independent private aliases.
-When both label options are set, authored labels take precedence.
-Command creation and updates can split the bound page order with
-`--split-pages` / `splitPages`. Each part keeps inherited page attributes,
-continues its labels, and maps references to pages outside the part to null.
-Repeated pages have separate widget registrations and point back to their own
-pages.
-With explicit unreferenced preservation, every part also receives the detached
-roots from the bound graph. Native qpdf drops these roots in split output.
-Expanded names use the ordinary splitter, including a single number for a
-one-page final part. Split targets must differ from the acquired inputs,
-including the source PDF, JSON and sidecars. When the host can open an existing
-target, its stable identity must differ from those of the inputs and other parts.
-All parts are prepared before the first commit. Later commit
-failures leave earlier parts published. Fresh protection uses a separate key
-for each part. Splitting is unavailable in inspection and replacement modes.
-With linearization enabled, command imports and updates accept
-`--linearize-pass1` / `linearizePass1`. Split capture retains the last part's
-first pass. The capture option is inactive without linearization.
-Other page, content and image transforms and attachment edits remain
-unavailable during import and update.
+V1 emits stream dictionaries and creates no sidecars, including when inline
+or file settings are supplied. V2 can omit stream payloads, include them, or
+write host sidecars.
+
+## JSON import and update
+
+PDF JSON v2 creates PDFs with `--json-input` or `CreatePdfFromJsonAsync` and
+patches existing PDFs with `--update-from-json` or `UpdatePdfFromJsonAsync`.
+Commands also accept `jsonInput` and `updateFromJson` in job JSON.
+
+### Binding and limits
+
+Creation and update bind complete object number and generation pairs before
+assigning output numbers. JSON edges can refer to live source pairs and
+forward-declared objects. Original source edges to stale, free or missing
+pairs remain null even if the patch or page preparation assigns that pair.
+A stream patch without payload data borrows bytes from its exact source
+pair. Sidecars can share a read by logical path while retaining separate
+stream dictionaries. The bound graph validates the page tree and resolves
+dangling references to null.
+
+Updates apply v2 traversal and inheritance metadata before binding the patch.
+Direct children gain identities, repeated leaf pages receive independent
+headers, and inheritance uses the nearest non-null value. Declared preparation
+rejects repeated Pages nodes and shared Kids arrays. Creation validates the
+flags and starts from the declared tree.
+
+`MaxContainerSize` bounds imported PDF containers, including headers and the
+trailer. Dictionary counts use decoded names and the parser's duplicate-pair
+rule. Unknown JSON envelope fields are outside that ceiling.
+`--parser-max-container-size` / `global.parserMaxContainerSize` can tighten
+the container limit. Command nesting settings bound imported values and
+the update's source. Parser error,
+damaged-container and recovery settings apply to the update's source PDF.
+JSON-authored values use strict parsing. Host ceilings apply with
+`--no-default-limits` as well.
+
+### Output options
+
+Command creation and update share the writer's compression, decode level,
+packing, QDF normalization, linearization, first-pass capture and protection
+options. Streams over the filter limit stay opaque with a warning. Stream
+preparation precedes encryption. Typed imports retain encoded payloads and
+default to flat output. Overloads taking `QpdfJsonImportOptions` select
+packing and linearization. Commands default to preserving eligible source
+packing, and creation starts without source members. See the
+[writer](#writer-profile), [layout](#qdf-and-linearization-profile) and
+[protection](#authenticated-json-updates-and-creation) policies.
+
+Commands apply document removal flags after binding. Authored page labels
+replace the active tree in bound page order, including when removal is requested.
+Independent aliases retain their values. Commands publish catalog and Info
+reachability by default. `--preserve-unreferenced` also retains eligible
+detached declarations and source objects. Superseded page-tree, security and
+physical layout roles require a retained edge. Typed imports retain detached
+declarations.
+
+Command imports can coalesce page contents before stream encoding. Shared
+arrays and streams remain available to private references. An edited direct
+page gains an indirect identity. An undecodable chunk keeps the original
+array and reports a warning. Other page, content, image and attachment edits
+remain unavailable during import and update.
+
+### Splitting and replacement
+
+`--split-pages` / `splitPages` partitions the bound page order. Parts
+inherit page attributes, continue labels and replace references to foreign
+pages with null. Repeated pages get separate widget registrations. Explicit
+unreferenced preservation includes eligible detached roots in every part.
+Naming, capture and publication follow the ordinary split rules. Fresh
+protection uses a separate key for each part.
+
+`--replace-input` / `replaceInput` updates a PDF in place. The source lease
+closes before staging and the host commits to the source key. Named output
+and typed updates require a distinct target. Splitting is unavailable with
+replacement or inspection. [Publication checks](#governance)
 
 ## Writer profile
 
 The writer supports stream compression, object-stream preserve/generate/disable
 modes, version/extension negotiation, deterministic/static IDs, metadata controls,
 QDF and two-pass linearization. Explicit forced versions win without transcoding
-opaque features. Object streams require PDF 1.5; catalog XML metadata is uncompressed.
+opaque features. A forced version below 1.5 disables object streams. Catalog
+XML metadata is uncompressed.
 
 `--remove-info` retains only an existing, resolved non-null Info ModDate and removes catalog
 XML metadata; absent, null, missing and stale-generation dates omit Info without
@@ -523,15 +510,18 @@ Authoring rejects embedded NUL; native job JSON can truncate the timestamp at NU
 ## QDF and linearization profile
 
 QDF provides editable objects, indirect lengths and optional original-ID comments.
+Command JSON imports preserve the declared number and generation in those
+comments. `--no-original-object-ids` suppresses them. QDF normalizes imported
+page streams by their shared identities by default. Resource-dependent framing
+across incompatible contexts keeps the original program and warns.
 Fix-QDF repairs consistent LF-framed, sequentially numbered input; ambiguous framing
 rejects. Zlib-flate stops at the first complete frame and rejects truncation/checksum errors.
 
-Linearization uses two passes and page/shared/outline hints. Checking validates
-physical layout and available hints. First-pass capture must differ from all PDF
-targets and acquired inputs. Known logical input conflicts reject before document
-acquisition. Expanded split names and storage identities are checked before
-staging. Split capture keeps the last group's pass. Linearization
-disables QDF; empty split jobs create no output.
+Linearization uses two passes and page, shared and outline hints. Checking
+validates physical layout and available hints. `--linearize-pass1` /
+`linearizePass1` captures the first pass when linearization is enabled.
+Split capture keeps the last group's pass. Linearization takes precedence
+over QDF. [Publication checks](#governance)
 The linearized writer keeps the outline closure outside object streams so its
 hints describe one contiguous physical group; other eligible objects still pack.
 Direct outline dictionaries are promoted before physical planning, including
@@ -548,14 +538,19 @@ and explicit overflow. Recoverable malformed optional graphs can drop; profile,
 resource, cancellation and host failures remain fatal.
 
 Named PDF outputs, capture files, JSON reports and sidecars, and extracted
-payloads must differ from acquired inputs and other targets. For existing
-readable targets, the engine probes host identities before staging without
-reading payload bytes. Write-only or absent targets can report `Unsupported`
-or `NotFound`. An explicit replacement may reuse the designated primary PDF
-acquisition. Other acquisitions remain protected, including configuration,
-password files, templates and sidecars.
+payloads must differ from acquired inputs and other targets. Early argument
+checks use known logical paths. Split targets are expanded and checked after
+the output page count is known. Before staging, the engine probes existing
+readable target identities without requesting payload bytes. JSON reports
+and sidecars probe after closing their input leases. A write-only or absent
+target can report `Unsupported` or `NotFound`.
+
+Explicit replacement may reuse the designated primary PDF acquisition.
+Configuration, patch, sidecar, password-file and template inputs remain
+protected, including after their leases close.
 
 Single-target publication is transactional. Multiple targets commit sequentially.
-Earlier successes survive later failure. A close fault cannot undo a commit.
+Split preparation finishes before the first commit. Empty split jobs produce
+no files. Earlier successes survive later failure and post-commit close faults.
 Caller-owned results and pending I/O retain their required owners; see
 [memory and host ownership](MEMORY.md).

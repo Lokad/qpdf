@@ -102,12 +102,10 @@ dependencies before writing hints and keeps the outline closure outside packed o
 `OutputSerialization` dispatches counting, identifier replay and final
 emission. Writers share identifier validation, byte encoding and bounded
 sink writes. `OutputPublication` owns staged captures. Output preparation
-and result admission finish before commit. Split captures finish before any
-target commits. Named PDF, JSON, capture and binary targets share preflight
-against acquired inputs and earlier targets. Input tracking includes consumed
-configuration and continues when source leases close. Commits are sequential.
-An explicit JSON patch replacement closes the complete source lease before
-staging. Admitted reader storage remains valid through serialization.
+and result admission finish before the first commit. The publication check
+uses identities collected during input acquisition, including leases already
+closed. In-place JSON updates retain admitted reader storage after closing
+the source lease. [Publication rules](SUPPORTED-PROFILE.md#governance)
 
 Result-only JSON inspection with none/inline stream data needs no output
 transaction. Targeted binary extraction can transfer admitted payload backing

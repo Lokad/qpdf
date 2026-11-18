@@ -88,7 +88,8 @@ source policies. [Supported profile](docs/SUPPORTED-PROFILE.md)
 For result-only JSON, call
 `Qpdf.GetDocumentJsonAsync(host, input, new QpdfJsonOptions(2, ["pages"]), token)`.
 Supply a stream prefix when publishing sidecars from a result-only call.
-[JSON inspection](docs/SUPPORTED-PROFILE.md#inspection-profile)
+[JSON export](docs/SUPPORTED-PROFILE.md#json-export) ·
+[JSON import and update](docs/SUPPORTED-PROFILE.md#json-import-and-update)
 
 JPEG decoding and recompression use the optional `IQpdfJpegCodec` interface.
 Supply your implementation with `new InMemoryQpdfHost(QpdfLimits.Default, codec)`;
@@ -127,5 +128,6 @@ full reference and visual commands.
 - [Compatibility](docs/COMPATIBILITY.md): supported operations and caller-facing differences.
 - [Benchmarks](docs/BENCHMARKS.md) covers methodology, validation, memory admission and dated evidence.
 - [Architecture](docs/ARCHITECTURE.md): components, storage boundaries and resource ownership.
+- [Release history](CHANGELOG.md).
 
 Licensed under the [MIT license](LICENSE.txt).

@@ -17,7 +17,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>Development candidate. Check imported JSON graphs and apply JSON patches in place. Create and update PDFs with compression, QDF, object streams, and linearization. Assemble pages and apply supported content and catalog changes during JSON export. Read and preserve Standard password security R2-R6 or create AES-256 R6 output. See CHANGELOG.md and docs/SUPPORTED-PROFILE.md for the full changes and supported combinations.</PackageReleaseNotes>
+    <PackageReleaseNotes>Development candidate with AES-256 R6 output. See CHANGELOG.md and docs/SUPPORTED-PROFILE.md.</PackageReleaseNotes>
     <PackageTags>pdf;qpdf;structural-processing;embedding;managed</PackageTags>
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
