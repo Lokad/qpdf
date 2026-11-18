@@ -41,7 +41,7 @@ coverage boundaries are:
 | Compression setters | Exhaust native encodings and effective setter order; sample argv/job/mixed/nested configuration. |
 | Content and resources | Feature owners cover alias, content and layout semantics; integration retains selection, merging, splitting and conservative failure behavior. |
 | Geometry | Exhaust subtype, operation, indirection, border, coefficient and thin-page semantics through argv; selected job cases retain adapter wiring. NoRotate, private originals, escaped values and canonical/reversed comparisons stay independent. |
-| JSON projection | Typed inspection owns both versions' text/name/reference/descriptor semantics. Adapter and transport cases cover named/fileless output, sidecar names and payload roundtrips. |
+| JSON projection | Typed inspection owns text/name/reference semantics and both versions' raw descriptors. Image subtype/name tables sample version and adapter wiring; ordering, collisions and text-listing numeric resolution remain distinct. Transport cases retain named/fileless output, sidecar names and payload roundtrips. |
 | JSON imports | Typed cases own graph binding, catalog versions and payloads; argv owns header setters. Create/update, source bindings, packing and job/file-job wiring retain separate controls. |
 | Physical layout | Require `Valid` linearization and actual xref membership, rather than generic check success. Preserve outline promotion, hint ownership and frozen invalid fixtures independently of the writer. |
 | Reuse indexes | Separate repeated work from resource bindings and equal-byte identities; retain warning eligibility, per-page failures, admission and refund controls. Work notifications are not CPU fuel. |

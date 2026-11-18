@@ -51,14 +51,18 @@ public sealed class ImageInspectionTests
 
     public static IEnumerable<object[]> Subtypes()
     {
+        var indirect = ("6 0 R", "/Image", true);
+        var stale = ("6 1 R", "/Image", false);
+        var form = ("/Form", "/Image", false);
         foreach (var item in new[] {
-            ("/Image", "/Image", true), ("6 0 R", "/Image", true),
-            ("/Form", "/Image", false), ("6 0 R", "/Form", false),
+            ("/Image", "/Image", true), indirect,
+            form, ("6 0 R", "/Form", false),
             ("6 0 R", "null", false), ("6 0 R", "17", false),
             ("6 0 R", "[6 0 R]", false), ("42 0 R", "/Image", false),
-            ("6 1 R", "/Image", false), ("", "/Image", false) })
-        foreach (int version in new[] { 1, 2 })
-        foreach (string route in new[] { "typed", "argv", "job" })
+            stale, ("", "/Image", false) })
+        { yield return [item.Item1, item.Item2, item.Item3, 2, "typed"]; }
+        foreach (var (item, version, route) in new[] {
+            (indirect, 1, "typed"), (stale, 1, "typed"), (indirect, 2, "argv"), (form, 2, "job") })
         { yield return [item.Item1, item.Item2, item.Item3, version, route]; }
     }
 
@@ -139,13 +143,17 @@ public sealed class ImageInspectionTests
 
     public static IEnumerable<object[]> ResourceNames()
     {
+        var unicode = ("Im#c3#a9", "/Imé");
+        var binary = ("Im#ff", "n:/Im#ff");
+        var escapedBinary = ("Im#ff#20#2f#23", "n:/Im#ff#20#2f#23");
         foreach (var item in new[] {
-            ("Im0", "/Im0"), ("Im#c3#a9", "/Imé"), ("Im#f0#9f#98#80", "/Im😀"),
-            ("Im#20#2f#23#22#5c", "/Im /#\"\\"), ("Im#ff", "n:/Im#ff"),
+            ("Im0", "/Im0"), unicode, ("Im#f0#9f#98#80", "/Im😀"),
+            ("Im#20#2f#23#22#5c", "/Im /#\"\\"), binary,
             ("Im#c0#80", "n:/Im#c0#80"), ("Im#e2#82", "n:/Im#e2#82"),
-            ("Im#ed#a0#80", "n:/Im#ed#a0#80"), ("Im#ff#20#2f#23", "n:/Im#ff#20#2f#23") })
-        foreach (int version in new[] { 1, 2 })
-        foreach (string route in new[] { "typed", "argv", "job" })
+            ("Im#ed#a0#80", "n:/Im#ed#a0#80"), escapedBinary })
+        { yield return [item.Item1, item.Item2, 2, "typed"]; }
+        foreach (var (item, version, route) in new[] {
+            (unicode, 1, "typed"), (binary, 1, "typed"), (unicode, 2, "argv"), (escapedBinary, 1, "job") })
         { yield return [item.Item1, item.Item2, version, route]; }
     }
 
@@ -167,11 +175,7 @@ public sealed class ImageInspectionTests
 
     [Theory]
     [InlineData(1, "typed")]
-    [InlineData(1, "argv")]
-    [InlineData(1, "job")]
     [InlineData(2, "typed")]
-    [InlineData(2, "argv")]
-    [InlineData(2, "job")]
     public async Task DifferentUtf8ResourceNamesDoNotCollide(int version, string route)
     {
         using InMemoryQpdfHost host = new();
@@ -186,7 +190,9 @@ public sealed class ImageInspectionTests
     {
         foreach (string kind in new[] { "direct", "reference", "unresolved", "malformed", "null", "missing" })
         foreach (int version in new[] { 1, 2 })
-        foreach (string route in new[] { "typed", "argv", "job" }) { yield return [kind, version, route]; }
+        { yield return [kind, version, "typed"]; }
+        yield return ["reference", 2, "argv"];
+        yield return ["null", 1, "job"];
     }
 
     [Theory]
@@ -232,11 +238,7 @@ public sealed class ImageInspectionTests
 
     [Theory]
     [InlineData(1, "typed")]
-    [InlineData(1, "argv")]
-    [InlineData(1, "job")]
     [InlineData(2, "typed")]
-    [InlineData(2, "argv")]
-    [InlineData(2, "job")]
     public async Task JsonUsesRawNameOrderAcrossEscapesAndPrefixes(int version, string route)
     {
         using InMemoryQpdfHost host = new();
