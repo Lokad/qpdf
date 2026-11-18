@@ -265,8 +265,9 @@ foreach ($path in @($nativeInput, $nativeOut, $nativeErr)) {
 }
 Write-Output 'Native launch controls passed: argument boundaries, spaced/Unicode executable paths, working directory, binary stdin/EOF, both output streams, nonzero exit and start-failure cleanup.'
 
+$timeoutMessage = 'Native reference process exceeded 30 seconds'
 foreach ($timeoutRoute in @('parser', 'native')) {
-    # Both launch routes must retire their child and preserve partial output.
+    # Both routes use the shared deadline and must preserve partial output.
     $pidFile = Join-Path $WorkRoot "$timeoutRoute-oracle.pid"
     $parserRoot = Join-Path $WorkRoot "$timeoutRoute-timeout"
     $timeoutFixture = if ($timeoutRoute -eq 'parser') { $OracleFixture } else { $nativeFixture }
@@ -278,7 +279,9 @@ foreach ($timeoutRoute in @('parser', 'native')) {
                 -QpdfExe $OracleFixture -ProbeDll $ProbeDll -StreamRecoveryOnly -WorkRoot $parserRoot 2>&1 | Out-String
             $timeoutExit = $LASTEXITCODE
             [IO.File]::WriteAllText((Join-Path $WorkRoot 'parser-timeout.log'), $timeoutOutput)
-            if ($timeoutExit -eq 0 -or $timeoutOutput -notmatch 'Oracle process exceeded 30 seconds') { throw 'Parser timeout control did not reach its oracle deadline.' }
+            if ($timeoutExit -eq 0 -or !$timeoutOutput.Contains($timeoutMessage, [StringComparison]::Ordinal)) {
+                throw 'Parser timeout control did not reach its native reference deadline.'
+            }
         } else {
             New-Item -ItemType Directory -Path $parserRoot | Out-Null
             try {
@@ -286,7 +289,7 @@ foreach ($timeoutRoute in @('parser', 'native')) {
                     -RedirectStandardOutput (Join-Path $parserRoot 'native-stdout.bin') -RedirectStandardError (Join-Path $parserRoot 'native-stderr.bin')
                 throw 'Native timeout control did not reach its oracle deadline.'
             } catch {
-                if ($_.Exception.Message -notmatch 'Native reference process exceeded 30 seconds') { throw }
+                if (!$_.Exception.Message.Contains($timeoutMessage, [StringComparison]::Ordinal)) { throw }
                 [IO.File]::WriteAllText((Join-Path $WorkRoot 'native-timeout.log'), $_.Exception.ToString())
             }
         }
