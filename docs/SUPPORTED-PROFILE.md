@@ -126,13 +126,14 @@ Missing and supplied-but-invalid credentials have distinct diagnostic codes.
 PDF rewrites, page selection/merging/splitting, object streams, QDF, linearization
 and attachment edits preserve supported primary protection, including when none
 of its pages is selected. A forced version incompatible with that protection fails
-before publication. Typed attachment listing/extraction accepts primary credentials
-with explicit limits; extraction publishes plaintext attachment bytes. Typed
-add/remove/copy edits accept primary credentials and an explicit output policy.
+before publication. Typed attachment listing accepts primary credentials with
+explicit limits. Typed add/remove/copy edits accept primary credentials and an
+explicit output policy.
 Their existing overloads try empty passwords and preserve supported protection.
-Argv/job attachment and object-stream extraction also accept primary credentials
-when an explicit output path is supplied. Extracted payloads are plaintext;
-raw stream mode retains compression, while filtered mode decodes it.
+[Attachment extraction](#attachment-extraction)
+Argv/job object-stream extraction accepts primary credentials for named output.
+Both modes decrypt payloads. Raw stream mode retains compression. Filtered mode
+decodes it.
 `--decrypt` / `decrypt` explicitly removes protection after authentication,
 including from split outputs. Output-free inspections ignore this output policy.
 `--encrypt user owner 256 [options] --` creates fresh AES-256 R6 protection, as
@@ -322,10 +323,9 @@ image, attachment and outline listings use the shared resolver.
 Argv and job JSON can inspect a graph created from JSON, updated from a PDF,
 or created and then patched in the same job. PDF updates authenticate the
 source before binding the patch.
-Page counts, pages with images, objects and attachments use the bound graph
-and its declared generations. Encryption reports describe the authenticated
-source. Attachment extraction returns bytes or commits
-them to an explicit host output target after closing the inputs.
+Page counts, pages with images, objects and attachments use the bound graph and
+its declared generations. Encryption reports describe the authenticated source.
+[Attachment extraction](#attachment-extraction)
 Optional `--check` validates the effective page tree, reachable streams, page
 content and forms before listing or extraction. It reports physical header,
 xref-offset and linearization checks as skipped. A failed check stops later
@@ -501,14 +501,10 @@ Raw name-tree keys and filespec graphs are authoritative; listings are projectio
 Attachment JSON lists stream entries under every `/EF` name, sorted by raw name
 bytes. Filename preference uses UF/F/Unix/DOS/Mac. Null values, non-stream values
 and optional entries with unreadable syntax are omitted.
-List/extract/add/remove/copy share typed, argv and job implementations.
+Typed APIs, argv and job JSON support listing, extraction and attachment edits.
 The full typed overloads accept `QpdfRecoveryMode` for primary, copy-source and
 encryption-template inputs. Typed listing with explicit recovery returns immutable
 metadata, warnings and closed-handle counters in `QpdfAttachmentListResult`.
-Command listing, reports and extraction share one authenticated document.
-Targeted extraction uses the same inspection validation and reports as returned
-payloads; JSON inspection/import/update cannot be combined with it. Input cleanup
-finishes before targeted payload publication, with backing admitted through commit.
 
 - Match decoded ordinal keys; sort output by encoded bytes. Full-collection
   operations reject duplicate logical keys; selective extraction uses the first match.
@@ -530,6 +526,17 @@ Authored dates use `D:YYYYMMDDHHmmSS`, optionally followed by `Z` or a signed
 calendar ranges. Typed null/empty dates mean omission; explicit empty command
 setters reject. Existing stored dates remain readable and survive copying.
 Authoring rejects embedded NUL; native job JSON can truncate the timestamp at NUL.
+
+### Attachment extraction
+
+`ExtractAttachmentAsync` publishes plaintext attachment bytes from a PDF to an
+explicit host target. `--show-attachment` / `showAttachment` operates on a PDF
+or on the graph bound by JSON input or update. Commands
+return plaintext bytes or publish them to an explicit host target. A PDF source
+can use its primary credential, including when JSON patches the PDF. `--check`
+validates the source graph before extraction. Input leases close before named
+publication, and the payload remains admitted through commit. JSON export reports
+attachment metadata. [Bound graph inspection](#inspection-profile) · [JSON export](#json-export)
 
 ## QDF and linearization profile
 
