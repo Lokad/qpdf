@@ -149,7 +149,7 @@ full reference and visual commands.
 [Reference and visual checks](docs/COMPATIBILITY.md#how-compatibility-is-verified)
 
 - [Compatibility](docs/COMPATIBILITY.md): supported operations and caller-facing differences.
-- [Benchmarks](docs/BENCHMARKS.md): dated measurements, methodology and allocation/admission tools.
+- [Benchmarks](docs/BENCHMARKS.md) covers methodology, validation, memory admission and dated evidence.
 - [Architecture](docs/ARCHITECTURE.md): components, storage boundaries and resource ownership.
 
 Licensed under the [MIT license](LICENSE.txt).
