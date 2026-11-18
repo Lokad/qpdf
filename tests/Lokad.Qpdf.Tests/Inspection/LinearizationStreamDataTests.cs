@@ -131,6 +131,20 @@ public sealed class LinearizationStreamDataTests
         }
     }
 
+    [Fact]
+    public async Task CombinedReportsKeepEachExternalHintSkip()
+    {
+        (byte[] bytes, int _) = await Fixture("raw", "file");
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), bytes, QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new(["input", "--check", "--check-linearization", "--show-linearization"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        Assert.Equal(3, result.Diagnostics.Count(line => line.Code == QpdfDiagnosticCode.CheckSkipped
+            && line.Message.StartsWith("Skipped check 'linearization':", StringComparison.Ordinal)));
+        Assert.DoesNotContain(result.Diagnostics, line => line.Code == QpdfDiagnosticCode.LinearizationReport);
+    }
+
     [Theory]
     [InlineData("parameters")]
     [InlineData("reference-parameters")]

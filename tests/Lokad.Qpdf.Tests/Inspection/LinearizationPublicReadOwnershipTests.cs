@@ -17,6 +17,7 @@ public sealed class LinearizationPublicReadOwnershipTests
         foreach (string outcome in new[] { "close-failure", "cancellation" })
         { yield return ["part8-streamed-control", route, outcome]; }
         yield return ["compressed", "argv-check", "close-failure"];
+        yield return ["compressed", "job-combined", "cancellation"];
     }
 
     [Theory]
@@ -35,14 +36,17 @@ public sealed class LinearizationPublicReadOwnershipTests
         }
         Assert.True(host.Inner.TryGetOutput(QpdfPath.From("prior.pdf"), out byte[] priorAlias));
         bool show = route.EndsWith("show", StringComparison.Ordinal);
+        object job = route == "job-combined"
+            ? new { inputFile = "input.pdf", check = "", checkLinearization = "", showLinearization = "" }
+            : show ? (object)new { inputFile = "input.pdf", showLinearization = "" }
+                : new { inputFile = "input.pdf", checkLinearization = "" };
         Task executing = route == "typed"
             ? Qpdf.CheckAsync(host, QpdfPath.From("input.pdf"), new QpdfCheckOptions(), QpdfLimits.Default, cancellation.Token).AsTask()
             : route.StartsWith("argv", StringComparison.Ordinal)
                 ? Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(new[] { "input.pdf", show ? "--show-linearization" : "--check-linearization" }),
                     new QpdfExecutionOptions(QpdfLimits.Default), cancellation.Token).AsTask()
-                : Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(show
-                    ? (object)new { inputFile = "input.pdf", showLinearization = "" }
-                    : new { inputFile = "input.pdf", checkLinearization = "" }), new QpdfExecutionOptions(QpdfLimits.Default), cancellation.Token).AsTask();
+                : Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(job),
+                    new QpdfExecutionOptions(QpdfLimits.Default), cancellation.Token).AsTask();
         await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         try
         {

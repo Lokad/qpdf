@@ -2,6 +2,7 @@ using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
+using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Reading;
 
@@ -16,6 +17,32 @@ internal enum LinearizationStatus
 
 /// <summary>Outcome of linearization inspection, including unavailable coverage.</summary>
 internal readonly record struct LinearizationInspection(LinearizationStatus Status, int SharedGroups, string ErrorMessage);
+
+internal enum LinearizationStage
+{
+    Read,
+    Classify,
+    Validate,
+}
+
+/// <summary>Owns the parsed hints and graph when a report will use them.</summary>
+internal readonly struct LinearizationAnalysis(
+    LinearizationInspection inspection, LinearizationStage stage, QpdfException? failure,
+    LinearizationDataOwner? hints, ClassifiedGraph? graph, ParserMemoryScope? classification) : IDisposable
+{
+    internal LinearizationInspection Inspection => inspection;
+    internal LinearizationStage Stage => stage;
+    internal QpdfException? Failure => failure;
+    internal LinearizationData Data => hints?.Data ?? throw new InvalidOperationException("Linearization hints were not retained.");
+    internal ClassifiedGraph Graph => graph ?? throw new InvalidOperationException("Linearization graph was not retained.");
+
+    public void Dispose()
+    {
+        graph?.Dispose();
+        classification?.Dispose();
+        hints?.Dispose();
+    }
+}
 
 /// <summary>Retained linearization parameter and hint-table values.</summary>
 internal sealed record LinearizationData(
@@ -90,13 +117,10 @@ internal static class LinearizationCheck
     private const int ScanTokens = 200;
 
     internal static QpdfCheckOutcome Check(
-        DocumentEngine engine,
+        LinearizationInspection inspection,
         int pageCount,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        CancellationToken cancellationToken)
+        ResourceGovernor governor)
     {
-        LinearizationInspection inspection = Inspect(engine, pageCount, limits, governor, cancellationToken);
         if (inspection.Status == LinearizationStatus.NotLinearized)
         {
             return CheckOutcome.Literal(governor, "linearization", QpdfCheckStatus.Passed, "File is not linearized.");
@@ -121,6 +145,18 @@ internal static class LinearizationCheck
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
+        using LinearizationAnalysis analysis = Analyze(engine, pageCount, limits, governor, false, cancellationToken);
+        return analysis.Inspection;
+    }
+
+    internal static LinearizationAnalysis Analyze(
+        DocumentEngine engine,
+        int pageCount,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        bool retainReport,
+        CancellationToken cancellationToken)
+    {
         if (engine is null)
         {
             throw new ArgumentNullException(nameof(engine));
@@ -136,32 +172,53 @@ internal static class LinearizationCheck
             throw new ArgumentNullException(nameof(governor));
         }
 
+        LinearizationDataOwner? hints = null;
+        ParserMemoryScope? classification = null;
+        ClassifiedGraph? graph = null;
+        LinearizationStage stage = LinearizationStage.Read;
+        QpdfException? failure = null;
+        LinearizationInspection inspection;
         try
         {
-            using LinearizationDataOwner? owner = TryReadOwnedData(engine, pageCount, limits, governor, cancellationToken);
-            if (owner is null)
+            try
             {
-                return new LinearizationInspection(LinearizationStatus.NotLinearized, 0, string.Empty);
+                hints = TryReadOwnedData(engine, pageCount, limits, governor, cancellationToken);
+                if (hints is null)
+                {
+                    return new(new LinearizationInspection(LinearizationStatus.NotLinearized, 0, string.Empty),
+                        stage, null, null, null, null);
+                }
+                LinearizationData data = hints.Data;
+                stage = LinearizationStage.Classify;
+                classification = ParserMemoryScope.Create(governor);
+                graph = LinearizationGraph.Classify(engine, data.LindictObject, data.HintObject,
+                    classification, governor, cancellationToken);
+                stage = LinearizationStage.Validate;
+                LinearizationPhysical.Validate(engine, data, graph, limits, governor, cancellationToken);
+                inspection = new(LinearizationStatus.Valid, data.SharedTable.TotalCount, string.Empty);
+            }
+            catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
+            {
+                failure = ex;
+                LinearizationStatus status = ex is QpdfFilterException
+                    { Reason: QpdfFilterFailureReason.ExternalData or QpdfFilterFailureReason.TooManyFilters }
+                    ? LinearizationStatus.Unavailable : LinearizationStatus.Invalid;
+                inspection = new(status, 0, ex.Message);
             }
 
-            LinearizationData data = owner.Data;
-            using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-            using Writing.ClassifiedGraph graph = LinearizationGraph.Classify(engine, data.LindictObject,
-                data.HintObject, memory, governor, cancellationToken);
-            LinearizationPhysical.Validate(engine, data, graph, limits, governor, cancellationToken);
-            int shared = data.SharedTable.TotalCount;
-            return new LinearizationInspection(
-                LinearizationStatus.Valid,
-                shared,
-                string.Empty);
+            if (!retainReport || graph is null)
+            { return new(inspection, stage, retainReport ? failure : null, null, null, null); }
+            LinearizationAnalysis analysis = new(inspection, stage, failure, hints, graph, classification);
+            hints = null;
+            graph = null;
+            classification = null;
+            return analysis;
         }
-        catch (QpdfFilterException ex) when (ex.Reason is QpdfFilterFailureReason.ExternalData or QpdfFilterFailureReason.TooManyFilters)
+        finally
         {
-            return new LinearizationInspection(LinearizationStatus.Unavailable, 0, ex.Message);
-        }
-        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
-        {
-            return new LinearizationInspection(LinearizationStatus.Invalid, 0, ex.Message);
+            graph?.Dispose();
+            classification?.Dispose();
+            hints?.Dispose();
         }
     }
 

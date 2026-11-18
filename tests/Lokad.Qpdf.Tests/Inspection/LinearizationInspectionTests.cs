@@ -371,11 +371,13 @@ public sealed class LinearizationInspectionTests
     [Fact]
     public async Task CheckAndShowLinearizationCombine()
     {
-        InMemoryQpdfHost host = HostWith("inputs/a.pdf", await FixtureBytes("linearized-2page.pdf"));
+        using InMemoryQpdfHost host = HostWith("inputs/a.pdf", await FixtureBytes("linearized-2page.pdf"));
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
-            host, new QpdfCommandInvocation(["inputs/a.pdf", "--check-linearization", "--show-linearization"]), CancellationToken.None);
+            host, new QpdfCommandInvocation(["inputs/a.pdf", "--check-linearization", "--show-linearization"]),
+            new QpdfExecutionOptions(QpdfLimits.Default with { MaxDecodedBytes = 71 }), CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal(71L, result.Counters.TotalDecodedBytes);
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("no linearization errors", StringComparison.Ordinal));
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("Page Offsets Hint Table", StringComparison.Ordinal));
     }
@@ -388,8 +390,49 @@ public sealed class LinearizationInspectionTests
             host, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--show-linearization"]), CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal(146L, result.Counters.TotalDecodedBytes);
         Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Message.Contains("no linearization errors", StringComparison.Ordinal));
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("Page Offsets Hint Table", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(146, true)]
+    [InlineData(145, false)]
+    public async Task ThreeReportsShareHintWorkAndEnforceTheDecodedBudget(long capacity, bool fits)
+    {
+        using InMemoryQpdfHost host = HostWith("inputs/a.pdf", await FixtureBytes("linearized-2page.pdf"));
+        const string job = """{"inputFile":"inputs/a.pdf","check":"","showNpages":"","checkLinearization":"","showLinearization":""}""";
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, job,
+            new QpdfExecutionOptions(QpdfLimits.Default with { MaxDecodedBytes = capacity }), CancellationToken.None);
+        Assert.Equal(fits ? QpdfExitCode.Success : QpdfExitCode.Error, result.ExitCode);
+        if (fits)
+        {
+            Assert.Equal(146L, result.Counters.TotalDecodedBytes);
+            Assert.Collection(result.Diagnostics.Take(3),
+                line => Assert.Equal(QpdfDiagnosticCode.PageCount, line.Code),
+                line => Assert.Equal("inputs/a.pdf: no linearization errors", line.Message),
+                line => Assert.Equal("inputs/a.pdf: linearization data:", line.Message));
+            Assert.Contains(result.Diagnostics, line => line.Message == "Page Offsets Hint Table");
+        }
+        else
+        {
+            Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
+        }
+        Assert.Equal(0L, result.Counters.OpenHandles);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task InvalidPhysicalLayoutStillShowsTheParsedHintsAfterBothErrors()
+    {
+        byte[] bytes = LinearizationDataOwnershipTests.Input("classic-wrong-E");
+        using InMemoryQpdfHost host = HostWith("inputs/a.pdf", bytes);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--check-linearization", "--show-linearization"]), CancellationToken.None);
+
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(2, result.Diagnostics.TakeWhile(line => line.Code == QpdfDiagnosticCode.CheckFailed).Count());
+        Assert.Contains(result.Diagnostics, line => line.Message == "Page Offsets Hint Table");
     }
 
     [Fact]

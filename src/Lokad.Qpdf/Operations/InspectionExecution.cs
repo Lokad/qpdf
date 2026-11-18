@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using Lokad.Qpdf.Attachments;
 using Lokad.Qpdf.Commands;
 using Lokad.Qpdf.Filters;
@@ -218,15 +219,11 @@ internal static class InspectionExecution
         return view;
     }
 
-    internal static void InspectLinearization(
-        QpdfDocument document,
+    private static void InspectLinearization(
+        LinearizationInspection inspection,
         QpdfPath inputPath,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
-        CancellationToken cancellationToken)
+        DiagnosticBag diagnostics)
     {
-        LinearizationInspection inspection = LinearizationCheck.Inspect(document.Engine, document.PageCount, limits, governor, cancellationToken);
         if (inspection.Status == LinearizationStatus.NotLinearized)
         {
             diagnostics.AddParts(QpdfDiagnosticCode.LinearizationReport, QpdfDiagnosticSeverity.Info, [inputPath.Value, " is not linearized"]);
@@ -248,66 +245,72 @@ internal static class InspectionExecution
         diagnostics.AddParts(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, ["Check 'linearization' failed: ", inspection.ErrorMessage]);
     }
 
-    internal static void ShowLinearization(
-        QpdfDocument document,
+    private static void ShowLinearization(
+        LinearizationAnalysis analysis,
         QpdfPath inputPath,
-        QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        LinearizationDataOwner? owner;
-        try
+        if (analysis.Inspection.Status == LinearizationStatus.NotLinearized)
         {
-            owner = LinearizationCheck.TryReadOwnedData(document.Engine, document.PageCount, limits, governor, cancellationToken);
-        }
-        catch (QpdfFilterException ex) when (ex.Reason is QpdfFilterFailureReason.ExternalData or QpdfFilterFailureReason.TooManyFilters)
-        {
-            diagnostics.AddParts(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Warning,
-                ["Skipped check 'linearization': ", ex.Message]);
-            return;
-        }
-        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
-        {
-            diagnostics.AddParts(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, [inputPath.Value, ": error encountered while checking linearization data: ", ex.Message]);
+            diagnostics.AddParts(QpdfDiagnosticCode.LinearizationReport, QpdfDiagnosticSeverity.Info, [inputPath.Value, " is not linearized"]);
             return;
         }
 
-        using (owner)
+        if (analysis.Failure is QpdfException failure)
         {
-            if (owner is null)
+            switch (analysis.Stage)
             {
-                diagnostics.AddParts(QpdfDiagnosticCode.LinearizationReport, QpdfDiagnosticSeverity.Info, [inputPath.Value, " is not linearized"]);
-                return;
-            }
-
-            LinearizationData data = owner.Data;
-            using ParserMemoryScope classificationMemory = ParserMemoryScope.Create(governor);
-            ClassifiedGraph graph;
-            try
-            {
-                graph = LinearizationGraph.Classify(document.Engine, data.LindictObject, data.HintObject,
-                    classificationMemory, governor, cancellationToken);
-            }
-            catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
-            {
-                diagnostics.Add(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, ex.Message);
-                return;
-            }
-
-            using (graph)
-            {
-                try
-                {
-                    LinearizationPhysical.Validate(document.Engine, data, graph, limits, governor, cancellationToken);
-                }
-                catch (QpdfParseException ex)
-                {
+                case LinearizationStage.Read:
+                    if (analysis.Inspection.Status == LinearizationStatus.Unavailable)
+                    {
+                        diagnostics.AddParts(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Warning,
+                            ["Skipped check 'linearization': ", failure.Message]);
+                    }
+                    else
+                    {
+                        diagnostics.AddParts(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error,
+                            [inputPath.Value, ": error encountered while checking linearization data: ", failure.Message]);
+                    }
+                    return;
+                case LinearizationStage.Classify:
+                    diagnostics.Add(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, failure.Message);
+                    return;
+                case LinearizationStage.Validate:
+                    if (failure is not QpdfParseException) { ExceptionDispatchInfo.Throw(failure); }
                     diagnostics.AddParts(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error,
-                        ["Check 'linearization' failed: ", ex.Message]);
-                }
-                LinearizationReport.Write(inputPath.Value, data, graph, governor, diagnostics, cancellationToken);
+                        ["Check 'linearization' failed: ", failure.Message]);
+                    break;
             }
+        }
+
+        LinearizationReport.Write(inputPath.Value, analysis.Data, analysis.Graph, governor, diagnostics, cancellationToken);
+    }
+
+    private static bool CheckAndReportLinearization(QpdfDocument document, CheckPlan plan, EncryptionInspection security,
+        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
+    {
+        (List<QpdfCheckOutcome>? checks, LinearizationAnalysis checkAnalysis) = plan.RunCheck
+            ? DocumentCheck.RunWithLinearization(document, new QpdfCheckOptions(), limits, governor, diagnostics,
+                true, plan.ShowLinearization, cancellationToken)
+            : (null, default);
+        using (checkAnalysis)
+        {
+            if (checks?.Exists(static outcome => outcome.Status == QpdfCheckStatus.Failed) == true) { return false; }
+            // This order is independent of argv position and JSON key order.
+            if (plan.ShowNpages) { AddPageCountDiagnostic(document, plan.Input, diagnostics); }
+            if (plan.ShowEncryption) { ShowEncryption(security, diagnostics); }
+            if (plan.CheckLinearization || plan.ShowLinearization)
+            {
+                using LinearizationAnalysis dedicated = plan.RunCheck ? default
+                    : LinearizationCheck.Analyze(document.Engine, document.PageCount, limits, governor,
+                        plan.ShowLinearization, cancellationToken);
+                LinearizationAnalysis analysis = plan.RunCheck ? checkAnalysis : dedicated;
+                if (plan.CheckLinearization) { InspectLinearization(analysis.Inspection, plan.Input, diagnostics); }
+                if (plan.ShowLinearization) { ShowLinearization(analysis, plan.Input, governor, diagnostics, cancellationToken); }
+            }
+            return true;
         }
     }
 
@@ -563,16 +566,8 @@ internal static class InspectionExecution
                     }
                     using InspectionGraph? inspection = await PrepareInspectionGraphAsync(host, document, plan,
                         limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-                    List<QpdfCheckOutcome> checks = plan.RunCheck
-                        ? DocumentCheck.Run(document, new QpdfCheckOptions(), limits, governor, diagnostics, true, cancellationToken)
-                        : [];
-                    if (!checks.Exists(static outcome => outcome.Status == QpdfCheckStatus.Failed))
+                    if (CheckAndReportLinearization(document, plan, security, limits, governor, diagnostics, cancellationToken))
                     {
-                        // This order is independent of argv position and JSON key order.
-                        if (plan.ShowNpages) { AddPageCountDiagnostic(document, plan.Input, diagnostics); }
-                        if (plan.ShowEncryption) { ShowEncryption(security, diagnostics); }
-                        if (plan.CheckLinearization) { InspectLinearization(document, plan.Input, limits, governor, diagnostics, cancellationToken); }
-                        if (plan.ShowLinearization) { ShowLinearization(document, plan.Input, limits, governor, diagnostics, cancellationToken); }
                         if (plan.ShowXref) { ShowXref(document, governor, diagnostics, cancellationToken); }
                         if (plan.ObjectSelector is not null)
                         {

@@ -85,7 +85,8 @@ become static stamps using their stored appearances.
 The structural checker shares page-tree, stream, content and form analysis
 across ordinary and bound JSON graphs. Physical header, offsets and
 linearization require physical input. Output-free JSON checking reports those
-stages as skipped. Standalone and checked listings share the bound graph and
+stages as skipped. A job shares one hint analysis across its structural check
+and linearization reports. Standalone and checked listings share the bound graph and
 declared pairs. Attachment inspection uses the same name-tree walker on bound
 and physical graphs. Text and JSON page reports share inherited image lookup
 and retain their distinct descriptor and diagnostic policies.

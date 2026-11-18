@@ -28,6 +28,21 @@ internal static class DocumentCheck
         bool nativeStreamTraversal,
         CancellationToken cancellationToken)
     {
+        var (checks, analysis) = RunWithLinearization(document, options, limits, governor, diagnostics,
+            nativeStreamTraversal, false, cancellationToken);
+        using (analysis) { return checks; }
+    }
+
+    internal static (List<QpdfCheckOutcome> Checks, LinearizationAnalysis Linearization) RunWithLinearization(
+        QpdfDocument document,
+        QpdfCheckOptions options,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        bool nativeStreamTraversal,
+        bool retainLinearizationReport,
+        CancellationToken cancellationToken)
+    {
         if (document is null)
         {
             throw new ArgumentNullException(nameof(document));
@@ -83,13 +98,23 @@ internal static class DocumentCheck
         }
         AddGraphChecks(engine, engine.Trailer, document.PageReferences, streams, options, limits, outcomeMemory,
             outcomes, governor, diagnostics, cancellationToken);
-        QpdfCheckOutcome linearization = LinearizationCheck.Check(engine, document.PageCount, limits, governor, cancellationToken);
-        AddItem(outcomeMemory, governor, outcomes, linearization, IntPtr.Size);
-        if (linearization.Status == QpdfCheckStatus.Skipped)
-        { diagnostics.AddParts(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Warning, ["Skipped check 'linearization': ", linearization.Detail]); }
-        ReportFailures(outcomes, governor, diagnostics);
-        outcomeMemory.RetainGraph();
-        return outcomes;
+        LinearizationAnalysis analysis = LinearizationCheck.Analyze(engine, document.PageCount, limits, governor,
+            retainLinearizationReport, cancellationToken);
+        try
+        {
+            QpdfCheckOutcome linearization = LinearizationCheck.Check(analysis.Inspection, document.PageCount, governor);
+            AddItem(outcomeMemory, governor, outcomes, linearization, IntPtr.Size);
+            if (linearization.Status == QpdfCheckStatus.Skipped)
+            { diagnostics.AddParts(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Warning, ["Skipped check 'linearization': ", linearization.Detail]); }
+            ReportFailures(outcomes, governor, diagnostics);
+            outcomeMemory.RetainGraph();
+            return (outcomes, analysis);
+        }
+        catch
+        {
+            analysis.Dispose();
+            throw;
+        }
     }
 
     internal static bool CheckImported(IIndirectResolver resolver, PdfDictionary trailer, IReadOnlyList<PageLocation> pages,
